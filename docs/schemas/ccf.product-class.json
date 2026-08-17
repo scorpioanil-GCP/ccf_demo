@@ -53,8 +53,17 @@
     },
     "ProductDiscovery": {
       "additionalProperties": false,
-      "description": "\u00a76.3 **Discovery** \u2014 the registry facts a class is located by.\n\n\u00a76.3 (``docs/CCF_Whitepaper_1-2.md:1463``) puts a registry in front of the\nfabric: products are located by the intent they serve, the domain they\nbelong to, and the capability they offer, and an agent turns a name into\nan endpoint at run time rather than at wiring time. The three fields below\nare those three axes. ``capabilities`` is the declared manifest \u00a76.3's\nworked registry entry carries.\n\nEvery value is a deployment-declared opaque identifier. The SDK matches\nthem structurally and interprets none, so no intent vocabulary, domain\ntaxonomy or capability list exists in this module (CLAUDE.md \u00a711).\n\nAttributes:\n    domain: The domain the class belongs to.\n    intents: The decision intents the class is registered as serving.\n    capabilities: The class's declared capability manifest.",
+      "description": "\u00a76.3 **Discovery** \u2014 the registry facts a class is located by.\n\n\u00a76.3 (``docs/CCF_Whitepaper_1-2.md:1463``) puts a registry in front of the\nfabric: products are located by the intent they serve, the domain they\nbelong to, and the capability they offer, and an agent turns a name into\nan endpoint at run time rather than at wiring time. The three fields below\nare those three axes. ``capabilities`` is the declared manifest \u00a76.3's\nworked registry entry carries. ``audiences`` is a fourth, SDK-defined axis\nper ``docs/DECISIONS.md`` D-IMPL-135 \u2014 see that field's own docstring.\n\nEvery value is a deployment-declared opaque identifier. The SDK matches\nthem structurally and interprets none, so no intent vocabulary, domain\ntaxonomy, capability list or audience vocabulary exists in this module\n(CLAUDE.md \u00a711).\n\nAttributes:\n    domain: The domain the class belongs to.\n    intents: The decision intents the class is registered as serving.\n    capabilities: The class's declared capability manifest.\n    audiences: The audiences the class is declared for \u2014 e.g.\n        ``{\"analyst\", \"investment_banker\"}``. **Not**\n        :class:`~ccf.projection.plan.Perspective`: ``Perspective``\n        conditions \u03a0's view of the graph under a caller's grant at run\n        time; ``audiences`` advertises an intended readership to a\n        registry and conditions nothing. D-IMPL-135 (Dave, 2026-08-14)\n        ruled the axis on exactly this distinction \u2014 a role maps onto\n        none of ``domain``, ``intents`` or ``capabilities``, and the two\n        come apart the moment one role serves several intents.\n\n        Defaults to the empty frozenset, the honest reading of an absent\n        ``audiences:`` block \u2014 *this class declares no audience* \u2014 on\n        the same footing as :data:`NOT_DISCOVERABLE`'s reading of an\n        absent registry entry. The rejected alternative was a required\n        field with every one of the tree's ``ProductDiscovery``\n        construction sites moved to supply it, which D-IMPL-136 \u00a710's\n        compatibility posture forbids by analogy for a shipped \u00a76.3\n        element with no migration path.",
       "properties": {
+        "audiences": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Audiences",
+          "type": "array",
+          "uniqueItems": true
+        },
         "capabilities": {
           "items": {
             "type": "string"
@@ -144,6 +153,7 @@
     "discovery": {
       "$ref": "#/$defs/ProductDiscovery",
       "default": {
+        "audiences": [],
         "capabilities": [],
         "domain": "not-discoverable",
         "intents": []

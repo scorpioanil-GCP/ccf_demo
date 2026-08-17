@@ -1,10 +1,12 @@
 """The KYC/UBO example's assertions, under a runner that can actually fail.
 
-``examples/s1-01-hello-context-product/run.py`` asserts nothing and prints
-nothing (phase 16 CONTEXT `D-09`). ``make example-s1-01`` exiting zero proves the
-spine *ran*; this module proves it computed the right answer. A printed summary
-nobody reads was never a guarantee, and an assertion inside a driver only fails
-a build if someone remembers to run the driver.
+``examples/s1-01-hello-context-product/run.py`` asserts nothing, and since
+2026-08-13 it **prints its work**. Its assertions live here, and so do the
+assertions on what it prints: the product's content address, the party
+references in the answer, the two instants of the refresh window, and two ruled
+absences. ``make example-s1-01`` exiting zero still proves only that the spine
+*ran* — an assertion inside a driver only fails a build if someone remembers to
+run the driver, which is why the assertions are here and not there.
 
 **What the example answers.** *"Who ultimately owns Acme Corporation?"* — a
 question whose answer appears in no record of any source system, because it is a
@@ -52,6 +54,21 @@ from an artifact; an **SDK mechanism claim** — that a keyless deployment recor
 hash — is asserted directly, because it is a claim about the SDK rather than
 about this deployment.
 
+**This module moved from the always-on leg to the Fluree leg** (plan 16-05).
+The example's ``artifacts/manifest.yaml`` now declares a networked substrate, so
+every fixture below that boots a fabric requests the session-scoped
+``fluree_url`` fixture: unset ``CCF_TEST_FLUREE_URL`` skips, and
+``CCF_REQUIRE_FLUREE`` turns the skip into a failure. ``make leg-fluree`` is
+what runs this module. Requesting the fixture IS the gate — ``pytestmark``
+marks and does not skip — and the variable it reads is the same one the
+deployment reads, so nothing here monkeypatches an environment.
+
+What still covers this example on the always-on, network-free leg is the three
+gates that need no substrate: ``test_section_one_is_agent_free.py`` (the AST
+denylist), ``test_spine_separation.py`` (the spine/deployment split) and
+``test_artifact_schema_headers.py`` (the artifact-header bijection) — plus the
+two tests below that read modules and documents rather than graphs.
+
 The example is not a package, so it is loaded by file path with
 ``importlib.util`` — the pattern ``test_quickstart_output.py`` established.
 """
@@ -72,6 +89,11 @@ import yaml
 
 from ccf.contracts.canonical import content_hash
 from ccf.replay.record import NO_GRAPH_QUERIES, DecisionReplayRecord
+
+#: The leg this module runs on. The marker selects it (`make leg-fluree`); the
+#: `fluree_url` fixture request on each fabric-booting fixture is what actually
+#: skips, so the two tests that need no substrate keep running everywhere.
+pytestmark = pytest.mark.fluree
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE_DIR = REPO_ROOT / "examples" / "s1-01-hello-context-product"
@@ -112,7 +134,7 @@ ABSENCE_PREFIX = "absent_by_"
 #: The bare names ``run.py`` imports its siblings under. Shadowed for the
 #: duration of the load — see :func:`_load_example` — because ``deployment``
 #: also names a package under ``tests/``.
-SIBLING_MODULES = ("deployment", "spine", "source_estate")
+SIBLING_MODULES = ("deployment", "report", "spine", "source_estate")
 
 
 def _load_example() -> Any:
@@ -175,13 +197,21 @@ def example() -> Any:
 
 
 @pytest.fixture(scope="module")
-def result(example: Any, tmp_path_factory: pytest.TempPathFactory) -> Any:
+def result(
+    example: Any, fluree_url: str, tmp_path_factory: pytest.TempPathFactory
+) -> Any:
     """One run of the spine, shared across the module.
 
     Module-scoped deliberately: the spine is the unit under test, and running it
     once per assertion would say nothing extra while paying for a full boot each
     time.
+
+    ``fluree_url`` is requested and not used: reaching this line is proof the
+    environment the deployment reads is populated, and the deployment reads it
+    itself through ``artifacts/backends.yaml``. Substituting a value here would
+    be this module configuring the run it is meant to be observing.
     """
+    del fluree_url
     return example.run(root=tmp_path_factory.mktemp("s1-01"))
 
 
@@ -581,9 +611,13 @@ def questions(example: Any) -> Any:
 
 @pytest.fixture(scope="module")
 def answers(
-    example: Any, questions: Any, tmp_path_factory: pytest.TempPathFactory
+    example: Any,
+    questions: Any,
+    fluree_url: str,
+    tmp_path_factory: pytest.TempPathFactory,
 ) -> Any:
     """One answered product per declared question, in declaration order."""
+    del fluree_url  # Requested as the gate; see `result` above.
     return example.ask_all(
         root=tmp_path_factory.mktemp("s1-01-questions"), requests=questions
     )
@@ -602,6 +636,45 @@ def test_the_declared_questions_are_a_controlled_experiment(questions: Any) -> N
     instants = {question.asked_at for question in questions}
     assert len(subjects) > 1, "no two questions differ in subject"
     assert len(instants) > 1, "no two questions differ in instant"
+
+
+def test_each_question_gets_its_own_graph(
+    example: Any, fluree_url: str, tmp_path: pathlib.Path
+) -> None:
+    """**SDK-adjacent mechanism claim.** ``ask_all``'s isolation survived the
+    substrate move.
+
+    Three calls, ONE root, three different composed connections. The root being
+    held constant is the whole assertion: it proves the isolating value is
+    minted per call rather than derived from the caller's directory, which is
+    what makes it work on a server two runs share. Before the move, a
+    per-question temp directory isolated the ArtifactStore *and* the graph; now
+    the directory isolates the store and the composed connection isolates the
+    graph, and this is the half that would otherwise fail silently — two runs
+    would answer correctly while having observed each other.
+    """
+    del fluree_url  # Requested as the gate; see `result` above.
+    composed = [
+        example.deployment.connection(root=tmp_path) for _ in range(3)
+    ]
+    distinct = {tuple(sorted(values.items())) for values in composed}
+    assert len(distinct) == len(composed), (
+        f"three connections composed for one root are not distinct: {composed}"
+    )
+
+
+def test_the_products_address_survives_a_different_graph_identity(
+    result: Any, answers: Any
+) -> None:
+    """**SDK mechanism claim.** The graph's identity is not in the address.
+
+    ``result`` and ``answers[0]`` are the same question asked twice, in two
+    whole runs, against two graphs with different identities. The content
+    address is byte-identical, which is what makes replay a property of the
+    question and the Control Plane rather than of where the bytes happened to
+    be stored. It would fail if a connection value leaked onto the product.
+    """
+    assert content_hash(result.product) == content_hash(answers[0].product)
 
 
 def test_a_different_company_gets_a_different_answer(
@@ -861,6 +934,153 @@ def test_the_obligation_in_force_is_pinned_into_the_replay_record(
     assert answers[2].record.content_generation_path.obligation_in_force == (
         expected[EXPECTED_OBLIGATION_THIRD]
     )
+
+
+# ---------------------------------------------------------------------------
+# The printed report (Dave's ruling, 2026-08-13 — the example prints its work).
+#
+# Anchored values only. **No assertion here matches a heading's prose, a
+# sentence or a phrasing**: the six section-heading tokens are the sole
+# exception and are asserted as literal tokens, because they are the contract
+# between the renderer and anyone reading its output. Everything else is a value
+# computed independently on this side — which is what makes a report showing a
+# stale address, a dropped near-miss or a ruled-absent pointer go red.
+# ---------------------------------------------------------------------------
+
+#: The six headings ``report.py`` promises. Literals rather than a reach into
+#: the renderer's own constants — importing them would be the test agreeing
+#: with itself about what it is checking.
+REPORT_HEADINGS = (
+    "QUESTION",
+    "WHAT WAS ASSEMBLED",
+    "WHAT THE FABRIC DID",
+    "THE ANSWER",
+    "WHAT TRAVELS WITH THE ANSWER",
+)
+
+
+@pytest.fixture(scope="module")
+def rendered(example: Any, result: Any) -> str:
+    """One question's report, as text. The renderer prints nothing itself."""
+    return str(example.report.render(result, index=1, total=1))
+
+
+@pytest.fixture(scope="module")
+def rendered_contrast(example: Any, answers: Any) -> str:
+    """The closing contrast across the three declared questions."""
+    return str(example.report.render_contrast(answers))
+
+
+def test_the_report_opens_the_sections_it_promises(rendered: str) -> None:
+    """The heading tokens, and only the tokens."""
+    for heading in REPORT_HEADINGS:
+        assert heading in rendered, heading
+
+
+def test_the_report_carries_the_products_own_content_address(
+    result: Any, rendered: str
+) -> None:
+    """**Propagation check.** The address shown is this product's.
+
+    Computed independently on this side, so a report rendering a cached or
+    stale address — the one failure a reader could not possibly catch by
+    eye — fails here instead.
+    """
+    assert content_hash(result.product) in rendered
+
+
+def test_the_report_names_every_party_in_the_answer_and_the_near_miss(
+    expected: Any, payload: Any, rendered: str
+) -> None:
+    """**Independent expectation.** Nobody in the answer is dropped, and
+    neither is the party the threshold removed.
+
+    The near-miss is the line that shows the threshold doing work. A report
+    that printed only the owners would read as a lookup, which is the thing
+    this example exists to contrast against.
+    """
+    for owner in payload[PAYLOAD_BENEFICIAL_OWNERS]:
+        assert owner[OWNER_PARTY_REF] in rendered, owner
+    assert expected[EXPECTED_BOUNDARY_CASE] in rendered
+
+
+def test_the_report_shows_the_refresh_window_and_names_no_source(
+    example: Any, result: Any, rendered: str
+) -> None:
+    """**The D-IMPL-124 assertion, stated as an absence.**
+
+    The window's two instants are shown; not one of the per-source references
+    ``product-governance.yaml`` declares reaches the terminal. The report is a
+    disclosure surface, and the boundary the deployment drew upstream has to
+    hold at the point a human reads it.
+    """
+    window = result.product.source_refresh_recency
+    assert str(window.oldest_source_refresh_at) in rendered
+    assert str(window.newest_source_refresh_at) in rendered
+
+    deployment = example.deployment
+    governance = result.scenario.artifacts[
+        deployment.KEY_PRODUCT_GOVERNANCE
+    ].declaration
+    declared = [
+        entry[deployment.GOVERNANCE_SOURCE_REF]
+        for entry in governance[deployment.GOVERNANCE_SOURCE_REFRESH_RECENCY]
+    ]
+    assert declared, "the governance document declares no source to check for"
+    leaked = [reference for reference in declared if reference in rendered]
+    assert not leaked, f"the report names upstream sources: {leaked}"
+
+
+def test_the_report_invents_no_debt_evidence_pointer(
+    result: Any, rendered: str
+) -> None:
+    """**The D-IMPL-119 limb 3(b) assertion.**
+
+    Every entity URI the assembly touched is checked for absence from the
+    rendered text. The ruling omits evidence pointers entirely for now, and
+    limb 4 refuses a handle that is merely encoded — so a report that helpfully
+    printed one, or anything derived from one, would put back exactly what the
+    ruling removed.
+
+    ``touched_entities`` is dimension 1's own record of what the assembly saw,
+    which is why it is the set checked rather than a re-derivation.
+    """
+    touched = result.record.context_fabric_snapshot.touched_entities
+    assert touched, "the record names no touched entity, so this checks nothing"
+    leaked = [uri for uri in touched if uri in rendered]
+    assert not leaked, f"the report carries entity URIs from the view: {leaked}"
+
+
+def test_the_contrast_shows_three_distinct_addresses(
+    answers: Any, rendered_contrast: str
+) -> None:
+    """**The controlled experiment, in the output.** Three questions, three
+    addresses, each separately replayable — and every one of them printed."""
+    addresses = {content_hash(answered.product) for answered in answers}
+    assert len(addresses) == len(answers)
+    for address in addresses:
+        assert address in rendered_contrast, address
+    assert "WHAT THE THREE QUESTIONS SHOW" in rendered_contrast
+
+
+def test_the_renderers_return_text_and_print_nothing(
+    example: Any, result: Any, answers: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Purity, asserted rather than assumed.
+
+    ``run.py`` prints; ``report.py`` returns. That split is what lets every
+    assertion above read the text without a capture fixture, and it is what
+    keeps ``--quiet`` a single branch in the driver rather than a mode the
+    renderer has to know about.
+    """
+    capsys.readouterr()
+    one = example.report.render(result, index=1, total=1)
+    both = example.report.render_contrast(answers)
+    captured = capsys.readouterr()
+
+    assert isinstance(one, str) and one
+    assert isinstance(both, str) and both
+    assert captured.out == "" and captured.err == ""
 
 
 def _owners(payload: Any) -> list[tuple[str, str]]:

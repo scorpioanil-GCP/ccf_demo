@@ -1,0 +1,81 @@
+# The client conformance suite's own deployment — its whole Control Plane
+# configuration in one document (`D-IMPL-136`'s AMENDMENT: the section name IS
+# the class).
+#
+# This deployment exists so the client's in-process leg has something real to
+# boot. It is deliberately **always-on**: a file-backed reference store, so the
+# suite runs with no network and no credential of any kind. That is what makes
+# the parity gate a gate rather than an opt-in.
+#
+# `binding.yaml` beside this file is deliberately NOT here — it is deployment
+# wiring, not Control Plane state, and it is never registered or content-hashed
+# (`D-IMPL-141`, PROPOSED). `scenario.yaml` is likewise this deployment's own
+# vocabulary and not an artifact.
+semver: "1.0.0"
+tenant_id: tenant-client-fixture
+backend: sqlite
+
+# What this product IS. One operator category: the question is about a SET
+# measured at a boundary, so there is no walk to seed.
+product_class:
+  schema_name: fixture.widgets-over-score
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: fixture/widgets-over-score/max-ttl
+  required_operator_keys: [temporal.as-of-boundary]
+
+operators:
+  temporal.as-of-boundary:
+    require_valid_at_boundary: true
+
+# WHICH QUESTIONS this class answers. `minimum_score` is REQUIRED — a question
+# omitting it is refused before the graph is touched, which is the leg
+# `test_inprocess_adapter.py` exercises for the refused-Result behaviour.
+request_contract:
+  class_id: fixture.request-contract
+  role: load
+  registration: typed
+  schema_name: fixture.widgets-over-score
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      minimum_score:
+        type: number
+        description: Return widgets whose score exceeds this amount.
+    required: [minimum_score]
+
+# How a source row becomes an entity.
+resolution:
+  entity_rules:
+    - match_key: widget_ref
+      entity_class: widget
+      identity_keys: [widget_ref]
+      attribute_keys: [widget_name, widget_score]
+
+# λ_c — how fast this deployment's one observation type goes stale.
+half_life:
+  widget:
+    half_life_seconds: 31536000
+    decay_driver: the fixture's nominal restatement cycle
+    supersession_event: a newer observation restating the same widget's score
+
+# Where the D_c bands sit. D_c = 1 − (F · C · S).
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.20"
+  fail_closed_threshold: "0.60"
+
+# The regime in force. Its VERSION rides the served product's lineage.
+policy:
+  class_id: fixture.policy-bundle
+  role: register
+  registration: typed
+  regime: fixture-regime
+
+# Π role-conditioning. The client surface exposes no principal in v0
+# (`D-IMPL-129`), so this deployment names the one its questions are served
+# under and `resolver.py` reads it from here.
+default_perspective:
+  principal_id: fixture-principal
+  role: fixture-role

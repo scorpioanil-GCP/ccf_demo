@@ -184,9 +184,85 @@ What tripwire (2) catches, and what it can only assert
 Tripwire (2) is **two checks, deliberately kept apart**, because collapsing
 them is what CR-03 found.
 
-**Coverage.** Every lexical body under ``examples/`` that constructs a
-projection plan, or runs one through ``ProjectionEngine(...).execute(...)``,
-must **name** :func:`ccf.deployment.refuse_operator_set_divergence`.
+**Coverage, conditioned on its own premise.** Every lexical body under
+``examples/`` that constructs a projection plan, or runs one through
+``ProjectionEngine(...).execute(...)``, must **name**
+:func:`ccf.deployment.refuse_operator_set_divergence` — *where the deployment
+that body sits in has two independently authored operator-set documents for
+the binder to compare*.
+The qualifier is D-IMPL-137 (2026-08-14), which narrows D-IMPL-86 without
+revoking it, and it is here because without it the demand had **no compliant
+state** for a one-document deployment: the coverage assertion demanded the
+call, and had that deployment made it, property (1) below would have refused
+the same call as a tautology. The only exit property (1)'s own message names —
+*"build the plan's ``required=`` from the projection's OWN document"* — is not
+a code edit but the authoring of a second artifact. So the demand was not
+*call the binder*; it was *adopt the two-document design*, which is a design
+mandate wearing a call-site check's clothing.
+
+**The premise is a fact about the Control Plane, and is read there.** A
+deployment has a second operator-set document when its artifact tree
+**registers** one: any manifest under it declaring ``class_id:
+ccf.projection-requirements`` (:data:`REQUIREMENTS_CLASS_ID`). *Any* manifest,
+because the filename varies — ``examples/04-cross-process`` declares it in
+``producer-manifest.yaml``, so a fixed filename would answer wrongly there. A
+deployment that authors **one** document has no second operand for the binder
+to compare, and there is nothing for the call to do.
+
+**The detector is a conjunction of two independent readings, and every other
+combination is refused** (:func:`_one_document`). The artifact tree says
+whether a second document is registered; the AST says whether the code in fact
+reads one source for both sides.
+
+* Registration **absent** AND the plan's ``required=`` **sharing** a source
+  with the product class's claim ⇒ one document, and the demand does not fire.
+* Registration **present** AND sharing ⇒ refused by property (1), unchanged.
+* Registration **absent** AND **not** sharing ⇒ **refused**. A second operator
+  set was authored somewhere the Control Plane does not know about, and the two
+  readings disagreeing is itself the finding. This is the row the exemption
+  must never admit, and it stays red because :func:`_one_document` returns
+  ``False`` for it.
+
+**Fail-closed in three places** — no artifact tree, no readable class claim, no
+readable plan source — each of which means the demand applies. An absence of
+evidence is not the exemption; the exemption is claimable only by a deployment
+that HAS artifacts and demonstrably lacks that one registration.
+
+**The first guard's control is
+:func:`test_a_body_with_no_artifact_tree_is_subject_to_the_demand`, and naming
+it correctly matters because this paragraph has now been wrong twice.** That
+test's synthesized body *does* assemble a ``ProductLineage``, and its plan's
+lone ``required=`` resolves to the identical path — the AST agreement that
+would otherwise grant the exemption — so it reaches the artifact-tree guard and
+is refused *by that guard* rather than by anything downstream of it. The hazard
+the guard closes is an adopter tree **outside** ``examples/`` that assembles a
+lineage and reads one source: without it, such a tree would buy the exemption
+by having no Control Plane at all, which is the inverse of what the exemption
+is earned by.
+
+**Two controls the first guard is not *needed* for, both of which earlier
+revisions of this paragraph claimed it protected.** They are recorded as
+retracted rather than deleted, on the same discipline the two lists above keep:
+the reader who most needs this paragraph is the one checking whether it is still
+true. (a) :func:`test_the_binder_argument_checks_reject_a_binder_that_cannot_fail`
+synthesizes its bodies against ``REPO_ROOT / "probe.py"``. **Both fail-closed
+guards are independently sufficient for those bodies**: ``probe.py`` is outside
+``examples/``, so :func:`_deployment_root` answers ``None``, and **none of them
+assembles a lineage**, so :func:`_class_claim` answers ``None`` too. **The first
+guard is the one that executes** — the two are spelled ``root is None or
+_registers_requirements(root)``, so the ``or`` short-circuits and the class
+claim is never read for these bodies at all. That redundancy is precisely why
+removing the first guard alone changes **not one** of their verdicts, measured
+body by body — the fact that retired the original attribution. And under the
+strongest reading of a default of *exempt* the tautology body still reports,
+because property (1) is unconditional, so that control would have gone **red**
+rather than silently green. (b)
+:func:`test_the_binder_tripwire_detects_a_projection_that_skips_it` calls
+:func:`_names_the_binder`, :func:`_is_plan_construction` and
+:func:`_is_plan_execution`, passes **no path at all**, and never reaches
+:func:`_one_document` — the conditioning cannot silence it in either direction.
+The policy is unchanged by either retraction; only the argument for it was
+wrong.
 
 **Arguments.** Naming it is not enough, and for one wave it was all that was
 asked. A body can name the binder and route around it completely::
@@ -209,6 +285,24 @@ properties (:func:`_binder_collapses`):
    requires the **hoist**, since a plan constructed inline as ``execute``'s own
    ``plan=`` argument is not an object any binder could have been handed; and
 3. the binder call precedes the engine call, per D-IMPL-86's correction.
+
+**Properties (2) and (3) are conditioned on the premise above; property (1) is
+not.** (2) and (3) ask whether the binder was called on the right object at the
+right time, and where the deployment authors one document there is no call for
+them to ask about — property (2), spelled ``any(… for call in calls)``, would
+otherwise fire on **every** execution merely because ``calls`` is empty, which
+is red on a deployment D-IMPL-137 declares correct. Property (1) stays
+unconditional, and that is precisely what makes this an **absence of demand**
+rather than a **licence**: a one-document body that calls the binder anyway is
+still refused for the tautology, so the exemption buys nobody the collapsed
+shape.
+
+Two things the conditioning does **not** touch, since both are easy to assume
+it does. Gate 2 proper is unmoved — the L6 comparison of
+``lineage.operators_invoked`` against ``engine_resolved`` still does real work
+in a one-document deployment, because those two sides are the *declaration* and
+the *engine's resolution*, which are two sources whatever the upstream document
+count is. And tripwire (1) is not conditioned at all.
 
 ``refuse_operator_set_divergence`` returns ``None`` by contract — deliberately,
 so it can never grow into a helper that supplies one of Gate 2's arguments. The
@@ -281,6 +375,19 @@ one looking for what is missing from it.
   is ``examples/`` alone, which the scope note below states as the honest
   bound; and nothing holds an adopter's deployment to calling the binder at all
   (D-IMPL-86 correction, 2026-08-05 — Phase 16's).
+* **A deployment leaving the demand by collapsing into one document.** The
+  D-IMPL-137 conditioning is read from the tree at test time, so a deployment
+  that deletes its ``ccf.projection-requirements`` registration and repoints its
+  plan's ``required=`` at the product class's own claim stops being demanded of,
+  and this module reports nothing — it has become the shape the ruling declares
+  correct. What bounds that is **a constant, not a structure**:
+  :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS` is one with no headroom, so the
+  *second* deployment to do it is red at
+  :func:`test_the_one_document_exemption_has_not_spread`, and the first is
+  visible in a diff, where the deleted artifact and the changed ``required=``
+  are both on the page. **Visible and bounded is not prevented**, and the
+  distinction is the one the floors already carry: nothing at the failure site
+  tells a deliberate collapse from an accidental one, only ``git log`` does.
 
 Two shapes that WERE on this list and are not any more, so a reader comparing
 revisions can see which way each moved:
@@ -352,12 +459,26 @@ from __future__ import annotations
 import ast
 import contextlib
 import pathlib
+import re
 import signal
 import types
 from collections.abc import Iterator
 from typing import NamedTuple
 
 import pytest
+import yaml
+
+#: The binding document's own vocabulary, imported from the SDK rather than
+#: respelled here. This gate has to read the **same** key
+#: :func:`~ccf.client.adapters.inprocess._boot` reads, and two spellings of one
+#: vocabulary drift silently — the defect class this module already guards
+#: against with :func:`test_this_module_gates_the_same_set_the_tool_checks`.
+#: :func:`test_the_binding_documents_reference_surface_is_still_one_key` refuses
+#: to let the import go stale.
+from ccf.client.adapters.binding_document import (
+    BINDING_DOCUMENT_NAME,
+    REFERENCE_KEYS,
+)
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -388,6 +509,42 @@ BINDER_CALL = "refuse_operator_set_divergence"
 #: (2) from a spelling check into a check.
 BINDER_DECLARED_KEYWORD = "declared"
 BINDER_PLAN_KEYWORD = "plan"
+
+#: The Control Plane class the binder's second operand comes from. Its
+#: registration is the premise the binder demand rests on: design E2 compares
+#: the product class's claim against the projection's OWN document, and a
+#: deployment that authors one document has no second operand for the
+#: comparison. Read from any manifest in the deployment's artifact tree —
+#: `examples/04-cross-process` declares it in `producer-manifest.yaml`, so a
+#: fixed filename would answer wrongly there (D-IMPL-137).
+REQUIREMENTS_CLASS_ID = "ccf.projection-requirements"
+
+#: How that registration is spelled in a manifest. The `class_id:` line is the
+#: Control Plane registration proper; the artifact file's own `$schema` comment
+#: names the same string and is deliberately NOT the signal, because a file
+#: present but unregistered is not in force.
+REQUIREMENTS_REGISTRATION_RE = re.compile(
+    rf"^[ \t]*class_id:[ \t]*{re.escape(REQUIREMENTS_CLASS_ID)}[ \t]*$", re.MULTILINE
+)
+
+#: Deployments claiming the one-document exemption. **No headroom, on purpose**
+#: — the module's floors stop coverage shrinking silently and this stops the
+#: exemption spreading silently, which is the same instrument inverted. A
+#: second deployment claiming it cannot arrive without an edit here.
+MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1
+
+#: Deployments claiming the `D-IMPL-141` **SDK-supplied** exemption — the
+#: deployment authors no operator set at all, because
+#: :func:`~ccf.products.resolver.build_governed_resolver` hands its projection
+#: factory one derived from the registered product class.
+#:
+#: **A separate ceiling from** :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS`, and the
+#: separation is the point rather than bookkeeping. The two exemptions are
+#: different claims — *one document where two were possible* versus *no document
+#: at all* — and one shared counter would let either population grow into the
+#: other's headroom while both ceilings read green. No headroom here either: the
+#: second claimant is red, and a human rules on it.
+MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS = 1
 
 #: What :class:`ccf.projection.plan.ProjectionPlan` is structural **about**,
 #: quoted from its own docstring: *"Any type exposing ``required_operators()``
@@ -436,15 +593,48 @@ TRANSPARENT_CAST = "cast"
 #: identifier can, so it can never collide with a real member name.
 CALL_MARKER = "()"
 
-#: The suite carries one gate call site per example that serves a product. A
-#: scan that silently matched zero call sites is the quietest way a tripwire
-#: stops being one, so the floor is asserted rather than assumed.
-MINIMUM_GATE_CALL_SITES = 9
+#: One gate call site per body that serves a product — **twelve**, counted from
+#: the tree by executing :func:`_gate_scopes`: examples 00, 01, 02, 03,
+#: ``04-cross-process/producer_child.py``, 06, 07 and 08, plus
+#: ``examples/external/00-hello-context/serve.py``, the two spine examples
+#: ``s1-00-companies-over-revenue/produce.py`` and
+#: ``s1-01-hello-context-product/spine.py``, and — added in Phase 17 —
+#: ``src/ccf/products/resolver.py::GovernedResolver.__call__``, the first
+#: in-SDK site, which exists because ``17-03`` moved the assemble→gate→serve
+#: composition into the library.
+#:
+#: **No headroom, on purpose**, and this constant has now been two sites short
+#: TWICE. The first time it read 9 against a tree of 11. The second was Phase
+#: 17 itself: ``GovernedResolver.__call__`` arrived and the floor stayed at 11,
+#: so the phase that documented this failure mode re-opened it. Measured at the
+#: close review — 12 sites against a floor of 11, one site of headroom, in a
+#: constant whose own comment calls headroom "the quiet form" this module
+#: refuses. Raised to 12 under Dave's ruling of 2026-08-16.
+#:
+#: The lesson the two misses share: **a floor is only a floor while it equals
+#: the count.** Adding a witness without raising it converts an assertion into
+#: a formality, and nothing goes red to say so.
+MINIMUM_GATE_CALL_SITES = 12
 
-#: Nine bodies that construct a plan and execute it, plus the two replay
-#: environments' ``resolve_plan`` methods, which construct one and return it.
-#: Counted from the tree, not carried over from the plan text.
-MINIMUM_PROJECTING_BODIES = 11
+#: Bodies that construct a plan and execute it — **fourteen**, counted from the
+#: tree by executing :func:`_projecting_scopes`, including the two replay
+#: environments' ``resolve_plan`` methods which construct one and return it
+#: (``examples/06-decision-replay/run.py``, which contributes two bodies, and
+#: ``examples/external/00-hello-context/run.py``), and — added in Phase 17 —
+#: ``examples/hw1-companies-over-revenue/deployment/projection.py::build_projection``,
+#: the client example's one permitted Python module.
+#:
+#: This comment's previous revision ended: *"A floor whose comment describes a
+#: tree that no longer exists is the quiet form of headroom this module
+#: refuses."* It then described exactly such a tree. ``build_projection`` landed
+#: in ``17-09`` and the floor stayed at 13, leaving one body of headroom — a
+#: regression could have deleted a projecting body and stayed green. Measured at
+#: the Phase 17 close review; raised to 14 under Dave's ruling of 2026-08-16.
+#:
+#: The failure is not that the number was wrong. It is that **the plan which
+#: adds a witness is the plan that must raise the floor**, and neither this one
+#: nor the gate-site floor above was raised by the work that moved it.
+MINIMUM_PROJECTING_BODIES = 14
 
 #: Binder call sites where this module can actually **read** which document the
 #: handed plan's ``required=`` came from — the input the argument checks in
@@ -452,7 +642,26 @@ MINIMUM_PROJECTING_BODIES = 11
 #: were found; this one says the argument checks were handed something to
 #: compare. A tripwire matching bodies it can say nothing about is the CR-03
 #: failure mode restated, so it is asserted rather than assumed.
-MINIMUM_RESOLVED_BINDER_SITES = 11
+#:
+#: **Twelve, counted from the tree**, against thirteen projecting bodies: one
+#: readable site per binder call, with ``examples/06-decision-replay/run.py``
+#: and ``examples/external/00-hello-context/`` each contributing two (a serving
+#: body and a ``resolve_plan``), and **zero** unreadable. The thirteenth
+#: projecting body, ``examples/s1-00-companies-over-revenue/produce.py``,
+#: makes no binder call at all: it authors ONE operator-set document and is
+#: exempt from the demand under D-IMPL-137. The previous value of 11 was one
+#: site short of the tree.
+#:
+#: **This floor now sits on the exemption's path, which it did not before
+#: D-IMPL-137.** A one-document deployment legitimately removes a binder call,
+#: so a *second* deployment claiming the exemption would take the readable
+#: sites 12 -> 11 and leave a floor of 11 green. What actually catches that
+#: case is :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS`, which is one with no
+#: headroom and is red at :func:`test_the_one_document_exemption_has_not_spread`
+#: on the second claimant. This floor is therefore redundant defence there
+#: rather than the primary control — but the adjacency is new, and is stated
+#: rather than left to be rediscovered by whoever next lowers this number.
+MINIMUM_RESOLVED_BINDER_SITES = 12
 
 #: Every floor here is the count observed in the tree, with **no headroom, on
 #: purpose** — see :func:`test_the_binder_scan_is_not_vacuous` for why headroom
@@ -1148,6 +1357,332 @@ def _shares_a_source(
     return longer[: len(shorter)] == shorter
 
 
+# --- the premise: does this deployment have two documents? --------------------
+
+
+#: The single-file authoring document's canonical name (`D-IMPL-136`;
+#: `~ccf.deployment.config.derive_deployment`'s own default `config_filename`).
+#: `16-31` converts HW-1 to this form, so a deployment root can hold this file
+#: directly with no ``artifacts/`` subdirectory at all — the second shape
+#: :func:`_deployment_root` must recognise, alongside the multi-file one.
+SINGLE_FILE_CONFIG_NAME = "ccf_config.yaml"
+
+
+def _deployment_root(path: pathlib.Path) -> pathlib.Path | None:
+    """The nearest ancestor of ``path`` under ``examples/`` holding a Control
+    Plane authoring surface — either shape `D-IMPL-136`'s dual model permits.
+
+    Returns ``None`` for a body with no artifact tree — a synthesized fixture
+    under ``tmp_path``, or a tree outside ``examples/``. That answer is
+    load-bearing: see :func:`_one_document` for why it is fail-closed.
+    """
+    examples = REPO_ROOT / "examples"
+    for candidate in (path.parent, *path.parents):
+        if not candidate.is_relative_to(examples):
+            return None
+        if (candidate / "artifacts").is_dir():
+            return candidate
+        if (candidate / SINGLE_FILE_CONFIG_NAME).is_file():
+            return candidate
+    return None
+
+
+def _registers_requirements(root: pathlib.Path | None) -> bool:
+    """Whether this deployment registers a ``ccf.projection-requirements``.
+
+    Any YAML in the artifact tree, because the manifest's filename varies —
+    ``examples/04-cross-process`` declares it in ``producer-manifest.yaml``.
+    A single-file deployment's ``ccf_config.yaml`` is scanned the same way:
+    it can never actually carry this registration (`ccf.projection-requirements`
+    is not one of `D-IMPL-136`'s eight reserved section names — see
+    `~ccf.deployment.config`'s own module docstring, *"there is no
+    `signal_batch` section, and that is a decision, not a gap"*, the same
+    reasoning that applies here), so this always answers `False` for one —
+    scanned rather than assumed, on the same discipline every other reading
+    in this module reads the tree instead of trusting a claim about its shape.
+    """
+    if root is None:
+        return False
+    documents = list((root / "artifacts").rglob("*.yaml"))
+    single_file = root / SINGLE_FILE_CONFIG_NAME
+    if single_file.is_file():
+        documents.append(single_file)
+    return any(
+        REQUIREMENTS_REGISTRATION_RE.search(document.read_text(encoding="utf-8"))
+        for document in documents
+    )
+
+
+def _class_claim(
+    scope: ast.AST, bindings: dict[str, tuple[_Binding, ...]]
+) -> tuple[str, ...] | None:
+    """Where this body's product-class operator claim reads.
+
+    Row A reads it from the binder's own ``declared=``. Rows B and C have no
+    binder call, so it comes from ``ProductLineage(operators_invoked=…)`` —
+    already this module's anchor for the product's side of Gate 2.
+
+    ``None`` where no lineage is assembled: the two replay environments'
+    ``resolve_plan`` methods construct a plan and return it. Those bodies are
+    subject to the demand (:func:`_one_document`), and both sit in
+    two-document deployments, so nothing about them moves.
+    """
+    for node in _scope_nodes(scope):
+        if not (isinstance(node, ast.Call) and _callee(node) == LINEAGE_CONSTRUCTOR):
+            continue
+        argument = _keyword(node, LINEAGE_DECLARED_KEYWORD)
+        if argument is not None:
+            return _resolve_at(_path(argument), _at(argument), bindings)
+    return None
+
+
+def _one_document(
+    scope: ast.AST,
+    path: pathlib.Path,
+    bindings: dict[str, tuple[_Binding, ...]],
+    plan_classes: frozenset[str] | None = None,
+) -> bool:
+    """Whether the binder demand's premise is false for this body (D-IMPL-137).
+
+    **A conjunction of two independent readings, and every other combination is
+    refused.** The artifact tree says whether a second document is registered;
+    the AST says whether the code actually reads one source. Row C — no
+    registration, and a ``required=`` reading somewhere unrelated — means a
+    second operator set was authored somewhere the Control Plane does not know
+    about, and it stays red because this returns ``False`` and the demand
+    applies unchanged.
+
+    Fail-closed in three places, each deliberate: no artifact tree, no readable
+    class claim, and no readable plan source. An absence of evidence is not the
+    exemption; the exemption is claimable only by a deployment that HAS
+    artifacts and demonstrably lacks that one. The first of the three is
+    checked explicitly rather than folded into the registration read: a body
+    with no artifact tree — a synthesized ``tmp_path`` fixture, most
+    concretely — has ``_deployment_root`` return ``None``, and
+    ``_registers_requirements(None)`` also answers ``False``, so a body with
+    no artifact tree and one that HAS a tree but demonstrably lacks the
+    registration would collapse into the same answer if this only tested the
+    registration call's result. That collapse is exactly the gap it must not
+    have: a body with no artifact tree must never reach the AST checks below,
+    no matter what they would say, because it has made no claim to have
+    checked anything against a Control Plane at all.
+    """
+    root = _deployment_root(path)
+    if root is None or _registers_requirements(root):
+        return False
+    claim = _class_claim(scope, bindings)
+    if claim is None:
+        return False
+    sources = list(_plan_sources(scope, bindings, plan_classes).values())
+    if not sources or any(source is None for source in sources):
+        return False
+    return all(_shares_a_source(claim, source) for source in sources)
+
+
+# --- the SECOND way the premise can be false: the SDK supplies the set --------
+#
+# `D-IMPL-141` (Dave, 2026-08-16) changed the shape a deployment ships. Under
+# the shape `_one_document` was written for, a deployment's own spine computed
+# `required=` and could therefore be caught reading the product class's claim.
+# Under the shape that ships now, the deployment writes ONE Python module — its
+# projection — and `~ccf.products.resolver.build_governed_resolver` hands that
+# module its operator set as a PARAMETER, already derived from the registered
+# product class. There is no in-body read for `_class_claim` to find, and the
+# construction is typically `return Plan(required=required, ...)` rather than an
+# assignment, so `_plan_sources` records nothing either. Both fail-closed
+# branches fire and the demand applies to a body that cannot satisfy it.
+#
+# It cannot satisfy it, and that is the finding rather than an inconvenience:
+# adding the binder call here would hand `refuse_operator_set_divergence` the
+# SDK-derived set on BOTH sides, which is exactly the tautology
+# `_binder_collapses` property (1) refuses. The coverage assertion would be
+# demanding a call the collapse assertion rejects.
+#
+# The real comparison did not disappear; it moved. For a `D-IMPL-136`
+# single-file deployment it runs at boot, in
+# `~ccf.deployment.config.derive_deployment`, which calls
+# `~ccf.deployment.config._refuse_operator_set_divergence` over the product
+# class's `required_operator_keys` and the `operators:` section's own keys.
+
+
+#: The keyword :class:`~ccf.products.resolver.ProjectionPlanFactoryProtocol`
+#: hands the operator set through, which is also the constructor keyword the
+#: plan is then built with. They coincide by the Protocol's own signature rather
+#: than by convention, and
+#: :func:`test_the_factory_seam_still_names_its_operator_set_parameter` refuses
+#: to let that coincidence rot into an assumption.
+FACTORY_REQUIRED_PARAMETER = PLAN_REQUIRED_KEYWORD
+
+
+def _scope_parameters(scope: ast.AST) -> frozenset[str]:
+    """Every parameter name ``scope`` declares. Empty for a non-function body.
+
+    Positional-only, ordinary and keyword-only alike: the seam is keyword-only
+    today, and a gate that read only ``args.args`` would answer ``False`` for
+    the very shape it exists to recognise.
+    """
+    if not isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef):
+        return frozenset()
+    arguments = scope.args
+    return frozenset(
+        argument.arg
+        for argument in (
+            *arguments.posonlyargs,
+            *arguments.args,
+            *arguments.kwonlyargs,
+        )
+    )
+
+
+def _binding_plan_reference(root: pathlib.Path) -> tuple[str, str] | None:
+    """``binding.yaml``'s ``plan:``, as ``(module path, attribute)``.
+
+    ``None`` where the deployment carries no binding document, where the
+    document does not parse, or where ``plan:`` is absent or not
+    ``<module>:<attribute>`` shaped. Every one of those is fail-closed for the
+    same reason :func:`_one_document`'s three are: a deployment that has made no
+    readable claim has not claimed anything.
+
+    Parsed plainly rather than through
+    :func:`~ccf.client.adapters.binding_document.load_binding_document`,
+    deliberately. That loader validates the **whole** document, so a deployment
+    with an unrelated authoring mistake would raise here and take this gate down
+    with it — a gate that reports a wiring typo as a binder-coverage failure.
+    Only the one key is read; its *name* still comes from the SDK.
+    """
+    document = root / BINDING_DOCUMENT_NAME
+    if not document.is_file():
+        return None
+    try:
+        parsed = yaml.safe_load(document.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    reference = parsed.get(REFERENCE_KEYS[0])
+    if not isinstance(reference, str):
+        return None
+    module_path, separator, attribute = reference.partition(":")
+    if not separator or not module_path.strip() or not attribute.strip():
+        return None
+    return module_path.strip(), attribute.strip()
+
+
+def _constructed_plan_sources(
+    scope: ast.AST, plan_classes: frozenset[str] | None = None
+) -> tuple[tuple[str, ...] | None, ...]:
+    """Where every plan construction in ``scope`` reads its ``required=``.
+
+    The same question :func:`_plan_sources` answers, over a **wider** set of
+    statement forms: that function only sees constructions that are *assigned*,
+    because tripwire (2) needs to pair a binding with a later use. A factory
+    whose whole body is ``return Plan(required=required, …)`` assigns nothing,
+    so it is invisible there — and its invisibility is not evidence of anything.
+
+    Built from the same primitives — :func:`_is_plan_construction`,
+    :func:`_keyword`, :func:`_path` — rather than from a second idea of what a
+    plan construction is, so the two functions cannot disagree about *what* they
+    are looking at, only about which statement forms carry it.
+    """
+    sources: list[tuple[str, ...] | None] = []
+    for node in _scope_nodes(scope):
+        if not isinstance(node, ast.Call):
+            continue
+        if not _is_plan_construction(node, plan_classes):
+            continue
+        required = _keyword(node, PLAN_REQUIRED_KEYWORD)
+        sources.append(None if required is None else _path(required))
+    return tuple(sources)
+
+
+def _sdk_supplied_operator_set(
+    scope: ast.AST,
+    path: pathlib.Path,
+    plan_classes: frozenset[str] | None = None,
+) -> bool:
+    """Whether the SDK — not this body — supplied the operator set.
+
+    **Positively signalled, never inferred from absence.** Five conditions, and
+    each one is a fact readable from the tree rather than a gap in it:
+
+    1. The body sits in a deployment with a Control Plane authoring surface
+       (:func:`_deployment_root`), so a synthesized ``tmp_path`` fixture is
+       refused exactly as :func:`_one_document` refuses it.
+    2. That deployment registers **no** ``ccf.projection-requirements``. If it
+       registers one, a second operator set was authored and the demand stands
+       unchanged — this is the same first reading :func:`_one_document` makes,
+       and it is made here too rather than shared, because sharing it would
+       make one route's answer depend on the other's.
+    3. The deployment's ``binding.yaml`` names **this module and this function**
+       through its single permitted ``plan:`` reference. This is the load-bearing
+       condition: it is the Control Plane saying, on disk, *the SDK reaches this
+       function and constructs the resolver around it*. A module the binding
+       document does not name is a module the SDK never calls, and it gets no
+       exemption.
+    4. The function declares the seam's operator-set parameter.
+    5. Every plan it constructs is built from **that parameter** — at least one
+       construction, and no construction from anywhere else. A factory that
+       builds its plan from some other source has authored a second operator set
+       the Control Plane does not know about, which is `D-IMPL-137` row C, and
+       row C stays red.
+
+    **This is a different exemption from** :func:`_one_document`\\ **'s, and it
+    is counted separately on purpose.** Row B is a deployment that authors one
+    document where it could have authored two. This is a deployment that authors
+    **none** — it has no operator set of its own to author. Folding the two
+    together would let either ceiling absorb the other's growth, and each
+    ceiling exists so that the *next* claimant is red and a human rules on it.
+    :data:`MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS` bounds this one.
+    """
+    root = _deployment_root(path)
+    if root is None or _registers_requirements(root):
+        return False
+    if not isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef):
+        return False
+
+    reference = _binding_plan_reference(root)
+    if reference is None:
+        return False
+    module_path, attribute = reference
+    if attribute != scope.name:
+        return False
+    named = (root / module_path).resolve()
+    if named != path.resolve():
+        return False
+
+    if FACTORY_REQUIRED_PARAMETER not in _scope_parameters(scope):
+        return False
+
+    sources = _constructed_plan_sources(scope, plan_classes)
+    if not sources:
+        return False
+    return all(
+        _shares_a_source(source, (FACTORY_REQUIRED_PARAMETER,)) for source in sources
+    )
+
+
+def _premise_is_false(
+    scope: ast.AST,
+    path: pathlib.Path,
+    bindings: dict[str, tuple[_Binding, ...]],
+    plan_classes: frozenset[str] | None = None,
+) -> bool:
+    """Either route by which the binder demand has nothing to demand.
+
+    One predicate rather than two conditions spelled at each call site, for the
+    reason :func:`_exemption_problems` gives for its own existence: the demand
+    site, the collapse properties and their controls must judge by the same
+    code, or a third route added later reaches one of them and not the others.
+
+    The two ceilings stay separate behind it —
+    :func:`_one_document_deployments` and :func:`_sdk_supplied_deployments` each
+    read their own route — so this union bounds nothing and is not asked to.
+    """
+    return _one_document(scope, path, bindings, plan_classes) or (
+        _sdk_supplied_operator_set(scope, path, plan_classes)
+    )
+
+
 # --- tripwire (1): both gate arguments from one source ------------------------
 
 
@@ -1826,7 +2361,8 @@ def _binder_collapses(
     remain separate findings and R-3 remains open.
 
     **A body with no binder call at all is reported here as well as by the
-    coverage assertion, and that is deliberate** (IN-03).
+    coverage assertion, and that is deliberate** (IN-03) — *for a body the
+    demand applies to*.
     :func:`test_every_bound_body_has_a_readable_plan_source` takes an early exit
     for such a body and its docstring gives the reason as "reporting it twice
     would tell one story in two voices" — but the operative reason there is
@@ -1837,6 +2373,19 @@ def _binder_collapses(
     specific, and names the executing line. A true, specific second report costs
     a contributor nothing (one edit fixes both) and a vacuous one costs them a
     wrong lead, which is why the two assertions behave differently here.
+
+    **That double report does not hold for an exempt body, and the paragraph
+    above was unqualified until D-IMPL-137.** Where ``demanded`` is false the
+    ``if demanded:`` guards switch property (3) off, and
+    :func:`test_every_projecting_example_body_names_the_binder` takes its own
+    early return, so a one-document body with no binder call is reported by
+    **neither** — which is the ruling working rather than a gap in it: there is
+    no demand for either report to be made against. What still fires on such a
+    body is property (1), and only if it calls the binder anyway. The
+    qualification is recorded here rather than folded silently into the
+    sentences above, because the unqualified reading was true of this module
+    for four review rounds and a reader comparing revisions should be able to
+    see which way it moved.
     """
     bindings = _bindings(scope)
     sources = _plan_sources(scope, bindings, plan_classes)
@@ -1844,6 +2393,20 @@ def _binder_collapses(
     executions = _executions(scope, bindings)
     where = path.relative_to(REPO_ROOT)
     problems: list[str] = []
+
+    # D-IMPL-137: properties (2) and (3) ask whether the binder was called on
+    # the right object at the right time. Where the deployment authors ONE
+    # operator-set document there is no second operand for the binder to
+    # compare, so there is no call for them to ask about — and property (2),
+    # spelled as `any(... for call in calls)`, would otherwise fire on every
+    # execution merely because `calls` is empty. Property (1) stays
+    # unconditional: a body that calls the binder anyway is still refused for
+    # the tautology, which is what makes this an absence of demand rather than
+    # a licence.
+    # Both routes, through `_premise_is_false`: row B (the deployment authored
+    # one document) and the `D-IMPL-141` shape (the SDK supplied the set, so the
+    # deployment authored none). Property (1) stays unconditional under either.
+    demanded = not _premise_is_false(scope, path, bindings, plan_classes)
 
     # (1) the binder's two sides must be two documents
     for call in calls:
@@ -1868,58 +2431,60 @@ def _binder_collapses(
     # (3) ordering, for the case (2) cannot read. Positions and not lines: a
     # `plan = P(); bind(plan=plan); run(plan=plan)` written on one physical line
     # is correct code that a line comparison reported red here and at (2).
-    first_position = min(
-        (execution.position for execution in executions), default=None
-    )
-    if first_position is not None and not any(
-        call.position < first_position for call in calls
-    ):
-        first_execution = first_position[0]
-        problems.append(
-            f"{where}:{first_execution}: a projection is executed here with no"
-            f" `{BINDER_CALL}` call before it. The binder belongs BETWEEN plan"
-            " construction and `ProjectionEngine.execute` (D-IMPL-86"
-            " correction, 2026-08-05); after the engine has run, a product has"
-            " already been assembled from a set the deployment's own claim may"
-            " contradict."
+    if demanded:
+        first_position = min(
+            (execution.position for execution in executions), default=None
         )
+        if first_position is not None and not any(
+            call.position < first_position for call in calls
+        ):
+            first_execution = first_position[0]
+            problems.append(
+                f"{where}:{first_execution}: a projection is executed here with"
+                f" no `{BINDER_CALL}` call before it. The binder belongs BETWEEN"
+                " plan construction and `ProjectionEngine.execute` (D-IMPL-86"
+                " correction, 2026-08-05); after the engine has run, a product"
+                " has already been assembled from a set the deployment's own"
+                " claim may contradict."
+            )
 
     # (2) the plan bound is the plan run
-    for execution in executions:
-        if execution.plan_node is not None and _is_plan_construction(
-            execution.plan_node, plan_classes
-        ):
-            # The plan comes into being INSIDE the call expression that
-            # consumes it, so it is not an object any binder could have been
-            # handed — whatever the binder above was given, it was something
-            # else. This is why 15.1-04 recorded the hoist as required rather
-            # than cosmetic: until the plan is a named local there is no
-            # statement the binder call can occupy.
+    if demanded:
+        for execution in executions:
+            if execution.plan_node is not None and _is_plan_construction(
+                execution.plan_node, plan_classes
+            ):
+                # The plan comes into being INSIDE the call expression that
+                # consumes it, so it is not an object any binder could have been
+                # handed — whatever the binder above was given, it was something
+                # else. This is why 15.1-04 recorded the hoist as required rather
+                # than cosmetic: until the plan is a named local there is no
+                # statement the binder call can occupy.
+                problems.append(
+                    f"{where}:{execution.lineno}: `ProjectionEngine.execute` is"
+                    " handed a plan constructed inline as its own `"
+                    f"{ENGINE_PLAN_KEYWORD}=` argument, so no `{BINDER_CALL}`"
+                    " call can have been handed that object. Hoist the plan into"
+                    " a local and call the binder on the line between (D-IMPL-86"
+                    " correction, 2026-08-05)."
+                )
+                continue
+            if execution.plan is None:
+                continue  # an unreadable plan expression — a stated limit, not a pass
+            if any(
+                call.handed == execution.plan and call.position < execution.position
+                for call in calls
+            ):
+                continue
             problems.append(
-                f"{where}:{execution.lineno}: `ProjectionEngine.execute` is"
-                " handed a plan constructed inline as its own `"
-                f"{ENGINE_PLAN_KEYWORD}=` argument, so no `{BINDER_CALL}` call"
-                " can have been handed that object. Hoist the plan into a"
-                " local and call the binder on the line between (D-IMPL-86"
-                " correction, 2026-08-05)."
+                f"{where}:{execution.lineno}: `ProjectionEngine.execute` runs"
+                f" `{_render(execution.plan)}`, which no `{BINDER_CALL}` call in"
+                " this body was handed beforehand. Naming the binder over some"
+                " OTHER plan leaves the plan that actually assembles the product"
+                f" unbound. Hand `{BINDER_CALL}` the same object"
+                " `ProjectionEngine.execute` will run (D-IMPL-86 correction,"
+                " 2026-08-05)."
             )
-            continue
-        if execution.plan is None:
-            continue  # an unreadable plan expression — a stated limit, not a pass
-        if any(
-            call.handed == execution.plan and call.position < execution.position
-            for call in calls
-        ):
-            continue
-        problems.append(
-            f"{where}:{execution.lineno}: `ProjectionEngine.execute` runs"
-            f" `{_render(execution.plan)}`, which no `{BINDER_CALL}` call in"
-            " this body was handed beforehand. Naming the binder over some"
-            " OTHER plan leaves the plan that actually assembles the product"
-            f" unbound. Hand `{BINDER_CALL}` the same object"
-            " `ProjectionEngine.execute` will run (D-IMPL-86 correction,"
-            " 2026-08-05)."
-        )
 
     return problems
 
@@ -1972,6 +2537,103 @@ def test_the_binder_scan_is_not_vacuous() -> None:
     )
 
 
+def _one_document_deployments() -> list[str]:
+    """Every deployment claiming the D-IMPL-137 exemption, by root."""
+    claimed: set[str] = set()
+    for path, scope in _projecting_scopes():
+        if _one_document(scope, path, _bindings(scope)):
+            root = _deployment_root(path)
+            if root is not None:
+                claimed.add(str(root.relative_to(REPO_ROOT)))
+    return sorted(claimed)
+
+
+def _sdk_supplied_deployments() -> list[str]:
+    """Every deployment claiming the `D-IMPL-141` SDK-supplied exemption, by root."""
+    claimed: set[str] = set()
+    for path, scope in _projecting_scopes():
+        if _sdk_supplied_operator_set(scope, path):
+            root = _deployment_root(path)
+            if root is not None:
+                claimed.add(str(root.relative_to(REPO_ROOT)))
+    return sorted(claimed)
+
+
+def _ceiling_problems(claimed: list[str], *, ceiling: int, label: str) -> list[str]:
+    """Whether ``claimed`` exceeds ``ceiling``, named by ``label``.
+
+    A predicate rather than an inline comparison, so each ceiling test and its
+    control judge by the same code — the same reason :func:`_gate_collapses`
+    and :func:`_binder_collapses` are predicates. Parameterised on the ceiling
+    so the second exemption gets the identical instrument rather than a second
+    copy of it that drifts.
+    """
+    if len(claimed) <= ceiling:
+        return []
+    return [
+        f"{len(claimed)} deployments claim the {label} exemption,"
+        f" {ceiling} permitted."
+        f" {FLOOR_REMOVAL_INSTRUCTION} Claimed: {claimed}"
+    ]
+
+
+def _exemption_problems(claimed: list[str]) -> list[str]:
+    """Whether this set of D-IMPL-137 claimants exceeds its ceiling."""
+    return _ceiling_problems(
+        claimed,
+        ceiling=MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS,
+        label="D-IMPL-137 one-document",
+    )
+
+
+def _sdk_supplied_problems(claimed: list[str]) -> list[str]:
+    """Whether this set of D-IMPL-141 claimants exceeds its ceiling."""
+    return _ceiling_problems(
+        claimed,
+        ceiling=MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS,
+        label="D-IMPL-141 SDK-supplied",
+    )
+
+
+def test_the_one_document_exemption_has_not_spread() -> None:
+    """The ceiling, which is the module's floor discipline inverted.
+
+    A floor stops coverage shrinking silently. Nothing stopped the *exemption*
+    spreading silently, and an exemption that spreads quietly is how a
+    conditioned demand becomes no demand. ``MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS``
+    has no headroom for the same reason the floors have none.
+    """
+    problems = _exemption_problems(_one_document_deployments())
+    assert not problems, "; ".join(problems)
+
+
+def test_the_sdk_supplied_exemption_has_not_spread() -> None:
+    """The second ceiling, held to the identical discipline as the first.
+
+    ``D-IMPL-141``'s shape is the one that ships now, so this is the exemption
+    the *next* example is most likely to want. Its ceiling has no headroom for
+    the same reason the other has none: a deployment that authors no operator
+    set is a deployment nothing in ``examples/`` holds to the binder demand, and
+    a population of those that can grow quietly is a demand that quietly ends.
+    """
+    problems = _sdk_supplied_problems(_sdk_supplied_deployments())
+    assert not problems, "; ".join(problems)
+
+
+def test_the_two_exemptions_are_disjoint() -> None:
+    """No deployment claims both, so neither ceiling is counting the other's.
+
+    Two ceilings of one only bound two populations if the populations are two.
+    A deployment satisfying both predicates would be counted once in each and
+    the pair would silently permit two claimants where each constant says one.
+    """
+    overlap = set(_one_document_deployments()) & set(_sdk_supplied_deployments())
+    assert not overlap, (
+        "these deployments claim BOTH exemptions, so the two ceilings are not"
+        f" bounding disjoint populations: {sorted(overlap)}"
+    )
+
+
 @pytest.mark.parametrize(
     ("path", "scope"),
     _projecting_scopes(),
@@ -1999,7 +2661,42 @@ def test_every_projecting_example_body_names_the_binder(
     (R4-WR-03). Source ordering is checkable from positions and is now checked;
     neither of those two is readable from an AST walk over one body, and both
     are left named rather than implied away.
+
+    And the one that is larger than either, because it is not a limit of what an
+    AST can read but a deliberate carve-out: **the D-IMPL-137 exemption
+    itself**. A body in a deployment registering no
+    ``ccf.projection-requirements`` whose plan's ``required=`` reads the product
+    class's own claim is not asserted against here **at all** — this assertion
+    returns before it runs, and :func:`_binder_collapses`'s properties (2) and
+    (3) are switched off for the same body, so nothing reports it. That is
+    intended: there is no second document for the binder to compare, so there is
+    no demand. What bounds how many such bodies exist is a **constant** —
+    :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS`, asserted by
+    :func:`test_the_one_document_exemption_has_not_spread` — and not anything
+    this assertion reads.
+
+    **The same carve-out now has a second route**, and it is bounded the same
+    way rather than folded into the first:
+    :func:`_sdk_supplied_operator_set`, the `D-IMPL-141` shape where the
+    deployment authors no operator set at all because
+    :func:`~ccf.products.resolver.build_governed_resolver` hands it one.
+    Its ceiling is :data:`MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS`, asserted by
+    :func:`test_the_sdk_supplied_exemption_has_not_spread`.
     """
+    if _premise_is_false(scope, path, _bindings(scope)):
+        # Either route. Row B: the deployment registers no
+        # `ccf.projection-requirements` AND its plan's `required=` reads the
+        # product class's own claim, so the binder would compare a value
+        # against itself — the shape `_binder_collapses` property (1) refuses.
+        # `D-IMPL-141`: the deployment's `binding.yaml` names this function
+        # through `plan:`, and every plan it builds is built from the operator
+        # set the SDK handed it — so the binder would compare that same
+        # SDK-derived set against itself, which property (1) refuses for
+        # exactly the same reason.
+        #
+        # Each route is bounded by its own ceiling test, not by this early
+        # return, and row C is refused by both predicates.
+        return
     assert _names_the_binder(scope), (
         f"{path.relative_to(REPO_ROOT)}:{_scope_line(scope)}:"
         f" {_scope_label(scope)} constructs or runs a projection plan without"
@@ -2075,6 +2772,484 @@ def test_the_binder_tripwire_detects_a_projection_that_skips_it() -> None:
     )
 
 
+def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
+    """Every exemption is pinned to its cause, not to a deployment passing.
+
+    **The substantive assertion is the first one, and it is stronger than the
+    named list it used to be.** A projecting deployment that registers no
+    ``ccf.projection-requirements`` has *some* explanation, and there are
+    exactly two the module accepts: it authored one document where two were
+    possible (row B), or it authored none because the SDK supplied the set
+    (``D-IMPL-141``). A root in neither list is `D-IMPL-137` **row C** — a
+    second operator set authored somewhere the Control Plane does not know
+    about — and row C is precisely what must not appear quietly. Asserting
+    set equality says *no root escapes registration unexplained*, which the
+    previous single-name list could only say for as long as there was one.
+
+    The two named assertions that follow keep each route pinned to the
+    deployment that actually exercises it, so a route that silently stopped
+    matching its own subject — and started matching something else — is red
+    rather than merely differently-green.
+    """
+    roots = {
+        _deployment_root(path)
+        for path, _ in _projecting_scopes()
+    }
+    roots.discard(None)
+    unregistered = sorted(
+        str(root.relative_to(REPO_ROOT))
+        for root in roots
+        if not _registers_requirements(root)
+    )
+    row_b = _one_document_deployments()
+    sdk_supplied = _sdk_supplied_deployments()
+
+    assert unregistered == sorted({*row_b, *sdk_supplied}), (
+        "a projecting deployment registers no `ccf.projection-requirements` and"
+        " claims NEITHER exemption — that is D-IMPL-137 row C, a second"
+        " operator set authored where the Control Plane cannot see it."
+        f" unregistered={unregistered} row_b={row_b} sdk_supplied={sdk_supplied}"
+    )
+    assert row_b == ["examples/s1-00-companies-over-revenue"], row_b
+    assert sdk_supplied == ["examples/hw1-companies-over-revenue/deployment"], (
+        sdk_supplied
+    )
+
+
+# --------------------------------------------------------------------------
+# Controls for the D-IMPL-141 route. A detector taught to recognise a shape can
+# just as easily be taught to recognise nothing, so each condition it rests on
+# is broken in turn against a `tmp_path` deployment and watched to refuse.
+# --------------------------------------------------------------------------
+
+
+#: The shipped shape, reduced to its skeleton: a projection class satisfying the
+#: Protocol structurally, and a factory that returns one built from the operator
+#: set it was handed. Built from the module's own constants so a rename of
+#: either keyword reaches this fixture rather than leaving it stale.
+_FACTORY_MODULE = (
+    "class _Projection:\n"
+    f"    def __init__(self, *, {PLAN_REQUIRED_KEYWORD}):\n"
+    f"        self._required = {PLAN_REQUIRED_KEYWORD}\n"
+    "    def required_operators(self):\n"
+    "        return self._required\n"
+    "    def invoke(self, **kwargs):\n"
+    "        return None\n"
+    "\n"
+    f"def build_projection(*, {FACTORY_REQUIRED_PARAMETER}, request):\n"
+    f"    return _Projection({PLAN_REQUIRED_KEYWORD}={FACTORY_REQUIRED_PARAMETER})\n"
+)
+
+
+def _factory_deployment(
+    root: pathlib.Path,
+    *,
+    module: str = _FACTORY_MODULE,
+    binding: str | None = f"{REFERENCE_KEYS[0]}: projection.py:build_projection\n",
+    config: bool = True,
+) -> tuple[pathlib.Path, ast.AST]:
+    """Synthesize a `D-IMPL-141`-shaped deployment and return its factory scope.
+
+    Returns ``(module path, the factory's scope)``. Every control below builds
+    one of these and breaks exactly one condition, so a refusal names the
+    condition that produced it rather than the composition.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    if config:
+        (root / SINGLE_FILE_CONFIG_NAME).write_text("semver: '1.0.0'\n", encoding="utf-8")
+    if binding is not None:
+        (root / BINDING_DOCUMENT_NAME).write_text(binding, encoding="utf-8")
+    path = root / "projection.py"
+    path.write_text(module, encoding="utf-8")
+    tree = ast.parse(module)
+    scope = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "build_projection"
+    )
+    return path, scope
+
+
+def test_the_binding_documents_reference_surface_is_still_one_key() -> None:
+    """The import above must keep naming the key the SDK actually reads.
+
+    :data:`REFERENCE_KEYS` is a **one-element** tuple by ruling (Amendment A.3),
+    and this module indexes ``[0]`` to get the plan key. If the SDK ever widens
+    it, indexing zero silently reads whichever key happens to sort first — so
+    the widening turns this red instead.
+    """
+    assert REFERENCE_KEYS == ("plan",), REFERENCE_KEYS
+    assert BINDING_DOCUMENT_NAME == "binding.yaml", BINDING_DOCUMENT_NAME
+
+
+def test_the_factory_seam_still_names_its_operator_set_parameter() -> None:
+    """The parameter this route keys on is the one the Protocol declares.
+
+    :data:`FACTORY_REQUIRED_PARAMETER` is an assumption about someone else's
+    signature. Asserted against the shipped Protocol rather than believed, so a
+    rename there turns this red rather than making the detector match nothing
+    and hand out no exemptions — which would look like the gate tightening.
+    """
+    import inspect
+
+    from ccf.products.resolver import ProjectionPlanFactoryProtocol
+
+    parameters = inspect.signature(ProjectionPlanFactoryProtocol.__call__).parameters
+    assert FACTORY_REQUIRED_PARAMETER in parameters, sorted(parameters)
+
+
+def test_the_sdk_supplied_route_recognises_the_shipped_shape(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The controls' baseline: refusals below must come from the breakage."""
+    path, scope = _factory_deployment(tmp_path / "examples" / "zz-demo")
+    # The synthesized tree is not under the real `examples/`, so the artifact
+    # root check would refuse it for the right reason at the wrong moment.
+    # Exercised against the SHIPPED example instead, which is the subject.
+    shipped = (
+        REPO_ROOT / "examples" / "hw1-companies-over-revenue" / "deployment"
+        / "projection.py"
+    )
+    tree = _parse(shipped)
+    assert tree is not None
+    factory = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "build_projection"
+    )
+    assert _sdk_supplied_operator_set(factory, shipped), (
+        "the D-IMPL-141 route no longer recognises the shipped example, so the"
+        " exemption it grants is granted to nothing and the controls below"
+        " would all pass over a detector that matches zero bodies"
+    )
+    assert path.is_file()  # the synthesized fixture is used by the controls
+
+
+@pytest.mark.parametrize(
+    ("label", "kwargs"),
+    [
+        (
+            "no binding document at all",
+            {"binding": None},
+        ),
+        (
+            "a binding document naming a different module",
+            {"binding": f"{REFERENCE_KEYS[0]}: elsewhere.py:build_projection\n"},
+        ),
+        (
+            "a binding document naming a different attribute",
+            {"binding": f"{REFERENCE_KEYS[0]}: projection.py:build_something_else\n"},
+        ),
+        (
+            "a binding document with no plan reference",
+            {"binding": "config: ccf_config.yaml\n"},
+        ),
+        (
+            "no Control Plane authoring surface at all",
+            {"config": False, "binding": None},
+        ),
+    ],
+)
+def test_the_sdk_supplied_route_refuses_a_broken_condition(
+    tmp_path: pathlib.Path, label: str, kwargs: dict[str, object]
+) -> None:
+    """Each condition broken in turn, against a real `examples/` subtree.
+
+    Written under ``REPO_ROOT / "examples"`` is impossible for a fixture, so the
+    detector is exercised on a synthesized root and the artifact-root condition
+    is asserted separately below. What these prove is that the *binding-document*
+    conditions each refuse on their own — the load-bearing one, because it is
+    the Control Plane's own statement that the SDK reaches this function.
+    """
+    root = tmp_path / "deployment"
+    path, scope = _factory_deployment(root, **kwargs)  # type: ignore[arg-type]
+    assert not _sdk_supplied_operator_set(scope, path), label
+
+
+def test_the_sdk_supplied_route_refuses_a_plan_built_from_another_source(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Row C, in the new shape: an operator set authored somewhere else.
+
+    The factory takes the SDK's set and then builds its plan from a different
+    value. That is a second authored operator set the Control Plane cannot see,
+    and it must stay subject to the demand — otherwise this route would launder
+    exactly what `D-IMPL-137` row C exists to keep red.
+    """
+    module = _FACTORY_MODULE.replace(
+        f"    return _Projection({PLAN_REQUIRED_KEYWORD}={FACTORY_REQUIRED_PARAMETER})",
+        f"    return _Projection({PLAN_REQUIRED_KEYWORD}=request.my_own_keys)",
+    )
+    root = tmp_path / "deployment"
+    path, scope = _factory_deployment(root, module=module)
+    assert f"{PLAN_REQUIRED_KEYWORD}=request.my_own_keys" in module
+    assert not _sdk_supplied_operator_set(scope, path)
+
+
+def test_the_sdk_supplied_route_refuses_a_factory_that_builds_no_plan(
+    tmp_path: pathlib.Path,
+) -> None:
+    """**The zero-match control.** Matching nothing is not satisfying anything.
+
+    A body constructing no plan at all yields an empty source tuple, and
+    ``all(...)`` over an empty tuple is ``True`` — so without the explicit
+    emptiness guard this route would hand the exemption to every function the
+    binding document happens to name, including one that does nothing. That is
+    the vacuous-pass shape this whole phase has been finding.
+    """
+    module = (
+        f"def build_projection(*, {FACTORY_REQUIRED_PARAMETER}, request):\n"
+        "    return None\n"
+    )
+    root = tmp_path / "deployment"
+    path, scope = _factory_deployment(root, module=module)
+    assert _constructed_plan_sources(scope) == ()
+    assert not _sdk_supplied_operator_set(scope, path)
+
+
+def test_the_sdk_supplied_route_refuses_a_body_with_no_artifact_tree() -> None:
+    """Fail-closed, the same way :func:`_one_document` is.
+
+    A tree outside ``examples/`` has made no claim to have a Control Plane at
+    all, so it cannot buy an exemption by having nothing to check against.
+    """
+    nowhere = REPO_ROOT / "nowhere" / "projection.py"
+    scope = next(
+        node
+        for node in ast.walk(ast.parse(_FACTORY_MODULE))
+        if isinstance(node, ast.FunctionDef) and node.name == "build_projection"
+    )
+    assert _deployment_root(nowhere) is None
+    assert not _sdk_supplied_operator_set(scope, nowhere)
+
+
+def test_the_sdk_supplied_route_refuses_a_deployment_that_registers_requirements(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Two documents means two documents, whatever shape the code is in.
+
+    A deployment that registers a ``ccf.projection-requirements`` HAS authored a
+    second operator set. The demand stands even if its factory looks exactly
+    like the exempt one — which is the condition that stops this route becoming
+    a way to opt out of the binder by adopting a file layout.
+    """
+    root = tmp_path / "deployment"
+    path, scope = _factory_deployment(root)
+    (root / SINGLE_FILE_CONFIG_NAME).write_text(
+        f"class_id: {REQUIREMENTS_CLASS_ID}\n", encoding="utf-8"
+    )
+    assert _registers_requirements(root)
+    assert not _sdk_supplied_operator_set(scope, path)
+
+
+def test_each_ceiling_refuses_a_second_claimant() -> None:
+    """Both ceilings, watched failing. Neither has headroom, and both say so."""
+    two = ["examples/first-deployment", "examples/second-deployment"]
+    row_b = _exemption_problems(two)
+    sdk = _sdk_supplied_problems(two)
+    assert row_b and "D-IMPL-137 one-document" in row_b[0], row_b
+    assert sdk and "D-IMPL-141 SDK-supplied" in sdk[0], sdk
+    assert _exemption_problems(two[:1]) == []
+    assert _sdk_supplied_problems(two[:1]) == []
+
+
+def test_a_body_with_no_artifact_tree_is_subject_to_the_demand() -> None:
+    """Fail-closed, and **this test is that guard's own control**.
+
+    It stands in for no other test, and an earlier revision of this docstring
+    said it did: the body synthesized below *does* assemble a `ProductLineage`,
+    so `_class_claim` reads it and the second fail-closed guard does not answer
+    first — the artifact-tree guard is what refuses it, and a regression in
+    that guard is what this catches. The hazard it closes is an adopter tree
+    outside `examples/` that assembles a lineage and reads one source, and
+    would otherwise buy an exemption by having no Control Plane at all.
+
+    The two helper assertions below are still worth pinning on their own, but
+    they are not the whole test: the composition matters, and this synthesizes
+    a body whose class claim and plan `required=` read the identical path —
+    the AST agreement that WOULD grant the exemption once the artifact-tree
+    check is out of the way. Asserting `_one_document` directly on that body
+    is what proves the artifact-tree check overrides the agreement rather
+    than the two happening not to interact.
+    """
+    no_tree = REPO_ROOT / "nowhere" / "run.py"
+    assert _deployment_root(no_tree) is None
+    assert not _registers_requirements(None)
+
+    lineage = f"{LINEAGE_CONSTRUCTOR}({LINEAGE_DECLARED_KEYWORD}="
+    plan = f"Fixture{PLAN_CLASS_SUFFIX}(plan_id=pid, {PLAN_REQUIRED_KEYWORD}="
+    source = (
+        "def resolve_plan(pid, declared):\n"
+        f"    {lineage}declared.required_operator_keys)\n"
+        f"    plan = {plan}declared.required_operator_keys)\n"
+        "    return plan\n"
+    )
+    tree = ast.parse(source)
+    scope = next(s for s in _scopes(tree) if isinstance(s, ast.FunctionDef))
+    bindings = _bindings(scope)
+
+    # The agreement itself, pinned: the class claim and the plan's lone
+    # `required=` resolve to the exact same path, not merely a shared prefix.
+    # Under the pre-fix code this is what made `_one_document` return `True`
+    # for a body with no artifact tree at all.
+    claim = _class_claim(scope, bindings)
+    sources = list(_plan_sources(scope, bindings).values())
+    assert claim is not None
+    assert sources == [claim], (claim, sources)
+
+    assert not _one_document(scope, no_tree, bindings)
+
+
+def test_hw1_claims_the_exemption_for_the_stated_reason() -> None:
+    """Row B, pinned to its cause rather than to HW-1 happening to pass.
+
+    Both halves asserted separately, because either alone would keep passing if
+    the other silently changed: the deployment registers no requirements
+    artifact, and the body's plan reads the product class's own claim.
+    """
+    produce = (
+        REPO_ROOT / "examples" / "s1-00-companies-over-revenue" / "produce.py"
+    )
+    root = _deployment_root(produce)
+    assert root is not None and not _registers_requirements(root)
+
+    tree = _parse(produce)
+    assert tree is not None
+    exempt = [
+        scope
+        for scope in _scopes(tree)
+        if _one_document(scope, produce, _bindings(scope))
+    ]
+    assert exempt, "HW-1's projecting body no longer reads one document"
+
+
+def test_an_exempt_body_that_calls_the_binder_is_still_refused() -> None:
+    """Property (1)'s unconditionality, watched rather than asserted (D-IMPL-137).
+
+    This is the sentence that makes the ruling defensible: the exemption is an
+    **absence of demand**, not a **licence**. A one-document deployment is not
+    asked to call the binder — but if it calls it anyway over a plan built from
+    the very claim it is about to be compared against, property (1) still
+    refuses it for the tautology. Nothing is bought by claiming the exemption
+    that could not be had without it.
+
+    Until this control landed, that sentence appeared in the module docstring,
+    in a comment inside :func:`_binder_collapses`, in
+    :func:`test_every_projecting_example_body_names_the_binder`'s docstring and
+    in `D-IMPL-137` itself — and **nothing tested it**. Folding property (1)
+    under the ``if demanded:`` guard changes no verdict anywhere on the shipped
+    tree and leaves every probe in this module passing, because every
+    ``_binder_collapses`` probe here is *demanded* and the one exempt body
+    makes no binder call. A future tidy-up doing exactly that would have been
+    invisible to the whole suite.
+
+    Run against HW-1's **real** ``produce.py`` path, the same way
+    :func:`test_a_second_operator_set_outside_the_control_plane_is_refused`
+    runs row C: a synthesized path resolves :func:`_deployment_root` to ``None``
+    and the fail-closed default would refuse the body whatever its AST said, so
+    the control would pass without ever reaching the exempt branch it exists to
+    exercise. Both halves are asserted, because either alone would keep passing
+    if the other silently changed — that the body IS exempt, and that it is
+    refused regardless.
+    """
+    produce = REPO_ROOT / "examples" / "s1-00-companies-over-revenue" / "produce.py"
+    assert _deployment_root(produce) is not None, (
+        "this control needs HW-1's REAL artifact tree; a synthesized path is"
+        " refused by the fail-closed default before the exempt branch is reached"
+    )
+
+    source = (
+        "def serve(pid, r, declared):\n"
+        f"    {LINEAGE_CONSTRUCTOR}({LINEAGE_DECLARED_KEYWORD}="
+        f"{BINDER_DECLARED_KEYWORD}.required_operator_keys)\n"
+        f"    plan = Fixture{PLAN_CLASS_SUFFIX}({PLAN_ID_KEYWORD}=pid,"
+        f" {PLAN_REQUIRED_KEYWORD}={BINDER_DECLARED_KEYWORD}"
+        ".required_operator_keys)\n"
+        f"    {BINDER_CALL}({BINDER_DECLARED_KEYWORD}=declared,"
+        f" {ENGINE_PLAN_KEYWORD}=plan)\n"
+        f"    return ProjectionEngine(reader=r).execute({ENGINE_PLAN_KEYWORD}=plan)\n"
+    )
+    function = ast.parse(source).body[0]
+    assert isinstance(function, ast.FunctionDef)
+
+    # exempt: HW-1 registers no requirements artifact, and this body's class
+    # claim and plan `required=` read one source — row B, exactly
+    assert _one_document(function, produce, _bindings(function)), source
+
+    # …and refused anyway, by property (1), which the `if demanded:` guards do
+    # not cover. This is the assertion the whole ruling rests on.
+    problems = _binder_collapses(function, produce)
+    assert problems, source
+    assert all(
+        "compares a value against itself" in problem for problem in problems
+    ), problems
+
+
+def test_a_second_operator_set_outside_the_control_plane_is_refused() -> None:
+    """Row C — the shape the exemption must never admit (D-IMPL-137).
+
+    The exemption is not "no artifact, no demand". It is earned by a positive
+    reading: the deployment registers no `ccf.projection-requirements` AND its
+    code demonstrably reads one source. A deployment that registers nothing
+    while its plan's `required=` reads somewhere unrelated has authored a
+    second operator set the Control Plane does not know about — the two
+    readings disagree, and that disagreement is the finding.
+
+    **Mutated in memory against the REAL deployment path, and that is
+    load-bearing rather than tidy.** Copying the example under `tmp_path` and
+    reading the copy resolves :func:`_deployment_root` to ``None``, so the
+    fail-closed default refuses the body whatever its AST says — the control
+    would pass without ever exercising row C, and would go on passing if row C
+    broke. Parsing mutated source while passing HW-1's real path is what puts a
+    real artifact tree, one that registers nothing, behind an AST that reads
+    two sources.
+    """
+    produce = REPO_ROOT / "examples" / "s1-00-companies-over-revenue" / "produce.py"
+    root = _deployment_root(produce)
+    assert root is not None, "row C needs a REAL artifact tree, not a copy"
+    assert not _registers_requirements(root), "HW-1 registers no requirements"
+
+    text = produce.read_text(encoding="utf-8")
+    baseline = ast.parse(text)
+    assert not [
+        problem
+        for scope in _scopes(baseline)
+        for problem in _binder_collapses(scope, produce)
+    ], "unmutated HW-1 must be exempt, or this control proves nothing"
+
+    mutated = text.replace(
+        "required=tuple(scenario.product_class.required_operator_keys),",
+        "required=tuple(scenario.operator_parameters),",
+        1,
+    )
+    assert mutated != text, "the plan construction moved; update this control"
+
+    problems = [
+        problem
+        for scope in _scopes(ast.parse(mutated))
+        for problem in _binder_collapses(scope, produce)
+    ]
+    assert any(
+        "with no `refuse_operator_set_divergence`" in problem for problem in problems
+    ), problems
+
+
+def test_the_exemption_ceiling_refuses_a_second_claimant() -> None:
+    """The ceiling fires at two, watched rather than assumed.
+
+    A constant nothing has been seen to trip is a constant nobody has tested.
+    Exercised through `_exemption_problems`, the same predicate
+    `test_the_one_document_exemption_has_not_spread` judges the tree by, against
+    a synthesized second claimant — standing a real one up on disk would mean
+    shipping it.
+    """
+    assert not _exemption_problems(["examples/s1-00-companies-over-revenue"])
+    problems = _exemption_problems(
+        ["examples/s1-00-companies-over-revenue", "examples/s1-02-invented"]
+    )
+    assert problems and "s1-02-invented" in problems[0], problems
+
+
 # --- tripwire (2), the argument half: the binder is doing something -----------
 
 
@@ -2106,9 +3281,9 @@ def test_the_binder_argument_scan_is_not_vacuous() -> None:
 
     **This assertion is a total, and a total is not a per-site property** — the
     distinction WR-F3 drew, and the reason its companion below exists. The two
-    counts coincide today at eleven bodies and eleven readable sites, so any body
-    that gains a readable site while another loses one leaves this green. Keep
-    both: this one catches a site disappearing from the tree, and
+    counts stand today at thirteen projecting bodies and twelve readable sites,
+    so any body that gains a readable site while another loses one leaves this
+    green. Keep both: this one catches a site disappearing from the tree, and
     :func:`test_every_bound_body_has_a_readable_plan_source` catches a body
     whose own plan the checks cannot read. Neither statement implies the other.
     """
@@ -2136,7 +3311,7 @@ def test_every_bound_body_has_a_readable_plan_source(
     and hand the binder a plan whose ``required=`` this module cannot read, at
     which point property (1) runs and says nothing. The aggregate floor above
     does not see that: the new body contributes zero readable sites while the
-    existing eleven still contribute eleven, and ``11 >= 11`` holds. Both CR-F1
+    existing twelve still contribute twelve, and ``12 >= 12`` holds. Both CR-F1
     and WR-F1 exploit exactly that arithmetic.
 
     **Per call, not per body (WR-02).** The first version of this assertion was
@@ -2144,7 +3319,7 @@ def test_every_bound_body_has_a_readable_plan_source(
     one compliant readable site absorbs any number of unreadable ones beside it,
     so a plan class this module does not recognise routes around property (1)
     while this assertion stays green. Measured over the tree, ``all()`` costs
-    nothing today — eleven projecting bodies, eleven binder calls, **zero**
+    nothing today — thirteen projecting bodies, twelve binder calls, **zero**
     unreadable — and it is what makes the residual loud for the body that
     acquires it rather than for the body that acquires it *everywhere*.
 
@@ -2312,8 +3487,12 @@ def test_the_binder_argument_checks_reject_a_binder_that_cannot_fail() -> None:
         assert _binder_collapses(function, REPO_ROOT / "probe.py"), source
 
     benign = (
-        # the compliant shape at all nine executing sites: the plan reads the
-        # projection's own artifact, the binder reads the product class's claim
+        # the compliant shape at ten of the eleven executing sites — the plan
+        # reads the projection's own artifact, the binder reads the product
+        # class's claim. The eleventh,
+        # `examples/s1-00-companies-over-revenue/produce.py`, executes and makes
+        # no binder call: it is the D-IMPL-137 one-document deployment, so this
+        # shape is not what it is held to.
         "def serve(pid, r, declared, requirements):\n"
         f"    plan = {plan_of(from_artifact)}\n"
         f"    {bind}\n"
@@ -3155,16 +4334,24 @@ def test_the_plan_recognition_refuses_an_unrelated_required_keyword() -> None:
     call ever leaves ``examples/``, this fails loudly and can be retired
     deliberately — which is the right way round.
 
-    **The evidence base is n = 1, stated rather than left to be discovered**
+    **The evidence base was n = 1 when this was written; it is n = 2 today**
     (IN-02). Measured 2026-08-06: twelve calls under ``examples/`` pass
     ``required=``, eleven of them are plan constructions, and the twelfth is
     ``examples/03-harness-portability/run.py::main``'s ``--mode``
-    ``add_argument``. So making
-    that one CLI flag optional, or retiring example 03, turns a
-    ``tests/products/`` Gate-2 test red for a reason with nothing to do with
-    Gate 2. That is the deliberate trade above — a loud, self-explaining failure
-    is preferable to the rule quietly ceasing to be demonstrated — but a reader
-    is entitled to know the count is one and not many.
+    ``add_argument``. On that count, making that one CLI flag optional — or
+    retiring example 03 — turned a ``tests/products/`` Gate-2 test red for a
+    reason with nothing to do with Gate 2.
+
+    **Re-measured 2026-08-15:** fifteen calls pass ``required=``, thirteen are
+    plan constructions, and **two** are not — example 03's ``--mode`` and
+    ``examples/s1-00-companies-over-revenue/consume.py::main``'s
+    ``--min-revenue``, both ``argparse``. Retiring example 03 alone therefore no
+    longer turns this red; the second site carries it. The trade above is
+    unchanged and still deliberate — a loud, self-explaining failure beats the
+    rule quietly ceasing to be demonstrated — but the count a reader is entitled
+    to know is two, and the single-point-of-failure warning the original
+    paragraph carried no longer holds. The dated measurement is kept rather than
+    overwritten, per this module's practice of recording what changed.
     """
     unrelated: list[str] = []
     for path in _python_sources(BINDER_SCANNED_TREES):

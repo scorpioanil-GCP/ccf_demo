@@ -456,8 +456,25 @@ def build_server(
             }
         ).decode("utf-8")
 
-    def provide_context(*, tenant: str, entity: str) -> str:
-        """Serve the one assembled product for its own tenant (T-07-21)."""
+    def provide_context(
+        *, tenant: str, entity: str, perspective: Perspective
+    ) -> str:
+        """Serve the one assembled product for its own tenant (T-07-21).
+
+        ``perspective`` arrives because ``D-IMPL-128`` limb 1 widened the seam
+        so the door forwards what it authorized. This provider **uses** it
+        rather than merely accepting it: the product was assembled under one
+        declared capacity, so a perspective that is not that one is refused —
+        a provider that took the conditioning and served regardless would put
+        ``DI-15.5-03``'s gap back one layer down, where nothing on the wire
+        would show it. The consequence the parent leans on: a served call over
+        the wire is itself evidence that the right role arrived.
+        """
+        if perspective.role != assembled.role:
+            raise ExperienceProductNotServable(
+                f"{tenant}/{entity}: assembled for {assembled.role!r}, the"
+                f" door authorized {perspective.role!r}"
+            )
         if tenant != assembled.address.tenant:
             raise ExperienceProductNotServable(f"{tenant}/{entity}")
         return canonical_bytes(assembled.servable.product).decode("utf-8")
@@ -522,6 +539,12 @@ def build_server(
             control_plane=door_registry, clock=lambda: AUDIT_INSTANT
         ),
         perspective_resolver=resolve_perspective,
+        # The gated consumption tools' declared address (D-IMPL-128 limb 1).
+        # The same two values the policy above is keyed and granted on, so
+        # the entitlement cannot name something this deployment does not
+        # serve — and never a literal.
+        entitled_product_class=assembled.address.product_class,
+        lineage_tenant=assembled.address.tenant,
         agent_directory=directory,
         agent_invoker=invoke,
         context_provider=provide_context,

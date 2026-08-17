@@ -43,9 +43,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pytest
+import yaml
 
 from ccf.contracts.canonical import content_hash
-from ccf.controlplane.artifacts import ProductClassDeclaration
+from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.contract import NO_PAYLOAD_SCHEMA, ProductClassRegistrationError
 from ccf.products.request import (
@@ -681,3 +682,163 @@ def test_no_content_address_moves_because_of_the_pin() -> None:
         return False
 
     assert not _reaches(ContextProductContract, set())
+
+
+# --- `from_declared` — the DeclaredArtifact-to-typed-contract path -----------
+#
+# `D-IMPL-126` item (1): a request contract is reachable from the
+# `DeclaredArtifact` a manifest returns by one named call, rather than by the
+# four-field hand-build every adopter would otherwise copy out of
+# `examples/s1-01-hello-context-product/deployment.py::read`.
+
+#: The committed artifact the equivalence case reads. Read from disk rather
+#: than inlined, so the assertion is against the document an adopter actually
+#: ships — an inline copy would drift the moment the file did, and would prove
+#: only that the method agrees with the test's own idea of the file.
+REQUEST_CONTRACT_ARTIFACT = (
+    pathlib.Path(__file__).resolve().parents[2]
+    / "examples"
+    / "s1-01-hello-context-product"
+    / "artifacts"
+    / "request-contract.yaml"
+)
+
+
+def _declared(**overrides: Any) -> DeclaredArtifact:
+    """A ``DeclaredArtifact`` carrying a well-formed request-contract body."""
+    fields: dict[str, Any] = {
+        "semver": "1.0.0",
+        "class_id": CONTRACT_KEY,
+        "declaration": {
+            "schema_name": CLASS_NAME,
+            "schema_version": CLASS_VERSION,
+            "arguments": _arguments().model_dump(mode="json"),
+        },
+    }
+    fields.update(overrides)
+    return DeclaredArtifact(**fields)
+
+
+def test_from_declared_reads_the_document_lane_and_the_three_keys() -> None:
+    """The four fields come from the four places they actually live.
+
+    ``semver`` is the *document's* lane and the two ``schema_*`` keys are the
+    *class's* — two lanes, two things versioned (D-IMPL-98) — so a method that
+    read the class lane out of ``semver`` would pass a shape check and be wrong.
+    """
+    contract = ProductRequestContract.from_declared(_declared(semver="2.3.4"))
+
+    assert contract.semver == "2.3.4"
+    assert contract.schema_name == CLASS_NAME
+    assert contract.schema_version == CLASS_VERSION
+    assert contract.arguments == _arguments()
+
+
+def test_from_declared_equals_the_hand_build_for_the_committed_artifact() -> None:
+    """The equivalence that makes this a replacement, not a second way.
+
+    ``examples/s1-01-hello-context-product/deployment.py::read`` hand-builds
+    a :class:`ProductRequestContract` field by field from the committed
+    ``request-contract.yaml``. This asserts ``from_declared`` produces a model
+    **equal** to that build from the same document on disk — so plan ``16-05``
+    (or HW-1) can switch the example over knowing nothing moves.
+
+    Asserted on the model and on its content address, never on a ``repr``: a
+    repr comparison would pass for two models whose canonical bytes differ.
+    """
+    document = yaml.safe_load(
+        REQUEST_CONTRACT_ARTIFACT.read_text(encoding="utf-8")
+    )
+    artifact = DeclaredArtifact(
+        semver=document["semver"],
+        class_id=document["class_id"],
+        declaration=document["declaration"],
+    )
+
+    # The hand-build, transcribed from deployment.py::read rather than
+    # imported: importing it would make this test agree with the example by
+    # construction, which is the one thing it must not do.
+    declaration = artifact.declaration
+    hand_built = ProductRequestContract(
+        semver=artifact.semver,
+        schema_name=declaration["schema_name"],
+        schema_version=declaration["schema_version"],
+        arguments=SkillArgumentSchema.model_validate(declaration["arguments"]),
+    )
+
+    assert ProductRequestContract.from_declared(artifact) == hand_built
+    assert content_hash(
+        ProductRequestContract.from_declared(artifact)
+    ) == content_hash(hand_built)
+
+
+def test_from_declared_names_every_missing_key_in_one_message() -> None:
+    """Three missing keys, one refusal — not three exceptions in sequence.
+
+    An adopter fixing a declaration one ``KeyError`` at a time is the papercut
+    `D-IMPL-126` item (1) exists to close, so the exhaustive message is the
+    behaviour and not a nicety.
+    """
+    with pytest.raises(ValueError) as raised:
+        ProductRequestContract.from_declared(_declared(declaration={}))
+
+    message = str(raised.value)
+    for key in ("schema_name", "schema_version", "arguments"):
+        assert key in message
+
+
+@pytest.mark.parametrize(
+    "absent", ["schema_name", "schema_version", "arguments"]
+)
+def test_from_declared_refuses_each_key_singly_by_name(absent: str) -> None:
+    """Each key is refused on its own, and the message names *that* key."""
+    declaration = dict(_declared().declaration)
+    declaration.pop(absent)
+
+    with pytest.raises(ValueError) as raised:
+        ProductRequestContract.from_declared(
+            _declared(declaration=declaration)
+        )
+
+    assert absent in str(raised.value)
+
+
+def test_from_declared_names_both_rejected_shapes_in_its_own_docstring() -> None:
+    """The rationale is on the **method**, where a later reader will look.
+
+    Deliberately not the module docstring: ``tools/dump_schemas.py`` copies
+    module and class docstrings verbatim into schema ``description`` fields, so
+    a method docstring owes no schema regeneration. And a rejection recorded
+    nowhere is a rejection that gets re-proposed.
+    """
+    doc = ProductRequestContract.from_declared.__doc__
+    assert doc is not None
+    assert "D-IMPL-84" in doc
+    assert "request-contract" in doc
+    assert "SDK_VERSIONED_ARTIFACT_CLASSES" in doc
+
+
+def test_the_manifest_loader_shape_was_not_taken() -> None:
+    """``resolve_artifact_class`` stays a total three-branch function.
+
+    A ``*.request-contract`` suffix branch would have the SDK claim a name
+    across every adopter namespace, where `D-IMPL-84` draws the line at exactly
+    one prefix. Asserted against the source because the rejection is only worth
+    recording if a later contributor adding the branch fails.
+    """
+    source = (
+        pathlib.Path(__file__).resolve().parents[2]
+        / "src"
+        / "ccf"
+        / "deployment"
+        / "classes.py"
+    ).read_text(encoding="utf-8")
+    assert "request-contract" not in source
+
+
+def test_the_equivalence_case_reads_the_committed_artifact_from_disk() -> None:
+    """The path literal is in this module, and the file it names exists."""
+    source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    assert "s1-01-hello-context-product" in source
+    assert "request-contract.yaml" in source
+    assert REQUEST_CONTRACT_ARTIFACT.is_file()

@@ -23,10 +23,37 @@ CCF_PERF_RUNNER_CLASS ?= local
 ENV_DOCS := PYTHONPATH=.:src:runtime
 ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_CLASS)
 
+# Test-suite environment. The repo root joins the path EXPLICITLY because test
+# modules import their siblings (`from tests.deployment.conftest import ...`)
+# and the surface tooling (`from tools.dump_surface import ...`), and neither
+# `tests` nor `tools` is an installed package.
+#
+# `$(PYTHON) -m pytest` also puts the cwd on sys.path, so `$(ENV)` alone works
+# today — but that is a property of the `-m` FORM, not of the environment, and
+# relying on it is what broke the remote gate. `.github/workflows/ci.yml`
+# spelled the same steps as a bare `pytest` console script, which does NOT add
+# the cwd; `tests/` has no top-level `__init__.py`, so pytest inserted each
+# test file's own directory instead of the repo root. Result: 13 collection
+# ImportErrors, 144 deselected, ZERO tests executed — and the job had been red
+# that way since at least 2026-08-10 while every local `make` run stayed green,
+# because the two gates were never running the same command
+# (run 31967852661, diagnosed 2026-08-16).
+#
+# Stating the root explicitly makes these targets correct under EITHER
+# invocation, so the next person to spell it differently does not reopen this.
+ENV_TESTS := PYTHONPATH=.:src:runtime
+
+# The no-external-substrate marker expression, defined ONCE. It appears in two
+# CI steps (the quick suite and coverage); two hand-copied spellings is one
+# edit away from a filter that silently selects a different set.
+NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not fluree
+
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint typecheck test ci-core ci examples \
-	example-s1-01 \
+.PHONY: help install lint typecheck test ci-core ci examples gate-tools \
+	conformance \
+	ci-quick-suite ci-harness-conformance ci-coverage \
+	example-s1-01 example-s1-00 \
 	example-00 example-01 example-02 example-03 example-04 example-05 \
 	example-06 example-07 example-08 example-ext-00 \
 	example-03-live-ollama example-03-live-anthropic \
@@ -67,7 +94,60 @@ typecheck: ## mypy --strict over src + runtime ([tool.mypy] files is authoritati
 test: ## Full pytest suite with harness legs required (CCF_REQUIRE_HARNESSES=1)
 	$(ENV) CCF_REQUIRE_HARNESSES=1 $(PYTHON) -m pytest -q
 
-ci-core: lint typecheck test ## Mid-phase verification sweep — MUST stay green from Wave 1 onward
+# ---------------------------------------------------------------------------
+# The CI test steps, as targets rather than as command strings in ci.yml.
+#
+# This file's header states that "the Makefile mirrors .github/workflows/ci.yml
+# command-for-command". That invariant was FALSE for every pytest step in the
+# tests job: ci.yml spelled them as a bare `pytest`, the Makefile as
+# `$(PYTHON) -m pytest`, and the difference decided whether the repo root was
+# on sys.path (see ENV_TESTS above). A mirror asserted in a comment is not a
+# mirror. These targets make it structural — ci.yml now CALLS the command
+# instead of restating it, so the two gates cannot drift apart again.
+#
+# CI has no `.venv`, so it overrides the interpreter on the command line:
+#     make PYTHON=python ci-quick-suite
+# A command-line assignment beats the `PYTHON :=` above, which is why that
+# works without a second variable.
+#
+# The four substrate legs are NOT restated here — `leg-postgres`, `leg-neo4j`,
+# `leg-mongo` and `leg-fluree` already existed, already used the `-m` form, and
+# already set their own CCF_REQUIRE_*; ci.yml now calls those. Their `?=` URI
+# defaults match the values ci.yml puts in the job env, and an environment
+# value wins over `?=`, so the two agree by construction rather than by luck.
+# ---------------------------------------------------------------------------
+
+ci-quick-suite: ## CI: the no-external-substrate suite (mirrors the ci.yml step by calling it)
+	$(ENV_TESTS) $(PYTHON) -m pytest tests -q -m "$(NO_SUBSTRATE)" -rs
+
+ci-harness-conformance: ## CI: harness adapter conformance — all three legs must RUN, not skip
+	$(ENV_TESTS) $(PYTHON) -m pytest tests/conformance -q -rs
+
+ci-coverage: ## CI: informational coverage over the no-substrate suite (D-17 sets no numeric gate)
+	$(ENV_TESTS) $(PYTHON) -m pytest tests -q -m "$(NO_SUBSTRATE)" --cov=ccf --cov-report=term
+
+# `gate-tools` belongs here, not only in `ci`. Plan 17-01 added it to `ci`
+# alone — but `ci-core` is what every wave actually runs, so the tools/ suites
+# stayed invisible in practice and THREE WAVES SHIPPED PAST A RED GATE
+# (DEF-17-08, measured 2026-08-16). A gate the working command does not reach
+# is not a gate. This is the fifth instance in Phase 17 of a check that stops
+# checking without going red.
+ci-core: lint typecheck test gate-tools ## Mid-phase verification sweep — MUST stay green from Wave 1 onward
+
+# The client adapter parity gate (D-15, plan 17-07). A NAME, not a second
+# collection path: `[tool.pytest] testpaths = ["tests"]` (pyproject.toml:142)
+# already collects `tests/client/conformance` on every `make test`, so this
+# target is deliberately NOT a prerequisite of `ci` — adding it would run the
+# whole suite twice per `make ci`, which is harmless right up until somebody
+# "optimizes" it by deleting the wrong one.
+#
+# What it buys is that the gate is nameable in a CI job, a review and a SUMMARY.
+# A parity gate nobody can name is a parity gate nobody is looking at (Phase 16).
+# The reachability it depends on is asserted rather than assumed —
+# `tests/client/conformance/test_the_suite_fires.py::test_the_conformance_suite_is_inside_the_default_collection`
+# holds this target's path and `testpaths` to each other.
+conformance: ## Client adapter conformance suite — the D-15 parity gate, by name
+	$(ENV) $(PYTHON) -m pytest tests/client/conformance -q
 
 # Finalized in plan 08-12: `ci` = ci-core + examples is the phase gate
 # command, reproducing the always-on Actions pipeline (ci.yml lint + test +
@@ -78,15 +158,33 @@ ci-core: lint typecheck test ## Mid-phase verification sweep — MUST stay green
 # composition, effective at the plan that creates the docs build target. That
 # gate is now complete (strict build + publish scan, D-02), so `docs-strict`
 # joins `ci` here — never as a half-armed or dead target.
-ci: ci-core examples docs-strict ## Full local reproduction of the always-on pipeline (D-10)
+# Amended in plan 17-01: `gate-tools` joins the composition. The claim on the
+# line below was false until it did — `[tool.pytest] testpaths = ["tests"]`
+# (pyproject.toml:142) stops collection at `tests/`, so the three suites under
+# `tools/` were invisible to every local gate while two Actions jobs ran them
+# on every push. Two of their tests were failing when Phase 17 opened, and the
+# phase would have closed green locally and red in Actions. This is the Phase
+# 16 lesson applied to the gate itself: a measurement nobody is looking at
+# protects nothing.
+ci: ci-core examples docs-strict gate-tools ## Full local reproduction of the always-on pipeline (D-10)
 
-# Section 1's reference example. Its docstrings and `tests/examples/
-# test_s1_01_output.py` have referred to this target since phase 16; it did not
-# exist and the example therefore ran in no CI job (DI-15.5-02, closed by plan
-# 15.5-13). With no arguments it asks the three questions
-# `artifacts/questions.yaml` declares — two companies, two instants.
-example-s1-01: ## Run examples/s1-01-hello-context-product (three declared questions)
-	$(ENV) $(PYTHON) examples/s1-01-hello-context-product/run.py
+# The two commands are `.github/workflows/ci.yml:35` and `:314` verbatim, so
+# this target reproduces what CI already runs rather than inventing a third
+# command for the same suites. `$(ENV_DOCS)`, not `$(ENV)`: these suites do
+# `from tools.publish_scan import ...` and `from tools.lints import ...`, so
+# the repo root must be on PYTHONPATH — the same reason `docs-strict` uses it.
+#
+# Who reads the number and what fails when it moves: `make ci` reads it on
+# every local run and the two named Actions jobs read it on every push, so a
+# regression in any of the three suites now fails the local gate instead of
+# surfacing after the phase has been presented.
+#
+# Scope: `DOCS-08` (Phase 16) owns the full "`make ci` composes the three
+# suites" requirement. This target discharges the part Phase 17 needs to make
+# its own gate honest and does not claim `DOCS-08`.
+gate-tools: ## Run the tools/ suites CI runs that `testpaths` excludes from `make test`
+	$(ENV_DOCS) $(PYTHON) -m pytest tools/lints/tests -q
+	$(ENV_DOCS) $(PYTHON) -m pytest tools/publish_scan_tests tools/docs_tests -q
 
 example-00: ## Run examples/00-quickstart (reference backends, D-13)
 	$(ENV) $(PYTHON) examples/00-quickstart/run.py
@@ -118,12 +216,18 @@ example-08: ## Run examples/08-e2e-demo (deterministic; --live is opt-in and nev
 example-ext-00: ## Run examples/external/00-hello-context — all legs deterministic via replay server
 	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py
 
-# `s1-01` leads deliberately: it is the smallest and the fastest, so a break in
-# the reference example fails the aggregate before ten minutes of the rest.
-# Adding it here CHANGES WHAT `make ci` RUNS, which is the intended effect and
-# not a side effect — the example was documented as CI-covered and was not
-# (DI-15.5-02).
-examples: example-s1-01 example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 ## Run all eleven examples in order, stopping on first failure
+# `s1-01` LED THIS LIST AND NO LONGER DOES (plan 16-05). Its
+# `artifacts/manifest.yaml` now declares a networked substrate, and ROADMAP
+# criterion 4 puts that substrate among the four opt-in databases while `D-06`
+# keeps always-on CI deterministic and network-free. An `examples` job that ran
+# the target would need a service container — a third option `D-06` did not
+# authorize — so the target moved down beside the container-gated legs.
+#
+# The example is still exercised in CI, by `make leg-fluree`:
+# `tests/examples/test_s1_01_output.py` boots it, and the three gates that need
+# no substrate (agent-free AST guard, spine separation, artifact headers) still
+# run on this leg.
+examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 ## Run the ten network-free examples in order, stopping on first failure
 
 # Container-gated substrate legs (DI-15.2-04, D-GATE-15.2). These reproduce the
 # ci.yml service-container steps command-for-command, so a developer runs a leg
@@ -166,6 +270,51 @@ leg-mongo: ## MongoDB leg against a real server — staged aggregation pushdown 
 leg-fluree: ## Fluree leg against a real server — Cypher pushdown byte-identical to the fallback (plan 15.3)
 	$(ENV) CCF_REQUIRE_FLUREE=1 CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
 		$(PYTHON) -m pytest tests -q -m fluree -rs
+
+# Section 1's reference example, run as a program rather than as a test — which
+# is what a newcomer does first and what the phase's blocking checkpoint reads.
+# It lives here rather than in `examples:` above because its manifest declares a
+# networked substrate; see that target's comment. No new variable: the default
+# is the one the four legs already share.
+example-s1-01: ## Run examples/s1-01-hello-context-product (three declared questions; needs a Fluree server)
+	$(ENV) CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
+		$(PYTHON) examples/s1-01-hello-context-product/run.py
+
+# HW-1 — the first example a newcomer runs. Same reasoning as `example-s1-01`
+# above for why it is NOT in the `examples:` aggregate: it declares a networked
+# substrate. It needs no server of its own, though — `scenario/provision.py`
+# starts a postgres:16 container when CCF_TEST_POSTGRES_DSN is unset, so the
+# default path needs Docker and nothing else. MIN_REVENUE is OPTIONAL: the
+# threshold is a REQUEST parameter, not deployment configuration, and a build
+# tool is not a request channel. Omitted, `consume.py` asks the demonstration
+# question in `scenario/question.yaml`. The contract still requires the
+# parameter — a request without one is refused with `missing-required-parameter`
+# below this CLI (test_a_missing_threshold_is_refused_not_defaulted).
+example-s1-00: ## Run examples/s1-00-companies-over-revenue (MIN_REVENUE=<n> optional; needs Docker or CCF_TEST_POSTGRES_DSN)
+	$(ENV) CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN) \
+		$(PYTHON) examples/s1-00-companies-over-revenue/consume.py \
+		$(if $(MIN_REVENUE),--min-revenue $(MIN_REVENUE))
+
+# HW-1 — the first example a newcomer reads. NOT in the `examples:` aggregate
+# and NOT in any workflow: it needs a populated deployment, the always-on
+# pipeline is network-free, and `live-legs.yml`'s three jobs are all
+# `runs-on: ubuntu-latest` with no database secrets. A red check nobody can
+# make green is worse than no check. See the example's README.
+#
+# THIS TARGET DELIBERATELY DOES NOT USE $(PYTHON) OR $(ENV), and that is the
+# one place in this file where spelling the interpreter is correct rather than
+# sloppy. The README documents this exact string for a reader to type, and
+# `$(PYTHON)` is not a string anybody can type; `which python` returns nothing
+# in this repository, so a documented bare `python` would not run either.
+# `tests/examples/test_client_example_purity.py` asserts the recipe below and
+# the README's command block are character-identical. Please do not "fix" this
+# back into a variable — it silently breaks that assertion's whole point.
+#
+# No MIN_REVENUE variable: a threshold is a REQUEST parameter and a build tool
+# is not a request channel (the s1-00 ruling, D-18).
+.PHONY: example-hw1
+example-hw1: ## Run examples/hw1-companies-over-revenue (needs a populated deployment; never CI)
+	CCF_BINDING="inprocess:examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
 
 # The Phase 15.3 permitted-change-surface gate and its `tools/gates/` package
 # were RETIRED by plan 15.4-07, in the same commit that registered the two
@@ -326,14 +475,23 @@ surface-changes: ## Assemble docs/SURFACE-CHANGES.md from the per-plan fragments
 # under docs/surface/examples/before/. Criterion 1's report is a re-measurement
 # by this same tool, never a re-estimate. `removable` (mechanical wiring) and
 # `relocatable` (assertions/prints D-09 moves to tests/) are separate figures
-# and are never summed. The audit assertion lives in the always-on `test` job
-# (tests/examples/test_surface_audit.py).
+# and are never summed. **There is no standing audit assertion over this
+# measurement any more.** This comment named
+# `tests/examples/test_surface_audit.py` in the always-on `test` job. That
+# module shipped in plan 15-03 and was deleted in commit 2c52b5f (plan 16-01)
+# without this sentence being updated, so the comment has been pointing a
+# reader at a gate that has not existed since. Corrected rather than deleted
+# so the absence is legible: the only standing gate over the examples tree's
+# retirement surface is `tools/docs_tests/test_retirement_sweep.py`, which
+# asserts coupling ownership, not surface line counts. Measured by plan 17-08.
 #
 # `measure-examples` writes the after/ side, which is what the eight example
 # rewrite plans need. The before/ baseline is deliberately NOT reachable from
 # a make target: it is written once at phase start and rewriting it mid-phase
-# destroys the comparison. Use `python tools/measure_examples.py --baseline`
-# if you genuinely mean to re-freeze it. Pass ONLY=<path prefix> to restrict a
+# destroys the comparison. Use `$(PYTHON) tools/measure_examples.py --baseline`
+# if you genuinely mean to re-freeze it — there is no bare `python` on PATH,
+# so the previously-written spelling exits non-zero unconditionally
+# (`D-IMPL-143`, `docs/DECISIONS.md`). Pass ONLY=<path prefix> to restrict a
 # run to one example so parallel worktrees do not overwrite each other.
 measure-examples: ## Re-measure examples/ mechanical surface into after/ (ONLY=<prefix> to narrow)
 	$(ENV) $(PYTHON) tools/measure_examples.py $(if $(ONLY),--only $(ONLY),)

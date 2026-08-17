@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The caller's own vocabulary — read-side, so NOT in `ccf_config.yaml`.
+# A question is not a permission and has no business in replay dimension 2.
+# The threshold is deliberately absent from `declaration`: it is not part of
+# the question's IDENTITY. The caller supplies it per request, and the product
+# is assembled against it at that moment — two thresholds are two products with
+# two content addresses (`tests/examples/test_s1_00_output.py::test_two_thresholds_are_two_products`).
+semver: "1.0.0"
+class_id: hw1.question
+declaration:
+  subject: http://example.org/hw1/companies
+  intent: revenue-screening
+  freshness: as-of-boundary
+
+# What the DEMONSTRATION caller asks, so `make example-s1-00` runs with no
+# arguments. This is scenario material in exactly the sense `D-IMPL-131` means
+# — the same category as the rows `provision.py` fabricates — and it is NOT
+# part of `declaration` above, because a demonstration's choice of number is
+# not part of the question's identity either.
+#
+# It does not weaken the contract. `revenue_threshold` stays required, and a
+# request omitting it is refused at the door with `missing-required-parameter`
+# before anything is assembled — asserted below the CLI, against the request
+# layer, by `test_a_missing_threshold_is_refused_not_defaulted`. Pass
+# `--min-revenue` (or `MIN_REVENUE=`) to ask a different question.
+demonstration:
+  revenue_threshold: 1000000000

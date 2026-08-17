@@ -441,16 +441,160 @@ def test_shape_4_the_indirect_execution_is_detected(tmp_path: pathlib.Path) -> N
     assert row.owner == next(e.owner for e in RETIREMENT_SCHEDULE if e.path == WAVE_10)
 
 
-def test_all_four_no_path_token_shapes_are_present_at_head() -> None:
-    """Each shape has at least one measured instance in the checked-in tree."""
-    shapes = {row.shape for row in head().rows}
-    for shape in (
+#: No-path-token shapes with at least one measured instance in the checked-in
+#: tree. Three of the four; the fourth is below with its reason.
+HEAD_PRESENT_SHAPES: tuple[str, ...] = (
+    SHAPE_COUNT_CONSTANT,
+    SHAPE_COUNT_SCAN_FUNCTION,
+    SHAPE_INDIRECT_EXECUTION,
+)
+
+#: No-path-token shapes with **no** instance at HEAD, each with the measurement
+#: that put it here. A shape in this map is still exercised — by the synthetic
+#: fixtures that build the shape under `tmp_path` — so it is unexercised
+#: *against the real tree* rather than unexercised.
+HEAD_ABSENT_SHAPES: dict[str, str] = {
+    SHAPE_INLINE_TREE_WITNESS: (
+        "the one instance this shape had —"
+        " `test_gate_two_call_shape.py::test_the_plan_recognition_refuses_an_"
+        "unrelated_required_keyword` — was sustained solely by"
+        " `examples/03-harness-portability`, and plan 17-09 added"
+        " `examples/hw1-companies-over-revenue`, a SECOND witness that nothing"
+        " retires. The scan therefore has headroom and is no longer a coupling."
+        " Measured both ways: parking the new example restores the row, and"
+        " restoring it dissolves the row again."
+    ),
+}
+
+
+#: The four shapes that carry no path token, which is what makes each of them
+#: need a detector rather than a `git grep`.
+NO_PATH_TOKEN_SHAPES: frozenset[str] = frozenset(
+    {
         SHAPE_COUNT_CONSTANT,
         SHAPE_COUNT_SCAN_FUNCTION,
         SHAPE_INLINE_TREE_WITNESS,
         SHAPE_INDIRECT_EXECUTION,
-    ):
-        assert shape in shapes, f"no `{shape}` row at HEAD"
+    }
+)
+
+
+def shape_accounting_problems(
+    shapes_at_head: set[str],
+    *,
+    present: tuple[str, ...],
+    absent: dict[str, str],
+) -> list[str]:
+    """Every way the shape accounting fails to account for something.
+
+    **A function of its inputs**, so the controls below can hand it a violating
+    census and watch it refuse. An assertion that can only ever be handed the
+    passing tree is an assertion nobody has watched fail — the discipline this
+    phase's fifteen example-gate controls already follow.
+    """
+    problems: list[str] = []
+    overlap = set(present) & set(absent)
+    if overlap:
+        problems.append(
+            f"listed as both present and absent at HEAD: {sorted(overlap)}"
+        )
+    unaccounted = NO_PATH_TOKEN_SHAPES - set(present) - set(absent)
+    if unaccounted:
+        problems.append(
+            f"no-path-token shapes in neither set, so nothing accounts for"
+            f" them: {sorted(unaccounted)}"
+        )
+    stray = (set(present) | set(absent)) - NO_PATH_TOKEN_SHAPES
+    if stray:
+        problems.append(f"accounted shapes that carry a path token: {sorted(stray)}")
+    for shape in present:
+        if shape not in shapes_at_head:
+            problems.append(
+                f"no `{shape}` row at HEAD, but it is recorded as present — the"
+                " detector is now unexercised against the real tree. Move it to"
+                " HEAD_ABSENT_SHAPES with the measurement that put it there."
+            )
+    for shape, reason in absent.items():
+        if shape in shapes_at_head:
+            problems.append(
+                f"`{shape}` has a row at HEAD again, but it is recorded as"
+                f" absent: {reason} Move it to HEAD_PRESENT_SHAPES and restore"
+                " the row's own assertion — a returning coupling is news."
+            )
+    return problems
+
+
+def test_every_no_path_token_shape_is_accounted_for_at_head() -> None:
+    """Each shape either has a HEAD instance or is recorded as having none.
+
+    **The accounting is the assertion, and it is what the old form could not
+    say.** This used to require all four shapes at HEAD, which was true when it
+    was written and stopped being true the moment a coupling *dissolved* — the
+    outcome the whole retirement inventory exists to produce. A gate that goes
+    red when its subject improves teaches the reader to edit the gate, so it is
+    restated: every shape is in exactly one of two named sets, and moving one
+    between them is a visible edit with a reason attached.
+
+    Nothing here is weakened. Both directions are refused — a shape recorded as
+    present that has no HEAD row, and a shape recorded as absent that has one —
+    so the set of shapes the real tree exercises can neither shrink nor grow
+    without an edit somebody makes on purpose.
+    """
+    problems = shape_accounting_problems(
+        {row.shape for row in head().rows},
+        present=HEAD_PRESENT_SHAPES,
+        absent=HEAD_ABSENT_SHAPES,
+    )
+    assert not problems, "; ".join(problems)
+
+
+@pytest.mark.parametrize(
+    ("label", "census", "present", "absent"),
+    [
+        (
+            "a shape recorded present with no HEAD row",
+            {SHAPE_COUNT_CONSTANT},
+            (SHAPE_COUNT_CONSTANT, SHAPE_INDIRECT_EXECUTION),
+            {SHAPE_COUNT_SCAN_FUNCTION: "r", SHAPE_INLINE_TREE_WITNESS: "r"},
+        ),
+        (
+            "a shape recorded absent that reappeared at HEAD",
+            NO_PATH_TOKEN_SHAPES,
+            (SHAPE_COUNT_CONSTANT, SHAPE_COUNT_SCAN_FUNCTION, SHAPE_INDIRECT_EXECUTION),
+            {SHAPE_INLINE_TREE_WITNESS: "r"},
+        ),
+        (
+            "a shape in neither set",
+            NO_PATH_TOKEN_SHAPES,
+            (SHAPE_COUNT_CONSTANT,),
+            {SHAPE_COUNT_SCAN_FUNCTION: "r"},
+        ),
+        (
+            "a shape in both sets",
+            NO_PATH_TOKEN_SHAPES,
+            tuple(sorted(NO_PATH_TOKEN_SHAPES)),
+            {SHAPE_INLINE_TREE_WITNESS: "r"},
+        ),
+        (
+            "an EMPTY census — the vacuity case",
+            set(),
+            HEAD_PRESENT_SHAPES,
+            HEAD_ABSENT_SHAPES,
+        ),
+    ],
+)
+def test_the_shape_accounting_refuses_a_violating_census(
+    label: str, census: set[str], present: tuple[str, ...], absent: dict[str, str]
+) -> None:
+    """Control: the shipped checker, fed a census that does not add up.
+
+    The last case is the one that matters most. A sweep returning **no rows at
+    all** — a broken walk, a moved tree — would satisfy an "is this shape
+    absent?" check for every shape, and a gate built only from absence claims
+    would report green over a detector that measured nothing.
+    """
+    problems = shape_accounting_problems(census, present=present, absent=absent)
+    assert problems, label
 
 
 def test_the_head_indirect_execution_row_names_its_intermediate() -> None:
@@ -473,30 +617,194 @@ def test_the_head_indirect_execution_row_names_its_intermediate() -> None:
     )
 
 
-def test_the_head_inline_tree_witness_row_is_owned_three_waves_early() -> None:
-    """The `n = 1` row belongs to wave 8, not to the wave-11 re-flooring plan."""
-    rows = [row for row in head().rows if row.shape == SHAPE_INLINE_TREE_WITNESS]
-    assert len(rows) == 1
-    row = rows[0]
-    assert row.file == "tests/products/test_gate_two_call_shape.py"
-    assert row.witnesses == "1"
-    assert row.owner == next(e.owner for e in RETIREMENT_SCHEDULE if e.path == WAVE_8)
+#: The module that carried the one `inline-tree-witness` row, and the scanning
+#: assertion inside it that the row was filed against. Named so the test below
+#: can tell *the coupling dissolved* from *the subject was deleted* — two very
+#: different reasons for a detector to return nothing, and only one of them is
+#: good news.
+INLINE_WITNESS_SUBJECT_FILE = "tests/products/test_gate_two_call_shape.py"
+INLINE_WITNESS_SUBJECT_TEST = (
+    "def test_the_plan_recognition_refuses_an_unrelated_required_keyword"
+)
+
+
+def test_the_inline_tree_witness_coupling_dissolved_rather_than_vanished() -> None:
+    """The row is gone because the scan gained headroom — not because it did.
+
+    **Replaces an assertion whose subject no longer exists.** The `n = 1` row
+    used to be pinned here to wave 8's owner. Plan 17-09 added a second example
+    under `examples/`, nothing retires it, and the scan it witnesses is
+    therefore no longer sustained solely by a retiring path. That is a coupling
+    being *retired by the tree improving*, which the inventory should record
+    rather than resist.
+
+    Three separate reasons a detector returns nothing, and only the first is
+    acceptable — so all three are distinguished here rather than collapsed into
+    an empty-list check:
+
+    1. The coupling dissolved. Asserted by the subject still being present and
+       the detector still working (see below).
+    2. The subject was deleted. Refused: the module and the scanning assertion
+       are both asserted to still exist.
+    3. The detector broke. Refused: `test_shape_3_produces_a_row` builds the
+       shape under `tmp_path` and asserts exactly one row with the right path,
+       witness count and owner, so the detector is exercised whether or not
+       HEAD carries an instance.
+
+    If the row returns, `test_every_no_path_token_shape_is_accounted_for_at_head`
+    goes red and says to restore the ownership assertion this replaced.
+    """
+    problems = dissolution_problems(
+        [row for row in head().rows if row.shape == SHAPE_INLINE_TREE_WITNESS],
+        subject_exists=(REPO_ROOT / INLINE_WITNESS_SUBJECT_FILE).is_file(),
+        subject_source=_subject_source(),
+    )
+    assert not problems, "; ".join(problems)
+
+
+def _subject_source() -> str:
+    subject = REPO_ROOT / INLINE_WITNESS_SUBJECT_FILE
+    return subject.read_text(encoding="utf-8") if subject.is_file() else ""
+
+
+def dissolution_problems(
+    rows: list[Coupling], *, subject_exists: bool, subject_source: str
+) -> list[str]:
+    """Every way "the coupling dissolved" fails to be the true explanation.
+
+    A function of its three inputs so the controls can feed it each of the bad
+    explanations in turn. Empty return means *dissolved*; anything else names
+    which of the other two happened.
+    """
+    problems: list[str] = []
+    if rows:
+        problems.append(
+            "the inline-tree-witness coupling is back; restore the wave-8"
+            f" ownership assertion this test replaced. Rows: {rows}"
+        )
+    if not subject_exists:
+        problems.append(
+            f"{INLINE_WITNESS_SUBJECT_FILE} is gone, so an empty row set says"
+            " nothing about headroom — the subject was DELETED instead"
+        )
+    elif INLINE_WITNESS_SUBJECT_TEST not in subject_source:
+        problems.append(
+            f"{INLINE_WITNESS_SUBJECT_FILE} no longer carries the scanning"
+            " assertion the row was filed against, so the detector returning"
+            " nothing is a DELETION rather than the headroom claimed here"
+        )
+    return problems
+
+
+@pytest.mark.parametrize(
+    ("label", "rows", "exists", "source"),
+    [
+        (
+            "the subject module was deleted",
+            [],
+            False,
+            "",
+        ),
+        (
+            "the scanning assertion was deleted from a surviving module",
+            [],
+            True,
+            "def test_something_else() -> None: ...",
+        ),
+        (
+            "an EMPTY source — the vacuity case",
+            [],
+            True,
+            "",
+        ),
+    ],
+)
+def test_the_dissolution_check_refuses_a_deletion(
+    label: str, rows: list[Coupling], exists: bool, source: str
+) -> None:
+    """Control: a detector returning nothing because its subject went away.
+
+    This is the whole reason the check is three conditions rather than
+    ``assert rows == []``. An empty row list is what a dissolved coupling looks
+    like AND what a deleted subject looks like AND what a broken detector looks
+    like; only the first is the good news this test claims.
+    """
+    problems = dissolution_problems(
+        rows, subject_exists=exists, subject_source=source
+    )
+    assert problems, label
+
+
+def test_the_dissolution_check_refuses_a_returning_coupling() -> None:
+    """Control: the row coming back is refused even with the subject intact."""
+    returned = [row for row in head().rows if row.file == INLINE_WITNESS_SUBJECT_FILE][:1]
+    assert returned, "the subject module carries no rows to build the control from"
+    problems = dissolution_problems(
+        returned, subject_exists=True, subject_source=_subject_source()
+    )
+    assert problems and "coupling is back" in problems[0], problems
 
 
 def test_the_gate_two_module_carries_rows_with_two_different_owners() -> None:
-    """The count rows and the inline row are owned by different plans.
+    """Ownership is per ROW, not per file.
 
-    A report that gave the whole module one owner would hand the wave-8 plan
-    a red build it had no notice of.
+    A report that gave the whole module one owner would hand a plan a red build
+    it had no notice of — that is the claim, and it is a claim about the sweep's
+    ownership resolution rather than about any particular pair of shapes.
+
+    **Asserted over the module's whole row set**, which is the honest scope for
+    it. The previous form filtered to the two count shapes plus the inline one,
+    and drew its second owner from the inline row; with that coupling dissolved
+    every remaining *count* row in this module belongs to one plan, and
+    narrowing the claim to fit would have been the gate being edited to pass.
+    The module's rows still carry four distinct owners, and the property the
+    docstring names — one file, several owners — is what is asserted.
     """
-    rows = [
-        row
-        for row in head().rows
-        if row.file == "tests/products/test_gate_two_call_shape.py"
-        and row.shape
-        in {SHAPE_COUNT_CONSTANT, SHAPE_COUNT_SCAN_FUNCTION, SHAPE_INLINE_TREE_WITNESS}
-    ]
-    assert len({row.owner for row in rows}) >= 2
+    problems = per_row_ownership_problems(
+        [row for row in head().rows if row.file == INLINE_WITNESS_SUBJECT_FILE]
+    )
+    assert not problems, "; ".join(problems)
+
+
+def per_row_ownership_problems(rows: list[Coupling]) -> list[str]:
+    """Whether ``rows`` demonstrate per-row rather than per-file ownership.
+
+    **Empty input is a problem, not a pass.** A module with no rows cannot
+    demonstrate anything about ownership, and a filter that silently stopped
+    matching would otherwise make this report green while measuring nothing —
+    the failure mode this whole phase has been finding.
+    """
+    if not rows:
+        return [
+            f"{INLINE_WITNESS_SUBJECT_FILE} carries no coupling rows at all, so"
+            " nothing here demonstrates per-row ownership"
+        ]
+    owners = {row.owner for row in rows}
+    if len(owners) < 2:
+        return [
+            "every coupling row in one module resolved to a single owner, which"
+            " is what a per-file ownership rule would produce and a per-row one"
+            f" would not: {sorted(owners)}"
+        ]
+    return []
+
+
+def test_the_ownership_check_refuses_a_single_owner_and_an_empty_set() -> None:
+    """Control: both ways the ownership claim can be unearned.
+
+    The empty case is the vacuity control — a filter matching nothing would
+    make the shipped assertion pass over an empty list forever.
+    """
+    rows = [row for row in head().rows if row.file == INLINE_WITNESS_SUBJECT_FILE]
+    assert rows, "no rows to build the single-owner control from"
+
+    one_owner = [row for row in rows if row.owner == rows[0].owner]
+    assert per_row_ownership_problems(one_owner), (
+        "a row set with one distinct owner was accepted as demonstrating"
+        " per-row ownership"
+    )
+    empty = per_row_ownership_problems([])
+    assert empty and "no coupling rows at all" in empty[0], empty
 
 
 # ---------------------------------------------------------------------------

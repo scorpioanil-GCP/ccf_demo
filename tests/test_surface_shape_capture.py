@@ -424,6 +424,83 @@ def test_every_moved_name_is_a_call_protocol_or_a_type_alias(
     assert not misfits, misfits
 
 
+#: ``class``/``function``-kind entries whose shape legitimately moved *after*
+#: this module was written, each mapped to the surface-change fragment that
+#: records why.
+#:
+#: This is a **named** allowance, in the spirit of the ``contract``-kind
+#: exclusion below rather than a widening of it, and it is not a dumping
+#: ground: :func:`test_no_committed_plain_class_or_function_shape_is_disturbed`
+#: requires each entry here to be claimed by name in the fragment it cites, so
+#: an unexplained shape move still fails. The surface machinery's own gates
+#: (``tests/test_surface_completeness.py``) independently require a matching
+#: ``reshaped`` entry for the same name.
+#:
+#: Why it exists at all: this module's audit claim — *the shapes that moved
+#: moved because the tool can now see them, not because anything about them
+#: changed* — was written inside Phase 15.6, where no plan was permitted to
+#: reshape a signature. `D-IMPL-96` (Dave, 2026-08-10) revoked that wording for
+#: Phase 16 *"precisely so Phase 16 could repair defects it finds"*, and
+#: `D-IMPL-126` item (3) is the first such repair to move a plain class's
+#: ``__init__``. The claim is therefore amended in reach rather than withdrawn:
+#: every *unlisted* shape must still read identically.
+_SHAPE_MOVED_BY_FRAGMENT = {
+    "ccf_runtime.http_api.dependencies.ApiDependencies": (
+        "16-22-consumption-papercuts.md"
+    ),
+    # D-IMPL-126 item (5): the egress builder gained two keyword-only
+    # arguments, both defaulting closed, that register an opt-in
+    # parameterised Tool beside the unchanged resource. A signature widened
+    # by additive, defaulted parameters is exactly the case this allowance
+    # was written for — every existing call site reads identically, and the
+    # fragment claims the name as `reshaped`.
+    "ccf_runtime.mcp.egress.build_egress_server": (
+        "16-23-mcp-product-tool.md"
+    ),
+    # D-IMPL-128 limb 1: the experience builder gained two keyword-only
+    # arguments, `entitled_product_class` and `lineage_tenant`, both
+    # defaulting to `None` and both required conditionally on exposure. The
+    # same additive-and-defaulted case as its egress sibling above — every
+    # existing call site reads identically at the signature — with the
+    # difference that a deployment exposing either gated consumption tool now
+    # has to supply the declared address the entitlement decides against, and
+    # the fragment says so under Adopter migration. It claims the name as
+    # `reshaped`.
+    "ccf_runtime.mcp.experience.build_experience_server": (
+        "16-24-experience-door-entitlement.md"
+    ),
+    # D-IMPL-135: `ProductDiscovery` gained a fourth axis, `audiences`,
+    # defaulted and additive. `ProductDiscovery` is itself a `contract`-kind
+    # export, so its own shape move is invisible to this check (the loop
+    # above skips every entry whose kind is not `class` or `function`) — but
+    # `register_product_class`'s keyword-only `discovery` parameter defaults
+    # to `NOT_DISCOVERABLE`, and this function's captured shape is
+    # `str(inspect.signature(obj))`, which renders a default argument's own
+    # `repr()` inline. The axis's move therefore surfaces transitively, here,
+    # on the one function whose default carries the sentinel — every
+    # existing call site that does not pass `discovery=` still receives the
+    # same value, unchanged; only the sentinel's printed representation grew
+    # a field. Measured rather than assumed (`D-IMPL-138`(c)): `pytest -k
+    # surface` was the arbiter, and it caught the move here, not on
+    # `ProductDiscovery`.
+    "ccf.products.contract.register_product_class": (
+        "16-27-discovery-audiences.md"
+    ),
+    # `D-IMPL-141` (RESOLVED, Dave, 2026-08-16). `BindingDocument` went from
+    # four fields — three of them `<module>:<attribute>` reference strings — to
+    # the data the SDK builds a resolver from plus **one** reference, `plan:`.
+    # This is not an additive widening like its neighbours above and the entry
+    # does not pretend otherwise: fields were removed, and every consumer of
+    # `document.resolver` or `document.question` had to change. It is listed
+    # here because the shape genuinely moved and the fragment records why, in
+    # full, under `reshaped` — the allowance's contract is *claimed by name in
+    # the fragment it cites*, not *changed only additively*.
+    "ccf.client.adapters.binding_document.BindingDocument": (
+        "17-12-binding-document-data-only.md"
+    ),
+}
+
+
 def test_no_committed_plain_class_or_function_shape_is_disturbed() -> None:
     """Regression over what is actually committed, not over a fixture.
 
@@ -438,6 +515,11 @@ def test_no_committed_plain_class_or_function_shape_is_disturbed() -> None:
     and left the regeneration to this plan. Those are genuine Track B moves
     with their own fragments, so a contract difference here is expected; a
     ``class`` or ``function`` difference would not be.
+
+    **Entries in :data:`_SHAPE_MOVED_BY_FRAGMENT` are excluded too**, and each
+    must earn it: the fragment it names must exist and must claim the name. See
+    that constant for why the original claim needed amending in Phase 16 and
+    for what it still asserts about every other entry.
     """
     import importlib
     import typing
@@ -468,7 +550,19 @@ def test_no_committed_plain_class_or_function_shape_is_disturbed() -> None:
             differing.append(name)
 
     assert checked >= 200, checked
-    assert not differing, differing
+
+    # The named allowance, and the price of being on it: the fragment cited
+    # must exist and must claim the name. An entry added here without a
+    # fragment fails, which is what keeps this from becoming a mute list.
+    fragments = _REPO_ROOT / "docs" / "surface-changes"
+    for allowed, fragment in _SHAPE_MOVED_BY_FRAGMENT.items():
+        path = fragments / fragment
+        assert path.is_file(), path
+        assert allowed in path.read_text(encoding="utf-8"), (allowed, fragment)
+
+    assert not [
+        name for name in differing if name not in _SHAPE_MOVED_BY_FRAGMENT
+    ], differing
 
 
 # --- 5. An export whose value is None is not a resolution failure ----------

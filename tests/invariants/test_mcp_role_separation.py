@@ -557,9 +557,36 @@ RUNTIME_ROOT = Path(__file__).resolve().parents[2] / "runtime" / "ccf_runtime"
 #: unchanged because the *role-separation* claim is unchanged — these are still
 #: the two seams, still in two modules, still importing neither each other nor
 #: a sibling. Nothing in this file is relaxed to accommodate the widening.
+#: Widened in **membership** by plan ``17-06``: ``ServedProductResolverProtocol``
+#: joins the set. It is the third resolver seam, declared in ``src/`` under
+#: ``D-29`` (Amendment 1 §B) while the first two are ``runtime/``-resident — so
+#: this set is a **vocabulary of resolver seams**, not a list of runtime doors,
+#: and the two must not be conflated. The tree a walk covers is the walk's
+#: argument; what counts as a seam is this.
 PRODUCT_RESOLVER_PROTOCOLS: frozenset[str] = frozenset(
-    {"ProductResolverProtocol", "ExperienceProductResolverProtocol"}
+    {
+        "ProductResolverProtocol",
+        "ExperienceProductResolverProtocol",
+        "ServedProductResolverProtocol",
+    }
 )
+
+#: The ``src/``-resident product doors, and the standing record of an exemption.
+#:
+#: ``ccf.client.adapters.inprocess`` serves a Context Product with **no
+#: principal entitlement check**, by ruling: the client surface exposes no
+#: principal in v0 (``D-IMPL-129``, the v0 not-list), so there is no principal
+#: for a door to entitle. That is a decision, and this tuple is where it is
+#: recorded so a later reader can check it rather than infer it.
+#:
+#: Deliberately **not** merged into :data:`PRODUCT_DOOR_MODULES`: the two tests
+#: parameterized over that tuple assert runtime-door properties this door does
+#: not have and is not meant to have, and the discovery test beside them closes
+#: over ``RUNTIME_ROOT`` alone. Adding this module there would fail all three
+#: for the wrong reason. The equality below is what makes this an exemption of
+#: exactly **one** — a second ungoverned product door under ``src/ccf/client/``
+#: turns that test red in the same commit that adds it.
+CLIENT_PRODUCT_DOOR_MODULES: tuple[str, ...] = ("ccf.client.adapters.inprocess",)
 
 #: The two arguments a widened resolver seam must carry (``D-IMPL-108``), with
 #: the annotation each must carry, keyed by the module that defines the seam.
@@ -579,31 +606,90 @@ REQUIRED_RESOLVER_ARGUMENTS: tuple[tuple[str, str], ...] = (
 def _calls_a_product_resolver(tree: ast.AST) -> bool:
     """Whether this module *invokes* a product-resolver seam.
 
-    Two shapes, both drawn from what the three shipped doors actually do: a
-    parameter annotated with one of the resolver Protocols and then called,
-    or an attribute named ``product_resolver`` called on a dependency bundle.
-    Holding a seam is not serving through it — which is why
-    ``dependencies.py`` (a dataclass field) and ``cli/local.py`` (a keyword
-    argument) are correctly not doors.
+    **Three** shapes now, each drawn from what a shipped door actually does
+    rather than from what a door might hypothetically do:
+
+    1. a **parameter** annotated with one of the resolver Protocols, then
+       called — the two MCP doors and the HTTP route;
+    2. an attribute literally named ``product_resolver``, called on a
+       dependency bundle — the same three, reached through ``ApiDependencies``;
+    3. an **annotated assignment** whose annotation names a resolver Protocol,
+       then called by that name — added by plan ``17-06`` for
+       ``ccf.client.adapters.inprocess``, which holds
+       ``_resolver: ServedProductResolverProtocol`` as a class-body annotation
+       and calls ``self._resolver(...)``.
+
+    Shape 3 is required rather than convenient, and the reason is worth stating
+    where the code is: the client adapter obtains its resolver from a
+    ``binding.yaml`` factory and checks it with ``isinstance``, so there is no
+    annotated *parameter* anywhere in that module and no attribute named
+    ``product_resolver``. **Without shape 3, a walk over ``src/ccf/client/``
+    discovers the empty set** — and an equality against an empty discovered set
+    is a gate that passes while checking nothing, which is precisely the
+    failure this module was built to be immune to. The adapter's half of that
+    contract is pinned at the adapter, by
+    ``tests/client/test_inprocess_adapter.py::test_the_adapter_holds_its_resolver_in_an_annotated_attribute``,
+    because a detector reshaped after the fact to match whatever landed proves
+    nothing.
+
+    **Holding a seam is still not serving through it.** All three shapes
+    require a *call*, which is why ``dependencies.py`` (a dataclass field) and
+    ``cli/local.py`` (a keyword argument) remain correctly absent, and why a
+    module that annotates a resolver and never invokes it is not a door.
     """
     seam_names: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.arg) and node.annotation is not None:
-            annotation = ast.unparse(node.annotation)
-            if any(
-                protocol in annotation
-                for protocol in PRODUCT_RESOLVER_PROTOCOLS
-            ):
-                seam_names.add(node.arg)
+        annotation: ast.expr | None = None
+        name: str | None = None
+        if isinstance(node, ast.arg):
+            annotation, name = node.annotation, node.arg
+        elif isinstance(node, ast.AnnAssign) and isinstance(
+            node.target, ast.Name
+        ):
+            annotation, name = node.annotation, node.target.id
+        if annotation is None or name is None:
+            continue
+        unparsed = ast.unparse(annotation)
+        if any(protocol in unparsed for protocol in PRODUCT_RESOLVER_PROTOCOLS):
+            seam_names.add(name)
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         func = node.func
         if isinstance(func, ast.Name) and func.id in seam_names:
             return True
-        if isinstance(func, ast.Attribute) and func.attr == "product_resolver":
+        if isinstance(func, ast.Attribute) and (
+            func.attr == "product_resolver" or func.attr in seam_names
+        ):
             return True
     return False
+
+
+def _discover_product_doors(root: Path, package: str) -> set[str]:
+    """Every module under ``root`` that serves a Context Product.
+
+    **Takes its root as a parameter**, and that is the whole reason this is a
+    function rather than a comprehension inlined in one test. A discovery walk
+    pinned to a fixed path cannot be sabotaged without editing the real tree and
+    reverting, which leaves nothing behind and proves nothing on any later run.
+    Parameterized, a control writes a second resolver-calling module into a
+    ``tmp_path`` tree and calls **this same function** on it.
+
+    Raises:
+        AssertionError: ``root`` does not exist, or holds no ``.py`` files at
+            all. A walk that returns the empty set because it walked nothing is
+            indistinguishable from a tree with no doors, and the second is the
+            answer this function exists to give. Failing loudly on the first is
+            what keeps every equality below non-vacuous.
+    """
+    assert root.is_dir(), f"discovery root does not exist: {root}"
+    modules = sorted(root.rglob("*.py"))
+    assert modules, f"discovery root holds no Python modules: {root}"
+    return {
+        _module_name_for(path, root, package)
+        for path in modules
+        if _calls_a_product_resolver(ast.parse(path.read_text(encoding="utf-8")))
+    }
 
 
 def _module_name_for(path: Path, root: Path, package: str) -> str:
@@ -782,13 +868,7 @@ def test_the_product_door_table_is_exhaustive_over_the_runtime_tree() -> None:
     ``ApiDependencies`` bundle and the CLI's local composition are correctly
     absent.
     """
-    discovered = {
-        _module_name_for(path, RUNTIME_ROOT, "ccf_runtime")
-        for path in sorted(RUNTIME_ROOT.rglob("*.py"))
-        if _calls_a_product_resolver(
-            ast.parse(path.read_text(encoding="utf-8"))
-        )
-    }
+    discovered = _discover_product_doors(RUNTIME_ROOT, "ccf_runtime")
 
     assert discovered == set(PRODUCT_DOOR_MODULES), (
         "the declared product-door table disagrees with the runtime tree;"
@@ -796,6 +876,196 @@ def test_the_product_door_table_is_exhaustive_over_the_runtime_tree() -> None:
         f" discovered={sorted(discovered)} — a door added without an entry"
         " would otherwise ship ungated (T-15.5-21b)"
     )
+
+
+# --- CLNT-19: the in-process client door, and the one exemption it carries ---
+#
+# Plan `17-06`. The client seam serves a Context Product with no principal
+# entitlement check, by ruling (`D-IMPL-129`, the v0 not-list). The gate built
+# in 15.5 so that *"a fourth door fails the suite"* walked `runtime/` only, so
+# it would have stayed green while exactly the thing it exists to catch shipped
+# in `src/`. It now walks the client tree too, with the exemption **named,
+# asserted, and singular**.
+#
+# The positive assertion comes first on purpose. Every equality below is
+# vacuous if the detector cannot see the adapter at all, and a walk that
+# discovers the empty set satisfies an equality against an empty declared tuple
+# — which is the Phase 15.1 Gate 2 shape and the single most likely way this
+# ships broken.
+
+CLIENT_ROOT = SRC_ROOT / "ccf" / "client"
+
+
+def test_the_detector_sees_the_in_process_adapter() -> None:
+    """The positive assertion, before any equality — and it is the load-bearing one.
+
+    If ``_calls_a_product_resolver`` cannot see the real adapter, everything
+    below passes over an empty set and this file resumes protecting nothing
+    while reporting green. That is not hypothetical: the adapter obtains its
+    resolver from a ``binding.yaml`` factory and checks it with ``isinstance``,
+    so it has no annotated *parameter* and no attribute named
+    ``product_resolver`` — the two shapes this detector matched before plan
+    ``17-06`` widened it.
+    """
+    import ccf.client.adapters.inprocess as adapter
+
+    tree = ast.parse(inspect.getsource(adapter))
+
+    assert _calls_a_product_resolver(tree) is True, (
+        "the product-door detector does not see"
+        " ccf.client.adapters.inprocess, so the exhaustiveness equality below"
+        " would close over the empty set and this gate would protect nothing"
+    )
+
+
+def test_the_client_tree_holds_exactly_the_named_unentitled_door() -> None:
+    """`CLNT-19`. One exemption, recorded — and a second one fails here.
+
+    Equality rather than membership, for the reason the runtime table beside it
+    uses equality: a hand-listed one that never checks it *is* one is how a
+    second ungoverned door ships. ``make ci-core`` reads this every run, so the
+    day a second product-serving module appears under ``src/ccf/client/``, this
+    test goes red in the same commit that adds it.
+    """
+    discovered = _discover_product_doors(CLIENT_ROOT, "ccf.client")
+
+    assert discovered, (
+        "the client tree discovered no product door at all — the walk found"
+        " nothing to check, which is a broken detector rather than a clean tree"
+    )
+    assert discovered == set(CLIENT_PRODUCT_DOOR_MODULES), (
+        "the declared client product-door table disagrees with the tree;"
+        f" declared={sorted(CLIENT_PRODUCT_DOOR_MODULES)}"
+        f" discovered={sorted(discovered)}. This door serves with no principal"
+        " entitlement check by ruling (D-IMPL-129); a SECOND one doing so is"
+        " not covered by that ruling and needs its own"
+    )
+
+
+def test_the_client_door_is_not_in_the_runtime_door_table() -> None:
+    """The two tables stay two, and the reason is not tidiness.
+
+    ``PRODUCT_DOOR_MODULES`` is parameterized by two tests asserting properties
+    the client adapter deliberately does not have — that each door reaches
+    ``entitled_perspective`` and sits behind authentication — and the runtime
+    discovery test closes over ``RUNTIME_ROOT`` alone. Merging the tables would
+    fail all three for the wrong reason, and "the wrong reason" is how a real
+    finding gets muted by an unrelated red.
+    """
+    assert not set(CLIENT_PRODUCT_DOOR_MODULES) & set(PRODUCT_DOOR_MODULES)
+    assert all(name.startswith("ccf_runtime.") for name in PRODUCT_DOOR_MODULES)
+    assert all(
+        name.startswith("ccf.client.") for name in CLIENT_PRODUCT_DOOR_MODULES
+    )
+
+
+# --- the controls: the discovery walk must be able to fail ------------------
+
+
+def _write_module(root: Path, name: str, body: str) -> None:
+    """Plant a module in a throwaway tree the real walk will then read."""
+    path = root / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(body, encoding="utf-8")
+
+
+def test_control_a_second_calling_door_is_discovered(tmp_path: Path) -> None:
+    """Control 1: a second module that *calls* an annotated seam is found.
+
+    Passed into the **real** :func:`_discover_product_doors` rather than into a
+    re-implementation of it, so what is proven is that the shipped walk fires.
+    """
+    _write_module(tmp_path, "__init__.py", "")
+    _write_module(
+        tmp_path,
+        "intruder.py",
+        "from ccf.products.resolver import ServedProductResolverProtocol\n\n\n"
+        "class SecondDoor:\n"
+        "    _resolver: ServedProductResolverProtocol\n\n"
+        "    def serve(self):\n"
+        "        return self._resolver(tenant='t')\n",
+    )
+
+    discovered = _discover_product_doors(tmp_path, "fake")
+
+    assert "fake.intruder" in discovered
+    assert discovered != set(CLIENT_PRODUCT_DOOR_MODULES), (
+        "a second unentitled door did not break the exemption equality"
+    )
+
+
+def test_control_holding_a_seam_without_calling_it_is_not_a_door(
+    tmp_path: Path,
+) -> None:
+    """Control 2: the deliberate **non**-failure, and it is as load-bearing.
+
+    "Holding is not serving" is the property that keeps ``ApiDependencies`` off
+    the runtime table. A detector that flagged every module mentioning a
+    resolver Protocol would discover half the tree and the equality would fail
+    for reasons nobody could act on — so this control asserts the walk stays
+    quiet here, and a control that only ever proves a gate fires cannot catch
+    that.
+    """
+    _write_module(tmp_path, "__init__.py", "")
+    _write_module(
+        tmp_path,
+        "bystander.py",
+        "from ccf.products.resolver import ServedProductResolverProtocol\n\n\n"
+        "class Bundle:\n"
+        "    resolver: ServedProductResolverProtocol\n\n"
+        "    def hand_it_over(self):\n"
+        "        return self.resolver\n",
+    )
+
+    discovered = _discover_product_doors(tmp_path, "fake")
+
+    assert discovered == set(), (
+        "a module that merely holds a resolver was counted as serving through"
+        f" it: {sorted(discovered)}"
+    )
+
+
+def test_control_the_other_call_shape_is_also_discovered(tmp_path: Path) -> None:
+    """Control 3: a bare annotated local, called by name, is found too.
+
+    The adapter uses the attribute shape (``self._resolver(...)``). This proves
+    the widening covers the other spelling as well, so a later refactor of the
+    adapter from a field to a local does not silently take this door out of the
+    gate's view.
+    """
+    _write_module(tmp_path, "__init__.py", "")
+    _write_module(
+        tmp_path,
+        "local_shape.py",
+        "from ccf.products.resolver import ServedProductResolverProtocol\n\n\n"
+        "def serve(factory):\n"
+        "    resolver: ServedProductResolverProtocol = factory()\n"
+        "    return resolver(tenant='t')\n",
+    )
+
+    discovered = _discover_product_doors(tmp_path, "fake")
+
+    assert "fake.local_shape" in discovered
+
+
+def test_control_the_discovery_walk_refuses_an_empty_or_absent_root(
+    tmp_path: Path,
+) -> None:
+    """Control 4: the walk goes RED when it cannot walk, never quiet.
+
+    This is the control the other three do not cover, and the one this project
+    has been bitten by three times: a discovery gate whose subject moves,
+    disappears, or resolves to nothing does not report "no doors" — it reports
+    a passing equality against the empty set. Both failure modes raise here
+    instead.
+    """
+    with pytest.raises(AssertionError, match="does not exist"):
+        _discover_product_doors(tmp_path / "absent", "fake")
+
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    with pytest.raises(AssertionError, match="no Python modules"):
+        _discover_product_doors(empty, "fake")
 
 
 # --- DI-15.5-03: the perspective a door authorized is the one it forwards ---

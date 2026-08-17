@@ -221,6 +221,13 @@ SKIP_DIRS: frozenset[str] = frozenset(
     {
         "__pycache__",
         ".git",
+        # Agent worktrees hold a full copy of the tree. Walking them makes
+        # every basename resolve to N+1 paths, and an ambiguous basename is
+        # DROPPED from the sweep rather than checked -- so a live worktree
+        # silently turns this gate vacuous. Measured 2026-08-15 (DEF-17-04):
+        # six worktrees put seven entries under one basename and hid two real
+        # unanchored citations behind a green run.
+        ".claude",
         ".venv",
         "venv",
         "build",
@@ -346,7 +353,11 @@ def iter_scanned_files(base: pathlib.Path) -> Iterator[pathlib.Path]:
         for path in sorted(root.rglob("*")):
             if path.suffix not in SCANNED_SUFFIXES or not path.is_file():
                 continue
-            if any(part in SKIP_DIRS for part in path.parts):
+            # Relative to `base`, never the absolute path: a checkout whose own
+            # root sits inside a skipped directory -- an agent worktree under
+            # `.claude/` is the live case -- would otherwise match every file
+            # and walk NOTHING. Measured 2026-08-15 (DEF-17-06).
+            if any(part in SKIP_DIRS for part in path.relative_to(base).parts):
                 continue
             yield path
 
@@ -355,7 +366,11 @@ def repo_index(base: pathlib.Path) -> dict[str, list[str]]:
     """Map every repo file's basename to the repo-relative paths carrying it."""
     index: dict[str, list[str]] = {}
     for path in base.rglob("*"):
-        if any(part in SKIP_DIRS for part in path.parts) or not path.is_file():
+        # Relative to `base` -- see the note in `iter_scanned_files`.
+        if (
+            any(part in SKIP_DIRS for part in path.relative_to(base).parts)
+            or not path.is_file()
+        ):
             continue
         index.setdefault(path.name, []).append(path.relative_to(base).as_posix())
     return index

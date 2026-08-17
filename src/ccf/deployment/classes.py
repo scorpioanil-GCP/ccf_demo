@@ -85,6 +85,7 @@ from __future__ import annotations
 from ccf.agents.definitions import AGENT_DEFINITION, PROMPT_ARTIFACT, TASK_DEFINITION
 from ccf.controlplane.artifacts import (
     DEBT_PROFILE,
+    DEPLOYMENT_CONFIG,
     DEPLOYMENT_MANIFEST,
     HALF_LIFE_TABLE,
     OPERATOR_PARAMETERS_POLICY,
@@ -151,6 +152,12 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     # documents it compares.
     PROJECTION_REQUIREMENTS.class_id: PROJECTION_REQUIREMENTS,
     DEPLOYMENT_MANIFEST.class_id: DEPLOYMENT_MANIFEST,
+    # The single-file authoring document (D-IMPL-136). Manifest-addressable
+    # for the same reason every entry here is: a class the SDK ships that a
+    # manifest cannot name is a class no adopter can register — and, more
+    # immediately, because `tools/dump_schemas.py` enumerates this mapping
+    # and the committed schema it produces is what an adopter's editor reads.
+    DEPLOYMENT_CONFIG.class_id: DEPLOYMENT_CONFIG,
 }
 
 #: Every SDK-owned artifact class whose contract declares an ``artifact_version``

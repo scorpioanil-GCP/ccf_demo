@@ -1,0 +1,76 @@
+# Hand-authored, committed transcription of the deployment
+# examples/s1-00-companies-over-revenue/artifacts/config/ expresses across its
+# ten documents (manifest.yaml, backends.yaml, and eight artifact documents) —
+# into the single `ccf_config.yaml` form (`D-IMPL-136`).
+#
+# Transcribed by hand from the committed multi-file documents, not derived
+# from them at test time (`tests/examples/test_s1_00_config_equivalence.py`,
+# plan 16-30). Deriving this file from the example at test time would make
+# the test read the same bytes twice and prove the loader agrees with itself
+# rather than that two independently authored forms agree — which is the
+# whole claim half B exists to prove. `examples/` is read-only reference
+# material for this whole plan set (Dave's dual-model ruling, 2026-08-14) and
+# is never written to.
+#
+# A drift signal, deliberately: if HW-1's committed documents are edited
+# later and this fixture is not updated to match, the equivalence test goes
+# red and names which artifact diverged. That is the intended behaviour — do
+# not "fix" it by deriving this file from the example.
+semver: "1.0.0"
+tenant_id: hw1-demo
+backend: postgres
+
+product_class:
+  schema_name: hw1.companies-over-revenue
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: hw1/product/companies-over-revenue/max-ttl
+  required_operator_keys: [temporal.as-of-boundary]
+
+operators:
+  temporal.as-of-boundary:
+    require_valid_at_boundary: true
+
+request_contract:
+  # D-IMPL-138(a): three bookkeeping lines on an adopter-owned section.
+  class_id: hw1.request-contract
+  role: load
+  registration: typed
+  schema_name: hw1.companies-over-revenue
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      revenue_threshold:
+        type: number
+        description: Return companies whose revenue exceeds this amount.
+    required: [revenue_threshold]
+
+resolution:
+  entity_rules:
+    - match_key: company_ref
+      entity_class: company
+      identity_keys: [company_ref]
+      attribute_keys: [company_name, company_revenue]
+
+half_life:
+  company:
+    half_life_seconds: 31536000
+    decay_driver: the annual revenue reporting cycle
+    supersession_event: a newer filing restating the same company's revenue
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.20"
+  fail_closed_threshold: "0.60"
+
+policy:
+  # D-IMPL-138(a): three bookkeeping lines on an adopter-owned section.
+  class_id: hw1.policy-bundle
+  role: register
+  registration: typed
+  regime: published-annual-revenue-disclosure
+
+default_perspective:
+  principal_id: revenue-screening-desk-1
+  role: analyst

@@ -68,16 +68,45 @@ live in :mod:`ccf_runtime.authz.product_entitlement` — one definition of
 owns, because the role-separation invariant forbids the doors importing each
 other.
 
+**Two surfaces, and what distinguishes them (``D-IMPL-126``; this extends
+``D-IMPL-108`` rather than contradicting it).** The resource answers *the
+class's standing answer*: three path segments, no query surface, and therefore
+``request=None`` — which is the ruled shape and does not move. The opt-in tool
+answers *a question*: the same three address segments plus whitepaper §6.3's
+four axes (``subject``, ``intent``, ``freshness``, ``asked_at``), assembled at
+the door into a :class:`~ccf.products.request.ProductRequest` before the
+resolver is reached. The two are deliberately non-overlapping, and the
+standing-answer case is the resource rather than a four-``None`` tool call.
+
+The tool exists because a resource-only door cannot refute the reading that a
+Context Product is a precalculated static object: which question gets answered
+is entirely the server's choice when the caller has no way to ask one. It is
+**opt-in** (:paramref:`build_egress_server.expose_product_tool`) because a
+deployment that reviewed and approved a resource-only door must not acquire a
+parameterised authorization surface it never assessed merely by upgrading —
+deny-by-default, this module's stated posture, applied to exposure.
+
+**The tool is not the weaker path, and that is structural.** It runs the same
+:func:`~ccf_runtime.authz.product_entitlement.verified_grant` then
+:func:`~ccf_runtime.authz.product_entitlement.entitled_perspective` sequence
+with the identical arguments the resource passes, ``requested_role=None``
+included; it **binds and forwards** the perspective that call returned rather
+than re-deriving one (``DI-15.5-03``, below, is exactly that defect); it takes
+no ``role`` parameter, so it is narrower than the resource beside it rather
+than wider; and it addresses its request from its own path arguments, so a
+request aimed at another class is unrepresentable rather than merely refused.
+
 Server name, bind address, tenant identifiers, product-class names, principal
-identifiers, role names, and token values are all deployment values supplied
-by the caller or carried on the wire. This module holds none of them
-(CINV-01).
+identifiers, role names, tool prose, and token values are all deployment
+values supplied by the caller or carried on the wire. This module holds none
+of them (CINV-01).
 
 Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 from mcp.server.auth.provider import TokenVerifier
@@ -98,8 +127,10 @@ from ccf_runtime.authz.product_entitlement import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "PRODUCT_REQUEST_TOOL",
     "PRODUCT_URI_SCHEME",
     "PRODUCT_URI_TEMPLATE",
+    "NaiveAskedAtRefused",
     "ProductNotServable",
     "ProductResolverProtocol",
     "build_egress_server",
@@ -120,6 +151,32 @@ PRODUCT_URI_TEMPLATE = (
 #: Media type of the served body. The product is canonical JSON, and saying so
 #: is what lets a consumer parse it without sniffing.
 PRODUCT_MIME_TYPE = "application/json"
+
+#: The one parameterised Tool this server can expose, named here rather than
+#: at each use site for the reason :func:`product_uri` exists: the server, the
+#: tests and the docs must agree what the surface *is* rather than each
+#: spelling it, which is how two of them drift. Registered only when a
+#: deployment opts in (:func:`build_egress_server`).
+PRODUCT_REQUEST_TOOL = "request_context_product"
+
+
+class NaiveAskedAtRefused(ValueError):
+    """``asked_at`` was presented to the product tool without a UTC offset.
+
+    Refused at the boundary rather than passed on, on the
+    :class:`~ccf_runtime.mcp.hitl_server.NaiveActionTimeRefused` precedent
+    (D-IMPL-38): :class:`~ccf.products.request.ProductRequest` *accepts* a
+    naive instant and the failure surfaces **later**, inside
+    :func:`~ccf.contracts.canonical.canonical_bytes`, which would turn a
+    client's malformed argument into an opaque server error and an unpinnable
+    replay record — ``asked_at`` is the boundary a replay resolves against, so
+    a replay must never have to guess which wall the caller's clock hung on.
+
+    A named ``ValueError`` subclass rather than a bare one, so a deployment
+    can catch *this* refusal, and rather than a typed ``ERROR_*`` code because
+    it is a malformed argument and not a governance decision — the same line
+    ``NaiveActionTimeRefused`` sits on, and not an inconsistency with D-08.
+    """
 
 
 class ProductNotServable(LookupError):
@@ -259,6 +316,8 @@ def build_egress_server(
     auth_settings: AuthSettings,
     entitlement_source: ProductEntitlementSourceProtocol,
     perspective_resolver: PerspectiveResolverProtocol,
+    expose_product_tool: bool = False,
+    product_tool_description: str | None = None,
 ) -> FastMCP:
     """Build the authenticated, entitled L6 egress server over ``resolver``.
 
@@ -282,6 +341,18 @@ def build_egress_server(
     governance, and an optional seam would make deny-by-default a
     deployment's choice. There is no inert configuration of this builder.
 
+    **The parameterised tool is opt-in, and it takes two arguments rather
+    than one** (``D-IMPL-126``). ``expose_product_tool`` defaults to ``False``
+    and ``product_tool_description`` to ``None``; either without the other
+    raises, in the ``D-03`` *requiredness is conditional on exposure* voice
+    :func:`~ccf_runtime.mcp.experience.build_experience_server` already uses.
+    Two arguments because *is this door open?* must be answerable by grepping
+    for a boolean rather than inferred from whether a prose string happened
+    to be supplied — a security surface is stated, never implied. Unlike the
+    Experience server this module ships **no** default description constant:
+    the prose an adopter's consumers read is a deployment value and not the
+    SDK's to write (CINV-01; CLAUDE.md §6.4).
+
     Args:
         server_name: The name this server advertises. Deployment identity; the
             SDK holds no default for it.
@@ -299,7 +370,20 @@ def build_egress_server(
             surface's URI carries three segments and no role among them, so
             the resolver is called with ``requested_role=None`` and derives
             the role from the verified grant; whatever it proposes is checked
-            against the principal's grant before anything is served.
+            against the principal's grant before anything is served. The
+            tool is on the identical footing: it carries no ``role``
+            parameter either, so it is never wider than the resource.
+        expose_product_tool: Whether to register
+            :data:`PRODUCT_REQUEST_TOOL`. ``False`` by default, so an
+            existing deployment that upgrades and changes nothing gains no
+            new door.
+        product_tool_description: The prose that tool advertises. A
+            deployment value (CINV-01); required exactly when
+            ``expose_product_tool`` is ``True``.
+
+    Raises:
+        ValueError: ``expose_product_tool`` and ``product_tool_description``
+            were not supplied together (D-03).
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
@@ -307,6 +391,17 @@ def build_egress_server(
         library that picked an interface would be picking an exposure surface
         (T-06-14).
     """
+    if expose_product_tool != (product_tool_description is not None):
+        raise ValueError(
+            "expose_product_tool and product_tool_description are supplied"
+            " together or not at all: a tool exposed with no prose advertises"
+            " nothing a consumer can read, and prose with no exposure is a"
+            " description of a door that is not open. Requiredness is"
+            " conditional on exposure (D-03), and the boolean is what makes"
+            " 'is this door open?' answerable without inferring it from"
+            " whether a string was supplied"
+        )
+
     server = FastMCP(
         server_name,
         stateless_http=True,
@@ -368,5 +463,137 @@ def build_egress_server(
             request=None,
         )
         return canonical_bytes(servable.product).decode("utf-8")
+
+    if expose_product_tool:
+
+        @server.tool(
+            name=PRODUCT_REQUEST_TOOL, description=product_tool_description
+        )
+        def request_context_product(
+            tenant: str,
+            product_class: str,
+            version: str,
+            subject: str,
+            intent: str,
+            freshness: str,
+            asked_at: datetime,
+        ) -> str:
+            """Serve the product that answers **this** question, as canonical JSON.
+
+            The second surface of this door (``D-IMPL-126``, extending
+            ``D-IMPL-108``). The resource beside it answers the class's
+            standing answer; this answers a question, and the question is
+            whitepaper §6.3's four axes — ``subject``, ``intent``,
+            ``freshness``, ``asked_at`` — carried alongside the same three
+            address segments the resource URI carries, so both surfaces
+            address a product identically.
+
+            **All four axes are required, deliberately.** The HTTP door
+            refuses a *some-but-not-all* address because query parameters are
+            individually omittable; a Tool's input schema can require them,
+            which makes a partial address **unrepresentable** rather than
+            refused — strictly stronger, and the same property that door
+            already achieves for ``schema_name``. A caller wanting the
+            class's standing answer reads the resource; it is not a call to
+            this tool with four ``None``s, because there is no such call.
+
+            **There is no ``role`` parameter.** The resource passes
+            ``requested_role=None`` and lets the deployment's resolver derive
+            the role from the verified grant; this does the same. A ``role``
+            argument here would give the tool a wider surface than the
+            resource beside it, which is the one thing a second door must
+            never be.
+
+            **The order below is the security property**, in
+            :func:`~ccf_runtime.authz.product_entitlement
+            .entitled_perspective`'s own phrasing, and it is the *identical*
+            order and the identical call the resource makes:
+
+            1. A timezone-naive ``asked_at`` is refused first, before any
+               governance is consulted, because it is a malformed argument
+               rather than a decision about a caller —
+               :class:`NaiveAskedAtRefused`, on the
+               :class:`~ccf_runtime.mcp.hitl_server.NaiveActionTimeRefused`
+               precedent (D-IMPL-38).
+            2. :func:`~ccf_runtime.authz.product_entitlement.verified_grant`
+               reads the in-flight verified identity. That it is readable
+               inside a **tool** handler is shipped fact, not assumption:
+               ``hitl_server.py``'s authority tool does exactly this.
+            3. :func:`~ccf_runtime.authz.product_entitlement
+               .entitled_perspective` with the argument list the resource
+               passes, ``requested_role=None`` included.
+            4. **Its return value is bound and forwarded.** ``DI-15.5-03`` is
+               the recorded defect where this very door *resolved an entitled
+               perspective and then discarded it*; a new door that entitled
+               correctly and then constructed its own would reproduce it
+               exactly, and outcome parity against the resource would not
+               see the difference. Never re-derived, never reconstructed.
+
+            **The request's address is this door's, never the caller's.**
+            ``schema_name`` and ``schema_version`` are bound to the
+            ``product_class`` and ``version`` arguments *this handler already
+            resolved and already entitled*, never to separate client fields,
+            so a request addressed to another class cannot be expressed on
+            this surface at all — the ``http_api/routes/product.py``
+            property, transplanted.
+
+            ``parameters`` is the empty mapping for that route's recorded
+            reason: a flat tool-argument map cannot carry ``D-IMPL-103``'s
+            declared nested types without the door guessing at coercions, and
+            a declared-parameter surface here would make this tool wider than
+            the HTTP door. The measured consequence is worth stating plainly:
+            a product class whose request contract declares **any** required
+            parameter is not reachable through this tool, and a resolver
+            discharging its :func:`~ccf.products.request.refuse_request`
+            obligation will say so by name
+            (``missing-required-parameter``).
+
+            Nothing is added to the body's return: it is the *identical*
+            expression the resource returns, over the same vessel, so this
+            surface is not a second serialization and cannot surface anything
+            ``D-IMPL-119`` limb 3(b) or ``D-IMPL-124`` Shape B took off the
+            vessel — it inherits both by construction.
+
+            Raises:
+                NaiveAskedAtRefused: ``asked_at`` carries no UTC offset.
+                ProductEntitlementRefused: the caller is not entitled to this
+                    class, or not to the resolved role.
+                ProductNotServable: the resolver has no product there.
+            """
+            if (
+                asked_at.tzinfo is None
+                or asked_at.tzinfo.utcoffset(asked_at) is None
+            ):
+                raise NaiveAskedAtRefused(
+                    f"asked_at {asked_at.isoformat()!r} carries no UTC"
+                    " offset; the instant a question was asked as-of is the"
+                    " boundary a replay resolves against and cannot be"
+                    " ambiguous (D-IMPL-38)"
+                )
+            perspective = entitled_perspective(
+                grant=verified_grant(),
+                tenant=tenant,
+                product_class=product_class,
+                requested_role=None,
+                entitlement_source=entitlement_source,
+                perspective_resolver=perspective_resolver,
+            )
+            asked = ProductRequest(
+                schema_name=product_class,
+                schema_version=version,
+                subject=subject,
+                intent=intent,
+                freshness=freshness,
+                asked_at=asked_at,
+                parameters={},
+            )
+            servable = resolver(
+                tenant=tenant,
+                product_class=product_class,
+                version=version,
+                perspective=perspective,
+                request=asked,
+            )
+            return canonical_bytes(servable.product).decode("utf-8")
 
     return server

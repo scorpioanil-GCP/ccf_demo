@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.half-life-table.json
+# λ_c — how fast this deployment's one observation type goes stale.
+#
+# THIS IS THE DOCUMENT THAT TURNS `last_updated` INTO A NUMBER. One year,
+# because a revenue figure is restated on the annual reporting cycle. Change
+# this line and every D_c the example prints moves; that is the whole point of
+# a figure that is measured rather than constant.
+semver: "1.0.0"
+entries:
+  company:
+    half_life_seconds: 31536000
+    decay_driver: the annual revenue reporting cycle
+    supersession_event: a newer filing restating the same company's revenue

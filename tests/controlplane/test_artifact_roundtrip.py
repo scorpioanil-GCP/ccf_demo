@@ -36,6 +36,7 @@ from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifact_base import ArtifactClass
 from ccf.controlplane.artifacts import (
     DEBT_PROFILE,
+    DEPLOYMENT_CONFIG,
     DEPLOYMENT_MANIFEST,
     HALF_LIFE_TABLE,
     OPERATOR_PARAMETERS_POLICY,
@@ -294,6 +295,32 @@ CASES: tuple[_Case, ...] = (
             ],
         },
         unknown_keys=("postgres_dsn", "database_path"),
+    ),
+    _Case(
+        artifact_class=DEPLOYMENT_CONFIG,
+        # `D-IMPL-136`'s single-file authoring document (plan 16-28: the
+        # parse layer only — nothing here derives, registers, or boots).
+        # `backend_secrets` and `survivor_cap` are left at their defaults,
+        # exactly as `DEPLOYMENT_MANIFEST`'s own case above does, because
+        # the round-trip and hash-stability claims below do not depend on
+        # which optional field carries a value. `policy` is an
+        # adopter-owned, uninterpreted open mapping (design spec §14.3),
+        # carried here unread the same way `DEPLOYMENT_MANIFEST`'s fixture
+        # carries `fixture.policy-bundle`'s declaration unread.
+        document={
+            "semver": _SEMVER,
+            "tenant_id": "fixture-tenant",
+            "backend": "sqlite",
+            "product_class": {
+                "schema_name": "fixture-product",
+                "schema_version": "1.0.0",
+            },
+            "policy": {"regime": "fixture-regime"},
+        },
+        # Neither is a field of this contract at all — D-08's rule that no
+        # field of either document ever names a connection value, echoed
+        # here exactly as `DEPLOYMENT_MANIFEST`'s own case echoes it.
+        unknown_keys=("connection", "dsn"),
     ),
 )
 

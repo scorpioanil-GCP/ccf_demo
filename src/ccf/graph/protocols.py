@@ -310,7 +310,7 @@ class GraphQuery(CCFContract):
             never part of any operator's fragment. Refused without a
             traverse family.
         allowed_entities: The survivor set of the multi-segment design —
-            ``D-IMPL-87`` at docs/DECISIONS.md:290 — engine-authored
+            ``D-IMPL-87`` at docs/DECISIONS.md — engine-authored
             segment-boundary data, never an operator's contribution
             (``GQ-04`` at docs/GRAPH_QUERY_SEMANTICS.md:98). Its three
             values are three different facts. ``None`` is the positive

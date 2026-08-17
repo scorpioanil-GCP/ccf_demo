@@ -63,6 +63,8 @@ import shutil
 import subprocess
 from typing import Any
 
+import pytest
+
 from tools.assemble_surface_changes import parse_entries
 from tools.dump_surface import build_surface, diff_surfaces
 
@@ -108,6 +110,42 @@ def _partitions() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     public = [entry for entry in entries if entry["Public surface"]]
     non_public = [entry for entry in entries if not entry["Public surface"]]
     return public, non_public
+
+
+def short_lived_surfaces() -> set[str]:
+    """Names **born and buried inside** the frozen-baseline window.
+
+    A name a later plan added and a later-still plan removed appears in
+    **neither** side of ``diff(baseline, live)``: not in the baseline, because it
+    did not exist when the baseline was frozen, and not in the live surface,
+    because it is gone. The record is honest and complete — one fragment claims
+    ``added``, another claims ``removed`` — and the diff simply cannot see
+    either. ``17-06`` adding ``binding_document.ResolverCall`` and ``17-12``
+    removing it under ``D-IMPL-141``'s ruling is the first such pair.
+
+    **Derived, never listed.** A hand-maintained allowance list is a thing that
+    rots and a thing a later executor edits to silence a failure. This is
+    computed from the record itself, so the *pair of claims is the evidence*:
+    a name qualifies only when the log carries both directions for it, and
+    :func:`test_a_short_lived_name_is_absent_from_both_sides` then requires it to
+    be genuinely absent from both surfaces. A mislabelled entry — ``removed``
+    claimed for a name that is still live, or ``added`` for one that predates
+    the baseline — fails that test rather than being admitted here.
+
+    An empty result is the ordinary state and admits nothing.
+    """
+    public, _ = _partitions()
+    added = {
+        str(entry["Surface"])
+        for entry in public
+        if str(entry["Change type"]) == "added"
+    }
+    removed = {
+        str(entry["Surface"])
+        for entry in public
+        if str(entry["Change type"]) == "removed"
+    }
+    return added & removed
 
 
 # --- 1. Non-vacuity -------------------------------------------------------
@@ -215,6 +253,7 @@ def test_every_public_log_entry_has_a_matching_diff_line() -> None:
     difference = _diff()
     failures: list[str] = []
     public, _ = _partitions()
+    short_lived = short_lived_surfaces()
 
     for entry in public:
         change_type = str(entry["Change type"])
@@ -222,6 +261,8 @@ def test_every_public_log_entry_has_a_matching_diff_line() -> None:
             continue
         name = str(entry["Surface"])
         if change_type == "reshaped" and name in difference["added"]:
+            continue
+        if name in short_lived and change_type in {"added", "removed"}:
             continue
         if name not in difference[change_type]:
             elsewhere = [
@@ -240,6 +281,98 @@ def test_every_public_log_entry_has_a_matching_diff_line() -> None:
             )
 
     assert not failures, "\n".join(failures)
+
+
+def _exported_names(document: dict[str, Any]) -> set[str]:
+    """Every fully-qualified export a surface document records."""
+    return {
+        f"{module}.{name}"
+        for module, entry in document.items()
+        for name in entry["exports"]
+    }
+
+
+def assert_short_lived_names_are_absent_from_both_sides(names: set[str]) -> None:
+    """The check that makes :func:`short_lived_surfaces` an allowance, not a hole.
+
+    A name is admitted there only because the log claims it in **both**
+    directions. That claim is checkable against reality, and this checks it: a
+    genuinely short-lived name is in neither the frozen baseline nor the live
+    surface. If it is in the baseline it predates the window and the ``added``
+    claim is wrong; if it is live it was never removed and the ``removed`` claim
+    is wrong. Either way the pair is a mislabelling, and admitting it would have
+    let two wrong entries cancel each other out.
+
+    Takes ``names`` as a **parameter** so the control below can hand this
+    function a divergent subject and be watched failing. An assertion only ever
+    run against the one honest subject is an assertion nobody has seen work.
+    """
+    baseline: dict[str, Any] = json.loads(
+        _FROZEN_BASELINE.read_text(encoding="utf-8")
+    )
+    baseline_names = _exported_names(baseline)
+    live_names = _exported_names(build_surface())
+
+    offenders = [
+        f"{name} —{' in the frozen baseline' if name in baseline_names else ''}"
+        f"{' and' if name in baseline_names and name in live_names else ''}"
+        f"{' still in the live surface' if name in live_names else ''}"
+        for name in sorted(names)
+        if name in baseline_names or name in live_names
+    ]
+    assert not offenders, (
+        "these names are claimed both `added` and `removed` by the log, which"
+        " admits them from the diff cross-check — but they are not short-lived:"
+        f" {offenders}"
+    )
+
+
+def test_a_short_lived_name_is_absent_from_both_sides() -> None:
+    """The honest subject: every derived short-lived name is genuinely gone."""
+    assert_short_lived_names_are_absent_from_both_sides(short_lived_surfaces())
+
+
+def test_the_short_lived_check_fires_on_a_name_that_is_still_live() -> None:
+    """CONTROL — a name the log would claim gone while the tree still exports it.
+
+    Fed to the **shipped** assertion, not to a re-implementation of it. Without
+    this the allowance in
+    :func:`test_every_public_log_entry_has_a_matching_diff_line` would rest on a
+    check nobody had seen refuse anything.
+    """
+    live = sorted(_exported_names(build_surface()))
+    assert live, "the live surface is empty — this control has no subject"
+
+    with pytest.raises(AssertionError) as fired:
+        assert_short_lived_names_are_absent_from_both_sides({live[0]})
+
+    message = str(fired.value)
+    assert live[0] in message
+    assert "still in the live surface" in message
+
+
+def test_the_short_lived_check_fires_on_a_name_older_than_the_baseline() -> None:
+    """CONTROL — a name that predates the window, so its `added` claim is wrong."""
+    baseline: dict[str, Any] = json.loads(
+        _FROZEN_BASELINE.read_text(encoding="utf-8")
+    )
+    frozen = sorted(_exported_names(baseline))
+    assert frozen, "the frozen baseline is empty — this control has no subject"
+
+    with pytest.raises(AssertionError) as fired:
+        assert_short_lived_names_are_absent_from_both_sides({frozen[0]})
+
+    assert "in the frozen baseline" in str(fired.value)
+
+
+def test_the_short_lived_check_admits_nothing_on_an_empty_set() -> None:
+    """CONTROL — **the empty case**, stated rather than left to inference.
+
+    An empty set is the ordinary state once these names age out of the record,
+    and it must pass while admitting nothing. That is asserted here so a future
+    reader does not have to work out whether emptiness is safe.
+    """
+    assert_short_lived_names_are_absent_from_both_sides(set())
 
 
 # --- 4. Non-public entries are genuinely non-public ------------------------
@@ -327,6 +460,32 @@ def test_the_frozen_baseline_was_written_only_by_plan_15_01() -> None:
     """
     if shutil.which("git") is None:  # pragma: no cover - environment dependent
         return
+    # Ask git whether the history is shallow rather than INFERRING it from an
+    # empty log. A shallow clone does not return zero subjects — its grafted
+    # root appears to introduce every file in the tree, so `git log -- <path>`
+    # returns exactly ONE subject: HEAD's. The `if not subjects` guard below
+    # therefore never fired, and this assertion compared HEAD's own subject
+    # against "(15-01)" — unsatisfiable for every commit since that plan.
+    #
+    # It failed that way in CI on the first run that ever reached it
+    # (31970398090, 2026-08-16): `actions/checkout@v4` defaults to
+    # `fetch-depth: 1`, and the tests job had been dying at collection long
+    # before this test, so a check that could never pass stayed invisible.
+    # Reproduced with `git clone --depth 1`, which returns HEAD's subject here.
+    #
+    # The docstring's intent was already correct — skip where the history is
+    # shallow. Only the detection was a guess; this is git's own answer.
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if shallow.returncode != 0:  # pragma: no cover - environment dependent
+        return
+    if shallow.stdout.strip() == "true":  # pragma: no cover - shallow clone
+        return
     result = subprocess.run(
         [
             "git",
@@ -343,7 +502,7 @@ def test_the_frozen_baseline_was_written_only_by_plan_15_01() -> None:
     if result.returncode != 0:  # pragma: no cover - environment dependent
         return
     subjects = [line for line in result.stdout.splitlines() if line.strip()]
-    if not subjects:  # pragma: no cover - shallow clone
+    if not subjects:  # pragma: no cover - unborn or path-less history
         return
     foreign = [subject for subject in subjects if "(15-01)" not in subject]
     assert not foreign, (

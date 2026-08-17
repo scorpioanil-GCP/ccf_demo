@@ -180,8 +180,21 @@ jobs:
       - name: Install the out-of-tree demo adapter fixture
         run: python -m pip install -e ./tests/fixtures/ccf-demo-adapter
 
+      # Every pytest step below CALLS the Makefile target rather than restating
+      # its command. The Makefile header promises this file is mirrored
+      # "command-for-command"; restating was how that promise came to be false.
+      # A bare `pytest` console script does not put the cwd on sys.path the way
+      # `python -m pytest` does, and `tests/` has no top-level `__init__.py`, so
+      # `from tests.deployment.conftest import ...` and `from tools.dump_surface
+      # import ...` could not resolve: 13 collection errors, 144 deselected,
+      # ZERO tests run — red since at least 2026-08-10 while `make ci-core`
+      # stayed green locally, because the gates ran different commands
+      # (run 31967852661, diagnosed 2026-08-16).
+      #
+      # PYTHON=python because CI installs into the hosted interpreter and has no
+      # `.venv`; a command-line assignment overrides the Makefile's `PYTHON :=`.
       - name: Quick suite (no external substrates)
-        run: pytest tests -q -m "not postgres and not chroma and not neo4j and not mongo and not fluree" -rs
+        run: make PYTHON=python ci-quick-suite
 
       # The harness legs, asserted rather than assumed. `-rs` prints any skip;
       # `CCF_REQUIRE_HARNESSES` above turns one into a failure, so this step
@@ -189,21 +202,21 @@ jobs:
       # `continue-on-error`: per the I.1 D-07 precedent, a step made
       # non-blocking to hide a gap is worse than the gap.
       - name: Harness adapter conformance (all three legs must run)
-        run: pytest tests/conformance -q -rs
+        run: make PYTHON=python ci-harness-conformance
 
       # The same twelve GraphStore conformance semantics the quick suite runs
       # on SQLite, run again on the service container through the `postgres`
       # param of the `graph_backend` fixture (D-11/D-16). `-rs` surfaces any
       # skip in the log; CCF_REQUIRE_POSTGRES above makes one fail the job.
       - name: Postgres leg (service container)
-        run: pytest tests -q -m postgres -rs
+        run: make PYTHON=python leg-postgres
 
       # The substrate differential suite against a real graph-native engine
       # (plan 15.2-12): Cypher traversal held byte-identical to the audited
       # fallback, `allowed_entities` shapes included. `-rs` surfaces any
       # skip; CCF_REQUIRE_NEO4J above turns one into a failure.
       - name: Neo4j leg (service container)
-        run: pytest tests -q -m neo4j -rs
+        run: make PYTHON=python leg-neo4j
 
       # The substrate differential suite against a document store (plan
       # 15.2-13): the phase's hardest differential target, held byte-identical
@@ -211,7 +224,7 @@ jobs:
       # shapes included. `-rs` surfaces any skip; CCF_REQUIRE_MONGO above
       # turns one into a failure.
       - name: MongoDB leg (service container)
-        run: pytest tests -q -m mongo -rs
+        run: make PYTHON=python leg-mongo
 
       # The substrate differential suite against an RDF/JSON-LD engine (plan
       # 15.3): the stage-1 Cypher translation held byte-identical to the
@@ -223,11 +236,11 @@ jobs:
       # this substrate needs no extra (SUBQ-14 evidence, visible as an
       # absence).
       - name: Fluree leg (service container)
-        run: pytest tests -q -m fluree -rs
+        run: make PYTHON=python leg-fluree
 
       # Coverage is informational only — D-17 sets no numeric gate.
       - name: Coverage (informational)
-        run: pytest tests -q -m "not postgres and not chroma and not neo4j and not mongo and not fluree" --cov=ccf --cov-report=term
+        run: make PYTHON=python ci-coverage
 
   # The v0 examples suite is the adoption contract (CLAUDE.md §9): a broken
   # example is a broken build. Always-on per D-10 — the same `make examples`

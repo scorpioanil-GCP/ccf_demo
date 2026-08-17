@@ -22,7 +22,7 @@ from ccf.contracts.base import CCFContract
 from ccf.controlplane.registry import ControlPlaneMissing
 from ccf.workflow.factory import Workflow, WorkflowConstructionError
 from ccf_runtime.http_api.dependencies import ApiDependencies
-from ccf_runtime.http_api.routes import refusal_response
+from ccf_runtime.http_api.routes import _required_handle, refusal_response
 from ccf_runtime.workflow.engine import (
     WorkflowCompleted,
     WorkflowExceptionRouted,
@@ -61,8 +61,18 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     router = APIRouter()
 
     def _construct(definition_key: str, definition_version: str) -> Workflow:
+        # Narrowed once per body (D-IMPL-126 item (3)): a deployment that
+        # exposes no workflow invocation wired no factory, and this route
+        # refuses with a typed 503 naming the field rather than dereferencing
+        # `None`. `_construct` is the shared body both invoking routes reach
+        # the factory through, so one call here covers both.
+        factory = _required_handle(
+            deps.workflow_factory,
+            field="workflow_factory",
+            routes="workflow invocation or resumption",
+        )
         try:
-            return deps.workflow_factory.construct(
+            return factory.construct(
                 definition_key=definition_key,
                 definition_version=definition_version,
             )
@@ -87,7 +97,15 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         workflow = _construct(
             request.definition_key, request.definition_version
         )
-        outcome = await deps.workflow_engine.execute(
+        # Narrowed after the construction, not before: the refusals are read in
+        # the order the route needs the handles, so an operator wiring a
+        # workflow door is told about the factory before the engine.
+        engine = _required_handle(
+            deps.workflow_engine,
+            field="workflow_engine",
+            routes="workflow invocation",
+        )
+        outcome = await engine.execute(
             workflow, execution_id=request.execution_id
         )
         return _respond(outcome)
@@ -103,7 +121,12 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         workflow = _construct(
             request.definition_key, request.definition_version
         )
-        outcome = await deps.workflow_engine.resume(
+        engine = _required_handle(
+            deps.workflow_engine,
+            field="workflow_engine",
+            routes="workflow resumption",
+        )
+        outcome = await engine.resume(
             workflow,
             execution_id=request.execution_id,
             decision=request.decision,

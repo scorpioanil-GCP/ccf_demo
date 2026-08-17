@@ -24,6 +24,14 @@ Modules
   ``ccf.`` prefix reserved so no envelope may wear an SDK class name
   (D-IMPL-84), and the roles and registration paths the SDK fixes for the
   classes where it owns the answer (D-IMPL-80, D-IMPL-85).
+* :mod:`ccf.deployment.config` — the single-file `ccf_config.yaml` loader
+  (D-IMPL-134, D-IMPL-136). ``derive_deployment`` derives a
+  ``DeploymentManifest`` plus one materialised document per section from a
+  parsed ``DeploymentConfig``, pure: no file is read and nothing is
+  registered or booted. ``load_config_and_boot`` (`16-30`) is the front door
+  that reads a real ``ccf_config.yaml``, derives, and boots — the config
+  form's sibling to ``load_and_boot`` below, sharing its preflight and its
+  register loop rather than carrying copies of either.
 * :mod:`ccf.deployment.pins` — the plain ``(key, version, class_id)`` record a
   manifest load produces, with exactly one accessor and no binding-selection
   helpers.
@@ -115,6 +123,11 @@ from ccf.deployment.classes import (
     refuse_role_the_sdk_fixes,
     resolve_artifact_class,
 )
+from ccf.deployment.config import (
+    DerivedDeployment,
+    derive_deployment,
+    load_config_and_boot,
+)
 from ccf.deployment.manifest import BootedFabric, load_and_boot
 from ccf.deployment.operators import (
     SimilarityCorpusAttributeError,
@@ -131,12 +144,15 @@ __all__ = [
     "ArtifactPin",
     "BootedFabric",
     "DeploymentManifest",
+    "DerivedDeployment",
     "ManifestEntry",
     "ResolvedPins",
     "SimilarityCorpusAttributeError",
     "UnpinnedArtifactError",
     "build_operator_registry",
+    "derive_deployment",
     "load_and_boot",
+    "load_config_and_boot",
     "refuse_operator_set_divergence",
     "refuse_registration_the_sdk_fixes",
     "refuse_role_the_sdk_fixes",

@@ -39,6 +39,9 @@ process is ``booted.handle.worker``, and it never leaves ``spine.py``'s
 
 from __future__ import annotations
 
+import os
+import re
+import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -87,6 +90,12 @@ MANIFEST = EXAMPLE_DIR / "artifacts" / "manifest.yaml"
 #: write-side split ``source-estate.yaml`` already records (`D-04`).
 QUESTIONS = EXAMPLE_DIR / "artifacts" / "questions.yaml"
 
+#: How this deployment's connection settings are composed, per backend kind.
+#: Deliberately NOT in the manifest either, and for a second reason beyond
+#: `questions.yaml`'s: a connection is deployment ENVIRONMENT, and a
+#: content-hashed artifact is forever (threat `T-16-05-01`).
+BACKENDS = EXAMPLE_DIR / "artifacts" / "backends.yaml"
+
 # --- this deployment's artifact-key vocabulary -------------------------------
 # Every name below is a `key` in `artifacts/manifest.yaml`. They are literals
 # here on purpose: naming them is how a deployment says which of ITS documents
@@ -107,13 +116,33 @@ KEY_UBO_QUESTION = "ubo-question"
 #: rather than discovered, for the reason above.
 OPERATOR_KEYS = ("traversal", "temporal", "policy", "similarity")
 
-#: The Control Plane connection argument this deployment supplies at boot. The
-#: manifest declares the backend KIND; the value that reaches the substrate is
-#: this, and it is deliberately a caller-supplied path under a scratch root so
-#: that no location is ever written into a content-hashed artifact
-#: (threat T-16-05-01).
-CONNECTION_PATH_KEY = "database_path"
-DATABASE_FILENAME = "ubo.sqlite3"
+#: `artifacts/backends.yaml`'s own blocks — the connection PROFILE per backend
+#: kind. Deliberately not in the manifest, for `questions.yaml`'s reason: a
+#: connection is deployment environment, not Control Plane state.
+PROFILES = "profiles"
+PROFILE_SETTINGS = "settings"
+
+#: The three value sources a setting may name. MECHANISM, not substrate: the
+#: only branch in this module is over these three, and none of them knows what
+#: a backend kind is.
+SOURCE_FROM_ENV = "from_env"
+SOURCE_PER_RUN = "per_run"
+PER_RUN_IDENTIFIER = "identifier"
+PER_RUN_PATH = "path"
+SETTING_PREFIX = "prefix"
+SETTING_FILENAME = "filename"
+SETTING_REMEDY = "remedy"
+
+#: `manifest.yaml`'s one-line declaration of which kind is in force. Read with
+#: `yaml.safe_load` exactly as `_questions_document()` reads its own document;
+#: `ccf.deployment.__all__` exports no manifest parse function, and reaching
+#: past the package for a submodule would break the A-1 import convention.
+MANIFEST_BACKEND = "backend"
+
+#: The shape a minted per-run identifier has to have to be a name the graph can
+#: be written under. Mechanism: it constrains the identifier this module MINTS,
+#: and it names no substrate.
+IDENTIFIER_SHAPE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 # --- the roles the two deployment-authored documents play --------------------
 # Declaration keys, not values. Each one names a member of a `declaration:`
@@ -536,16 +565,135 @@ class UltimateBeneficialOwnershipPlan:
         )
 
 
-def connection(*, root: Path) -> Mapping[str, str]:
-    """Where the graph substrate lives, for this run.
+def _declared_kind() -> str:
+    """The one line in ``artifacts/manifest.yaml`` that names the substrate.
 
-    Supplied by the CALLER and never by the manifest. The manifest declares
-    the backend as a KIND (``backend: sqlite``); this is the only place a
-    location exists, and it is derived from a scratch root the caller
-    chose — so nothing that could identify a machine, a database or a
-    credential is ever content-hashed into the audit plane.
+    Raises:
+        FileNotFoundError: the manifest is absent. This module is an
+            interpreter and has nothing to interpret without it (CLAUDE.md
+            §6.4).
     """
-    return {CONNECTION_PATH_KEY: str(root / DATABASE_FILENAME)}
+    document = yaml.safe_load(MANIFEST.read_text(encoding="utf-8"))
+    return cast(str, document[MANIFEST_BACKEND])
+
+
+def _profile(kind: str) -> Mapping[str, Any]:
+    """The connection profile ``artifacts/backends.yaml`` declares for ``kind``.
+
+    Two refusals, each naming its remedy and neither offering a value. Neither
+    falls back to anything: the whole point of a declared kind is that a fabric
+    never guesses its own substrate, and a guess that succeeded would be a
+    development store answering a production question.
+    """
+    if not BACKENDS.is_file():
+        raise FileNotFoundError(
+            f"{BACKENDS} is missing. It is where this deployment says how its"
+            " connection settings are composed, and there is no default to"
+            " fall back to: the code is an interpreter and this document is"
+            " what it interprets (CLAUDE.md §6.4, the No-Hardcoding Rule)."
+        )
+    document = yaml.safe_load(BACKENDS.read_text(encoding="utf-8"))
+    declared = cast(
+        Mapping[str, Any], document["declaration"][PROFILES]
+    )
+    if kind not in declared:
+        raise KeyError(
+            f"artifacts/manifest.yaml declares `{MANIFEST_BACKEND}: {kind}` and"
+            f" {BACKENDS.name} declares no profile for it. Profiles it does"
+            f" declare: {sorted(declared)}. Add one there, or name one of those"
+            " in the manifest."
+        )
+    return cast(Mapping[str, Any], declared[kind][PROFILE_SETTINGS])
+
+
+def _from_environment(setting: str, source: Mapping[str, Any]) -> str:
+    """One setting's value, read from the environment variable it names.
+
+    The document holds the variable's NAME; the value never enters the tree.
+    An unset or empty variable is a REFUSAL and never a default — a fabric
+    that silently answered from somewhere other than where its operator
+    pointed it is the hazard :mod:`ccf.graph.registry` is written against.
+    The remedy is quoted from the document, so this module stays free of the
+    vocabulary of any particular substrate.
+    """
+    variable = source[SOURCE_FROM_ENV]
+    value = os.environ.get(variable, "")
+    if not value:
+        raise RuntimeError(
+            f"{variable} is unset; {source[SETTING_REMEDY]}. It supplies"
+            f" `{setting}`, which artifacts/backends.yaml declares this"
+            " deployment reads from the environment. There is no default and"
+            " no fallback to another backend kind."
+        )
+    return cast(str, value)
+
+
+def _per_run(setting: str, source: Mapping[str, Any], *, root: Path) -> str:
+    """One setting's value, minted fresh for this run.
+
+    Two rules, and the branch below is over THOSE — never over a backend kind.
+    An identifier gives each run its own graph inside a shared server; a path
+    gives each run its own file under the caller's own scratch root. They are
+    the same property expressed against two kinds of substrate, which is why
+    both are mechanism.
+    """
+    rule = source[SOURCE_PER_RUN]
+    if rule == PER_RUN_IDENTIFIER:
+        minted = f"{source[SETTING_PREFIX]}_{uuid.uuid4().hex}"
+        if not IDENTIFIER_SHAPE.fullmatch(minted):
+            raise ValueError(
+                f"the minted value for `{setting}` is {minted!r}, which is not"
+                f" the {IDENTIFIER_SHAPE.pattern} shape a graph name takes;"
+                f" the `{SETTING_PREFIX}` in artifacts/backends.yaml is what"
+                " decides it."
+            )
+        return minted
+    if rule == PER_RUN_PATH:
+        return str(root / source[SETTING_FILENAME])
+    raise ValueError(
+        f"`{setting}` names the per-run rule {rule!r}, which is not one this"
+        f" module interprets. Declared rules: {PER_RUN_IDENTIFIER},"
+        f" {PER_RUN_PATH}."
+    )
+
+
+def connection(*, root: Path) -> Mapping[str, str]:
+    """Where this run's graph lives — composed, never written down.
+
+    Supplied by the CALLER and never by the manifest. ``manifest.yaml``
+    declares the KIND; ``backends.yaml`` declares how that kind's settings are
+    composed; and every value below comes from the process environment or from
+    the caller's own scratch root. Nothing that could identify a machine, a
+    database or a credential is ever content-hashed into the audit plane
+    (threat ``T-16-05-01``).
+
+    **No substrate name and no branch keyed on one.** The only branch here is
+    over the three value SOURCES, which is what lets plan 16-07 add the
+    remaining four profiles to the document and change nothing in this file.
+
+    **A fresh value is minted PER CALL, which is per question.** ``ask_all``
+    calls this once per question, so the two isolations are complementary and
+    both are needed: the caller's scratch directory isolates the
+    **ArtifactStore**, and the per-run identifier isolates the **graph**.
+    Together they are what lets two replay records — and the query sequences
+    they pin — be compared side by side without either run having observed the
+    other. Before the substrate moved off per-question temp files, the scratch
+    directory did both jobs; on a shared server it can only do one.
+
+    **Repeated runs accumulate graphs on a shared server.** One CCF-owned
+    ledger is ``D-03``'s deliberate trade for a single lane, and a fresh
+    identifier per run is what buys isolation inside it. Stated here so an
+    operator watching a long-lived container is not surprised; discarding the
+    container discards them all.
+    """
+    return {
+        setting: (
+            _from_environment(setting, source)
+            if SOURCE_FROM_ENV in source
+            else _per_run(setting, source, root=root)
+        )
+        for setting, source in _profile(_declared_kind()).items()
+    }
 
 
 def _questions_document() -> Mapping[str, Any]:

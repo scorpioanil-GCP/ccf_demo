@@ -19,8 +19,8 @@ decision, and under what temporal requirement.
 Product was *configurable* rather than *callable*: its subject and its instant
 were literals authored in an artifact, so one product class answered one
 question about one company as of one frozen moment. That is the thing Chapter 1
-names CCF as replacing — the difference between the verb *aggregate* and the
-verb *assemble*. But the mechanism underneath it is correct and must not be
+names CCF as replacing — the distinction it draws between *aggregating* and
+*assembling*. But the mechanism underneath it is correct and must not be
 "fixed": **the caller supplying the instant is the design; the instant being a
 literal in a YAML file is the defect.**
 :meth:`~ccf.projection.engine.ProjectionEngine.execute` reads no clock
@@ -96,7 +96,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifact_base import ArtifactClass, VersionedArtifact
@@ -106,16 +106,43 @@ from ccf.products.contract import (
     ProductClassRegistrationError,
 )
 
-# `ccf.products.payload` and `ccf.skills.catalog` are imported at the BOTTOM of
-# this module, on the D-IMPL-56 pattern `ccf.skills.catalog` itself documents.
-# The reason is D-IMPL-111 limb (b): `ccf.replay.record` now names
-# :class:`ProductRequest` in dimension 5, and `ccf.skills.catalog` reaches
-# `ccf.agents.agent`, which reads two names out of `ccf.replay.record` — so
-# with those two imports at the top, first-import order would decide whether
-# the SDK imports at all. Deferring them makes :class:`ProductRequest` exist
-# before anything here can reach the replay plane, which closes the cycle in
-# both directions; the deferred annotations are resolved explicitly at the
-# bottom.
+# `ccf.skills.catalog` is imported at the BOTTOM of this module, on the
+# D-IMPL-56 pattern `ccf.skills.catalog` itself documents. The reason is
+# D-IMPL-111 limb (b): `ccf.replay.record` now names :class:`ProductRequest` in
+# dimension 5, and `ccf.skills.catalog` reaches `ccf.agents.agent`, which reads
+# two names out of `ccf.replay.record` — so with that import at the top,
+# first-import order would decide whether the SDK imports at all. Deferring it
+# makes :class:`ProductRequest` exist before anything here can reach the replay
+# plane; the deferred annotation is resolved explicitly at the bottom.
+#
+# `ccf.products.payload` is **not** imported at module scope at all — see the
+# TYPE_CHECKING block and :func:`refuse_request` below. That module reaches
+# `ccf.skills.catalog` at *its* top, so a module-scope edge from here back to
+# it closed a five-module cycle whose only safe entry point was this module:
+# `import ccf.products.payload` as the first import into the tree raised
+# ``ImportError`` (DEF-17-02). The edge is genuinely gone rather than reordered,
+# and `tests/invariants/test_cold_import.py` walks every `ccf.*` module in its
+# own cold subprocess to keep it gone.
+
+if TYPE_CHECKING:  # pragma: no cover - typing-only, and deliberately so
+    # *** THE IMPORT EDGE ALREADY RUNS THE OTHER WAY. ***
+    # `ccf.controlplane.artifacts:100` imports `NO_REQUEST_CONTRACT` from this
+    # module, so a module-level `from ccf.controlplane.artifacts import
+    # DeclaredArtifact` here fails at import time — not sometimes, always. This
+    # module carries `from __future__ import annotations`, so the annotation on
+    # `ProductRequestContract.from_declared` is a string at runtime and this
+    # import never executes. `tests/products/test_request_contract.py` imports
+    # the two modules in both orders to keep that true.
+    from ccf.controlplane.artifacts import DeclaredArtifact
+
+    # Typing-only for the same structural reason, and this one closed a cycle.
+    # :func:`_translate` names :class:`
+    # ~ccf.products.payload.PayloadSchemaViolation` in a parameter annotation
+    # and nowhere else; the module's `from __future__ import annotations` makes
+    # that a string, and `_translate` is a plain function rather than a
+    # contract, so nothing ever resolves it at runtime. The comparison itself
+    # is a *value*, so :func:`refuse_request` imports it at call time instead.
+    from ccf.products.payload import PayloadSchemaViolation
 
 __ccf_mode__ = "algorithmic"
 
@@ -268,6 +295,116 @@ class ProductRequestContract(VersionedArtifact):
     schema_name: str
     schema_version: str
     arguments: SkillArgumentSchema
+
+    @classmethod
+    def from_declared(cls, artifact: DeclaredArtifact) -> ProductRequestContract:
+        """Read a request contract out of the envelope a manifest returns.
+
+        SDK-defined per CLAUDE.md §11: ``D-IMPL-126`` item (1) (Dave,
+        2026-08-13). A deployment's request contract is authored in an adopter
+        namespace — ``fibo-kyc.request-contract``, not ``ccf.`` — so a manifest
+        resolves it to a
+        :class:`~ccf.controlplane.artifacts.DeclaredArtifact` and every adopter
+        was left hand-building the four fields out of ``.declaration``. One
+        named call replaces the transcription; the transcription is not wrong,
+        it is just something nobody should have to copy.
+
+        **This is a constructor, not a validator.** It performs no pin check
+        and claims none: :func:`refuse_request_contract_pin` and
+        :func:`~ccf.products.contract.register_product_class` remain the
+        comparisons that catch a contract pinned onto the wrong class or the
+        wrong lane, exactly as they were for the hand-build this replaces. A
+        reader must not mistake reaching a typed model for having governed it.
+
+        **Two other shapes were offered and neither was taken. Recorded here so
+        a later reader does not re-propose them as oversights.**
+
+        *Not taken: teaching the manifest loader to parse* ``class_id:
+        *.request-contract`` *into this type.* Three reasons, in order of
+        weight. A suffix pattern over ``class_id`` would have the SDK claim
+        ``*.request-contract`` across **every adopter namespace**, where
+        ``D-IMPL-84`` draws the SDK's ownership line at exactly one prefix,
+        ``ccf.``, and :mod:`ccf.deployment.classes`'s module docstring records
+        that the earlier wider reading *"was too wide"*. It is a silent
+        behavioural break with no version lane: a committed manifest naming
+        ``acme.request-contract`` resolves to a ``DeclaredArtifact`` today and
+        would resolve to this class tomorrow, changing what registers, what
+        pins, and what enters replay dimension 2. And
+        :func:`~ccf.deployment.classes.resolve_artifact_class` is a total
+        function with three exhaustive branches and no pattern matching; a
+        fourth branch keyed on adopter namespace *text* is the shape CINV-01
+        exists to keep out of ``src/``.
+
+        *Not taken: registering* :data:`PRODUCT_REQUEST_CONTRACT` *in*
+        :data:`~ccf.deployment.classes.SDK_VERSIONED_ARTIFACT_CLASSES` *so a
+        manifest could name* ``class_id: ccf.product-request-contract``. The
+        reasons are already committed at that constant's own definition below —
+        the first mapping is the set ``GET /schema`` and ``ccf schema export``
+        enumerate, and the second is closed to a contract declaring no
+        ``artifact_version``. It remains **available to a later ruling**; it is
+        not an oversight.
+
+        **Why a plain ``ValueError`` and not**
+        :class:`~ccf.controlplane.artifacts.ArtifactLoadError`. That name lives
+        in the module this one cannot import (see the ``TYPE_CHECKING`` block
+        at the head of this file), so reusing it would cost a function-local
+        import for nothing but a name — and a malformed declaration is a bad
+        *argument to this call*, which is what ``ValueError`` already says.
+
+        Args:
+            artifact: The envelope a manifest resolved. Its ``semver`` is the
+                **document's own lane** — how this declaration evolved — which
+                is not the product class's lane carried in
+                ``declaration["schema_version"]``. Two lanes, two things
+                versioned (D-IMPL-98).
+
+        Returns:
+            The typed contract, equal field-for-field to the hand-build it
+            replaces. ``tests/products/test_request_contract.py`` asserts that
+            equality against the committed
+            ``examples/s1-01-hello-context-product/artifacts/request-contract.yaml``
+            rather than against an inline copy of it.
+
+        Raises:
+            ValueError: the declaration is missing one or more of the three
+                keys, **named together in one message**. An adopter fixing a
+                declaration one ``KeyError`` at a time is the papercut this
+                method exists to close, so the exhaustive message is the
+                behaviour and not a nicety.
+        """
+        declaration = artifact.declaration
+        missing = tuple(
+            key for key in _DECLARATION_KEYS if key not in declaration
+        )
+        if missing:
+            raise ValueError(
+                f"the declared artifact {artifact.class_id!r} at lane "
+                f"{artifact.semver!r} is missing "
+                f"{list(missing)} and cannot be read as a request contract; a "
+                f"request contract declares {list(_DECLARATION_KEYS)} — every "
+                "missing key is named here rather than one per exception, so "
+                "the document is fixed in one pass (D-IMPL-98, D-IMPL-126)"
+            )
+        return cls(
+            semver=artifact.semver,
+            schema_name=declaration[_KEY_SCHEMA_NAME],
+            schema_version=declaration[_KEY_SCHEMA_VERSION],
+            arguments=SkillArgumentSchema.model_validate(
+                declaration[_KEY_ARGUMENTS]
+            ),
+        )
+
+
+_KEY_SCHEMA_NAME = "schema_name"
+_KEY_SCHEMA_VERSION = "schema_version"
+_KEY_ARGUMENTS = "arguments"
+
+#: The three keys a request-contract declaration carries, in the order
+#: :meth:`ProductRequestContract.from_declared` reports them missing. They are
+#: this class's own field names rather than a second vocabulary — the envelope
+#: is open, so the mapping from declaration key to field is the one thing that
+#: could drift, and naming it once is what keeps it from drifting silently.
+_DECLARATION_KEYS = (_KEY_SCHEMA_NAME, _KEY_SCHEMA_VERSION, _KEY_ARGUMENTS)
 
 
 #: The artifact class the registry validates request contracts against.
@@ -442,6 +579,17 @@ def refuse_request(
         :func:`~ccf.products.payload.refuse_payload` imposes over sorted names
         — carrying both sides of the comparison that failed.
     """
+    # Imported at call time, not at module scope (DEF-17-02). `ccf.products.
+    # payload` reaches `ccf.skills.catalog` at its own top, and that reaches
+    # `ccf.agents.agent` → `ccf.replay.record` → *this* module: a module-scope
+    # edge from here back to `payload` therefore closed a cycle that made
+    # `import ccf.products.payload` fail whenever it was the first import into
+    # the tree. The comparison is needed once this function runs and never
+    # before, so binding the name here removes the edge outright rather than
+    # ordering around it. The annotation-only half lives under TYPE_CHECKING at
+    # the head of this module.
+    from ccf.products.payload import refuse_payload
+
     address = _refuse_address(request=request, declared=declared)
     if address is not None:
         return address
@@ -585,11 +733,11 @@ def refuse_request_contract_pin(
 # limb (b) that module names :class:`ProductRequest` in dimension 5. By the
 # time this line runs every name the replay plane needs from *this* module
 # already exists, so the cycle closes safely in both import orders; the
-# deferred annotations above are then resolved explicitly.
-from ccf.products.payload import (  # noqa: E402
-    PayloadSchemaViolation,
-    refuse_payload,
-)
+# deferred annotation above is then resolved explicitly.
+#
+# :class:`SkillArgumentSchema` is a *field type* of
+# :class:`ProductRequestContract`, so the rebuild below needs the class itself
+# — TYPE_CHECKING cannot serve it and the deferral has to stay.
 from ccf.skills.catalog import SkillArgumentSchema  # noqa: E402
 
 ProductRequestContract.model_rebuild()

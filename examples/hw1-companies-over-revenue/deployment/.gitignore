@@ -1,0 +1,11 @@
+# `D-32` (Dave, 2026-08-15): nothing is committed to `examples/` as data — no
+# store file, no seed artifact, no fixture data. The deployment a client
+# reaches is ALREADY POPULATED, and populating one is producer-side work that
+# happens before a client exists.
+#
+# These two are what a populated deployment leaves on disk. They are named
+# here so that a developer who has populated one cannot commit it by accident,
+# which is the difference between a rule and a mechanism.
+graph.sqlite3
+graph.sqlite3-*
+artifact-store/

@@ -5,7 +5,7 @@ composition preservation is what entitles a plan to be split without changing
 its answer). The normative segmentation clauses are `GQ-14` at
 docs/GRAPH_QUERY_SEMANTICS.md:289 through `GQ-19` at
 docs/GRAPH_QUERY_SEMANTICS.md:356, transcribing the `D-IMPL-87` at
-docs/DECISIONS.md:290 resolution — this module implements them; it does not
+docs/DECISIONS.md resolution — this module implements them; it does not
 re-derive them.
 
 **The segment structure is a pure function of the plan** (`GQ-14` at

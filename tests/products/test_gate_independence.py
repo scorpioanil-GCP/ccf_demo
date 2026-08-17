@@ -89,7 +89,14 @@ from ccf.products.contract import (
     RegisteredProductClass,
     register_product_class,
 )
-from ccf.products.gates import LineageMismatchRefusal, ServableProduct, run_gates
+from ccf.products.gates import (
+    PYDANTIC_MODEL_FORMS,
+    GateBypassError,
+    LineageMismatchRefusal,
+    ServableProduct,
+    ServableProductNotAModel,
+    run_gates,
+)
 
 # Fixture values (test-side vocabulary, never SDK values).
 TENANT = "tenant-fixture"
@@ -297,3 +304,161 @@ def test_the_deployment_package_was_actually_discovered() -> None:
     assert len(DEPLOYMENT_SOURCES) >= 1
     module = importlib.import_module("ccf.deployment")
     assert module.__ccf_mode__ == "algorithmic"
+
+
+# --- (5) the refusal that states *why* a product is unconstructible ----------
+#
+# `D-IMPL-126` item (2). Before this, `ServableProduct.model_construct(...)` and
+# `servable.model_copy()` each gave a bare `AttributeError`, which a first-time
+# reader reads as a pydantic version problem and takes into SDK source to
+# diagnose. The type is not a pydantic model on purpose — it is the token that
+# proves the three gates ran (INV-CH7-52) — and it now says so.
+#
+# Parametrized over the enumerated forms **times the two attribute channels**,
+# so adding a spelling to the frozenset adds two cases rather than one. A
+# metaclass `__getattr__` alone covers the class channel and leaves the instance
+# channel bare, and `model_copy`/`model_dump`/`parse_obj` are *instance* methods
+# in pydantic — exactly what a reader holding a returned object reaches for.
+
+#: A name no pydantic surface has ever carried — the negative control. The
+#: refusal must be scoped to the enumerated forms and must not swallow a typo.
+UNRELATED_ATTRIBUTE = "no_such_attribute_at_all"
+
+
+def _servable() -> ServableProduct:
+    """A real ``ServableProduct``, minted the only way one can be."""
+    registry = _registry()
+    product_class = _product_class(registry)
+    admitted = run_gates(
+        _candidate(product_class, DECLARED),
+        engine_resolved=DECLARED,
+        now=NOW,
+        registry=registry,
+        product_class=product_class,
+    )
+    assert isinstance(admitted, ServableProduct)
+    return admitted
+
+
+def test_the_enumerated_forms_cover_the_spellings_a_reader_reaches_for() -> None:
+    """Enumerated once, exhaustively — the ``CONTAINER_FORMS`` precedent.
+
+    A language's forms are listed in one place rather than discovered one
+    instance at a time, so a v1 spelling and a v2 spelling cannot be closed on
+    different days.
+    """
+    for form in (
+        "model_construct",
+        "model_validate",
+        "model_validate_json",
+        "model_validate_strings",
+        "model_copy",
+        "model_dump",
+        "construct",
+        "parse_obj",
+        "parse_raw",
+        "parse_file",
+        "from_orm",
+    ):
+        assert form in PYDANTIC_MODEL_FORMS
+
+
+@pytest.mark.parametrize("form", sorted(PYDANTIC_MODEL_FORMS))
+def test_the_class_channel_refuses_every_enumerated_form(form: str) -> None:
+    """``ServableProduct.<form>`` states why, naming the gate path and INV."""
+    with pytest.raises(GateBypassError) as raised:
+        getattr(ServableProduct, form)
+
+    message = str(raised.value)
+    assert "run_gates" in message
+    assert "INV-CH7-52" in message
+    assert form in message
+
+
+@pytest.mark.parametrize("form", sorted(PYDANTIC_MODEL_FORMS))
+def test_the_instance_channel_refuses_every_enumerated_form(form: str) -> None:
+    """The channel a reader is *most* likely to hit and least likely covered.
+
+    A metaclass ``__getattr__`` does not run for instance attribute lookup, so
+    without a second ``__getattr__`` on the class itself this is the bare
+    ``AttributeError`` the whole fix exists to remove.
+    """
+    servable = _servable()
+
+    with pytest.raises(GateBypassError) as raised:
+        getattr(servable, form)
+
+    message = str(raised.value)
+    assert "run_gates" in message
+    assert "INV-CH7-52" in message
+    assert form in message
+
+
+def test_the_refusal_is_both_a_gate_bypass_and_an_attribute_error() -> None:
+    """The dual inheritance, asserted as inheritance rather than as behaviour.
+
+    ``GateBypassError`` subclasses ``TypeError``. A refusal deriving from it
+    alone makes ``hasattr`` **raise** instead of returning ``False``, which is a
+    hazard this fix would have created. Deriving from ``AttributeError`` as well
+    keeps a duck-type probe degrading while ``except GateBypassError`` still
+    catches.
+    """
+    assert issubclass(ServableProductNotAModel, GateBypassError)
+    assert issubclass(ServableProductNotAModel, AttributeError)
+
+
+@pytest.mark.parametrize("form", sorted(PYDANTIC_MODEL_FORMS))
+def test_a_duck_type_probe_degrades_rather_than_exploding(form: str) -> None:
+    """``hasattr`` is ``False`` and ``getattr(..., None)`` is ``None``.
+
+    On both channels: a probe against the class and a probe against a returned
+    instance must each answer rather than raise.
+    """
+    servable = _servable()
+
+    assert hasattr(ServableProduct, form) is False
+    assert hasattr(servable, form) is False
+    assert getattr(ServableProduct, form, None) is None
+    assert getattr(servable, form, None) is None
+
+
+def test_an_unrelated_name_raises_a_plain_attribute_error_on_the_class() -> None:
+    """The negative control: the refusal is scoped and swallows no typo."""
+    with pytest.raises(AttributeError) as raised:
+        getattr(ServableProduct, UNRELATED_ATTRIBUTE)
+
+    assert not isinstance(raised.value, GateBypassError)
+    assert "INV-CH7-52" not in str(raised.value)
+
+
+def test_an_unrelated_name_raises_a_plain_attribute_error_on_an_instance() -> None:
+    """The same negative control on the channel the class one cannot reach."""
+    servable = _servable()
+
+    with pytest.raises(AttributeError) as raised:
+        getattr(servable, UNRELATED_ATTRIBUTE)
+
+    assert not isinstance(raised.value, GateBypassError)
+    assert "INV-CH7-52" not in str(raised.value)
+
+
+def test_run_gates_still_mints_and_a_wrong_token_still_refuses() -> None:
+    """Neither ``__getattr__`` added a construction path.
+
+    Attribute *lookup* only: ``__init__``'s token check is untouched and no
+    ``__call__`` is overridden, so the only way to hold one of these is still
+    the gate sequence.
+    """
+    servable = _servable()
+    assert isinstance(servable, ServableProduct)
+    assert servable.product.lineage.operators_invoked == DECLARED
+
+    with pytest.raises(GateBypassError):
+        ServableProduct(servable.product, object())
+
+
+def test_the_real_members_are_untouched_by_the_refusal() -> None:
+    """``.product`` resolves normally — ``__getattr__`` runs only on a miss."""
+    servable = _servable()
+    assert isinstance(servable.product, ContextProductContract)
+    assert hasattr(servable, "product") is True

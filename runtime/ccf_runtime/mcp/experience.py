@@ -67,6 +67,77 @@ lets three doors share one definition of "entitled" while
 from importing each other. A second ``PerspectiveResolverProtocol`` in this
 module would be a second reading of the phase's central security property.
 
+**The tools were not (D-IMPL-128; D-IMPL-129), and here is every one of them.**
+Until plan 16-24 the paragraph above was true of the ``context_product``
+*resource* and of nothing else on this server. ``get_context`` took a tenant
+and an entity from the client and handed both to the deployment's provider
+having called neither of the two governance functions — one module, two doors
+onto assembly, one of them gated. ``D-IMPL-128`` ruled that a missing gate on a
+client-parameterised handler is **evidence about a class, not an incident**,
+and required every tool this module can register to be checked for the same
+shape. This is that class, enumerated. Two are now gated; **three are not**,
+and ``D-IMPL-129`` rules that disposition rather than leaving it unstated.
+
+============================  =========================  ====================  ===============================
+Surface                       Client-supplied arguments  Reaches               Verdict
+============================  =========================  ====================  ===============================
+``context_product`` resource  tenant, class, version     the product resolver  entitled (15.5-06)
+``get_context`` tool          tenant, entity             the context provider  entitled (D-IMPL-128 limb 1)
+``get_lineage`` tool          none                       the lineage provider  entitled (D-IMPL-129)
+``list_agents`` tool          tenant                     the agent directory   authenticated, NOT entitled
+``invoke_agent`` tool         tenant, key, version,      the agent invoker     authenticated, NOT entitled
+                              skill, arguments
+``get_replay_record`` tool    none                       the replay reader     authenticated, NOT entitled
+============================  =========================  ====================  ===============================
+
+**Why the two gated ones could be gated.** ``get_context`` reaches Context
+Product assembly, which is exactly what a
+:class:`~ccf.products.entitlement.ProductEntitlementPolicy` decides by
+construction; it is decided against the caller's **own** ``tenant`` argument, so
+naming a foreign tenant means being decided against that tenant's policy rather
+than trusted. ``get_lineage`` returns a *field of the vessel the resource
+already serves whole*, so the policy deciding who may receive the class decides
+who may receive a field of it — no new vocabulary is invented, and because that
+tool carries no arguments at all its address is deployment-declared
+(``lineage_tenant``, ``entitled_product_class``).
+
+**Why the other three are not, stated unhedged.** The artifact these doors
+would be decided against is ``ProductEntitlementPolicy``, whose grants are
+``permitted_schema_names`` and ``permitted_roles``
+(``runtime/ccf_runtime/authz/product_entitlement.py::ProductEntitlementSourceProtocol``)
+and which says
+nothing about agents and nothing about replay records. Deciding an agent
+invocation against it would assert *entitlement to receive product class C
+implies permission to invoke any agent in tenant T* — a semantic the SDK would
+be **inventing**, which CLAUDE.md §11 forbids in those words. So each of the
+three asserts verified identity and decides nothing:
+
+* ``list_agents`` discloses a **client-chosen** tenant's agent population with
+  declared versions, archetype compositions and bound skill tool surfaces.
+* ``invoke_agent`` is the sharpest of the three: every argument is the
+  client's, the tenant included, and it dispatches a declared agent's bound
+  skill through the deployment's injected invoker.
+* ``get_replay_record`` serves the five-dimension Decision Replay record — the
+  widest disclosure on this server, dimension 4 carrying perspective
+  conditioning and principal identity.
+
+**What would close them, named so a later phase completes a design rather than
+reopening one:**
+``runtime/ccf_runtime/authz/protocol.py::TenantAuthorizerProtocol``
+with new action ids beside
+``runtime/ccf_runtime/authz/refusals.py::ACTION_PRODUCT_RETRIEVE``
+and an adopter-registered policy artifact — the shape the HITL door already
+carries at ``runtime/ccf_runtime/mcp/hitl_server.py::_enforce_tenant_authz``.
+That is a new
+required builder seam and a new artifact type; ``D-IMPL-129`` assigns no owner,
+and until a concrete harm or an authorised authorization workstream opens it,
+**no plan may cite these three tools' shipping as evidence that agent-scoped
+entitlement is unnecessary.** The gap is not described here and left to rot: it
+is pinned by
+``tests/crossproc/test_experience_edge.py::test_the_agent_and_replay_tools_are_authenticated_but_not_entitled_open_gap``,
+which asserts the three **succeed** for an unentitled credential and whose
+inversion is the signature of the fix.
+
 Server name, bind address, token values, tenant identifiers, agent names,
 principal identifiers, role names, and skill vocabulary are all deployment
 values supplied by the caller. This module holds none of them (CINV-01).
@@ -395,13 +466,41 @@ class ContextProviderProtocol(Protocol):
     serve-recording it owes its own replay posture — behind this seam; the
     module holds no fabric handle of any kind (T-07-20). Protocol rather
     than a base class (CLAUDE.md §11), keyword-only like every sibling seam.
+
+    **Widened to receive the authorized perspective** (``D-IMPL-128`` limb 1,
+    on ``D-IMPL-108``'s stated reasoning). ``perspective`` is required and has
+    **no default**: a door that computes an authorized perspective and discards
+    it is ``DI-15.5-03`` reintroduced one layer down, where nothing on the wire
+    would show it, and a defaulted governance argument is one an implementor
+    can be written without noticing.
+
+    **Your obligation, and accepting the argument is not it.** A provider that
+    takes ``perspective`` and ignores it has received the conditioning this
+    door authorized and served regardless — the same defect, one layer
+    further down. This product was assembled under some capacity; compare it
+    with the one you are handed and refuse a mismatch. The shipped example
+    performs exactly that comparison in
+    ``examples/external/00-hello-context/serve.py::context_provider``, beside a
+    resolver doing the same thing for the resource leg.
     """
 
-    def __call__(self, *, tenant: str, entity: str) -> str:
+    def __call__(
+        self, *, tenant: str, entity: str, perspective: Perspective
+    ) -> str:
         """Return the entity-scoped Context Product as canonical JSON.
 
+        Args:
+            tenant: The tenant the product is addressed under — the caller's
+                own argument, and the one the entitlement was decided against.
+            entity: The entity the product is scoped to.
+            perspective: The Π role-conditioning this door's entitlement
+                authorized. Required and non-nullable; see the class
+                docstring for what you owe it.
+
         Raises:
-            ExperienceProductNotServable: nothing servable at that address.
+            ExperienceProductNotServable: nothing servable at that address, or
+                the perspective is not the one this product was assembled
+                under.
         """
         ...
 
@@ -413,6 +512,17 @@ class LineageProviderProtocol(Protocol):
     SDK-defined (CLAUDE.md §8.3, §7.1). The deployment decides which
     product's lineage the front door serves; this module only carries the
     string it is handed (T-07-20).
+
+    **Deliberately *not* widened alongside its sibling**, so the asymmetry
+    reads as a decision rather than an oversight.
+    :class:`ContextProviderProtocol` *resolves a product*, and ``D-IMPL-108``
+    ruled that a resolution must receive the conditioning the door authorized.
+    This seam returns a field of an **already-resolved** product and has no
+    resolution to condition. Forwarding a perspective into it would imply a
+    per-principal scoping of lineage the fabric cannot perform — an absence
+    ``D-IMPL-119`` limb 2 measured on the shipped path and ``D-IMPL-124``
+    Shape D was blocked on. The door still entitles the call; it just has
+    nothing to hand you.
     """
 
     def __call__(self) -> str:
@@ -499,6 +609,34 @@ def _missing(tool: str) -> str:
     )
 
 
+def _missing_address(tool: str, parameter: str) -> str:
+    """The declared-address refusal — worded apart from :func:`_missing`.
+
+    A sibling rather than a widening of ``_missing``'s condition, and the
+    separation is load-bearing rather than stylistic. Two shipped D-03
+    assertions allowlist ``get_context`` and assert only that the tool's name
+    appears in the refusal; folding this check into the same condition or the
+    same wording would make both of them pass off *this* check regardless of
+    whether their own leg still worked, and a gate that stops being one
+    without failing is the worst kind (T-16-24-13).
+    """
+    return (
+        f"{tool} is allowlisted but {parameter} was not supplied; a gated"
+        " consumption tool is decided against an address the deployment"
+        " declares, never one the client names"
+    )
+
+
+def _unexposed_address(tool: str, parameter: str) -> str:
+    """The other direction: a governance value for a door that never opens."""
+    return (
+        f"{parameter} was supplied but {tool} is not in the allowlist; a"
+        " governance value behind a door this server does not open is inert"
+        " configuration, and a deployment that believed the door was open"
+        " would learn nothing"
+    )
+
+
 def build_experience_server(
     *,
     server_name: str,
@@ -518,6 +656,8 @@ def build_experience_server(
     auth_settings: AuthSettings,
     entitlement_source: ProductEntitlementSourceProtocol,
     perspective_resolver: PerspectiveResolverProtocol,
+    entitled_product_class: str | None = None,
+    lineage_tenant: str | None = None,
     tool_allowlist: frozenset[str] | None = None,
 ) -> FastMCP:
     """Build the authenticated Experience-surface server over six seams.
@@ -560,6 +700,30 @@ def build_experience_server(
     configurable. The agent Tools and the product resource take SDK default
     descriptions instead (D-12/D-13/D-14): their shape is SDK mechanism, so
     describing it authors nobody's domain prose (CINV-01; CLAUDE.md §6.4).
+
+    **The gated consumption tools carry a declared address (D-IMPL-128 limb
+    1).** ``get_context`` and ``get_lineage`` are now entitled rather than
+    merely authenticated, and an entitlement decides on a *(tenant, class)*
+    pair. ``entitled_product_class`` supplies the class and is
+    **deployment-supplied, never client-supplied**, for a reason a reviewer
+    can check against the handler: the class the entitlement is decided
+    against has to be the class the injected provider actually serves, and
+    only the deployment knows that — a client-supplied class would let a
+    caller name a class it *is* entitled to while the provider returned one it
+    is not, the entitlement checking one operand while the door serves
+    another. Note the contrast with the ``context_product`` **resource**,
+    which may take its class from the client precisely because that same value
+    *addresses the resolver*, so check and serve cannot diverge there.
+    ``lineage_tenant`` exists because :data:`GET_LINEAGE_TOOL` carries **no
+    arguments at all** — there is no tenant on the wire, and inventing one
+    would be the SDK holding a deployment value (CINV-01). :data:
+    `GET_CONTEXT_TOOL` needs no such parameter: it has a wire ``tenant``, and
+    deciding against the caller's own argument is exactly the point.
+
+    Requiredness is conditional on exposure like every D-03 value, and it
+    fails in **both** directions: a gated tool allowlisted without its
+    declared value raises, and a declared value supplied for a tool the
+    allowlist does not admit raises too.
 
     The rule applies to the agent *providers* on the same terms: a
     deployment that allowlists neither agent tool supplies neither
@@ -621,13 +785,24 @@ def build_experience_server(
             derives the role from the verified grant; whatever it proposes
             is checked against the principal's grant before anything is
             served.
+        entitled_product_class: The Context Product class the gated
+            consumption tools are entitled against. A **deployment** value —
+            the class the injected providers actually serve. Required when
+            :data:`GET_CONTEXT_TOOL` or :data:`GET_LINEAGE_TOOL` is
+            allowlisted; refused when neither is.
+        lineage_tenant: The tenant :data:`GET_LINEAGE_TOOL` is decided under,
+            since that tool carries no arguments to decide against. Required
+            when it is allowlisted; refused when it is not.
         tool_allowlist: Which Tools to register; ``None`` registers all of
             :data:`EXPERIENCE_TOOLS`.
 
     Raises:
         ValueError: The allowlist names a tool outside
             :data:`EXPERIENCE_TOOLS` (D-01), or a tool it admits has no
-            provider or no description supplied (D-03).
+            provider or no description supplied (D-03), or a gated
+            consumption tool it admits has no declared address supplied, or a
+            declared address was supplied for a tool it does not admit
+            (D-IMPL-128 limb 1).
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
@@ -643,6 +818,24 @@ def build_experience_server(
                 f" this server registers {sorted(EXPERIENCE_TOOLS)}"
             )
     allowed = EXPERIENCE_TOOLS if tool_allowlist is None else frozenset(tool_allowlist)
+
+    # The "supplied but not exposed" direction, checked here because it can
+    # only fire for tools the allowlist EXCLUDES — so it cannot pre-empt the
+    # D-03 provider/description refusals inside the blocks below, which own
+    # the tools the allowlist admits.
+    if entitled_product_class is not None and not (
+        {GET_CONTEXT_TOOL, GET_LINEAGE_TOOL} & allowed
+    ):
+        raise ValueError(
+            _unexposed_address(
+                f"neither {GET_CONTEXT_TOOL} nor {GET_LINEAGE_TOOL}",
+                "entitled_product_class",
+            )
+        )
+    if lineage_tenant is not None and GET_LINEAGE_TOOL not in allowed:
+        raise ValueError(
+            _unexposed_address(GET_LINEAGE_TOOL, "lineage_tenant")
+        )
 
     server = FastMCP(
         server_name,
@@ -718,7 +911,16 @@ def build_experience_server(
             ),
         )
         def list_agents(tenant: str) -> str:
-            """List one tenant's exposed agents with their rendered tool surfaces."""
+            """List one tenant's exposed agents with their rendered tool surfaces.
+
+            **This asserts verified identity and decides nothing. This tool is
+            authenticated and NOT entitled** — ``D-IMPL-129``, and the gap is
+            recorded in the module docstring's audit. A ``client-chosen``
+            tenant's agent population, declared versions, archetype
+            compositions and bound skill tool surfaces go to any verified
+            caller.
+            """
+            verified_grant()
             catalog = AgentToolCatalog(
                 tenant=tenant,
                 agents=tuple(
@@ -753,7 +955,15 @@ def build_experience_server(
             Passed through verbatim: what the deployment's invoker produced is
             what the wire carries — this module adds nothing and interprets
             nothing (T-07-20).
+
+            **This asserts verified identity and decides nothing. This tool is
+            authenticated and NOT entitled** — ``D-IMPL-129``, and the gap is
+            recorded in the module docstring's audit. It is the sharpest of
+            the three: every argument here is the client's, the ``tenant``
+            included, and the call reaches a declared agent's bound skill
+            through the deployment's invoker.
             """
+            verified_grant()
             return invoker_seam(
                 tenant=tenant,
                 definition_key=definition_key,
@@ -767,25 +977,102 @@ def build_experience_server(
         # non-Optional name (D-03's check is what makes that sound).
         if context_provider is None or get_context_description is None:
             raise ValueError(_missing(GET_CONTEXT_TOOL))
+        # STRICTLY AFTER the D-03 check, and with its own wording. See
+        # `_missing_address` for why that ordering is a security property of
+        # the *test suite* rather than a matter of taste.
+        if entitled_product_class is None:
+            raise ValueError(
+                _missing_address(GET_CONTEXT_TOOL, "entitled_product_class")
+            )
         context_seam = context_provider
+        context_class = entitled_product_class
 
         @server.tool(
             name=GET_CONTEXT_TOOL, description=get_context_description
         )
         def get_context(tenant: str, entity: str) -> str:
-            """Serve one tenant's entity-scoped product via the injected seam."""
-            return context_seam(tenant=tenant, entity=entity)
+            """Serve one tenant's entity-scoped product via the injected seam.
+
+            Authenticate, then entitle, then resolve — and **the order is the
+            security property**, not a style. Until ``D-IMPL-128`` limb 1 this
+            body was ``return context_seam(tenant=tenant, entity=entity)``:
+            both arguments client-supplied, no grant check, on the SDK's
+            *external* front door, beside a resource on the same server that
+            checked properly.
+
+            It now runs the identical sequence that resource runs — the same
+            call with the same argument set, ``requested_role=None`` included,
+            not an equivalent-looking reimplementation. Two consequences worth
+            naming: the entitlement is decided against **the caller's own
+            ``tenant`` argument**, so naming a foreign tenant means being
+            decided against that tenant's policy and refused rather than
+            trusted; and the refusal happens before ``context_seam`` is
+            reached, so a refused caller moves no fabric.
+
+            The class is the deployment's, never the caller's — see the
+            builder docstring for why check and serve would otherwise be free
+            to diverge. And the perspective the decision authorized is
+            **forwarded**, per ``D-IMPL-108``: a door that computed it and
+            dropped it would be ``DI-15.5-03`` one layer down.
+            """
+            perspective = entitled_perspective(
+                grant=verified_grant(),
+                tenant=tenant,
+                product_class=context_class,
+                requested_role=None,
+                entitlement_source=entitlement_source,
+                perspective_resolver=perspective_resolver,
+            )
+            return context_seam(
+                tenant=tenant, entity=entity, perspective=perspective
+            )
 
     if GET_LINEAGE_TOOL in allowed:
         if lineage_provider is None or get_lineage_description is None:
             raise ValueError(_missing(GET_LINEAGE_TOOL))
+        if entitled_product_class is None:
+            raise ValueError(
+                _missing_address(GET_LINEAGE_TOOL, "entitled_product_class")
+            )
+        if lineage_tenant is None:
+            raise ValueError(
+                _missing_address(GET_LINEAGE_TOOL, "lineage_tenant")
+            )
         lineage_seam = lineage_provider
+        lineage_class = entitled_product_class
+        lineage_address_tenant = lineage_tenant
 
         @server.tool(
             name=GET_LINEAGE_TOOL, description=get_lineage_description
         )
         def get_lineage() -> str:
-            """Serve the product's lineage via the injected seam."""
+            """Serve the product's lineage via the injected seam, once entitled.
+
+            Same sequence as :data:`GET_CONTEXT_TOOL`, decided against the
+            **deployment-declared** address because this tool carries no wire
+            arguments at all — absence of a client parameter reduces
+            steerability, never disclosure, and before this it served a
+            tenant's lineage to every verified caller.
+
+            The licensing argument, so no reader thinks a vocabulary was
+            invented: the lineage this tool serves is a *field of the vessel*
+            the ``context_product`` resource serves whole, so the same policy
+            that decides who may receive the class decides who may receive a
+            field of it.
+            """
+            authorized = entitled_perspective(
+                grant=verified_grant(),
+                tenant=lineage_address_tenant,
+                product_class=lineage_class,
+                requested_role=None,
+                entitlement_source=entitlement_source,
+                perspective_resolver=perspective_resolver,
+            )
+            # Bound, and then deliberately dropped in the open rather than
+            # discarded silently: `LineageProviderProtocol` was not widened,
+            # and its docstring says why. The decision is what mattered here,
+            # not the conditioning.
+            del authorized
             return lineage_seam()
 
     if GET_REPLAY_RECORD_TOOL in allowed:
@@ -798,7 +1085,15 @@ def build_experience_server(
             description=get_replay_record_description,
         )
         def get_replay_record() -> str:
-            """Serve the most-recent replay record via the injected seam."""
+            """Serve the most-recent replay record via the injected seam.
+
+            **This asserts verified identity and decides nothing. This tool is
+            authenticated and NOT entitled** — ``D-IMPL-129``, and the module
+            docstring's audit is where the gap is recorded rather than hedged.
+            The five-dimension record is the widest disclosure on this server
+            and any verified caller receives it.
+            """
+            verified_grant()
             return replay_seam()
 
     return server

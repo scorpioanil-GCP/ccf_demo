@@ -165,7 +165,7 @@ CHECKER_OWN_FILES: tuple[str, ...] = (
 #: commit ``962e75d`` (plan ``15.6-11``'s base): the ``no_anchor`` bucket of
 #: ``scan_tree`` was reproduced exactly — 434 of 434 — and filtered to citations
 #: whose *target* is a ``.py`` file, giving **113** across 27 host files, of
-#: which **13** are held back by :data:`HELD_BACK_HOSTS`, leaving **100**
+#: which **14** are held back by :data:`HELD_BACK_HOSTS`, leaving **100**
 #: sweepable. ``D-IMPL-123`` ruled the same measurement at ``4b407e0`` as 114 /
 #: 13 / 101; the one-citation difference is drift between the two commits and is
 #: recorded in plan ``15.6-11``'s SUMMARY rather than smoothed over.
@@ -173,7 +173,7 @@ CHECKER_OWN_FILES: tuple[str, ...] = (
 #: **Post-sweep: 0.** Plan ``15.6-11`` task 2 converted all 100 and lowered this
 #: constant in the same commit, so the ruled scope is not merely bounded — it is
 #: empty, and the ceiling now says the *next* one is a regression rather than a
-#: budget. The 13 held back by :data:`HELD_BACK_HOSTS` are unchanged and are not
+#: budget. The 14 held back by :data:`HELD_BACK_HOSTS` are unchanged and are not
 #: counted here; ``python3 -m tools.lints --report`` still shows them among the
 #: unanchored total, which is correct and is what ``D-IMPL-123`` ruled.
 MAXIMUM_UNANCHORED_PY_CITATIONS = 0
@@ -415,8 +415,8 @@ def test_the_held_back_thirteen_are_out_of_scope_by_ruling_not_by_accident() -> 
     """
     held_back = [site for site in citation_sites() if site.held_back]
     hosts = sorted({site.host for site in held_back})
-    assert len(held_back) == 13, (
-        f"{GATE_IS_GREEN_NOTE} D-IMPL-123 held back 13 citations — 11 in five"
+    assert len(held_back) == 14, (
+        f"{GATE_IS_GREEN_NOTE} D-IMPL-123 held back 14 citations — 12 in six"
         " landed plan fragments under docs/surface-changes/, plus 2 in the"
         f" assembled docs/SURFACE-CHANGES.md. {len(held_back)} are here now,"
         f" across {hosts}. If a fragment was legitimately edited, that is a"

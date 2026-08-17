@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.product-class.json
+# What this product IS: its identity, its lane, and the operator set it claims
+# to have been computed by.
+#
+# `required_operator_keys` names ONE key, and Gate 2 holds the claim to strict
+# equality against what the engine actually ran. The projection reads its own
+# required set from this same document, which is why this example ships no
+# second operator-set document to diverge from it.
+semver: "1.0.0"
+schema_name: hw1.companies-over-revenue
+schema_version: "1.0.0"
+ttl_anchor: from_decision
+assembly_mode: algorithmic
+max_ttl_key: hw1/product/companies-over-revenue/max-ttl
+required_operator_keys: [temporal.as-of-boundary]

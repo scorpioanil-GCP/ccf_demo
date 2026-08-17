@@ -172,7 +172,23 @@ def iter_public_modules() -> list[str]:
         package = importlib.import_module(package_name)
         search_path = [str(tree / package_name)]
         found.add(package_name)
-        for info in pkgutil.walk_packages(search_path, prefix=f"{package_name}."):
+        # `onerror` is REQUIRED, not defensive. Without it `walk_packages`
+        # swallows an ImportError and silently drops the entire subtree beneath
+        # it -- so a surface gate walks less and still reports green. Measured
+        # 2026-08-15 (DEF-17-06): three subpackages went undiscovered and
+        # twelve public names went undocumented behind a passing run. The
+        # fourth instance in this phase of a check that stops checking without
+        # going red; it must fail loudly instead.
+        def _refuse(name: str) -> None:
+            raise RuntimeError(
+                f"surface walk could not import {name!r}. The manifest would"
+                " silently omit that subtree and every public name beneath it."
+                " Fix the import rather than skipping the module."
+            )
+
+        for info in pkgutil.walk_packages(
+            search_path, prefix=f"{package_name}.", onerror=_refuse
+        ):
             if _is_private(info.name):
                 continue
             found.add(info.name)

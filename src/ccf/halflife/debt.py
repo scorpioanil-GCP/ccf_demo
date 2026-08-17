@@ -60,9 +60,9 @@ computed and discarded: it appeared on neither the product nor the replay
 record, so five of the six axes of ``G(E, R, T, P, Π, L)`` reached the wire and
 the sixth — the one that says how much to trust the other five — did not.
 :func:`assess_debt`'s result is now carried on the delivered product and on the
-Decision Replay record, which is what whitepaper ``:2696`` asks for: debt as *"a
-runtime signal the agent must consume as a first-class decision input, not a
-log-line to be read after the fact"*.
+Decision Replay record, which is what whitepaper ``:2696`` asks for: debt
+reaching the agent *while* it decides, conditioning that decision, rather than
+settling into an audit trail somebody reads afterwards.
 
 Algorithmic module (CINV-03).
 """

@@ -57,8 +57,16 @@ from ccf.products.entitlement import (  # noqa: E402
     ProductEntitlementPolicy,
     product_entitlement_key,
 )
+from ccf.products.contract import (  # noqa: E402
+    ContextProductContract,
+    RegisteredProductClass,
+)
 from ccf.products.gates import ServableProduct, run_gates  # noqa: E402
-from ccf.products.request import ProductRequest  # noqa: E402
+from ccf.products.request import (  # noqa: E402
+    ProductRequest,
+    ProductRequestContract,
+    refuse_request,
+)
 from ccf.projection.plan import Perspective  # noqa: E402
 from ccf_runtime.authz.product_entitlement import (  # noqa: E402
     ControlPlaneProductEntitlementSource,
@@ -100,6 +108,23 @@ POLICY_VERSION = "1.0.0"
 #: reproducible.
 AUDIT_INSTANT = datetime(2026, 8, 11, tzinfo=UTC)
 
+#: The prose this deployment's parameterised Tool advertises. A test value:
+#: the SDK ships no default description, because the words an adopter's
+#: consumers read are the deployment's (CINV-01), and here the test is the
+#: deployment.
+TOOL_DESCRIPTION = (
+    "Ask this fixture deployment's one product class a §6.3-addressed"
+    " question."
+)
+
+#: This class's declared request surface, and it declares **no required
+#: parameter** — deliberately, and it is the constraint plan 16-23 records as
+#: residual (b). Both parameterised doors send ``parameters={}``, so a class
+#: declaring any required request parameter is unreachable through either of
+#: them and ``refuse_request`` says so by name
+#: (``missing-required-parameter``).
+REQUEST_CONTRACT_SEMVER = "1.0.0"
+
 
 def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
     """An HTTP client presenting ``token`` as a bearer credential."""
@@ -134,13 +159,25 @@ class ProductAddress(NamedTuple):
 
 
 class AssembledProduct(NamedTuple):
-    """A gated product, the address it is served at, and who may receive it."""
+    """A gated product, the address it is served at, and who may receive it.
+
+    The last four members are the inputs :func:`~ccf.products.gates.run_gates`
+    needs to gate a *second* candidate for the same class. They exist because
+    a resolver that answers a question must be able to produce the product
+    that answers *that* question, and a ``ServableProduct`` is deliberately
+    unconstructible outside the gate path (INV-CH7-52) — so varying the answer
+    means re-gating, never hand-building.
+    """
 
     servable: ServableProduct
     address: ProductAddress
     server_name: str
     principal_id: str
     role: str
+    registry: ControlPlaneRegistry
+    product_class: RegisteredProductClass
+    operators: frozenset[str]
+    now: datetime
 
 
 def build_servable_product(*, database_path: Path) -> AssembledProduct:
@@ -234,7 +271,70 @@ def build_servable_product(*, database_path: Path) -> AssembledProduct:
         # construction rather than by coincidence.
         principal_id=control["perspective"]["principal_id"],
         role=control["perspective"]["role"],
+        registry=registry,
+        product_class=product_class,
+        operators=execution.operators_invoked,
+        now=fabric.now,
     )
+
+
+def declared_request_contract(
+    assembled: AssembledProduct,
+) -> ProductRequestContract:
+    """This class's declared request surface — four axes and nothing else.
+
+    ``arguments`` declares no property and requires none, which is what makes
+    the class reachable through a parameterised door at all: both doors send
+    ``parameters={}``, so a class declaring any *required* request parameter
+    would be refused by :func:`~ccf.products.request.refuse_request` before
+    anything was assembled.
+    """
+    return ProductRequestContract(
+        semver=REQUEST_CONTRACT_SEMVER,
+        schema_name=assembled.address.product_class,
+        schema_version=assembled.address.version,
+        arguments={"properties": {}, "required": []},
+    )
+
+
+def answer_for(
+    assembled: AssembledProduct, request: ProductRequest
+) -> ServableProduct:
+    """Gate the product that answers *this* question.
+
+    The whole point of the parameterised door is that the answer depends on
+    the question, so this fixture makes it depend visibly: the asked-about
+    subject and the instant it was asked as-of are carried into the payload,
+    and the result goes back through :func:`~ccf.products.gates.run_gates`
+    rather than being hand-built — a ``ServableProduct`` is evidence the gates
+    ran and there is no other way to hold one.
+
+    ``D-IMPL-126`` records the trap this avoids: a naive projection reading
+    ``view.relationships`` wholesale produced *identical* content addresses for
+    two different subjects, because seeds narrow only when a segment fragment
+    declares a ``traverse``. A fixture that failed to differentiate would make
+    the two-subjects assertion pass for the wrong reason — or fail while the
+    door was blameless.
+    """
+    candidate: ContextProductContract = assembled.servable.product.model_copy(
+        update={
+            "payload": {
+                **assembled.servable.product.payload,
+                "asked_subject": request.subject,
+                "asked_as_of": request.asked_at.isoformat(),
+            }
+        }
+    )
+    gated = run_gates(
+        candidate,
+        engine_resolved=assembled.operators,
+        now=assembled.now,
+        registry=assembled.registry,
+        product_class=assembled.product_class,
+    )
+    if not isinstance(gated, ServableProduct):
+        raise AssertionError(f"the answered product did not gate: {gated}")
+    return gated
 
 
 def build_entitlement_registry(assembled: AssembledProduct) -> ControlPlaneRegistry:
@@ -272,6 +372,7 @@ def build_server(*, workspace: Path) -> FastMCP:
         database_path=workspace / "egress-child.sqlite3"
     )
     registry = build_entitlement_registry(assembled)
+    declared = declared_request_contract(assembled)
 
     def resolve(
         *,
@@ -286,13 +387,26 @@ def build_server(*, workspace: Path) -> FastMCP:
         The refusal matters as much as the hit: a resolver that returned its
         single product for any URI would make the scheme-separation assertion
         in the parent test pass for the wrong reason.
+
+        **Two answers, because there are two doors.** ``request is None`` is
+        the resource asking for the class's standing answer; a request is the
+        tool asking a question, and a question gets the product that answers
+        it. The request is compared against the class's declared surface
+        first — the ``refuse_request`` obligation
+        :class:`~ccf_runtime.mcp.egress.ProductResolverProtocol` places on
+        every resolver and no shipped door discharges (``D-IMPL-113``).
         """
         requested = ProductAddress(
             tenant=tenant, product_class=product_class, version=version
         )
         if requested != assembled.address:
             raise ProductNotServable(str(requested))
-        return assembled.servable
+        if request is None:
+            return assembled.servable
+        violation = refuse_request(request=request, declared=declared)
+        if violation is not None:
+            raise ValueError(f"request refused: {violation.detail}")
+        return answer_for(assembled, request)
 
     def resolve_perspective(
         *, grant: TokenGrant, tenant: str, requested_role: str | None
@@ -329,6 +443,11 @@ def build_server(*, workspace: Path) -> FastMCP:
             control_plane=registry, clock=lambda: AUDIT_INSTANT
         ),
         perspective_resolver=resolve_perspective,
+        # This deployment opts in, because the assertion it exists to support
+        # is that a client can ask its own question over a real wire. A
+        # deployment that says nothing gets no tool at all.
+        expose_product_tool=True,
+        product_tool_description=TOOL_DESCRIPTION,
     )
 
 

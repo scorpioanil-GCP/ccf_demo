@@ -53,6 +53,7 @@ import ccf
 
 from ccf.controlplane import artifacts
 from ccf.controlplane.artifacts import (
+    DEPLOYMENT_CONFIG,
     ArtifactClass,
     DeclaredArtifact,
     parse_artifact,
@@ -108,6 +109,16 @@ def test_an_sdk_class_id_resolves_to_the_constant_itself(class_id: str) -> None:
     resolved = resolve_artifact_class(class_id)
     assert resolved is SDK_ARTIFACT_CLASSES[class_id]
     assert resolved.class_id == class_id
+
+
+def test_ccf_deployment_config_resolves_to_deployment_config_by_identity() -> None:
+    """This plan's own class, named explicitly rather than left to the
+    parametrised scan above (`D-IMPL-136`). Identity, not equality — an
+    equal-looking copy of :data:`~ccf.controlplane.artifacts.DEPLOYMENT_CONFIG`
+    must not pass."""
+    resolved = resolve_artifact_class("ccf.deployment-config")
+    assert resolved is DEPLOYMENT_CONFIG
+    assert resolved.class_id == "ccf.deployment-config"
 
 
 def test_every_mapping_entry_is_the_module_constant() -> None:
@@ -389,6 +400,43 @@ def _fragment_public_added() -> set[str]:
     return claimed
 
 
+def _short_lived() -> set[str]:
+    """Names the log claims BOTH `added` and `removed` for, so the diff sees neither.
+
+    A name a later plan added and a later-still plan removed exists in neither
+    the frozen baseline nor the live surface, so ``claimed <= added`` would fail
+    on a record that is honest and complete. ``17-06`` adding
+    ``binding_document.ResolverCall`` and ``17-12`` removing it under
+    ``D-IMPL-141``'s ruling is the first such pair.
+
+    **Derived from the record, never listed**, so there is nothing to keep in
+    step and nothing an executor can edit to silence a failure — and
+    ``tests/test_surface_completeness.py::test_a_short_lived_name_is_absent_from_both_sides``
+    independently requires each such name to be genuinely absent from both
+    surfaces, so a mislabelled pair fails there rather than being admitted here.
+    """
+    claimed_removed: set[str] = set()
+    for fragment in sorted(_FRAGMENT_DIR.glob("*.md")):
+        if fragment.name == "README.md":
+            continue
+        surface: str | None = None
+        public = False
+        change: str | None = None
+        for line in fragment.read_text(encoding="utf-8").splitlines() + ["## eof"]:
+            stripped = line.strip()
+            if stripped.startswith("## ") or stripped.startswith("- Surface: "):
+                if surface and public and change == "removed":
+                    claimed_removed.add(surface)
+                surface, public, change = None, False, None
+            if stripped.startswith("- Surface: "):
+                surface = stripped.removeprefix("- Surface: ").strip()
+            elif stripped.startswith("- Public surface: "):
+                public = stripped.removeprefix("- Public surface: ").strip() == "true"
+            elif stripped.startswith("- Change type: "):
+                change = stripped.removeprefix("- Change type: ").strip()
+    return _fragment_public_added() & claimed_removed
+
+
 def test_the_phases_fragments_claim_exactly_what_was_added() -> None:
     """Subset-equality in **both** directions, asserted at each plan's own wave.
 
@@ -411,7 +459,7 @@ def test_the_phases_fragments_claim_exactly_what_was_added() -> None:
     """
     baseline = json.loads(_FROZEN_BASELINE.read_text(encoding="utf-8"))
     added = set(diff_surfaces(baseline, build_surface())["added"])
-    claimed = _fragment_public_added()
+    claimed = _fragment_public_added() - _short_lived()
     assert added <= claimed, f"added but unclaimed: {sorted(added - claimed)}"
     assert claimed <= added, f"claimed but not added: {sorted(claimed - added)}"
 

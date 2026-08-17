@@ -67,7 +67,9 @@ Submodule fully-qualified names such as ``ccf.deployment.manifest`` are
 implementation detail, and an adopter's call site never names one.
 
 This file asserts nothing and prints nothing. Its assertions live in
-``tests/examples/test_s1_01_output.py`` (phase 16 CONTEXT `D-09`).
+``tests/examples/test_s1_01_output.py``, where a test runner will run them; what
+the run prints lives in ``report.py``, which carries no marker region, so no
+printed line is published-snippet surface (`16-CONTEXT.md:392-397`).
 """
 
 from __future__ import annotations
@@ -238,7 +240,7 @@ class Assembled:
 
     The spine *returns* its state rather than checking it, so that
     ``tests/examples/test_s1_01_output.py`` can hold the assertions where a test
-    runner will actually run them (phase 16 CONTEXT `D-09`).
+    runner will actually run them.
     """
 
     tenant_id: str

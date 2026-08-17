@@ -414,6 +414,152 @@ def _resolve_secret_references(
     return resolved
 
 
+def _preflight_entries(manifest: DeploymentManifest, root: Path) -> dict[str, Path]:
+    """Refuse every entry the SDK already knows is wrong, before anything is read.
+
+    Runs :func:`~ccf.deployment.classes.refuse_role_the_sdk_fixes`,
+    :func:`~ccf.deployment.classes.refuse_registration_the_sdk_fixes` and
+    :func:`_document_inside_the_deployment` over every entry, in that order,
+    and returns the key → resolved-path mapping the manifest form's own parse
+    phase reads from next.
+
+    **Shared by both entry points** (`16-30`) — :func:`load_and_boot` and
+    :func:`~ccf.deployment.config.load_config_and_boot` — so the preflight
+    cannot drift between them the way a second copy of the register loop
+    could (see :func:`_register_and_boot`'s own docstring for that argument,
+    which is the same argument one level earlier).
+
+    The config form calls this too, even though its documents are already in
+    memory and it never reads the returned mapping back: running the
+    preflight is what holds a *derived* manifest to the same refusal surface
+    an *authored* one gets. A check skipped for the new door is a door the
+    audit plane knows less about.
+    """
+    document_paths: dict[str, Path] = {}
+    for entry in manifest.artifacts:
+        refuse_role_the_sdk_fixes(entry.class_id, entry.role)
+        # Ordering is the point and it must stay here. This runs **before any
+        # document is read** and before anything is registered, so a manifest
+        # that would have routed an author-versioned class around the D-05 bump
+        # check — or squatted an SDK class id — never reaches the parse phase.
+        #
+        # This is applied to EVERY entry, `role: load` included, and it is not
+        # an oversight that a `load` entry is held to a registration path it
+        # never travels. See `ManifestEntry.registration` for why the check is
+        # class-wide rather than role-scoped; do not make it conditional on
+        # `entry.role` without reading that first, because doing so changes the
+        # refusal surface rather than tidying it.
+        refuse_registration_the_sdk_fixes(entry.class_id, entry.registration)
+        # Same ordering, same reason, one entry stronger: an entry that escapes
+        # the deployment is refused before **any** document is opened, so a
+        # manifest whose seventh entry symlinks out never reads its first six
+        # either. The keys are unique by contract (`_keys_are_unique`), so this
+        # mapping is total over the entries and phase one resolves nothing a
+        # second time.
+        document_paths[entry.key] = _document_inside_the_deployment(root, entry)
+    return document_paths
+
+
+def _register_and_boot(
+    manifest: DeploymentManifest,
+    parsed: Mapping[str, CCFContract],
+    *,
+    registry: ControlPlaneProtocol,
+    connection: Mapping[str, object] | None,
+    secrets: Mapping[str, ResolvedSecret],
+    resolved_tenant: str,
+) -> BootedFabric:
+    """Register the ``role: register`` entries and boot — the spine both doors share.
+
+    Phase two of the three-phase ordering :func:`load_and_boot`'s own
+    docstring states, extracted rather than duplicated (`16-30`). Three
+    things here are easy to get subtly wrong and expensive to get wrong
+    twice: the D-05 bump-check dispatch's own narrowing (below) that stops a
+    returned :class:`~ccf.controlplane.registry.RegistrationRefusal` being
+    recorded as a pin, the deliberate absence of a fallback to
+    ``register_typed``, and the :class:`ArtifactPin` construction that **is**
+    replay dimension 2. A second copy would drift, and the drift would be
+    invisible until a replay disagreed — which is why
+    :func:`~ccf.deployment.config.load_config_and_boot`
+    calls this function rather than carrying its own loop.
+
+    ``parsed`` carries every entry — both roles — already validated against
+    its declared class; this function is what decides which of them enter
+    the Control Plane.
+    """
+    # Phase two: register the ones the manifest marks `role: register`.
+    pinned: list[ArtifactPin] = []
+    for entry in manifest.artifacts:
+        if entry.role == "load":
+            # D-IMPL-80. Nothing happens here, deliberately. A `register_typed`
+            # call on this branch would content-hash raw event data into Control
+            # Plane state and therefore into Decision Replay dimension 2.
+            continue
+        artifact_class = resolve_artifact_class(entry.class_id)
+        if entry.registration == "versioned":
+            # `register_versioned` RETURNS its D-05 refusals rather than raising
+            # them (the GateRefusal discipline), so a bare assignment here would
+            # put a `RefuseUnbumpedChange` object into `ArtifactPin.version` and
+            # record a refusal as a pin. The narrowing below is what stops that,
+            # and mypy --strict is the second layer.
+            #
+            # There is deliberately no fallback to `register_typed`: a manifest
+            # that declared `versioned` asked for the bump check, and quietly
+            # taking the other path when it refuses is the bypass this field
+            # exists to close, returning in a new costume.
+            #
+            # The other failure mode on this branch is a `TypeError` raised
+            # inside `register_versioned` when the document declares no string
+            # `artifact_version`. It surfaces unhandled, and that is what an
+            # adopter sees when they declare `versioned` for a class that is not
+            # author-versioned. For the SDK-owned instances of that mistake,
+            # `refuse_registration_the_sdk_fixes` refuses in preflight, before
+            # any document is read.
+            outcome = registry.register_versioned(
+                entry.key, parsed[entry.key], artifact_class
+            )
+            if isinstance(outcome, RegistrationRefusal):
+                raise ValueError(
+                    f"manifest key {entry.key!r} (class {entry.class_id!r})"
+                    " declares registration 'versioned', and the D-05"
+                    " hash-verified bump check refused it:"
+                    f" {type(outcome).__name__}. Nothing was registered under"
+                    " this key, and no pin is recorded for a refusal"
+                )
+            version = outcome
+        else:
+            version = registry.register_typed(
+                entry.key, parsed[entry.key], artifact_class
+            )
+        pinned.append(
+            ArtifactPin(
+                key=entry.key,
+                version=version,
+                class_id=entry.class_id,
+                registration=entry.registration,
+            )
+        )
+
+    pins = ResolvedPins(entries=tuple(pinned))
+    handle = boot(
+        backend=manifest.backend,
+        connection=connection or {},
+        secrets=secrets,
+        registry=registry,
+        resolution_spec_key=manifest.resolution_spec_key,
+        resolution_spec_version=pins.version_for(manifest.resolution_spec_key),
+        policy_bundle_key=manifest.policy_bundle_key,
+        policy_bundle_version=pins.version_for(manifest.policy_bundle_key),
+    )
+    return BootedFabric(
+        handle=handle,
+        pins=pins,
+        tenant_id=resolved_tenant,
+        artifacts=parsed,
+        survivor_cap=manifest.survivor_cap,
+    )
+
+
 def load_and_boot(
     manifest_path: str | Path,
     *,
@@ -579,28 +725,7 @@ def load_and_boot(
 
     resolved_tenant = _resolve_tenant(manifest, tenant_id)
     root = manifest_file.parent
-    document_paths: dict[str, Path] = {}
-    for entry in manifest.artifacts:
-        refuse_role_the_sdk_fixes(entry.class_id, entry.role)
-        # Ordering is the point and it must stay here. This runs **before any
-        # document is read** and before anything is registered, so a manifest
-        # that would have routed an author-versioned class around the D-05 bump
-        # check — or squatted an SDK class id — never reaches the parse phase.
-        #
-        # This is applied to EVERY entry, `role: load` included, and it is not
-        # an oversight that a `load` entry is held to a registration path it
-        # never travels. See `ManifestEntry.registration` for why the check is
-        # class-wide rather than role-scoped; do not make it conditional on
-        # `entry.role` without reading that first, because doing so changes the
-        # refusal surface rather than tidying it.
-        refuse_registration_the_sdk_fixes(entry.class_id, entry.registration)
-        # Same ordering, same reason, one entry stronger: an entry that escapes
-        # the deployment is refused before **any** document is opened, so a
-        # manifest whose seventh entry symlinks out never reads its first six
-        # either. The keys are unique by contract (`_keys_are_unique`), so this
-        # mapping is total over the entries and phase one resolves nothing a
-        # second time.
-        document_paths[entry.key] = _document_inside_the_deployment(root, entry)
+    document_paths = _preflight_entries(manifest, root)
     adapter = _preflight_adapter(manifest, connection or {})
     # After the preflight, deliberately: a reference the adapter cannot use is
     # refused above, without the environment ever being read, so the only
@@ -617,74 +742,11 @@ def load_and_boot(
         document = document_paths[entry.key].read_text(encoding="utf-8")
         parsed[entry.key] = load_artifact(document, artifact_class)
 
-    # Phase two: register the ones the manifest marks `role: register`.
-    pinned: list[ArtifactPin] = []
-    for entry in manifest.artifacts:
-        if entry.role == "load":
-            # D-IMPL-80. Nothing happens here, deliberately. A `register_typed`
-            # call on this branch would content-hash raw event data into Control
-            # Plane state and therefore into Decision Replay dimension 2.
-            continue
-        artifact_class = resolve_artifact_class(entry.class_id)
-        if entry.registration == "versioned":
-            # `register_versioned` RETURNS its D-05 refusals rather than raising
-            # them (the GateRefusal discipline), so a bare assignment here would
-            # put a `RefuseUnbumpedChange` object into `ArtifactPin.version` and
-            # record a refusal as a pin. The narrowing below is what stops that,
-            # and mypy --strict is the second layer.
-            #
-            # There is deliberately no fallback to `register_typed`: a manifest
-            # that declared `versioned` asked for the bump check, and quietly
-            # taking the other path when it refuses is the bypass this field
-            # exists to close, returning in a new costume.
-            #
-            # The other failure mode on this branch is a `TypeError` raised
-            # inside `register_versioned` when the document declares no string
-            # `artifact_version`. It surfaces unhandled, and that is what an
-            # adopter sees when they declare `versioned` for a class that is not
-            # author-versioned. For the SDK-owned instances of that mistake,
-            # `refuse_registration_the_sdk_fixes` refuses in preflight, before
-            # any document is read.
-            outcome = registry.register_versioned(
-                entry.key, parsed[entry.key], artifact_class
-            )
-            if isinstance(outcome, RegistrationRefusal):
-                raise ValueError(
-                    f"manifest key {entry.key!r} (class {entry.class_id!r})"
-                    " declares registration 'versioned', and the D-05"
-                    " hash-verified bump check refused it:"
-                    f" {type(outcome).__name__}. Nothing was registered under"
-                    " this key, and no pin is recorded for a refusal"
-                )
-            version = outcome
-        else:
-            version = registry.register_typed(
-                entry.key, parsed[entry.key], artifact_class
-            )
-        pinned.append(
-            ArtifactPin(
-                key=entry.key,
-                version=version,
-                class_id=entry.class_id,
-                registration=entry.registration,
-            )
-        )
-
-    pins = ResolvedPins(entries=tuple(pinned))
-    handle = boot(
-        backend=manifest.backend,
-        connection=connection or {},
-        secrets=secrets,
+    return _register_and_boot(
+        manifest,
+        parsed,
         registry=registry,
-        resolution_spec_key=manifest.resolution_spec_key,
-        resolution_spec_version=pins.version_for(manifest.resolution_spec_key),
-        policy_bundle_key=manifest.policy_bundle_key,
-        policy_bundle_version=pins.version_for(manifest.policy_bundle_key),
-    )
-    return BootedFabric(
-        handle=handle,
-        pins=pins,
-        tenant_id=resolved_tenant,
-        artifacts=parsed,
-        survivor_cap=manifest.survivor_cap,
+        connection=connection,
+        secrets=secrets,
+        resolved_tenant=resolved_tenant,
     )
