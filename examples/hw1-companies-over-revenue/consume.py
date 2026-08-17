@@ -34,7 +34,14 @@ def parse_args() -> argparse.Namespace:
         # was sent and the cross-check would report a healthy wire as failed.
         "--min-revenue", type=int, required=True, help="The revenue threshold."
     )
-    parser.add_argument("--as-of", help="ISO 8601 temporal boundary. Default: none.")
+    parser.add_argument(
+        "--as-of",
+        help=(
+            "ISO 8601 temporal boundary, with an explicit UTC offset"
+            " (e.g. 2026-08-01T00:00:00+00:00). Default: none, which asks"
+            " against the deployment's own decision instant."
+        ),
+    )
     parser.add_argument("--explain", action="store_true", help="Governance detail.")
     return parser.parse_args()
 

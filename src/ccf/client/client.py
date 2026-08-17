@@ -153,12 +153,26 @@ class ProductClient:
                 needed nothing beyond its axes, which is a positive statement
                 and not the same fact as one nobody thought about.
             as_of: The instant to answer against, or ``None`` for the server's
-                decision instant.
+                decision instant. **Timezone-aware when it is not** ``None``:
+                ``D-IMPL-38`` admits no implicit UTC, so a naive instant is
+                refused here rather than failing differently on each transport.
 
         Returns:
             The one result shape, identical across every transport.
 
         Raises:
+            pydantic.ValidationError: the question could not cross this seam —
+                a naive ``as_of``, or a ``parameters`` value that would not come
+                back as the type that went out. Raised at the caller, before any
+                transport is reached, and therefore **identical on every
+                transport**. It is deliberately not a
+                :class:`~ccf.client.errors.TransportError`: ``D-10`` reserves
+                that for *the wire never spoke*, and reporting a caller's
+                malformed argument as an outage is the inversion the taxonomy
+                exists to prevent — the natural response to an outage is a
+                retry, and this question will never succeed. See
+                :class:`~ccf.client.wire.WireRequest` for both guards and for the
+                measurement that produced the second (``D-IMPL-151`` ``B0b``).
             ccf.client.errors.TransportError: the wire never spoke — the
                 connection failed, the transport answered a different question
                 than the one asked, or what came back does not hash to the
