@@ -292,6 +292,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | --- | ---: | --- |
 | `.planning/HANDOFF-2026-08-14.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/HANDOFF-2026-08-15.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/HANDOFF-2026-08-17.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/PROJECT.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/REQUIREMENTS.md` | 14 | the phase's own planning tree — not shipped, not published |
 | `.planning/ROADMAP.md` | 8 | the phase's own planning tree — not shipped, not published |

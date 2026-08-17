@@ -2,88 +2,73 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
-status: executing
-last_updated: "2026-08-16T18:00:00.000Z"
+status: phase-complete
+last_updated: "2026-08-17T04:40:00.000Z"
 last_activity: >-
-  2026-08-16 -- PHASE 17 IS FEATURE-COMPLETE AND READY TO CLOSE. 17-09 merged at 5deffd5: the
-  client example ships -- consume.py (78 lines, stdlib + ccf.client only) beside an opaque
-  deployment/ holding ONE Python module and three data files. All gates green on the MAIN
-  CHECKOUT: ci-quick-suite exit 0 (3739 passed / 0 failed / 2 skipped / 172 deselected),
-  gate-tools 0 (154 passed), lints 0, docs-strict 0, typecheck 0 (209 files). D-IMPL-146 (Dave)
-  closes the phase after 17-09 and DEFERS 17-08 (the s1 removal) and 17-10 (the MCP door) OUT of
-  Phase 17 -- both plan files carry a DEFERRED banner. Remaining: the CLAUDE.md 3.1 close
-  protocol -- cross-AI panel, triage, Dave's ruling, D-GATE-17.
+  2026-08-16 -- PHASE 17 CLOSED, GATED AND MERGED. D-GATE-17 approved by Dave; `phase-17` merged to
+  `main` with --no-ff at b32348f after a GREEN Actions run on the exact commit merged (run
+  31995656672 @ 44b1f758, all four jobs) -- the condition Dave set. Merged `main` re-verified
+  independently rather than inheriting the branch's result: ci-quick-suite exit 0, 3739 passed / 0
+  failed / 2 skipped / 172 deselected; gate-tools 0; lints 0; docs-strict 0; typecheck 0 (209
+  files). NOTHING IS IN FLIGHT. Read .planning/HANDOFF-2026-08-17.md first.
 progress:
   total_phases: 18
   completed_phases: 16
   total_plans: 175
-  completed_plans: 165
+  completed_plans: 166
   percent: 94
 stopped_at: >-
-  PHASE 17 IS FEATURE-COMPLETE. 12 of 14 plans executed; the remaining two are DEFERRED OUT by
-  D-IMPL-146, not outstanding. HEAD 5deffd5, verified on the MAIN CHECKOUT with exit codes captured
-  directly and BRANCHED ON: ci-quick-suite 0 (3739 passed / 0 failed / 2 skipped / 172 deselected),
-  gate-tools 0 (154 passed), lints 0, docs-strict 0, typecheck 0 (209 files). CI IS GREEN on this
-  branch -- run 31974549984 @ 763c846, all four jobs, the first fully green run it has ever had, and
-  the first time the four substrate legs and coverage ever executed.
-  THE ONLY REMAINING WORK IS THE CLAUDE.md 3.1 CLOSE PROTOCOL, and step 1 is NOT optional:
-  (a) the CROSS-AI PANEL, `/gsd-review --phase "Phase 17" --all`, written to 17-CLOSE-REVIEWS.md
-  because the pre-execution plan review must survive; give the panel the findings already known and
-  tell it NOT to re-derive them; (b) the single-agent code review, which is ADDITIVE and never a
-  substitute; (c) verify EVERY finding against the tree before recording or acting, and record the
-  rejected ones as rejected -- this project has received confident, well-formatted, FALSE findings;
-  (d) triage blocking vs advisory, fix blocking in-phase; (e) Dave's ruling; (f) the D-GATE-17 entry;
-  (g) only then the --no-ff merge to main.
-  ONE FINDING THE PANEL MUST BE POINTED AT, raised by the executor against itself: 17-09 edited the
-  gates that JUDGE its own example (tests/products/test_gate_two_call_shape.py and
-  tools/docs_tests/test_retirement_sweep.py) in the same phase, by the same agent -- its own words,
-  "worth a reviewer who is not me."
-  A KNOWN CONSEQUENCE OF D-32, recorded not fixed: nothing in the repo populates a deployment, so the
-  README's headline command against a clean checkout prints `0 of 0 assembled`, D_c 1.0000 ->
-  fail_closed. The mechanism is HONEST (17-11's empty-assembly branch refusing a confident number
-  about a graph that said nothing, carrying no scorer pin) and no test depends on a populated
-  deployment (464 passed after deleting both generated paths), so CI is unaffected. The populate
-  story belongs to the producer example that also closes the refuse_request citation gap.
-  THREE MEASUREMENT HAZARDS, all found 2026-08-16 and all of the
-  same family -- machinery that reports confidently wrong rather than failing: (a) `make ... | tail
-  -N` REPORTS TAIL'S EXIT CODE, not make's; the orchestrator made this exact mistake twice and
-  reported a green tree that was red (gate-tools was failing). Always `make X > log 2>&1; echo $?`.
-  (b) THE VENV'S EDITABLE INSTALL RESOLVES `ccf` TO THE MAIN CHECKOUT, so any worktree measurement
-  without PYTHONPATH=src:runtime reads code the executor did not write; make targets set it, ad-hoc
-  pytest and python -c DO NOT. (c) RETIREMENT-COUPLINGS.md SWEEPS THE PLANNING TREE, so a plan's own
-  SUMMARY.md is swept -- 17-12 regenerated the report and then wrote its SUMMARY, adding a row and
-  leaving gate-tools red on merge (fixed at f7c01c5). Re-sweep AFTER the SUMMARY, never before.
-  WHY THE PAUSE EXISTED: GovernedResolver takes 13
-  constructor arguments -- 3 from the booted fabric, 8 plain data, 2 BEHAVIORAL -- and neither
-  behavioral Protocol had a reference implementation, violating CLAUDE.md §11 in its own words and
-  forcing every deployment to write both in Python (the fixture's resolver.py is 295 lines of
-  exactly that). That is the 722-line example wearing a smaller suit. RULED (2026-08-16 spec +
-  Amendment A): the debt scorer PROCEEDS -- the SDK already ships FreshnessScorer/assess_debt under
-  D-IMPL-47 and only the GraphView -> DebtFactors adapter is missing, and a documented overridable
-  default IS a reference implementation. The plan factory is IMPOSSIBLE as scoped -- ProjectionPlan
-  is itself a Protocol, no declarative plan artifact exists, and mapping a GraphView onto declared
-  payload fields is INVENTION not mapping. Resolution: a narrow written exception, ONE Python module
-  (the projection) in deployment/, everything else data, and the loader must refuse a second
-  module:attribute reference BY NAME -- because an exception with no mechanism holding it narrow is
-  a precedent, not an exception. THE PHASE'S LESSON, unchanged and still true: every defect found
-  has been in VERIFICATION MACHINERY, never in mechanism -- five instances of one shape, a check
-  that stops checking without going red (the citation sweep dropping ambiguous targets and passing
-  vacuously for a full wave; its repair then walking zero files; a gate-call-site floor at zero
-  headroom with every witness in a retiring tree; the surface walk swallowing ImportError; and
-  gate-tools added to `ci` but never to `ci-core`, which is what everyone runs, so three waves
-  shipped past a red gate). Root cause worth carrying: Python's discovery primitives default to
-  LENIENT, so a gate built on one inherits its leniency unless you override it explicitly. The
-  instruction that keeps earning its keep: tell every executor to expect its plan to be wrong and to
-  dispute with a MEASUREMENT -- now TEN FOR TEN this phase. 17-11 found its own plan's premise false
-  (the SDK cannot supply C or S at all, so both arrive as scorers with no defaults and DeclaredFactor
-  ships so a deployment can STATE an assumption that pins into replay); 17-12 found the SPEC wrong
-  twice (artifact_store is not on BootedFabric; asked_at is not SDK-owned at this seam) and its own
-  key list short by two; 17-13 found its plan's fabric-object count wrong AND found its own fixture
-  could not exercise debt at all -- an unpopulated graph took the empty-assembly branch and reported
-  freshness 0 on BOTH sides of a comparison, presenting as a GREEN-LOOKING ZERO rather than an error.
-  That is the sixth instance of the phase's shape and it was caught only because the test demanded a
-  number that MOVES rather than a number that exists.
-
+  NOTHING IN PROGRESS. Phase 17 is closed, not paused; `main` is the approved state again at
+  b32348f, pushed, clean, green. THERE IS NO WORK TO RESUME -- the next session starts something
+  new and WHICH thing is Dave's call, because `.planning/ROADMAP.md` ENDS AT PHASE 17 and no Phase
+  18 section exists (the frontmatter's total_phases: 18 is ahead of the roadmap).
+  CANDIDATES, all recorded with reasons: (1) 17-10, the MCP door and adapter -- deferred out of
+  Phase 17 by D-IMPL-146, the second transport that would make "transport-agnostic" demonstrated
+  rather than designed; the conformance suite is already written to take a second subject and says
+  so in its own docstring. (2) 17-08, deleting the condemned s1 trees -- ALSO deferred, and BLOCKED
+  ON REAL WORK: `refuse_request` has no surviving demonstration anywhere in examples/ once those
+  trees go, and the gate requires TWO distinct cited examples per seam with the cite-it-twice
+  escape closed by design. The remedy is to WRITE a producer-side example, not to relax a gate --
+  and the same hazard sits on the other refusal, because the quarantined 00-08 group holds the sole
+  refuse_bound_payload call site. (3) Phase 16, STOPPED at 6/21, never gated, its 14 remaining doc
+  plans describing a surface that no longer exists. (4) The producer example that closes both (2)
+  and the empty-answer consequence below.
+  BOTH DEFERRED PLAN FILES CARRY A `DEFERRED OUT OF PHASE 17` BANNER after their frontmatter so an
+  execute-phase run against 17 cannot pick them up.
+  KNOWN CONSEQUENCE, recorded not fixed: the example's headline command prints `0 of 0 assembled`,
+  D_c 1.0000, fail_closed on a clean checkout, because D-32 forbids committing data to examples/
+  and nothing populates a deployment. The MECHANISM IS HONEST -- the empty-assembly branch refusing
+  a confident number about a graph that said nothing -- and no test depends on a populated
+  deployment (464 passed after deleting both generated paths), so CI is unaffected.
+  PROCESS ITEM to carry: a plan should not ship an artifact AND the gate that judges it. 17-09 did
+  both; two outside reviewers found the detectors genuinely constrain the shape anyway ("detector
+  quality is good; independence is not"), and the real shaping turned out to be elsewhere -- two
+  coverage floors that gained headroom in-phase and were not re-raised.
+  MEASUREMENT HAZARDS, all confirmed 2026-08-16, all of one family -- machinery that reports
+  confidently wrong rather than failing: (a) `make ... | tail -N` REPORTS TAIL'S EXIT CODE, and
+  echoing an exit code is not branching on it; the session reported a green tree that was red
+  twice. Use `make X > log 2>&1; echo "EXIT=$?"` AND branch on it. (b) THE VENV'S EDITABLE INSTALL
+  RESOLVES `ccf` TO THE MAIN CHECKOUT, so any worktree measurement without PYTHONPATH=src:runtime
+  reads code the executor did not write. (c) RETIREMENT-COUPLINGS.md SWEEPS THE PLANNING TREE
+  INCLUDING A PLAN'S OWN SUMMARY -- write the SUMMARY first, then re-sweep. (d) Actions' checkout
+  is fetch-depth 1, and a shallow clone's grafted root appears to introduce every file; ask
+  `git rev-parse --is-shallow-repository` rather than inferring from an empty log.
+  ADVISORY FINDINGS carried out of the phase unfixed and enumerated in HANDOFF-2026-08-17.md and
+  in 17-CLOSE-REVIEWS.md / 17-REVIEW.md: the per-module budget gate, the client exception taxonomy
+  leaking past TransportError, `_parse` swallowing SyntaxError under a `# pragma: no cover` that
+  admits the branch never ran, the documentation-only credential posture on `connection:`, the
+  purity gate admitting any ccf.client.* submodule, the projection docstring overclaim, the
+  required[0] positional assumption, load_reference mutating sys.path, and `question.asked_at` now
+  optional and read by nothing.
+  SECURITY, OUTSTANDING AND DAVE'S: revoke the three fine-grained PATs pasted into the 2026-08-10
+  transcript, plus any created 2026-08-16, at github.com/settings/personal-access-tokens.
+  THE PHASE'S LESSON, at ELEVEN instances and unchanged: every defect found was in VERIFICATION
+  MACHINERY or in PLANS, never in mechanism -- a check that stops checking, or one that keeps
+  reporting green while verifying the wrong thing. They share a shape: treating ABSENCE OF A
+  FAILURE SIGNAL as PRESENCE OF A SUCCESS SIGNAL. The correct model has three states -- pass, fail,
+  and DON'T KNOW -- and the bug is collapsing "don't know" into "pass". Two rules now written into
+  the code they govern: a floor is only a floor while it equals the count, and the plan that adds a
+  witness is the plan that must raise it; and a mirror asserted in a comment is not a mirror.
 ---
 
 # STATE — CCF SDK
@@ -96,10 +81,10 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 17 — Client Access (`ccf.client`), **FEATURE-COMPLETE
-and awaiting only the CLAUDE.md §3.1 close protocol.**
-`.planning/HANDOFF-2026-08-16.md` is STALE throughout its "RESUME HERE" section
-— every plan it names has run. The design is
+**Current focus:** NONE — Phase 17 is **CLOSED, GATED AND MERGED**, and nothing
+is in progress. **Read `.planning/HANDOFF-2026-08-17.md` first**; it is written
+for a cold start and supersedes `HANDOFF-2026-08-16.md`, which now carries a
+SUPERSEDED banner. The design of record for the client surface is
 `docs/superpowers/specs/2026-08-15-ccf-client-design.md` plus its Amendment 1;
 the pause spec
 (`docs/superpowers/specs/2026-08-16-reference-plan-factory-and-debt-scorer.md`
@@ -107,13 +92,17 @@ plus Amendment A) is DISCHARGED.
 
 ## Current Position
 
-Phase: 17 — Client Access. **12 of 14 plans executed and merged** — 17-01…17-07,
-  the mid-phase 17-03b Dave ruled in, 17-11/-12/-13 (the pause), and 17-09 (the
-  client example). HEAD `5deffd5`.
-  VERIFIED ON THE MAIN CHECKOUT, exit codes captured and branched on:
-  `ci-quick-suite` 0 — 3739 passed / 0 failed / 2 skipped / 172 deselected;
-  `gate-tools` 0 (154 passed); lints 0; docs-strict 0; typecheck 0 (209 files).
-  CI GREEN — run 31974549984 @ `763c846`, all four jobs.
+Phase: 17 — Client Access. **CLOSED, GATED (D-GATE-17) AND MERGED TO `main`.**
+  12 of 14 plans executed — 17-01…17-07, the mid-phase 17-03b Dave ruled in,
+  17-11/-12/-13 (the pause), and 17-09 (the client example).
+  `main` @ **`b32348f`**, pushed, clean. `phase-17` @ `44b1f75`, retained per
+  CLAUDE.md §2.2.
+  MERGED ONLY AFTER A GREEN ACTIONS RUN ON THE COMMIT ACTUALLY MERGED — run
+  31995656672 @ `44b1f758`, all four jobs — which was Dave's condition.
+  The merged `main` was then re-verified INDEPENDENTLY rather than inheriting
+  the branch's result: `ci-quick-suite` 0 — 3739 passed / 0 failed / 2 skipped /
+  172 deselected; `gate-tools` 0; lints 0; docs-strict 0; typecheck 0 (209
+  files). Exit codes captured and BRANCHED ON, never through a pipe.
 17-08 (the s1-00/s1-01 removal) and 17-10 (the MCP door + adapter):
   **DEFERRED OUT OF PHASE 17 by D-IMPL-146.** Not outstanding — both plan files
   carry a DEFERRED banner so an execute-phase run cannot pick them up. They move
