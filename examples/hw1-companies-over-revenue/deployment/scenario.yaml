@@ -1,0 +1,21 @@
+# How a source row's fields are named once inside the fabric — this
+# deployment's own vocabulary, and all that is left of it.
+#
+# NOT a Control Plane artifact and NOT registered. It exists so `projection.py`
+# is an interpreter over documents rather than a module carrying values. The
+# No-Hardcoding Rule (CLAUDE.md §6.4) scopes to `examples/` —
+# `tools/lints/__main__.py::RULE_TREE_SCOPE` gives `no-hardcoding` the tree
+# tuple `("src", "runtime", "examples", "tests")` — so a threshold or a field
+# name spelled as a Python constant next door would be that rule firing here
+# exactly as it would in `src/`.
+#
+# It carries the ROLE each attribute plays, which `ccf_config.yaml` cannot say:
+# `resolution.entity_rules[].attribute_keys` is a set of keys, and reading
+# "which one is the name" out of its ORDER would make a re-ordering of that
+# list silently change what the projection prints.
+
+# These match `attribute_keys` in `ccf_config.yaml`'s `resolution:` section.
+attributes:
+  reference: company_ref
+  name: company_name
+  revenue: company_revenue
