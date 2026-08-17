@@ -295,6 +295,27 @@ example-s1-00: ## Run examples/s1-00-companies-over-revenue (MIN_REVENUE=<n> opt
 		$(PYTHON) examples/s1-00-companies-over-revenue/consume.py \
 		$(if $(MIN_REVENUE),--min-revenue $(MIN_REVENUE))
 
+# HW-1 — the first example a newcomer reads. NOT in the `examples:` aggregate
+# and NOT in any workflow: it needs a populated deployment, the always-on
+# pipeline is network-free, and `live-legs.yml`'s three jobs are all
+# `runs-on: ubuntu-latest` with no database secrets. A red check nobody can
+# make green is worse than no check. See the example's README.
+#
+# THIS TARGET DELIBERATELY DOES NOT USE $(PYTHON) OR $(ENV), and that is the
+# one place in this file where spelling the interpreter is correct rather than
+# sloppy. The README documents this exact string for a reader to type, and
+# `$(PYTHON)` is not a string anybody can type; `which python` returns nothing
+# in this repository, so a documented bare `python` would not run either.
+# `tests/examples/test_client_example_purity.py` asserts the recipe below and
+# the README's command block are character-identical. Please do not "fix" this
+# back into a variable — it silently breaks that assertion's whole point.
+#
+# No MIN_REVENUE variable: a threshold is a REQUEST parameter and a build tool
+# is not a request channel (the s1-00 ruling, D-18).
+.PHONY: example-hw1
+example-hw1: ## Run examples/hw1-companies-over-revenue (needs a populated deployment; never CI)
+	CCF_BINDING="inprocess:examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
+
 # The Phase 15.3 permitted-change-surface gate and its `tools/gates/` package
 # were RETIRED by plan 15.4-07, in the same commit that registered the two
 # structural rules replacing them. D-IMPL-93: the per-file added-line budgets

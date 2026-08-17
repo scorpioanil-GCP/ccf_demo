@@ -54,9 +54,18 @@ request_contract:
         description: Return companies whose revenue exceeds this amount.
     required: [revenue_threshold]
 
-# How a source row becomes an entity. `last_updated` is NOT an attribute
-# here — it arrives as the envelope's `observed_time` and becomes the
-# claim's `observed_at`, which is what the half-life curve reads.
+# How a source row becomes an entity. A filing date is NOT an attribute
+# here — it rides the envelope, not the payload.
+#
+# **Corrected against the tree while recovering this document.** The s1-00
+# original said the filing date "arrives as the envelope's `observed_time` and
+# becomes the claim's `observed_at`". It does not:
+# `src/ccf/assembly/worker.py::AssemblyWorker._stitch` sets `observed_at` from
+# `ingestion_timestamp` ALWAYS — it records when *the fabric* learned the
+# claim, which is a fact the fabric always knows (INV-CH7-03) — and routes
+# `observed_time` to `valid_from`. `observed_at` is what the half-life curve
+# reads, so a deployment wanting a spread of ages gives each envelope the
+# instant the fabric learned it.
 resolution:
   entity_rules:
     - match_key: company_ref
