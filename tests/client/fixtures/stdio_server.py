@@ -25,6 +25,18 @@ resolver returning the narrower ``ServableProduct`` would emit
 ``replay_ref=None`` over MCP and disagree with the in-process leg on a field
 ``assert_served_parity`` compares.
 
+**The private reach is deliberate here and is deliberately not the adopter's
+path.** ``_boot`` is private, and a review of ``D-IMPL-150`` (Dave, 2026-08-17)
+asked whether a fixture should be reaching for it. The answer kept it, on the
+grounds above: this file's job is to make *the SDK's* parity gate a statement
+about transports, and sharing the composition is what buys that. The
+adoptability question the finding was really about is answered where it
+matters — ``examples/hw1-companies-over-revenue/server/serve.py`` stands the
+same door up through the **public** seams only (``load_config_and_boot``,
+``build_governed_resolver``, ``load_binding_document``) and is exercised on
+every push by ``tests/examples/test_hw1_two_transports.py``. So the public path
+is demonstrated and measured; this fixture buys something else.
+
 Identity over stdio, stated rather than smuggled
 -------------------------------------------------
 **MCP stdio carries no authentication channel.** ``FastMCP`` installs its
