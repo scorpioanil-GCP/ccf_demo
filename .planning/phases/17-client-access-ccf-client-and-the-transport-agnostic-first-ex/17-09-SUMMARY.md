@@ -48,13 +48,228 @@ metrics:
 `ccf.client` and stdlib, an opaque `deployment/` holding one Python module, and
 two CI gates with fifteen sabotage controls, six of which are vacuity controls.
 
-**STATUS: STOPPED AT TASK 4's BLOCKING CHECKPOINT, WITH FIVE GATE FAILURES THE
-CHECKPOINT EXISTS TO ADJUDICATE** — two in `make ci-quick-suite`, three in
-`make gate-tools`. **None is a defect in the example.** All five are gates that
-pin a population at exactly one member, deliberately, so that the *second*
-member is red and a human looks. This example is that second member. Widening a
-ceiling whose entire purpose is to be red on the second claimant is a decision
-for Dave, not one I award myself.
+**STATUS: CHECKPOINT ANSWERED BY DAVE; ALL FIVE FAILURES CLOSED.** The plan is
+complete. `make ci-quick-suite` **exit 0**, `make gate-tools` **exit 0**,
+`tools.lints --all` **0**, `make docs-strict` **0**, `make typecheck` **0**.
+
+The five failures were raised at the checkpoint rather than fixed unilaterally,
+because all five were gates pinning a population at exactly one member *so that
+the second member is red and a human looks* — and this example was that second
+member. Dave ruled; the rulings and the work they authorized are in
+`## Dave's rulings` and `## Closing the five failures` below.
+
+---
+
+## Dave's rulings (2026-08-16, at the Task 4 checkpoint)
+
+| # | Question | Ruling |
+|---|---|---|
+| 1 | sqlite vs Postgres / a `from_env` form | **Accept sqlite for the first example.** *"Keeping a DSN literal or forcing Postgres would put credentials or extra machinery into the tree. sqlite is the lowest-friction substrate for 'first answer.' `from_env` support can be added later when a real Postgres deployment is needed; it is not required for this example."* **No code change.** |
+| 2 | The `D-IMPL-137` exemption / the second projecting example | **Teach the detector the post-`build_governed_resolver` shape. DO NOT raise the ceiling.** This was the work. |
+| 3 | Transport inversion costing one import naming a scheme | **Intended, no change.** *"The scheme belongs in the binding/adapter layer, not in client code. One import that names the scheme inside the official adapter is the correct and expected cost of the design."* |
+| 4 | `17-08` and the resolver-seam citations | **The entire removal of `s1-00`/`s1-01` is DEFERRED OUT OF PHASE 17.** Neither tree deleted, no seam docstring edited, none of `17-08`'s files touched. |
+| 5 | The three retirement-sweep failures | **Handled with #2** — *"the same population-pinning gates firing because a second projecting example now exists… not independent defects."* |
+
+Ruling 4 also settles the `## The 17-08 gate` section below: its finding stands
+on the record, and the removal it blocks is no longer Phase 17's problem.
+
+---
+
+## Closing the five failures
+
+### The specification was my own measurement
+
+`test_every_projecting_example_body_names_the_binder` demanded that
+`build_projection()` call `refuse_operator_set_divergence`, while
+`_binder_collapses` **property (1) in the same module** refuses exactly the call
+that demand would produce. The detector was written when a deployment computed
+`required=` itself and could be caught reading the product class's claim. Under
+`D-IMPL-141` the deployment writes one module and
+`~ccf.products.resolver.build_governed_resolver` hands it the operator set as a
+**parameter**, already derived from the registered class.
+
+Instrumented on the shipped scope, before the fix:
+
+```
+scope       : build_projection() line 118
+root        : examples/hw1-companies-over-revenue/deployment
+registers   : False
+class_claim : None          <- no ProductLineage in this body to read
+plan_sources: {}            <- the construction is a `return`, not an assignment
+one_document: False         <- both fail-closed branches fire
+names_binder: False
+```
+
+Two independent blind spots, both correct for the shape they were written for.
+
+### What was built: a second route, not a wider one
+
+**`_sdk_supplied_operator_set(scope, path, plan_classes)`** — a *separate*
+premise-failure route, joined to the first by `_premise_is_false()` at the
+demand site and at `_binder_collapses`. Five **positive** conditions, every one
+a fact readable from the tree rather than a gap in it:
+
+1. the body sits in a deployment with a Control Plane authoring surface;
+2. that deployment registers no `ccf.projection-requirements`;
+3. **the deployment's `binding.yaml` names this module and this function**
+   through its single permitted `plan:` reference — the Control Plane saying, on
+   disk, that the SDK reaches this function;
+4. the function declares the seam's operator-set parameter;
+5. every plan it constructs is built from **that parameter**, at least one and
+   none from anywhere else.
+
+Condition 3 is the load-bearing one and it is why this is not an inference from
+absence. `BINDING_DOCUMENT_NAME` and `REFERENCE_KEYS` are **imported from the
+SDK**, not respelled, with
+`test_the_binding_documents_reference_surface_is_still_one_key` refusing to let
+the import go stale. `_constructed_plan_sources` reuses
+`_is_plan_construction`, `_keyword` and `_path` — the same primitives
+`_plan_sources` uses — so the two cannot disagree about *what* a plan
+construction is, only about which statement forms carry it.
+
+### THE CEILING STAYED AT ONE — both of them
+
+`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS` is **unchanged at 1** and its claimant list
+is still exactly `["examples/s1-00-companies-over-revenue"]`. The new route gets
+its **own** ceiling, `MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS = 1`, also with no
+headroom.
+
+They are separate because the claims are different in kind: row B is a
+deployment that authored **one** document where two were possible; this is a
+deployment that authored **none**, because it has no operator set of its own to
+author. One shared counter would let either population grow into the other's
+headroom while both ceilings read green — so
+`test_the_two_exemptions_are_disjoint` asserts no deployment claims both, which
+is what makes two ceilings of one bound two populations rather than one of two.
+
+### Nothing was narrowed to pass
+
+`test_the_premise_detector_reads_the_shipped_tree_correctly` came out
+**stronger**. It used to assert a one-name list. It now asserts *set equality*
+between the roots registering no requirements and the union of the two claimant
+lists — i.e. **no root escapes the demand unexplained**, which is `D-IMPL-137`
+**row C** and is precisely what must never appear quietly. The two per-route
+named assertions are kept on top of that.
+
+### The three retirement-sweep failures — cause proven both ways
+
+The committed report at `6d695b1` carried exactly one `inline-tree-witness`
+row: `test_the_plan_recognition_refuses_an_unrelated_required_keyword`,
+`witnesses = 1`, sustained solely by `examples/03-harness-portability`. This
+plan's example is a **second witness that nothing retires**, so the scan gained
+headroom and the row correctly dissolved.
+
+Proven by causing it in both directions, not inferred:
+
+```
+with hw1 present : inline-tree-witness rows: 0
+with hw1 PARKED  : inline-tree-witness rows: 1
+                   tests/products/test_gate_two_call_shape.py | line 4300
+                   | examples/03-harness-portability | witnesses 1 | owner 16-15
+```
+
+So the sweep was telling the truth and three tests pinned the previous truth.
+Restated, each to what is now true:
+
+- **`test_every_no_path_token_shape_is_accounted_for_at_head`** (was
+  `test_all_four_…_are_present_at_head`). Every no-path-token shape is in
+  exactly one of two named sets — present at HEAD, or absent **with the
+  measurement that put it there**. Both directions refused, so the set of
+  shapes the real tree exercises can neither shrink nor grow without a
+  deliberate edit. A gate that goes red when its subject *improves* teaches the
+  reader to edit the gate; this one records the improvement and stays a gate.
+- **`test_the_inline_tree_witness_coupling_dissolved_rather_than_vanished`**
+  (replaces `…_row_is_owned_three_waves_early`, whose subject no longer
+  exists). An empty row list is what a dissolved coupling looks like **and**
+  what a deleted subject looks like **and** what a broken detector looks like.
+  Only the first is good news, so all three are distinguished: the row set must
+  be empty, the module must still exist, and it must still carry the scanning
+  assertion the row was filed against. The detector itself stays exercised by
+  `test_shape_3_produces_a_row`, which builds the shape under `tmp_path` and
+  asserts one row with the right path, witness count and owner.
+- **`test_the_gate_two_module_carries_rows_with_two_different_owners`** —
+  scope corrected from three hand-picked shapes to the module's whole row set.
+  Its docstring's claim is *"a report that gave the whole module one owner
+  would hand a plan a red build it had no notice of"* — a claim about the
+  sweep's **per-row** ownership resolution, not about any particular pair of
+  shapes. The old filter drew its second owner from the inline row; narrowing
+  the claim to fit the remaining rows would have been the gate edited to pass.
+  Four distinct owners remain and the stated property holds.
+
+### What each touched gate does on ZERO matches — asked, and answered
+
+Every one fails. `per_row_ownership_problems([])` returns a violation rather
+than passing an empty `len(owners) >= 2`. `shape_accounting_problems` over an
+**empty census** — a broken walk, a moved tree — returns three violations
+rather than satisfying every absence claim, which is the shape a gate built
+only from absence claims would have silently passed.
+`_sdk_supplied_operator_set` returns `False` for a factory that constructs no
+plan, because `all(...)` over an empty tuple is `True` and the explicit
+emptiness guard is what stops the exemption reaching every function the binding
+document happens to name.
+
+### Sabotage: the new detector cannot recognise nothing, or everything
+
+Neutering `_sdk_supplied_operator_set` at its first statement, both directions:
+
+| Sabotage | Result |
+|---|---|
+| `return False` — recognises **nothing** | `3 failed, 93 passed`. Named: `test_the_sdk_supplied_route_recognises_the_shipped_shape`, plus both original failures returning — *"the D-IMPL-141 route no longer recognises the shipped example, so the exemption it grants is granted to nothing and the controls below would all pass over a detector that matches zero bodies"* |
+| `return True` — recognises **everything** | `19 failed, 77 passed`, including every condition control, `test_a_second_operator_set_outside_the_control_plane_is_refused` and `test_the_binder_argument_checks_reject_a_binder_that_cannot_fail` |
+
+Restored: `command grep -c "SABOTAGE" …` → **0**, `96 passed`.
+
+### Every round-2 control, with its observed message
+
+| Control | Observed |
+|---|---|
+| no `binding.yaml` at all | `_sdk_supplied_operator_set -> False` |
+| `binding.yaml` names a different module | `False` |
+| `binding.yaml` names a different attribute | `False` |
+| `binding.yaml` has no `plan:` reference | `False` |
+| no Control Plane authoring surface | `False` |
+| deployment **registers** `ccf.projection-requirements` | `False` — two documents means two documents, whatever the file layout |
+| plan built from another source (**row C**) | `False` — the demand stands |
+| **VACUITY** — factory builds no plan | `_constructed_plan_sources -> ()`, then `False` |
+| **CEILING** — a second `D-IMPL-137` claimant | `2 deployments claim the D-IMPL-137 one-document exemption, 1 permitted. …` |
+| **CEILING** — a second `D-IMPL-141` claimant | `2 deployments claim the D-IMPL-141 SDK-supplied exemption, 1 permitted. …` |
+| shape recorded present with no HEAD row | `no \`indirect-execution\` row at HEAD, but it is recorded as present — the detector is now unexercised against the real tree.` |
+| shape recorded absent that reappeared | `` `inline-tree-witness` has a row at HEAD again, but it is recorded as absent… a returning coupling is news.`` |
+| shape in neither set | `no-path-token shapes in neither set, so nothing accounts for them: ['indirect-execution', 'inline-tree-witness']` |
+| **VACUITY** — an empty shape census | three violations, one per present-recorded shape |
+| dissolution — subject module deleted | `…is gone, so an empty row set says nothing about headroom — the subject was DELETED instead` |
+| dissolution — scanning assertion deleted | `…no longer carries the scanning assertion the row was filed against, so the detector returning nothing is a DELETION rather than the headroom claimed here` |
+| dissolution — a returning coupling | `the inline-tree-witness coupling is back; restore the wave-8 ownership assertion this test replaced.` |
+| **VACUITY** — ownership over an empty row set | `…carries no coupling rows at all, so nothing here demonstrates per-row ownership` |
+| ownership — every row one owner | `every coupling row in one module resolved to a single owner, which is what a per-file ownership rule would produce and a per-row one would not: ['16-17']` |
+
+### Final verification, exit codes captured directly and branched on
+
+| Command | Exit | Result |
+|---|---|---|
+| `make ci-quick-suite` | **0** | `3739 passed, 2 skipped, 172 deselected` in 376.30s |
+| `make gate-tools` | **0** | `154 passed` (baseline 144, `+10` controls) |
+| `tools.lints --all` | **0** | — |
+| `make docs-strict` | **0** | — |
+| `make typecheck` | **0** | `Success: no issues found in 209 source files` |
+
+**Delta accounted, end to end.** Main-checkout baseline at `6d695b1`:
+**3695 passed**. Round 1 (the example and its two gates) added **+29**, measured
+by parking each change and re-collecting (3697 → 3726 collected). Round 2 added
+**+15**, all in `tests/products/test_gate_two_call_shape.py` (81 → 96
+collected): the new route's conditions, the two vacuity controls, the second
+ceiling and the disjointness assertion.
+
+**3695 + 29 + 15 = 3739**, exactly, with **0 failures** where there were 2.
+
+`tools/docs_tests` is not in `ci-quick-suite` (`testpaths = ["tests"]`), so the
+**+10** controls added to `test_retirement_sweep.py` land in `make gate-tools`
+instead: **22 → 32** in that module, **144 → 154** for the target.
+
+**The report was re-swept AFTER this file was written**, per the ordering
+hazard — the sweep walks the planning tree and reads this SUMMARY, so
+regenerating before writing it is what left `gate-tools` red twice earlier
+today. Committed and live now agree at **232 rows across 73 files**.
 
 ---
 
@@ -395,7 +610,12 @@ gate, not each other.
 
 ---
 
-## THE TWO FAILURES — and why I did not fix them myself
+## THE TWO FAILURES — as raised at the checkpoint
+
+> **CLOSED.** Dave ruled (#2 above): teach the detector, do not raise the
+> ceiling. Both are green. This section is kept as the record of *why the
+> checkpoint was raised*, because the reasoning is the specification the fix was
+> built from. The measurements below are the pre-fix state.
 
 `make ci-quick-suite` → **EXIT 2**, captured directly:
 
@@ -486,6 +706,11 @@ human-verify checkpoint regardless. See `## For Dave` item 2.
 ---
 
 ## The 17-08 gate — the answer is NO, and here is why
+
+> **Dave's ruling #4: the removal of `s1-00`/`s1-01` is DEFERRED OUT OF PHASE
+> 17.** Neither tree was deleted, no resolver-seam docstring was edited, and
+> none of `17-08`'s files were touched. The finding below stands on the record
+> for whichever phase picks the removal up.
 
 `17-08` deletes `examples/s1-00-*` and `examples/s1-01-*`.
 `tools/docs_tests/test_resolver_seam_obligations.py` requires **both** resolver
@@ -603,7 +828,11 @@ weakened to pass a lint.
 
 ---
 
-## For Dave — four things, at the checkpoint
+## For Dave — the four things raised at the checkpoint (ALL ANSWERED)
+
+> Answered in `## Dave's rulings` at the top. Kept as the record of what was
+> asked. Items 1 and 3 were ruled *no change*; item 2 was the work; item 4 was
+> deferred out of the phase; item 5 was folded into item 2.
 
 1. **The deployment is sqlite, not the FIBO Postgres**, because a Postgres
    deployment cannot be authored under the post-`17-12` binding document without
@@ -663,10 +892,15 @@ instead, in `test_a_single_file_config_example_is_outside_the_bijection`.
 line.** Two lines cannot be character-identical to a `make` recipe. Reasoned
 above.
 
-### Escalated, not fixed (Rule 4)
+### Escalated to the checkpoint, then executed on Dave's ruling (Rule 4)
 
-**7. The two `test_gate_two_call_shape.py` failures.** Widening a ceiling whose
-whole purpose is to be red on the second claimant is Dave's call.
+**7. The five gate failures.** Escalated rather than fixed, because widening a
+ceiling whose whole purpose is to be red on the second claimant is Dave's call.
+Ruled #2/#5: teach the detector, keep the ceiling at one. Executed — a second,
+separately-bounded route, with sixteen new controls across two modules and both
+sabotage directions observed. Both ceilings remain at 1 and
+`test_the_two_exemptions_are_disjoint` proves they bound two populations rather
+than one of two.
 
 ---
 
@@ -674,7 +908,11 @@ whole purpose is to be red on the second claimant is Dave's call.
 
 All nine created files verified present on disk. All three task commits
 verified in `git log`: `8139c7e`, `1893bf2`, `a734484`, each a child of
-`6d695b1`.
+`6d695b1`, plus `125c3a8` (checkpoint SUMMARY) and the round-2 fix commit.
+
+Modified in round 2, on Dave's ruling: `tests/products/test_gate_two_call_shape.py`
+and `tools/docs_tests/test_retirement_sweep.py`. **No `STATE.md` or
+`ROADMAP.md` edit in either round**, and no file belonging to `17-08`.
 
 ## Known Stubs
 
