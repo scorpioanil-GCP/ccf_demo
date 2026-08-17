@@ -163,8 +163,21 @@ Phase: **18 — MCP Transport.** EXECUTION COMPLETE (plan `17-10`, 4/4 tasks), �
   findings closed in-phase, one — `B0` — deferred to Phase 19 as an OPEN BLOCKING
   DEFECT under `D-IMPL-151`). All four gates green at `a7264e3`: `ci-core` 3871
   passed / 118 skipped / 0 failed, `conformance` 67, `docs-strict` 0,
-  `gate-tools` 400+154. **AWAITING DAVE'S `D-GATE-18` RULING — NOT GATED, and
-  there is no `D-GATE-18` entry.** The
+  `gate-tools` 400+154. **CLOSED, GATED AND MERGED** — `D-GATE-18` (Dave,
+  2026-08-17); `phase-18` merged `--no-ff` into `main` at `e57c93c`, the merge
+  commit referencing the gate. Merged `main` re-verified independently: all four
+  gates exit 0, identical counts, so the merge introduced nothing.
+  **`main` IS NOT PUSHED — 41 commits ahead of `origin/main`.** Pushing was not
+  ruled and is Dave's call, as is the Actions run on `e57c93c` (no CI token in
+  session; `~/ci_diag2.py` closes that loop).
+  **THE GATE'S RESERVATION TRAVELS WITH THE MERGE:** it approves the portability
+  claim and NOT a tamper-detection claim. `B0` — both client-seam integrity
+  checks structurally unable to fail, because the adapters reconstruct the
+  request echo instead of reading it off the wire — is an OPEN BLOCKING DEFECT
+  carried to **Phase 19** by `D-IMPL-151`. Until Phase 19 lands, the SDK must not
+  be described as detecting a transport that answered a different question, or a
+  vessel altered in transit. Ten advisories also ride forward unclosed, `A5`
+  among them: stdio auth is impersonation, not verification. The
   ROADMAP checkbox reads `[x]` and its row reads `1/1 — Complete`; that is
   accurate about PLANS ONLY and must not be read as a gate. Dave ruled the
   checkbox may stay (2026-08-17) provided this not-gated state stays explicit
