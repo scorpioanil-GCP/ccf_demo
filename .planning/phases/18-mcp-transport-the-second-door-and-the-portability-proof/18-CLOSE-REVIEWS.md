@@ -57,6 +57,29 @@ from a reviewer. See "Rejected findings" below.
 *`gsd-code-reviewer` CR-02. The depth pass found this; no panelist did.*
 **This is the defect class in `src/` — mechanism, not verification code.**
 
+> ## ⚠ STATUS: DEFERRED TO A FOCUSED FOLLOW-ON — **OPEN BLOCKING DEFECT, NOT ACCEPTED RISK**
+>
+> Ruled by Dave, 2026-08-17, recorded as **`D-IMPL-151`**. `B0` does **not** close with
+> Phase 18 and its presence here is deliberate so it is not lost at the gate.
+>
+> **Deferred because** making the echo checkable requires `DoorOutcome` — or the wire
+> form — to carry request identity: a wire-shape change touching both doors, the
+> adapter and the codec. Doing that inside this close would expand a phase already
+> declared execution-complete and risk the accretion pattern `D-IMPL-146` exists to
+> prevent.
+>
+> **The follow-on's sole job:** make the request-identity echo and the content-address
+> check *actually able to fail when a transport answers the wrong question*.
+>
+> **Corrected in-phase:** `codec.py`'s prose currently claims the protection. Per
+> Dave's instruction — *"Do not claim the current checks provide that protection"* —
+> the module docstring and both `Raises:` blocks are **amended, not deleted**: the
+> argument for why reconstruction is wrong is kept; the measured fact that the shipped
+> adapters reconstruct, and that both checks are therefore inert today, is added.
+>
+> **Until that phase lands, the SDK must not be described as detecting a transport
+> that answered a different question.**
+
 `src/ccf/client/codec.py:30-42` states the design principle in its own words: the
 echo is **cross-checked, not reconstructed**, because reconstruction *"cannot detect a
 transport that answered a different question … a proxying or multiplexing transport
