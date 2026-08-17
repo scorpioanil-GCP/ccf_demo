@@ -352,7 +352,7 @@ the requirement against the decision rather than against a memory of it.
 | CLNT-12 | Phase 17 | Pending |
 | CLNT-13 | Phase 17 | Pending |
 | CLNT-14 | Phase 17 | Pending |
-| CLNT-15 | Phase 17 | Pending |
+| CLNT-15 | Phase 18 | Pending |
 | CLNT-16 | Phase 17 | Pending |
 | CLNT-17 | Phase 17 | Pending |
 | CLNT-18 | Phase 17 | Pending |

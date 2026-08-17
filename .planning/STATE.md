@@ -2,15 +2,23 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
-status: phase-complete
-last_updated: "2026-08-17T04:40:00.000Z"
+status: planned
+last_updated: "2026-08-17T13:44:00.000Z"
 last_activity: >-
-  2026-08-16 -- PHASE 17 CLOSED, GATED AND MERGED. D-GATE-17 approved by Dave; `phase-17` merged to
-  `main` with --no-ff at b32348f after a GREEN Actions run on the exact commit merged (run
-  31995656672 @ 44b1f758, all four jobs) -- the condition Dave set. Merged `main` re-verified
-  independently rather than inheriting the branch's result: ci-quick-suite exit 0, 3739 passed / 0
-  failed / 2 skipped / 172 deselected; gate-tools 0; lints 0; docs-strict 0; typecheck 0 (209
-  files). NOTHING IS IN FLIGHT. Read .planning/HANDOFF-2026-08-17.md first.
+  2026-08-17 -- PHASE 18 OPENED on the MCP transport (D-IMPL-147, Dave). Phase 17 remains CLOSED,
+  GATED AND MERGED (D-GATE-17; `phase-17` merged --no-ff at b32348f after a green Actions run on
+  the exact commit merged, run 31995656672 @ 44b1f758 -- the condition Dave set; merged `main`
+  re-verified independently at ci-quick-suite exit 0, 3739 passed / 0 failed / 2 skipped / 172
+  deselected). The roadmap ended at Phase 17, so the next phase was UNDEFINED rather than merely
+  unplanned; four candidates were put to Dave and the MCP door + adapter was ruled, because the
+  conformance suite was ALREADY WRITTEN to take a second subject and a single adapter cannot
+  falsify a claim about adapters. Plan `17-10` LIFTED from Phase 17 into Phase 18 -- file moved,
+  ID DELIBERATELY RETAINED as `17-10` (three shipped test docstrings and two immutable decision
+  entries cite it; plan discovery is directory-scoped and prefix-agnostic, so the rename was
+  unnecessary). Deferral banner AMENDED, not deleted. Branch `phase-18` cut from `main`. Four
+  premises re-measured before the lift, all favourable -- see stopped_at. Two ROADMAP staleness
+  defects corrected in passing: Phase 17 had NO BULLET in the Phases list at all, and its progress
+  row read `0/10 -- Planned` through its entire execution, gate and merge.
 progress:
   total_phases: 18
   completed_phases: 16
@@ -18,23 +26,66 @@ progress:
   completed_plans: 166
   percent: 94
 stopped_at: >-
-  NOTHING IN PROGRESS. Phase 17 is closed, not paused; `main` is the approved state again at
-  b32348f, pushed, clean, green. THERE IS NO WORK TO RESUME -- the next session starts something
-  new and WHICH thing is Dave's call, because `.planning/ROADMAP.md` ENDS AT PHASE 17 and no Phase
-  18 section exists (the frontmatter's total_phases: 18 is ahead of the roadmap).
-  CANDIDATES, all recorded with reasons: (1) 17-10, the MCP door and adapter -- deferred out of
-  Phase 17 by D-IMPL-146, the second transport that would make "transport-agnostic" demonstrated
-  rather than designed; the conformance suite is already written to take a second subject and says
-  so in its own docstring. (2) 17-08, deleting the condemned s1 trees -- ALSO deferred, and BLOCKED
-  ON REAL WORK: `refuse_request` has no surviving demonstration anywhere in examples/ once those
-  trees go, and the gate requires TWO distinct cited examples per seam with the cite-it-twice
-  escape closed by design. The remedy is to WRITE a producer-side example, not to relax a gate --
-  and the same hazard sits on the other refusal, because the quarantined 00-08 group holds the sole
-  refuse_bound_payload call site. (3) Phase 16, STOPPED at 6/21, never gated, its 14 remaining doc
-  plans describing a surface that no longer exists. (4) The producer example that closes both (2)
-  and the empty-answer consequence below.
-  BOTH DEFERRED PLAN FILES CARRY A `DEFERRED OUT OF PHASE 17` BANNER after their frontmatter so an
-  execute-phase run against 17 cannot pick them up.
+  PHASE 18 IS OPEN AND READY TO EXECUTE. Nothing is part-done: the phase container was built this
+  session and no task has run. The NEXT ACTION is `/gsd:execute-phase 18` on branch `phase-18`
+  (cut from `main` at b32348f; `main` itself is untouched, pushed, clean and green).
+  WHAT PHASE 18 IS: the MCP transport -- the second door and the portability proof. ONE plan,
+  `17-10-PLAN.md`, FOUR tasks: (1) the egress tool stops hard-wiring `parameters={}` so a product
+  class declaring a required parameter becomes reachable over MCP, with NO coercion guessing and
+  NO wider than the HTTP door, proven by ONE shared case table run against BOTH doors; (2) the MCP
+  door emits the canonical refusal envelope while a GOVERNANCE refusal (ProductEntitlementRefused)
+  still RAISES -- that boundary is asserted so it reads as a decision rather than an omission;
+  (3) `mcp+stdio` ships as the second official adapter, sync at the surface with the async client
+  bridged internally, registered by ONE dict entry, constructing NO Result; (4) the adapter is
+  bound into the conformance suite. Requirements CLNT-12, CLNT-15.
+  THE PLAN FILE IS `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/17-10-PLAN.md`
+  -- note the `17-10` NAME INSIDE THE PHASE-18 DIRECTORY. THAT IS DELIBERATE AND MUST NOT BE
+  "TIDIED": three shipped test docstrings (tests/examples/test_client_example_purity.py, and
+  tests/client/conformance/test_inprocess_conformance.py TWICE) and two IMMUTABLE decision entries
+  (D-IMPL-146, D-GATE-17) cite `17-10` as a stable identifier per D-IMPL-144, and plan discovery is
+  DIRECTORY-SCOPED and prefix-agnostic ("$PHASE_DIR"/*-PLAN.md) so the rename was never needed.
+  The deferral banner was AMENDED to record the lift, not deleted -- same discipline the plan
+  itself applies to the egress docstring: keep the reasoning, change the behaviour.
+  FOUR PREMISES RE-MEASURED on `main` @ b32348f BEFORE the lift, so the phase starts on facts:
+  (a) `mcp==1.28.1` IS ALREADY A DECLARED, PINNED DEPENDENCY and installed, so the plan's T-17-SC
+  blocking human checkpoint for an [ASSUMED] package DOES NOT FIRE and no install is owed; (b) all
+  seven referenced artifacts exist (suite.py 759L, inprocess 445L, egress 599L, plus binding,
+  codec, refusal, test_inprocess_conformance); (c) TASK 3's HARNESS-LINT BOUNDARY QUESTION IS
+  ANSWERED NEGATIVE, empirically -- src/ ALREADY imports `mcp` in FOUR modules (ccf.mcp.client,
+  ccf.artifacts.mcp_store, ccf.signal.mcp_source, ccf.signal.mcp_envelope_map) and
+  tools/lints/harness_imports.py denies a frozenset of HARNESS packages that does not contain MCP,
+  because MCP is CCF's own integration surface (CLAUDE.md §7.1); the lint is green today with
+  those imports, so the adapter's import is permitted and NO D-IMPL is owed; (d) 17-09, the former
+  depends_on, is merged -- so `wave: 8, depends_on: ["17-09"]` became `wave: 1, depends_on: []`.
+  TWO THINGS THE PHASE MUST BE WILLING TO FALSIFY RATHER THAN SATISFY: (1) `suite.py` MUST NOT
+  CHANGE -- if binding a real second adapter requires editing it, the suite was not
+  adapter-agnostic and that is a FINDING against 17-07, not a quiet edit; `git diff
+  tests/client/conformance/suite.py` being empty is the claim. (2) The `parameters={}` hard-wiring
+  has a RECORDED REASON (a flat tool-argument map cannot carry D-IMPL-103's nested declared types
+  without guessing coercions, and a declared-parameter surface would make the tool wider than the
+  HTTP door) -- that reason is a CONSTRAINT ON THE FIX, not an obstacle to it: AMEND the docstring
+  paragraph, never delete it.
+  STILL DEFERRED AND NOT LIFTED: 17-08 remains in the PHASE 17 directory under its D-IMPL-146
+  banner, BLOCKED ON REAL WORK rather than sequencing -- `refuse_request` would have no surviving
+  demonstration anywhere in examples/ once the s1 trees go, and
+  tools/docs_tests/test_resolver_seam_obligations.py::test_both_seams_cite_both_call_sites requires
+  TWO DISTINCT cited examples per seam with the cite-it-twice escape closed by design. The remedy
+  is to WRITE a producer-side example, not to relax a gate -- and the same hazard sits on the OTHER
+  refusal, because the quarantined 00-08 group holds the sole refuse_bound_payload call site.
+  ALSO STILL OPEN: Phase 16, STOPPED at 6/21, never gated, its 14 remaining doc plans describing a
+  surface that no longer exists -- a replan-or-retire decision, not resumable as written.
+  ROADMAP CORRECTIONS made this session, recorded because neither defect was introduced this
+  session and both were load-bearing: PHASE 17 HAD NO BULLET IN THE PHASES LIST AT ALL (planned,
+  executed, gated and merged with a detail section and a progress row but no entry), and its
+  progress row read `0/10 -- Planned 2026-08-15` throughout. The absent-box case is NOT cosmetic:
+  the Phase 14.1 note records that an unchecked box once made roadmap.analyze return
+  next_phase: "14.1", routing auto-advance into a phase deliberately never planned. Also note the
+  frontmatter's total_phases: 18 is now ACCURATE -- it was ahead of the roadmap until Phase 18 was
+  written, and the discrepancy the last handoff flagged resolved itself rather than being fixed.
+  ADVISORY, pre-existing and NOT fixed: at least ten `DECISIONS.md:NN` LINE-ANCHORED citations
+  survive across the tree (lines 49, 227, 278-338), which contradicts D-IMPL-144's stable-ID rule.
+  D-IMPL-147 was APPENDED at the end of the file specifically so no anchor shifted; a future
+  insertion ANYWHERE ABOVE line 442 will silently stale them.
   KNOWN CONSEQUENCE, recorded not fixed: the example's headline command prints `0 of 0 assembled`,
   D_c 1.0000, fail_closed on a clean checkout, because D-32 forbids committing data to examples/
   and nothing populates a deployment. The MECHANISM IS HONEST -- the empty-assembly branch refusing
@@ -81,16 +132,37 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** NONE — Phase 17 is **CLOSED, GATED AND MERGED**, and nothing
-is in progress. **Read `.planning/HANDOFF-2026-08-17.md` first**; it is written
-for a cold start and supersedes `HANDOFF-2026-08-16.md`, which now carries a
-SUPERSEDED banner. The design of record for the client surface is
-`docs/superpowers/specs/2026-08-15-ccf-client-design.md` plus its Amendment 1;
-the pause spec
+**Current focus:** **PHASE 18 — MCP Transport: the second door and the
+portability proof.** Opened 2026-08-17 by `D-IMPL-147` (Dave), on branch
+`phase-18`. One plan, four tasks, ready to execute; nothing part-done.
+**Read `.planning/HANDOFF-2026-08-17.md` for the cold-start picture** — it is
+accurate on everything except its "RESUME HERE" section, which said the next
+phase was undefined; it now is. That handoff supersedes
+`HANDOFF-2026-08-16.md`, which carries a SUPERSEDED banner.
+
+The design of record is unchanged and this phase adds none:
+`docs/superpowers/specs/2026-08-15-ccf-client-design.md` plus its Amendment 1 —
+specifically §6 (*"an adapter is official when it passes"*), §9 (the sync-only
+ruling, whose named revisit trigger **is this adapter**), and Amendment 1 §A
+(the `D-28` rollout: *"the MCP door is fixed to produce it in this phase"*).
+The pause spec
 (`docs/superpowers/specs/2026-08-16-reference-plan-factory-and-debt-scorer.md`
 plus Amendment A) is DISCHARGED.
 
+**Why this phase and not another:** the conformance suite was already written to
+take a second subject and says so in its own docstring, and a single adapter
+cannot falsify a claim about adapters — the cross-adapter comparisons currently
+degenerate to self-comparisons. The three rejected candidates and their reasons
+are in `D-IMPL-147`.
+
 ## Current Position
+
+Phase: **18 — MCP Transport.** OPEN, ready to execute. Branch `phase-18`, cut
+  from `main` @ `b32348f`. Plan:
+  `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/17-10-PLAN.md`
+  — the `17-10` name inside the phase-18 directory is **deliberate**; see
+  `D-IMPL-147` and the banner in the file. Do not renumber it.
+  Next action: `/gsd:execute-phase 18`.
 
 Phase: 17 — Client Access. **CLOSED, GATED (D-GATE-17) AND MERGED TO `main`.**
   12 of 14 plans executed — 17-01…17-07, the mid-phase 17-03b Dave ruled in,
