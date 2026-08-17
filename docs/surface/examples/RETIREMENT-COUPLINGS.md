@@ -592,7 +592,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-CONTEXT.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-RESEARCH.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 48 | append-only decision log |
+| `docs/DECISIONS.md` | 50 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |

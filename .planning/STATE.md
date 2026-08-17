@@ -5,28 +5,46 @@ milestone_name: Performance, Documentation & Demonstration
 status: executing
 last_updated: "2026-08-16T18:00:00.000Z"
 last_activity: >-
-  2026-08-16 -- THE THREE-PLAN PAUSE IS CLOSED. 17-11, 17-12 and 17-13 all executed, merged and
-  verified green on the MAIN CHECKOUT at f84d11c: make ci-core MAKE_EXIT=0, 3751 passed / 0 failed
-  / 118 skipped, 400 lint, 144 tools. The 2026-08-16 spec is discharged, all five success criteria
-  with 3' in place of 3. CLAUDE.md §11 no longer violated for AssemblyDebtScorerProtocol.
-  BY THE PHASE'S OWN RULING WAVES 6 AND 7 ARE NOW UNBLOCKED -- but they are NOT started; that is
-  Dave's call, together with the still-unlooked-at phase-17 CI result.
+  2026-08-16 -- PHASE 17 IS FEATURE-COMPLETE AND READY TO CLOSE. 17-09 merged at 5deffd5: the
+  client example ships -- consume.py (78 lines, stdlib + ccf.client only) beside an opaque
+  deployment/ holding ONE Python module and three data files. All gates green on the MAIN
+  CHECKOUT: ci-quick-suite exit 0 (3739 passed / 0 failed / 2 skipped / 172 deselected),
+  gate-tools 0 (154 passed), lints 0, docs-strict 0, typecheck 0 (209 files). D-IMPL-146 (Dave)
+  closes the phase after 17-09 and DEFERS 17-08 (the s1 removal) and 17-10 (the MCP door) OUT of
+  Phase 17 -- both plan files carry a DEFERRED banner. Remaining: the CLAUDE.md 3.1 close
+  protocol -- cross-AI panel, triage, Dave's ruling, D-GATE-17.
 progress:
   total_phases: 18
   completed_phases: 16
   total_plans: 175
-  completed_plans: 164
+  completed_plans: 165
   percent: 94
 stopped_at: >-
-  PHASE 17 AT WAVE 5.7 OF 8. THE PAUSE IS CLOSED AND THE TREE IS VERIFIED GREEN at f84d11c
-  (make ci-core MAKE_EXIT=0, 3751 passed / 0 failed / 118 skipped, 400 lint, 144 tools -- exit code
-  captured directly, NOT through a pipe; see the measurement hazard below). 17-11, 17-12, 17-13 are
-  all merged with SUMMARYs committed. NEXT ACTION IS DAVE'S, NOT THE SESSION'S: (1) THE phase-17 CI
-  CHECK, still the highest-priority unknown -- pushed at 8e95139, never looked at, and the branch is
-  now ~180 commits ahead of main with NOTHING SINCE 8e95139 PUSHED. No gh CLI and no GitHub token
-  here, so this CANNOT be done from the session. (2) WAVES 6 AND 7 ARE UNBLOCKED BY THE RULING but
-  were deliberately NOT started -- 17-08 and 17-09 are both autonomous:false (checkpoint plans) and
-  wave 8 (17-10) follows them. THREE NEW MEASUREMENT HAZARDS, all found 2026-08-16 and all of the
+  PHASE 17 IS FEATURE-COMPLETE. 12 of 14 plans executed; the remaining two are DEFERRED OUT by
+  D-IMPL-146, not outstanding. HEAD 5deffd5, verified on the MAIN CHECKOUT with exit codes captured
+  directly and BRANCHED ON: ci-quick-suite 0 (3739 passed / 0 failed / 2 skipped / 172 deselected),
+  gate-tools 0 (154 passed), lints 0, docs-strict 0, typecheck 0 (209 files). CI IS GREEN on this
+  branch -- run 31974549984 @ 763c846, all four jobs, the first fully green run it has ever had, and
+  the first time the four substrate legs and coverage ever executed.
+  THE ONLY REMAINING WORK IS THE CLAUDE.md 3.1 CLOSE PROTOCOL, and step 1 is NOT optional:
+  (a) the CROSS-AI PANEL, `/gsd-review --phase "Phase 17" --all`, written to 17-CLOSE-REVIEWS.md
+  because the pre-execution plan review must survive; give the panel the findings already known and
+  tell it NOT to re-derive them; (b) the single-agent code review, which is ADDITIVE and never a
+  substitute; (c) verify EVERY finding against the tree before recording or acting, and record the
+  rejected ones as rejected -- this project has received confident, well-formatted, FALSE findings;
+  (d) triage blocking vs advisory, fix blocking in-phase; (e) Dave's ruling; (f) the D-GATE-17 entry;
+  (g) only then the --no-ff merge to main.
+  ONE FINDING THE PANEL MUST BE POINTED AT, raised by the executor against itself: 17-09 edited the
+  gates that JUDGE its own example (tests/products/test_gate_two_call_shape.py and
+  tools/docs_tests/test_retirement_sweep.py) in the same phase, by the same agent -- its own words,
+  "worth a reviewer who is not me."
+  A KNOWN CONSEQUENCE OF D-32, recorded not fixed: nothing in the repo populates a deployment, so the
+  README's headline command against a clean checkout prints `0 of 0 assembled`, D_c 1.0000 ->
+  fail_closed. The mechanism is HONEST (17-11's empty-assembly branch refusing a confident number
+  about a graph that said nothing, carrying no scorer pin) and no test depends on a populated
+  deployment (464 passed after deleting both generated paths), so CI is unaffected. The populate
+  story belongs to the producer example that also closes the refuse_request citation gap.
+  THREE MEASUREMENT HAZARDS, all found 2026-08-16 and all of the
   same family -- machinery that reports confidently wrong rather than failing: (a) `make ... | tail
   -N` REPORTS TAIL'S EXIT CODE, not make's; the orchestrator made this exact mistake twice and
   reported a green tree that was red (gate-tools was failing). Always `make X > log 2>&1; echo $?`.
@@ -78,25 +96,40 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 17 — Client Access (`ccf.client`), EXECUTING at wave
-5.7 of 8. **The three-plan pause is CLOSED and the tree is verified green.**
-`.planning/HANDOFF-2026-08-16.md` is the cold-start brief but is now STALE in
-its "RESUME HERE" section — 17-11/-12/-13 have all run. The design is
+**Current focus:** Phase 17 — Client Access (`ccf.client`), **FEATURE-COMPLETE
+and awaiting only the CLAUDE.md §3.1 close protocol.**
+`.planning/HANDOFF-2026-08-16.md` is STALE throughout its "RESUME HERE" section
+— every plan it names has run. The design is
 `docs/superpowers/specs/2026-08-15-ccf-client-design.md` plus its Amendment 1;
-the pause spec is
-`docs/superpowers/specs/2026-08-16-reference-plan-factory-and-debt-scorer.md`
-plus its Amendment A, and it is now DISCHARGED.
+the pause spec
+(`docs/superpowers/specs/2026-08-16-reference-plan-factory-and-debt-scorer.md`
+plus Amendment A) is DISCHARGED.
 
 ## Current Position
 
-Phase: 17 — Client Access. Waves 1–5.7 MERGED AND GREEN (11 plans: 17-01…17-07,
-  the mid-phase 17-03b Dave ruled in, plus 17-11, 17-12, 17-13).
-  VERIFIED ON THE MAIN CHECKOUT at `f84d11c`: `make ci-core` MAKE_EXIT=0 —
-  3751 passed / 0 failed / 118 skipped, 400 lint checks, 144 tools tests.
-  Exit code captured directly, never through a pipe.
-Waves 6–7 (17-08, 17-09): UNBLOCKED BY THE RULING, DELIBERATELY NOT STARTED.
-  Both are `autonomous: false` — checkpoint plans needing Dave in the loop.
-Wave 8 (17-10, MCP door + adapter): follows 6 and 7. Autonomous.
+Phase: 17 — Client Access. **12 of 14 plans executed and merged** — 17-01…17-07,
+  the mid-phase 17-03b Dave ruled in, 17-11/-12/-13 (the pause), and 17-09 (the
+  client example). HEAD `5deffd5`.
+  VERIFIED ON THE MAIN CHECKOUT, exit codes captured and branched on:
+  `ci-quick-suite` 0 — 3739 passed / 0 failed / 2 skipped / 172 deselected;
+  `gate-tools` 0 (154 passed); lints 0; docs-strict 0; typecheck 0 (209 files).
+  CI GREEN — run 31974549984 @ `763c846`, all four jobs.
+17-08 (the s1-00/s1-01 removal) and 17-10 (the MCP door + adapter):
+  **DEFERRED OUT OF PHASE 17 by D-IMPL-146.** Not outstanding — both plan files
+  carry a DEFERRED banner so an execute-phase run cannot pick them up. They move
+  together to a later phase, where 17-08's blocker also gets its real fix (a
+  producer-side example demonstrating `refuse_request` — see D-IMPL-146).
+
+WHAT 17-09 SHIPPED, the artifact the phase was opened to produce:
+  `examples/hw1-companies-over-revenue/` — `consume.py` at **78 lines** importing
+  only stdlib, `ccf.client` and the adapter, beside an opaque `deployment/`
+  holding **exactly ONE Python module** (`projection.py`) and three data files.
+  Zero credentials. Against a populated deployment it prints the answer, the
+  context debt, the content address, the replay reference and the expiry — and
+  the address is stable across runs while `D_c` moves with the boundary, so the
+  debt is measured rather than decorative. This is the direct answer to Dave's
+  Phase 16 verdict on a 722-line example whose consumer imported the producer's
+  `deployment.MANIFEST`.
 Phase 16: STOPPED 2026-08-15, not gated. Post-mortem
   `.planning/HANDOFF-2026-08-15.md`. Its CI has been red for some time — the
   docs-gate half is diagnosed (stale retirement report, already fixed on
