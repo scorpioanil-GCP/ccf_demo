@@ -157,7 +157,16 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-Phase: **18 — MCP Transport.** EXECUTING (plan 1 of 1, started 2026-08-17).
+Phase: **18 — MCP Transport.** EXECUTION COMPLETE (plan `17-10`, 4/4 tasks) but
+  **NOT GATED — there is no `D-GATE-18` and the phase is NOT closed.** The
+  ROADMAP checkbox reads `[x]` and its row reads `1/1 — Complete`; that is
+  accurate about PLANS ONLY and must not be read as a gate. Dave ruled the
+  checkbox may stay (2026-08-17) provided this not-gated state stays explicit
+  here, so **auto-advance must not treat Phase 18 as closed.** Still owed
+  before the gate, per `CLAUDE.md` §3.1: the `D-IMPL-149` suite split
+  (authorized, in-phase), the cross-AI panel on the SHIPPED CODE written to
+  `18-CLOSE-REVIEWS.md`, the single-agent review, verification of every finding
+  against the tree, blocking/advisory triage, and Dave's ruling.
   Branch `phase-18`, cut
   from `main` @ `b32348f`. Plan:
   `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/17-10-PLAN.md`
