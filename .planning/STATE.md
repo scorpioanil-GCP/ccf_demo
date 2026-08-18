@@ -3,8 +3,48 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-17T22:40:00.000Z"
+last_updated: "2026-08-18T06:20:00.000Z"
 last_activity: >-
+  2026-08-18 -- PHASE 18.1 INSERTED after Phase 18 (Dave): SIMPLIFY THE MCP EXAMPLE, CLIENT-SIDE
+  ACCESS WITH THE SERVER OFF-STAGE. Dave, reading `examples/hw1-companies-over-revenue`: the
+  server was `too overwhelming`, it was `not clear what the client had to implement`, and `the
+  client is not responsible for setting up the MCP server, yet when the MCP example is called the
+  client code references the server.py`. VERIFIED: the documented command puts the server program
+  inside the client's `CCF_BINDING` and `consume.py` SPAWNS `serve.py` (`mcp_stdio.py:322`). MCP
+  stdio has no listening endpoint, so THE SPAWN IS INHERENT AND IS NOT THE DEFECT -- the defect is
+  that the spawn is the CLIENT'S BUSINESS in the reader's field of view. SCOPE, THREE CHANGES AND
+  NO NEW MECHANISM: (1) `CCF_BINDING` names a DEPLOYMENT rather than a script, with the server
+  command declared in `binding.yaml` AS DATA, so the reader's command never mentions `serve.py`;
+  (2) `server/serve.py` (292 lines, ~180 of them deployment-value composition) is cut to a
+  readable length into a SECOND `server/` MODULE -- never into `deployment/`, which `D-IMPL-141`
+  A.3 forbids and `test_data_only_deployment.py` enforces; (3) THE README STATES THE FRAME in
+  Dave's own terms -- the SAME CONTEXT PRODUCT reached A DIFFERENT WAY, why a server appears at
+  all (the first example ran IN-PROCESS with the SDK and produced the product directly), and that
+  HOW THE MCP SERVER WAS ASSEMBLED IS DELIBERATELY OUT OF SCOPE, covered later in the examples on
+  ASSEMBLY OF CONTEXT PRODUCTS. A server appearing in a client-side example is NOT a scope
+  violation; EXPLAINING it is.
+  AN EARLIER DRAFT OF 18.1 WAS WITHDRAWN THE SAME DAY, and the reason is recorded because it is a
+  pattern rather than an incident: it proposed shipping `mcp+http` AS A THIRD ADAPTER so the
+  server could start independently. That was SDK TRANSPORT WORK WEARING AN EXAMPLE'S CLOTHES -- it
+  would have put producer-side mechanism inside a deliberately CLIENT-SIDE phase, and Phase 19
+  would have rewritten it immediately; the draft even recorded that rework as a `known cost` and
+  recommended proceeding. Dave: *`We specifically stated we were going to focus on simplifying the
+  client experience... The first examples were client-side and we would progress to server side
+  (e.g. Context Product creation)... You continue to disregard my direction.`* THE RULE NOW
+  WRITTEN DOWN: when an EXAMPLE is too complicated, the deliverable is a SIMPLER EXAMPLE, never
+  new SDK surface -- and the sentence `known cost: the next phase will rewrite this` is a STOP
+  SIGNAL, not a caveat. 18.1 is consequently INDEPENDENT OF PHASE 19: no seam change, so either
+  order works. `A5` is NOT addressed and stays carried forward.
+  ROADMAP WRITTEN BY HAND AFTER `phase.insert`: the handler wrote ONLY a stub detail section -- no
+  Phases-list bullet and no progress row, the exact staleness that let Phase 17 run its entire
+  life with no bullet and a `0/10` row. All three surfaces now agree, and Phase 18's progress row
+  was corrected in passing (it read `AWAITING D-GATE-18` after the gate was granted and merged).
+  STATE HANDLER FAILURE, SECOND INSTANCE THIS SESSION: `state.add-roadmap-evolution` returned
+  `added: true` and CORRUPTED THE FILE ANYWAY -- 719 -> 562 lines, `status` flipped to
+  `completed`, `last_activity` and `stopped_at` destroyed, and PROGRESS NUMBERS INVENTED
+  (`total_plans: 160` with `completed_plans: 178`, impossible on its face). Restored from a
+  pre-call backup and hand-edited, as with `state.record-session` earlier. DO NOT USE `state.*` OR
+  `roadmap.*` WRITERS ON THIS FILE WITHOUT A BACKUP AND A DIFF.
   2026-08-17 (later) -- PHASE 19 CONTEXT GATHERED. `/gsd:discuss-phase 19` ran to completion on
   `main`; `19-CONTEXT.md` and `19-DISCUSSION-LOG.md` committed at `90f9822`. Phase 19 carries
   Phase 18's `B0` (D-IMPL-151) -- the two client-seam integrity checks that cannot fail. FOURTEEN
@@ -51,6 +91,14 @@ progress:
   completed_plans: 166
   percent: 94
 stopped_at: >-
+  TWO PHASES ARE OPEN AND NEITHER IS PLANNED, AND THEY ARE INDEPENDENT OF EACH OTHER. BY ROADMAP
+  ORDER the next action is `/clear` then `/gsd:plan-phase 18.1` (or `/gsd:discuss-phase 18.1`
+  first, which is worth it: `how simple is simple enough` and the README's exact framing are
+  gray areas planning should not invent). PHASE 19 IS ALSO READY and is FULLY DISCUSSED --
+  `19-CONTEXT.md` exists with 14 decisions. EITHER ORDER IS SAFE: 18.1 as re-cut on 2026-08-18
+  touches the example, `binding.yaml`, the adapter's binding-string parsing and the README --
+  NOT the client seam -- so it does not collide with Phase 19's wire-shape change. (The earlier
+  draft of 18.1 DID collide, which is one of the reasons it was withdrawn.)
   PHASE 19 IS DISCUSSED, NOT PLANNED. The NEXT ACTION is `/clear` then
   `/gsd:plan-phase 19` against
   `.planning/phases/19-the-client-seam-integrity-checks-must-be-able-to-fail-insert/19-CONTEXT.md`.
@@ -204,6 +252,24 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+Phase: **18.1 — Simplify the MCP Example: Client-Side Access, Server Off-Stage.**
+  INSERTED 2026-08-18 (Dave), NOT DISCUSSED, NOT PLANNED. Directory exists and is
+  empty. ROADMAP entry, Phases-list bullet and progress row all written BY HAND —
+  `phase.insert` produced only a stub detail section.
+  **A CLIENT-EXPERIENCE PHASE THAT SHIPS NO NEW SDK SURFACE.** Three changes:
+  `CCF_BINDING` names a DEPLOYMENT rather than a script (server command declared in
+  `binding.yaml` as data), `server/serve.py` is cut to a readable length into a second
+  `server/` module, and the README states the frame — THE SAME CONTEXT PRODUCT REACHED
+  A DIFFERENT WAY, why a server appears at all (the first example ran in-process and
+  produced the product directly), and that HOW THE SERVER IS ASSEMBLED IS DELIBERATELY
+  OUT OF SCOPE until the Context Product assembly examples.
+  THE FINDING: the spawn itself is inherent to MCP stdio and is NOT the defect; the
+  defect is that it is the client's business in the reader's field of view.
+  WITHDRAWN SAME-DAY: an earlier draft shipping `mcp+http` as a third adapter — SDK
+  transport work inside a deliberately client-side phase, which Phase 19 would have
+  rewritten. Independent of Phase 19 either way.
+  Next action: `/clear` then `/gsd:discuss-phase 18.1` or `/gsd:plan-phase 18.1`.
 
 Phase: **19 — The Client-Seam Integrity Checks Must Be Able to Fail.** DISCUSSED,
   NOT PLANNED. `19-CONTEXT.md` + `19-DISCUSSION-LOG.md` committed at `90f9822` on
@@ -613,6 +679,7 @@ Progress: [###░░░░░░░] 15.5 planned 0/14 · Phase 16 at 6/21, park
 - Phase 13.3 inserted after Phase 13: Review-Residual Hardening (URGENT)
 - Phase 15.2 inserted after Phase 15.1: Substrate adapters and query pushdown; tiers 1+2 in scope, tier 3 designed-for
 - Phase 16 edited 2026-08-09: status, goal, requirements, success_criteria — scope expanded to four sections (Phase 16 ships 1–3, Section 4 → Phase 17) per 16-CONTEXT.md D-01..D-12; ten Success Criteria added where the entry previously had none
+- Phase 18.1 inserted after Phase 18: Simplify the MCP Example — Client-Side Access, Server Off-Stage. Client-experience scope, no new SDK surface: binding names the deployment, `serve.py` slimmed, README frames it as the same Context Product reached a different way with assembly deliberately out of scope. An `mcp+http`-adapter draft was written and withdrawn the same day as SDK work in an example's clothes (Dave, 2026-08-18) (URGENT)
 
 ### Decisions
 

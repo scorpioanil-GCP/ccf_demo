@@ -40,6 +40,7 @@ and the upgraded examples.
 - [x] **Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument** — **RETIRED 2026-08-17 (`D-IMPL-152`), NOT RESUMABLE.** Executed 6 of 21 plans, then stopped when its example surface was rejected (a 722-line example whose consumer imported the producer). Superseded by Phase 17, which restarted from the client side and shipped `examples/hw1-companies-over-revenue`, and Phase 18, which added an MCP server to that same example. The 14 unexecuted plans are moved to `abandoned/` — preserved as history, **not a work queue**. The plan set is retired; the obligations several of those plans carried (§9 examples 01–04, the adopters guide, `make ci`'s claim) are **NOT discharged** and must be re-derived against the current surface when they become current. See `RETIRED.md` in the phase directory. Original scope follows: - One document, two sections (deterministic + external MCP consumption; CCF-agent assembly + MCP/A2A consumption), banking scenarios from the whitepaper, re-cut snippet markers so a reader can see which code is CCF and which is theirs
 - [x] **Phase 17: Client Access — `ccf.client` and the Transport-Agnostic First Example** (INSERTED) - CCF owns the client abstraction and the result contract: `~ccf.client` at exactly four exported names, one decode path every transport returns through, the in-process adapter, the adapter conformance suite as a named CI gate, `~ccf.products.resolver.GovernedResolver`, the reference `~ccf.products.debt_scorer.AssemblyDebtScorer`, a data-only `binding.yaml`, and `examples/hw1-companies-over-revenue` whose `consume.py` is 78 lines importing only stdlib, `~ccf.client` and the adapter — against Phase 16's rejected 722-line example. **12 of 14 plans executed**; `17-08` and `17-10` deferred out under `D-IMPL-146` (completed 2026-08-16, `D-GATE-17`). *(This bullet was missing from the list until 2026-08-17 — the phase was planned, executed and gated with a detail section and a progress row but no entry here. Added at the Phase 18 lift, because an unchecked-or-absent box is what routed auto-advance into a never-planned phase once before; see the Phase 14.1 note.)*
 - [x] **Phase 18: MCP Transport — The Second Door and the Portability Proof** (INSERTED) - Turns "transport-agnostic" from a design property into a demonstrated one. The MCP egress tool stops hard-wiring `parameters={}` so a product class declaring a required parameter becomes reachable over MCP — no coercion guessing, and no wider than the HTTP door, proven by one shared case table run against both; the MCP door learns to emit the canonical refusal envelope while a **governance** refusal still raises; and `mcp+stdio` ships as the second official adapter, sync at the surface with the async client bridged internally, registered by one dict entry and constructing no `Result`. It is official when it passes the conformance suite written before it existed — and **`suite.py` must not move to let it in**, which is the acceptance test for `17-07`'s adapter-agnostic claim. The phase's discharge is the same question at the same instant yielding the same content address in-process and over MCP (completed 2026-08-17)
+- [ ] **Phase 18.1: Simplify the MCP Example — Client-Side Access, Server Off-Stage** (INSERTED) - Inserted 2026-08-18 on Dave reading the example: too complicated for a beginner, and the client's own command names the server program. **A client-experience phase that ships no new SDK surface.** Three changes: `CCF_BINDING` names a **deployment** rather than a script, with the server command declared in `binding.yaml` as data, so the reader's command never mentions `serve.py`; `server/serve.py` (292 lines, ~180 of them deployment-value composition) is cut to a readable length, into a second `server/` module and never into `deployment/`, which `D-IMPL-141` A.3 forbids; and the README states the frame — **the same Context Product reached a different way**, why a server exists at all (the first example ran in-process and produced it directly), and that **how the server is assembled is deliberately out of scope until the assembly examples**. A server in a client-side example is not a scope violation; explaining it is. An earlier draft proposing an `mcp+http` adapter was **withdrawn same-day** as SDK work in an example's clothes
 - [ ] **Phase 19: The Client-Seam Integrity Checks Must Be Able to Fail** (INSERTED) - Closes `B0`, the open blocking defect deferred out of Phase 18's close review by `D-IMPL-151`. `src/ccf/client/codec.py` argues — correctly — that the request echo is *cross-checked, never reconstructed*, because reconstruction "cannot detect a transport that answered a *different question*". Both shipped adapters reconstruct: `DoorOutcome` carries no request identity, so `_decode` sets `request` from its own argument and `client.py` passes that same object as `sent`, making `check_outcome`'s comparison an object against itself. `verify_content_address` is inert for the same reason — the claimed address is computed by the adapter from the bytes the codec then re-hashes. **Both integrity checks are structurally unable to fail, on the one transport where a crossed-question wire is physically possible.** The phase's job is to make them able to fail: the wire form carries request identity, the address is claimed by the producer rather than recomputed by the consumer, and a control that answers a different question is caught by a single-transport client rather than only by the cross-adapter parity diff. Note `decode_outcome`/`encode_outcome` have no call site outside tests — both adapters build `WireOutcome` directly under `D-11`, and that permission is what admits the reconstruction, so the seam's enforceability is part of the scope. **Until this lands, the SDK must not be described as detecting a transport that answered a different question, or a vessel altered in transit** (`D-IMPL-151`)
 
 ## Phase Details
@@ -1511,6 +1512,76 @@ docstring overclaim, the `required[0]` positional assumption, `load_reference` m
 `sys.path`, and `question.asked_at` optional and read by nothing. **A process disposition also
 carried:** *a plan should not ship an artifact and the gate that judges it* — `17-09` did both.
 
+### Phase 18.1: Simplify the MCP Example — Client-Side Access, Server Off-Stage (INSERTED)
+
+**Goal:** make the MCP example demonstrate **client access to the same Context Product,
+reached a different way** — and stop the client's command from naming the server program.
+This is a client-experience phase. It ships **no new SDK surface**.
+
+**Why this phase exists.** Dave, 2026-08-18, reading the example: *"the complexity was too
+overwhelming. Also it was not clear what the client had to implement. The client is not
+responsible for setting up the MCP server, yet when the MCP example is called the client
+code references the server.py … Today you have both conflated and yet again it's too
+confusing for a beginner."*
+
+**The measured cause.** The documented command is
+`CCF_BINDING="mcp+stdio:examples/…/server/serve.py examples/…/deployment" python consume.py`
+— the client's own binding string **names the server program**, and `consume.py` **spawns
+it** as a child process (`src/ccf/client/adapters/mcp_stdio.py:322`). MCP stdio has no
+listening endpoint, so the spawn itself is inherent to the transport and is **not the
+defect**. The defect is that the spawn is *the client's business* in the reader's field of
+view.
+
+**Scope — three changes, none of them new mechanism:**
+
+1. **`CCF_BINDING` names a deployment, not a script.**
+   `mcp+stdio:examples/hw1-companies-over-revenue/deployment` — and the deployment declares
+   its own server command in `binding.yaml`, as **data**, beside the wiring already there.
+   The server is still spawned, because stdio always spawns; what changes is that *how this
+   deployment is reached* becomes the deployment's business, exactly as the projection and
+   the graph already are. The reader's command never mentions `serve.py`.
+2. **`server/serve.py` is cut to a readable length.** Of its 292 lines, ~180 are
+   deployment-value composition — boot the fabric, 21 named arguments to
+   `build_governed_resolver`, entitlement-policy registration, per-boot token minting — and
+   only ~35 are the MCP server. **Constraint:** `D-IMPL-141` Amendment A.3 grants
+   `deployment/` exactly one Python module (the projection) and
+   `tests/client/test_data_only_deployment.py` refuses a second by name, so composition
+   moves into a second `server/` module — never into `deployment/`.
+3. **The README states the frame, in Dave's own terms (2026-08-18).** It must say plainly:
+   - this example reaches **the same Context Product** as the first one, **a different way**
+     — the product is the constant, the access path is the variable;
+   - **why a server appears at all**: to demonstrate client access over MCP, something must
+     produce the product. The first example needed no server because the client ran
+     **in-process with the SDK** and produced the product directly;
+   - **that how the MCP server was assembled is deliberately out of scope here**, and is
+     covered in a later set of examples on the **assembly of Context Products**.
+
+   A server appearing in a client-side example is not a scope violation — *explaining* it
+   is. Keep it off-stage, and say so.
+
+**Explicitly out of scope.** No new transport, no new adapter, no `mcp+http`, no change to
+the client seam. An earlier draft of this phase proposed shipping a third adapter so the
+server could be started independently; that was **withdrawn on 2026-08-18** as SDK work
+wearing an example's clothes — it would have landed producer-side mechanism inside a
+deliberately client-side phase, and Phase 19 would have rewritten it immediately. The
+`A5` advisory (stdio auth is impersonation, because FastMCP's bearer middleware is
+HTTP-only) is **not** addressed here and stays carried forward from Phase 18.
+
+**Relationship to the arc.** The examples progress **client-side first, producer-side
+later**: this phase is the client-access half, and how a Context Product is *built* is the
+subject of the later assembly examples. `consume.py` stays what it is — the reader's whole
+example, importing only stdlib, `ccf.client` and an adapter, under the `CLNT-14` purity and
+budget gates.
+
+**Requirements:** TBD at planning — likely none new; this is example, wiring and README
+work against shipped mechanism.
+**Depends on:** Phase 18 (`D-GATE-18`). **Independent of Phase 19** — no seam change, so
+either order works.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run `/gsd:plan-phase 18.1` to break down)
+
 ### Phase 19: The Client-Seam Integrity Checks Must Be Able to Fail (INSERTED)
 
 **Goal:** make the two client-seam integrity checks *capable of failing* when a transport
@@ -1576,7 +1647,8 @@ prose was corrected in-phase to say so at the source.
 | 15.6 Decision-Completeness and Defect Closure | 13/13 | Complete | 2026-08-13 |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 16/16 executed | **RETIRED 2026-08-17 (`D-IMPL-152`)** — not resumable; 14 unexecuted plans moved to `abandoned/`; obligations re-derived, not lifted | 2026-08-17 |
 | 17. Client Access — `ccf.client` & Transport-Agnostic First Example | 12/14 | Complete | 2026-08-16 (`D-GATE-17`; `17-08` deferred and still in-phase, `17-10` lifted to 18 by `D-IMPL-147`. Row corrected 2026-08-17 — it read `0/10 — Planned 2026-08-15` through the phase's entire execution, gate and merge) |
-| 18. MCP Transport — The Second Door and the Portability Proof | 1/1 | Plans complete, close fixes merged — **AWAITING `D-GATE-18`** | 2026-08-17 |
+| 18. MCP Transport — The Second Door and the Portability Proof | 1/1 | Complete — **`D-GATE-18` APPROVED**, merged `--no-ff` at `e57c93c`. *(Row corrected 2026-08-18: it read "AWAITING `D-GATE-18`" after the gate was granted and the branch merged.)* Approves the portability claim and **not** a tamper-detection claim; `B0` travels to Phase 19 | 2026-08-17 |
+| 18.1. Simplify the MCP Example — Client-Side Access, Server Off-Stage | 0/0 | Inserted 2026-08-18 (Dave) — not yet planned. Client-experience scope: binding names the deployment, `serve.py` slimmed, README frames it as the same Context Product reached a different way. No new adapter (`mcp+http` draft withdrawn same-day) |  |
 | 19. The Client-Seam Integrity Checks Must Be Able to Fail | 0/0 | Planned 2026-08-17 (`D-IMPL-151` — carries Phase 18's deferred `B0`, an open blocking defect) |  |
 
 ## Coverage
