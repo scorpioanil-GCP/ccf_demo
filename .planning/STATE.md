@@ -72,8 +72,18 @@ stopped_at: >-
   TWO DISTINCT cited examples per seam with the cite-it-twice escape closed by design. The remedy
   is to WRITE a producer-side example, not to relax a gate -- and the same hazard sits on the OTHER
   refusal, because the quarantined 00-08 group holds the sole refuse_bound_payload call site.
-  ALSO STILL OPEN: Phase 16, STOPPED at 6/21, never gated, its 14 remaining doc plans describing a
-  surface that no longer exists -- a replan-or-retire decision, not resumable as written.
+  PHASE 16 IS RETIRED, NOT OPEN. Ruled 2026-08-17 (`D-IMPL-152`): retired, not paused, not
+  parked, NOT RESUMABLE. It executed 6 of 21 plans and stopped when its example surface was
+  rejected; Phase 17 restarted from the client side with `examples/hw1-companies-over-revenue`
+  and Phase 18 added an MCP server to that same example, which is the direction of travel --
+  evolve the working example outward on the client and context-production sides. The 14
+  unexecuted plans are MOVED to `.planning/phases/16-*/abandoned/` so plan discovery stops
+  counting them; they are history and a checklist, NOT a work queue, and nothing is executed
+  from there. THE PLAN SET IS RETIRED; THE OBLIGATIONS ARE NOT DISCHARGED -- §9 examples 01-04,
+  the adopters guide and `make ci`'s documented claim are still owed and must be RE-DERIVED
+  against the surface that exists when each becomes current, never lifted from `abandoned/`.
+  Earlier text anywhere in this file saying Phase 16 is parked, open, or should be resumed at
+  7/21 is SUPERSEDED. See `RETIRED.md` in the phase directory.
   ROADMAP CORRECTIONS made this session, recorded because neither defect was introduced this
   session and both were load-bearing: PHASE 17 HAD NO BULLET IN THE PHASES LIST AT ALL (planned,
   executed, gated and merged with a detail section and a progress row but no entry), and its

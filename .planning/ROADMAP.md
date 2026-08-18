@@ -37,7 +37,7 @@ and the upgraded examples.
 - [x] **Phase 15.4: Backend Registration Seam — The Substrate Stops Naming Its Adapters** (INSERTED) - Commissioned by D-IMPL-93 (Dave, 2026-08-09). Today the dependency arrow points the wrong way: `src/ccf/boot.py` and `src/ccf/graph/_writer.py` **import** `ccf.graph.backends.*`, `_open_backend`/`_preflight_backend` carry two-to-three keyword arguments per substrate, and `controlplane/artifacts.py` hand-maintains a `Literal` naming all six — so adding an adapter costs ~96 added lines across three core files, and both remaining D-IMPL-92 budgets are now exhausted (`manifest.py` 24/25, `artifacts.py` 9/10, tied). Invert it: each backend declares itself (name → factory + required connection config + preflight rule), the core holds a registry and looks up instead of branching, per-substrate kwargs collapse into one config mapping, and the `Literal` derives from the registry. Success is **structural, not numeric** — no import of `ccf.graph.backends.*` from outside `backends/`, and no substrate name in core outside the registry, both lint-enforced in the same machinery as the existing harness-import lint, replacing the line budgets D-IMPL-92 itself calls an admitted proxy. Per-adapter substrate cost goes to zero, which is what "the SDK needs no refactor to accept a new substrate" was always trying to say. Migrates all six existing backends; D-IMPL-92's gate is superseded by the structural check, not deleted (completed 2026-08-09)
 - [x] **Phase 15.5: The Context Product Surface — Vessel, Assembler, Debt, Entitlement** (INSERTED) - Commissioned by Dave 2026-08-10, mid-Phase-16, on reading `examples/s1-01-hello-context-product`: *"today I would put an MCP server in front of the fluree database and run a query and return the results. What is the benefit of using CCF?"* The example precomputed one answer to one design-time question at one fixed instant — which Chapter 1 names as the thing CCF replaces, *"the difference between the verb aggregate and the verb assemble."* Measured behind that reaction: three of §6.3's eight committed contract elements (freshness SLA, discovery, addressability) are unimplemented while `contract.py` states they live on `RegisteredProductClass`, where only `assembly_mode` of the four actually is; `register_product_class` takes no payload schema so `payload` is an unchecked dict; `DebtAssessment` is computed by `ccf.halflife.debt`, exercised in five examples, and appears on neither the product nor the replay record; and `Perspective` is passed into `execute()` by the caller with nothing deriving it from the verified grant, so the whole content-shaping layer sits downstream of an unverified claim. Rulings in force: `D-IMPL-96` revokes the "no fabric changed" constraint that concealed this, `D-IMPL-97` rules the Context Product a single standardised vessel whose uniqueness is in how it was assembled and whose assembler is a Protocol implemented by a declared agent, and Dave ruled entitlement requires a fabric change. Phase 16 is parked at 6/21 and resumes against the corrected surface — documenting it first would have documented the defect (completed 2026-08-12)
 - [x] **Phase 15.6: Decision-Completeness and Defect Closure** (INSERTED, COMPLETE 2026-08-13, D-GATE-15.6) - Commissioned by `D-IMPL-116`/`D-IMPL-117` (Dave, 2026-08-11), before Phase 16 resumes. Two explicit tracks that must not be planned as one: **Track A** closes the five carried, API-neutral defects (`DI-15.5-01`, `-04`, `-05`, `-06`, `-08`); **Track B** closes `D-IMPL-112`'s three named gaps — which observations contributed the decay, when the underlying sources were last refreshed, and what `forced_llm` obliges — shipping **carrying mechanism, not judgement**, with the surface impact and the third product-content-address move accepted as authorized costs. Gap 1 gets a research spike first, in the `15.5-01` shape. Requirements `DCD-01..DCD-12`, **minted at execution in plan `15.6-03` task 1** (no `DCD-` row exists in `REQUIREMENTS.md` until that plan lands; the IDs are claimed across the plans' `requirements:` frontmatter meanwhile). Verification is `make ci`, not `make ci-core`
-- [ ] **Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument** - One document, two sections (deterministic + external MCP consumption; CCF-agent assembly + MCP/A2A consumption), banking scenarios from the whitepaper, re-cut snippet markers so a reader can see which code is CCF and which is theirs
+- [x] **Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument** — **RETIRED 2026-08-17 (`D-IMPL-152`), NOT RESUMABLE.** Executed 6 of 21 plans, then stopped when its example surface was rejected (a 722-line example whose consumer imported the producer). Superseded by Phase 17, which restarted from the client side and shipped `examples/hw1-companies-over-revenue`, and Phase 18, which added an MCP server to that same example. The 14 unexecuted plans are moved to `abandoned/` — preserved as history, **not a work queue**. The plan set is retired; the obligations several of those plans carried (§9 examples 01–04, the adopters guide, `make ci`'s claim) are **NOT discharged** and must be re-derived against the current surface when they become current. See `RETIRED.md` in the phase directory. Original scope follows: - One document, two sections (deterministic + external MCP consumption; CCF-agent assembly + MCP/A2A consumption), banking scenarios from the whitepaper, re-cut snippet markers so a reader can see which code is CCF and which is theirs
 - [x] **Phase 17: Client Access — `ccf.client` and the Transport-Agnostic First Example** (INSERTED) - CCF owns the client abstraction and the result contract: `~ccf.client` at exactly four exported names, one decode path every transport returns through, the in-process adapter, the adapter conformance suite as a named CI gate, `~ccf.products.resolver.GovernedResolver`, the reference `~ccf.products.debt_scorer.AssemblyDebtScorer`, a data-only `binding.yaml`, and `examples/hw1-companies-over-revenue` whose `consume.py` is 78 lines importing only stdlib, `~ccf.client` and the adapter — against Phase 16's rejected 722-line example. **12 of 14 plans executed**; `17-08` and `17-10` deferred out under `D-IMPL-146` (completed 2026-08-16, `D-GATE-17`). *(This bullet was missing from the list until 2026-08-17 — the phase was planned, executed and gated with a detail section and a progress row but no entry here. Added at the Phase 18 lift, because an unchecked-or-absent box is what routed auto-advance into a never-planned phase once before; see the Phase 14.1 note.)*
 - [x] **Phase 18: MCP Transport — The Second Door and the Portability Proof** (INSERTED) - Turns "transport-agnostic" from a design property into a demonstrated one. The MCP egress tool stops hard-wiring `parameters={}` so a product class declaring a required parameter becomes reachable over MCP — no coercion guessing, and no wider than the HTTP door, proven by one shared case table run against both; the MCP door learns to emit the canonical refusal envelope while a **governance** refusal still raises; and `mcp+stdio` ships as the second official adapter, sync at the surface with the async client bridged internally, registered by one dict entry and constructing no `Result`. It is official when it passes the conformance suite written before it existed — and **`suite.py` must not move to let it in**, which is the acceptance test for `17-07`'s adapter-agnostic claim. The phase's discharge is the same question at the same instant yielding the same content address in-process and over MCP (completed 2026-08-17)
 - [ ] **Phase 19: The Client-Seam Integrity Checks Must Be Able to Fail** (INSERTED) - Closes `B0`, the open blocking defect deferred out of Phase 18's close review by `D-IMPL-151`. `src/ccf/client/codec.py` argues — correctly — that the request echo is *cross-checked, never reconstructed*, because reconstruction "cannot detect a transport that answered a *different question*". Both shipped adapters reconstruct: `DoorOutcome` carries no request identity, so `_decode` sets `request` from its own argument and `client.py` passes that same object as `sent`, making `check_outcome`'s comparison an object against itself. `verify_content_address` is inert for the same reason — the claimed address is computed by the adapter from the bytes the codec then re-hashes. **Both integrity checks are structurally unable to fail, on the one transport where a crossed-question wire is physically possible.** The phase's job is to make them able to fail: the wire form carries request identity, the address is claimed by the producer rather than recomputed by the consumer, and a control that answers a different question is caught by a single-transport client rather than only by the cross-adapter parity diff. Note `decode_outcome`/`encode_outcome` have no call site outside tests — both adapters build `WireOutcome` directly under `D-11`, and that permission is what admits the reconstruction, so the seam's enforceability is part of the scope. **Until this lands, the SDK must not be described as detecting a transport that answered a different question, or a vessel altered in transit** (`D-IMPL-151`)
@@ -1157,6 +1157,14 @@ a manifest it was about to move again.
 
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
+> **RETIRED 2026-08-17 — `D-IMPL-152`. This section is history, not a plan.**
+> Phase 16 is not paused, parked or resumable. Earlier text in this repository
+> saying *"resume Phase 16 at 7/21"* is superseded. The 14 unexecuted plans live
+> in `abandoned/` and must not be executed from there. See `RETIRED.md` in the
+> phase directory for what is retired (the approach) and what is not (the
+> obligations several of those plans carried).
+
+
 **Status**: discussed 2026-08-09. The scope was expanded at that discussion on
 Dave's authority and this entry was rewritten to match (2026-08-09) — the
 pre-discussion goal below is absorbed in full, nothing dropped. The authoritative
@@ -1503,6 +1511,51 @@ docstring overclaim, the `required[0]` positional assumption, `load_reference` m
 `sys.path`, and `question.asked_at` optional and read by nothing. **A process disposition also
 carried:** *a plan should not ship an artifact and the gate that judges it* — `17-09` did both.
 
+### Phase 19: The Client-Seam Integrity Checks Must Be Able to Fail (INSERTED)
+
+**Goal:** make the two client-seam integrity checks *capable of failing* when a transport
+answers the wrong question or alters a vessel in transit. They cannot today, on either
+shipped adapter.
+
+**Why this phase exists.** `D-GATE-18` approved Phase 18's portability claim and explicitly
+did **not** approve a tamper-detection claim. `B0` — the finding behind that reservation —
+was deferred here by `D-IMPL-151` as an **open blocking defect**, not accepted risk.
+
+**The defect, measured.** `src/ccf/client/codec.py` argues, correctly and at length, that the
+request echo is *cross-checked, never reconstructed*, because reconstruction *"cannot detect a
+transport that answered a different question … a proxying or multiplexing transport that
+crosses two in-flight questions produces a perfectly well-formed outcome for the wrong
+request."* **Both shipped adapters reconstruct.** `DoorOutcome` carries no request identity, so
+`mcp_stdio._decode` sets `request` from its own argument and `client.py:172` passes that *same
+object* as `sent` — making `check_outcome`'s `if outcome.request != sent` a comparison of an
+object with itself. `verify_content_address` is inert for the same reason: the "claimed"
+address is computed by the adapter from the identical bytes the codec then re-hashes, so the
+check is `sha256(x) != sha256(x)`. Both are inert **on the one transport where a
+crossed-question wire is physically possible**.
+
+**Scope, at least:**
+- The wire form carries **request identity**, so the echo is read off the wire rather than
+  reconstructed from client state — a wire-shape change touching `DoorOutcome`, both doors,
+  the adapter and the codec.
+- The content address is **claimed by the producer** and recomputed by the consumer, so the
+  claim is checkable — which is what `verify_content_address`'s docstring already promises.
+- **The seam's enforceability is in scope, not just the payload.** `decode_outcome` and
+  `encode_outcome` have **no call site outside tests**: both adapters build `WireOutcome`
+  directly, which `D-11` permits — and that permission is exactly what admits the
+  reconstruction. A fix that leaves the seam bypassable re-opens the defect for the next
+  adapter.
+- A control that answers a *different question* must be caught by a **single-transport
+  client**, not only by the cross-adapter parity diff. Parity is blind by construction to a
+  check broken identically on both subjects, which is why this survived Phase 18's suite.
+
+**Standing constraint until this lands (`D-IMPL-151`, `D-GATE-18`):** the SDK must not be
+described — in documentation, release notes, examples or conversation — as detecting a
+transport that answered a different question, or a vessel altered in transit. `codec.py`'s
+prose was corrected in-phase to say so at the source.
+
+**Requirements:** carries Phase 18's `B0`. **Depends on:** Phase 18 (`D-GATE-18`).
+
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -1521,7 +1574,7 @@ carried:** *a plan should not ship an artifact and the gate that judges it* — 
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
 | 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 15/15 | Complete | 2026-08-11 |
 | 15.6 Decision-Completeness and Defect Closure | 13/13 | Complete | 2026-08-13 |
-| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Stopped 2026-08-15 — example surface rejected; superseded by 17 |  |
+| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 16/16 executed | **RETIRED 2026-08-17 (`D-IMPL-152`)** — not resumable; 14 unexecuted plans moved to `abandoned/`; obligations re-derived, not lifted | 2026-08-17 |
 | 17. Client Access — `ccf.client` & Transport-Agnostic First Example | 12/14 | Complete | 2026-08-16 (`D-GATE-17`; `17-08` deferred and still in-phase, `17-10` lifted to 18 by `D-IMPL-147`. Row corrected 2026-08-17 — it read `0/10 — Planned 2026-08-15` through the phase's entire execution, gate and merge) |
 | 18. MCP Transport — The Second Door and the Portability Proof | 1/1 | Plans complete, close fixes merged — **AWAITING `D-GATE-18`** | 2026-08-17 |
 | 19. The Client-Seam Integrity Checks Must Be Able to Fail | 0/0 | Planned 2026-08-17 (`D-IMPL-151` — carries Phase 18's deferred `B0`, an open blocking defect) |  |
