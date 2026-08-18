@@ -3,8 +3,33 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-17T14:30:00.000Z"
+last_updated: "2026-08-17T22:40:00.000Z"
 last_activity: >-
+  2026-08-17 (later) -- PHASE 19 CONTEXT GATHERED. `/gsd:discuss-phase 19` ran to completion on
+  `main`; `19-CONTEXT.md` and `19-DISCUSSION-LOG.md` committed at `90f9822`. Phase 19 carries
+  Phase 18's `B0` (D-IMPL-151) -- the two client-seam integrity checks that cannot fail. FOURTEEN
+  DECISIONS captured as `C-01`..`C-14` (a namespace deliberately distinct from the client spec's
+  `D-NN` and the log's `D-IMPL-NN`; `D-05`/`D-11`/`D-12`/`D-13` are REAL SPEC IDS and the draft
+  collided with them before renumbering). THE LOAD-BEARING FOUR: (1) the door RE-STATES the
+  question it resolved as a `WireRequest` echo at OUTCOME level, compared by total equality, with
+  `as_of=None` echoed AS ASKED so the check is total on the default path; (2) THE ADAPTER SEAM IS
+  RETYPED TO `ask(WireRequest) -> bytes` -- amending `D-11` and `CLNT-05` -- so `decode_outcome`
+  moves onto the shipped path and no adapter constructs an outcome; (3) SYMMETRIC SERIALIZATION,
+  so a producer-side door entry echoes WHAT IT PARSED and the check is live IN-PROCESS, not only
+  where a pipe exists; (4) the conformance suite gains GENERIC TAMPER LEGS via a byte-corrupting
+  wrapper -- possible only because the seam is now bytes -- so `official adapter` comes to mean
+  `its integrity checks are demonstrably live`. Signing is OUT of scope and NO signature member is
+  reserved: the restored claim is NON-ADVERSARIAL integrity, stated precisely, and `D-GATE-18`'s
+  standing prose constraint is REPLACED BY A NARROWER TRUE SENTENCE rather than lifted. HTTP is
+  RECONCILED NOT CONVERTED -- body stays the vessel, the echo joins the `X-CCF-*` siblings,
+  `D-IMPL-126` stands verbatim. Scope held narrow on `B0` per `D-IMPL-146`. NOTE ON THIS FILE:
+  `state.record-session` was invoked once, returned `recorded: false` -- and CORRUPTED THE FILE
+  ANYWAY (656 -> 536 lines, `status` flipped to `completed`, `last_activity`/`stopped_at`/`progress`
+  destroyed). Restored from a pre-call backup, verified byte-identical to HEAD, then hand-edited.
+  The `progress:` block below is LEFT UNTOUCHED AND IS STALE: it predates Phase 18's close and
+  Phase 16's retirement moving 14 plans out of discovery, and reconstructing those counts from
+  memory rather than measurement is how the ROADMAP rows went wrong twice already. Recount from
+  `.planning/ROADMAP.md` before trusting it.
   2026-08-17 -- PHASE 18 OPENED on the MCP transport (D-IMPL-147, Dave). Phase 17 remains CLOSED,
   GATED AND MERGED (D-GATE-17; `phase-17` merged --no-ff at b32348f after a green Actions run on
   the exact commit merged, run 31995656672 @ 44b1f758 -- the condition Dave set; merged `main`
@@ -26,7 +51,20 @@ progress:
   completed_plans: 166
   percent: 94
 stopped_at: >-
-  PHASE 18 IS OPEN AND READY TO EXECUTE. Nothing is part-done: the phase container was built this
+  PHASE 19 IS DISCUSSED, NOT PLANNED. The NEXT ACTION is `/clear` then
+  `/gsd:plan-phase 19` against
+  `.planning/phases/19-the-client-seam-integrity-checks-must-be-able-to-fail-insert/19-CONTEXT.md`.
+  No phase branch is cut yet and no plan exists. TWO RESIDUALS were left to planning ON PURPOSE:
+  whether out-of-tree adapters get a deprecation window or break cleanly at the seam type change
+  (pre-1.0 argues break), and where the producer-side door entry lives
+  (`src/ccf/products/door.py` is the presumptive home, since `src/` cannot import `runtime/`).
+  THE PHASE'S OWN SUCCESS SENTENCE, from the ROADMAP: a control that answers a DIFFERENT QUESTION
+  must be caught by a SINGLE-TRANSPORT client, not only by the cross-adapter parity diff -- any
+  proof requiring two subjects has not discharged it, because parity is blind by construction to a
+  check broken identically on both.
+  EVERYTHING BELOW THIS LINE IS THE PHASE 18 RECORD, SUPERSEDED AS TO NEXT ACTION ONLY.
+  PHASE 18 WAS OPEN AND READY TO EXECUTE when this was written; it has since executed, gated
+  (`D-GATE-18`) and merged (`e57c93c`). Nothing is part-done: the phase container was built this
   session and no task has run. The NEXT ACTION is `/gsd:execute-phase 18` on branch `phase-18`
   (cut from `main` at b32348f; `main` itself is untouched, pushed, clean and green).
   WHAT PHASE 18 IS: the MCP transport -- the second door and the portability proof. ONE plan,
@@ -167,6 +205,28 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
+Phase: **19 — The Client-Seam Integrity Checks Must Be Able to Fail.** DISCUSSED,
+  NOT PLANNED. `19-CONTEXT.md` + `19-DISCUSSION-LOG.md` committed at `90f9822` on
+  `main`; no phase branch, no plan, nothing executed. Carries Phase 18's `B0` as an
+  OPEN BLOCKING DEFECT (`D-IMPL-151`), explicitly reserved out of `D-GATE-18` and
+  **not** accepted risk.
+  WHAT IT FIXES, MEASURED IN-TREE RATHER THAN QUOTED: `DoorOutcome` carries no
+  request identity (`door.py:139-141`), so both adapters fill `WireOutcome.request`
+  from the object they were handed (`mcp_stdio.py:397,404`, `inprocess.py:426,437`)
+  and `client.py:186` passes that SAME object as `sent` — `outcome.request != sent`
+  is an object compared with itself. `content_address` is `sha256` of the very text
+  the adapter passes on, so `verify_content_address` is `sha256(x) != sha256(x)`.
+  `decode_outcome`, the one path reading both off sender-produced bytes, has NO
+  SHIPPED CALL SITE.
+  THE SHAPE OF THE FIX (14 decisions, `C-01`..`C-14`, in `19-CONTEXT.md`): the door
+  re-states the question it resolved; the adapter seam becomes
+  `ask(WireRequest) -> bytes` (AMENDS `D-11` AND `CLNT-05` — a `D-IMPL` entry is
+  owed); the request is serialized too so the check is live in-process; the
+  conformance suite gains generic tamper legs. Signing is OUT of scope; the restored
+  claim is NON-ADVERSARIAL integrity and `D-GATE-18`'s prose constraint is replaced
+  by a narrower true sentence, not lifted.
+  Next action: `/clear` then `/gsd:plan-phase 19`.
+
 Phase: **18 — MCP Transport.** EXECUTION COMPLETE (plan `17-10`, 4/4 tasks), §3.1
   CLOSE PROTOCOL DISCHARGED (cross-AI panel + depth pass in `18-CLOSE-REVIEWS.md`
   and `18-REVIEW.md`, every finding verified against the tree, four blocking
@@ -191,17 +251,20 @@ Phase: **18 — MCP Transport.** EXECUTION COMPLETE (plan `17-10`, 4/4 tasks), �
   ROADMAP checkbox reads `[x]` and its row reads `1/1 — Complete`; that is
   accurate about PLANS ONLY and must not be read as a gate. Dave ruled the
   checkbox may stay (2026-08-17) provided this not-gated state stays explicit
-  here, so **auto-advance must not treat Phase 18 as closed.** Still owed
-  before the gate, per `CLAUDE.md` §3.1: the `D-IMPL-149` suite split
-  (authorized, in-phase), the cross-AI panel on the SHIPPED CODE written to
-  `18-CLOSE-REVIEWS.md`, the single-agent review, verification of every finding
-  against the tree, blocking/advisory triage, and Dave's ruling.
+  here. **CORRECTED 2026-08-17 (Phase 19 discuss):** the paragraph that stood
+  here listed the §3.1 close protocol as *still owed* — the `D-IMPL-149` suite
+  split, the cross-AI panel on shipped code, the single-agent review, finding
+  verification, triage and Dave's ruling. **All of it has since been discharged**
+  and is recorded in `18-CLOSE-REVIEWS.md`, `18-REVIEW.md` and `D-GATE-18`; the
+  text was stale rather than wrong when written. Phase 18 IS closed and gated —
+  what does not travel with the gate is the tamper-detection claim, which is
+  Phase 19's job.
   Branch `phase-18`, cut
   from `main` @ `b32348f`. Plan:
   `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/17-10-PLAN.md`
   — the `17-10` name inside the phase-18 directory is **deliberate**; see
   `D-IMPL-147` and the banner in the file. Do not renumber it.
-  Next action: `/gsd:execute-phase 18`.
+  Next action: none — Phase 18 is merged. See Phase 19 below.
 
 Phase: 17 — Client Access. **CLOSED, GATED (D-GATE-17) AND MERGED TO `main`.**
   12 of 14 plans executed — 17-01…17-07, the mid-phase 17-03b Dave ruled in,
