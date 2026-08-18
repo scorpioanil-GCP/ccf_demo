@@ -269,7 +269,30 @@ Phase: **18.1 — Simplify the MCP Example: Client-Side Access, Server Off-Stage
   WITHDRAWN SAME-DAY: an earlier draft shipping `mcp+http` as a third adapter — SDK
   transport work inside a deliberately client-side phase, which Phase 19 would have
   rewritten. Independent of Phase 19 either way.
-  Next action: `/clear` then `/gsd:discuss-phase 18.1` or `/gsd:plan-phase 18.1`.
+  **DISCUSSED 2026-08-18** — `18.1-CONTEXT.md` + `18.1-DISCUSSION-LOG.md` committed at
+  `60f2bd3` on `main`; no phase branch, no plan, nothing executed. Seventeen decisions
+  (`D-01`..`D-17`) plus one documentation constraint `C-1`.
+  **ONE MORNING RULING WAS REOPENED BY DAVE AND REVERSED:** the server does **NOT** move
+  into the deployment root. `server/` STAYS A SIBLING of `deployment/` at the example top
+  level, and `binding.yaml`'s `server:` key resolves against the deployment root's
+  **parent** — no `..`, absolute paths and symlink escapes still refused, so containment is
+  enforced against a declared base rather than holed. Consequence: **`D-IMPL-141` A.3 needs
+  no amendment and `assert_one_python_module` needs no rewrite** — both drop out of the
+  phase, which is strictly less mechanism than the reversed ruling. Dave's reason:
+  *"Server is temporary in this specific example because it is not the focus"*, and in
+  practice a server is on another machine.
+  **`C-1`, A CONSTRAINT ON THE WRITING:** *"Make sure not to generalize the documentation
+  that servers will always be in deployment — they will not."* A sentence implying
+  otherwise is a defect in this phase's own terms, in the README, `binding.yaml`'s header
+  and `serve.py`'s docstring alike.
+  Also settled: one-token `mcp+stdio:<root>` address with a named migration branch for the
+  old two-token form and a targeted refusal when the token is a file; the adapter (not the
+  loader) refuses a missing `server:` key, because the loader cannot know which transport
+  is asking; `serve.py` keeps the door and a second `server/` module takes the composition;
+  **no line budget** — the criterion is structural, one file one concern; the README's
+  obsolete two-token paragraph is deleted for one sentence on the one-word difference.
+  DEFERRED to the assembly examples: Dave's `client/` + `server/` top-level restructure.
+  Next action: `/clear` then `/gsd:plan-phase 18.1`.
 
 Phase: **19 — The Client-Seam Integrity Checks Must Be Able to Fail.** DISCUSSED,
   NOT PLANNED. `19-CONTEXT.md` + `19-DISCUSSION-LOG.md` committed at `90f9822` on
@@ -784,3 +807,29 @@ Gates green at handoff: 1908 passed/2 skipped, lint 0, typecheck 169 files,
 ten examples, docs-strict, schema-headers.
 
 Resume: `/gsd-execute-phase 15`
+
+---
+
+**2026-08-18 session resume.** Phase 18.1 discussion RESUMED mid-flight.
+`.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-DISCUSS-CHECKPOINT.json`
+(untracked, written 11:55) holds one completed area — *Where the server command
+is declared*, five questions ruled — plus one question of *The address grammar
+after the change*. Locked so far: a bare `server:` key in `binding.yaml` holding
+a single contained path (SDK still supplies the interpreter and still passes the
+deployment root as `argv[1]`); `server/` moves INSIDE the deployment root as
+`deployment/server/` so containment holds without an exemption; `D-IMPL-141` A.3
+amended in writing AND its gate extended to walk the whole tree (exactly one
+module at the deployment root, Python elsewhere only under the directory
+`binding.yaml` declares); the two-token `mcp+stdio` address form REPLACED by one
+token, refusal naming the migration. Remaining areas: *How simple is simple
+enough for `serve.py`*, *What the README shows and what goes off-stage*.
+Nothing planned, nothing executed; no phase branch. `main` clean and 41 commits
+ahead of `origin/main` (push unruled).
+
+**Discussion COMPLETE** — all four areas closed in the afternoon sitting, checkpoint
+deleted, `18.1-CONTEXT.md` and `18.1-DISCUSSION-LOG.md` committed at `60f2bd3`. The
+morning's server-residence ruling was reopened by Dave and reversed (see Current
+Position). Nothing planned, nothing executed; no phase branch. `main` clean and now
+43 commits ahead of `origin/main` (push still unruled).
+
+Resume: `/gsd:plan-phase 18.1`
