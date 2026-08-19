@@ -1620,7 +1620,7 @@ Plans:
 - [x] 18.1-03-PLAN.md — `server/serve.py` is cut: the door stays, composition moves to
       `server/compose.py`; the docstring is trimmed to what only the server can say (D-11,
       D-12, D-13)
-- [ ] 18.1-04-PLAN.md — The README states the frame (D-14, D-15, D-16, D-17); the surface
+- [x] 18.1-04-PLAN.md — The README states the frame (D-14, D-15, D-16, D-17); the surface
       change is recorded and the no-new-surface claim is narrowed where D-18 exceeds it; the
       C-1 no-generalizing constraint is checked by a human
 - [ ] 18.1-05-PLAN.md — The phase-close re-sweep, run after the last SUMMARY (D-19, second
@@ -1692,7 +1692,7 @@ prose was corrected in-phase to say so at the source.
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 16/16 executed | **RETIRED 2026-08-17 (`D-IMPL-152`)** — not resumable; 14 unexecuted plans moved to `abandoned/`; obligations re-derived, not lifted | 2026-08-17 |
 | 17. Client Access — `ccf.client` & Transport-Agnostic First Example | 12/14 | Complete | 2026-08-16 (`D-GATE-17`; `17-08` deferred and still in-phase, `17-10` lifted to 18 by `D-IMPL-147`. Row corrected 2026-08-17 — it read `0/10 — Planned 2026-08-15` through the phase's entire execution, gate and merge) |
 | 18. MCP Transport — The Second Door and the Portability Proof | 1/1 | Complete — **`D-GATE-18` APPROVED**, merged `--no-ff` at `e57c93c`. *(Row corrected 2026-08-18: it read "AWAITING `D-GATE-18`" after the gate was granted and the branch merged.)* Approves the portability claim and **not** a tamper-detection claim; `B0` travels to Phase 19 | 2026-08-17 |
-| 18.1. Simplify the MCP Example — Client-Side Access, Server Off-Stage | 3/5 | Executing 2026-08-19 — planned 2026-08-18 — 5 plans in 5 waves. Client-experience scope: binding names the deployment, `serve.py` slimmed, README frames it as the same Context Product reached a different way. No new adapter (`mcp+http` draft withdrawn same-day) |  |
+| 18.1. Simplify the MCP Example — Client-Side Access, Server Off-Stage | 4/5 | Executing 2026-08-19 — planned 2026-08-18 — 5 plans in 5 waves. Client-experience scope: binding names the deployment, `serve.py` slimmed, README frames it as the same Context Product reached a different way. No new adapter (`mcp+http` draft withdrawn same-day) |  |
 | 19. The Client-Seam Integrity Checks Must Be Able to Fail | 0/0 | Planned 2026-08-17 (`D-IMPL-151` — carries Phase 18's deferred `B0`, an open blocking defect) |  |
 
 ## Coverage
