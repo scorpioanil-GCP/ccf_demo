@@ -25,6 +25,7 @@ import pytest
 
 from tests.client.conformance.suite import Provision
 from tests.client.conftest import FIXTURE_DEPLOYMENT, seed
+from tests.client.fixtures import STDIO_SERVER, declare_server
 
 
 @pytest.fixture()
@@ -46,6 +47,13 @@ def provision(tmp_path: Path) -> Provision:
     refused where it belongs — in
     :func:`~tests.client.conformance.suite._ask_each`, which is the thing that
     would otherwise report one transport's answer under another's name.
+
+    **The server program is copied into the copied root's PARENT**, because that
+    is where ``binding.yaml``'s ``server:`` key resolves (``D-10``). The
+    committed fixture and its program are already in that relationship; a copy
+    that took only the deployment would inherit a declaration pointing at
+    nothing, and a leg refused for a missing program is indistinguishable from
+    one refused for a deployment that declared none.
     """
     handed_out = 0
 
@@ -54,6 +62,8 @@ def provision(tmp_path: Path) -> Provision:
         root = tmp_path / f"{handed_out:02d}-{name}" / "deployment"
         handed_out += 1
         shutil.copytree(FIXTURE_DEPLOYMENT, root)
+        shutil.copy2(STDIO_SERVER, root.parent)
+        declare_server(root, root.parent / STDIO_SERVER.name)
         seed(root)
         return root
 

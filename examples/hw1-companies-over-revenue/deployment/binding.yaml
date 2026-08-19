@@ -13,7 +13,19 @@
 # in any of them. `resolver:` is refused BY NAME — the shape this file used to
 # have was ruled out, not merely never defined.
 #
-# Every path is relative to this directory and cannot leave it.
+# A `plan:` reference is a thing the loader IMPORTS AND CALLS, and Amendment
+# A.3 grants exactly one of those. A path is not: it is a location the loader
+# resolves and contains, and nothing on the other end of it is executed by this
+# document. That is why `server:` below is data even though it names a program
+# — naming where a file is says nothing about who runs it, and the transport
+# that launches it decides that separately.
+#
+# Every path is relative to this directory and cannot leave it — except
+# `server:`, which is relative to the directory HOLDING this deployment. A
+# deployment's server program is not deployment content, so the rule that keeps
+# this document's paths inside the deployment is the wrong rule for that one
+# key. Absolute paths, `..` segments and symlink escapes are still refused, and
+# so is a value reaching back inside this directory.
 
 # This deployment's Control Plane document.
 config: ccf_config.yaml
@@ -72,6 +84,14 @@ debt:
   debt_profile_key: debt_profile
   completeness: "1"
   semantic_consistency: "1"
+
+# This example's own server program, resolved against the directory holding
+# this deployment. Where it sits is INCIDENTAL to this example, in which the
+# server is not the focus: a server commonly lives somewhere else entirely, on
+# another machine, reached at an endpoint — and such a deployment states no
+# `server:` at all. This one states it because the example is also driven over
+# `mcp+stdio`, which has no endpoint to reach and must start a program.
+server: server/serve.py
 
 # The declared adapter's own settings. A path, never a credential.
 # `{path: …}` is resolved against this directory, because the deployment root

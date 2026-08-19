@@ -89,10 +89,30 @@ server.run(transport="stdio")
 '''
 
 
-def _root(tmp_path: Path, name: str, *, populated: bool = False) -> Path:
-    """A private, data-only copy of the committed fixture deployment."""
+def _root(
+    tmp_path: Path,
+    name: str,
+    *,
+    populated: bool = False,
+    program: Path | None = None,
+) -> Path:
+    """A private, data-only copy of the committed fixture deployment.
+
+    When ``program`` is given it is copied into the copied root's **parent**
+    and declared, because that is where ``binding.yaml``'s ``server:`` key
+    resolves (``D-10``). The committed fixture ships that relationship; a copy
+    that took only ``deployment/`` would inherit a declaration pointing at
+    nothing, and every leg here would then fail for a reason no test is about.
+
+    ``program`` defaults to ``None`` for exactly one caller — the test about an
+    address naming a program that is not there, whose subject *is* a
+    declaration that resolves nowhere.
+    """
     root = tmp_path / name / "deployment"
     shutil.copytree(FIXTURE_DEPLOYMENT, root)
+    if program is not None:
+        shutil.copy2(program, root.parent)
+        declare_server(root, root.parent / program.name)
     if populated:
         seed(root)
     return root
@@ -195,7 +215,7 @@ def test_a_server_that_exits_at_once_raises_rather_than_refusing(
     program = _stub_program(tmp_path, "exits", "")
     program.write_text("raise SystemExit(1)\n", encoding="utf-8")
     with pytest.raises(TransportError) as refused:
-        _ask(program, _root(tmp_path, "exits-root"))
+        _ask(program, _root(tmp_path, "exits-root", program=program))
     assert "did not answer" in str(refused.value)
 
 
@@ -215,7 +235,7 @@ def test_a_door_that_raises_arrives_as_a_broken_wire_and_not_as_a_no(
         tmp_path, "raises", 'raise RuntimeError("the door raised")'
     )
     with pytest.raises(TransportError) as refused:
-        _ask(program, _root(tmp_path, "raises-root"))
+        _ask(program, _root(tmp_path, "raises-root", program=program))
     assert "error rather than an outcome" in str(refused.value)
 
 
@@ -231,7 +251,7 @@ def test_a_server_answering_something_other_than_an_outcome_raises(
     """
     program = _stub_program(tmp_path, "garbage", 'return "{}"')
     with pytest.raises(TransportError) as refused:
-        _ask(program, _root(tmp_path, "garbage-root"))
+        _ask(program, _root(tmp_path, "garbage-root", program=program))
     assert "never a refusal" in str(refused.value)
 
 
@@ -244,7 +264,7 @@ def test_a_governed_refusal_is_a_value_and_does_not_raise(tmp_path: Path) -> Non
     which is what makes this a statement about the shipped path.
     """
     result = _ask(
-        STDIO_SERVER, _root(tmp_path, "refuses", populated=True), parameters={}
+        STDIO_SERVER, _root(tmp_path, "refuses", populated=True, program=STDIO_SERVER), parameters={}
     )
     assert result.refused
     assert result.refusal is not None
@@ -274,7 +294,7 @@ def test_the_child_resolves_the_same_ccf_this_client_is_running(
     spoken = asyncio.run(
         McpStdioAdapter._call(
             program,
-            _root(tmp_path, "where-root"),
+            _root(tmp_path, "where-root", program=program),
             {
                 "tenant": "t",
                 "product_class": PRODUCT_ID,

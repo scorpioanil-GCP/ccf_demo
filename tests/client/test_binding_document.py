@@ -734,9 +734,17 @@ def test_a_deployment_declaring_no_server_loads_and_carries_none(
 
     Most deployments are reached by an endpoint and never launch a program.
     A loader requiring this key would refuse every one of them.
+
+    The key is **deleted from a copy** rather than asserted absent from the
+    committed fixture, which now declares one. That direction is deliberate:
+    the doctored state is the divergent one, so this measures the loader's
+    handling of an omission rather than the status quo of a fixture.
     """
     body = _document(deployment_root)
-    assert "server" not in body, "the fixture under test here declares none"
+    assert body.pop("server", None) is not None, (
+        "the committed fixture declares one, so removing it is a real mutation"
+    )
+    _rewrite(deployment_root, body)
 
     assert load_binding_document(deployment_root).server is None
 

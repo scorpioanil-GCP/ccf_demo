@@ -12,7 +12,12 @@
 # Every other key below is data, and the loader refuses a reference-shaped value
 # in any of them.
 #
-# Every path is relative to this directory and cannot leave it.
+# Every path is relative to this directory and cannot leave it — except
+# `server:`, which is relative to the directory HOLDING this deployment. A
+# deployment's server program is not deployment content, so the rule that keeps
+# this document's paths inside the deployment is the wrong rule for that one
+# key. Absolute paths, `..` segments and symlink escapes are still refused, and
+# so is a value reaching back inside this directory.
 
 # This deployment's Control Plane document.
 config: ccf_config.yaml
@@ -69,6 +74,14 @@ debt:
   debt_profile_key: debt_profile
   completeness: "1"
   semantic_consistency: "1"
+
+# This deployment's own server program, resolved against the directory holding
+# this deployment. Sibling in spirit to the `{path: …}` form below: a location
+# the deployment cannot spell as a literal, because the root is not known until
+# a client names it. Most deployments state no `server:` at all — one reached
+# at an endpoint launches nothing — and this fixture states one only because
+# the client suite drives it over `mcp+stdio` as well as in-process.
+server: stdio_server.py
 
 # The declared adapter's own settings. A path, never a credential — which is
 # what keeps this fixture runnable with every substrate environment variable
