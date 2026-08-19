@@ -25,7 +25,18 @@ Every stub server below is a **real child process** speaking real MCP over real
 pipes. None of them monkeypatches the adapter, and none substitutes an object
 for the one the healthy path builds: the subject of every assertion is
 :class:`~ccf.client.adapters.mcp_stdio.McpStdioAdapter` itself, damaged only in
-the substrate it speaks to (``D-22``).
+the substrate it speaks to (``D-22``). The grammar controls at the foot of the
+file reach that same adapter through ``CCF_BINDING`` and
+:meth:`~ccf.client.client.ProductClient.for_product` — the environment is the
+only door ``D-04`` leaves open, and ``monkeypatch.setenv`` sets a variable
+rather than patching anything, so the sentence above still holds of them.
+
+**The second taxonomy, added by ``18.1-02``.** Since ``D-05`` an ``mcp+stdio``
+address is one token and the program comes from the deployment's own
+``server:``, which gives an adopter five new ways to be wrong. Each is refused
+by a message naming *that* mistake, the five are asserted pairwise distinct, and
+a healthy ask runs through the identical harness — because five refusals
+measured against a baseline that refuses everything measure nothing.
 """
 
 from __future__ import annotations
@@ -34,16 +45,21 @@ import asyncio
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
+import yaml
 
 import ccf
-from ccf.client.adapters.mcp_stdio import McpStdioAdapter
+from ccf.client.adapters.mcp_stdio import SCHEME, McpStdioAdapter
 from ccf.client.client import ProductClient
 from ccf.client.errors import BindingError, TransportError
 from ccf.products.door import PRODUCT_REQUEST_TOOL
 
-from ccf.client.adapters.binding_document import load_binding_document
+from ccf.client.adapters.binding_document import (
+    BINDING_DOCUMENT_NAME,
+    load_binding_document,
+)
 
 from tests.client.conftest import FIXTURE_DEPLOYMENT, config_document, seed
 from tests.client.fixtures import STDIO_SERVER, declare_server
@@ -302,3 +318,308 @@ def test_the_child_resolves_the_same_ccf_this_client_is_running(
         )
     )
     assert Path(spoken).resolve() == Path(ccf.__file__).resolve()
+
+
+# ---------------------------------------------------------------------------
+# The grammar, and the five ways an adopter can get it wrong.
+#
+# `D-05` made the address one token; `D-06`, `D-07` and `D-08` gave the three
+# ways of missing that a refusal that names the mistake. Every control below is
+# driven END TO END — `CCF_BINDING` in the environment, `ProductClient.for_product`,
+# `.ask` — and not one of them reaches into the adapter's private declaration
+# helper. A refusal that fires in a loader and is never reached by a client is a
+# gate wired to nothing, which is the defect this project has now met seven
+# times.
+# ---------------------------------------------------------------------------
+
+#: The address the example's README documented **before** `18.1-02`, verbatim
+#: but for the scheme, which is interpolated where it is used rather than
+#: spelled (`SCHEME`'s own comment: written once, so the registry entry, the
+#: refusal messages and the tests all say the same string). The migration branch
+#: is measured against the string an adopter would actually have typed — a
+#: control inventing its own two-token string would be measuring an invented
+#: mistake rather than the one being migrated away from.
+PRE_MIGRATION_REMAINDER = (
+    "examples/hw1-companies-over-revenue/server/serve.py"
+    " examples/hw1-companies-over-revenue/deployment"
+)
+
+#: The clause each grammar refusal owns — the words that name *that* mistake
+#: and no other. Held in one place because both the individual controls and the
+#: distinctness leg below assert against it, and two copies would be two places
+#: the message's contract is decided.
+#:
+#: **Distinctness is asserted over these phrases, not over whole messages, and
+#: that is a measured correction rather than a stylistic one.** Every refusal
+#: interpolates the offending address, so two branches emitting *byte-identical
+#: template text* still render differently — measured during this plan by giving
+#: the two-token branch the generic branch's message verbatim, at which point a
+#: whole-message `len(set(...)) == len(...)` leg still passed. A check that
+#: cannot fail is worse than no check. What must be distinct is the clause that
+#: names the mistake, so the leg asserts each phrase appears in **exactly one**
+#: of the five.
+SIGNATURES: dict[str, str] = {
+    "D-06 — the deployment declares no `server:`": "declares no `server:`",
+    "D-07 — the pre-migration two-token address": "states two tokens",
+    "D-08 — the token resolves to a program": "names a program",
+    "the generic wrong token count": "states exactly one",
+    "the declared program is not there": "names no server program",
+}
+
+#: `load_binding_document`'s fall-through report for a root it cannot find a
+#: document in. Quoted from the shipped message rather than paraphrased, because
+#: V-10 asserts its ABSENCE and a paraphrase would make that assertion pass on a
+#: message that still says it.
+FALL_THROUGH = f"carries no `{BINDING_DOCUMENT_NAME}`"
+
+#: The other fall-through, and the one a token naming a program would actually
+#: have reached: `load_binding_document` reports a root that is not a directory
+#: before it ever looks for a document. `D-08` exists to fire first.
+NOT_A_DIRECTORY = "is not a deployment root"
+
+
+def _body(root: Path) -> dict[str, Any]:
+    """The copied deployment's binding document, as a mutable mapping."""
+    return dict(
+        yaml.safe_load((root / BINDING_DOCUMENT_NAME).read_text(encoding="utf-8"))
+    )
+
+
+def _rewrite(root: Path, body: dict[str, Any]) -> None:
+    """Put a doctored document back, so the loader reads what the control meant."""
+    (root / BINDING_DOCUMENT_NAME).write_text(
+        yaml.safe_dump(body), encoding="utf-8"
+    )
+
+
+def _without_a_server(tmp_path: Path, name: str) -> Path:
+    """A copied deployment whose `server:` key has been DELETED.
+
+    Deleted rather than never-written: the committed fixture declares one, so a
+    control that simply used a deployment without the key would be asserting
+    against a fixture nobody doctored. The pop is asserted to have removed
+    something — the sabotage-control idiom, applied to the control itself, so a
+    fixture that quietly stopped declaring a server cannot make this pass for
+    the wrong reason.
+    """
+    root = _root(tmp_path, name, program=STDIO_SERVER)
+    body = _body(root)
+    assert body.pop("server", None) is not None, (
+        "the copied deployment declared no `server:` to delete, so this control"
+        " would refuse for the very reason it exists to distinguish from"
+    )
+    _rewrite(root, body)
+    assert _body(root).get("server") is None, "the doctoring did not take"
+    return root
+
+
+def _refusal_message() -> str:
+    """Ask at the client seam, and return the refusal an adopter would read.
+
+    ``CCF_BINDING`` is already in the environment when this is called. The
+    environment rather than ``binding=`` on purpose: ``D-04`` makes the scheme
+    prefix the only place a transport is named and puts it in the environment,
+    so a control that passed the address in code would be exercising a path an
+    adopter does not take.
+    """
+    with pytest.raises(BindingError) as refused:
+        ProductClient.for_product(PRODUCT_ID).ask(
+            parameters={PARAMETER: 11}, as_of=PINNED
+        )
+    return str(refused.value)
+
+
+def test_a_deployment_declaring_no_server_is_refused_and_the_transport_named(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`D-06` / V-07 — the key the loader leaves optional, this transport requires.
+
+    The loader cannot know which transport is asking and an in-process
+    deployment will never declare one, so `server:` stays optional there and the
+    requirement lands here. The message therefore has to name the transport, or
+    an adopter reads it as a document that is simply malformed.
+    """
+    root = _without_a_server(tmp_path, "no-server")
+    monkeypatch.setenv("CCF_BINDING", f"{SCHEME}:{root}")
+
+    message = _refusal_message()
+
+    assert SCHEME in message, "the refusal does not name the transport asking"
+    assert "`server:`" in message, "nor the key to add"
+    assert SIGNATURES["D-06 — the deployment declares no `server:`"] in message
+
+
+def test_the_pre_migration_two_token_address_is_refused_with_the_migration(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`D-07` / V-08 — the permanent migration branch, on the real old string.
+
+    The address is the one the example's README documented the day before this
+    phase, so what is measured is the migration an adopter is actually making.
+    """
+    monkeypatch.setenv("CCF_BINDING", f"{SCHEME}:{PRE_MIGRATION_REMAINDER}")
+
+    message = _refusal_message()
+
+    assert SIGNATURES["D-07 — the pre-migration two-token address"] in message
+    assert "drop it from the address" in message, (
+        "the message names the count but not the migration, which leaves an"
+        " adopter guessing where the program went"
+    )
+    assert "`server:`" in message
+
+
+def test_a_token_resolving_to_a_program_is_refused_by_the_mistake_it_names(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`D-08` / V-09 and V-10 — the half-migration, told what it actually did.
+
+    One token that resolves to a **file** is the shape an adopter reaches by
+    deleting the wrong half of the old address. Refused here rather than two
+    layers down, and V-10 asserts the two fall-through reports are absent: a
+    message describing a missing document, or a root that is not a directory,
+    would describe something other than the mistake made. That is the `B0b`
+    class, in the phase whose own `D-08` cites it.
+    """
+    monkeypatch.setenv("CCF_BINDING", f"{SCHEME}:{STDIO_SERVER}")
+
+    message = _refusal_message()
+
+    assert SIGNATURES["D-08 — the token resolves to a program"] in message
+    assert "deployment root" in message
+    assert FALL_THROUGH not in message, (
+        f"the refusal fell through to `{FALL_THROUGH}` — `D-08` exists precisely"
+        " to keep a missing-document report from standing in for a program in"
+        f" the address: {message}"
+    )
+    assert NOT_A_DIRECTORY not in message, (
+        f"the refusal fell through to `{NOT_A_DIRECTORY}`, which is the report a"
+        " token naming NOTHING should get and is the wrong one for a token"
+        f" naming a program: {message}"
+    )
+
+
+def test_any_other_token_count_is_refused_with_the_shape_it_wanted(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The generic branch — and it shows the shape rather than naming it."""
+    monkeypatch.setenv("CCF_BINDING", f"{SCHEME}:a b c")
+
+    message = _refusal_message()
+
+    assert SIGNATURES["the generic wrong token count"] in message
+    assert "deployment root" in message
+    assert f"`{SCHEME}:./deployment`" in message, (
+        "the message names the shape it wanted without showing it, which"
+        " `tests/client/test_binding.py` refuses by name for the sibling refusal"
+    )
+
+
+def test_a_declared_program_that_is_not_there_names_the_key_and_the_document(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The relocated existence check — the same failure, a different author.
+
+    Before `18.1-02` a missing program was named by the address. It is now named
+    by the document, so the refusal names the key and the file that states it
+    rather than a token the adopter typed.
+    """
+    root = _root(tmp_path, "declared-nowhere")
+    monkeypatch.setenv("CCF_BINDING", f"{SCHEME}:{root}")
+
+    message = _refusal_message()
+
+    assert SIGNATURES["the declared program is not there"] in message
+    assert "`server:`" in message
+    assert BINDING_DOCUMENT_NAME in message, (
+        "the refusal does not say which document declared the path that is"
+        " wrong, which is the whole of what moved when the declaration did"
+    )
+
+
+def test_the_same_harness_completes_a_real_ask_over_a_healthy_address(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """**V-06 / V-12 — the non-vacuity leg for the taxonomy above.**
+
+    Five refusals measured against a baseline that refuses everything measure
+    nothing, and `D-06`'s deleted-key control in particular would then be
+    indistinguishable from a broken harness. So the identical harness — same
+    environment variable, same `for_product`, same `.ask` — is asserted to
+    complete a real ask over a healthy one-token address and produce a governed
+    **value**. The question omits the fixture class's required parameter, so the
+    shipped door refuses it before the graph is touched: a `Result`, not a
+    raise.
+    """
+    root = _root(tmp_path, "answers", populated=True, program=STDIO_SERVER)
+    monkeypatch.setenv("CCF_BINDING", f"{SCHEME}:{root}")
+
+    result = ProductClient.for_product(PRODUCT_ID).ask(parameters={}, as_of=PINNED)
+
+    assert result.refused
+    assert result.refusal is not None
+    assert result.refusal.reason
+
+
+def test_the_five_grammar_refusals_are_five_different_messages(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`V-11` / CLNT-12 — one copy-pasted message would pass every control above.
+
+    Each control asserts the clause its own message owns, and a single generic
+    refusal carrying all five clauses would satisfy all five. So each clause is
+    asserted to appear in **exactly one** of the five, which catches both
+    collapses: a phrase in two messages (one branch copy-pasted onto another)
+    and a phrase in none (a branch that stopped naming its mistake). The whole
+    messages are compared too, and every failure interpolates the colliding
+    text, so a reader is told *which* two collapsed rather than only that two
+    did.
+
+    Whole-message comparison alone is **not** sufficient here and this is
+    measured, not asserted: see :data:`SIGNATURES`.
+
+    The healthy leg contributes no message — it returns a value. The
+    ``shlex.split`` quoting branch is deliberately out of the set: a quoting
+    error is not a grammar mistake, and it carries the parser's own words.
+    """
+    remainders = {
+        "D-06 — the deployment declares no `server:`": str(
+            _without_a_server(tmp_path, "distinct-no-server")
+        ),
+        "D-07 — the pre-migration two-token address": PRE_MIGRATION_REMAINDER,
+        "D-08 — the token resolves to a program": str(STDIO_SERVER),
+        "the generic wrong token count": "a b c",
+        "the declared program is not there": str(
+            _root(tmp_path, "distinct-nowhere")
+        ),
+    }
+
+    messages: dict[str, str] = {}
+    for label, remainder in remainders.items():
+        monkeypatch.setenv("CCF_BINDING", f"{SCHEME}:{remainder}")
+        messages[label] = _refusal_message()
+
+    assert set(messages) == set(SIGNATURES), (
+        "the distinctness leg and the signature register disagree about which"
+        " refusals exist, so one of them is measuring a set nobody maintains"
+    )
+
+    for owner, phrase in SIGNATURES.items():
+        carriers = [label for label, text in messages.items() if phrase in text]
+        assert carriers == [owner], (
+            f"`{phrase}` should name exactly one mistake — {owner}. It appears"
+            f" in {carriers or 'NO refusal at all'}.\n"
+            + "\n".join(f"--- {label} ---\n    {messages[label]}" for label in messages)
+        )
+
+    labels = list(messages)
+    collisions = [
+        (left, right)
+        for index, left in enumerate(labels)
+        for right in labels[index + 1 :]
+        if messages[left] == messages[right]
+    ]
+    assert not collisions, "\n".join(
+        f"{left} and {right} produce the SAME refusal:\n    {messages[left]}"
+        for left, right in collisions
+    )
