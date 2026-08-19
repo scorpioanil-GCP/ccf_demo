@@ -19,6 +19,16 @@ this example was 722 lines of Python, measured by nobody.
 
 ## Run it — two transports, one `consume.py`
 
+**What you are looking at.** The two commands below reach **the same Context
+Product**, a different way each: the product is the constant and the access path is
+the variable. The first stands nothing up — the client boots the deployment in its
+own process, with the SDK, and the product is produced right there. The second asks
+the identical question across a real process boundary, and across a boundary
+something has to be *running* on the other side to answer, so this example brings a
+small MCP server program along for that job. **How a Context Product is assembled
+and served is deliberately out of scope here** — it is the subject of a later set of
+examples. The server is here to be reached, not to be studied.
+
 From the **repository root**, with the deployment already populated:
 
 ```
@@ -38,20 +48,17 @@ adopter can see it rather than asserted in a design document. `consume.py`
 imports both adapter modules — `D-05` gives the SDK no discovery chain, so a
 scheme reaches the registry by its module being imported — and chooses neither.
 
+And *nothing but* is literal — the two strings differ by one word, the scheme,
+which `test_every_documented_command_names_a_distinct_binding_scheme` checks
+rather than leaves asserted; how this deployment is reached is the deployment's
+own business, declared in `binding.yaml` beside its projection and its graph.
+
 `make example-hw1` and `make example-hw1-mcp` run those two strings verbatim —
 same flags, same values, same interpreter. If a target and its block ever
 diverge, the target is wrong; `tests/examples/test_client_example_purity.py`
 asserts each documented command is character-identical to the recipe that runs
 it, because a documented command nobody runs and a run command nobody documents
 are the same defect seen from two sides.
-
-The second address states **two** tokens — the server program, then the
-deployment root — and neither is inferable from the other. `mcp+stdio` means the
-client *launches* the server, and the SDK ships no server program to launch
-(`build_egress_server` requires five deployment values in their entirety), so
-the program is the deployment's own: `server/serve.py`. It cannot live in
-`deployment/` either, because `D-IMPL-141` Amendment A.3 grants that directory
-exactly one Python module and that module is the projection.
 
 The MCP run also prints a couple of `INFO Processing request of type …` lines.
 Those are the child server talking, on **stderr**; the answer is on stdout.
@@ -134,23 +141,19 @@ is the guarantee that carries.
 
 `deployment/` is the producer's world. It holds `ccf_config.yaml` (the whole
 Control Plane configuration, one document), `binding.yaml` (deployment wiring —
-data, plus the one permitted `plan:` reference), `scenario.yaml` (which source
-field plays which role) and `projection.py` (the single Python module a
-deployment is permitted, per `D-IMPL-141`). There is no `resolver.py`: the SDK
-builds the resolver from the data, and `binding.yaml` refuses a `resolver:` key
-by name.
+data, including the `server:` key, plus the one permitted `plan:` reference),
+`scenario.yaml` (which source field plays which role) and `projection.py` (the
+single Python module a deployment is permitted, per `D-IMPL-141`). There is no
+`resolver.py`: the SDK builds the resolver from the data, and `binding.yaml`
+refuses a `resolver:` key by name.
 
 Open it if you are curious. Nothing in `consume.py` needs you to.
 
-`server/` is the producer's world too, and it is the second door: `serve.py` is
-this deployment's own MCP server program — what `mcp+stdio` launches — and
-`egress-door.yaml` holds the four governance values it interprets and never
-spells. It composes through the SDK's **public** seams only
-(`load_config_and_boot`, `build_governed_resolver`, `load_binding_document`), so
-what it does, you can do. It is a sibling directory rather than a file beside
-`consume.py` for a stated reason: everything sitting directly in this example
-root is reader-visible *consumer* code, gated to `ccf.client` and the standard
-library, and a server program is not that.
+`server/` is the producer's world too, and it is off-stage: `serve.py` is the MCP
+server program this deployment declares, `egress-door.yaml` holds the four
+governance values it interprets, and you may open either if you are curious.
+Where it sits in this example is incidental — the server is not the focus here,
+and a real one commonly lives somewhere else entirely, on another machine.
 
 ## Populating a deployment
 
