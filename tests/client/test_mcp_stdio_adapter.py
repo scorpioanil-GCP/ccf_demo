@@ -33,9 +33,9 @@ rather than patching anything, so the sentence above still holds of them.
 
 **The second taxonomy, added by ``18.1-02``.** Since ``D-05`` an ``mcp+stdio``
 address is one token and the program comes from the deployment's own
-``server:``, which gives an adopter five new ways to be wrong. Each is refused
-by a message naming *that* mistake, the five are asserted pairwise distinct, and
-a healthy ask runs through the identical harness — because five refusals
+``server:``, which gives an adopter six new ways to be wrong. Each is refused
+by a message naming *that* mistake, the six are asserted pairwise distinct, and
+a healthy ask runs through the identical harness — because six refusals
 measured against a baseline that refuses everything measure nothing.
 """
 
@@ -321,10 +321,12 @@ def test_the_child_resolves_the_same_ccf_this_client_is_running(
 
 
 # ---------------------------------------------------------------------------
-# The grammar, and the five ways an adopter can get it wrong.
+# The grammar, and the six ways an adopter can get it wrong.
 #
 # `D-05` made the address one token; `D-06`, `D-07` and `D-08` gave the three
-# ways of missing that a refusal that names the mistake. Every control below is
+# ways of missing that a refusal that names the mistake, and the close review of
+# this phase added a fourth — an unquoted path whose spaces the parser reads as
+# two tokens, which `D-07`'s branch used to answer with advice that destroyed it. Every control below is
 # driven END TO END — `CCF_BINDING` in the environment, `ProductClient.for_product`,
 # `.ask` — and not one of them reaches into the adapter's private declaration
 # helper. A refusal that fires in a loader and is never reached by a client is a
@@ -357,14 +359,21 @@ PRE_MIGRATION_REMAINDER = (
 #: whole-message `len(set(...)) == len(...)` leg still passed. A check that
 #: cannot fail is worse than no check. What must be distinct is the clause that
 #: names the mistake, so the leg asserts each phrase appears in **exactly one**
-#: of the five.
+#: of the six.
 SIGNATURES: dict[str, str] = {
     "D-06 — the deployment declares no `server:`": "declares no `server:`",
     "D-07 — the pre-migration two-token address": "states two tokens",
     "D-08 — the token resolves to a program": "names a program",
+    "an unquoted path containing whitespace": "names one directory that exists",
     "the generic wrong token count": "states exactly one",
     "the declared program is not there": "names no server program",
 }
+
+#: The advice `D-07` gives, quoted from the shipped message because the control
+#: below asserts its **ABSENCE**. A spaced path told to drop a token loses the
+#: half of itself after the space, so this phrase appearing in the whitespace
+#: refusal is the defect, not a wording preference.
+TOKEN_DROPPING_ADVICE = "drop it from the address"
 
 #: `load_binding_document`'s fall-through report for a root it cannot find a
 #: document in. Quoted from the shipped message rather than paraphrased, because
@@ -462,11 +471,83 @@ def test_the_pre_migration_two_token_address_is_refused_with_the_migration(
     message = _refusal_message()
 
     assert SIGNATURES["D-07 — the pre-migration two-token address"] in message
-    assert "drop it from the address" in message, (
+    assert TOKEN_DROPPING_ADVICE in message, (
         "the message names the count but not the migration, which leaves an"
         " adopter guessing where the program went"
     )
     assert "`server:`" in message
+    assert SIGNATURES["an unquoted path containing whitespace"] not in message, (
+        "the whitespace branch added by the close review swallowed the genuine"
+        " migration — an adopter moving off the two-token grammar must still be"
+        " told where their program went, so the filesystem check must not"
+        " capture an address whose first token is a program"
+    )
+
+
+def test_a_root_path_containing_a_space_is_not_told_to_drop_a_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`18.1-CLOSE-REVIEWS` finding 2 — the refusal that named the wrong mistake.
+
+    A deployment root under a directory whose name has a space parses as two
+    tokens, and by COUNT alone it is the pre-migration address. It used to land
+    in `D-07`'s branch and be told *"drop it from the address and name the root
+    alone"*, which turns `/tmp/My Deployments/deployment` into `/tmp/My` — the
+    adopter is handed something strictly worse than what they typed. Spaces in
+    paths are ordinary on macOS and Windows, and the module docstring has said
+    since `18.1-02` that quoting is the remedy, but no message an adopter reads
+    said so.
+
+    This is the `B0b` report-quality class in the phase whose own `D-08` cites
+    it. The absence assertion is the load-bearing one: a message that merely
+    *adds* quoting advice while keeping the token-dropping sentence has not
+    fixed anything, because the destructive instruction is still on the screen.
+    """
+    root = _root(tmp_path, "My Deployments", program=STDIO_SERVER)
+    assert " " in str(root), "the control is not exercising a spaced path at all"
+    monkeypatch.setenv("CCF_BINDING", f"{SCHEME}:{root}")
+
+    message = _refusal_message()
+
+    assert SIGNATURES["an unquoted path containing whitespace"] in message
+    assert TOKEN_DROPPING_ADVICE not in message, (
+        "the spaced path is still being told to drop a token, which deletes"
+        f" everything after the space: {message}"
+    )
+    assert SIGNATURES["D-07 — the pre-migration two-token address"] not in message, (
+        "and it is still being diagnosed as the pre-migration address, which is"
+        " a mistake this adopter did not make"
+    )
+    assert f"`{SCHEME}:'{root}'`" in message, (
+        "the remedy is shown, whole and quoted, rather than described — a"
+        " refusal that says `quote it` without spelling the string leaves the"
+        " adopter to guess which half needed the quotes"
+    )
+
+
+def test_the_quoting_the_spaced_refusal_prescribes_actually_gets_past_the_grammar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The non-vacuity leg for the remedy — advice nobody ran is a guess.
+
+    The refusal above tells an adopter to quote the path. If quoting did not in
+    fact carry a spaced root through :func:`shlex.split` and into the loader,
+    the message would be sending them somewhere no better than the token-drop
+    it replaced. So the quoted form is driven through the same client seam and
+    asserted to answer a real question.
+    """
+    root = _root(tmp_path, "My Deployments", populated=True, program=STDIO_SERVER)
+    monkeypatch.setenv("CCF_BINDING", f"{SCHEME}:'{root}'")
+
+    result = ProductClient.for_product(PRODUCT_ID).ask(
+        parameters={PARAMETER: 11}, as_of=PINNED
+    )
+
+    assert not result.refused, "the quoted spaced root did not reach the door"
+    assert result.content_address, (
+        "and a served result carries the content address, so what the quoted"
+        " form reached was a real assembly rather than an empty pass"
+    )
 
 
 def test_a_token_resolving_to_a_program_is_refused_by_the_mistake_it_names(
@@ -542,7 +623,7 @@ def test_the_same_harness_completes_a_real_ask_over_a_healthy_address(
 ) -> None:
     """**V-06 / V-12 — the non-vacuity leg for the taxonomy above.**
 
-    Five refusals measured against a baseline that refuses everything measure
+    Six refusals measured against a baseline that refuses everything measure
     nothing, and `D-06`'s deleted-key control in particular would then be
     indistinguishable from a broken harness. So the identical harness — same
     environment variable, same `for_product`, same `.ask` — is asserted to
@@ -561,14 +642,14 @@ def test_the_same_harness_completes_a_real_ask_over_a_healthy_address(
     assert result.refusal.reason
 
 
-def test_the_five_grammar_refusals_are_five_different_messages(
+def test_the_six_grammar_refusals_are_six_different_messages(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`V-11` / CLNT-12 — one copy-pasted message would pass every control above.
 
     Each control asserts the clause its own message owns, and a single generic
-    refusal carrying all five clauses would satisfy all five. So each clause is
-    asserted to appear in **exactly one** of the five, which catches both
+    refusal carrying all six clauses would satisfy all six. So each clause is
+    asserted to appear in **exactly one** of the six, which catches both
     collapses: a phrase in two messages (one branch copy-pasted onto another)
     and a phrase in none (a branch that stopped naming its mistake). The whole
     messages are compared too, and every failure interpolates the colliding
@@ -588,6 +669,9 @@ def test_the_five_grammar_refusals_are_five_different_messages(
         ),
         "D-07 — the pre-migration two-token address": PRE_MIGRATION_REMAINDER,
         "D-08 — the token resolves to a program": str(STDIO_SERVER),
+        "an unquoted path containing whitespace": str(
+            _root(tmp_path, "distinct-My Deployments")
+        ),
         "the generic wrong token count": "a b c",
         "the declared program is not there": str(
             _root(tmp_path, "distinct-nowhere")

@@ -33,11 +33,14 @@ there:
   ``18.1-02``; it read as the *client's* business at exactly the point a
   reader was learning what a client does, and it is not.
 
-Three ways of getting this wrong are refused **by name** rather than
-half-resolved — a second token, a token that resolves to a program, and a
-deployment that declares no ``server:`` — because each is an ordinary authoring
-mistake and each is cheaper to diagnose here than as a missing document two
-layers down.
+Four ways of getting this wrong are refused **by name** rather than
+half-resolved — a second token, an unquoted path whose spaces the parser reads
+as several tokens, a token that resolves to a program, and a deployment that
+declares no ``server:`` — because each is an ordinary authoring mistake and each
+is cheaper to diagnose here than as a missing document two layers down. The
+whitespace case is separated from the second-token case by asking whether the
+whole address names a directory that exists, because the two are identical by
+token count and the second-token advice — drop it — would destroy a real path.
 
 What is asked, and where each argument comes from
 --------------------------------------------------
@@ -244,7 +247,10 @@ class McpStdioAdapter:
         given the chance to answer — otherwise a token naming a program would be
         reported as a root that is not a directory (``D-08``). A token naming
         nothing at all is left to fall through, because that report is then the
-        right one.
+        right one. Inside the wrong-count group the whitespace check comes
+        first, because a count of two is what an unquoted spaced path and the
+        pre-migration address have in common and only the filesystem tells them
+        apart.
         """
         try:
             tokens = shlex.split(self._address)
@@ -254,23 +260,53 @@ class McpStdioAdapter:
                 f" {unparsable}. It is the deployment root, one token, quoted if"
                 " it contains a space"
             ) from unparsable
-        if len(tokens) == 2:
-            raise BindingError(
-                f"`{self._address}` states two tokens; an `{SCHEME}` address"
-                " states one — the deployment root, as in"
-                f" `{SCHEME}:./deployment`. The second token was the server"
-                " program, and that program is now the deployment's own"
-                f" `server:` key in its `{BINDING_DOCUMENT_NAME}`, so drop it"
-                " from the address and name the root alone"
-            )
         if len(tokens) != 1:
+            # A path containing whitespace is ONE token the parser cannot see
+            # as one, and by token COUNT alone it is indistinguishable from the
+            # pre-migration two-token address. So ask the filesystem before
+            # concluding which mistake was made: an address naming a directory
+            # that is *there* is a root that needed quoting, never a program
+            # plus a root — and the migration's advice, drop the second token,
+            # would hand back `mcp+stdio:/tmp/My` and destroy the path the
+            # adopter typed. Spaces in paths are ordinary on macOS and Windows,
+            # so this is not an exotic case, and a refusal naming the wrong
+            # mistake is the `B0b` report-quality class `D-08` cites.
+            #
+            # `os.path.isdir` rather than `Path.is_dir` deliberately: it answers
+            # False for a string the platform cannot use instead of raising, and
+            # a grammar branch must not become a new way out of `BindingError`.
+            # The emptiness guard is load-bearing too — `Path("")` is `Path(".")`,
+            # which is a directory, so a blank address would otherwise be told
+            # to quote the current working directory.
+            written = self._address.strip()
+            if written and os.path.isdir(os.path.expanduser(written)):
+                raise BindingError(
+                    f"`{self._address}` parses as {len(tokens)} tokens because"
+                    " it contains whitespace, and it names one directory that"
+                    f" exists. An `{SCHEME}` address is a single token — the"
+                    " deployment root — so quote the path rather than dropping"
+                    f" part of it: `{SCHEME}:'{written}'`. This is not the"
+                    " pre-`18.1-02` address, whose second token was a server"
+                    " program; there is nothing here to drop"
+                )
+            if len(tokens) == 2:
+                raise BindingError(
+                    f"`{self._address}` states two tokens; an `{SCHEME}` address"
+                    " states one — the deployment root, as in"
+                    f" `{SCHEME}:./deployment`. If that is one path containing a"
+                    f" space, quote it: `{SCHEME}:'/path/with a"
+                    " space/deployment'`. Otherwise the second token was the"
+                    " server program, and that program is now the deployment's"
+                    f" own `server:` key in its `{BINDING_DOCUMENT_NAME}`, so"
+                    " drop it from the address and name the root alone"
+                )
             raise BindingError(
                 f"`{self._address}` states {len(tokens)} tokens; an `{SCHEME}`"
                 " address states exactly one — the deployment root, as in"
-                f" `{SCHEME}:./deployment`. The program to launch is the"
-                " deployment's, declared under `server:` in its"
-                f" `{BINDING_DOCUMENT_NAME}`, because the SDK ships no server"
-                " program and cannot"
+                f" `{SCHEME}:./deployment`, quoted if its path contains a space."
+                " The program to launch is the deployment's, declared under"
+                f" `server:` in its `{BINDING_DOCUMENT_NAME}`, because the SDK"
+                " ships no server program and cannot"
             )
         resolved = Path(tokens[0]).expanduser().resolve()
         if resolved.is_file():
