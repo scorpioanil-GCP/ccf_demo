@@ -3,8 +3,53 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-19T03:35:00.000Z"
+last_updated: "2026-08-19T19:35:00.000Z"
 last_activity: >-
+  2026-08-19 -- PHASE 18.1 EXECUTED, 5/5 PLANS, TREE GREEN END-TO-END. `make ci-core` EXIT 0
+  at the close commit (3901 passed / 118 skipped / 0 failed, plus 400 lint and 154 docs), and
+  re-verified after the tracking commit. THE PHASE IS NOT CLOSED -- CLAUDE.md 3.1 still owes the
+  cross-AI panel against the SHIPPED CODE, the single-agent review, finding verification, Dave's
+  ruling and `D-GATE-18.1`.
+  WHAT SHIPPED: `server:` as a contained data key in `binding.yaml` (base = the deployment root's
+  PARENT, with an INWARD-reaching value refused BY NAME -- `D-18`, the phase's one deliberate piece
+  of new mechanism, recorded in `docs/surface-changes/18.1-04-...` and ruled in `D-IMPL-153`);
+  the `mcp+stdio` address collapsed to ONE TOKEN, the deployment root, across 13 files in a single
+  commit; `serve.py` cut 292 -> 197 lines with the boot moved to `compose.py` (137); and a README
+  that states WHY a server is present before showing one. The client's command no longer names
+  `serve.py` anywhere, and the two documented commands differ by exactly ONE TOKEN, the scheme.
+  C-1 APPROVED BY DAVE'S OWN READ (2026-08-19), passage by passage; `README:186` was explicitly
+  considered and LEFT UNCHANGED by that ruling. NO PROXY GATE WAS INVENTED FOR C-1 -- its
+  unmeasurability was DEMONSTRATED, not asserted: the entire README frame was deleted and 381
+  example tests stayed GREEN.
+  THE PHASE'S LESSON, CONTINUING THE PROJECT'S ELEVEN AND NOW FIFTEEN: EVERY DEFECT FOUND WAS IN
+  VERIFICATION MACHINERY OR IN PLANS, NEVER IN MECHANISM. Four checks shipped GREEN FOR THE WRONG
+  REASON and only sabotage told the difference -- wave 2's distinctness assertion passed against
+  two IDENTICAL message templates (every refusal interpolates the address, so identical templates
+  still render differently); wave 3's vacuity control still produced a violation from a DIFFERENT
+  rule after the count rule was weakened; wave 1 found a provisioning site so INERT that deleting
+  it changed no output; and wave 4 found that a misnamed surface fragment is SILENTLY DROPPED.
+  They share one shape: THE ASSERTION SAT BELOW A DISJUNCTION, so satisfying EITHER branch made it
+  pass. Three plan acceptance criteria were also defective -- one that could not fail, and TWO
+  case-sensitivity false-reds (`declared budget` vs `Declared budget`).
+  TWO ORCHESTRATION RULINGS BY DAVE (2026-08-19): `D-08`'s rationale CORRECTED IN PLACE (it named
+  the wrong fall-through message -- `is_dir()` is checked before `is_file()`, so a file-naming
+  token reaches "is not a deployment root", not "no `binding.yaml` here"; the RULING is unchanged
+  and was NOT reopened); and plan `18.1-04`'s executor wrote the ROADMAP narrowing itself, fenced
+  to a content-only edit, verified afterward as 3 prose hunks with no checkbox or progress-cell
+  edits.
+  TWO ITEMS RECORDED AND DELIBERATELY NOT FIXED IN-PHASE, awaiting a ruling:
+  (1) `tools/retirement_sweep.py --report` IS NOT READ-ONLY -- it rewrites the tracked report; its
+  argparse help is honest, the defect is the FLAG NAME, and it caused one accidental mutation this
+  phase. (2) A MISNAMED SURFACE FRAGMENT IS SILENTLY DROPPED WITH DATA LOSS ON THE OBVIOUS REMEDY:
+  the red says "the assembled document is out of date", never "your fragment is misnamed", and
+  re-running `make surface-changes` clears the red TOGETHER WITH THE RECORD -- 117 lines, four
+  entries, register counts falling 727 -> 723, and all 20 surface tests green. Nothing compares the
+  fragment directory against what was assembled.
+  EXECUTED WITHOUT WORKTREE ISOLATION, deliberately (5 waves x 1 plan = no parallelism to buy, and
+  `18.1-04` edits ROADMAP.md, which the worktree cleanup path would have silently reverted). NO
+  `state.*` OR `roadmap.*` SDK WRITER WAS RUN AGAINST EITHER TRACKING FILE after the one at session
+  start, which collapsed 113 lines and was restored from backup.
+
   2026-08-19 -- PHASE 18.1 EXECUTION STARTED. Five plans, five waves, strictly sequential
   (each wave holds exactly one plan and every plan depends on the one before it). RUNNING
   WITHOUT WORKTREE ISOLATION, deliberately: there is no parallelism to buy, and plan `18.1-04`
@@ -274,7 +319,7 @@ harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
 **Current focus:** **PHASE 18.1 — Simplify the MCP Example: Client-Side Access,
-Server Off-Stage.** EXECUTING (started 2026-08-19), plan 1 of 5. Phase 18 is
+Server Off-Stage.** EXECUTED 2026-08-19, 5/5 plans, green; NOT YET GATED. Phase 18 is
 complete; its focus text is preserved below for continuity.
 
 **Prior focus (Phase 18):** **MCP Transport: the second door and the
@@ -303,8 +348,9 @@ are in `D-IMPL-147`.
 ## Current Position
 
 Phase: **18.1 — Simplify the MCP Example: Client-Side Access, Server Off-Stage.**
-  INSERTED 2026-08-18 (Dave). **EXECUTING — 5 PLANS IN 5 WAVES, plan 1 of 5.**
-  Discussed, planned, gated and now under execution (started 2026-08-19).** ROADMAP entry, Phases-list bullet and progress row all written
+  INSERTED 2026-08-18 (Dave). **EXECUTED — 5/5 PLANS, TREE GREEN (`make ci-core`
+  exit 0). AWAITING THE §3.1 CLOSE: cross-AI panel against the shipped code,
+  single-agent review, finding verification, Dave's ruling, `D-GATE-18.1`.** ROADMAP entry, Phases-list bullet and progress row all written
   BY HAND — `phase.insert` produced only a stub detail section, and no `state.*` or
   `roadmap.*` SDK writer has been run against either file.
   **A CLIENT-EXPERIENCE PHASE THAT SHIPS NO NEW SDK SURFACE.** Three changes:
