@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**723 entries**, of which **488** name a public Python surface.
+**727 entries**, of which **492** name a public Python surface.
 
 ## Added
 
@@ -7310,7 +7310,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-291 entries — 108 public Python surface, 183 not public Python API.
+292 entries — 109 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -9691,6 +9691,36 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `17-12-binding-document-data-only.md`.*
 
+#### ccf.client.adapters.binding_document.BindingDocument
+
+- Surface: ccf.client.adapters.binding_document.BindingDocument
+- Public surface: true
+- Change type: reshaped
+- Before: fifteen fields. A deployment could say where its config, its
+  projection, its artifact store and its graph were, and could say nothing at
+  all about the program a transport might have to launch to reach it
+- After: a sixteenth field, `server: Path | None` — this deployment's own server
+  program, resolved absolute against the directory **holding** the deployment
+  and `None` when the document states none. Contained but deliberately **not**
+  existence-checked: whether the program has to be on disk is the transport's
+  question (`mcp+stdio` asks, because it launches it; an in-process deployment
+  never does), and the `artifact_store` precedent rather than the `config` one
+  is the right one
+- Why: a deployment already declares how it is *assembled* — its projection, its
+  Control Plane document, its graph. How it is *reached* is the same kind of
+  fact and was the one thing a client had to be told out of band, in its own
+  binding string. The base is the deployment root's **parent** rather than the
+  root because a server program is not deployment content: the ordinary case is
+  a remote server reached at an endpoint, with this key **absent entirely**, and
+  a rule forcing the program inside the root would teach that a server belongs
+  in a deployment, which is false
+- Migration: none for a reader — the field is `None` on every document that does
+  not declare one, and no existing document did. A deployment that wants to be
+  reachable over `mcp+stdio` must now declare `server:`; see the adapter entry
+  below
+
+*Recorded by `18.1-04-the-deployment-declares-its-server.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -12035,7 +12065,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-67 entries — 50 public Python surface, 17 not public Python API.
+70 entries — 53 public Python surface, 17 not public Python API.
 
 ### Public Python surface
 
@@ -13307,6 +13337,93 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   changes is what may be claimed of the seam
 
 *Recorded by `18-99-close-review-blocking-fixes.md`.*
+
+#### ccf.client.adapters.binding_document.OPTIONAL_KEYS
+
+- Surface: ccf.client.adapters.binding_document.OPTIONAL_KEYS
+- Public surface: true
+- Change type: behavior
+- Before: `("connection",)` — one member. The strict unknown-key refusal
+  enumerated `connection` as the whole of what a document may optionally state
+- After: `("connection", "server")`. The enumeration in the unknown-key refusal
+  grew with it, so a document misspelling `server:` is now told that `server` is
+  a key it could have meant rather than being told nothing
+- Why: the tuple is the single register of what a `binding.yaml` may say, and
+  the refusal message is generated from it rather than written beside it —
+  adding the key anywhere else would have left the refusal describing a document
+  format that no longer exists
+- Migration: none — additive. A document that stated no `server:` loads exactly
+  as before
+
+*Recorded by `18.1-04-the-deployment-declares-its-server.md`.*
+
+#### ccf.client.adapters.binding_document.load_binding_document
+
+- Surface: ccf.client.adapters.binding_document.load_binding_document
+- Public surface: true
+- Change type: behavior
+- Before: no `server:` value existed to refuse. Once the key shipped with its
+  base at the deployment root's parent, containment passed for a value reaching
+  back **inside** the root — `server: deployment/anything.py` resolved, was
+  contained, and loaded
+- After: a value resolving inside the deployment root is refused **by name**, in
+  the `RULED_OUT_KEYS` register's voice: the message says the value resolves
+  inside the deployment root, that `D-IMPL-141` Amendment A.3 grants that
+  directory **one** Python module (its projection), that a server program is not
+  deployment content, and that the remedy is to name it beside the deployment
+  rather than inside it
+- Why: `D-18` (Dave, 2026-08-18), and it is **the one piece of new mechanism
+  this phase ships** — deliberately, because it makes `D-09`'s argument
+  mechanical rather than documentary. The base one level out is correct for the
+  ordinary case and opens a hole on the way: a third-party deployment could
+  quietly hold two Python modules where Amendment A.3 grants one. Without this,
+  the only thing holding that line was
+  `assert document.server.parent != root` in `test_hw1_two_transports`, which
+  covers the shipped example and no adopter. Note it is a **value** refusal, not
+  a key refusal: `"server"` is in `OPTIONAL_KEYS` and deliberately **not** in
+  `RULED_OUT_KEYS`, because a deployment declaring an outward `server:` is
+  legitimate and `hw1` does exactly that
+- Migration: none, unless a deployment already declared a `server:` value
+  resolving inside its own root — impossible before this phase, since the key
+  did not exist. Such a value must be moved beside the deployment root and the
+  declaration repointed at it
+
+*Recorded by `18.1-04-the-deployment-declares-its-server.md`.*
+
+#### ccf.client.adapters.mcp_stdio.McpStdioAdapter
+
+- Surface: ccf.client.adapters.mcp_stdio.McpStdioAdapter
+- Public surface: true
+- Change type: behavior
+- Before: `mcp+stdio:<program> <root>` — **two** tokens, the server program then
+  the deployment root, neither inferable from the other, parsed with
+  `shlex.split`. The client's own binding string named the program it was about
+  to spawn
+- After: `mcp+stdio:<root>` — **one** token, the deployment root. The program is
+  read from that deployment's `server:` key. Three ordinary authoring mistakes
+  are refused by name rather than half-resolved: a deployment declaring no
+  `server:` (the message names the transport and the key, since the requirement
+  belongs to this transport and not to the document), the pre-migration
+  two-token address (the message names the migration — drop the program, it is
+  the deployment's `server:` key now), and a single token that resolves to a
+  file rather than a directory (the message says it names a program, and that an
+  `mcp+stdio` address names the deployment root that declares the program). A
+  fourth refusal, for a declared program that is not on disk, moved here from
+  the loader
+- Why: `D-05`, and the phase's reason for existing (Dave, 2026-08-18): *"the
+  client is not responsible for setting up the MCP server, yet when the MCP
+  example is called the client code references the server.py."* The spawn is
+  inherent to stdio and is not the defect; the defect was that the spawn was the
+  *client's* business in the reader's field of view. Where the program sits is
+  the deployment's business, so the deployment is where it is declared
+- Migration: replace the two-token address with the deployment root alone, and
+  declare `server:` in that deployment's `binding.yaml` — a path relative to the
+  directory holding the deployment. The two-token form is **replaced**, not kept
+  alongside, and an address still stating two tokens gets the migration message
+  rather than a parse failure; that branch is permanent grammar, not a
+  time-limited shim
+
+*Recorded by `18.1-04-the-deployment-declares-its-server.md`.*
 
 ### Not public Python API
 
