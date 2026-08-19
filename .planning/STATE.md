@@ -3,8 +3,47 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-19T19:35:00.000Z"
+last_updated: "2026-08-19T22:50:00.000Z"
 last_activity: >-
+  2026-08-19 -- PHASE 18.1 CLOSE REVIEW RUN; THREE BLOCKING FINDINGS FIXED IN-PHASE. AWAITING
+  DAVE'S RULING AND `D-GATE-18.1`. Gate measured at `04cccc2`: `make ci-core` EXIT 0,
+  3909 passed / 118 skipped / 0 failed (+8 = exactly the eight tests added), 400 lint, 154 docs.
+  THE PANEL (codex, cursor, gemini) WAS POINTED AT THE SHIPPED CODE, NOT THE PLANS, and was given
+  the six already-known findings with instructions NOT to re-derive them -- so its budget went to
+  what is ADJACENT. It found three real holes the 40/40 VERIFIER MISSED:
+  (1) `D-18`'s predicate is `server == root_path OR root_path in server.parents` and BOTH tests
+  fed only the SECOND limb -- removing the first left 752 TESTS GREEN. The mechanism was CORRECT
+  (`server: deployment` IS refused); nothing HELD it. THE VERIFIER SABOTAGED `D-18` ENTIRELY
+  (`if False:`), got two reds, and concluded it was held: A SABOTAGE AS COARSE AS THE WHOLE GUARD
+  ONLY PROVES SOME TEST MENTIONS IT, NEVER THAT EACH BRANCH IS HELD. Same mechanism, same
+  technique, DIFFERENT GRANULARITY, OPPOSITE ANSWERS.
+  (2) A ROOT PATH CONTAINING A SPACE was diagnosed as the pre-migration two-token address, and the
+  advice -- "drop it from the address and name the root alone" -- DESTROYS THE USER'S PATH
+  (`/tmp/My Deployments/deployment` -> `mcp+stdio:/tmp/My`). Neither branch named quoting though
+  the `mcp_stdio` module docstring already says quoting is the remedy. A NEW INSTANCE OF THE `B0b` CLASS in
+  the phase whose own `D-08` cites `B0b`.
+  (3) THE README CREDITED A TEST WITH A CHECK IT DOES NOT MAKE: repointing the documented mcp
+  address at a nonexistent `OTHERDEPLOYMENT` in BOTH README and Makefile left ALL 17 PURITY TESTS
+  GREEN. `D-15`'s observable rested on a property no gate held -- in the very document `C-1` was
+  approved on. RULED BY DAVE: fix BOTH the gate and the prose, written against each other.
+  ALL THREE FIXED AND EACH INDEPENDENTLY RE-SABOTAGED BY THE ORCHESTRATOR: the mutations that
+  previously passed silently now fail (752 green -> 1 red; 17 green -> 1 red).
+  THE SEVENTH INSTANCE WAS IN THE PROPOSED REMEDY FOR THE SIXTH. The review AND the orchestrator's
+  brief both proposed `binding.partition(":")[2].partition(":")[2]` to extract the address; measured
+  against real tokens it yields `""` for BOTH commands, so the assertion would have passed ON AN
+  EMPTY SET. The executor measured it, REFUSED IT, and shipped a guarded splitter plus five
+  parametrized vacuity controls instead.
+  NOT ACTIONED, DELIBERATELY: Codex's only HIGH (a case-insensitive-filesystem bypass) COULD NOT BE
+  VERIFIED ON THIS LINUX HOST, and Gemini asserted the opposite WITHOUT TESTING EITHER. Recorded as
+  an OPEN QUESTION, not a defect. Gemini found nothing actionable. SEVEN CONFIRMED ADVISORIES are
+  carried, un-fixed and fenced out of the close fixes as scope creep.
+  ORCHESTRATOR PROCESS DEFECT, RECORDED AGAINST MYSELF: the verifier and the code reviewer were
+  dispatched IN PARALLEL onto ONE WORKING TREE and both run sabotages that MUTATE SOURCE. They
+  observed each other -- the verifier flagged a README reading `OTHERDEPLOYMENT` as possible
+  injection; it was the reviewer's control. Both re-verified against `git show HEAD:` and neither
+  acted on foreign state, and the tree ended byte-identical to HEAD, but THE ISOLATION WAS MINE TO
+  PROVIDE. Sabotage-running agents must not share a working tree.
+
   2026-08-19 -- PHASE 18.1 EXECUTED, 5/5 PLANS, TREE GREEN END-TO-END. `make ci-core` EXIT 0
   at the close commit (3901 passed / 118 skipped / 0 failed, plus 400 lint and 154 docs), and
   re-verified after the tracking commit. THE PHASE IS NOT CLOSED -- CLAUDE.md 3.1 still owes the
@@ -348,9 +387,10 @@ are in `D-IMPL-147`.
 ## Current Position
 
 Phase: **18.1 — Simplify the MCP Example: Client-Side Access, Server Off-Stage.**
-  INSERTED 2026-08-18 (Dave). **EXECUTED — 5/5 PLANS, TREE GREEN (`make ci-core`
-  exit 0). AWAITING THE §3.1 CLOSE: cross-AI panel against the shipped code,
-  single-agent review, finding verification, Dave's ruling, `D-GATE-18.1`.** ROADMAP entry, Phases-list bullet and progress row all written
+  INSERTED 2026-08-18 (Dave). **EXECUTED AND CLOSE-REVIEWED — 5/5 plans plus a
+  close-fix set; 3 BLOCKING findings found by the panel and FIXED IN-PHASE, each
+  independently re-sabotaged. `make ci-core` exit 0 at `04cccc2`, 3909/118/0.
+  AWAITING DAVE'S RULING AND `D-GATE-18.1` — the phase is NOT closed.** ROADMAP entry, Phases-list bullet and progress row all written
   BY HAND — `phase.insert` produced only a stub detail section, and no `state.*` or
   `roadmap.*` SDK writer has been run against either file.
   **A CLIENT-EXPERIENCE PHASE THAT SHIPS NO NEW SDK SURFACE.** Three changes:
