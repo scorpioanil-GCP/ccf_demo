@@ -123,7 +123,7 @@ Rows by coupling shape:
 | `examples/external/README.md` | 61 | `examples/03-harness-portability` | `prose` | documentary | - | - | 16-15 |  |
 | `examples/hw1-companies-over-revenue/deployment/ccf_config.yaml` | 9 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `examples/hw1-companies-over-revenue/server/egress-door.yaml` | 7 | `examples/04-cross-process` | `comment` | documentary | - | - | 16-17 |  |
-| `examples/hw1-companies-over-revenue/server/serve.py` | 68 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `examples/hw1-companies-over-revenue/server/serve.py` | 31 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `examples/s1-01-hello-context-product/artifacts/source-estate.yaml` | 23 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 | cross-wave: this file retires at wave 12, the path it names at wave 8 |
 | `examples/s1-01-hello-context-product/report.py` | 12 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 | cross-wave: this file retires at wave 12, the path it names at wave 11 |
 | `examples/s2-01-external-consumers/client_claude_agent.py` | 44 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
@@ -598,7 +598,10 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-REVIEW.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/18-CLOSE-REVIEWS.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/18-D-IMPL-150-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-02-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-03-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-03-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-05-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-PATTERNS.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-RESEARCH.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
