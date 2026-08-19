@@ -3,8 +3,19 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-18T18:35:00.000Z"
+last_updated: "2026-08-19T03:35:00.000Z"
 last_activity: >-
+  2026-08-19 -- PHASE 18.1 EXECUTION STARTED. Five plans, five waves, strictly sequential
+  (each wave holds exactly one plan and every plan depends on the one before it). RUNNING
+  WITHOUT WORKTREE ISOLATION, deliberately: there is no parallelism to buy, and plan `18.1-04`
+  lists `.planning/ROADMAP.md` in its own `files_modified` -- the worktree cleanup path backs
+  ROADMAP.md up before the merge and restores it after, which would have SILENTLY DISCARDED
+  that plan's intentional narrowing of the "ships no new SDK surface" claim (D-18). Executors
+  are additionally instructed NOT to run any `state.*` or `roadmap.*` SDK writer: `state.begin-phase`
+  was run once at the start of this session and COLLAPSED 113 LINES of `last_activity` and the
+  whole `progress:` block into one line; it was restored from backup and the four fields it meant
+  to set were applied BY HAND. The orchestrator is the single writer for both tracking files.
+
   2026-08-18 -- PHASE 18.1 PLANNED. FIVE PLANS IN FIVE WAVES, committed and gated. Research
   (`18.1-RESEARCH.md`, 1492 lines) and a pattern map were run and BOTH FOUND DEFECTS THE
   DISCUSSION HAD NOT: research swept the tree and found the two-token `mcp+stdio:` address in
@@ -261,7 +272,11 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** **PHASE 18 — MCP Transport: the second door and the
+**Current focus:** **PHASE 18.1 — Simplify the MCP Example: Client-Side Access,
+Server Off-Stage.** EXECUTING (started 2026-08-19), plan 1 of 5. Phase 18 is
+complete; its focus text is preserved below for continuity.
+
+**Prior focus (Phase 18):** **MCP Transport: the second door and the
 portability proof.** Opened 2026-08-17 by `D-IMPL-147` (Dave), on branch
 `phase-18`. One plan, four tasks, ready to execute; nothing part-done.
 **Read `.planning/HANDOFF-2026-08-17.md` for the cold-start picture** — it is
@@ -287,8 +302,8 @@ are in `D-IMPL-147`.
 ## Current Position
 
 Phase: **18.1 — Simplify the MCP Example: Client-Side Access, Server Off-Stage.**
-  INSERTED 2026-08-18 (Dave). **DISCUSSED AND NOW PLANNED — 5 PLANS IN 5 WAVES,
-  READY TO EXECUTE.** ROADMAP entry, Phases-list bullet and progress row all written
+  INSERTED 2026-08-18 (Dave). **EXECUTING — 5 PLANS IN 5 WAVES, plan 1 of 5.**
+  Discussed, planned, gated and now under execution (started 2026-08-19).** ROADMAP entry, Phases-list bullet and progress row all written
   BY HAND — `phase.insert` produced only a stub detail section, and no `state.*` or
   `roadmap.*` SDK writer has been run against either file.
   **A CLIENT-EXPERIENCE PHASE THAT SHIPS NO NEW SDK SURFACE.** Three changes:
