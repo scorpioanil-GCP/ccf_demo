@@ -318,3 +318,158 @@ def test_the_comparison_refuses_a_single_transport() -> None:
     violations = parity_violations({"inprocess:x": "   content address    " + "a" * 64})
     assert violations, "one answer was reported as a parity result"
     assert any("nothing was compared" in entry for entry in violations), violations
+
+
+# ---------------------------------------------------------------------------
+# `D-12`'s structural criterion: one file, one concern.
+#
+# `D-12` refused a line budget for this server — Dave has called it temporary
+# and not the focus, and a second declared budget would put a server line-count
+# back inside the reader's own document. What it ruled instead is *structural*:
+# `serve.py` holds only door concerns and the composition lives in the module
+# beside it. Nothing below counts a line.
+#
+# It is asserted here rather than in `test_client_example_purity.py` because
+# that module's subject is the example's READER-VISIBLE modules, which `server/`
+# is deliberately not — while this module already asserts things about this
+# example's shipped server (`document.server.parent != root`).
+# ---------------------------------------------------------------------------
+
+#: The directory the criterion is about.
+SERVER_DIR = EXAMPLE_ROOT / "server"
+
+#: How many Python modules "one file, one concern" leaves in it: the door and
+#: the boot. Compared with `!=`, never `>`, for `assert_one_python_module`'s
+#: reason — a gate that stops checking without going red is the defect.
+SERVER_MODULE_COUNT = 2
+
+#: The door's own governance document. `serve.py` must still name it, or the
+#: door's governance document moved out with the composition and nobody can say
+#: which document the running server interpreted.
+DOOR_DOCUMENT = "egress-door.yaml"
+
+#: The one basename this directory may never hold.
+#: `tests/examples/test_artifact_schema_headers.py::EXAMPLE_ROOT_MARKER` is
+#: `run.py` and is matched by an **rglob**, so a `server/run.py` would register
+#: `server/` as an example root and fail the artifacts bijection over a
+#: directory that owns no `artifacts/`.
+FORBIDDEN_MODULE = "run.py"
+
+
+def server_shape_violations(server: pathlib.Path) -> list[str]:
+    """Every way ``server`` fails `D-12`'s criterion, by name.
+
+    A function over a directory rather than a bare ``assert`` on the shipped
+    one, so the controls can hand the **shipped** check a divergent subject and
+    be watched failing. A check that can only ever be handed the passing subject
+    is a check nobody has watched fail.
+    """
+    violations: list[str] = []
+    modules = sorted(path.name for path in server.glob("*.py"))
+
+    if len(modules) != SERVER_MODULE_COUNT:
+        violations.append(
+            f"{server} holds {len(modules)} Python modules, not"
+            f" {SERVER_MODULE_COUNT} — `D-12` leaves the door in `serve.py` and"
+            f" the composition in the module beside it: {modules}"
+        )
+    if FORBIDDEN_MODULE in modules:
+        violations.append(
+            f"{server} holds a `{FORBIDDEN_MODULE}` —"
+            " `test_artifact_schema_headers.py` treats a directory directly"
+            f" holding `{FORBIDDEN_MODULE}` as an example root, by rglob, and"
+            " this directory owns no `artifacts/` to satisfy the bijection with"
+        )
+
+    door = server / "serve.py"
+    if not door.is_file():
+        violations.append(
+            f"{door} is not there, so the directory holds no door at all"
+        )
+    elif DOOR_DOCUMENT not in door.read_text(encoding="utf-8"):
+        violations.append(
+            f"{door} no longer names `{DOOR_DOCUMENT}` — the door's own"
+            " governance document left with the composition, and nothing now"
+            " says which document the running server interpreted"
+        )
+    return violations
+
+
+def copied_server(tmp_path: pathlib.Path, name: str) -> pathlib.Path:
+    """A private copy of the shipped ``server/``, for a control to diverge.
+
+    Copied rather than mutated in place: a control that edited ``examples/`` and
+    reverted would leave the repository dirty the moment it failed.
+    """
+    subject = tmp_path / name
+    shutil.copytree(SERVER_DIR, subject, ignore=NOT_COPIED)
+    return subject
+
+
+def test_the_shipped_server_holds_one_file_per_concern() -> None:
+    """`D-12`. The door and the boot, and no third thing."""
+    violations = server_shape_violations(SERVER_DIR)
+    assert not violations, "\n".join(violations)
+
+
+def test_the_shape_check_refuses_a_third_module(
+    tmp_path: pathlib.Path,
+) -> None:
+    """**Sabotage control.** A third concern arriving in the directory."""
+    subject = copied_server(tmp_path, "third-module")
+    original = sorted(path.name for path in subject.glob("*.py"))
+    (subject / "extras.py").write_text('"""A third concern."""\n', encoding="utf-8")
+    mutated = sorted(path.name for path in subject.glob("*.py"))
+    assert mutated != original, "the third-module control did not change anything"
+
+    violations = server_shape_violations(subject)
+    assert violations, "a third Python module was reported as one file per concern"
+    assert any("Python modules, not" in entry for entry in violations), violations
+
+
+def test_the_shape_check_refuses_a_run_py(tmp_path: pathlib.Path) -> None:
+    """**Sabotage control.** The `run.py` landmine, which `compose.py` avoids."""
+    subject = copied_server(tmp_path, "run-py")
+    original = sorted(path.name for path in subject.glob("*.py"))
+    # RENAMED rather than added, so the module COUNT stays at two and this
+    # control can only be satisfied by the forbidden-basename rule. A control
+    # that also tripped the count rule would not tell the two apart.
+    (subject / "compose.py").rename(subject / FORBIDDEN_MODULE)
+    mutated = sorted(path.name for path in subject.glob("*.py"))
+    assert mutated != original, "the run.py control did not change anything"
+    assert len(mutated) == SERVER_MODULE_COUNT, mutated
+
+    violations = server_shape_violations(subject)
+    assert violations, f"a `{FORBIDDEN_MODULE}` was reported as an acceptable shape"
+    assert any(FORBIDDEN_MODULE in entry for entry in violations), violations
+
+
+def test_the_shape_check_refuses_a_door_that_dropped_its_document(
+    tmp_path: pathlib.Path,
+) -> None:
+    """**Sabotage control.** The door's governance document moving out silently."""
+    subject = copied_server(tmp_path, "no-door-document")
+    door = subject / "serve.py"
+    original = door.read_text(encoding="utf-8")
+    door.write_text(original.replace(DOOR_DOCUMENT, "somewhere-else.yaml"), encoding="utf-8")
+    mutated = door.read_text(encoding="utf-8")
+    assert mutated != original, "the door-document control did not change anything"
+
+    violations = server_shape_violations(subject)
+    assert violations, f"a `serve.py` naming no `{DOOR_DOCUMENT}` was accepted"
+    assert any(DOOR_DOCUMENT in entry for entry in violations), violations
+
+
+def test_the_shape_check_refuses_an_empty_directory(
+    tmp_path: pathlib.Path,
+) -> None:
+    """**Vacuity control.** Zero modules is not two modules.
+
+    The count is compared with ``!=`` rather than ``>`` for exactly this: a
+    directory that lost both modules would satisfy ``> 2`` forever.
+    """
+    subject = tmp_path / "empty"
+    subject.mkdir()
+    violations = server_shape_violations(subject)
+    assert violations, "an empty directory was reported as one file per concern"
+    assert any("Python modules, not" in entry for entry in violations), violations
