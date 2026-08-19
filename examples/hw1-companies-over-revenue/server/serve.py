@@ -86,23 +86,10 @@ from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
 from pydantic import AnyHttpUrl
 
-from ccf.artifacts.file_store import FileArtifactStore
 from ccf.client.adapters.binding_document import (
     BindingDocument,
-    conforming_plan_factory,
     load_binding_document,
-    load_reference,
 )
-from ccf.controlplane.artifacts import ProductClassDeclaration
-from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import load_config_and_boot
-from ccf.products.entitlement import (
-    PRODUCT_ENTITLEMENT_POLICY,
-    ProductEntitlementGrant,
-    ProductEntitlementPolicy,
-    product_entitlement_key,
-)
-from ccf.products.resolver import build_governed_resolver
 from ccf.projection.plan import Perspective
 from ccf_runtime.authz.product_entitlement import (
     ControlPlaneProductEntitlementSource,
@@ -110,6 +97,11 @@ from ccf_runtime.authz.product_entitlement import (
 )
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
 from ccf_runtime.mcp.egress import build_egress_server
+
+# The boot next door. This program is spawned as a bare `python <this file>`,
+# so its own directory is already on `sys.path` and the sibling module imports
+# by name.
+from compose import compose
 
 #: The door's own document, beside this file rather than inside the deployment
 #: root — see the module docstring for the two gates that decide the filing.
@@ -152,68 +144,18 @@ def door_values() -> dict[str, Any]:
 def serve(root: Path) -> None:
     """Boot the deployment at ``root``, expose its product door, serve on stdio.
 
-    The composition below is the public path, step for step: read the wiring,
-    boot the fabric, resolve the one permitted projection reference, and hand
-    all of it to :func:`~ccf.products.resolver.build_governed_resolver`, which
-    is where the SDK selects its own reference debt scorer so a deployment
-    supplying only data never has to know the Protocol exists.
+    What this function does is the door: read the four governance values the
+    door's own document holds, mint the credential this boot will be reached
+    with, hand the composed resolver to
+    :func:`~ccf_runtime.mcp.egress.build_egress_server`, state who the stdio
+    caller is, and run. Booting the deployment and building that resolver is
+    :func:`compose.compose`'s work, next door.
     """
     document: BindingDocument = load_binding_document(root)
     door = door_values()
 
-    control_plane = ControlPlaneRegistry()
-    fabric = load_config_and_boot(
-        document.config, registry=control_plane, connection=document.connection
-    )
-    resolver = build_governed_resolver(
-        fabric=fabric,
-        control_plane=control_plane,
-        product_class_key=document.product_class_key,
-        request_contract_key=document.request_contract_key,
-        operator_parameter_keys=document.operator_parameter_keys,
-        policy_bundle_key=document.policy_bundle_key,
-        plan_factory=conforming_plan_factory(
-            load_reference(document.plan, root=document.root, key="plan"),
-            reference=document.plan,
-            root=document.root,
-        ),
-        artifact_store=FileArtifactStore(root=document.artifact_store),
-        replay_record_class=document.replay_record_class,
-        query_pin_class=document.query_pin_class,
-        max_ttl_seconds=document.max_ttl_seconds,
-        product_ttl_seconds=document.product_ttl_seconds,
-        half_life_key=document.debt.half_life_key,
-        debt_profile_key=document.debt.debt_profile_key,
-        declared_completeness=document.debt.completeness,
-        declared_semantic_consistency=document.debt.semantic_consistency,
-    )
-
-    declaration = fabric.artifacts[document.product_class_key]
-    if not isinstance(declaration, ProductClassDeclaration):
-        raise TypeError(
-            f"`{document.product_class_key}` in {document.config} is not a"
-            " product class declaration"
-        )
-
-    # The permitted class and the permitted role are the ones this deployment
-    # actually serves and assembles under — taken from the registered class and
-    # from `binding.yaml`'s `perspective:`, never restated here, so an
-    # entitlement cannot name a class this fabric does not serve.
+    composed = compose(document)
     perspective = document.perspective
-    control_plane.register_typed(
-        product_entitlement_key(tenant_id=fabric.tenant_id),
-        ProductEntitlementPolicy(
-            tenant_id=fabric.tenant_id,
-            policy_version=declaration.schema_version,
-            principals={
-                perspective.principal_id: ProductEntitlementGrant(
-                    permitted_schema_names=frozenset({declaration.schema_name}),
-                    permitted_roles=frozenset({perspective.role}),
-                )
-            },
-        ),
-        PRODUCT_ENTITLEMENT_POLICY,
-    )
 
     def resolve_perspective(
         *, grant: TokenGrant, tenant: str, requested_role: str | None
@@ -246,8 +188,8 @@ def serve(root: Path) -> None:
         server = build_egress_server(
             # The server's name is this deployment's tenant, off the fabric it
             # booted — a server name written here would be a domain value in code.
-            server_name=fabric.tenant_id,
-            resolver=resolver,
+            server_name=composed.fabric.tenant_id,
+            resolver=composed.resolver,
             token_verifier=SourceBackedTokenVerifier(
                 source=FileTokenSource(path=tokens)
             ),
@@ -261,7 +203,7 @@ def serve(root: Path) -> None:
                 # is a wall-clock read, never `question.asked_at`. A declared
                 # instant here would have the audit plane state that every
                 # decision this deployment ever made happened at one moment.
-                control_plane=control_plane,
+                control_plane=composed.control_plane,
                 clock=lambda: datetime.now(UTC),
             ),
             perspective_resolver=resolve_perspective,
@@ -285,7 +227,7 @@ def serve(root: Path) -> None:
         try:
             server.run(transport="stdio")
         finally:
-            fabric.handle.close()
+            composed.fabric.handle.close()
 
 
 if __name__ == "__main__":
