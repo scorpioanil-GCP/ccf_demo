@@ -20,8 +20,9 @@ last_activity: >-
   (`18.1-RESEARCH.md`, 1492 lines) and a pattern map were run and BOTH FOUND DEFECTS THE
   DISCUSSION HAD NOT: research swept the tree and found the two-token `mcp+stdio:` address in
   21 PLACES, not the 2 that were listed -- including
-  `tests/examples/test_hw1_two_transports.py:261` which UNPACKS THE ADDRESS INTO TWO NAMES and
-  would raise `ValueError` the moment `D-05` lands, and `src/ccf/client/binding.py:160` which is
+  `tests/examples/test_hw1_two_transports.py::test_the_mcp_leg_really_runs_the_examples_own_server_program`
+  which UNPACKS THE ADDRESS INTO TWO NAMES and
+  would raise `ValueError` the moment `D-05` lands, and `src/ccf/client/binding.py::split_binding` which is
   a SHIPPED REFUSAL MESSAGE that would start showing a shape that no longer parses (the `B0b`
   class, in the phase whose own `D-08` cites `B0b`). It also measured `make ci-core` RED AT HEAD
   for a cause unrelated to this phase (`6d6a99b` moved 14 Phase 16 plans to `abandoned/`;
@@ -371,9 +372,10 @@ Phase: **19 — The Client-Seam Integrity Checks Must Be Able to Fail.** DISCUSS
   OPEN BLOCKING DEFECT (`D-IMPL-151`), explicitly reserved out of `D-GATE-18` and
   **not** accepted risk.
   WHAT IT FIXES, MEASURED IN-TREE RATHER THAN QUOTED: `DoorOutcome` carries no
-  request identity (`door.py:139-141`), so both adapters fill `WireOutcome.request`
-  from the object they were handed (`mcp_stdio.py:397,404`, `inprocess.py:426,437`)
-  and `client.py:186` passes that SAME object as `sent` — `outcome.request != sent`
+  request identity (`src/ccf/products/door.py::DoorOutcome`), so both adapters fill `WireOutcome.request`
+  from the object they were handed (`src/ccf/client/adapters/mcp_stdio.py::_decode`,
+  `src/ccf/client/adapters/inprocess.py::_encode`)
+  and `src/ccf/client/client.py::ask` passes that SAME object as `sent` — `outcome.request != sent`
   is an object compared with itself. `content_address` is `sha256` of the very text
   the adapter passes on, so `verify_content_address` is `sha256(x) != sha256(x)`.
   `decode_outcome`, the one path reading both off sender-produced bytes, has NO

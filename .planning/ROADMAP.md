@@ -1527,7 +1527,7 @@ confusing for a beginner."*
 **The measured cause.** The documented command is
 `CCF_BINDING="mcp+stdio:examples/…/server/serve.py examples/…/deployment" python consume.py`
 — the client's own binding string **names the server program**, and `consume.py` **spawns
-it** as a child process (`src/ccf/client/adapters/mcp_stdio.py:322`). MCP stdio has no
+it** as a child process (`src/ccf/client/adapters/mcp_stdio.py::_call`). MCP stdio has no
 listening endpoint, so the spawn itself is inherent to the transport and is **not the
 defect**. The defect is that the spawn is *the client's business* in the reader's field of
 view.
