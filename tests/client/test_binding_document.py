@@ -43,6 +43,14 @@ from ccf.client.adapters.binding_document import (
 )
 from ccf.client.errors import BindingError, TransportError
 
+from tests.client.conftest import FIXTURE_DEPLOYMENT
+from tests.client.fixtures import STDIO_SERVER
+
+#: The shipped example's deployment root and its server program, reached from
+#: this file rather than from a constant in the examples suite, because the
+#: claim under test is the **loader's** and this is where the loader is tested.
+HW1 = Path(__file__).resolve().parents[2] / "examples" / "hw1-companies-over-revenue"
+
 #: Every key a valid document must state. Derived from the module's own
 #: constants rather than copied, so a new key cannot arrive without the
 #: absence-refusal test below covering it.
@@ -848,6 +856,34 @@ def test_a_reference_shaped_server_is_refused_as_a_reference(
         "and says WHICH mistake — this assertion is why the test cannot pass"
         " through the unknown-key branch, which is how it passed before"
         " `server` joined `OPTIONAL_KEYS`"
+    )
+
+
+def test_the_committed_fixture_deployment_declares_the_committed_program() -> None:
+    """The COMMITTED fixture, not a copy — so the layout is proven, not assumed.
+
+    Every other test in this section writes its own `server:` into a `tmp_path`
+    copy, which measures the loader and says nothing about whether the two
+    files this suite actually ships are in the relationship the key describes.
+    `T-18.1-05` is precisely a value that resolves *somewhere*, making a later
+    refusal fire for the wrong reason and read as a pass.
+    """
+    assert load_binding_document(FIXTURE_DEPLOYMENT).server == STDIO_SERVER.resolve()
+
+
+def test_the_committed_hw1_deployment_declares_the_committed_program() -> None:
+    """The same claim for the shipped example, which is the adoption contract.
+
+    An example whose `server:` resolved nowhere would still load — the loader
+    does not existence-check (Ruling 3) — and would fail only when a transport
+    tried to launch it. Asserted here, where it is cheap.
+    """
+    document = load_binding_document(HW1 / "deployment")
+
+    assert document.server == (HW1 / "server" / "serve.py").resolve()
+    assert document.server.is_file()
+    assert document.server.parent != document.root, (
+        "the program sits BESIDE the deployment, never inside it — `D-09`"
     )
 
 

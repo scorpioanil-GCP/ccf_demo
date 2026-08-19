@@ -44,8 +44,10 @@ from ccf.client.client import ProductClient
 from ccf.client.errors import BindingError, TransportError
 from ccf.products.door import PRODUCT_REQUEST_TOOL
 
+from ccf.client.adapters.binding_document import load_binding_document
+
 from tests.client.conftest import FIXTURE_DEPLOYMENT, config_document, seed
-from tests.client.fixtures import STDIO_SERVER
+from tests.client.fixtures import STDIO_SERVER, declare_server
 
 pytestmark = pytest.mark.crossproc
 
@@ -121,6 +123,45 @@ def _ask(
         parameters={PARAMETER: 11} if parameters is None else parameters,
         as_of=PINNED,
     )
+
+
+def test_a_provisioned_root_declares_a_server_that_actually_resolves(
+    tmp_path: Path,
+) -> None:
+    """`T-18.1-13` — the provisioning site hands out a root that RESOLVES.
+
+    A site left unprovisioned hands out a deployment whose `server:` points at
+    nothing. Nothing reads that value yet, so the omission would sit here
+    silently until the grammar flip in `18.1-02`, at which point the healthy
+    leg below breaks — and a broken healthy leg cannot be told apart from
+    `D-06`'s key-absent refusal, so that control would pass for the wrong
+    reason. Asserted now, while the two are still distinguishable.
+    """
+    root = _root(tmp_path, "declared", program=STDIO_SERVER)
+
+    document = load_binding_document(root)
+
+    assert document.server is not None
+    assert document.server.is_file(), "the declaration names a program that is there"
+    assert document.server.parent == root.parent.resolve(), (
+        "and it sits in the copied root's PARENT, which is where `server:` looks"
+    )
+
+
+def test_a_root_provisioned_with_no_program_declares_one_that_is_not_there(
+    tmp_path: Path,
+) -> None:
+    """The DELIBERATE exception, kept rather than lost.
+
+    ``test_an_address_naming_no_program_raises_before_anything_is_launched``
+    below is about a program that is missing, so its root must keep a
+    declaration that resolves nowhere. Provisioning every root uniformly would
+    have quietly deleted that test's subject.
+    """
+    document = load_binding_document(_root(tmp_path, "absent-declared"))
+
+    assert document.server is not None, "the committed fixture's value is inherited"
+    assert not document.server.exists(), "and there is deliberately nothing there"
 
 
 def test_an_address_naming_no_program_raises_before_anything_is_launched(

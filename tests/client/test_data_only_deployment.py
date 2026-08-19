@@ -440,6 +440,77 @@ def test_a_ruled_out_key_is_refused_end_to_end_not_only_at_the_loader(
     assert "2026-08-16-reference-plan-factory-and-debt-scorer" in message
 
 
+def test_a_server_reaching_inside_the_deployment_is_refused_end_to_end(
+    seeded_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`D-18` — the inward-reaching `server:`, refused where an adopter is.
+
+    `D-10` resolves this key against the deployment root's **parent**, and a
+    base one level out also admits a path reaching back *inside* the root. A
+    deployment doing that would hold two Python modules where Amendment A.3
+    grants one, its projection. `18.1-01` Task 2 proved the loader refuses it;
+    this proves a **client** does, from a `CCF_BINDING` string through
+    :meth:`~ccf.client.client.ProductClient.ask` — a refusal that fires in a
+    loader nothing reaches is a gate wired to nothing.
+
+    Driven over the in-process scheme deliberately: `D-18` is a loader refusal,
+    and this is the shortest path from an environment variable to it.
+    """
+    body = _document(seeded_root)
+    original = body.get("server")
+    body["server"] = f"{seeded_root.name}/projection.py"
+    _rewrite(seeded_root, body)
+    assert _document(seeded_root)["server"] != original, (
+        "the control did not change anything"
+    )
+
+    client = _bound_client(seeded_root, monkeypatch)
+
+    with pytest.raises(BindingError) as refused:
+        client.ask(parameters={THRESHOLD: 20})
+
+    message = str(refused.value)
+    assert "`server`" in message
+    assert "Amendment A.3" in message
+    assert "2026-08-16-reference-plan-factory-and-debt-scorer" in message
+
+
+def test_the_same_harness_answers_a_question_on_the_unmutated_copy(
+    seeded_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """VACUITY LEG for the control above — the harness is not simply broken.
+
+    Without it, ``_bound_client`` raising :class:`BindingError` on *everything*
+    would satisfy the refusal test perfectly. The declaration this copy carries
+    is the committed fixture's outward one, so the same wiring that is refused
+    when it reaches inward is **served** when it does not.
+    """
+    document = _document(seeded_root)
+    assert document["server"] == "stdio_server.py", (
+        "the unmutated copy carries the committed outward declaration"
+    )
+
+    result = _bound_client(seeded_root, monkeypatch).ask(parameters={THRESHOLD: 20})
+
+    assert isinstance(result, Result)
+    assert not result.refused, "a real answer, not a refusal wearing one's clothes"
+
+
+def test_a_deployment_declaring_a_server_is_still_data_and_one_projection(
+    seeded_root: Path,
+) -> None:
+    """`V-18` / `CLNT-21` — the new key did not widen the exception.
+
+    A `server:` value is a single path, and a single path carries no colon, so
+    the reference sweep passes over it. Run through the **shipped** assertion
+    rather than re-derived here, because a second copy of the criterion is a
+    second thing to keep in step.
+    """
+    assert _document(seeded_root)["server"], "the subject actually declares one"
+
+    assert_the_deployment_is_data_and_one_projection(seeded_root)
+
+
 def test_a_reference_smuggled_into_a_data_key_is_refused_end_to_end(
     seeded_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
