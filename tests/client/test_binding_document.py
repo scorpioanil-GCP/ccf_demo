@@ -821,6 +821,55 @@ def test_binding_document_refuses_a_server_reaching_back_inside_the_deployment(
     )
 
 
+def test_binding_document_refuses_a_server_that_is_the_deployment_root_itself(
+    deployment_root: Path,
+) -> None:
+    """`D-18`'s OTHER limb — the value that names the root and stops there.
+
+    The refusal is a disjunction, ``server == root_path or root_path in
+    server.parents``, and the test above feeds it
+    ``<root>/projection.py`` — a path resolving *strictly under* the root,
+    which satisfies the **second** limb alone. This one feeds ``<root>`` with
+    no trailing component, so the resolved value **is** the root: it is
+    outside ``server.parents`` (a directory is not among its own parents) and
+    only the equality limb refuses it. Deleting that limb leaves the test
+    above green and this one red, which is the whole point of writing it
+    separately — `18.1-CLOSE-REVIEWS` finding 1, measured at 752 tests green
+    with the limb removed.
+
+    What the adopter would otherwise be told is the reason this matters and
+    not only a coverage count. Without the equality limb the loader accepts a
+    directory as a program, and the only thing left standing is
+    ``mcp_stdio``'s ``is_file()`` check, whose message is *"names no server
+    program … which is not a file"* — a report about a missing file for a
+    value that Amendment A.3 rules out **by name**. That is the `B0b`
+    report-quality class this phase's own `D-08` exists to prevent.
+    """
+    body = _document(deployment_root)
+    body["server"] = deployment_root.name
+    _rewrite(deployment_root, body)
+
+    with pytest.raises(BindingError) as refused:
+        load_binding_document(deployment_root)
+
+    message = str(refused.value)
+    assert f"resolves to {deployment_root.resolve()}, which is inside the" in message, (
+        "the value resolved to the root ITSELF rather than under it — if this"
+        " assertion fails on the resolved path, the fixture stopped exercising"
+        " the equality limb and started exercising the `parents` limb the test"
+        " above already covers"
+    )
+    assert deployment_root.resolve() not in (deployment_root.resolve()).parents, (
+        "stated on the objects: a directory is never among its own parents, so"
+        " the `parents` limb cannot be what refused this value"
+    )
+    assert "`server`" in message, "the refusal names the offending key"
+    assert "Amendment A.3" in message, "and the rule the value broke"
+    assert "2026-08-16-reference-plan-factory-and-debt-scorer" in message, (
+        "and points at the ruling rather than restating it"
+    )
+
+
 def test_a_contained_server_that_does_not_exist_still_loads(
     deployment_root: Path,
 ) -> None:
