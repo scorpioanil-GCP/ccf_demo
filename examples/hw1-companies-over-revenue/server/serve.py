@@ -1,51 +1,13 @@
 """HW-1's own MCP server program — the far side of `mcp+stdio:`.
 
-**A deployment's program, not the SDK's, and that is the whole point.**
-``ccf_runtime.mcp.egress::build_egress_server`` requires a server name, a token
-verifier, auth settings, an entitlement source and a perspective resolver —
-five deployment values in their entirety (CINV-01), which is exactly why the
-SDK ships no server entry point and why
-``ccf.client.adapters.mcp_stdio`` launches a program it knows nothing about.
-An ``mcp+stdio`` binding names **this file** and the deployment root beside it,
-and this file is what an adopter writes.
-
-Why it is here rather than beside ``consume.py``
---------------------------------------------------
-Two shipped gates decide the filing, and between them they leave exactly one
-place:
-
-* ``D-IMPL-141`` Amendment A.3 grants ``../deployment/`` **one** Python module —
-  the projection — and ``tests/client/test_data_only_deployment.py`` refuses a
-  second by name. So this is not a deployment-root file.
-* ``tests/examples/test_client_example_purity.py`` treats every ``.py`` sitting
-  directly in the example root as **reader-visible consumer code**, permitted to
-  import ``ccf.client`` and the standard library and nothing else. A server
-  program is the producer's world — it imports ``ccf.deployment``,
-  ``ccf.products`` and ``ccf_runtime`` — so putting it there would put the
-  producer inside the consumer's reading surface, which is the separation
-  ``D-02`` exists to draw.
-
-So: a sibling directory. ``consume.py`` stays the entire example a reader
-studies, and this file is what they open when they want to know how the second
-door is stood up.
-
-**It composes through the SDK's public seams and nothing private.** Every name
-imported below is exported from its package. There is a private
-``ccf.client.adapters.inprocess::_boot`` that does the composition in the first
-eleven lines of :func:`serve`, and it is deliberately not used: a demonstration
-of adoptability that reached into the SDK's private surface would demonstrate
-the opposite. What this file does with public names, an adopter can do.
-
 The two documents this program reads
 --------------------------------------
-``../deployment/binding.yaml`` — the deployment's wiring, the same document the
-in-process adapter reads, so both transports compose the *same* governed
-resolver from the *same* declared values. That is what makes "the same answer
-over two transports" a property rather than a coincidence.
+``../deployment/binding.yaml`` — the deployment's wiring, read through
+:func:`compose.compose` next door.
 
 ``egress-door.yaml`` beside this file — the door's own four governance values.
-Both are data; this module is their interpreter (CLAUDE.md §6.4). Delete either
-and this program has nothing to serve.
+Both are data; these two modules are their interpreter (CLAUDE.md §6.4). Delete
+either and this program has nothing to serve.
 
 Identity over stdio, stated rather than smuggled
 --------------------------------------------------
@@ -63,10 +25,11 @@ are supplied because the builder requires them together (``D-03``) and because
 this same deployment is reachable over HTTP with them in force; over stdio they
 are inert.
 
-Nothing here is committed as data (``D-32``). The token table is minted per boot
-into a temporary directory that is deleted on exit, exactly as
-``examples/04-cross-process`` mints its signing key; the graph this boots
-against is whatever ``binding.yaml`` points at, populated or not.
+Nothing is committed as data (``D-32``)
+-----------------------------------------
+The token table is minted per boot into a temporary directory that is deleted on
+exit, exactly as ``examples/04-cross-process`` mints its signing key; the graph
+this boots against is whatever ``binding.yaml`` points at, populated or not.
 """
 
 from __future__ import annotations
@@ -103,8 +66,8 @@ from ccf_runtime.mcp.egress import build_egress_server
 # by name.
 from compose import compose
 
-#: The door's own document, beside this file rather than inside the deployment
-#: root — see the module docstring for the two gates that decide the filing.
+#: The door's own document, beside this file — the four governance values
+#: this program interprets and never spells (CLAUDE.md §6.4).
 EGRESS_DOOR = Path(__file__).resolve().parent / "egress-door.yaml"
 
 #: What the minted token table is called inside the per-boot temporary
