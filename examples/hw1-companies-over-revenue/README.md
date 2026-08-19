@@ -48,10 +48,14 @@ adopter can see it rather than asserted in a design document. `consume.py`
 imports both adapter modules — `D-05` gives the SDK no discovery chain, so a
 scheme reaches the registry by its module being imported — and chooses neither.
 
-And *nothing but* is literal — the two strings differ by one word, the scheme,
-which `test_every_documented_command_names_a_distinct_binding_scheme` checks
-rather than leaves asserted; how this deployment is reached is the deployment's
-own business, declared in `binding.yaml` beside its projection and its graph.
+And *nothing but* is literal, in exactly the sense a test can hold it.
+`test_every_documented_command_names_a_distinct_binding_scheme` asserts three
+things about the two commands above: the schemes are different, the address
+after the scheme is the **same string** in both — one deployment, reached two
+ways — and everything after the `CCF_BINDING=` assignment is identical. So
+"differs by one word" is measured, not left to your eye. How this deployment is
+reached is the deployment's own business, declared in `binding.yaml` beside its
+projection and its graph.
 
 `make example-hw1` and `make example-hw1-mcp` run those two strings verbatim —
 same flags, same values, same interpreter. If a target and its block ever

@@ -404,35 +404,100 @@ def test_the_make_target_runs_the_readmes_documented_command(index: int) -> None
     assert not violations, "\n".join(violations)
 
 
+def scheme_and_address(binding: str) -> tuple[str, str]:
+    """Split one documented ``CCF_BINDING=<scheme>:<address>`` token into its two halves.
+
+    A module-level function taking its subject as a **parameter**, so the
+    sabotage control below can hand the *shipped* splitter a deliberately
+    malformed token and be watched refusing it. Splitting inline would leave
+    the vacuity case — a token with no address, whose two halves are two empty
+    strings that compare equal to each other — measured by nothing.
+    """
+    name, assigned, value = binding.partition("=")
+    assert assigned and name == "CCF_BINDING", (
+        f"`{binding}` is not a `CCF_BINDING` assignment, so the tokens this"
+        " test compares are not the ones the README's claim is about"
+    )
+    scheme, separator, address = value.partition(":")
+    assert scheme and separator and address, (
+        f"`{binding}` does not state `<scheme>:<address>`. Empty halves would"
+        " make the comparisons below pass on nothing, which is the shape this"
+        " test was found in: `18.1-CLOSE-REVIEWS` finding 3"
+    )
+    return scheme, address
+
+
 def test_every_documented_command_names_a_distinct_binding_scheme() -> None:
-    """``D-IMPL-150``: the two commands differ in ``CCF_BINDING`` and nowhere else.
+    """``D-IMPL-150``: the two commands differ in the SCHEME and nowhere else.
 
     The portability claim is *"the same* ``consume.py``\\ *, a different*
     ``CCF_BINDING``\\ *"*, and a README that documented the same binding twice —
     or that quietly changed the threshold alongside the transport — would be
-    demonstrating something weaker while reading the same. So the schemes must
-    be distinct and everything after the assignment must be identical.
+    demonstrating something weaker while reading the same.
+
+    **Three legs, and the middle one was missing until `18.1-06`.** The schemes
+    are distinct, the address *after* the scheme is the same string in both, and
+    everything after the assignment is identical. Without the middle leg the
+    README's sentence — *"the two strings differ by one word, the scheme"* — was
+    credited to this test while resting on nothing: measured at close review by
+    repointing the documented ``mcp+stdio`` address at a nonexistent
+    ``…/OTHERDEPLOYMENT`` in both README and Makefile, which left all 17 purity
+    tests green. Two commands naming two different deployments are not a
+    portability demonstration; they are two demonstrations.
     """
     # `shlex.split` rather than a naive `split(" ", 1)`, so this stays correct
-    # for any address a scheme cares to define — and because the assertion below
-    # compares the tokens AFTER the assignment, which a hand-rolled split would
-    # have to reconstruct. Since `18.1-02` the two documented commands differ by
-    # exactly one token, the scheme, which is what makes the second assertion a
-    # statement a reader can check by eye against the README.
+    # for any address a scheme cares to define — and because the assertions
+    # below compare the tokens AFTER the assignment, which a hand-rolled split
+    # would have to reconstruct.
     tokens = [shlex.split(command) for command in documented_commands(
         CLIENT_EXAMPLE_ROOTS[0]
     )]
     bindings = [parts[0] for parts in tokens]
     remainders = {tuple(parts[1:]) for parts in tokens}
+    halves = [scheme_and_address(binding) for binding in bindings]
 
     assert len(set(bindings)) == len(bindings), (
         f"two documented commands carry the same binding: {bindings}"
+    )
+    schemes = [scheme for scheme, _ in halves]
+    assert len(set(schemes)) == len(schemes), (
+        f"two documented commands name the same scheme: {schemes}"
+    )
+    addresses = {address for _, address in halves}
+    assert len(addresses) == 1, (
+        "the documented commands name different addresses — the README's claim"
+        " is that only the SCHEME changes, so the same deployment must be"
+        f" reached both ways, and these reach {sorted(addresses)}"
     )
     assert len(remainders) == 1, (
         "the documented commands differ in more than `CCF_BINDING` — the claim"
         " is that only the binding changes, and these change"
         f" {sorted(remainders)}"
     )
+
+
+@pytest.mark.parametrize(
+    ("label", "binding"),
+    [
+        ("no assignment at all", "inprocess:examples/x/deployment"),
+        ("some other variable", "CCF_OTHER=inprocess:examples/x/deployment"),
+        ("no scheme separator", "CCF_BINDING=examples/x/deployment"),
+        ("an empty address", "CCF_BINDING=inprocess:"),
+        ("an empty scheme", "CCF_BINDING=:examples/x/deployment"),
+    ],
+)
+def test_the_binding_splitter_refuses_a_token_it_cannot_compare(
+    label: str, binding: str
+) -> None:
+    """The vacuity control for the address leg — two empty halves compare equal.
+
+    ``len(addresses) == 1`` is satisfied by ``{""}`` just as well as by one
+    real address, so a splitter that quietly returned empty halves would hand
+    the strengthened test back the weakness it was written to remove. Each
+    malformed shape is fed to the **shipped** splitter and watched refusing.
+    """
+    with pytest.raises(AssertionError):
+        scheme_and_address(binding)
 
 
 @pytest.mark.parametrize(
