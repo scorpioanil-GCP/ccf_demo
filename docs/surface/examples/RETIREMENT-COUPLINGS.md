@@ -547,19 +547,6 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-05-SUMMARY.md` | 29 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-06-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-06-SUMMARY.md` | 10 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-07-PLAN.md` | 21 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-08-PLAN.md` | 10 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-09-PLAN.md` | 13 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-10-PLAN.md` | 15 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-11-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-12-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-13-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-14-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-15-PLAN.md` | 26 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-16-PLAN.md` | 19 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-17-PLAN.md` | 32 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-18-PLAN.md` | 63 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-20-PLAN.md` | 6 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-21-PLAN.md` | 21 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-21-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-22-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
@@ -581,6 +568,19 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-PATTERNS.md` | 22 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-RESEARCH.md` | 15 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-VALIDATION.md` | 18 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-07-PLAN.md` | 21 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-08-PLAN.md` | 10 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-09-PLAN.md` | 13 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-10-PLAN.md` | 15 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-11-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-12-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-13-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-14-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-15-PLAN.md` | 26 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-16-PLAN.md` | 19 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-17-PLAN.md` | 32 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-18-PLAN.md` | 63 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/abandoned/16-20-PLAN.md` | 6 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-01-PLAN.md` | 8 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-03-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-06-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
@@ -598,6 +598,9 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-REVIEW.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/18-CLOSE-REVIEWS.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/18-D-IMPL-150-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-03-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-PATTERNS.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-RESEARCH.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 51 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
