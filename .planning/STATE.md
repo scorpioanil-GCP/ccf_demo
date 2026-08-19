@@ -3,8 +3,27 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-19T22:50:00.000Z"
+last_updated: "2026-08-19T23:05:00.000Z"
 last_activity: >-
+  2026-08-19 -- **PHASE 18.1 CLOSED AND GATED. `D-GATE-18.1` APPROVED BY DAVE**, recorded in
+  `docs/DECISIONS.md`. NO MERGE REQUIRED -- the work landed on `main`. Gate HEAD `04cccc2`:
+  `make ci-core` EXIT 0, 3909 passed / 118 skipped / 0 failed. Dave's ruling: the phase
+  "answers the original complaint WITHOUT GROWING SURFACE AREA", and the close process
+  "did its job: COARSE SABOTAGE WAS SHOWN TO BE INSUFFICIENT, and a proposed remedy that
+  would itself have been VACUOUS was refused."
+  TWO `D-IMPL` ENTRIES MINTED ON DAVE'S RULING so the carried tooling hazards STOP BEING
+  INVISIBLE INHERITANCE rather than living only in SUMMARY and review files:
+  `D-IMPL-154` (`tools/retirement_sweep.py --report` REWRITES A TRACKED FILE -- the help text
+  is honest, THE FLAG NAME IS THE DEFECT; a later tools pass should split it `--check`/`--write`)
+  and `D-IMPL-155` (A MISNAMED SURFACE FRAGMENT IS SILENTLY DROPPED, and the obvious remedy
+  DELETES THE RECORD while every gate reports green -- 117 lines, four entries, counts falling
+  727 -> 723, 20/20 tests green; a later gate should compare the fragment directory against the
+  assembled document). BOTH REMAIN ADVISORY AND DEFERRED, not reopened as in-phase work.
+  Codex's case-insensitive-filesystem claim REMAINS AN OPEN QUESTION, not a defect and not
+  fixed -- Dave: "Correct."
+  NEXT: Phase 19 (THE CLIENT-SEAM INTEGRITY CHECKS MUST BE ABLE TO FAIL) is FULLY DISCUSSED --
+  `19-CONTEXT.md` exists with 14 decisions -- and NOT PLANNED. `/gsd:plan-phase 19`.
+
   2026-08-19 -- PHASE 18.1 CLOSE REVIEW RUN; THREE BLOCKING FINDINGS FIXED IN-PHASE. AWAITING
   DAVE'S RULING AND `D-GATE-18.1`. Gate measured at `04cccc2`: `make ci-core` EXIT 0,
   3909 passed / 118 skipped / 0 failed (+8 = exactly the eight tests added), 400 lint, 154 docs.
@@ -357,8 +376,9 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** **PHASE 18.1 — Simplify the MCP Example: Client-Side Access,
-Server Off-Stage.** EXECUTED 2026-08-19, 5/5 plans, green; NOT YET GATED. Phase 18 is
+**Current focus:** **PHASE 19 — The Client-Seam Integrity Checks Must Be Able to
+Fail.** Phase 18.1 is COMPLETE and GATED (`D-GATE-18.1`, Dave, 2026-08-19).
+Phase 19 is DISCUSSED (`19-CONTEXT.md`, 14 decisions) but NOT PLANNED. Phase 18 is
 complete; its focus text is preserved below for continuity.
 
 **Prior focus (Phase 18):** **MCP Transport: the second door and the
@@ -387,10 +407,10 @@ are in `D-IMPL-147`.
 ## Current Position
 
 Phase: **18.1 — Simplify the MCP Example: Client-Side Access, Server Off-Stage.**
-  INSERTED 2026-08-18 (Dave). **EXECUTED AND CLOSE-REVIEWED — 5/5 plans plus a
-  close-fix set; 3 BLOCKING findings found by the panel and FIXED IN-PHASE, each
-  independently re-sabotaged. `make ci-core` exit 0 at `04cccc2`, 3909/118/0.
-  AWAITING DAVE'S RULING AND `D-GATE-18.1` — the phase is NOT closed.** ROADMAP entry, Phases-list bullet and progress row all written
+  INSERTED 2026-08-18 (Dave). **COMPLETE AND GATED — `D-GATE-18.1` APPROVED
+  (Dave, 2026-08-19).** 5/5 plans plus a close-fix set; 3 blocking findings found
+  by the panel and fixed in-phase, each independently re-sabotaged. `make ci-core`
+  exit 0 at `04cccc2`, 3909/118/0. No merge required — the work landed on `main`. ROADMAP entry, Phases-list bullet and progress row all written
   BY HAND — `phase.insert` produced only a stub detail section, and no `state.*` or
   `roadmap.*` SDK writer has been run against either file.
   **A CLIENT-EXPERIENCE PHASE THAT SHIPS NO NEW SDK SURFACE.** Three changes:
