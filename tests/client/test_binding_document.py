@@ -604,8 +604,12 @@ def test_binding_document_refuses_a_path_leaving_the_deployment(
     Python — the deployment root is its own trust boundary. What is *not*
     accepted is a document reaching outside the deployment it describes.
 
-    Parameterized across both path-valued keys, because a rule enforced on one
-    of two paths is a rule with a way around it.
+    Parameterized across both keys rooted at the deployment, because a rule
+    enforced on one of two paths is a rule with a way around it. There is now a
+    **third** path-valued key, `server:`, and it is not a limb here: it resolves
+    against the deployment root's parent and its refusal must say so, which is
+    the one assertion below it cannot share. Its limbs are the sibling test
+    further down, and the rule still has no way around it.
     """
     body = _document(deployment_root)
     body[key] = escaping
@@ -651,6 +655,222 @@ def test_binding_document_refuses_a_symlink_out_of_the_deployment(
         load_binding_document(deployment_root)
 
     assert "outside the deployment root" in str(refused.value)
+
+
+# ---------------------------------------------------------------------------
+# `server:` — the one key whose base is the deployment root's PARENT.
+#
+# `D-10` (Dave, 2026-08-18). A deployment's server program is not deployment
+# content: the ordinary deployment is reached by an endpoint and declares no
+# `server:` at all, and a rule forcing the program inside the root would teach
+# that a server belongs in a deployment, which is false.
+#
+# Containment keeps every rule it had — only the base moved. The limbs below
+# therefore assert the base the loader ACTUALLY used, and assert that the
+# refusal does NOT say `the deployment root`: a `server:` limb passing on that
+# string would prove the base description was never threaded through, which is
+# the `B0b` report-quality defect wearing a green tick.
+# ---------------------------------------------------------------------------
+
+#: What a `server:` refusal must say, and what it must not. Written once,
+#: because the whole point of the pair is that they are checked together.
+SERVER_BASE_DESCRIPTION = "the directory holding this deployment"
+ROOT_BASE_DESCRIPTION = "the deployment root"
+
+
+def assert_the_refusal_named_the_parent_as_the_base(message: str) -> None:
+    """A `server:` containment refusal describes the base it actually used.
+
+    Both halves are load-bearing and neither covers the other. The positive
+    half catches a call site that passed no description; the negative half
+    catches one that passed the *default* — which is the failure mode that
+    reads as a pass, because `_contained`'s default is exactly the wrong
+    sentence for this key.
+    """
+    assert SERVER_BASE_DESCRIPTION in message, (
+        "a `server:` refusal names the directory holding the deployment,"
+        " because that is the base the loader resolved against"
+    )
+    assert ROOT_BASE_DESCRIPTION not in message, (
+        "and never the deployment root — `server:` is not resolved against it,"
+        " and a message saying so sends an adopter to the wrong directory"
+    )
+
+
+def test_a_server_declaration_resolves_against_the_deployments_parent(
+    deployment_root: Path,
+) -> None:
+    """`V-04` — the positive case, and the one that fixes the base.
+
+    The program sits beside the deployment, not inside it, so the value is read
+    relative to the directory holding the deployment.
+    """
+    program = deployment_root.parent / "stdio_server.py"
+    program.write_text("", encoding="utf-8")
+    body = _document(deployment_root)
+    body["server"] = "stdio_server.py"
+    _rewrite(deployment_root, body)
+
+    document = load_binding_document(deployment_root)
+
+    assert document.server == program.resolve()
+    assert document.server.parent == deployment_root.parent.resolve(), (
+        "the base is the deployment root's parent, not the deployment root"
+    )
+
+
+def test_a_deployment_declaring_no_server_loads_and_carries_none(
+    deployment_root: Path,
+) -> None:
+    """Omission is legal, and it is the ORDINARY case.
+
+    Most deployments are reached by an endpoint and never launch a program.
+    A loader requiring this key would refuse every one of them.
+    """
+    body = _document(deployment_root)
+    assert "server" not in body, "the fixture under test here declares none"
+
+    assert load_binding_document(deployment_root).server is None
+
+
+@pytest.mark.parametrize(
+    "escaping", ["/etc/passwd", "../outside/serve.py", "nested/../../outside/serve.py"]
+)
+def test_binding_document_refuses_a_server_leaving_the_holding_directory(
+    deployment_root: Path, escaping: str
+) -> None:
+    """`V-01`/`V-02` — moving the base out one level opened no hole.
+
+    A sibling of the two-key containment test above rather than a third limb of
+    it, because this key resolves against a different base and its refusal says
+    so — the parameterized test's assertion string is the one thing a `server:`
+    limb must not share.
+    """
+    body = _document(deployment_root)
+    body["server"] = escaping
+    _rewrite(deployment_root, body)
+
+    with pytest.raises(BindingError) as refused:
+        load_binding_document(deployment_root)
+
+    assert_the_refusal_named_the_parent_as_the_base(str(refused.value))
+
+
+def test_binding_document_refuses_a_server_symlink_out_of_the_holding_directory(
+    deployment_root: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    """`V-03` — the check the string form cannot make.
+
+    A plain name, no `..`, no leading `/`, landing outside once resolved. The
+    target is minted by ``tmp_path_factory`` so it is genuinely outside the
+    directory holding the deployment rather than a sibling of it.
+    """
+    outside = tmp_path_factory.mktemp("elsewhere") / "serve.py"
+    outside.write_text("", encoding="utf-8")
+    (deployment_root.parent / "sneaky.py").symlink_to(outside)
+    body = _document(deployment_root)
+    body["server"] = "sneaky.py"
+    _rewrite(deployment_root, body)
+
+    with pytest.raises(BindingError) as refused:
+        load_binding_document(deployment_root)
+
+    assert_the_refusal_named_the_parent_as_the_base(str(refused.value))
+
+
+def test_binding_document_refuses_a_server_reaching_back_inside_the_deployment(
+    deployment_root: Path,
+) -> None:
+    """`D-18` (Dave, 2026-08-18) — the hole the wider base opened, closed by name.
+
+    Containment passes this value: it is relative, carries no `..` and resolves
+    under the parent. It nonetheless gives the deployment root a **second**
+    Python module where Amendment A.3 grants one, its projection. Refused in
+    the `RULED_OUT_KEYS` register — the author of such a document has not made
+    a typo, so *"unknown key"* would invite a re-spelling of the very thing
+    that was declined.
+    """
+    body = _document(deployment_root)
+    body["server"] = f"{deployment_root.name}/projection.py"
+    _rewrite(deployment_root, body)
+
+    with pytest.raises(BindingError) as refused:
+        load_binding_document(deployment_root)
+
+    message = str(refused.value)
+    assert "`server`" in message, "the refusal names the offending key"
+    assert "Amendment A.3" in message, "and the rule the value broke"
+    assert "2026-08-16-reference-plan-factory-and-debt-scorer" in message, (
+        "and points at the ruling rather than restating it"
+    )
+
+
+def test_a_contained_server_that_does_not_exist_still_loads(
+    deployment_root: Path,
+) -> None:
+    """Existence is the TRANSPORT's question, not the loader's.
+
+    An in-process deployment never launches the program and an unpopulated
+    checkout may legitimately lack it, so the loader contains the value and
+    stops. `mcp_stdio` asks whether the file is there, where the transport is
+    known and the refusal can name it.
+    """
+    body = _document(deployment_root)
+    body["server"] = "nowhere.py"
+    _rewrite(deployment_root, body)
+
+    document = load_binding_document(deployment_root)
+
+    assert document.server == (deployment_root.parent / "nowhere.py").resolve()
+    assert not document.server.exists(), "which is precisely what is not refused"
+
+
+def test_a_reference_shaped_server_is_refused_as_a_reference(
+    deployment_root: Path,
+) -> None:
+    """`T-18.1-04` — no second executable reference smuggled through this key.
+
+    Refused by machinery this key did not need to add: the reference sweep runs
+    over every data position, and `server:` joined it by being one. `D-04`'s
+    single-path form is what keeps it in bounds, and it is asserted rather than
+    assumed.
+    """
+    body = _document(deployment_root)
+    body["server"] = "serve.py:main"
+    _rewrite(deployment_root, body)
+
+    with pytest.raises(BindingError) as refused:
+        load_binding_document(deployment_root)
+
+    message = str(refused.value)
+    assert "`server: serve.py:main`" in message, "the refusal names the position"
+    assert "reference in a **data** position" in message, (
+        "and says WHICH mistake — this assertion is why the test cannot pass"
+        " through the unknown-key branch, which is how it passed before"
+        " `server` joined `OPTIONAL_KEYS`"
+    )
+
+
+def test_the_server_key_is_optional_and_never_ruled_out_by_name(deployment_root: Path) -> None:
+    """Ruling 2 — asserted on the objects, because the grep form measured nothing.
+
+    A `RULED_OUT_KEYS` entry refuses a key *unconditionally*; `server:` is a
+    legitimate optional key whose refusal is about a **value**. Listing it there
+    would refuse every deployment that declares one, hw1's included — so the
+    positive leg stands beside the negative and both are asserted here.
+    """
+    assert "server" in OPTIONAL_KEYS
+    assert "server" not in RULED_OUT_KEYS
+
+    program = deployment_root.parent / "stdio_server.py"
+    program.write_text("", encoding="utf-8")
+    body = _document(deployment_root)
+    body["server"] = "stdio_server.py"
+    _rewrite(deployment_root, body)
+
+    assert load_binding_document(deployment_root).server is not None, (
+        "a deployment declaring an outward `server:` LOADS"
+    )
 
 
 # ---------------------------------------------------------------------------
