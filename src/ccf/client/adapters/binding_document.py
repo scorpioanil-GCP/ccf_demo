@@ -155,7 +155,16 @@ DATA_KEYS: tuple[str, ...] = (
 #: adapter's own settings as **data** — see :func:`_connection` for why a value
 #: may be a scalar or a rooted path and for nothing else. A deployment whose
 #: backend needs no settings omits it; omission is a positive statement.
-OPTIONAL_KEYS: tuple[str, ...] = ("connection",)
+#:
+#: ``server`` names this deployment's own server program — the single path a
+#: transport that must *launch* something would otherwise have to be told by
+#: the client, which is the client's business only by accident (``D-01``). It
+#: is the one key resolved against the directory **holding** the deployment
+#: rather than against the deployment root, because a server program is not
+#: deployment content. Omitting it is likewise a positive statement, and it is
+#: the ordinary one: a deployment reached at an endpoint launches nothing and
+#: declares no server at all.
+OPTIONAL_KEYS: tuple[str, ...] = ("connection", "server")
 
 #: Keys that were **ruled out**, mapped to what to do instead.
 #:
@@ -282,6 +291,11 @@ class BindingDocument:
         debt: Where ``D_c``'s inputs come from.
         connection: The declared adapter's own settings, already composed, or
             ``None`` when the document stated none.
+        server: This deployment's own server program, resolved absolute against
+            the directory **holding** the deployment, or ``None`` when the
+            deployment states none. Contained but **not** existence-checked:
+            whether the program has to be there is the transport's question,
+            and an in-process deployment never asks it.
     """
 
     root: Path
@@ -300,6 +314,7 @@ class BindingDocument:
     artifact_store: Path
     debt: DebtDeclaration
     connection: Mapping[str, object] | None
+    server: Path | None
 
 
 def looks_like_a_reference(value: object) -> bool:
@@ -371,7 +386,14 @@ def _refuse_references_in_data(
         )
 
 
-def _contained(candidate: str, *, root: Path, key: str, document: Path) -> Path:
+def _contained(
+    candidate: str,
+    *,
+    root: Path,
+    key: str,
+    document: Path,
+    base_description: str = "the deployment root",
+) -> Path:
     """Resolve ``candidate`` inside ``root``, or refuse it by name.
 
     The containment rule :class:`~ccf.controlplane.artifacts.ManifestEntry`
@@ -381,22 +403,31 @@ def _contained(candidate: str, *, root: Path, key: str, document: Path) -> Path:
     needed and neither covers the other — the string check refuses an absolute
     path or a ``..`` segment as written, and the resolved check closes a plain
     name that is a symlink out.
+
+    Args:
+        base_description: What ``root`` **is**, in the caller's words, so a
+            refusal describes the directory it actually resolved against.
+            Almost every key here is rooted at the deployment and takes the
+            default; ``server:`` is rooted at the directory *holding* the
+            deployment and says so. Defaulted rather than required because a
+            refusal that misnames the base sends an adopter to the wrong file,
+            and the way that defect arrives is a caller not thinking about it —
+            so the callers that need no thought are the ones that pass nothing.
     """
     written = Path(candidate)
     if written.is_absolute() or ".." in written.parts:
         raise BindingError(
-            f"`{key}: {candidate}` in {document} names a path outside the"
-            " deployment root — a binding document describes the deployment it"
-            " sits in, so its paths are relative to that root and carry no `..`"
-            " segment and no leading `/`"
+            f"`{key}: {candidate}` in {document} names a path outside"
+            f" {base_description} — a binding document describes the deployment"
+            " it sits in, so its paths are relative and carry no `..` segment"
+            " and no leading `/`"
         )
     resolved = (root / written).resolve()
     if resolved != root and root not in resolved.parents:
         raise BindingError(
             f"`{key}: {candidate}` in {document} resolves to {resolved}, which"
-            f" is outside the deployment root {root} — a plain name that is a"
-            " symlink out of the deployment is refused for the same reason a"
-            " `..` segment is"
+            f" is outside {base_description} {root} — a plain name that is a"
+            " symlink out is refused for the same reason a `..` segment is"
         )
     return resolved
 
@@ -664,6 +695,52 @@ def load_binding_document(root: str | Path) -> BindingDocument:
             f" `{type(operator_keys).__name__}`, not a list of Control Plane keys"
         )
 
+    # `server:` is the ONE key resolved against the deployment root's PARENT
+    # (`D-10`, Dave, 2026-08-18), and it exists for the reason `connection`'s
+    # rooted `{path: …}` form exists: a location the deployment genuinely
+    # cannot spell as a literal, because the root is not known until a client
+    # names it. The base is the parent rather than the root because a
+    # deployment's server program is not deployment content — the ordinary case
+    # is a remote server reached at an endpoint with this key absent entirely,
+    # and a rule forcing the program inside the root would teach that a server
+    # belongs in a deployment, which is false.
+    #
+    # Contained and returned, NOT existence-checked — the `artifact_store`
+    # precedent rather than the `config` one. Whether the program must be on
+    # disk is transport-specific: `mcp_stdio` asks, because it launches it; an
+    # in-process deployment never does.
+    server: Path | None = None
+    declared_server = parsed.get("server")
+    if declared_server is not None and str(declared_server).strip():
+        server = _contained(
+            str(declared_server),
+            root=root_path.parent,
+            key="server",
+            document=document,
+            base_description="the directory holding this deployment",
+        )
+        # `D-18` (Dave, 2026-08-18). Containment has just passed and the value
+        # is still wrong: a base one level out also admits a path reaching back
+        # INSIDE the root, which would quietly give that directory a second
+        # Python module where Amendment A.3 grants one. Refused in the
+        # `RULED_OUT_KEYS` register — an author writing this has not made a
+        # typo, and a message about an unrecognised path would invite a
+        # re-spelling of the thing that was declined. The key itself is NOT in
+        # `RULED_OUT_KEYS`: that mapping refuses a key unconditionally by name,
+        # and `server:` is legitimate. What is refused here is a value.
+        if server == root_path or root_path in server.parents:
+            raise BindingError(
+                f"`server: {declared_server}` in {document} resolves to"
+                f" {server}, which is inside the deployment root {root_path} —"
+                " `D-IMPL-141` Amendment A.3 grants that directory **one**"
+                " Python module, its projection, and a server program is not"
+                " deployment content. Name it beside the deployment rather than"
+                " inside it — `server` resolves against the directory holding"
+                " the deployment for exactly that reason. See"
+                " `docs/superpowers/specs/2026-08-16-reference-plan-factory-"
+                "and-debt-scorer.md` Amendment A"
+            )
+
     return BindingDocument(
         root=root_path,
         config=config,
@@ -715,6 +792,7 @@ def load_binding_document(root: str | Path) -> BindingDocument:
             ),
         ),
         connection=_connection(parsed, root=root_path, document=document),
+        server=server,
     )
 
 
