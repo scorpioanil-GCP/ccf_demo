@@ -66,6 +66,8 @@ import sys
 
 import pytest
 
+from ccf.client.adapters.binding_document import load_binding_document
+
 from tests.examples.test_client_example_purity import (
     CLIENT_EXAMPLE_ROOTS,
     REPO_ROOT,
@@ -98,9 +100,11 @@ TIMEOUT_SECONDS = 300
 def _rebase(token: str, *, example: pathlib.Path) -> str:
     """Point one command token at ``example`` instead of at the repository copy.
 
-    A literal prefix substitution rather than a path rewrite, because an
-    ``mcp+stdio`` address carries **two** paths inside one token and both must
-    move together.
+    A literal prefix substitution rather than a path rewrite, so it stays
+    correct for a token carrying more than one path. Since ``18.1-02`` an
+    ``mcp+stdio`` address carries exactly one — the deployment root — but the
+    substitution is the cheaper rule either way, and it moves the script path
+    and the binding by the same code.
     """
     return token.replace(SHIPPED_PREFIX, example.as_posix())
 
@@ -110,12 +114,13 @@ def invocation(
 ) -> tuple[str, list[str]]:
     """Split one documented command into ``(CCF_BINDING value, argv)``.
 
-    ``shlex.split`` because an ``mcp+stdio`` address is two whitespace-separated
-    tokens inside one quoted value — a naive split would tear it in half. The
-    interpreter is replaced with the one running this test, so the assertion
-    does not depend on a ``.venv`` existing where the README says a reader's is;
-    every other token is preserved, including the pinned ``--as-of`` that makes
-    the printed address reproducible.
+    ``shlex.split`` rather than a hand-rolled split, so a quoted value survives
+    whatever a scheme puts inside it — and so the ``CCF_BINDING=`` assignment is
+    recovered as one token rather than reconstructed. The interpreter is
+    replaced with the one running this test, so the assertion does not depend on
+    a ``.venv`` existing where the README says a reader's is; every other token
+    is preserved, including the pinned ``--as-of`` that makes the printed
+    address reproducible.
 
     Returns:
         The binding address to put in the environment, and the argument vector
@@ -243,14 +248,17 @@ def test_the_two_documented_transports_are_actually_different(
 def test_the_mcp_leg_really_runs_the_examples_own_server_program(
     example: pathlib.Path,
 ) -> None:
-    """The ``mcp+stdio`` address names a program that exists, and the SDK's none.
+    """The documented address names a deployment that DECLARES a program.
 
     ``build_egress_server`` requires five deployment values in their entirety
-    (CINV-01), so a server program is the deployment's to write. An address
-    pointing at a file that is not there raises ``BindingError`` at ``ask``
-    time — the failure mode ``17-10``'s claim actually had — and this states
-    where the shipped program lives so a move is a red check rather than a
-    surprise.
+    (CINV-01), so a server program is the deployment's to write. Since
+    ``18.1-02`` the address no longer names it: the address is the root, one
+    token, and the program is the root's own ``server:`` key. So the chain the
+    documented command actually walks is asserted link by link — the token is a
+    directory, the document loads, it declares a ``server:``, and that
+    declaration is a file — because a break anywhere along it reaches an adopter
+    as a ``BindingError`` at ``ask`` time, which is the failure mode ``17-10``'s
+    claim actually had.
     """
     mcp = next(
         command
@@ -258,12 +266,22 @@ def test_the_mcp_leg_really_runs_the_examples_own_server_program(
         if "mcp+stdio:" in command
     )
     address, _ = invocation(mcp, example=example)
-    program, root = (
-        pathlib.Path(token) for token in shlex.split(address.partition(":")[2])
+    tokens = shlex.split(address.partition(":")[2])
+    assert len(tokens) == 1, (
+        f"the documented `mcp+stdio` address states {len(tokens)} tokens; it"
+        f" states one, the deployment root — {tokens}"
     )
-    assert program.is_file(), f"{program} is not a file"
+    root = pathlib.Path(tokens[0])
     assert root.is_dir(), f"{root} is not a directory"
-    assert program.parent != root, (
+
+    document = load_binding_document(root)
+    assert document.server is not None, (
+        f"{root}'s `binding.yaml` declares no `server:`, so the documented"
+        " `mcp+stdio` command cannot run — the address names no program and"
+        " the deployment states none either"
+    )
+    assert document.server.is_file(), f"{document.server} is not a file"
+    assert document.server.parent != root, (
         "the server program sits inside the deployment root — `D-IMPL-141`"
         " Amendment A.3 grants that directory one Python module and it is the"
         " projection"
@@ -281,7 +299,7 @@ def test_the_comparison_refuses_two_answers_that_differ() -> None:
     violations = parity_violations(
         {
             "inprocess:x": f"   content address    {address}\n",
-            "mcp+stdio:y z": f"   content address    {'b' + address[1:]}\n",
+            "mcp+stdio:y": f"   content address    {'b' + address[1:]}\n",
         }
     )
     assert violations, "two different addresses were reported as agreement"
@@ -290,7 +308,7 @@ def test_the_comparison_refuses_two_answers_that_differ() -> None:
 
 def test_the_comparison_refuses_answers_carrying_no_address() -> None:
     """**Vacuity control.** Two empty answers are not the same answer."""
-    violations = parity_violations({"inprocess:x": "", "mcp+stdio:y z": ""})
+    violations = parity_violations({"inprocess:x": "", "mcp+stdio:y": ""})
     assert violations, "two empty outputs were reported as agreement"
     assert any("no content address" in entry for entry in violations), violations
 

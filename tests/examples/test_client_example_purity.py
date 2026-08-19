@@ -413,9 +413,12 @@ def test_every_documented_command_names_a_distinct_binding_scheme() -> None:
     demonstrating something weaker while reading the same. So the schemes must
     be distinct and everything after the assignment must be identical.
     """
-    # `shlex.split`, because an `mcp+stdio:` address is two whitespace-separated
-    # tokens inside one quoted value — the very shape a naive `split(" ", 1)`
-    # would tear in half, reporting the deployment root as part of the command.
+    # `shlex.split` rather than a naive `split(" ", 1)`, so this stays correct
+    # for any address a scheme cares to define — and because the assertion below
+    # compares the tokens AFTER the assignment, which a hand-rolled split would
+    # have to reconstruct. Since `18.1-02` the two documented commands differ by
+    # exactly one token, the scheme, which is what makes the second assertion a
+    # statement a reader can check by eye against the README.
     tokens = [shlex.split(command) for command in documented_commands(
         CLIENT_EXAMPLE_ROOTS[0]
     )]

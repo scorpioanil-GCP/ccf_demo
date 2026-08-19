@@ -29,7 +29,6 @@ called below with the full pair.
 
 from __future__ import annotations
 
-import shlex
 from pathlib import Path
 
 import pytest
@@ -45,30 +44,40 @@ from tests.client.conformance.test_inprocess_conformance import (
     UNPINNED_QUESTION,
 )
 from tests.client.conformance.test_inprocess_conformance import SUBJECTS as IN_PROCESS
-from tests.client.fixtures import STDIO_SERVER
+from tests.client.fixtures import declare_server
 
 pytestmark = pytest.mark.conformance
 
 #: The program the break hook writes, beside the deployment and never inside it
-#: — a deployment root holds one Python module by ``D-IMPL-141`` Amendment A.3.
+#: — a deployment root holds one Python module by ``D-IMPL-141`` Amendment A.3,
+#: and ``server:`` resolves against the directory holding the root (``D-10``).
 BROKEN_SERVER = "broken_server.py"
 
 
 def connect_over_stdio(root: Path) -> McpStdioAdapter:
-    """A healthy adapter launching this deployment's own server against ``root``."""
-    return McpStdioAdapter(shlex.join([str(STDIO_SERVER), str(root)]))
+    """A healthy adapter reaching ``root``, which declares its own server.
+
+    The address is the root and nothing else (``D-05``); the program the child
+    runs is the ``server:`` the ``provision`` fixture wrote into this copy.
+    """
+    return McpStdioAdapter(str(root))
 
 
 def break_over_stdio(root: Path) -> McpStdioAdapter:
-    """Point the binding at a program that dies, so the pipe closes on the client.
+    """Point the deployment at a program that dies, so the pipe closes.
 
-    The hook owns this root, raises nothing itself, and returns the same class
-    the healthy factory returns — so the leg measures a damaged substrate rather
-    than a substituted object.
+    The hook owns this root and raises nothing itself. Since ``18.1-02`` it
+    returns the same class the healthy factory returns **and the same address**
+    — byte-identical, because the address is now only the root. The two
+    factories differ in exactly one thing: what ``server:`` says in the copied
+    ``binding.yaml``. That is a strictly stronger form of the claim this
+    docstring used to make, and it is what makes the wire-failure leg a
+    statement about a damaged substrate rather than about a substituted object.
     """
     broken = root.parent / BROKEN_SERVER
     broken.write_text("raise SystemExit(1)\n", encoding="utf-8")
-    return McpStdioAdapter(shlex.join([str(broken), str(root)]))
+    declare_server(root, broken)
+    return McpStdioAdapter(str(root))
 
 
 #: This transport, as one subject. Named on its own because the controls in

@@ -12,8 +12,10 @@ invariant rather than a filing preference: ``D-IMPL-141`` Amendment A.3 grants
 the deployment root **one** Python module — the projection — and
 ``tests/client/test_data_only_deployment.py`` refuses a second by name. The
 first draft of this program lived in the root and that gate caught it, which is
-why an ``mcp+stdio`` address names the program *and* the root rather than
-inferring one from the other.
+why ``binding.yaml``'s ``server:`` key resolves against the directory *holding*
+the deployment rather than against the root (``D-10``). The deployment states
+where its program is; an ``mcp+stdio`` address names the root and reads it from
+there.
 
 **It boots through the same function the in-process adapter boots through.**
 ``ccf.client.adapters.inprocess::_boot`` composes this deployment's governed

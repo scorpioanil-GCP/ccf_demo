@@ -22,7 +22,7 @@ asserts against the source that none of the four mechanisms is here yet.
 The scheme prefix is the only place transport is named
 -------------------------------------------------------
 ``D-06``. A binding is a scheme-prefixed address — ``inprocess:./deployment``,
-``mcp+stdio:./server.py``, ``http://host/path`` — and it lives in the
+``mcp+stdio:./deployment``, ``http://host/path`` — and it lives in the
 environment, not in code. Switching transports is therefore an ops action, and
 *"same* ``consume.py``\\ *, different* ``CCF_BINDING``\\ *, identical* ``Result``"
 is a property a conformance suite can test rather than a claim a README makes.
@@ -136,8 +136,8 @@ def split_binding(binding: str) -> tuple[str, str]:
 
     Splits on the **first** colon only, so a URL-shaped binding keeps its own
     separators (``http://host/path`` is ``("http", "//host/path")``) and a
-    compound scheme stays one name (``mcp+stdio:./server.py`` is
-    ``("mcp+stdio", "./server.py")``).
+    compound scheme stays one name (``mcp+stdio:./deployment`` is
+    ``("mcp+stdio", "./deployment")``).
 
     Args:
         binding: The scheme-prefixed address.
@@ -157,7 +157,8 @@ def split_binding(binding: str) -> tuple[str, str]:
         raise BindingError(
             f"`{binding}` is not a scheme-prefixed address, so there is no"
             " transport to dispatch on — a binding is a scheme, a colon and an"
-            " address, as in `inprocess:./deployment` or `mcp+stdio:./server.py`."
+            " address, as in `inprocess:./deployment` or"
+            " `mcp+stdio:./deployment`."
             f" Set `{BINDING_ENV_VAR}` to that shape, or pass the same string as"
             " `binding=` to `for_product()`"
         )

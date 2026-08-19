@@ -324,15 +324,17 @@ example-hw1: ## Run examples/hw1-companies-over-revenue (needs a populated deplo
 # `CCF_BINDING` — which is the client abstraction's entire claim, demonstrated
 # rather than asserted.
 #
-# The address is TWO tokens: the deployment's own MCP server program, and the
-# deployment root it serves. Neither is inferable from the other — the SDK ships
-# no server program (CINV-01) and a deployment root holds exactly one Python
-# module by `D-IMPL-141` Amendment A.3, which is its projection.
+# The address is ONE token, the deployment root — the same token the target
+# above names, which is why the two recipes differ by exactly one word. Which
+# program this transport launches is the deployment's own business, declared
+# under `server:` in its `binding.yaml`, because the SDK ships no server program
+# (CINV-01) and cannot. A deployment reached at an endpoint declares no `server:`
+# at all.
 #
 # The same interpreter rule applies as above, for the same reason.
 .PHONY: example-hw1-mcp
 example-hw1-mcp: ## Run examples/hw1-companies-over-revenue over MCP stdio (same consume.py)
-	CCF_BINDING="mcp+stdio:examples/hw1-companies-over-revenue/server/serve.py examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
+	CCF_BINDING="mcp+stdio:examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
 
 # The Phase 15.3 permitted-change-surface gate and its `tools/gates/` package
 # were RETIRED by plan 15.4-07, in the same commit that registered the two

@@ -5,11 +5,12 @@
 §7.1: MCP is the SDK's own bidirectional integration surface, so a client
 reaching a deployment through it is the egress role read from the far side.
 
-What the address names: a program, and the deployment it serves
-----------------------------------------------------------------
-``mcp+stdio:<program> <root>`` — two whitespace-separated tokens, parsed with
-:func:`shlex.split` so a path containing a space can be quoted. Both are needed
-and neither can be inferred from the other:
+What the address names: the deployment, and nothing else
+---------------------------------------------------------
+``mcp+stdio:<root>`` — one token, the deployment root, parsed with
+:func:`shlex.split` so a path containing a space can still be quoted. The
+program this transport launches is **not** in the address and cannot be put
+there:
 
 * **stdio means the client launches the server.** There is no endpoint to
   connect to; ``stdio_client`` spawns a child process and speaks to its pipes.
@@ -22,18 +23,21 @@ and neither can be inferred from the other:
   ``ccf_runtime.mcp.egress::build_egress_server`` requires a server name, a
   token verifier, auth settings, an entitlement source and a perspective
   resolver — five deployment values in their entirety (CINV-01). So the program
-  is the deployment's, and this module launches it without knowing what is in
-  it.
-* **The program may not live in the deployment root.** ``D-IMPL-141``
-  Amendment A.3 grants a deployment root exactly **one** Python module, the
-  projection, and ``tests/client/test_data_only_deployment.py`` refuses a second
-  by name. A one-token address that inferred the root from the program's own
-  directory was written first and that gate caught it — recorded here because
-  the two-token form looks like a redundancy until you know why it is not.
+  is the deployment's — which is why the *deployment* declares it, under
+  ``server:`` in its own ``binding.yaml``, and this module launches it without
+  knowing what is in it.
+* **Where that program sits is the deployment's business, not the address's.**
+  ``server:`` resolves against the directory *holding* the deployment
+  (``D-10``), and a deployment reached at an endpoint rather than launched
+  declares no ``server:`` at all. The address carried the program until
+  ``18.1-02``; it read as the *client's* business at exactly the point a
+  reader was learning what a client does, and it is not.
 
-``ccf.client.binding`` and ``ccf.client.client`` have spelled this scheme
-``mcp+stdio:./server.py`` since ``D-06`` was written. The program still leads
-the address; what this module adds is the root behind it.
+Three ways of getting this wrong are refused **by name** rather than
+half-resolved — a second token, a token that resolves to a program, and a
+deployment that declares no ``server:`` — because each is an ordinary authoring
+mistake and each is cheaper to diagnose here than as a missing document two
+layers down.
 
 What is asked, and where each argument comes from
 --------------------------------------------------
@@ -114,6 +118,7 @@ from mcp.types import TextContent
 from pydantic import ValidationError
 
 from ccf.client.adapters.binding_document import (
+    BINDING_DOCUMENT_NAME,
     BindingDocument,
     load_binding_document,
 )
@@ -164,9 +169,9 @@ class McpStdioAdapter:
 
     Args:
         address: The remainder of the binding after its scheme prefix — the
-            path to the deployment's server program. Not resolved here:
+            path to the deployment root, and nothing else. Not resolved here:
             resolution happens on :meth:`ask`, so a client constructed against
-            a program that does not exist yet fails when it asks rather than
+            a deployment that does not exist yet fails when it asks rather than
             when it is built, which is the posture
             :class:`~ccf.client.adapters.inprocess.InProcessAdapter` already
             takes for a root.
@@ -181,8 +186,9 @@ class McpStdioAdapter:
         """Launch the deployment's server, ask it one question, and re-shape it.
 
         Raises:
-            ccf.client.errors.BindingError: the address names no server
-                program, or the deployment beside it is unusable. A
+            ccf.client.errors.BindingError: the address is not one token, it
+                names a program rather than a root, or the deployment it names
+                declares no usable server program. A
                 :class:`~ccf.client.errors.TransportError` by inheritance, so
                 one ``except`` clause still covers every way the wire never
                 spoke.
@@ -223,41 +229,77 @@ class McpStdioAdapter:
         )
 
     def _declared(self) -> _Declared:
-        """Split the address, then read what its deployment declares.
+        """Read the deployment the address names, and the program it declares.
 
-        Each half is refused **by name** rather than half-resolved: a binding
-        naming one token, or a program that is not a file, is an ordinary
-        authoring mistake, and it is cheaper to diagnose here than as a missing
-        ``binding.yaml`` two layers down.
+        The address is **one** token and the program is not in it: where the
+        program sits is decided once, by the deployment, under ``server:`` in
+        its own ``binding.yaml`` (``D-05``, ``D-10``). Each way of getting that
+        wrong is refused **by name** rather than half-resolved, because each is
+        an ordinary authoring mistake and a report about a *missing document*
+        two layers down would describe something other than the mistake made.
+
+        **The order of the branches is load-bearing.** Every targeted refusal
+        fires before
+        :func:`~ccf.client.adapters.binding_document.load_binding_document` is
+        given the chance to answer — otherwise a token naming a program would be
+        reported as a root that is not a directory (``D-08``). A token naming
+        nothing at all is left to fall through, because that report is then the
+        right one.
         """
         try:
             tokens = shlex.split(self._address)
         except ValueError as unparsable:
             raise BindingError(
                 f"`{self._address}` is not a usable `{SCHEME}` address —"
-                f" {unparsable}. It is the server program and the deployment"
-                " root it serves, separated by a space, with either quoted if it"
-                " contains one"
+                f" {unparsable}. It is the deployment root, one token, quoted if"
+                " it contains a space"
             ) from unparsable
-        if len(tokens) != 2:
+        if len(tokens) == 2:
+            raise BindingError(
+                f"`{self._address}` states two tokens; an `{SCHEME}` address"
+                " states one — the deployment root, as in"
+                f" `{SCHEME}:./deployment`. The second token was the server"
+                " program, and that program is now the deployment's own"
+                f" `server:` key in its `{BINDING_DOCUMENT_NAME}`, so drop it"
+                " from the address and name the root alone"
+            )
+        if len(tokens) != 1:
             raise BindingError(
                 f"`{self._address}` states {len(tokens)} tokens; an `{SCHEME}`"
-                " address states exactly two — the server program to launch and"
-                " the deployment root it serves, as in"
-                " `mcp+stdio:./server.py ./deployment`. Neither is inferable"
-                " from the other: the SDK ships no server program, and a"
-                " deployment root holds exactly one Python module by"
-                " `D-IMPL-141` Amendment A.3, which is its projection"
+                " address states exactly one — the deployment root, as in"
+                f" `{SCHEME}:./deployment`. The program to launch is the"
+                " deployment's, declared under `server:` in its"
+                f" `{BINDING_DOCUMENT_NAME}`, because the SDK ships no server"
+                " program and cannot"
             )
-        program = Path(tokens[0]).expanduser().resolve()
-        if not program.is_file():
+        resolved = Path(tokens[0]).expanduser().resolve()
+        if resolved.is_file():
             raise BindingError(
-                f"`{tokens[0]}` names no server program — it resolves to"
-                f" {program}, which is not a file. An `{SCHEME}` binding launches"
-                " the deployment's own MCP server program, because the SDK ships"
-                " none and cannot"
+                f"`{tokens[0]}` names a program — it resolves to {resolved},"
+                f" which is a file. An `{SCHEME}` address names the deployment"
+                " root that declares the program, never the program itself, and"
+                " the program is that deployment's `server:` key in its"
+                f" `{BINDING_DOCUMENT_NAME}`"
             )
-        document = load_binding_document(tokens[1])
+        document = load_binding_document(tokens[0])
+        if document.server is None:
+            raise BindingError(
+                f"{document.root / BINDING_DOCUMENT_NAME} declares no `server:`,"
+                " so this deployment states no program to launch and cannot be"
+                f" reached over `{SCHEME}`. Add `server:` naming its MCP server"
+                " program, relative to the directory holding this deployment."
+                " The key is optional because a deployment reached in process"
+                " launches nothing and one reached at an endpoint is already"
+                " running — the requirement belongs to this transport rather"
+                " than to the document"
+            )
+        if not document.server.is_file():
+            raise BindingError(
+                f"`server:` in {document.root / BINDING_DOCUMENT_NAME} names no"
+                f" server program — it resolves to {document.server}, which is"
+                f" not a file. An `{SCHEME}` binding launches the deployment's"
+                " own MCP server program, because the SDK ships none and cannot"
+            )
         config = load_control_plane_artifact(
             document.config.read_text(encoding="utf-8"), DEPLOYMENT_CONFIG
         )
@@ -281,7 +323,7 @@ class McpStdioAdapter:
                 " the caller's — `WireRequest` carries none by `D-04`"
             )
         return _Declared(
-            program=program,
+            program=document.server,
             document=document,
             tenant=config.tenant_id,
             version=str(version),

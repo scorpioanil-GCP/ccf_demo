@@ -29,7 +29,7 @@ And the same question, the same deployment, over a **real process boundary**
 spoken as MCP stdio:
 
 ```
-CCF_BINDING="mcp+stdio:examples/hw1-companies-over-revenue/server/serve.py examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
+CCF_BINDING="mcp+stdio:examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
 ```
 
 **Nothing but `CCF_BINDING` differs, and the two runs print the same content

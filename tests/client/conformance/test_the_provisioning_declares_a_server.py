@@ -5,15 +5,16 @@ directory **holding** the deployment (``D-10``), and the committed fixture and
 its program ship in that relationship. A copy that took only ``deployment/``
 would inherit a declaration pointing at nothing.
 
-**Nothing reads that value yet.** The conformance factories still build the
-two-token ``mcp+stdio`` address, so an unprovisioned root would sit here
-silently until the grammar flip in ``18.1-02`` — at which point every MCP leg
-would fail, and, worse, the *healthy* leg would fail alongside the refusal
-legs. A key-absent refusal cannot be told apart from a harness that is simply
-broken, so ``D-06``'s control would pass for the wrong reason. That is the
-defect ``CLNT-12`` exists to prevent, and it has been realized in this phase
-once already: ``18.1-PATTERNS.md`` §5(b) claimed this provisioning was
-unnecessary and two plans inherited the error.
+**Both conformance factories now depend on that value.** Since ``18.1-02``
+the address is the root alone and the program comes from ``server:``, so an
+unprovisioned root fails every MCP leg — including the *healthy* one. A
+key-absent refusal cannot be told apart from a harness that is simply broken,
+so ``D-06``'s control would pass for the wrong reason. That is the defect
+``CLNT-12`` exists to prevent, and it has been realized in this phase once
+already: ``18.1-PATTERNS.md`` §5(b) claimed this provisioning was unnecessary
+and two plans inherited the error. This module was written while the value was
+still inert, which is why it exists at all: a provisioning site nothing
+asserts on is a provisioning site nobody watches failing.
 
 This module exists because a provisioning site nothing asserts on is a
 provisioning site nobody watches failing. It is the assertion that makes the

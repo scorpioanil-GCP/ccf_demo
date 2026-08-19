@@ -107,7 +107,7 @@ class ProductClient:
         Args:
             product_id: The product class to ask.
             binding: A scheme-prefixed address such as ``inprocess:./deployment``
-                or ``mcp+stdio:./server.py``. ``None`` defers to
+                or ``mcp+stdio:./deployment``. ``None`` defers to
                 ``CCF_BINDING``.
 
         Returns:

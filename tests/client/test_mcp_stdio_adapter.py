@@ -31,7 +31,6 @@ the substrate it speaks to (``D-22``).
 from __future__ import annotations
 
 import asyncio
-import shlex
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
@@ -39,7 +38,7 @@ from pathlib import Path
 import pytest
 
 import ccf
-from ccf.client.adapters.mcp_stdio import SCHEME, McpStdioAdapter
+from ccf.client.adapters.mcp_stdio import McpStdioAdapter
 from ccf.client.client import ProductClient
 from ccf.client.errors import BindingError, TransportError
 from ccf.products.door import PRODUCT_REQUEST_TOOL
@@ -118,11 +117,6 @@ def _root(
     return root
 
 
-def _address(program: Path, root: Path) -> str:
-    """The two-token address this scheme takes, quoted as the adapter parses it."""
-    return shlex.join([str(program), str(root)])
-
-
 def _stub_program(tmp_path: Path, name: str, body: str) -> Path:
     """A stub server program, beside the deployment and never inside it."""
     program = tmp_path / name / "stub_server.py"
@@ -133,12 +127,15 @@ def _stub_program(tmp_path: Path, name: str, body: str) -> Path:
     return program
 
 
-def _ask(
-    program: Path, root: Path, parameters: dict[str, object] | None = None
-) -> object:
-    """Ask through a real `mcp+stdio` client, at the client seam."""
+def _ask(root: Path, parameters: dict[str, object] | None = None) -> object:
+    """Ask through a real `mcp+stdio` client, at the client seam.
+
+    The root alone, because that is the whole address (``D-05``). Which program
+    the child runs is the copied deployment's own declaration, written by
+    :func:`~tests.client.fixtures.declare_server` through ``_root``.
+    """
     return ProductClient(
-        product_id=PRODUCT_ID, adapter=McpStdioAdapter(_address(program, root))
+        product_id=PRODUCT_ID, adapter=McpStdioAdapter(str(root))
     ).ask(
         parameters={PARAMETER: 11} if parameters is None else parameters,
         as_of=PINNED,
@@ -173,7 +170,7 @@ def test_a_root_provisioned_with_no_program_declares_one_that_is_not_there(
 ) -> None:
     """The DELIBERATE exception, kept rather than lost.
 
-    ``test_an_address_naming_no_program_raises_before_anything_is_launched``
+    ``test_a_declaration_naming_no_program_raises_before_anything_is_launched``
     below is about a program that is missing, so its root must keep a
     declaration that resolves nowhere. Provisioning every root uniformly would
     have quietly deleted that test's subject.
@@ -184,28 +181,24 @@ def test_a_root_provisioned_with_no_program_declares_one_that_is_not_there(
     assert not document.server.exists(), "and there is deliberately nothing there"
 
 
-def test_an_address_naming_no_program_raises_before_anything_is_launched(
+def test_a_declaration_naming_no_program_raises_before_anything_is_launched(
     tmp_path: Path,
 ) -> None:
-    """Failure mode 1 — there is nothing to start, so nothing was ever asked."""
+    """Failure mode 1 — there is nothing to start, so nothing was ever asked.
+
+    The missing program is now named by the **document** rather than by the
+    address: ``_root`` is called with no ``program``, so the copied deployment
+    inherits ``server: stdio_server.py`` and that value resolves nowhere. The
+    failure mode is the one this leg has always covered; what moved is who
+    stated the path that turned out to be wrong.
+    """
     root = _root(tmp_path, "absent")
     with pytest.raises(BindingError) as refused:
-        _ask(tmp_path / "absent" / "nowhere.py", root)
-    assert SCHEME in str(refused.value)
+        _ask(root)
+    assert "names no server program" in str(refused.value)
     # A `BindingError` is a `TransportError` by inheritance, so the one clause a
     # caller writes for *the wire never spoke* covers this too.
     assert isinstance(refused.value, TransportError)
-
-
-def test_a_one_token_address_is_refused_rather_than_half_resolved(
-    tmp_path: Path,
-) -> None:
-    """The root is not inferable from the program, and the refusal says why."""
-    with pytest.raises(BindingError) as refused:
-        ProductClient(
-            product_id=PRODUCT_ID, adapter=McpStdioAdapter(str(STDIO_SERVER))
-        ).ask(parameters={PARAMETER: 11}, as_of=PINNED)
-    assert "exactly two" in str(refused.value)
 
 
 def test_a_server_that_exits_at_once_raises_rather_than_refusing(
@@ -215,7 +208,7 @@ def test_a_server_that_exits_at_once_raises_rather_than_refusing(
     program = _stub_program(tmp_path, "exits", "")
     program.write_text("raise SystemExit(1)\n", encoding="utf-8")
     with pytest.raises(TransportError) as refused:
-        _ask(program, _root(tmp_path, "exits-root", program=program))
+        _ask(_root(tmp_path, "exits-root", program=program))
     assert "did not answer" in str(refused.value)
 
 
@@ -235,7 +228,7 @@ def test_a_door_that_raises_arrives_as_a_broken_wire_and_not_as_a_no(
         tmp_path, "raises", 'raise RuntimeError("the door raised")'
     )
     with pytest.raises(TransportError) as refused:
-        _ask(program, _root(tmp_path, "raises-root", program=program))
+        _ask(_root(tmp_path, "raises-root", program=program))
     assert "error rather than an outcome" in str(refused.value)
 
 
@@ -251,7 +244,7 @@ def test_a_server_answering_something_other_than_an_outcome_raises(
     """
     program = _stub_program(tmp_path, "garbage", 'return "{}"')
     with pytest.raises(TransportError) as refused:
-        _ask(program, _root(tmp_path, "garbage-root", program=program))
+        _ask(_root(tmp_path, "garbage-root", program=program))
     assert "never a refusal" in str(refused.value)
 
 
@@ -264,7 +257,8 @@ def test_a_governed_refusal_is_a_value_and_does_not_raise(tmp_path: Path) -> Non
     which is what makes this a statement about the shipped path.
     """
     result = _ask(
-        STDIO_SERVER, _root(tmp_path, "refuses", populated=True, program=STDIO_SERVER), parameters={}
+        _root(tmp_path, "refuses", populated=True, program=STDIO_SERVER),
+        parameters={},
     )
     assert result.refused
     assert result.refusal is not None

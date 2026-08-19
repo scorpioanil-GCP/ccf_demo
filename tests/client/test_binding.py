@@ -225,7 +225,7 @@ def test_a_url_shaped_binding_splits_on_the_first_colon_only() -> None:
 
 def test_a_compound_scheme_survives_the_split() -> None:
     """``mcp+stdio`` is one scheme name, not two."""
-    assert split_binding("mcp+stdio:./server.py") == ("mcp+stdio", "./server.py")
+    assert split_binding("mcp+stdio:./deployment") == ("mcp+stdio", "./deployment")
 
 
 # --------------------------------------------------------------------------
