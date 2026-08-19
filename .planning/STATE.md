@@ -3,8 +3,41 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-18T06:20:00.000Z"
+last_updated: "2026-08-18T18:35:00.000Z"
 last_activity: >-
+  2026-08-18 -- PHASE 18.1 PLANNED. FIVE PLANS IN FIVE WAVES, committed and gated. Research
+  (`18.1-RESEARCH.md`, 1492 lines) and a pattern map were run and BOTH FOUND DEFECTS THE
+  DISCUSSION HAD NOT: research swept the tree and found the two-token `mcp+stdio:` address in
+  21 PLACES, not the 2 that were listed -- including
+  `tests/examples/test_hw1_two_transports.py:261` which UNPACKS THE ADDRESS INTO TWO NAMES and
+  would raise `ValueError` the moment `D-05` lands, and `src/ccf/client/binding.py:160` which is
+  a SHIPPED REFUSAL MESSAGE that would start showing a shape that no longer parses (the `B0b`
+  class, in the phase whose own `D-08` cites `B0b`). It also measured `make ci-core` RED AT HEAD
+  for a cause unrelated to this phase (`6d6a99b` moved 14 Phase 16 plans to `abandoned/`;
+  `RETIREMENT-COUPLINGS.md` stale by 26 planning-tree rows). TWO RULINGS BY DAVE, recorded as
+  `D-18` and `D-19` in `18.1-CONTEXT.md`: (1) an INWARD-REACHING `server:` IS REFUSED BY NAME --
+  parent-relative containment also accepts a value pointing back inside the root, which would let
+  a third-party deployment hold two Python modules where `D-IMPL-141` A.3 grants one; this is
+  THE PHASE'S ONE PIECE OF NEW MECHANISM, deliberately, so the "ships no new SDK surface" claim is
+  NARROWED in the ROADMAP and the surface fragment, and a `D-IMPL-153` entry is owed;
+  (2) THE PRE-EXISTING RED IS CLEARED AT WAVE 0 and swept again after the last SUMMARY, so a red
+  gate during execution means a real regression rather than an ambiguous one.
+  PLAN REVIEW RAN TWICE. Iteration 1 returned ONE BLOCKER: the third `declare_server` provisioning
+  site was assigned to no task, because `18.1-PATTERNS.md` §5(b) claimed the copied deployment's
+  parent "is exactly where `_stub_program` already writes" and TWO PLANS INHERITED THE ERROR. The
+  tree says otherwise -- the callers pass DIFFERENT name arguments at every site
+  (`"exits"` vs `"exits-root"`), so the parent is EMPTY. Five tests would have failed inside the
+  irreducible 11-file grammar flip, and `:205` is `V-12`, THE HEALTHY-PATH NON-VACUITY LEG -- with
+  the baseline broken, `V-07` WOULD HAVE PASSED FOR THE WRONG REASON, the exact defect `CLNT-12`
+  exists to prevent. Also caught: an acceptance criterion that COULD NOT FAIL
+  (`grep "server" | grep -c "RULED_OUT_KEYS"` returns 0 either way), and an instruction NOT to
+  append to `docs/DECISIONS.md` on the false premise that it is a historical record -- it carries
+  208 `D-IMPL-` references and `CLAUDE.md` §11/§12 name it the live decision log. §5(b) was
+  corrected in place, `18.1-VALIDATION.md` now NAMES ALL THREE PROVISIONING SITES because the
+  third was missed precisely because nothing named it. Iteration 2: NO BLOCKERS, 2 warnings +
+  4 info, all closed by hand. Gates: requirements 5/5, DECISION COVERAGE 19/19.
+  EVERY REVIEW FINDING WAS VERIFIED AGAINST THE TREE BEFORE BEING ACTED ON.
+
   2026-08-18 -- PHASE 18.1 INSERTED after Phase 18 (Dave): SIMPLIFY THE MCP EXAMPLE, CLIENT-SIDE
   ACCESS WITH THE SERVER OFF-STAGE. Dave, reading `examples/hw1-companies-over-revenue`: the
   server was `too overwhelming`, it was `not clear what the client had to implement`, and `the
@@ -87,7 +120,7 @@ last_activity: >-
 progress:
   total_phases: 18
   completed_phases: 16
-  total_plans: 175
+  total_plans: 180
   completed_plans: 166
   percent: 94
 stopped_at: >-
@@ -254,9 +287,10 @@ are in `D-IMPL-147`.
 ## Current Position
 
 Phase: **18.1 — Simplify the MCP Example: Client-Side Access, Server Off-Stage.**
-  INSERTED 2026-08-18 (Dave), NOT DISCUSSED, NOT PLANNED. Directory exists and is
-  empty. ROADMAP entry, Phases-list bullet and progress row all written BY HAND —
-  `phase.insert` produced only a stub detail section.
+  INSERTED 2026-08-18 (Dave). **DISCUSSED AND NOW PLANNED — 5 PLANS IN 5 WAVES,
+  READY TO EXECUTE.** ROADMAP entry, Phases-list bullet and progress row all written
+  BY HAND — `phase.insert` produced only a stub detail section, and no `state.*` or
+  `roadmap.*` SDK writer has been run against either file.
   **A CLIENT-EXPERIENCE PHASE THAT SHIPS NO NEW SDK SURFACE.** Three changes:
   `CCF_BINDING` names a DEPLOYMENT rather than a script (server command declared in
   `binding.yaml` as data), `server/serve.py` is cut to a readable length into a second
@@ -292,7 +326,29 @@ Phase: **18.1 — Simplify the MCP Example: Client-Side Access, Server Off-Stage
   **no line budget** — the criterion is structural, one file one concern; the README's
   obsolete two-token paragraph is deleted for one sentence on the one-word difference.
   DEFERRED to the assembly examples: Dave's `client/` + `server/` top-level restructure.
-  Next action: `/clear` then `/gsd:plan-phase 18.1`.
+  **PLANNED 2026-08-18.** Five plans, five waves, deliberately linear:
+  `18.1-01` clears the pre-existing red and lands `server:` as a contained data key;
+  `18.1-02` flips the grammar to one token across every site IN ONE COMMIT (the
+  README↔Makefile character-identity gate forces it) and adds the four refusal controls;
+  `18.1-03` cuts `serve.py` into `server/compose.py`; `18.1-04` writes the README frame,
+  the surface fragment and the `D-IMPL-153` entry, and carries the `C-1`
+  **`checkpoint:human-verify`** (`autonomous: false`); `18.1-05` re-sweeps after the last
+  SUMMARY.
+  **TWO RULINGS TAKEN AT PLANNING, `D-18` AND `D-19`** — see `18.1-CONTEXT.md`. `D-18`
+  means **THE PHASE NO LONGER SHIPS ZERO NEW SDK SURFACE**: it ships ~4 lines of it on
+  purpose, and the ROADMAP sentence plus the surface fragment must say so or a reviewer
+  reads it as scope creep.
+  **KNOWN AND DISPOSITIONED, NOT TO BE REDISCOVERED:** `make ci-core` is knowingly red
+  from `18.1-03` to `18.1-05` (the `D-13` docstring trim moves the `serve.py:68` coupling
+  row), and `test_the_committed_report_is_current` may also go stale on planning-tree rows
+  THIS PHASE'S OWN SUMMARYs add. Both plans carry the diff-classification procedure: every
+  changed row must be a `.planning/phases/18.1-*` row, anything else is a real regression.
+  **TWO SUCCESS CRITERIA ARE REVIEW-ONLY, BY DESIGN:** `C-1` (documentation must not
+  generalize that servers live in the deployment) and "is `serve.py` readable now" —
+  `D-12` declines a line budget on purpose, and ~30% of that file is prose about itself,
+  which moving composition out cannot shrink. Neither is machine-checkable and no proxy
+  gate was invented for them.
+  Next action: `/clear` then `/gsd:execute-phase 18.1`.
 
 Phase: **19 — The Client-Seam Integrity Checks Must Be Able to Fail.** DISCUSSED,
   NOT PLANNED. `19-CONTEXT.md` + `19-DISCUSSION-LOG.md` committed at `90f9822` on

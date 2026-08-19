@@ -1584,6 +1584,20 @@ in the same plan.
 either order works.
 **Plans:** 5 plans
 
+**Wave structure — strictly linear, one plan per wave (1→2→3→4→5).** Each wave is blocked on
+the one before it. `18.1-03` and `18.1-04` share no `files_modified` and could in principle run
+together, but the `C-1` human review reads `serve.py`'s trimmed docstring (`D-13`) and the
+README's shrunk `server/` paragraph (`D-16`) as one split argument, so splitting them across a
+wave boundary would hand the reviewer half the subject.
+
+**Cross-cutting constraints:** none — no `must_haves.truths` entry is shared by two or more
+plans, which is a consequence of the linear structure: each wave owns a distinct claim.
+
+**Two constraints that hold across every wave, and are not truths of any single plan:**
+`.venv/bin/python` always (bare `python` does not exist on this host, and a plan that writes it
+reports a false red); and no `state.*` or `roadmap.*` SDK writer is ever run — `.planning/`
+files are hand-edited.
+
 Plans:
 - [ ] 18.1-01-PLAN.md — Clear the pre-existing red gate (D-19, first sweep); `server:` as a
       data key, contained against the deployment root's parent, refused by name when it reaches
