@@ -670,6 +670,19 @@ def build_egress_server(
             deployment that adopted this tool before ``D-IMPL-133`` keeps
             working unchanged.
 
+            **Since ``C-01`` this argument is no longer the only source of
+            what it names, and the handler refuses the disagreement rather
+            than choosing a winner.** ``product_class`` and ``parameters`` now
+            arrive **twice** — as the address arguments above and inside the
+            encoded ``request`` below — and the answer is resolved from the
+            **decoded** request, so one source both answers and is echoed. A
+            door that picked a winner between the two would let a caller have
+            one question echoed and another answered, which is exactly the
+            crossing the echo exists to make detectable; so a disagreement on
+            either axis is refused **by name**, naming both values. That is
+            not a redundancy to remove: it is what makes *"one source for what
+            is answered"* checkable at the door rather than assumed.
+
             **``request`` is the caller's own question, canonically encoded,
             and it is required** (``C-16``, Phase 19). It carries the UTF-8
             text of :func:`~ccf.contracts.canonical.canonical_bytes` over the
@@ -712,10 +725,28 @@ def build_egress_server(
             again. The limit is named here, in ``C-10``'s undetected list and
             in the decision entry, and left true.
 
+            **It is a limit of this door, not a defect of it.** The door has
+            one operand where a comparison needs two, and it has one because
+            the client resolved the instant before the call was made. Nothing
+            this door could do would recover the missing copy without
+            inventing it. Whether the clock read moves to the door — which
+            would give the axis a second source and close the residual — is
+            weighed in the deferred decision entry Phase 19 mints for
+            ``C-15``, and is deliberately not attempted here (``C-13``).
+
             **What this tool returns is a** :class:`~ccf.products.door.DoorOutcome`
             **and no longer the bare vessel** (``D-IMPL-148`` and its
             **Addendum A**, Dave, 2026-08-17). Two things ride the envelope that
-            had nowhere to go while the return was the product's bytes alone:
+            had nowhere to go while the return was the product's bytes alone —
+            **and since Phase 19 two more do, which is what made the client's
+            integrity checks able to fail at all** (``C-01``, ``C-06``): the
+            **question this handler parsed**, echoed back at outcome level so
+            one comparison covers a served answer and a refusal identically
+            (``C-04``), and the **content address this door computed** over the
+            vessel's bytes. Both originate producer-side, which is the whole
+            point: a consumer comparing them against what it sent is comparing
+            two independently-sourced facts rather than an object with itself.
+            The two the ruling named are:
 
             1. **A refusal, as the return value rather than a raise.** Measured
                against ``mcp==1.28.1``, FastMCP wraps a raised tool exception as
@@ -750,6 +781,20 @@ def build_egress_server(
             around those bytes, not the bytes; ``D-IMPL-119`` limb 3(b) and
             ``D-IMPL-124`` Shape B are still inherited by construction, because
             the whole vessel is still what gets serialized.
+
+            **Re-read against the shipped handler after Phase 19, and still
+            literally true — now at one level deeper.**
+            :func:`~ccf.products.door.door_answer` makes the **single**
+            ``canonical_bytes`` call over the vessel and derives *both* the
+            ``product_json`` text and the ``content_address`` from those same
+            bytes, so the address is a function of that one serialization
+            rather than of a second one taken to compute it. That matters more
+            than it did when the address was absent: two serializations are two
+            chances to disagree, and a producer whose claimed address came from
+            a second render would fail a consumer's recomputation on a wire
+            where nothing went wrong. The discipline is the one
+            :func:`~ccf_runtime.http_api.routes.canonical_response` already
+            records for its own header.
 
             **The resource beside this tool is deliberately unchanged.** It has
             no envelope and no header, its body *is* the vessel, and it carries

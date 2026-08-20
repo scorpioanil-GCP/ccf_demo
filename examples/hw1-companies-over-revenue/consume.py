@@ -30,8 +30,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ask hw1.companies-over-revenue.")
     parser.add_argument(
         # `int`, not `float`: `WireRequest` refuses a float because canonical
-        # JSON renders it as text, so the decoded echo would differ from what
-        # was sent and the cross-check would report a healthy wire as failed.
+        # JSON renders it as text, so the decoded echo differs from what was
+        # sent — and that cross-check is live, so it fails a healthy wire.
         "--min-revenue", type=int, required=True, help="The revenue threshold."
     )
     parser.add_argument("--as-of", help="ISO 8601 boundary; UTC offset required.")
