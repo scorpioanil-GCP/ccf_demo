@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-20T04:07:00.000Z"
+last_updated: "2026-08-20T04:20:00.000Z"
 last_activity: >-
   2026-08-19 -- **PHASE 19 PLANNED. 8 PLANS IN 6 WAVES**, committed `9356520` -> `751fb9a` ->
   `dacf067`. Research (`19-RESEARCH.md`, 1460 lines) MEASURED EVERY CLAIM AT HEAD `192c79d`
@@ -437,6 +437,19 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+Phase: **19 — The Client-Seam Integrity Checks Must Be Able to Fail (INSERTED).**
+  **EXECUTING** — started 2026-08-19 from `0fe0a22` on `main`. 8 plans in 6 waves.
+  NO PHASE BRANCH: Dave ruled on 2026-08-19 that the work lands directly on `main`,
+  as Phases 18 and 18.1 did — there are no SDK consumers, so `main` carrying un-gated
+  phase work costs nothing, and history still permits carving a branch retroactively.
+  Wave plan: 1 `19-01` -> 2 `19-02` -> 3 `19-04`+`19-05`+`19-06` (parallel, worktrees)
+  -> 4 `19-03` -> 5 `19-07` -> 6 `19-08`. Only wave 3 uses worktree isolation; `19-08`
+  edits `.planning/ROADMAP.md` and MUST stay on the main tree because the worktree
+  cleanup path backs up and restores tracking files across the merge.
+  `state.begin-phase` TRUNCATED THIS FILE 1046 -> 661 LINES at phase start
+  (`D-IMPL-154`/`155` class, fourth distinct handler). Backed up, diffed, restored,
+  hand-edited. Its counters were again structurally impossible (173 total / 184 done).
 
 Phase: **18.1 — Simplify the MCP Example: Client-Side Access, Server Off-Stage.**
   INSERTED 2026-08-18 (Dave). **COMPLETE AND GATED — `D-GATE-18.1` APPROVED
