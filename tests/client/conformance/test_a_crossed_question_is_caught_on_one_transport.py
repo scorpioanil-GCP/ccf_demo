@@ -35,6 +35,8 @@ vocabulary enters.
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import ClassVar, Final
@@ -44,8 +46,10 @@ import pytest
 from ccf.client.adapters.inprocess import InProcessAdapter
 from ccf.client.adapters.mcp_stdio import McpStdioAdapter
 from ccf.client.client import ProductClient
+from ccf.client.codec import encode_outcome
 from ccf.client.errors import TransportError
-from ccf.client.wire import WireRequest
+from ccf.client.wire import TransportAdapter, WireOutcome, WireRequest
+from ccf.products.contract import ContextProductContract
 
 from tests.client.conformance.suite import Provision, Question
 from tests.client.conformance.test_inprocess_conformance import (
@@ -61,6 +65,12 @@ pytestmark = pytest.mark.conformance
 #: instead of a digest value, because a control that asserted a digest would be
 #: restating the implementation rather than discriminating a diagnosis.
 CROSSED_QUESTION_REFUSAL: Final[str] = "different question"
+
+#: The phrase :func:`~ccf.client.codec.verify_content_address` raises with when
+#: the received vessel does not hash to the address the wire claimed for it.
+#: Deliberately different from :data:`CROSSED_QUESTION_REFUSAL`, so neither
+#: half of this module can pass on the other's failure.
+ALTERED_VESSEL_REFUSAL: Final[str] = "content address"
 
 #: The wording the MCP door refuses a temporal disagreement with (``C-18``),
 #: which reaches this client inside a
@@ -369,4 +379,210 @@ def test_an_absent_boundary_leaves_the_moved_instant_undetectable(
     # nothing that could contradict the transport.
     assert served.lineage.graph_snapshot_at == (
         _McpMovesTheDoorsInstant.substituted[-1]
+    )
+
+
+# ---------------------------------------------------------------------------
+# `P2` — a vessel whose bytes no longer match the address its producer computed.
+# ---------------------------------------------------------------------------
+
+
+def _alter_the_vessel(raw: bytes) -> bytes:
+    """Move the served vessel's bytes and leave the producer's claim alone.
+
+    Corruption, truncation or a re-serializing intermediary, in the smallest
+    form that is still a byte change: one space immediately inside the vessel
+    text's opening brace. ``content_address`` stays exactly where the producer
+    put it, so the address the client recomputes is what disagrees.
+
+    **The edited text is still valid JSON and still a valid contract**, and the
+    tests below assert both rather than asserting it here — a tamper that broke
+    the vessel's well-formedness would be caught by the parser or by the
+    contract check, and the leg would then be proving that the parser fires.
+    """
+    # A raw parse, and deliberately **not** `decode_outcome`: the decoder runs
+    # the very checks this edit exists to trip, so it would raise before the
+    # edit could be made.
+    outcome = WireOutcome.model_validate_json(raw)
+    vessel = outcome.product_json
+    if vessel is None:  # pragma: no cover - the question below serves
+        raise AssertionError(
+            "this edit was handed a refusal, which carries no vessel to alter"
+        )
+    inside = vessel.index("{") + 1
+    return encode_outcome(
+        outcome.model_copy(
+            update={"product_json": vessel[:inside] + " " + vessel[inside:]}
+        )
+    )
+
+
+class _Editing:
+    """A transport that edits the producer's bytes on the way back.
+
+    A **wrapper** rather than a subclass, because one class has to stand over
+    either shipped adapter and neither is the other's base. It satisfies
+    :class:`~ccf.client.wire.TransportAdapter` structurally, holds the adapter
+    the honest factory built, and does one thing to what came back.
+
+    It is written here rather than imported from
+    :mod:`tests.client.conformance.suite`, which ships a decorator of the same
+    shape for the ``C-12`` legs. The two are deliberately independent, on the
+    precedent ``19-05`` set when it mirrored rather than imported
+    ``count_result_construction_sites``: a change to one must not silently
+    change the other, and the suite's version is a private member of a module
+    whose own legs fail with ``AssertionError`` from inside the suite, while
+    everything here fails with ``TransportError`` out of one client.
+
+    The bytes it produced are kept so the discrimination guard can assert
+    against **what the client actually refused**, rather than against a second
+    application of the edit that nothing consumed.
+    """
+
+    def __init__(self, inner: TransportAdapter, edit: Callable[[bytes], bytes]):
+        self._inner = inner
+        self._edit = edit
+        self.edited: bytes | None = None
+
+    def ask(self, request: WireRequest) -> bytes:
+        self.edited = self._edit(self._inner.ask(request))
+        return self.edited
+
+
+def assert_an_altered_vessel_is_caught(
+    *,
+    hostile: TransportAdapter,
+    honest: TransportAdapter,
+    question: Question,
+) -> None:
+    """One client over ``hostile`` must refuse; one over ``honest`` must not.
+
+    The same three limbs, in the same order and for the same reasons, as
+    :func:`assert_a_crossed_question_is_caught` — and the same shape, so the
+    control on this function can hand it an honest adapter in the ``hostile``
+    slot. What differs is the wording it discriminates on: the address, never
+    the echo, so neither half of this module can pass on the other's failure.
+
+    Raises:
+        AssertionError: limb 2 or limb 3 failed.
+        pytest.fail.Exception: limb 1 failed.
+    """
+    produced: object = _NOTHING
+    with pytest.raises(TransportError, match=ALTERED_VESSEL_REFUSAL) as caught:
+        produced = ProductClient(
+            product_id=question.product_id, adapter=hostile
+        ).ask(parameters=question.parameters, as_of=question.as_of)
+    if type(caught.value) is not TransportError:
+        raise AssertionError(
+            "the altered vessel was refused with a"
+            f" `{type(caught.value).__name__}` rather than a `TransportError`"
+            " itself — `BindingError` subclasses `TransportError`, so this"
+            " assertion checks the exact `D-10` type"
+        )
+    if produced is not _NOTHING:
+        raise AssertionError(
+            "the client produced a `Result` as well as raising on the altered"
+            f" vessel — {produced!r}. A vessel that does not match its own"
+            " address yields no result at all, refused or otherwise"
+        )
+
+    served = ProductClient(product_id=question.product_id, adapter=honest).ask(
+        parameters=question.parameters, as_of=question.as_of
+    )
+    if served.refused:
+        raise AssertionError(
+            "the honest adapter refused the same question, so this assertion"
+            " never showed that the alteration is what was caught — a"
+            " transport that refused everything would otherwise have passed"
+            " the check above"
+        )
+
+
+def _assert_the_tamper_stayed_well_formed(edited: bytes | None) -> None:
+    """The discrimination guard, as an assertion rather than as an argument.
+
+    The tampered vessel must still parse as JSON **and** still validate as a
+    :class:`~ccf.products.contract.ContextProductContract`, so the
+    ``TransportError`` above is attributable to the address recomputation and
+    not to :func:`~ccf.client.codec.decode_outcome`'s malformed-bytes branch or
+    to the contract check beside it. Without this, a control that corrupted the
+    bytes into unparseability would prove the parser fires and the test would
+    still be green.
+    """
+    if edited is None:
+        raise AssertionError(
+            "the wrapper recorded no edited bytes, so this guard has nothing"
+            " to discriminate on and the leg above may have raised before the"
+            " edit was ever applied"
+        )
+    tampered = WireOutcome.model_validate_json(edited).product_json
+    if tampered is None:
+        raise AssertionError("the edited outcome carries no vessel at all")
+    try:
+        json.loads(tampered)
+        ContextProductContract.model_validate_json(tampered)
+    except Exception as unattributable:
+        raise AssertionError(
+            "the tampered vessel no longer parses as JSON or no longer"
+            f" validates as a product contract — {unattributable}. The"
+            " `TransportError` the leg caught is therefore not attributable to"
+            " the address recomputation: `check_outcome` runs"
+            " `verify_content_address` BEFORE it parses the contract, so a"
+            " vessel corrupted into unparseability raises with the same"
+            " address wording and the leg stays green while proving nothing"
+        ) from unattributable
+
+
+def test_an_altered_vessel_is_caught_over_the_in_process_transport(
+    provision: Provision,
+) -> None:
+    """`P2`(a), on one transport: `inprocess` alone, and no second subject."""
+    hostile = _Editing(
+        InProcessAdapter(str(provision("altered"))), _alter_the_vessel
+    )
+    assert_an_altered_vessel_is_caught(
+        hostile=hostile,
+        honest=InProcessAdapter(str(provision("honest"))),
+        question=QUESTION,
+    )
+    _assert_the_tamper_stayed_well_formed(hostile.edited)
+
+
+def test_an_altered_vessel_is_caught_over_the_mcp_transport(
+    provision: Provision,
+) -> None:
+    """`P2`(a), on the other transport: `mcp+stdio` alone, independently."""
+    hostile = _Editing(
+        McpStdioAdapter(str(provision("altered"))), _alter_the_vessel
+    )
+    assert_an_altered_vessel_is_caught(
+        hostile=hostile,
+        honest=McpStdioAdapter(str(provision("honest"))),
+        question=QUESTION,
+    )
+    _assert_the_tamper_stayed_well_formed(hostile.edited)
+
+
+def test_control_the_vessel_assertion_fails_when_it_is_handed_an_honest_adapter(
+    provision: Provision,
+) -> None:
+    """`D-22`: the control on :func:`assert_an_altered_vessel_is_caught`.
+
+    Handed an unwrapped honest adapter in the ``hostile`` slot, the assertion
+    must notice that nothing was caught. It fails on the **first** limb, and
+    the two checks below keep it from passing for the wrong reason.
+    """
+    with pytest.raises(pytest.fail.Exception) as fired:
+        assert_an_altered_vessel_is_caught(
+            hostile=InProcessAdapter(str(provision("honest-in-the-hostile-slot"))),
+            honest=InProcessAdapter(str(provision("honest"))),
+            question=QUESTION,
+        )
+
+    message = str(fired.value)
+    assert "DID NOT RAISE" in message
+    assert "refused everything" not in message, (
+        "the assertion failed on its vacuity limb rather than on the client's"
+        " silence, so this control says nothing about whether an undetected"
+        " alteration is noticed"
     )
