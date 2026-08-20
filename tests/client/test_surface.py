@@ -521,6 +521,37 @@ def test_control_the_scan_records_a_zero_for_a_module_that_builds_nothing(
 
 
 # --------------------------------------------------------------------------
+# C-17 — no adapter constructs the outcome shape
+# --------------------------------------------------------------------------
+
+
+def test_no_adapter_constructs_the_outcome() -> None:
+    assert_no_adapter_constructs_the_outcome(ADAPTER_ROOTS)
+
+
+def test_the_outcome_scan_reads_every_adapter_module() -> None:
+    """The walk is not vacuous, and the zeros are what make it countable.
+
+    Named modules rather than a bare count, because this directory is small
+    enough to name in full: if a root stops resolving or the suffix filter
+    breaks, the mapping loses an entry and this goes red rather than reporting
+    a healthy-looking zero over a tree it never read.
+    """
+    counts = count_outcome_construction_sites(ADAPTER_ROOTS)
+
+    assert {
+        "src/ccf/client/adapters/__init__.py",
+        "src/ccf/client/adapters/binding_document.py",
+        "src/ccf/client/adapters/inprocess.py",
+        "src/ccf/client/adapters/mcp_stdio.py",
+    } <= set(counts), (
+        f"the scan read {sorted(counts)}, which is short of the adapters"
+        " directory — a root probably stopped resolving"
+    )
+    assert set(counts.values()) == {0}
+
+
+# --------------------------------------------------------------------------
 # D-04 — the documented `as_of` rule, asserted where a reader would look
 # --------------------------------------------------------------------------
 
