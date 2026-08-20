@@ -435,4 +435,4 @@ Commits (all present in `git log`):
 
 Key links (all matched):
 - new module → `ccf.client.client.ProductClient.ask` via a hostile subclass of a shipped adapter; `pytest.raises\(TransportError` — 3 matches
-- `tests/client/test_codec.py` → `ccf.client.codec.decode_outcome` over tampered bytes; `decode_outcome\(` — 14 matches
+- `tests/client/test_codec.py` → `ccf.client.codec.decode_outcome` over tampered bytes; `decode_outcome\(` — 13 matches

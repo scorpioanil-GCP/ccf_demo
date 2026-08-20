@@ -208,9 +208,7 @@ def assert_a_crossed_question_is_caught(
             raised without the discriminating wording.
     """
     produced: object = _NOTHING
-    with pytest.raises(
-        TransportError, match=CROSSED_QUESTION_REFUSAL
-    ) as caught:
+    with pytest.raises(TransportError, match=CROSSED_QUESTION_REFUSAL) as caught:
         produced = ProductClient(
             product_id=question.product_id, adapter=hostile
         ).ask(parameters=question.parameters, as_of=question.as_of)
@@ -311,9 +309,7 @@ def test_a_door_answering_at_another_instant_is_caught_when_the_boundary_is_conc
     only the door's own cross-check of the two copies can catch it.
     """
     produced: object = _NOTHING
-    with pytest.raises(
-        TransportError, match=TEMPORAL_DISAGREEMENT_REFUSAL
-    ) as caught:
+    with pytest.raises(TransportError, match=TEMPORAL_DISAGREEMENT_REFUSAL) as caught:
         produced = ProductClient(
             product_id=QUESTION.product_id,
             adapter=_McpMovesTheDoorsInstant(str(provision("moved-instant"))),
