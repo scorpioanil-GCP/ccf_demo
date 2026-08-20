@@ -106,31 +106,46 @@ writes `docs/surface/examples/RETIREMENT-COUPLINGS.md`, and two same-wave plans 
 one generated file is a merge conflict waiting to happen. And every plan from `20-03` on
 asserts a **tree-global** gate (`make ci-core` or `make ci`), which no plan can honestly
 assert while a sibling is mutating the same tree — the recorded hazard behind
-*sabotage agents must not share a tree*. Commands are
+*sabotage agents must not share a tree*.
+
+**The same rule holds inside a plan, between its own tasks, and that is a
+correction.** `make ci-core` composes `gate-tools`, which runs the
+retirement-inventory currency test, so a task that mutates the tree re-stales the
+report for every later task until the regeneration runs. **In every plan, exactly
+one task asserts the tree-global gates: the task that regenerates the inventory,
+which is always the last one.** Earlier tasks assert scoped gates — targeted pytest
+runs, greps, `make` targets for a single example. Two plans had the defect and both
+are fixed: `20-05` T1 and `20-07` T2 each asserted `make ci-core` before their own
+plan's regeneration step. A sweep of all eight plans' `<acceptance_criteria>` for
+`make ci`/`ci-core` found no third instance — `20-03` T3, `20-04` T3, `20-06` T3 and
+`20-08` T3 each assert it in the task that regenerates, and `20-01`, `20-02` and
+`20-08` T2 assert only scoped gates.
+
+Commands are
 abbreviated here; each task's own `<acceptance_criteria>` carries the full form.
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | Status |
 |---------|------|------|-------------|-----------|-------------------|--------|
 | 20-01-T1 | 20-01 | 1 | CLNT-23..31 | source assertion | `grep -c '^- \[ \] \*\*CLNT-2[3-9]...' .planning/REQUIREMENTS.md` = 9; `git cat-file -t $(head -1 20-BASE-COMMIT.txt)` | ⬜ pending |
 | 20-01-T2 | 20-01 | 1 | CLNT-27 | source assertion + invariant | `grep -q 'D-IMPL-163' docs/DECISIONS.md`; append-only diff check; `pytest tests/invariants/test_citation_coverage.py -q` | ⬜ pending |
-| 20-01-T3 | 20-01 | 1 | CLNT-27 | document schema assertion | `.venv/bin/python -c` yaml probe: six rows, role keys, 3 above / 3 below | ⬜ pending |
+| 20-01-T3 | 20-01 | 1 | CLNT-27 | document schema assertion | `.venv/bin/python -c` yaml probe: six rows, role keys, 3 above / 3 below, plus the marker fast-fail (distinct, ≥4 chars, non-substring, non-hex, no chrome collision) | ⬜ pending |
 | 20-01-T4 | 20-01 | 1 | CLNT-27 | pipeline + idempotency | `pytest tools/docs_tests/test_retirement_sweep.py -q`; `make gate-tools`; two-run byte-compare of the regenerated report | ⬜ pending |
 | 20-02-T1 | 20-02 | 2 | CLNT-27 | behavior | `.venv/bin/python -c` two consecutive `seeded_subject` drives; `git status --porcelain examples/hw1-companies-over-revenue/` empty | ⬜ pending |
 | 20-02-T2 | 20-02 | 2 | CLNT-24 | behavior | `.venv/bin/python examples/hw1-harness-clients/runner/run.py \| grep -Eq '[0-9a-f]{64}'`; `compare_addresses` probe | ⬜ pending |
 | 20-02-T3 | 20-02 | 2 | CLNT-31 | make wiring + unit | `make -n example-hw1-harness-clients`; `pytest tests/examples/test_hw1_harness_clients_wiring.py -q` | ⬜ pending |
 | 20-03-T1 | 20-03 | 3 | CLNT-23 | AST assertion + behavior | zero-`ccf` AST probe on `client_adk.py`; no-domain-literal grep; hand drive prints 64-hex | ⬜ pending |
 | 20-03-T2 | 20-03 | 3 | CLNT-23 | AST assertion + behavior | same probe on `client_langgraph.py`; `git diff --stat -- pyproject.toml` = 0 | ⬜ pending |
-| 20-03-T3 | 20-03 | 3 | CLNT-24 | behavior + 3 controls | `make example-hw1-harness-clients`; distinct 64-hex count = 1; `payload_violations` probe (address-only stdout refused, empty marker list refused); unknown-leg exits non-zero | ⬜ pending |
+| 20-03-T3 | 20-03 | 3 | CLNT-24 | behavior + 6 controls | `make example-hw1-harness-clients`; distinct 64-hex count = 1; `payload_violations` probe (address-only stdout refused, empty marker list refused); `marker_violations` probe (substring, hex-only and chrome-colliding marker sets each refused); unknown-leg exits non-zero | ⬜ pending |
 | 20-04-T1 | 20-04 | 4 | CLNT-26 | behavior + 3 controls | `offline_cli_environment` nine-variable probe; drift / exhaustion / orphan refusals observed | ⬜ pending |
 | 20-04-T2 | 20-04 | 4 | CLNT-23 | AST assertion + behavior | zero-`ccf` AST probe on `client_anthropic.py`; no `api.anthropic.com`; `pyproject.toml`/`ci.yml` unchanged | ⬜ pending |
 | 20-04-T3 | 20-04 | 4 | CLNT-24, CLNT-26 | behavior | `make example-hw1-harness-clients`; distinct 64-hex count = 1; `pgrep -f model_stub.py` empty | ⬜ pending |
-| 20-05-T1 | 20-05 | 5 | CLNT-26 | in-process drive + 3 controls | `pytest tests/examples/test_hw1_harness_clients_no_model.py -q`; full `tests/examples` green (no guard leak) | ⬜ pending |
+| 20-05-T1 | 20-05 | 5 | CLNT-26 | in-process drive + 3 controls | `pytest tests/examples/test_hw1_harness_clients_no_model.py -q`; full `tests/examples` green (no guard leak). **Scoped gates only — `make ci-core` is asserted by T2, the task that regenerates the inventory** | ⬜ pending |
 | 20-05-T2 | 20-05 | 5 | CLNT-26 | AST assertion + 3 controls | `grep -c '--live"' run.py` = 1; no `live-model`/`live-deployment`; `pytest …no_model.py -q` | ⬜ pending |
 | 20-06-T1 | 20-06 | 6 | CLNT-25 | AST gate + controls C-20-1..7 | `pytest tests/examples/test_client_example_purity.py -q`; per-root probe; `grep -c rglob` = 0 | ⬜ pending |
 | 20-06-T2 | 20-06 | 6 | CLNT-25 | budget gate + C-20-9 | `pytest tests/examples/test_client_example_budget.py -q`; `declared_budget` non-None; every client fits; headroom ≤ 30 lines over the largest client | ⬜ pending |
 | 20-06-T3 | 20-06 | 6 | CLNT-25 | command identity + C-20-8 | `pytest tests/examples/test_client_example_purity.py -q`; `make ci-core` | ⬜ pending |
 | 20-07-T1 | 20-07 | 7 | CLNT-29 | tree assertion | `test ! -d examples/s2-01-external-consumers`; one client per harness; `D-IMPL-125` unchanged | ⬜ pending |
-| 20-07-T2 | 20-07 | 7 | CLNT-29 | tree assertion + 4 controls | `pytest tests/examples/test_hw1_harness_clients_retirement.py -q`; `grep -rn 's2-01' tests/` = 0 | ⬜ pending |
+| 20-07-T2 | 20-07 | 7 | CLNT-29 | tree assertion + 5 controls | `pytest tests/examples/test_hw1_harness_clients_retirement.py -q`; `grep -rn 's2-01' tests/` = 0. **Scoped gates only — T1's move stales the inventory, so `make gate-tools` and `make ci` are asserted by T3, the task that regenerates** | ⬜ pending |
 | 20-07-T3 | 20-07 | 7 | CLNT-30 | pipeline + idempotency | `grep -c '^## ' 00-hello-context/README.md` = 7; `make example-ext-00`; `make gate-tools`; sweep re-run diff empty | ⬜ pending |
 | 20-08-T1 | 20-08 | 8 | CLNT-31 | structural + gate re-run | `pytest test_client_example_purity.py test_client_example_budget.py test_citation_coverage.py -q`; gated lines unchanged | ⬜ pending |
 | 20-08-T2 | 20-08 | 8 | CLNT-31, CLNT-26 | structural + 5 controls | `pytest tests/examples/test_hw1_harness_clients_readme.py -q`; three live targets; none in `examples:` | ⬜ pending |
@@ -158,6 +173,7 @@ that each gap below has an owner and that its owner precedes its consumers.
 | Regenerated `docs/surface/examples/RETIREMENT-COUPLINGS.md` after the move | 20-07 T3 | 7 | `make gate-tools`, `CLNT-16` |
 | README-structure test | 20-08 T2 | 8 | criterion 9 |
 | Product-payload assertion for every leg | 20-03 T3 | 3 | criteria 1-3 |
+| Marker check `run.py::marker_violations` — the properties the payload assertion greps for | 20-03 T3 | 3 | criteria 1-3, via `payload_violations` |
 | Criterion-7 empty-diff assertion + its fixed base | 20-01 T1, 20-08 T3 | 1, 8 | criterion 7 |
 
 **Four ordering constraints are load-bearing and are encoded in `depends_on`:**
@@ -207,6 +223,7 @@ harness/MCP packages are already pinned dev dependencies.
 | `make`-target wiring in `examples:` | 20-02 T3 | missing target · empty prerequisites · no `examples:` line | 3 |
 | Per-leg address comparison | 20-02 T2, 20-03 T3 | empty observation · divergent address · unknown leg name | 3 |
 | **Product payload printed, not just the address** (criteria 1-3) | 20-03 T3 | address-only stdout · marker-set divergence from the reference run · empty marker list | 3 |
+| **Marker validity — the properties `payload_violations` greps for** (Dave, revision 3) | 20-03 T3 | **CONTROL D** a name that is a substring of another declared name · **CONTROL E** a name composed only of hex digits · **CONTROL F** a name whose words collide with the console vocabulary `consume.py::main` prints | 3 |
 | Model stand-in fail-loud behaviour | 20-04 T1 | drift · exhaustion · orphan declaration | 3 |
 | Leg-2 determinism (stand-in failure is the run's failure) | 20-04 T3 | removed declared exchange | 1 |
 | No-model socket guard | 20-05 T1 | `create_connection` refused · `socket.connect` refused · restore after exit | 3 |
@@ -219,9 +236,16 @@ harness/MCP packages are already pinned dev dependencies.
 | Live targets outside `examples:` | 20-08 T2 | missing target · live target inside `examples:` | 2 |
 | Criterion-7 empty diff | 20-08 T3 | a base/path pair that DOES differ · an unresolvable base | 2 |
 
-**42 named controls.** Each plan's acceptance criteria require the executor to record,
+**45 named controls.** Each plan's acceptance criteria require the executor to record,
 per control, the exact mutation that made it fail and the observed output — and to
 state explicitly *"controls that could not be made to fail: none"*, or to name them.
+
+The count moved from 42 on Dave's revision-3 ruling that the company-name marker
+properties must be *asserted, not only stated in prose*: `payload_violations` is
+what makes criteria 1-3 real rather than address-only, and it is only as strong as
+the markers it greps for, so a degenerate marker set would leave that gate green
+while the property it protects is false. One control per property, because one
+control standing for all three would leave two of them unmeasured.
 
 **Two deliberate absences, recorded so neither reads as a gap.**
 
