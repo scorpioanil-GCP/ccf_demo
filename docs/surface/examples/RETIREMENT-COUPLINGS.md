@@ -206,7 +206,7 @@ Rows by coupling shape:
 | `tests/cli/test_schema_export.py` | 60 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/artifacts` |
 | `tests/client/conformance/suite.py` | 377 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 410 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/client/conformance/test_the_suite_fires.py` | 156 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/client/conformance/test_the_suite_fires.py` | 199 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/conformance/test_a3_discharge.py` | 31 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
 | `tests/conformance/test_harness_portability.py` | 58 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
 | `tests/conformance/test_harness_portability.py` | 76 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |

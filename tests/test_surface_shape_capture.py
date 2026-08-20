@@ -508,6 +508,21 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf_runtime.http_api.routes.canonical_response": (
         "17-10-both-doors-carry-the-replay-reference.md"
     ),
+    # `C-05` (Phase 19, plan `19-02`). `decode_outcome`'s return went from
+    # `WireOutcome` to the `DecodedOutcome` pair, so a caller reads the outcome
+    # off `.outcome` and the vessel off `.vessel`. Not an additive widening —
+    # the return type changed and every call site that read a field off it had
+    # to move — and the entry does not pretend otherwise. It is listed here
+    # because the shape genuinely moved and the fragment records why, in full,
+    # under `reshaped`: with `C-05` putting this function on the shipped path,
+    # a `ProductClient` that received only the outcome would have to re-parse
+    # `product_json` to get the vessel `Result` requires, which is a second
+    # contract validation on a second decode path — the defect `D-12` exists to
+    # prevent. The allowance's contract is *claimed by name in the fragment it
+    # cites*, not *changed only additively*.
+    "ccf.client.codec.decode_outcome": (
+        "19-02-the-adapter-seam-carries-bytes.md"
+    ),
 }
 
 
