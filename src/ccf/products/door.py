@@ -59,17 +59,35 @@ asymmetry is a property of the transports, not a difference in what the two
 doors carry**, and ``tests/mcp/test_egress_refusal_envelope.py`` holds the two
 to the identical string for the identical question.
 
+One shape, and it is defined here
+---------------------------------
+``C-06`` (Phase 19, ``19-CONTEXT.md``) collapsed the door's outcome shape and
+the client's wire outcome shape into **one**: a door emits precisely what a
+client decodes, so no transcoding step exists between them — and a transcoding
+step is exactly where an adapter can re-source the echo from client state
+rather than from the wire (``D-IMPL-151`` finding ``B0``). :class:`DoorOutcome`
+is that one shape and ``ccf.client.wire.WireOutcome`` is an alias of it.
+:class:`WireRequest` moved here for the same placement reason the paragraph
+above gives: the door has to name the type it echoes, and a producer-side shape
+module cannot import the client package without reversing the established
+layering.
+
 This module is algorithmic (CINV-03): pure functions over typed values, no
 I/O, no clock, no LLM dependency ever.
 """
 
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import canonical_bytes
 from ccf.products.contract import ContextProductContract
 from ccf.products.gates import ServableProduct
 from ccf.products.refusal import (
@@ -87,6 +105,9 @@ __all__ = [
     "PRODUCT_REQUEST_TOOL",
     "DoorOutcome",
     "ServedAnswer",
+    "WireRequest",
+    "door_answer",
+    "door_question",
     "door_refusal",
     "served_answer",
 ]
@@ -111,6 +132,163 @@ __all__ = [
 PRODUCT_REQUEST_TOOL = "request_context_product"
 
 
+def _unstable_parameter(value: object, path: str) -> tuple[str, object] | None:
+    """Find the first parameter value that does not survive the wire unchanged.
+
+    Returns the dotted path and the offending value, or ``None`` when every
+    value in the tree crosses and comes back equal to itself.
+
+    The admissible set is the JSON-native one — text, whole numbers, booleans,
+    absence, and mappings and lists of those. It is deliberately *narrower* than
+    what the canonical serializer accepts, and the difference is the whole point
+    of this function: the serializer renders a ``Decimal`` as text, an instant
+    as an RFC3339 string, and a set as a sorted array, all of which are correct
+    canonical renderings and none of which come back as the type that went out
+    when the receiving field is annotated ``Any``. A tuple is excluded for the
+    same reason and not by oversight — it returns as a list, and a list does not
+    equal a tuple.
+    """
+    if value is None or isinstance(value, (bool, int, str)):
+        return None
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            if not isinstance(key, str):
+                return (path, key)
+            found = _unstable_parameter(item, f"{path}.{key}")
+            if found is not None:
+                return found
+        return None
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            found = _unstable_parameter(item, f"{path}[{index}]")
+            if found is not None:
+                return found
+        return None
+    return (path, value)
+
+
+class WireRequest(CCFContract):
+    """The question, in the shape an adapter carries but never interprets.
+
+    ``D-11``: an adapter's whole job is to get this to a producer and get an
+    outcome back. It reads no member of this type to decide anything.
+
+    **There is no version member, and the omission is deliberate.** ``D-04``
+    fixes the client API at ``for_product(product_id, binding=None)`` with no
+    version parameter, because a caller pinning a schema version at the client
+    is a caller maintaining a copy of the deployment's registry. The version is
+    resolved server-side from the deployment's registered class and reported
+    back on the served vessel's ``schema_version`` — so it travels in the
+    answer, where the producer is the authority, rather than in the question,
+    where the client would be guessing.
+
+    Attributes:
+        product_id: The product class the question addresses.
+        parameters: The class-declared remainder of the question. An empty
+            mapping is a question that needed nothing beyond its axes — a
+            positive statement, not a missing value.
+        temporal_boundary: The instant to answer against, **timezone-aware or
+            absent**. ``None`` is the positive assertion *defer to the server's
+            decision instant*, which is the rule ``D-04`` documents on
+            ``ask()``; it is not an unset field. A naive instant is refused at
+            construction — see
+            :meth:`_temporal_boundary_survives_the_wire`.
+    """
+
+    product_id: str
+    parameters: Mapping[str, Any]
+    temporal_boundary: datetime | None
+
+    @field_validator("parameters")
+    @classmethod
+    def _parameters_survive_the_wire(
+        cls, value: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        """Refuse a parameter value that would come back as a different type.
+
+        This guard is what makes the outcome's echo cross-check sound, and
+        without it that cross-check produces **false wire failures**. The
+        mechanism, stated once so it is not re-derived: ``parameters`` is
+        annotated ``Any``, so the canonical serializer's correct rendering of a
+        ``Decimal`` (text) or an instant (an RFC3339 string) is parsed back as
+        text, and the decoded echo then differs from the request that was sent.
+        The decoder compares the two and reports a ``TransportError`` — on a
+        wire that worked perfectly.
+
+        So the choice is not between strict and lax. It is between refusing the
+        value at construction, where the message can name the wire-stable
+        spelling, and reporting a transport failure that never happened at a
+        point where nothing can diagnose it. ``D-08``'s posture decides it: the
+        fabric never silently degrades a caller's value.
+        """
+        found = _unstable_parameter(value, "parameters")
+        if found is None:
+            return value
+        path, offending = found
+        raise ValueError(
+            f"{path} is a `{type(offending).__name__}`, which does not survive"
+            " the wire unchanged — canonical JSON renders it as text, so the"
+            " decoded echo would differ from what was sent and the"
+            " `WireOutcome.request` cross-check would report a transport"
+            " failure on a healthy wire. Wire-stable parameter values are"
+            " `str`, `int`, `bool`, `None`, and `dict`/`list` of those; render"
+            " a `Decimal` with `format(value, 'f')` and an instant with"
+            " `ccf.contracts.canonical.canonical_timestamp`"
+        )
+
+    @field_validator("temporal_boundary")
+    @classmethod
+    def _temporal_boundary_survives_the_wire(
+        cls, value: datetime | None
+    ) -> datetime | None:
+        """Refuse a naive instant, at the seam, before any transport sees it.
+
+        ``D-IMPL-151`` finding ``B0b``. The sibling of
+        :meth:`_parameters_survive_the_wire`, one field over and for the same
+        reason: a value that cannot cross is refused where the message can name
+        the spelling that can, rather than surfacing as whatever each transport
+        happens to make of it.
+
+        **The defect this repairs, as measured.** With a naive ``--as-of``, the
+        two shipped transports answered the same question with two different
+        exception classes — ``inprocess:`` raised
+        :class:`~ccf.contracts.canonical.CanonicalizationError` out of the graph
+        backend, and ``mcp+stdio:`` raised
+        :class:`~ccf.client.errors.TransportError` because the far door refused
+        an ``asked_at`` with no offset and a raised door refusal reaches a client
+        as a wire error. So the same caller mistake was two different failures,
+        and on one transport it was reported as *the wire never spoke*. That is
+        ``D-10``'s inversion running backwards: an exception reserved for "no
+        governed answer arrived" used to report a caller's malformed argument,
+        at a point where nothing downstream can tell the two apart.
+
+        **Why a naive instant cannot cross.** ``D-IMPL-38`` admits no implicit
+        UTC anywhere in the fabric: the canonical serializer refuses a naive
+        datetime outright rather than guessing an offset, and both product doors
+        refuse a naive ``asked_at`` by name. The instant a question is asked
+        as-of is the boundary a replay resolves against, and a boundary whose
+        offset is the producing host's local configuration is a boundary that
+        replays differently on a different host.
+
+        ``None`` is admitted unchanged and is not the same fact: it is the
+        positive assertion *defer to the server's decision instant* (``D-04``),
+        which is a question the fabric can answer.
+        """
+        if value is None or value.utcoffset() is not None:
+            return value
+        raise ValueError(
+            f"temporal_boundary {value.isoformat()!r} carries no UTC offset,"
+            " and a naive instant cannot cross this seam — the canonical"
+            " serializer refuses it rather than guessing an offset, and both"
+            " product doors refuse a naive `asked_at` by name, so the same"
+            " question would fail differently on every transport (D-IMPL-38)."
+            " Attach an explicit timezone: `datetime(..., tzinfo=UTC)`, or"
+            " `value.replace(tzinfo=UTC)` if the instant is already UTC, or"
+            " `datetime.fromisoformat('2026-08-01T00:00:00+00:00')`. Pass"
+            " `None` to ask against the server's own decision instant"
+        )
+
+
 class DoorOutcome(CCFContract):
     """One wire answer from a door: a served vessel, or a refusal.
 
@@ -118,11 +296,43 @@ class DoorOutcome(CCFContract):
     today is the MCP product tool. See the module docstring for why a refusal
     cannot be raised there, and why the vessel rides as text.
 
+    **This is also what a client decodes.** ``C-06`` merged this class with the
+    former ``ccf.client.wire.WireOutcome``, which is now an alias of it, so the
+    emitted shape and the decoded shape are the same object rather than two
+    declarations kept in step by hand.
+
+    **The content address is an outcome-level sibling of the vessel, never a
+    member of it.** The reason is recorded at
+    ``ccf_runtime.http_api.routes::canonical_response`` and holds here
+    unchanged: the vessel's bytes *are* the product, so carrying the address
+    inside them would change the bytes and therefore change the address they
+    claim. This envelope is a wrapper *around* the vessel, so the sibling always
+    has room — which is why the address is required on a served outcome rather
+    than optional. Every producer can compute it in one stdlib line from the
+    bytes it already holds, so "the transport had no channel for it" is not a
+    reachable case here, and admitting it as one would leave the decoder's
+    recomputation with nothing to compare against exactly when it matters.
+
     Attributes:
+        request: The question, echoed back. The decoder cross-checks it against
+            the request that was actually sent — see
+            :func:`ccf.client.codec.decode_outcome` for why an echo rather than
+            a reconstruction, **and for the measured fact that both shipped
+            adapters fill this member from the request they were handed rather
+            than from the wire, which makes that cross-check inert on every
+            shipped transport today** (``D-IMPL-151`` finding ``B0``, an open
+            blocking defect deferred to its own phase).
         product_json: The UTF-8 text of the served vessel's canonical bytes, or
             ``None`` on a refusal. Text and never a byte string, and never a
             nested JSON object: the string *is* the producer's serialization,
             so a consumer's ``sha256`` of it is the producer's content address.
+        content_address: The vessel's content address on a served outcome, and
+            ``None`` on a refusal — a refusal is not a content-addressed
+            artifact. Always recomputed by the decoder and never trusted from
+            the wire — though on both shipped adapters the value recomputed
+            against is one the adapter itself derived from the same
+            ``product_json``, so the comparison cannot currently disagree. Same
+            deferred defect as ``request`` above.
         replay_ref: The versioned URI of the replay record whose successful
             append authorized this delivery
             (:attr:`~ccf.artifacts.protocol.ArtifactRef.uri`), or ``None``.
@@ -136,7 +346,9 @@ class DoorOutcome(CCFContract):
             served outcome.
     """
 
+    request: WireRequest
     product_json: str | None
+    content_address: str | None
     replay_ref: str | None
     refusal: RefusalEnvelope | None
 
@@ -149,6 +361,15 @@ class DoorOutcome(CCFContract):
         cannot construct their way around. Three states would mean every
         consumer writes its own answer to "what does neither mean", and they
         would not all write the same one.
+
+        **Five rules, and the count is the point.** ``C-06`` merged this
+        validator with the former ``WireOutcome``'s; two of the seven raises
+        across the two originals were the same rule said in different words,
+        so the union is five. Each is named in ``19-01-PLAN.md`` Task 1 and
+        each carries its own assertion in
+        ``tests/products/test_door_answer.py``, because a merge that silently
+        dropped one would leave the surviving class weaker than either of the
+        two it replaced.
         """
         served = self.product_json is not None
         refused = self.refusal is not None
@@ -162,6 +383,18 @@ class DoorOutcome(CCFContract):
                 "a `DoorOutcome` carries a served vessel or a refusal, and this"
                 " one carries neither; a door with nothing to say raises rather"
                 " than emitting an empty answer"
+            )
+        if served and self.content_address is None:
+            raise ValueError(
+                "a served `DoorOutcome` carries the vessel's content address;"
+                " it is computable from `product_json` in one stdlib line, so"
+                " omitting it leaves the decoder's recomputation nothing to"
+                " check against"
+            )
+        if refused and self.content_address is not None:
+            raise ValueError(
+                "a refused `DoorOutcome` carries no content address — a refusal"
+                " is a governed answer, not a content-addressed artifact"
             )
         if refused and self.replay_ref is not None:
             raise ValueError(
@@ -316,4 +549,106 @@ def door_refusal(
             parameters=asked.parameters,
             temporal_boundary=asked.asked_at,
         ),
+    )
+
+
+def door_question(asked_json: str) -> WireRequest:
+    """Parse the question a caller encoded, so the door echoes what it *parsed*.
+
+    ``C-01`` (Phase 19): the echo must be filled from what the door decoded off
+    its own wire, never from an object it was handed. The parameter is
+    **text** for exactly that reason — a door given an already-constructed
+    :class:`WireRequest` would be echoing the caller's copy back to the caller,
+    which is the reconstruction ``D-IMPL-151`` finding ``B0`` measured and this
+    entry exists to make impossible.
+
+    Args:
+        asked_json: The canonical bytes of the caller's :class:`WireRequest`,
+            decoded to UTF-8 text — what a transport actually carries.
+
+    Returns:
+        The question, exactly as it crossed.
+
+    Raises:
+        pydantic.ValidationError: ``asked_json`` is not a well-formed
+            :class:`WireRequest`. Re-raised as itself rather than wrapped: a
+            door handed a malformed request argument has been called
+            malformedly, and at the MCP door the raise reaches a client as
+            ``isError`` — the boundary ``D-IMPL-148`` Addendum A drew.
+    """
+    return WireRequest.model_validate_json(asked_json)
+
+
+def door_answer(
+    resolved: object,
+    *,
+    echo: WireRequest,
+    resolved_request: ProductRequest,
+    product_class: str,
+    version: str,
+) -> bytes:
+    """The canonical bytes a door puts on an envelope-carrying wire.
+
+    The one emission site for :class:`DoorOutcome`, so a door states what it
+    was asked and what its bytes hash to without either fact being assembled
+    twice (``C-01``, ``C-04``, ``C-06``).
+
+    **``echo`` and ``resolved_request`` are different facts, which is why they
+    do not share a name.** ``echo`` is the question as the caller stated it and
+    is echoed **verbatim**: on the temporal axis its ``temporal_boundary`` may
+    be ``None``, which is the positive assertion *answer against the decision
+    instant* and must come back as ``None`` (``C-02``, ``C-15``).
+    ``resolved_request.asked_at`` is the instant the door actually answers at
+    and is never ``None``. Deriving either from the other reintroduces the
+    vacuity ``C-02`` rejected, one field over.
+
+    **The vessel is serialized exactly once** and the content address is
+    ``sha256`` of those same bytes — the discipline
+    ``ccf_runtime.http_api.routes::canonical_response`` records, because two
+    serializations are two chances to disagree and a claimed address that
+    disagreed with the bytes beside it would be a checkable claim that is
+    false by construction.
+
+    Args:
+        resolved: What the deployment's resolver returned — a served shape or
+            a refusal, exactly as :func:`served_answer` and
+            :func:`door_refusal` already accept.
+        echo: The question the door parsed off its own wire, via
+            :func:`door_question`.
+        resolved_request: The typed question the door resolved and answered
+            against, and the one :func:`door_refusal` names in a refusal's
+            request identity.
+        product_class: The class the door already resolved and entitled.
+        version: The class's own semver lane, on the same terms.
+
+    Returns:
+        The outcome's canonical bytes. **Bytes** rather than text, because the
+        caller puts them on a wire without a second rendering.
+    """
+    refusal = door_refusal(
+        resolved,
+        asked=resolved_request,
+        product_class=product_class,
+        version=version,
+    )
+    if refusal is not None:
+        return canonical_bytes(
+            DoorOutcome(
+                request=echo,
+                product_json=None,
+                content_address=None,
+                replay_ref=None,
+                refusal=refusal,
+            )
+        )
+    answer = served_answer(resolved)
+    vessel = canonical_bytes(answer.product)
+    return canonical_bytes(
+        DoorOutcome(
+            request=echo,
+            product_json=vessel.decode("utf-8"),
+            content_address=hashlib.sha256(vessel).hexdigest(),
+            replay_ref=answer.replay_ref,
+            refusal=None,
+        )
     )
