@@ -1675,7 +1675,7 @@ prose was corrected in-phase to say so at the source.
 Plans:
 - [x] 19-01-PLAN.md — One wire shape carrying the question the door parsed and the address it computed; the MCP tool's required encoded request
 - [x] 19-02-PLAN.md — The seam retyped to `ask(WireRequest) -> bytes`; both adapters stop constructing outcomes; in-process becomes a degenerate wire in both directions
-- [ ] 19-03-PLAN.md — Single-transport controls: a crossed question and an altered vessel caught by one client, plus codec-level byte sabotage and the ordering guard
+- [x] 19-03-PLAN.md — Single-transport controls: a crossed question and an altered vessel caught by one client, plus codec-level byte sabotage and the ordering guard
 - [x] 19-04-PLAN.md — The conformance tamper legs: every registered adapter wrapped in a byte-corrupting decorator it cannot opt out of
 - [x] 19-05-PLAN.md — The AST gate proving no module under `src/ccf/client/adapters/` constructs the outcome, with its named sabotage control
 - [x] 19-06-PLAN.md — The HTTP door reconciled: the request echo joins the `X-CCF-*` siblings, absent when no question was posed
