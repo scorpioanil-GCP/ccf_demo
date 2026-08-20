@@ -773,6 +773,269 @@ def test_the_outcome_scan_reads_every_adapter_module() -> None:
 
 
 # --------------------------------------------------------------------------
+# C-17 — the controls, each passing a divergent adapter into the same function
+# --------------------------------------------------------------------------
+
+
+def _write_adapter(root: pathlib.Path, name: str, body: str) -> pathlib.Path:
+    """Materialize one adapter module into ``root`` and return its path.
+
+    These controls write **files**, where :func:`assert_public_surface`'s
+    controls build a **module object**, and the difference is not stylistic.
+    That assertion reads ``__all__`` off an imported module, so a file on disk
+    is not a subject it can see; this one reads files, so a module object is
+    not a subject it can see. Each control hands the shipped function the kind
+    of divergent subject that function actually reads — which is the whole
+    design this module's header states.
+
+    Nothing here edits ``src/``.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / name
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+#: The construction a forging adapter would write, in five spellings. Every
+#: one of them reaches the same class, so a gate that caught only some of them
+#: would be a gate an adapter author defeats by changing an import line.
+_FORGES_BY_NAME: Final = (
+    "from ccf.client.wire import WireOutcome\n"
+    "def ask(request):\n"
+    "    return WireOutcome(request=request, product_json='{}',\n"
+    "                       content_address='a', replay_ref=None,\n"
+    "                       refusal=None)\n"
+)
+_FORGES_FROM_THE_DOOR_MODULE: Final = (
+    "from ccf.products.door import DoorOutcome\n"
+    "def ask(request):\n"
+    "    return DoorOutcome(request=request, product_json='{}',\n"
+    "                       content_address='a', replay_ref=None,\n"
+    "                       refusal=None)\n"
+)
+_FORGES_UNDER_AN_ALIAS: Final = (
+    "from ccf.client.wire import WireOutcome as _Shape\n"
+    "def ask(request):\n"
+    "    return _Shape(request=request, product_json='{}',\n"
+    "                  content_address='a', replay_ref=None, refusal=None)\n"
+)
+_FORGES_DEEP_IN_A_FUNCTION_BODY: Final = (
+    "from ccf.client.wire import WireOutcome\n"
+    "def ask(request):\n"
+    "    def _answer():\n"
+    "        return WireOutcome(request=request, product_json='{}',\n"
+    "                           content_address='a', replay_ref=None,\n"
+    "                           refusal=None)\n"
+    "    return _answer()\n"
+)
+_FORGES_THROUGH_AN_ATTRIBUTE: Final = (
+    "import ccf.client.wire\n"
+    "def ask(request):\n"
+    "    return ccf.client.wire.WireOutcome(request=request,\n"
+    "                                       product_json='{}',\n"
+    "                                       content_address='a',\n"
+    "                                       replay_ref=None, refusal=None)\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("source", "why"),
+    [
+        pytest.param(
+            _FORGES_BY_NAME,
+            "the plain import, which is the shape the seam retype removed",
+            id="imported-from-ccf.client.wire",
+        ),
+        pytest.param(
+            _FORGES_FROM_THE_DOOR_MODULE,
+            "the same class reached through the module that defines it",
+            id="imported-from-ccf.products.door",
+        ),
+        pytest.param(
+            _FORGES_UNDER_AN_ALIAS,
+            "a two-character rename, which is all it takes to defeat a grep",
+            id="imported-under-an-as-alias",
+        ),
+        pytest.param(
+            _FORGES_DEEP_IN_A_FUNCTION_BODY,
+            "a construction deferred into a nested function, where an adapter"
+            " would actually put one",
+            id="nested-in-a-function-body",
+        ),
+        pytest.param(
+            _FORGES_THROUGH_AN_ATTRIBUTE,
+            "an attribute-qualified call, which binds no local name at all",
+            id="attribute-qualified-call",
+        ),
+    ],
+)
+def test_control_the_outcome_scan_counts_a_forging_adapter(
+    tmp_path: pathlib.Path, source: str, why: str
+) -> None:
+    """CONTROL 13-17 — five spellings of one forgery, all counted.
+
+    ``CLNT-12`` / ``D-22``: the gate ships with a control that makes it fail.
+    The subject is a ``tmp_path`` tree passed **into the shipped function**, so
+    each case exercises the walk the build runs rather than a copy of its
+    logic.
+    """
+    written = _write_adapter(tmp_path, "rogue_adapter.py", source)
+
+    counts = count_outcome_construction_sites([tmp_path])
+
+    assert counts[written.as_posix()] == 1, (
+        f"the gate must count {why}; it did not, so an adapter written that"
+        " way would forge the echo with the build green"
+    )
+    with pytest.raises(AssertionError, match="rogue_adapter.py"):
+        assert_no_adapter_constructs_the_outcome([tmp_path])
+
+
+def _names_only_sites(tree: ast.Module) -> int:
+    """A deliberately weakened walk — import-resolved names only.
+
+    Exists for exactly one control, which holds the **necessity** of the
+    attribute rule rather than merely its presence.
+    """
+    aliases = _outcome_aliases(tree)
+    return sum(
+        1
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in aliases
+    )
+
+
+def _module_scope_only_sites(tree: ast.Module) -> int:
+    """A deliberately weakened walk — module-level statements only.
+
+    The other half of the same argument, for the control below.
+    """
+    aliases = _outcome_aliases(tree)
+    found = 0
+    for statement in tree.body:
+        if isinstance(
+            statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+        ):
+            continue
+        for node in ast.walk(statement):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in aliases
+            ):
+                found += 1
+    return found
+
+
+def test_control_the_attribute_rule_is_the_only_thing_that_catches_case_five() -> None:
+    """CONTROL 18 — the attribute shape binds no local name, and that is the point.
+
+    ``import ccf.client.wire`` followed by ``ccf.client.wire.WireOutcome(...)``
+    never binds the class to a name in the module, so alias resolution has
+    nothing to resolve and a name-only walk counts **zero** for a module that
+    plainly forges an outcome. This is not a hypothesis about the walk — it is
+    asserted here against a deliberately weakened copy, so a reader who later
+    "simplifies" :func:`_outcome_construction_sites` back to one shape finds a
+    red test that explains what the simplification costs.
+    """
+    tree = ast.parse(_FORGES_THROUGH_AN_ATTRIBUTE)
+
+    assert _names_only_sites(tree) == 0
+    assert _outcome_construction_sites(tree) == 1
+
+
+def test_control_the_full_walk_is_the_only_thing_that_catches_case_four() -> None:
+    """CONTROL 19 — the construction is inside a function, which is where it lives.
+
+    An adapter does not construct an outcome at import time; it constructs one
+    inside ``ask``. A walk over module-level statements counts **zero** for
+    exactly that shape, asserted here rather than assumed, which is why the
+    shipped walk is :func:`ast.walk` over the whole module. ``CLNT-14``'s
+    purity gate carries the same lesson about function-body-deferred imports.
+    """
+    tree = ast.parse(_FORGES_DEEP_IN_A_FUNCTION_BODY)
+
+    assert _module_scope_only_sites(tree) == 0
+    assert _outcome_construction_sites(tree) == 1
+
+
+def test_control_the_outcome_scan_does_not_count_a_mere_annotation(
+    tmp_path: pathlib.Path,
+) -> None:
+    """CONTROL 20 — the first vacuity case: importing is not constructing.
+
+    Without this and its sibling, a walk that returned non-zero for every
+    module would pass every control above and prove nothing. The assertion is
+    ``== 0`` on **this module's entry**, not on the mapping being empty — an
+    empty mapping would mean nothing was read, which is a different and worse
+    condition.
+    """
+    written = _write_adapter(
+        tmp_path,
+        "honest_adapter.py",
+        "from ccf.client.wire import WireOutcome\n"
+        "def ask(request) -> WireOutcome: ...\n",
+    )
+
+    assert count_outcome_construction_sites([tmp_path])[written.as_posix()] == 0
+
+
+def test_control_the_outcome_scan_does_not_count_an_unrelated_module(
+    tmp_path: pathlib.Path,
+) -> None:
+    """CONTROL 21 — the second vacuity case, and the zeros that make it countable."""
+    written = _write_adapter(tmp_path, "innocent.py", "X = 1\n")
+
+    counts = count_outcome_construction_sites([tmp_path])
+
+    assert counts == {written.as_posix(): 0}
+
+
+def test_control_the_outcome_scan_refuses_a_root_it_cannot_resolve(
+    tmp_path: pathlib.Path,
+) -> None:
+    """CONTROL 22 — an unresolvable root fails loudly rather than contributing nothing.
+
+    This is the shape of the defect that ran for a full wave: a sweep that
+    skips what it cannot resolve reports green while checking less.
+    """
+    with pytest.raises(AssertionError, match="is not a directory"):
+        count_outcome_construction_sites([tmp_path / "there-is-no-such-tree"])
+
+
+def test_control_the_outcome_scan_refuses_a_file_it_cannot_parse(
+    tmp_path: pathlib.Path,
+) -> None:
+    """CONTROL 23 — an unparsable module is flagged, never skipped.
+
+    Skipping it would mean a single syntax error hides every construction site
+    in that module from the gate.
+    """
+    _write_adapter(tmp_path, "broken.py", "def (:\n")
+
+    with pytest.raises(AssertionError, match="could not be parsed"):
+        count_outcome_construction_sites([tmp_path])
+
+
+def test_control_the_outcome_assertion_refuses_a_walk_that_read_nothing(
+    tmp_path: pathlib.Path,
+) -> None:
+    """CONTROL 24 — the vacuous walk, which is the failure mode that hides.
+
+    An empty directory yields no counts, and "no module constructs one" is
+    satisfied by a scan that looked at nothing. Checked first and separately,
+    because every ceiling this gate places is satisfied by an empty walk.
+    """
+    empty = tmp_path / "nothing-here"
+    empty.mkdir()
+
+    with pytest.raises(AssertionError, match="read no modules"):
+        assert_no_adapter_constructs_the_outcome([empty])
+
+
+# --------------------------------------------------------------------------
 # D-04 — the documented `as_of` rule, asserted where a reader would look
 # --------------------------------------------------------------------------
 
