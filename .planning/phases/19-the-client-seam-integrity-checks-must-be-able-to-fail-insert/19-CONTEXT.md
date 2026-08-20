@@ -134,6 +134,57 @@ defect class beyond `B0`.
   serialization" on the answer half; the question is far smaller than the answer.
   Record the reasoning in the decision entry.
 
+### Rulings taken at planning (Dave, 2026-08-19)
+
+> These three were surfaced by `19-RESEARCH.md` (§ *Conflicts With Locked
+> Decisions*, § *Open Questions*), which recommended each be put to the user
+> rather than taken by an agent. They are decisions of the same standing as
+> `C-01`..`C-14` and become `D-IMPL-NN` entries on ratification.
+
+- **C-15:** **Stay narrow on the clock; correct the prose only.** Both adapters
+  resolve `as_of=None` → `datetime.now(UTC)` **client-side** today
+  (`mcp_stdio.py:218-220`, `inprocess.py:377`), which makes
+  `ProductClient.ask`'s promise that *"the producing deployment answers against
+  its own clock"* (`client.py:139-141`) **false on both transports**. `C-13`
+  governs: the clock read **does not move** in this phase. The encoded
+  `WireRequest` carries `temporal_boundary=None` to the door, the door echoes
+  `None` faithfully (which is what `C-02` requires and what the already-green
+  `assert_decision_instant_is_auditable` leg pins), and the door's own
+  `asked_at` remains the resolved instant it answers at. The false sentence is
+  **amended to a true one** — amend-never-delete, the same discipline
+  `codec.py`'s `B0` block already uses — and the underlying defect is recorded
+  as its own `D-IMPL` entry for a later phase rather than fixed here. Rejected:
+  moving the clock to the door (scope beyond `B0`, and a clock read cannot live
+  in the `__ccf_mode__ = "algorithmic"` `door.py` entry); and saying nothing,
+  which would leave a knowingly false claim in the shipped surface across the
+  one phase whose subject is claims matching what the code does (`C-10`).
+
+- **C-16:** **Break cleanly at the MCP tool; rule both breaks in one `D-IMPL`
+  entry.** `PRODUCT_REQUEST_TOOL` gains the encoded request as a **required**
+  argument — consistent with the tool docstring's own argument
+  (`egress.py:672-676`) that required-together is strictly stronger than
+  optional, so *"a partial address is unrepresentable rather than merely
+  refused."* This is a wire-compatibility break for any non-SDK consumer of the
+  tool; pre-1.0, there is **no deprecation window**. The same `D-IMPL` entry
+  rules the `C-08` out-of-tree adapter break that CONTEXT.md already left to
+  planning, stating the reasoning either way. Rejected: an optional argument
+  with a reconstruction fallback — a fallback that reconstructs the echo is
+  *precisely* the bypass this phase exists to close, and a member nothing sets
+  is the pattern `C-10` names; and reshaping the tool's four §6.3 axis
+  arguments wholesale, a larger break that discards the docstring's argument
+  for why the axes are separately required.
+
+- **C-17:** **A narrow AST gate proves no adapter constructs the outcome.**
+  Scoped to `src/ccf/client/adapters/` only, mirroring `CLNT-06`'s existing and
+  already-controlled `count_result_construction_sites` pattern in
+  `test_surface.py`. This is what discharges the ROADMAP's explicit *"a fix
+  that leaves the seam bypassable re-opens the defect for the next adapter"*
+  with a **red check rather than a convention** — a type change binds `mypy`
+  over `src`/`runtime` only and is invisible to an out-of-tree adapter. It
+  carries its own named sabotage control per `CLNT-12` / `D-22`. This is not
+  the "general obligations gate" `C-13` rejected: it is one assertion over one
+  directory, not a framework.
+
 ### Claude's Discretion
 Two residuals the user explicitly left to planning:
 - Whether out-of-tree adapters get a deprecation window or simply break at the
