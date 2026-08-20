@@ -14,15 +14,27 @@ fires.
 
 from __future__ import annotations
 
+import ast
 import hashlib
+import inspect
+import json
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from decimal import Decimal
+from pathlib import Path
 from typing import Any, Final, Literal, Union, get_args, get_origin
 
 import pytest
 from pydantic import ValidationError
 
-from ccf.client.codec import decode_outcome, encode_outcome, verify_content_address
+import ccf.client.codec
+from ccf.client.adapters.inprocess import InProcessAdapter
+from ccf.client.codec import (
+    check_outcome,
+    decode_outcome,
+    encode_outcome,
+    verify_content_address,
+)
 from ccf.client.errors import TransportError
 from ccf.client.wire import WireOutcome, WireRequest
 from ccf.contracts.base import CCFContract
@@ -30,6 +42,8 @@ from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.products.refusal import REFUSAL_KINDS, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequestViolation
+
+from tests.client.conftest import config_document
 
 _INSTANT: Final = datetime(2026, 8, 15, 12, 0, 0, tzinfo=UTC)
 
@@ -406,3 +420,343 @@ def test_control_a_wire_outcome_with_both_halves_or_neither_is_refused(
             replay_ref=None,
             refusal=envelope,
         )
+
+
+# --------------------------------------------------------------------------
+# Phase 19 — the checks that could not fail, handed bytes they must reject.
+#
+# `P2` and `P4` of `19-VALIDATION.md`, plus `C-04`'s refused half and the
+# statement ordering `C-04` depends on. The two legs below edit the encoded
+# `bytes` **after** `encode_outcome` produced them, which is strictly stronger
+# than the `model_copy`-then-encode controls above it: those prove the decoder
+# refuses an outcome somebody assembled wrongly, these prove it refuses bytes
+# that were correct when they left the producer.
+# --------------------------------------------------------------------------
+
+#: A parameter value chosen to appear **exactly once** in an encoded outcome's
+#: bytes, so a byte edit aimed at the echo cannot also land in the vessel. The
+#: outcome's own payload carries numbers and names that would otherwise collide.
+_ECHO_ONLY_TOKEN: Final = "sentinel-parameter-value"
+
+def a_uniquely_valued_request() -> WireRequest:
+    """The question of :func:`a_request`, with a value nothing else spells."""
+    return a_request().model_copy(
+        update={"parameters": {"revenue_threshold": _ECHO_ONLY_TOKEN}}
+    )
+
+
+def _vessel_text_of(raw: bytes) -> str:
+    """The served vessel inside ``raw``, by a raw parse and nothing more.
+
+    Never :func:`~ccf.client.codec.decode_outcome`: the decoder runs the very
+    checks these legs exist to trip, so it would raise before this could read
+    anything.
+    """
+    vessel = WireOutcome.model_validate_json(raw).product_json
+    assert vessel is not None
+    return vessel
+
+
+def _assert_the_tamper_is_attributable(raw: bytes) -> None:
+    """The discrimination guard: the tampered vessel still parses and validates.
+
+    ``19-RESEARCH.md`` Pitfall 3. :func:`~ccf.client.codec.check_outcome`
+    recomputes the address **before** it parses the contract, so a tamper that
+    corrupted the vessel into unparseability raises with the same address
+    wording and the leg stays green while proving that the parser fires. This
+    is what makes the failure attributable to the check under test.
+    """
+    tampered = _vessel_text_of(raw)
+    try:
+        json.loads(tampered)
+        ContextProductContract.model_validate_json(tampered)
+    except Exception as unattributable:
+        raise AssertionError(
+            "the tampered vessel no longer parses as JSON or no longer"
+            f" validates as a product contract — {unattributable} — so the"
+            " `TransportError` the leg caught is not attributable to the check"
+            " it names"
+        ) from unattributable
+
+
+def test_a_byte_edit_inside_the_vessel_is_caught_by_the_address_check() -> None:
+    """`P2`(b): post-encoding byte sabotage, no transport involved at all.
+
+    One token inside the served vessel is changed in the **encoded bytes**, and
+    the producer's ``content_address`` is left exactly where it was — which is
+    the corruption, truncation or re-serializing intermediary ``C-10`` names.
+    """
+    honest = encode_outcome(a_served_outcome())
+    # `.replace` over the encoded **bytes**, never a `model_copy` over the
+    # outcome: the model form is the control two sections up, and this one has
+    # to be a post-encoding edit to be strictly stronger than it. `globex` is a
+    # payload name :func:`a_vessel` spells once and the echo does not spell at
+    # all, so this edit cannot land anywhere but inside the vessel.
+    tampered = honest.replace(b"globex", b"globey")
+    assert tampered != honest, "the byte edit found nothing to change"
+
+    with pytest.raises(TransportError, match="content address"):
+        decode_outcome(tampered, sent=a_request())
+
+    _assert_the_tamper_is_attributable(tampered)
+    # The vacuity guard: the untampered bytes are served and do not raise.
+    assert decode_outcome(honest, sent=a_request()).outcome.refusal is None
+
+
+def test_a_byte_edit_inside_the_echo_is_caught_by_the_question_comparison() -> None:
+    """`P2`(b)'s sibling on the other operand — the echoed question's own bytes.
+
+    The vessel and its address are untouched, so the address check passes and
+    only the comparison against the question that was sent can catch this.
+    """
+    asked = a_uniquely_valued_request()
+    honest = encode_outcome(a_served_outcome().model_copy(update={"request": asked}))
+    assert _ECHO_ONLY_TOKEN.encode("utf-8") in honest, (
+        "the token this edit aims at is not in the encoded bytes, so the"
+        " literal below and `_ECHO_ONLY_TOKEN` have drifted apart"
+    )
+    tampered = honest.replace(b"sentinel-parameter-value", b"sentinel-parameter-valuf")
+    assert tampered != honest, "the byte edit found nothing to change"
+
+    with pytest.raises(TransportError, match="different question"):
+        decode_outcome(tampered, sent=asked)
+
+    # The discrimination guard, in its form for this leg: the vessel this edit
+    # never touched is still whole, so the failure is the echo's and not the
+    # parser's or the contract check's.
+    _assert_the_tamper_is_attributable(tampered)
+    assert _vessel_text_of(tampered) == _vessel_text_of(honest)
+    # The vacuity guard.
+    assert decode_outcome(honest, sent=asked).outcome.refusal is None
+
+
+def test_a_refusal_echoing_a_question_nobody_asked_is_a_transport_failure(
+    seeded_root: Path,
+) -> None:
+    """`C-04`: one comparison covers a served answer **and** a refusal.
+
+    Until this leg, ``C-04``'s claim was a consequence of statement order
+    rather than a measurement — nothing in the tree asserted that the echo
+    comparison reaches a refused outcome at all. A crossed refusal is a
+    governed "no" attributed to a question nobody asked, and a caller who
+    branched correctly on it records an audited refusal that never happened
+    about something they never asked.
+
+    The refusal is **captured from the fixture deployment**, never synthesized:
+    an invented one would name a refusal vocabulary the fabric does not speak,
+    and the leg would then be exercising an outcome no producer could emit.
+    """
+    declared = config_document(seeded_root)
+    refusing = WireRequest(
+        product_id=str(declared["product_class"]["schema_name"]),
+        parameters={},
+        temporal_boundary=_INSTANT,
+    )
+    captured = WireOutcome.model_validate_json(
+        InProcessAdapter(str(seeded_root)).ask(refusing)
+    )
+    assert captured.refusal is not None, (
+        "the fixture served the question this leg needs refused, so there is no"
+        " refusal here to attribute to anything"
+    )
+
+    parameter = str(declared["request_contract"]["arguments"]["required"][0])
+    asked_instead = refusing.model_copy(update={"parameters": {parameter: 0}})
+    with pytest.raises(TransportError, match="different question"):
+        check_outcome(captured, sent=asked_instead)
+
+    # The vacuity guard: the same refusal against the question it answers is a
+    # governed value, not a failure — `check_outcome` returns `None` for it.
+    assert check_outcome(captured, sent=refusing) is None
+
+
+# --------------------------------------------------------------------------
+# The ordering `C-04` depends on, asserted over source rather than assumed.
+# --------------------------------------------------------------------------
+
+
+def _is_echo_comparison(statement: ast.stmt) -> bool:
+    """``if outcome.request != sent:`` — matched on shape, not on text."""
+    if not isinstance(statement, ast.If) or not isinstance(
+        statement.test, ast.Compare
+    ):
+        return False
+    left = statement.test.left
+    return (
+        isinstance(left, ast.Attribute)
+        and left.attr == "request"
+        and any(isinstance(op, ast.NotEq) for op in statement.test.ops)
+    )
+
+
+def _is_refusal_branch(statement: ast.stmt) -> bool:
+    """``if outcome.product_json is None:`` — the served/refused fork."""
+    if not isinstance(statement, ast.If) or not isinstance(
+        statement.test, ast.Compare
+    ):
+        return False
+    left = statement.test.left
+    return (
+        isinstance(left, ast.Attribute)
+        and left.attr == "product_json"
+        and any(isinstance(op, ast.Is) for op in statement.test.ops)
+    )
+
+
+def assert_the_echo_check_precedes_the_refusal_branch(source: str) -> None:
+    """`C-04`'s precondition: the echo comparison runs before the refusal fork.
+
+    ``C-04`` puts the echo at outcome level so *one* comparison covers a served
+    answer and a refusal identically. That holds only while the comparison sits
+    **above** the ``product_json is None`` return — a refactor that moved it
+    below would silently uncover the refusal half, and every behavioural test
+    in this module would stay green.
+
+    Takes the module **source text** rather than reading a path itself, on the
+    ``tests/client/test_surface.py::count_result_construction_sites``
+    discipline: a control can then feed it a reordered copy that the function
+    genuinely reads.
+
+    It **raises** rather than returning a boolean, and it raises when it cannot
+    find either statement — a scan that silently found nothing is a gate that
+    silently stopped gating, which this repo has shipped once already.
+
+    Raises:
+        AssertionError: ``check_outcome`` is absent, either statement is
+            absent, or the echo comparison does not come first.
+    """
+    functions = [
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.FunctionDef) and node.name == "check_outcome"
+    ]
+    if len(functions) != 1:
+        raise AssertionError(
+            f"the source handed to this guard defines {len(functions)}"
+            " functions named `check_outcome` where exactly one was expected,"
+            " so the ordering it is meant to hold was never located — a scan"
+            " that finds nothing and reports nothing is a gate that stopped"
+            " gating"
+        )
+    body = functions[0].body
+    echo = next(
+        (i for i, node in enumerate(body) if _is_echo_comparison(node)), None
+    )
+    refusal = next(
+        (i for i, node in enumerate(body) if _is_refusal_branch(node)), None
+    )
+    if echo is None or refusal is None:
+        raise AssertionError(
+            "`check_outcome` was found but its statements were not — located"
+            f" the echo comparison at {echo} and the refusal branch at"
+            f" {refusal}, and `None` means the shape this guard matches on has"
+            " changed. It refuses to pass on a scan that found nothing"
+        )
+    if echo >= refusal:
+        raise AssertionError(
+            f"`check_outcome` runs the echo comparison at statement {echo} and"
+            f" the refusal branch at statement {refusal} — the comparison must"
+            " come first, or a refused outcome returns before it is ever"
+            " compared and `C-04`'s claim that one comparison covers a served"
+            " answer and a refusal identically stops being true"
+        )
+
+
+def test_the_shipped_decoder_compares_the_echo_before_it_returns_a_refusal() -> None:
+    """The guard above, over `codec.py`'s **real** source, pinned by module name.
+
+    ``inspect.getsource`` of the imported module rather than a path this test
+    composes: a count of calls to the guard proves nothing about which source
+    they were handed, and three calls on three synthetic strings would satisfy
+    every occurrence check while asserting nothing about the shipped decoder.
+    """
+    source = inspect.getsource(ccf.client.codec)
+    assert "def check_outcome" in source, (
+        "the source this test is about to hand the guard does not define"
+        " `check_outcome`, so whatever the guard says next is about something"
+        " other than the shipped decoder"
+    )
+    assert_the_echo_check_precedes_the_refusal_branch(source)
+
+
+#: ``check_outcome``'s two statements, swapped. Synthetic on purpose — the
+#: control has to feed the guard source the shipped module does not contain,
+#: and editing the shipped file and reverting it would leave nothing in the
+#: tree.
+_REORDERED_SOURCE: Final = '''
+def check_outcome(outcome, *, sent):
+    """A copy in which the refusal returns before anything is compared."""
+    if outcome.product_json is None:
+        return None
+    if outcome.request != sent:
+        raise TransportError("the outcome echoes a different question")
+    return None
+'''
+
+
+def test_control_the_ordering_guard_fires_on_a_reordered_decoder() -> None:
+    """`D-22`: the named sabotage for the ordering guard.
+
+    The guard is handed a ``check_outcome`` whose refusal branch returns first,
+    which is exactly the refactor that would uncover ``C-04``'s refusal half
+    while every behavioural test stayed green.
+    """
+    with pytest.raises(AssertionError, match="the comparison must come first"):
+        assert_the_echo_check_precedes_the_refusal_branch(_REORDERED_SOURCE)
+
+
+def test_control_the_ordering_guard_refuses_a_scan_that_found_nothing() -> None:
+    """The other way the guard could go quiet: it never located its subject.
+
+    A gate that reports success because it found nothing to check is the
+    failure mode this repo has already shipped once, so the guard raises rather
+    than passes and this is the assertion that says so.
+    """
+    with pytest.raises(AssertionError, match="0 functions named `check_outcome`"):
+        assert_the_echo_check_precedes_the_refusal_branch("x = 1\n")
+
+
+# --------------------------------------------------------------------------
+# `P4` — the guard that prevents a FALSE failure, shown preventing one.
+# --------------------------------------------------------------------------
+
+
+def test_the_parameter_guard_is_what_prevents_a_false_wire_failure() -> None:
+    """`P4`: bypass `_parameters_survive_the_wire` and a healthy wire "fails".
+
+    :meth:`~ccf.products.door.WireRequest._parameters_survive_the_wire` states
+    the mechanism it exists to prevent: canonical JSON renders a ``Decimal`` as
+    text, the decoded echo then differs from what was sent, and the decoder
+    reports a ``TransportError`` on a wire that worked perfectly. Nothing went
+    wrong here — the outcome was encoded once and decoded once — and the client
+    still reports the wire as broken. That is why the value is refused at
+    construction, where the message can name the wire-stable spelling, rather
+    than at the decoder, where nothing can diagnose it.
+
+    The vacuity twin is the second half of the same test and cannot be deleted
+    without leaving the first obviously bare: the identical flow with the value
+    rendered as ``str`` — which the guard **admits** — round-trips and does not
+    raise.
+    """
+    # The sabotage, named: `model_construct` skips validation, which is the
+    # only way to hold a `WireRequest` the guard would have refused.
+    bypassed = WireRequest.model_construct(
+        product_id="ccf.test-product",
+        parameters={"revenue_threshold": Decimal("1000000.50")},
+        temporal_boundary=_INSTANT,
+    )
+    outcome = a_served_outcome().model_copy(update={"request": bypassed})
+    with pytest.raises(TransportError, match="different question"):
+        decode_outcome(encode_outcome(outcome), sent=bypassed)
+
+    # The vacuity twin: the spelling the guard admits, and the wire is fine.
+    admitted = WireRequest(
+        product_id="ccf.test-product",
+        parameters={"revenue_threshold": format(Decimal("1000000.50"), "f")},
+        temporal_boundary=_INSTANT,
+    )
+    survived = a_served_outcome().model_copy(update={"request": admitted})
+    assert (
+        decode_outcome(encode_outcome(survived), sent=admitted).outcome.request
+        == admitted
+    )
