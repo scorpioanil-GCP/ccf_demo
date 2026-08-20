@@ -98,6 +98,7 @@ no clock, no LLM dependency ever.
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
 
 from pydantic import ValidationError
 
@@ -109,6 +110,7 @@ from ccf.products.contract import ContextProductContract
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "DecodedOutcome",
     "check_outcome",
     "decode_outcome",
     "encode_outcome",
@@ -261,7 +263,38 @@ def check_outcome(
         ) from invalid
 
 
-def decode_outcome(raw: bytes, *, sent: WireRequest) -> WireOutcome:
+@dataclass(frozen=True)
+class DecodedOutcome:
+    """The decoded outcome and the vessel the checks already parsed out of it.
+
+    **SDK-defined** (``C-05``, Phase 19). It exists for one reason, and the
+    reason is a prohibition rather than a convenience: :func:`check_outcome`
+    **already parsed** the served vessel in order to validate it, and a caller
+    that re-parsed :attr:`~ccf.products.door.DoorOutcome.product_json` to get
+    its own copy would be running a second contract validation on a second
+    decode path — which is the defect ``D-12`` exists to prevent, one field
+    over. Carrying the parsed vessel out beside the outcome is what lets
+    :meth:`~ccf.client.client.ProductClient._result_from` build the one
+    ``Result`` without parsing anything at all.
+
+    A frozen dataclass rather than a bare tuple, on the precedent
+    :class:`~ccf.products.door.ServedAnswer` already sets in this codebase for
+    *a value and the thing that authorized it*: a positional pair at a
+    published surface reads as an accident at the first call site that unpacks
+    it wrong.
+
+    Attributes:
+        outcome: The outcome parsed from the producer's bytes.
+        vessel: The parsed contract on a served outcome, and ``None`` on a
+            refusal — exactly what :func:`check_outcome` returned, never a
+            second parse of the same text.
+    """
+
+    outcome: WireOutcome
+    vessel: ContextProductContract | None
+
+
+def decode_outcome(raw: bytes, *, sent: WireRequest) -> DecodedOutcome:
     """Turn received bytes into the one outcome shape, or refuse to.
 
     The single decode path ``D-12`` requires. Four things are checked, in the
@@ -279,6 +312,12 @@ def decode_outcome(raw: bytes, *, sent: WireRequest) -> WireOutcome:
 
     Returns:
         The decoded outcome, carrying either a served vessel or a refusal.
+        Returned as a :class:`DecodedOutcome` — the outcome **and** the vessel
+        :func:`check_outcome` just parsed — because ``C-05`` put this function
+        on the shipped path, and the caller there constructs the one ``Result``
+        (``D-12``); handing back only the outcome would force that caller to
+        re-parse ``product_json``, which is a second contract validation on a
+        second decode path.
 
     Raises:
         TransportError: the bytes are not a well-formed outcome, the echoed
@@ -300,5 +339,5 @@ def decode_outcome(raw: bytes, *, sent: WireRequest) -> WireOutcome:
             " wire and never a refusal"
         ) from malformed
 
-    check_outcome(outcome, sent=sent)
-    return outcome
+    vessel = check_outcome(outcome, sent=sent)
+    return DecodedOutcome(outcome=outcome, vessel=vessel)

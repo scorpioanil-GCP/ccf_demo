@@ -109,8 +109,15 @@ class TransportAdapter(Protocol):
     refusal has reported "the fabric said no" when nothing was ever asked.
     """
 
-    def ask(self, request: WireRequest) -> WireOutcome:
-        """Carry ``request`` to a producer and return its outcome.
+    def ask(self, request: WireRequest) -> bytes:
+        """Carry ``request`` to a producer and return the producer's canonical bytes.
+
+        The answer is **bytes and not an outcome object** (``C-08``, Phase 19):
+        an adapter that cannot construct the outcome cannot fill the echo from
+        the request it was handed, so :func:`~ccf.client.codec.check_outcome`'s
+        comparison has an operand the client did not supply. The request stays
+        typed because an adapter genuinely needs its fields to build a tool call
+        or a URL; only the answer becomes bytes.
 
         Raises:
             ccf.client.errors.TransportError: the wire never spoke. Never

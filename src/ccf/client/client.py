@@ -60,9 +60,9 @@ from datetime import datetime
 from typing import Any
 
 from ccf.client.binding import adapter_for_binding
-from ccf.client.codec import check_outcome
+from ccf.client.codec import DecodedOutcome, decode_outcome
 from ccf.client.result import Result
-from ccf.client.wire import TransportAdapter, WireOutcome, WireRequest
+from ccf.client.wire import TransportAdapter, WireRequest
 
 __ccf_mode__ = "algorithmic"
 
@@ -183,9 +183,11 @@ class ProductClient:
             parameters=parameters,
             temporal_boundary=as_of,
         )
-        return self._result_from(self._adapter.ask(request), sent=request)
+        return self._result_from(
+            decode_outcome(self._adapter.ask(request), sent=request), sent=request
+        )
 
-    def _result_from(self, outcome: WireOutcome, *, sent: WireRequest) -> Result:
+    def _result_from(self, decoded: DecodedOutcome, *, sent: WireRequest) -> Result:
         """The one place a :class:`~ccf.client.result.Result` is constructed.
 
         ``D-12``. Every transport's answer becomes a client-visible one here, so
@@ -200,8 +202,17 @@ class ProductClient:
         of advisory: if the comparison were ever removed, the identity a caller
         sees would immediately be the one the transport supplied.
 
+        Since ``C-05`` (Phase 19) those checks run in
+        :func:`~ccf.client.codec.decode_outcome`, on the bytes the adapter
+        returned, rather than a second time here — and the paragraph above is
+        the reason that is sound rather than a relaxation: the echo is still
+        read only after the comparison has proven the two equal, and the vessel
+        arrives **already parsed by that same comparison**, which is why there
+        is no second parse of ``product_json`` at this call site.
+
         Args:
-            outcome: What the adapter returned.
+            decoded: The outcome the codec parsed from what the adapter
+                returned, together with the vessel its checks produced.
             sent: The request that was actually sent, for the echo cross-check.
 
         Returns:
@@ -210,14 +221,16 @@ class ProductClient:
         Raises:
             ccf.client.errors.TransportError: the outcome does not answer the
                 question that was asked, the vessel does not hash to its claimed
-                address, or the vessel is not a valid contract.
+                address, or the vessel is not a valid contract. Raised before
+                this function is entered, by the decode that produced
+                ``decoded``.
         """
-        vessel = check_outcome(outcome, sent=sent)
+        outcome = decoded.outcome
         return Result(
             product_id=outcome.request.product_id,
             parameters=outcome.request.parameters,
             temporal_boundary=outcome.request.temporal_boundary,
-            vessel=vessel,
+            vessel=decoded.vessel,
             content_address=outcome.content_address,
             replay_ref=outcome.replay_ref,
             refusal=outcome.refusal,

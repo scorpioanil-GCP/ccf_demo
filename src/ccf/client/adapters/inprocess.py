@@ -77,7 +77,6 @@ No LLM dependency on this path, ever.
 from __future__ import annotations
 
 import atexit
-import hashlib
 import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -93,21 +92,20 @@ from ccf.client.adapters.binding_document import (
     load_reference,
 )
 from ccf.client.binding import SCHEME_REGISTRY
-from ccf.client.errors import BindingError, TransportError
-from ccf.client.wire import WireOutcome, WireRequest
+from ccf.client.errors import BindingError
+from ccf.client.wire import WireRequest
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.artifacts import ProductClassDeclaration
 from ccf.controlplane.registry import ControlPlaneProtocol, ControlPlaneRegistry
 from ccf.deployment import BootedFabric
 from ccf.deployment.config import load_config_and_boot
-from ccf.products.refusal import RefusalEnvelope
+from ccf.products.door import door_answer, door_question
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import (
     ProductNotResolvable,
     ServedProductResolverProtocol,
     build_governed_resolver,
 )
-from ccf.replay.serve import ServedProduct
 
 __ccf_mode__ = "algorithmic"
 
@@ -331,8 +329,15 @@ class InProcessAdapter:
     def __init__(self, address: str) -> None:
         self._address = address
 
-    def ask(self, request: WireRequest) -> WireOutcome:
-        """Boot if needed, ask the deployment, and encode what it answered.
+    def ask(self, request: WireRequest) -> bytes:
+        """Boot if needed, encode the question, and hand it to the door half.
+
+        This is the **client** half of a degenerate wire that is now degenerate
+        in both directions (``C-07``, Phase 19). It encodes the question and
+        passes *text* to :meth:`_door`; it never passes the
+        :class:`~ccf.client.wire.WireRequest` object, because two halves sharing
+        one object would make the echo cross-check cosmetic on the transport
+        every quickstart, fixture and dev path uses.
 
         Raises:
             ccf.client.errors.BindingError: the address names no deployment, or
@@ -353,38 +358,33 @@ class InProcessAdapter:
                 audited refusal the fabric never made.
         """
         booted = self._ensure_booted()
-        document = booted.document
-        typed = ProductRequest(
-            schema_name=request.product_id,
-            schema_version=booted.schema_version,
-            subject=document.question.subject,
-            intent=document.question.intent,
-            freshness=document.question.freshness,
-            # `D-04` says `as_of=None` means *the server's decision instant*,
-            # and `~ccf.client.client.ProductClient.ask` spells that out as the
-            # producing deployment answering "against its own clock". This read
-            # the DECLARED `question.asked_at` instead, so the default path
-            # answered as of a literal in `binding.yaml` — and a deployment
-            # whose declared instant had passed printed an answer that had
-            # already expired. Measured at the Phase 17 close review: with no
-            # `--as-of`, the shipped example reported `answer expires
-            # 2026-03-02 12:10:00+00:00` on 2026-08-16, five and a half months
-            # stale, while its README promised "today's answer".
-            #
-            # Ruled by Dave 2026-08-16: `None` means NOW. A caller who needs a
-            # reproducible address passes an explicit boundary, which is what
-            # the documented command does and why its content address is stable.
-            asked_at=request.temporal_boundary or datetime.now(UTC),
-            parameters=request.parameters,
+        # `D-04` says `as_of=None` means *the server's decision instant*,
+        # and `~ccf.client.client.ProductClient.ask` spells that out as the
+        # producing deployment answering "against its own clock". This read
+        # the DECLARED `question.asked_at` instead, so the default path
+        # answered as of a literal in `binding.yaml` — and a deployment
+        # whose declared instant had passed printed an answer that had
+        # already expired. Measured at the Phase 17 close review: with no
+        # `--as-of`, the shipped example reported `answer expires
+        # 2026-03-02 12:10:00+00:00` on 2026-08-16, five and a half months
+        # stale, while its README promised "today's answer".
+        #
+        # Ruled by Dave 2026-08-16: `None` means NOW. A caller who needs a
+        # reproducible address passes an explicit boundary, which is what
+        # the documented command does and why its content address is stable.
+        #
+        # `C-15` (Phase 19) kept this read exactly where it is and moved
+        # nothing to the door: the ENCODED question below carries
+        # `temporal_boundary=None` unchanged, so the echo comes back `None`
+        # as `C-02` requires, and the resolved instant travels to the door
+        # half as a separate argument — mirroring `mcp+stdio`, where
+        # `asked_at` is a separate tool argument.
+        asked_at = request.temporal_boundary or datetime.now(UTC)
+        return self._door(
+            canonical_bytes(request).decode("utf-8"),
+            asked_at=asked_at,
+            booted=booted,
         )
-        outcome = self._resolver(
-            tenant=booted.fabric.tenant_id,
-            product_class=typed.schema_name,
-            version=typed.schema_version,
-            perspective=document.perspective,
-            request=typed,
-        )
-        return self._encode(outcome, request=request)
 
     def _ensure_booted(self) -> _BootedDeployment:
         """Return this address's booted deployment, booting it at most once.
@@ -403,42 +403,63 @@ class InProcessAdapter:
         self._resolver = booted.resolver
         return booted
 
-    @staticmethod
-    def _encode(outcome: object, *, request: WireRequest) -> WireOutcome:
-        """Put the answer on the wire — the same bytes an HTTP body would carry.
+    def _door(
+        self,
+        asked_json: str,
+        *,
+        asked_at: datetime,
+        booted: _BootedDeployment,
+    ) -> bytes:
+        """The producer half — parse the encoded question, answer it, emit bytes.
 
-        ``D-13``. The served vessel is rendered through the SDK's one canonical
-        serializer and the address is ``sha256`` of exactly those bytes, so the
-        decoder's recomputation is exact by construction rather than by two
-        implementations agreeing.
+        **It takes text and never a** :class:`~ccf.client.wire.WireRequest`
+        **object**, and that is the whole of ``C-07``: a door handed the very
+        object the client half constructed would echo the caller's own copy
+        back to the caller, and the client's echo cross-check would be an
+        object compared with itself on the transport every quickstart, fixture
+        and dev path uses — which is ``D-IMPL-151`` finding ``B0`` surviving
+        in-process while being closed over the wire. The two extra
+        serializations this costs per ``ask`` are the accepted price ``C-14``
+        ruled on, with no benchmark owed: ``D-13`` already accepted *"a
+        microsecond of serialization"* on the answer half, and the question is
+        far smaller than the answer.
 
-        The replay reference travels as the artifact's **versioned URI**, which
-        is the resolvable form: a consumer holding a product can name the
-        decision record that authorized it, which is what makes the audit trail
-        usable from the consuming side.
+        The emission itself is :func:`~ccf.products.door.door_answer`, the one
+        site where the shape is built: the vessel is serialized exactly once
+        and the content address is ``sha256`` of those same bytes, so the
+        client's recomputation is exact by construction rather than by two
+        implementations agreeing. ``asked_at`` arrives as a separate argument
+        rather than off the echo because the two are different facts — the
+        instant the door answers at, and the boundary the caller asked for,
+        which may be ``None`` (``C-02``, ``C-15``).
         """
-        if isinstance(outcome, RefusalEnvelope):
-            return WireOutcome(
-                request=request,
-                product_json=None,
-                content_address=None,
-                replay_ref=None,
-                refusal=outcome,
-            )
-        if not isinstance(outcome, ServedProduct):  # pragma: no cover - typed seam
-            raise TransportError(
-                "the deployment's resolver answered with"
-                f" `{type(outcome).__name__}`, which is neither a served"
-                " product nor a governed refusal — the seam's return type is a"
-                " union of exactly those two"
-            )
-        vessel = canonical_bytes(outcome.product)
-        return WireOutcome(
-            request=request,
-            product_json=vessel.decode("utf-8"),
-            content_address=hashlib.sha256(vessel).hexdigest(),
-            replay_ref=outcome.replay_ref.uri,
-            refusal=None,
+        asked_wire = door_question(asked_json)
+        document = booted.document
+        typed = ProductRequest(
+            schema_name=asked_wire.product_id,
+            schema_version=booted.schema_version,
+            subject=document.question.subject,
+            intent=document.question.intent,
+            freshness=document.question.freshness,
+            asked_at=asked_at,
+            # Resolved from the DECODED question rather than from the object
+            # the client half held (`C-01`): one source for what is answered,
+            # and the echo `door_answer` puts on the wire is that same source.
+            parameters=dict(asked_wire.parameters),
+        )
+        resolved = self._resolver(
+            tenant=booted.fabric.tenant_id,
+            product_class=typed.schema_name,
+            version=typed.schema_version,
+            perspective=document.perspective,
+            request=typed,
+        )
+        return door_answer(
+            resolved,
+            echo=asked_wire,
+            resolved_request=typed,
+            product_class=typed.schema_name,
+            version=typed.schema_version,
         )
 
 

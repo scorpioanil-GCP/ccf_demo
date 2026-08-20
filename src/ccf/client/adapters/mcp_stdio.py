@@ -114,7 +114,6 @@ messages and re-shapes an outcome. No LLM dependency on this path, ever.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import os
 import shlex
 import sys
@@ -125,7 +124,6 @@ from pathlib import Path
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.types import TextContent
-from pydantic import ValidationError
 
 from ccf.client.adapters.binding_document import (
     BINDING_DOCUMENT_NAME,
@@ -134,11 +132,11 @@ from ccf.client.adapters.binding_document import (
 )
 from ccf.client.binding import SCHEME_REGISTRY
 from ccf.client.errors import BindingError, TransportError
-from ccf.client.wire import WireOutcome, WireRequest
+from ccf.client.wire import WireRequest
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.artifacts import DEPLOYMENT_CONFIG, DeploymentConfig
 from ccf.controlplane.artifacts import load_artifact as load_control_plane_artifact
-from ccf.products.door import PRODUCT_REQUEST_TOOL, DoorOutcome
+from ccf.products.door import PRODUCT_REQUEST_TOOL
 
 __ccf_mode__ = "algorithmic"
 
@@ -193,8 +191,17 @@ class McpStdioAdapter:
     def __init__(self, address: str) -> None:
         self._address = address
 
-    def ask(self, request: WireRequest) -> WireOutcome:
-        """Launch the deployment's server, ask it one question, and re-shape it.
+    def ask(self, request: WireRequest) -> bytes:
+        """Launch the deployment's server, ask it one question, and carry its bytes.
+
+        Nothing is re-shaped here (``C-06``, Phase 19). The door's text crosses
+        to the client encoded and **unexamined** — the UTF-8 of it and nothing
+        else — because a transcoding step is precisely where an adapter can
+        re-source the echo from client state rather than from the wire. The
+        wire between the door and this adapter stays *text* because raw bytes
+        cannot be an MCP tool result without base64, and a base64 envelope
+        would be a second rendering of the vessel; encoding text this adapter
+        never inspects is a pass-through, not a transcoding.
 
         Raises:
             ccf.client.errors.BindingError: the address is not one token, it
@@ -204,9 +211,11 @@ class McpStdioAdapter:
                 one ``except`` clause still covers every way the wire never
                 spoke.
             ccf.client.errors.TransportError: the program would not start, the
-                pipe closed, the tool answered with an error rather than an
-                outcome, or what came back is not a well-formed
-                :class:`~ccf.products.door.DoorOutcome`.
+                pipe closed, or the tool answered with an error rather than an
+                outcome. Whether what came back is a **well-formed** outcome is
+                no longer decided here: it is decided by
+                :func:`~ccf.client.codec.decode_outcome` at the client, which is
+                where the check belongs once this adapter no longer parses.
         """
         declared = self._declared()
         question = declared.document.question
@@ -236,12 +245,9 @@ class McpStdioAdapter:
             # declared world is closed at the resolver (`D-IMPL-121`).
             "parameters": dict(request.parameters),
         }
-        return self._decode(
-            asyncio.run(
-                self._call(declared.program, declared.document.root, arguments)
-            ),
-            request=request,
-        )
+        return asyncio.run(
+            self._call(declared.program, declared.document.root, arguments)
+        ).encode("utf-8")
 
     def _declared(self) -> _Declared:
         """Read the deployment the address names, and the program it declares.
@@ -451,55 +457,6 @@ class McpStdioAdapter:
                 " rendering beside them"
             )
         return spoken[0]
-
-    @staticmethod
-    def _decode(text: str, *, request: WireRequest) -> WireOutcome:
-        """Re-shape the door's outcome as the one shape a client sees.
-
-        Nothing is re-serialized and nothing is re-decided.
-        :attr:`~ccf.products.door.DoorOutcome.product_json` is the producer's
-        canonical **text**, so it crosses to
-        :attr:`~ccf.client.wire.WireOutcome.product_json` unchanged and its
-        address is ``sha256`` of exactly those bytes — the same one stdlib line
-        the in-process adapter computes over the same rendering, which is why
-        :func:`~ccf.client.codec.verify_content_address` can hold the two to
-        each other. The refusal and the replay reference cross untouched.
-
-        The address is computed here rather than carried because the door does
-        not publish one: this surface has an envelope but no header, and an
-        address carried *inside* the vessel would change the bytes it claims to
-        describe (:func:`~ccf_runtime.http_api.routes.canonical_response`).
-
-        Raises:
-            ccf.client.errors.TransportError: the text is not a well-formed
-                outcome. A malformed wire is a broken wire and never a refusal.
-        """
-        try:
-            outcome = DoorOutcome.model_validate_json(text)
-        except ValidationError as malformed:
-            raise TransportError(
-                f"the `{SCHEME}` server answered with bytes that are not a"
-                " well-formed door outcome, so the wire carried no governed"
-                " answer at all — a malformed wire is a broken wire and never a"
-                " refusal"
-            ) from malformed
-        if outcome.product_json is None:
-            return WireOutcome(
-                request=request,
-                product_json=None,
-                content_address=None,
-                replay_ref=None,
-                refusal=outcome.refusal,
-            )
-        return WireOutcome(
-            request=request,
-            product_json=outcome.product_json,
-            content_address=hashlib.sha256(
-                outcome.product_json.encode("utf-8")
-            ).hexdigest(),
-            replay_ref=outcome.replay_ref,
-            refusal=None,
-        )
 
 
 SCHEME_REGISTRY[SCHEME] = McpStdioAdapter
