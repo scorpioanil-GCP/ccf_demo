@@ -42,7 +42,7 @@ and the upgraded examples.
 - [x] **Phase 18: MCP Transport — The Second Door and the Portability Proof** (INSERTED) - Turns "transport-agnostic" from a design property into a demonstrated one. The MCP egress tool stops hard-wiring `parameters={}` so a product class declaring a required parameter becomes reachable over MCP — no coercion guessing, and no wider than the HTTP door, proven by one shared case table run against both; the MCP door learns to emit the canonical refusal envelope while a **governance** refusal still raises; and `mcp+stdio` ships as the second official adapter, sync at the surface with the async client bridged internally, registered by one dict entry and constructing no `Result`. It is official when it passes the conformance suite written before it existed — and **`suite.py` must not move to let it in**, which is the acceptance test for `17-07`'s adapter-agnostic claim. The phase's discharge is the same question at the same instant yielding the same content address in-process and over MCP (completed 2026-08-17)
 - [x] **Phase 18.1: Simplify the MCP Example — Client-Side Access, Server Off-Stage** (INSERTED) - Inserted 2026-08-18 on Dave reading the example: too complicated for a beginner, and the client's own command names the server program. **A client-experience phase that ships no new transport, no new adapter and no change to the client seam — and exactly one piece of new mechanism, by ruling: `D-18` (Dave, 2026-08-18) makes the loader refuse, BY NAME, a `server:` value resolving back inside the deployment root (~4 lines and one test), because it makes `D-09`'s argument mechanical rather than documentary. Recorded in `docs/surface-changes/18.1-04-the-deployment-declares-its-server.md` and ruled in `D-IMPL-153`.** Three changes: `CCF_BINDING` names a **deployment** rather than a script, with the server command declared in `binding.yaml` as data, so the reader's command never mentions `serve.py`; `server/serve.py` (292 lines, ~180 of them deployment-value composition) is cut to a readable length, into a second `server/` module and never into `deployment/`, which `D-IMPL-141` A.3 forbids; and the README states the frame — **the same Context Product reached a different way**, why a server exists at all (the first example ran in-process and produced it directly), and that **how the server is assembled is deliberately out of scope until the assembly examples**. A server in a client-side example is not a scope violation; explaining it is. An earlier draft proposing an `mcp+http` adapter was **withdrawn same-day** as SDK work in an example's clothes
 - [x] **Phase 19: The Client-Seam Integrity Checks Must Be Able to Fail** (INSERTED) - Closes `B0`, the open blocking defect deferred out of Phase 18's close review by `D-IMPL-151`. `src/ccf/client/codec.py` argues — correctly — that the request echo is *cross-checked, never reconstructed*, because reconstruction "cannot detect a transport that answered a *different question*". Both shipped adapters reconstruct: `DoorOutcome` carries no request identity, so `_decode` sets `request` from its own argument and `client.py` passes that same object as `sent`, making `check_outcome`'s comparison an object against itself. `verify_content_address` is inert for the same reason — the claimed address is computed by the adapter from the bytes the codec then re-hashes. **Both integrity checks are structurally unable to fail, on the one transport where a crossed-question wire is physically possible.** The phase's job is to make them able to fail: the wire form carries request identity, the address is claimed by the producer rather than recomputed by the consumer, and a control that answers a different question is caught by a single-transport client rather than only by the cross-adapter parity diff. Note `decode_outcome`/`encode_outcome` have no call site outside tests — both adapters build `WireOutcome` directly under `D-11`, and that permission is what admits the reconstruction, so the seam's enforceability is part of the scope. **Until this lands, the SDK must not be described as detecting a transport that answered a different question, or a vessel altered in transit** (`D-IMPL-151`)
-- [ ] **Phase 20: Client Access from Three Harnesses — ADK, Anthropic Agent SDK and LangGraph Agents Reaching One Context Product over MCP** - The continuation of the client-side arc (17 → 18 → 18.1 → 19). Three agents, each built in a *different* third-party harness, reach **the same Context Product** through the MCP door shipped in Phase 18.1 — registering it as an ordinary tool, calling it, printing the product to the console. Example 1 is ADK, example 2 is the Anthropic Agent SDK, example 3 is LangGraph, and they are deliberately the same program three ways so that what differs is visibly all harness API and none of it CCF. Each client program imports its harness, an MCP client and stdlib — and **nothing from `ccf`**, gated in the `CLNT-14` shape rather than asserted. This is the first demonstration of §7.3's claim that *a harness which already speaks MCP needs no adapter for consumption*; two prior attempts exist on disk (`examples/external/00-hello-context` from Phase 13.1, and the runner-less Phase 16 orphans in `examples/s2-01-external-consumers`) and neither is against the current surface. **No new SDK mechanism**: no new transport, no new adapter, no change to `ccf.client`, and how the MCP server is assembled stays off-stage until the assembly examples
+- [ ] **Phase 20: Client Access from Three Harnesses — ADK, Anthropic Agent SDK and LangGraph Agents Reaching One Context Product over MCP** - The continuation of the client-side arc (17 → 18 → 18.1 → 19). Three agents, each built in a *different* third-party harness, reach **the same Context Product** through the MCP door shipped in Phase 18.1 — registering it as an ordinary tool, calling it, printing the product to the console. Example 1 is ADK, example 2 is the Anthropic Agent SDK, example 3 is LangGraph, and they are deliberately the same program three ways so that what differs is visibly all harness API and none of it CCF. Each client program imports its harness, an MCP client and stdlib — and **nothing from `ccf`**, gated in the `CLNT-14` shape rather than asserted. This is the first demonstration of §7.3's claim that *a harness which already speaks MCP needs no adapter for consumption*; two prior attempts exist on disk (`examples/external/00-hello-context` from Phase 13.1, and the runner-less Phase 16 orphans in `examples/s2-01-external-consumers`) and neither is against the current surface. **No new SDK mechanism**: no new transport, no new adapter, no change to `ccf.client`, and how the MCP server is assembled stays off-stage until the assembly examples. **Scope confirmed and all four open questions ruled before planning (Dave, 2026-08-20)**: the three legs are CI-green by default on the `examples/external/00-hello-context` replay pattern with `--live` opt-in and no populated-deployment requirement in CI; one directory with three clients and one README; the Phase 16 orphans quarantined or removed and the Phase 13.1 clients marked pre-Phase-17 surface, with Phase 20's trio canonical going forward; requirements continue the `CLNT-NN` lane. The ten Success Criteria are the gate target and are not to be expanded during planning
 
 ## Phase Details
 
@@ -1754,21 +1754,35 @@ every new gate carries a named sabotage control in the same plan that adds it.
   exactly as Phase 18.1's README frame requires.
 - **No fourth harness**, and no live-model requirement in the default path.
 
-**Open questions for `/gsd:discuss-phase 20` — named here so they are not decided by
-default:**
-1. **CI determinism.** `make example-hw1` and `make example-hw1-mcp` are marked *"never
-   CI"* (they need a populated deployment), while `examples/external/00-hello-context`
-   *is* CI-green through a replay server. Do the three new legs adopt the replay-server
-   pattern, seed the deployment in CI, or ship as documented-but-unrun? "Unrun" contradicts
-   §9's *a broken example is a broken build*.
-2. **Where they live.** One directory with three clients (the `00-hello-context` shape), or
-   three sibling example directories?
-3. **The dead files.** `examples/s2-01-external-consumers/` and the pre-17 clients under
-   `examples/external/00-hello-context/` — superseded and deleted, or kept and re-pointed?
-   Leaving three ADK clients and two LangGraph clients in the tree at three different
-   surface vintages is its own adoption defect.
-4. **Requirement lane.** Whether these mint `CLNT-NN` (continuing the client-seam lane) or
-   open a new prefix.
+**Rulings carried in from the scope confirmation (Dave, 2026-08-20).** All four open
+questions this entry raised are **ruled and locked before planning**. `/gsd:discuss-phase 20`
+proceeds against them rather than re-opening them:
+
+1. **CI determinism — adopt the replay pattern of `examples/external/00-hello-context`.**
+   Seed or replay so all three legs are **CI-green by default**, with `--live` (or
+   equivalent) opt-in for a real populated deployment. **"Unrun" is rejected** — it
+   contradicts CLAUDE.md §9's *a broken example is a broken build*. **A live populated
+   deployment must NOT be a CI requirement for these examples.** This is the load-bearing
+   ruling of the four; the rest are layout and hygiene.
+2. **Where they live — one directory, three clients.** `examples/hw1-harness-clients/` (or
+   similar; exact name settled at discuss) holding the three thin client programs plus
+   **one** README stating the frame: same product, three harnesses, MCP tool only. Sibling
+   directories multiply READMEs and obscure that the only variable is the harness.
+3. **The duplicates — the tree must not carry three ADK and two LangGraph clients at mixed
+   vintages.** The Phase 16 orphans in `examples/s2-01-external-consumers/` are
+   **quarantined or removed** as this phase's cleanup, on the ground that they have no
+   runner, no README and no `make` target. The Phase 13.1 clients under
+   `examples/external/00-hello-context/` either **stay as historical external examples** or
+   are **clearly marked pre-Phase-17 surface** — either way they must not be confusable
+   with the Phase 20 trio. **Phase 20's three clients are the canonical "foreign harness →
+   MCP door" demonstration going forward.**
+4. **Requirement lane — continue `CLNT-NN`.** This is still client-access work, not a new
+   domain. No new prefix.
+
+**Scope is confirmed and closed at these three clients.** The ten Success Criteria below
+are the gate target and **are not to be expanded during planning** (Dave, 2026-08-20). If a
+ruling above turns out to affect SDK surface rather than example layout, that is a
+`D-IMPL-NN` and a stop — not a quiet widening of this phase.
 
 **Success Criteria** (what must be TRUE):
 

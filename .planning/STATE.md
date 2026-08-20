@@ -555,14 +555,26 @@ are in `D-IMPL-147`.
 ## Current Position
 
 Phase: **20 — Client Access from Three Harnesses (ADK, Anthropic Agent SDK, LangGraph)**
-  ADDED 2026-08-20 (Dave, `/gsd-phase`). **NOT DISCUSSED, NOT PLANNED.** Ten Success
-  Criteria are in the ROADMAP entry already, per `D-GATE-19`'s forward-binding ruling.
-  Next action: `/gsd:discuss-phase 20` — four open questions are named in the entry and
-  must be settled there, chief among them CI determinism: `make example-hw1` and
-  `make example-hw1-mcp` are marked *never CI* (they need a populated deployment), while
-  `examples/external/00-hello-context` IS CI-green through a replay server. Shipping the
-  three new legs unrun would contradict CLAUDE.md §9's *a broken example is a broken
-  build*.
+  ADDED 2026-08-20 (Dave, `/gsd-phase`). **SCOPE CONFIRMED AND ALL FOUR OPEN QUESTIONS
+  RULED, 2026-08-20 — NOT YET DISCUSSED, NOT PLANNED.** Ten Success Criteria are in the
+  ROADMAP entry already, per `D-GATE-19`'s forward-binding ruling, and Dave ruled they are
+  **the gate target and are NOT to be expanded during planning**.
+  RULINGS (all four, locked before planning, recorded in the ROADMAP entry):
+  (1) **CI determinism — adopt the `examples/external/00-hello-context` replay pattern.**
+  Seed or replay so all three legs are CI-GREEN BY DEFAULT, `--live` opt-in for a real
+  populated deployment. **"Unrun" is REJECTED** (CLAUDE.md §9). **A live populated
+  deployment must NOT be a CI requirement.** This is the load-bearing one; the rest are
+  layout and hygiene. (2) **One directory, three clients** —
+  `examples/hw1-harness-clients/` or similar, exact name settled at discuss, ONE README
+  stating the frame. (3) **Duplicates** — the Phase 16 orphans in
+  `examples/s2-01-external-consumers/` are quarantined or removed (no runner, no README,
+  no `make` target); the Phase 13.1 clients under `examples/external/00-hello-context/`
+  stay as historical externals OR are clearly marked pre-Phase-17 surface; **Phase 20's
+  trio is canonical going forward.** (4) **Requirement lane — continue `CLNT-NN`**, no new
+  prefix.
+  Next action: `/gsd:discuss-phase 20`, proceeding AGAINST these rulings rather than
+  re-opening them. If any ruling turns out to affect SDK surface rather than example
+  layout, that is a `D-IMPL-NN` and a STOP, not a quiet widening.
 
 Phase: **19 — The Client-Seam Integrity Checks Must Be Able to Fail (INSERTED).**
   **EXECUTING** — started 2026-08-19 from `0fe0a22` on `main`. 8 plans in 6 waves.
@@ -1053,7 +1065,7 @@ Progress: [###░░░░░░░] 15.5 planned 0/14 · Phase 16 at 6/21, park
 - Phase 15.2 inserted after Phase 15.1: Substrate adapters and query pushdown; tiers 1+2 in scope, tier 3 designed-for
 - Phase 16 edited 2026-08-09: status, goal, requirements, success_criteria — scope expanded to four sections (Phase 16 ships 1–3, Section 4 → Phase 17) per 16-CONTEXT.md D-01..D-12; ten Success Criteria added where the entry previously had none
 - Phase 18.1 inserted after Phase 18: Simplify the MCP Example — Client-Side Access, Server Off-Stage. Client-experience scope, no new SDK surface: binding names the deployment, `serve.py` slimmed, README frames it as the same Context Product reached a different way with assembly deliberately out of scope. An `mcp+http`-adapter draft was written and withdrawn the same day as SDK work in an example's clothes (Dave, 2026-08-18) (URGENT)
-- Phase 20 added after Phase 19 (`/gsd-phase`, Dave, 2026-08-20): Client Access from Three Harnesses — ADK, Anthropic Agent SDK and LangGraph agents reaching one Context Product over the Phase 18.1 MCP door, each printing it to the console. Continuation of the client-side arc; **no new SDK mechanism** (no transport, no adapter, no `ccf.client` change) and server assembly stays off-stage. Roadmap entry, Phases-list bullet and progress row all written BY HAND — `phase.add` produced only a stub detail section appended AFTER `## Coverage`, with no Phases-list bullet and no progress row (`D-IMPL-154`/`155` class, fifth distinct handler). Backed up and diffed: three pure insertions, zero deletions. **Ten Success Criteria authored ONE PER UNWRAPPED LINE BEFORE execution per `D-GATE-19`**; `roadmap.get-phase 20` confirmed parsed count = 10. Four open questions are named in the entry rather than decided by default (CI determinism for the three legs, one directory or three, the fate of the pre-17 and Phase-16-orphan duplicates, and the requirement lane).
+- Phase 20 added after Phase 19 (`/gsd-phase`, Dave, 2026-08-20): Client Access from Three Harnesses — ADK, Anthropic Agent SDK and LangGraph agents reaching one Context Product over the Phase 18.1 MCP door, each printing it to the console. Continuation of the client-side arc; **no new SDK mechanism** (no transport, no adapter, no `ccf.client` change) and server assembly stays off-stage. Roadmap entry, Phases-list bullet and progress row all written BY HAND — `phase.add` produced only a stub detail section appended AFTER `## Coverage`, with no Phases-list bullet and no progress row (`D-IMPL-154`/`155` class, fifth distinct handler). Backed up and diffed: three pure insertions, zero deletions. **Ten Success Criteria authored ONE PER UNWRAPPED LINE BEFORE execution per `D-GATE-19`**; `roadmap.get-phase 20` confirmed parsed count = 10. Four open questions are named in the entry rather than decided by default (CI determinism for the three legs, one directory or three, the fate of the pre-17 and Phase-16-orphan duplicates, and the requirement lane). **ALL FOUR RULED BY DAVE THE SAME DAY, BEFORE PLANNING** — replay pattern with CI-green-by-default and no populated-deployment requirement; one directory with one README; orphans quarantined or removed and the 13.1 clients marked pre-Phase-17; `CLNT-NN` continues. Scope closed at the three clients; the ten criteria are the gate target and are not to be expanded during planning.
 
 ### Decisions
 
