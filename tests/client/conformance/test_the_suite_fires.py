@@ -64,7 +64,14 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.products.contract import ContextProductContract
 
 from tests.client.conformance import suite
-from tests.client.conformance.suite import AdapterSubject, Provision, Question
+from tests.client.conformance.suite import (
+    AdapterSubject,
+    Provision,
+    Question,
+    _Tampering,
+    _alter_the_vessel,
+    _cross_the_echo,
+)
 from tests.client.conformance.test_inprocess_conformance import (
     OTHER_PARAMETERS,
     QUESTION,
@@ -818,6 +825,113 @@ def test_one_instant_fires_when_two_transports_disagree_at_one_instant(
 
 
 # ---------------------------------------------------------------------------
+# Control 7c — C-12's tamper legs fire when the tamper is not caught.
+# ---------------------------------------------------------------------------
+
+
+def _reversing_subject(name: str, edit: Callable[[bytes], bytes]) -> AdapterSubject:
+    """A subject that has already applied the leg's own edit before the leg does.
+
+    **The mechanism in one sentence:** the subject applies the leg's own edit,
+    the leg applies it again, and the two compose to the identity because every
+    edit ``suite.py`` ships is an **involution** — so the client sees the
+    producer's untouched bytes, does not raise, and the leg's **first** limb
+    fires.
+
+    A control cannot simply hand a leg an honest subject: the legs wrap their
+    subjects themselves, so an honest subject would still be tampered with and
+    the leg would pass. The divergence therefore has to be made at the subject,
+    and it is made with the **shipped** decorator and the **shipped** edit —
+    imported, never re-implemented, because *"a control that tests a copy
+    proves only that the copy fires"*, and a control that re-implemented the
+    edit would be proving that its own copy is an involution.
+
+    This form **fails safe against the property it depends on**, and the limit
+    is stated rather than glossed because it was measured rather than assumed:
+
+    * an edit that stops being an involution makes these controls go red. Held
+      to a non-involutive edit (suffix every time, never strip), the leg's
+      *vacuity* limb fires instead of its first limb and the ``match=`` below
+      refuses it — which is also what makes that ``match=`` load-bearing rather
+      than decorative;
+    * an edit that stopped changing anything **at all** would *not* be caught
+      here, because the identity composed with itself is still the identity and
+      these controls would keep passing. That case is caught one module over:
+      with each edit pointed at the identity, the legs bound in
+      ``test_inprocess_conformance.py`` and ``test_mcp_conformance.py`` go red
+      for **every** subject separately. Saying only "the control fails safe"
+      would be the kind of unfalsifiable claim this whole phase exists to
+      remove.
+
+    The rejected alternative was giving the legs an internal seam a control
+    could substitute; a seam that exists only so a control can reach through it
+    is a second path into the leg, and a leg with a substitutable interior is a
+    leg whose shipped behaviour is not what the control exercised.
+    """
+    return AdapterSubject(
+        name=name,
+        connect=lambda root: _Tampering(connect_in_process(root), edit),
+        break_transport=lambda root: _Tampering(break_in_process(root), edit),
+    )
+
+
+def test_the_crossed_echo_leg_fires_when_the_tamper_is_not_caught(
+    provision: Provision,
+) -> None:
+    """The subject applies the leg's own edit, the leg applies it again, nothing raises.
+
+    The two compose to the identity because :func:`suite._cross_the_echo` is an
+    involution, so the client is handed the producer's untouched bytes and
+    answers normally — which is exactly the state a transport whose echo check
+    could not fail would be in, and the leg has to say so.
+
+    Matched on the **first** limb's wording, so this control cannot pass
+    because the vacuity limb failed instead.
+    """
+    honest_under_the_tamper = _reversing_subject(
+        "honest-under-the-crossing", _cross_the_echo
+    )
+
+    with _fails("did not raise `TransportError` on a crossed echo") as observed:
+        suite.assert_a_crossed_echo_is_caught(
+            (honest_under_the_tamper,), provision=provision, question=QUESTION
+        )
+
+    message = str(observed.value)
+    assert honest_under_the_tamper.name in message
+    assert "everything raises" not in message, (
+        "the leg failed on its vacuity limb rather than on the tamper, so this"
+        " control proves nothing about whether the tamper is caught"
+    )
+
+
+def test_the_altered_vessel_leg_fires_when_the_tamper_is_not_caught(
+    provision: Provision,
+) -> None:
+    """The same mechanism on the address half, with :func:`suite._alter_the_vessel`.
+
+    A space inserted by the subject and removed by the leg restores the
+    producer's own bytes, so the address the producer claimed is correct again
+    and the client serves the answer. The leg's first limb fires.
+    """
+    honest_under_the_tamper = _reversing_subject(
+        "honest-under-the-alteration", _alter_the_vessel
+    )
+
+    with _fails("did not raise `TransportError` on an altered vessel") as observed:
+        suite.assert_an_altered_vessel_is_caught(
+            (honest_under_the_tamper,), provision=provision, question=QUESTION
+        )
+
+    message = str(observed.value)
+    assert honest_under_the_tamper.name in message
+    assert "everything raises" not in message, (
+        "the leg failed on its vacuity limb rather than on the tamper, so this"
+        " control proves nothing about whether the tamper is caught"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Control 8 — the empty and the unresolvable cases go red, never quiet.
 # ---------------------------------------------------------------------------
 
@@ -843,6 +957,8 @@ LEG_CALLS: Mapping[str, Mapping[str, Any]] = {
         "refusing_question": REFUSING_QUESTION,
     },
     "assert_one_instant_is_one_decision": {"question": QUESTION},
+    "assert_a_crossed_echo_is_caught": {"question": QUESTION},
+    "assert_an_altered_vessel_is_caught": {"question": QUESTION},
 }
 
 
