@@ -272,6 +272,106 @@ def test_the_echo_comparison_fails_against_a_different_question(
         assert_echoes_the_question(response, sent=crossed)
 
 
+# --- (6) a question that cannot be represented is refused, not half-served --
+
+
+def _asking_url_with(fabric: Fabric, *, boundary: str, parameters: str) -> str:
+    """The asking URL with either axis substituted, so the two refusal legs
+    and their shared control differ in exactly one place each."""
+    return (
+        f"{_product_url(fabric)}"
+        f"?subject={quote(SUBJECT)}&intent={quote(INTENT)}"
+        f"&freshness={quote(FRESHNESS)}"
+        f"&asked_at={quote(boundary)}&parameters={quote(parameters)}"
+    )
+
+
+def test_a_parameter_that_cannot_cross_the_wire_is_refused_by_name(
+    fabric: Fabric, tmp_path: Path
+) -> None:
+    """A ``400`` naming the spelling that works — never a 500, never a 200.
+
+    Measured before this leg existed: this door forwarded ``{"x": 1.5}``
+    verbatim and served ``200``, while the MCP tool refuses the same value at
+    :class:`~ccf.products.door.WireRequest` construction. The two doors
+    disagreed on a class of value the shared width table in
+    ``tests/mcp/test_egress_parameters.py`` happens not to contain, so nothing
+    was red.
+
+    Publishing no header for a question that cannot be represented was not an
+    option — a sibling that silently disappears for some questions is the
+    pattern ``C-10`` names — so the door refuses, and this door narrows to
+    match the other rather than the other widening to match it.
+    """
+    response = _get(
+        _app(fabric, tmp_path),
+        _asking_url_with(
+            fabric,
+            boundary=BOUNDARY.isoformat(),
+            parameters=json.dumps({"minimum_score": 1.5}),
+        ),
+    )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert detail["error_code"] == "product-parameters-malformed"
+    # The guard's own message, carried rather than paraphrased: a caller told
+    # only "malformed" would have to guess what to send instead.
+    assert "does not survive the wire unchanged" in detail["message"]
+
+
+def test_a_naive_asked_at_is_refused_rather_than_answered(
+    fabric: Fabric, tmp_path: Path
+) -> None:
+    """``D-IMPL-38`` on this door, which until now was the door it was false of.
+
+    :class:`~ccf.products.door.WireRequest`'s temporal guard states in terms
+    that *"both product doors refuse a naive ``asked_at`` by name"*. Measured
+    against the tree before this change: this one served ``200``. The instant a
+    question is asked as-of is the boundary a replay resolves against, and a
+    boundary whose offset is the host's local configuration replays differently
+    on a different host — so the door refuses rather than filling the offset
+    in, which is exactly what ``product-request-incomplete`` already records
+    about a partially-supplied axis.
+    """
+    response = _get(
+        _app(fabric, tmp_path),
+        _asking_url_with(
+            fabric,
+            boundary="2026-03-01T00:00:00",
+            parameters=json.dumps(PARAMETERS),
+        ),
+    )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert detail["error_code"] == "product-request-incomplete"
+    assert "carries no UTC offset" in detail["message"]
+
+
+def test_the_representable_form_of_both_still_serves(
+    fabric: Fabric, tmp_path: Path
+) -> None:
+    """The shared vacuity guard for the two refusals above.
+
+    Without it, both would pass against a door that refused every question it
+    was asked — which is a door that publishes no echo at all, and therefore
+    passes a refusal leg for precisely the reason the phase exists to catch.
+    One representable spelling of each refused value, served.
+    """
+    response = _get(
+        _app(fabric, tmp_path),
+        _asking_url_with(
+            fabric,
+            boundary=BOUNDARY.isoformat(),
+            parameters=json.dumps({"minimum_score": 11}),
+        ),
+    )
+
+    assert response.status_code == 200
+    assert REQUEST_ECHO_HEADER in response.headers
+
+
 # --- (1) the byte-level identity, over the wire -----------------------------
 
 
