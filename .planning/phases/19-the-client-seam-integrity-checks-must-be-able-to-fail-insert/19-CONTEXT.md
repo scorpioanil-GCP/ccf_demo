@@ -185,6 +185,30 @@ defect class beyond `B0`.
   the "general obligations gate" `C-13` rejected: it is one assertion over one
   directory, not a framework.
 
+- **C-18:** **Cross-check the temporal axis where it is checkable; declare the
+  residual where it is not.** Found by the plan-checker against the shipped tree
+  (`egress.py:542`, `:760`): because `C-15` keeps the clock client-side,
+  `asked_at` stays a separate tool argument, so a **concrete** `as_of` crosses
+  the `mcp+stdio` pipe **twice** — once inside the encoded `WireRequest` that
+  becomes the echo, and once as the `asked_at` argument the door actually
+  answers against. A transport that alters only `asked_at` produces a perfectly
+  matching echo for an answer computed at a different instant. That is `B0`'s
+  own failure mode surviving on the third axis of a comparison `C-03` defines as
+  **total**.
+
+  Therefore: when `temporal_boundary is not None`, the door **cross-checks it
+  against `asked_at` and refuses a disagreement by name** — the same mechanism
+  already built for `product_class` and `parameters`, extended rather than
+  invented. When `temporal_boundary is None` the check is impossible, because
+  the client resolved the clock (`C-15`); that residual is **named explicitly**
+  in `C-10`'s undetected list, in the `D-IMPL` entry, and in `T-19-01`'s
+  mitigation text, which currently claims the opposite. Rejected: declaring the
+  whole temporal axis unprotected (ships a comparison called total that is inert
+  on one of three axes), and dropping `asked_at` to single-source the instant
+  (structurally strongest, but contradicts `C-16`'s ruling against reshaping the
+  four §6.3 axes and discards the tool docstring's argument for why they are
+  separately required).
+
 ### Claude's Discretion
 Two residuals the user explicitly left to planning:
 - Whether out-of-tree adapters get a deprecation window or simply break at the
