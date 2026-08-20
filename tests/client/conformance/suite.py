@@ -61,14 +61,17 @@ from pathlib import Path
 from typing import Any, Final
 
 from ccf.client.client import ProductClient
+from ccf.client.codec import encode_outcome
 from ccf.client.errors import RefusedResultError, TransportError
 from ccf.client.result import GUARDED_FIELDS, PRE_ASSEMBLY_FIELDS, Result
-from ccf.client.wire import TransportAdapter
+from ccf.client.wire import TransportAdapter, WireOutcome, WireRequest
 
 __all__ = [
     "REFUSAL_VIEW_KEYS",
     "AdapterSubject",
     "Question",
+    "assert_a_crossed_echo_is_caught",
+    "assert_an_altered_vessel_is_caught",
     "assert_decision_instant_is_auditable",
     "assert_guard_holds",
     "assert_guard_parity",
@@ -865,3 +868,375 @@ def assert_one_instant_is_one_decision(
             CONTENT_ADDRESS: result.content_address,
         }
     _assert_views_agree(views, leg="one instant")
+
+
+# ---------------------------------------------------------------------------
+# C-12 — every registered adapter's integrity checks, observed live.
+# ---------------------------------------------------------------------------
+
+
+#: The synthetic token the crossed-echo edit appends to — or removes from — the
+#: echoed class name. A token no deployment speaks, deliberately: this module
+#: holds no product identity and no parameter name, so the crossed question is
+#: **derived** from the one already on the wire rather than spelled beside it.
+#: Suffixing is its own inverse for any string and is never the identity, which
+#: is the property the controls in ``test_the_suite_fires.py`` are built on.
+_CROSSING_MARKER: Final[str] = "~crossed"
+
+#: The phrase :func:`~ccf.client.codec.check_outcome` raises with when an
+#: outcome echoes a question other than the one that was sent. Held as a
+#: constant naming the function it mirrors, so a reword in the codec is one
+#: edit here rather than four scattered literals.
+CROSSED_ECHO_REFUSAL: Final[str] = "echoes a different question"
+
+#: The phrase :func:`~ccf.client.codec.verify_content_address` raises with when
+#: the vessel does not hash to the address the wire claimed for it. Same
+#: reason, and deliberately different from :data:`CROSSED_ECHO_REFUSAL` — the
+#: two legs below assert on their own phrase so neither can pass on the other's
+#: failure.
+ALTERED_VESSEL_REFUSAL: Final[str] = "does not hash to the content address"
+
+
+class _Tampering:
+    """A transport that corrupts the producer's bytes on the way back.
+
+    ``C-12`` (Phase 19): *the suite wraps each registered adapter in a
+    byte-corrupting decorator*. The decorator lives here rather than in a
+    binding module because an adapter author must write **nothing** and must
+    not be able to opt out — a decorator per binding module is a decorator an
+    author can forget, and "official adapter" is meant to come to mean "its
+    integrity checks are demonstrably live".
+
+    **It is generic and transport-blind only because the seam is bytes**
+    (``C-05``), and that is the whole argument for why this class can exist at
+    all. Under the previous seam an adapter returned a
+    :class:`~ccf.client.wire.WireOutcome` **object**, so a wrapper standing
+    where this one stands could only have edited an object the adapter built
+    from the request it was handed — which is the reconstruction ``D-IMPL-151``
+    finding ``B0`` names, not a tamper. A decorator that had to know each
+    transport's answer shape would be a decorator per transport, and a check
+    written beside a transport is a check that transport was shaped by. This
+    one knows only that bytes crossed.
+
+    Args:
+        inner: The adapter the subject's own factory built. Wrapped, never
+            subclassed and never replaced: the only difference between this
+            object and the honest one is the edit, which is what makes an
+            observed failure attributable to the tamper.
+        edit: The byte edit to apply to whatever came back. Every edit this
+            module ships is an **involution** — see :func:`_cross_the_echo` and
+            :func:`_alter_the_vessel`.
+    """
+
+    def __init__(
+        self, inner: TransportAdapter, edit: Callable[[bytes], bytes]
+    ) -> None:
+        self._inner = inner
+        self._edit = edit
+
+    def ask(self, request: WireRequest) -> bytes:
+        return self._edit(self._inner.ask(request))
+
+
+def _cross_the_echo(raw: bytes) -> bytes:
+    """Answer a different question than the one asked, and say so on the wire.
+
+    The tamper a proxying or multiplexing transport produces when it crosses
+    two in-flight questions: a perfectly well-formed outcome carrying an echo
+    that names a class nobody asked for. The client's own comparison against
+    the request it sent is the only thing that can catch it, which is why this
+    edit exists.
+
+    **The crossed question is derived, never spelled.** The echo already on the
+    wire is read and its class name is suffixed with :data:`_CROSSING_MARKER`;
+    no deployment vocabulary enters this module, and the neutrality assertion
+    in ``test_the_suite_fires.py`` stays green.
+
+    **This edit is an involution, and that is a requirement rather than an
+    incidental property.** Applying it twice returns bytes that decode to the
+    original outcome — suffix, then strip the suffix — and applying it once
+    never does, because the marker is non-empty. The control on the leg below
+    is built on exactly that: a control subject that applies this same shipped
+    edit a second time neutralizes the leg's tamper, and the moment the edit
+    stops being an involution the control goes red rather than passing for a
+    reason nobody can state.
+    """
+    # A raw parse, and deliberately **not** `decode_outcome`: the decoder runs
+    # the very checks this edit exists to trip, so it would raise before the
+    # tamper could be applied — and it takes the request that was *sent*, which
+    # an edit applied to whatever crossed the wire does not hold.
+    outcome = WireOutcome.model_validate_json(raw)
+    asked = outcome.request
+    crossed = (
+        asked.product_id.removesuffix(_CROSSING_MARKER)
+        if asked.product_id.endswith(_CROSSING_MARKER)
+        else asked.product_id + _CROSSING_MARKER
+    )
+    return encode_outcome(
+        outcome.model_copy(
+            update={"request": asked.model_copy(update={"product_id": crossed})}
+        )
+    )
+
+
+def _alter_the_vessel(raw: bytes) -> bytes:
+    """Change the served vessel's bytes and leave the producer's address alone.
+
+    Corruption, truncation or a re-serializing intermediary, in the smallest
+    form that is still a byte change: one space immediately inside the vessel
+    text's opening brace. The producer's claimed content address is left
+    exactly where the producer put it, so the recomputation the client performs
+    is the thing that disagrees.
+
+    **The edited text is still valid JSON and still a valid contract in both
+    directions**, and that is the discrimination argument. A tamper that broke
+    the vessel's well-formedness would be caught by the contract validation
+    instead, and the leg would then be proving that the parser fires rather
+    than that the address check does.
+
+    **This edit is an involution**, for the same reason and to the same end as
+    :func:`_cross_the_echo`: a space present is removed, a space absent is
+    inserted, so applying it twice restores the producer's own bytes and
+    applying it once never does.
+    """
+    # A raw parse, for the reason `_cross_the_echo` states: `decode_outcome`
+    # runs the client's checks and would raise before this edit could apply.
+    outcome = WireOutcome.model_validate_json(raw)
+    vessel = outcome.product_json
+    if vessel is None:
+        raise AssertionError(
+            "this edit was handed a refusal, which carries no vessel to alter"
+            " — the leg that applies it asks a question the deployment serves,"
+            " so a refusal here means the question or the deployment is wrong"
+        )
+    opening = vessel.find("{")
+    if opening < 0:
+        raise AssertionError(
+            "the served vessel's canonical text opens no object, so this edit"
+            " found nothing to alter inside it"
+        )
+    inside = opening + 1
+    altered = (
+        vessel[:inside] + vessel[inside + 1 :]
+        if vessel[inside : inside + 1] == " "
+        else vessel[:inside] + " " + vessel[inside:]
+    )
+    return encode_outcome(outcome.model_copy(update={"product_json": altered}))
+
+
+def assert_a_crossed_echo_is_caught(
+    subjects: Sequence[AdapterSubject],
+    *,
+    provision: Provision,
+    question: Question,
+) -> None:
+    """A tampered echo raises ``TransportError``, on every registered adapter.
+
+    ``C-12``. The suite wraps each subject's own adapter in :class:`_Tampering`
+    and requires the client to refuse the answer. The adapter author writes
+    nothing and cannot opt out, so *"official adapter"* comes to mean *"its
+    integrity checks are demonstrably live"* — which is the direct answer to
+    *"a fix that leaves the seam bypassable re-opens the defect for the next
+    adapter."*
+
+    **Per subject, and never a comparison between subjects.** A suite with one
+    subject bound is still non-vacuous here, because the property is a claim
+    about what each transport's own client does rather than about two
+    transports agreeing.
+
+    Three things are asserted per subject, and the second and third are what
+    stop this leg proving itself:
+
+    * the tampered wire raises an exception whose **exact type** is
+      :class:`~ccf.client.errors.TransportError`, carrying the codec's own
+      crossed-echo wording. The type is checked exactly because
+      :class:`~ccf.client.errors.BindingError` *subclasses* ``TransportError``,
+      so a bare ``except`` would let a binding failure pass for a caught
+      tamper — a wrong failure counted as a right one;
+    * the subject's factory is **type-stable**: a second, independently
+      connected adapter over its own provisioned root is the same type as the
+      one that was wrapped. This is **weaker** than
+      :func:`assert_wire_failure_parity`'s ``type(broken) is type(healthy)``
+      and the difference is stated rather than glossed: there the two objects
+      come from two *independent* hooks and the check measures a damaged
+      substrate; here they come from two calls to *one* hook, so what is pinned
+      is factory type-stability. The obvious alternative — asserting that the
+      wrapper's inner adapter *is* the object ``connect`` returned one line
+      earlier — is a tautology no implementation of anything could fail, and an
+      assertion that cannot fail is the very defect this phase exists to close;
+    * an **untampered** client, on the same question and its own deployment,
+      does *not* raise — without which "everything raises" would pass this leg.
+
+    Raises:
+        AssertionError: any of the three failed for any subject.
+    """
+    _require_subjects(subjects, leg="crossed echo")
+    for subject in subjects:
+        inner = subject.connect(provision(subject.name))
+        tampered = ProductClient(
+            product_id=question.product_id,
+            adapter=_Tampering(inner, _cross_the_echo),
+        )
+        try:
+            produced = tampered.ask(
+                parameters=question.parameters, as_of=question.as_of
+            )
+        except TransportError as caught:
+            # The EXACT type, spelled out rather than implied by the `except`:
+            # `BindingError` subclasses `TransportError`, so a bare handler
+            # would let a connection failure pass for a caught tamper.
+            caught_the_wire_failure_itself = type(caught) is TransportError
+            if not caught_the_wire_failure_itself:
+                raise AssertionError(
+                    f"`{subject.name}` answered a crossed echo with a"
+                    f" `{type(caught).__name__}` rather than a `TransportError`"
+                    " itself — `BindingError` subclasses `TransportError`, so"
+                    " this leg checks the exact type and refuses to count a"
+                    " connection failure as a caught tamper"
+                ) from caught
+            if CROSSED_ECHO_REFUSAL not in str(caught):
+                raise AssertionError(
+                    f"`{subject.name}` raised a `TransportError` that does not"
+                    " name the crossed echo — expected"
+                    f" `{CROSSED_ECHO_REFUSAL}` in `{caught}`. This leg"
+                    " discriminates on its own wording so it cannot pass on"
+                    " some other transport failure"
+                ) from caught
+        else:
+            state = "a refusal" if produced.refused else "a served product"
+            raise AssertionError(
+                f"`{subject.name}` did not raise `TransportError` on a crossed"
+                f" echo — {state} came back instead, so this transport's client"
+                " accepted an answer to a question nobody asked. The echo is"
+                " the only operand that did not come from the client, and a"
+                " transport where the comparison cannot fail is the defect"
+                " `D-IMPL-151` finding `B0` recorded"
+            )
+        witness = subject.connect(provision(f"{subject.name}-witness"))
+        if type(inner) is not type(witness):
+            raise AssertionError(
+                f"`{subject.name}` built a `{type(inner).__name__}` and then a"
+                f" `{type(witness).__name__}` from the same factory over two"
+                " roots — a factory whose type depends on which deployment it"
+                " is handed makes the object this leg wrapped unrepresentative"
+                " of the one a caller gets"
+            )
+        try:
+            served = ProductClient(
+                product_id=question.product_id,
+                adapter=subject.connect(provision(f"{subject.name}-untampered")),
+            ).ask(parameters=question.parameters, as_of=question.as_of)
+        except TransportError as raised:
+            raise AssertionError(
+                f"`{subject.name}` raised `{type(raised).__name__}` on an"
+                " UNTAMPERED wire asking the same question, so this leg never"
+                " showed that the tamper is what was caught — a transport where"
+                " everything raises would otherwise have passed the check above"
+            ) from raised
+        if served.refused:
+            raise AssertionError(
+                f"`{subject.name}` refused the untampered question, so this leg"
+                " has no served answer to contrast the tampered one with and"
+                " never showed the two are different"
+            )
+
+
+def assert_an_altered_vessel_is_caught(
+    subjects: Sequence[AdapterSubject],
+    *,
+    provision: Provision,
+    question: Question,
+) -> None:
+    """A vessel altered in transit raises ``TransportError``, on every adapter.
+
+    ``C-12``, the address half. The suite wraps each subject's own adapter in
+    :class:`_Tampering` with :func:`_alter_the_vessel`, which changes the
+    served bytes by one space and leaves the producer's claimed address alone.
+    The adapter author writes nothing and cannot opt out.
+
+    **Per subject, and never a comparison between subjects** — see
+    :func:`assert_a_crossed_echo_is_caught`, whose three limbs this leg repeats
+    for its own wording. The two legs discriminate on their own phrase **and**
+    on the exact exception type, so neither can pass on the other's failure and
+    neither can pass on a :class:`~ccf.client.errors.BindingError`.
+
+    The type stand-in below is the same **weaker** check the crossed-echo leg
+    documents, for the same reason: a wrapper has no independence from the
+    thing it wraps, so the honest analogue of the break hook's same-type
+    assertion is a second, independently connected adapter from the same
+    factory rather than an identity assertion that cannot fail.
+
+    Raises:
+        AssertionError: any of the three failed for any subject.
+    """
+    _require_subjects(subjects, leg="altered vessel")
+    for subject in subjects:
+        inner = subject.connect(provision(subject.name))
+        tampered = ProductClient(
+            product_id=question.product_id,
+            adapter=_Tampering(inner, _alter_the_vessel),
+        )
+        try:
+            produced = tampered.ask(
+                parameters=question.parameters, as_of=question.as_of
+            )
+        except TransportError as caught:
+            # The EXACT type, spelled out rather than implied by the `except`:
+            # `BindingError` subclasses `TransportError`, so a bare handler
+            # would let a connection failure pass for a caught tamper.
+            caught_the_wire_failure_itself = type(caught) is TransportError
+            if not caught_the_wire_failure_itself:
+                raise AssertionError(
+                    f"`{subject.name}` answered an altered vessel with a"
+                    f" `{type(caught).__name__}` rather than a `TransportError`"
+                    " itself — `BindingError` subclasses `TransportError`, so"
+                    " this leg checks the exact type and refuses to count a"
+                    " connection failure as a caught tamper"
+                ) from caught
+            if ALTERED_VESSEL_REFUSAL not in str(caught):
+                raise AssertionError(
+                    f"`{subject.name}` raised a `TransportError` that does not"
+                    " name the address it recomputed — expected"
+                    f" `{ALTERED_VESSEL_REFUSAL}` in `{caught}`. The altered"
+                    " text is still valid JSON and still a valid contract, so a"
+                    " failure worded otherwise means the leg tripped the parser"
+                    " rather than the address check"
+                ) from caught
+        else:
+            state = "a refusal" if produced.refused else "a served product"
+            raise AssertionError(
+                f"`{subject.name}` did not raise `TransportError` on an altered"
+                f" vessel — {state} came back instead, so this transport's"
+                " client accepted bytes that do not hash to the address their"
+                " own producer claimed for them. The claimed address is the"
+                " only operand that did not come from the client, and a"
+                " transport where the recomputation cannot fail is the defect"
+                " `D-IMPL-151` finding `B0` recorded"
+            )
+        witness = subject.connect(provision(f"{subject.name}-witness"))
+        if type(inner) is not type(witness):
+            raise AssertionError(
+                f"`{subject.name}` built a `{type(inner).__name__}` and then a"
+                f" `{type(witness).__name__}` from the same factory over two"
+                " roots — a factory whose type depends on which deployment it"
+                " is handed makes the object this leg wrapped unrepresentative"
+                " of the one a caller gets"
+            )
+        try:
+            served = ProductClient(
+                product_id=question.product_id,
+                adapter=subject.connect(provision(f"{subject.name}-untampered")),
+            ).ask(parameters=question.parameters, as_of=question.as_of)
+        except TransportError as raised:
+            raise AssertionError(
+                f"`{subject.name}` raised `{type(raised).__name__}` on an"
+                " UNTAMPERED wire asking the same question, so this leg never"
+                " showed that the tamper is what was caught — a transport where"
+                " everything raises would otherwise have passed the check above"
+            ) from raised
+        if served.refused:
+            raise AssertionError(
+                f"`{subject.name}` refused the untampered question, so this leg"
+                " has no served answer to contrast the tampered one with and"
+                " never showed the two are different"
+            )

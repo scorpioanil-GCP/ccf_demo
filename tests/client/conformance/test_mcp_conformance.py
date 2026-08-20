@@ -151,3 +151,17 @@ def test_one_instant_is_one_decision(provision: Provision) -> None:
     suite.assert_one_instant_is_one_decision(
         SUBJECTS, provision=provision, question=QUESTION
     )
+
+
+def test_a_crossed_echo_is_caught(provision: Provision) -> None:
+    """`C-12`/`P3`: both transports' clients refuse an answer to another question."""
+    suite.assert_a_crossed_echo_is_caught(
+        SUBJECTS, provision=provision, question=QUESTION
+    )
+
+
+def test_an_altered_vessel_is_caught(provision: Provision) -> None:
+    """`C-12`/`P3`: both transports' clients refuse a vessel that lost its address."""
+    suite.assert_an_altered_vessel_is_caught(
+        SUBJECTS, provision=provision, question=QUESTION
+    )
