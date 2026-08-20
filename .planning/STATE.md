@@ -12,8 +12,8 @@ last_activity: >-
   speaks only `ProductClient.ask`), and `mypy` covers `src`+`runtime` ONLY -- so stale test
   annotations WILL NOT fail `make typecheck`.
   FOUR RULINGS TAKEN BY DAVE AT PLANNING, recorded as `C-15`..`C-18` in `19-CONTEXT.md`:
-  `C-15` THE CLOCK DOES NOT MOVE (`C-13` stay-narrow governs; the false `client.py:139-141`
-  sentence is AMENDED, and the client-side clock read becomes ITS OWN `D-IMPL` FOR A LATER
+  `C-15` THE CLOCK DOES NOT MOVE (`C-13` stay-narrow governs; the false sentence in
+  `src/ccf/client/client.py::ProductClient.ask` is AMENDED, and the client-side clock read becomes ITS OWN `D-IMPL` FOR A LATER
   PHASE); `C-16` BREAK CLEANLY -- `PRODUCT_REQUEST_TOOL` gains a REQUIRED argument, no
   deprecation window, one `D-IMPL` ruling both that and the `C-08` out-of-tree adapter break;
   `C-17` A NARROW AST GATE over `src/ccf/client/adapters/` only, mirroring `CLNT-06`;
@@ -26,8 +26,8 @@ last_activity: >-
   0 BLOCKERS + 4 warnings + 5 info, all 21 findings addressed across two revisions. EVERY
   BLOCKER WAS VERIFIED AGAINST THE TREE BEFORE BEING ACTED ON; none were rejected. The sharpest
   finding was NOT a code defect but a CHECK DEFECT: `19-02`'s criterion
-  `grep -c "check_outcome" client.py == 0` WAS SATISFIABLE ONLY BY DELETING the paragraph at
-  `client.py:196-201` that states the phase's own thesis -- a criterion greenable only by
+  `grep -c "check_outcome" client.py == 0` WAS SATISFIABLE ONLY BY DELETING the paragraph in
+  `src/ccf/client/client.py::ProductClient.ask` that states the phase's own thesis -- a criterion greenable only by
   violating project law, in the phase about checks that cannot fail. Now inverted into a GUARD
   (`grep -c "func:.*check_outcome" >= 2`), so deletion fails in wave 2 rather than going
   unnoticed until wave 5.
