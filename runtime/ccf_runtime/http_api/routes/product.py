@@ -225,9 +225,8 @@ def build_router(
         # honest report that this deployment's resolver returned the narrower
         # vessel, which carries none — never a reference dropped at the door.
         answer = served_answer(resolved)
-        return canonical_response(
-            answer.product, replay_ref=answer.replay_ref, asked=echo
-        )
+        replay_ref = answer.replay_ref
+        return canonical_response(answer.product, replay_ref=replay_ref, asked=echo)
 
     def _echo(asked: ProductRequest) -> WireRequest:
         """The question this door parsed, in the shape a consumer decodes.
