@@ -1813,7 +1813,15 @@ ruling above turns out to affect SDK surface rather than example layout, that is
 standard — every new check carries a named sabotage control in the same plan.
 **Depends on:** Phase 18.1 (`D-GATE-18.1`, the door and the deployment-declares-its-server
 binding) and Phase 19 (`D-GATE-19`, the wire form the door now speaks).
-**Plans:** 8 plans in 6 waves (planned 2026-08-20).
+**Plans:** 8 plans in 8 waves (planned 2026-08-20; re-waved 2026-08-20 at plan
+revision). The waves are fully serial. Three things forced it and none is a
+preference: `20-05` asserts a file count and an AST shape that `20-04` is
+concurrently producing; every plan writes the generated
+`docs/surface/examples/RETIREMENT-COUPLINGS.md`, which is byte-compared by
+`make gate-tools` and is **red at this phase's base commit** because Phase 20's own
+planning documents reference `examples/s2-01-external-consumers/`; and every plan
+from `20-03` on asserts a tree-global gate, which no plan can honestly assert while
+a sibling mutates the same tree.
 
 **Two constraints that hold across every wave** (carried from 18.1/19, and not truths of any
 single plan): `.venv/bin/python` always — bare `python` does not exist on this host and a plan
@@ -1823,7 +1831,7 @@ that writes it reports a false red; and no `state.*` or `roadmap.*` SDK writer i
 Plans:
 **Wave 1**
 
-- [ ] 20-01-PLAN.md — Mint CLNT-23..31, record the `D-32` narrowing (`D-IMPL-163`), pin the criterion-7 diff base, author `artifacts/scenario-rows.yaml`
+- [ ] 20-01-PLAN.md — Mint CLNT-23..31, record the `D-32` narrowing (`D-IMPL-163`), pin the criterion-7 diff base, author `artifacts/scenario-rows.yaml`, and regenerate `RETIREMENT-COUPLINGS.md` to establish the phase's green `make gate-tools` baseline
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -1836,14 +1844,20 @@ Plans:
 **Wave 4** *(blocked on Wave 3)*
 
 - [ ] 20-04-PLAN.md — Leg 2: the copied fail-loud SSE model stand-in, the extracted offline `claude` recipe, `client_anthropic.py`, `--live` semantics
-- [ ] 20-05-PLAN.md — Criterion 6: the no-model socket guard over legs 1 and 3 with three controls, and the `--live`-is-one-flag AST assertion with three more
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 20-06-PLAN.md — The AST purity gate: per-root permitted sets, `ccf` refused by name, the measured budget, command identity, controls C-20-1..C-20-8
-- [ ] 20-07-PLAN.md — Retirement: `s2-01` → `docs/retired/16-external-consumers/`, the transport spike retired after its recipe was extracted, five references swept, `00-hello-context` marked historical in prose, the coupling inventory regenerated
+- [ ] 20-05-PLAN.md — Criterion 6: the no-model socket guard over legs 1 and 3 with three controls, and the `--live`-is-one-flag AST assertion with three more
 
 **Wave 6** *(blocked on Wave 5)*
+
+- [ ] 20-06-PLAN.md — The AST purity gate: per-root permitted sets kept prefix-matching, `ccf` refused by name, the measured budget and its own control, command identity, controls C-20-1..C-20-9
+
+**Wave 7** *(blocked on Wave 6)*
+
+- [ ] 20-07-PLAN.md — Retirement: `s2-01` → `docs/retired/16-external-consumers/`, the transport spike retired after its recipe was extracted, six references swept, `00-hello-context` marked historical in prose and asserted intact, the LangGraph-only count claim, the coupling inventory regenerated
+
+**Wave 8** *(blocked on Wave 7)*
 
 - [ ] 20-08-PLAN.md — The one README, its structure test, three `--live` targets outside `examples:`, criterion 7's asserted empty diff, and `make ci` exit 0
 
