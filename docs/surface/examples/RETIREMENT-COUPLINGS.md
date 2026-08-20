@@ -194,8 +194,8 @@ Rows by coupling shape:
 | `public/reference/artifacts/task-definitions.md` | 16 | `examples/05-workflow-hitl` | `snippet-include` | live | - | - | 16-18 |  |
 | `public/reference/artifacts/workflow-definitions.md` | 18 | `examples/05-workflow-hitl` | `snippet-include` | live | - | - | 16-18 |  |
 | `pyproject.toml` | 83 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 16-18 |  |
-| `runtime/ccf_runtime/mcp/egress.py` | 305 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `runtime/ccf_runtime/mcp/egress.py` | 307 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `runtime/ccf_runtime/mcp/egress.py` | 304 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `runtime/ccf_runtime/mcp/egress.py` | 306 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 332 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 334 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 483 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
