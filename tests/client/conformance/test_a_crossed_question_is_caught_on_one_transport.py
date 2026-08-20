@@ -1,0 +1,372 @@
+"""One client, one adapter, one deployment: a crossed question is caught here.
+
+``C-11`` (Phase 19), and the ROADMAP's own success sentence for this phase:
+*"a control that answers a different question must be caught by a
+single-transport client, not only by the cross-adapter parity diff."* Parity is
+blind by construction to a check broken identically on both subjects, which is
+exactly how ``D-IMPL-151`` finding ``B0`` survived Phase 18's suite — every leg
+that could have caught it was comparing two transports that were wrong in the
+same way.
+
+So **no assertion in this module compares two subjects.** Each one names a
+single transport, drives the real
+:class:`~ccf.client.client.ProductClient` over a single provisioned
+deployment, and asserts what that one client did. A leg here whose failure mode
+were *"the two disagreed"* would not have discharged the phase, however green it
+ran.
+
+The discipline the neighbouring control modules state applies unchanged:
+nothing in ``src/`` or ``runtime/`` is edited and reverted — every sabotage
+below is a subclass, a wrapper or an in-memory byte edit — and nothing here
+re-implements an assertion. Each hostile subject **subclasses or wraps the
+shipped adapter**, because a control that tests a copy proves only that the
+copy fires.
+
+Every value the questions carry is read off the fixture deployment's own
+documents. They are imported from
+:mod:`tests.client.conformance.test_inprocess_conformance` rather than restated,
+on the rule :mod:`tests.client.conformance.test_mcp_conformance` already sets —
+*the same question* is then literally the same object and cannot drift into two
+— and that module derives them from ``ccf_config.yaml`` and the seeded rows, so
+the No-Hardcoding Rule (CLAUDE.md §6.4, scoped over ``tests`` through
+``tools/lints/__main__.py::RULE_TREE_SCOPE``) is satisfied at the one place the
+vocabulary enters.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import ClassVar, Final
+
+import pytest
+
+from ccf.client.adapters.inprocess import InProcessAdapter
+from ccf.client.adapters.mcp_stdio import McpStdioAdapter
+from ccf.client.client import ProductClient
+from ccf.client.errors import TransportError
+from ccf.client.wire import WireRequest
+
+from tests.client.conformance.suite import Provision, Question
+from tests.client.conformance.test_inprocess_conformance import (
+    OTHER_PARAMETERS,
+    QUESTION,
+    UNPINNED_QUESTION,
+)
+
+pytestmark = pytest.mark.conformance
+
+#: The phrase :func:`~ccf.client.codec.check_outcome` raises with when an
+#: outcome echoes a question other than the one that was sent. Asserted on
+#: instead of a digest value, because a control that asserted a digest would be
+#: restating the implementation rather than discriminating a diagnosis.
+CROSSED_QUESTION_REFUSAL: Final[str] = "different question"
+
+#: The wording the MCP door refuses a temporal disagreement with (``C-18``),
+#: which reaches this client inside a
+#: :class:`~ccf.client.errors.TransportError` with the server's own text in
+#: front of it. Deliberately different from :data:`CROSSED_QUESTION_REFUSAL` so
+#: the two crossings cannot pass on each other's failure.
+TEMPORAL_DISAGREEMENT_REFUSAL: Final[str] = (
+    "cannot be echoed as a question asked as-of another"
+)
+
+#: What the sentinel below holds when the client raised and produced nothing.
+#: A caught crossing produces **no** ``Result`` at all — not a refusal — and
+#: this module asserts that the same way
+#: :func:`~tests.client.conformance.suite.assert_wire_failure_parity` does.
+_NOTHING: Final = object()
+
+
+class _InProcessAnswersAnotherQuestion(InProcessAdapter):
+    """The shipped in-process transport, asking the door a different question.
+
+    Since ``C-05`` retyped the seam to bytes there is nothing else to write:
+    the door mints its own echo from the question it parsed, so a transport
+    that asks ``B`` gets an outcome that says ``B``, and the client's
+    comparison against the ``A`` it sent is the only thing standing between a
+    caller and an answer to a question nobody asked. **That there is nothing
+    else to write is the property** — under the previous seam this class had to
+    re-label the echo from client state to be a crossing at all, which is the
+    reconstruction ``B0`` names.
+    """
+
+    def ask(self, request: WireRequest) -> bytes:
+        return super().ask(
+            request.model_copy(update={"parameters": OTHER_PARAMETERS})
+        )
+
+
+class _McpAnswersAnotherQuestion(McpStdioAdapter):
+    """The shipped ``mcp+stdio`` transport, asking the door a different question.
+
+    One expression, for the reason
+    :class:`_InProcessAnswersAnotherQuestion` states. A real child process over
+    real pipes still answers; the only difference from an honest adapter is
+    which question it carried.
+    """
+
+    def ask(self, request: WireRequest) -> bytes:
+        return super().ask(
+            request.model_copy(update={"parameters": OTHER_PARAMETERS})
+        )
+
+
+class _McpMovesTheDoorsInstant(McpStdioAdapter):
+    """The shipped transport, altering the instant the door answers at.
+
+    ``C-18``. ``parameters`` is one axis of three, and the two classes above
+    cross that one. This crosses a different axis by a different route: because
+    ``C-15`` keeps the clock read client-side, a **concrete** ``as_of`` crosses
+    this pipe **twice** — once inside the encoded ``request`` that becomes the
+    echo, and once as the separate ``asked_at`` tool argument the door actually
+    answers against. A transport altering only the second returns a perfectly
+    matching echo for an answer computed at another instant, which is ``B0``'s
+    own failure mode surviving on the third axis of a comparison ``C-03``
+    defines as total.
+
+    **The override is `_call`, not `ask`, and that is the point.**
+    :meth:`~ccf.client.adapters.mcp_stdio.McpStdioAdapter.ask` is what builds
+    the ``arguments`` mapping, and this control must alter **one entry of it**
+    while leaving the encoded ``request`` untouched — an override of ``ask``
+    could only move both together, which would be re-proving the crossed
+    question above.
+
+    **The delegation names the class rather than spelling zero-argument
+    `super()`.** ``_call`` is a ``staticmethod``, and zero-argument ``super()``
+    inside one has no ``__class__`` cell bound the way an instance method does:
+    it would resolve against the first positional argument — here a
+    :class:`~pathlib.Path` — and raise ``TypeError`` before this control ever
+    reached its assertion.
+
+    **One microsecond is the magnitude, deliberately.** It is enough for the
+    door's equality check, and small enough that nothing else about the
+    resolver's answer moves — so a failure here is attributable to the instant
+    and not to a different graph state.
+
+    The instant it substituted is recorded on the class, so the residual test
+    below can assert *which* instant the door was made to answer at rather than
+    merely that nothing raised.
+    """
+
+    #: The instants this class substituted, most recent last. Class state
+    #: because ``_call`` is a ``staticmethod``, which is itself forced by the
+    #: shipped signature this control must keep in order to delegate to it.
+    substituted: ClassVar[list[datetime]] = []
+
+    @staticmethod
+    async def _call(
+        program: Path, root: Path, arguments: dict[str, object]
+    ) -> str:
+        moved = datetime.fromisoformat(
+            str(arguments["asked_at"])
+        ) + timedelta(microseconds=1)
+        _McpMovesTheDoorsInstant.substituted.append(moved)
+        arguments["asked_at"] = moved.isoformat()
+        return await McpStdioAdapter._call(program, root, arguments)
+
+
+def assert_a_crossed_question_is_caught(
+    *,
+    hostile: InProcessAdapter | McpStdioAdapter,
+    honest: InProcessAdapter | McpStdioAdapter,
+    question: Question,
+) -> None:
+    """One client over ``hostile`` must refuse; one over ``honest`` must not.
+
+    Takes **already-built** adapters rather than a factory, so the control on
+    this function can hand it an honest adapter in the ``hostile`` slot and
+    watch the assertion itself fail.
+
+    Three things, in this order:
+
+    1. the client over ``hostile`` raises, and the raised type is **exactly**
+       :class:`~ccf.client.errors.TransportError` — not the
+       :class:`~ccf.client.errors.BindingError` subclass, which would let a
+       connection failure pass for a caught crossing;
+    2. **no** ``Result`` was produced — refused or otherwise. A caught crossing
+       is not a governed "no"; asserting it the way
+       :func:`~tests.client.conformance.suite.assert_wire_failure_parity`
+       asserts the same distinction is what keeps the two apart;
+    3. the client over ``honest``, on the **same** question against its own
+       provisioned root, is served and not refused — the vacuity guard, without
+       which a transport where *everything* raises would pass limb 1.
+
+    Raises:
+        AssertionError: limb 2 or limb 3 failed.
+        pytest.fail.Exception: limb 1 failed — the client did not raise, or
+            raised without the discriminating wording.
+    """
+    produced: object = _NOTHING
+    with pytest.raises(
+        TransportError, match=CROSSED_QUESTION_REFUSAL
+    ) as caught:
+        produced = ProductClient(
+            product_id=question.product_id, adapter=hostile
+        ).ask(parameters=question.parameters, as_of=question.as_of)
+    if type(caught.value) is not TransportError:
+        raise AssertionError(
+            "the crossed question was refused with a"
+            f" `{type(caught.value).__name__}` rather than a `TransportError`"
+            " itself — `BindingError` subclasses `TransportError`, so this"
+            " assertion checks the exact `D-10` type and refuses to count a"
+            " connection failure as a caught crossing"
+        )
+    if produced is not _NOTHING:
+        raise AssertionError(
+            "the client produced a `Result` as well as raising on the crossed"
+            f" question — {produced!r}. A caught crossing yields no result at"
+            " all, refused or otherwise, and a caller handed one would branch"
+            " on an answer the fabric never gave"
+        )
+
+    served = ProductClient(product_id=question.product_id, adapter=honest).ask(
+        parameters=question.parameters, as_of=question.as_of
+    )
+    if served.refused:
+        raise AssertionError(
+            "the honest adapter refused the same question, so this assertion"
+            " never showed that the crossing is what was caught — a transport"
+            " that refused everything would otherwise have passed the check"
+            " above"
+        )
+
+
+def test_a_crossed_question_is_caught_over_the_in_process_transport(
+    provision: Provision,
+) -> None:
+    """`P1`, on one transport: `inprocess` alone, and no second subject."""
+    assert_a_crossed_question_is_caught(
+        hostile=_InProcessAnswersAnotherQuestion(str(provision("crossed"))),
+        honest=InProcessAdapter(str(provision("honest"))),
+        question=QUESTION,
+    )
+
+
+def test_a_crossed_question_is_caught_over_the_mcp_transport(
+    provision: Provision,
+) -> None:
+    """`P1`, on the other transport: `mcp+stdio` alone, and no second subject.
+
+    An independent single-transport proof, never one two-subject proof. The
+    in-process leg above is not consulted here and nothing is compared between
+    them.
+    """
+    assert_a_crossed_question_is_caught(
+        hostile=_McpAnswersAnotherQuestion(str(provision("crossed"))),
+        honest=McpStdioAdapter(str(provision("honest"))),
+        question=QUESTION,
+    )
+
+
+def test_control_the_assertion_fails_when_it_is_handed_an_honest_adapter(
+    provision: Provision,
+) -> None:
+    """`D-22`: hand the assertion an honest adapter and it must notice.
+
+    The control on the control. Without it,
+    :func:`assert_a_crossed_question_is_caught` could be an assertion that
+    passes for every subject there is, which is precisely the defect this
+    phase exists to close one layer down.
+
+    It fails on the **first** limb — the client did not raise — and the two
+    checks below are what keep it from passing for the wrong reason: the
+    failure is ``pytest``'s own *did not raise*, and the vacuity limb's wording
+    is absent from it.
+    """
+    with pytest.raises(pytest.fail.Exception) as fired:
+        assert_a_crossed_question_is_caught(
+            hostile=InProcessAdapter(str(provision("honest-in-the-hostile-slot"))),
+            honest=InProcessAdapter(str(provision("honest"))),
+            question=QUESTION,
+        )
+
+    message = str(fired.value)
+    assert "DID NOT RAISE" in message
+    assert "refused everything" not in message, (
+        "the assertion failed on its vacuity limb rather than on the client's"
+        " silence, so this control says nothing about whether an uncaught"
+        " crossing is noticed"
+    )
+
+
+def test_a_door_answering_at_another_instant_is_caught_when_the_boundary_is_concrete(
+    provision: Provision,
+) -> None:
+    """`C-18`, live: the temporal axis cross-checked on one transport.
+
+    The crossing the parameter-flipping adapters cannot produce, because it
+    moves ``asked_at`` **alone** — the encoded request is byte-identical to the
+    one an honest adapter would have sent, so the echo matches perfectly and
+    only the door's own cross-check of the two copies can catch it.
+    """
+    produced: object = _NOTHING
+    with pytest.raises(
+        TransportError, match=TEMPORAL_DISAGREEMENT_REFUSAL
+    ) as caught:
+        produced = ProductClient(
+            product_id=QUESTION.product_id,
+            adapter=_McpMovesTheDoorsInstant(str(provision("moved-instant"))),
+        ).ask(parameters=QUESTION.parameters, as_of=QUESTION.as_of)
+
+    assert type(caught.value) is TransportError
+    assert produced is _NOTHING, (
+        "the client produced a result as well as raising on a door that"
+        " answered at another instant"
+    )
+
+
+def test_the_unmutated_adapter_serves_the_same_concrete_question(
+    provision: Provision,
+) -> None:
+    """The vacuity guard for `C-18`'s cross-check.
+
+    The shipped :class:`~ccf.client.adapters.mcp_stdio.McpStdioAdapter`, on the
+    same concrete question against its own provisioned root, is served — so the
+    leg above caught the moved instant and not "this transport raises".
+    """
+    served = ProductClient(
+        product_id=QUESTION.product_id,
+        adapter=McpStdioAdapter(str(provision("unmutated"))),
+    ).ask(parameters=QUESTION.parameters, as_of=QUESTION.as_of)
+
+    assert not served.refused
+
+
+def test_an_absent_boundary_leaves_the_moved_instant_undetectable(
+    provision: Provision,
+) -> None:
+    """`C-18`'s declared residual, asserted as a measurement rather than described.
+
+    The same hostile class, asked with ``as_of=None``, does **not** raise and
+    is served: the client resolved the clock (``C-15``), so the instant crosses
+    this pipe **once** and the door has nothing to compare it to. This is
+    ``C-18``'s stated limit, it is named in ``C-10``'s undetected list by
+    ``19-07`` and in the decision log by ``19-08``, and a future phase moving
+    the clock resolution producer-side is what closes it.
+
+    It is a **passing** test and deliberately carries no expected-failure
+    marker: writing the boundary down as a measurement is what stops it
+    moving quietly, and in the one phase whose subject is claims matching
+    what the code does, a caveat in prose would be exactly the wrong
+    instrument. Were the door ever to gain a way to check this path, this
+    test goes red and somebody has to come and read it.
+    """
+    _McpMovesTheDoorsInstant.substituted.clear()
+    served = ProductClient(
+        product_id=UNPINNED_QUESTION.product_id,
+        adapter=_McpMovesTheDoorsInstant(str(provision("moved-and-unpinned"))),
+    ).ask(
+        parameters=UNPINNED_QUESTION.parameters, as_of=UNPINNED_QUESTION.as_of
+    )
+
+    assert not served.refused
+    # `C-02`: the echo is *as asked*, so it says `None` — which is precisely
+    # why there is no second copy of the instant for the door to disagree with.
+    assert served.temporal_boundary is None
+    # And the door answered at the instant the transport chose. The residual is
+    # not "the check is weak here"; it is that on this path the client holds
+    # nothing that could contradict the transport.
+    assert served.lineage.graph_snapshot_at == (
+        _McpMovesTheDoorsInstant.substituted[-1]
+    )
