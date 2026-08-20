@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-20T09:05:00.000Z"
+last_updated: "2026-08-20T11:40:00.000Z"
 last_activity: >-
   2026-08-20 -- **PHASE 19 CLOSED AND GATED. `D-GATE-19` APPROVED BY DAVE**, recorded in
   `docs/DECISIONS.md`. NO MERGE REQUIRED -- the work landed on `main` (`D-IMPL-161`).
@@ -387,6 +387,43 @@ progress:
   completed_plans: 166
   percent: 94
 stopped_at: >-
+  PHASE 20 IS DISCUSSED, NOT PLANNED. The NEXT ACTION is `/clear` then `/gsd:plan-phase 20`
+  against
+  `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-CONTEXT.md`
+  (14 decisions, `H-01`..`H-14`; `20-DISCUSSION-LOG.md` beside it holds the rejected
+  alternatives). No phase branch is cut and no plan exists. Committed at `df30975`.
+  ONE PREMISE IN THE ROADMAP ENTRY WAS MEASURED WRONG AND CORRECTED IN DISCUSS, WITH DAVE'S
+  EXPLICIT ACCEPTANCE: there is NO hand-offable MCP stdio endpoint, so a runner cannot pre-spawn
+  the door and pass pipes to three client processes. All three installed harnesses take
+  `command + args` and spawn the child THEMSELVES (ADK `StdioConnectionParams`,
+  `claude_agent_sdk.McpStdioServerConfig`, raw `mcp.client.stdio.stdio_client`). The locked
+  contract (`H-01`/`H-02`): the RUNNER may import `ccf` and resolves deployment root ->
+  `binding.yaml`'s `server:` -> an OPAQUE `command + args`; each CLIENT receives that pair via
+  `argv` and spawns through its own harness. Purity is held by the client never learning what CCF
+  is, not by keeping it away from a subprocess.
+  TWO DECISIONS CARRY OBLIGATIONS BEYOND THIS PHASE AND MUST NOT BE TAKEN QUIETLY AT PLANNING.
+  (1) `H-04` NARROWS `D-32` on the record: `D-32` governs a committed STORE FILE and a populated
+  graph -- producer OUTPUT -- not a declared INPUT document a fabric-side runner interprets. The
+  narrowing was forced: `D-32` forbids a seed artifact under `examples/` and `no-hardcoding`'s
+  `RULE_TREE_SCOPE` covers `examples/`, so the seed values could live in neither a document nor
+  code without one of the two moving. It needs its own `D-IMPL` entry.
+  (2) `H-07` PUTS THE `claude` CLI ON THE ALWAYS-ON CI PATH. `claude_agent_sdk` routes its MCP
+  client through the `claude` subprocess (`_internal/transport/subprocess_cli.py:159`), so a
+  scripted transport -- example 03's technique -- REMOVES the door call and cannot satisfy
+  criterion 2. Leg 2 therefore runs the real CLI against a replayed model. THE CLI IS NOT A PYTHON
+  PACKAGE, cannot be pinned in `pyproject.toml`, has NO install step in `ci.yml` today, and it is
+  UNVERIFIED whether it can be driven fully offline against a replay server. RESEARCH MUST SETTLE
+  THIS BEFORE PLANNING COMMITS LEG 2'S DEFAULT PATH -- criterion 10 (`make ci` exit 0) depends on
+  it, and an undriveable CLI is a `D-IMPL-NN` AND A STOP, never a quiet demotion of leg 2 to
+  `--live`.
+  KNOWN AND ACCEPTED CONSEQUENCE, to be written into the README rather than smoothed over: with
+  `H-06` (no model for ADK and LangGraph) plus `H-07`, the three programs are NOT the same program
+  three ways in the default path. Who holds the MCP session differs BY HARNESS; CCF does not.
+  `state.record-session` WAS INVOKED ONCE THIS SESSION, RETURNED `recorded: false` -- AND CORRUPTED
+  THE FILE ANYWAY (1207 -> 705 lines, lines 5-382 replaced by two). Restored from a pre-call backup
+  and hand-edited, exactly as the 2026-08-18 and 2026-08-19 entries below already warn. THE WARNING
+  IS NOW THREE-FOR-THREE: DO NOT RUN `state.*` OR `roadmap.*` WRITERS AGAINST THESE FILES.
+  EVERYTHING BELOW THIS LINE IS THE PHASE 18.1/19 RECORD, SUPERSEDED AS TO NEXT ACTION ONLY.
   TWO PHASES ARE OPEN AND NEITHER IS PLANNED, AND THEY ARE INDEPENDENT OF EACH OTHER. BY ROADMAP
   ORDER the next action is `/clear` then `/gsd:plan-phase 18.1` (or `/gsd:discuss-phase 18.1`
   first, which is worth it: `how simple is simple enough` and the README's exact framing are
