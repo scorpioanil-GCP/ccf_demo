@@ -79,6 +79,7 @@ from ccf.products.door import (
     door_answer,
     door_question,
 )
+from ccf.products.gates import GATE_EMPTY_OPERATOR, EmptyOperatorRefusal
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
 
@@ -536,6 +537,52 @@ def test_a_refused_outcome_carries_the_echo_and_nothing_of_the_served_half(
     assert parsed.content_address is None
     assert parsed.replay_ref is None
     assert parsed.refusal is not None
+    assert parsed.refusal.request.parameters == {}, (
+        "the refusal names the question that *caused* it — the fixture's"
+        " `_typed({})` — and not the unrelated `resolved_request` that"
+        " `_answer` hands the door, because a `RefusalEnvelope` carries its"
+        " own identity and `ccf.products.door::door_refusal` passes it"
+        " through untouched"
+    )
+
+
+def test_control_a_bare_refusal_takes_its_identity_from_what_the_door_resolved() -> None:
+    """The vacuity guard for the refusal-identity assertion above.
+
+    That assertion reads `parameters == {}`, and a member that is always empty
+    would satisfy it without measuring anything. The other refusal shape shows
+    it is not: `ccf.products.door::door_refusal` handles two, and on the
+    **bare** path — a `ccf.products.gates::GateRefusal` rather than a
+    `ccf.products.refusal::RefusalEnvelope` — it supplies the question from the
+    `resolved_request` the door was handed. Same door, same call, opposite
+    answer.
+
+    This is also the measurement that answers close-review finding `WR-06`,
+    which reported that `_answer` hands `door_answer` a `resolved_request`
+    contradicting the value being rendered, and concluded the refusal's request
+    identity is therefore built from the wrong question. Measured: it is not.
+    The envelope fixture's refusal names `parameters={}` — the question that
+    was actually refused — because the envelope path never reads `asked`. The
+    contradiction is inert on the path the leg above exercises and load-bearing
+    on the path this control exercises, and both are now asserted rather than
+    either being assumed.
+    """
+    asked = WireRequest(
+        product_id=PRODUCT_ID,
+        parameters={PARAMETER: THRESHOLD},
+        temporal_boundary=None,
+    )
+
+    parsed = _answer(
+        EmptyOperatorRefusal(
+            gate=GATE_EMPTY_OPERATOR, detail="no operators were invoked"
+        ),
+        asked,
+        asked_at=RESOLVED_AT,
+    )
+
+    assert parsed.refusal is not None
+    assert parsed.refusal.request.parameters == {PARAMETER: THRESHOLD}
 
 
 # ---------------------------------------------------------------------------
