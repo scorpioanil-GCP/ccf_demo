@@ -1813,7 +1813,7 @@ ruling above turns out to affect SDK surface rather than example layout, that is
 standard — every new check carries a named sabotage control in the same plan.
 **Depends on:** Phase 18.1 (`D-GATE-18.1`, the door and the deployment-declares-its-server
 binding) and Phase 19 (`D-GATE-19`, the wire form the door now speaks).
-**Plans:** not yet planned — run `/gsd:plan-phase 20`.
+**Plans:** 8 plans in 6 waves (planned 2026-08-20).
 
 **Two constraints that hold across every wave** (carried from 18.1/19, and not truths of any
 single plan): `.venv/bin/python` always — bare `python` does not exist on this host and a plan
@@ -1821,7 +1821,31 @@ that writes it reports a false red; and no `state.*` or `roadmap.*` SDK writer i
 `.planning/` files are hand-edited.
 
 Plans:
-- [ ] TBD (run `/gsd:plan-phase 20` to break down)
+**Wave 1**
+
+- [ ] 20-01-PLAN.md — Mint CLNT-23..31, record the `D-32` narrowing (`D-IMPL-163`), pin the criterion-7 diff base, author `artifacts/scenario-rows.yaml`
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 20-02-PLAN.md — The fabric-side runner: copy `deployment/`+`server/`, seed and close the writer, resolve `command + args`, run `consume.py` for criterion 4's reference address, wire `example-hw1-harness-clients` into `examples:`
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 20-03-PLAN.md — Legs 1 and 3: `client_adk.py` and `client_langgraph.py`, zero `ccf` imports, structural leg discovery, per-leg address comparison
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 20-04-PLAN.md — Leg 2: the copied fail-loud SSE model stand-in, the extracted offline `claude` recipe, `client_anthropic.py`, `--live` semantics
+- [ ] 20-05-PLAN.md — Criterion 6: the no-model socket guard over legs 1 and 3 with three controls, and the `--live`-is-one-flag AST assertion with three more
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 20-06-PLAN.md — The AST purity gate: per-root permitted sets, `ccf` refused by name, the measured budget, command identity, controls C-20-1..C-20-8
+- [ ] 20-07-PLAN.md — Retirement: `s2-01` → `docs/retired/16-external-consumers/`, the transport spike retired after its recipe was extracted, five references swept, `00-hello-context` marked historical in prose, the coupling inventory regenerated
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [ ] 20-08-PLAN.md — The one README, its structure test, three `--live` targets outside `examples:`, criterion 7's asserted empty diff, and `make ci` exit 0
 
 ## Progress
 
@@ -1846,7 +1870,7 @@ Plans:
 | 18. MCP Transport — The Second Door and the Portability Proof | 1/1 | Complete — **`D-GATE-18` APPROVED**, merged `--no-ff` at `e57c93c`. *(Row corrected 2026-08-18: it read "AWAITING `D-GATE-18`" after the gate was granted and the branch merged.)* Approves the portability claim and **not** a tamper-detection claim; `B0` travels to Phase 19 | 2026-08-17 |
 | 18.1. Simplify the MCP Example — Client-Side Access, Server Off-Stage | 5/5 + close-fixes | Complete — **`D-GATE-18.1` APPROVED** (Dave). `make ci-core` exit 0 at `04cccc2`: 3909 passed / 118 skipped / 0 failed. Close panel found 3 blockers, all fixed in-phase and independently re-sabotaged; 7 advisories carried; 1 finding recorded UNVERIFIED and not actioned. `D-IMPL-153` (the one new mechanism), `D-IMPL-154`/`D-IMPL-155` (tooling hazards) | 2026-08-19 (`D-GATE-18.1`) |
 | 19. The Client-Seam Integrity Checks Must Be Able to Fail | 8/8 + close-fixes | Complete — **`D-GATE-19` APPROVED** (Dave). `make ci` exit 0 at `cff00ae`: 4013 passed / 118 skipped / 0 failed; suite 3901 → 4013 (+112). Closes `B0` (`D-IMPL-151`) on the axes measured — a crossed question and an altered vessel are each caught by a **single-transport** client, neither assertion naming a second subject. Verified by breaking ten properties and observing 43 control-reds; controls that could not be made to fail: none. Close review found the phase's own `C-17` gate could not fail for three in-tree spellings (`B0` re-openable with the build green) — reproduced end-to-end and fixed test-file-only. `D-IMPL-156`–`162`. **Success Criteria were ABSENT from this entry**; gated on plan `must_haves` + the full §3.1 record, and future phases must carry criteria before execution. Carried, not reopened: `F-2`, `F-3`, `WR-04` | 2026-08-20 (`D-GATE-19`) |
-| 20. Client Access from Three Harnesses — ADK, Anthropic Agent SDK & LangGraph over MCP | 0/0 | Not planned — added 2026-08-20 | — |
+| 20. Client Access from Three Harnesses — ADK, Anthropic Agent SDK & LangGraph over MCP | 0/8 | Planned 2026-08-20 — 8 plans, 6 waves; CLNT-23..31 minted at planning per ruling 4 | — |
 
 ## Coverage
 
