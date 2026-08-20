@@ -21,6 +21,34 @@ still *parses* — which is what makes the failure attributable to the address
 rather than to the parser (`tests/client/test_codec.py::_encode_dropping_replay_ref` names that
 trap).
 
+Amendment, 2026-08-20 — two of those controls could not fail
+------------------------------------------------------------
+The claim above was true of the *properties* and false of two of the things
+this file called controls. The close review of this phase measured both, and
+they are recorded here rather than quietly rewritten, because a file whose
+standard is "every assertion carries a control that shows it can fail" owes a
+reader the two occasions it did not meet it.
+
+* `WR-02` — the byte-level sabotage named above edits the vessel **after** the
+  door produced it and asserts `sha256(edited) != content_address`. That
+  inequality is a property of SHA-256, not of `door_answer`: it holds for any
+  value the door could possibly have claimed. Replayed against a door that
+  hashes a second rendering and a door that emits a constant, the control
+  returned the same verdict all three times. It is kept — its parse limb is a
+  genuine attributability guard — relabelled to what it holds, and joined by
+  two controls that sabotage the **producer** and require the shipped
+  assertion to raise.
+* `WR-03` — the echo test's second witness compared
+  `RESOLVED_AT.isoformat()` (`…+00:00`) against a canonical rendering
+  (`….000000Z`). The substring could never be present, whatever the door did.
+  It now compares `canonical_timestamp`, which is what the wire actually
+  carries, and carries a control that watches it raise.
+
+Both fixes follow the same rule the sibling module states: the control hands
+the **shipped** assertion a divergent subject rather than re-deriving the
+comparison, so a later simplification of the assertion is a red test rather
+than a quiet loss.
+
 **What these tests are not.** They are unit proofs over one process. They
 cannot see a transport that re-labels what it carries; that is
 `tests/crossproc/test_mcp_egress.py`'s leg over a real pipe, and — from `19-03`
@@ -42,7 +70,8 @@ from pydantic import ValidationError
 
 from ccf.client.adapters.binding_document import load_binding_document
 from ccf.client.adapters.inprocess import _boot, reset_boot_cache
-from ccf.contracts.canonical import canonical_bytes
+import ccf.products.door
+from ccf.contracts.canonical import canonical_bytes, canonical_timestamp
 from ccf.products.contract import ContextProductContract
 from ccf.products.door import (
     DoorOutcome,
@@ -177,6 +206,39 @@ def _answer(resolved: object, echo: WireRequest, *, asked_at: datetime) -> DoorO
     )
 
 
+def assert_the_resolved_instant_is_nowhere_in_the_echo(parsed: DoorOutcome) -> None:
+    """The instant the door answered at appears nowhere in the question it echoes.
+
+    A separate function, not an inline line, because the control below has to
+    hand **this** assertion a divergent subject. A control that re-derived the
+    comparison would prove only that the copy fires — the rule
+    `tests/client/test_codec.py`'s docstring states.
+
+    The needle is `canonical_timestamp`, which is what the wire carries.
+    Until 2026-08-20 this compared `datetime.isoformat()` — `…+00:00` against
+    a canonical `….000000Z` — so the substring could never be present and the
+    line was decoration whatever the door did (`WR-03`, measured). A door that
+    substituted its resolved instant straight into `echo.temporal_boundary`
+    left it green.
+    """
+    assert canonical_timestamp(RESOLVED_AT) not in canonical_bytes(
+        parsed.request
+    ).decode("utf-8")
+
+
+def assert_the_address_is_sha256_of_the_vessel(parsed: DoorOutcome) -> None:
+    """The producer's claim agrees with the producer's own bytes.
+
+    Extracted for the same reason as the assertion above: the two sabotage
+    controls hand **this** function an outcome from a tampered door and require
+    it to raise, which is what "the assertion can fail" has to mean.
+    """
+    assert parsed.product_json is not None
+    assert parsed.content_address == hashlib.sha256(
+        parsed.product_json.encode("utf-8")
+    ).hexdigest()
+
+
 # ---------------------------------------------------------------------------
 # Property 1 — the echo is as asked, on the temporal axis (`C-02`, `C-15`).
 # ---------------------------------------------------------------------------
@@ -207,9 +269,7 @@ def test_an_absent_boundary_is_echoed_absent_though_the_door_answered_at_one(
     assert parsed.request.temporal_boundary is None
     # And the fact it was not derived from: the door answered at an instant,
     # and that instant is nowhere in the echo.
-    assert RESOLVED_AT.isoformat() not in canonical_bytes(parsed.request).decode(
-        "utf-8"
-    )
+    assert_the_resolved_instant_is_nowhere_in_the_echo(parsed)
 
 
 def test_an_explicit_boundary_is_echoed_as_that_boundary(
@@ -234,6 +294,36 @@ def test_an_explicit_boundary_is_echoed_as_that_boundary(
     )
 
     assert parsed.request.temporal_boundary == asked_as_of
+
+
+def test_control_the_resolved_instant_witness_fires_when_the_echo_carries_it(
+    a_served_value: object,
+) -> None:
+    """The second witness can disagree, watched rather than asserted.
+
+    The subject's echo carries `RESOLVED_AT` itself, which makes it
+    byte-identical to what a door substituting its own resolved instant into a
+    `None` question would emit — the substitution `C-02` rejected and the one
+    `assert_the_resolved_instant_is_nowhere_in_the_echo` exists to catch. So
+    the control hands the **shipped** assertion the outcome it is for, and its
+    subject differs from the leg's baseline in exactly the member under test.
+
+    Against the spelling this file shipped until 2026-08-20 — `isoformat()`,
+    `…+00:00`, against a canonical `….000000Z` — this control would not raise,
+    which is what made that line decoration (`WR-03`).
+    """
+    substituted = _answer(
+        a_served_value,
+        WireRequest(
+            product_id=PRODUCT_ID,
+            parameters={PARAMETER: THRESHOLD},
+            temporal_boundary=RESOLVED_AT,
+        ),
+        asked_at=RESOLVED_AT,
+    )
+
+    with pytest.raises(AssertionError):
+        assert_the_resolved_instant_is_nowhere_in_the_echo(substituted)
 
 
 def test_the_echo_is_the_whole_question_and_not_a_projection_of_it(
@@ -276,27 +366,40 @@ def test_the_claimed_address_is_sha256_of_the_vessel_beside_it(
         asked_at=RESOLVED_AT,
     )
 
-    assert parsed.product_json is not None
-    assert parsed.content_address == hashlib.sha256(
-        parsed.product_json.encode("utf-8")
-    ).hexdigest()
+    assert_the_address_is_sha256_of_the_vessel(parsed)
 
 
 def test_a_single_space_inside_the_vessel_breaks_the_address_it_claims(
     a_served_value: object,
 ) -> None:
-    """The named sabotage control: the assertion above can fail.
+    """The attributability guard: an edited vessel still parses, so a
+    client-side address failure is the address and not the parser.
 
-    One space is added immediately after the vessel's opening brace. The edit
-    is deliberately the smallest one that changes the bytes without changing
-    the meaning, and the test asserts **both** halves:
+    Until 2026-08-20 this docstring called itself *"the named sabotage
+    control: the assertion above can fail"*, and it was not one. It edits the
+    vessel **after** the door produced it and asserts `sha256(edited) !=
+    content_address` — an inequality that is a property of SHA-256, true for
+    any value the door could have claimed. Replayed against an honest door, a
+    door that hashes a second rendering, and a door emitting a constant, the
+    verdict was `True` all three times while the primary assertion went red
+    for two of them (`WR-02`, measured). The claim is left standing here
+    rather than deleted because it is what this file asserted for a wave.
 
-    * `sha256` of the edited text no longer equals the unchanged
-      `content_address` — the address is live;
+    What it does hold is the half that is not about SHA-256:
+
+    * one space is added immediately after the vessel's opening brace — the
+      smallest edit that changes the bytes without changing the meaning;
     * the edited text still parses as JSON **and** still validates as a
-      `ContextProductContract` — so the failure is attributable to the address
-      and not to a parser refusing malformed input, which is the trap
+      `ContextProductContract` — so a client-side address mismatch on text
+      like this is attributable to the address and not to a parser refusing
+      malformed input, which is the trap
       `tests/client/test_codec.py::_encode_dropping_replay_ref` names.
+
+    The sabotage controls the first paragraph promised are
+    `test_control_a_door_that_hashes_a_second_rendering_is_caught` and
+    `test_control_a_door_that_claims_a_constant_address_is_caught`, which
+    sabotage the **producer** and require
+    `assert_the_address_is_sha256_of_the_vessel` to raise.
     """
     parsed = _answer(
         a_served_value,
@@ -318,6 +421,91 @@ def test_a_single_space_inside_the_vessel_breaks_the_address_it_claims(
     # The discrimination guard. `model_validate_json` returning without raising
     # is the assertion — not inspection of the text.
     ContextProductContract.model_validate_json(tampered)
+
+
+class _HashesASecondRendering:
+    """A door that hashes a rendering other than the one it ships.
+
+    Stands in for the `hashlib` name **inside** :mod:`ccf.products.door` — not
+    for the module globally — so the assertion under test keeps hashing with
+    the real one and the control measures the door rather than itself.
+
+    One trailing space is the smallest disagreement a genuine second
+    serialization would produce, and it is the bug
+    `ccf_runtime.http_api.routes::canonical_response` names: two
+    serializations are two chances to disagree.
+    """
+
+    @staticmethod
+    def sha256(data: bytes) -> Any:
+        return hashlib.sha256(data + b" ")
+
+
+class _ClaimsAConstant:
+    """A door whose address is not derived from anything it emitted."""
+
+    class _Digest:
+        @staticmethod
+        def hexdigest() -> str:
+            return "0" * 64
+
+    @staticmethod
+    def sha256(data: bytes) -> Any:
+        return _ClaimsAConstant._Digest()
+
+
+@pytest.mark.parametrize(
+    ("sabotage", "what"),
+    [
+        pytest.param(
+            _HashesASecondRendering,
+            "a door that hashes a second rendering of the vessel",
+            id="hashes-a-second-rendering",
+        ),
+        pytest.param(
+            _ClaimsAConstant,
+            "a door whose address is derived from nothing",
+            id="claims-a-constant",
+        ),
+    ],
+)
+def test_control_a_sabotaged_door_makes_the_address_assertion_raise(
+    a_served_value: object,
+    monkeypatch: pytest.MonkeyPatch,
+    sabotage: type,
+    what: str,
+) -> None:
+    """The real sabotage control: the address assertion can fail, watched.
+
+    The sabotage is applied to the **producer**, which is the subject the
+    assertion is about. The test the module used to call its control edits the
+    wire afterwards and asserts a SHA-256 inequality that holds for every
+    possible door (`WR-02`); this one changes what the door claims and hands
+    the **shipped** assertion the result.
+
+    Both halves are checked, so the control cannot pass by producing a subject
+    identical to its baseline: the honest outcome is built first and required
+    to satisfy the assertion, the sabotaged one is required to claim a
+    different address and to make the very same assertion raise.
+    """
+    asked = WireRequest(
+        product_id=PRODUCT_ID,
+        parameters={PARAMETER: THRESHOLD},
+        temporal_boundary=None,
+    )
+    honest = _answer(a_served_value, asked, asked_at=RESOLVED_AT)
+    assert_the_address_is_sha256_of_the_vessel(honest)
+
+    monkeypatch.setattr(ccf.products.door, "hashlib", sabotage)
+    sabotaged = _answer(a_served_value, asked, asked_at=RESOLVED_AT)
+
+    assert sabotaged.content_address != honest.content_address, (
+        f"{what} must produce a different subject from the honest door, or"
+        " this control is measuring two copies of the same thing — the"
+        " vacuity that produced WR-02 in the first place"
+    )
+    with pytest.raises(AssertionError):
+        assert_the_address_is_sha256_of_the_vessel(sabotaged)
 
 
 # ---------------------------------------------------------------------------
