@@ -846,7 +846,7 @@
       },
       "BindingDocument": {
         "kind": "class",
-        "shape": "(*, root: 'Path', config: 'Path', plan: 'str', question: 'QuestionDeclaration', perspective: 'Perspective', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int', artifact_store: 'Path', debt: 'DebtDeclaration', connection: 'Mapping[str, object] | None') -> None"
+        "shape": "(*, root: 'Path', config: 'Path', plan: 'str', question: 'QuestionDeclaration', perspective: 'Perspective', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int', artifact_store: 'Path', debt: 'DebtDeclaration', connection: 'Mapping[str, object] | None', server: 'Path | None') -> None"
       },
       "DATA_KEYS": {
         "kind": "constant",
@@ -911,6 +911,22 @@
       }
     }
   },
+  "ccf.client.adapters.mcp_stdio": {
+    "__all__": [
+      "McpStdioAdapter",
+      "SCHEME"
+    ],
+    "exports": {
+      "McpStdioAdapter": {
+        "kind": "class",
+        "shape": "(address: 'str') -> 'None'"
+      },
+      "SCHEME": {
+        "kind": "constant",
+        "shape": "str"
+      }
+    }
+  },
   "ccf.client.binding": {
     "__all__": [
       "AdapterFactory",
@@ -960,19 +976,24 @@
   },
   "ccf.client.codec": {
     "__all__": [
+      "DecodedOutcome",
       "check_outcome",
       "decode_outcome",
       "encode_outcome",
       "verify_content_address"
     ],
     "exports": {
+      "DecodedOutcome": {
+        "kind": "class",
+        "shape": "(outcome: 'WireOutcome', vessel: 'ContextProductContract | None') -> None"
+      },
       "check_outcome": {
         "kind": "function",
         "shape": "(outcome: 'WireOutcome', *, sent: 'WireRequest') -> 'ContextProductContract | None'"
       },
       "decode_outcome": {
         "kind": "function",
-        "shape": "(raw: 'bytes', *, sent: 'WireRequest') -> 'WireOutcome'"
+        "shape": "(raw: 'bytes', *, sent: 'WireRequest') -> 'DecodedOutcome'"
       },
       "encode_outcome": {
         "kind": "function",
@@ -1057,7 +1078,7 @@
           "product_json": "str | None",
           "refusal": "ccf.products.refusal.RefusalEnvelope | None",
           "replay_ref": "str | None",
-          "request": "<class 'ccf.client.wire.WireRequest'>"
+          "request": "<class 'ccf.products.door.WireRequest'>"
         }
       },
       "WireRequest": {
@@ -4641,6 +4662,62 @@
       }
     }
   },
+  "ccf.products.door": {
+    "__all__": [
+      "DoorOutcome",
+      "PRODUCT_REQUEST_TOOL",
+      "ServedAnswer",
+      "WireRequest",
+      "door_answer",
+      "door_question",
+      "door_refusal",
+      "served_answer"
+    ],
+    "exports": {
+      "DoorOutcome": {
+        "kind": "contract",
+        "shape": {
+          "content_address": "str | None",
+          "product_json": "str | None",
+          "refusal": "ccf.products.refusal.RefusalEnvelope | None",
+          "replay_ref": "str | None",
+          "request": "<class 'ccf.products.door.WireRequest'>"
+        }
+      },
+      "PRODUCT_REQUEST_TOOL": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ServedAnswer": {
+        "kind": "class",
+        "shape": "(product: 'ContextProductContract', replay_ref: 'str | None') -> None"
+      },
+      "WireRequest": {
+        "kind": "contract",
+        "shape": {
+          "parameters": "collections.abc.Mapping[str, typing.Any]",
+          "product_id": "<class 'str'>",
+          "temporal_boundary": "datetime.datetime | None"
+        }
+      },
+      "door_answer": {
+        "kind": "function",
+        "shape": "(resolved: 'object', *, echo: 'WireRequest', resolved_request: 'ProductRequest', product_class: 'str', version: 'str') -> 'bytes'"
+      },
+      "door_question": {
+        "kind": "function",
+        "shape": "(asked_json: 'str') -> 'WireRequest'"
+      },
+      "door_refusal": {
+        "kind": "function",
+        "shape": "(resolved: 'object', *, asked: 'ProductRequest | None', product_class: 'str', version: 'str') -> 'RefusalEnvelope | None'"
+      },
+      "served_answer": {
+        "kind": "function",
+        "shape": "(resolved: 'object') -> 'ServedAnswer'"
+      }
+    }
+  },
   "ccf.products.entitlement": {
     "__all__": [
       "PRODUCT_ENTITLEMENT_POLICY",
@@ -7129,6 +7206,7 @@
       "ERROR_PRINCIPAL_NOT_ENTITLED",
       "ERROR_PRODUCT_CLASS_UNENTITLED",
       "ERROR_PRODUCT_DOOR_UNGOVERNED",
+      "ERROR_PRODUCT_PARAMETERS_MALFORMED",
       "ERROR_PRODUCT_POLICY_ABSENT",
       "ERROR_PRODUCT_REQUEST_INCOMPLETE",
       "ERROR_PRODUCT_ROLE_UNGRANTED",
@@ -7154,6 +7232,10 @@
         "shape": "str"
       },
       "ERROR_PRODUCT_DOOR_UNGOVERNED": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERROR_PRODUCT_PARAMETERS_MALFORMED": {
         "kind": "constant",
         "shape": "str"
       },
@@ -7213,6 +7295,8 @@
   "ccf_runtime.http_api.routes": {
     "__all__": [
       "CONTENT_ADDRESS_HEADER",
+      "REPLAY_REF_HEADER",
+      "REQUEST_ECHO_HEADER",
       "canonical_response",
       "refusal_response"
     ],
@@ -7221,9 +7305,17 @@
         "kind": "constant",
         "shape": "str"
       },
+      "REPLAY_REF_HEADER": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "REQUEST_ECHO_HEADER": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "canonical_response": {
         "kind": "function",
-        "shape": "(payload: 'object') -> 'Response'"
+        "shape": "(payload: 'object', *, replay_ref: 'str | None' = None, asked: 'WireRequest | None' = None) -> 'Response'"
       },
       "refusal_response": {
         "kind": "function",

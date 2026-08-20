@@ -217,3 +217,27 @@ consumer did not produce. The decisions of record are `C-01`, `C-02`, `C-04`,
 - Why: the unit proof cannot see a transport that re-labels what it carries,
   and this is the transport where a crossed question is physically possible
 - Migration: none — test-tree only
+
+## Amended by `19-07` — where the claim this shape enables is written down
+
+Plan `19-07` (wave 5) changed **no** public surface and therefore files no
+fragment of its own. It is recorded here instead, on the two fragments whose
+`Before`/`After` entries describe the shapes its prose is about, so a reader
+who arrives at either one is not left looking for a migration note that does
+not exist.
+
+What `19-07` did: it replaced `D-GATE-18`'s standing prose constraint — *the
+SDK must not be described as detecting a transport that answered a different
+question, or a vessel altered in transit* — with a **narrower true sentence**
+in `ccf.client.codec`'s module docstring, amend-never-delete, keeping every
+paragraph the constraint lived in. The claim names five conditions the checks
+detect (corruption, truncation, mis-routing, a re-serializing intermediary,
+producer/consumer canonicalization drift) and **four they do not**: an
+adversary who can rewrite the envelope, a producer that mis-canonicalizes
+consistently, two *identical* in-flight questions crossing, and — the residual
+this fragment's *Known limit* block already names — a transport that alters
+only the instant a question asked with `as_of=None` was answered against.
+
+Signing stays out of scope and **no signature member is reserved on the wire**,
+for the reason `C-10` gives: a member nothing sets and nothing reads is the
+shape this phase exists to close.

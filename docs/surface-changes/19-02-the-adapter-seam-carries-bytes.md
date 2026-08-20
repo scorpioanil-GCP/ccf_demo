@@ -280,3 +280,28 @@ comparing a value with itself. The decisions of record are `C-05`, `C-06`,
 - After: `-> bytes`, on the same terms as above
 - Why: `C-08`
 - Migration: none — test-tree only
+
+## Amended by `19-07` — the shipped prose now matches this migration note
+
+Plan `19-07` (wave 5) changed **no** public surface and files no fragment of
+its own; it is recorded here and on
+`19-01-one-outcome-shape-and-the-encoded-question.md` instead, because those
+two carry the `Before`/`After` entries its prose is about. An out-of-tree
+adapter author needs nothing from this section that the `Migration` lines above
+do not already state.
+
+What changed in the shipped source, for a reader diffing docstrings against
+this note: `ccf.client.wire`'s module and `TransportAdapter` docstrings, both
+adapter modules, `ccf.client.client`, `ccf.client.codec` and
+`ccf.products.door`'s two amended attribute docs now describe the **bytes**
+seam rather than the object seam, and `ccf.client.codec` records that
+`decode_outcome` has a **shipped** call site. Every superseded sentence was
+kept and corrected beside, never deleted — a deleted false claim leaves no
+trace that it was ever believed.
+
+One further correction landed in the same plan and is unrelated to this seam
+(`C-15`): `ProductClient.ask` promised that *the producing deployment answers
+against its own clock*, which was false on both shipped transports — each
+resolves `as_of=None` to `datetime.now(UTC)` **client-side**. The sentence is
+amended to a true one and the underlying defect is recorded for a later phase.
+The clock read did **not** move, and no fix is promised.
