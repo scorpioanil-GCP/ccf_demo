@@ -3,8 +3,61 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-20T04:20:00.000Z"
+last_updated: "2026-08-20T04:50:00.000Z"
 last_activity: >-
+  2026-08-20 -- **PHASE 19 EXECUTED. 8/8 PLANS, 6 WAVES, 52 COMMITS**, `0fe0a22` -> `cf47bf8`
+  ON `main` -- NO PHASE BRANCH, on DAVE'S EXPLICIT RULING (2026-08-19, asked before Wave 1:
+  there are no SDK consumers, so `main` carrying un-gated phase work costs nothing and history
+  still permits carving a branch retroactively). This DIVERGES from CLAUDE.md 2.2 and MATCHES
+  what Phases 18 and 18.1 actually did; recorded as `D-IMPL-161` rather than left as invisible
+  drift. CLAUDE.md was NOT amended unilaterally.
+  **`B0` IS CLOSED ON THE AXES MEASURED.** The two client-seam checks CAN NOW FAIL: the door
+  emits the question it parsed and the address it computed, the adapter seam is
+  `ask(WireRequest) -> bytes` so NO adapter constructs an outcome, and a crossed question and
+  an altered vessel are each caught by a SINGLE-TRANSPORT client -- two assertions, one per
+  transport, NEITHER NAMING A SECOND SUBJECT, which is the ROADMAP's own success sentence.
+  **GATE AT `cf47bf8`: `make ci` EXIT 0** -- 3981 passed / 118 skipped / 0 failed, 400 lint,
+  154 docs, nine examples, `mkdocs --strict` green. Tests 3901 -> 3981 (+80).
+  **VERIFICATION `human_needed`, 63/63 must-haves, and it was established BY BREAKING THINGS,
+  not by reading a green suite** -- a green suite is worthless evidence in this phase, since
+  `check_outcome` was green throughout Phase 18 while comparing an object with itself. TEN
+  properties broken in an out-of-tree `rsync` copy reached by `PYTHONPATH`, 43 control-reds
+  observed, plus four direct probes. CONTROLS THAT COULD NOT BE MADE TO FAIL: NONE.
+  **`C-18`'s RESIDUAL IS VERIFIED OPEN, NOT CLOSED** (`D-IMPL-159`): with `as_of=None` the
+  CLIENT resolves the clock (`C-15`), so there is no second copy of the instant and a transport
+  altering `asked_at` alone is UNDETECTED. That non-detection is a PASSING MEASUREMENT which
+  itself goes red under the `C-02` sabotage, so it does not pass by accident. A tree-wide sweep
+  found NO shipped prose overclaiming past that line.
+  **FIVE DEFECTIVE CRITERIA WERE REPORTED RATHER THAN SATISFIED** across the eight plans --
+  one satisfiable only by deleting the phase's own thesis paragraph, one already green at
+  baseline, one VACUOUSLY green because the target sentence wrapped across two lines, one
+  requiring an edit to append-only `DECISIONS.md`, one whose plan made it unsatisfiable.
+  EVERY EXECUTOR FOUND ITS OWN PLAN MEASURABLY WRONG and said so.
+  **THREE ITEMS ESCALATED TO DAVE, NOT FIXED IN-PHASE:**
+  `F-1` PHASE 19 HAS NO ROADMAP SUCCESS CRITERIA -- `roadmap.get-phase 19` returns
+  `success_criteria: []`, so the phase was gated on plan `must_haves` ALONE; criteria were
+  deliberately NOT invented retroactively, which would have been its own vacuous check.
+  `F-2` `verify.key-links` CAN NEVER PASS -- it reports `Invalid regex pattern` for any
+  pattern with an escaped paren and marks the link unverified WITHOUT RUNNING IT; 6 of this
+  phase's 12 links. That is the INVERSE of the defect this phase closes. All six checked by
+  hand; all six hold.
+  `F-3` THE CITATION LINT SILENTLY DROPS AMBIGUOUS BASENAMES -- a check that cannot fail, one
+  level up from `B0`. Phase 19 pushed exactly TWO new stale citations through it; both are now
+  FIXED at `cf47bf8`, re-anchored onto fully-qualified symbols so the lint actually checks
+  them. The adjacency sweep hand-resolved all 16 dropped citations across 8 ambiguous
+  basenames: one other (`product.py:330`) is stale and PREDATES this phase. THE HOLE ITSELF IS
+  STRUCTURAL AND STILL OPEN -- documented at `ROADMAP.md` but not closable under `C-13`.
+  TOOLING HAZARD, FOURTH DISTINCT HANDLER: `state.begin-phase` TRUNCATED `STATE.md`
+  1046 -> 661 LINES at phase start while returning a clean success naming three fields, and
+  wrote `total_plans 173 / completed_plans 184` -- completed exceeding total AGAIN. Backed up,
+  diffed, restored, hand-edited. ALL ROADMAP checkboxes hand-edited; NO `state.*` or
+  `roadmap.*` writer was allowed to run against either file for the whole phase.
+  NEXT: **THE PHASE IS NOT CLOSED.** CLAUDE.md 3.1 requires, IN ORDER:
+  `/gsd-review --phase "Phase 19" --all` (THE CROSS-AI PANEL, pointed at the SHIPPED CODE and
+  given the known findings with instructions NOT to re-derive them) -> the single-agent code
+  review -> VERIFY EVERY FINDING AGAINST THE TREE -> fix blocking findings in-phase -> present
+  to Dave -> `D-GATE-19`. The panel is MANDATORY and the single-agent review NEVER substitutes.
+
   2026-08-19 -- **PHASE 19 PLANNED. 8 PLANS IN 6 WAVES**, committed `9356520` -> `751fb9a` ->
   `dacf067`. Research (`19-RESEARCH.md`, 1460 lines) MEASURED EVERY CLAIM AT HEAD `192c79d`
   rather than restating `19-CONTEXT.md`: the `B0` defect STILL HOLDS, blast radius is ~60-95 of
