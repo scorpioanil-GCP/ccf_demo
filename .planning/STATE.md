@@ -3,9 +3,18 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-20T08:55:00.000Z"
+last_updated: "2026-08-20T09:05:00.000Z"
 last_activity: >-
-  2026-08-20 -- **PHASE 19 CLOSE REVIEW COMPLETE. AWAITING DAVE'S RULING AND `D-GATE-19`.**
+  2026-08-20 -- **PHASE 19 CLOSED AND GATED. `D-GATE-19` APPROVED BY DAVE**, recorded in
+  `docs/DECISIONS.md`. NO MERGE REQUIRED -- the work landed on `main` (`D-IMPL-161`).
+  DAVE'S RULING ON `F-1`: **DO NOT AUTHOR SUCCESS CRITERIA RETROACTIVELY** -- criteria
+  written after the outcome to fit what shipped would be gating against a post-hoc target,
+  the wrong direction for a phase whose subject is claims matching code. Phase 19 is gated
+  on plan `must_haves` PLUS the verification/panel/review record that actually ran, with the
+  absence recorded in the gate entry. **FORWARD-BINDING: Success Criteria MUST be present in
+  the ROADMAP entry BEFORE a phase is executed.** Enforcement belongs in CLAUDE.md 3.1 and the
+  plan-phase workflow; amending CLAUDE.md is DAVE'S ACT, not an executor's (`D-IMPL-161`'s
+  boundary). `F-2`, `F-3` and `WR-04` are CARRIED, NOT REOPENED, and none blocked the gate.
   59 commits, `0fe0a22` -> `cff00ae` on `main`. FINAL GATE: `make ci` EXIT 0 --
   **4013 passed / 118 skipped / 0 failed**, 400 lint, 154 docs, nine examples,
   `mkdocs --strict` green, three validation gates pass. Tests 3901 -> 4013 (+112).
@@ -50,10 +59,14 @@ last_activity: >-
   because it widens `C-10`'s undetected list, which `D-IMPL-156` records as CROSS-CHECKED
   AT FOUR ITEMS ACROSS TWO RECORDS -- a claim change, not a correction.
   `F-2` AND `F-3` ARE THEMSELVES CHECKS THAT CANNOT FAIL, one level up from `B0`.
-  NEXT: **DAVE'S RULING AND `D-GATE-19`.** The §3.1 sequence is DISCHARGED -- execution,
+  THE §3.1 SEQUENCE WAS DISCHARGED IN ORDER -- execution,
   cross-AI panel (`19-CLOSE-REVIEWS.md`), single-agent review (`19-REVIEW.md`), every
   finding verified against the tree, blocking findings fixed in-phase
   (`19-CLOSE-FIXES-SUMMARY.md`).
+  NEXT: **PHASE 19 IS CLOSED.** `/gsd:progress` for the updated roadmap. The next phase is
+  not yet discussed or planned -- and whichever it is, ITS ROADMAP ENTRY MUST CARRY SUCCESS
+  CRITERIA BEFORE EXECUTION per `D-GATE-19`, authored ONE PER UNWRAPPED LINE and confirmed
+  with `gsd-sdk query roadmap.get-phase <N>` that the parsed count equals the authored count.
 
   2026-08-20 -- **PHASE 19 EXECUTED. 8/8 PLANS, 6 WAVES, 52 COMMITS**, `0fe0a22` -> `cf47bf8`
   ON `main` -- NO PHASE BRANCH, on DAVE'S EXPLICIT RULING (2026-08-19, asked before Wave 1:
