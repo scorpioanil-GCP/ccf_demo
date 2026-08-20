@@ -1679,7 +1679,7 @@ Plans:
 - [x] 19-04-PLAN.md — The conformance tamper legs: every registered adapter wrapped in a byte-corrupting decorator it cannot opt out of
 - [x] 19-05-PLAN.md — The AST gate proving no module under `src/ccf/client/adapters/` constructs the outcome, with its named sabotage control
 - [x] 19-06-PLAN.md — The HTTP door reconciled: the request echo joins the `X-CCF-*` siblings, absent when no question was posed
-- [ ] 19-07-PLAN.md — The narrower true claim across `src/` and `runtime/`, the amended clock sentence, and the regenerated surface manifest with its migration fragment
+- [x] 19-07-PLAN.md — The narrower true claim across `src/` and `runtime/`, the amended clock sentence, and the regenerated surface manifest with its migration fragment
 - [ ] 19-08-PLAN.md — Five `D-IMPL` entries, `CLNT-05`'s amendment, the client spec's Amendment 2, and `B0` closed in the Phase 18 review file
 
 
