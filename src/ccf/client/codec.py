@@ -147,10 +147,23 @@ state its limits is the claim this phase exists to replace:
    (``C-02``) and matches perfectly. **The other half of that axis is held**:
    a **concrete** ``as_of`` crosses twice — inside the encoded question and as
    the door's own ``asked_at`` — and the MCP door cross-checks the two and
-   **refuses a disagreement by name** (``C-18``). The residual is the ``None``
-   path and only the ``None`` path; a sentence declaring the temporal axis
-   unprotected would be as false as the one this phase replaces, in the other
-   direction.
+   **refuses a disagreement by name** (``C-18``). A sentence declaring the
+   temporal axis unprotected would be as false as the one this phase replaces,
+   in the other direction.
+
+   **That cross-check is established at the MCP door, and the claim is not
+   generalized past it** (Phase 19 close review). The other two doors rest on a
+   different basis, stated rather than implied. The HTTP door builds its echo
+   from the one ``asked_at`` it parsed, so a cross-check there would compare a
+   value with itself — its absence is a measurement, not an exemption. The
+   in-process adapter derives ``asked_at`` from the encoded question it is
+   handed (``ccf.client.adapters.inprocess.InProcessAdapter.ask``), so on the
+   shipped path the two cannot disagree and there is again nothing to compare;
+   what it does **not** carry is a door-side refusal, so an adapter that passed
+   a moved ``asked_at`` alongside a concrete boundary would not be refused the
+   way the MCP door refuses it. No shipped adapter does this, and ``C-17``'s
+   gate does not reach it because it is an argument value rather than an
+   outcome construction.
 
 **Signing is out of scope and no signature member is reserved on the wire**
 (``C-10``). Reserving one would put a member on the wire that nothing sets and
@@ -421,8 +434,16 @@ def decode_outcome(raw: bytes, *, sent: WireRequest) -> DecodedOutcome:
     order in which failing early is most informative: the bytes are a
     well-formed outcome, the outcome answers the question that was asked, the
     vessel hashes to the address claimed for it, and the vessel is a valid
-    contract. The last three are :func:`check_outcome`, which the client runs
-    again on whatever an adapter returns.
+    contract. The last three are :func:`check_outcome`.
+
+    **Amended in Phase 19** (``C-05``, ``C-08``): before the seam returned
+    bytes, the client ran :func:`check_outcome` a *second* time on whatever an
+    adapter had built, because an adapter could hand over a well-formed outcome
+    without going near this module. It no longer can, so
+    :class:`~ccf.client.client.ProductClient` calls this function **once** and
+    does not re-check — the property that second call defended is now held by
+    the seam's type. The superseded sentence is recorded here rather than
+    deleted because its reasoning is what motivated the amendment.
 
     Args:
         raw: The bytes an adapter received.

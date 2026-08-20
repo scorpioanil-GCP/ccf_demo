@@ -133,12 +133,31 @@ class TransportAdapter(Protocol):
     def ask(self, request: WireRequest) -> bytes:
         """Carry ``request`` to a producer and return the producer's canonical bytes.
 
-        The answer is **bytes and not an outcome object** (``C-08``, Phase 19):
-        an adapter that cannot construct the outcome cannot fill the echo from
-        the request it was handed, so :func:`~ccf.client.codec.check_outcome`'s
-        comparison has an operand the client did not supply. The request stays
-        typed because an adapter genuinely needs its fields to build a tool call
-        or a URL; only the answer becomes bytes.
+        The answer is **bytes and not an outcome object** (``C-08``, Phase 19).
+        The request stays typed because an adapter genuinely needs its fields to
+        build a tool call or a URL; only the answer becomes bytes.
+
+        **What the bytes seam does and does not buy, stated exactly** (Phase 19
+        close review, ``D-IMPL-162``). It removes the *convenient* path to
+        ``D-IMPL-151`` finding ``B0``: an adapter can no longer return a
+        well-formed outcome it built, so returning the producer's bytes
+        unexamined is the path of least resistance rather than one choice among
+        two. Inside this tree it is closed outright — ``C-17``'s gate
+        (``tests/client/test_surface.py``) fails if any module under
+        ``src/ccf/client/adapters/`` constructs the outcome at all.
+
+        It does **not** make reconstruction impossible. ``WireOutcome`` and
+        :func:`~ccf.client.codec.encode_outcome` are both public, by design,
+        because this is a ``Protocol`` and out-of-tree adapters are the point of
+        one. An adapter outside this tree may parse the producer's bytes, copy
+        its own caller's request over the echo, re-encode, and return bytes that
+        satisfy this signature — and both
+        :func:`~ccf.client.codec.check_outcome` and
+        :func:`~ccf.client.codec.verify_content_address` then pass, because the
+        adapter supplied both sides of each comparison. That is ``B0``'s failure
+        mode, reachable only by an adapter author who goes out of their way.
+        Making it *unreachable* would need a producer signature or a private
+        encoder; that is deferred, not done (``D-IMPL-162``).
 
         Raises:
             ccf.client.errors.TransportError: the wire never spoke. Never
