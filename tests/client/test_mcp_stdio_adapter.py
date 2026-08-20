@@ -54,7 +54,8 @@ import ccf
 from ccf.client.adapters.mcp_stdio import SCHEME, McpStdioAdapter
 from ccf.client.client import ProductClient
 from ccf.client.errors import BindingError, TransportError
-from ccf.products.door import PRODUCT_REQUEST_TOOL
+from ccf.contracts.canonical import canonical_bytes
+from ccf.products.door import PRODUCT_REQUEST_TOOL, WireRequest
 
 from ccf.client.adapters.binding_document import (
     BINDING_DOCUMENT_NAME,
@@ -91,6 +92,11 @@ def answer(
     tenant: str,
     product_class: str,
     version: str,
+    # Accepted and ignored. `C-16` made the encoded question a required tool
+    # argument, and a stub whose signature omitted it would be a stub the real
+    # adapter could not call — these programs exist to return malformed text,
+    # and what the adapter does with malformed text is unchanged.
+    request: str,
     subject: str,
     intent: str,
     freshness: str,
@@ -309,6 +315,16 @@ def test_the_child_resolves_the_same_ccf_this_client_is_running(
                 "tenant": "t",
                 "product_class": PRODUCT_ID,
                 "version": "1.0.0",
+                # Required since `C-16`. This leg drives `_call` directly to
+                # read the child's own `ccf.__file__`, so the stub never looks
+                # at it — but the tool signature it must satisfy does.
+                "request": canonical_bytes(
+                    WireRequest(
+                        product_id=PRODUCT_ID,
+                        parameters={},
+                        temporal_boundary=None,
+                    )
+                ).decode("utf-8"),
                 "subject": "s",
                 "intent": "i",
                 "freshness": "f",

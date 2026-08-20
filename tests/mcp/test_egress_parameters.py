@@ -100,7 +100,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -141,6 +141,8 @@ from ccf_runtime.mcp.auth import (
     SourceBackedTokenVerifier,
     TokenGrant,
 )
+from ccf.contracts.canonical import canonical_bytes
+from ccf.products.door import WireRequest
 from ccf_runtime.mcp.egress import PRODUCT_REQUEST_TOOL, build_egress_server
 
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
@@ -479,10 +481,27 @@ def _tool_arguments(
     :data:`EXPLICIT_NULL` supplies it as JSON ``null``, and a mapping supplies
     itself. Collapsing the first two is what let ``B2`` through.
     """
+    encoded: Mapping[str, Any] = (
+        {} if parameters is None or isinstance(parameters, ExplicitNull)
+        else dict(parameters)
+    )
     arguments: dict[str, Any] = {
         "tenant": address.tenant,
         "product_class": address.product_class,
         "version": address.version,
+        # The caller's own question, encoded from **this case's** values, so
+        # the MCP leg and the HTTP leg are still driven by one table rather
+        # than two (`C-16`). `temporal_boundary` is `None` here for the reason
+        # `C-02` gives — a caller deferring to the decision instant sends
+        # `None` — which also keeps the door's temporal cross-check out of a
+        # table whose subject is the declared remainder.
+        "request": canonical_bytes(
+            WireRequest(
+                product_id=address.product_class,
+                parameters=encoded,
+                temporal_boundary=None,
+            )
+        ).decode("utf-8"),
         "subject": SUBJECT,
         "intent": INTENT,
         "freshness": FRESHNESS,
@@ -1008,3 +1027,197 @@ def test_the_coercion_assertion_fires_on_a_coercing_door() -> None:
 
     with pytest.raises(AssertionError, match="type-mismatch"):
         assert_type_mismatch_refused(COERCION_CASES, coercing)
+
+
+# ---------------------------------------------------------------------------
+# The address cross-check (`C-01`, `C-16`, `C-18`).
+#
+# Two independent sources for one fact is the bypass one level up. A caller
+# could encode question A, supply address arguments for question B, and have A
+# echoed while B is answered — a consumer's total three-axis comparison would
+# pass on an answer to a question nobody asked. So the door refuses the
+# disagreement by name on each axis where a second copy of the fact exists, and
+# names the one axis where it does not.
+# ---------------------------------------------------------------------------
+
+
+def _call_with(
+    assembled: Any,
+    tmp_path: Path,
+    *,
+    parameters: Mapping[str, Any],
+    encoded: WireRequest | None = None,
+    asked_at: datetime | None = None,
+) -> tuple[bool, str]:
+    """Drive the real tool, optionally disagreeing with itself on one axis.
+
+    ``encoded`` and ``asked_at`` default to the agreeing values
+    :func:`_tool_arguments` builds, so a leg that overrides neither is the
+    vacuity guard for every leg that overrides one.
+    """
+    carried: list[ProductRequest | None] = []
+    server = _mcp_server(
+        tmp_path,
+        servable=assembled.servable,
+        address=assembled.address,
+        carried=carried,
+    )
+    arguments = _tool_arguments(assembled.address, parameters)
+    if encoded is not None:
+        arguments["request"] = canonical_bytes(encoded).decode("utf-8")
+    if asked_at is not None:
+        arguments["asked_at"] = asked_at.isoformat()
+    return _drive_mcp(server, _tool_operation(arguments))
+
+
+def test_an_encoded_question_naming_another_class_is_refused_by_name(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """`C-01`: the door refuses to echo one question while answering another."""
+    other = f"{assembled.address.product_class}-elsewhere"
+
+    is_error, detail = _call_with(
+        assembled,
+        tmp_path,
+        parameters={REQUIRED_PARAMETER: 11},
+        encoded=WireRequest(
+            product_id=other,
+            parameters={REQUIRED_PARAMETER: 11},
+            temporal_boundary=None,
+        ),
+    )
+
+    assert is_error is True, detail
+    assert other in detail, detail
+    assert assembled.address.product_class in detail, detail
+
+    # The vacuity guard: the same call, agreeing, is answered. Without it the
+    # assertion above would pass against a door that refused every call.
+    agreed_error, agreed = _call_with(
+        assembled, tmp_path, parameters={REQUIRED_PARAMETER: 11}
+    )
+    assert agreed_error is False, agreed
+    assert DoorOutcome.model_validate_json(agreed).product_json is not None
+
+
+def test_an_encoded_question_declaring_other_parameters_is_refused_by_name(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """`C-01`, one axis over: the declared remainder is crossed the same way."""
+    is_error, detail = _call_with(
+        assembled,
+        tmp_path,
+        parameters={REQUIRED_PARAMETER: 11},
+        encoded=WireRequest(
+            product_id=assembled.address.product_class,
+            parameters={REQUIRED_PARAMETER: 12},
+            temporal_boundary=None,
+        ),
+    )
+
+    assert is_error is True, detail
+    assert "11" in detail and "12" in detail, detail
+
+    agreed_error, agreed = _call_with(
+        assembled, tmp_path, parameters={REQUIRED_PARAMETER: 11}
+    )
+    assert agreed_error is False, agreed
+    assert DoorOutcome.model_validate_json(agreed).product_json is not None
+
+
+def test_a_concrete_boundary_disagreeing_with_asked_at_is_refused_by_name(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """`C-18` part (a): the third axis, where a second copy of the fact exists.
+
+    ``C-15`` keeps the clock client-side, so a **concrete** ``as_of`` crosses
+    this pipe twice — inside the encoded question that becomes the echo, and as
+    the ``asked_at`` argument the door answers against. A transport altering
+    only the second produces a perfectly matching echo for an answer computed
+    at a different instant, which is ``B0``'s own failure mode surviving on the
+    third axis of a comparison ``C-03`` calls total.
+
+    The disagreement here is **one microsecond**, deliberately: nothing else
+    about the answer moves, so a green result could only mean the axis is
+    unchecked.
+    """
+    drifted = ASKED_AT + timedelta(microseconds=1)
+
+    is_error, detail = _call_with(
+        assembled,
+        tmp_path,
+        parameters={REQUIRED_PARAMETER: 11},
+        encoded=WireRequest(
+            product_id=assembled.address.product_class,
+            parameters={REQUIRED_PARAMETER: 11},
+            temporal_boundary=drifted,
+        ),
+        asked_at=ASKED_AT,
+    )
+
+    assert is_error is True, detail
+    assert drifted.isoformat() in detail, detail
+    assert ASKED_AT.isoformat() in detail, detail
+
+
+def test_a_concrete_boundary_agreeing_with_asked_at_is_answered(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """`C-18` part (b), the vacuity guard: agreement is not a refusal.
+
+    Without this leg the assertion above would be satisfied by a door that
+    refused every call carrying a concrete boundary at all.
+    """
+    is_error, detail = _call_with(
+        assembled,
+        tmp_path,
+        parameters={REQUIRED_PARAMETER: 11},
+        encoded=WireRequest(
+            product_id=assembled.address.product_class,
+            parameters={REQUIRED_PARAMETER: 11},
+            temporal_boundary=ASKED_AT,
+        ),
+        asked_at=ASKED_AT,
+    )
+
+    assert is_error is False, detail
+    parsed = DoorOutcome.model_validate_json(detail)
+    assert parsed.product_json is not None
+    assert parsed.request.temporal_boundary == ASKED_AT
+
+
+def test_an_absent_boundary_is_never_compared_against_asked_at(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """`C-18` part (c) — the guard, and the residual it declares.
+
+    A caller sending ``as_of=None`` gets ``temporal_boundary=None`` on the
+    encoded question and a client-resolved ``asked_at`` beside it (``C-02``,
+    ``C-15``). There is **no second copy of the instant**, so the comparison is
+    impossible and is not attempted: an unguarded comparison would refuse every
+    default call, and every conformance leg over ``mcp+stdio`` would go red.
+
+    **This is a passing test over a named residual, not a proof of safety.** On
+    this path a transport altering ``asked_at`` alone is undetected, which is
+    ``C-18``'s declared limit and belongs in ``C-10``'s undetected list — it is
+    not closed here, because the only way to close it would be to reconstruct a
+    second operand, which is the bypass this repair exists to shut.
+    """
+    is_error, detail = _call_with(
+        assembled,
+        tmp_path,
+        parameters={REQUIRED_PARAMETER: 11},
+        encoded=WireRequest(
+            product_id=assembled.address.product_class,
+            parameters={REQUIRED_PARAMETER: 11},
+            temporal_boundary=None,
+        ),
+        asked_at=ASKED_AT + timedelta(hours=3),
+    )
+
+    assert is_error is False, detail
+    parsed = DoorOutcome.model_validate_json(detail)
+    assert parsed.product_json is not None
+    # And the echo is as asked: `None` in, `None` out, with the door's own
+    # resolved instant nowhere in it (`C-02`).
+    assert parsed.request.temporal_boundary is None

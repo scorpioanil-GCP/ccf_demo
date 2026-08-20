@@ -101,7 +101,7 @@ from ccf.controlplane.audit import AuthzDecisionAuditEvent
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.mcp.client import McpResourceClient, SyncMcpBridge, run_with_session
 from ccf.mcp.errors import McpServerUnreachable
-from ccf.products.door import DoorOutcome
+from ccf.products.door import DoorOutcome, WireRequest
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
     ProductEntitlementGrant,
@@ -370,15 +370,25 @@ LOCAL_INTENT = "local-intent"
 LOCAL_FRESHNESS = "local-freshness"
 LOCAL_ASKED_AT = datetime(2026, 8, 13, 9, 30, tzinfo=UTC)
 
-#: The seven **required** names the tool's input schema advertises — the three
+#: The **required** names the tool's input schema advertises — the three
 #: address segments and whitepaper §6.3's four axes. Asserted by **equality**
 #: rather than containment: containment would pass against a tool that also
 #: accepted ``role``, which is precisely the widening the tool must not have.
+#:
+#: **This read *seven* until ``C-16`` (Phase 19), and now reads eight.** The
+#: encoded ``request`` joined the required set on this constant's own
+#: argument: an optional encoded question with a reconstruction fallback is
+#: the bypass ``D-IMPL-151`` finding ``B0`` measured, so required-together
+#: makes a call that states no question **unrepresentable** rather than merely
+#: refused. It is not the widening ``role`` would have been — it claims no
+#: address a caller could not already claim; it is the same question, said
+#: once more in a form the door can echo.
 REQUIRED_TOOL_ARGUMENTS = frozenset(
     {
         "tenant",
         "product_class",
         "version",
+        "request",
         "subject",
         "intent",
         "freshness",
@@ -386,7 +396,7 @@ REQUIRED_TOOL_ARGUMENTS = frozenset(
     }
 )
 
-#: The eighth name, optional, added by ``D-IMPL-133`` (Dave, 2026-08-14):
+#: The one **optional** name, added by ``D-IMPL-133`` (Dave, 2026-08-14):
 #: *"both doors carry ``parameters``."*
 #:
 #: **Optional rather than required, and the distinction is the surface.** The
@@ -414,11 +424,25 @@ def _tool_arguments(
     subject: str = LOCAL_SUBJECT,
     asked_at: str | None = None,
 ) -> dict[str, Any]:
-    """The four §6.3 axes plus the three address segments, as wire arguments."""
+    """The four §6.3 axes, the three address segments, and the encoded question.
+
+    ``temporal_boundary`` is ``None`` on the encoded question, which is what a
+    caller deferring to the decision instant sends (``C-02``, ``C-15``). It is
+    deliberately **not** derived from ``asked_at``: the two are different facts,
+    and ``test_two_questions_reach_two_content_addresses`` varies ``asked_at``
+    alone, which the door's temporal cross-check must leave alone on this path.
+    """
     return {
         "tenant": address.tenant,
         "product_class": address.product_class,
         "version": address.version,
+        "request": canonical_bytes(
+            WireRequest(
+                product_id=address.product_class,
+                parameters={},
+                temporal_boundary=None,
+            )
+        ).decode("utf-8"),
         "subject": subject,
         "intent": LOCAL_INTENT,
         "freshness": LOCAL_FRESHNESS,
@@ -1255,7 +1279,7 @@ def test_a_server_built_without_the_tool_arguments_advertises_no_tool(
     assert anyio.run(server.list_tools) == []  # type: ignore[attr-defined]
 
 
-def test_the_tool_advertises_exactly_the_seven_argument_names(
+def test_the_tool_advertises_exactly_the_eight_argument_names(
     assembled: Any, tmp_path: Path
 ) -> None:
     """What a *client* sees — the wire contract, not the Python signature.
@@ -1270,7 +1294,8 @@ def test_the_tool_advertises_exactly_the_seven_argument_names(
     ``D-IMPL-133`` added ``parameters`` as an eighth *property* and deliberately
     not as an eighth *requirement* — see :data:`OPTIONAL_TOOL_ARGUMENTS` for why
     the address and the declared remainder are on opposite sides of that line.
-    Asserting ``required`` against the seven is what keeps the address whole: a
+    Asserting ``required`` against the eight (**seven until ``C-16`` added the
+    encoded ``request``**) is what keeps the address whole: a
     ``parameters`` that drifted into ``required`` would make every caller
     wanting the standing remainder send an empty object, and a §6.3 axis that
     drifted out of it would make a partial address representable again.
@@ -1512,6 +1537,59 @@ def test_two_questions_reach_two_content_addresses(
     # question rather than re-serving what the resource serves.
     assert first_vessel != _canonical
     assert second_vessel != _canonical
+
+
+@with_child
+def test_the_door_states_the_question_it_parsed_and_the_address_it_computed(
+    loopback_url: str,
+    expected: tuple[str, ProductAddress],
+    bridge: SyncMcpBridge,
+) -> None:
+    """`C-01`, `C-02`, `C-15`, over a real process boundary and a real pipe.
+
+    Two properties, both of which the client seam's integrity checks need an
+    operand for and neither of which existed before Phase 19:
+
+    * **The echo is as asked.** The question crossed with
+      ``temporal_boundary=None`` — the positive assertion *answer against the
+      decision instant* — and comes back ``None``. The door answered against a
+      concrete ``asked_at`` and did **not** substitute it into the echo; had it
+      done so, a caller sending ``None`` would match anything and the
+      comparison would be vacuous one field over, which is what ``C-02``
+      rejected.
+    * **The claimed address is the producer's own.** ``content_address`` is
+      ``sha256`` of the vessel text riding beside it, computed producer-side
+      from the same ``canonical_bytes`` call. A consumer recomputing it now has
+      something that did not come from the consumer to disagree with — the
+      whole of ``D-IMPL-151`` finding ``B0``.
+
+    Asserted **over the wire** rather than against ``door_answer`` directly,
+    because the unit proof cannot see a transport that re-labels what it
+    carries and this is the transport where a crossed question is physically
+    possible.
+    """
+    _canonical, address = expected
+
+    is_error, text = _call_tool_over_the_wire(
+        bridge, loopback_url, _tool_arguments(address)
+    )
+
+    assert is_error is False, text
+    outcome = DoorOutcome.model_validate_json(text)
+    assert outcome.request.temporal_boundary is None, (
+        "the door echoed an instant for a question that named none; the echo"
+        " is as asked (C-02), and a door substituting its own resolved instant"
+        " makes a sent-`None` match anything"
+    )
+    assert outcome.request.product_id == address.product_class
+    assert outcome.product_json is not None
+    assert outcome.content_address == hashlib.sha256(
+        outcome.product_json.encode("utf-8")
+    ).hexdigest(), (
+        "the producer's claimed content address disagrees with the producer's"
+        " own bytes; the claim and the vessel come from one `canonical_bytes`"
+        " call precisely so they cannot"
+    )
 
 
 # --- the fixture's own failure mode ----------------------------------------

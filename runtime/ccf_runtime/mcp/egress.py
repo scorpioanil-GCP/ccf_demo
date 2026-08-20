@@ -121,9 +121,8 @@ from mcp.server.fastmcp import FastMCP
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import (
     PRODUCT_REQUEST_TOOL,
-    DoorOutcome,
-    door_refusal,
-    served_answer,
+    door_answer,
+    door_question,
 )
 from ccf.products.gates import ServableProduct
 from ccf.products.request import ProductRequest
@@ -536,6 +535,7 @@ def build_egress_server(
             tenant: str,
             product_class: str,
             version: str,
+            request: str,
             subject: str,
             intent: str,
             freshness: str,
@@ -670,6 +670,48 @@ def build_egress_server(
             deployment that adopted this tool before ``D-IMPL-133`` keeps
             working unchanged.
 
+            **``request`` is the caller's own question, canonically encoded,
+            and it is required** (``C-16``, Phase 19). It carries the UTF-8
+            text of :func:`~ccf.contracts.canonical.canonical_bytes` over the
+            caller's :class:`~ccf.products.door.WireRequest`, and
+            :func:`~ccf.products.door.door_question` parses it here. **The
+            outcome echoes what this handler parsed, not the address arguments
+            beside it** — that is the whole of ``C-01``: an echo re-sourced
+            from anything the consumer already holds is a value compared with
+            itself, which is what ``D-IMPL-151`` finding ``B0`` measured on
+            both shipped adapters.
+
+            It is required rather than optional on the argument this docstring
+            already makes for the four §6.3 axes: required-together makes a
+            partial address **unrepresentable** rather than merely refused. The
+            rejected alternative was an optional argument with a
+            reconstruction fallback, and a fallback that reconstructs the echo
+            is *precisely* the bypass this repair exists to close. This is a
+            wire-compatibility break for any non-SDK consumer of this tool;
+            pre-1.0, there is no deprecation window.
+
+            **Two sources for one fact is the bypass one level up, so the
+            handler refuses the disagreement by name.** A caller could encode
+            question A and supply address arguments for question B, have A
+            echoed and B answered, and a consumer's cross-check would pass. So
+            the encoded request is checked against ``product_class``, against
+            ``parameters``, and — when it carries a **concrete**
+            ``temporal_boundary`` — against ``asked_at``, because ``C-15``
+            keeps the clock client-side and a concrete ``as_of`` therefore
+            crosses this pipe twice (``C-18``). The answer is then resolved
+            against the **decoded** request's parameters, so there is one
+            source for what is answered and the echo is that same source.
+
+            **The temporal check is guarded, and the residual is declared
+            rather than engineered away.** When the caller sent ``as_of=None``
+            the client resolved the instant (``C-02``, ``C-15``), so
+            ``temporal_boundary`` is ``None``, ``asked_at`` is a value with no
+            second copy anywhere, and a transport altering ``asked_at`` alone
+            is **undetected**. Comparing them on that path would refuse every
+            default call; reconstructing a second operand would be the bypass
+            again. The limit is named here, in ``C-10``'s undetected list and
+            in the decision entry, and left true.
+
             **What this tool returns is a** :class:`~ccf.products.door.DoorOutcome`
             **and no longer the bare vessel** (``D-IMPL-148`` and its
             **Addendum A**, Dave, 2026-08-17). Two things ride the envelope that
@@ -743,6 +785,38 @@ def build_egress_server(
                     " boundary a replay resolves against and cannot be"
                     " ambiguous (D-IMPL-38)"
                 )
+            asked_wire = door_question(request)
+            if asked_wire.product_id != product_class:
+                raise ValueError(
+                    "the encoded request addresses"
+                    f" {asked_wire.product_id!r} and the `product_class`"
+                    f" argument addresses {product_class!r}; a call that"
+                    " encodes one question and addresses another would have"
+                    " one question echoed and a different one answered, which"
+                    " is the crossing the echo exists to detect (C-01)"
+                )
+            if dict(asked_wire.parameters) != dict(parameters):
+                raise ValueError(
+                    "the encoded request declares parameters"
+                    f" {dict(asked_wire.parameters)!r} and the `parameters`"
+                    f" argument declares {dict(parameters)!r}; a call that"
+                    " encodes one declared remainder and supplies another"
+                    " would have one question echoed and a different one"
+                    " answered (C-01)"
+                )
+            if (
+                asked_wire.temporal_boundary is not None
+                and asked_wire.temporal_boundary != asked_at
+            ):
+                raise ValueError(
+                    "the encoded request is asked as of"
+                    f" {asked_wire.temporal_boundary.isoformat()!r} and the"
+                    f" `asked_at` argument is {asked_at.isoformat()!r}; an"
+                    " answer computed at one instant cannot be echoed as a"
+                    " question asked as-of another, and a concrete boundary"
+                    " crosses this pipe twice precisely so the two can be"
+                    " compared (C-18)"
+                )
             perspective = entitled_perspective(
                 grant=verified_grant(),
                 tenant=tenant,
@@ -770,7 +844,13 @@ def build_egress_server(
                 # `400 ERROR_PRODUCT_PARAMETERS_MALFORMED`. The copy stays: the
                 # argument model hands over a fresh dict per call, and copying
                 # keeps that true if it ever stops being.
-                parameters=dict(parameters),
+                #
+                # Resolved from the DECODED request rather than from the
+                # `parameters` argument (C-01): one source for what is
+                # answered, and the echo comes from that same source. The two
+                # are cross-checked above, so this is not a choice between
+                # them — it is a refusal to hold two.
+                parameters=dict(asked_wire.parameters),
             )
             resolved = resolver(
                 tenant=tenant,
@@ -779,25 +859,12 @@ def build_egress_server(
                 perspective=perspective,
                 request=asked,
             )
-            refusal = door_refusal(
+            return door_answer(
                 resolved,
-                asked=asked,
+                echo=asked_wire,
+                resolved_request=asked,
                 product_class=product_class,
                 version=version,
-            )
-            if refusal is not None:
-                return canonical_bytes(
-                    DoorOutcome(
-                        product_json=None, replay_ref=None, refusal=refusal
-                    )
-                ).decode("utf-8")
-            answer = served_answer(resolved)
-            return canonical_bytes(
-                DoorOutcome(
-                    product_json=canonical_bytes(answer.product).decode("utf-8"),
-                    replay_ref=answer.replay_ref,
-                    refusal=None,
-                )
             ).decode("utf-8")
 
     return server

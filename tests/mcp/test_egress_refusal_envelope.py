@@ -98,6 +98,8 @@ from ccf_runtime.http_api.auth import BearerTokenAuth
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.routes import REPLAY_REF_HEADER
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
+from ccf.contracts.canonical import canonical_bytes
+from ccf.products.door import WireRequest
 from ccf_runtime.mcp.egress import PRODUCT_REQUEST_TOOL, build_egress_server
 
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
@@ -458,6 +460,16 @@ def _tool_arguments(
         "tenant": address.tenant,
         "product_class": address.product_class,
         "version": address.version,
+        # The caller's own question, encoded (`C-16`). Built from the same
+        # values the address arguments beside it carry, because the door
+        # refuses a call that encodes one question and addresses another.
+        "request": canonical_bytes(
+            WireRequest(
+                product_id=address.product_class,
+                parameters=dict(parameters),
+                temporal_boundary=None,
+            )
+        ).decode("utf-8"),
         "subject": SUBJECT,
         "intent": INTENT,
         "freshness": FRESHNESS,

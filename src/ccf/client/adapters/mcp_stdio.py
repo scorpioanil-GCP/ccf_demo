@@ -44,7 +44,7 @@ token count and the second-token advice — drop it — would destroy a real pat
 
 What is asked, and where each argument comes from
 --------------------------------------------------
-:data:`~ccf.products.door.PRODUCT_REQUEST_TOOL` takes eight arguments and a
+:data:`~ccf.products.door.PRODUCT_REQUEST_TOOL` takes nine arguments and a
 :class:`~ccf.client.wire.WireRequest` carries three, which is not a mismatch to
 paper over — it is the ``D-04`` boundary showing through. The client's question
 is *what class, which parameters, as of when*; the rest is the deployment's own
@@ -55,6 +55,13 @@ exactly the same two documents:
 Tool argument        Where it comes from
 ===================  =========================================================
 ``product_class``    the caller's ``WireRequest.product_id``
+``request``          the caller's whole ``WireRequest``, canonically encoded.
+                     The door parses **this** and echoes what it parsed, so
+                     the echo is the producer's statement rather than a value
+                     re-sourced from client state (``C-01``). Required, and
+                     cross-checked at the door against ``product_class``,
+                     ``parameters`` and — when it carries a concrete boundary
+                     — ``asked_at`` (``C-16``, ``C-18``)
 ``parameters``       the caller's ``WireRequest.parameters``, verbatim
 ``asked_at``         the caller's boundary, or **now** when it deferred
                      (``D-04``: ``None`` means the decision instant)
@@ -128,6 +135,7 @@ from ccf.client.adapters.binding_document import (
 from ccf.client.binding import SCHEME_REGISTRY
 from ccf.client.errors import BindingError, TransportError
 from ccf.client.wire import WireOutcome, WireRequest
+from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.artifacts import DEPLOYMENT_CONFIG, DeploymentConfig
 from ccf.controlplane.artifacts import load_artifact as load_control_plane_artifact
 from ccf.products.door import PRODUCT_REQUEST_TOOL, DoorOutcome
@@ -206,6 +214,10 @@ class McpStdioAdapter:
             "tenant": declared.tenant,
             "product_class": request.product_id,
             "version": declared.version,
+            # The caller's own question, canonically encoded. The door parses
+            # this and echoes what it parsed (`C-01`), which is what gives the
+            # decoder's cross-check an operand that did not come from here.
+            "request": canonical_bytes(request).decode("utf-8"),
             "subject": question.subject,
             "intent": question.intent,
             "freshness": question.freshness,
