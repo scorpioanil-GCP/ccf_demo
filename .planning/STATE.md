@@ -554,6 +554,16 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
+Phase: **20 — Client Access from Three Harnesses (ADK, Anthropic Agent SDK, LangGraph)**
+  ADDED 2026-08-20 (Dave, `/gsd-phase`). **NOT DISCUSSED, NOT PLANNED.** Ten Success
+  Criteria are in the ROADMAP entry already, per `D-GATE-19`'s forward-binding ruling.
+  Next action: `/gsd:discuss-phase 20` — four open questions are named in the entry and
+  must be settled there, chief among them CI determinism: `make example-hw1` and
+  `make example-hw1-mcp` are marked *never CI* (they need a populated deployment), while
+  `examples/external/00-hello-context` IS CI-green through a replay server. Shipping the
+  three new legs unrun would contradict CLAUDE.md §9's *a broken example is a broken
+  build*.
+
 Phase: **19 — The Client-Seam Integrity Checks Must Be Able to Fail (INSERTED).**
   **EXECUTING** — started 2026-08-19 from `0fe0a22` on `main`. 8 plans in 6 waves.
   NO PHASE BRANCH: Dave ruled on 2026-08-19 that the work lands directly on `main`,
@@ -1043,6 +1053,7 @@ Progress: [###░░░░░░░] 15.5 planned 0/14 · Phase 16 at 6/21, park
 - Phase 15.2 inserted after Phase 15.1: Substrate adapters and query pushdown; tiers 1+2 in scope, tier 3 designed-for
 - Phase 16 edited 2026-08-09: status, goal, requirements, success_criteria — scope expanded to four sections (Phase 16 ships 1–3, Section 4 → Phase 17) per 16-CONTEXT.md D-01..D-12; ten Success Criteria added where the entry previously had none
 - Phase 18.1 inserted after Phase 18: Simplify the MCP Example — Client-Side Access, Server Off-Stage. Client-experience scope, no new SDK surface: binding names the deployment, `serve.py` slimmed, README frames it as the same Context Product reached a different way with assembly deliberately out of scope. An `mcp+http`-adapter draft was written and withdrawn the same day as SDK work in an example's clothes (Dave, 2026-08-18) (URGENT)
+- Phase 20 added after Phase 19 (`/gsd-phase`, Dave, 2026-08-20): Client Access from Three Harnesses — ADK, Anthropic Agent SDK and LangGraph agents reaching one Context Product over the Phase 18.1 MCP door, each printing it to the console. Continuation of the client-side arc; **no new SDK mechanism** (no transport, no adapter, no `ccf.client` change) and server assembly stays off-stage. Roadmap entry, Phases-list bullet and progress row all written BY HAND — `phase.add` produced only a stub detail section appended AFTER `## Coverage`, with no Phases-list bullet and no progress row (`D-IMPL-154`/`155` class, fifth distinct handler). Backed up and diffed: three pure insertions, zero deletions. **Ten Success Criteria authored ONE PER UNWRAPPED LINE BEFORE execution per `D-GATE-19`**; `roadmap.get-phase 20` confirmed parsed count = 10. Four open questions are named in the entry rather than decided by default (CI determinism for the three legs, one directory or three, the fate of the pre-17 and Phase-16-orphan duplicates, and the requirement lane).
 
 ### Decisions
 

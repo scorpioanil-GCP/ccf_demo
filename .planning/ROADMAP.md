@@ -42,6 +42,7 @@ and the upgraded examples.
 - [x] **Phase 18: MCP Transport — The Second Door and the Portability Proof** (INSERTED) - Turns "transport-agnostic" from a design property into a demonstrated one. The MCP egress tool stops hard-wiring `parameters={}` so a product class declaring a required parameter becomes reachable over MCP — no coercion guessing, and no wider than the HTTP door, proven by one shared case table run against both; the MCP door learns to emit the canonical refusal envelope while a **governance** refusal still raises; and `mcp+stdio` ships as the second official adapter, sync at the surface with the async client bridged internally, registered by one dict entry and constructing no `Result`. It is official when it passes the conformance suite written before it existed — and **`suite.py` must not move to let it in**, which is the acceptance test for `17-07`'s adapter-agnostic claim. The phase's discharge is the same question at the same instant yielding the same content address in-process and over MCP (completed 2026-08-17)
 - [x] **Phase 18.1: Simplify the MCP Example — Client-Side Access, Server Off-Stage** (INSERTED) - Inserted 2026-08-18 on Dave reading the example: too complicated for a beginner, and the client's own command names the server program. **A client-experience phase that ships no new transport, no new adapter and no change to the client seam — and exactly one piece of new mechanism, by ruling: `D-18` (Dave, 2026-08-18) makes the loader refuse, BY NAME, a `server:` value resolving back inside the deployment root (~4 lines and one test), because it makes `D-09`'s argument mechanical rather than documentary. Recorded in `docs/surface-changes/18.1-04-the-deployment-declares-its-server.md` and ruled in `D-IMPL-153`.** Three changes: `CCF_BINDING` names a **deployment** rather than a script, with the server command declared in `binding.yaml` as data, so the reader's command never mentions `serve.py`; `server/serve.py` (292 lines, ~180 of them deployment-value composition) is cut to a readable length, into a second `server/` module and never into `deployment/`, which `D-IMPL-141` A.3 forbids; and the README states the frame — **the same Context Product reached a different way**, why a server exists at all (the first example ran in-process and produced it directly), and that **how the server is assembled is deliberately out of scope until the assembly examples**. A server in a client-side example is not a scope violation; explaining it is. An earlier draft proposing an `mcp+http` adapter was **withdrawn same-day** as SDK work in an example's clothes
 - [x] **Phase 19: The Client-Seam Integrity Checks Must Be Able to Fail** (INSERTED) - Closes `B0`, the open blocking defect deferred out of Phase 18's close review by `D-IMPL-151`. `src/ccf/client/codec.py` argues — correctly — that the request echo is *cross-checked, never reconstructed*, because reconstruction "cannot detect a transport that answered a *different question*". Both shipped adapters reconstruct: `DoorOutcome` carries no request identity, so `_decode` sets `request` from its own argument and `client.py` passes that same object as `sent`, making `check_outcome`'s comparison an object against itself. `verify_content_address` is inert for the same reason — the claimed address is computed by the adapter from the bytes the codec then re-hashes. **Both integrity checks are structurally unable to fail, on the one transport where a crossed-question wire is physically possible.** The phase's job is to make them able to fail: the wire form carries request identity, the address is claimed by the producer rather than recomputed by the consumer, and a control that answers a different question is caught by a single-transport client rather than only by the cross-adapter parity diff. Note `decode_outcome`/`encode_outcome` have no call site outside tests — both adapters build `WireOutcome` directly under `D-11`, and that permission is what admits the reconstruction, so the seam's enforceability is part of the scope. **Until this lands, the SDK must not be described as detecting a transport that answered a different question, or a vessel altered in transit** (`D-IMPL-151`)
+- [ ] **Phase 20: Client Access from Three Harnesses — ADK, Anthropic Agent SDK and LangGraph Agents Reaching One Context Product over MCP** - The continuation of the client-side arc (17 → 18 → 18.1 → 19). Three agents, each built in a *different* third-party harness, reach **the same Context Product** through the MCP door shipped in Phase 18.1 — registering it as an ordinary tool, calling it, printing the product to the console. Example 1 is ADK, example 2 is the Anthropic Agent SDK, example 3 is LangGraph, and they are deliberately the same program three ways so that what differs is visibly all harness API and none of it CCF. Each client program imports its harness, an MCP client and stdlib — and **nothing from `ccf`**, gated in the `CLNT-14` shape rather than asserted. This is the first demonstration of §7.3's claim that *a harness which already speaks MCP needs no adapter for consumption*; two prior attempts exist on disk (`examples/external/00-hello-context` from Phase 13.1, and the runner-less Phase 16 orphans in `examples/s2-01-external-consumers`) and neither is against the current surface. **No new SDK mechanism**: no new transport, no new adapter, no change to `ccf.client`, and how the MCP server is assembled stays off-stage until the assembly examples
 
 ## Phase Details
 
@@ -1695,6 +1696,107 @@ Plans:
 - [x] 19-08-PLAN.md — Five `D-IMPL` entries, `CLNT-05`'s amendment, the client spec's Amendment 2, and `B0` closed in the Phase 18 review file
 
 
+### Phase 20: Client Access from Three Harnesses — ADK, Anthropic Agent SDK and LangGraph Agents Reaching One Context Product over MCP
+
+**Goal:** Three agents, each built in a different third-party harness — ADK, the Anthropic Agent SDK, LangGraph — reach the same Context Product through the MCP door shipped in Phase 18.1, registering that door as an ordinary tool, calling it, and printing the product to the console.
+
+Same product, same door, three harnesses. This is the continuation of the client-side arc
+(17 → 18 → 18.1 → 19), and the first time `CLAUDE.md` §7.3's claim — *"a harness that
+already speaks MCP needs no adapter for consumption"* — is **demonstrated** against the
+current surface rather than asserted in a design document.
+
+**Why this phase exists.** The client seam is finished and the second door is proven, but
+every consumer that has exercised the MCP door to date is CCF's own `consume.py`. The
+adoption question the examples have not yet answered is the one an adopter actually asks:
+*I already have an agent, in my harness — what do I write to get CCF context into it?* The
+answer is supposed to be "an MCP tool registration and nothing else." Three harnesses
+answering it identically is the proof; one harness answering it is an anecdote.
+
+**What exists, and why it does not discharge this.** Two prior attempts are on disk and
+neither is current:
+
+- `examples/external/00-hello-context/` (Phase 13.1, 2026-08-02) has exactly this shape —
+  `client_adk.py`, `client_anthropic.py`, `client_bare.py`, deterministic in CI via
+  `run.py` and a replay server, with `--live` opt-in legs. It was built against the
+  **pre-Phase-17 surface** and stands up its own `serve.py`; it predates `ccf.client`,
+  the `mcp+stdio` adapter, the Phase 18.1 deployment-declares-its-server binding, and the
+  Phase 19 wire form. Its *runner design* is the precedent this phase should inherit; its
+  *client code* is not.
+- `examples/s2-01-external-consumers/` holds `client_claude_agent.py` (177 lines) and
+  `client_langgraph.py` (200 lines) with no README, no runner, and **no `make` target** —
+  orphans of the retired Phase 16 (`D-IMPL-152`). They are history, not a work queue.
+
+**Scope — three client programs, one door, no new mechanism:**
+
+1. **Example 1 — ADK.** A Google ADK agent on the client side that registers the
+   `examples/hw1-companies-over-revenue` MCP door as a tool, asks the same question
+   `consume.py` asks, and prints the returned Context Product to the console.
+2. **Example 2 — Anthropic Agent SDK.** Identical in every respect except the harness.
+3. **Example 3 — LangGraph.** Identical in every respect except the harness.
+
+The three programs are deliberately the *same program three ways*. What the reader is meant
+to see is how little differs — and that what differs is entirely harness API, never CCF.
+
+**The client-side purity claim, and how it is held.** Each client program imports its
+harness, an MCP client, and stdlib — and **nothing from `ccf`**. That is the whole point:
+CCF is a black box behind a tool. This must be **gated**, not asserted, in the shape
+`CLNT-14` already established for `consume.py`, and — per `CLNT-12`'s inherited standard —
+every new gate carries a named sabotage control in the same plan that adds it.
+
+**Explicitly out of scope.**
+- **No new SDK mechanism.** No new transport, no new adapter, no change to `ccf.client` or
+  the codec, no `HarnessAdapterProtocol` implementation. This phase consumes an existing
+  door from outside; a diff reaching into `src/ccf/client/` is a blocking review event.
+  (`D-IMPL-24`/`D-IMPL-25` harness-adapter work is a *producer-side* concern and is not
+  what this phase is about — a harness consuming MCP needs no adapter, which is the claim
+  under test.)
+- **How the MCP server is assembled**, which stays off-stage until the assembly examples,
+  exactly as Phase 18.1's README frame requires.
+- **No fourth harness**, and no live-model requirement in the default path.
+
+**Open questions for `/gsd:discuss-phase 20` — named here so they are not decided by
+default:**
+1. **CI determinism.** `make example-hw1` and `make example-hw1-mcp` are marked *"never
+   CI"* (they need a populated deployment), while `examples/external/00-hello-context`
+   *is* CI-green through a replay server. Do the three new legs adopt the replay-server
+   pattern, seed the deployment in CI, or ship as documented-but-unrun? "Unrun" contradicts
+   §9's *a broken example is a broken build*.
+2. **Where they live.** One directory with three clients (the `00-hello-context` shape), or
+   three sibling example directories?
+3. **The dead files.** `examples/s2-01-external-consumers/` and the pre-17 clients under
+   `examples/external/00-hello-context/` — superseded and deleted, or kept and re-pointed?
+   Leaving three ADK clients and two LangGraph clients in the tree at three different
+   surface vintages is its own adoption defect.
+4. **Requirement lane.** Whether these mint `CLNT-NN` (continuing the client-seam lane) or
+   open a new prefix.
+
+**Success Criteria** (what must be TRUE):
+
+  1. An ADK agent registers the Phase 18.1 MCP door as a tool, calls it, and prints the returned Context Product to the console, in a client program that imports nothing from `ccf`
+  2. An Anthropic Agent SDK agent does the same against the same door, in a client program that imports nothing from `ccf`
+  3. A LangGraph agent does the same against the same door, in a client program that imports nothing from `ccf`
+  4. The Context Product each of the three harnesses prints carries the same content address as the one `examples/hw1-companies-over-revenue/consume.py` prints for the same question at the same `as_of` — the harness is the variable, the product is the constant
+  5. Client-side CCF-import purity is enforced by a gate rather than by inspection: an AST check refuses a `ccf.*` import in any of the three client programs, and that check carries a named sabotage control demonstrating it can fail
+  6. Every leg runs deterministically in the default path with no live model call, and a `--live` opt-in exists for each harness — or the alternative is ruled explicitly rather than allowed to become "documented but never run"
+  7. No new SDK mechanism ships: no new transport, no new adapter, no change to `ccf.client` or the codec, and no `HarnessAdapterProtocol` implementation — verified by the phase diff touching no file under `src/ccf/client/`
+  8. The prior-vintage duplicates (`examples/s2-01-external-consumers/`, and the pre-Phase-17 clients under `examples/external/00-hello-context/`) are resolved by an explicit decision that is executed in-phase, not left in the tree at three surface vintages
+  9. Each example's README names its harness, what the reader must install, what the reader would change first to point it at their own deployment, and that how the MCP server is assembled is deliberately out of scope until the assembly examples
+  10. `make ci` is exit 0 at the phase close, and any new `make` target for these examples is wired the way the phase's CI-determinism ruling requires
+
+**Requirements:** minted at planning (lane settled by open question 4). Inherits `CLNT-12`'s
+standard — every new check carries a named sabotage control in the same plan.
+**Depends on:** Phase 18.1 (`D-GATE-18.1`, the door and the deployment-declares-its-server
+binding) and Phase 19 (`D-GATE-19`, the wire form the door now speaks).
+**Plans:** not yet planned — run `/gsd:plan-phase 20`.
+
+**Two constraints that hold across every wave** (carried from 18.1/19, and not truths of any
+single plan): `.venv/bin/python` always — bare `python` does not exist on this host and a plan
+that writes it reports a false red; and no `state.*` or `roadmap.*` SDK writer is ever run —
+`.planning/` files are hand-edited.
+
+Plans:
+- [ ] TBD (run `/gsd:plan-phase 20` to break down)
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -1718,6 +1820,7 @@ Plans:
 | 18. MCP Transport — The Second Door and the Portability Proof | 1/1 | Complete — **`D-GATE-18` APPROVED**, merged `--no-ff` at `e57c93c`. *(Row corrected 2026-08-18: it read "AWAITING `D-GATE-18`" after the gate was granted and the branch merged.)* Approves the portability claim and **not** a tamper-detection claim; `B0` travels to Phase 19 | 2026-08-17 |
 | 18.1. Simplify the MCP Example — Client-Side Access, Server Off-Stage | 5/5 + close-fixes | Complete — **`D-GATE-18.1` APPROVED** (Dave). `make ci-core` exit 0 at `04cccc2`: 3909 passed / 118 skipped / 0 failed. Close panel found 3 blockers, all fixed in-phase and independently re-sabotaged; 7 advisories carried; 1 finding recorded UNVERIFIED and not actioned. `D-IMPL-153` (the one new mechanism), `D-IMPL-154`/`D-IMPL-155` (tooling hazards) | 2026-08-19 (`D-GATE-18.1`) |
 | 19. The Client-Seam Integrity Checks Must Be Able to Fail | 8/8 + close-fixes | Complete — **`D-GATE-19` APPROVED** (Dave). `make ci` exit 0 at `cff00ae`: 4013 passed / 118 skipped / 0 failed; suite 3901 → 4013 (+112). Closes `B0` (`D-IMPL-151`) on the axes measured — a crossed question and an altered vessel are each caught by a **single-transport** client, neither assertion naming a second subject. Verified by breaking ten properties and observing 43 control-reds; controls that could not be made to fail: none. Close review found the phase's own `C-17` gate could not fail for three in-tree spellings (`B0` re-openable with the build green) — reproduced end-to-end and fixed test-file-only. `D-IMPL-156`–`162`. **Success Criteria were ABSENT from this entry**; gated on plan `must_haves` + the full §3.1 record, and future phases must carry criteria before execution. Carried, not reopened: `F-2`, `F-3`, `WR-04` | 2026-08-20 (`D-GATE-19`) |
+| 20. Client Access from Three Harnesses — ADK, Anthropic Agent SDK & LangGraph over MCP | 0/0 | Not planned — added 2026-08-20 | — |
 
 ## Coverage
 
