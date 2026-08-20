@@ -572,6 +572,15 @@ Phase: **20 — Client Access from Three Harnesses (ADK, Anthropic Agent SDK, La
   stay as historical externals OR are clearly marked pre-Phase-17 surface; **Phase 20's
   trio is canonical going forward.** (4) **Requirement lane — continue `CLNT-NN`**, no new
   prefix.
+  (5) **The replay harness is COPIED into the new directory, NOT SHARED with
+  `examples/external/00-hello-context/`** (Dave, 2026-08-20, answering the residual point
+  that rulings 1 and 3 touch the same file — Phase 20 inherits the RUNNER DESIGN, replay
+  by default with `--live` opt-in, not a shared implementation contract with a
+  retired-vintage example). Coupling a canonical example to one just marked historical
+  means a change for either risks breaking the other, and **Phase 20 must not break when
+  `00-hello-context` ages out or is quarantined**. Duplicating a small harness is cheap;
+  shared ownership across "canonical now" and "historical" is not. `00-hello-context`
+  keeps its own copy. SETTLED for discuss unless a strong counter-measurement appears.
   Next action: `/gsd:discuss-phase 20`, proceeding AGAINST these rulings rather than
   re-opening them. If any ruling turns out to affect SDK surface rather than example
   layout, that is a `D-IMPL-NN` and a STOP, not a quiet widening.
