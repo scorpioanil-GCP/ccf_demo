@@ -963,11 +963,24 @@ LEG_CALLS: Mapping[str, Mapping[str, Any]] = {
 
 
 def test_every_exported_leg_has_a_control_here() -> None:
-    """A leg added to the suite without a control is a leg nobody has watched fail.
+    """Every exported leg has an entry in this module's control table.
 
     Held against ``suite.__all__`` rather than a list written beside it, so the
     day somebody adds an eighth property this control goes red rather than
     quietly covering seven.
+
+    **What this holds, stated exactly** (close-review finding ``WR-05``,
+    2026-08-20). ``LEG_CALLS`` drives exactly one parameterized test —
+    :func:`test_every_leg_refuses_an_empty_collection_of_adapters` — so
+    membership proves a leg has an **empty-collection** control here, not that
+    the leg has been watched failing under sabotage. This docstring previously
+    read *"a leg nobody has watched fail"*, which claimed the second and
+    measured the first. The sabotage controls that do measure it are the
+    per-leg ones in the two binding modules (``C-12``), and a leg added
+    without one of those is **not** caught by this assertion. The narrower
+    sentence is kept rather than the assertion widened, because widening it
+    would mean a second table of what counts as a sabotage control — the
+    hand-maintained-list drift this suite is built to avoid.
     """
     #: `assert_guard_holds` is excluded because it is not a leg: it takes one
     #: result rather than a collection of subjects, and its controls are the
