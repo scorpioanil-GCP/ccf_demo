@@ -23,14 +23,33 @@ typed refusal body; wiring errors surface as opaque 5xx (T-07-26).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import pytest
 
 from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.products.entitlement import (
+    PRODUCT_ENTITLEMENT_POLICY,
+    ProductEntitlementGrant,
+    ProductEntitlementPolicy,
+    product_entitlement_key,
+)
+from ccf.projection.plan import Perspective
+from ccf_runtime.authz.product_entitlement import (
+    ControlPlaneProductEntitlementSource,
+)
+from ccf_runtime.http_api.routes import (
+    CONTENT_ADDRESS_HEADER,
+    REQUEST_ECHO_HEADER,
+)
+from ccf_runtime.mcp.auth import FileTokenSource
 
 from http_api.conftest import Fabric, call
 
@@ -140,6 +159,157 @@ def test_an_ungoverned_product_door_refuses_rather_than_serving(
 
     assert response.status_code == 503
     assert response.json()["detail"]["error_code"] == "product-door-ungoverned"
+
+
+# --- product: the request echo is ABSENT when no question was posed (C-09) --
+#
+# The module fixture's app is deliberately ungoverned, so the product door
+# refuses there and never reaches `canonical_response`. These two legs need a
+# door that actually serves, so they build a governed one — the same shape
+# `test_content_address_header.py` and `test_product_entitlement.py` each build
+# for the same reason. Tenant, principal, class and role names below are test
+# deployment vocabulary; the SDK ships none of it (CINV-01).
+
+ECHO_TOKEN = "routes-echo-token"
+ECHO_PRINCIPAL = "routes-echo-caller"
+ECHO_ROLE = "routes-echo-role"
+ECHO_AUDIT_INSTANT = datetime(2026, 8, 19, tzinfo=UTC)
+ECHO_BOUNDARY = datetime(2026, 3, 1, tzinfo=UTC)
+
+
+def _echo_perspective(
+    *, grant: Any, tenant: str, requested_role: str | None
+) -> Perspective:
+    return Perspective(
+        principal_id=grant.client_id,
+        role=requested_role if requested_role is not None else ECHO_ROLE,
+    )
+
+
+def _governed_app(fabric: Fabric, tmp_path: Path) -> Any:
+    """A product door that serves, so an absent header means something."""
+    from ccf_runtime.http_api.app import create_app
+    from ccf_runtime.http_api.auth import BearerTokenAuth
+    from ccf_runtime.http_api.dependencies import ApiDependencies
+
+    token_file = tmp_path / "routes-echo-tokens.json"
+    token_file.write_text(
+        json.dumps(
+            {ECHO_TOKEN: {"client_id": ECHO_PRINCIPAL, "scopes": ["product"]}}
+        ),
+        encoding="utf-8",
+    )
+    address = fabric.product_address
+    registry = ControlPlaneRegistry()
+    registry.register_typed(
+        product_entitlement_key(tenant_id=address.tenant),
+        ProductEntitlementPolicy(
+            tenant_id=address.tenant,
+            policy_version="1.0.0",
+            principals={
+                ECHO_PRINCIPAL: ProductEntitlementGrant(
+                    permitted_schema_names=frozenset({address.product_class}),
+                    permitted_roles=frozenset({ECHO_ROLE}),
+                )
+            },
+        ),
+        PRODUCT_ENTITLEMENT_POLICY,
+    )
+    return create_app(
+        ApiDependencies(
+            control_plane=fabric.registry,
+            artifact_store=fabric.store,
+            product_resolver=fabric.product_resolver,
+            workflow_factory=fabric.factory,
+            workflow_engine=fabric.engine,
+            hitl_transport=fabric.hitl,
+            skill_catalog=fabric.catalog,
+            grant_ledger=fabric.ledger,
+        ),
+        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+        product_entitlement=ControlPlaneProductEntitlementSource(
+            control_plane=registry, clock=lambda: ECHO_AUDIT_INSTANT
+        ),
+        perspective_resolver=_echo_perspective,
+    )
+
+
+def _ask(app: Any, fabric: Fabric, *, query: str) -> Any:
+    address = fabric.product_address
+    return call(
+        app,
+        "GET",
+        f"/product/{address.tenant}/{address.product_class}/"
+        f"{address.version}{query}",
+        headers={"Authorization": f"Bearer {ECHO_TOKEN}"},
+    )
+
+
+def assert_no_question_was_echoed(response: Any) -> None:
+    """No echo header at all — **absent**, never present-and-empty.
+
+    Asserted as absence rather than as ``== ""`` for the reason
+    :data:`~ccf_runtime.http_api.routes.REQUEST_ECHO_HEADER` records: stamping
+    an empty header would make *"no question was asked"* and *"the question is
+    named by nothing"* the same observation, and a consumer would have no way
+    to tell which it was looking at.
+
+    A function over its subject so the control below can hand *this same
+    function* a response that **did** carry a question (``D-22``). That control
+    is not decoration: on its own this assertion passes against a route that
+    never stamps the header at all, which is precisely the vacuity this
+    repository has shipped before.
+    """
+    assert REQUEST_ECHO_HEADER not in response.headers
+
+
+def test_a_caller_who_posed_no_question_gets_no_echo_header(
+    fabric: Fabric, tmp_path: Path
+) -> None:
+    """``C-09``'s absence leg, on a door that is actually serving.
+
+    None of the four §6.3 axes is supplied, which the product route's
+    ``_asked`` reads as the positive assertion *this caller asked for the
+    class's standing answer and posed no question of their own*. There is then
+    no question to echo, and the sibling is absent — while the other two
+    siblings are unaffected, which is what makes this an absence rather than a
+    door that stopped publishing.
+    """
+    response = _ask(_governed_app(fabric, tmp_path), fabric, query="")
+
+    assert response.status_code == 200
+    assert_no_question_was_echoed(response)
+    assert (
+        hashlib.sha256(response.content).hexdigest()
+        == response.headers[CONTENT_ADDRESS_HEADER]
+    )
+
+
+def test_the_absence_assertion_fails_when_a_question_was_posed(
+    fabric: Fabric, tmp_path: Path
+) -> None:
+    """The named sabotage control (``CLNT-12``, ``D-22``) for the leg above.
+
+    An absence assertion is the easiest kind of check to ship broken: it passes
+    against a door that never publishes the thing at all, and it passes for the
+    right reason and the wrong reason indistinguishably. So the *same* function
+    is handed a response to a request that did pose a question, and it must
+    fail. Both legs of ``C-09`` are therefore observed — present when asked,
+    absent when not — rather than one being asserted and the other assumed.
+    """
+    response = _ask(
+        _governed_app(fabric, tmp_path),
+        fabric,
+        query=(
+            "?subject=routes-echo-subject&intent=routes-echo-intent"
+            "&freshness=routes-echo-freshness"
+            f"&asked_at={quote(ECHO_BOUNDARY.isoformat())}"
+        ),
+    )
+
+    assert response.status_code == 200
+    with pytest.raises(AssertionError):
+        assert_no_question_was_echoed(response)
 
 
 # --- agent: declare takes an artifact payload, reads resolve it ------------
