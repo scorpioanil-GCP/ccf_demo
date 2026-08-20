@@ -68,6 +68,30 @@ content address, applied unchanged. The MCP tool publishes the same string in an
 envelope because it has no header channel; the asymmetry is a property of the
 transports rather than a difference in what the doors carry.
 
+**And it now carries a third sibling: the question it was asked** (``C-09``),
+under :data:`~ccf_runtime.http_api.routes.REQUEST_ECHO_HEADER`. The paragraph
+above is extended rather than rewritten, because nothing in it stops being
+true: the echo joins the two siblings on the identical argument, through the
+identical channel. What it adds is that this door's published siblings are now
+the same *values* the envelope-carrying doors carry — ``D-IMPL-126``'s ruling
+(*"each surface publishes the same sibling values through whatever channel it
+actually has"*) applied, not amended. ``C-09`` scopes *one shape* to doors that
+**have** an envelope; this one has headers, so it is reconciled rather than
+converted, and its body stays the vessel.
+
+**A consequence of the echo, and it is a narrowing.** The echo is a
+:class:`~ccf.products.door.WireRequest`, whose two field guards refuse a value
+that would not survive a wire unchanged. A question this door can parse but
+cannot represent on the wire is therefore refused at the door with a ``400``
+naming the spelling that works, rather than served with a sibling silently
+missing — a sibling that disappears for some questions is exactly the pattern
+``C-10`` names. Two classes of value reach that refusal, and both bring this
+door into agreement with the MCP tool, which already refuses each of them:
+a ``float`` (or ``Decimal``, or ``set``) inside ``parameters``, and a naive
+``asked_at``. The second closes a measured divergence: ``WireRequest``'s own
+temporal guard states that *"both product doors refuse a naive ``asked_at`` by
+name"*, and until this change that sentence was false of this door.
+
 **What is still deferred here, stated so it is found rather than rediscovered:
 this door has no refusal channel** (DIV-4). A resolver that answers with a
 :class:`~ccf.products.refusal.RefusalEnvelope` reaches
@@ -91,7 +115,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from starlette.requests import Request
 
-from ccf.products.door import served_answer
+from pydantic import ValidationError
+
+from ccf.products.door import WireRequest, served_answer
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective
 from ccf_runtime.authz.product_entitlement import (
@@ -174,6 +200,16 @@ def build_router(
             asked_at=asked_at,
             parameters=parameters,
         )
+        # `C-09`: every field of the echo originates producer-side, from the
+        # query string THIS route parsed — `product_class` off the path it
+        # already resolved, and the remainder off `_asked`'s own return. That
+        # is the property a future HTTP adapter depends on: it decodes the
+        # published header and never reconstructs the echo from its own state,
+        # so the two are independently-sourced facts rather than one fact
+        # compared with itself. `None` here is not a missing value; it is the
+        # caller's positive assertion that they posed no question at all, and
+        # the header is then absent rather than empty.
+        echo = _echo(asked) if asked is not None else None
         try:
             resolved = deps.product_resolver(
                 tenant=tenant,
@@ -189,7 +225,75 @@ def build_router(
         # honest report that this deployment's resolver returned the narrower
         # vessel, which carries none — never a reference dropped at the door.
         answer = served_answer(resolved)
-        return canonical_response(answer.product, replay_ref=answer.replay_ref)
+        replay_ref = answer.replay_ref
+        return canonical_response(answer.product, replay_ref=replay_ref, asked=echo)
+
+    def _echo(asked: ProductRequest) -> WireRequest:
+        """The question this door parsed, in the shape a consumer decodes.
+
+        ``C-09``. Built from ``asked`` and from nothing else, so the echo and
+        the answer have **one** source: the resolver is called with the same
+        object this reads, and there is no second copy of the question anywhere
+        on this door for the two to drift apart between. That is also why
+        ``C-18``'s temporal cross-check has no subject here — the boundary is
+        taken from the one ``asked_at`` this route parsed, so a cross-check
+        would compare a value with itself. Its absence is a measurement, not an
+        exemption.
+
+        **The refusal is a narrowing, and it is deliberate.**
+        :class:`~ccf.products.door.WireRequest` refuses a value that would not
+        survive a wire unchanged — a ``float`` in ``parameters``, or an instant
+        with no UTC offset. Before this door published an echo it forwarded
+        both verbatim and served; the MCP tool refuses both, so the two doors
+        disagreed on a class of value that
+        ``tests/mcp/test_egress_parameters.py``'s shared table happens not to
+        contain. Refusing here is ``D-08``'s posture — *the fabric never
+        silently degrades a caller's value* — and it moves this door into
+        agreement rather than widening the other, which is the direction
+        ``D-IMPL-151`` finding ``B2`` already chose for this pair.
+
+        The guard's own message is carried into the refusal rather than
+        paraphrased, because it is the message that names the spelling that
+        works; a caller told only *"malformed"* would have to guess.
+
+        Raises:
+            HTTPException: 400 with
+                :data:`~ccf_runtime.http_api.errors.ERROR_PRODUCT_PARAMETERS_MALFORMED`
+                when a declared parameter value cannot cross a wire, or with
+                :data:`~ccf_runtime.http_api.errors.ERROR_PRODUCT_REQUEST_INCOMPLETE`
+                when ``asked_at`` carries no UTC offset — an axis supplied
+                without the part that makes it unambiguous, which is the same
+                *the door fills nothing in* that constant already records
+                (``D-IMPL-38``).
+        """
+        try:
+            return WireRequest(
+                product_id=asked.schema_name,
+                parameters=dict(asked.parameters),
+                temporal_boundary=asked.asked_at,
+            )
+        except ValidationError as unrepresentable:
+            temporal = any(
+                error["loc"] == ("temporal_boundary",)
+                for error in unrepresentable.errors()
+            )
+            raise HTTPException(
+                status_code=400,
+                detail=refusal_detail(
+                    error_code=(
+                        ERROR_PRODUCT_REQUEST_INCOMPLETE
+                        if temporal
+                        else ERROR_PRODUCT_PARAMETERS_MALFORMED
+                    ),
+                    message=(
+                        "this question cannot be represented on the wire, so"
+                        " the door refuses it rather than serving an answer"
+                        " whose published request echo would be absent or"
+                        " would differ from what was asked (C-09):"
+                        f" {unrepresentable}"
+                    ),
+                ),
+            ) from unrepresentable
 
     def _authorized_perspective(
         request: Request, *, tenant: str, product_class: str, role: str | None
