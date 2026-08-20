@@ -524,8 +524,8 @@ Phase: **19 — The Client-Seam Integrity Checks Must Be Able to Fail.** DISCUSS
   **not** accepted risk.
   WHAT IT FIXES, MEASURED IN-TREE RATHER THAN QUOTED: `DoorOutcome` carries no
   request identity (`src/ccf/products/door.py::DoorOutcome`), so both adapters fill `WireOutcome.request`
-  from the object they were handed (`src/ccf/client/adapters/mcp_stdio.py::_decode`,
-  `src/ccf/client/adapters/inprocess.py::_encode`)
+  from the object they were handed (`src/ccf/client/adapters/mcp_stdio.py::McpStdioAdapter`,
+  `src/ccf/client/adapters/inprocess.py::InProcessAdapter`)
   and `src/ccf/client/client.py::ask` passes that SAME object as `sent` — `outcome.request != sent`
   is an object compared with itself. `content_address` is `sha256` of the very text
   the adapter passes on, so `verify_content_address` is `sha256(x) != sha256(x)`.
