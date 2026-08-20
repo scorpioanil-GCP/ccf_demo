@@ -1670,6 +1670,18 @@ prose was corrected in-phase to say so at the source.
 
 **Requirements:** carries Phase 18's `B0`. **Depends on:** Phase 18 (`D-GATE-18`).
 
+**Plans:** 8 plans in 4 waves
+
+Plans:
+- [ ] 19-01-PLAN.md — One wire shape carrying the question the door parsed and the address it computed; the MCP tool's required encoded request
+- [ ] 19-02-PLAN.md — The seam retyped to `ask(WireRequest) -> bytes`; both adapters stop constructing outcomes; in-process becomes a degenerate wire in both directions
+- [ ] 19-03-PLAN.md — Single-transport controls: a crossed question and an altered vessel caught by one client, plus codec-level byte sabotage and the ordering guard
+- [ ] 19-04-PLAN.md — The conformance tamper legs: every registered adapter wrapped in a byte-corrupting decorator it cannot opt out of
+- [ ] 19-05-PLAN.md — The AST gate proving no module under `src/ccf/client/adapters/` constructs the outcome, with its named sabotage control
+- [ ] 19-06-PLAN.md — The HTTP door reconciled: the request echo joins the `X-CCF-*` siblings, absent when no question was posed
+- [ ] 19-07-PLAN.md — The narrower true claim across `src/` and `runtime/`, the amended clock sentence, and the regenerated surface manifest with its migration fragment
+- [ ] 19-08-PLAN.md — Five `D-IMPL` entries, `CLNT-05`'s amendment, the client spec's Amendment 2, and `B0` closed in the Phase 18 review file
+
 
 ## Progress
 
