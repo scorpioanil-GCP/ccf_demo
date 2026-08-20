@@ -80,6 +80,46 @@ from a reviewer. See "Rejected findings" below.
 > **Until that phase lands, the SDK must not be described as detecting a transport
 > that answered a different question.**
 
+> ## ✅ CLOSED 2026-08-20 BY PHASE 19 — the note below is appended; nothing above it is rewritten
+>
+> **The `⚠ STATUS: DEFERRED` line above stays visible on purpose.** This file has no
+> closed form of that marker, so the verdict is not overwritten — a reader should see
+> that `B0` was deferred at `D-GATE-18` *and* that it closed, in that order, rather
+> than a record that reads as though it had never been open.
+>
+> **Ratified by `D-IMPL-156`** (Phase 19's decision set, `C-01`…`C-18`), with the seam
+> change in `D-IMPL-157`, both wire-compatibility breaks in `D-IMPL-158`, the deferred
+> clock defect in `D-IMPL-159` and the accepted serialization cost in `D-IMPL-160`.
+>
+> **What closed it, in one sentence:** the wire now carries the question the door
+> parsed and an address the producer computed from the same single serialization it
+> emitted; the adapter seam returns **bytes**, so an adapter has nothing to construct
+> and no way to fill the echo from the argument it was handed; and the checks are
+> demonstrated to fail by **single-transport** controls driven through the real
+> `ProductClient` — two assertions, one per shipped transport, neither naming a second
+> subject — rather than by a cross-adapter parity diff.
+>
+> **What is still NOT covered, in `C-10`'s terms**, because a closure that does not
+> state its limits is the shape this phase existed to replace. Four cases, and the
+> shipped `src/ccf/client/codec.py` module docstring lists the same four: an adversary
+> who can rewrite the envelope (the claim rides *in* the envelope — this is
+> non-adversarial integrity and nothing more, and **no signature member is reserved on
+> the wire**); a producer that mis-canonicalizes *consistently*; two **identical**
+> in-flight questions crossing; and — on a question asked with `as_of=None` **only** —
+> a transport that alters the instant the door answered against, because the client
+> resolves that instant so it crosses the wire once. The other half of that axis **is**
+> held: a **concrete** `as_of` crosses twice and the MCP door refuses a disagreement by
+> name (`C-18`). That residual is recorded as **open** in `D-IMPL-159`.
+>
+> **`D-GATE-18`'s standing prose constraint is REPLACED by the narrower true sentence
+> in `codec.py`, not lifted.**
+>
+> **`A5` IS STILL OPEN and was not touched by Phase 19.** Stdio auth is impersonation
+> rather than verification; `19-CONTEXT.md` puts it explicitly out of scope, and
+> signing — which is the direction that would close it — is out of scope by `C-10`.
+> **The other nine carried advisories (`A1`…`A4`, `A6`…`A10`) are likewise unaffected
+> and remain open.** A closed `B0` at the top of this file is not a closed file.
+
 `src/ccf/client/codec.py:30-42` states the design principle in its own words: the
 echo is **cross-checked, not reconstructed**, because reconstruction *"cannot detect a
 transport that answered a different question … a proxying or multiplexing transport

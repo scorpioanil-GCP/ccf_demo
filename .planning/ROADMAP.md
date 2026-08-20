@@ -1641,12 +1641,24 @@ request echo is *cross-checked, never reconstructed*, because reconstruction *"c
 transport that answered a different question … a proxying or multiplexing transport that
 crosses two in-flight questions produces a perfectly well-formed outcome for the wrong
 request."* **Both shipped adapters reconstruct.** `DoorOutcome` carries no request identity, so
-`mcp_stdio._decode` sets `request` from its own argument and `client.py:172` passes that *same
-object* as `sent` — making `check_outcome`'s `if outcome.request != sent` a comparison of an
-object with itself. `verify_content_address` is inert for the same reason: the "claimed"
-address is computed by the adapter from the identical bytes the codec then re-hashes, so the
-check is `sha256(x) != sha256(x)`. Both are inert **on the one transport where a
-crossed-question wire is physically possible**.
+`mcp_stdio._decode` sets `request` from its own argument and the seam call in
+`src/ccf/client/client.py::ProductClient` passes that *same object* as `sent` — making
+`check_outcome`'s `if outcome.request != sent` a comparison of an object with itself.
+`verify_content_address` is inert for the same reason: the "claimed" address is computed by
+the adapter from the identical bytes the codec then re-hashes, so the check is
+`sha256(x) != sha256(x)`. Both are inert **on the one transport where a crossed-question
+wire is physically possible**.
+
+*(Citation corrected 2026-08-20 by plan `19-08`. This paragraph cited `client.py:172`,
+which was **already stale when this section was written** — `19-RESEARCH.md` §9.3 measured
+the true line as `:186` at the phase's base commit, and `19-02` moved it again; the seam
+call is at line 228 as measured today. The pointer is now the **symbol**, per `D-IMPL-114`,
+because a line anchor is wrong the moment code moves and this one was wrong on arrival.
+Two honest notes: the whole paragraph is a description of the defect **as it was**, and
+that defect is closed — `mcp_stdio._decode` no longer exists, the seam returns bytes, and
+neither operand is client-sourced any more (`D-IMPL-156`, `D-IMPL-157`); and `client.py` is
+an **ambiguous basename**, so the citation lint DROPPED the old pointer rather than checking
+it, which is why a stale number survived three phases with every gate green.)*
 
 **Scope, at least:**
 - The wire form carries **request identity**, so the echo is read off the wire rather than
