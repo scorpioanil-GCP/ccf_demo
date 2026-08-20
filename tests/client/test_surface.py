@@ -30,6 +30,21 @@ check less, silently. So :func:`count_result_construction_sites` raises on a
 root that does not exist and on a file it cannot parse, reports a count for
 every module it read including the zeros, and the shipped assertion refuses a
 walk that read nothing at all.
+
+A second scan now lives here, over exactly one directory
+--------------------------------------------------------
+``C-17`` — **no module under** ``src/ccf/client/adapters/`` **constructs the
+outcome shape**, because an adapter that can construct one can fill the echo
+from the argument it was handed and the client's cross-check then compares an
+object with itself. :func:`count_outcome_construction_sites` holds it, built to
+the standard above and deliberately **not** sharing code with the ``Result``
+scan, so a change to one cannot silently change the other.
+
+It is one assertion over one directory, not a framework: ``C-13`` rejected a
+general obligations gate, and the way a narrow gate becomes one is by widening
+its scope until it needs an exemption list. It also does not replace ``C-05``'s
+type change — it survives it, for the reason
+:func:`count_outcome_construction_sites` records.
 """
 
 from __future__ import annotations
@@ -66,6 +81,29 @@ SCANNED_ROOTS: Final[tuple[pathlib.Path, ...]] = (
 _RESULT_MODULES: Final[frozenset[str]] = frozenset(
     {"ccf.client", "ccf.client.result"}
 )
+
+#: The one directory ``C-17`` scopes the outcome-construction gate to. One
+#: directory, deliberately, and this constant is **not** ``SCANNED_ROOTS``:
+#: ``ccf.products.door.door_answer`` constructs the outcome shape and is the
+#: **one** place that should, so a wider scope would count the legitimate site
+#: and force an exemption list — which is precisely how a narrow gate turns
+#: into the general obligations gate ``C-13`` rejected.
+ADAPTER_ROOTS: Final[tuple[pathlib.Path, ...]] = (
+    _REPO_ROOT / "src" / "ccf" / "client" / "adapters",
+)
+
+#: The modules the outcome shape can be imported from, for resolving local
+#: aliases. Two, because ``19-01`` merged the two outcome classes into one
+#: defined in :mod:`ccf.products.door` and re-exported by
+#: :mod:`ccf.client.wire`; an adapter can reach the same class through either.
+_OUTCOME_MODULES: Final[frozenset[str]] = frozenset(
+    {"ccf.client.wire", "ccf.products.door"}
+)
+
+#: Both spellings of that one class. ``WireOutcome`` is an alias of
+#: ``DoorOutcome`` rather than a subclass, so these are two names for the same
+#: object and a gate that watched only one would miss the other.
+_OUTCOME_NAMES: Final[frozenset[str]] = frozenset({"WireOutcome", "DoorOutcome"})
 
 
 # --------------------------------------------------------------------------
@@ -523,6 +561,189 @@ def test_control_the_scan_records_a_zero_for_a_module_that_builds_nothing(
 # --------------------------------------------------------------------------
 # C-17 — no adapter constructs the outcome shape
 # --------------------------------------------------------------------------
+
+
+def _outcome_aliases(tree: ast.Module) -> set[str]:
+    """Local names bound to the outcome shape in one module.
+
+    Resolved from the import statements rather than assumed, and against
+    **both** spellings: ``19-01`` merged the two outcome classes, so
+    ``from ccf.products.door import DoorOutcome`` and
+    ``from ccf.client.wire import WireOutcome as _W`` reach the same class.
+    All of them count.
+    """
+    aliases: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module in _OUTCOME_MODULES:
+            for alias in node.names:
+                if alias.name in _OUTCOME_NAMES:
+                    aliases.add(alias.asname or alias.name)
+    return aliases
+
+
+def _outcome_construction_sites(tree: ast.Module) -> int:
+    """Count the calls in one module that build the outcome shape.
+
+    Two shapes are counted, because :func:`_construction_sites` above counts
+    two and a gate weaker than the pattern it claims to mirror is not a mirror:
+    a call to a local name bound to the class by an import, and any attribute
+    call spelled ``….WireOutcome(...)`` or ``….DoorOutcome(...)`` whatever it
+    is an attribute of.
+
+    The second is deliberately broader than it needs to be — it would also
+    count an unrelated ``other.WireOutcome(...)`` — because over-counting fails
+    the build and puts a human in front of the question, while under-counting
+    is the silent direction. It is also the only rule that reaches
+    ``import ccf.client.wire`` followed by ``ccf.client.wire.WireOutcome(...)``,
+    which binds no local name to the class and so resolves nothing for alias
+    matching to find. There is no such attribute call anywhere under
+    ``src/ccf/client/adapters/`` today — four modules, zero hits, measured with
+    a one-off AST run before this rule was written.
+
+    The walk is :func:`ast.walk` over the whole module rather than over module
+    scope, because a construction deferred into a function body is exactly
+    where an adapter would put one — an adapter constructs inside ``ask``, not
+    at import time. Measured: a module-scope-only walk counts zero for that
+    shape, which is why the control below writes it.
+    """
+    found = 0
+    aliases = _outcome_aliases(tree)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        function = node.func
+        if isinstance(function, ast.Name) and function.id in aliases:
+            found += 1
+        elif isinstance(function, ast.Attribute) and function.attr in _OUTCOME_NAMES:
+            found += 1
+    return found
+
+
+def count_outcome_construction_sites(
+    roots: Sequence[pathlib.Path],
+) -> dict[str, int]:
+    """Count outcome-shape constructions per module across ``roots``.
+
+    ``C-17``. The property: **no adapter constructs the outcome.** An adapter
+    that can construct one can fill ``request`` from the very argument it was
+    handed, and the client's echo cross-check then compares an object with
+    itself — which is ``D-IMPL-151`` finding ``B0``, the defect this phase
+    exists to close. The door mints the shape
+    (:func:`ccf.products.door.door_answer`); a transport carries bytes.
+
+    Why this exists *beside* the type change rather than instead of it
+    ------------------------------------------------------------------
+    ``C-05`` retyped the seam to ``-> bytes`` and ``mypy --strict`` enforces
+    it — but ``[tool.mypy] files`` is ``["src", "runtime"]``, so an
+    **out-of-tree** adapter is invisible to it, and an in-tree adapter could
+    construct the shape and then encode it, satisfying ``-> bytes`` without
+    ever violating the return type. Both checks hold; neither replaces the
+    other.
+
+    Takes its roots as a parameter so a control can point it at a ``tmp_path``
+    tree the function actually reads, rather than at a copy the function never
+    looks at.
+
+    **Every module read gets an entry, including the zeros.** That is what lets
+    a caller distinguish *no adapter constructs one* from *nothing was read*,
+    and :func:`assert_no_adapter_constructs_the_outcome` refuses the second.
+
+    Args:
+        roots: Directories to walk. Each must exist.
+
+    Returns:
+        Repo-relative module path to the number of construction sites in it.
+
+    Raises:
+        AssertionError: a root does not exist, or a file under one cannot be
+            parsed. Both are refused rather than skipped: a sweep that drops
+            what it cannot resolve reports less as the tree grows, which is the
+            exact shape that let a citation gate in this repo pass vacuously
+            for a full wave.
+
+    Not detectable, and named rather than pretended away
+    ----------------------------------------------------
+    Two shapes this walk cannot reach. They are stated because a gate whose
+    docstring claims more than its walk holds is the defect this phase is
+    named after:
+
+    * a construction reached through ``getattr(module, "WireOutcome")(...)``.
+      No dynamic dispatch of that shape exists in this directory, and the day
+      one does the honest fix is a ruling rather than a cleverer walk.
+    * **re-labelling**, which is not a construction at all: ``decode_outcome``
+      followed by ``.model_copy(update={"request": …})`` and
+      ``encode_outcome``. Nothing is constructed, so no construction counter
+      can see it — and it is the shape most likely to re-open ``B0``. This is
+      not hypothetical: this phase's own controls in ``19-03`` and ``19-04``
+      are built with exactly that idiom, one directory over, so a docstring
+      here claiming *"no adapter can produce a forged outcome"* would be
+      falsified by this repo's own test code.
+
+    What covers the second is not this gate. It is ``19-04``'s conformance
+    obligation, which wraps every registered adapter in a byte-corrupting
+    decorator and requires the client to raise — a leg an adapter author
+    neither writes nor can opt out of.
+    """
+    counts: dict[str, int] = {}
+    for root in roots:
+        if not root.is_dir():
+            raise AssertionError(
+                f"{root} is not a directory, so scanning it would silently"
+                " contribute nothing and the total would look healthy"
+            )
+        for path in sorted(root.rglob("*.py")):
+            source = path.read_text(encoding="utf-8")
+            try:
+                tree = ast.parse(source, filename=str(path))
+            except SyntaxError as unparsable:
+                raise AssertionError(
+                    f"{path} could not be parsed, so the scan cannot say"
+                    " whether it constructs the outcome shape; a file that is"
+                    f" skipped is a file that is not checked ({unparsable})"
+                ) from unparsable
+            try:
+                key = path.relative_to(_REPO_ROOT).as_posix()
+            except ValueError:
+                key = path.as_posix()
+            counts[key] = _outcome_construction_sites(tree)
+    return counts
+
+
+def assert_no_adapter_constructs_the_outcome(
+    roots: Sequence[pathlib.Path],
+) -> None:
+    """Assert no module under ``roots`` constructs the outcome shape.
+
+    ``C-17``.
+
+    Raises:
+        AssertionError: the walk read no modules at all, or some module
+            constructs the shape. The first is checked first and separately,
+            because a walk that reads nothing satisfies every ceiling placed
+            over it — which is how a gate in this repo passed vacuously for a
+            full wave.
+    """
+    counts = count_outcome_construction_sites(roots)
+    if not counts:
+        raise AssertionError(
+            f"the scan read no modules under {[str(root) for root in roots]},"
+            " so it proved nothing — a walk that reads nothing satisfies every"
+            " ceiling placed over it"
+        )
+    constructing = sorted(
+        (module, count) for module, count in counts.items() if count
+    )
+    if constructing:
+        named = ", ".join(f"{module} ({count} site(s))" for module, count in constructing)
+        raise AssertionError(
+            f"no adapter may construct the outcome shape (C-17), and"
+            f" {len(constructing)} module(s) do: {named}. An adapter that"
+            " builds the answer can fill `request` from the argument it was"
+            " handed, and the client's echo cross-check then compares an"
+            " object with itself — D-IMPL-151 finding B0. The door mints the"
+            " shape (`ccf.products.door.door_answer`); a transport carries"
+            f" bytes. The scan read {len(counts)} modules"
+        )
 
 
 def test_no_adapter_constructs_the_outcome() -> None:
