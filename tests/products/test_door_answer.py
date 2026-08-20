@@ -18,7 +18,7 @@ re-implements the comparison proves only that the copy fires.
 assertion is `is None` would pass against a member that is always `None`. The
 address test has a byte-level sabotage that also asserts the tampered vessel
 still *parses* — which is what makes the failure attributable to the address
-rather than to the parser (`tests/client/test_codec.py:270-274` names that
+rather than to the parser (`tests/client/test_codec.py::_encode_dropping_replay_ref` names that
 trap).
 
 **What these tests are not.** They are unit proofs over one process. They
@@ -62,8 +62,8 @@ from tests.client.conftest import (
 
 #: The deployment's Control Plane document, read once from the committed copy.
 #: **Read, never spelled** — No-Hardcoding (§6.4) lints `tests/` too, and
-#: `tests/client/conformance/test_inprocess_conformance.py:41-55` is the
-#: pattern this follows.
+#: `tests/client/conformance/test_inprocess_conformance.py::PARAMETER` is
+#: the pattern this follows.
 _CONFIG = config_document(FIXTURE_DEPLOYMENT)
 
 #: The class this deployment declares.
@@ -99,9 +99,9 @@ def _resolved(root: Path, request: ProductRequest) -> object:
     `McpStdioAdapter._call`: what is needed here is the value the resolver
     returned, and every public route wraps it in the outcome this module is
     trying to build. Synthesizing one instead would be the thing
-    `tests/client/conformance/test_the_suite_fires.py:376-393` refuses — *"a
-    synthesized `kind` would name a refusal vocabulary the fabric does not
-    speak"*.
+    `tests/client/conformance/test_the_suite_fires.py::refusal_template`
+    refuses — *"a synthesized `kind` would name a refusal vocabulary the
+    fabric does not speak"*.
     """
     booted = _boot(load_binding_document(str(root)))
     try:
@@ -296,7 +296,7 @@ def test_a_single_space_inside_the_vessel_breaks_the_address_it_claims(
     * the edited text still parses as JSON **and** still validates as a
       `ContextProductContract` — so the failure is attributable to the address
       and not to a parser refusing malformed input, which is the trap
-      `tests/client/test_codec.py:270-274` names.
+      `tests/client/test_codec.py::_encode_dropping_replay_ref` names.
     """
     parsed = _answer(
         a_served_value,
@@ -411,7 +411,8 @@ def test_door_question_raises_on_text_that_is_not_a_well_formed_question() -> No
 #
 # Five, counted rather than assumed: the two originals raised seven times
 # between them and two of those were the same rule said in different words.
-# `tests/client/test_codec.py:379-383` parametrized only rules 1 and 2, which is
+# `test_codec.py::test_control_a_wire_outcome_with_both_halves_or_neither_is_refused`
+# parametrized only rules 1 and 2, which is
 # exactly why 3, 4 and 5 had no coverage anywhere in the tree before this file.
 # ---------------------------------------------------------------------------
 
