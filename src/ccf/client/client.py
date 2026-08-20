@@ -264,7 +264,15 @@ class ProductClient:
         Args:
             decoded: The outcome the codec parsed from what the adapter
                 returned, together with the vessel its checks produced.
-            sent: The request that was actually sent, for the echo cross-check.
+            sent: The request that was actually sent. **Nothing in this
+                method's body reads it**, and that is recorded rather than
+                quietly tidied: the echo cross-check that consumed it now runs
+                one frame earlier, in
+                :func:`~ccf.client.codec.decode_outcome`. It is exactly the
+                *"a member nothing sets and nothing reads"* shape ``C-10``
+                names, one scope over, and whether it goes or stays is a
+                ruling Phase 19's decision entries carry — not a change made
+                here, because this plan corrects prose and moves no signature.
 
         Returns:
             The result, carrying the served vessel or the refusal.
