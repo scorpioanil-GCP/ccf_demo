@@ -204,3 +204,17 @@ def test_one_instant_is_one_decision(provision: Provision) -> None:
     suite.assert_one_instant_is_one_decision(
         SUBJECTS, provision=provision, question=QUESTION
     )
+
+
+def test_a_crossed_echo_is_caught(provision: Provision) -> None:
+    """`C-12`/`P3`: the suite tampers with this adapter's bytes and it must raise."""
+    suite.assert_a_crossed_echo_is_caught(
+        SUBJECTS, provision=provision, question=QUESTION
+    )
+
+
+def test_an_altered_vessel_is_caught(provision: Provision) -> None:
+    """`C-12`/`P3`: a vessel altered under the producer's own address must raise."""
+    suite.assert_an_altered_vessel_is_caught(
+        SUBJECTS, provision=provision, question=QUESTION
+    )
