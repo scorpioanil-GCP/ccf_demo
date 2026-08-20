@@ -43,7 +43,10 @@ What lives here
   reserved for the wire failing and for caller negligence, never for a governed
   refusal.
 * :mod:`ccf.client.wire` — the adapter seam. ``WireRequest``, ``WireOutcome``
-  and the ``TransportAdapter`` Protocol (``D-11``).
+  and the ``TransportAdapter`` Protocol (``D-11``, **amended by** ``C-05``/
+  ``C-08`` in Phase 19: ``ask`` returns the producer's canonical ``bytes``
+  rather than a constructed outcome, so an adapter cannot supply the echo the
+  codec checks against).
 * :mod:`ccf.client.codec` — the one encode and the one decode every transport
   shares (``D-12``, ``D-13``, ``D-20``).
 

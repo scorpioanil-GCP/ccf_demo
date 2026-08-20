@@ -14,6 +14,16 @@ adapter carries the request; it never interprets it, and it never builds a
 is what makes "every transport returns the same shape" a code path an adapter
 cannot avoid rather than a convention it is asked to follow.
 
+**Amended by ``C-05``/``C-08`` (Phase 19): what comes back across the seam is
+the producer's canonical** ``bytes``\\ **, and** :class:`WireOutcome` **is what
+the** *codec* **parses out of them.** The sentence above is kept because its
+argument is unchanged and was the reason for the change: an adapter that never
+builds the outcome cannot build one whose echo it filled from the request it
+was handed, so the reach of *"a code path an adapter cannot avoid"* grew from
+``Result`` construction to the integrity checks themselves. ``D-11`` is amended
+to that extent and to no other; the request stays typed, the outcome shape is
+unchanged, and ``__all__`` is what it was.
+
 The vessel rides as text, and that is a ruling rather than a detail
 -------------------------------------------------------------------
 :attr:`WireOutcome.product_json` is the UTF-8 **text** of
@@ -97,9 +107,11 @@ WireOutcome = DoorOutcome
 class TransportAdapter(Protocol):
     """One method: carry the question, bring back the outcome.
 
-    ``D-11``. The whole of what a transport must implement, and deliberately so
-    — an adapter surface wide enough to express policy is an adapter surface on
-    which transports diverge.
+    ``D-11``, **as amended by** ``C-05``/``C-08`` (Phase 19): the method returns
+    the producer's canonical ``bytes`` rather than an outcome object. The whole
+    of what a transport must implement, and deliberately so — an adapter
+    surface wide enough to express policy is an adapter surface on which
+    transports diverge.
 
     **A transport failure never has a** :class:`WireOutcome`. The three cases
     are distinct and stay distinct: a refusal is a value the fabric returned, a
@@ -107,6 +119,15 @@ class TransportAdapter(Protocol):
     never spoke is a :class:`~ccf.client.errors.TransportError` raised by the
     adapter. An adapter that catches its own connection error and synthesizes a
     refusal has reported "the fabric said no" when nothing was ever asked.
+
+    That paragraph is **unchanged and still exactly right** under the bytes
+    seam, and reads more sharply for it: a transport failure now has no *bytes*
+    either, and an adapter with nothing to construct has one fewer way to
+    manufacture an answer nobody gave. What an adapter author must do
+    differently is return what the producer emitted, unexamined — there is no
+    deprecation window and no shim accepting either shape, because a shim that
+    reconstructed the outcome would restore the permission that admitted
+    ``D-IMPL-151`` finding ``B0``.
     """
 
     def ask(self, request: WireRequest) -> bytes:

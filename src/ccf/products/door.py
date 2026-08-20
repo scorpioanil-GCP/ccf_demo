@@ -321,7 +321,14 @@ class DoorOutcome(CCFContract):
             adapters fill this member from the request they were handed rather
             than from the wire, which makes that cross-check inert on every
             shipped transport today** (``D-IMPL-151`` finding ``B0``, an open
-            blocking defect deferred to its own phase).
+            blocking defect deferred to its own phase). **Corrected in Phase
+            19, with the measurement kept above rather than deleted:** the
+            **producer** now mints this member from the question it parsed off
+            its own wire (:func:`door_question`, ``C-01``), no adapter can
+            construct an outcome at all (``C-05``), and the cross-check
+            therefore compares two independently-sourced facts on both shipped
+            transports.
+
         product_json: The UTF-8 text of the served vessel's canonical bytes, or
             ``None`` on a refusal. Text and never a byte string, and never a
             nested JSON object: the string *is* the producer's serialization,
@@ -332,7 +339,11 @@ class DoorOutcome(CCFContract):
             the wire — though on both shipped adapters the value recomputed
             against is one the adapter itself derived from the same
             ``product_json``, so the comparison cannot currently disagree. Same
-            deferred defect as ``request`` above.
+            deferred defect as ``request`` above. **Corrected in Phase 19 in
+            the same way:** :func:`door_answer` serializes the vessel **once**
+            and claims ``sha256`` of those same bytes, so the value the decoder
+            recomputes against is the **producer's** and the recomputation has
+            an operand the consumer did not produce.
         replay_ref: The versioned URI of the replay record whose successful
             append authorized this delivery
             (:attr:`~ccf.artifacts.protocol.ArtifactRef.uri`), or ``None``.

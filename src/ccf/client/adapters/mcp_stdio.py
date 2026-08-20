@@ -107,6 +107,17 @@ returns a :class:`~ccf.client.wire.WireOutcome` and
 :meth:`~ccf.client.client.ProductClient._result_from` does the rest, so shape
 identity across transports stays a code path this adapter cannot avoid.
 
+**Amended by ``C-05``/``C-06``/``C-08`` (Phase 19), and the sentence above is
+kept because what it was defending is now stronger.** This module builds no
+:class:`~ccf.client.wire.WireOutcome` **either**: :meth:`McpStdioAdapter.ask`
+returns the door's own text encoded to ``bytes``, and the private ``_decode``
+that used to turn it into an outcome object is **deleted**. The point is the
+absence of a transcoding step, not its correctness — a transcoding step is
+exactly where an adapter re-sources the echo from client state, which is what
+``D-IMPL-151`` finding ``B0`` measured. What this adapter can build has gone
+from *one shape* to *nothing*, so "shape identity across transports is a code
+path this adapter cannot avoid" is now a property of the seam's type.
+
 This module is algorithmic (CINV-03): it launches a process, exchanges typed
 messages and re-shapes an outcome. No LLM dependency on this path, ever.
 """

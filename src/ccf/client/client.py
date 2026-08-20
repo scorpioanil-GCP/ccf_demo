@@ -41,6 +41,18 @@ a well-formed one. Running :func:`~ccf.client.codec.check_outcome` here — the
 cross-check, the address recomputation and the vessel's validity hold for every
 transport whether or not its author remembered them.
 
+**``D-11`` was amended in Phase 19 (``C-05``, ``C-08``) and the paragraph above
+is kept because its reasoning is what motivated the amendment.** The seam is
+now ``ask(WireRequest) -> bytes``: an adapter hands over the producer's
+canonical bytes and cannot hand over a well-formed outcome at all, so this
+module no longer re-checks anything — it calls
+:func:`~ccf.client.codec.decode_outcome` once, and the checks run there, on
+bytes the *producer* serialized. The property the paragraph defends is
+therefore held by the seam's **type** rather than by a second call, which is
+strictly stronger: what an adapter author has to have remembered is now
+nothing. The decision entry amending ``D-11`` is the one Phase 19 mints for
+``C-05``; ``CLNT-05`` is amended with it.
+
 Sync only, deliberately
 -----------------------
 ``D-24``. One :meth:`ProductClient.ask`. Async would double the exported
@@ -137,9 +149,11 @@ class ProductClient:
         either half and a caller branches on ``result.refused``.
 
         **The** ``as_of=None`` **rule.** ``None`` means *use the server's
-        decision instant* — the producing deployment answers against its own
-        clock, and the instant it used comes back on the served vessel. Passing
-        an explicit instant asks the question against that moment instead, which
+        decision instant*, and the instant it used comes back on the served
+        vessel, at
+        :attr:`~ccf.products.contract.ProductLineage.graph_snapshot_at`.
+        Passing an
+        explicit instant asks the question against that moment instead, which
         is what makes an answer reproducible: the first example's documented
         command passes a fixed ``--as-of`` precisely so its printed debt and
         content address reproduce exactly. The two are not in tension. The API
@@ -147,13 +161,41 @@ class ProductClient:
         now*, and a client that had to name an instant would be a client
         maintaining a copy of the server's clock.
 
+        **Which clock resolves it, corrected rather than deleted** (``C-15``,
+        Phase 19). This paragraph used to continue *"— the producing deployment
+        answers against its own clock"*, **and that sentence was false on both
+        shipped transports.** Measured: :mod:`ccf.client.adapters.inprocess`
+        and :mod:`ccf.client.adapters.mcp_stdio` each resolve ``None`` to
+        ``datetime.now(UTC)`` **client-side**, and send the resolved instant to
+        the door as a separate argument. So on the default path the instant is
+        the *client's* read, not the deployment's. What the deployment answered
+        against is reported on the served vessel either way, which is why the
+        rule above still holds and only its explanation was wrong. The echo the
+        door returns carries ``None`` as asked (``C-02``), because the boundary
+        the caller stated and the instant the door answered at are two
+        different facts.
+
+        **The defect is named, not fixed here.** ``C-13`` kept Phase 19 narrow
+        on ``D-IMPL-151`` finding ``B0``: the clock read did not move, and
+        moving it to the door is a scope this phase declined — the door entry
+        is ``__ccf_mode__ = "algorithmic"`` and reads no clock, so relocating
+        it is a design question rather than an edit. It is recorded as its own
+        deferred decision entry, minted with the rest of Phase 19's, and **no
+        fix is promised in this phase**. The visible consequence to know about
+        is the one ``C-18`` names: because the instant crosses the wire exactly
+        once on this path, a transport that alters it alone is undetected — see
+        :mod:`ccf.client.codec` for the full list of what is and is not
+        detected.
+
         Args:
             parameters: The class-declared remainder of the question. Required
                 rather than defaulted: an empty mapping is a question that
                 needed nothing beyond its axes, which is a positive statement
                 and not the same fact as one nobody thought about.
-            as_of: The instant to answer against, or ``None`` for the server's
-                decision instant. **Timezone-aware when it is not** ``None``:
+            as_of: The instant to answer against, or ``None`` for the decision
+                instant — see the rule above for which clock resolves ``None``
+                today, and for the deferred defect that it is not the
+                deployment's. **Timezone-aware when it is not** ``None``:
                 ``D-IMPL-38`` admits no implicit UTC, so a naive instant is
                 refused here rather than failing differently on each transport.
 
@@ -209,6 +251,15 @@ class ProductClient:
         read only after the comparison has proven the two equal, and the vessel
         arrives **already parsed by that same comparison**, which is why there
         is no second parse of ``product_json`` at this call site.
+
+        **And the comparison it depends on is now live rather than inert.**
+        Through Phase 18 the echo this function reads was the request the
+        adapter had been handed, so *"only safe because the comparison proved
+        the two equal"* was true of a comparison that could not fail. The echo
+        is now the **producer's** statement of the question it parsed, so the
+        safety this paragraph claims is earned: a transport that answers a
+        different question raises before this function is entered, watched
+        doing so through a real client on each shipped transport separately.
 
         Args:
             decoded: The outcome the codec parsed from what the adapter

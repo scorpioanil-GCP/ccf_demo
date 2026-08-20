@@ -10,6 +10,9 @@ boots the deployment the address names, asks it one question, and hands back a
 :class:`~ccf.client.wire.WireOutcome` — and it does all of that **invisibly**,
 on the first :meth:`InProcessAdapter.ask`, so nothing about a manifest, a boot
 sequence or an artifact key reaches the client developer (``D-02``, ``D-16``).
+**Amended by ``C-08`` (Phase 19): what it hands back is the producer half's
+canonical** ``bytes``\\ **, which the codec parses into that same shape.** The
+invisibility claim is unchanged and is the reason the retype cost nothing here.
 
 It serializes live objects anyway, and that is the point (``D-13``)
 --------------------------------------------------------------------
@@ -34,6 +37,23 @@ convention:
   a structural fact rather than a rule an adapter author is asked to follow.
 
 The cost is a microsecond of serialization.
+
+**And since ``C-07`` (Phase 19) it serializes the** *question* **too, which is
+what makes the argument above cover both halves.** :meth:`InProcessAdapter.ask`
+encodes the caller's :class:`~ccf.client.wire.WireRequest` and hands
+:meth:`InProcessAdapter._door` **text**; the door half parses it with
+:func:`~ccf.products.door.door_question` and echoes what **it** parsed. Until
+then in-process was a degenerate wire in one direction only: the answer
+crossed a real serialization while the question was passed as the very object
+the client held, so the client's echo cross-check compared an object with
+itself on the transport every quickstart, fixture and dev path uses — which is
+``D-IMPL-151`` finding ``B0`` surviving here while being closed over the wire.
+
+The extra cost is **two more serializations per ask** — the question out and
+the question back in — and ``C-14`` accepts it with **no benchmark owed**:
+``D-13`` already accepted *"a microsecond of serialization"* on the answer
+half, and a question is far smaller than an answer. No performance claim is
+made here in either direction, because none was measured.
 
 The boot cache is required, and not for speed (``D-30``)
 ----------------------------------------------------------
