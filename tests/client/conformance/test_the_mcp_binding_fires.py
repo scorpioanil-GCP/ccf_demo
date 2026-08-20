@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import pytest
 
+from ccf.client.codec import encode_outcome
 from ccf.client.wire import WireOutcome, WireRequest
 
 from tests.client.conformance import suite
@@ -49,9 +50,13 @@ pytestmark = pytest.mark.conformance
 class _DropsTheReplayReference(McpStdioAdapter):
     """The real transport, with the replay reference discarded on the way back."""
 
-    def ask(self, request: WireRequest) -> WireOutcome:
-        answered = super().ask(request)
-        return answered.model_copy(update={"replay_ref": None})
+    def ask(self, request: WireRequest) -> bytes:
+        # A raw parse, never `decode_outcome`: this control is producing an
+        # outcome the parity leg must reject, and routing it through the
+        # client's own checks on the way would prove the decoder fires rather
+        # than that the leg fires.
+        answered = WireOutcome.model_validate_json(super().ask(request))
+        return encode_outcome(answered.model_copy(update={"replay_ref": None}))
 
 
 class _AnswersAnotherQuestion(McpStdioAdapter):
@@ -63,11 +68,23 @@ class _AnswersAnotherQuestion(McpStdioAdapter):
     catch and a payload-only comparison would not.
     """
 
-    def ask(self, request: WireRequest) -> WireOutcome:
-        answered = super().ask(
-            request.model_copy(update={"parameters": OTHER_PARAMETERS})
+    def ask(self, request: WireRequest) -> bytes:
+        # A raw parse for the same reason as above, and here a stronger one:
+        # this control is deliberately producing a CROSSED echo, which
+        # `decode_outcome` exists to reject — so parsing through it would raise
+        # here, before the mutation, and the control would prove the decoder
+        # fires rather than that the parity leg does.
+        answered = WireOutcome.model_validate_json(
+            super().ask(request.model_copy(update={"parameters": OTHER_PARAMETERS}))
         )
-        return answered.model_copy(update={"request": request})
+        # `19-03` DELETES this re-label to produce the phase's single-transport
+        # control: with it gone the client raises on the crossed echo, which is
+        # the whole of `B0` being closed. It is worth noticing rather than
+        # passing over that the re-label is NOT a construction — it is a
+        # `model_copy` of what came off the wire — so no construction counter
+        # can see it, which is a limit `19-05`'s AST gate has to state in its
+        # own docstring rather than imply.
+        return encode_outcome(answered.model_copy(update={"request": request}))
 
 
 def _subject(adapter: type[McpStdioAdapter]) -> AdapterSubject:

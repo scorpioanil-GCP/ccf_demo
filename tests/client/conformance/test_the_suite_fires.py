@@ -29,6 +29,18 @@ re-canonicalizes it and recomputes the address from the **new** bytes — so the
 divergence survives the codec's own checks and reaches the parity comparison,
 which is the layer under test. A control whose divergence was caught by
 :func:`~ccf.client.codec.check_outcome` would be testing the codec.
+
+Since ``C-05`` (Phase 19) the seam carries **bytes**, so a mutation is
+``parse → edit → encode`` rather than an edit of an object. Every mutation
+below parses with :meth:`~pydantic.BaseModel.model_validate_json` and **not**
+with :func:`~ccf.client.codec.decode_outcome`, for the reason the paragraph
+above already gives one layer down: ``decode_outcome`` runs the client's own
+checks, so a control that parsed through it would attribute an observed
+failure to the decoder rather than to the leg under test. (It also takes the
+request that was sent, which a mutation applied to whatever crossed does not
+hold.) The encode is always the shipped
+:func:`~ccf.client.codec.encode_outcome` — a control that hand-rolled a
+rendering would prove the copy fires.
 """
 
 from __future__ import annotations
@@ -44,6 +56,7 @@ from typing import Any
 import pytest
 
 from ccf.client.binding import SCHEME_REGISTRY
+from ccf.client.codec import decode_outcome, encode_outcome
 from ccf.client.errors import RefusedResultError, TransportError
 from ccf.client.result import GUARDED_FIELDS
 from ccf.client.wire import TransportAdapter, WireOutcome, WireRequest
@@ -80,7 +93,7 @@ CONFORMANCE_DIR = SUITE_PATH.parent
 # Divergence machinery — a second transport that gets one thing wrong.
 # ---------------------------------------------------------------------------
 
-Mutation = Callable[[WireOutcome], WireOutcome]
+Mutation = Callable[[bytes], bytes]
 
 
 class _Divergent:
@@ -89,14 +102,37 @@ class _Divergent:
     Wraps a healthy adapter rather than reimplementing one, so the only
     difference between this subject and the honest one is the edit — which is
     what makes an observed failure attributable to the property under test.
+
+    The seam carries bytes (``C-05``), so the edit is applied to the wire and
+    not to an object the wrapper was handed: a wrapper that could be handed the
+    outcome could also fill its echo from ``request``, which is the
+    reconstruction Phase 19 exists to make unavailable.
     """
 
     def __init__(self, inner: TransportAdapter, mutate: Mutation) -> None:
         self._inner = inner
         self._mutate = mutate
 
-    def ask(self, request: WireRequest) -> WireOutcome:
+    def ask(self, request: WireRequest) -> bytes:
         return self._mutate(self._inner.ask(request))
+
+
+def _off_the_wire(raw: bytes) -> WireOutcome:
+    """Parse an outcome off the wire **without** running the client's checks.
+
+    Deliberately :meth:`~pydantic.BaseModel.model_validate_json` and not
+    :func:`~ccf.client.codec.decode_outcome`. Two reasons, and the second is the
+    load-bearing one:
+
+    * ``decode_outcome`` takes the request that was **sent**, which a mutation
+      applied to whatever crossed the wire does not hold; and
+    * ``decode_outcome`` runs :func:`~ccf.client.codec.check_outcome`, so a
+      control that parsed through it would be exercising the codec on its way
+      to the divergence, and an observed failure could be the decoder's rather
+      than the parity leg's. That is the same defect this module's docstring
+      already names one layer down.
+    """
+    return WireOutcome.model_validate_json(raw)
 
 
 def _vessel(outcome: WireOutcome) -> ContextProductContract:
@@ -108,20 +144,27 @@ def _vessel(outcome: WireOutcome) -> ContextProductContract:
     return ContextProductContract.model_validate_json(outcome.product_json)
 
 
-def _remint(outcome: WireOutcome, **updates: Any) -> WireOutcome:
+def _remint(raw: bytes, **updates: Any) -> bytes:
     """Edit the served vessel, re-canonicalize it, and re-address the result.
 
     The address is recomputed from the new bytes deliberately. A divergence
     that left a stale address would be caught by
     :func:`~ccf.client.codec.verify_content_address`, and the control would then
     be measuring the codec rather than the parity comparison.
+
+    Parses with :func:`_off_the_wire` — see there for why not
+    :func:`~ccf.client.codec.decode_outcome` — and re-encodes with the shipped
+    :func:`~ccf.client.codec.encode_outcome`.
     """
-    raw = canonical_bytes(_vessel(outcome).model_copy(update=updates))
-    return outcome.model_copy(
-        update={
-            "product_json": raw.decode("utf-8"),
-            "content_address": hashlib.sha256(raw).hexdigest(),
-        }
+    outcome = _off_the_wire(raw)
+    vessel = canonical_bytes(_vessel(outcome).model_copy(update=updates))
+    return encode_outcome(
+        outcome.model_copy(
+            update={
+                "product_json": vessel.decode("utf-8"),
+                "content_address": hashlib.sha256(vessel).hexdigest(),
+            }
+        )
     )
 
 
@@ -175,9 +218,15 @@ def test_two_honest_subjects_agree(provision: Provision) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _move_the_expiry(outcome: WireOutcome) -> WireOutcome:
-    """Bump the vessel's expiry by one second, and re-address it honestly."""
-    return _remint(outcome, expires_at=_vessel(outcome).expires_at + timedelta(seconds=1))
+def _move_the_expiry(raw: bytes) -> bytes:
+    """Bump the vessel's expiry by one second, and re-address it honestly.
+
+    Parses via :func:`_remint`/:func:`_off_the_wire` — a raw parse, never
+    :func:`~ccf.client.codec.decode_outcome`, for the reason stated there.
+    """
+    return _remint(
+        raw, expires_at=_vessel(_off_the_wire(raw)).expires_at + timedelta(seconds=1)
+    )
 
 
 def test_served_parity_fires_on_a_moved_field(provision: Provision) -> None:
@@ -196,9 +245,13 @@ def test_served_parity_fires_on_a_moved_field(provision: Provision) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _move_only_the_address(outcome: WireOutcome) -> WireOutcome:
-    """Edit a vessel member that is not a ``Result`` field, so only the address moves."""
-    return _remint(outcome, plan_id="a-plan-nobody-planned")
+def _move_only_the_address(raw: bytes) -> bytes:
+    """Edit a vessel member that is not a ``Result`` field, so only the address moves.
+
+    Parses via :func:`_remint`/:func:`_off_the_wire` — a raw parse, never
+    :func:`~ccf.client.codec.decode_outcome`, for the reason stated there.
+    """
+    return _remint(raw, plan_id="a-plan-nobody-planned")
 
 
 def test_served_parity_fires_when_only_the_content_address_differs(
@@ -234,12 +287,19 @@ def test_served_parity_fires_when_only_the_content_address_differs(
 # ---------------------------------------------------------------------------
 
 
-def _drop_the_refusal_key(outcome: WireOutcome) -> WireOutcome:
-    """Lose what the refusal names, and keep everything else it said."""
+def _drop_the_refusal_key(raw: bytes) -> bytes:
+    """Lose what the refusal names, and keep everything else it said.
+
+    Parses with :func:`_off_the_wire` — a raw parse, never
+    :func:`~ccf.client.codec.decode_outcome`, for the reason stated there.
+    """
+    outcome = _off_the_wire(raw)
     if outcome.refusal is None:
-        return outcome
-    return outcome.model_copy(
-        update={"refusal": outcome.refusal.model_copy(update={"key": None})}
+        return raw
+    return encode_outcome(
+        outcome.model_copy(
+            update={"refusal": outcome.refusal.model_copy(update={"key": None})}
+        )
     )
 
 
@@ -356,50 +416,65 @@ class _Swallowing:
     for a question nothing was ever asked.
     """
 
-    def __init__(self, inner: TransportAdapter, template: WireOutcome) -> None:
+    def __init__(self, inner: TransportAdapter, template: bytes) -> None:
         self._inner = inner
         self._template = template
 
-    def ask(self, request: WireRequest) -> WireOutcome:
+    def ask(self, request: WireRequest) -> bytes:
         try:
             return self._inner.ask(request)
         except TransportError:
-            return WireOutcome(
-                request=request,
-                product_json=None,
-                content_address=None,
-                replay_ref=None,
-                refusal=self._template.refusal,
-            )
+            # The producer's own bytes, replayed verbatim — not re-minted, and
+            # in particular the echo is NOT re-labelled from `request`. Under
+            # the bytes seam (`C-05`) a re-labelled echo is the reconstruction
+            # this phase exists to make unavailable, and the client would
+            # reject the result as a crossed answer, so the leg would go green
+            # for the wrong reason. The template is captured for the very
+            # question this control asks; see `refusal_template`.
+            return self._template
 
 
 @pytest.fixture()
-def refusal_template(provision: Provision) -> WireOutcome:
+def refusal_template(provision: Provision) -> bytes:
     """A genuine refusal, captured so the control can misuse a real one.
 
     Captured from the deployment rather than invented: a synthesized ``kind``
     would name a refusal vocabulary the fabric does not speak, and the control
-    would then be exercising an outcome no producer could emit.
+    would then be exercising an outcome no producer could emit. Since ``C-05``
+    the capture is the producer's **bytes**, kept whole — echo included — so
+    the swallowing adapter replays a real answer rather than assembling one.
     """
-    outcome = connect_in_process(provision("template")).ask(
-        WireRequest(
-            product_id=REFUSING_QUESTION.product_id,
-            parameters=REFUSING_QUESTION.parameters,
-            temporal_boundary=REFUSING_QUESTION.as_of,
-        )
+    asked = WireRequest(
+        product_id=REFUSING_QUESTION.product_id,
+        parameters=REFUSING_QUESTION.parameters,
+        temporal_boundary=REFUSING_QUESTION.as_of,
     )
-    assert outcome.refusal is not None
-    return outcome
+    raw = connect_in_process(provision("template")).ask(asked)
+    assert decode_outcome(raw, sent=asked).outcome.refusal is not None
+    return raw
 
 
 def test_wire_failure_fires_on_a_swallowing_adapter(
-    provision: Provision, refusal_template: WireOutcome
+    provision: Provision, refusal_template: bytes
 ) -> None:
     """``except Exception: return refusal`` is caught, not passed over.
 
     Without this control the leg would pass silently on exactly the adapter it
     exists to reject: a swallowing adapter produces a well-formed refusal, and
     every other assertion in the suite is satisfied by one.
+
+    **The leg is handed** ``REFUSING_QUESTION`` **as its broken-transport
+    question**, and that is a consequence of ``C-05`` rather than a relaxation.
+    The captured refusal carries the producer's echo of the question it
+    refused; a swallowing adapter can no longer re-label that echo, so the
+    forged refusal is only indistinguishable from a real one when the question
+    the leg asks is the question the template answers. Making them the same
+    question makes this control **stronger**: the synthesized refusal now
+    survives every codec check there is — well-formed, correctly addressed,
+    correctly echoed — and the leg has to catch it on ``D-10`` grounds alone,
+    which is the only grounds it was ever meant to catch it on. The transport
+    it is asked over is broken (its binding document is deleted), so there is
+    no deployment there to refuse anything: every answer it gives is forged.
     """
     swallowing = AdapterSubject(
         name="swallows",
@@ -413,7 +488,7 @@ def test_wire_failure_fires_on_a_swallowing_adapter(
         suite.assert_wire_failure_parity(
             (swallowing,),
             provision=provision,
-            question=QUESTION,
+            question=REFUSING_QUESTION,
             refusing_question=REFUSING_QUESTION,
         )
 
@@ -431,7 +506,7 @@ def test_wire_failure_fires_on_a_hook_that_substitutes_the_adapter(
     """
 
     class _AlwaysDead:
-        def ask(self, request: WireRequest) -> WireOutcome:
+        def ask(self, request: WireRequest) -> bytes:
             raise TransportError("dead by construction")
 
     substituting = AdapterSubject(
@@ -464,11 +539,15 @@ def test_wire_failure_fires_on_a_transport_that_raises_on_a_refusal(
         def __init__(self, inner: TransportAdapter) -> None:
             self._inner = inner
 
-        def ask(self, request: WireRequest) -> WireOutcome:
-            outcome = self._inner.ask(request)
-            if outcome.refusal is not None:
+        def ask(self, request: WireRequest) -> bytes:
+            raw = self._inner.ask(request)
+            # A raw parse, never `decode_outcome`: this wrapper inspects what
+            # crossed and does not hold the request that was sent, and running
+            # the client's checks here would make the control exercise the
+            # decoder on its way to the property under test.
+            if _off_the_wire(raw).refusal is not None:
                 raise TransportError("this transport calls a refusal a failure")
-            return outcome
+            return raw
 
     raising = AdapterSubject(
         name="raises-on-refusal",
@@ -590,11 +669,15 @@ def test_one_address_fires_when_two_transports_disagree(
 # ---------------------------------------------------------------------------
 
 
-def _misreport_the_anchor(outcome: WireOutcome) -> WireOutcome:
-    """Report a graph anchor one second away from the one that answered."""
-    lineage = _vessel(outcome).lineage
+def _misreport_the_anchor(raw: bytes) -> bytes:
+    """Report a graph anchor one second away from the one that answered.
+
+    Parses via :func:`_remint`/:func:`_off_the_wire` — a raw parse, never
+    :func:`~ccf.client.codec.decode_outcome`, for the reason stated there.
+    """
+    lineage = _vessel(_off_the_wire(raw)).lineage
     return _remint(
-        outcome,
+        raw,
         lineage=lineage.model_copy(
             update={
                 "graph_snapshot_at": lineage.graph_snapshot_at + timedelta(seconds=1)

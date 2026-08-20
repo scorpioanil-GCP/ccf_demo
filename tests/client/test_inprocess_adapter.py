@@ -41,6 +41,7 @@ from ccf.client.client import ProductClient
 from ccf.client.codec import decode_outcome
 from ccf.client.errors import RefusedResultError
 from ccf.client.result import Result
+from ccf.client.wire import WireRequest
 from ccf.contracts.canonical import canonical_bytes
 from ccf.deployment import BootedFabric
 from ccf.products.gates import ServableProduct
@@ -64,7 +65,6 @@ THRESHOLD = "minimum_score"
 #: debt signal moves. Pinning is what makes each assertion about its own
 #: subject again. The `as_of=None` path has its own coverage below.
 _PINNED = datetime(2026, 3, 2, 12, 0, tzinfo=UTC)
-
 
 
 class _BootCounter:
@@ -301,8 +301,6 @@ def test_the_wire_carries_exactly_the_canonical_bytes_of_the_vessel(
     payloads while having skipped the wire entirely.
     """
     adapter = InProcessAdapter(str(seeded_root))
-    from ccf.client.wire import WireRequest
-
     request = WireRequest(
         product_id=_product_id(seeded_root),
         parameters={THRESHOLD: 20},
@@ -335,6 +333,102 @@ def test_the_wire_carries_exactly_the_canonical_bytes_of_the_vessel(
     assert outcome.product_json == canonical_bytes(served.product).decode("utf-8")
     assert isinstance(outcome.product_json, str), (
         "the vessel rides as utf-8 text; `17-04` ruled there is no bytes field"
+    )
+
+
+def test_the_question_half_crosses_the_wire_too(seeded_root: Path) -> None:
+    """`C-07`. The echo is what the door PARSED, not the object it was handed.
+
+    The answer half has been a degenerate wire since ``D-13``; until Phase 19
+    the **question** half was not, and that is what made the client's echo
+    cross-check cosmetic on the transport every quickstart, fixture and dev
+    path uses. The adapter now encodes the question, and a producer-side door
+    half parses it and echoes what it parsed.
+
+    Observed through the echo rather than by inspecting the adapter, because
+    the property is *"the question crossed"* and not *"a particular method was
+    called"*. Two assertions carry it and both are needed: total equality says
+    nothing was lost or coerced on the way across (``C-03``), and non-identity
+    says a round trip actually happened — an adapter that passed its argument
+    straight through to the door would satisfy equality perfectly and is the
+    exact design ``C-07`` rejects.
+
+    The parameter carries a **nested mapping** on purpose. That is
+    ``D-IMPL-103``'s one declared level of nesting, and it is the shape a
+    lossy wire mangles first — which is why
+    :meth:`~ccf.products.door.WireRequest._parameters_survive_the_wire` exists
+    and why it became load-bearing the moment this comparison could fail.
+
+    The fixture **refuses** this question (``nested`` is undeclared, and the
+    declared world is closed), and that is not incidental: the echo sits at
+    outcome level, so one comparison covers a served answer and a refusal
+    identically (``C-04``). A crossed refusal is a governed "no" attributed to
+    a question nobody asked, and this asserts it is as detectable as a crossed
+    vessel.
+    """
+    adapter = InProcessAdapter(str(seeded_root))
+    nested = {"widget_ref": "w-1", "note": "one declared level"}
+    request = WireRequest(
+        product_id=_product_id(seeded_root),
+        parameters={THRESHOLD: 20, "nested": nested},
+        temporal_boundary=_PINNED,
+    )
+
+    decoded = decode_outcome(adapter.ask(request), sent=request).outcome
+
+    assert decoded.refusal is not None, (
+        "the fixture closes its declared world, so an undeclared parameter is"
+        " refused — if this became a served answer the leg below would be"
+        " asserting the echo of a different shape than it claims to"
+    )
+    assert decoded.request == request, (
+        "the echo is the question the door parsed off its own wire, compared by"
+        " total equality (`C-03`) — a difference here is a lossy wire, which is"
+        " what `_parameters_survive_the_wire` exists to stop"
+    )
+    assert decoded.request is not request, (
+        "the echo is the SAME OBJECT the client sent, so the question half is"
+        " not a wire at all and the cross-check compares an object with itself"
+        " — `D-IMPL-151` finding `B0`, surviving in-process"
+    )
+    assert decoded.request.parameters["nested"] == nested
+
+
+def test_an_absent_boundary_is_echoed_absent_though_the_door_answered_at_one(
+    seeded_root: Path,
+) -> None:
+    """`C-02`/`C-15`. Two different facts, and neither is derived from the other.
+
+    ``as_of=None`` is the positive assertion *answer against the decision
+    instant*, so the echo must come back ``None``: an echo carrying the
+    resolved instant would force a sent-``None`` to match anything, which is
+    the vacuity ``C-02`` rejected one field over. The instant the answer was
+    actually computed at is not lost by that — it is reported on the served
+    vessel, which is where a caller reads it.
+    """
+    adapter = InProcessAdapter(str(seeded_root))
+    request = WireRequest(
+        product_id=_product_id(seeded_root),
+        parameters={THRESHOLD: 20},
+        temporal_boundary=None,
+    )
+
+    # Bound WITHOUT `.outcome` here, because this leg reads the vessel as well:
+    # `decode_outcome` returns the `DecodedOutcome` pair, whose outcome is
+    # `.outcome` and whose already-parsed vessel is `.vessel`. `decoded.request`
+    # would be an attribute error on the pair — deliberately loud rather than
+    # silently wrong.
+    decoded = decode_outcome(adapter.ask(request), sent=request)
+
+    assert decoded.outcome.request.temporal_boundary is None
+    assert decoded.vessel is not None, (
+        "a served answer, so there is a vessel to read the decision instant off"
+        " — on a refusal the second half of this leg would be vacuous"
+    )
+    assert isinstance(decoded.vessel.temporal_boundary, datetime), (
+        "the door answered at a concrete instant and says so on the vessel;"
+        " nothing about the echo being `None` makes the decision instant"
+        " unauditable"
     )
 
 

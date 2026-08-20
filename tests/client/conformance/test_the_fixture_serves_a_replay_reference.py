@@ -49,6 +49,7 @@ from typing import Final
 import pytest
 
 from ccf.client.client import ProductClient
+from ccf.client.codec import encode_outcome
 from ccf.client.wire import TransportAdapter, WireOutcome, WireRequest
 
 from tests.client.conformance.suite import AdapterSubject, Provision, Question
@@ -147,14 +148,22 @@ class _DropsTheReplayReference:
     def __init__(self, inner: TransportAdapter) -> None:
         self._inner = inner
 
-    def ask(self, request: WireRequest) -> WireOutcome:
-        outcome = self._inner.ask(request)
-        return WireOutcome(
-            request=outcome.request,
-            product_json=outcome.product_json,
-            content_address=outcome.content_address,
-            replay_ref=None,
-            refusal=outcome.refusal,
+    def ask(self, request: WireRequest) -> bytes:
+        # A raw parse, never `decode_outcome`: this control is producing an
+        # outcome the per-subject leg must reject, and running the client's own
+        # checks on the way would prove the decoder fires rather than the leg.
+        # Note that `request` is carried through from what came off the WIRE —
+        # `outcome.request`, the producer's echo — and never re-labelled from
+        # this method's argument, which is the reconstruction `C-05` removed.
+        outcome = WireOutcome.model_validate_json(self._inner.ask(request))
+        return encode_outcome(
+            WireOutcome(
+                request=outcome.request,
+                product_json=outcome.product_json,
+                content_address=outcome.content_address,
+                replay_ref=None,
+                refusal=outcome.refusal,
+            )
         )
 
 
