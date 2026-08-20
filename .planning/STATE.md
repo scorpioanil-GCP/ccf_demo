@@ -3,8 +3,40 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-19T23:05:00.000Z"
+last_updated: "2026-08-20T04:07:00.000Z"
 last_activity: >-
+  2026-08-19 -- **PHASE 19 PLANNED. 8 PLANS IN 6 WAVES**, committed `9356520` -> `751fb9a` ->
+  `dacf067`. Research (`19-RESEARCH.md`, 1460 lines) MEASURED EVERY CLAIM AT HEAD `192c79d`
+  rather than restating `19-CONTEXT.md`: the `B0` defect STILL HOLDS, blast radius is ~60-95 of
+  4027 collected tests concentrated in five modules, `examples/` IS UNTOUCHED (`consume.py`
+  speaks only `ProductClient.ask`), and `mypy` covers `src`+`runtime` ONLY -- so stale test
+  annotations WILL NOT fail `make typecheck`.
+  FOUR RULINGS TAKEN BY DAVE AT PLANNING, recorded as `C-15`..`C-18` in `19-CONTEXT.md`:
+  `C-15` THE CLOCK DOES NOT MOVE (`C-13` stay-narrow governs; the false `client.py:139-141`
+  sentence is AMENDED, and the client-side clock read becomes ITS OWN `D-IMPL` FOR A LATER
+  PHASE); `C-16` BREAK CLEANLY -- `PRODUCT_REQUEST_TOOL` gains a REQUIRED argument, no
+  deprecation window, one `D-IMPL` ruling both that and the `C-08` out-of-tree adapter break;
+  `C-17` A NARROW AST GATE over `src/ccf/client/adapters/` only, mirroring `CLNT-06`;
+  `C-18` THE TEMPORAL AXIS IS CROSS-CHECKED WHERE CHECKABLE and the residual DECLARED where it
+  is not -- found by the plan-checker: because `C-15` keeps the clock client-side, a concrete
+  `as_of` crosses the pipe TWICE (inside the echo, and as `asked_at` which the door answers
+  against), so `B0`'s OWN FAILURE MODE SURVIVED ON THE THIRD AXIS of a comparison `C-03` calls
+  total. The `as_of=None` residual is asserted as a PASSING TEST, not an `xfail`.
+  TWO PLAN-CHECKER ROUNDS: round 1 found 4 BLOCKERS + 5 warnings + 3 info, round 2 found
+  0 BLOCKERS + 4 warnings + 5 info, all 21 findings addressed across two revisions. EVERY
+  BLOCKER WAS VERIFIED AGAINST THE TREE BEFORE BEING ACTED ON; none were rejected. The sharpest
+  finding was NOT a code defect but a CHECK DEFECT: `19-02`'s criterion
+  `grep -c "check_outcome" client.py == 0` WAS SATISFIABLE ONLY BY DELETING the paragraph at
+  `client.py:196-201` that states the phase's own thesis -- a criterion greenable only by
+  violating project law, in the phase about checks that cannot fail. Now inverted into a GUARD
+  (`grep -c "func:.*check_outcome" >= 2`), so deletion fails in wave 2 rather than going
+  unnoticed until wave 5.
+  TOOLING HAZARD OBSERVED AGAIN: `state.planned-phase` TRUNCATED `STATE.md` 1014 -> 660 LINES
+  (`D-IMPL-154`/`155` class). Backed up, diffed, restored, hand-edited. `roadmap.annotate`
+  handled the same way.
+  NEXT: `phase-19` BRANCH DOES NOT EXIST -- create it before Wave 1 if CLAUDE.md 2.2's
+  single-merge-at-gate discipline is to hold for the code. Then `/gsd:execute-phase 19`.
+
   2026-08-19 -- **PHASE 18.1 CLOSED AND GATED. `D-GATE-18.1` APPROVED BY DAVE**, recorded in
   `docs/DECISIONS.md`. NO MERGE REQUIRED -- the work landed on `main`. Gate HEAD `04cccc2`:
   `make ci-core` EXIT 0, 3909 passed / 118 skipped / 0 failed. Dave's ruling: the phase
