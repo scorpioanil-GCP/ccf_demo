@@ -15,6 +15,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 from typing import Final, TypeVar
@@ -24,6 +25,7 @@ from fastapi.responses import JSONResponse, Response
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
+from ccf.products.door import WireRequest
 from ccf_runtime.http_api.errors import (
     ERROR_ROUTE_HANDLE_ABSENT,
     refusal_detail,
@@ -34,6 +36,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "CONTENT_ADDRESS_HEADER",
     "REPLAY_REF_HEADER",
+    "REQUEST_ECHO_HEADER",
     "canonical_response",
     "refusal_response",
 ]
@@ -65,6 +68,34 @@ CONTENT_ADDRESS_HEADER: Final[str] = "X-CCF-Content-Address"
 #: Stamping an empty header would make "no record was named" and "the record is
 #: named by nothing" the same observation.
 REPLAY_REF_HEADER: Final[str] = "X-CCF-Replay-Ref"
+
+#: The response header a served product publishes **the question this door was
+#: asked** under — the caller's own :class:`~ccf.products.door.WireRequest`,
+#: canonically serialized and base64url-wrapped (``C-09``).
+#:
+#: **A sibling of the vessel, on the identical argument** the two constants
+#: above are. The body *is* the product, so a question carried inside it would
+#: change the bytes and therefore change the address they claim. The four
+#: reasons :func:`canonical_response` gives for choosing an ``X-CCF-*`` name
+#: over a standard header apply here unchanged and are not restated. ``C-09``
+#: scopes *one shape* to the doors that **have** an envelope; this door has a
+#: header channel instead, so its ruling is extended rather than amended.
+#:
+#: **base64url rather than the canonical JSON verbatim**, and the reason is not
+#: taste: a header value has to survive every intermediary, and canonical JSON
+#: carries ``"`` and may carry non-ASCII, which RFC 9110 discourages in a field
+#: value. The objection :class:`~ccf.products.door.WireRequest`'s own module
+#: records against a *second rendering* does not transfer — that argument is
+#: about the **vessel**, whose address is a function of its bytes, and nothing
+#: anywhere hashes this echo.
+#:
+#: **Set only when there was a question**, and its absence is meaningful: a
+#: caller who supplied none of the four §6.3 axes asked for the class's
+#: standing answer and posed no question of their own — the positive assertion
+#: the product route's ``_asked`` returns ``None`` to make. Stamping an empty
+#: header would make "no question was asked" and "the question is named by
+#: nothing" the same observation.
+REQUEST_ECHO_HEADER: Final[str] = "X-CCF-Request-Echo"
 
 _Handle = TypeVar("_Handle")
 
@@ -128,7 +159,12 @@ def _required_handle(
     )
 
 
-def canonical_response(payload: object, *, replay_ref: str | None = None) -> Response:
+def canonical_response(
+    payload: object,
+    *,
+    replay_ref: str | None = None,
+    asked: WireRequest | None = None,
+) -> Response:
     """Serve ``payload`` as its canonical bytes, and publish their address.
 
     The bytes are the same serialization the content address and the A2A
@@ -205,11 +241,47 @@ def canonical_response(payload: object, *, replay_ref: str | None = None) -> Res
             artifacts rather than a delivered Context Product, and the product
             door itself passes ``None`` when its resolver answered with the
             narrower vessel that carries no reference.
+        asked: The question this door parsed and answered, published under
+            :data:`REQUEST_ECHO_HEADER` (``C-09``). ``None`` — the default, and
+            what the four non-product call sites pass — means **no question was
+            posed**, and the header is then absent rather than empty, on
+            exactly the reasoning ``replay_ref`` carries one paragraph up.
+
+            **Serialized independently of the vessel, and that is why the
+            serialize-once discipline above is untouched.** ``body`` is still
+            the single ``canonical_bytes`` call over ``payload``; this is a
+            second
+            serialization of a *different object*, which is what
+            :data:`REPLAY_REF_HEADER` already is — a string obtained elsewhere
+            and stamped beside the body. Nothing hashes the echo, so it can
+            never disagree with the address.
+
+            **A future HTTP adapter reconstructs this echo by decoding the
+            header, never from its own state.** That sentence is the whole of
+            ``C-09``: the value here originates producer-side, from the query
+            axes the route itself parsed, so a consumer comparing it against
+            what it sent is comparing two independently-sourced facts rather
+            than an object with itself.
+
+            **The transport asymmetry, recorded rather than engineered away.**
+            This door requires ``asked_at`` whenever any §6.3 axis is supplied,
+            so an echo published here never carries a ``None``
+            ``temporal_boundary``; ``mcp+stdio`` carries ``None`` faithfully,
+            because there a caller *can* say *defer to the server's decision
+            instant*. A future HTTP adapter must therefore send an explicit
+            instant. ``C-18``'s temporal cross-check consequently has no
+            subject on this door — the echo's boundary is built **from** the
+            one ``asked_at`` this route parsed, so there is exactly one source
+            and a cross-check would compare a value with itself.
     """
     body = canonical_bytes(payload)
     headers = {CONTENT_ADDRESS_HEADER: hashlib.sha256(body).hexdigest()}
     if replay_ref is not None:
         headers[REPLAY_REF_HEADER] = replay_ref
+    if asked is not None:
+        headers[REQUEST_ECHO_HEADER] = base64.urlsafe_b64encode(
+            canonical_bytes(asked)
+        ).decode("ascii")
     return Response(content=body, media_type=_JSON, headers=headers)
 
 
