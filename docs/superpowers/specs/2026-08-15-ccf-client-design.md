@@ -446,3 +446,136 @@ the in-process codec round-trip (§5), the conformance suite as the parity gate
 (§6), the ≤80-line example with its purity and budget gates (§7), the testing
 strategy including sabotage discipline (§8), sync-only v0 (§9), the not-list
 (§10), and the ruling consequences (§11).
+
+# Amendment 2 — 2026-08-19 (the client-seam integrity repair)
+
+**Status:** ruled by Dave as `C-01`…`C-18` in
+`.planning/phases/19-the-client-seam-integrity-checks-must-be-able-to-fail-insert/19-CONTEXT.md`
+— `C-01`…`C-14` on 2026-08-17, `C-15`/`C-16`/`C-17` on 2026-08-19, and
+`C-18` on 2026-08-19 at planning revision. Ratified in the decision log as
+`D-IMPL-156`; this amendment's own change is `D-IMPL-157`.
+**Effect:** this amendment is part of the approved design. Where it speaks,
+it governs; §5 above and Amendment 1 are otherwise unchanged and are
+deliberately not edited — a ruled change is a dated block appended at the
+end, which is the precedent Amendment 1 set and what keeps this document
+readable as a history rather than as a moving target.
+
+## Why this amendment exists
+
+§5's seam let an adapter **construct** the outcome. Phase 18's close review
+measured what that permission cost, and the finding — `B0`, recorded as
+`D-IMPL-151` and reserved out of `D-GATE-18` as an **open blocking defect,
+not accepted risk** — is that both shipped adapters filled the request echo
+from the request object they had been handed, so `check_outcome`'s
+`outcome.request != sent` compared an object with itself and
+`verify_content_address` was `sha256(x) != sha256(x)`.
+
+The argument §5 and the codec make is **not** what was wrong. *The echo is
+cross-checked, never reconstructed* is right, and it is kept verbatim in the
+shipped module. What was wrong was the code beside it, and the permission
+that admitted the code.
+
+| Measured | Consequence |
+|---|---|
+| `DoorOutcome` carried no request identity, so an adapter had nothing from the wire to echo | The wire form must carry the question the **producer** parsed → **A** below |
+| Both adapters computed the "claimed" content address from the identical bytes they emitted | The address must be claimed by the producer and recomputed by the consumer → **A** below |
+| `decode_outcome` — the one function reading both off sender-produced bytes — had **no shipped call site**, because `D-11` permitted the adapter to build the object instead | The permission itself is the defect → **B** below |
+| A check broken identically on both subjects is invisible to a cross-adapter parity diff | The proof must be **single-transport** → **C** below |
+
+## A — The wire carries the question the door parsed, and the address it computed
+
+**Ruled:** one outcome shape, defined producer-side in `ccf.products.door`
+as `DoorOutcome` and re-exported by `ccf.client.wire` as `WireOutcome` —
+an **alias**, not a subclass, so there is no transcoding step between what
+the door emits and what the client decodes, and therefore no step at which
+an adapter could re-source the echo from client state (`C-06`).
+
+It carries five members: the request echo, the vessel, the content address,
+the replay reference, and the refusal. The echo is minted by the producer
+from the question **it** parsed off its own wire (`door_question`), and the
+address is derived from the **same single serialization** of the vessel the
+door emits (`door_answer`). On the temporal axis the echo is *as asked* — a
+client that sent `as_of=None` gets `None` back — so the comparison stays a
+total three-axis equality with no wildcard on the default path (`C-02`,
+`C-03`). It sits at **outcome** level, so one comparison covers a served
+answer and a refusal identically (`C-04`).
+
+The HTTP door is **reconciled, not converted**: its body stays the vessel
+and the echo joins the `X-CCF-*` siblings as `X-CCF-Request-Echo`, absent
+rather than empty when no question was posed (`C-09`).
+
+## B — The seam is `ask(WireRequest) -> bytes` (this is what amends `D-11`)
+
+**Ruled:**
+
+```python
+class TransportAdapter(Protocol):
+    def ask(self, request: WireRequest) -> bytes: ...
+```
+
+Two things in `D-11` are amended, and they are separate:
+
+1. **The seam typing.** The request stays typed, because an adapter
+   genuinely needs its fields to build a tool call or a URL. Only the
+   answer becomes bytes.
+2. **`D-11`'s permission for an adapter to construct the outcome.** That
+   permission is what admitted the reconstruction, so it is removed **by
+   type change** rather than by a lint — a lint reaches this repository's
+   adapters and nothing out-of-tree. There is no shim and no deprecation
+   window; the reasoning either way is in `D-IMPL-158`.
+
+`ProductClient` now calls `decode_outcome` on what the adapter returned, so
+the one path that parses `request` and `content_address` out of
+sender-produced bytes is the **shipped** path. `decode_outcome` returns a
+`DecodedOutcome(outcome, vessel)` pair, so the vessel its checks already
+parsed travels out beside the outcome and the single `Result` construction
+performs no second contract validation.
+
+The in-process adapter encodes the **question** too and its producer half
+parses it back, so in-process is a degenerate wire in *both* directions
+(`C-07`). Its cost — two extra serializations per `ask` — is accepted with
+no benchmark owed (`C-14`, `D-IMPL-160`).
+
+## C — Liveness is proven single-transport, and is a conformance obligation
+
+**Ruled:** the proof is a hostile in-repo adapter driven through the real
+`ProductClient`, plus codec-level byte sabotage handed straight to
+`decode_outcome`. Both are **single-transport**, so they falsify the check
+itself rather than a divergence between two subjects — which matters
+because parity is blind by construction to a check broken identically on
+both subjects, and that is exactly how this survived Phase 18 (`C-11`).
+
+And the tamper legs become an obligation of the conformance suite rather
+than a claim an adapter author makes: the suite wraps every registered
+subject in a byte-corrupting decorator it never writes and cannot opt out
+of — generic, and possible **only** because the seam is now bytes (`C-12`).
+A narrow AST gate over `src/ccf/client/adapters/` holds the construction
+count at zero for any future adapter in that directory (`C-17`).
+
+## Effect on the standing rulings this amendment touches
+
+| Ruling | Status after this amendment |
+|---|---|
+| `D-10` — the exception taxonomy | **Unchanged.** A refusal is still a value and a broken wire is still a `TransportError`; the new failures raise the exact `TransportError` type, and the conformance legs check the exact type rather than `except TransportError`, so a `BindingError` connection failure is never counted as a caught tamper. |
+| `D-11` — the adapter seam | **AMENDED**, in both limbs, per **B** above. This is the only ruling this amendment changes. |
+| `D-12` — one `Result` construction | **Unchanged, and still one.** It is now reached *through* the decoder, and the identity it reads off the echo is safe for the first time, because the comparison that licenses it can now fail. |
+| `D-13` — in-process as a degenerate wire | **Unchanged, and extended.** Its *"a microsecond of serialization"* argument now applies to the question half as well, which is what makes the check live on the transport every quickstart and fixture uses. |
+| `D-15` — the conformance suite | **Unchanged as a gate; it GAINS two properties without gaining a transport.** `D-GATE-18`'s zero-diff claim was about binding a new *adapter* without touching `suite.py`, not about never adding a new *property* — the two tamper legs cost each binding module two call lines and no constant. |
+| `D-28` — the refusal envelope and its `RequestIdentity` | **Untouched.** `C-04` puts the transport echo at outcome level precisely so the refusal's own audit record stays what `D-28` ruled it, rather than being pressed into service as a transport control. |
+
+## What did not change
+
+The client surface (§2), binding resolution (§3), `Result`/refusal semantics
+and the fail-closed guard (§4), the parity suite as the gate (§6), the
+example and its purity and budget gates (§7), the testing strategy including
+sabotage discipline (§8), sync-only v0 (§9), the not-list (§10), the ruling
+consequences (§11), and every word of Amendment 1.
+
+**One thing this amendment does not fix, named so it is not read as
+covered.** Both adapters still resolve `as_of=None` to the client's own
+clock, so a question asked on the default path carries its instant across
+the wire exactly once and a transport that alters only the door's `asked_at`
+is undetected. A **concrete** `as_of` crosses twice and the MCP door
+cross-checks the two copies and refuses a disagreement by name (`C-18`), so
+the residual is the `None` path and only the `None` path. The defect and its
+cost are recorded as **open** in `D-IMPL-159`.
