@@ -32,7 +32,7 @@ from ccf.client.binding import (
     split_binding,
 )
 from ccf.client.errors import BindingError, TransportError
-from ccf.client.wire import WireOutcome, WireRequest
+from ccf.client.wire import WireRequest
 
 _BINDING_SOURCE: Final = (
     pathlib.Path(__file__).resolve().parents[2] / "src" / "ccf" / "client" / "binding.py"
@@ -52,7 +52,7 @@ class _RecordingAdapter:
         self.address = address
         log.append((scheme, address))
 
-    def ask(self, request: WireRequest) -> WireOutcome:  # pragma: no cover
+    def ask(self, request: WireRequest) -> bytes:  # pragma: no cover
         raise NotImplementedError("this fake never speaks; it only records")
 
 

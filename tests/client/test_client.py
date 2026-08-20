@@ -7,15 +7,25 @@ left to the adapter plans that come after.
 
 The tests that matter most are the two at the bottom
 -----------------------------------------------------
-``D-11`` types the adapter seam as returning a
-:class:`~ccf.client.wire.WireOutcome` **object**, not bytes. So an adapter that
-never went near :mod:`ccf.client.codec` can hand the client a perfectly
-well-formed outcome that answers a different question, or carries a content
-address that disagrees with the bytes it describes. The client re-runs
-:func:`~ccf.client.codec.check_outcome` on everything it is handed for exactly
-that reason, and the two adapters at the bottom of this module are the subjects
-that prove it: each is a *conforming* transport in the type-checker's eyes and
-a lying one in fact.
+The seam returns **bytes** (``C-05``, ``C-08``, Phase 19): an adapter hands
+over the producer's canonical rendering and never an outcome object, so
+:func:`~ccf.client.codec.decode_outcome` parses every field out of what the
+sender produced. A transport can still *lie* — it can put a well-formed
+outcome on that wire which answers a different question, or which carries a
+content address that disagrees with the bytes it describes — and the two
+adapters at the bottom of this module are exactly those two lies, each a
+*conforming* transport in the type-checker's eyes and a lying one in fact.
+
+What changed with ``C-05`` is where the lie is caught and what it costs a
+transport to tell. It used to be caught by the client re-running
+:func:`~ccf.client.codec.check_outcome` on an object an adapter had built —
+necessary because ``D-11`` typed the seam as returning that object, which is
+also what let both shipped adapters fill the echo from the request they were
+handed and made the check inert on every real transport (``D-IMPL-151``
+``B0``). It is now caught on the one decode path, against bytes; the stubs
+below reach that path by encoding through the shipped
+:func:`~ccf.client.codec.encode_outcome`, never by hand-rolling a rendering,
+because a test that copies the encoder proves the copy.
 """
 
 from __future__ import annotations
@@ -29,6 +39,7 @@ import pytest
 
 from ccf.client.binding import BINDING_ENV_VAR, SCHEME_REGISTRY
 from ccf.client.client import ProductClient
+from ccf.client.codec import encode_outcome
 from ccf.client.errors import BindingError, RefusedResultError, TransportError
 from ccf.client.result import Result
 from ccf.client.wire import WireOutcome, WireRequest
@@ -103,28 +114,43 @@ def refused_outcome_for(request: WireRequest) -> WireOutcome:
     )
 
 
+# The seam carries bytes (`C-08`), so every stub below puts its outcome on the
+# wire through the SHIPPED encoder. The object-returning helpers above are kept
+# beside these because several tests still want the outcome itself; what no
+# test does is render one by hand — `encode_outcome` is the one encoder, and a
+# test that copied it would prove only that the copy fires.
+
+
+def served_bytes_for(request: WireRequest) -> bytes:
+    return encode_outcome(served_outcome_for(request))
+
+
+def refused_bytes_for(request: WireRequest) -> bytes:
+    return encode_outcome(refused_outcome_for(request))
+
+
 class _ServingAdapter:
     """A transport that answers, and records the question it was asked."""
 
     def __init__(self) -> None:
         self.asked: list[WireRequest] = []
 
-    def ask(self, request: WireRequest) -> WireOutcome:
+    def ask(self, request: WireRequest) -> bytes:
         self.asked.append(request)
-        return served_outcome_for(request)
+        return served_bytes_for(request)
 
 
 class _RefusingAdapter:
     """A transport whose producer refused — the fabric working."""
 
-    def ask(self, request: WireRequest) -> WireOutcome:
-        return refused_outcome_for(request)
+    def ask(self, request: WireRequest) -> bytes:
+        return refused_bytes_for(request)
 
 
 class _DeadAdapter:
     """A transport that never spoke."""
 
-    def ask(self, request: WireRequest) -> WireOutcome:
+    def ask(self, request: WireRequest) -> bytes:
         raise TransportError("the connection would not open")
 
 
@@ -267,21 +293,24 @@ class _CrossedQuestionAdapter:
     but a comparison against what was sent can tell them apart.
     """
 
-    def ask(self, request: WireRequest) -> WireOutcome:
+    def ask(self, request: WireRequest) -> bytes:
         other = WireRequest(
             product_id=request.product_id,
             parameters={"revenue_threshold": 999},
             temporal_boundary=request.temporal_boundary,
         )
-        return served_outcome_for(other)
+        return served_bytes_for(other)
 
 
 def test_an_outcome_answering_a_different_question_is_a_transport_error() -> None:
-    """The client re-checks the echo itself rather than trusting the adapter.
+    """The echo on the wire is compared against what was sent, and disagrees.
 
-    Without this, an adapter that builds its ``WireOutcome`` directly — which
-    the seam's own type permits — hands the caller a well-formed answer to the
-    wrong question, labelled with the question they meant to ask.
+    Without this, a transport that put a well-formed answer to a *different*
+    question on the wire would hand the caller that answer labelled with the
+    question they meant to ask. The comparison is what makes the label
+    trustworthy, and reading the identity off the echo in
+    :meth:`~ccf.client.client.ProductClient._result_from` is what keeps the
+    comparison load-bearing rather than advisory.
     """
     with pytest.raises(TransportError, match="different question"):
         a_client(_CrossedQuestionAdapter()).ask(parameters=_PARAMETERS)
@@ -290,14 +319,16 @@ def test_an_outcome_answering_a_different_question_is_a_transport_error() -> Non
 class _AlteredVesselAdapter:
     """A conforming transport whose vessel does not hash to its own address."""
 
-    def ask(self, request: WireRequest) -> WireOutcome:
+    def ask(self, request: WireRequest) -> bytes:
         honest = served_outcome_for(request)
-        return WireOutcome(
-            request=request,
-            product_json=honest.product_json,
-            content_address="0" * 64,
-            replay_ref=honest.replay_ref,
-            refusal=None,
+        return encode_outcome(
+            WireOutcome(
+                request=request,
+                product_json=honest.product_json,
+                content_address="0" * 64,
+                replay_ref=honest.replay_ref,
+                refusal=None,
+            )
         )
 
 

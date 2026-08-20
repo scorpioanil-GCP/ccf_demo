@@ -61,7 +61,7 @@ import pytest
 from pydantic import ValidationError
 
 from ccf.client.client import ProductClient
-from ccf.client.wire import WireOutcome, WireRequest
+from ccf.client.wire import WireRequest
 
 #: Test vocabulary — a class name and the one parameter these questions carry.
 PRODUCT_ID: Final = "ccf.test-product"
@@ -83,7 +83,7 @@ class _NeverReached:
     def __init__(self) -> None:
         self.asked: list[WireRequest] = []
 
-    def ask(self, request: WireRequest) -> WireOutcome:
+    def ask(self, request: WireRequest) -> bytes:
         self.asked.append(request)
         raise AssertionError(
             "a question the seam should have refused reached a transport —"

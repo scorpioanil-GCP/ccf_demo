@@ -38,6 +38,7 @@ from ccf.client.adapters import inprocess
 from ccf.client.adapters.inprocess import SCHEME, InProcessAdapter
 from ccf.client.binding import SCHEME_REGISTRY
 from ccf.client.client import ProductClient
+from ccf.client.codec import decode_outcome
 from ccf.client.errors import RefusedResultError
 from ccf.client.result import Result
 from ccf.contracts.canonical import canonical_bytes
@@ -307,7 +308,10 @@ def test_the_wire_carries_exactly_the_canonical_bytes_of_the_vessel(
         parameters={THRESHOLD: 20},
         temporal_boundary=_PINNED,
     )
-    outcome = adapter.ask(request)
+    # The seam carries bytes (`C-08`), so the one decoder turns them back into
+    # the one outcome shape. `decode_outcome` returns a `DecodedOutcome` pair;
+    # the outcome is `.outcome` and the vessel it already parsed is `.vessel`.
+    outcome = decode_outcome(adapter.ask(request), sent=request).outcome
 
     booted = inprocess._BOOT_CACHE[seeded_root.resolve()]
     declared = booted.document.question

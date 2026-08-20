@@ -155,7 +155,9 @@ def assert_round_trip(original: WireOutcome, decoded: WireOutcome) -> None:
 
 def test_a_served_outcome_survives_the_round_trip_whole() -> None:
     original = a_served_outcome()
-    assert_round_trip(original, decode_outcome(encode_outcome(original), sent=a_request()))
+    assert_round_trip(
+        original, decode_outcome(encode_outcome(original), sent=a_request()).outcome
+    )
 
 
 @pytest.mark.parametrize(
@@ -174,7 +176,7 @@ def test_every_refusal_kind_survives_the_round_trip_whole(
     guarantee dies at the seam — so every kind is exercised, not a sample.
     """
     original = a_refusal_outcome(refusal_type)
-    decoded = decode_outcome(encode_outcome(original), sent=a_request())
+    decoded = decode_outcome(encode_outcome(original), sent=a_request()).outcome
     assert_round_trip(original, decoded)
     assert decoded.refusal is not None
     assert decoded.refusal.kind == REFUSAL_KINDS[refusal_type]
@@ -198,7 +200,7 @@ def test_the_recomputed_address_is_the_vessels_own_content_hash() -> None:
     """
     vessel = a_vessel()
     outcome = a_served_outcome(vessel=vessel)
-    decoded = decode_outcome(encode_outcome(outcome), sent=a_request())
+    decoded = decode_outcome(encode_outcome(outcome), sent=a_request()).outcome
     assert decoded.product_json is not None
     recomputed = hashlib.sha256(decoded.product_json.encode("utf-8")).hexdigest()
     assert recomputed == content_hash(vessel)
@@ -278,7 +280,9 @@ def _encode_dropping_replay_ref(outcome: WireOutcome) -> bytes:
 def test_control_a_field_dropped_from_the_encoder_fails_the_round_trip() -> None:
     """Control 1 — the round-trip assertion is not vacuous."""
     original = a_served_outcome(replay_ref="replay-1")
-    decoded = decode_outcome(_encode_dropping_replay_ref(original), sent=a_request())
+    decoded = decode_outcome(
+        _encode_dropping_replay_ref(original), sent=a_request()
+    ).outcome
     with pytest.raises(AssertionError):
         assert_round_trip(original, decoded)
 
@@ -363,11 +367,11 @@ def test_control_an_adapter_swallowing_its_wire_failure_is_detected() -> None:
     class SwallowingAdapter:
         """A transport reporting a governed "no" when nothing was ever asked."""
 
-        def ask(self, request: WireRequest) -> WireOutcome:
+        def ask(self, request: WireRequest) -> bytes:
             try:
                 raise ConnectionRefusedError("the producer is not listening")
             except OSError:
-                return a_refusal_outcome(ProductRequestViolation)
+                return encode_outcome(a_refusal_outcome(ProductRequestViolation))
 
     adapter = SwallowingAdapter()
     # The assertion every conforming adapter must satisfy (D-15, leg four).
