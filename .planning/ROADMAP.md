@@ -1791,6 +1791,26 @@ proceeds against them rather than re-opening them:
    `00-hello-context` keeps its own copy. **Settled for discuss unless a strong
    counter-measurement appears.**
 
+6. **The leg-2 prompt must be data, and `cinv01a-prompt-shape` is tightened in-phase**
+   (Dave, 2026-08-20, at the plan gate — this **widens** the scope closed above, and is
+   recorded here rather than absorbed silently). Leg 2 sends prompt text; no plan named its
+   source; and the enforcement is measurably absent for the shape it needs —
+   `prompt_score` scores short realistic agent prompts 0–1 against
+   `PROMPT_SCORE_THRESHOLD = 2` (one signal is `MIN_SENTENCES = 3`), so
+   `tools/lints/no_hardcoding.py` returns no finding for a hardcoded system instruction in
+   an example client. Measured at the gate, four shapes, all clean. The ruling has three
+   parts: **(a)** the prompt is data outside the client module — a prompt artifact under the
+   example directory, or argv/env supplied by the runner — never an instruction string
+   literal in client source; **(b)** the prompt-shape check is extended so a short agent
+   prompt embedding domain instruction is refused, with a named sabotage control per
+   `CLNT-12`; **(c)** the new control **stands on its own after `H-13`**, which moves the
+   only file currently stating the rule in its own docstring
+   (`examples/s2-01-external-consumers/client_claude_agent.py`). A teaching example that
+   hardcodes the agent's instructions while every other gate stays green is §6.4 failing
+   silently, and this phase is the first to step into a hole that predates it.
+   **The ten Success Criteria below are unchanged**; this adds enforcement, and any
+   requirement it needs is minted in the `CLNT-NN` lane.
+
 **Scope is confirmed and closed at these three clients.** The ten Success Criteria below
 are the gate target and **are not to be expanded during planning** (Dave, 2026-08-20). If a
 ruling above turns out to affect SDK surface rather than example layout, that is a
