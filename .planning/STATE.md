@@ -3,8 +3,58 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-20T04:50:00.000Z"
+last_updated: "2026-08-20T08:55:00.000Z"
 last_activity: >-
+  2026-08-20 -- **PHASE 19 CLOSE REVIEW COMPLETE. AWAITING DAVE'S RULING AND `D-GATE-19`.**
+  59 commits, `0fe0a22` -> `cff00ae` on `main`. FINAL GATE: `make ci` EXIT 0 --
+  **4013 passed / 118 skipped / 0 failed**, 400 lint, 154 docs, nine examples,
+  `mkdocs --strict` green, three validation gates pass. Tests 3901 -> 4013 (+112).
+  **THE CLOSE FOUND A BLOCKER THE VERIFIER AND THE PANEL BOTH MISSED, AND IT WAS THE
+  PHASE'S OWN DEFECT IN THE PHASE'S OWN NEW GATE.** `C-17`'s AST gate was ruled to prove
+  no module under `src/ccf/client/adapters/` constructs the outcome. IT DID NOT. It matched
+  only an import-bound `ast.Name` call or an attribute literally spelled
+  `WireOutcome`/`DoorOutcome`, so THREE IN-TREE SPELLINGS SCORED ZERO: pydantic
+  construction classmethods, relative imports, and subclassing. REPRODUCED END-TO-END BY
+  THE ORCHESTRATOR BEFORE ANY FIX: an adapter spelling `WireOutcome.model_validate({...})`
+  scored 0, PASSED the gate, passed `mypy --strict`, `ProductClient.ask` RAISED NOTHING,
+  and the caller received another question's vessel (sentinel `expires_at` 2099-09-09
+  observed). **`B0` WAS RE-OPENABLE IN-TREE WITH THE ENTIRE BUILD GREEN.** `WR-01`
+  compounded it: the shipped prose credited `19-04`'s conformance obligation as covering
+  the gap, and that control is INERT -- the tamper legs measure THE CLIENT's reaction to
+  corruption, never the adapter's honesty, and both pass against a forging adapter.
+  DAVE RULED OPTION A: fix the existing gate, TEST-FILE ONLY, no production code -- not a
+  new gate, the current one made to do what `C-17` already required. AFTER: the forger
+  scores 1 and the gate FAILS; relative import 1; subclass 1. The fix DERIVES
+  `_CONSTRUCTING_FORMS = PYDANTIC_MODEL_FORMS - _SERIALIZING_FORMS`, naming only what it
+  EXCLUDES, so a fourteenth pydantic spelling is counted automatically -- a
+  hand-maintained positive list is the drift shape that produced the defect. `WR-01`
+  is resolved BY THE FIX (`model_copy` is in that frozenset), not by prose.
+  `git diff --stat b1c40f4..HEAD -- src runtime` IS EMPTY.
+  **THE PANEL: FOUR REVIEWERS, THREE OF FOUR CONVERGED ON ONE FINDING**, verified
+  empirically -- `wire.py` claimed an adapter cannot construct the outcome; it can, and
+  re-labelling defeats BOTH checks. Three prose overclaims fixed (`2119ca6`), the
+  structural-unbypassability question DEFERRED as `D-IMPL-162` on Dave's ruling because it
+  is a different project. FOUR PANEL FINDINGS REJECTED, TWO OF THEM FABRICATED CITATIONS
+  to files that do not exist -- ollama; gemini was grounded this run, a change from Phase 18.
+  **A VACUITY WAS CAUGHT IN THE VERIFICATION CODE ITSELF**: the orchestrator's first probe
+  of the re-labelling finding had an attack leg and a control producing BYTE-IDENTICAL
+  subjects, so it proved nothing until rebuilt with distinguishable vessels. Recorded
+  rather than hidden -- it is the phase's own defect class, in the code written to test it.
+  **FOUR ITEMS REMAIN OPEN FOR DAVE, NONE FIXED IN-PHASE BY DESIGN:** `F-1` Phase 19 has
+  NO ROADMAP SUCCESS CRITERIA (`roadmap.get-phase 19` returns `[]`); `F-2`
+  `verify.key-links` CAN NEVER PASS (invalid-regex on escaped parens, marks links
+  unverified WITHOUT RUNNING THEM); `F-3` the citation lint SILENTLY DROPS AMBIGUOUS
+  BASENAMES (the two instances this phase introduced are fixed; the hole is open); and
+  `WR-04` the declared single-copy axis count is understated -- `egress.py` names
+  `asked_at` where §6.3 has FOUR axes and `WireRequest` echoes three fields, DEFERRED
+  because it widens `C-10`'s undetected list, which `D-IMPL-156` records as CROSS-CHECKED
+  AT FOUR ITEMS ACROSS TWO RECORDS -- a claim change, not a correction.
+  `F-2` AND `F-3` ARE THEMSELVES CHECKS THAT CANNOT FAIL, one level up from `B0`.
+  NEXT: **DAVE'S RULING AND `D-GATE-19`.** The §3.1 sequence is DISCHARGED -- execution,
+  cross-AI panel (`19-CLOSE-REVIEWS.md`), single-agent review (`19-REVIEW.md`), every
+  finding verified against the tree, blocking findings fixed in-phase
+  (`19-CLOSE-FIXES-SUMMARY.md`).
+
   2026-08-20 -- **PHASE 19 EXECUTED. 8/8 PLANS, 6 WAVES, 52 COMMITS**, `0fe0a22` -> `cf47bf8`
   ON `main` -- NO PHASE BRANCH, on DAVE'S EXPLICIT RULING (2026-08-19, asked before Wave 1:
   there are no SDK consumers, so `main` carrying un-gated phase work costs nothing and history
