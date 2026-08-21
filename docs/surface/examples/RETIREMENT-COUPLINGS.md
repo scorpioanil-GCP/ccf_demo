@@ -607,6 +607,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-01-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-01-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-02-PLAN.md` | 20 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-02-SUMMARY.md` | 7 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-03-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-04-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-05-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
