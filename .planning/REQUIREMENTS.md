@@ -232,16 +232,16 @@ nine above: Dave's ruling 6 (`.planning/ROADMAP.md`, Phase 20) widened the
 phase's scope after those rows were written, and the plan that owns the work
 is the plan that mints the requirement.
 
-- [ ] **CLNT-23**: Three client programs — one Google ADK, one Anthropic Agent SDK, one LangGraph — each register the Phase 18.1 `mcp+stdio` door on `examples/hw1-companies-over-revenue` as an ordinary MCP tool, call it, and print the returned Context Product to the console, receiving the door's `command + args` as configuration rather than knowing it (criteria 1–3; `H-01`, `H-02`, `H-03`)
-- [ ] **CLNT-24**: The Context Product each harness prints carries the **same content address** as the one `consume.py` prints for the same question at the same `as_of`, produced by the runner against the same seeded subject rather than compared to a recorded value — the harness is the variable, the product is the constant (criterion 4; `H-05`)
-- [ ] **CLNT-25**: Client-side CCF-import purity is enforced by an **AST** gate that refuses a `ccf.*` import in any of the three client programs **by name**, extends the existing `tests/examples/test_client_example_purity.py` rather than duplicating it, weakens no rule to accommodate a file, and carries named sabotage controls in the same plan that adds it (criterion 5; `H-11`, `H-12`, `CLNT-12`/`D-22`)
-- [ ] **CLNT-26**: Every leg runs deterministically in the default path with no live model call, and `--live` has **one meaning across all three legs** — point at a real populated deployment — so no code path exists that CI never exercises (criterion 6; `H-06`, `H-09`)
-- [ ] **CLNT-27**: CI answers against a **seeded temporary copy** of the deployment, never the tracked tree, seeded through the deployment's own documents by a fabric-side runner that **closes the writer** before the door boots; the declared scenario document is an *input* document under `examples/` and the `D-32` narrowing that permits it is recorded as its own decision entry (`H-04`, `H-05`)
-- [ ] **CLNT-28**: No new SDK mechanism ships — no new transport, no new adapter, no change to `ccf.client` or the codec, no `HarnessAdapterProtocol` implementation — verified by the phase diff touching **no file under `src/ccf/client/`** (criterion 7)
-- [ ] **CLNT-29**: `examples/s2-01-external-consumers/` is moved out of `examples/` to a path that reads as non-example on sight, with **every** live reference handled in the same change — the transport spike that constructs its path, the coupling inventory, the surface prose — and no partial state left behind (criterion 8, first half; `H-13`, `CLNT-17`)
-- [ ] **CLNT-30**: `examples/external/00-hello-context/` stays CI-green and is marked historical **in prose under an existing README heading**, stating that its clients target the pre-Phase-17 surface over HTTP with bearer auth and that Phase 20's trio is canonical going forward (criterion 8, second half; `H-14`)
-- [ ] **CLNT-31**: One README names each harness, what the reader installs, what to change first to point it at their own deployment, that how the MCP server is assembled is out of scope, and **states the who-holds-the-MCP-session asymmetry plainly**; a `make` target for the example is wired into `examples` and `make ci` is exit 0 at the phase close (criteria 9 and 10; `H-07`, `H-10`)
-- [ ] **CLNT-32**: The agent prompt each client leg sends is data outside the client module — argv, env, or a declared artifact, never an instruction string literal in client source — and `cinv01a-prompt-shape` refuses a prose-candidate literal reaching a model-instruction sink, with named sabotage controls (ruling 6(a)/(b); `CLNT-12`/`D-22`)
+- [x] **CLNT-23**: Three client programs — one Google ADK, one Anthropic Agent SDK, one LangGraph — each register the Phase 18.1 `mcp+stdio` door on `examples/hw1-companies-over-revenue` as an ordinary MCP tool, call it, and print the returned Context Product to the console, receiving the door's `command + args` as configuration rather than knowing it (criteria 1–3; `H-01`, `H-02`, `H-03`)
+- [x] **CLNT-24**: The Context Product each harness prints carries the **same content address** as the one `consume.py` prints for the same question at the same `as_of`, produced by the runner against the same seeded subject rather than compared to a recorded value — the harness is the variable, the product is the constant (criterion 4; `H-05`)
+- [x] **CLNT-25**: Client-side CCF-import purity is enforced by an **AST** gate that refuses a `ccf.*` import in any of the three client programs **by name**, extends the existing `tests/examples/test_client_example_purity.py` rather than duplicating it, weakens no rule to accommodate a file, and carries named sabotage controls in the same plan that adds it (criterion 5; `H-11`, `H-12`, `CLNT-12`/`D-22`)
+- [x] **CLNT-26**: Every leg runs deterministically in the default path with no live model call, and `--live` has **one meaning across all three legs** — point at a real populated deployment — so no code path exists that CI never exercises (criterion 6; `H-06`, `H-09`)
+- [x] **CLNT-27**: CI answers against a **seeded temporary copy** of the deployment, never the tracked tree, seeded through the deployment's own documents by a fabric-side runner that **closes the writer** before the door boots; the declared scenario document is an *input* document under `examples/` and the `D-32` narrowing that permits it is recorded as its own decision entry (`H-04`, `H-05`)
+- [x] **CLNT-28**: No new SDK mechanism ships — no new transport, no new adapter, no change to `ccf.client` or the codec, no `HarnessAdapterProtocol` implementation — verified by the phase diff touching **no file under `src/ccf/client/`** (criterion 7)
+- [x] **CLNT-29**: `examples/s2-01-external-consumers/` is moved out of `examples/` to a path that reads as non-example on sight, with **every** live reference handled in the same change — the transport spike that constructs its path, the coupling inventory, the surface prose — and no partial state left behind (criterion 8, first half; `H-13`, `CLNT-17`)
+- [x] **CLNT-30**: `examples/external/00-hello-context/` stays CI-green and is marked historical **in prose under an existing README heading**, stating that its clients target the pre-Phase-17 surface over HTTP with bearer auth and that Phase 20's trio is canonical going forward (criterion 8, second half; `H-14`)
+- [x] **CLNT-31**: One README names each harness, what the reader installs, what to change first to point it at their own deployment, that how the MCP server is assembled is out of scope, and **states the who-holds-the-MCP-session asymmetry plainly**; a `make` target for the example is wired into `examples` and `make ci` is exit 0 at the phase close (criteria 9 and 10; `H-07`, `H-10`)
+- [x] **CLNT-32**: The agent prompt each client leg sends is data outside the client module — argv, env, or a declared artifact, never an instruction string literal in client source — and `cinv01a-prompt-shape` refuses a prose-candidate literal reaching a model-instruction sink, with named sabotage controls (ruling 6(a)/(b); `CLNT-12`/`D-22`)
 
 
 ## Future Requirements (deferred)
@@ -386,16 +386,16 @@ is the plan that mints the requirement.
 | CLNT-20 | Phase 17 | Pending |
 | CLNT-21 | Phase 17 | Pending |
 | CLNT-22 | Phase 17 | Pending |
-| CLNT-23 | Phase 20 | Pending |
-| CLNT-24 | Phase 20 | Pending |
-| CLNT-25 | Phase 20 | Pending |
-| CLNT-26 | Phase 20 | Pending |
-| CLNT-27 | Phase 20 | Pending |
-| CLNT-28 | Phase 20 | Pending |
-| CLNT-29 | Phase 20 | Pending |
-| CLNT-30 | Phase 20 | Pending |
-| CLNT-31 | Phase 20 | Pending |
-| CLNT-32 | Phase 20 | Pending |
+| CLNT-23 | Phase 20 | Complete |
+| CLNT-24 | Phase 20 | Complete |
+| CLNT-25 | Phase 20 | Complete |
+| CLNT-26 | Phase 20 | Complete |
+| CLNT-27 | Phase 20 | Complete |
+| CLNT-28 | Phase 20 | Complete |
+| CLNT-29 | Phase 20 | Complete |
+| CLNT-30 | Phase 20 | Complete |
+| CLNT-31 | Phase 20 | Complete |
+| CLNT-32 | Phase 20 | Complete |
 
 **The CPS lane was verified clause by clause against the tree at Phase 15.5's
 close (plan `15.5-14`), not against any SUMMARY.** Phase 15.1's re-approval had

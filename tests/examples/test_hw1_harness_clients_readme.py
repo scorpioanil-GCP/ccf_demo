@@ -48,11 +48,42 @@ from __future__ import annotations
 
 import pathlib
 import re
+import subprocess
 from collections.abc import Mapping, Sequence
 
 from tests.examples.test_hw1_harness_clients_wiring import examples_prerequisites
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+#: Where plan `20-01` pinned criterion 7's diff base. Pinned in a file rather
+#: than resolved at close time from a branch name, because a base that does not
+#: resolve makes an "is empty" assertion vacuous rather than failing it.
+BASE_COMMIT_FILE = (
+    REPO_ROOT
+    / ".planning"
+    / "phases"
+    / "20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a"
+    / "20-BASE-COMMIT.txt"
+)
+
+#: Criterion 7's own words: *"the phase diff touching no file under
+#: `src/ccf/client/`"*.
+CLIENT_SURFACE = ("src/ccf/client/",)
+
+#: The whole library tree. Criterion 7's prose is about `src/ccf/client/`, but
+#: this phase's constraint is that **no SDK mechanism ships at all** — so the
+#: wider path is asserted too rather than left as an inference from the
+#: narrower one.
+LIBRARY_TREE = ("src/",)
+
+#: A path that genuinely differs across this phase, for `CONTROL 6`. Every plan
+#: of Phase 20 wrote here; if this ever came back empty the control would be
+#: the thing to fix, not the assertion.
+CHANGED_TREE = ("examples/",)
+
+#: A SHA that resolves to nothing, for `CONTROL 7`. Hex so it is syntactically
+#: a revision, absent so it is not one.
+UNRESOLVABLE_BASE = "0000000000000000000000000000000000000000"
 
 #: The README this module is about.
 README_PATH = REPO_ROOT / "examples" / "hw1-harness-clients" / "README.md"
@@ -416,3 +447,171 @@ def test_a_declared_but_non_phony_live_target_is_a_violation() -> None:
     )
     assert len(violations) == len(LIVE_TARGETS)
     assert all("is not `.PHONY`" in violation for violation in violations)
+
+
+# ---------------------------------------------------------------------------
+# Criterion 7 — no new SDK mechanism ships, asserted rather than eyeballed.
+#
+# It lives in this module because it is the same claim from the other side: the
+# README tells an adopter that installing CCF is not part of consuming a
+# Context Product from a foreign harness, and criterion 7 is the assertion that
+# the phase kept that promise in the diff as well as in the prose.
+# ---------------------------------------------------------------------------
+
+
+def phase_base_commit() -> str:
+    """The pinned diff base, read from the file plan `20-01` wrote."""
+    first_line = BASE_COMMIT_FILE.read_text(encoding="utf-8").splitlines()[0]
+    return first_line.strip()
+
+
+def client_surface_diff(base: str, paths: Sequence[str]) -> str:
+    """``git diff --stat <base>..HEAD -- <paths>``, as a string.
+
+    A function of its arguments so a control can hand it a base and a path that
+    genuinely **do** differ and watch the assertion built on it fail. That
+    control is the point of the whole design: *an assertion that a diff is
+    empty passes trivially when the diff command is broken, unresolvable or
+    misspelled*, and an empty string from a failed command is indistinguishable
+    from an empty string from a clean tree. This project has recorded that
+    check-that-cannot-fail shape across Phases 17, 18.1 and 19.
+
+    Three refusals rather than a quiet empty string: an empty base, an empty
+    path list (``git diff --stat <base>..HEAD --`` limits to nothing and prints
+    nothing, forever), and a non-zero exit from `git` itself.
+    """
+    if not base.strip():
+        raise AssertionError(
+            "no diff base was given, so `git diff` would compare HEAD against"
+            " nothing and print nothing — which reads exactly like a clean tree"
+        )
+    if not paths:
+        raise AssertionError(
+            "no paths were given, so the diff is limited to nothing and is"
+            " empty regardless of what the phase changed"
+        )
+    completed = subprocess.run(
+        ["git", "diff", "--stat", f"{base}..HEAD", "--", *paths],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise AssertionError(
+            f"`git diff --stat {base}..HEAD -- {list(paths)}` exited"
+            f" {completed.returncode}, so its empty output says nothing about"
+            f" the tree.\nstderr: {completed.stderr.strip()}"
+        )
+    return completed.stdout
+
+
+def test_the_pinned_diff_base_resolves() -> None:
+    """Non-vacuity: the base is a commit `git` can actually reach.
+
+    Without this, a truncated or corrupted `20-BASE-COMMIT.txt` would make
+    every assertion below raise for a reason nobody would read as "the pin is
+    broken".
+    """
+    base = phase_base_commit()
+    assert re.fullmatch(r"[0-9a-f]{40}", base), (
+        f"the pinned base {base!r} is not a full SHA; a short or annotated"
+        " value is one rename away from resolving to something else"
+    )
+    completed = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{base}^{{commit}}"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, (
+        f"the pinned base {base} does not resolve in this repository:"
+        f" {completed.stderr.strip()}"
+    )
+
+
+def test_criterion_seven_no_file_under_the_client_surface_changed() -> None:
+    """Criterion 7, in its own words: the phase diff touches no client file."""
+    diff = client_surface_diff(phase_base_commit(), CLIENT_SURFACE)
+    assert diff == "", (
+        "Phase 20 changed files under `src/ccf/client/`. Criterion 7 forbids"
+        " new SDK mechanism — no new transport, no new adapter, no change to"
+        " `ccf.client` or the codec, no `HarnessAdapterProtocol`"
+        f" implementation. A diff reaching here is a blocking review event, not"
+        f" a threshold to widen:\n{diff}"
+    )
+
+
+def test_criterion_seven_no_sdk_mechanism_ships_at_all() -> None:
+    """The wider claim: nothing under `src/` moved either.
+
+    Criterion 7's prose names `src/ccf/client/`; the phase's constraint is that
+    no SDK mechanism ships at all. A non-empty result here is a **blocking
+    finding to report**, never a reason to narrow this assertion back to the
+    client surface.
+    """
+    diff = client_surface_diff(phase_base_commit(), LIBRARY_TREE)
+    assert diff == "", (
+        "Phase 20 changed files under `src/`. This phase ships example and"
+        " test material only; a library change is a blocking finding and is"
+        f" reported rather than absorbed by narrowing this path:\n{diff}"
+    )
+
+
+def test_control_6_a_base_and_path_that_differ_produce_output() -> None:
+    """CONTROL 6 — the diff machinery is watched producing something.
+
+    **This is the control that matters.** Both assertions above pass on an
+    empty string, and an empty string is what a broken command, an unresolvable
+    base or a misspelled path all produce. Handing the same function a pair
+    that genuinely differs is the only thing separating "the client surface did
+    not change" from "nothing was compared".
+    """
+    diff = client_surface_diff(phase_base_commit(), CHANGED_TREE)
+    assert diff.strip(), (
+        "`git diff` produced nothing for a tree this phase demonstrably wrote"
+        f" to ({list(CHANGED_TREE)}). The empty results above therefore say"
+        " nothing about `src/`, and the criterion-7 assertion is vacuous until"
+        " this is fixed"
+    )
+
+
+def test_control_7_an_unresolvable_base_fails_loudly() -> None:
+    """CONTROL 7 — a base `git` cannot resolve raises instead of returning ''.
+
+    The failure mode this refuses is the quietest one available: a base that
+    stops resolving after a rebase, a truncated pin, a typo. Every one of them
+    makes `git diff` exit non-zero with an empty stdout, and a function that
+    returned that stdout would report a clean client surface forever.
+    """
+    try:
+        result = client_surface_diff(UNRESOLVABLE_BASE, CLIENT_SURFACE)
+    except AssertionError as failure:
+        assert "exited" in str(failure)
+        return
+    raise AssertionError(
+        "an unresolvable base returned"
+        f" {result!r} instead of failing; an 'is empty' assertion built on"
+        " that reports success for a comparison that never happened"
+    )
+
+
+def test_control_7b_an_empty_base_and_an_empty_path_list_both_refuse() -> None:
+    """The two other ways to compare nothing and call it clean.
+
+    Not numbered among the plan's controls because they guard the arguments
+    rather than the command, but they close the same hole from inside:
+    ``git diff --stat ..HEAD`` and a diff limited to no paths both print
+    nothing and both exit 0.
+    """
+    for base, paths, expected in (
+        ("", CLIENT_SURFACE, "no diff base was given"),
+        (phase_base_commit(), (), "no paths were given"),
+    ):
+        try:
+            client_surface_diff(base, paths)
+        except AssertionError as failure:
+            assert expected in str(failure)
+        else:  # pragma: no cover - the refusal is the point
+            raise AssertionError(f"{base!r}/{list(paths)} did not refuse")
