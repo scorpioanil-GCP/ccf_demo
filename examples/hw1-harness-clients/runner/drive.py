@@ -55,6 +55,28 @@ client. `tests/client/conftest.py::seed` is the pattern; it is re-implemented
 here rather than imported, because a shipped example must not depend on the test
 tree.
 
+**Legs are discovered structurally, never listed.** A leg is a `client_*.py`
+sitting directly in the example root, and its name is the stem after
+`client_`; see :func:`known_legs`. The same discipline
+`tests/examples/test_client_example_purity.py::reader_visible_modules` applies
+one directory up — and it is what lets a later plan add a harness by adding a
+file, with no registry line here to forget. An empty discovery is refused, and
+a `--legs` name that was not discovered is an error rather than a silent skip.
+
+**One seeded copy per leg**, plus one for the reference run, all under one
+temporary parent removed in a `finally`. Two spawned door children must never
+hold one graph, and giving each leg its own copy makes that impossible rather
+than merely refused.
+
+**Each leg is checked for the PAYLOAD, not merely for an address**
+(:func:`payload_violations`). Every other check in this example reads a 64-hex
+string, so a client that printed its content address and nothing else would
+pass all of them while "the client prints the returned Context Product" was
+false. The markers that check greps for are themselves gated by
+:func:`marker_violations`, on the default path, *before* any leg is driven: a
+degenerate marker set makes the whole run's payload evidence worthless, and
+discovering that after three subprocess drives is discovering it late.
+
 Run it: `make example-hw1-harness-clients`.
 """
 
@@ -79,6 +101,7 @@ import yaml
 from ccf.client.adapters.binding_document import load_binding_document
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_config_and_boot
+from ccf.products.door import PRODUCT_REQUEST_TOOL
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 #: This runner's own directory, and the example tree it copies its subject
@@ -86,6 +109,19 @@ from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 #: the runner behaves identically under ``make`` and under a bare interpreter
 #: invocation from anywhere in the tree.
 RUNNER_DIR = pathlib.Path(__file__).resolve().parent
+
+#: This example's root — the directory the harness client programs live in, and
+#: the one :func:`known_legs` globs. `H-11` locks its contents to
+#: ``client_*.py``, which is what makes the glob a complete leg list.
+EXAMPLE_ROOT = RUNNER_DIR.parent
+
+#: The prefix a client program's filename carries. A leg's NAME is the stem
+#: after it, so adding a harness is adding a file.
+CLIENT_PREFIX = "client_"
+
+#: How long one leg may take, spawn of its own door included. A bound rather
+#: than a preference: a leg that never returns would hang CI silently.
+LEG_TIMEOUT_SECONDS = 120
 
 #: The tracked example whose deployment this one borrows. `H-05`: borrowed by
 #: COPY. Nothing in this module ever opens a path under it for writing.
@@ -123,14 +159,8 @@ AS_OF = str(
     )["as_of"]
 )
 
-#: The legs this runner knows how to drive. Empty in this plan by design: the
-#: substrate is proven before any leg exists, because a leg wired against an
-#: unproven substrate measures the substrate's failure and reports it as the
-#: leg's. Wave 3 and wave 4 append.
-KNOWN_LEGS: tuple[str, ...] = ()
-
 #: ``consume.py``'s answer size, as printed — ``N of M assembled``. Parsed so a
-#: zero-company answer can be refused; see :func:`reference_address`.
+#: zero-company answer can be refused; see :func:`reference_run`.
 _ANSWER_COUNT_RE = re.compile(r"^\s*(\d+) of (\d+) assembled", re.MULTILINE)
 
 #: ``consume.py``'s content-address line. The address is 64 hex characters
@@ -210,6 +240,43 @@ def _document(path: pathlib.Path) -> Mapping[str, Any]:
     return cast(Mapping[str, Any], yaml.safe_load(path.read_text(encoding="utf-8")))
 
 
+def client_program(leg: str) -> pathlib.Path:
+    """The client program a leg name denotes."""
+    return EXAMPLE_ROOT / f"{CLIENT_PREFIX}{leg}.py"
+
+
+def known_legs() -> tuple[str, ...]:
+    """Every leg this runner can drive, derived from the tree rather than listed.
+
+    A leg joins by its ``client_*.py`` existing directly in the example root —
+    the same structural discipline
+    ``tests/examples/test_client_example_purity.py::reader_visible_modules``
+    applies to the same directory, and the reason a later plan adds a harness
+    without editing a registry line here.
+
+    The non-recursive glob is deliberate: this runner lives one directory down
+    precisely so it is not itself a client, and a recursive walk would sweep it
+    back in.
+
+    Raises:
+        AssertionError: no client program was discovered. A run over no legs
+            would compare nothing and report the strongest claim in this
+            example on the strength of it.
+    """
+    legs = tuple(
+        sorted(
+            path.stem[len(CLIENT_PREFIX) :]
+            for path in EXAMPLE_ROOT.glob(f"{CLIENT_PREFIX}*.py")
+        )
+    )
+    if not legs:
+        raise AssertionError(
+            f"no {CLIENT_PREFIX}*.py program sits in {EXAMPLE_ROOT}, so this"
+            " runner would drive nothing and pass"
+        )
+    return legs
+
+
 def scenario_attributes(root: pathlib.Path) -> Mapping[str, str]:
     """The role→source-key mapping, read from the COPY's own ``scenario.yaml``.
 
@@ -255,7 +322,7 @@ def declared_markers(
     return [row[attributes[NAME_ROLE]] for row in rows]
 
 
-def marker_violations(names: Sequence[str]) -> list[str]:
+def marker_violations(names: Sequence[str], chrome_words: Sequence[str]) -> list[str]:
     """Refuse a marker set that would make the payload assertion vacuous.
 
     ``examples/hw1-harness-clients/runner/scenario-rows.yaml`` states four
@@ -272,13 +339,20 @@ def marker_violations(names: Sequence[str]) -> list[str]:
     3. No name matching only hex digits and spaces. Such a name matches INSIDE
        the 64-hex content address the legs also print, so the payload assertion
        would pass on chrome alone.
-    4. No word colliding with :data:`CONSOLE_VOCABULARY`, the words the runner
-       and the reference client print themselves.
+    4. No word colliding with ``chrome_words``, the words the runner and the
+       reference client print themselves.
 
     An empty marker set is refused too: a payload assertion over no markers is
     a vacuous pass, which is the failure mode the other three exist to prevent
     one row at a time.
+
+    ``chrome_words`` is a PARAMETER and never a global read inside this
+    function — :data:`CONSOLE_VOCABULARY` is what the default path passes. Both
+    of this check's inputs being arguments is what lets a control feed it a
+    doctored vocabulary and watch property 4 fire on its own, which is the
+    difference between a checked property and a claimed one.
     """
+    chrome = frozenset(chrome_words)
     violations: list[str] = []
     if not names:
         violations.append(
@@ -301,9 +375,7 @@ def marker_violations(names: Sequence[str]) -> list[str]:
                 f"{name!r} is hex digits and spaces only, so it matches inside the"
                 " 64-character content address every leg prints"
             )
-        collisions = sorted(
-            word for word in _words(name) if word in CONSOLE_VOCABULARY
-        )
+        collisions = sorted(word for word in _words(name) if word in chrome)
         if collisions:
             violations.append(
                 f"{name!r} collides with console vocabulary {collisions}; a marker"
@@ -316,6 +388,71 @@ def marker_violations(names: Sequence[str]) -> list[str]:
                     f"{name!r} is a substring of {other!r}; a stdout match on the"
                     " shorter one cannot say which row printed"
                 )
+    return violations
+
+
+def observed_markers(stdout: str, declared_names: Sequence[str]) -> list[str]:
+    """The declared names that actually appear in ``stdout``, in declared order."""
+    return [name for name in declared_names if name in stdout]
+
+
+def payload_violations(
+    reference_stdout: str,
+    leg_stdout: str,
+    declared_names: Sequence[str],
+) -> list[str]:
+    """Criteria 1-3, as a function of three arguments a control can doctor.
+
+    Each criterion says the client *prints the returned Context Product*. Every
+    other check in this phase reads a 64-hex content address — so a client that
+    printed its address and nothing else would satisfy all of them while
+    criteria 1-3 were false. This is the check that refuses that client, and
+    **CONTROL A** is the doctored stdout that is exactly its shape.
+
+    Three violations, and the third is the one an equal content address does
+    not already rule out:
+
+    - ``declared_names`` empty — a marker search over no markers is a vacuous
+      pass. :func:`marker_violations` is the deeper guard on the same concern;
+      this is the floor beneath it, so a caller cannot reach a vacuous pass by
+      handing this function an empty list directly.
+    - no declared name in ``leg_stdout`` — the leg printed an address and not a
+      product.
+    - the SET of declared names in ``leg_stdout`` differs from the set in
+      ``reference_stdout`` — the leg printed *a* product, but not the same one.
+      A client that truncates, paginates or reformats what it prints reports
+      the same address while showing the reader less than the reference did,
+      and only a set comparison sees it.
+
+    Args:
+        reference_stdout: What ``consume.py`` printed for the same question.
+        leg_stdout: What the harness client printed.
+        declared_names: The payload markers, from
+            ``examples/hw1-harness-clients/runner/scenario-rows.yaml``.
+
+    Returns:
+        One violation per property broken; empty when the leg printed the
+        product.
+    """
+    violations: list[str] = []
+    if not declared_names:
+        violations.append(
+            "no declared markers — a payload assertion over an empty marker set"
+            " passes without reading any output at all"
+        )
+    in_leg = observed_markers(leg_stdout, declared_names)
+    in_reference = observed_markers(reference_stdout, declared_names)
+    if declared_names and not in_leg:
+        violations.append(
+            "the leg's stdout carries no declared company name, so it printed a"
+            " content address rather than the Context Product the address names"
+        )
+    if set(in_leg) != set(in_reference):
+        violations.append(
+            f"the leg's stdout names {sorted(in_leg)} and the reference names"
+            f" {sorted(in_reference)}; an equal content address does not by"
+            " itself make two printed products the same product"
+        )
     return violations
 
 
@@ -481,6 +618,18 @@ def build_question(root: pathlib.Path, as_of: str) -> dict[str, Any]:
     stated decision instant when a caller defers (``D-04``) — and criterion 4
     compares one content address across three harnesses, so every leg pins the
     boundary explicitly and an unpinned run is not a pinned comparison.
+
+    **The shape has three keys, and each earns its place.** ``arguments`` is
+    what the tool takes, minus the one argument a client must build itself.
+    ``tool`` is the tool's NAME, read from
+    ``ccf.products.door::PRODUCT_REQUEST_TOOL`` rather than spelled, so no
+    client selects a tool from a literal of its own and a rename of the SDK's
+    tool reaches the legs without touching them. ``temporal_boundary`` is
+    stated separately because it is not a tool argument: it is the third field
+    of the encoded ``WireRequest`` each client builds, and a client inferring
+    it from ``asked_at`` would be inferring rather than being told — right on
+    this pinned path and wrong on a deferred one, which is the worst kind of
+    correct.
     """
     binding = _document(root / "binding.yaml")
     config = _document(root / "ccf_config.yaml")
@@ -499,14 +648,18 @@ def build_question(root: pathlib.Path, as_of: str) -> dict[str, Any]:
         )
 
     return {
-        "tenant": config["tenant_id"],
-        "product_class": product_class["schema_name"],
-        "version": product_class["schema_version"],
-        "subject": question["subject"],
-        "intent": question["intent"],
-        "freshness": question["freshness"],
-        "asked_at": as_of,
-        "parameters": parameters,
+        "tool": PRODUCT_REQUEST_TOOL,
+        "temporal_boundary": as_of,
+        "arguments": {
+            "tenant": config["tenant_id"],
+            "product_class": product_class["schema_name"],
+            "version": product_class["schema_version"],
+            "subject": question["subject"],
+            "intent": question["intent"],
+            "freshness": question["freshness"],
+            "asked_at": as_of,
+            "parameters": parameters,
+        },
     }
 
 
@@ -530,13 +683,18 @@ def screening_threshold(parameters: Mapping[str, Any]) -> int:
     return int(value)
 
 
-def reference_address(root: pathlib.Path, as_of: str) -> str:
-    """Ask the reference client the same question, and return its address.
+def reference_run(root: pathlib.Path, as_of: str) -> tuple[str, str]:
+    """Ask the reference client the same question; return its address and stdout.
 
     Criterion 4's reference leg. ``consume.py`` runs as a subprocess against
     the SAME subject every other leg reaches, addressed only through
     ``CCF_BINDING`` — that is the whole channel, because ``consume.py`` calls
     ``ProductClient.for_product`` with no address argument.
+
+    **Both halves are returned because both are compared.** The address is
+    criterion 4's operand; the stdout is :func:`payload_violations`' second
+    operand, and re-running the reference to obtain it would be running two
+    references and comparing the legs against whichever answered second.
 
     **A non-empty answer is required.** An empty deployment yields a perfectly
     real content address, which is exactly why "it printed an address" is not
@@ -550,7 +708,7 @@ def reference_address(root: pathlib.Path, as_of: str) -> str:
             sys.executable,
             str(CONSUME_PROGRAM),
             "--min-revenue",
-            str(screening_threshold(question["parameters"])),
+            str(screening_threshold(question["arguments"]["parameters"])),
             "--as-of",
             as_of,
         ],
@@ -585,7 +743,7 @@ def reference_address(root: pathlib.Path, as_of: str) -> str:
             "the reference client printed no content address\n"
             f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
         )
-    return found.group(1)
+    return found.group(1), completed.stdout
 
 
 def compare_addresses(reference: str, observed: Mapping[str, str]) -> list[str]:
@@ -611,20 +769,80 @@ def compare_addresses(reference: str, observed: Mapping[str, str]) -> list[str]:
     return violations
 
 
+def drive_leg(leg: str, root: pathlib.Path, as_of: str) -> tuple[str, str]:
+    """Run one harness client against ``root``; return its address and stdout.
+
+    The three flags are the whole contract (`H-03`): the door's location as an
+    opaque ``command + args`` pair, and the question as one JSON document.
+    Neither is knowledge the client holds.
+
+    **Both streams ride the failure message.** ADK writes ``[EXPERIMENTAL]``
+    warnings and the spawned door logs to stderr, so a non-zero exit is
+    unreadable without it. **The address is parsed from stdout alone**, which
+    is the other half of the same decision: a leg cannot report an address by
+    logging one.
+
+    No child-termination helper is needed or wanted here. ``subprocess.run``
+    cannot outlive its own call and kills the child on ``timeout``, and the
+    door is spawned by the client's own harness library (`H-01`), one process
+    further down than this runner can see.
+    """
+    command, arguments = resolve_door(root)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(client_program(leg)),
+            "--server-command",
+            command,
+            *_repeated("--server-arg", arguments),
+            "--question-json",
+            json.dumps(build_question(root, as_of)),
+        ],
+        env=dict(os.environ),
+        capture_output=True,
+        text=True,
+        timeout=LEG_TIMEOUT_SECONDS,
+    )
+    if completed.returncode != 0:
+        raise AssertionError(
+            f"leg {leg!r} exited {completed.returncode}\n"
+            f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+    found = _CONTENT_ADDRESS_RE.search(completed.stdout)
+    if found is None:
+        raise AssertionError(
+            f"leg {leg!r} printed no content address on stdout\n"
+            f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+    return found.group(1), completed.stdout
+
+
+def _repeated(flag: str, values: Sequence[str]) -> list[str]:
+    """Flatten ``values`` into a repeated ``flag`` argument list, in order."""
+    return [item for value in values for item in (flag, value)]
+
+
 def main() -> int:
-    """Seed a subject, resolve the door, ask the question, compare the answers.
+    """Seed the subjects, ask the question every way, and compare the answers.
 
     Sync, and it enters no event loop: whatever asynchrony a harness needs is
-    the harness's, inside its own client program. The only child this entry
-    point starts is the reference client, through ``subprocess.run``, which
-    cannot outlive the call — the door itself is spawned by each client's own
-    library (`H-01`), never here.
+    the harness's, inside its own client program. Every child this entry point
+    starts goes through ``subprocess.run`` and cannot outlive the call — the
+    door itself is spawned by each client's own library (`H-01`), never here.
+
+    The order is deliberate. The markers are checked first, because a
+    degenerate marker set makes every payload observation below it worthless
+    and finding that out after three subprocess drives is finding it out late.
+    Then the reference answers. Then each leg, against its own copy. Then one
+    failure channel for all three checks — divergent addresses, address-only
+    output, and a marker set that could not have carried the claim.
     """
     parser = argparse.ArgumentParser(description="Drive the hw1 harness clients.")
+    discovered = known_legs()
     parser.add_argument(
         "--legs",
-        default=",".join(KNOWN_LEGS),
-        help=f"comma-separated subset of: {','.join(KNOWN_LEGS) or '(none wired yet)'}",
+        default=",".join(discovered),
+        help=f"comma-separated subset of: {','.join(discovered)}",
     )
     parser.add_argument(
         "--live",
@@ -635,20 +853,24 @@ def main() -> int:
     )
     args = parser.parse_args()
     legs = tuple(leg.strip() for leg in args.legs.split(",") if leg.strip())
-    unknown = sorted(set(legs) - set(KNOWN_LEGS))
+    unknown = sorted(set(legs) - set(discovered))
     if unknown:
-        raise AssertionError(f"unknown legs: {unknown}")
+        raise AssertionError(f"unknown legs: {unknown}; discovered {list(discovered)}")
 
+    violations: list[str] = []
     with tempfile.TemporaryDirectory(prefix="ccf-hw1-clients-") as scratch:
         with contextlib.ExitStack() as stack:
-            if args.live:
-                root = SOURCE_DEPLOYMENT
-            else:
-                root = stack.enter_context(
-                    seeded_subject(pathlib.Path(scratch) / "reference")
-                )
+            subject = _subject_factory(stack, pathlib.Path(scratch), live=args.live)
+
+            root = subject("reference")
             rows = declared_rows(DECLARED_ROWS_DOCUMENT, scenario_attributes(root))
-            _refuse_bad_markers(rows, root)
+            markers = declared_markers(rows, scenario_attributes(root))
+            violations += _labelled(
+                "the declared markers cannot carry a payload assertion",
+                marker_violations(markers, sorted(CONSOLE_VOCABULARY)),
+            )
+            if violations:
+                raise AssertionError("\n  ".join(violations))
 
             command, arguments = resolve_door(root)
             print(f"subject             {root}")
@@ -656,30 +878,52 @@ def main() -> int:
             print(f"door args           {arguments}")
             print(f"question            {json.dumps(build_question(root, AS_OF))}")
 
-            reference = reference_address(root, AS_OF)
+            reference, reference_stdout = reference_run(root, AS_OF)
             print(f"reference address   {reference}")
 
             observed: dict[str, str] = {}
-            violations = compare_addresses(reference, observed) if legs else []
-            if violations:
-                raise AssertionError(
-                    "the harness legs did not agree with the reference:\n  "
-                    + "\n  ".join(violations)
-                )
+            for leg in legs:
+                address, stdout = drive_leg(leg, subject(leg), AS_OF)
+                observed[leg] = address
+                payload = payload_violations(reference_stdout, stdout, markers)
+                violations += _labelled(f"leg {leg!r} did not print the product", payload)
+                verdict = "MATCH" if address == reference else "DIVERGED"
+                names = ", ".join(observed_markers(stdout, markers))
+                print(f"leg {leg:<16}{address}  {verdict}  names: {names}")
+
+            violations += _labelled(
+                "the harness legs did not agree with the reference",
+                compare_addresses(reference, observed),
+            )
+
+    if violations:
+        raise AssertionError("\n  ".join(violations))
     print(f"legs compared       {len(legs)}")
     return 0
 
 
-def _refuse_bad_markers(rows: Sequence[Mapping[str, str]], root: pathlib.Path) -> None:
-    """Check the declared markers on the default path, and refuse a bad set."""
-    violations = marker_violations(
-        declared_markers(rows, scenario_attributes(root))
-    )
-    if violations:
-        raise AssertionError(
-            "the declared markers cannot carry a payload assertion:\n  "
-            + "\n  ".join(violations)
-        )
+def _subject_factory(
+    stack: contextlib.ExitStack, scratch: pathlib.Path, *, live: bool
+) -> Any:
+    """One seeded copy per named consumer — or the tracked deployment, `H-09`.
+
+    ``--live`` means one thing across every leg: point at a real populated
+    deployment instead of a seeded temporary copy. It is the choice of subject
+    root and NOTHING else, so the leg-driving code path below is identical
+    either way and no branch exists that CI never exercises.
+    """
+
+    def subject(name: str) -> pathlib.Path:
+        if live:
+            return SOURCE_DEPLOYMENT
+        return stack.enter_context(seeded_subject(scratch / name))
+
+    return subject
+
+
+def _labelled(heading: str, violations: Sequence[str]) -> list[str]:
+    """Prefix a check's violations with what failed, for one shared channel."""
+    return [f"{heading}:\n    " + "\n    ".join(violations)] if violations else []
 
 
 if __name__ == "__main__":
