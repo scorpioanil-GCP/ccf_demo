@@ -605,6 +605,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-PATTERNS.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-RESEARCH.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-01-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-01-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-02-PLAN.md` | 20 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-03-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-04-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
