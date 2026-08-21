@@ -57,6 +57,62 @@ progress:
   completed_plans: 174
   percent: 93
 stopped_at: >-
+  PHASE 20 IS EXECUTION-COMPLETE, THE CLOSE PANEL IS DONE, AND IT IS NOT GATED. Work is on
+  branch `phase-20` (`9e4bd0e`..`7f59289`+), NOT on `main`.
+  **STEP 1 OF SS3.1 IS COMPLETE.** The CROSS-AI CLOSE PANEL ran 2026-08-21 against the
+  SHIPPED CODE and is committed at `7f59289` as
+  `.planning/phases/20-.../20-CLOSE-REVIEWS.md` (356 lines, with a verbatim-reproduction
+  appendix). Reviewers: gemini, codex, cursor; `claude` SKIPPED as the executing model.
+  304 KB / 5,889 lines of committed source was INLINED into the prompt -- required,
+  because codex reviews nothing at exit 0 on this host. Eleven findings claimed, EVERY ONE
+  VERIFIED against the tree: THREE BLOCKING, four advisory, FOUR REJECTED (recorded as
+  rejected).
+  **THE THREE BLOCKING FINDINGS -- these stand between here and `D-GATE-20`:**
+  **B-1** `examples/hw1-harness-clients/runner/drive.py:437` vs `:453` vs `:256-280`.
+  `marker_violations` property 4 compares whole WORDS of a declared name against the chrome
+  vocabulary; `observed_markers` matches by raw SUBSTRING; and `CONSOLE_VOCABULARY` OMITS
+  `product`, a word all three legs print (`print("context product")`). PROVEN by running
+  the shipped functions: names `product`, `text`, `ntex` are ACCEPTED by the marker guard,
+  and an address-only leg then PASSES `payload_violations` -- CONTROL A's exact subject
+  passing the check written to refuse it. LATENT, not live: the six current names in
+  `runner/scenario-rows.yaml` are safe. Root cause: the vocabulary was sourced from
+  `consume.py::main` + the runner, but the check greps the LEG's stdout.
+  **B-2** `tools/lints/no_hardcoding.py:561-563`. The CINV-01a destination arm resolves
+  `node.args[1]` ONLY, so `os.environ.get(k, default="...")` and `os.getenv(k,
+  default="...")` ESCAPE it. PROVEN against `check_source`: positional FLAGGED, both
+  keyword spellings NOT FLAGGED. Both spellings are valid Python (executed to confirm).
+  This is one spelling of the exact "env var worn as a hat" shape ruling 6(b) minted the
+  arm to refuse.
+  **B-3** `drive.py:384`/`:458`/`:808`. `marker_violations`, `payload_violations` and
+  `compare_addresses` appear ONLY in `drive.py` -- no test imports or probes them. CONTROL
+  A-F ran as ONE-SHOT mutation probes recorded in `20-03-SUMMARY.md:164-172`, not standing
+  tests, unlike the purity gate (C-20-1..9) and the no-model guard (CONTROL 1-3) which both
+  ship pytest controls. B-1 IS THE DIRECT CONSEQUENCE. **Whether a SUMMARY-recorded
+  one-shot probe discharges `CLNT-12` IS A RULING FOR DAVE, not a thing to decide alone.**
+  **ADVISORY (4):** A-1 `no_hardcoding.py:691` -- the message says a prompt is refused
+  "not by how long it is" while `_is_prose_candidate` floors at `MIN_PROMPT_CHARS = 40`;
+  the FLOOR is a documented measured knee (CONTROL 8) and is NOT the defect, the SENTENCE
+  is. Only three-way consensus finding. A-2 `runner/model_stub.py` `seen` written and never
+  read, which its own docstring at `:45` calls the `C-10` pattern this project refuses.
+  A-3 `drive.py:765` `reference_run` has no subprocess timeout while the leg at `:991` does.
+  A-4 a leg timeout orphans the door grandchild -- already documented in situ at `:966-971`.
+  **REJECTED (4), and why it matters:** codex quoted a docstring sentence that DOES NOT
+  EXIST in the file it cited (`grep -n reference tests/examples/test_hw1_harness_clients_
+  no_model.py` returns NOTHING) -- the fabricated-citation mode this project has rejected
+  reviewer output for before. gemini's case-sensitivity scenario runs BACKWARDS through
+  `_words` (`drive.py:292`), which lowercases. Full rejection reasoning in the report.
+  **NEXT ACTION, in this order:** (2) the SINGLE-AGENT code review (`/gsd-code-review`),
+  ADDITIVE and never a substitute for the panel; (3) FIX B-1, B-2, B-3 IN-PHASE -- each
+  fix carries its own standing sabotage control per `CLNT-12`, and B-1's fix must turn the
+  appendix reproduction RED; (4) present deliverables + this report + the triage to Dave;
+  (5) `D-GATE-20` and the merge to `main`. PANEL RELIABILITY OBSERVED THIS ROUND: cursor
+  was the STRONGEST (both surviving blockers plus the seed of the third, accurate
+  `path:line` throughout); codex DID read when source was inlined (95,655 tokens) but
+  fabricated one citation; gemini found no fabricated symbols but reasoned backwards once.
+  `make gate-tools` at `7f59289` is EXIT 0 (406 + 154) -- adding this report under
+  `.planning/` did NOT stale the coupling inventory. No shipped code changed, so the
+  executor's green `make ci` at `d9b3f5a` still stands.
+  PRIOR CONTEXT FOLLOWS.
   PHASE 20 IS EXECUTION-COMPLETE AND NOT YET GATED. Work is on branch `phase-20`
   (`9e4bd0e`..`5c0cc24`), NOT on `main`. NEXT ACTION, per CLAUDE.md SS3.1 and in this order:
   (1) the CROSS-AI PANEL against the SHIPPED CODE -- `/gsd-review --phase "Phase 20" --all`

@@ -252,3 +252,105 @@ in full.
 - **cursor** — 4m24s, the strongest pass: both surviving BLOCKING findings (B-2,
   B-3) and the seed of the third (B-1) came from it, with accurate `path:line`
   citations throughout and a correctly-hedged severity on the consensus item.
+
+---
+
+## Appendix — the two reproductions, verbatim
+
+Both were run from the repo root with `.venv/bin/python` at `7f59289`. They are
+recorded in full so the next session re-runs them rather than re-deriving them,
+and so a fix can be shown to turn each one red.
+
+### B-1 — the marker/payload escape
+
+```python
+import sys; sys.path.insert(0, "examples/hw1-harness-clients/runner")
+import importlib.util
+spec = importlib.util.spec_from_file_location(
+    "drive", "examples/hw1-harness-clients/runner/drive.py")
+drive = importlib.util.module_from_spec(spec); spec.loader.exec_module(drive)
+
+CHROME = sorted(drive.CONSOLE_VOCABULARY)
+addr = "a" * 64
+# What an address-only leg prints: the address line + the label line, no product.
+leg_chrome_only = f"content address    {addr}\ncontext product\n"
+# What consume.py prints for a seeded row (it lists company names).
+def reference(name): return (
+    f"\nQ: which companies have revenue over 1\n   {name}   500\n"
+    f"\n   1 of 6 assembled\n   content address    {addr}\n")
+
+for name in ["product", "text", "ntex", "Kestrelmark Industries"]:
+    mv = drive.marker_violations([name, "Volanti Logistics"], CHROME)
+    pv = drive.payload_violations(reference(name), leg_chrome_only, [name])
+    print(f"name={name!r:26} marker_violations={'REFUSED' if mv else 'accepted':8} "
+          f"payload_violations(address-only leg)={'CAUGHT' if pv else '*** PASSED ***'}")
+```
+
+Observed at `7f59289`:
+
+```
+name='product'                  marker_violations=accepted payload_violations(address-only leg)=*** PASSED ***
+name='text'                     marker_violations=accepted payload_violations(address-only leg)=*** PASSED ***
+name='ntex'                     marker_violations=accepted payload_violations(address-only leg)=*** PASSED ***
+name='Kestrelmark Industries'   marker_violations=accepted payload_violations(address-only leg)=CAUGHT
+```
+
+Note the import shim: `drive.py:132` does `import model_stub` as a sibling, so the
+runner directory has to be on `sys.path` before the module is executed.
+
+### B-2 — the keyword env-default escape
+
+```python
+import pathlib, sys
+sys.path.insert(0, ".")
+from tools.lints.no_hardcoding import check_source
+
+LONG = ("You are a helpful assistant. Use the available tool to fetch the "
+        "context product and print it to the console.")
+CASES = {
+ "1 baseline: long literal direct at sink":
+   f'import x\nclient.query({LONG!r})\n',
+ "2 CONTROL 6 shape: positional env default":
+   f'import os\np = os.environ.get("CCF_HARNESS_PROMPT", {LONG!r})\nclient.query(p)\n',
+ "3 keyword default= on os.environ.get":
+   f'import os\np = os.environ.get("CCF_HARNESS_PROMPT", default={LONG!r})\nclient.query(p)\n',
+ "4 keyword default= on os.getenv":
+   f'import os\np = os.getenv("CCF_HARNESS_PROMPT", default={LONG!r})\nclient.query(p)\n',
+ "5 short instruction (<40 chars) at sink":
+   'client.query("Call the tool once, then stop.")\n',
+ "6 short instruction as ADK kwarg":
+   'LlmAgent(instruction="Call the tool once.")\n',
+}
+for name, src in CASES.items():
+    f = check_source(src, pathlib.Path("examples/probe/client_probe.py"), "probe")
+    print(f"{'FLAGGED  ' if f else 'NOT FLAGGED'}  {name}")
+```
+
+Observed at `7f59289`:
+
+```
+FLAGGED      1 baseline: long literal direct at sink
+FLAGGED      2 CONTROL 6 shape: positional env default
+NOT FLAGGED  3 keyword default= on os.environ.get
+NOT FLAGGED  4 keyword default= on os.getenv
+NOT FLAGGED  5 short instruction (<40 chars) at sink
+NOT FLAGGED  6 short instruction as ADK kwarg
+```
+
+Cases 5 and 6 are **A-1, the documented knee** — expected, not a defect; the defect
+there is the message text at `no_hardcoding.py:691`. Cases 3 and 4 are **B-2**.
+
+Both keyword spellings were confirmed to be valid Python, not hypothetical:
+
+```
+$ .venv/bin/python -c "import os; print(os.environ.get('NOPE_X', default='D'), os.getenv('NOPE_X', default='D'))"
+D D
+```
+
+### What was NOT verified at close
+
+`make gate-tools` was run at `7f59289` and is **EXIT 0 (406 + 154)** — the
+`.planning/` addition of this file did not stale the coupling inventory. A full
+`make ci` was **not** re-run by this session; per the standing harness note it
+cannot complete in one tool call. Nothing in this panel changed shipped code, so
+the executor's green run at `d9b3f5a` still stands for the tree.
