@@ -324,6 +324,31 @@ phase-close `make ci`. The residual is handed up rather than designed around: if
 the manual sequence ever proves insufficient, that is a `D-IMPL-NN` and a stop
 for Dave, not a disarmed gate.
 
+## The gate, at the phase close
+
+`make ci` run **after** this SUMMARY landed and the inventory was regenerated:
+
+```
+MAKE_CI_EXIT=0
+4083 passed, 118 skipped, 109 warnings in 631.80s      (make test)
+406 passed                                             (tools/lints/tests)
+154 passed                                             (tools/publish_scan_tests + tools/docs_tests)
+```
+
+Up from 4067 passed at the plan's start — sixteen new tests, all of them this
+plan's. The examples leg inside that run drove all three harnesses plus the
+reference and printed one address four times:
+
+```
+reference address   5d7bfa49f5b3f65add25ea61220a191a91982f5ae97901e010b26c5ca8dc37f5
+leg adk             5d7bfa49…c37f5  MATCH  names: Kestrelmark Industries, Volanti Logistics, Brightpath Materials
+leg anthropic       5d7bfa49…c37f5  MATCH  names: Kestrelmark Industries, Volanti Logistics, Brightpath Materials
+leg langgraph       5d7bfa49…c37f5  MATCH  names: Kestrelmark Industries, Volanti Logistics, Brightpath Materials
+legs compared       3
+```
+
+No refusal line. Criterion 10 holds, and criterion 4 holds inside it.
+
 ## Residuals carried up
 
 1. **The post-SUMMARY regeneration window is a manual step, not a mechanism.**
