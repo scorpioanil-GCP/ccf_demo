@@ -3,8 +3,8 @@
 **Who reads this and what fails when it moves.** ``make ci-core`` runs it on
 every invocation and the CI ``tests`` job runs it on every push. The day a
 client example's reader-visible code imports a deployment module, a producer
-spine, or anything outside ``ccf.client`` and the standard library, this test
-goes red in the same commit that did it.
+spine, or anything outside the standard library and *its own root's* permitted
+packages, this test goes red in the same commit that did it.
 
 Why it exists
 -------------
@@ -32,12 +32,47 @@ example's reader-visible modules come from
 that names one filename in a constant protects one filename, and the next
 example's entry module would be invisible to it.
 
+Why the permitted set is PER ROOT, and why the two roots invert
+----------------------------------------------------------------
+A reader meeting :data:`PERMITTED_IMPORTS` cold will assume one of its two
+entries is a mistake, because they say opposite things about the same package:
+
+===============================  ==============  ==================
+root                             ``ccf.client``  harness + ``mcp``
+===============================  ==============  ==================
+``hw1-companies-over-revenue``   permitted       forbidden
+``hw1-harness-clients``          **forbidden**   permitted
+===============================  ==============  ==================
+
+Both are right, and the inversion is the whole point of the second example.
+``hw1-companies-over-revenue/consume.py`` is a *CCF client*: importing
+``ccf.client`` is its entire subject, and importing a harness would make it a
+harness demonstration instead. The three ``hw1-harness-clients/client_*.py``
+programs are *foreign harness clients* reaching a governed door over MCP: they
+import Google ADK, the Claude Agent SDK, LangGraph and an MCP client, and a
+``ccf`` import in one of them would silently retract the claim the example
+exists to make — that a client learns nothing about CCF to use a Context
+Product. So ``ccf`` is not merely absent from that root's permitted set; it is
+**refused by name**, in a branch checked *before* the permitted-set test, so
+the refusal survives somebody later widening that set (:func:`_refused_by_name`).
+
+The runner is outside all of this, structurally rather than by exemption:
+``examples/hw1-harness-clients/runner/drive.py`` imports ``ccf`` legitimately
+and lives one directory down, where :func:`reader_visible_modules`'s
+non-recursive ``glob`` does not reach. That is ``H-11``, and it is why no
+name-based skip was added here — a hole in a structural rule is a hole the next
+example widens.
+
 **The subject is a parameter, never a fixed path.** ``check_example_purity``
-takes the root it checks, so every control below feeds a ``tmp_path`` copy into
-the **same** function the shipped assertion calls. A gate pinned to a hard-coded
-path cannot be sabotaged, because the sabotaged copy is never what it reads —
-the defect class this project found spanning plans ``17-05``, ``17-06`` and
-``17-10``.
+takes the root it checks **and the permitted and refused sets it checks
+against**, so every control below feeds a ``tmp_path`` copy into the **same**
+function the shipped assertion calls, with its own policy. A gate pinned to a
+hard-coded path cannot be sabotaged, because the sabotaged copy is never what
+it reads — the defect class this project found spanning plans ``17-05``,
+``17-06`` and ``17-10``. A gate whose *policy* is a module-level constant has
+the same weakness one level up: a module-level **union** of the two roots'
+permitted sets would pass every control here except ``C-20-5``, which is
+exactly why ``C-20-5`` exists.
 
 **Zero matches is a failure, not a pass.** A purity gate that globs an example
 directory, finds nothing, and reports green is decorative. :func:`check_example_purity`
@@ -58,19 +93,53 @@ import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-#: The client example this module gates. One entry today; a second client
-#: example joins by being added here, and every function below already takes
-#: its root as an argument.
-CLIENT_EXAMPLE_ROOTS: tuple[pathlib.Path, ...] = (
-    REPO_ROOT / "examples" / "hw1-companies-over-revenue",
-)
+#: The CCF-client example: one ``consume.py`` that imports ``ccf.client``.
+HW1_ROOT = REPO_ROOT / "examples" / "hw1-companies-over-revenue"
 
-#: The one non-stdlib package a client example's reader-visible code may
-#: import. ``D-02``/``D-03``: the client surface is four names and nothing
+#: The foreign-harness example: three ``client_*.py`` programs that import a
+#: harness and an MCP client and know nothing about CCF (``H-11``/``H-12``).
+HARNESS_ROOT = REPO_ROOT / "examples" / "hw1-harness-clients"
+
+#: The one non-stdlib package the **hw1** client example's reader-visible code
+#: may import. ``D-02``/``D-03``: the client surface is four names and nothing
 #: producer-side crosses it. Submodules are permitted — ``D-05`` ships no
 #: discovery chain, so a consumer must import its transport adapter's module
 #: for the scheme to reach the registry, and that module lives under here.
 PERMITTED_PACKAGE = "ccf.client"
+
+#: What each gated root's reader-visible code may import, beyond the standard
+#: library. See the module docstring for why the two entries invert.
+#:
+#: **THE ENTRIES ARE PACKAGE PREFIXES, NOT MODULE NAMES.** The container type
+#: says the opposite and invites ``module in permitted``, which would refuse
+#: every real import in this tree: ``consume.py`` imports
+#: ``ccf.client.adapters.mcp_stdio``, and the three harness clients import
+#: ``google.adk.tools.mcp_tool``, ``mcp.client.stdio``, ``langgraph.graph`` and
+#: ``langchain_core.tools``. :func:`_permitted` matches by prefix and
+#: ``T-20-40``'s control asserts it against those exact submodules — a change
+#: to exact membership would read as a tightened gate and be a broken one.
+PERMITTED_IMPORTS: dict[pathlib.Path, frozenset[str]] = {
+    HW1_ROOT: frozenset({PERMITTED_PACKAGE}),
+    HARNESS_ROOT: frozenset(
+        {"google.adk", "claude_agent_sdk", "langgraph", "langchain_core", "mcp"}
+    ),
+}
+
+#: What each gated root's reader-visible code may **never** import, whatever
+#: its permitted set later grows to say. Criterion 5's wording is *"an AST check
+#: refuses a ``ccf.*`` import in any of the three client programs"*, and "not in
+#: the permitted set" is a weaker claim than "named and refused": the first
+#: evaporates the day somebody widens a set, the second does not.
+REFUSED_IMPORTS: dict[pathlib.Path, frozenset[str]] = {
+    HW1_ROOT: frozenset(),
+    HARNESS_ROOT: frozenset({"ccf"}),
+}
+
+#: The client examples this module gates. **Derived from the policy mapping
+#: rather than maintained beside it** — a root present in one and absent from
+#: the other is a root gated by half this module, and the half that goes
+#: missing is silent.
+CLIENT_EXAMPLE_ROOTS: tuple[pathlib.Path, ...] = tuple(PERMITTED_IMPORTS)
 
 
 def reader_visible_modules(root: pathlib.Path) -> tuple[pathlib.Path, ...]:
@@ -106,20 +175,62 @@ def _imports(tree: ast.AST) -> list[tuple[str, int, bool]]:
     return found
 
 
-def _permitted(module: str) -> bool:
-    """Is ``module`` one a client example's reader-visible code may import?"""
+def _covers(module: str, prefix: str) -> bool:
+    """Does the package ``prefix`` cover ``module``?
+
+    Prefix matching, and at a package boundary: ``ccf.client`` covers
+    ``ccf.client.adapters.mcp_stdio`` and does **not** cover ``ccf.clientele``.
+    One function so the permitted test and the refusal test cannot drift into
+    two different notions of "under".
+    """
+    return module == prefix or module.startswith(f"{prefix}.")
+
+
+def _permitted(module: str, permitted: frozenset[str]) -> bool:
+    """Is ``module`` one this root's reader-visible code may import?
+
+    ``permitted`` is a **parameter**, not a module-level constant, because the
+    two gated roots permit opposite things and a union of them would be a gate
+    that checks neither. Every control below passes its own set to this same
+    function.
+    """
     root = module.partition(".")[0]
     if root == "__future__" or root in sys.stdlib_module_names:
         return True
-    return module == PERMITTED_PACKAGE or module.startswith(f"{PERMITTED_PACKAGE}.")
+    return any(_covers(module, prefix) for prefix in permitted)
 
 
-def check_example_purity(root: pathlib.Path) -> list[str]:
+def _refused_by_name(module: str, refused: frozenset[str]) -> str | None:
+    """The refused package covering ``module``, or ``None``.
+
+    Checked **before** :func:`_permitted` in :func:`check_example_purity`, so
+    the refusal is unconditional: widening a root's permitted set cannot admit
+    a package this names, and the violation text names the package rather than
+    reporting the absence of a permission.
+    """
+    for prefix in sorted(refused):
+        if _covers(module, prefix):
+            return prefix
+    return None
+
+
+def check_example_purity(
+    root: pathlib.Path, permitted: frozenset[str], refused: frozenset[str]
+) -> list[str]:
     """Every purity violation in the example at ``root``, by name.
 
     Returns an empty list only when the root really was checked: a root with
     no reader-visible module yields a violation rather than a clean pass, so
     a moved or renamed example cannot make this gate green by emptiness.
+
+    Args:
+        root: The example root to walk. A parameter so a control can hand this
+            function a doctored ``tmp_path`` copy.
+        permitted: Package **prefixes** this root's code may import, beyond the
+            standard library. A parameter for the same reason: the policy is
+            per-root, and a control that could only ever be handed the shipped
+            policy would not be watching the policy.
+        refused: Package prefixes refused by name whatever ``permitted`` says.
     """
     violations: list[str] = []
     if not root.is_dir():
@@ -142,6 +253,7 @@ def check_example_purity(root: pathlib.Path) -> list[str]:
             violations.append(f"{module_path.name} does not parse: {broken}")
             continue
         for imported, line, is_relative in _imports(tree):
+            named = _refused_by_name(imported, refused)
             if is_relative:
                 violations.append(
                     f"{module_path.name}:{line} imports `{imported or '.'}`"
@@ -149,13 +261,23 @@ def check_example_purity(root: pathlib.Path) -> list[str]:
                     " is the consumer reaching into the producer's directory,"
                     " which is exactly what `D-02` forbids"
                 )
-            elif not _permitted(imported):
+            elif named is not None:
                 violations.append(
-                    f"{module_path.name}:{line} imports `{imported}`, which is"
-                    f" neither stdlib nor `{PERMITTED_PACKAGE}`. A client"
-                    " example knows the product's identity and the question's"
-                    " parameters; it does not know a manifest, a deployment or"
-                    " a producer spine (`D-02`)"
+                    f"{module_path.name}:{line} imports `{imported}`, and"
+                    f" `{named}` is refused by name in this example root. This"
+                    " client's whole claim is that it learns nothing about CCF"
+                    " to use a Context Product: it speaks MCP to a door and"
+                    " reads a typed answer. One `ccf` import retracts that,"
+                    " whatever the permitted set happens to say"
+                )
+            elif not _permitted(imported, permitted):
+                violations.append(
+                    f"{module_path.name}:{line} imports `{imported}`, which"
+                    " is neither stdlib nor under"
+                    f" {sorted(permitted)}. A client example knows the"
+                    " product's identity and the question's parameters; it does"
+                    " not know a manifest, a deployment or a producer spine"
+                    " (`D-02`)"
                 )
     return violations
 
@@ -176,6 +298,66 @@ def test_the_gated_example_roots_exist() -> None:
         )
 
 
+def test_every_gated_root_carries_a_non_empty_permitted_set() -> None:
+    """The policy mappings agree with each other and with the roots tuple.
+
+    Three ways a root could be half-gated, each of them quiet:
+
+    * a root in :data:`PERMITTED_IMPORTS` and not in :data:`REFUSED_IMPORTS`
+      raises a ``KeyError`` at the call site rather than reporting a policy
+      hole, and the two mappings are the whole policy;
+    * a root added with an **empty** permitted set forbids every non-stdlib
+      import, which turns a green gate red for the wrong reason and invites the
+      wrong repair;
+    * an entry whose key is not a real directory gates a path, not an example.
+    """
+    assert set(PERMITTED_IMPORTS) == set(REFUSED_IMPORTS), (
+        "the permitted and refused mappings name different roots:"
+        f" {sorted(p.name for p in PERMITTED_IMPORTS)} vs"
+        f" {sorted(p.name for p in REFUSED_IMPORTS)}"
+    )
+    assert set(CLIENT_EXAMPLE_ROOTS) == set(PERMITTED_IMPORTS)
+    for root in CLIENT_EXAMPLE_ROOTS:
+        assert PERMITTED_IMPORTS[root], (
+            f"{root.name} declares an empty permitted set, so every non-stdlib"
+            " import in it would be a violation"
+        )
+
+
+def test_the_permitted_sets_are_prefixes_and_are_genuinely_per_root() -> None:
+    """``T-20-40``. Prefix matching, asserted against what the tree imports.
+
+    A ``frozenset`` invites ``module in permitted``. Exact membership would
+    refuse ``ccf.client.adapters.mcp_stdio``, ``google.adk.tools.mcp_tool``,
+    ``mcp.client.stdio``, ``langgraph.graph`` and ``langchain_core.tools`` —
+    every real import in both gated roots — while reading like a tightened
+    rule. The second half asserts the inversion: the submodule permitted for
+    one root is refused for the other.
+    """
+    for module in ("ccf.client", "ccf.client.adapters.mcp_stdio"):
+        assert _permitted(module, PERMITTED_IMPORTS[HW1_ROOT]), module
+    for module in (
+        "google.adk.tools.mcp_tool",
+        "mcp",
+        "mcp.client.stdio",
+        "langchain_core.tools",
+        "langgraph.graph",
+        "claude_agent_sdk",
+        "claude_agent_sdk.types",
+    ):
+        assert _permitted(module, PERMITTED_IMPORTS[HARNESS_ROOT]), module
+
+    # The inversion, both ways.
+    assert not _permitted(
+        "ccf.client.adapters.mcp_stdio", PERMITTED_IMPORTS[HARNESS_ROOT]
+    )
+    assert not _permitted("google.adk.tools.mcp_tool", PERMITTED_IMPORTS[HW1_ROOT])
+
+    # A prefix stops at a package boundary; it is not a string prefix.
+    assert not _permitted("ccf.clientele", PERMITTED_IMPORTS[HW1_ROOT])
+    assert not _permitted("mcpx", PERMITTED_IMPORTS[HARNESS_ROOT])
+
+
 # ---------------------------------------------------------------------------
 # The property.
 # ---------------------------------------------------------------------------
@@ -187,7 +369,9 @@ def test_the_gated_example_roots_exist() -> None:
 def test_the_client_example_imports_only_the_client_and_stdlib(
     root: pathlib.Path,
 ) -> None:
-    violations = check_example_purity(root)
+    violations = check_example_purity(
+        root, PERMITTED_IMPORTS[root], REFUSED_IMPORTS[root]
+    )
     assert not violations, "\n".join(violations)
 
 
@@ -197,11 +381,29 @@ def test_the_client_example_imports_only_the_client_and_stdlib(
 # ---------------------------------------------------------------------------
 
 
+#: What a copied example root never needs and must not carry into a control.
+NOT_COPIED = shutil.ignore_patterns("__pycache__", "graph.sqlite3*", "artifact-store")
+
+
 @pytest.fixture()
 def example_copy(tmp_path: pathlib.Path) -> pathlib.Path:
-    """A private copy of the real example, for a control to doctor."""
+    """A private copy of the **hw1** example, for a control to doctor."""
     root = tmp_path / "example"
-    shutil.copytree(CLIENT_EXAMPLE_ROOTS[0], root)
+    shutil.copytree(HW1_ROOT, root, ignore=NOT_COPIED)
+    return root
+
+
+@pytest.fixture()
+def harness_copy(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A private copy of the **harness-clients** example, for ``C-20-*``.
+
+    A second fixture rather than a parametrized one, because the two roots are
+    doctored with opposite forgeries: the hw1 controls prepend a producer
+    import, the harness controls prepend a ``ccf`` one. Sharing a fixture would
+    force every control to carry a policy argument it does not use.
+    """
+    root = tmp_path / "harness-example"
+    shutil.copytree(HARNESS_ROOT, root, ignore=NOT_COPIED)
     return root
 
 
@@ -209,11 +411,30 @@ def _entry_module(root: pathlib.Path) -> pathlib.Path:
     return reader_visible_modules(root)[0]
 
 
+def _hw1_purity(root: pathlib.Path) -> list[str]:
+    """Run the shipped checker over ``root`` under the **hw1** root's policy."""
+    return check_example_purity(
+        root, PERMITTED_IMPORTS[HW1_ROOT], REFUSED_IMPORTS[HW1_ROOT]
+    )
+
+
+def _harness_purity(root: pathlib.Path) -> list[str]:
+    """Run the shipped checker over ``root`` under the **harness** root's policy."""
+    return check_example_purity(
+        root, PERMITTED_IMPORTS[HARNESS_ROOT], REFUSED_IMPORTS[HARNESS_ROOT]
+    )
+
+
+def _prepend(module: pathlib.Path, line: str) -> None:
+    """Put ``line`` at the top of ``module``. The plainest forgery shape."""
+    module.write_text(line + module.read_text(encoding="utf-8"), encoding="utf-8")
+
+
 def test_the_unmodified_example_passes_the_checker(
     example_copy: pathlib.Path,
 ) -> None:
     """The controls' baseline: refusals below must come from the doctoring."""
-    assert check_example_purity(example_copy) == []
+    assert _hw1_purity(example_copy) == []
 
 
 def test_the_gate_refuses_a_plain_import_of_the_deployment(
@@ -224,7 +445,7 @@ def test_the_gate_refuses_a_plain_import_of_the_deployment(
     module.write_text(
         "import deployment\n" + module.read_text(encoding="utf-8"), encoding="utf-8"
     )
-    violations = check_example_purity(example_copy)
+    violations = _hw1_purity(example_copy)
     assert any("deployment" in entry for entry in violations), violations
 
 
@@ -238,7 +459,7 @@ def test_the_gate_refuses_a_from_import_of_a_producer_module(
         + module.read_text(encoding="utf-8"),
         encoding="utf-8",
     )
-    violations = check_example_purity(example_copy)
+    violations = _hw1_purity(example_copy)
     assert any("produce" in entry for entry in violations), violations
 
 
@@ -259,7 +480,7 @@ def test_the_gate_refuses_an_import_deferred_into_a_function_body(
     )
     assert doctored != source, "the control did not modify the module"
     module.write_text(doctored, encoding="utf-8")
-    violations = check_example_purity(example_copy)
+    violations = _hw1_purity(example_copy)
     assert any("deployment" in entry for entry in violations), violations
 
 
@@ -271,7 +492,7 @@ def test_the_gate_refuses_a_relative_import(example_copy: pathlib.Path) -> None:
         + module.read_text(encoding="utf-8"),
         encoding="utf-8",
     )
-    violations = check_example_purity(example_copy)
+    violations = _hw1_purity(example_copy)
     assert any("relativ" in entry for entry in violations), violations
 
 
@@ -284,7 +505,7 @@ def test_the_gate_refuses_an_empty_example_root(tmp_path: pathlib.Path) -> None:
     """
     empty = tmp_path / "no-modules-here"
     empty.mkdir()
-    violations = check_example_purity(empty)
+    violations = _hw1_purity(empty)
     assert violations, "an example root with no module passed the purity gate"
     assert any("checked nothing" in entry for entry in violations), violations
 
@@ -293,9 +514,188 @@ def test_the_gate_refuses_a_root_that_does_not_exist(
     tmp_path: pathlib.Path,
 ) -> None:
     """The other vacuity case: an unresolvable subject is a failure, not a pass."""
-    violations = check_example_purity(tmp_path / "was-renamed-away")
+    violations = _hw1_purity(tmp_path / "was-renamed-away")
     assert violations, "a non-existent example root passed the purity gate"
     assert any("nothing was checked" in entry for entry in violations), violations
+
+
+# ---------------------------------------------------------------------------
+# C-20-1..C-20-7 — the harness root's controls (`CLNT-12`/`D-22`).
+#
+# The three `client_*.py` programs were written in waves 3 and 4 with no purity
+# gate watching them; this is the first plan in which anything checks them. So
+# the controls here are not decoration on a rule already proven — they are the
+# only evidence the rule can fire against *this* root at all, and every one of
+# them was observed red under a named mutation before it was committed.
+#
+# Every control feeds a doctored `tmp_path` copy to `check_example_purity`, the
+# same function the shipped assertion calls, under the same policy the shipped
+# assertion passes. Nothing below re-implements a check.
+# ---------------------------------------------------------------------------
+
+
+def test_the_unmodified_harness_example_passes_the_checker(
+    harness_copy: pathlib.Path,
+) -> None:
+    """The harness controls' baseline: refusals below come from the doctoring.
+
+    Also the non-vacuity guard for them all — a copy that already violated
+    would make every ``C-20-*`` below pass without doctoring anything.
+    """
+    assert _harness_purity(harness_copy) == []
+    assert len(reader_visible_modules(harness_copy)) >= 1, (
+        "the harness copy carries no client program, so the controls below"
+        " would doctor nothing"
+    )
+
+
+def test_c20_1_the_gate_refuses_a_plain_ccf_import_in_a_client(
+    harness_copy: pathlib.Path,
+) -> None:
+    """``C-20-1`` — shape 1, ``ast.Import``, refused by name."""
+    _prepend(_entry_module(harness_copy), "import ccf\n")
+    violations = _harness_purity(harness_copy)
+    assert violations, "a `ccf` import in a harness client passed the gate"
+    assert all("ccf" in entry for entry in violations), violations
+    assert any("refused by name" in entry for entry in violations), violations
+
+
+def test_c20_2_the_gate_refuses_a_from_import_of_the_client_surface(
+    harness_copy: pathlib.Path,
+) -> None:
+    """``C-20-2`` — shape 2, ``ast.ImportFrom``.
+
+    ``from ccf.client import ProductClient`` is the *sympathetic* forgery: it
+    imports the supported four-name surface rather than a producer spine, and a
+    reader could talk themselves into it. It is still the thing this example
+    claims not to do.
+    """
+    _prepend(_entry_module(harness_copy), "from ccf.client import ProductClient\n")
+    violations = _harness_purity(harness_copy)
+    assert violations, "`from ccf.client import ...` passed the gate"
+    assert any("ccf.client" in entry for entry in violations), violations
+
+
+def test_c20_3_the_gate_refuses_a_ccf_import_deferred_into_a_function_body(
+    harness_copy: pathlib.Path,
+) -> None:
+    """``C-20-3`` — the shape Phase 19 measured a static grep missing.
+
+    Indented four spaces inside ``main``, so a pattern anchored at the start of
+    a line finds nothing. This is precisely why
+    ``examples/external/00-hello-context/run.py::_assert_zero_ccf_imports`` is
+    **not** the precedent for criterion 5: it is a grep, and criterion 5 says
+    AST.
+    """
+    module = _entry_module(harness_copy)
+    source = module.read_text(encoding="utf-8")
+    doctored = source.replace(
+        "    args = parse_args()",
+        "    import ccf  # deferred\n    args = parse_args()",
+        1,
+    )
+    assert doctored != source, "the control did not modify the module"
+    module.write_text(doctored, encoding="utf-8")
+    assert "\n    import ccf" in doctored, (
+        "the deferred import is not indented, so this control is testing the"
+        " top-level shape `C-20-1` already covers"
+    )
+    violations = _harness_purity(harness_copy)
+    assert violations, "a deferred `ccf` import passed the gate"
+    assert any("refused by name" in entry for entry in violations), violations
+
+
+def test_c20_4_the_gate_refuses_a_relative_import_of_the_runner(
+    harness_copy: pathlib.Path,
+) -> None:
+    """``C-20-4`` — the fourth import shape.
+
+    ``H-11`` puts the ``ccf``-importing runner one directory down, structurally
+    outside :func:`reader_visible_modules`. A client reaching it relatively
+    would walk straight back through that boundary, and the module name it
+    reaches for is not ``ccf`` — so the by-name refusal cannot be what catches
+    it. The relative branch is.
+    """
+    _prepend(_entry_module(harness_copy), "from .runner import drive\n")
+    violations = _harness_purity(harness_copy)
+    assert violations, "a relative import in a harness client passed the gate"
+    assert any("relativ" in entry for entry in violations), violations
+
+
+def test_c20_5_a_submodule_permitted_for_the_other_root_is_refused_here(
+    harness_copy: pathlib.Path, example_copy: pathlib.Path
+) -> None:
+    """``C-20-5`` — **the control specific to this phase's change**.
+
+    ``ccf.client.adapters.mcp_stdio`` is not a forgery in the abstract: it is
+    exactly what ``hw1-companies-over-revenue/consume.py`` imports, legitimately
+    and by design. The claim being controlled is that the permitted set is
+    genuinely **per root** — that the same import is refused here and permitted
+    there. A module-level *union* of the two roots' sets, which is the obvious
+    simplification and the likely regression, passes every other control in this
+    file and fails only this one (``T-20-23``).
+
+    Both directions are asserted in one test on purpose. Half of it — the
+    refusal — would also pass under a gate that refused ``ccf`` everywhere,
+    which would break ``consume.py`` and be discovered somewhere else.
+    """
+    forgery = "import ccf.client.adapters.mcp_stdio\n"
+
+    _prepend(_entry_module(harness_copy), forgery)
+    refused = _harness_purity(harness_copy)
+    assert refused, "a `ccf.client` submodule passed the harness root's gate"
+    assert any("ccf.client.adapters.mcp_stdio" in entry for entry in refused), refused
+
+    _prepend(_entry_module(example_copy), forgery)
+    assert _hw1_purity(example_copy) == [], (
+        "the same import was refused for the hw1 root, so the permitted set is"
+        " not per-root — it is one union, and `consume.py` is inside it only by"
+        " luck"
+    )
+
+
+def test_c20_6_the_gate_refuses_an_empty_harness_root(
+    harness_copy: pathlib.Path,
+) -> None:
+    """``C-20-6`` — vacuity, for the newly gated root specifically.
+
+    The three clients are the only reader-visible modules here, so a rename
+    that moved them (into ``runner/``, say, which is the tidying this layout
+    invites) would leave this gate globbing an empty directory and reporting
+    green.
+    """
+    for module in reader_visible_modules(harness_copy):
+        module.unlink()
+    violations = _harness_purity(harness_copy)
+    assert violations, "a harness root with no client program passed the gate"
+    assert any("checked nothing" in entry for entry in violations), violations
+
+
+def test_c20_7_the_gate_refuses_a_harness_root_that_does_not_exist(
+    tmp_path: pathlib.Path,
+) -> None:
+    """``C-20-7`` — the other vacuity case for the new root."""
+    violations = _harness_purity(tmp_path / "hw1-harness-clients-was-renamed")
+    assert violations, "a non-existent harness root passed the purity gate"
+    assert any("nothing was checked" in entry for entry in violations), violations
+
+
+def test_the_runner_is_structurally_outside_the_gate() -> None:
+    """``H-11``, asserted rather than assumed.
+
+    ``runner/drive.py`` imports ``ccf`` and must: it seeds the subjects and
+    computes the reference answer. It is outside this gate because it is one
+    directory down and :func:`reader_visible_modules` does not recurse — not
+    because anything here skips it by name. The day somebody moves it up beside
+    the clients, ``C-20-1``'s rule fires on it, which is the correct outcome.
+    """
+    visible = {path.name for path in reader_visible_modules(HARNESS_ROOT)}
+    assert visible == {"client_adk.py", "client_anthropic.py", "client_langgraph.py"}, (
+        visible
+    )
+    assert (HARNESS_ROOT / "runner" / "drive.py").is_file(), (
+        "the runner has moved; this assertion is no longer about anything"
+    )
 
 
 # ---------------------------------------------------------------------------
