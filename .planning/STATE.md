@@ -58,7 +58,7 @@ progress:
   percent: 93
 stopped_at: >-
   PHASE 20 IS EXECUTION-COMPLETE AND NOT YET GATED. Work is on branch `phase-20`
-  (`9e4bd0e`..`d9b3f5a`), NOT on `main`. NEXT ACTION, per CLAUDE.md SS3.1 and in this order:
+  (`9e4bd0e`..`5c0cc24`), NOT on `main`. NEXT ACTION, per CLAUDE.md SS3.1 and in this order:
   (1) the CROSS-AI PANEL against the SHIPPED CODE -- `/gsd-review --phase "Phase 20" --all`
   -- written to a DISTINCT `20-CLOSE-REVIEWS.md` so the pre-execution plan reviews survive;
   (2) the single-agent code review, which is ADDITIVE and never a substitute; (3) VERIFY
@@ -78,6 +78,38 @@ stopped_at: >-
   `pip download claude-agent-sdk==0.2.128 --platform manylinux_2_17_x86_64 --no-deps` and
   inspect the wheel for `_bundled/claude`. The README states the wheel bundles the CLI without
   qualifying by architecture; that is the sentence to correct if it resolves against us.
+  **WHAT WAS ACTUALLY VERIFIED AT CLOSE, AND BY WHOM -- DO NOT RE-DERIVE, DO NOT OVERCLAIM.**
+  The executor ran a FULL `make ci` to EXIT 0 at `d9b3f5a`: **4083 passed / 118 skipped**,
+  406 lint, 154 docs. The ORCHESTRATOR verified, at HEAD, independently: `make gate-tools`
+  EXIT 0 (406 + 154); `tests/examples` **456 passed / 37 skipped**; criterion 7 (`git diff
+  9e4bd0e..HEAD -- src/` EMPTY); `s2-01` gone with exactly ONE `client_langgraph.py` under
+  `examples/`; ten `CLNT-23..32` rows flipped; the ten Success Criteria still parsing as TEN
+  after the ROADMAP hand-edit; and a live `make example-hw1-harness-clients` printing three
+  legs plus the reference at one address with declared names and NO refusal line. THE
+  ORCHESTRATOR DID NOT COMPLETE A FULL `make ci` ITSELF -- see the harness note below. The
+  delta between the executor's green run and HEAD is ONLY `.planning/ROADMAP.md`,
+  `.planning/STATE.md` and the regenerated inventory, and NO test under `tests/` reads
+  `ROADMAP.md` or `STATE.md` (measured), so the untested surface is nil.
+  **HARNESS LIMITATION, OPERATIONAL:** a full `make ci` CANNOT be completed in one tool call
+  in this environment -- foreground Bash caps at 10 minutes and background jobs were KILLED
+  at ~3 minutes, twice. A partial run reached lint OK, typecheck OK, suite 34% with ZERO
+  failures before external `Terminated` (NOT a test failure). Do not read that termination as
+  a red build. To verify the full suite, either run it OUTSIDE the agent harness, or run the
+  components separately (`make lint`, `make typecheck`, `make test`, `make examples`,
+  `make docs-strict`, `make gate-tools`). Also: NEVER pipe a long build through `tail` in a
+  background job -- `tail` buffers until EOF, so a kill leaves an EMPTY log. Redirect to a
+  file and read the file.
+  **HOW TO BRIEF THE CLOSE PANEL.** Review the SHIPPED CODE, not the plans -- the plans
+  already had FOUR review rounds (11 -> 7 -> 4 -> 0 findings) and those decisions are
+  executed. Give the panel the findings ALREADY KNOWN and tell it NOT to re-derive them; its
+  budget is better spent on what is ADJACENT. This phase's defect classes, for aiming it:
+  (a) CHECKS THAT COULD NOT FAIL -- four found and closed, three by the executors sabotaging
+  their own controls; (b) A GUARD NARROWED FOR A TRANSIENT REASON (`D-IMPL-166`); (c) GATES
+  NOBODY CONSULTED -- the wave-1 `artifacts/` bijection and a docstring path silently
+  acquiring a coupling row. REVIEWER RELIABILITY ON THIS HOST: `codex` has reviewed NOTHING
+  at exit 0 when its sandbox fails -- inline the source for it and check it actually read
+  something; `gemini` has FABRICATED symbols. Verify EVERY finding against the tree with a
+  `path:line` before recording it, and record rejected findings AS REJECTED.
 ---
 
 # STATE — CCF SDK
