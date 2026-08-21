@@ -100,7 +100,7 @@ stopped_at: >-
   EXIST in the file it cited (`grep -n reference tests/examples/test_hw1_harness_clients_
   no_model.py` returns NOTHING) -- the fabricated-citation mode this project has rejected
   reviewer output for before. gemini's case-sensitivity scenario runs BACKWARDS through
-  `_words` (`drive.py:292`), which lowercases. Full rejection reasoning in the report.
+  `_words` (`examples/hw1-harness-clients/runner/drive.py::_words`), which lowercases. Full rejection reasoning in the report.
   **NEXT ACTION, in this order:** (2) the SINGLE-AGENT code review (`/gsd-code-review`),
   ADDITIVE and never a substitute for the panel; (3) FIX B-1, B-2, B-3 IN-PHASE -- each
   fix carries its own standing sabotage control per `CLNT-12`, and B-1's fix must turn the
