@@ -513,17 +513,33 @@ def _literal_bindings(tree: ast.Module) -> dict[str, ast.expr]:
     """
     bindings: dict[str, ast.expr] = {}
     for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Assign)
-            and len(node.targets) == 1
-            and isinstance(node.targets[0], ast.Name)
-        ):
-            bindings[node.targets[0].id] = node.value
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name):
+                bindings[target.id] = node.value
+            elif isinstance(target, (ast.Tuple, ast.List)) and isinstance(
+                node.value, (ast.Tuple, ast.List)
+            ):
+                # `PROMPT, MODEL = "…", "…"`. Positional unpack only: a starred
+                # target makes the correspondence between names and values
+                # ambiguous, and a binding this function is not sure of is worse
+                # than one it does not record.
+                if not any(
+                    isinstance(element, ast.Starred) for element in target.elts
+                ) and len(target.elts) == len(node.value.elts):
+                    for element, value in zip(target.elts, node.value.elts):
+                        if isinstance(element, ast.Name):
+                            bindings[element.id] = value
         elif (
             isinstance(node, ast.AnnAssign)
             and isinstance(node.target, ast.Name)
             and node.value is not None
         ):
+            bindings[node.target.id] = node.value
+        elif isinstance(node, ast.NamedExpr) and isinstance(node.target, ast.Name):
+            # `if (PROMPT := "…"):` binds exactly like an assignment, and the
+            # docstring above claimed to cover "every `name = <expr>`" while
+            # this spelling escaped.
             bindings[node.target.id] = node.value
     return bindings
 
@@ -558,9 +574,75 @@ def resolved_text(
             if isinstance(value, ast.Constant) and isinstance(value.value, str)
         ]
         return "".join(parts) if parts else None
+    if isinstance(node, ast.NamedExpr):
+        return resolved_text(node.value, bindings, depth + 1)
+    if isinstance(node, ast.BoolOp):
+        # `os.environ.get("VAR") or "<prompt>"` — the env var worn as a hat,
+        # spelled without a default argument at all. The literal is whichever
+        # operand carries one.
+        return _first_resolved(node.values, bindings, depth)
+    if isinstance(node, ast.IfExp):
+        return _first_resolved([node.body, node.orelse], bindings, depth)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        # A prompt split across a `+` is still one prompt in this file.
+        parts = [
+            text
+            for text in (
+                resolved_text(node.left, bindings, depth + 1),
+                resolved_text(node.right, bindings, depth + 1),
+            )
+            if text is not None
+        ]
+        return "".join(parts) if parts else None
+    if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
+        bound = bindings.get(node.value.id)
+        key = node.slice
+        if (
+            isinstance(bound, ast.Dict)
+            and isinstance(key, ast.Constant)
+            and isinstance(key.value, str)
+        ):
+            for dict_key, dict_value in zip(bound.keys, bound.values):
+                if (
+                    isinstance(dict_key, ast.Constant)
+                    and dict_key.value == key.value
+                ):
+                    return resolved_text(dict_value, bindings, depth + 1)
+        return None
     if isinstance(node, ast.Call):
-        if _is_environment_read(node) and len(node.args) >= 2:
-            return resolved_text(node.args[1], bindings, depth + 1)
+        if _is_environment_read(node):
+            # A default reaches the sink whether it is spelled positionally or
+            # as `default=`. Only the DEFAULT is followed: the first argument is
+            # the variable's NAME, and resolving that would report the name as
+            # if it were the prompt.
+            if len(node.args) >= 2:
+                return resolved_text(node.args[1], bindings, depth + 1)
+            for keyword in node.keywords:
+                if keyword.arg == "default":
+                    return resolved_text(keyword.value, bindings, depth + 1)
+            return None
+        # Any other call is treated as a WRAPPER around its content:
+        # `"…".strip()`, `textwrap.dedent("…")`, `"…".format(x)`. Resolving
+        # through it is deliberately generous, for the reason
+        # :func:`_literal_bindings` already states — over-resolution can only
+        # ever report a literal that genuinely appears in this file, while
+        # under-resolution reports a clean tree. Enumerating wrapper names
+        # instead is what left nine escapes open behind one that was fixed.
+        candidates: list[ast.expr] = list(node.args)
+        if isinstance(node.func, ast.Attribute):
+            candidates.insert(0, node.func.value)
+        return _first_resolved(candidates, bindings, depth)
+    return None
+
+
+def _first_resolved(
+    nodes: Sequence[ast.expr], bindings: dict[str, ast.expr], depth: int
+) -> str | None:
+    """The first of ``nodes`` that resolves to a literal, or ``None``."""
+    for node in nodes:
+        text = resolved_text(node, bindings, depth + 1)
+        if text is not None:
+            return text
     return None
 
 
@@ -585,6 +667,16 @@ def instruction_sinks(tree: ast.Module) -> list[tuple[ast.expr, str]]:
             for keyword in node.keywords:
                 if keyword.arg in INSTRUCTION_SINK_KWARGS:
                     sinks.append((keyword.value, f"{keyword.arg}="))
+                elif keyword.arg is None and isinstance(keyword.value, ast.Dict):
+                    # `LlmAgent(**{"instruction": "…"})` reaches the same
+                    # parameter by the same name; only the spelling differs.
+                    for key, value in zip(keyword.value.keys, keyword.value.values):
+                        if (
+                            isinstance(key, ast.Constant)
+                            and isinstance(key.value, str)
+                            and key.value in INSTRUCTION_SINK_KWARGS
+                        ):
+                            sinks.append((value, f'**{{"{key.value}": ...}}'))
             called = _called_name(node.func)
             if called in INSTRUCTION_SINK_CALLS and node.args:
                 sinks.append((node.args[0], f"{called}(...)"))
