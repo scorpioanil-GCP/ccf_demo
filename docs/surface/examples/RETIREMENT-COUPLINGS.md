@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **242** across **80** files
+- Coupling rows: **244** across **80** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **146** across **50** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **235**
 
@@ -19,7 +19,7 @@ Rows by owning plan:
 | 16-02 | 10 |
 | 16-15 | 24 |
 | 16-17 | 41 |
-| 16-18 | 109 |
+| 16-18 | 111 |
 | 17-08 | 58 |
 
 Rows by coupling shape:
@@ -29,7 +29,7 @@ Rows by coupling shape:
 | `comment` | 21 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 63 |
+| `docstring` | 64 |
 | `indirect-execution` | 1 |
 | `literal-set-member` | 4 |
 | `makefile-recipe` | 16 |
@@ -37,7 +37,7 @@ Rows by coupling shape:
 | `path-construction` | 11 |
 | `prose` | 44 |
 | `snippet-include` | 53 |
-| `string-literal` | 8 |
+| `string-literal` | 9 |
 | `tmp_path-synthetic` | 5 |
 
 ## Reading the columns
@@ -241,11 +241,13 @@ Rows by coupling shape:
 | `tests/examples/test_hw1_harness_clients_no_model.py` | 12 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 16 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 28 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 29 | `tests/examples/test_ext00_hardening.py` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 148 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 153 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 411 | `examples/external/00-hello-context` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 436 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 30 | `tests/examples/test_ext00_hardening.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 47 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 163 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 168 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 497 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 561 | `examples/external/00-hello-context` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 582 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_source_estate.py` | 50 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
 | `tests/examples/test_spine_separation.py` | 24 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/halflife/test_debt.py` | 707 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
@@ -630,7 +632,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-RESEARCH.md` | 17 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-VALIDATION.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 54 | append-only decision log |
+| `docs/DECISIONS.md` | 55 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |

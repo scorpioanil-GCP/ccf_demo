@@ -11,9 +11,9 @@ provides:
   - "docs/retired/16-external-consumers/ — the Phase 16 orphans, moved with history and a written record"
   - "docs/retired/16-external-consumers/README.md — the retirement record naming Phase 16, D-IMPL-152 and examples/hw1-harness-clients/"
   - "tests/examples/test_hw1_harness_clients_retirement.py — the tree assertion, the LangGraph-only census, the positive H-14 assertion, and six numbered controls"
-  - "tests/examples/test_hw1_harness_clients_retirement.py::untracked_paths_violations — the carried-forward ext-00 guard, narrowed to untracked files"
+  - "tests/examples/test_hw1_harness_clients_retirement.py::untracked_paths_violations and ::modified_tracked_violations — BOTH arms of the carried-forward ext-00 guard"
   - "examples/external/00-hello-context/README.md — the H-14 historical marking, prose under an existing heading"
-  - "docs/DECISIONS.md D-IMPL-164, D-IMPL-165"
+  - "docs/DECISIONS.md D-IMPL-164, D-IMPL-165, D-IMPL-166"
 affects:
   - "20-08: examples/s2-01-external-consumers/ no longer exists; criterion 8's prior-vintage duplicates are discharged. The retirement inventory is current AS OF this plan's task-3 commit and is re-staled by this SUMMARY — 20-08 regenerates it"
   - "any later phase: D-IMPL-164 is ONE destination for ONE directory and may NOT be cited as a quarantine convention"
@@ -22,7 +22,8 @@ tech-stack:
   patterns:
     - "a census scoped to exactly the claim its ruling makes, with the narrowing written into the function's own docstring so it does not read as an oversight"
     - "a retirement gate that asserts the historical example STAYS, so the gate cannot be satisfied by deleting things"
-    - "a carried-forward assertion narrowed to the damage mode it actually guarded, rather than transplanted verbatim into a host that makes it fragile"
+    - "a transient red in a shipped guard is resolved by committing before verifying, never by shrinking the assertion"
+    - "two arms over one `git status` read, so they cannot disagree about the tree, with a control asserting each arm stays blind to the other's subject"
     - "every pointer into a quarantined tree confined to docs/, so no build path reaches unmaintained code"
 key-files:
   created:
@@ -42,11 +43,12 @@ key-files:
 key-decisions:
   - "The reference sweep had SEVEN sites, not six. examples/hw1-harness-clients/client_langgraph.py:19 cited the moved path and was created by plan 20-03, after 20-07 was written. The row is added below"
   - "Every pointer into the retired tree is confined to docs/. This is what makes the task-1 criterion literally satisfiable: the destination name contains `external-consumers`, so any .py outside docs/ citing the new location would match the very grep that criterion runs"
-  - "The carried-forward ext-00 assertion is NARROWED from `git status --porcelain` to untracked-files-only. The verbatim form would be red right now — this plan's own H-14 marking leaves ` M README.md` in git status for the length of a task"
+  - "CORRECTED AT WAVE REVIEW: the carried-forward ext-00 assertion is restored IN FULL, both arms. The narrowing was not forced — its justification was transient and commit-before-verify resolves it (D-IMPL-166)"
   - "No control is written for `two ADK clients under examples/`, because two is the mandated state. A parametrized test records that positively instead"
   - "A row in the coupling inventory owned by a retired plan is a MEASUREMENT with a stale owner, not a work item"
 patterns-established:
   - "A gate that names what it condemns will match a grep for the condemned name; the honest criterion is that no test CONSTRUCTS the path as a live subject"
+  - "A narrowing whose whole justification is a transient working-tree state is a weakening with a plausible cover story"
 requirements-completed: [CLNT-29, CLNT-30]
 duration: ~2h
 completed: 2026-08-21
@@ -109,6 +111,7 @@ which the bundled binary never reads.
 | 1 — the move, the record, the prose references | `e4e8e1d` | `git mv` to `docs/retired/16-external-consumers/`; `README.md`; `SECTION-2-TRANSPORT.md` repointed; the stale `test_artifact_schema_headers.py` docstring corrected; the seventh reference site handled |
 | 2 — the spike retired, the tree asserted | `6d8afa0` | `test_s2_client_transport_spike.py` deleted; `test_hw1_harness_clients_retirement.py` created — 13 tests, six controls |
 | 3 — the marking, the inventory, the record | `8783a38` | The `H-14` blockquote; `RETIREMENT-COUPLINGS.md` regenerated; `D-IMPL-164` and `D-IMPL-165` appended |
+| wave review — the guard restored | `4f01895` | `modified_tracked_violations` restored; `porcelain_entries` feeding both arms; CONTROL 7 and CONTROL 8; `D-IMPL-166` |
 
 ## THE REFERENCE SWEEP HAD SEVEN SITES, NOT SIX
 
@@ -172,28 +175,63 @@ named `s2-01`. Nothing broke by moving it.
   test or example now reaches into unmaintained code, which is what `CLNT-17`'s
   no-partial-state is for. Measured: the grep returns nothing.
 
-### 3. [Rule 2 — Missing critical functionality] The carried-forward assertion was narrowed, not transplanted
+### 3. [Rule 2 — Missing critical functionality] The carried-forward assertion, first narrowed, then RESTORED IN FULL at wave review
 
 - **Found during:** Task 2, accounting for
-  `test_the_shipped_external_example_is_untouched`.
-- **Issue:** `tests/examples/test_ext00_hardening.py` does **not** carry it, so
-  it had to be carried forward. But its shipped form —
-  `git status --porcelain -- examples/external/00-hello-context/` must be
-  empty — is a *side-effect* check belonging to a module that spawned that
-  server and read its artifacts. Transplanted verbatim into a general module it
-  goes red for any legitimate uncommitted edit. **This plan proves it:** during
-  task 3, `git status --short examples/external/00-hello-context/` printed
-  ` M examples/external/00-hello-context/README.md` — the `H-14` marking. The
-  verbatim assertion would have been red for the length of the task.
-- **Resolution:** Carried forward as
-  `test_hw1_harness_clients_retirement.py::untracked_paths_violations`,
-  narrowed to `git ls-files --others --exclude-standard`. Untracked files are
-  the damage mode the original guarded — a test writing *into* a shipped
-  example tree — and a reviewed edit to a tracked file is not. CONTROL 6 watches
-  it fail. The narrowing and its measured reason are written into the module
-  docstring and into `D-IMPL-165`.
+  `test_the_shipped_external_example_is_untouched`; **corrected after the wave
+  review.**
+- **Issue as first diagnosed:** `tests/examples/test_ext00_hardening.py` does
+  **not** carry the assertion, so it had to be carried forward. Its shipped
+  form — `git status --porcelain -- examples/external/00-hello-context/` must
+  be empty — went red during task 3 of this plan, because the `H-14` marking
+  left ` M examples/external/00-hello-context/README.md` in `git status`. It
+  was carried forward **narrowed** to untracked files only.
+- **Why that was wrong, and it was wrong.** The red was **transient**. It held
+  only while the marking was *uncommitted*. Measured immediately after the
+  task-3 commit (`8783a38`):
+  `git status --porcelain examples/external/00-hello-context/` is **empty**,
+  and the verbatim form passes. **Commit-before-verify** — the hazard-5 pattern
+  this phase set in wave 2, which this same plan used elsewhere — preserves the
+  guard at no cost. Sequencing would have kept it; the narrowing was not forced.
+- **What the narrowing cost.** The original caught two damage modes and only
+  one was kept. The dropped arm is the one that catches a run **writing back
+  over a tracked artifact**, and the untracked arm cannot substitute for it
+  *structurally*: the file already exists and is already tracked, so `git`
+  reports a modification and never `??`. The spike's docstring gives the reason
+  the guard existed — *"this module both spawns that server and reads its
+  artifacts"* — and `make example-ext-00` spawns that server on **every CI
+  run**. Live risk, not hypothetical.
+- **The reasoning error, named so it is not repeated.** *"A reviewed edit to a
+  tracked file is not the damage mode"* is right about intent and wrong about
+  mechanism. The verbatim guard never objected to reviewed edits: a committed
+  change leaves `git status` clean, which is exactly why it is green now. It
+  objects to **uncommitted** ones, and an example that dirties its own tracked
+  files during a run is uncommitted by definition.
+- **Resolution (commit `4f01895`).** Both arms ship, over one
+  `git status --porcelain` read so they cannot disagree about the tree:
+  `porcelain_entries` → `untracked_paths_violations` (arm 1, a new non-ignored
+  file) and `modified_tracked_violations` (arm 2, a tracked file changed and
+  not committed). Each has a shipped assertion over the real tree. Verified
+  **after a real run**, not merely asserted: `make example-ext-00` exits 0 and
+  the guarded tree's `git status --porcelain` is empty afterwards. Recorded as
+  `D-IMPL-166`, which corrects `D-IMPL-165` **by appending** — `D-IMPL-165` is
+  left byte-unchanged, as this log requires.
 
-## Controls: six written, all seven mutations observed red
+### 4. [Rule 1 — Bug] The sabotage sweep found a hole in my own restored controls
+
+- **Found during:** the post-restoration sabotage sweep.
+- **Issue:** Mutating `porcelain_entries` to answer a **missing subject** with
+  `[]` instead of `None` left **CONTROL 6 and CONTROL 7 both GREEN** — neither
+  exercises that branch. A guard pointed at a directory that is not there
+  reported no findings, which is the vacuous pass this module's other
+  properties are explicitly built to be immune to.
+- **Resolution:** `CONTROL 8` added, asserting both arms fail loudly over a
+  missing subject. The mutation is now red. **Reported rather than quietly
+  patched**, because the finding is the point: five mutations were needed to
+  discover that two controls were watching one branch and no control was
+  watching the other.
+
+## Controls: eight written, twelve mutations observed red
 
 Each mutation was applied to the property function in place, the single control
 run, and the module restored and verified byte-identical afterwards.
@@ -206,9 +244,24 @@ run, and the module restored and verified byte-identical afterwards.
 | CONTROL 3b | a non-existent `examples_root` | `langgraph_census_violations` answers a missing root with `[]` | **RED**, exit 1 |
 | CONTROL 4 | synthetic tree with two `client_langgraph.py` | the over-count branch of `langgraph_census_violations` removed | **RED**, exit 1 |
 | CONTROL 5 | synthetic `external/00-hello-context/` missing `client_adk.py` | `historical_example_violations` stops reporting missing clients | **RED**, exit 1 |
-| CONTROL 6 | a real `git init` repo with an untracked `graph.sqlite3` under the guarded tree | `untracked_paths_violations` drops git's answer | **RED**, exit 1 |
+| CONTROL 6 | a real `git init`+commit repo, then a NEW `graph.sqlite3` under the guarded tree | arm 1's `== '??'` filter removed | **RED**, exit 1 |
+| CONTROL 7a | the same repo, then `client_bare.py` **overwritten** | arm 2's `!= '??'` filter removed | **RED**, exit 1 |
+| CONTROL 7b | same | the two arms collapsed — arm 2's filter inverted onto `??`, so it watches arm 1's subject | **RED**, exit 1 |
+| CONTROL 7c | same | arm 1 widened to every entry, so it would mask arm 2's absence | **RED**, exit 1 |
+| CONTROL 8 | a real repo with **no** guarded tree at all | `porcelain_entries` answers a missing subject with `[]` instead of `None` | **RED**, exit 1 |
 
-**Controls that could not be made to fail: none.**
+**Controls that could not be made to fail: one, found and fixed.** The
+`porcelain_entries` vacuity mutation was **GREEN** against CONTROL 6 and
+CONTROL 7 — neither exercised that branch. `CONTROL 8` was written for it and
+the mutation is now red. That finding is recorded as deviation 4 rather than
+folded in silently, because a sweep that only confirms what you expected has
+not earned its cost.
+
+**CONTROL 7 uses a real `git init` AND a real commit.** An added-but-uncommitted
+file is itself a tracked modification, so a control built on a merely-staged
+file would go red for the wrong reason and prove nothing about the arm under
+test. It also asserts arm 1 stays **empty** under the same mutation, which is
+what makes the two arms independent rather than one arm watched twice.
 
 **The control deliberately NOT written, and why.** There is no control for
 *"two ADK clients under `examples/` is a violation"* — because **two is the
@@ -293,7 +346,7 @@ it for this one.
 |---|---|
 | Nothing under `src/` changed | `git diff --stat 9e4bd0e..HEAD -- src/ \| wc -l` → `0` |
 | The wave-2 prompt arm not weakened | `git diff c1ddbb8..HEAD -- tools/lints/allowlist.yaml` and `-- tools/lints/no_hardcoding.py` both empty |
-| `docs/DECISIONS.md` append-only | `4` insertions, `0` deletions; `D-IMPL-125` and `D-IMPL-136` byte-identical to HEAD |
+| `docs/DECISIONS.md` append-only | `6` insertions, `0` deletions across the plan; `D-IMPL-125`, `D-IMPL-136` and `D-IMPL-165` all byte-identical — `D-IMPL-166` corrects `D-IMPL-165` by appending |
 | History followed the move | `git log --follow` on `docs/retired/16-external-consumers/client_langgraph.py` reaches `33c0626 feat(16-03)` |
 | Citation ceiling (`MAXIMUM_UNANCHORED_PY_CITATIONS = 0`) | `.venv/bin/python -m tools.lints --citations` exit 0 at every step |
 | No package installed | none |
@@ -307,7 +360,7 @@ it for this one.
 | T-20-27 (repudiation, the move) | mitigated | `git mv` with `--follow` verified; a record naming Phase 16, `D-IMPL-152` and the replacement; `D-IMPL-164` and `D-IMPL-165` appended |
 | T-20-28 (DoS, `make ci`) | mitigated | marking is prose; heading count `7` and zero added/removed `## ` lines both asserted; `make example-ext-00` green |
 | T-20-29 (tampering, the CLI recipe) | mitigated | the sequencing precondition was run mechanically and answered ten variables before the deletion |
-| T-20-30 (repudiation, lost coverage) | mitigated | the ext-00 assertion is accounted for in writing — not duplicated in `test_ext00_hardening.py`, carried forward narrowed, with CONTROL 6 |
+| T-20-30 (repudiation, lost coverage) | mitigated | the ext-00 assertion is accounted for in writing — not duplicated in `test_ext00_hardening.py`, carried forward **in full, both arms**, with CONTROL 6, 7 and 8 |
 | T-20-31 (tampering, the inventory) | mitigated | regenerated by the tool, never hand-edited; idempotency asserted; `make gate-tools` green |
 | T-20-32 (repudiation, historical record) | mitigated | `D-IMPL-125`/`D-IMPL-136` byte-identical, verified against `git show HEAD:` |
 | T-20-SC (package installs) | mitigated | none installed |
