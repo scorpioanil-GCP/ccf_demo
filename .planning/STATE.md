@@ -67,8 +67,11 @@ stopped_at: >-
   because codex reviews nothing at exit 0 on this host. Eleven findings claimed, EVERY ONE
   VERIFIED against the tree: THREE BLOCKING, four advisory, FOUR REJECTED (recorded as
   rejected).
-  **THE THREE BLOCKING FINDINGS -- these stand between here and `D-GATE-20`:**
-  **B-1** `examples/hw1-harness-clients/runner/drive.py:437` vs `:453` vs `:256-280`.
+  **THE THREE BLOCKING FINDINGS -- ALL FIXED 2026-08-21 (`08826ba`, `86142a0`, `ad3edb0`),
+  each with a standing control verified RED under sabotage. Recorded below as found:**
+  **B-1** `examples/hw1-harness-clients/runner/drive.py::marker_violations` vs
+  `examples/hw1-harness-clients/runner/drive.py::observed_markers` vs
+  `examples/hw1-harness-clients/runner/drive.py::CONSOLE_VOCABULARY`.
   `marker_violations` property 4 compares whole WORDS of a declared name against the chrome
   vocabulary; `observed_markers` matches by raw SUBSTRING; and `CONSOLE_VOCABULARY` OMITS
   `product`, a word all three legs print (`print("context product")`). PROVEN by running
@@ -77,24 +80,27 @@ stopped_at: >-
   passing the check written to refuse it. LATENT, not live: the six current names in
   `runner/scenario-rows.yaml` are safe. Root cause: the vocabulary was sourced from
   `consume.py::main` + the runner, but the check greps the LEG's stdout.
-  **B-2** `tools/lints/no_hardcoding.py:561-563`. The CINV-01a destination arm resolves
+  **B-2** `tools/lints/no_hardcoding.py::resolved_text`. The CINV-01a destination arm resolves
   `node.args[1]` ONLY, so `os.environ.get(k, default="...")` and `os.getenv(k,
   default="...")` ESCAPE it. PROVEN against `check_source`: positional FLAGGED, both
   keyword spellings NOT FLAGGED. Both spellings are valid Python (executed to confirm).
   This is one spelling of the exact "env var worn as a hat" shape ruling 6(b) minted the
   arm to refuse.
-  **B-3** `drive.py:384`/`:458`/`:808`. `marker_violations`, `payload_violations` and
+  **B-3** `examples/hw1-harness-clients/runner/drive.py::marker_violations`,
+  `examples/hw1-harness-clients/runner/drive.py::payload_violations` and
+  `examples/hw1-harness-clients/runner/drive.py::compare_addresses`. `marker_violations`, `payload_violations` and
   `compare_addresses` appear ONLY in `drive.py` -- no test imports or probes them. CONTROL
   A-F ran as ONE-SHOT mutation probes recorded in `20-03-SUMMARY.md:164-172`, not standing
   tests, unlike the purity gate (C-20-1..9) and the no-model guard (CONTROL 1-3) which both
   ship pytest controls. B-1 IS THE DIRECT CONSEQUENCE. **Whether a SUMMARY-recorded
   one-shot probe discharges `CLNT-12` IS A RULING FOR DAVE, not a thing to decide alone.**
-  **ADVISORY (4):** A-1 `no_hardcoding.py:691` -- the message says a prompt is refused
+  **ADVISORY (4):** A-1 `tools/lints/no_hardcoding.py::check_source` -- the message says a prompt is refused
   "not by how long it is" while `_is_prose_candidate` floors at `MIN_PROMPT_CHARS = 40`;
   the FLOOR is a documented measured knee (CONTROL 8) and is NOT the defect, the SENTENCE
   is. Only three-way consensus finding. A-2 `runner/model_stub.py` `seen` written and never
   read, which its own docstring at `:45` calls the `C-10` pattern this project refuses.
-  A-3 `drive.py:765` `reference_run` has no subprocess timeout while the leg at `:991` does.
+  A-3 `examples/hw1-harness-clients/runner/drive.py::reference_run` has no subprocess
+  timeout while `examples/hw1-harness-clients/runner/drive.py::drive_leg` does.
   A-4 a leg timeout orphans the door grandchild -- already documented in situ at `:966-971`.
   **REJECTED (4), and why it matters:** codex quoted a docstring sentence that DOES NOT
   EXIST in the file it cited (`grep -n reference tests/examples/test_hw1_harness_clients_

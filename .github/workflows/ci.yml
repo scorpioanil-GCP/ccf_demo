@@ -151,7 +151,19 @@ jobs:
       CCF_REQUIRE_HARNESSES: "1"
 
     steps:
+      # FULL history, not the default shallow clone. Plan `20-08` pins a phase
+      # base commit in `20-BASE-COMMIT.txt` and
+      # `tests/examples/test_hw1_harness_clients_readme.py` asserts Criterion 7
+      # against it — `git diff --stat <base>..HEAD -- src/ccf/client/` must print
+      # nothing. Under `fetch-depth: 1` that SHA is not in the clone, `git diff`
+      # exits 128, and the test refuses to read an empty string from a broken
+      # command as a clean tree — correctly, because that is the
+      # check-that-cannot-fail shape this project keeps finding. Deepening the
+      # clone is the fix; softening the assertion would retire the only
+      # mechanical evidence for Criterion 7.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
