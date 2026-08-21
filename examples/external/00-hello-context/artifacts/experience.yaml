@@ -106,6 +106,26 @@ declaration:
     agents: []
     invocation_refusal: "no agents are exposed on this deployment"
 
+  # What the LLM client legs ASK. A prompt in client code is the
+  # No-Hardcoding Rule firing (CLAUDE.md §6.4) exactly as a model name in
+  # client code would be, and for the same reason: the client is an
+  # interpreter, the deployment supplies the values. It sat as an
+  # `os.environ.get("CCF_EXAMPLE_QUESTION", <literal>)` fallback in
+  # `client_adk.py` and `client_anthropic.py` until Phase 20's tightened
+  # `cinv01a-prompt-shape` refused a literal reaching a model-instruction
+  # sink and surfaced both. The text is unchanged from that fallback — only
+  # where it lives changed — and `run.py` passes it to every leg through
+  # `CCF_EXAMPLE_QUESTION`, which the legs now read as REQUIRED.
+  #
+  # A different question is safe for offline CI: `replay_server.py`'s
+  # fingerprint compares model, tool names and message counts, and records an
+  # intentional residual that message CONTENT is not part of the comparison.
+  #
+  # [ADAPT] the whole string.
+  client_question: >-
+    Use the available tools to retrieve the governed context, then state your
+    recommendation.
+
   # Model the LLM client legs use when run live (CI runs transport-level
   # replay instead — D-09). A model name in code is a deployment value in
   # code, so it lives here and legs read it from env.

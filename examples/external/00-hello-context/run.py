@@ -652,6 +652,15 @@ def main() -> int:
                     # deployment values from the artifacts (plan-03 contract).
                     "CCF_EXAMPLE_TENANT": booted.tenant_id,
                     "CCF_EXAMPLE_ENTITY": focus["entity_ref"],
+                    # The question each LLM leg asks, from the artifact rather
+                    # than from a default inside the client. Phase 20's
+                    # tightened `cinv01a-prompt-shape` refuses a literal
+                    # reaching a model-instruction sink, and the two legs used
+                    # to reach theirs through an `os.environ.get` fallback —
+                    # a prompt in code wearing an env var as a hat (§6.4).
+                    # The legs now read this as REQUIRED, so a driver that
+                    # forgets it fails loudly instead of running a hidden one.
+                    "CCF_EXAMPLE_QUESTION": experience["client_question"],
                 }
                 leg_env = _leg_environments(
                     base_env=base_env,
