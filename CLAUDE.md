@@ -1355,6 +1355,13 @@ The `docs/SPEC_INVENTORY.md` Dave approves at the end of Phase R has:
 
 If Phase R produces a summary instead of an inventory, redo it.
 
+## 17. Interactions with Dave
+
+Keep the dialog with Dave as concise as required to communicate the
+response and options. Minimize technical jargon and speak to Dave in
+plain English. Avoid verbose explanations filled with technical jargon —
+just get to the point.
+
 ---
 
 *Last revised: revision 4 — separated agent archetypes (SDK mechanism)
