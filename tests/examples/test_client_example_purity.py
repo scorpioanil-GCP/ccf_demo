@@ -88,6 +88,8 @@ import re
 import shlex
 import shutil
 import sys
+from collections.abc import Sequence
+from typing import NamedTuple
 
 import pytest
 
@@ -729,25 +731,103 @@ README_COMMAND = re.compile(r"^(CCF_BINDING=.*)$", re.MULTILINE)
 #: heading, which is a documentation defect this gate is well placed to see.
 MAKE_TARGETS: tuple[str, ...] = ("example-hw1:", "example-hw1-mcp:")
 
+#: The harness example's declared commands. Anchored on the **invocation**
+#: rather than on an environment assignment, because these three carry none:
+#: what varies between them is a flag value, not a binding. :data:`README_COMMAND`
+#: would match nothing here, which is why the pattern is a parameter.
+HARNESS_README_COMMAND = re.compile(
+    r"^(\.venv/bin/python examples/hw1-harness-clients/.*)$", re.MULTILINE
+)
 
-def documented_commands(root: pathlib.Path) -> tuple[str, ...]:
-    """Every command the example's README tells a reader to type, in order."""
+#: The harness example's per-leg `make` targets, in the order the README states
+#: their commands. The all-legs target `example-hw1-harness-clients:` is
+#: deliberately absent: it is the CI spelling, `$(ENV) $(PYTHON) …`, which is
+#: correctly *not* a string a reader can type and correctly not documented as
+#: one. A gate pairing it with a README block would be asserting the wrong
+#: claim.
+HARNESS_MAKE_TARGETS: tuple[str, ...] = (
+    "example-hw1-harness-clients-adk:",
+    "example-hw1-harness-clients-anthropic:",
+    "example-hw1-harness-clients-langgraph:",
+)
+
+
+class CommandSpec(NamedTuple):
+    """How one example root's documented commands are found and paired."""
+
+    pattern: re.Pattern[str]
+    targets: tuple[str, ...]
+
+
+#: Per-root, for the same reason :data:`PERMITTED_IMPORTS` is per-root: the two
+#: examples document different *shapes* of command, and a single module-level
+#: pattern would read one root and silently find nothing in the other — a
+#: findall over the wrong pattern returns an empty list, not an error.
+#:
+#: The hw1 assertions below still spell ``CLIENT_EXAMPLE_ROOTS[0]``, which is
+#: the hw1 root and is what they are about; they were not repointed. The
+#: harness assertions pass their pattern and targets explicitly instead, so
+#: neither set can be silently redirected by a change to the tuple's order.
+COMMAND_SPECS: dict[pathlib.Path, CommandSpec] = {
+    HW1_ROOT: CommandSpec(README_COMMAND, MAKE_TARGETS),
+    HARNESS_ROOT: CommandSpec(HARNESS_README_COMMAND, HARNESS_MAKE_TARGETS),
+}
+
+
+def documented_commands(
+    root: pathlib.Path,
+    pattern: re.Pattern[str] | None = None,
+    targets: tuple[str, ...] | None = None,
+) -> tuple[str, ...]:
+    """Every command the example's README tells a reader to type, in order.
+
+    Args:
+        root: The example root whose ``README.md`` is read.
+        pattern: How that README states a command. Defaults to the root's entry
+            in :data:`COMMAND_SPECS` — a lookup, never a module-level constant,
+            so a caller who passes only a root still gets *that root's* rule.
+        targets: The `make` targets those commands must pair with, in order.
+    """
+    if pattern is None or targets is None:
+        spec = COMMAND_SPECS.get(root)
+        assert spec is not None, (
+            f"{root} has no entry in COMMAND_SPECS, so there is no rule for"
+            " reading its documented commands. Pass a pattern and targets"
+            " explicitly, or register the root"
+        )
+        pattern = spec.pattern if pattern is None else pattern
+        targets = spec.targets if targets is None else targets
+
     readme = (root / "README.md").read_text(encoding="utf-8")
-    matches = README_COMMAND.findall(readme)
-    assert len(matches) == len(MAKE_TARGETS), (
-        f"{root.name}/README.md states {len(matches)} commands beginning"
-        f" `CCF_BINDING=` and the Makefile carries {len(MAKE_TARGETS)} targets"
+    matches = pattern.findall(readme)
+    assert len(matches) == len(targets), (
+        f"{root.name}/README.md states {len(matches)} commands matching"
+        f" {pattern.pattern!r} and the Makefile carries {len(targets)} targets"
         " for them. Every documented command runs from a target and every"
         f" target is documented, so the two counts are one number: {matches}"
     )
     return tuple(match.strip() for match in matches)
 
 
-def make_recipe(target: str) -> str:
-    """The single recipe line ``make <target>`` runs."""
-    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8").splitlines()
+def make_recipe(target: str, makefile_path: pathlib.Path | None = None) -> str:
+    """The single recipe line ``make <target>`` runs.
+
+    ``makefile_path`` is a parameter so a control can hand this function a
+    synthetic ``Makefile`` whose target grew a second recipe line. The one-line
+    rule below is what makes a recipe comparable to a README block at all, and
+    a rule nothing has been watched enforcing is a rule on paper.
+    """
+    if makefile_path is None:
+        makefile_path = REPO_ROOT / "Makefile"
+    makefile = makefile_path.read_text(encoding="utf-8").splitlines()
     start = next(
-        index for index, line in enumerate(makefile) if line.startswith(target)
+        (index for index, line in enumerate(makefile) if line.startswith(target)),
+        None,
+    )
+    assert start is not None, (
+        f"`{target}` is not declared in {makefile_path}. A target the README"
+        " documents and the Makefile does not carry is the divergence this"
+        " check exists to find, so it is a failure rather than a lookup miss"
     )
     recipes: list[str] = []
     for line in makefile[start + 1 :]:
@@ -924,3 +1004,337 @@ def test_the_identity_check_refuses_an_empty_side() -> None:
     violations = command_identity_violations("", "")
     assert violations, "two empty strings were reported as an identical command"
     assert any("nothing was compared" in entry for entry in violations), violations
+
+
+# ---------------------------------------------------------------------------
+# The harness example's documented commands — the same claim, one root over.
+#
+# Coverage here had to be added DELIBERATELY. The machinery above is pinned to
+# `CLIENT_EXAMPLE_ROOTS[0]` and to `MAKE_TARGETS`, so adding a root to
+# `PERMITTED_IMPORTS` pointed the *purity* assertions at the new README and
+# pointed none of these at it. That is the good half — no accidental red — and
+# the bad half — no coverage — of the same fact, and the bad half is the one
+# that goes unnoticed.
+#
+# The hw1 claim is "the two commands differ in the CCF_BINDING SCHEME and
+# nowhere else". This root's claim is its analogue: "the three commands differ
+# in the LEG NAME and nowhere else" — one product, one door, three harnesses.
+# `test_every_documented_command_names_a_distinct_binding_scheme` above is NOT
+# parametrized over this root: it is about `CCF_BINDING` values, which these
+# commands do not carry, and stretching it would make it a test of two
+# unrelated things.
+# ---------------------------------------------------------------------------
+
+
+def single_token_difference_violations(
+    commands: Sequence[str], minimum: int = 3
+) -> list[str]:
+    """Every way ``commands`` fail to differ at exactly one token position.
+
+    A function of a command list so the controls can feed it a doctored set —
+    the same discipline :func:`command_identity_violations` follows. A
+    comparison that can only ever be handed the passing set is a comparison
+    nobody has watched fail, and the ``18.1-CLOSE-REVIEWS`` finding recorded in
+    :func:`test_every_documented_command_names_a_distinct_binding_scheme` is
+    what that costs: a strengthened assertion resting on a vacuous split.
+
+    Args:
+        commands: The documented commands, in README order.
+        minimum: How many are needed before the conclusion means anything.
+            Two commands naming two different subjects are not one
+            demonstration; they are two. Below this count the answer is a
+            violation, never a trivially-satisfied comparison.
+    """
+    violations: list[str] = []
+    if len(commands) < minimum:
+        return [
+            f"only {len(commands)} documented command(s) were found and the"
+            f" claim needs {minimum}. A one-token difference across a set this"
+            " small is arithmetic, not a demonstration — and an empty set"
+            " satisfies every comparison below by having nothing to compare"
+        ]
+
+    token_lists = [shlex.split(command) for command in commands]
+    if not all(token_lists):
+        return [
+            "a documented command split into no tokens, so the comparison"
+            f" below would run over nothing: {commands}"
+        ]
+    widths = {len(tokens) for tokens in token_lists}
+    if len(widths) != 1:
+        return [
+            "the documented commands are different lengths, so they differ in"
+            f" more than one token by construction: {sorted(widths)} tokens"
+            f" across {commands}"
+        ]
+
+    width = widths.pop()
+    differing = [
+        index
+        for index in range(width)
+        if len({tokens[index] for tokens in token_lists}) != 1
+    ]
+    if len(differing) != 1:
+        return [
+            f"the documented commands differ at {len(differing)} token"
+            f" positions {differing}, and the README's claim is exactly one."
+            " Everything but the harness must be the same string: the same"
+            f" runner, the same flag, the same interpreter. {commands}"
+        ]
+
+    values = [tokens[differing[0]] for tokens in token_lists]
+    if len(set(values)) != len(values):
+        violations.append(
+            "two documented commands name the same value at the one differing"
+            f" position: {values}. A set with a repeat is demonstrating fewer"
+            " subjects than it appears to"
+        )
+    return violations
+
+
+@pytest.mark.parametrize(
+    "index", range(len(HARNESS_MAKE_TARGETS)), ids=HARNESS_MAKE_TARGETS
+)
+def test_the_harness_make_target_runs_the_readmes_documented_command(
+    index: int,
+) -> None:
+    """``T-17-35``, for the harness root. A divergence leaves a command untested."""
+    violations = command_identity_violations(
+        documented_commands(
+            HARNESS_ROOT, HARNESS_README_COMMAND, HARNESS_MAKE_TARGETS
+        )[index],
+        make_recipe(HARNESS_MAKE_TARGETS[index]),
+    )
+    assert not violations, "\n".join(violations)
+
+
+def test_the_three_harness_commands_differ_in_exactly_one_token() -> None:
+    """One product, one door, three harnesses — made checkable.
+
+    Not the door, not the deployment, not the question, not the temporal
+    boundary. One token, and it is the name of the harness. A README that
+    quietly changed the flag alongside the leg would be demonstrating something
+    weaker while reading the same, which is the failure
+    ``18.1-CLOSE-REVIEWS`` found one root over.
+    """
+    commands = documented_commands(
+        HARNESS_ROOT, HARNESS_README_COMMAND, HARNESS_MAKE_TARGETS
+    )
+    violations = single_token_difference_violations(commands)
+    assert not violations, "\n".join(violations)
+
+    # And the differing token really is the leg name, not an accident of
+    # position: every value it takes is a leg this example ships a client for.
+    differing = {
+        shlex.split(command)[-1] for command in commands
+    }
+    shipped = {
+        path.stem.removeprefix("client_")
+        for path in reader_visible_modules(HARNESS_ROOT)
+    }
+    assert differing == shipped, (
+        "the documented commands name legs the example does not ship, or omit"
+        f" ones it does: documented {sorted(differing)}, shipped {sorted(shipped)}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# C-20-8 and the two further command-identity controls.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("label", "mutate"),
+    [
+        ("a make variable", lambda c: c.replace(".venv/bin/python", "$(PYTHON)")),
+        ("a bare interpreter", lambda c: c.replace(".venv/bin/python", "python")),
+        ("a changed leg name", lambda c: c.replace("--legs adk", "--legs anthropic")),
+        ("a changed flag name", lambda c: c.replace("--legs", "--leg")),
+        ("a changed runner path", lambda c: c.replace("runner/drive.py", "drive.py")),
+    ],
+)
+def test_c20_8_the_identity_check_refuses_a_divergent_harness_pair(
+    label: str, mutate: object
+) -> None:
+    """``C-20-8`` — the shipped comparison, fed a pair that differs.
+
+    The first two shapes are the ones :func:`command_identity_violations` names
+    in its own text, and they are here rather than assumed: `$(PYTHON)` in a
+    recipe and a bare `python` in a README block are the two spellings a
+    well-meaning tidy-up produces, and both would leave a documented command
+    that does not run in this repository.
+    """
+    documented = documented_commands(
+        HARNESS_ROOT, HARNESS_README_COMMAND, HARNESS_MAKE_TARGETS
+    )[0]
+    recipe = mutate(documented)  # type: ignore[operator]
+    assert recipe != documented, f"the {label} control did not change anything"
+    assert command_identity_violations(documented, recipe), label
+
+
+@pytest.mark.parametrize(
+    ("label", "unusable", "because"),
+    [
+        (
+            "both sides spell `$(PYTHON)`",
+            "$(PYTHON) examples/hw1-harness-clients/runner/drive.py --legs adk",
+            "not a string a reader can type",
+        ),
+        (
+            "both sides spell a bare `python`",
+            "python examples/hw1-harness-clients/runner/drive.py --legs adk",
+            "does not spell the interpreter",
+        ),
+    ],
+)
+def test_c20_8_the_identity_check_refuses_an_identical_but_untypeable_pair(
+    label: str, unusable: str, because: str
+) -> None:
+    """``C-20-8``, the half a divergence control cannot reach.
+
+    Every mutation above is caught by ``documented != recipe`` once the two
+    sides disagree — which measured the ``$(PYTHON)`` and ``.venv/bin/python``
+    branches **redundant** when they were fed a divergent pair, and this test
+    exists because that measurement came back green and had to be answered
+    rather than reported.
+
+    The shape those two branches alone can catch is a README and a recipe that
+    **agree perfectly** and are still not a command a reader can run: both
+    sides written as ``$(PYTHON) …``, or both as a bare ``python …``. Identity
+    is necessary for this gate and it was never sufficient — a documented
+    command is a promise that typing it works.
+
+    The expected *reason* is asserted, not just the count. Both branches fire
+    on the ``$(PYTHON)`` pair, so a test asserting only "some violation" would
+    stay green with the ``$(PYTHON)`` branch deleted — measured, and the reason
+    this parametrization carries a third column.
+    """
+    violations = command_identity_violations(unusable, unusable)
+    assert violations, (
+        f"an identical pair that nobody can type was accepted ({label}):"
+        f" {unusable!r}"
+    )
+    assert any(because in entry for entry in violations), (
+        f"the refusal for {label} did not say why: expected {because!r} in"
+        f" {violations}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("label", "commands"),
+    [
+        (
+            "two tokens differ",
+            (
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs adk",
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --live anthropic",
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs langgraph",
+            ),
+        ),
+        (
+            "a repeated value at the one differing position",
+            (
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs adk",
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs adk",
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs langgraph",
+            ),
+        ),
+        (
+            "two tokens differ and BOTH carry distinct values",
+            (
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs adk --scratch /tmp/adk",
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs anthropic --scratch /tmp/anthropic",
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs langgraph --scratch /tmp/langgraph",
+            ),
+        ),
+        (
+            "no token differs at all",
+            (
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs adk",
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs adk",
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs adk",
+            ),
+        ),
+        (
+            "different lengths",
+            (
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs adk",
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs anthropic --live",
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs langgraph",
+            ),
+        ),
+        (
+            "**the vacuity case** — fewer than three commands",
+            (
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs adk",
+                ".venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs anthropic",
+            ),
+        ),
+        ("**the vacuity case** — no commands at all", ()),
+    ],
+)
+def test_the_one_token_claim_refuses_a_set_that_cannot_carry_it(
+    label: str, commands: tuple[str, ...]
+) -> None:
+    """Control: the shipped comparison, fed sets that do not support the claim.
+
+    Three of these are load-bearing beyond the obvious, and each was **measured
+    necessary** by mutating the shipped function and watching this test:
+
+    * *two tokens differ and both carry distinct values* — the only case that
+      holds the ``len(differing) != 1`` rule itself. Loosening it to ``< 1``
+      leaves every other case here green, because they are caught by the
+      length check, the distinctness check or the minimum. It is also the
+      realistic defect: three commands that change the *subject* alongside the
+      harness, which is the ``18.1-CLOSE-REVIEWS`` finding one root over.
+    * the two vacuity cases. ``len(differing) == 1`` is satisfied by a
+      two-command set as readily as by a three-command one, and an empty set
+      satisfies it by never entering the loop — so a README that lost a fenced
+      block would strengthen this test's arithmetic while destroying its
+      subject.
+    """
+    assert single_token_difference_violations(commands), label
+
+
+def test_the_recipe_reader_refuses_a_target_with_two_recipe_lines(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Control: a recipe that grew a second line is no longer one command.
+
+    Fed to the **shipped** :func:`make_recipe` through its ``makefile_path``
+    parameter, because the rule lives in that function and a control that
+    re-implemented the scan would be watching itself. A target whose recipe
+    grows a second line silently stops being comparable to a README block, and
+    the natural repair — comparing the first line only — is how a gate ends up
+    blessing a command that does something else afterwards.
+    """
+    target = HARNESS_MAKE_TARGETS[0]
+    body = target + " ## two lines\n\t.venv/bin/python one.py\n\t.venv/bin/python two.py\n"
+    two_lines = tmp_path / "Makefile"
+    two_lines.write_text(body, encoding="utf-8")
+    with pytest.raises(AssertionError, match="2 recipe lines"):
+        make_recipe(target, two_lines)
+
+    one_line = tmp_path / "Makefile.one"
+    one_line.write_text(
+        target + " ## one line\n\t.venv/bin/python one.py\n", encoding="utf-8"
+    )
+    assert make_recipe(target, one_line) == ".venv/bin/python one.py", (
+        "the control's own Makefile shape is not readable by the shipped"
+        " function, so the refusal above proved nothing"
+    )
+
+
+def test_the_recipe_reader_refuses_a_target_that_is_not_declared(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Control: a documented target the Makefile does not carry fails loudly.
+
+    Without this the lookup raised ``StopIteration``, which pytest reports as
+    an error rather than as the divergence it is — and which a caller could
+    catch and read as "no recipe", i.e. as nothing to compare.
+    """
+    empty = tmp_path / "Makefile"
+    empty.write_text("# nothing here\n", encoding="utf-8")
+    with pytest.raises(AssertionError, match="is not declared"):
+        make_recipe(HARNESS_MAKE_TARGETS[0], empty)
