@@ -3,8 +3,22 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-21T04:05:00.000Z"
+last_updated: "2026-08-21T23:20:00.000Z"
 last_activity: >-
+  2026-08-21 -- **PHASE 20 IS GATED. `D-GATE-20` IS APPROVED BY DAVE AND LOGGED IN
+  `docs/DECISIONS.md`, AND `phase-20` IS MERGED TO `main`.** 51 commits, `9e4bd0e`..`921e3b9`.
+  All TEN Success Criteria met -- authored one-per-line BEFORE execution, which is the first
+  honouring of the forward-binding rule `D-GATE-19` minted. FIVE blocking findings were found
+  at close and ALL FIVE are fixed in-phase, each with a STANDING sabotage control watched go
+  red: `B-1`, `B-2`, `B-3` from the cross-AI panel and `CR-01`, `CR-02` from the additive
+  single-agent review. FOUR panel findings were REJECTED and recorded as rejected. CARRIED,
+  NOT REOPENED: four panel advisories `A-1`..`A-4` and NINE single-agent warnings
+  `WR-01`..`WR-09` (the review frontmatter's `warning: 8` undercounts by one), of which
+  `WR-08` continues the `D-IMPL-155` ambiguous-basename citation hazard. CI run `32534167036`
+  at `921e3b9` GREEN on all four jobs. **NEXT: the requirement-ledger reconciliation --
+  52 rows still read `Pending`, and the `progress:` block below is STALE for the same reason
+  and is deliberately NOT guessed at here.**
+  PRIOR CONTEXT FOLLOWS.
   2026-08-21 -- **PHASE 20 EXECUTION COMPLETE ON `phase-20`. AWAITING THE SS3.1 CLOSE PANEL
   AND `D-GATE-20`.** 8 plans / 8 serial waves / 25 tasks, `9e4bd0e`..`d9b3f5a`. THE CLAIM IS
   MEASURED, NOT ASSERTED: `consume.py` and three foreign-harness clients -- Google ADK, the
@@ -57,6 +71,29 @@ progress:
   completed_plans: 174
   percent: 93
 stopped_at: >-
+  PHASE 20 IS CLOSED. `D-GATE-20` is logged (append-only, at the end of `docs/DECISIONS.md`)
+  and `phase-20` is merged to `main`. SS3.1 ran IN ORDER and the order mattered: execution ->
+  cross-AI close panel against the SHIPPED CODE -> additive single-agent review -> every
+  finding verified against the tree -> all five blocking findings fixed in-phase -> presented
+  to Dave -> ruling -> gate entry -> merge.
+  **THE ONE THING OWED NEXT IS THE REQUIREMENT-LEDGER RECONCILIATION, AND IT BLOCKS v0.2.**
+  `.planning/REQUIREMENTS.md` carries 52 rows reading `Pending`: 21 Phase 17, 18 Phase 16,
+  6 Phase 14, 3 Phase 9, 3 Phase 13, 1 Phase 18. Phase 20's own ten (`CLNT-23`..`CLNT-32`)
+  are `Complete` and match the tree. **The eighteen Phase 16 rows are NOT bookkeeping** --
+  Phase 16 was RETIRED (`D-IMPL-152`), not completed, and its 14 unexecuted plans live in
+  `abandoned/`; `DOCS-07`..`DOCS-25` are obligations attached to an approach that no longer
+  exists and they need a RULING (re-home onto a new phase, or formally drop), not a tick.
+  The other 34 rows are most likely unreconciled bookkeeping against GATED phases, but that
+  is a HYPOTHESIS TO BE VERIFIED ROW BY ROW AGAINST THE TREE, NOT AN ASSUMPTION TO ACT ON --
+  only 12 of the 22 `CLNT-` ids are named anywhere in `docs/DECISIONS.md`. **DO NOT RUN
+  `/gsd:complete-milestone`:** the plan counter reads 100% because it counts SUMMARY files
+  against PLAN files and cannot see that a phase was retired rather than executed, which is
+  this project's own recurring defect class -- a check that cannot report the thing it
+  appears to report. ALSO OPEN: 24 `human_needed` verification items across 9 phases (11,
+  13, 14, 15.1-15.4, 18.1, 19), all requiring Dave rather than an executor; the largest is
+  Phase 11's first perf baseline, which needs a live GitHub Actions dispatch and a
+  `D-IMPL-70` approval.
+  PRIOR CONTEXT FOLLOWS.
   PHASE 20 IS EXECUTION-COMPLETE, THE CLOSE PANEL IS DONE, AND IT IS NOT GATED. Work is on
   branch `phase-20` (`9e4bd0e`..`7f59289`+), NOT on `main`.
   **STEP 1 OF SS3.1 IS COMPLETE.** The CROSS-AI CLOSE PANEL ran 2026-08-21 against the
