@@ -3,552 +3,81 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-20T11:40:00.000Z"
+last_updated: "2026-08-21T04:05:00.000Z"
 last_activity: >-
-  2026-08-20 -- **PHASE 19 CLOSED AND GATED. `D-GATE-19` APPROVED BY DAVE**, recorded in
-  `docs/DECISIONS.md`. NO MERGE REQUIRED -- the work landed on `main` (`D-IMPL-161`).
-  DAVE'S RULING ON `F-1`: **DO NOT AUTHOR SUCCESS CRITERIA RETROACTIVELY** -- criteria
-  written after the outcome to fit what shipped would be gating against a post-hoc target,
-  the wrong direction for a phase whose subject is claims matching code. Phase 19 is gated
-  on plan `must_haves` PLUS the verification/panel/review record that actually ran, with the
-  absence recorded in the gate entry. **FORWARD-BINDING: Success Criteria MUST be present in
-  the ROADMAP entry BEFORE a phase is executed.** Enforcement belongs in CLAUDE.md 3.1 and the
-  plan-phase workflow; amending CLAUDE.md is DAVE'S ACT, not an executor's (`D-IMPL-161`'s
-  boundary). `F-2`, `F-3` and `WR-04` are CARRIED, NOT REOPENED, and none blocked the gate.
-  59 commits, `0fe0a22` -> `cff00ae` on `main`. FINAL GATE: `make ci` EXIT 0 --
-  **4013 passed / 118 skipped / 0 failed**, 400 lint, 154 docs, nine examples,
-  `mkdocs --strict` green, three validation gates pass. Tests 3901 -> 4013 (+112).
-  **THE CLOSE FOUND A BLOCKER THE VERIFIER AND THE PANEL BOTH MISSED, AND IT WAS THE
-  PHASE'S OWN DEFECT IN THE PHASE'S OWN NEW GATE.** `C-17`'s AST gate was ruled to prove
-  no module under `src/ccf/client/adapters/` constructs the outcome. IT DID NOT. It matched
-  only an import-bound `ast.Name` call or an attribute literally spelled
-  `WireOutcome`/`DoorOutcome`, so THREE IN-TREE SPELLINGS SCORED ZERO: pydantic
-  construction classmethods, relative imports, and subclassing. REPRODUCED END-TO-END BY
-  THE ORCHESTRATOR BEFORE ANY FIX: an adapter spelling `WireOutcome.model_validate({...})`
-  scored 0, PASSED the gate, passed `mypy --strict`, `ProductClient.ask` RAISED NOTHING,
-  and the caller received another question's vessel (sentinel `expires_at` 2099-09-09
-  observed). **`B0` WAS RE-OPENABLE IN-TREE WITH THE ENTIRE BUILD GREEN.** `WR-01`
-  compounded it: the shipped prose credited `19-04`'s conformance obligation as covering
-  the gap, and that control is INERT -- the tamper legs measure THE CLIENT's reaction to
-  corruption, never the adapter's honesty, and both pass against a forging adapter.
-  DAVE RULED OPTION A: fix the existing gate, TEST-FILE ONLY, no production code -- not a
-  new gate, the current one made to do what `C-17` already required. AFTER: the forger
-  scores 1 and the gate FAILS; relative import 1; subclass 1. The fix DERIVES
-  `_CONSTRUCTING_FORMS = PYDANTIC_MODEL_FORMS - _SERIALIZING_FORMS`, naming only what it
-  EXCLUDES, so a fourteenth pydantic spelling is counted automatically -- a
-  hand-maintained positive list is the drift shape that produced the defect. `WR-01`
-  is resolved BY THE FIX (`model_copy` is in that frozenset), not by prose.
-  `git diff --stat b1c40f4..HEAD -- src runtime` IS EMPTY.
-  **THE PANEL: FOUR REVIEWERS, THREE OF FOUR CONVERGED ON ONE FINDING**, verified
-  empirically -- `wire.py` claimed an adapter cannot construct the outcome; it can, and
-  re-labelling defeats BOTH checks. Three prose overclaims fixed (`2119ca6`), the
-  structural-unbypassability question DEFERRED as `D-IMPL-162` on Dave's ruling because it
-  is a different project. FOUR PANEL FINDINGS REJECTED, TWO OF THEM FABRICATED CITATIONS
-  to files that do not exist -- ollama; gemini was grounded this run, a change from Phase 18.
-  **A VACUITY WAS CAUGHT IN THE VERIFICATION CODE ITSELF**: the orchestrator's first probe
-  of the re-labelling finding had an attack leg and a control producing BYTE-IDENTICAL
-  subjects, so it proved nothing until rebuilt with distinguishable vessels. Recorded
-  rather than hidden -- it is the phase's own defect class, in the code written to test it.
-  **FOUR ITEMS REMAIN OPEN FOR DAVE, NONE FIXED IN-PHASE BY DESIGN:** `F-1` Phase 19 has
-  NO ROADMAP SUCCESS CRITERIA (`roadmap.get-phase 19` returns `[]`); `F-2`
-  `verify.key-links` CAN NEVER PASS (invalid-regex on escaped parens, marks links
-  unverified WITHOUT RUNNING THEM); `F-3` the citation lint SILENTLY DROPS AMBIGUOUS
-  BASENAMES (the two instances this phase introduced are fixed; the hole is open); and
-  `WR-04` the declared single-copy axis count is understated -- `egress.py` names
-  `asked_at` where §6.3 has FOUR axes and `WireRequest` echoes three fields, DEFERRED
-  because it widens `C-10`'s undetected list, which `D-IMPL-156` records as CROSS-CHECKED
-  AT FOUR ITEMS ACROSS TWO RECORDS -- a claim change, not a correction.
-  `F-2` AND `F-3` ARE THEMSELVES CHECKS THAT CANNOT FAIL, one level up from `B0`.
-  THE §3.1 SEQUENCE WAS DISCHARGED IN ORDER -- execution,
-  cross-AI panel (`19-CLOSE-REVIEWS.md`), single-agent review (`19-REVIEW.md`), every
-  finding verified against the tree, blocking findings fixed in-phase
-  (`19-CLOSE-FIXES-SUMMARY.md`).
-  NEXT: **PHASE 19 IS CLOSED.** `/gsd:progress` for the updated roadmap. The next phase is
-  not yet discussed or planned -- and whichever it is, ITS ROADMAP ENTRY MUST CARRY SUCCESS
-  CRITERIA BEFORE EXECUTION per `D-GATE-19`, authored ONE PER UNWRAPPED LINE and confirmed
-  with `gsd-sdk query roadmap.get-phase <N>` that the parsed count equals the authored count.
-
-  2026-08-20 -- **PHASE 19 EXECUTED. 8/8 PLANS, 6 WAVES, 52 COMMITS**, `0fe0a22` -> `cf47bf8`
-  ON `main` -- NO PHASE BRANCH, on DAVE'S EXPLICIT RULING (2026-08-19, asked before Wave 1:
-  there are no SDK consumers, so `main` carrying un-gated phase work costs nothing and history
-  still permits carving a branch retroactively). This DIVERGES from CLAUDE.md 2.2 and MATCHES
-  what Phases 18 and 18.1 actually did; recorded as `D-IMPL-161` rather than left as invisible
-  drift. CLAUDE.md was NOT amended unilaterally.
-  **`B0` IS CLOSED ON THE AXES MEASURED.** The two client-seam checks CAN NOW FAIL: the door
-  emits the question it parsed and the address it computed, the adapter seam is
-  `ask(WireRequest) -> bytes` so NO adapter constructs an outcome, and a crossed question and
-  an altered vessel are each caught by a SINGLE-TRANSPORT client -- two assertions, one per
-  transport, NEITHER NAMING A SECOND SUBJECT, which is the ROADMAP's own success sentence.
-  **GATE AT `cf47bf8`: `make ci` EXIT 0** -- 3981 passed / 118 skipped / 0 failed, 400 lint,
-  154 docs, nine examples, `mkdocs --strict` green. Tests 3901 -> 3981 (+80).
-  **VERIFICATION `human_needed`, 63/63 must-haves, and it was established BY BREAKING THINGS,
-  not by reading a green suite** -- a green suite is worthless evidence in this phase, since
-  `check_outcome` was green throughout Phase 18 while comparing an object with itself. TEN
-  properties broken in an out-of-tree `rsync` copy reached by `PYTHONPATH`, 43 control-reds
-  observed, plus four direct probes. CONTROLS THAT COULD NOT BE MADE TO FAIL: NONE.
-  **`C-18`'s RESIDUAL IS VERIFIED OPEN, NOT CLOSED** (`D-IMPL-159`): with `as_of=None` the
-  CLIENT resolves the clock (`C-15`), so there is no second copy of the instant and a transport
-  altering `asked_at` alone is UNDETECTED. That non-detection is a PASSING MEASUREMENT which
-  itself goes red under the `C-02` sabotage, so it does not pass by accident. A tree-wide sweep
-  found NO shipped prose overclaiming past that line.
-  **FIVE DEFECTIVE CRITERIA WERE REPORTED RATHER THAN SATISFIED** across the eight plans --
-  one satisfiable only by deleting the phase's own thesis paragraph, one already green at
-  baseline, one VACUOUSLY green because the target sentence wrapped across two lines, one
-  requiring an edit to append-only `DECISIONS.md`, one whose plan made it unsatisfiable.
-  EVERY EXECUTOR FOUND ITS OWN PLAN MEASURABLY WRONG and said so.
-  **THREE ITEMS ESCALATED TO DAVE, NOT FIXED IN-PHASE:**
-  `F-1` PHASE 19 HAS NO ROADMAP SUCCESS CRITERIA -- `roadmap.get-phase 19` returns
-  `success_criteria: []`, so the phase was gated on plan `must_haves` ALONE; criteria were
-  deliberately NOT invented retroactively, which would have been its own vacuous check.
-  `F-2` `verify.key-links` CAN NEVER PASS -- it reports `Invalid regex pattern` for any
-  pattern with an escaped paren and marks the link unverified WITHOUT RUNNING IT; 6 of this
-  phase's 12 links. That is the INVERSE of the defect this phase closes. All six checked by
-  hand; all six hold.
-  `F-3` THE CITATION LINT SILENTLY DROPS AMBIGUOUS BASENAMES -- a check that cannot fail, one
-  level up from `B0`. Phase 19 pushed exactly TWO new stale citations through it; both are now
-  FIXED at `cf47bf8`, re-anchored onto fully-qualified symbols so the lint actually checks
-  them. The adjacency sweep hand-resolved all 16 dropped citations across 8 ambiguous
-  basenames: one other (`product.py:330`) is stale and PREDATES this phase. THE HOLE ITSELF IS
-  STRUCTURAL AND STILL OPEN -- documented at `ROADMAP.md` but not closable under `C-13`.
-  TOOLING HAZARD, FOURTH DISTINCT HANDLER: `state.begin-phase` TRUNCATED `STATE.md`
-  1046 -> 661 LINES at phase start while returning a clean success naming three fields, and
-  wrote `total_plans 173 / completed_plans 184` -- completed exceeding total AGAIN. Backed up,
-  diffed, restored, hand-edited. ALL ROADMAP checkboxes hand-edited; NO `state.*` or
-  `roadmap.*` writer was allowed to run against either file for the whole phase.
-  NEXT: **THE PHASE IS NOT CLOSED.** CLAUDE.md 3.1 requires, IN ORDER:
-  `/gsd-review --phase "Phase 19" --all` (THE CROSS-AI PANEL, pointed at the SHIPPED CODE and
-  given the known findings with instructions NOT to re-derive them) -> the single-agent code
-  review -> VERIFY EVERY FINDING AGAINST THE TREE -> fix blocking findings in-phase -> present
-  to Dave -> `D-GATE-19`. The panel is MANDATORY and the single-agent review NEVER substitutes.
-
-  2026-08-19 -- **PHASE 19 PLANNED. 8 PLANS IN 6 WAVES**, committed `9356520` -> `751fb9a` ->
-  `dacf067`. Research (`19-RESEARCH.md`, 1460 lines) MEASURED EVERY CLAIM AT HEAD `192c79d`
-  rather than restating `19-CONTEXT.md`: the `B0` defect STILL HOLDS, blast radius is ~60-95 of
-  4027 collected tests concentrated in five modules, `examples/` IS UNTOUCHED (`consume.py`
-  speaks only `ProductClient.ask`), and `mypy` covers `src`+`runtime` ONLY -- so stale test
-  annotations WILL NOT fail `make typecheck`.
-  FOUR RULINGS TAKEN BY DAVE AT PLANNING, recorded as `C-15`..`C-18` in `19-CONTEXT.md`:
-  `C-15` THE CLOCK DOES NOT MOVE (`C-13` stay-narrow governs; the false sentence in
-  `src/ccf/client/client.py::ProductClient.ask` is AMENDED, and the client-side clock read becomes ITS OWN `D-IMPL` FOR A LATER
-  PHASE); `C-16` BREAK CLEANLY -- `PRODUCT_REQUEST_TOOL` gains a REQUIRED argument, no
-  deprecation window, one `D-IMPL` ruling both that and the `C-08` out-of-tree adapter break;
-  `C-17` A NARROW AST GATE over `src/ccf/client/adapters/` only, mirroring `CLNT-06`;
-  `C-18` THE TEMPORAL AXIS IS CROSS-CHECKED WHERE CHECKABLE and the residual DECLARED where it
-  is not -- found by the plan-checker: because `C-15` keeps the clock client-side, a concrete
-  `as_of` crosses the pipe TWICE (inside the echo, and as `asked_at` which the door answers
-  against), so `B0`'s OWN FAILURE MODE SURVIVED ON THE THIRD AXIS of a comparison `C-03` calls
-  total. The `as_of=None` residual is asserted as a PASSING TEST, not an `xfail`.
-  TWO PLAN-CHECKER ROUNDS: round 1 found 4 BLOCKERS + 5 warnings + 3 info, round 2 found
-  0 BLOCKERS + 4 warnings + 5 info, all 21 findings addressed across two revisions. EVERY
-  BLOCKER WAS VERIFIED AGAINST THE TREE BEFORE BEING ACTED ON; none were rejected. The sharpest
-  finding was NOT a code defect but a CHECK DEFECT: `19-02`'s criterion
-  `grep -c "check_outcome" client.py == 0` WAS SATISFIABLE ONLY BY DELETING the paragraph in
-  `src/ccf/client/client.py::ProductClient.ask` that states the phase's own thesis -- a criterion greenable only by
-  violating project law, in the phase about checks that cannot fail. Now inverted into a GUARD
-  (`grep -c "func:.*check_outcome" >= 2`), so deletion fails in wave 2 rather than going
-  unnoticed until wave 5.
-  TOOLING HAZARD OBSERVED AGAIN: `state.planned-phase` TRUNCATED `STATE.md` 1014 -> 660 LINES
-  (`D-IMPL-154`/`155` class). Backed up, diffed, restored, hand-edited. `roadmap.annotate`
-  handled the same way.
-  NEXT: `phase-19` BRANCH DOES NOT EXIST -- create it before Wave 1 if CLAUDE.md 2.2's
-  single-merge-at-gate discipline is to hold for the code. Then `/gsd:execute-phase 19`.
-
-  2026-08-19 -- **PHASE 18.1 CLOSED AND GATED. `D-GATE-18.1` APPROVED BY DAVE**, recorded in
-  `docs/DECISIONS.md`. NO MERGE REQUIRED -- the work landed on `main`. Gate HEAD `04cccc2`:
-  `make ci-core` EXIT 0, 3909 passed / 118 skipped / 0 failed. Dave's ruling: the phase
-  "answers the original complaint WITHOUT GROWING SURFACE AREA", and the close process
-  "did its job: COARSE SABOTAGE WAS SHOWN TO BE INSUFFICIENT, and a proposed remedy that
-  would itself have been VACUOUS was refused."
-  TWO `D-IMPL` ENTRIES MINTED ON DAVE'S RULING so the carried tooling hazards STOP BEING
-  INVISIBLE INHERITANCE rather than living only in SUMMARY and review files:
-  `D-IMPL-154` (`tools/retirement_sweep.py --report` REWRITES A TRACKED FILE -- the help text
-  is honest, THE FLAG NAME IS THE DEFECT; a later tools pass should split it `--check`/`--write`)
-  and `D-IMPL-155` (A MISNAMED SURFACE FRAGMENT IS SILENTLY DROPPED, and the obvious remedy
-  DELETES THE RECORD while every gate reports green -- 117 lines, four entries, counts falling
-  727 -> 723, 20/20 tests green; a later gate should compare the fragment directory against the
-  assembled document). BOTH REMAIN ADVISORY AND DEFERRED, not reopened as in-phase work.
-  Codex's case-insensitive-filesystem claim REMAINS AN OPEN QUESTION, not a defect and not
-  fixed -- Dave: "Correct."
-  NEXT: Phase 19 (THE CLIENT-SEAM INTEGRITY CHECKS MUST BE ABLE TO FAIL) is FULLY DISCUSSED --
-  `19-CONTEXT.md` exists with 14 decisions -- and NOT PLANNED. `/gsd:plan-phase 19`.
-
-  2026-08-19 -- PHASE 18.1 CLOSE REVIEW RUN; THREE BLOCKING FINDINGS FIXED IN-PHASE. AWAITING
-  DAVE'S RULING AND `D-GATE-18.1`. Gate measured at `04cccc2`: `make ci-core` EXIT 0,
-  3909 passed / 118 skipped / 0 failed (+8 = exactly the eight tests added), 400 lint, 154 docs.
-  THE PANEL (codex, cursor, gemini) WAS POINTED AT THE SHIPPED CODE, NOT THE PLANS, and was given
-  the six already-known findings with instructions NOT to re-derive them -- so its budget went to
-  what is ADJACENT. It found three real holes the 40/40 VERIFIER MISSED:
-  (1) `D-18`'s predicate is `server == root_path OR root_path in server.parents` and BOTH tests
-  fed only the SECOND limb -- removing the first left 752 TESTS GREEN. The mechanism was CORRECT
-  (`server: deployment` IS refused); nothing HELD it. THE VERIFIER SABOTAGED `D-18` ENTIRELY
-  (`if False:`), got two reds, and concluded it was held: A SABOTAGE AS COARSE AS THE WHOLE GUARD
-  ONLY PROVES SOME TEST MENTIONS IT, NEVER THAT EACH BRANCH IS HELD. Same mechanism, same
-  technique, DIFFERENT GRANULARITY, OPPOSITE ANSWERS.
-  (2) A ROOT PATH CONTAINING A SPACE was diagnosed as the pre-migration two-token address, and the
-  advice -- "drop it from the address and name the root alone" -- DESTROYS THE USER'S PATH
-  (`/tmp/My Deployments/deployment` -> `mcp+stdio:/tmp/My`). Neither branch named quoting though
-  the `mcp_stdio` module docstring already says quoting is the remedy. A NEW INSTANCE OF THE `B0b` CLASS in
-  the phase whose own `D-08` cites `B0b`.
-  (3) THE README CREDITED A TEST WITH A CHECK IT DOES NOT MAKE: repointing the documented mcp
-  address at a nonexistent `OTHERDEPLOYMENT` in BOTH README and Makefile left ALL 17 PURITY TESTS
-  GREEN. `D-15`'s observable rested on a property no gate held -- in the very document `C-1` was
-  approved on. RULED BY DAVE: fix BOTH the gate and the prose, written against each other.
-  ALL THREE FIXED AND EACH INDEPENDENTLY RE-SABOTAGED BY THE ORCHESTRATOR: the mutations that
-  previously passed silently now fail (752 green -> 1 red; 17 green -> 1 red).
-  THE SEVENTH INSTANCE WAS IN THE PROPOSED REMEDY FOR THE SIXTH. The review AND the orchestrator's
-  brief both proposed `binding.partition(":")[2].partition(":")[2]` to extract the address; measured
-  against real tokens it yields `""` for BOTH commands, so the assertion would have passed ON AN
-  EMPTY SET. The executor measured it, REFUSED IT, and shipped a guarded splitter plus five
-  parametrized vacuity controls instead.
-  NOT ACTIONED, DELIBERATELY: Codex's only HIGH (a case-insensitive-filesystem bypass) COULD NOT BE
-  VERIFIED ON THIS LINUX HOST, and Gemini asserted the opposite WITHOUT TESTING EITHER. Recorded as
-  an OPEN QUESTION, not a defect. Gemini found nothing actionable. SEVEN CONFIRMED ADVISORIES are
-  carried, un-fixed and fenced out of the close fixes as scope creep.
-  ORCHESTRATOR PROCESS DEFECT, RECORDED AGAINST MYSELF: the verifier and the code reviewer were
-  dispatched IN PARALLEL onto ONE WORKING TREE and both run sabotages that MUTATE SOURCE. They
-  observed each other -- the verifier flagged a README reading `OTHERDEPLOYMENT` as possible
-  injection; it was the reviewer's control. Both re-verified against `git show HEAD:` and neither
-  acted on foreign state, and the tree ended byte-identical to HEAD, but THE ISOLATION WAS MINE TO
-  PROVIDE. Sabotage-running agents must not share a working tree.
-
-  2026-08-19 -- PHASE 18.1 EXECUTED, 5/5 PLANS, TREE GREEN END-TO-END. `make ci-core` EXIT 0
-  at the close commit (3901 passed / 118 skipped / 0 failed, plus 400 lint and 154 docs), and
-  re-verified after the tracking commit. THE PHASE IS NOT CLOSED -- CLAUDE.md 3.1 still owes the
-  cross-AI panel against the SHIPPED CODE, the single-agent review, finding verification, Dave's
-  ruling and `D-GATE-18.1`.
-  WHAT SHIPPED: `server:` as a contained data key in `binding.yaml` (base = the deployment root's
-  PARENT, with an INWARD-reaching value refused BY NAME -- `D-18`, the phase's one deliberate piece
-  of new mechanism, recorded in `docs/surface-changes/18.1-04-...` and ruled in `D-IMPL-153`);
-  the `mcp+stdio` address collapsed to ONE TOKEN, the deployment root, across 13 files in a single
-  commit; `serve.py` cut 292 -> 197 lines with the boot moved to `compose.py` (137); and a README
-  that states WHY a server is present before showing one. The client's command no longer names
-  `serve.py` anywhere, and the two documented commands differ by exactly ONE TOKEN, the scheme.
-  C-1 APPROVED BY DAVE'S OWN READ (2026-08-19), passage by passage; `README:186` was explicitly
-  considered and LEFT UNCHANGED by that ruling. NO PROXY GATE WAS INVENTED FOR C-1 -- its
-  unmeasurability was DEMONSTRATED, not asserted: the entire README frame was deleted and 381
-  example tests stayed GREEN.
-  THE PHASE'S LESSON, CONTINUING THE PROJECT'S ELEVEN AND NOW FIFTEEN: EVERY DEFECT FOUND WAS IN
-  VERIFICATION MACHINERY OR IN PLANS, NEVER IN MECHANISM. Four checks shipped GREEN FOR THE WRONG
-  REASON and only sabotage told the difference -- wave 2's distinctness assertion passed against
-  two IDENTICAL message templates (every refusal interpolates the address, so identical templates
-  still render differently); wave 3's vacuity control still produced a violation from a DIFFERENT
-  rule after the count rule was weakened; wave 1 found a provisioning site so INERT that deleting
-  it changed no output; and wave 4 found that a misnamed surface fragment is SILENTLY DROPPED.
-  They share one shape: THE ASSERTION SAT BELOW A DISJUNCTION, so satisfying EITHER branch made it
-  pass. Three plan acceptance criteria were also defective -- one that could not fail, and TWO
-  case-sensitivity false-reds (`declared budget` vs `Declared budget`).
-  TWO ORCHESTRATION RULINGS BY DAVE (2026-08-19): `D-08`'s rationale CORRECTED IN PLACE (it named
-  the wrong fall-through message -- `is_dir()` is checked before `is_file()`, so a file-naming
-  token reaches "is not a deployment root", not "no `binding.yaml` here"; the RULING is unchanged
-  and was NOT reopened); and plan `18.1-04`'s executor wrote the ROADMAP narrowing itself, fenced
-  to a content-only edit, verified afterward as 3 prose hunks with no checkbox or progress-cell
-  edits.
-  TWO ITEMS RECORDED AND DELIBERATELY NOT FIXED IN-PHASE, awaiting a ruling:
-  (1) `tools/retirement_sweep.py --report` IS NOT READ-ONLY -- it rewrites the tracked report; its
-  argparse help is honest, the defect is the FLAG NAME, and it caused one accidental mutation this
-  phase. (2) A MISNAMED SURFACE FRAGMENT IS SILENTLY DROPPED WITH DATA LOSS ON THE OBVIOUS REMEDY:
-  the red says "the assembled document is out of date", never "your fragment is misnamed", and
-  re-running `make surface-changes` clears the red TOGETHER WITH THE RECORD -- 117 lines, four
-  entries, register counts falling 727 -> 723, and all 20 surface tests green. Nothing compares the
-  fragment directory against what was assembled.
-  EXECUTED WITHOUT WORKTREE ISOLATION, deliberately (5 waves x 1 plan = no parallelism to buy, and
-  `18.1-04` edits ROADMAP.md, which the worktree cleanup path would have silently reverted). NO
-  `state.*` OR `roadmap.*` SDK WRITER WAS RUN AGAINST EITHER TRACKING FILE after the one at session
-  start, which collapsed 113 lines and was restored from backup.
-
-  2026-08-19 -- PHASE 18.1 EXECUTION STARTED. Five plans, five waves, strictly sequential
-  (each wave holds exactly one plan and every plan depends on the one before it). RUNNING
-  WITHOUT WORKTREE ISOLATION, deliberately: there is no parallelism to buy, and plan `18.1-04`
-  lists `.planning/ROADMAP.md` in its own `files_modified` -- the worktree cleanup path backs
-  ROADMAP.md up before the merge and restores it after, which would have SILENTLY DISCARDED
-  that plan's intentional narrowing of the "ships no new SDK surface" claim (D-18). Executors
-  are additionally instructed NOT to run any `state.*` or `roadmap.*` SDK writer: `state.begin-phase`
-  was run once at the start of this session and COLLAPSED 113 LINES of `last_activity` and the
-  whole `progress:` block into one line; it was restored from backup and the four fields it meant
-  to set were applied BY HAND. The orchestrator is the single writer for both tracking files.
-
-  2026-08-18 -- PHASE 18.1 PLANNED. FIVE PLANS IN FIVE WAVES, committed and gated. Research
-  (`18.1-RESEARCH.md`, 1492 lines) and a pattern map were run and BOTH FOUND DEFECTS THE
-  DISCUSSION HAD NOT: research swept the tree and found the two-token `mcp+stdio:` address in
-  21 PLACES, not the 2 that were listed -- including
-  `tests/examples/test_hw1_two_transports.py::test_the_mcp_leg_really_runs_the_examples_own_server_program`
-  which UNPACKS THE ADDRESS INTO TWO NAMES and
-  would raise `ValueError` the moment `D-05` lands, and `src/ccf/client/binding.py::split_binding` which is
-  a SHIPPED REFUSAL MESSAGE that would start showing a shape that no longer parses (the `B0b`
-  class, in the phase whose own `D-08` cites `B0b`). It also measured `make ci-core` RED AT HEAD
-  for a cause unrelated to this phase (`6d6a99b` moved 14 Phase 16 plans to `abandoned/`;
-  `RETIREMENT-COUPLINGS.md` stale by 26 planning-tree rows). TWO RULINGS BY DAVE, recorded as
-  `D-18` and `D-19` in `18.1-CONTEXT.md`: (1) an INWARD-REACHING `server:` IS REFUSED BY NAME --
-  parent-relative containment also accepts a value pointing back inside the root, which would let
-  a third-party deployment hold two Python modules where `D-IMPL-141` A.3 grants one; this is
-  THE PHASE'S ONE PIECE OF NEW MECHANISM, deliberately, so the "ships no new SDK surface" claim is
-  NARROWED in the ROADMAP and the surface fragment, and a `D-IMPL-153` entry is owed;
-  (2) THE PRE-EXISTING RED IS CLEARED AT WAVE 0 and swept again after the last SUMMARY, so a red
-  gate during execution means a real regression rather than an ambiguous one.
-  PLAN REVIEW RAN TWICE. Iteration 1 returned ONE BLOCKER: the third `declare_server` provisioning
-  site was assigned to no task, because `18.1-PATTERNS.md` §5(b) claimed the copied deployment's
-  parent "is exactly where `_stub_program` already writes" and TWO PLANS INHERITED THE ERROR. The
-  tree says otherwise -- the callers pass DIFFERENT name arguments at every site
-  (`"exits"` vs `"exits-root"`), so the parent is EMPTY. Five tests would have failed inside the
-  irreducible 11-file grammar flip, and `:205` is `V-12`, THE HEALTHY-PATH NON-VACUITY LEG -- with
-  the baseline broken, `V-07` WOULD HAVE PASSED FOR THE WRONG REASON, the exact defect `CLNT-12`
-  exists to prevent. Also caught: an acceptance criterion that COULD NOT FAIL
-  (`grep "server" | grep -c "RULED_OUT_KEYS"` returns 0 either way), and an instruction NOT to
-  append to `docs/DECISIONS.md` on the false premise that it is a historical record -- it carries
-  208 `D-IMPL-` references and `CLAUDE.md` §11/§12 name it the live decision log. §5(b) was
-  corrected in place, `18.1-VALIDATION.md` now NAMES ALL THREE PROVISIONING SITES because the
-  third was missed precisely because nothing named it. Iteration 2: NO BLOCKERS, 2 warnings +
-  4 info, all closed by hand. Gates: requirements 5/5, DECISION COVERAGE 19/19.
-  EVERY REVIEW FINDING WAS VERIFIED AGAINST THE TREE BEFORE BEING ACTED ON.
-
-  2026-08-18 -- PHASE 18.1 INSERTED after Phase 18 (Dave): SIMPLIFY THE MCP EXAMPLE, CLIENT-SIDE
-  ACCESS WITH THE SERVER OFF-STAGE. Dave, reading `examples/hw1-companies-over-revenue`: the
-  server was `too overwhelming`, it was `not clear what the client had to implement`, and `the
-  client is not responsible for setting up the MCP server, yet when the MCP example is called the
-  client code references the server.py`. VERIFIED: the documented command puts the server program
-  inside the client's `CCF_BINDING` and `consume.py` SPAWNS `serve.py` (`mcp_stdio.py:322`). MCP
-  stdio has no listening endpoint, so THE SPAWN IS INHERENT AND IS NOT THE DEFECT -- the defect is
-  that the spawn is the CLIENT'S BUSINESS in the reader's field of view. SCOPE, THREE CHANGES AND
-  NO NEW MECHANISM: (1) `CCF_BINDING` names a DEPLOYMENT rather than a script, with the server
-  command declared in `binding.yaml` AS DATA, so the reader's command never mentions `serve.py`;
-  (2) `server/serve.py` (292 lines, ~180 of them deployment-value composition) is cut to a
-  readable length into a SECOND `server/` MODULE -- never into `deployment/`, which `D-IMPL-141`
-  A.3 forbids and `test_data_only_deployment.py` enforces; (3) THE README STATES THE FRAME in
-  Dave's own terms -- the SAME CONTEXT PRODUCT reached A DIFFERENT WAY, why a server appears at
-  all (the first example ran IN-PROCESS with the SDK and produced the product directly), and that
-  HOW THE MCP SERVER WAS ASSEMBLED IS DELIBERATELY OUT OF SCOPE, covered later in the examples on
-  ASSEMBLY OF CONTEXT PRODUCTS. A server appearing in a client-side example is NOT a scope
-  violation; EXPLAINING it is.
-  AN EARLIER DRAFT OF 18.1 WAS WITHDRAWN THE SAME DAY, and the reason is recorded because it is a
-  pattern rather than an incident: it proposed shipping `mcp+http` AS A THIRD ADAPTER so the
-  server could start independently. That was SDK TRANSPORT WORK WEARING AN EXAMPLE'S CLOTHES -- it
-  would have put producer-side mechanism inside a deliberately CLIENT-SIDE phase, and Phase 19
-  would have rewritten it immediately; the draft even recorded that rework as a `known cost` and
-  recommended proceeding. Dave: *`We specifically stated we were going to focus on simplifying the
-  client experience... The first examples were client-side and we would progress to server side
-  (e.g. Context Product creation)... You continue to disregard my direction.`* THE RULE NOW
-  WRITTEN DOWN: when an EXAMPLE is too complicated, the deliverable is a SIMPLER EXAMPLE, never
-  new SDK surface -- and the sentence `known cost: the next phase will rewrite this` is a STOP
-  SIGNAL, not a caveat. 18.1 is consequently INDEPENDENT OF PHASE 19: no seam change, so either
-  order works. `A5` is NOT addressed and stays carried forward.
-  ROADMAP WRITTEN BY HAND AFTER `phase.insert`: the handler wrote ONLY a stub detail section -- no
-  Phases-list bullet and no progress row, the exact staleness that let Phase 17 run its entire
-  life with no bullet and a `0/10` row. All three surfaces now agree, and Phase 18's progress row
-  was corrected in passing (it read `AWAITING D-GATE-18` after the gate was granted and merged).
-  STATE HANDLER FAILURE, SECOND INSTANCE THIS SESSION: `state.add-roadmap-evolution` returned
-  `added: true` and CORRUPTED THE FILE ANYWAY -- 719 -> 562 lines, `status` flipped to
-  `completed`, `last_activity` and `stopped_at` destroyed, and PROGRESS NUMBERS INVENTED
-  (`total_plans: 160` with `completed_plans: 178`, impossible on its face). Restored from a
-  pre-call backup and hand-edited, as with `state.record-session` earlier. DO NOT USE `state.*` OR
-  `roadmap.*` WRITERS ON THIS FILE WITHOUT A BACKUP AND A DIFF.
-  2026-08-17 (later) -- PHASE 19 CONTEXT GATHERED. `/gsd:discuss-phase 19` ran to completion on
-  `main`; `19-CONTEXT.md` and `19-DISCUSSION-LOG.md` committed at `90f9822`. Phase 19 carries
-  Phase 18's `B0` (D-IMPL-151) -- the two client-seam integrity checks that cannot fail. FOURTEEN
-  DECISIONS captured as `C-01`..`C-14` (a namespace deliberately distinct from the client spec's
-  `D-NN` and the log's `D-IMPL-NN`; `D-05`/`D-11`/`D-12`/`D-13` are REAL SPEC IDS and the draft
-  collided with them before renumbering). THE LOAD-BEARING FOUR: (1) the door RE-STATES the
-  question it resolved as a `WireRequest` echo at OUTCOME level, compared by total equality, with
-  `as_of=None` echoed AS ASKED so the check is total on the default path; (2) THE ADAPTER SEAM IS
-  RETYPED TO `ask(WireRequest) -> bytes` -- amending `D-11` and `CLNT-05` -- so `decode_outcome`
-  moves onto the shipped path and no adapter constructs an outcome; (3) SYMMETRIC SERIALIZATION,
-  so a producer-side door entry echoes WHAT IT PARSED and the check is live IN-PROCESS, not only
-  where a pipe exists; (4) the conformance suite gains GENERIC TAMPER LEGS via a byte-corrupting
-  wrapper -- possible only because the seam is now bytes -- so `official adapter` comes to mean
-  `its integrity checks are demonstrably live`. Signing is OUT of scope and NO signature member is
-  reserved: the restored claim is NON-ADVERSARIAL integrity, stated precisely, and `D-GATE-18`'s
-  standing prose constraint is REPLACED BY A NARROWER TRUE SENTENCE rather than lifted. HTTP is
-  RECONCILED NOT CONVERTED -- body stays the vessel, the echo joins the `X-CCF-*` siblings,
-  `D-IMPL-126` stands verbatim. Scope held narrow on `B0` per `D-IMPL-146`. NOTE ON THIS FILE:
-  `state.record-session` was invoked once, returned `recorded: false` -- and CORRUPTED THE FILE
-  ANYWAY (656 -> 536 lines, `status` flipped to `completed`, `last_activity`/`stopped_at`/`progress`
-  destroyed). Restored from a pre-call backup, verified byte-identical to HEAD, then hand-edited.
-  The `progress:` block below is LEFT UNTOUCHED AND IS STALE: it predates Phase 18's close and
-  Phase 16's retirement moving 14 plans out of discovery, and reconstructing those counts from
-  memory rather than measurement is how the ROADMAP rows went wrong twice already. Recount from
-  `.planning/ROADMAP.md` before trusting it.
-  2026-08-17 -- PHASE 18 OPENED on the MCP transport (D-IMPL-147, Dave). Phase 17 remains CLOSED,
-  GATED AND MERGED (D-GATE-17; `phase-17` merged --no-ff at b32348f after a green Actions run on
-  the exact commit merged, run 31995656672 @ 44b1f758 -- the condition Dave set; merged `main`
-  re-verified independently at ci-quick-suite exit 0, 3739 passed / 0 failed / 2 skipped / 172
-  deselected). The roadmap ended at Phase 17, so the next phase was UNDEFINED rather than merely
-  unplanned; four candidates were put to Dave and the MCP door + adapter was ruled, because the
-  conformance suite was ALREADY WRITTEN to take a second subject and a single adapter cannot
-  falsify a claim about adapters. Plan `17-10` LIFTED from Phase 17 into Phase 18 -- file moved,
-  ID DELIBERATELY RETAINED as `17-10` (three shipped test docstrings and two immutable decision
-  entries cite it; plan discovery is directory-scoped and prefix-agnostic, so the rename was
-  unnecessary). Deferral banner AMENDED, not deleted. Branch `phase-18` cut from `main`. Four
-  premises re-measured before the lift, all favourable -- see stopped_at. Two ROADMAP staleness
-  defects corrected in passing: Phase 17 had NO BULLET in the Phases list at all, and its progress
-  row read `0/10 -- Planned` through its entire execution, gate and merge.
+  2026-08-21 -- **PHASE 20 EXECUTION COMPLETE ON `phase-20`. AWAITING THE SS3.1 CLOSE PANEL
+  AND `D-GATE-20`.** 8 plans / 8 serial waves / 25 tasks, `9e4bd0e`..`d9b3f5a`. THE CLAIM IS
+  MEASURED, NOT ASSERTED: `consume.py` and three foreign-harness clients -- Google ADK, the
+  Anthropic Agent SDK, LangGraph -- each print the SAME content address
+  `5d7bfa49f5b3f65add25ea61220a191a91982f5ae97901e010b26c5ca8dc37f5`, each carrying the
+  declared payload names, in 10.5s with NO live model call. CLAUDE.md SS7.3's "a harness
+  that already speaks MCP needs no adapter for consumption" is now DEMONSTRATED against the
+  current surface. Clients import harness + `mcp` + stdlib ONLY -- AST-verified by the
+  orchestrator and gated by `test_client_example_purity.py` per-root permitted sets with
+  `ccf` refused BY NAME. `CLNT-23..32` minted and discharged (TEN rows). `D-IMPL-163..169`.
+  **DAVE RULED TWICE IN-FLIGHT.** (1) The WAVE-1 LAYOUT BLOCKER: `test_artifact_schema_headers.py`
+  enforces a bijection -- every `examples/**/artifacts/` must sit under a directory containing
+  `run.py` -- and `H-11` forbids a `run.py` at the example root, so an `artifacts/` dir there is
+  ORPHANED BY CONSTRUCTION, and naming the runner `run.py` would make `runner/` a SECOND root
+  demanding its own `artifacts/`. Ruled: both the declared input and the runner live in
+  `runner/`, and the runner is `drive.py`. Plan repair across six plans, `dc2c214`.
+  (2) **RULING 6**: the leg-2 prompt is DATA, and `cinv01a-prompt-shape` is TIGHTENED IN-PHASE
+  (scope deliberately widened, recorded in the ROADMAP as ruling 6, `b4217e9`). The measured
+  hole: `prompt_score` scores short realistic agent prompts 0-1 against `PROMPT_SCORE_THRESHOLD = 2`,
+  so a hardcoded system instruction in an example client produced NO finding. Lowering the
+  threshold to 1 was measured at 94 FALSE findings and STILL missed two of four shapes; the
+  adopted fix is a DESTINATION ARM -- refuse prose that REACHES a model-instruction sink,
+  following the value through local bindings and `os.environ.get` fallbacks. It surfaced TWO
+  GENUINE pre-existing SS6.4 violations in `examples/external/00-hello-context/`, both
+  remediated in-phase.
+  **FOUR CHECKS THAT COULD NOT FAIL WERE FOUND AND CLOSED, THREE OF THEM BY THE EXECUTORS
+  THEMSELVES.** (a) wave 5: `socket.create_connection` control passed with its patch REMOVED,
+  because CPython's `create_connection` calls the OTHER patched name -- retargeted at an
+  unresolvable `.invalid` host, upgrading the claim to "not even a name lookup". (b) wave 6:
+  two control branches unreachable because a broader check fired first. (c) wave 7: a vacuous
+  pass over a missing subject left two controls green. (d) wave 8: CONTROL 6 caught that a
+  BROKEN `git diff` and a CLEAN one are indistinguishable -- without it the phase would have
+  closed on two green emptiness assertions over a comparison that never ran.
+  **ONE GUARD WAS NARROWED AND THE ORCHESTRATOR SENT IT BACK.** Wave 7 narrowed ext-00's
+  `git status --porcelain` guard to untracked-files-only, justified by a red it saw during its
+  own task. Measured post-commit: the verbatim form PASSES; commit-before-verify was the
+  available remedy. Both arms restored over one `porcelain_entries` read, eight controls,
+  twelve mutations all red. `D-IMPL-166` sets the general rule: A GUARD IS NEVER NARROWED TO
+  ACCOMMODATE AN AUTHOR'S IN-FLIGHT WORKING TREE.
+  GATE: `make ci` EXIT 0 -- **4083 passed / 118 skipped**, 406 lint, 154 docs. Tests
+  4013 -> 4083 (+70). `examples/s2-01-external-consumers/` MOVED to
+  `docs/retired/16-external-consumers/` with history; `examples/external/00-hello-context/`
+  KEPT and marked historical IN PROSE under an existing heading (its `run.py` enforces seven
+  `## ` headings by name and order). CRITERION 7 ASSERTED: `git diff 9e4bd0e..HEAD -- src/`
+  EMPTY, with CONTROL 6/7 proving the assertion is not vacuous.
 progress:
-  total_phases: 18
-  completed_phases: 16
-  total_plans: 180
-  completed_plans: 166
-  percent: 94
+  total_phases: 19
+  completed_phases: 17
+  total_plans: 188
+  completed_plans: 174
+  percent: 93
 stopped_at: >-
-  PHASE 20 IS DISCUSSED, NOT PLANNED. The NEXT ACTION is `/clear` then `/gsd:plan-phase 20`
-  against
-  `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-CONTEXT.md`
-  (14 decisions, `H-01`..`H-14`; `20-DISCUSSION-LOG.md` beside it holds the rejected
-  alternatives). No phase branch is cut and no plan exists. Committed at `df30975`.
-  ONE PREMISE IN THE ROADMAP ENTRY WAS MEASURED WRONG AND CORRECTED IN DISCUSS, WITH DAVE'S
-  EXPLICIT ACCEPTANCE: there is NO hand-offable MCP stdio endpoint, so a runner cannot pre-spawn
-  the door and pass pipes to three client processes. All three installed harnesses take
-  `command + args` and spawn the child THEMSELVES (ADK `StdioConnectionParams`,
-  `claude_agent_sdk.McpStdioServerConfig`, raw `mcp.client.stdio.stdio_client`). The locked
-  contract (`H-01`/`H-02`): the RUNNER may import `ccf` and resolves deployment root ->
-  `binding.yaml`'s `server:` -> an OPAQUE `command + args`; each CLIENT receives that pair via
-  `argv` and spawns through its own harness. Purity is held by the client never learning what CCF
-  is, not by keeping it away from a subprocess.
-  TWO DECISIONS CARRY OBLIGATIONS BEYOND THIS PHASE AND MUST NOT BE TAKEN QUIETLY AT PLANNING.
-  (1) `H-04` NARROWS `D-32` on the record: `D-32` governs a committed STORE FILE and a populated
-  graph -- producer OUTPUT -- not a declared INPUT document a fabric-side runner interprets. The
-  narrowing was forced: `D-32` forbids a seed artifact under `examples/` and `no-hardcoding`'s
-  `RULE_TREE_SCOPE` covers `examples/`, so the seed values could live in neither a document nor
-  code without one of the two moving. It needs its own `D-IMPL` entry.
-  (2) `H-07` PUTS THE `claude` CLI ON THE ALWAYS-ON CI PATH. `claude_agent_sdk` routes its MCP
-  client through the `claude` subprocess (`_internal/transport/subprocess_cli.py:159`), so a
-  scripted transport -- example 03's technique -- REMOVES the door call and cannot satisfy
-  criterion 2. Leg 2 therefore runs the real CLI against a replayed model. THE CLI IS NOT A PYTHON
-  PACKAGE, cannot be pinned in `pyproject.toml`, has NO install step in `ci.yml` today, and it is
-  UNVERIFIED whether it can be driven fully offline against a replay server. RESEARCH MUST SETTLE
-  THIS BEFORE PLANNING COMMITS LEG 2'S DEFAULT PATH -- criterion 10 (`make ci` exit 0) depends on
-  it, and an undriveable CLI is a `D-IMPL-NN` AND A STOP, never a quiet demotion of leg 2 to
-  `--live`.
-  KNOWN AND ACCEPTED CONSEQUENCE, to be written into the README rather than smoothed over: with
-  `H-06` (no model for ADK and LangGraph) plus `H-07`, the three programs are NOT the same program
-  three ways in the default path. Who holds the MCP session differs BY HARNESS; CCF does not.
-  `state.record-session` WAS INVOKED ONCE THIS SESSION, RETURNED `recorded: false` -- AND CORRUPTED
-  THE FILE ANYWAY (1207 -> 705 lines, lines 5-382 replaced by two). Restored from a pre-call backup
-  and hand-edited, exactly as the 2026-08-18 and 2026-08-19 entries below already warn. THE WARNING
-  IS NOW THREE-FOR-THREE: DO NOT RUN `state.*` OR `roadmap.*` WRITERS AGAINST THESE FILES.
-  EVERYTHING BELOW THIS LINE IS THE PHASE 18.1/19 RECORD, SUPERSEDED AS TO NEXT ACTION ONLY.
-  TWO PHASES ARE OPEN AND NEITHER IS PLANNED, AND THEY ARE INDEPENDENT OF EACH OTHER. BY ROADMAP
-  ORDER the next action is `/clear` then `/gsd:plan-phase 18.1` (or `/gsd:discuss-phase 18.1`
-  first, which is worth it: `how simple is simple enough` and the README's exact framing are
-  gray areas planning should not invent). PHASE 19 IS ALSO READY and is FULLY DISCUSSED --
-  `19-CONTEXT.md` exists with 14 decisions. EITHER ORDER IS SAFE: 18.1 as re-cut on 2026-08-18
-  touches the example, `binding.yaml`, the adapter's binding-string parsing and the README --
-  NOT the client seam -- so it does not collide with Phase 19's wire-shape change. (The earlier
-  draft of 18.1 DID collide, which is one of the reasons it was withdrawn.)
-  PHASE 19 IS DISCUSSED, NOT PLANNED. The NEXT ACTION is `/clear` then
-  `/gsd:plan-phase 19` against
-  `.planning/phases/19-the-client-seam-integrity-checks-must-be-able-to-fail-insert/19-CONTEXT.md`.
-  No phase branch is cut yet and no plan exists. TWO RESIDUALS were left to planning ON PURPOSE:
-  whether out-of-tree adapters get a deprecation window or break cleanly at the seam type change
-  (pre-1.0 argues break), and where the producer-side door entry lives
-  (`src/ccf/products/door.py` is the presumptive home, since `src/` cannot import `runtime/`).
-  THE PHASE'S OWN SUCCESS SENTENCE, from the ROADMAP: a control that answers a DIFFERENT QUESTION
-  must be caught by a SINGLE-TRANSPORT client, not only by the cross-adapter parity diff -- any
-  proof requiring two subjects has not discharged it, because parity is blind by construction to a
-  check broken identically on both.
-  EVERYTHING BELOW THIS LINE IS THE PHASE 18 RECORD, SUPERSEDED AS TO NEXT ACTION ONLY.
-  PHASE 18 WAS OPEN AND READY TO EXECUTE when this was written; it has since executed, gated
-  (`D-GATE-18`) and merged (`e57c93c`). Nothing is part-done: the phase container was built this
-  session and no task has run. The NEXT ACTION is `/gsd:execute-phase 18` on branch `phase-18`
-  (cut from `main` at b32348f; `main` itself is untouched, pushed, clean and green).
-  WHAT PHASE 18 IS: the MCP transport -- the second door and the portability proof. ONE plan,
-  `17-10-PLAN.md`, FOUR tasks: (1) the egress tool stops hard-wiring `parameters={}` so a product
-  class declaring a required parameter becomes reachable over MCP, with NO coercion guessing and
-  NO wider than the HTTP door, proven by ONE shared case table run against BOTH doors; (2) the MCP
-  door emits the canonical refusal envelope while a GOVERNANCE refusal (ProductEntitlementRefused)
-  still RAISES -- that boundary is asserted so it reads as a decision rather than an omission;
-  (3) `mcp+stdio` ships as the second official adapter, sync at the surface with the async client
-  bridged internally, registered by ONE dict entry, constructing NO Result; (4) the adapter is
-  bound into the conformance suite. Requirements CLNT-12, CLNT-15.
-  THE PLAN FILE IS `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/17-10-PLAN.md`
-  -- note the `17-10` NAME INSIDE THE PHASE-18 DIRECTORY. THAT IS DELIBERATE AND MUST NOT BE
-  "TIDIED": three shipped test docstrings (tests/examples/test_client_example_purity.py, and
-  tests/client/conformance/test_inprocess_conformance.py TWICE) and two IMMUTABLE decision entries
-  (D-IMPL-146, D-GATE-17) cite `17-10` as a stable identifier per D-IMPL-144, and plan discovery is
-  DIRECTORY-SCOPED and prefix-agnostic ("$PHASE_DIR"/*-PLAN.md) so the rename was never needed.
-  The deferral banner was AMENDED to record the lift, not deleted -- same discipline the plan
-  itself applies to the egress docstring: keep the reasoning, change the behaviour.
-  FOUR PREMISES RE-MEASURED on `main` @ b32348f BEFORE the lift, so the phase starts on facts:
-  (a) `mcp==1.28.1` IS ALREADY A DECLARED, PINNED DEPENDENCY and installed, so the plan's T-17-SC
-  blocking human checkpoint for an [ASSUMED] package DOES NOT FIRE and no install is owed; (b) all
-  seven referenced artifacts exist (suite.py 759L, inprocess 445L, egress 599L, plus binding,
-  codec, refusal, test_inprocess_conformance); (c) TASK 3's HARNESS-LINT BOUNDARY QUESTION IS
-  ANSWERED NEGATIVE, empirically -- src/ ALREADY imports `mcp` in FOUR modules (ccf.mcp.client,
-  ccf.artifacts.mcp_store, ccf.signal.mcp_source, ccf.signal.mcp_envelope_map) and
-  tools/lints/harness_imports.py denies a frozenset of HARNESS packages that does not contain MCP,
-  because MCP is CCF's own integration surface (CLAUDE.md §7.1); the lint is green today with
-  those imports, so the adapter's import is permitted and NO D-IMPL is owed; (d) 17-09, the former
-  depends_on, is merged -- so `wave: 8, depends_on: ["17-09"]` became `wave: 1, depends_on: []`.
-  TWO THINGS THE PHASE MUST BE WILLING TO FALSIFY RATHER THAN SATISFY: (1) `suite.py` MUST NOT
-  CHANGE -- if binding a real second adapter requires editing it, the suite was not
-  adapter-agnostic and that is a FINDING against 17-07, not a quiet edit; `git diff
-  tests/client/conformance/suite.py` being empty is the claim. (2) The `parameters={}` hard-wiring
-  has a RECORDED REASON (a flat tool-argument map cannot carry D-IMPL-103's nested declared types
-  without guessing coercions, and a declared-parameter surface would make the tool wider than the
-  HTTP door) -- that reason is a CONSTRAINT ON THE FIX, not an obstacle to it: AMEND the docstring
-  paragraph, never delete it.
-  STILL DEFERRED AND NOT LIFTED: 17-08 remains in the PHASE 17 directory under its D-IMPL-146
-  banner, BLOCKED ON REAL WORK rather than sequencing -- `refuse_request` would have no surviving
-  demonstration anywhere in examples/ once the s1 trees go, and
-  tools/docs_tests/test_resolver_seam_obligations.py::test_both_seams_cite_both_call_sites requires
-  TWO DISTINCT cited examples per seam with the cite-it-twice escape closed by design. The remedy
-  is to WRITE a producer-side example, not to relax a gate -- and the same hazard sits on the OTHER
-  refusal, because the quarantined 00-08 group holds the sole refuse_bound_payload call site.
-  PHASE 16 IS RETIRED, NOT OPEN. Ruled 2026-08-17 (`D-IMPL-152`): retired, not paused, not
-  parked, NOT RESUMABLE. It executed 6 of 21 plans and stopped when its example surface was
-  rejected; Phase 17 restarted from the client side with `examples/hw1-companies-over-revenue`
-  and Phase 18 added an MCP server to that same example, which is the direction of travel --
-  evolve the working example outward on the client and context-production sides. The 14
-  unexecuted plans are MOVED to `.planning/phases/16-*/abandoned/` so plan discovery stops
-  counting them; they are history and a checklist, NOT a work queue, and nothing is executed
-  from there. THE PLAN SET IS RETIRED; THE OBLIGATIONS ARE NOT DISCHARGED -- §9 examples 01-04,
-  the adopters guide and `make ci`'s documented claim are still owed and must be RE-DERIVED
-  against the surface that exists when each becomes current, never lifted from `abandoned/`.
-  Earlier text anywhere in this file saying Phase 16 is parked, open, or should be resumed at
-  7/21 is SUPERSEDED. See `RETIRED.md` in the phase directory.
-  ROADMAP CORRECTIONS made this session, recorded because neither defect was introduced this
-  session and both were load-bearing: PHASE 17 HAD NO BULLET IN THE PHASES LIST AT ALL (planned,
-  executed, gated and merged with a detail section and a progress row but no entry), and its
-  progress row read `0/10 -- Planned 2026-08-15` throughout. The absent-box case is NOT cosmetic:
-  the Phase 14.1 note records that an unchecked box once made roadmap.analyze return
-  next_phase: "14.1", routing auto-advance into a phase deliberately never planned. Also note the
-  frontmatter's total_phases: 18 is now ACCURATE -- it was ahead of the roadmap until Phase 18 was
-  written, and the discrepancy the last handoff flagged resolved itself rather than being fixed.
-  ADVISORY, pre-existing and NOT fixed: at least ten `DECISIONS.md:NN` LINE-ANCHORED citations
-  survive across the tree (lines 49, 227, 278-338), which contradicts D-IMPL-144's stable-ID rule.
-  D-IMPL-147 was APPENDED at the end of the file specifically so no anchor shifted; a future
-  insertion ANYWHERE ABOVE line 442 will silently stale them.
-  KNOWN CONSEQUENCE, recorded not fixed: the example's headline command prints `0 of 0 assembled`,
-  D_c 1.0000, fail_closed on a clean checkout, because D-32 forbids committing data to examples/
-  and nothing populates a deployment. The MECHANISM IS HONEST -- the empty-assembly branch refusing
-  a confident number about a graph that said nothing -- and no test depends on a populated
-  deployment (464 passed after deleting both generated paths), so CI is unaffected.
-  PROCESS ITEM to carry: a plan should not ship an artifact AND the gate that judges it. 17-09 did
-  both; two outside reviewers found the detectors genuinely constrain the shape anyway ("detector
-  quality is good; independence is not"), and the real shaping turned out to be elsewhere -- two
-  coverage floors that gained headroom in-phase and were not re-raised.
-  MEASUREMENT HAZARDS, all confirmed 2026-08-16, all of one family -- machinery that reports
-  confidently wrong rather than failing: (a) `make ... | tail -N` REPORTS TAIL'S EXIT CODE, and
-  echoing an exit code is not branching on it; the session reported a green tree that was red
-  twice. Use `make X > log 2>&1; echo "EXIT=$?"` AND branch on it. (b) THE VENV'S EDITABLE INSTALL
-  RESOLVES `ccf` TO THE MAIN CHECKOUT, so any worktree measurement without PYTHONPATH=src:runtime
-  reads code the executor did not write. (c) RETIREMENT-COUPLINGS.md SWEEPS THE PLANNING TREE
-  INCLUDING A PLAN'S OWN SUMMARY -- write the SUMMARY first, then re-sweep. (d) Actions' checkout
-  is fetch-depth 1, and a shallow clone's grafted root appears to introduce every file; ask
-  `git rev-parse --is-shallow-repository` rather than inferring from an empty log.
-  ADVISORY FINDINGS carried out of the phase unfixed and enumerated in HANDOFF-2026-08-17.md and
-  in 17-CLOSE-REVIEWS.md / 17-REVIEW.md: the per-module budget gate, the client exception taxonomy
-  leaking past TransportError, `_parse` swallowing SyntaxError under a `# pragma: no cover` that
-  admits the branch never ran, the documentation-only credential posture on `connection:`, the
-  purity gate admitting any ccf.client.* submodule, the projection docstring overclaim, the
-  required[0] positional assumption, load_reference mutating sys.path, and `question.asked_at` now
-  optional and read by nothing.
-  SECURITY, OUTSTANDING AND DAVE'S: revoke the three fine-grained PATs pasted into the 2026-08-10
-  transcript, plus any created 2026-08-16, at github.com/settings/personal-access-tokens.
-  THE PHASE'S LESSON, at ELEVEN instances and unchanged: every defect found was in VERIFICATION
-  MACHINERY or in PLANS, never in mechanism -- a check that stops checking, or one that keeps
-  reporting green while verifying the wrong thing. They share a shape: treating ABSENCE OF A
-  FAILURE SIGNAL as PRESENCE OF A SUCCESS SIGNAL. The correct model has three states -- pass, fail,
-  and DON'T KNOW -- and the bug is collapsing "don't know" into "pass". Two rules now written into
-  the code they govern: a floor is only a floor while it equals the count, and the plan that adds a
-  witness is the plan that must raise it; and a mirror asserted in a comment is not a mirror.
+  PHASE 20 IS EXECUTION-COMPLETE AND NOT YET GATED. Work is on branch `phase-20`
+  (`9e4bd0e`..`d9b3f5a`), NOT on `main`. NEXT ACTION, per CLAUDE.md SS3.1 and in this order:
+  (1) the CROSS-AI PANEL against the SHIPPED CODE -- `/gsd-review --phase "Phase 20" --all`
+  -- written to a DISTINCT `20-CLOSE-REVIEWS.md` so the pre-execution plan reviews survive;
+  (2) the single-agent code review, which is ADDITIVE and never a substitute; (3) VERIFY
+  EVERY FINDING against the tree before recording or acting on it, and record rejected
+  findings as rejected; (4) fix all blocking findings IN-PHASE; (5) present to Dave with the
+  triage; (6) `D-GATE-20` and the merge to `main`.
+  TWO RESIDUALS ARE CARRIED, NEITHER PAPERED OVER. (1) THE POST-SUMMARY REGENERATION WINDOW:
+  GSD writes a plan's SUMMARY AFTER its tasks, so a final `tools/retirement_sweep.py --report`
+  can be invalidated by that plan's own summary naming a retiring path. Measured at wave 8 --
+  it added EXACTLY ONE row and skipping the step would have left `make ci` RED on a tree
+  nobody else had touched. It is a HAND-RUN STEP, NOT A MECHANISM: the next phase's first
+  plan must repeat it if it edits `.planning/**` before asserting `make ci`. The currency test
+  was NOT exempted; if the hand-run proves insufficient that is a `D-IMPL` and a STOP.
+  (2) The x86_64 `claude-agent-sdk==0.2.128` wheel bundling the `claude` CLI is UNVERIFIED
+  from this aarch64 host. NO FALLBACK WAS BUILT and none should be -- a second leg-2 path CI
+  never exercises is criterion 6's own failure mode. Confirm with one CI run or
+  `pip download claude-agent-sdk==0.2.128 --platform manylinux_2_17_x86_64 --no-deps` and
+  inspect the wheel for `_bundled/claude`. The README states the wheel bundles the CLI without
+  qualifying by architecture; that is the sentence to correct if it resolves against us.
 ---
 
 # STATE — CCF SDK
