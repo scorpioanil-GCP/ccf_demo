@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **237** across **77** files
+- Coupling rows: **238** across **78** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **143** across **47** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **235**
 
@@ -17,7 +17,7 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 9 |
-| 16-15 | 23 |
+| 16-15 | 24 |
 | 16-17 | 41 |
 | 16-18 | 106 |
 | 17-08 | 58 |
@@ -29,7 +29,7 @@ Rows by coupling shape:
 | `comment` | 21 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 59 |
+| `docstring` | 60 |
 | `indirect-execution` | 1 |
 | `literal-set-member` | 4 |
 | `makefile-recipe` | 16 |
@@ -235,6 +235,7 @@ Rows by coupling shape:
 | `tests/examples/test_demo_generator.py` | 4 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_demo_generator.py` | 22 | `examples/08-e2e-demo` | `path-construction` | live | - | - | 16-18 | constructed as `examples/08-e2e-demo` |
 | `tests/examples/test_gate_two_divergence.py` | 96 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/run.py` |
+| `tests/examples/test_hw1_harness_clients_no_model.py` | 12 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
 | `tests/examples/test_s2_client_transport_spike.py` | 8 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_s2_client_transport_spike.py` | 15 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_s2_client_transport_spike.py` | 16 | `tests/examples/test_ext00_hardening.py` | `docstring` | documentary | - | - | 16-18 |  |

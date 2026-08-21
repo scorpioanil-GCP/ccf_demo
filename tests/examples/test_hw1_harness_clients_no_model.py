@@ -58,13 +58,14 @@ Every property takes its subject as a parameter
 The discipline ``tests/client/test_surface.py`` states at length and this
 module inherits: a control specified as *"doctor a copy and assert the test
 fails"* proves nothing when the shipped assertion reads a fixed path instead of
-the copy. So every control below exercises the **shipped**
-:func:`install_no_model_guard` rather than a re-implementation of it, and the
-shipped drive runs inside that same context manager.
+the copy. So the ``--live`` properties below take a **parsed tree** and the
+guard's controls exercise the **shipped** context manager; the shipped
+assertions hand those same functions the real subjects.
 """
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import contextlib
 import importlib.util
@@ -116,6 +117,17 @@ UNRESOLVABLE_HOST = "no-such-host.ccf-no-model-guard.invalid"
 #: A served product's content address, as each client prints it on stdout. 64
 #: hex characters because it is a sha256 over the product's canonical bytes.
 CONTENT_ADDRESS_RE = re.compile(r"content address\s+([0-9a-f]{64})")
+
+#: The runner's leg-driving function. Named once: a rename in the runner makes
+#: :func:`driving_call_site_violations` report *zero* sites, which that function
+#: refuses as vacuity rather than reporting as compliance.
+LEG_DRIVING_FUNCTION = "drive_leg"
+
+#: The flag `H-09` rules is the only live flag, and the prefix any second one
+#: would have to start with to be caught.
+LIVE_FLAG = "--live"
+LIVE_FLAG_PREFIX = "--live"
+
 
 # --- the guard, copied from example 03's technique ----------------------------
 
@@ -417,3 +429,261 @@ def test_the_guard_restores_both_patched_names() -> None:
             continue
         else:  # pragma: no cover - nothing should be listening on port 1
             raise AssertionError("port 1 accepted a connection; this control is void")
+
+
+# --- `--live` is one flag with one meaning (H-09), as AST properties ----------
+
+
+def runner_tree() -> ast.Module:
+    """The runner's source, parsed. The subject every ``--live`` property takes."""
+    return ast.parse(RUNNER_PROGRAM.read_text(encoding="utf-8"))
+
+
+def live_flag_declarations(tree: ast.Module) -> tuple[str, ...]:
+    """Every ``--live…`` flag ``tree`` declares to ``argparse``, in source order.
+
+    Parsed, never grepped: a flag named in a docstring, a help string or a
+    comment is not a code path, and a grep cannot tell those apart from a
+    declaration.
+    """
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Attribute) or node.func.attr != "add_argument":
+            continue
+        for argument in node.args:
+            if (
+                isinstance(argument, ast.Constant)
+                and isinstance(argument.value, str)
+                and argument.value.startswith(LIVE_FLAG_PREFIX)
+            ):
+                found.append(argument.value)
+    return tuple(found)
+
+
+def live_flag_violations(tree: ast.Module) -> list[str]:
+    """`H-09`: exactly one live flag is declared, and it is ``--live``.
+
+    Vacuity is a violation in its own right and comes first: a tree declaring
+    **no** live flag would otherwise yield an empty finding set, and "found
+    nothing wrong" would be indistinguishable from "criterion 6's opt-in does
+    not exist".
+    """
+    declarations = live_flag_declarations(tree)
+    if not declarations:
+        return [
+            f"no {LIVE_FLAG!r} flag is declared at all, so criterion 6's opt-in"
+            " does not exist and a count over it would pass vacuously"
+        ]
+    violations: list[str] = []
+    exact = [name for name in declarations if name == LIVE_FLAG]
+    if len(exact) != 1:
+        violations.append(
+            f"{LIVE_FLAG!r} is declared {len(exact)} times; it must be declared"
+            " exactly once"
+        )
+    extra = sorted({name for name in declarations if name != LIVE_FLAG})
+    if extra:
+        violations.append(
+            f"a second live flag is declared: {extra}. `H-09` rejected"
+            " `--live-deployment`/`--live-model` because two orthogonal flags"
+            " are four combinations per harness of which CI runs one, leaving"
+            " three paths documented and never run"
+        )
+    return violations
+
+
+def live_branches(tree: ast.Module) -> list[ast.If | ast.IfExp]:
+    """Every branch in ``tree`` whose condition consults the live value.
+
+    Both spellings the runner can use: the parsed ``args.live`` attribute and
+    the ``live`` keyword parameter it is threaded through as.
+    """
+    found: list[ast.If | ast.IfExp] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.If, ast.IfExp)):
+            continue
+        for inner in ast.walk(node.test):
+            if isinstance(inner, ast.Attribute) and inner.attr == "live":
+                found.append(node)
+                break
+            if isinstance(inner, ast.Name) and inner.id == "live":
+                found.append(node)
+                break
+    return found
+
+
+def driving_call_site_violations(tree: ast.Module, function_name: str) -> list[str]:
+    """One leg-driving call site, and it does not sit inside a live branch.
+
+    `H-09` rules ``--live`` selects the subject root and nothing else, so the
+    code path that drives a leg is reached identically either way. A **second**
+    driving call site inside ``if args.live:`` is exactly criterion 6's
+    *documented but never run* failure mode, one level in.
+
+    Zero call sites is a violation, not a pass: it means the function was
+    renamed or removed and this property has stopped looking at anything.
+    """
+    sites = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == function_name
+    ]
+    if not sites:
+        return [
+            f"no call to {function_name!r} was found, so this property read"
+            " nothing; the runner's leg-driving function was renamed or removed"
+        ]
+    violations: list[str] = []
+    if len(sites) > 1:
+        violations.append(
+            f"{function_name!r} is called from {len(sites)} sites; one driving"
+            " path is what makes the `--live` and default runs the same run"
+        )
+    guarded = {id(node) for branch in live_branches(tree) for node in ast.walk(branch)}
+    inside = [node for node in sites if id(node) in guarded]
+    if inside:
+        violations.append(
+            f"{len(inside)} call(s) to {function_name!r} sit inside a branch on"
+            " the `--live` value, so a leg-driving path exists that CI never"
+            " exercises"
+        )
+    return violations
+
+
+def live_leg_coverage_violations(tree: ast.Module, legs: Sequence[str]) -> list[str]:
+    """No discovered leg is filtered out of the live path.
+
+    Asserted over the **discovered** leg set rather than a list written here,
+    so a fourth harness cannot join unreachable. A leg name appearing inside a
+    branch on the live value is the shape that would do it — ``if args.live and
+    leg != "adk"`` and its relatives — and it is refused whatever it is doing
+    there, because a live path that can name one leg can exclude it.
+
+    Two vacuity guards, because this property has two ways to read nothing: an
+    empty leg set, and a ``--live`` flag that is declared and never consulted.
+    """
+    if not legs:
+        return [
+            "no legs were discovered, so a coverage assertion over them would"
+            " pass for a runner that drives nothing"
+        ]
+    branches = live_branches(tree)
+    if not branches:
+        return [
+            "the live value is declared but never consulted in any branch, so"
+            " either the flag does nothing or this property stopped finding it"
+        ]
+    violations: list[str] = []
+    for branch in branches:
+        named = sorted(
+            {
+                node.value
+                for node in ast.walk(branch)
+                if isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and node.value in set(legs)
+            }
+        )
+        if named:
+            violations.append(
+                f"a branch on the `--live` value names leg(s) {named}; `H-09`"
+                " rules `--live` is the choice of subject root and nothing"
+                " else, so no leg may be reachable in one mode and not the"
+                " other"
+            )
+    return violations
+
+
+def test_the_runner_declares_exactly_one_live_flag() -> None:
+    """`H-09`, shipped: one flag, one meaning."""
+    violations = live_flag_violations(runner_tree())
+    assert violations == [], "\n".join(violations)
+
+
+def test_the_runner_has_one_leg_driving_call_site_outside_any_live_branch() -> None:
+    """`H-09`, shipped: ``--live`` does not fork the path that drives a leg.
+
+    No test in this module passes ``--live`` to anything. `H-09`'s live meaning
+    is *point at a real populated deployment*, which CI does not have; the
+    claim under test is structural.
+    """
+    violations = driving_call_site_violations(runner_tree(), LEG_DRIVING_FUNCTION)
+    assert violations == [], "\n".join(violations)
+
+
+def test_every_discovered_leg_is_reachable_under_live() -> None:
+    """`H-09`, shipped: no leg is filtered out of the live path."""
+    violations = live_leg_coverage_violations(runner_tree(), load_runner().known_legs())
+    assert violations == [], "\n".join(violations)
+
+
+# --- CONTROL 4-6: the `--live` properties, watched failing --------------------
+
+
+def test_a_second_live_flag_is_a_violation() -> None:
+    """CONTROL 4 — a tree declaring ``--live-model`` beside ``--live`` goes red.
+
+    The doctored tree is handed to the SAME function the shipped assertion
+    calls, so this control cannot pass by reading something else.
+    """
+    doctored = ast.parse(
+        "parser.add_argument('--live', action='store_true')\n"
+        "parser.add_argument('--live-model', action='store_true')\n"
+    )
+    violations = live_flag_violations(doctored)
+    assert violations
+    assert "--live-model" in violations[0]
+
+
+def test_a_second_driving_call_site_inside_a_live_branch_is_a_violation() -> None:
+    """CONTROL 5 — the forked path `H-09` rejects, scored."""
+    doctored = ast.parse(
+        "if args.live:\n"
+        f"    {LEG_DRIVING_FUNCTION}(leg, root, as_of, environment)\n"
+        "else:\n"
+        f"    {LEG_DRIVING_FUNCTION}(leg, root, as_of, environment)\n"
+    )
+    violations = driving_call_site_violations(doctored, LEG_DRIVING_FUNCTION)
+    assert len(violations) == 2, violations
+    assert "2 sites" in violations[0]
+    assert "never exercises" in violations[1]
+
+
+def test_no_live_flag_at_all_is_a_violation_rather_than_an_empty_finding() -> None:
+    """CONTROL 6 — vacuity is named, never reported as compliance.
+
+    Without this the properties above would report a clean tree for a runner
+    that had lost criterion 6's opt-in entirely.
+    """
+    doctored = ast.parse("parser.add_argument('--legs', default='adk')\n")
+    assert live_flag_declarations(doctored) == ()
+    violations = live_flag_violations(doctored)
+    assert violations
+    assert "does not exist" in violations[0]
+
+
+def test_a_leg_named_inside_a_live_branch_is_a_violation() -> None:
+    """CONTROL 7 — the coverage property, watched firing.
+
+    Not in the plan's numbering; added because
+    :func:`live_leg_coverage_violations` would otherwise be a property nobody
+    has ever seen report anything, which is the same standing as a guard nobody
+    has watched refuse. Both of its vacuity guards are exercised too — an empty
+    leg set and a tree that never consults the live value — because a coverage
+    assertion has two ways to read nothing.
+    """
+    filtered = ast.parse("if args.live and leg != 'adk':\n    continue\n")
+    violations = live_leg_coverage_violations(filtered, ("adk", "langgraph"))
+    assert violations
+    assert "'adk'" in violations[0] or "adk" in violations[0]
+
+    assert "no legs were discovered" in live_leg_coverage_violations(filtered, ())[0]
+
+    unconsulted = ast.parse("if leg in LEGS_DRIVING_A_MODEL:\n    pass\n")
+    violations = live_leg_coverage_violations(unconsulted, ("adk",))
+    assert violations
+    assert "never consulted" in violations[0]
