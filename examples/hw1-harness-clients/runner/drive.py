@@ -248,11 +248,22 @@ NAME_ROLE = "name"
 #: :func:`marker_violations`.
 MINIMUM_MARKER_CHARS = 4
 
-#: The words the runner and the reference client print themselves, taken from
-#: ``examples/hw1-companies-over-revenue/consume.py::main`` and from this
-#: module's own output. A declared name sharing a word with this set would make
+#: The words printed by chrome rather than by payload, across ALL THREE output
+#: streams a payload assertion reads: the reference client
+#: (``examples/hw1-companies-over-revenue/consume.py::main``), this module's own
+#: output, and — the stream the original assembly of this set MISSED — the three
+#: harness clients themselves. A declared name matching anything here would make
 #: "stdout carries a declared company name" true of a run that printed nothing
-#: but chrome — which is the assertion the markers exist to make meaningful.
+#: but chrome, which is the assertion the markers exist to make meaningful.
+#:
+#: ``product`` is the word that records the original defect: all three clients
+#: print the literal line ``context product`` (``client_adk.py``,
+#: ``client_anthropic.py``, ``client_langgraph.py``), the check greps the LEG's
+#: stdout, and the set was assembled from the other two streams only. A row named
+#: ``product`` was therefore accepted as a marker and satisfied by chrome alone.
+#: ``tests/examples/test_hw1_harness_clients_runner_gates.py`` now derives the
+#: clients' printed literals and asserts this set covers them, so the omission is
+#: a mechanism rather than a rule.
 CONSOLE_VOCABULARY: frozenset[str] = frozenset(
     {
         "answer",
@@ -271,6 +282,7 @@ CONSOLE_VOCABULARY: frozenset[str] = frozenset(
         "lineage",
         "of",
         "perspective",
+        "product",
         "record",
         "refused",
         "replay",
@@ -398,8 +410,15 @@ def marker_violations(names: Sequence[str], chrome_words: Sequence[str]) -> list
     3. No name matching only hex digits and spaces. Such a name matches INSIDE
        the 64-hex content address the legs also print, so the payload assertion
        would pass on chrome alone.
-    4. No word colliding with ``chrome_words``, the words the runner and the
-       reference client print themselves.
+    4. No word colliding with ``chrome_words``, the words the runner, the
+       reference client AND the three harness clients print themselves.
+    5. No name appearing anywhere INSIDE ``chrome_words`` as a substring.
+       Property 4 compares whole words; :func:`observed_markers` matches raw
+       substrings. While the two disagreed, a row named ``text`` or ``ntex``
+       (both inside ``context``) was accepted and an address-only leg passed
+       the check written to refuse it. Property 5 runs the reader's own
+       predicate against a chrome-only sample, so the guard and the matcher
+       cannot drift apart again.
 
     An empty marker set is refused too: a payload assertion over no markers is
     a vacuous pass, which is the failure mode the other three exist to prevent
@@ -412,6 +431,9 @@ def marker_violations(names: Sequence[str], chrome_words: Sequence[str]) -> list
     difference between a checked property and a claimed one.
     """
     chrome = frozenset(chrome_words)
+    #: One chrome-only stdout, for the substring test below. Lowercased so the
+    #: guard is insensitive to a vocabulary that is not already lowercase.
+    chrome_sample = " ".join(sorted(word.lower() for word in chrome))
     violations: list[str] = []
     if not names:
         violations.append(
@@ -439,6 +461,26 @@ def marker_violations(names: Sequence[str], chrome_words: Sequence[str]) -> list
             violations.append(
                 f"{name!r} collides with console vocabulary {collisions}; a marker"
                 " the runner prints itself is true of a run that printed no payload"
+            )
+        # The SAME predicate the payload assertion will use, run against a
+        # chrome-only sample. The whole-word test above cannot see a name that
+        # is a SUBSTRING of a chrome word (`text` and `ntex` both live inside
+        # `context`), and :func:`observed_markers` matches by raw substring — so
+        # for a while the guard and the matcher disagreed about what "appears in
+        # stdout" means, and an address-only leg passed the check written to
+        # refuse it. Calling the observer here is what stops the two from ever
+        # drifting again: whatever `observed_markers` counts as a match, this
+        # refuses when chrome alone can supply it.
+        #
+        # Lowercased on both sides, which is STRICTER than the observer rather
+        # than looser. Erring strict only ever refuses a candidate marker (cheap
+        # — rename the row); erring loose admits one chrome can satisfy, which
+        # is the defect itself.
+        if observed_markers(chrome_sample, [lowered]):
+            violations.append(
+                f"{name!r} appears inside the console vocabulary, so a run that"
+                " printed nothing but chrome would satisfy the payload assertion"
+                " for this row"
             )
     for index, name in enumerate(names):
         for other_index, other in enumerate(names):
@@ -513,6 +555,71 @@ def payload_violations(
             " itself make two printed products the same product"
         )
     return violations
+
+
+def printed_product_violations(leg_stdout: str) -> list[str]:
+    """Criteria 1-3 as a property of the LEG ALONE, with no declared markers.
+
+    :func:`payload_violations` asks whether the leg printed *the same product the
+    reference printed*, and it answers by looking for the six declared company
+    names. That question is only askable when the subject was SEEDED from
+    ``runner/scenario-rows.yaml``. Under ``--live`` the subject is an operator's
+    own populated deployment holding an operator's own data, so those six names
+    are not in it and never will be — and for a while this runner asked the
+    seeded question anyway, which made every ``--live`` leg fail with a message
+    blaming the client for printing "a content address rather than the Context
+    Product" when the client had printed the whole product correctly.
+
+    This is the question that IS askable on both paths, so it runs on both: did
+    the leg print a Context Product at all, or only its address? All three
+    clients print the product as ``json.dumps(...)`` immediately after the
+    address line, so an address-only leg — ``CONTROL A``'s exact subject — has no
+    JSON object in its stdout and is refused here without any vocabulary at all.
+
+    Deliberately a floor rather than a replacement. On the seeded path
+    :func:`payload_violations` still runs and still carries the stronger
+    reference comparison; this only removes that comparison's dependence on the
+    seed from the one path where the seed does not exist.
+
+    Args:
+        leg_stdout: What the harness client printed.
+
+    Returns:
+        One violation per property broken; empty when the leg printed a
+        non-empty product.
+    """
+    product = _printed_product(leg_stdout)
+    if product is None:
+        return [
+            "the leg's stdout carries no JSON object, so it printed a content"
+            " address rather than the Context Product the address names"
+        ]
+    if not product:
+        return [
+            "the leg printed an EMPTY Context Product; an address computed over"
+            " nothing is not evidence that anything was assembled"
+        ]
+    return []
+
+
+def _printed_product(stdout: str) -> Any | None:
+    """The first complete JSON value in ``stdout``, or ``None``.
+
+    Scanned rather than line-split because every client prints the product with
+    ``indent=2``, so the value spans many lines. ``raw_decode`` is what lets a
+    scan stop at the end of the value instead of requiring the rest of stdout to
+    be JSON too.
+    """
+    decoder = json.JSONDecoder()
+    for index, character in enumerate(stdout):
+        if character not in "{[":
+            continue
+        try:
+            value, _ = decoder.raw_decode(stdout[index:])
+        except ValueError:
+            continue
+        return value
+    return None
 
 
 def build_subject(parent: pathlib.Path) -> pathlib.Path:
@@ -1057,12 +1164,21 @@ def main() -> int:
             subject = _subject_factory(stack, pathlib.Path(scratch), live=args.live)
 
             root = subject("reference")
-            rows = declared_rows(DECLARED_ROWS_DOCUMENT, scenario_attributes(root))
-            markers = declared_markers(rows, scenario_attributes(root))
-            violations += _labelled(
-                "the declared markers cannot carry a payload assertion",
-                marker_violations(markers, sorted(CONSOLE_VOCABULARY)),
-            )
+            # The declared markers describe what the SEED put in the subject, so
+            # they exist on the seeded path and only there. Under `--live` the
+            # subject is the operator's own populated deployment holding the
+            # operator's own rows; asserting the six seeded names against it
+            # refused every live leg by construction, and blamed the client for
+            # it. `markers` stays empty there and
+            # :func:`printed_product_violations` carries criteria 1-3 instead.
+            markers: list[str] = []
+            if not args.live:
+                rows = declared_rows(DECLARED_ROWS_DOCUMENT, scenario_attributes(root))
+                markers = declared_markers(rows, scenario_attributes(root))
+                violations += _labelled(
+                    "the declared markers cannot carry a payload assertion",
+                    marker_violations(markers, sorted(CONSOLE_VOCABULARY)),
+                )
             if violations:
                 raise AssertionError("\n  ".join(violations))
 
@@ -1095,10 +1211,16 @@ def main() -> int:
                         ),
                     )
                 observed[leg] = address
-                payload = payload_violations(reference_stdout, stdout, markers)
+                # The floor, on BOTH paths: did this leg print a product at all,
+                # or only its address? No vocabulary, so no dependence on a seed.
+                payload = printed_product_violations(stdout)
+                if markers:
+                    # The seeded path keeps the stronger question on top of the
+                    # floor: is it the SAME product the reference printed?
+                    payload += payload_violations(reference_stdout, stdout, markers)
                 violations += _labelled(f"leg {leg!r} did not print the product", payload)
                 verdict = "MATCH" if address == reference else "DIVERGED"
-                names = ", ".join(observed_markers(stdout, markers))
+                names = ", ".join(observed_markers(stdout, markers)) if markers else "-"
                 print(f"leg {leg:<16}{address}  {verdict}  names: {names}")
 
             violations += _labelled(

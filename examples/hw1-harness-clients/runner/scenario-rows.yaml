@@ -66,7 +66,7 @@
 #
 # Plans `20-03` and `20-04` assert that each harness leg's stdout carries the
 # product PAYLOAD and not merely a content address, and they do it by looking
-# for these names in the printed output. Four properties make that assertion
+# for these names in the printed output. FIVE properties make that assertion
 # mean something, all of them checked mechanically by
 # `examples/hw1-harness-clients/runner/drive.py::marker_violations` on every
 # default-path run:
@@ -86,8 +86,23 @@
 #      "stdout carries a declared company name" true of a run that printed no
 #      payload at all.
 #
+#   5. No name appears ANYWHERE INSIDE the console vocabulary, as a substring
+#      rather than as a whole word. Property 4 compares whole words, and the
+#      thing that reads stdout matches raw substrings — so for a while a row
+#      named `text` or `ntex` (both inside `context`) was accepted, and an
+#      address-only leg then passed the check written to refuse it. The guard
+#      now runs the reader's own predicate against a chrome-only sample, so the
+#      two cannot disagree again.
+#
+# Property 4's vocabulary covers all three streams a payload assertion reads:
+# the reference client, the runner, and THE THREE HARNESS CLIENTS. The last was
+# missed originally, which is how `product` — a word all three clients print —
+# was absent from the set. `tests/examples/test_hw1_harness_clients_runner_gates.py`
+# now derives the clients' printed literals and fails if the vocabulary does not
+# cover them.
+#
 # Renaming a company to something generic breaks the payload assertion without
-# failing anything that looks related. Check the four properties first.
+# failing anything that looks related. Check the five properties first.
 # ---------------------------------------------------------------------------
 
 semver: "1.0.0"

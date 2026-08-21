@@ -187,9 +187,16 @@ different instruments and the split is worth saying out loud.**
 **Legs 1 and 3 make no network call at all.** Not "no model call" — no egress
 of any kind. `tests/examples/test_hw1_harness_clients_no_model.py::install_no_model_guard`
 patches name resolution and socket connection to refuse, drives both clients
-in-process behind the guard, and requires them to still print the reference
-content address. The MCP door is a spawned child speaking over pipes, so it is
-unaffected; anything reaching for a host is not.
+in-process behind the guard, and requires them to still print **one content
+address that both legs agree on**. The MCP door is a spawned child speaking over
+pipes, so it is unaffected; anything reaching for a host is not.
+
+Read that claim precisely: the guarded assertion is *agreement between the two
+legs*, not equality with an independently computed reference address. It says
+neither leg needed the network to reach the door and both reached the same
+answer; it does not by itself say that answer is the reference's. Criterion 4 —
+the comparison against `consume.py`'s own address — is asserted by the runner
+(`runner/drive.py::compare_addresses`) on the default path, outside this guard.
 
 **Leg 2 does make a call, to a local fail-loud stand-in over loopback.** A
 socket guard is therefore the wrong instrument for it, and this README does not
@@ -224,6 +231,20 @@ cited.
 deployment** instead of the seeded temporary copy. No leg gains a model it did
 not already have. For leg 2 it additionally drops the model stand-in, so that
 leg's model is real.
+
+**What is asserted changes with the subject, and only that.** The seeded path
+knows exactly which six rows it put in the subject, so it asserts the strongest
+form of "the leg printed the product": the set of declared company names in the
+leg's stdout must equal the set in the reference's
+(`runner/drive.py::payload_violations`). A live deployment holds *your* rows, not
+those six, so that assertion is not askable there and is not made — asserting it
+anyway is a bug this example shipped with, and it failed every live leg while
+blaming the client for printing "a content address rather than the Context
+Product" when the client had printed the whole product. What both paths assert is
+`runner/drive.py::printed_product_violations`: the leg's stdout must carry a
+non-empty Context Product and not merely its address. Criterion 4 — every leg
+agreeing with the reference on one content address — is unchanged and applies to
+both.
 
 Three opt-in `make` targets, one per harness. **None of them is in `examples:`
 and none of them ever runs in CI** — they need a populated deployment, and for
