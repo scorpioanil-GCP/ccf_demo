@@ -359,6 +359,35 @@ example-hw1: ## Run examples/hw1-companies-over-revenue (needs a populated deplo
 example-hw1-mcp: ## Run examples/hw1-companies-over-revenue over MCP stdio (same consume.py)
 	CCF_BINDING="mcp+stdio:examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
 
+# ONE LEG AT A TIME, for examples/hw1-harness-clients. These are the DOCUMENTED
+# targets — `examples/hw1-harness-clients/README.md` states these three strings
+# in fenced blocks for a reader to type, and
+# `tests/examples/test_client_example_purity.py` asserts each block is
+# character-identical to the recipe below it AND that the three differ at
+# exactly one token position: the leg name. That second assertion is this
+# example's whole frame — one product, one door, three harnesses — turned into
+# a check, and it is why the three recipes must stay structurally identical.
+#
+# The same interpreter rule as the two targets above, for the same reason:
+# `.venv/bin/python` spelled literally, never `$(PYTHON)`, because `$(PYTHON)`
+# is not a string a reader can type and `which python` returns nothing in this
+# repository. Please do not "fix" these back into a variable.
+#
+# These are deliberately NOT prerequisites of `examples:`. That list runs
+# `example-hw1-harness-clients` above, which drives all three legs plus the
+# reference in one pass and uses `$(ENV) $(PYTHON)` because CI has no `.venv`.
+# The split is the same two-target shape `example-hw1` / `example-hw1-mcp`
+# already have: one spelling for CI, one spelling for a reader.
+.PHONY: example-hw1-harness-clients-adk example-hw1-harness-clients-anthropic example-hw1-harness-clients-langgraph
+example-hw1-harness-clients-adk: ## Run examples/hw1-harness-clients, Google ADK leg only
+	.venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs adk
+
+example-hw1-harness-clients-anthropic: ## Run examples/hw1-harness-clients, Claude Agent SDK leg only
+	.venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs anthropic
+
+example-hw1-harness-clients-langgraph: ## Run examples/hw1-harness-clients, LangGraph leg only
+	.venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs langgraph
+
 # The Phase 15.3 permitted-change-surface gate and its `tools/gates/` package
 # were RETIRED by plan 15.4-07, in the same commit that registered the two
 # structural rules replacing them. D-IMPL-93: the per-file added-line budgets
