@@ -241,7 +241,7 @@ harness/MCP packages are already pinned dev dependencies.
 
 ## Validation Sign-Off
 
-- [x] All tasks have an automated verify or a Wave 0 dependency — 24/24 carry `<automated>`
+- [x] All tasks have an automated verify or a Wave 0 dependency — 25/25 carry `<automated>`
 - [x] Sampling continuity: no 3 consecutive tasks without automated verify
 - [x] Wave 0 covers all MISSING references — every gap has a named owner and precedes its consumers
 - [x] No watch-mode flags
