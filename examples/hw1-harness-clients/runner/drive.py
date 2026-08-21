@@ -63,6 +63,25 @@ one directory up — and it is what lets a later plan add a harness by adding a
 file, with no registry line here to forget. An empty discovery is refused, and
 a `--legs` name that was not discovered is an error rather than a silent skip.
 
+**Leg 2 is the one leg with a fabric-side child, and the one leg with a model
+in its path.** `claude_agent_sdk` routes everything it does — its MCP client
+included — through the `claude` CLI subprocess, so the only place that leg can
+be determinized is the model API the CLI talks to. Before driving it this
+runner spawns `model_stub.py`, waits for its bounded `READY <port>` line and
+reaps it in a `finally`; leg 2's environment then carries
+:func:`model_stub.offline_cli_environment`, and legs 1 and 3 carry none of it.
+A leg that does not go through a model must not look like one that does.
+
+**Two different proofs that no live model was called, and the split is
+deliberate.** Legs 1 and 3 make no socket call at all on the default path —
+`stdio_client` spawns a child over pipes — so a process-global socket guard
+proves *no network egress whatsoever* for them, which is strictly stronger than
+"no model call". Leg 2 cannot be guarded that way: its default path
+deliberately opens a loopback TCP connection to the stand-in. Its equivalent
+proof is the stand-in's own fail-loud behaviour — a request whose reduction,
+model label or ordinal is not the declared one is refused rather than answered,
+so anything other than the declared conversation is a red run.
+
 **One seeded copy per leg**, plus one for the reference run, all under one
 temporary parent removed in a `finally`. Two spawned door children must never
 hold one graph, and giving each leg its own copy makes that impossible rather
@@ -88,6 +107,7 @@ import json
 import os
 import pathlib
 import re
+import select
 import shutil
 import subprocess
 import sys
@@ -103,6 +123,13 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_config_and_boot
 from ccf.products.door import PRODUCT_REQUEST_TOOL
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+
+# The leg-2 model stand-in, imported as a sibling: this module is run as a
+# script, so its own directory is the head of `sys.path`. Fabric-side, like
+# this file, and reached by import rather than by re-implementing its
+# environment recipe here — one statement of that recipe is the point of
+# extracting it.
+import model_stub  # noqa: E402  (sibling module; see the comment above)
 
 #: This runner's own directory, and the example tree it copies its subject
 #: from. Derived from ``__file__`` rather than from the working directory, so
@@ -132,6 +159,32 @@ SOURCE_EXAMPLE = RUNNER_DIR.parents[1] / "hw1-companies-over-revenue"
 SOURCE_DEPLOYMENT = SOURCE_EXAMPLE / "deployment"
 SOURCE_SERVER = SOURCE_EXAMPLE / "server"
 
+#: The leg-2 model stand-in, spawned by this runner. It lives beside this file
+#: because it is fabric-side machinery, not a harness client; `H-11` keeps the
+#: example root to ``client_*.py`` alone.
+MODEL_STANDIN_PROGRAM = RUNNER_DIR / "model_stub.py"
+
+#: Bound on the wait for the stand-in's ``READY <port>`` line, and on its
+#: shutdown before the kill fallback. Bounds rather than preferences: an
+#: unbounded wait turns a stand-in that never binds into a hung CI job.
+READY_TIMEOUT_SECONDS = 60.0
+TERMINATE_TIMEOUT_SECONDS = 10.0
+
+#: The legs that drive a model, declared as one per-leg property the driving
+#: loop consults. Adding a harness that needs a model stand-in and the offline
+#: CLI environment is adding a name here — a data change — and the loop stays
+#: one loop rather than forking into a per-leg branch chain.
+LEGS_DRIVING_A_MODEL: frozenset[str] = frozenset({"anthropic"})
+
+#: How a leg's instruction and its pinned model label reach it. Both travel
+#: through the ENVIRONMENT and never as a keyword argument: the prompt is a
+#: declared document's value (CLAUDE.md §6.4), and
+#: ``tools/lints/no_hardcoding.py::INSTRUCTION_SINK_KWARGS`` names ``prompt`` a
+#: model-instruction sink, so a per-leg record spelled ``prompt="…"`` would be
+#: this phase's own gate firing on this runner.
+PROMPT_VARIABLE = "CCF_HARNESS_PROMPT"
+MODEL_VARIABLE = "CCF_HARNESS_MODEL"
+
 #: The declared input document this runner interprets — the rows the temporary
 #: subject is seeded with. `D-IMPL-163` (Dave, 2026-08-20) narrows `D-32` to
 #: producer OUTPUT, which is what makes a declared input document beside its
@@ -143,6 +196,12 @@ DECLARED_ROWS_DOCUMENT = RUNNER_DIR / "scenario-rows.yaml"
 #: §6.4 names one explicitly) and why a demonstration's number is not part of
 #: the question's identity (``D-IMPL-131``).
 DECLARED_QUESTION_DOCUMENT = RUNNER_DIR / "question.yaml"
+
+#: The third declared input document: the model conversation leg 2 has. It
+#: carries the instruction that leg sends and the model label both sides of the
+#: wire pin, so the client and the stand-in agree from ONE declaration rather
+#: than from two that have to be kept in step.
+DECLARED_CONVERSATION_DOCUMENT = RUNNER_DIR / "model-conversation.yaml"
 
 #: The reference client — the SAME program the two ``example-hw1*`` recipes
 #: run, driven here against the seeded copy. Reference rather than replica: a
@@ -769,7 +828,129 @@ def compare_addresses(reference: str, observed: Mapping[str, str]) -> list[str]:
     return violations
 
 
-def drive_leg(leg: str, root: pathlib.Path, as_of: str) -> tuple[str, str]:
+def _spawn_standin(question: Mapping[str, Any]) -> tuple[subprocess.Popen[bytes], int]:
+    """Spawn the model stand-in; wait, bounded, for its ``READY <port>`` line.
+
+    The `examples/external/00-hello-context/run.py::_spawn` machinery, and the
+    one part of that runner's handshake design that transfers to this example:
+    the stdio door has no port and no handshake, this HTTP stand-in has both.
+    Two failure modes, both visible rather than fatal-by-hanging — a child that
+    DIES before announcing (its half-declared-exchange refusal, for one) closes
+    stdout and the readline returns empty; a child that starts but never binds
+    is cut off by ``select`` rather than waited on forever.
+
+    Its stderr is inherited rather than captured, so a startup refusal reaches
+    the operator's console as the sentence it was written as.
+    """
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            str(MODEL_STANDIN_PROGRAM),
+            "--question-json",
+            json.dumps(question),
+        ],
+        stdout=subprocess.PIPE,
+        start_new_session=True,
+    )
+    if proc.stdout is None:  # pragma: no cover - stdout=PIPE was requested
+        raise AssertionError("the model stand-in was spawned without a stdout pipe")
+    try:
+        ready, _, _ = select.select([proc.stdout], [], [], READY_TIMEOUT_SECONDS)
+        if not ready:
+            raise AssertionError(
+                f"{MODEL_STANDIN_PROGRAM.name} did not announce readiness within"
+                f" {READY_TIMEOUT_SECONDS:.0f}s"
+            )
+        announcement = proc.stdout.readline().decode().strip()
+        if not announcement.startswith("READY "):
+            raise AssertionError(
+                f"{MODEL_STANDIN_PROGRAM.name} did not announce readiness:"
+                f" {announcement!r} (its refusal is on this runner's stderr)"
+            )
+    except BaseException:
+        _terminate(proc)
+        raise
+    return proc, int(announcement.split()[1])
+
+
+def _terminate(proc: subprocess.Popen[bytes] | None) -> None:
+    """Reap a spawned child, with a kill fallback."""
+    if proc is None or proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=TERMINATE_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+
+
+@contextlib.contextmanager
+def model_standin(question: Mapping[str, Any]) -> Iterator[str]:
+    """Host the model stand-in for one leg; yield its base URL; reap it.
+
+    The stand-in is handed the SAME question address the leg is handed, because
+    the tool arguments a model fills in are what actually reach the door: a
+    stand-in answering from its own copy of the question would let leg 2 ask
+    something the other two legs were not asked and still land on an address
+    that looked comparable.
+    """
+    proc, port = _spawn_standin(question)
+    try:
+        yield f"http://127.0.0.1:{port}"
+    finally:
+        _terminate(proc)
+
+
+def leg_environment(
+    leg: str,
+    stack: contextlib.ExitStack,
+    question: Mapping[str, Any],
+    *,
+    live: bool,
+) -> dict[str, str]:
+    """The environment one leg is driven in — the asymmetry, expressed as data.
+
+    A leg named in :data:`LEGS_DRIVING_A_MODEL` gets its instruction, its
+    pinned model label and — on the default path — a spawned stand-in plus
+    :func:`model_stub.offline_cli_environment` pointed at it, with a fresh
+    temporary ``HOME`` so the CLI's state, config, telemetry and updater never
+    touch the developer's own. Every other leg gets the ambient environment
+    unchanged: a leg that does not go through a model must not look like one
+    that does.
+
+    **``--live`` drops the stand-in for this leg, and only the stand-in.** The
+    instruction and the model label are still supplied — they are the leg's
+    input, not part of the determinism seam, and the client requires them in
+    either mode. What is not supplied is ``ANTHROPIC_BASE_URL``, which is why
+    :func:`main`'s ``--live`` help says the operator must set it themselves.
+    """
+    environment = dict(os.environ)
+    if leg not in LEGS_DRIVING_A_MODEL:
+        return environment
+
+    conversation = _document(DECLARED_CONVERSATION_DOCUMENT)
+    # Through the environment MAPPING, keyed by the variable name, and never as
+    # a ``prompt=`` keyword argument: see :data:`PROMPT_VARIABLE`.
+    environment[PROMPT_VARIABLE] = str(conversation["prompt"]).strip()
+    environment[MODEL_VARIABLE] = str(conversation["model"])
+    if live:
+        return environment
+
+    home = pathlib.Path(
+        stack.enter_context(tempfile.TemporaryDirectory(prefix="ccf-hw1-cli-home-"))
+    )
+    environment.update(
+        model_stub.offline_cli_environment(
+            stack.enter_context(model_standin(question)), home
+        )
+    )
+    return environment
+
+
+def drive_leg(
+    leg: str, root: pathlib.Path, as_of: str, environment: Mapping[str, str]
+) -> tuple[str, str]:
     """Run one harness client against ``root``; return its address and stdout.
 
     The three flags are the whole contract (`H-03`): the door's location as an
@@ -782,10 +963,16 @@ def drive_leg(leg: str, root: pathlib.Path, as_of: str) -> tuple[str, str]:
     is the other half of the same decision: a leg cannot report an address by
     logging one.
 
-    No child-termination helper is needed or wanted here. ``subprocess.run``
+    The leg's client process needs no termination helper: ``subprocess.run``
     cannot outlive its own call and kills the child on ``timeout``, and the
     door is spawned by the client's own harness library (`H-01`), one process
-    further down than this runner can see.
+    further down than this runner can see. The one child this runner does have
+    to reap itself is leg 2's model stand-in, which is a long-lived server
+    rather than a call — see :func:`model_standin`.
+
+    ``environment`` is the leg's own, resolved by :func:`leg_environment`,
+    because the three legs are NOT driven in the same environment and pretending
+    they are would hide the one interesting difference between them.
     """
     command, arguments = resolve_door(root)
     completed = subprocess.run(
@@ -798,7 +985,7 @@ def drive_leg(leg: str, root: pathlib.Path, as_of: str) -> tuple[str, str]:
             "--question-json",
             json.dumps(build_question(root, as_of)),
         ],
-        env=dict(os.environ),
+        env=dict(environment),
         capture_output=True,
         text=True,
         timeout=LEG_TIMEOUT_SECONDS,
@@ -826,16 +1013,19 @@ def main() -> int:
     """Seed the subjects, ask the question every way, and compare the answers.
 
     Sync, and it enters no event loop: whatever asynchrony a harness needs is
-    the harness's, inside its own client program. Every child this entry point
-    starts goes through ``subprocess.run`` and cannot outlive the call — the
-    door itself is spawned by each client's own library (`H-01`), never here.
+    the harness's, inside its own client program. Every leg goes through
+    ``subprocess.run`` and cannot outlive its call — the door itself is spawned
+    by each client's own library (`H-01`), never here. The one exception is
+    leg 2's model stand-in, a long-lived server rather than a call, spawned and
+    reaped inside that leg's own :class:`contextlib.ExitStack`.
 
     The order is deliberate. The markers are checked first, because a
     degenerate marker set makes every payload observation below it worthless
     and finding that out after three subprocess drives is finding it out late.
-    Then the reference answers. Then each leg, against its own copy. Then one
-    failure channel for all three checks — divergent addresses, address-only
-    output, and a marker set that could not have carried the claim.
+    Then the reference answers. Then each leg, against its own copy and in its
+    own environment. Then one failure channel for all three checks — divergent
+    addresses, address-only output, and a marker set that could not have
+    carried the claim.
     """
     parser = argparse.ArgumentParser(description="Drive the hw1 harness clients.")
     discovered = known_legs()
@@ -849,7 +1039,11 @@ def main() -> int:
         action="store_true",
         help="point every leg at the real tracked deployment instead of a"
         " seeded temporary copy (it must already be populated); one meaning"
-        " across all legs",
+        " across all legs, and for leg 2 it additionally drops the model"
+        " stand-in so its model is real. UNDER --live, LEG 2 REQUIRES"
+        " ANTHROPIC_BASE_URL TO BE SET EXPLICITLY — this runner deliberately"
+        " stops injecting it, and the client refuses rather than falling back"
+        " to a vendor endpoint",
     )
     args = parser.parse_args()
     legs = tuple(leg.strip() for leg in args.legs.split(",") if leg.strip())
@@ -883,7 +1077,23 @@ def main() -> int:
 
             observed: dict[str, str] = {}
             for leg in legs:
-                address, stdout = drive_leg(leg, subject(leg), AS_OF)
+                leg_root = subject(leg)
+                # One stack per leg: the model stand-in and the temporary CLI
+                # home leg 2 needs are torn down when THAT leg finishes, not at
+                # the end of the run, so a stand-in cannot outlive the
+                # conversation it was declared for.
+                with contextlib.ExitStack() as per_leg:
+                    address, stdout = drive_leg(
+                        leg,
+                        leg_root,
+                        AS_OF,
+                        leg_environment(
+                            leg,
+                            per_leg,
+                            build_question(leg_root, AS_OF),
+                            live=args.live,
+                        ),
+                    )
                 observed[leg] = address
                 payload = payload_violations(reference_stdout, stdout, markers)
                 violations += _labelled(f"leg {leg!r} did not print the product", payload)

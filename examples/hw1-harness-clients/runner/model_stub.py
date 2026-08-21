@@ -21,6 +21,10 @@ this example:
     nearest thing.
   * **Refuse on exhaustion.** A request past the last declared exchange is an
     error, never a repeat of the last answer.
+  * **Refuse PROMPTLY.** Refusals are `4xx`, not the `5xx` that server answers
+    with, because the vendor client behind the CLI retries a `5xx` with backoff
+    and a retried refusal is a hang rather than a diagnostic. See
+    :data:`REFUSAL_STATUS`.
   * **Refuse-but-record on an unrouted path.** The CLI probes its base URL
     before it talks to it, so an unrouted path is answered `404` and recorded
     rather than crashed on.
@@ -89,6 +93,16 @@ MESSAGES_ROUTE = "/v1/messages"
 #: either is an orphan and refuses startup — the `find_orphans` posture, over
 #: one document instead of two files.
 EXCHANGE_HALVES: tuple[str, str] = ("request", "response")
+
+#: The status a refusal is answered with. **400, not 500, and the difference is
+#: measured.** `examples/external/00-hello-context/replay_server.py` answers its
+#: refusals `500`, and a `500` is a RETRYABLE status to the vendor client
+#: sitting behind the CLI: a drifted conversation there is retried with backoff
+#: until the runner's own leg timeout cuts it off, which turns a precise
+#: diagnostic into a 120-second hang and a `TimeoutExpired`. A `4xx` is a client
+#: error and is not retried, so the refusal arrives at the operator as the
+#: refusal it is. Fail-loud means loud AND prompt.
+REFUSAL_STATUS = 400
 
 #: The keys a declared request reduction may carry. Enumerated so a typo in the
 #: document is a startup error rather than a key that silently never compares.
@@ -394,25 +408,34 @@ def build_app(
     tool = question["tool"]
     cursor = {"served": 0}
 
+    def refuse(detail: dict[str, Any]) -> Response:
+        """Answer a refusal, and say it on stderr too.
+
+        The body reaches the CLI, which does not always republish it; stderr is
+        inherited from the runner, so the reason lands where an operator is
+        already looking. A refusal nobody can read is a hang with extra steps.
+        """
+        print(f"model stand-in refused: {json.dumps(detail)}", file=sys.stderr,
+              flush=True)
+        return JSONResponse(detail, status_code=REFUSAL_STATUS)
+
     async def messages(request: Request) -> Response:
         ordinal = cursor["served"]
         if ordinal >= len(exchanges):
             # Fail loudly, never repeat: a request past the last declared
             # exchange means the conversation drifted from the declared one.
-            return JSONResponse(
+            return refuse(
                 {
                     "error": "declared exchanges exhausted",
                     "served": ordinal,
                     "declared": len(exchanges),
-                },
-                status_code=500,
+                }
             )
         try:
             body = await request.json()
         except ValueError:
-            return JSONResponse(
-                {"error": "request body is not valid JSON", "ordinal": ordinal},
-                status_code=500,
+            return refuse(
+                {"error": "request body is not valid JSON", "ordinal": ordinal}
             )
 
         exchange = exchanges[ordinal]
@@ -421,28 +444,26 @@ def build_app(
         actual_model = str(body.get("model", ""))
         seen.append({"ordinal": ordinal, "model": actual_model, **actual})
         if actual_model != model:
-            return JSONResponse(
+            return refuse(
                 {
                     "error": "the request did not carry the pinned model label",
                     "ordinal": ordinal,
                     "exchange": exchange.get("name"),
                     "expected": model,
                     "actual": actual_model,
-                },
-                status_code=500,
+                }
             )
         if expected != actual:
             # Never answer the nearest thing: both reductions ride the refusal
             # so the operator reads what drifted rather than that something did.
-            return JSONResponse(
+            return refuse(
                 {
                     "error": "request reduction mismatch",
                     "ordinal": ordinal,
                     "exchange": exchange.get("name"),
                     "expected": expected,
                     "actual": actual,
-                },
-                status_code=500,
+                }
             )
 
         advertised = door_tools(
