@@ -1,0 +1,71 @@
+# The question this example asks — a declared INPUT document, beside the
+# runner that interprets it.
+#
+# WHY IT EXISTS AT ALL. `make example-hw1-harness-clients` takes no arguments,
+# so something has to say which question the reference client and the three
+# harness legs all ask. It cannot be constants in `drive.py`: the No-Hardcoding
+# Rule (CLAUDE.md §6.4) forbids a threshold expressed as a code constant, and
+# `tools/lints/__main__.py::RULE_TREE_SCOPE` puts `examples` inside
+# `no-hardcoding`'s tree tuple, so a runner carrying the number would be that
+# rule firing exactly as it would in `src/`.
+#
+# NOT A STORE, AND NOT A CONTROL PLANE ARTIFACT. `D-IMPL-163` (Dave,
+# 2026-08-20) narrows `D-32` to producer OUTPUT — a populated graph, an
+# artifact store, anything whose presence removes the need to produce it — and
+# leaves a declared input document that a fabric-side runner reads. Nothing
+# here is state, nothing is registered, and nothing is content-addressed. The
+# `semver:` below is this document's own version marker and carries no Control
+# Plane semver-lane obligation, which is also why it gets no `$schema` header:
+# it has no artifact class, and claiming one to satisfy a checker would make
+# the document assert something false. Same posture, same reasoning, as
+# `scenario-rows.yaml` beside it.
+#
+# WHY A DEMONSTRATION'S NUMBER IS NOT THE QUESTION'S IDENTITY. `D-IMPL-131`.
+# A threshold is a REQUEST parameter, supplied per request, and two thresholds
+# are two products with two content addresses. What is declared below is what
+# THIS demonstration asks, so the example runs with no arguments — it does not
+# weaken the contract. `revenue_threshold` stays required in the deployment's
+# own `request_contract`, and a request omitting it is refused at the door
+# before anything is assembled.
+#
+# THE PARAMETER NAMES BELOW ARE CHECKED, NOT TRUSTED.
+# `examples/hw1-harness-clients/runner/drive.py::request_violations` compares
+# the keys under `parameters:` against the deployment's own
+# `request_contract.arguments.required` and refuses a mismatch, so this
+# document and the deployment cannot drift into disagreement silently. The
+# runner spells no parameter name of its own.
+#
+# [MECHANISM] the three top-level keys and the `parameters` mapping shape
+# [ADAPT]     every value
+#
+# ---------------------------------------------------------------------------
+# THE TWO VALUES ARE CHARACTER-IDENTICAL TO THE SIBLING EXAMPLE'S COMMANDS.
+#
+# `Makefile`'s `example-hw1` and `example-hw1-mcp` recipes pass
+# `--min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00` to the same
+# `consume.py` this runner drives, and that example's README states the same
+# two commands character-for-character. Keeping the values identical is what
+# makes the demonstration legible: ONE question, asked over an in-process
+# binding, over `mcp+stdio`, and by three harness clients through the same
+# door, with the same content address falling out of all of them. Change one
+# of these and the reader loses the comparison; there is no gate that would
+# tell them.
+# ---------------------------------------------------------------------------
+
+semver: "1.0.0"
+
+# What this demonstration asks of `hw1.companies-over-revenue`. Plain integers
+# only: `WireRequest` refuses a float, because canonical JSON renders it as
+# text and the decoded echo would then differ from what was sent.
+parameters:
+  revenue_threshold: 1000000000
+
+# The temporal boundary every leg pins, explicitly, on every run.
+#
+# `binding.yaml`'s `question.asked_at` is NOT this value and does not replace
+# it: that key answers `as_of=None` — the deployment's stated decision instant
+# when a caller defers (`D-04`) — whereas criterion 4 compares one content
+# address across three harnesses, and an unpinned run is not a pinned
+# comparison. Strictly after `scenario-rows.yaml`'s `observed_at`, so every
+# seeded row is inside the boundary this question asks about.
+as_of: "2026-08-01T00:00:00+00:00"

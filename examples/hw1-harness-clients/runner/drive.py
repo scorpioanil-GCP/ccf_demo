@@ -60,10 +60,14 @@ Run it: `make example-hw1-harness-clients`.
 
 from __future__ import annotations
 
+import argparse
 import contextlib
+import json
+import os
 import pathlib
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 from collections.abc import Iterator, Mapping, Sequence
@@ -97,6 +101,41 @@ SOURCE_SERVER = SOURCE_EXAMPLE / "server"
 #: producer OUTPUT, which is what makes a declared input document beside its
 #: reader admissible; the document states the reasoning at length.
 DECLARED_ROWS_DOCUMENT = RUNNER_DIR / "scenario-rows.yaml"
+
+#: The second declared input document: what this demonstration ASKS. Its
+#: header states why a threshold cannot be a constant in this file (CLAUDE.md
+#: §6.4 names one explicitly) and why a demonstration's number is not part of
+#: the question's identity (``D-IMPL-131``).
+DECLARED_QUESTION_DOCUMENT = RUNNER_DIR / "question.yaml"
+
+#: The reference client — the SAME program the two ``example-hw1*`` recipes
+#: run, driven here against the seeded copy. Reference rather than replica: a
+#: second implementation of "ask this product" would be a second thing to keep
+#: in step, and the address it produced would prove that instead.
+CONSUME_PROGRAM = SOURCE_EXAMPLE / "consume.py"
+
+#: The temporal boundary every leg pins, read from the declared question
+#: document rather than spelled here.
+AS_OF = str(
+    cast(
+        Mapping[str, Any],
+        yaml.safe_load(DECLARED_QUESTION_DOCUMENT.read_text(encoding="utf-8")),
+    )["as_of"]
+)
+
+#: The legs this runner knows how to drive. Empty in this plan by design: the
+#: substrate is proven before any leg exists, because a leg wired against an
+#: unproven substrate measures the substrate's failure and reports it as the
+#: leg's. Wave 3 and wave 4 append.
+KNOWN_LEGS: tuple[str, ...] = ()
+
+#: ``consume.py``'s answer size, as printed — ``N of M assembled``. Parsed so a
+#: zero-company answer can be refused; see :func:`reference_address`.
+_ANSWER_COUNT_RE = re.compile(r"^\s*(\d+) of (\d+) assembled", re.MULTILINE)
+
+#: ``consume.py``'s content-address line. The address is 64 hex characters
+#: because it is a sha256 over the product's canonical bytes.
+_CONTENT_ADDRESS_RE = re.compile(r"content address\s+([0-9a-f]{64})")
 
 #: What a populated deployment leaves on disk, and what must therefore never
 #: ride into the copy. **Load-bearing, not tidiness.**
@@ -369,20 +408,265 @@ def seeded_subject(parent: pathlib.Path) -> Iterator[pathlib.Path]:
     yield root
 
 
-def main() -> int:
-    """Build a seeded subject and check the declared markers.
+def resolve_door(root: pathlib.Path) -> tuple[str, list[str]]:
+    """The opaque ``command + args`` pair a client hands to its harness.
 
-    The drive proper — door resolution, the reference run and the address
-    comparison — lands in this plan's second task; what this entry point holds
-    today is the subject construction and the one check the declared document
-    names as running on every default path.
+    Resolved from the deployment's OWN ``binding.yaml`` through the shipped
+    loader, never composed from a remembered path: ``server:`` resolves against
+    the directory holding the deployment (``D-10``), and a runner that rebuilt
+    that path itself would be a second place the program's location is decided.
+    The shape is the one ``ccf.client.adapters.mcp_stdio::McpStdioAdapter``
+    builds for ``StdioServerParameters`` — the interpreter, then the program and
+    the deployment root — because the whole point of `H-02` is that what a
+    client receives is an ordinary program invocation and nothing CCF-shaped.
     """
+    return sys.executable, [str(load_binding_document(root).server), str(root)]
+
+
+def request_violations(
+    parameters: Mapping[str, Any], required: Sequence[str]
+) -> list[str]:
+    """Refuse a declared request the deployment's contract does not accept.
+
+    The declared question document states parameters by NAME; the deployment
+    states which names its request contract requires. Comparing them here is
+    what lets the runner spell no parameter name of its own and still fail
+    loudly when the two documents drift apart — rather than sending a request
+    the door refuses several layers away from the edit that caused it.
+
+    An empty ``required`` is itself a violation: a name comparison against an
+    empty contract passes for every possible question, which is a vacuous
+    check rather than a passing one.
+    """
+    violations: list[str] = []
+    if not required:
+        violations.append(
+            "the deployment's request contract requires no parameters, so a name"
+            " comparison against it would pass for any question at all"
+        )
+    declared = set(parameters)
+    expected = set(required)
+    for name in sorted(declared - expected):
+        violations.append(
+            f"the declared question supplies {name!r}, which this deployment's"
+            " request contract does not require"
+        )
+    for name in sorted(expected - declared):
+        violations.append(
+            f"this deployment's request contract requires {name!r}, which the"
+            " declared question does not supply"
+        )
+    for name, value in sorted(parameters.items()):
+        if isinstance(value, float):
+            violations.append(
+                f"{name!r} is declared as a float; `WireRequest` refuses one,"
+                " because canonical JSON renders it as text"
+            )
+    return violations
+
+
+def build_question(root: pathlib.Path, as_of: str) -> dict[str, Any]:
+    """The question's address, assembled from the subject's own documents.
+
+    Eight values the door requires — ``tenant``, ``product_class``,
+    ``version``, ``subject``, ``intent``, ``freshness``, ``asked_at`` and the
+    request ``parameters`` — are deployment facts, so under CLAUDE.md §9 they
+    may not be literals in client code. The runner resolves them here and each
+    client receives them on ``argv`` as one ``--question-json`` document
+    (`H-03`): the client learns the question's address as INPUT, never as
+    knowledge, and its ``argv`` surface stays at three items.
+
+    ``asked_at`` is the boundary this run pins, not ``binding.yaml``'s
+    ``question.asked_at``. That key answers ``as_of=None`` — the deployment's
+    stated decision instant when a caller defers (``D-04``) — and criterion 4
+    compares one content address across three harnesses, so every leg pins the
+    boundary explicitly and an unpinned run is not a pinned comparison.
+    """
+    binding = _document(root / "binding.yaml")
+    config = _document(root / "ccf_config.yaml")
+    declared = _document(DECLARED_QUESTION_DOCUMENT)
+    product_class = config["product_class"]
+    question = binding["question"]
+    parameters = dict(declared["parameters"])
+
+    violations = request_violations(
+        parameters, list(config["request_contract"]["arguments"]["required"])
+    )
+    if violations:
+        raise AssertionError(
+            f"{DECLARED_QUESTION_DOCUMENT} and {root / 'ccf_config.yaml'}"
+            " disagree about what this product is asked:\n  " + "\n  ".join(violations)
+        )
+
+    return {
+        "tenant": config["tenant_id"],
+        "product_class": product_class["schema_name"],
+        "version": product_class["schema_version"],
+        "subject": question["subject"],
+        "intent": question["intent"],
+        "freshness": question["freshness"],
+        "asked_at": as_of,
+        "parameters": parameters,
+    }
+
+
+def screening_threshold(parameters: Mapping[str, Any]) -> int:
+    """The single declared request parameter, as ``consume.py``'s one flag.
+
+    ``consume.py`` takes the screening threshold as ``--min-revenue``. Which
+    declared parameter that flag carries is resolved by there being exactly
+    one, and the runner refuses rather than guesses if that stops being true —
+    a deployment growing a second request parameter needs a decision about
+    which flag carries which, not a runner that silently picks the first.
+    """
+    if len(parameters) != 1:
+        raise AssertionError(
+            f"{DECLARED_QUESTION_DOCUMENT} declares {len(parameters)} request"
+            " parameters; `consume.py` takes exactly one screening threshold on"
+            " `--min-revenue`, so which parameter it carries is no longer"
+            " resolvable by there being only one"
+        )
+    (value,) = parameters.values()
+    return int(value)
+
+
+def reference_address(root: pathlib.Path, as_of: str) -> str:
+    """Ask the reference client the same question, and return its address.
+
+    Criterion 4's reference leg. ``consume.py`` runs as a subprocess against
+    the SAME subject every other leg reaches, addressed only through
+    ``CCF_BINDING`` — that is the whole channel, because ``consume.py`` calls
+    ``ProductClient.for_product`` with no address argument.
+
+    **A non-empty answer is required.** An empty deployment yields a perfectly
+    real content address, which is exactly why "it printed an address" is not
+    evidence: the seed has to be observable in the answer, or criterion 4's
+    comparison is true and uninteresting. The assembled count is parsed and a
+    zero raises with both captured streams.
+    """
+    question = build_question(root, as_of)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(CONSUME_PROGRAM),
+            "--min-revenue",
+            str(screening_threshold(question["parameters"])),
+            "--as-of",
+            as_of,
+        ],
+        env={**os.environ, "CCF_BINDING": f"inprocess:{root}"},
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        raise AssertionError(
+            f"the reference client exited {completed.returncode}\n"
+            f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+
+    counted = _ANSWER_COUNT_RE.search(completed.stdout)
+    if counted is None:
+        raise AssertionError(
+            "the reference client printed no assembled count, so its answer"
+            " cannot be shown to be non-empty\n"
+            f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+    if int(counted.group(1)) == 0:
+        raise AssertionError(
+            "the reference answer names zero companies — an unseeded subject"
+            " still yields a real content address, so a comparison against this"
+            " one would be true and uninteresting\n"
+            f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+
+    found = _CONTENT_ADDRESS_RE.search(completed.stdout)
+    if found is None:
+        raise AssertionError(
+            "the reference client printed no content address\n"
+            f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+    return found.group(1)
+
+
+def compare_addresses(reference: str, observed: Mapping[str, str]) -> list[str]:
+    """Criterion 4, as a function of two arguments a control can doctor.
+
+    Returns one violation per leg whose address differs from the reference, and
+    one violation when ``observed`` is empty — a comparison over no legs is a
+    vacuous pass, and a runner that lost its legs would otherwise report the
+    strongest claim in this example on the strength of having compared nothing.
+    """
+    violations: list[str] = []
+    if not observed:
+        violations.append(
+            "no leg reported a content address, so the cross-harness comparison"
+            " compared nothing and passed"
+        )
+    for leg, address in sorted(observed.items()):
+        if address != reference:
+            violations.append(
+                f"leg {leg!r} reported {address}, the reference reported"
+                f" {reference}"
+            )
+    return violations
+
+
+def main() -> int:
+    """Seed a subject, resolve the door, ask the question, compare the answers.
+
+    Sync, and it enters no event loop: whatever asynchrony a harness needs is
+    the harness's, inside its own client program. The only child this entry
+    point starts is the reference client, through ``subprocess.run``, which
+    cannot outlive the call — the door itself is spawned by each client's own
+    library (`H-01`), never here.
+    """
+    parser = argparse.ArgumentParser(description="Drive the hw1 harness clients.")
+    parser.add_argument(
+        "--legs",
+        default=",".join(KNOWN_LEGS),
+        help=f"comma-separated subset of: {','.join(KNOWN_LEGS) or '(none wired yet)'}",
+    )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="point every leg at the real tracked deployment instead of a"
+        " seeded temporary copy (it must already be populated); one meaning"
+        " across all legs",
+    )
+    args = parser.parse_args()
+    legs = tuple(leg.strip() for leg in args.legs.split(",") if leg.strip())
+    unknown = sorted(set(legs) - set(KNOWN_LEGS))
+    if unknown:
+        raise AssertionError(f"unknown legs: {unknown}")
+
     with tempfile.TemporaryDirectory(prefix="ccf-hw1-clients-") as scratch:
-        with seeded_subject(pathlib.Path(scratch) / "reference") as root:
+        with contextlib.ExitStack() as stack:
+            if args.live:
+                root = SOURCE_DEPLOYMENT
+            else:
+                root = stack.enter_context(
+                    seeded_subject(pathlib.Path(scratch) / "reference")
+                )
             rows = declared_rows(DECLARED_ROWS_DOCUMENT, scenario_attributes(root))
             _refuse_bad_markers(rows, root)
-            print(f"seeded subject      {root}")
-            print(f"declared rows       {len(rows)}")
+
+            command, arguments = resolve_door(root)
+            print(f"subject             {root}")
+            print(f"door command        {command}")
+            print(f"door args           {arguments}")
+            print(f"question            {json.dumps(build_question(root, AS_OF))}")
+
+            reference = reference_address(root, AS_OF)
+            print(f"reference address   {reference}")
+
+            observed: dict[str, str] = {}
+            violations = compare_addresses(reference, observed) if legs else []
+            if violations:
+                raise AssertionError(
+                    "the harness legs did not agree with the reference:\n  "
+                    + "\n  ".join(violations)
+                )
+    print(f"legs compared       {len(legs)}")
     return 0
 
 
