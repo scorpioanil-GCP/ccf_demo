@@ -296,9 +296,9 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/HANDOFF-2026-08-15.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/HANDOFF-2026-08-17.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/PROJECT.md` | 1 | the phase's own planning tree — not shipped, not published |
-| `.planning/REQUIREMENTS.md` | 14 | the phase's own planning tree — not shipped, not published |
-| `.planning/ROADMAP.md` | 8 | the phase's own planning tree — not shipped, not published |
-| `.planning/STATE.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/REQUIREMENTS.md` | 15 | the phase's own planning tree — not shipped, not published |
+| `.planning/ROADMAP.md` | 14 | the phase's own planning tree — not shipped, not published |
+| `.planning/STATE.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/16-config-consolidation.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/2026-08-14-property-not-shape-gating.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/milestones/v0.1-ROADMAP.md` | 6 | the phase's own planning tree — not shipped, not published |
@@ -604,8 +604,20 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-05-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-PATTERNS.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-RESEARCH.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-01-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-02-PLAN.md` | 20 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-03-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-04-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-05-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-06-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-07-PLAN.md` | 29 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-08-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-CONTEXT.md` | 12 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-DISCUSSION-LOG.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-RESEARCH.md` | 17 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-VALIDATION.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 51 | append-only decision log |
+| `docs/DECISIONS.md` | 52 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |
