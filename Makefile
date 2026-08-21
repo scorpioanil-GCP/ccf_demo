@@ -58,6 +58,9 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	example-06 example-07 example-08 example-ext-00 example-hw1-harness-clients \
 	example-03-live-ollama example-03-live-anthropic \
 	example-ext-00-live-anthropic example-ext-00-live-adk \
+	example-hw1-harness-clients-live-adk \
+	example-hw1-harness-clients-live-anthropic \
+	example-hw1-harness-clients-live-langgraph \
 	legs leg-postgres leg-neo4j leg-mongo leg-fluree \
 	perf perf-micro perf-scale perf-xproc perf-replay \
 	docs docs-strict docs-serve openapi schemas schema-headers surface \
@@ -449,6 +452,29 @@ example-ext-00-live-anthropic: ## External example 00 Anthropic leg live (opt-in
 
 example-ext-00-live-adk: ## External example 00 ADK/Gemini leg live (opt-in, D-11; never in `examples`/`ci`)
 	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py --live --legs adk
+
+# The three `--live` opt-ins for examples/hw1-harness-clients. `--live` means
+# ONE thing across every leg (`H-09`): point at the real tracked deployment
+# instead of the seeded temporary copy, which requires it to already be
+# populated — and for leg 2 it additionally drops the model stand-in, so THAT
+# leg needs `ANTHROPIC_BASE_URL` set explicitly. The runner deliberately stops
+# injecting it under `--live` and the client refuses rather than falling back to
+# a vendor endpoint; the README says the same sentence.
+#
+# These are deliberately NOT prerequisites of `examples:` and never run in CI.
+# A red check nobody can make green is worse than no check: the always-on
+# pipeline holds no populated deployment and no credentials, so a live target on
+# that line would fail on every push for a reason that has nothing to do with
+# the code. `tests/examples/test_hw1_harness_clients_readme.py` asserts both
+# halves — that all three exist, and that none of them is on `examples:`.
+example-hw1-harness-clients-live-adk: ## examples/hw1-harness-clients ADK leg against a real populated deployment (opt-in; never CI)
+	$(ENV) $(PYTHON) examples/hw1-harness-clients/runner/drive.py --live --legs adk
+
+example-hw1-harness-clients-live-anthropic: ## examples/hw1-harness-clients Claude Agent SDK leg live, real model (opt-in; never CI — set ANTHROPIC_BASE_URL)
+	$(ENV) $(PYTHON) examples/hw1-harness-clients/runner/drive.py --live --legs anthropic
+
+example-hw1-harness-clients-live-langgraph: ## examples/hw1-harness-clients LangGraph leg against a real populated deployment (opt-in; never CI)
+	$(ENV) $(PYTHON) examples/hw1-harness-clients/runner/drive.py --live --legs langgraph
 
 # Docs (Phase 14, D-IMPL-71). `docs` is the plain build; `docs-strict` is the
 # always-on gate wired into `ci` per D-IMPL-72 (plan 14-10).
