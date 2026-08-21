@@ -25,6 +25,7 @@ tech-stack:
     - "a declared per-leg property (LEGS_DRIVING_A_MODEL) consulted by one driving loop, instead of a per-leg branch chain"
     - "a request reduction whose fields ARE the claims — door_tools/other_tools is the tool-surface assertion, observable only from the model's side of the wire"
     - "refusals answered 4xx, not 5xx, because a retryable refusal is a hang rather than a diagnostic"
+    - "a passing run prints no refusal — ancillary vendor traffic is suppressed at source rather than whitelisted, so the refusal channel keeps its whole signal"
     - "prompt and model label travel through the environment MAPPING keyed by variable name, never as a `prompt=` keyword argument"
 key-files:
   created:
@@ -39,6 +40,8 @@ key-decisions:
   - "The declared reduction is {model, door_tools, other_tools, messages, tool_results} rather than the plan's sorted tool-name list: the namespaced name carries a server label this stand-in is deliberately not told, and two counts encode the tool-surface claim directly"
   - "The model label is pinned from the same declared document both sides read, so a client that stopped honouring it is a red run"
   - "client_anthropic.py names the MCP server itself (SERVER_LABEL) rather than taking it on argv — a program's own naming of a server it is about to declare is not a deployment value"
+  - "The CLI's title-generation call is SUPPRESSED at its source with CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC, not modelled as a declared exchange — a request that no longer arrives must not have a branch waiting for it"
+  - "The inherited recipe's DISABLE_NON_ESSENTIAL_MODEL_CALLS is inert against 0.2.128 (the string is absent from the bundled binary) and is kept with that measurement written beside it rather than dropped silently"
 patterns-established:
   - "Copy the discipline, not the bytes: H-08 is satisfied by inheriting replay_server.py's five refusal postures with the response shape the measurement forced"
   - "A grep-shaped acceptance criterion is met by stating the teaching without spelling the token"
@@ -243,6 +246,98 @@ The retirement inventory gained exactly three rows, all documentary docstring
 citations of `examples/external/00-hello-context` from the two new runner files
 — the citations the plan asked for.
 
+## The noisy-refusal defect, diagnosed and closed
+
+Reported by the coordinator after the first three commits: **every healthy run
+printed `model stand-in refused: {"error": "request reduction mismatch", ...}`
+as its first line.** The run was green and the address was right; the reporting
+was not. A refusal that fires on the happy path cannot distinguish healthy from
+broken, and an operator who scrolls past it once will scroll past the real one
+(`CLNT-14`, the Phase 16 retrospective) — and `20-08`'s README would document a
+passing run whose output opens with an alarm.
+
+### Diagnosis — it is (a), deterministically, but not for the reason either of
+us assumed
+
+Five consecutive `--legs anthropic` runs: `rc=0`, **exactly one** refusal each,
+byte-identical (`ordinal 0`, `door_tools: 0`). Not a race — answer (a).
+
+The working hypothesis on both sides was "the CLI sends the agent turn before
+its MCP session is up, is refused, and retries". **Recording the raw request
+bodies showed that is wrong**, and the correction matters because it changes the
+fix. There are three requests, and request 0 is not an agent turn at all:
+
+| # | `tools` | `messages` | `output_config` | `thinking` | what it is |
+|---|---|---|---|---|---|
+| 0 | `[]` | 1 | `{"format": {"type": "json_schema", "schema": {..."title"...}}}` | `disabled` | the CLI's **title-generation** call |
+| 1 | `['mcp__ccf__request_context_product']` | 1 | absent | `enabled` | the agent turn |
+| 2 | `['mcp__ccf__request_context_product']` | 3 | absent | `enabled` | the turn carrying the tool result |
+
+Request 0's user message is literally
+`<session>…</session>\n\nWrite the title in the predominant language of the
+session…`. It is ancillary traffic around the session, not part of it, and the
+CLI does **not** retry it — it tolerates the failure and proceeds. So the
+sequence was never "refuse then retry"; it was "refuse an unrelated call, then
+have the real conversation". The ordinal never advanced because it never should
+have.
+
+### Why it was happening at all — a defect in the inherited recipe
+
+The recipe extracted from the spike sets `DISABLE_NON_ESSENTIAL_MODEL_CALLS=1`,
+which reads exactly as though it covers this. **It does not, because the CLI
+never reads it:**
+
+```
+$ strings claude_agent_sdk/_bundled/claude | grep -c DISABLE_NON_ESSENTIAL_MODEL_CALLS
+0
+```
+
+The name does not occur in the binary. The variable that governs this traffic is
+`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, which does occur, and which the
+inherited recipe was missing. The spike never noticed because it asserted on the
+tool surface the model saw, not on the request count.
+
+### The fix — suppress it, do not model it
+
+`offline_cli_environment` gains `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`.
+Measured: the CLI then makes **exactly the two declared requests**, the address
+is unchanged, and five consecutive runs print zero refusals.
+
+**Declaring the title call as an exchange was considered and rejected.** It
+would have put a turn about title generation into a document whose subject is
+CCF, required the stand-in to answer a JSON-schema-shaped output it otherwise
+knows nothing about, and — worst — left a branch in the stand-in for a request
+that no longer arrives, which is the `C-10` member-nothing-reads pattern. The
+same objection rules out "classify a tool-less request as ancillary and answer
+it": that would have punched a hole exactly the shape of a real drift, because a
+genuine agent turn whose door tool vanished has the *same* reduction the title
+call had (`door_tools: 0, other_tools: 0`). Control B below shows that shape is
+still refused.
+
+`DISABLE_NON_ESSENTIAL_MODEL_CALLS` is **kept**, with the measurement written
+beside it in the code. Dropping it would erase the finding from the place the
+next reader looks, and the extraction is meant to be the recipe as inherited
+*plus* what measurement added.
+
+### Controls — three observed, each with its mutation named
+
+| Control | Mutation | Observed |
+|---|---|---|
+| **A — the suppressor is load-bearing** | the single line `"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",` deleted from the shipped `offline_cli_environment` (deleted line printed on the cut, then restored from backup) | the refusal returns, one per run, byte-identical to the reported defect. Without this control the new variable would be indistinguishable from decoration |
+| **B — a genuine drift is still refused** | (i) an extra non-CCF tool advertised; (ii) **the door tool vanished** — the same `door_tools: 0` shape the title call had | (i) `400 … "actual":{"door_tools":1,"other_tools":1,…}`; (ii) `400 … "actual":{"door_tools":0,"other_tools":0,…}`. Baseline declared turn 1 still serves `200`. No hole was punched |
+| **C — the stand-in's failure is still the run's failure** | `exchanges[1]` removed from the tracked document | exit `1` in 4.2 s: `API Error: 400 {"error":"declared exchanges exhausted","served":1,"declared":1}` |
+
+**Controls that could not be made to fail: none.**
+
+### The invariant, restored and measured
+
+Five consecutive `--legs anthropic` runs and one full three-leg
+`make example-hw1-harness-clients`: `rc=0`, **`grep -c 'model stand-in refused'`
+returns `0`** on every one. The first line of a passing run is the `make`
+recipe echo. All three legs and the reference still print
+`5d7bfa49f5b3f65add25ea61220a191a91982f5ae97901e010b26c5ca8dc37f5` with the
+three declared company names.
+
 ## Deviations from plan
 
 ### 1. [Rule 1 — Bug] The stand-in refuses `400`, not `replay_server.py`'s `500`
@@ -339,6 +434,24 @@ and not two.
 than a prompt document plus a script document. The prompt, the pinned model and
 the conversation are one fact about leg 2, and splitting them would create two
 files that have to agree.
+
+### 8. [Rule 1 — Bug, post-review] The extracted recipe was incomplete, and the gap was audible
+
+- **Found during:** coordinator review of the three committed tasks.
+- **Issue:** the offline recipe inherited verbatim from the spike omits
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` and carries
+  `DISABLE_NON_ESSENTIAL_MODEL_CALLS`, a name absent from the bundled binary.
+  The CLI therefore opened every session with a title-generation call, which
+  the stand-in correctly refused — on every green run.
+- **Fix:** the real variable added; the inert one kept and labelled; the
+  declared document's header now says exchange 0 is only the first request
+  *because* of that variable. Full diagnosis, rejected alternatives and three
+  controls in the section above.
+- **Files:** `examples/hw1-harness-clients/runner/model_stub.py`,
+  `examples/hw1-harness-clients/runner/model-conversation.yaml`
+- **Consequence for `20-07`:** the extraction that plan depends on is now
+  *better* than the spike it replaces, not merely equal to it. Worth saying
+  when the spike is deleted.
 
 ## Known stubs
 

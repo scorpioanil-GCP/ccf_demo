@@ -125,7 +125,9 @@ def offline_cli_environment(base_url: str, home: pathlib.Path) -> dict[str, str]
 
     Every variable suppresses one thing the CLI would otherwise do on a network
     it must not touch, or one piece of state it would otherwise read or write
-    in the developer's own home directory.
+    in the developer's own home directory. One of them — the ancillary-traffic
+    switch — was **missing** from the inherited recipe and had to be measured;
+    see its comment, and the inert name kept beside it.
     """
     return {
         # Where the model lives. Loopback, this process, for the default path.
@@ -138,11 +140,31 @@ def offline_cli_environment(base_url: str, home: pathlib.Path) -> dict[str, str]
         "CLAUDE_CONFIG_DIR": str(home / "config"),
         # No version handshake against the vendor's release endpoint.
         "CLAUDE_AGENT_SDK_SKIP_VERSION_CHECK": "1",
-        # No telemetry, no crash reporting, no self-update, and none of the
-        # incidental model calls the CLI makes around a session.
+        # No telemetry, no crash reporting, no self-update.
         "DISABLE_TELEMETRY": "1",
         "DISABLE_ERROR_REPORTING": "1",
         "DISABLE_AUTOUPDATER": "1",
+        # **The one that suppresses the ancillary model calls, and the one the
+        # inherited recipe was missing.** Without it the CLI opens every
+        # session with a TITLE-GENERATION request — no tools, an
+        # `output_config` JSON schema asking for a `{"title": ...}` object, and
+        # the session text as its prompt — before the agent turn. That request
+        # is not part of the declared conversation, so the stand-in refused it,
+        # on every healthy run, first line of the output. A refusal that fires
+        # on the happy path cannot distinguish healthy from broken, and an
+        # operator who scrolls past it once will scroll past the real one
+        # (`CLNT-14`). Measured: with this set, the CLI makes exactly the two
+        # declared requests and a passing run is silent.
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+        # **Inert against `claude-agent-sdk==0.2.128`, and kept deliberately
+        # rather than silently.** This is the name the prior spike's recipe
+        # carried, and the string does not occur in the bundled binary at all
+        # (`strings claude_agent_sdk/_bundled/claude | grep -c
+        # DISABLE_NON_ESSENTIAL_MODEL_CALLS` -> 0), so it suppressed nothing
+        # and made the recipe look like it had covered the ancillary traffic
+        # it had not. It stays because it is the recipe as inherited and
+        # dropping it would quietly erase the finding; the variable above is
+        # what actually does this job. Delete it only together with this note.
         "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1",
     }
 

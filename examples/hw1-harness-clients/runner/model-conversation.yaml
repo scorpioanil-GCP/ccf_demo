@@ -41,6 +41,15 @@
 # conversation turns the run red at the stand-in rather than quietly serving it
 # the wrong answer.
 #
+# EXCHANGE 0 IS GENUINELY THE FIRST REQUEST THE CLI MAKES, and that is only
+# true because `model_stub.py::offline_cli_environment` sets
+# `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`. Without it the CLI opens the
+# session with a title-generation request — no tools, an `output_config`
+# schema, the session text as its prompt — which is not part of this
+# conversation and which the stand-in therefore refuses. Two exchanges is the
+# whole conversation, not the whole traffic, and the difference is a variable.
+# If a refusal ever appears on a passing run again, look there first.
+#
 # [MECHANISM] the four top-level keys, `exchanges[].request` and
 #             `exchanges[].response`
 # [ADAPT]     every value
