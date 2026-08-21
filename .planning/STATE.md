@@ -71,6 +71,18 @@ progress:
   completed_plans: 174
   percent: 93
 stopped_at: >-
+  PHASE 20 IS CLOSED AND PHASE 21 IS IN THE ROADMAP, UNPLANNED. Dave ruled three times at
+  the Phase 20 close (2026-08-21): (1) the 52 `Pending` requirement rows get a ROW-BY-ROW
+  reconciliation phase, not a wholesale tick; (2) the ten phases with no `D-GATE` entry are
+  gated by their ROADMAP completion rows and are NOT backfilled -- logged as `D-IMPL-171`;
+  (3) Phase 16's eighteen `DOCS-` rows are DEFERRED until the audit reports the split, in
+  Dave's words *"tell me after the audit"*. Phase 21 is written into the ROADMAP BY HAND
+  (bullet + detail section + progress row, `phase.add` not used per `D-IMPL-154`/`155`) with
+  TEN Success Criteria authored one-per-unwrapped-line BEFORE execution; `roadmap.get-phase
+  21` confirms parsed count = 10. **NEXT ACTION: `/gsd:discuss-phase 21`, then plan it.** The
+  phase FINDS and RECORDS; it does not build what a `not-built` verdict surfaces -- that is a
+  later phase and Dave's call.
+  PRIOR CONTEXT FOLLOWS.
   PHASE 20 IS CLOSED. `D-GATE-20` is logged (append-only, at the end of `docs/DECISIONS.md`)
   and `phase-20` is merged to `main`. SS3.1 ran IN ORDER and the order mattered: execution ->
   cross-AI close panel against the SHIPPED CODE -> additive single-agent review -> every
