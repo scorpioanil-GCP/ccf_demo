@@ -15,11 +15,13 @@ skipped and nothing is stubbed.
 
 **No third-party LangChain-to-MCP bridge package is used, and none is
 installed.** Binding the discovered tool by hand costs about fifteen lines,
-adds no dependency, and widens no supply-chain surface — the rationale
-`examples/s2-01-external-consumers/client_langgraph.py` already carries, held
-to here. The prebuilt tool-executing node primitive that ships with LangGraph
-is available and is deliberately unused too: it drags `messages` state
-semantics that only make sense with a model in the loop.
+adds no dependency, and widens no supply-chain surface. That rationale was
+measured rather than assumed, by the Phase 16 spike whose record is
+`docs/surface/examples/SECTION-2-TRANSPORT.md`; the client it measured has
+been retired out of `examples/` and is reachable only from that record. The
+prebuilt tool-executing node primitive that ships with LangGraph is available
+and is deliberately unused too: it drags `messages` state semantics that only
+make sense with a model in the loop.
 
 **The opaque argument, again.** Seven of the door's eight required arguments
 are self-describing; the eighth, `request`, has the JSON Schema

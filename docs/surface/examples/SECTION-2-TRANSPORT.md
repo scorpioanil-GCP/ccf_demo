@@ -21,8 +21,13 @@ inference rather than a measurement it says so.
 
 **Answer: none is needed. The node reaches the tool surface itself.**
 
-`examples/s2-01-external-consumers/client_langgraph.py` uses exactly three
-LangGraph/LangChain entry points, and no others:
+`docs/retired/16-external-consumers/client_langgraph.py::build_graph` uses
+exactly three LangGraph/LangChain entry points, and no others — the file was
+measured under `examples/` and moved to the retired path by Phase 20
+(`H-13`, `docs/retired/16-external-consumers/README.md`), which also ships
+the replacement,
+`examples/hw1-harness-clients/client_langgraph.py::build_graph`, over
+`mcp+stdio` rather than HTTP:
 
 | API | Package | What it does here |
 | --- | --- | --- |
