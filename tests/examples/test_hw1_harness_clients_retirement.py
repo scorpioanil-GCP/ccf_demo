@@ -24,17 +24,32 @@ ruled.
 `tests/examples/test_s2_client_transport_spike.py` was deleted by plan `20-07`;
 its subject moved out of `examples/` and its retiring owner (plan 16-09) was
 withdrawn with Phase 16 under `docs/DECISIONS.md` `D-IMPL-152`. One assertion
-in it was not about the moved directory — it checked that the spike, which
-spawned `examples/external/00-hello-context/`'s server and read its artifacts,
-had written nothing into that shipped tree. `tests/examples/test_ext00_hardening.py`
-does not carry it. It is carried forward here as
-:func:`untracked_paths_violations` — **narrowed to untracked files** rather
-than the spike's `git status --porcelain`, because a working-tree-cleanliness
-assertion in a module that is not the thing doing the writing goes red for any
-legitimate uncommitted edit, including the `H-14` marking plan `20-07` makes
-in the very same example. Untracked files are the damage mode the original was
-protecting against — a test writing *into* the shipped tree — and a deliberate
-edit to a tracked file is not.
+in it was not about the moved directory — `test_the_shipped_external_example_is_untouched`
+ran `git status --porcelain` over `examples/external/00-hello-context/` and
+required it empty, because the spike *"both spawns that server and reads its
+artifacts"*. `tests/examples/test_ext00_hardening.py` does not carry it, so it
+is carried forward here **in full**, as two arms over one `git status` read:
+
+* :func:`untracked_paths_violations` — a **new, non-ignored file** appeared
+  under the shipped tree. A run that wrote a scratch file, a store, or a
+  captured fixture into an example instead of into a temporary copy.
+* :func:`modified_tracked_violations` — a **tracked file was modified and not
+  committed**. This is the arm that catches a run writing *back over* a
+  shipped artifact, and it is the reason both are needed:
+  `make example-ext-00` spawns that server on every CI run, so an example
+  that overwrites its own committed artifacts is a live risk rather than a
+  hypothetical one. The untracked arm cannot see it — the file already exists
+  and is already tracked.
+
+**The verbatim guard was restored rather than narrowed, and the reason it
+briefly looked unrestorable is recorded so it is not re-litigated.** During
+plan `20-07` this arm reads red while the `H-14` marking to
+`examples/external/00-hello-context/README.md` is *uncommitted* — which is
+transient, and is resolved by committing before verifying rather than by
+weakening the assertion. The guard never objected to reviewed edits: a
+committed change leaves `git status` clean. It objects to **uncommitted**
+ones, and an example that dirties its own tracked files during a run is
+uncommitted by definition. See `docs/DECISIONS.md` `D-IMPL-166`.
 """
 
 from __future__ import annotations
@@ -219,39 +234,94 @@ def historical_example_violations(examples_root: pathlib.Path) -> list[str]:
     ]
 
 
-def untracked_paths_violations(
-    repo_root: pathlib.Path, relative: pathlib.PurePosixPath
-) -> list[str]:
-    """Untracked, non-ignored files under `relative`, by name.
+#: `git status --porcelain` marks an untracked entry with this status code.
+#: Everything else it reports is a tracked path the working tree has changed.
+UNTRACKED_STATUS_CODE = "??"
 
-    Carried forward from the deleted spike's
-    `test_the_shipped_external_example_is_untouched`, narrowed from
-    `git status --porcelain` to untracked files only — see this module's
-    docstring for why. A test that writes a new file into a shipped example
-    tree is the damage mode; a reviewed edit to a tracked file is not.
+
+def porcelain_entries(
+    repo_root: pathlib.Path, relative: pathlib.PurePosixPath
+) -> list[tuple[str, str]] | None:
+    """`git status --porcelain` under `relative`, as `(status code, path)`.
+
+    ``None`` when the subject is not a directory, so each arm can report its
+    own vacuity failure rather than sharing one message. One `git` read feeds
+    both arms, which is what keeps them from disagreeing about the tree.
     """
     if not (repo_root / relative).is_dir():
-        return [
-            f"{repo_root / relative} is not a directory, so `git` was never"
-            " asked and nothing was checked"
-        ]
+        return None
 
     completed = subprocess.run(
-        ["git", "ls-files", "--others", "--exclude-standard", "--", str(relative)],
+        ["git", "status", "--porcelain", "--", str(relative)],
         cwd=str(repo_root),
         capture_output=True,
         text=True,
         check=True,
     )
-    stray = [line for line in completed.stdout.splitlines() if line.strip()]
-    if not stray:
-        return []
+    return [
+        (line[:2].strip() or line[:2], line[3:])
+        for line in completed.stdout.splitlines()
+        if line.strip()
+    ]
+
+
+def untracked_paths_violations(
+    repo_root: pathlib.Path, relative: pathlib.PurePosixPath
+) -> list[str]:
+    """Arm 1 — new, non-ignored files under `relative`, by name.
+
+    Half of the deleted spike's
+    `test_the_shipped_external_example_is_untouched`. Catches a run that wrote
+    a NEW file into a shipped example tree instead of into a temporary copy.
+    It cannot see a run that overwrote an existing tracked artifact; that is
+    :func:`modified_tracked_violations`, and both ship.
+    """
+    entries = porcelain_entries(repo_root, relative)
+    if entries is None:
+        return [
+            f"{repo_root / relative} is not a directory, so `git` was never"
+            " asked and nothing was checked"
+        ]
 
     return [
         f"{path} is untracked under a shipped example tree. Something wrote"
         " into an example rather than into a temporary copy; the shipped tree"
         " is read-only to the suite"
-        for path in stray
+        for code, path in entries
+        if code == UNTRACKED_STATUS_CODE
+    ]
+
+
+def modified_tracked_violations(
+    repo_root: pathlib.Path, relative: pathlib.PurePosixPath
+) -> list[str]:
+    """Arm 2 — tracked files under `relative` changed and not committed.
+
+    The other half of the spike's assertion, restored rather than dropped.
+    **This is the arm that catches a run writing back over a shipped
+    artifact**, which the untracked arm structurally cannot: the file already
+    exists and is already tracked, so `git` reports it as a modification and
+    never as `??`. `make example-ext-00` spawns that example's server on every
+    CI run, so the damage mode is live.
+
+    A committed change leaves `git status` clean, so this does not object to
+    reviewed edits — only to uncommitted ones, which is what a run dirtying
+    its own tree produces.
+    """
+    entries = porcelain_entries(repo_root, relative)
+    if entries is None:
+        return [
+            f"{repo_root / relative} is not a directory, so `git` was never"
+            " asked and nothing was checked"
+        ]
+
+    return [
+        f"{path} is a tracked file with uncommitted changes under a shipped"
+        f" example tree (`git status` code `{code}`). A run that writes back"
+        " over a committed artifact is the damage mode the untracked arm"
+        " cannot see. If the edit is deliberate, commit it before verifying"
+        for code, path in entries
+        if code != UNTRACKED_STATUS_CODE
     ]
 
 
@@ -278,11 +348,23 @@ def test_the_historical_example_keeps_all_three_of_its_clients() -> None:
     assert not violations, "\n".join(violations)
 
 
+#: The tree the deleted spike guarded, repo-relative.
+GUARDED_EXAMPLE = pathlib.PurePosixPath("examples") / HISTORICAL_EXAMPLE
+
+
 def test_nothing_is_untracked_under_the_historical_example() -> None:
-    """The carried-forward assertion, over the tree the spike used to guard."""
-    violations = untracked_paths_violations(
-        REPO_ROOT, pathlib.PurePosixPath("examples") / HISTORICAL_EXAMPLE
-    )
+    """Arm 1 of the carried-forward assertion, over the real tree."""
+    violations = untracked_paths_violations(REPO_ROOT, GUARDED_EXAMPLE)
+    assert not violations, "\n".join(violations)
+
+
+def test_no_tracked_file_under_the_historical_example_is_dirty() -> None:
+    """Arm 2, restored: the shipped example must not overwrite its own tree.
+
+    Red while a deliberate edit to that example is uncommitted. That is the
+    guard working, not the guard misfiring — commit before verifying.
+    """
+    violations = modified_tracked_violations(REPO_ROOT, GUARDED_EXAMPLE)
     assert not violations, "\n".join(violations)
 
 
@@ -399,21 +481,34 @@ def test_control_a_historical_example_missing_its_adk_client_is_a_violation(
     assert any("client_adk.py" in entry for entry in violations), violations
 
 
+def _repo_with_a_committed_example(root: pathlib.Path) -> pathlib.PurePosixPath:
+    """A real `git` repo holding one committed file under the guarded tree.
+
+    A genuine `git init` and a genuine commit rather than a stubbed lister,
+    because both arms' whole content is what `git` answers. Committed, not
+    merely staged: an added-but-uncommitted file is itself a tracked
+    modification, and a control built on one would go red for the wrong
+    reason and prove nothing about the arm under test.
+    """
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    for key, value in (("user.email", "gate@example.invalid"), ("user.name", "gate")):
+        subprocess.run(["git", "config", key, value], cwd=str(root), check=True)
+
+    guarded = pathlib.PurePosixPath("examples/external/00-hello-context")
+    (root / guarded).mkdir(parents=True)
+    (root / guarded / "client_bare.py").write_text("shipped\n", encoding="utf-8")
+    subprocess.run(["git", "add", "--", str(guarded)], cwd=str(root), check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "shipped example"], cwd=str(root), check=True
+    )
+    return guarded
+
+
 def test_control_an_untracked_file_under_the_guarded_tree_is_a_violation(
     tmp_path: pathlib.Path,
 ) -> None:
-    """CONTROL 6 — the carried-forward assertion, sabotaged in a real repo.
-
-    A genuine `git init` rather than a stubbed lister, because the assertion's
-    whole content is what `git` answers.
-    """
-    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
-    guarded = pathlib.PurePosixPath("examples/external/00-hello-context")
-    (tmp_path / guarded).mkdir(parents=True)
-    (tmp_path / guarded / "client_bare.py").write_text("", encoding="utf-8")
-    subprocess.run(
-        ["git", "add", "--", str(guarded)], cwd=str(tmp_path), check=True
-    )
+    """CONTROL 6 — arm 1, sabotaged in a real repo by a NEW file."""
+    guarded = _repo_with_a_committed_example(tmp_path)
 
     assert untracked_paths_violations(tmp_path, guarded) == []
 
@@ -422,6 +517,57 @@ def test_control_an_untracked_file_under_the_guarded_tree_is_a_violation(
     violations = untracked_paths_violations(tmp_path, guarded)
 
     assert any("graph.sqlite3" in entry for entry in violations), violations
+
+
+def test_control_a_dirty_tracked_file_under_the_guarded_tree_is_a_violation(
+    tmp_path: pathlib.Path,
+) -> None:
+    """CONTROL 7 — arm 2, sabotaged by OVERWRITING a committed artifact.
+
+    The damage mode arm 1 structurally cannot see, asserted here as such: the
+    same mutation is shown to leave :func:`untracked_paths_violations` empty,
+    which is what makes the second arm necessary rather than redundant.
+    """
+    guarded = _repo_with_a_committed_example(tmp_path)
+
+    assert modified_tracked_violations(tmp_path, guarded) == []
+
+    (tmp_path / guarded / "client_bare.py").write_text(
+        "the server wrote back over its own artifact\n", encoding="utf-8"
+    )
+
+    violations = modified_tracked_violations(tmp_path, guarded)
+
+    assert any("client_bare.py" in entry for entry in violations), violations
+    assert untracked_paths_violations(tmp_path, guarded) == [], (
+        "arm 1 must NOT see this; if it does, the two arms are not"
+        " independent and CONTROL 7 is watching arm 1 twice"
+    )
+
+
+def test_control_a_missing_guarded_tree_is_a_violation_in_both_arms(
+    tmp_path: pathlib.Path,
+) -> None:
+    """CONTROL 8 — vacuity, for BOTH arms of the carried-forward guard.
+
+    Written because the sabotage sweep found it missing: mutating
+    :func:`porcelain_entries` to answer a missing subject with ``[]`` instead
+    of ``None`` left CONTROL 6 and CONTROL 7 both green, because neither
+    exercises that branch. A guard pointed at a directory that is not there
+    must fail loudly; returning no findings is how a gate stops finding
+    things.
+    """
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    absent = pathlib.PurePosixPath("examples/external/00-hello-context")
+
+    assert porcelain_entries(tmp_path, absent) is None
+
+    for arm in (untracked_paths_violations, modified_tracked_violations):
+        violations = arm(tmp_path, absent)
+        assert any("nothing was checked" in entry for entry in violations), (
+            f"{arm.__name__} reported no violation over a missing subject",
+            violations,
+        )
 
 
 # ---------------------------------------------------------------------------
