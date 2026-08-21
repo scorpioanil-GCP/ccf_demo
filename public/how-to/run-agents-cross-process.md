@@ -182,3 +182,22 @@ Neither driver changes, which is the point.
 If your deployment needs a different wire, the Context Product contract is
 the stable layer and the transport is replaceable — see the
 [runtime surfaces reference](../reference/protocols/runtime-surfaces.md).
+
+## Consuming from a harness you already run
+
+The page above has CCF on both sides of the boundary. The other case is the
+common one: an agent harness you already operate — Google ADK, the Anthropic
+Agent SDK, LangGraph — reaching a governed deployment as an ordinary MCP
+server, importing nothing from CCF at all. What such a client needs is a
+`command + args` pair and the address of the question; the deployment declares
+the program under `server:` in its own `binding.yaml`, and a fabric-side runner
+resolves the pair and hands it over. From the harness's side there is nothing
+CCF-shaped to configure.
+
+`examples/hw1-harness-clients` is that case, with three harnesses asking one
+deployment the same question through one door and the same content address
+falling out of all of them:
+
+```sh
+make example-hw1-harness-clients
+```

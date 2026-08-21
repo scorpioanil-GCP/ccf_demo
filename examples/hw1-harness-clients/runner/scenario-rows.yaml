@@ -1,0 +1,156 @@
+# The rows this example's CI subject is seeded with — a declared INPUT
+# document, not a committed store.
+#
+# WHY THIS FILE IS ALLOWED TO EXIST. `D-32` (Dave, 2026-08-15) forbids
+# committing data to `examples/`: no store file, no seed artifact, no fixture
+# data. `D-IMPL-163` (Dave, 2026-08-20) narrows it — `D-32` governs producer
+# OUTPUT (a populated `graph.sqlite3`, an `artifact-store/`, anything whose
+# presence removes the need to produce it), not a declared input document that
+# a fabric-side runner interprets. What is still forbidden is unchanged: the
+# runner seeds a TEMPORARY COPY of
+# `examples/hw1-companies-over-revenue/deployment/`, and the tracked deployment
+# stays unpopulated. Nothing here is state; this is what a program reads.
+#
+# This is not a new shape: `D-IMPL-163` records the precedent that predates the
+# ruling. Cited by decision id rather than by path, per `D-IMPL-144` — the
+# precedent's tree is owned by a retirement plan, and a path citation here
+# would be one more coupling to handle when it moves.
+#
+# WHY IT IS NOT PYTHON. The No-Hardcoding Rule (CLAUDE.md §6.4) scopes to
+# `examples/` — `tools/lints/__main__.py::RULE_TREE_SCOPE` gives
+# `no-hardcoding` the tree tuple `("src", "runtime", "examples", "tests")` — so
+# these six rows spelled as constants in the runner would be that rule firing.
+# The runner is an interpreter over this document, the same posture
+# `examples/hw1-companies-over-revenue/deployment/scenario.yaml` states for
+# `projection.py`.
+#
+# WHY IT LIVES HERE AND NOT IN AN `artifacts/` DIRECTORY (Dave, 2026-08-20,
+# ruled at this phase's wave-1 blocker). It sits beside the code that reads it,
+# deliberately. Two shipped gates make `artifacts/` unreachable for this
+# example, and neither may be weakened:
+#
+#   * `tests/examples/test_artifact_schema_headers.py` enforces a BIJECTION —
+#     every `examples/**/artifacts/` must sit directly under an *example root*,
+#     and an example root is defined mechanically as a directory DIRECTLY
+#     CONTAINING `run.py` (its `EXAMPLE_ROOT_MARKER`). `H-11` locks this
+#     example's root to the three `client_*.py`, so it can never hold a
+#     `run.py`, so an `artifacts/` directory here is orphaned by construction.
+#   * That predicate is NOT widenable. Plan `17-09` was written to widen it,
+#     and the module records that — measured — the widening cannot hold; `H-12`
+#     independently forbids weakening a rule to accommodate a file.
+#
+# The same decision from the other side is why the runner is `drive.py` and not
+# `run.py`: a `run.py` in this directory would make `runner/` an example root
+# in its own right, which would then demand an `artifacts/` directory of its
+# own. The natural name for a runner is precisely the one that breaks the gate.
+# Do not "tidy" either name back.
+#
+# THE KEYS BELOW ARE ROLES, NOT SOURCE KEYS. `reference`, `name` and `revenue`
+# are the role names that deployment's own `scenario.yaml` maps onto this
+# deployment's source vocabulary under its `attributes:` block. The runner
+# reads that mapping and applies it, so the two documents cannot drift. A row
+# spelling a source key directly would have hard-coded the mapping into the
+# data, which is the drift this indirection exists to prevent.
+#
+# NOT A CONTROL PLANE ARTIFACT. It is not registered, it is not
+# content-addressed, and the `semver:` field below is its own version marker
+# and carries no Control Plane semver-lane obligation. This is also why it gets
+# no `$schema` header: it has no artifact class, and claiming one to satisfy a
+# checker would make the document assert something false.
+#
+# [MECHANISM] the four top-level keys and the three per-row role keys
+# [ADAPT]     every value — the companies are fictional and domain-neutral
+#
+# ---------------------------------------------------------------------------
+# THE `name` VALUES ARE LOAD-BEARING MARKERS. DO NOT MAKE THEM GENERIC.
+#
+# Plans `20-03` and `20-04` assert that each harness leg's stdout carries the
+# product PAYLOAD and not merely a content address, and they do it by looking
+# for these names in the printed output. FIVE properties make that assertion
+# mean something, all of them checked mechanically by
+# `examples/hw1-harness-clients/runner/drive.py::marker_violations` on every
+# default-path run:
+#
+#   1. Six distinct names, each at least four characters. A shorter token
+#      occurs by accident in a path, a flag or a run of hex digits.
+#   2. No name is a substring of another, case-insensitively. A stdout match on
+#      the shorter one could not say which row printed.
+#   3. No name matches only hex digits and spaces. Such a name would match
+#      INSIDE the 64-hex content address the legs also print, so the payload
+#      assertion would pass on chrome alone.
+#   4. No word of any name collides with the console vocabulary the runner and
+#      the clients print themselves — `examples/hw1-companies-over-revenue/consume.py::main`
+#      emits refused, companies, revenue, context debt, content address, replay
+#      record, answer expires, governance detail, perspective, temporal
+#      boundary, lineage and assembled. A company named for any of those makes
+#      "stdout carries a declared company name" true of a run that printed no
+#      payload at all.
+#
+#   5. No name appears ANYWHERE INSIDE the console vocabulary, as a substring
+#      rather than as a whole word. Property 4 compares whole words, and the
+#      thing that reads stdout matches raw substrings — so for a while a row
+#      named `text` or `ntex` (both inside `context`) was accepted, and an
+#      address-only leg then passed the check written to refuse it. The guard
+#      now runs the reader's own predicate against a chrome-only sample, so the
+#      two cannot disagree again.
+#
+# Property 4's vocabulary covers all three streams a payload assertion reads:
+# the reference client, the runner, and THE THREE HARNESS CLIENTS. The last was
+# missed originally, which is how `product` — a word all three clients print —
+# was absent from the set. `tests/examples/test_hw1_harness_clients_runner_gates.py`
+# now derives the clients' printed literals and fails if the vocabulary does not
+# cover them.
+#
+# Renaming a company to something generic breaks the payload assertion without
+# failing anything that looks related. Check the five properties first.
+# ---------------------------------------------------------------------------
+
+semver: "1.0.0"
+
+# Matches `tenant_id` in
+# `examples/hw1-companies-over-revenue/deployment/ccf_config.yaml`.
+tenant_id: hw1-demo
+
+# One fixed instant, strictly before the `--as-of 2026-08-01T00:00:00+00:00`
+# the runner pins, so every row seeded here is inside the temporal boundary the
+# question asks about. Fixed rather than "now" because criterion 4 compares a
+# content address across three harnesses and a moving observation time moves
+# the address.
+observed_at: "2026-07-01T00:00:00+00:00"
+
+# Six companies: exactly three strictly above and three strictly below the
+# 1000000000 threshold the example screens on, and none equal to it. Three
+# above is what makes the printed answer visibly FILTERED rather than a
+# restatement of the input — a row set where everything passes demonstrates
+# nothing. None equal, because an equality case would make the answer depend on
+# whether the projection compares with `>` or `>=`, which is not what this
+# document is for.
+#
+# Revenues are plain integers. Never a float: `WireRequest` refuses one,
+# because canonical JSON renders it as text.
+companies:
+  # --- strictly above 1000000000 (these three are the expected answer) ---
+  - reference: CO-0001
+    name: Kestrelmark Industries
+    revenue: 4820000000
+
+  - reference: CO-0002
+    name: Volanti Logistics
+    revenue: 1640000000
+
+  - reference: CO-0003
+    name: Brightpath Materials
+    revenue: 1075000000
+
+  # --- strictly below 1000000000 (these three must be screened out) ---
+  - reference: CO-0004
+    name: Cindervale Foods
+    revenue: 812000000
+
+  - reference: CO-0005
+    name: Halcyon Textiles
+    revenue: 347500000
+
+  - reference: CO-0006
+    name: Norwind Ceramics
+    revenue: 96400000

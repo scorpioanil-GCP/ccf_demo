@@ -25,6 +25,34 @@ Three heuristics, one AST walk, plus the D-08 allowlist:
     scored. The exemption is this rule, not an allowlist entry, so every
     future diagnostic message inherits it.
 
+    **A SECOND ARM, BY DESTINATION** (Dave, ruling 6(b), Phase 20). The rule
+    also refuses a prose-candidate literal that reaches a *model-instruction
+    sink* — :data:`INSTRUCTION_SINK_KWARGS`, :data:`INSTRUCTION_SINK_CALLS`,
+    or a :data:`MESSAGE_CONTENT_KEYS` value of a mapping that also carries a
+    ``role`` key — **without consulting** :func:`prompt_score` at all. This is
+    the discriminator the paragraph above already commits to in words,
+    implemented by destination rather than by shape, and it exists because the
+    shape signals cannot see a short agent prompt: the four realistic
+    agent-prompt shapes measured at Phase 20's plan gate score 0-1 against a
+    threshold of 2. Lowering :data:`PROMPT_SCORE_THRESHOLD` to 1 was measured
+    over all four trees at **94 new findings**, effectively all false, and
+    would still have missed two of the four shapes. The destination arm was
+    measured at **2 findings, both genuine** — the same hardcoded agent
+    instruction in two external-example clients, remediated in the plan that
+    added the arm rather than allowlisted. The value is FOLLOWED to the sink:
+    through a name bound anywhere in the module, through an f-string's
+    constant parts, and through the default of an ``os.environ.get(NAME, …)``
+    read, which is what a prompt wearing an env var as a hat looks like.
+
+    *Accepted residual, stated because a name-keyed sink set has one.* The
+    sink sets are enumerations of names, so a harness whose instruction API
+    uses a name outside them escapes the arm. This is the same class of
+    residual as ``D-12``'s dynamic-construction hole in ``cinv01c`` and is
+    accepted on the same ground: every *static* spelling the three shipped
+    harnesses use is covered, and the sink sets are module constants so adding
+    a fourth harness is a one-line edit beside a test. The arm is the
+    mechanism of record; it is not a proof of absence.
+
 ``cinv01b-numeric-table``
     A module-level dict/list/tuple/set constant whose values are predominantly
     numeric — a half-life table, a threshold band, a routing weight map. These
@@ -126,6 +154,62 @@ DIAGNOSTIC_MARKERS: tuple[re.Pattern[str], ...] = (
 #: false positive (reword, or a reviewed allowlist entry) is lower than the
 #: cost of a prompt slipping through behind a filename.
 _SECOND_PERSON_RE = re.compile(r"\byou(?:r|'re|'ve)?\b", re.IGNORECASE)
+
+# --- CINV-01a: the destination arm (Dave, ruling 6(b), Phase 20) -----------
+#
+# A prompt is refused by WHERE IT GOES, not by how long it is. The three sets
+# below are the sink surface, kept as module constants beside the tuning knobs
+# so it is a config surface a reader can enumerate rather than a literal buried
+# in a walk. Each name is here because a shipped harness spells its instruction
+# API that way.
+
+#: Keyword arguments that carry a model instruction.
+#:
+#: * ``system`` / ``system_prompt`` / ``system_instruction`` — the Anthropic,
+#:   Claude-Agent-SDK and Google-GenAI spellings of the system turn.
+#: * ``instruction`` / ``instructions`` — ADK's ``LlmAgent(instruction=…)`` and
+#:   the OpenAI Assistants spelling.
+#: * ``prompt`` / ``user_prompt`` / ``preamble`` / ``persona`` — the generic
+#:   spellings a bespoke loop reaches for.
+#: * ``text`` — ``google.genai.types.Part(text=…)``, which is the sink one of
+#:   the two real violations this arm surfaced actually lands in.
+#: * ``content`` — the message-body spelling, as a keyword rather than inside a
+#:   mapping.
+INSTRUCTION_SINK_KWARGS: frozenset[str] = frozenset(
+    {
+        "system",
+        "system_prompt",
+        "system_instruction",
+        "instruction",
+        "instructions",
+        "prompt",
+        "user_prompt",
+        "preamble",
+        "persona",
+        "text",
+        "content",
+    }
+)
+
+#: Call names whose FIRST POSITIONAL argument is the instruction. Matched on
+#: the attribute name alone, so the receiver does not have to be resolvable —
+#: ``ClaudeSDKClient.query(prompt)``, the sink Phase 20's leg 2 uses, is why
+#: ``query`` is here. That name is also a SQL idiom, and the collision is
+#: harmless only because :func:`_is_prose_candidate` filters SQL first; see
+#: ``CONTROL 8``.
+INSTRUCTION_SINK_CALLS: frozenset[str] = frozenset(
+    {"query", "send_message", "create_message", "complete", "generate", "ask"}
+)
+
+#: The value positions of a chat-message mapping, recognised **only when the
+#: same mapping also carries a ``role`` key**. The ``role`` requirement is what
+#: keeps this from firing on every dict with a ``content`` field, and it is
+#: asserted in both directions by ``CONTROL 7``.
+MESSAGE_CONTENT_KEYS: tuple[str, ...] = ("content", "text")
+
+#: Bound on binding-chain resolution (``a = "…"; b = a; sink(b)``). Finite so a
+#: cyclic assignment cannot hang the lint.
+_MAX_RESOLUTION_DEPTH = 8
 
 #: Modules whose declared-parameter fields must carry no numeric default.
 PARAM_SCHEMA_MARKERS: tuple[str, ...] = ("params", "parameters", "thresholds")
@@ -394,6 +478,226 @@ def _called_name(func: ast.expr) -> str | None:
     return None
 
 
+# --- CINV-01a destination arm: resolution ----------------------------------
+
+
+def _is_environment_read(node: ast.Call) -> bool:
+    """Whether ``node`` is ``os.environ.get(...)`` or ``os.getenv(...)``.
+
+    Both spellings, and both with or without the ``os.`` prefix, because a
+    module doing ``from os import environ, getenv`` is the same read. The
+    SECOND argument of such a call is a *default*, and a prompt supplied as a
+    default is what actually runs on the default path — an env var worn as a
+    hat, which is the exact shape ruling 6(a) forbids.
+    """
+    name = _called_name(node.func)
+    if name == "getenv":
+        return True
+    if name != "get" or not isinstance(node.func, ast.Attribute):
+        return False
+    receiver = node.func.value
+    if isinstance(receiver, ast.Name):
+        return receiver.id == "environ"
+    return isinstance(receiver, ast.Attribute) and receiver.attr == "environ"
+
+
+def _literal_bindings(tree: ast.Module) -> dict[str, ast.expr]:
+    """Every ``name = <expr>`` in the module, at ANY depth, flat.
+
+    **Flat rather than scope-aware, deliberately.** A lint that misses a prompt
+    because it was assigned inside a function is worse than one that
+    occasionally resolves a shadowed name, and the failure modes are not
+    symmetric: over-resolution can only ever report a literal that genuinely
+    appears in this file, while under-resolution reports a clean tree. Both
+    real violations this arm exists for assign inside ``main()``.
+    """
+    bindings: dict[str, ast.expr] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name):
+                bindings[target.id] = node.value
+            elif isinstance(target, (ast.Tuple, ast.List)) and isinstance(
+                node.value, (ast.Tuple, ast.List)
+            ):
+                # `PROMPT, MODEL = "…", "…"`. Positional unpack only: a starred
+                # target makes the correspondence between names and values
+                # ambiguous, and a binding this function is not sure of is worse
+                # than one it does not record.
+                if not any(
+                    isinstance(element, ast.Starred) for element in target.elts
+                ) and len(target.elts) == len(node.value.elts):
+                    for element, value in zip(target.elts, node.value.elts):
+                        if isinstance(element, ast.Name):
+                            bindings[element.id] = value
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.value is not None
+        ):
+            bindings[node.target.id] = node.value
+        elif isinstance(node, ast.NamedExpr) and isinstance(node.target, ast.Name):
+            # `if (PROMPT := "…"):` binds exactly like an assignment, and the
+            # docstring above claimed to cover "every `name = <expr>`" while
+            # this spelling escaped.
+            bindings[node.target.id] = node.value
+    return bindings
+
+
+def resolved_text(
+    node: ast.expr, bindings: dict[str, ast.expr], depth: int = 0
+) -> str | None:
+    """The string ``node`` carries at a sink, or ``None``.
+
+    Four ways a value reaches a sink and is still a literal in this file:
+
+    * directly, as a ``str`` constant;
+    * through a name bound anywhere in the module (:func:`_literal_bindings`);
+    * as an f-string — the constant parts are joined, because an instruction
+      with the question interpolated into it is still a hardcoded instruction;
+    * as the *default* of an environment read (:func:`_is_environment_read`).
+
+    Anything else resolves to ``None`` and is not reported: this arm reports
+    literals that are in the file, never values it could not see.
+    """
+    if depth > _MAX_RESOLUTION_DEPTH:
+        return None
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Name):
+        bound = bindings.get(node.id)
+        return None if bound is None else resolved_text(bound, bindings, depth + 1)
+    if isinstance(node, ast.JoinedStr):
+        parts = [
+            value.value
+            for value in node.values
+            if isinstance(value, ast.Constant) and isinstance(value.value, str)
+        ]
+        return "".join(parts) if parts else None
+    if isinstance(node, ast.NamedExpr):
+        return resolved_text(node.value, bindings, depth + 1)
+    if isinstance(node, ast.BoolOp):
+        # `os.environ.get("VAR") or "<prompt>"` — the env var worn as a hat,
+        # spelled without a default argument at all. The literal is whichever
+        # operand carries one.
+        return _first_resolved(node.values, bindings, depth)
+    if isinstance(node, ast.IfExp):
+        return _first_resolved([node.body, node.orelse], bindings, depth)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        # A prompt split across a `+` is still one prompt in this file.
+        parts = [
+            text
+            for text in (
+                resolved_text(node.left, bindings, depth + 1),
+                resolved_text(node.right, bindings, depth + 1),
+            )
+            if text is not None
+        ]
+        return "".join(parts) if parts else None
+    if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
+        bound = bindings.get(node.value.id)
+        key = node.slice
+        if (
+            isinstance(bound, ast.Dict)
+            and isinstance(key, ast.Constant)
+            and isinstance(key.value, str)
+        ):
+            for dict_key, dict_value in zip(bound.keys, bound.values):
+                if (
+                    isinstance(dict_key, ast.Constant)
+                    and dict_key.value == key.value
+                ):
+                    return resolved_text(dict_value, bindings, depth + 1)
+        return None
+    if isinstance(node, ast.Call):
+        if _is_environment_read(node):
+            # A default reaches the sink whether it is spelled positionally or
+            # as `default=`. Only the DEFAULT is followed: the first argument is
+            # the variable's NAME, and resolving that would report the name as
+            # if it were the prompt.
+            if len(node.args) >= 2:
+                return resolved_text(node.args[1], bindings, depth + 1)
+            for keyword in node.keywords:
+                if keyword.arg == "default":
+                    return resolved_text(keyword.value, bindings, depth + 1)
+            return None
+        # Any other call is treated as a WRAPPER around its content:
+        # `"…".strip()`, `textwrap.dedent("…")`, `"…".format(x)`. Resolving
+        # through it is deliberately generous, for the reason
+        # :func:`_literal_bindings` already states — over-resolution can only
+        # ever report a literal that genuinely appears in this file, while
+        # under-resolution reports a clean tree. Enumerating wrapper names
+        # instead is what left nine escapes open behind one that was fixed.
+        candidates: list[ast.expr] = list(node.args)
+        if isinstance(node.func, ast.Attribute):
+            candidates.insert(0, node.func.value)
+        return _first_resolved(candidates, bindings, depth)
+    return None
+
+
+def _first_resolved(
+    nodes: Sequence[ast.expr], bindings: dict[str, ast.expr], depth: int
+) -> str | None:
+    """The first of ``nodes`` that resolves to a literal, or ``None``."""
+    for node in nodes:
+        text = resolved_text(node, bindings, depth + 1)
+        if text is not None:
+            return text
+    return None
+
+
+def instruction_sinks(tree: ast.Module) -> list[tuple[ast.expr, str]]:
+    """Every ``(argument node, sink description)`` pair in ``tree``.
+
+    Three sink families, each an enumeration of names:
+
+    1. a keyword argument in :data:`INSTRUCTION_SINK_KWARGS`;
+    2. the first positional argument of a call named in
+       :data:`INSTRUCTION_SINK_CALLS`;
+    3. a :data:`MESSAGE_CONTENT_KEYS` value of a mapping that also carries a
+       ``role`` key.
+
+    The node returned is the one AT THE SINK, never the literal's definition,
+    so a finding sends a reader to where the prompt is used rather than to a
+    line that reads as ordinary configuration.
+    """
+    sinks: list[tuple[ast.expr, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            for keyword in node.keywords:
+                if keyword.arg in INSTRUCTION_SINK_KWARGS:
+                    sinks.append((keyword.value, f"{keyword.arg}="))
+                elif keyword.arg is None and isinstance(keyword.value, ast.Dict):
+                    # `LlmAgent(**{"instruction": "…"})` reaches the same
+                    # parameter by the same name; only the spelling differs.
+                    for key, value in zip(keyword.value.keys, keyword.value.values):
+                        if (
+                            isinstance(key, ast.Constant)
+                            and isinstance(key.value, str)
+                            and key.value in INSTRUCTION_SINK_KWARGS
+                        ):
+                            sinks.append((value, f'**{{"{key.value}": ...}}'))
+            called = _called_name(node.func)
+            if called in INSTRUCTION_SINK_CALLS and node.args:
+                sinks.append((node.args[0], f"{called}(...)"))
+        elif isinstance(node, ast.Dict):
+            keys = {
+                key.value
+                for key in node.keys
+                if isinstance(key, ast.Constant) and isinstance(key.value, str)
+            }
+            if "role" not in keys:
+                continue
+            for key, value in zip(node.keys, node.values):
+                if (
+                    isinstance(key, ast.Constant)
+                    and isinstance(key.value, str)
+                    and key.value in MESSAGE_CONTENT_KEYS
+                ):
+                    sinks.append((value, f'{{"role": ..., "{key.value}": ...}}'))
+    return sinks
+
+
 # --- entrypoints -----------------------------------------------------------
 
 
@@ -415,7 +719,21 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
             )
         )
 
-    # CINV-01a — prompt-shaped literals anywhere in the module.
+    # One literal reported once, whatever caught it. The two CINV-01a arms can
+    # both see the same string — a long prompt assigned to a name and then
+    # passed to a sink is a score-arm finding at the assignment and a
+    # destination-arm finding at the sink — and two findings for one literal is
+    # two allowlist entries for one review.
+    seen_prompts: set[tuple[int, str]] = set()
+
+    def emit_prompt(node: ast.AST, message: str, literal: str) -> None:
+        key = (getattr(node, "lineno", 0), fingerprint(literal))
+        if key in seen_prompts:
+            return
+        seen_prompts.add(key)
+        emit(node, RULE_PROMPT_SHAPE, message, literal)
+
+    # CINV-01a, arm 1 (SHAPE) — prompt-shaped literals anywhere in the module.
     for node in ast.walk(tree):
         if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
             continue
@@ -427,13 +745,46 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
         if is_developer_diagnostic(text):
             continue
         if prompt_score(text) >= PROMPT_SCORE_THRESHOLD:
-            emit(
+            emit_prompt(
                 node,
-                RULE_PROMPT_SHAPE,
                 "prompt-shaped string literal in code — prompts are versioned"
                 " artifacts referenced by URI (CLAUDE.md §6.4)",
                 text,
             )
+
+    # CINV-01a, arm 2 (DESTINATION) — a prose-candidate literal that reaches a
+    # model-instruction sink, whatever its shape. Three deliberate differences
+    # from the arm above, each of which is the point rather than an oversight:
+    #
+    #   * `prompt_score` is NOT consulted. Destination is the whole test. The
+    #     four agent-prompt shapes measured at Phase 20's plan gate score 0-1
+    #     against a threshold of 2, and lowering that threshold to 1 was
+    #     measured at 94 findings — effectively all false — while still missing
+    #     two of the four. The signals detect "long English string", which is a
+    #     proxy for the wrong thing.
+    #   * `is_developer_diagnostic` is NOT consulted. A diagnostic is a string
+    #     shown to a developer; a string reaching a model sink is by definition
+    #     not that. A literal that carries a backticked command AND is sent to
+    #     a model is a prompt.
+    #   * `_is_prose_candidate` IS reused, unchanged. `MIN_PROMPT_CHARS = 40` is
+    #     the measured knee (40 -> 2, 20 -> 2, 12 -> 15, 1 -> 17 findings over
+    #     the rule's four trees), not an inherited default, and its SQL filter
+    #     is what makes `query` safe to treat as a sink name.
+    bindings = _literal_bindings(tree)
+    for sink_node, sink in instruction_sinks(tree):
+        if id(sink_node) in docstrings:
+            continue
+        text = resolved_text(sink_node, bindings)
+        if text is None or not _is_prose_candidate(text):
+            continue
+        emit_prompt(
+            sink_node,
+            f"string literal reaching a model-instruction sink ({sink}) —"
+            " a prompt is refused by where it goes, not by how long it is;"
+            " prompts are versioned artifacts referenced by URI"
+            " (CLAUDE.md §6.4)",
+            text,
+        )
 
     # CINV-01b — module-level numeric tables.
     for node in tree.body:

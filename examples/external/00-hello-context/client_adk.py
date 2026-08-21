@@ -12,7 +12,10 @@ points the ``google-genai`` client at ``replay_server.py`` and
 is this same file with those variables unset. No CI/live branch exists.
 
 Environment: ``CCF_MCP_URL``, ``CCF_TOKEN``, ``CCF_EXAMPLE_GEMINI_MODEL``
-(model names never appear in code), optional ``CCF_EXAMPLE_QUESTION``.
+(model names never appear in code), ``CCF_EXAMPLE_QUESTION`` (prompts never
+appear in code — CLAUDE.md §6.4). All four are REQUIRED: a default here
+would be a prompt in code that runs on the default path, which is what the
+deployment declares in ``artifacts/experience.yaml`` and ``run.py`` passes.
 """
 
 from __future__ import annotations
@@ -34,11 +37,7 @@ async def main() -> None:
     url = os.environ["CCF_MCP_URL"]
     token = os.environ["CCF_TOKEN"]
     model = os.environ["CCF_EXAMPLE_GEMINI_MODEL"]
-    question = os.environ.get(
-        "CCF_EXAMPLE_QUESTION",
-        "Use the available tools to retrieve the governed context, then"
-        " state your recommendation.",
-    )
+    question = os.environ["CCF_EXAMPLE_QUESTION"]
 
     toolset = McpToolset(
         connection_params=StreamableHTTPConnectionParams(

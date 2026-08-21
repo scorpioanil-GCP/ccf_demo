@@ -10,6 +10,10 @@ import pytest
 
 from tools.lints.no_hardcoding import (
     DIAGNOSTIC_MARKERS,
+    INSTRUCTION_SINK_CALLS,
+    INSTRUCTION_SINK_KWARGS,
+    MESSAGE_CONTENT_KEYS,
+    PROMPT_SCORE_THRESHOLD,
     RULE_FACTORY_BYPASS,
     RULE_NUMERIC_TABLE,
     RULE_PROMPT_SHAPE,
@@ -21,6 +25,7 @@ from tools.lints.no_hardcoding import (
     fingerprint,
     is_developer_diagnostic,
     load_allowlist,
+    prompt_score,
 )
 
 SRC = pathlib.Path("src/ccf/operators/traversal.py")
@@ -291,3 +296,188 @@ def test_allowlist_entry_missing_a_reviewer_is_rejected() -> None:
                 }
             ]
         )
+
+
+# --- CINV-01a: the DESTINATION arm (Dave, ruling 6(b), Phase 20) -----------
+#
+# The ruling: `cinv01a-prompt-shape` must refuse a short agent prompt
+# embedding domain instruction. The score arm cannot — its four signals
+# measure "long English string literal", and the four realistic agent-prompt
+# shapes measured at the plan gate score 0-1 against a threshold of 2.
+#
+# So the arm added here consults `prompt_score` not at all and asks a
+# different question: WHERE DOES THIS STRING GO. A prose-candidate literal
+# that reaches a model-instruction sink is a prompt, whatever its shape — the
+# discriminator this module's own docstring has stated in words since
+# 2026-08-04, implemented by destination rather than by shape.
+#
+# CONTROL 4-8 continue plan `20-02`'s numbered register. Each was observed red
+# by breaking the shipped function, not by assertion alone; the mutations are
+# recorded in `20-02-SUMMARY.md`.
+
+#: The blocker's own shape — Dave's ruling 6(b) example. Scores 1: a role
+#: opener and nothing else.
+BLOCKER_PROMPT = (
+    "You are a helpful assistant. Use the available tool to fetch the"
+    " context product and print it."
+)
+
+#: The shape furthest from anything the score arm can see: no role preamble,
+#: one sentence, no braces, under `PROSE_CHARS`. Scores 0 on every signal.
+SCORELESS_PROMPT = (
+    "Retrieve the governed context with the available tools and show me the"
+    " result."
+)
+
+#: The two genuine violations this arm surfaced in the tree, verbatim: an
+#: agent instruction reached through an `os.environ.get` fallback and a local
+#: binding, twenty lines above the sink it lands in.
+ENV_FALLBACK_PROMPT = (
+    "Use the available tools to retrieve the governed context, then state"
+    " your recommendation."
+)
+
+
+def test_control_4_the_blocker_shape_is_refused_at_a_sink() -> None:
+    """CONTROL 4 — the blocker's own shape goes red, and the score arm's miss
+    is asserted in the same test.
+
+    Both halves belong together: the assertion that `prompt_score` does NOT
+    catch this literal is what makes the destination arm's catch mean
+    something, and it is the plan-gate measurement turned into a standing test.
+    Were the score arm ever retuned to catch it, this test would go red and the
+    94-false-finding measurement behind that rejection would be re-read before
+    anything shipped.
+    """
+    assert prompt_score(BLOCKER_PROMPT) == 1
+    assert prompt_score(BLOCKER_PROMPT) < PROMPT_SCORE_THRESHOLD
+    source = f"client.query({BLOCKER_PROMPT!r})\n"
+    findings = check_source(source, SRC, "ccf.operators.traversal")
+    assert _rules(findings) == [RULE_PROMPT_SHAPE], findings
+
+
+def test_control_5_a_prompt_with_no_role_preamble_is_refused() -> None:
+    """CONTROL 5 — a scoreless prompt at a sink keyword argument goes red."""
+    assert prompt_score(SCORELESS_PROMPT) == 0
+    source = f"agent = Runner(system={SCORELESS_PROMPT!r})\n"
+    findings = check_source(source, SRC, "ccf.operators.traversal")
+    assert _rules(findings) == [RULE_PROMPT_SHAPE], findings
+
+
+def test_control_6_resolution_through_a_name_and_an_env_fallback() -> None:
+    """CONTROL 6 — the arm FOLLOWS THE VALUE to the sink.
+
+    This is the property the whole design turns on, and the one an
+    implementation is most likely to get wrong. In both real violations the
+    literal sits ~20 lines above the sink and reaches it through a local
+    binding whose value is an `os.environ.get(NAME, <literal>)` fallback. An
+    arm implemented as "a prose-candidate LITERAL appearing at a sink" finds
+    neither of them — it reports zero and looks like a clean tree.
+
+    Two assertions, because the arm has to get both halves right: the finding
+    is reported AT THE SINK (a reader is sent to where the prompt is used, not
+    to a line that looks like ordinary configuration), and the fingerprint is
+    of the FALLBACK, so an allowlist entry — or a drift in the literal — keys
+    off the prompt rather than off the variable name.
+    """
+    source = _src(
+        f"""
+        import os
+
+        question = os.environ.get("CCF_EXAMPLE_QUESTION", {ENV_FALLBACK_PROMPT!r})
+
+        toolset = build()
+        agent = LlmAgent(model=model, tools=[toolset])
+        runner = Runner(agent=agent)
+        event = runner.run(new_message=Content(parts=[Part(text=question)]))
+        """
+    )
+    findings = check_source(source, SRC, "ccf.operators.traversal")
+    assert _rules(findings) == [RULE_PROMPT_SHAPE], findings
+
+    sink_line = next(
+        index
+        for index, line in enumerate(source.splitlines(), start=1)
+        if "Part(text=question)" in line
+    )
+    reported_line = int(findings[0].split(":", 1)[1].split(" ", 1)[0])
+    assert reported_line == sink_line, (
+        f"the finding was reported at line {reported_line}, not at the sink on"
+        f" line {sink_line}"
+    )
+    assert fingerprint(ENV_FALLBACK_PROMPT) in findings[0], findings[0]
+
+
+def test_control_7_the_chat_message_mapping_and_its_role_requirement() -> None:
+    """CONTROL 7 — `{"role": …, "content": <prose>}` is refused, and the
+    `role` requirement is load-bearing.
+
+    Two assertions, because a control that only shows the red half does not
+    show the rule is bounded. Without the `role` key this mapping is an
+    ordinary dict with a `content` field, and there are many of those.
+    """
+    refused = f'messages = [{{"role": "user", "content": {ENV_FALLBACK_PROMPT!r}}}]\n'
+    assert _rules(check_source(refused, SRC, "ccf.operators.traversal")) == [
+        RULE_PROMPT_SHAPE
+    ]
+
+    clean = f'payload = {{"kind": "note", "content": {ENV_FALLBACK_PROMPT!r}}}\n'
+    assert check_source(clean, SRC, "ccf.operators.traversal") == []
+
+
+def test_control_8_diagnostics_fixtures_and_sql_stay_green() -> None:
+    """CONTROL 8 — the gate is KEEPABLE.
+
+    Three assertions, all expecting no finding. This is the control that
+    distinguishes a correct tightening from one that flags everything: a rule
+    that fired on all prose would pass CONTROL 4-7 and be indistinguishable
+    from this one without it.
+
+    1. A multi-sentence developer diagnostic naming a `make` target and a repo
+       path, passed to `ValueError(...)` and to `print(...)` — non-sink calls.
+       The arm adds no finding away from a sink.
+    2. `{"role": "user", "content": "extra"}` — the sub-`MIN_PROMPT_CHARS`
+       fixture shape the blast-radius measurement found in the tree. The
+       length floor of 40 is the measured knee (40 → 2, 20 → 2, 12 → 15,
+       1 → 17), not an inherited default.
+    3. `session.query("SELECT …")` — `query` is a sink name AND a SQL idiom,
+       and `_is_prose_candidate`'s SQL filter is what keeps the collision
+       harmless.
+    """
+    diagnostic = _src(
+        f"""
+        def check() -> None:
+            if broken:
+                raise ValueError({DIAGNOSTIC!r})
+            print({DIAGNOSTIC!r})
+        """
+    )
+    assert check_source(diagnostic, SRC, "ccf.operators.traversal") == []
+
+    short_fixture = 'body = {"role": "user", "content": "extra"}\n'
+    assert check_source(short_fixture, SRC, "ccf.operators.traversal") == []
+
+    sql = _src(
+        """
+        rows = session.query(
+            "SELECT entity_uri, valid_from FROM entities WHERE tenant_id = ?"
+            " ORDER BY valid_from DESC"
+        )
+        """
+    )
+    assert check_source(sql, SRC, "ccf.operators.traversal") == []
+
+
+def test_the_sink_surface_is_an_enumerable_config_surface() -> None:
+    """The three sink sets are module constants, not literals in a walk.
+
+    The accepted residual (`<lint_blast_radius>`, and the same class as
+    `D-12`'s dynamic-construction hole in `cinv01c`) is that a name-keyed sink
+    set can be escaped by a harness spelling its instruction API differently.
+    That residual is only acceptable while adding a harness stays a one-line
+    edit beside a test, which is what this asserts.
+    """
+    assert "text" in INSTRUCTION_SINK_KWARGS
+    assert "system_prompt" in INSTRUCTION_SINK_KWARGS
+    assert "query" in INSTRUCTION_SINK_CALLS
+    assert MESSAGE_CONTENT_KEYS == ("content", "text")

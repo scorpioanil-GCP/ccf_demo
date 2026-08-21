@@ -55,9 +55,12 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 \
 	example-00 example-01 example-02 example-03 example-04 example-05 \
-	example-06 example-07 example-08 example-ext-00 \
+	example-06 example-07 example-08 example-ext-00 example-hw1-harness-clients \
 	example-03-live-ollama example-03-live-anthropic \
 	example-ext-00-live-anthropic example-ext-00-live-adk \
+	example-hw1-harness-clients-live-adk \
+	example-hw1-harness-clients-live-anthropic \
+	example-hw1-harness-clients-live-langgraph \
 	legs leg-postgres leg-neo4j leg-mongo leg-fluree \
 	perf perf-micro perf-scale perf-xproc perf-replay \
 	docs docs-strict docs-serve openapi schemas schema-headers surface \
@@ -216,6 +219,29 @@ example-08: ## Run examples/08-e2e-demo (deterministic; --live is opt-in and nev
 example-ext-00: ## Run examples/external/00-hello-context — all legs deterministic via replay server
 	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py
 
+# The runner is `runner/drive.py`, and BOTH halves of that path are load-bearing.
+# The subdirectory keeps the one `ccf`-importing file structurally outside
+# `tests/examples/test_client_example_purity.py::reader_visible_modules`, whose
+# `glob("*.py")` is non-recursive; the NAME avoids `run.py`, which
+# `tests/examples/test_artifact_schema_headers.py` reads as the marker of an
+# example root and would then require an `artifacts/` directory beside. Neither
+# is tidiable.
+#
+# `$(ENV) $(PYTHON)`, and the obvious reason is NOT the reason. `$(ENV)` is not
+# needed so the runner can `import ccf`: measured at plan revision,
+# `env -u PYTHONPATH .venv/bin/python -c "import ccf"` resolves through the
+# editable install, and `example-hw1` below already runs `consume.py` — which
+# imports `ccf.client` — with no `$(ENV)` prefix at all. The two true reasons:
+# it is the house spelling (16 of the 18 `example-*` targets), and it keeps the
+# target working in a fresh clone that has not run `pip install -e .`.
+# `$(PYTHON)` stays overridable by a job that installs into a hosted
+# interpreter — that is the *test* job's posture (`make PYTHON=python`), not a
+# blanket CI rule: the examples job provisions a `.venv` and runs bare
+# `make examples`, so `$(PYTHON)` is `.venv/bin/python` in the very job that
+# runs this target.
+example-hw1-harness-clients: ## Run examples/hw1-harness-clients — three harnesses, one door, deterministic
+	$(ENV) $(PYTHON) examples/hw1-harness-clients/runner/drive.py
+
 # `s1-01` LED THIS LIST AND NO LONGER DOES (plan 16-05). Its
 # `artifacts/manifest.yaml` now declares a networked substrate, and ROADMAP
 # criterion 4 puts that substrate among the four opt-in databases while `D-06`
@@ -227,7 +253,7 @@ example-ext-00: ## Run examples/external/00-hello-context — all legs determini
 # `tests/examples/test_s1_01_output.py` boots it, and the three gates that need
 # no substrate (agent-free AST guard, spine separation, artifact headers) still
 # run on this leg.
-examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 ## Run the ten network-free examples in order, stopping on first failure
+examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 example-hw1-harness-clients ## Run the eleven network-free examples in order, stopping on first failure
 
 # Container-gated substrate legs (DI-15.2-04, D-GATE-15.2). These reproduce the
 # ci.yml service-container steps command-for-command, so a developer runs a leg
@@ -336,6 +362,35 @@ example-hw1: ## Run examples/hw1-companies-over-revenue (needs a populated deplo
 example-hw1-mcp: ## Run examples/hw1-companies-over-revenue over MCP stdio (same consume.py)
 	CCF_BINDING="mcp+stdio:examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
 
+# ONE LEG AT A TIME, for examples/hw1-harness-clients. These are the DOCUMENTED
+# targets — `examples/hw1-harness-clients/README.md` states these three strings
+# in fenced blocks for a reader to type, and
+# `tests/examples/test_client_example_purity.py` asserts each block is
+# character-identical to the recipe below it AND that the three differ at
+# exactly one token position: the leg name. That second assertion is this
+# example's whole frame — one product, one door, three harnesses — turned into
+# a check, and it is why the three recipes must stay structurally identical.
+#
+# The same interpreter rule as the two targets above, for the same reason:
+# `.venv/bin/python` spelled literally, never `$(PYTHON)`, because `$(PYTHON)`
+# is not a string a reader can type and `which python` returns nothing in this
+# repository. Please do not "fix" these back into a variable.
+#
+# These are deliberately NOT prerequisites of `examples:`. That list runs
+# `example-hw1-harness-clients` above, which drives all three legs plus the
+# reference in one pass and uses `$(ENV) $(PYTHON)` because CI has no `.venv`.
+# The split is the same two-target shape `example-hw1` / `example-hw1-mcp`
+# already have: one spelling for CI, one spelling for a reader.
+.PHONY: example-hw1-harness-clients-adk example-hw1-harness-clients-anthropic example-hw1-harness-clients-langgraph
+example-hw1-harness-clients-adk: ## Run examples/hw1-harness-clients, Google ADK leg only
+	.venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs adk
+
+example-hw1-harness-clients-anthropic: ## Run examples/hw1-harness-clients, Claude Agent SDK leg only
+	.venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs anthropic
+
+example-hw1-harness-clients-langgraph: ## Run examples/hw1-harness-clients, LangGraph leg only
+	.venv/bin/python examples/hw1-harness-clients/runner/drive.py --legs langgraph
+
 # The Phase 15.3 permitted-change-surface gate and its `tools/gates/` package
 # were RETIRED by plan 15.4-07, in the same commit that registered the two
 # structural rules replacing them. D-IMPL-93: the per-file added-line budgets
@@ -397,6 +452,29 @@ example-ext-00-live-anthropic: ## External example 00 Anthropic leg live (opt-in
 
 example-ext-00-live-adk: ## External example 00 ADK/Gemini leg live (opt-in, D-11; never in `examples`/`ci`)
 	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py --live --legs adk
+
+# The three `--live` opt-ins for examples/hw1-harness-clients. `--live` means
+# ONE thing across every leg (`H-09`): point at the real tracked deployment
+# instead of the seeded temporary copy, which requires it to already be
+# populated — and for leg 2 it additionally drops the model stand-in, so THAT
+# leg needs `ANTHROPIC_BASE_URL` set explicitly. The runner deliberately stops
+# injecting it under `--live` and the client refuses rather than falling back to
+# a vendor endpoint; the README says the same sentence.
+#
+# These are deliberately NOT prerequisites of `examples:` and never run in CI.
+# A red check nobody can make green is worse than no check: the always-on
+# pipeline holds no populated deployment and no credentials, so a live target on
+# that line would fail on every push for a reason that has nothing to do with
+# the code. `tests/examples/test_hw1_harness_clients_readme.py` asserts both
+# halves — that all three exist, and that none of them is on `examples:`.
+example-hw1-harness-clients-live-adk: ## examples/hw1-harness-clients ADK leg against a real populated deployment (opt-in; never CI)
+	$(ENV) $(PYTHON) examples/hw1-harness-clients/runner/drive.py --live --legs adk
+
+example-hw1-harness-clients-live-anthropic: ## examples/hw1-harness-clients Claude Agent SDK leg live, real model (opt-in; never CI — set ANTHROPIC_BASE_URL)
+	$(ENV) $(PYTHON) examples/hw1-harness-clients/runner/drive.py --live --legs anthropic
+
+example-hw1-harness-clients-live-langgraph: ## examples/hw1-harness-clients LangGraph leg against a real populated deployment (opt-in; never CI)
+	$(ENV) $(PYTHON) examples/hw1-harness-clients/runner/drive.py --live --legs langgraph
 
 # Docs (Phase 14, D-IMPL-71). `docs` is the plain build; `docs-strict` is the
 # always-on gate wired into `ci` per D-IMPL-72 (plan 14-10).

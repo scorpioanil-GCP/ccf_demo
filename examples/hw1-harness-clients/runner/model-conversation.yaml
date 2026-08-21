@@ -1,0 +1,113 @@
+# The model conversation leg 2 has — a declared INPUT document, beside the two
+# programs that read it.
+#
+# WHY IT EXISTS AT ALL. Leg 2 is the only one of the three legs with a model in
+# its path: `claude_agent_sdk` routes everything, its MCP client included,
+# through the `claude` CLI subprocess, so the only place leg 2 can be
+# determinized is the model API that CLI talks to. Two things follow, and both
+# are declared here rather than spelled in code:
+#
+#   * the PROMPT leg 2 sends. `ClaudeSDKClient.query(...)` cannot run without
+#     one, and the No-Hardcoding Rule (CLAUDE.md §6.4) forbids an instruction
+#     string literal in a code file. `tools/lints/__main__.py::RULE_TREE_SCOPE`
+#     puts `examples` inside `no-hardcoding`'s tree tuple and
+#     `tools/lints/no_hardcoding.py::INSTRUCTION_SINK_CALLS` names `query` as a
+#     sink, so a prompt literal in `client_anthropic.py` — or in `drive.py` —
+#     is that rule firing, not a review comment. The runner reads the value
+#     below and carries it to the client through the environment.
+#   * the EXCHANGES `model_stub.py` answers. A model stand-in whose script were
+#     constants in the stand-in would be the same rule firing one file over.
+#
+# NOT A STORE, AND NOT A CONTROL PLANE ARTIFACT. `D-IMPL-163` (Dave,
+# 2026-08-20) narrows `D-32` to producer OUTPUT and leaves a declared input
+# document that a program reads. Nothing here is state, nothing is registered,
+# and nothing is content-addressed. The `semver:` below is this document's own
+# version marker and carries no Control Plane semver-lane obligation, which is
+# also why it gets no `$schema` header — it has no artifact class, and claiming
+# one to satisfy a checker would make the document assert something false. Same
+# posture, same reasoning, as `question.yaml` and `scenario-rows.yaml` beside
+# it.
+#
+# WHY IT LIVES HERE AND NOT IN AN `artifacts/` DIRECTORY. The same two shipped
+# gates `scenario-rows.yaml`'s header sets out at length: this example's root
+# can never hold a `run.py`, so an `artifacts/` directory here is orphaned by
+# construction, and the predicate is not widenable. It sits beside the code
+# that reads it, deliberately.
+#
+# THE COUNTS BELOW ARE MEASURED, NOT GUESSED. Each `request:` block is the
+# reduction `examples/hw1-harness-clients/runner/model_stub.py::reduction`
+# computes over the incoming body. They were read off a real drive of the
+# bundled CLI and written down; a CLI that starts sending a different
+# conversation turns the run red at the stand-in rather than quietly serving it
+# the wrong answer.
+#
+# EXCHANGE 0 IS GENUINELY THE FIRST REQUEST THE CLI MAKES, and that is only
+# true because `model_stub.py::offline_cli_environment` sets
+# `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`. Without it the CLI opens the
+# session with a title-generation request — no tools, an `output_config`
+# schema, the session text as its prompt — which is not part of this
+# conversation and which the stand-in therefore refuses. Two exchanges is the
+# whole conversation, not the whole traffic, and the difference is a variable.
+# If a refusal ever appears on a passing run again, look there first.
+#
+# [MECHANISM] the four top-level keys, `exchanges[].request` and
+#             `exchanges[].response`
+# [ADAPT]     every value
+
+semver: "1.0.0"
+
+# The model label leg 2 pins, on every request.
+#
+# The stand-in compares it and refuses a request that carries anything else, so
+# a client that stopped honouring the pinned label is a red run rather than a
+# silent one. Offline the label is never resolved to a real model — nothing
+# here authenticates and nothing here infers. Under `--live` this is the value
+# the operator's own account has to serve, and changing it is the change they
+# make.
+model: "claude-sonnet-4-5"
+
+# The instruction leg 2's agent is given.
+#
+# It is deliberately about the SHAPE of the turn and not about companies,
+# revenue or thresholds: the question's own address travels on `--question-json`
+# and reaches the door through the tool arguments, so a prompt that restated it
+# would be a second, drifting copy of the question. Offline, the stand-in
+# ignores this text — it answers the declared exchanges — and it is the `--live`
+# path where the text does the work.
+prompt: >-
+  Use the one available tool exactly once, with the arguments it requires, and
+  then report what it returned.
+
+# The two turns of the conversation, in order.
+#
+# `request:` is the expected reduction. `door_tools` is how many advertised
+# tools are the CCF door's own; `other_tools` is how many are not, and its
+# being zero on every turn is the whole tool-surface claim leg 2 makes —
+# observable only from this side of the wire.
+exchanges:
+  - name: call-the-door
+    request:
+      messages: 1
+      door_tools: 1
+      other_tools: 0
+      tool_results: 0
+    response:
+      stop_reason: tool_use
+      blocks:
+        # The tool NAME is not declared here: the stand-in answers with the
+        # namespaced name the request actually advertised, because a model
+        # calls what it was shown. The arguments come from the question
+        # address the runner passes in on `argv`.
+        - type: tool_use
+
+  - name: report-what-came-back
+    request:
+      messages: 3
+      door_tools: 1
+      other_tools: 0
+      tool_results: 1
+    response:
+      stop_reason: end_turn
+      blocks:
+        - type: text
+          text: "served"

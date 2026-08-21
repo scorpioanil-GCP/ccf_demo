@@ -1,0 +1,6 @@
+9e4bd0e5c54c22133f32c108b96de3aebbf6dfae
+# The Phase 20 diff base. Read by plan 20-08's criterion-7 assertion:
+#   git diff --stat $(head -1 <this file>)..HEAD -- src/ccf/client/
+# must print nothing. Pinned here at plan 20-01 rather than resolved at close
+# time from a branch name, because a base that does not resolve makes the
+# assertion vacuous rather than failing it.

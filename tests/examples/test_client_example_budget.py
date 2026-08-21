@@ -28,6 +28,22 @@ the figure the gate enforces are the same characters. Duplicating it into a
 constant here would create two numbers to keep in step, and the one that drifts
 is always the one nobody runs.
 
+Per module, and now over two roots
+-----------------------------------
+The budget is enforced against **each** reader-visible module, never against
+their sum. That mattered little while
+:data:`~tests.examples.test_client_example_purity.CLIENT_EXAMPLE_ROOTS` held one
+root with one ``consume.py``; it is the whole rule now that
+``examples/hw1-harness-clients`` carries three client programs, because a sum
+would let one bloated client hide behind two small ones.
+
+**This module gained that second root without a line changing here**, by
+importing ``CLIENT_EXAMPLE_ROOTS`` and parametrizing over it. That is convenient
+and it is also the risk: an automatically-armed gate is a gate nobody chose to
+arm, and every control below the fixtures builds its subject from
+``CLIENT_EXAMPLE_ROOTS[0]`` — the hw1 root. ``C-20-9`` at the foot of the file
+is the one that watches the *new* root fail.
+
 **The subject is a parameter, never a fixed path.** ``check_example_budget``
 takes the root it checks, so every control feeds a ``tmp_path`` copy into the
 **same** function the shipped assertion calls.
@@ -48,6 +64,7 @@ import pytest
 
 from tests.examples.test_client_example_purity import (
     CLIENT_EXAMPLE_ROOTS,
+    HARNESS_ROOT,
     reader_visible_modules,
 )
 
@@ -273,3 +290,81 @@ def test_the_gate_refuses_a_root_that_does_not_exist(
     violations = check_example_budget(tmp_path / "was-renamed-away")
     assert violations, "a non-existent example root passed the budget gate"
     assert any("nothing was checked" in entry for entry in violations), violations
+
+
+# ---------------------------------------------------------------------------
+# C-20-9 — the control for the root this gate was newly ARMED against.
+#
+# Nothing above watches `examples/hw1-harness-clients`. Every control in this
+# module builds its doctored subject from ``CLIENT_EXAMPLE_ROOTS[0]``, which is
+# the hw1 root, and they were all green on the day the harness root joined
+# :data:`CLIENT_EXAMPLE_ROOTS` — which is precisely the shape of a gate that is
+# armed on paper and unwatched in fact.
+#
+# `CLNT-12` reads "every parity, guard and example gate this phase adds", and a
+# gate newly armed against a root whose README the same plan authors is a gate
+# that plan added in the only sense that matters. `T-20-41`.
+#
+# What this control CANNOT catch, stated so nobody mistakes it for cover: a
+# budget set too high. Padding past 300 and padding past 3000 both fail here.
+# The only defence against a formality is the number itself, so the README
+# declares 300 against a largest client of 288 — twelve lines of headroom,
+# recorded rather than left as slack.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def harness_example_copy(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A private copy of the **harness-clients** example, for ``C-20-9``."""
+    root = tmp_path / "harness-example"
+    shutil.copytree(
+        HARNESS_ROOT, root, ignore=shutil.ignore_patterns("__pycache__")
+    )
+    return root
+
+
+def test_c20_9_the_gate_refuses_an_over_budget_harness_client(
+    harness_example_copy: pathlib.Path,
+) -> None:
+    """``C-20-9`` — pad one client program past the budget and watch it refuse.
+
+    Built from :data:`HARNESS_ROOT`, deliberately, not from
+    ``CLIENT_EXAMPLE_ROOTS[0]``. The whole point is that this control's subject
+    is the root the two padding controls above do not reach.
+
+    The violation must **name the padded module**: this root carries three
+    client programs and the budget is enforced per module, so a gate that
+    reported "the example is over budget" without saying which file would leave
+    a reader diffing three of them.
+    """
+    assert check_example_budget(harness_example_copy) == [], (
+        "the harness copy was already over budget, so the padding below proves"
+        " nothing"
+    )
+    modules = reader_visible_modules(harness_example_copy)
+    assert len(modules) == 3, (
+        f"expected three client programs, found {[m.name for m in modules]}"
+    )
+
+    # The LAST module, not the first. Every other root this gate walks holds
+    # exactly one reader-visible program, so "check `modules[0]`" is a passing
+    # implementation everywhere else in the tree and a hole exactly here. This
+    # control is the one that would notice.
+    padded = modules[-1]
+    budget = declared_budget(harness_example_copy)
+    assert budget is not None
+    overshoot = budget - physical_lines(padded) + 1
+    with padded.open("a", encoding="utf-8") as handle:
+        handle.write("# filler\n" * overshoot)
+    assert physical_lines(padded) > budget, "the control did not breach the budget"
+
+    violations = check_example_budget(harness_example_copy)
+    assert violations, f"{padded.name} over the declared budget passed the gate"
+    assert any(padded.name in entry for entry in violations), violations
+    assert any("physical" in entry for entry in violations), violations
+
+    # The other two are untouched and must not be blamed for it.
+    for innocent in modules[:-1]:
+        assert not any(innocent.name in entry for entry in violations), (
+            f"{innocent.name} is within budget and was named anyway: {violations}"
+        )

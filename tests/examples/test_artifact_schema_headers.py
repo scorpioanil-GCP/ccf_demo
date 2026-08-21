@@ -441,9 +441,15 @@ def test_the_predicate_excludes_the_py_bearing_non_examples(
 def test_the_predicate_excludes_fixtures_directories_as_a_shape() -> None:
     """Control: no `fixtures/` directory is ever an example root.
 
-    Asserted as a shape rather than by path, which is what keeps the rule true
-    when plan 16-09 ships `examples/s2-01-external-consumers/fixtures/` at
-    wave 4 — modelled on the shipped fixtures directory and carrying `.py`.
+    Asserted as a shape rather than by path. The sentence here used to justify
+    that by a `fixtures/` directory plan 16-09 was going to ship at wave 4;
+    that plan was withdrawn with Phase 16 (`docs/DECISIONS.md` `D-IMPL-152`)
+    and the example it would have landed in has since been retired out of
+    `examples/` altogether, so the directory never existed and never will. The
+    justification is unchanged and does not depend on it: a shape rule holds
+    for the NEXT `fixtures/` directory an example ships, and
+    `examples/external/00-hello-context/fixtures/` is the live one it already
+    excludes.
     """
     collected = sorted(
         str(root.relative_to(REPO_ROOT))
