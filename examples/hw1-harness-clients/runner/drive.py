@@ -78,7 +78,7 @@ import yaml
 
 from ccf.client.adapters.binding_document import load_binding_document
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment.config import load_config_and_boot
+from ccf.deployment import load_config_and_boot
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 #: This runner's own directory, and the example tree it copies its subject

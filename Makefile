@@ -55,7 +55,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 \
 	example-00 example-01 example-02 example-03 example-04 example-05 \
-	example-06 example-07 example-08 example-ext-00 \
+	example-06 example-07 example-08 example-ext-00 example-hw1-harness-clients \
 	example-03-live-ollama example-03-live-anthropic \
 	example-ext-00-live-anthropic example-ext-00-live-adk \
 	legs leg-postgres leg-neo4j leg-mongo leg-fluree \
@@ -216,6 +216,29 @@ example-08: ## Run examples/08-e2e-demo (deterministic; --live is opt-in and nev
 example-ext-00: ## Run examples/external/00-hello-context — all legs deterministic via replay server
 	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py
 
+# The runner is `runner/drive.py`, and BOTH halves of that path are load-bearing.
+# The subdirectory keeps the one `ccf`-importing file structurally outside
+# `tests/examples/test_client_example_purity.py::reader_visible_modules`, whose
+# `glob("*.py")` is non-recursive; the NAME avoids `run.py`, which
+# `tests/examples/test_artifact_schema_headers.py` reads as the marker of an
+# example root and would then require an `artifacts/` directory beside. Neither
+# is tidiable.
+#
+# `$(ENV) $(PYTHON)`, and the obvious reason is NOT the reason. `$(ENV)` is not
+# needed so the runner can `import ccf`: measured at plan revision,
+# `env -u PYTHONPATH .venv/bin/python -c "import ccf"` resolves through the
+# editable install, and `example-hw1` below already runs `consume.py` — which
+# imports `ccf.client` — with no `$(ENV)` prefix at all. The two true reasons:
+# it is the house spelling (16 of the 18 `example-*` targets), and it keeps the
+# target working in a fresh clone that has not run `pip install -e .`.
+# `$(PYTHON)` stays overridable by a job that installs into a hosted
+# interpreter — that is the *test* job's posture (`make PYTHON=python`), not a
+# blanket CI rule: the examples job provisions a `.venv` and runs bare
+# `make examples`, so `$(PYTHON)` is `.venv/bin/python` in the very job that
+# runs this target.
+example-hw1-harness-clients: ## Run examples/hw1-harness-clients — three harnesses, one door, deterministic
+	$(ENV) $(PYTHON) examples/hw1-harness-clients/runner/drive.py
+
 # `s1-01` LED THIS LIST AND NO LONGER DOES (plan 16-05). Its
 # `artifacts/manifest.yaml` now declares a networked substrate, and ROADMAP
 # criterion 4 puts that substrate among the four opt-in databases while `D-06`
@@ -227,7 +250,7 @@ example-ext-00: ## Run examples/external/00-hello-context — all legs determini
 # `tests/examples/test_s1_01_output.py` boots it, and the three gates that need
 # no substrate (agent-free AST guard, spine separation, artifact headers) still
 # run on this leg.
-examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 ## Run the ten network-free examples in order, stopping on first failure
+examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 example-hw1-harness-clients ## Run the eleven network-free examples in order, stopping on first failure
 
 # Container-gated substrate legs (DI-15.2-04, D-GATE-15.2). These reproduce the
 # ci.yml service-container steps command-for-command, so a developer runs a leg
