@@ -8,18 +8,18 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **239** across **79** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **143** across **47** files
+- Coupling rows: **242** across **80** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **146** across **50** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **235**
 
 Rows by owning plan:
 
 | Owning plan | Rows |
 | --- | --- |
-| 16-02 | 9 |
+| 16-02 | 10 |
 | 16-15 | 24 |
 | 16-17 | 41 |
-| 16-18 | 107 |
+| 16-18 | 109 |
 | 17-08 | 58 |
 
 Rows by coupling shape:
@@ -29,16 +29,16 @@ Rows by coupling shape:
 | `comment` | 21 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 61 |
+| `docstring` | 63 |
 | `indirect-execution` | 1 |
 | `literal-set-member` | 4 |
 | `makefile-recipe` | 16 |
 | `markdown-link` | 8 |
-| `path-construction` | 12 |
-| `prose` | 43 |
+| `path-construction` | 11 |
+| `prose` | 44 |
 | `snippet-include` | 53 |
 | `string-literal` | 8 |
-| `tmp_path-synthetic` | 4 |
+| `tmp_path-synthetic` | 5 |
 
 ## Reading the columns
 
@@ -105,6 +105,9 @@ Rows by coupling shape:
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 310 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 311 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 312 | `examples/08-e2e-demo` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/retired/16-external-consumers/README.md` | 56 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/retired/16-external-consumers/client_claude_agent.py` | 44 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `docs/retired/16-external-consumers/client_langgraph.py` | 35 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `docs/superpowers/plans/2026-08-14-property-not-shape-gating.md` | 643 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/superpowers/plans/2026-08-14-property-not-shape-gating.md` | 675 | `examples/04-cross-process` | `prose` | documentary | - | - | 16-17 |  |
 | `docs/superpowers/plans/2026-08-14-property-not-shape-gating.md` | 724 | `examples/04-cross-process` | `prose` | documentary | - | - | 16-17 |  |
@@ -118,8 +121,8 @@ Rows by coupling shape:
 | `docs/surface/examples/FIBO-EXTENSION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 13 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
-| `docs/surface/examples/SECTION-2-TRANSPORT.md` | 112 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
-| `docs/surface/examples/SECTION-2-TRANSPORT.md` | 208 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/surface/examples/SECTION-2-TRANSPORT.md` | 117 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/surface/examples/SECTION-2-TRANSPORT.md` | 213 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `examples/external/README.md` | 61 | `examples/03-harness-portability` | `prose` | documentary | - | - | 16-15 |  |
 | `examples/hw1-companies-over-revenue/deployment/ccf_config.yaml` | 9 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `examples/hw1-companies-over-revenue/server/egress-door.yaml` | 7 | `examples/04-cross-process` | `comment` | documentary | - | - | 16-17 |  |
@@ -129,8 +132,6 @@ Rows by coupling shape:
 | `examples/hw1-harness-clients/runner/model_stub.py` | 33 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `examples/s1-01-hello-context-product/artifacts/source-estate.yaml` | 23 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 | cross-wave: this file retires at wave 12, the path it names at wave 8 |
 | `examples/s1-01-hello-context-product/report.py` | 12 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 | cross-wave: this file retires at wave 12, the path it names at wave 11 |
-| `examples/s2-01-external-consumers/client_claude_agent.py` | 44 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `examples/s2-01-external-consumers/client_langgraph.py` | 35 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `perf/suites/common.py` | 140 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `perf/suites/crossproc/conftest.py` | 3 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `perf/suites/crossproc/conftest.py` | 52 | `examples/04-cross-process` | `path-construction` | live | - | - | 16-17 | constructed as `examples/04-cross-process` |
@@ -231,18 +232,20 @@ Rows by coupling shape:
 | `tests/examples/test_artifact_schema_headers.py` | 172 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-02 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 175 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 16-02 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 183 | `examples/08-e2e-demo` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 498 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 451 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 504 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 16-02 |  |
 | `tests/examples/test_client_example_purity.py` | 588 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_demo_generator.py` | 4 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_demo_generator.py` | 22 | `examples/08-e2e-demo` | `path-construction` | live | - | - | 16-18 | constructed as `examples/08-e2e-demo` |
 | `tests/examples/test_gate_two_divergence.py` | 96 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/run.py` |
 | `tests/examples/test_hw1_harness_clients_no_model.py` | 12 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
-| `tests/examples/test_s2_client_transport_spike.py` | 8 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_s2_client_transport_spike.py` | 15 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_s2_client_transport_spike.py` | 16 | `tests/examples/test_ext00_hardening.py` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_s2_client_transport_spike.py` | 71 | `examples/external/00-hello-context` | `path-construction` | live | - | - | 16-18 | constructed as `examples/external/00-hello-context` |
-| `tests/examples/test_s2_client_transport_spike.py` | 271 | `tests/examples/test_ext00_serve_output.py` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_s2_client_transport_spike.py` | 666 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 16 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 28 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 29 | `tests/examples/test_ext00_hardening.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 148 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 153 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 411 | `examples/external/00-hello-context` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 436 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_source_estate.py` | 50 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
 | `tests/examples/test_spine_separation.py` | 24 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/halflife/test_debt.py` | 707 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
@@ -618,6 +621,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-04-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-05-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-06-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-06-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-07-PLAN.md` | 29 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-08-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-CONTEXT.md` | 12 | the phase's own planning tree — not shipped, not published |
@@ -625,7 +629,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-RESEARCH.md` | 17 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-VALIDATION.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 52 | append-only decision log |
+| `docs/DECISIONS.md` | 54 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |

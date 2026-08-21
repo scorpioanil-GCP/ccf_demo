@@ -2,6 +2,24 @@
 
 ## What this demonstrates
 
+> **Historical, and still green.** This example's client legs target the
+> **pre-Phase-17 surface** — an authenticated MCP front door over **HTTP with
+> a bearer token**, reached through `CCF_MCP_URL` and `CCF_TOKEN`. It predates
+> `ccf.client`, the `mcp+stdio` transport adapter, the Phase 18.1 binding in
+> which a deployment declares its own server program, and the Phase 19 wire
+> form. It is **not deprecated**: it stays CI-green under
+> `make example-ext-00`, and the eight assertions below — auth refusal, dual
+> serve-path byte equality, byte-equal replay reproduction — are exercised
+> every run and are the reason it was kept rather than retired.
+> **`examples/hw1-harness-clients/` is the canonical foreign-harness → MCP-door
+> demonstration going forward**: one Google ADK client, one Anthropic Agent SDK
+> client and one LangGraph client reaching one `mcp+stdio` door and landing on
+> one content address. Start there; read this one for the HTTP-and-bearer
+> posture and for what a Context Product looks like from outside the fabric.
+> (Phase 20, `H-14`. The Phase 16 client programs that sat beside this example
+> were retired out of `examples/` entirely — see
+> `docs/retired/16-external-consumers/README.md`.)
+
 CCF as a **black box behind a URL**. A small financial-services fabric
 serves one Context Product (a typed, validated, replay-ready unit of
 decision context the fabric derives and serves — a contract, not a stored
