@@ -214,3 +214,30 @@ None. This plan reads tracked repository files and writes markdown. No credentia
 ## Known Stubs
 
 None.
+
+## Self-Check: PASSED
+
+All three files this plan created or modified exist on disk. All four commits
+`16b6fe2`, `1b81927`, `73bc457` and `1ab2cab` resolve in this repository.
+Re-verified after the last write: the ledger module is 35 passed, the sweep
+module and the ledger module together are 68 passed, `--citations` is exit 0,
+`make gate-tools` is exit 0 at 406 + 189, `make test` is exit 0 at 4105 passed
+/ 118 skipped, and the pinned-base diff over `src/ runtime/ examples/ public/
+tests/ pyproject.toml tools/lints/citations.py` is empty.
+
+Three claims in this document were checked rather than asserted, because all
+three read plausibly and could have been wrong.
+
+- **`_anchor_verdict` returns `True` and not `None`** for every anchored line
+  citation written here — run against the shipped function, all 14 occurrences,
+  before the commits. A `None` verdict is an unchecked citation that looks
+  checked, and `D-17` is explicitly not a licence for one.
+- **`DOCS-03`'s coverage figure** was taken twice. The page-source count is 5
+  of 27 and is wrong; the rendered count with `--8<--` includes resolved is 21
+  of 27, and that is what the cell carries and says it carries.
+- **`DCD-02`'s qualifying clause is still true of the tree.**
+  `examples/s1-01-hello-context-product/deployment.py::KycScenario`'s
+  `debt_evidence` was read at execution time: `del view` then
+  `return NO_DEBT_EVIDENCE`, unconditional, which is `D-IMPL-119` limb 3(b)'s
+  omission path. The row was confirmed, not rewritten, and not one character
+  of it changed.
