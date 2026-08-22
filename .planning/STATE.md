@@ -3,8 +3,82 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-22T23:40:00.000Z"
+last_updated: "2026-08-23T10:40:00.000Z"
 last_activity: >-
+  2026-08-22 -- **THE SS3.1 CLOSE PANEL AND THE SINGLE-AGENT REVIEW HAVE BOTH RUN
+  AGAINST THE SHIPPED ARTIFACTS. `21-07` TASK 1 IS LANDED AT `4755d10`. THE PHASE
+  IS AT THE GATE AND IS NOT CLOSED: `D-GATE-21` DOES NOT EXIST AND ONLY DAVE CAN
+  CREATE IT.**
+  Three reviewers, source INLINED rather than referenced by path (182 KB: the whole
+  check module, all 143 traceability rows with real line numbers, the whole of
+  `21-FINDINGS.md`). **Codex genuinely reviewed this time** -- every symbol and line
+  it cited resolves -- which is what inlining buys on a host where its sandbox fails
+  silently. Claude was NOT invoked: it is the executing model (SS3.1 independence).
+  **THREE BLOCKING FINDINGS, ALL FIXED IN-PHASE, EACH WITH A STANDING CONTROL
+  WATCHED GO RED.** Two of the three were found INDEPENDENTLY BY TWO REVIEWERS, and
+  both are this project's defect class inside this phase's own machinery.
+  **B-1 -- A MISSPELLED PATHSPEC AND A CLEAN TREE ARE THE SAME STRING.**
+  `git diff --stat <base>..HEAD -- scr/` exits 0 and prints nothing, so a one-key
+  typo in `FABRIC`, `FENCE`, `UAT_RECORDS`, `PINNED_FILES` or `TESTS_TREE` made its
+  assertion vacuous -- and CONTROL A and CONTROL 13 could not see it because BOTH
+  diff `CHANGED_TREE`, never the constant they vouch for. `CONTROL 13`'s name is
+  *`a_changed_tests_tree_would_be_detected`* and it never mentions `tests/`.
+  MEASURED BOTH WAYS: `TESTS_TREE -> tests-typo/` against the WAVE-6 module is
+  **45 passed, all green**; against the fixed module it is **2 failed**, one of them
+  criterion 6's own assertion. Fixed by a fourth refusal in `fabric_diff` via
+  `tracked_under`, with CONTROL 16 on four NEAR-MISS spellings and a positive twin.
+  **B-2 -- A VERDICT RESTING ON NO CITATION AT ALL PASSED EVERY GATE.** `RECON-02`
+  claims criterion 3 `Complete`; the four tests it cites enforce a DIFFERENT
+  proposition -- *given* a citation it resolves, plus ONE GLOBAL floor that some
+  citation exists somewhere. A row doctored to `**Complete** -- asserted without
+  evidence` returned `[]` from `refuse_unresolvable`, `vocabulary_offenders`,
+  `unverdicted` and `channel_disagreements`. **THAT IS HOW `DCD-02` SURVIVED FIVE
+  WAVES**, and wave 6 found it only by running the predicate BY HAND. Fixed by
+  `uncited_verdicts` + CONTROL 17 (green-before/red-after on `HARD-02`) + CONTROL
+  17b (the SAME cell must PASS as `Not built` and FAIL as `Complete`, so the rule
+  is not red-on-everything and `D-10` survives). ROSTER-SCOPED deliberately:
+  **79 rows outside the 54 carry a Complete-family verdict and no citation**, all
+  `D-19` carve-out, and a ledger-wide form would be red on landing for rows `D-11`
+  forbids touching. All 64 rows this phase verdicted already cite; the gate is
+  green on landing and retrofits no standard the phase failed.
+  **B-3 -- A GAP NAMED IN A HAND-OFF NEVER REACHED THE DOCUMENT DAVE RULES FROM.**
+  Plan `21-03` handed `21-05` two named gaps. The second reached `21-FINDINGS.md`;
+  the first -- `DOCS-06`/`DOCS-08`'s unguarded `ci`-composition limb, with a third
+  instance in `CLNT-16` -- reached the ledger CELLS and one SUMMARY and nothing
+  else. That is `D-IMPL-170`'s prohibition exactly. RECORDED in SS5 as observation
+  5, NOT closed -- closing it means a test that reads the `Makefile`, which is
+  building (`D-11`).
+  **THREE FINDINGS REJECTED AND RECORDED AS REJECTED.** (1) Codex: *"the module
+  never verifies a cited symbol"* -- FALSE at the repo level; `.planning/
+  REQUIREMENTS.md` is in the lint's `GATED_TREES` with no exemption and
+  `check_source` returns `cite03-node-id` on a missing symbol, measured. (2) Gemini:
+  *"`fabric_diff` is blind to the working tree"* -- true, documented in the function
+  itself, known since wave 1, and not a defect: the claim is about what the phase
+  COMMITTED. (3) Gemini: *"the completeness gate is blind to new `Pending` rows"* --
+  the mechanism reproduces, but it is INTENDED and documented; a gate refusing any
+  `Pending` would be red the moment the next phase is planned. Its adjacent
+  observation is carried as advisory A-1, a ruling for Dave.
+  **SEVEN ADVISORIES CARRIED, TWO OF THEM FOUND BY THE SINGLE-AGENT REVIEW ALONE**
+  -- `_table_line` is non-unique for all fourteen `CPS-` rows because the CPS-lane
+  evidence table is a THIRD status channel no gate reads (A-7), and this phase
+  introduced **28 new uppercase `**COMPLETE**` spellings** into the checkbox channel,
+  8 -> 36, none of them in the table the vocabulary gate reads (A-8).
+  **THE LEDGER DAVE APPROVES IS THE LEDGER THE PANEL READ.** `.planning/
+  REQUIREMENTS.md` is BYTE-IDENTICAL to `773775a`; this plan added no row and
+  changed no verdict. 143 rows, 54 + 10 verdicted, zero `Pending`.
+  **GATES, EVERY LEG RUN SEPARATELY AND READ IN FULL:** `lint` 0, `typecheck` 0
+  (211 files), `test` 0 (**4105 passed / 118 skipped**, 556s -- BYTE-FOR-BYTE the
+  wave-1..6 baseline, which is the mechanical proof `D-05` held), `gate-tools` 0
+  (406 + **205**, was 406 + 199), `examples` 0 (three legs, one address), and
+  `docs-strict` 0. Ledger module **51** tests, was 45. Fence, `tests/`, the eleven
+  UAT records and
+  `tools/lints/citations.py` all diff-empty against the pinned base.
+  **TWO THINGS DAVE MUST RULE ON THAT NO EXECUTOR CAN, UNCHANGED:** the `All **42**`
+  counter's provenance, and the four-row knot on the work list. Plus, now, the
+  eighteen-row Phase 16 split and the eight advisories.
+  **NO `D-GATE-21`, NO ROADMAP FLIP, NO MERGE, NO `RECON-09` AMENDMENT.** SS3.1 step
+  3: the review is necessary and NEVER sufficient.
+  PRIOR CONTEXT FOLLOWS.
   2026-08-22 -- **PHASE 21 EXECUTION IS COMPLETE ON `phase-21`. `21-06` IS LANDED.**
   The phase does NOT close here: `21-07` is the SS3.1 close panel, the single-agent
   review and `D-GATE-21`, and Dave's ruling is the gate.
@@ -489,6 +563,32 @@ progress:
   completed_plans: 174
   percent: 93
 stopped_at: >-
+  **AT THE GATE, AWAITING DAVE.** The SS3.1 close panel and the single-agent review
+  have both run; three blocking findings are fixed in-phase with standing controls;
+  three findings are recorded as REJECTED and seven as carried advisories. Branch
+  `phase-21` at `4755d10`, tree clean apart from Dave's two untracked `docs/` files.
+  **WHAT IS DELIBERATELY NOT DONE, AND MUST NOT BE DONE WITHOUT DAVE'S RULING:**
+  the `D-GATE-21` entry in `docs/DECISIONS.md`; the ROADMAP Phase 21 progress row
+  flip to Complete; the `RECON-09` `Partial -> Complete` amendment in both channels
+  (its outstanding limb IS `D-GATE-21`); and the merge of `phase-21` to `main` with
+  a merge commit referencing the gate. `T-21-41`: closing on a green review instead
+  of his ruling is elevation of privilege, and SS3.1 step 3 says the review is
+  necessary and never sufficient.
+  **WHAT DAVE IS BEING ASKED FOR, IN ORDER:** (1) the eighteen-row Phase 16 split in
+  `21-DOCS-16-SPLIT.md` -- the ruling he deferred at the Phase 20 sitting; (2) the
+  five-row work list in `21-FINDINGS.md` SS2, including the four-row knot and the
+  `00`-`08` half of `D-27`; (3) the `All **42**` counter's provenance; (4) the eight
+  advisories in `21-CLOSE-REVIEWS.md`, of which A-1 (nothing prevents a FUTURE
+  ledger accumulating unverdicted rows the way these 54 did) and A-8 (the uppercase
+  spelling) are policy questions rather than defects.
+  **ON APPROVAL, AND ONLY THEN**, regenerate
+  `docs/surface/examples/RETIREMENT-COUPLINGS.md` as the LAST write before the merge
+  commit -- it walks `.planning/` and reddens the docs gate on every planning commit.
+  **DO NOT TOUCH THE FIVE `Not built` ROWS OR ANYTHING THEY NAME.** `D-11` holds to
+  the end of the phase.
+  **THE `progress:` COUNTERS ABOVE REMAIN DELIBERATELY UNTOUCHED**, for the reason
+  wave 5 recorded.
+  PRIOR CONTEXT FOLLOWS.
   PHASE 21 EXECUTION IS DONE; `21-07` -- THE SS3.1 CLOSE PANEL AND `D-GATE-21` -- IS
   NEXT. Branch `phase-21`, tree clean apart from Dave's two untracked `docs/` files.
   Six of seven plans are complete; `21-07` is the gate checkpoint and is not complete
