@@ -166,8 +166,10 @@ default on. Dave ruled on all three. Each becomes a `D-IMPL-NN` entry in
 
 - **D-19:** The **three stale counters are corrected in this phase**, not merely
   reported: `.planning/REQUIREMENTS.md:423` (*"Coverage: 94/94 v0.2 requirements
-  mapped"*), `.planning/ROADMAP.md:1946` (*"All **42** v0.2 requirements
-  mapped"*), and the ROADMAP's Phase 21 entry, which says **54 not-`Complete`
+  mapped"*), `.planning/ROADMAP.md` §Coverage (*"All **42** v0.2 requirements
+  mapped"* — cited by section, not by line: it was line 1946 when D-19 was written
+  and moved to 1959 when the plans were committed, which is the citation-drift
+  hazard this phase exists to name), and the ROADMAP's Phase 21 entry, which says **54 not-`Complete`
   rows** and *"each of the 52 gets a verdict"* **in the same paragraph**
   (`:47`, and `:1888`/`:1890` in the phase body). Constraints: (a) the replacement
   figures are **produced by the strict parse, never assumed** — 133 is the table's
@@ -184,6 +186,28 @@ default on. Dave ruled on all three. Each becomes a `D-IMPL-NN` entry in
   `public/tutorial/hello-ccf.md`, which is not in the tree (`public/tutorial/`
   holds `adopters-guide.md` and `demo-walkthrough.md` only). That row is ticked
   and sits **outside the 54**. It is reported as an observation and not flipped.
+
+- **D-20:** Success criterion 11 is **AMENDED from "the 24 `human_needed`
+  verification items ... across 9 phases" to "all 27 across 11 phase records"**
+  (Dave, 2026-08-21, after the plan-checker measured it). The 24 came from
+  `gsd-sdk query audit-uat`, which **filters on each record's frontmatter
+  `status:`** and therefore drops two records that carry undischarged
+  `human_verification:` blocks under a different status: Phase 12
+  (`status: passed`, 1 item — whose own prose reads *"**Status:** human_needed
+  (all automated checks passed; one subjective legibility check remains)"*) and
+  Phase 18 (`status: gaps_found`, 2 items). **This is the 52-vs-54 miscount a
+  third time**, in a third tool: a query that appears to report all of something
+  and reports only the subset its filter admits.
+
+  Binding consequences: (a) the roster is **re-derived by parsing every
+  `.planning/phases/*/[0-9]*-VERIFICATION.md` for a `human_verification:` block**,
+  never by trusting `audit-uat`; (b) the phase record **states the delta and its
+  cause** — 24 by the query, 27 in the files, and why — rather than silently
+  shipping the larger number; (c) any roster the phase freezes for the
+  untouched-diff assertion covers **all eleven** records, so Phase 12's and
+  Phase 18's cannot be edited without going red. `audit-uat`'s filter is **not
+  fixed here** — same reasoning as D-07 for the citation lint: tooling repair
+  inside an audit phase. It is named, not fixed.
 
 ### Claude's Discretion
 

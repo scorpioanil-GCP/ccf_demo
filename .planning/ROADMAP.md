@@ -1896,7 +1896,7 @@ Plans:
 
 **Out of scope, explicitly:** building anything a `not-built` verdict identifies. This phase *finds and records*; the work it surfaces is scoped as its own phase afterwards, with Dave ruling on what is worth building at all. An executor that starts closing gaps it discovered has turned an audit into an unplanned implementation phase.
 
-**Requirements:** `RECON-01` .. `RECON-10`, minted at planning 2026-08-21. `RECON-01` parse + vocabulary (criteria 1, 2) · `RECON-02` evidence discipline (3, 6) · `RECON-03` refusal + sabotage control (4, 5) · `RECON-04` named absence + work list (7, 8) · `RECON-05` the Phase 16 split (9) · `RECON-06` channel agreement (10) · `RECON-07` the 24 `human_needed` items (11) · `RECON-08` untouched fabric (12) · `RECON-09` close hygiene (13, 14) · `RECON-10` the three stale counters (D-19, adjacent to criterion 1).
+**Requirements:** `RECON-01` .. `RECON-10`, minted at planning 2026-08-21. `RECON-01` parse + vocabulary (criteria 1, 2) · `RECON-02` evidence discipline (3, 6) · `RECON-03` refusal + sabotage control (4, 5) · `RECON-04` named absence + work list (7, 8) · `RECON-05` the Phase 16 split (9) · `RECON-06` channel agreement (10) · `RECON-07` the 27 `human_needed` items (11) · `RECON-08` untouched fabric (12) · `RECON-09` close hygiene (13, 14) · `RECON-10` the three stale counters (D-19, adjacent to criterion 1).
 
 **These ten rows are deliberately NOT added to `.planning/REQUIREMENTS.md` at planning**, against the `CLNT-23`..`32` precedent, because that file is this phase's SUBJECT: its traceability table is measured at 133 rows with a 54-row working set, and every plan's acceptance criteria assert those two figures. Minting ten `Pending` rows into it at planning would move both numbers before the audit ran. They are added at the gate, with their verdicts, once the audit's counts are recorded — see plan `21-07`.
 
@@ -1907,7 +1907,7 @@ Plans:
 - [ ] 21-02-PLAN.md — verdicts for the 22 `CLNT` rows (Phase 17's 21, plus Phase 18's `CLNT-15`)
 - [ ] 21-03-PLAN.md — verdicts for the remaining 14: `HARD-01`..`03`, `EXAM-01`..`03`, `DOCS-01`..`06`, `CPS-03`, `DCD-02`
 - [ ] 21-04-PLAN.md — Phase 16's eighteen `DOCS-` rows and the two-sided split Dave rules from
-- [ ] 21-05-PLAN.md — the work list, the 24 `human_needed` items, the observations, and the three counter corrections
+- [ ] 21-05-PLAN.md — the work list, the 27 `human_needed` items, the observations, and the three counter corrections
 - [ ] 21-06-PLAN.md — the completeness assertion (held back until every row is written), the position files, and `make ci`
 - [ ] 21-07-PLAN.md — the §3.1 close panel, the single-agent review, and `D-GATE-21`
 
@@ -1923,7 +1923,7 @@ Plans:
   8. The `Not built` rows are delivered to Dave as a scoped work list — each with a one-line statement of what closing it would mean — and nothing on that list is built in this phase
   9. Phase 16's eighteen `DOCS-` rows are reported as a two-sided split with evidence on both sides, and are left unflipped and undropped pending Dave's ruling
   10. The checkbox list and the traceability table agree on every one of the 133 requirement ids, asserted by a standing check, so the ledger's two status channels cannot drift apart
-  11. The 24 `human_needed` verification items are named with their phases and left untouched, and the phase record states plainly that they are out of scope and why
+  11. All 27 `human_needed` verification items across 11 phase records are named with their phases and left untouched, and the phase record states plainly that they are out of scope and why — the roster is re-derived by parsing every `.planning/phases/*/[0-9]*-VERIFICATION.md` for a `human_verification:` block, NOT by `gsd-sdk query audit-uat`, which filters on frontmatter `status:` and drops Phase 12 (`status: passed`, 1 item) and Phase 18 (`status: gaps_found`, 2 items); criterion AMENDED 2026-08-21 from "the 24 ... across 9 phases" on Dave's ruling after the plan-checker measured 27
   12. `src/` and `runtime/` are untouched — `git diff --stat <pinned-base>..HEAD -- src/ runtime/` prints nothing, with a control proving the assertion is not vacuous
   13. `make ci` is exit 0 at the phase close, with `docs/surface/examples/RETIREMENT-COUPLINGS.md` regenerated LAST after every `.planning/` edit
   14. A `D-GATE-21` entry is logged on Dave's approval, and the phase does not close without it (`CLAUDE.md` §3.1)
