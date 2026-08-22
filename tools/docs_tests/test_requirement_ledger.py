@@ -935,6 +935,75 @@ def verdict_token(status_cell: str) -> str:
     return match.group(1).strip()
 
 
+def cell_verdicts(status_cell: str) -> set[str]:
+    """Every verdict a status cell asserts, across BOTH ways this module reads one.
+
+    The union of two readings that were previously separate and could disagree
+    in silence:
+
+    * the LEADING token — :func:`verdict_token` — when it is in
+      :data:`VERDICT_VOCABULARY`; and
+    * every ``**bolded**`` run of the cell that is in
+      :data:`VERDICT_VOCABULARY`.
+
+    **A cell asserts one thing. When this set has more than one member, the
+    cell does not, and the two readers disagree about which one it is.** That
+    is `RR-2`: ``Complete — later **Partial** (…)`` is `Complete` to the
+    leading-token reader, one bolded verdict to the bolded-run reader, and was
+    accepted by eight gates with zero refusals — on a working-set row that
+    visibly reads `**Partial**`.
+
+    **This rule was CHOSEN BY MEASUREMENT, from three candidates, run across
+    every row of the real traceability table.** The counts are recorded as
+    HISTORY and are read by no assertion here (`D-21`); what a later reader
+    needs from them is the SHAPE of the two rejected rules, not their
+    arithmetic:
+
+    * **This rule — the union, at most one member: flagged ZERO rows.** It
+      therefore required no ledger edit and surfaced no hidden bad row.
+    * *"Any vocabulary word appearing anywhere in the cell"* flagged thirteen
+      rows, among them `DCD-02`, `DCD-09`, `DCD-10`, `CPS-03`, `EXAM-02` and
+      three of this phase family's own `RECON-` rows — several of which Dave
+      has personally ruled on. `D-09` fixed the vocabulary at six words
+      precisely to stop a stricter scheme re-opening them, and `CONTROL 15`
+      states the same thing from the other side: a reader that hunts for a
+      vocabulary word anywhere in the prose finds one in almost any honest
+      sentence.
+    * *"The leading verdict must be bolded"* flagged seventy-five — a bare
+      leading verdict is a long-standing convention across `HARD-04`, the
+      `PERF-`, `DEMO-`, `ERGO-`, `SUBQ-` and `CPS-` lanes, `CLNT-23`..`32`,
+      `DOCS-22` and the six `VAC-` rows. Roughly half the table.
+
+    What makes the union rule safe rather than lucky, also measured: NO
+    bare-lead row carries any bolded vocabulary word, and NO row carries a
+    bolded vocabulary word different from its leading token. (At the research
+    anchor the table held 143 rows and at this writing 149, plan `21.1-01`
+    having minted `VAC-01`..`06`; all three rules were re-measured against 149
+    and the shape of every result held. A reader who counts 143 has not found
+    a discrepancy.)
+
+    **Known residual `R-α`, stated rather than designed around:** this does NOT
+    catch ``Complete — later Partial (…)`` with BOTH verdicts unbolded. There
+    is no bolded vocabulary word, the leading token is `Complete`, and the
+    disagreement is invisible to every reader in this module including this
+    one. That shape is WIDER than what criteria 3 and 4 name, and every
+    predicate measured that catches it flags rows already ruled on. It is
+    recorded open in `21.1-02-SUMMARY.md`, not closed.
+
+    :func:`verdict_token` is deliberately NOT changed. The verdict of a row is
+    the word its cell opens with; `CONTROL 15` holds that property.
+    """
+    verdicts = {
+        run.group(1).strip()
+        for run in BOLDED_RUN.finditer(status_cell)
+        if run.group(1).strip() in VERDICT_VOCABULARY
+    }
+    leading = verdict_token(status_cell)
+    if leading in VERDICT_VOCABULARY:
+        verdicts.add(leading)
+    return verdicts
+
+
 def checkbox_channel(document_text: str) -> dict[str, bool]:
     """Requirement id to checked-state, from the checkbox list.
 
@@ -971,21 +1040,28 @@ def vocabulary_offenders(document_text: str) -> list[str]:
 
 
 def doubled_verdicts(document_text: str) -> list[str]:
-    """One message per status cell carrying more than one vocabulary word in bold.
+    """One message per status cell asserting more than one verdict.
 
     A cell reading `**Complete** **Partial** (…)` is ambiguous about what the
     row claims, and the leading-token reader above would silently report the
     first. `CONTROL 11` is this check watched refusing exactly that shape.
+
+    **Reads :func:`cell_verdicts`, and reads nothing else.** Until plan
+    `21.1-02` this counted BOLDED runs only, so `Complete — later **Partial**`
+    — an unbolded lead and a later bolded verdict — yielded exactly one bolded
+    verdict and was accepted, while :func:`verdict_token` read the same cell as
+    `Complete`. Two readers, disagreeing, neither refusing: `RR-2`.
+    `CONTROL 19` is that shape watched refusing.
     """
     offenders: list[str] = []
     for req_id, _phase, status in traceability_rows(document_text):
-        bolded = [match.group(1).strip() for match in BOLDED_RUN.finditer(status)]
-        verdicts = [word for word in bolded if word in VERDICT_VOCABULARY]
+        verdicts = sorted(cell_verdicts(status))
         if verdicts[1:]:
             offenders.append(
-                f"{req_id}'s status cell carries the bolded verdicts"
-                f" {verdicts!r}. A row claims one thing; a reader taking the"
-                " leading token would report only the first"
+                f"{req_id}'s status cell asserts the verdicts {verdicts!r}."
+                " A row claims one thing; a reader taking the leading token"
+                " would report only the first, and a reader taking the bolded"
+                " runs would report only the others"
             )
     return offenders
 
@@ -1913,17 +1989,27 @@ def unverdicted(pairs: Sequence[tuple[str, str]]) -> list[str]:
 def roster_rows_with_two_verdicts(
     document_text: str, roster: frozenset[str]
 ) -> list[str]:
-    """One message per roster row whose cell carries more than one verdict."""
+    """One message per roster row whose cell asserts more than one verdict.
+
+    **Reads :func:`cell_verdicts` — the SAME predicate**
+    :func:`doubled_verdicts` reads, and this is the load-bearing part of plan
+    `21.1-02` rather than a tidy-up. Until that plan these two carried
+    byte-identical inline copies of the bolded-run reading, which is one edit
+    away from the ledger-wide gate and the gate the working set is actually
+    held to disagreeing about what a cell says. That is `RR-2`'s own defect
+    class one level up, and
+    :func:`test_the_two_one_verdict_gates_read_the_same_predicate` is what
+    keeps it from returning.
+    """
     offenders: list[str] = []
     for req_id, _phase, status in traceability_rows(document_text):
         if req_id not in roster:
             continue
-        bolded = [match.group(1).strip() for match in BOLDED_RUN.finditer(status)]
-        verdicts = [word for word in bolded if word in VERDICT_VOCABULARY]
+        verdicts = sorted(cell_verdicts(status))
         if verdicts[1:]:
             offenders.append(
-                f"{req_id}'s status cell carries the bolded verdicts"
-                f" {verdicts!r}. Criterion 1 is that no row carries two"
+                f"{req_id}'s status cell asserts the verdicts {verdicts!r}."
+                " Criterion 1 is that no row carries two"
             )
     return offenders
 
