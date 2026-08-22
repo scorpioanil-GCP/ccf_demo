@@ -3837,3 +3837,241 @@ def test_each_widened_pattern_subsumes_the_lint_pattern_it_replaced() -> None:
     ):
         uncovered = uncovered_lint_citations(text, lint_pattern, widened, name)
         assert not uncovered, "\n".join(uncovered)
+
+
+# ===========================================================================
+# CONTROL 24 — CONTROL 33: THE REFUSALS NOTHING IN THIS MODULE COULD SEE.
+#
+# `VAC-06`, plan `21.1-06`. Research found the class by MUTATION: neuter one
+# refusal branch at a time and re-run the suite. Every branch below could be
+# disarmed with the whole module still GREEN — a guard nothing observes is a
+# guard nobody can tell has stopped guarding, which is this phase's thesis
+# arriving inside the machinery built to prove it.
+#
+# **CRITERION 8'S READING FOR A REFUSAL THAT ALREADY SHIPS.** Criterion 8 asks
+# that every control this phase adds be watched failing against the PRE-FIX
+# module and passing against the POST-FIX one. For these there is no fix: the
+# refusals already work. Run against the pre-fix module they PASS. So the RED
+# is produced by NEUTERING THE AIMED LIMB — the same mutation that found them
+# — and that is STRONGER evidence, not weaker: a pre-fix red shows a control
+# failing against a module that lacks the guard, whereas a neutered red shows
+# it failing against the SHIPPED module with exactly one NAMED branch
+# disarmed. That is what "proven to reach that branch" actually means, and it
+# is what criterion 12 asks for. Both readings, and the conflict between them,
+# are recorded in `21.1-06-SUMMARY.md` for the gate.
+#
+# **EVERY CONTROL HERE ASSERTS THE LIMB ID, NEVER A PHRASE.** `CONTROL 5` spent
+# the whole of Phase 21 vouching for a refusal one function away from the one
+# it watched, because both messages contain `"no rows"`. Two limbs sharing a
+# substring are indistinguishable to a substring assertion; they are never
+# indistinguishable to `[limb:<id>]`.
+# ===========================================================================
+
+
+def _table_document(*rows: str, bullets: Sequence[str] = ()) -> str:
+    """A minimal well-formed ledger carrying exactly `rows` and `bullets`.
+
+    The same idiom as :func:`_document_with_citation`, widened so a control can
+    hand the parsers a MALFORMED row or an EMPTY checkbox channel. Built rather
+    than doctored from the real file on purpose: doctoring a real row into
+    malformedness makes the control depend on which row happened to be
+    verdicted the day it ran, which is the drift :func:`_table_line` exists to
+    end.
+    """
+    separator = "|-------------|-------|--------|"
+    return "\n".join((*bullets, "", TABLE_HEADER, separator, *rows, ""))
+
+
+def test_control_24_a_pathspec_git_rejects_refuses_rather_than_reading_empty() -> None:
+    """CONTROL 24 — `tracked_under` on a pathspec `git` exits non-zero for.
+
+    **An empty stdout from a FAILED command is indistinguishable from an empty
+    stdout from a real answer**, and this function's empty list is what
+    :func:`fabric_diff` reads to decide whether a pathspec names a real
+    subject. So a `tracked_under` that swallowed a non-zero exit would report
+    "this pathspec matches nothing" for a pathspec `git` never evaluated —
+    which turns `fabric_diff`'s untracked-member refusal, and therefore every
+    `D-11` scope-fence assertion in this module, into a test of nothing.
+
+    Two measured subjects rather than one, because they fail `git` for
+    different reasons: a path that escapes the repository, and a pathspec magic
+    word that is not one. Both exit 128. Asserting the LIMB ID and not the word
+    ``exited`` is deliberate — :data:`fabric_diff`'s own non-zero-exit limb
+    carries the same word, and this control's subject is the one in
+    :func:`tracked_under`.
+    """
+    limb = "tracked_under.nonzero_exit"
+    for pathspec in (("../outside/",), (":(nonsense)x",)):
+        try:
+            tracked = tracked_under(pathspec)
+        except AssertionError as failure:
+            assert f"[limb:{limb}]" in str(failure), (
+                f"`git ls-files` rejected {pathspec!r} and the refusal came"
+                f" from a limb other than {limb!r}: {failure}"
+            )
+            continue
+        raise AssertionError(
+            f"`git ls-files -- {list(pathspec)}` exits non-zero and"
+            f" `tracked_under` returned {tracked!r} instead of refusing. An"
+            " empty list here reads exactly like 'this pathspec matches no"
+            " tracked file', so `fabric_diff` would refuse a real subject —"
+            " or, with the exit swallowed the other way, accept a comparison"
+            " that had none"
+        )
+
+
+def test_control_25_a_traceability_row_that_is_not_three_cells_is_refused() -> None:
+    """CONTROL 25 — `traceability_rows` on a row that is not `| id | phase | status |`.
+
+    The parse is positional: the first, second and third cells are the id, the
+    phase and the verdict. A row with a fourth cell — an unescaped `|` inside a status cell
+    is the way this actually happens — would otherwise be read with its verdict
+    in the wrong position, or silently dropped.
+
+    **The subject carries a WELL-FORMED row beside the malformed one**, and
+    that is not decoration. Neutered, this limb `continue`s and the malformed
+    row is dropped; with no other row the parse would then be empty and
+    :data:`traceability_rows.zero_rows` would refuse instead — a NEIGHBOURING
+    limb catching the control's subject and passing on the aimed limb's behalf.
+    That is exactly how `CONTROL 5` survived mis-aimed, and the well-formed row
+    is what makes the neutered degradation SILENT rather than someone else's
+    refusal.
+    """
+    limb = "traceability_rows.cell_count"
+    subject = _table_document(
+        "| TEST-01 | Phase 21 | Pending |",
+        "| TEST-02 | Phase 21 | Pending | a fourth cell |",
+    )
+    try:
+        rows = traceability_rows(subject)
+    except AssertionError as failure:
+        assert f"[limb:{limb}]" in str(failure), (
+            f"a four-cell traceability row was refused by a limb other than"
+            f" {limb!r}: {failure}. If the id names `zero_rows`, the malformed"
+            " row was dropped and the parse then had no rows at all — a"
+            " neighbouring limb catching this control's subject, which is the"
+            " shape that let `CONTROL 5` vouch for the wrong refusal"
+        )
+        return
+    raise AssertionError(
+        f"a row that is not three cells parsed to {rows!r} instead of being"
+        " refused. The parse is positional, so a row read with its verdict in"
+        " the wrong cell is a verdict nobody wrote, and a row silently dropped"
+        " is a requirement that stops being audited"
+    )
+
+
+def test_control_26_an_empty_checkbox_channel_is_refused() -> None:
+    """CONTROL 26 — `checkbox_channel` on a document with a table and no bullets.
+
+    **An empty channel AGREES WITH EVERYTHING.** :func:`channel_disagreements`
+    compares the table against this mapping id by id; over an empty mapping
+    every one of its three loops is quantified over the empty set, so it
+    returns no messages and `D-02`'s two-channel discipline reports clean on a
+    ledger whose second channel it never found. That is the same failure
+    `CONTROL 8` watches one channel over, and it is why this parser raises
+    rather than returning `{}`.
+
+    The subject is a well-formed table with the bullet list REMOVED rather than
+    a malformed bullet, because the failure being defended against is the
+    bullet SHAPE changing — which makes every bullet invisible at once.
+    """
+    limb = "checkbox_channel.empty"
+    subject = _table_document("| TEST-01 | Phase 21 | Pending |")
+    try:
+        boxes = checkbox_channel(subject)
+    except AssertionError as failure:
+        assert f"[limb:{limb}]" in str(failure), (
+            "a document with no checkbox bullets was refused by a limb other"
+            f" than {limb!r}: {failure}"
+        )
+        return
+    raise AssertionError(
+        f"a document with no checkbox bullets parsed to {boxes!r} instead of"
+        " being refused. Every comparison against an empty channel agrees, so"
+        " `channel_disagreements` would report a clean, agreeing ledger over a"
+        " channel it never located"
+    )
+
+
+def test_control_27_a_control_mutation_that_lands_nowhere_or_twice_is_refused() -> None:
+    """CONTROL 27 — `_doctored` on BOTH failure shapes: zero anchors and two.
+
+    **This one matters more than its size suggests.** :func:`_doctored` is what
+    every mutation-based control in this module relies on to have mutated
+    anything at all. A control whose anchor drifted would hand the checker an
+    UNMODIFIED document and then assert a refusal that never came — or worse,
+    pass because something unrelated was wrong. It is the fixture that protects
+    the controls, and until this landed nothing protected it: neutered, the
+    whole module stayed green.
+
+    Both shapes, because they are different failures with the same cost. Zero
+    occurrences is an anchor that DRIFTED — the shape that broke `CONTROL 6`,
+    `9` and `11` when plan `21-06` wrote the verdicts they had transcribed. Two
+    occurrences is an anchor that is not the row it names, so the mutation
+    lands somewhere the control never claimed.
+    """
+    limb = "_doctored.anchor_not_unique"
+    cases = (
+        ("lands nowhere", "a document", "an anchor that drifted"),
+        ("lands twice", "a row and a row", "a row"),
+    )
+    for shape, document, anchor in cases:
+        try:
+            mutated = _doctored(document, anchor, "mutated")
+        except AssertionError as failure:
+            assert f"[limb:{limb}]" in str(failure), (
+                f"a mutation that {shape} was refused by a limb other than"
+                f" {limb!r}: {failure}"
+            )
+            continue
+        raise AssertionError(
+            f"a mutation that {shape} returned {mutated!r} instead of being"
+            " refused. Every control in this module that doctors a document"
+            " asserts a refusal afterwards; a mutation that did not land makes"
+            " that assertion a claim about an unmodified subject"
+        )
+
+
+def test_control_28_a_table_anchor_that_is_absent_or_doubled_is_refused() -> None:
+    """CONTROL 28 — `_table_line` on BOTH failure shapes: no line and two.
+
+    :func:`_table_line` is :func:`_doctored`'s resolver: it turns an id into
+    the one line a control may mutate, so that a control is anchored on the ROW
+    rather than on a snapshot of the row's contents. Its refusal is what stops
+    a control doctoring nothing (the id is gone) or doctoring an ambiguous
+    subject (the id is doubled).
+
+    **The subject is SYNTHETIC, and that is a deliberate choice with a reason
+    on the record.** The real ledger reaches this refusal today for all
+    fourteen `CPS-` ids, because the CPS-lane evidence table further down the
+    file is a THIRD `| CPS-NN |` channel — carried advisory `A-7`, out of this
+    phase's scope by Dave's bounding, re-measured in `21.1-06-SUMMARY.md`. A
+    control keyed on `CPS-01` would be keyed on a defect someone may later
+    close, and would go red on the day it was fixed.
+    """
+    limb = "_table_line.not_unique"
+    absent = _table_document("| TEST-01 | Phase 21 | Pending |")
+    doubled = _table_document(
+        "| TEST-01 | Phase 21 | Pending |",
+        "| TEST-01 | Phase 99 | Pending |",
+    )
+    cases = (
+        ("matches no traceability line", absent, "NOPE-99"),
+        ("matches two traceability lines", doubled, "TEST-01"),
+    )
+    for shape, subject, req_id in cases:
+        try:
+            line = _table_line(subject, req_id)
+        except AssertionError as failure:
+            assert f"[limb:{limb}]" in str(failure), (
+                f"an anchor that {shape} was refused by a limb other than"
+                f" {limb!r}: {failure}"
+            )
+            continue
+        raise AssertionError(
+            f"an id that {shape} resolved to {line!r} instead of being"
+            " refused. A control anchored on it would doctor nothing, or"
+            " doctor a subject it never named, and then assert a refusal about"
+            " a document it did not change"
+        )
