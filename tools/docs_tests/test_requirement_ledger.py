@@ -218,8 +218,35 @@ def fabric_diff(base: str, paths: Sequence[str]) -> str:
     Four refusals rather than a quiet empty string: an empty base (``git diff
     ..HEAD`` compares HEAD against nothing), an empty path list (the diff is
     limited to nothing and is empty regardless of what the phase changed), **a
-    pathspec that matches no tracked file**, and a non-zero exit from `git`
-    itself.
+    pathspec ANY MEMBER of which matches no tracked file**, and a non-zero exit
+    from `git` itself.
+
+    **The third refusal is quantified PER MEMBER, and that quantifier is the
+    whole of `RR-1`.** It was added at the Phase 21 close as ONE truthiness test
+    on the whole tuple, and the write-up recorded the hole as closed; it was
+    closed for arity one. ``fabric_diff(base, ("scr/", "runtime/"))`` returned
+    the empty string with NO refusal — ``runtime/`` matches seventy-one tracked
+    files, satisfied the aggregate test on the typo's behalf, and left the
+    assertion reporting a clean fabric over a diff that had lost half its
+    subject. :data:`FENCE` has five members and :data:`UAT_RECORDS` eleven, so
+    a one-key typo in any of sixteen places converted a `D-11` scope-fence
+    assertion into a test of nothing. `CONTROL 18` is the refusal watched
+    firing, one mutated member at a time, on every multi-member constant.
+
+    **The refusal NAMES the member, not the tuple.** A refusal that reported
+    only ``['src/', 'runtime/']`` would leave a reader to find the one-key typo
+    among eleven paths — the same aggregate report one level up, which is the
+    defect class this module is about.
+
+    **Mechanism, chosen deliberately.** One :func:`tracked_under` call per
+    member rather than a single ``git ls-files --error-unmatch``. The latter
+    gives per-member semantics in ONE subprocess call and names the offending
+    member in stderr, and it is cheaper — but its refusal reads ``exited 1``
+    rather than ``matches no file tracked``, and `CONTROL 16` asserts that
+    literal substring. Buying one subprocess call with an amendment to a
+    shipped control's assertion is a weakening of exactly the thing this phase
+    exists to strengthen. :data:`UAT_RECORDS` is the worst case at eleven
+    calls and the whole module still runs in about two seconds.
 
     **The third refusal was added at the phase close and it closes a real
     hole**, found independently by two reviewers on the §3.1 panel and then
@@ -248,15 +275,16 @@ def fabric_diff(base: str, paths: Sequence[str]) -> str:
             "no paths were given, so the diff is limited to nothing and is"
             " empty regardless of what the phase changed"
         )
-    if not tracked_under(paths):
-        raise AssertionError(
-            f"the pathspec {list(paths)} matches no file tracked by `git`, so"
-            " `git diff` limited to it exits ZERO and prints NOTHING whatever"
-            " the phase changed. A misspelled pathspec and a clean tree are"
-            " indistinguishable, and every 'is empty' assertion built on this"
-            " function would report success over a comparison that had no"
-            " subject"
-        )
+    for member in paths:
+        if not tracked_under((member,)):
+            raise AssertionError(
+                f"the pathspec member {member!r} of {list(paths)} matches no"
+                " file tracked by `git`, so `git diff` limited to it exits ZERO"
+                " and prints NOTHING whatever the phase changed. A misspelled"
+                " pathspec and a clean tree are indistinguishable, and every"
+                " 'is empty' assertion built on this function would report"
+                " success over a comparison that had no subject"
+            )
     completed = subprocess.run(
         ["git", "diff", "--stat", f"{base}..HEAD", "--", *paths],
         cwd=REPO_ROOT,
@@ -569,17 +597,27 @@ def test_every_asserted_pathspec_names_a_tracked_subject() -> None:
     :data:`UAT_RECORDS` or :data:`TESTS_TREE` silently converts the assertion
     it feeds into a test of nothing, and the run stays green.
 
-    Per `D-21` this carries NO count — it names each pathspec constant and
-    requires it to match at least one tracked path. A floor of "at least N
-    files under `src/`" would be a carried number and would have to be
-    re-edited by every later phase.
+    **Quantified per MEMBER, which is what the paragraph above always promised
+    and what the code did not do.** It named five constants and said a one-key
+    typo in any of them silently converts the assertion it feeds into a test of
+    nothing — then tested the TUPLE, so a live sibling satisfied it on the
+    typo's behalf for all three multi-member constants. Keeping the promise is
+    the change; `RR-1` is the finding.
+
+    Per `D-21` this carries NO count — it names each pathspec constant AND the
+    member at fault, and requires every member to match at least one tracked
+    path. A floor of "at least N files under `src/`" would be a carried number
+    and would have to be re-edited by every later phase.
     """
     for name, spec in asserted_pathspecs():
-        assert tracked_under(spec), (
-            f"the pathspec {name} = {list(spec)} matches no file tracked by"
-            " `git`. Every assertion built on it is a diff limited to nothing,"
-            " which prints nothing forever and reports a clean tree"
-        )
+        for member in spec:
+            assert tracked_under((member,)), (
+                f"the member {member!r} of the pathspec {name} = {list(spec)}"
+                " matches no file tracked by `git`. Every assertion built on"
+                f" {name} is then a diff that has lost that member's subject"
+                " while its live siblings keep the pathspec looking real, and"
+                " it prints nothing forever and reports a clean tree"
+            )
 
 
 def test_control_16_a_pathspec_that_names_nothing_is_refused() -> None:
