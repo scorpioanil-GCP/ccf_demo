@@ -3,8 +3,65 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-22T21:15:00.000Z"
+last_updated: "2026-08-22T23:40:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21 EXECUTION IS COMPLETE ON `phase-21`. `21-06` IS LANDED.**
+  The phase does NOT close here: `21-07` is the SS3.1 close panel, the single-agent
+  review and `D-GATE-21`, and Dave's ruling is the gate.
+  **ALL 54 ROWS OF THE FROZEN WORKING SET CARRY A VERDICT**, counted by a STRICT parse
+  and by membership against the Complete family rather than a string inequality:
+  **38 `Complete`, 2 `Complete as ruled`, 9 `Partial`, 5 `Not built`, 0 `Orphaned`.**
+  **THE PHASE'S OWN TEN `RECON-` ROWS CARRY VERDICTS TOO, AND THEY WERE WRITTEN BEFORE
+  THE CLOSE PANEL** rather than inside the gate checkpoint -- so the ledger Dave approves
+  and the ledger the panel reads are the SAME ledger. Eight `Complete`; two `Partial`,
+  each naming its outstanding limb. `RECON-09` (close hygiene) cannot read `Complete`
+  before `D-GATE-21` exists. `RECON-10` (the counters) is `Partial` because its own text
+  says CORRECTED and one of its three was reported instead. Wave 5's SUMMARY frontmatter
+  claimed `RECON-10` complete; the ledger verdict is against the row's text and says
+  otherwise, deliberately. **ZERO `Pending` REMAINS ANYWHERE IN THE LEDGER.**
+  The traceability table holds **143** rows -- 133 at the pinned base plus this phase's
+  own ten -- a figure REPORTED from the strict parse, carried by no standing check
+  (`D-21`).
+  **THE `D-12` SPLIT IS REPORTED AND STILL UNRULED.** `21-DOCS-16-SPLIT.md` reports
+  Phase 16's eighteen rows as ten already-satisfied, five split, three still owed and
+  ZERO wholly orphaned, with one orphaned LIMB (`DOCS-18` limb 1, revoked by
+  `D-IMPL-96`). All eighteen are unflipped, undropped, none retired and none built.
+  **THE WORK LIST IS FIVE `Not built` ROWS IN TWO GROUPS AND FOUR OF THEM ARE ONE KNOT**
+  -- `DOCS-17`, `CLNT-17`, `DOCS-14`, `EXAM-02`; `DOCS-15` stands nearly alone. Nothing
+  on it was built (`D-11`), and the empty pinned-base fence is the mechanical proof.
+  **ALL 27 `human_needed` ITEMS ACROSS 11 RECORDS** are named and quoted verbatim in
+  `21-FINDINGS.md` SS3 and shown untouched by a diff over all eleven paths. `gsd-sdk
+  query audit-uat` reports 24 across 9 because it filters on frontmatter `status:`;
+  named, not fixed (`D-20`).
+  **THE THREE COUNTERS, WITH THEIR OLD VALUES.** `.planning/REQUIREMENTS.md`'s
+  `Coverage: 94/94` -> `143/143`, running totals extended. `.planning/ROADMAP.md`'s
+  Phase 21 entry `52` -> `54` at three sites plus a lane list that did not sum to its own
+  count. `.planning/ROADMAP.md` SSCoverage's `All **42**` REPORTED, NOT CORRECTED under
+  `D-19`(a) -- it needs a ruling, and a marker at the site names it.
+  **THE COMPLETENESS GATE IS NOW STANDING**, in `Check C` at the foot of
+  `tools/docs_tests/test_requirement_ledger.py`: the working-set roster is re-derived
+  from the strict parse at the pinned base and compared ID FOR ID (never by length --
+  `D-21`), every roster row carries exactly one verdict, the phase's own roster is held
+  to the same gate, and `tests/` is byte-identical to the base (`D-05`). The module is
+  **45 tests**, up from 35; `gate-tools` is **406 + 199**, up from 406 + 189.
+  **CONTROLS 10, 12, 13 AND 14 LANDED WITH IT. CONTROL 11 WAS NEITHER RE-ADDED NOR
+  RENUMBERED** -- it shipped in wave 1 with the gate it falsifies. **CONTROL 15 WAS
+  ADDED BECAUSE A SABOTAGE THIS PLAN SPECIFIED REPORTED GREEN**, and the reason was
+  MEASURED rather than assumed: `doubled_verdicts` never calls `verdict_token`, and
+  across all 143 cells the first bolded run equals the leading token, so the mutation
+  was invisible to the entire module. CONTROL 15 makes it visible and goes red under it.
+  That is the wave-4 lesson arriving inside this plan's own machinery.
+  **ONE ROW WAS FOUND SHORT OF CRITERION 3 AND REPAIRED:** `DCD-02`'s status cell cited
+  two plan numbers and no file. It read `Partial` at the pinned base, so every wave
+  accepted it as already-verdicted and none re-read it. It now carries the four
+  full-path symbol citations its own checkbox twin has carried since Phase 15.6.
+  **`src/`, `runtime/` AND `tests/` ARE ALL DIFF-EMPTY** against the base pinned in
+  wave 1, as are the wider `D-11` fence and `tools/lints/citations.py`.
+  **NO GSD STATE OR ROADMAP WRITER WAS INVOKED** (`D-15`). Both files were backed up
+  outside the tree, hand-edited, and diffed. The `progress:` block below stays
+  deliberately untouched and byte-identical, for the reason wave 5 recorded.
+  **THE PHASE IS AWAITING THE SS3.1 CLOSE PANEL AND `D-GATE-21`. IT IS NOT COMPLETE.**
+  PRIOR CONTEXT FOLLOWS.
   2026-08-22 -- **PHASE 21 WAVE 5 IS LANDED. `21-05` IS COMPLETE, ON `phase-21`.**
   Two task commits `eedeefb` and `587ff78` plus the SUMMARY commit.
   **`21-FINDINGS.md` IS THE ONE DOCUMENT DAVE RULES FROM.** Five sections and nothing
@@ -432,6 +489,28 @@ progress:
   completed_plans: 174
   percent: 93
 stopped_at: >-
+  PHASE 21 EXECUTION IS DONE; `21-07` -- THE SS3.1 CLOSE PANEL AND `D-GATE-21` -- IS
+  NEXT. Branch `phase-21`, tree clean apart from Dave's two untracked `docs/` files.
+  Six of seven plans are complete; `21-07` is the gate checkpoint and is not complete
+  until Dave rules. **`21-07` ADDS NO LEDGER ROWS** -- every row it reviews was written
+  before it, on purpose.
+  **WHAT THE PANEL MUST BE GIVEN, PER `CLAUDE.md` SS3.1:** the SHIPPED CODE and the
+  shipped ledger, not the plans -- those decisions are executed. Write it to
+  `21-CLOSE-REVIEWS.md` so the pre-execution plan review survives. Brief it on the
+  findings already known and tell it not to re-derive them; its budget is better spent
+  on what is ADJACENT to each. Verify every finding against the tree before recording or
+  acting on it, and record the rejected ones AS rejected -- this project has received
+  confident, well-formatted, false findings twice.
+  **DO NOT TOUCH THE FIVE `Not built` ROWS OR ANYTHING THEY NAME.** `D-11` holds to the
+  end of the phase; the work list is Dave's to rule on and a later phase's to execute.
+  **THE `progress:` COUNTERS ABOVE REMAIN DELIBERATELY UNTOUCHED**, for the reason wave
+  5 recorded: `21-CONTEXT.md` deferred the block explicitly and `D-19` names three
+  counters, none of them this one.
+  **TWO THINGS DAVE MUST RULE ON THAT AN EXECUTOR CANNOT:** the `All **42**` counter's
+  provenance question, and the four-row knot on the work list.
+  **NEXT ACTION: run `/gsd-review --phase "Phase 21" --all`, then the single-agent
+  review, then present to Dave.**
+  PRIOR CONTEXT FOLLOWS.
   PHASE 21 WAVE 5 IS DONE; WAVE 6 (`21-06`) IS NEXT. Branch `phase-21`, tree clean apart
   from Dave's two untracked `docs/` files. `21-06` writes the ten `RECON-` verdicts -- the
   only rows still reading `Pending` anywhere in the ledger -- BEFORE the close panel, lands
