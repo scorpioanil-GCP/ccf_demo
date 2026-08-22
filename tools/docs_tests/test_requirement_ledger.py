@@ -3101,6 +3101,86 @@ def test_control_22_an_index_that_resolved_nothing_is_refused(
 # ===========================================================================
 
 
+def uncovered_lint_citations(
+    document_text: str,
+    lint_pattern: re.Pattern[str],
+    widened: re.Pattern[str],
+    name: str,
+) -> list[str]:
+    """One message per lint match no widened match's SPAN covers, in `document_text`.
+
+    The subsumption predicate, taking its subject as an argument for the reason
+    every other checker here does — so a control can point it at something
+    other than the real ledger. Plan `21.1-05` task 0, `RR-11`, ruled by
+    `D-IMPL-180`.
+
+    **It compares SPANS, not path strings, and that is the whole repair.** The
+    predicate shipped in wave 3 computed ``set(lint_pairs) - set(widened_pairs)``
+    over PATH STRINGS. On a dotted citation the lint's `CITATION` opens its path
+    group `[A-Za-z0-9_]`, matches one character LATE and yields the truncated
+    twin `planning/…`; :data:`LOOSE_CITATION` matches at the dot and yields
+    `.planning/…`. The widened match starts EARLIER and covers the lint's span
+    entirely — **nothing was corrected away** — but `planning/…` is not
+    `.planning/…`, so the twin scored as a silent drop and the gate could never
+    be satisfied by the shape :data:`LOOSE_CITATION` exists to admit. Measured
+    at the repair, on this module's own ledger path:
+
+    * lint `CITATION`  → `planning/REQUIREMENTS.md` at ``(11, 37)``
+    * `LOOSE_CITATION` → `.planning/REQUIREMENTS.md` at ``(10, 37)``
+
+    Wave 3 was green here only because no dotted citation existed anywhere in
+    the tree — failure mode 1, *the subject never reached the branch under
+    test*, and it took a whole wave to produce a subject.
+
+    **The anti-vacuity clause is kept and lives HERE rather than at the call
+    site**, so a control can watch it refuse. *"Every lint match is covered"*
+    is trivially true of a lint pattern that matches nothing, which is exactly
+    the failure the check is for; and a repair that dropped the clause while
+    adding span containment would pass every acceptance limb a control could
+    write. It is refused with the subject, not asserted about the real ledger
+    alone.
+
+    **Containment of the SPAN, never of the string.** A lint match whose path
+    string is a SUBSTRING of an unrelated widened path elsewhere in the same
+    cell is still a drop; only the span form can tell a correction from a loss.
+    `CONTROL 23b`'s fourth limb is that discriminator.
+
+    Coverage is scoped to ONE CELL, because the extraction it stands in for is:
+    a widened match in some other row says nothing about a lint match in this
+    one.
+    """
+    messages: list[str] = []
+    lint_matches_anything = False
+    for req_id, _phase, status in traceability_rows(document_text):
+        widened_spans = [match.span() for match in widened.finditer(status)]
+        for match in lint_pattern.finditer(status):
+            lint_matches_anything = True
+            start, end = match.span()
+            if any(
+                covering_start <= start and end <= covering_end
+                for covering_start, covering_end in widened_spans
+            ):
+                continue
+            messages.append(
+                f"{req_id}: the lint's `{name}` finds {match.group(0)!r} at"
+                f" {match.span()} in its status cell and no match of the"
+                " module-local widening covers that span — the widened"
+                f" matches are {widened_spans}. The extraction tuple consults"
+                " the widened pattern and NOT the lint's, so this citation is"
+                " now invisible to `refuse_unresolvable`: dropped in silence,"
+                " which is the exact hole this module exists to dodge from the"
+                " outside"
+            )
+    if not lint_matches_anything:
+        raise AssertionError(
+            f"the lint's `{name}` matches nothing in this document's status"
+            " cells, so 'every citation the lint finds, the widening finds"
+            " too' is quantified over the empty set and is trivially true."
+            " A refusal that has never had a subject is not a refusal"
+        )
+    return messages
+
+
 def _planning_document_citation() -> str:
     """A repo-relative `.planning/` path that certainly exists, DERIVED not typed.
 
@@ -3346,7 +3426,17 @@ def test_each_widened_pattern_subsumes_the_lint_pattern_it_replaced() -> None:
     **Anti-vacuity clause:** the lint pattern is REQUIRED to find something in
     the real ledger. "Every match is also a match" is trivially true of a
     pattern that matches nothing, which is precisely the failure this is here
-    to detect.
+    to detect. It now lives inside :func:`uncovered_lint_citations` rather than
+    in this test body, so `CONTROL 23b` can watch it refuse on a subject of its
+    own — a clause no control can reach is the shape this phase is about.
+
+    **It compares SPANS, repaired by plan `21.1-05` under `D-IMPL-180`.** As
+    shipped in wave 3 it compared PATH STRINGS, and a dotted `.planning/…`
+    citation was therefore scored a silent drop against the lint's truncated
+    twin `planning/…` — which the widened match COVERS. The gate could not be
+    satisfied by the one shape :data:`LOOSE_CITATION` was added for, and it was
+    green only because no dotted citation existed anywhere in the tree.
+    `RR-11`, found by wave 4 being the first plan to actually use the pattern.
 
     This is what let `NODE_ID` be dropped from the extraction tuple rather than
     assumed redundant. Measured over the real ledger at the time it landed,
@@ -3366,24 +3456,5 @@ def test_each_widened_pattern_subsumes_the_lint_pattern_it_replaced() -> None:
         ("NODE_ID", NODE_ID, LOOSE_NODE_ID),
         ("CITATION", CITATION, globals()["LOOSE_CITATION"]),
     ):
-        lint_pairs: list[tuple[str, str]] = []
-        widened_pairs: list[tuple[str, str]] = []
-        for req_id, _phase, status in traceability_rows(text):
-            for match in lint_pattern.finditer(status):
-                lint_pairs.append((req_id, match.group("path")))
-            for match in widened.finditer(status):
-                widened_pairs.append((req_id, match.group("path")))
-        assert lint_pairs, (
-            f"the lint's `{name}` matches nothing in the real ledger's status"
-            " cells, so 'the widened pattern finds everything it finds' is"
-            " quantified over the empty set and is trivially true"
-        )
-        missing = sorted(set(lint_pairs) - set(widened_pairs))
-        assert not missing, (
-            f"the module-local widening of `{name}` no longer finds"
-            f" {missing!r}, which the lint's own pattern does find. The"
-            " extraction tuple consults the widened pattern and NOT the"
-            " lint's, so these citations are now invisible to"
-            " `refuse_unresolvable` — dropped in silence, which is the exact"
-            " hole this module exists to dodge from the outside"
-        )
+        uncovered = uncovered_lint_citations(text, lint_pattern, widened, name)
+        assert not uncovered, "\n".join(uncovered)
