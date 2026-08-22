@@ -2343,3 +2343,182 @@ def test_control_15_a_verdict_that_is_not_leading_is_not_read_as_the_verdict() -
         " the cell OPENS with; a reader that hunts for a vocabulary word"
         " anywhere in the prose will find one in almost any honest sentence"
     )
+
+
+# --- CONTROL 19: RR-2, the two verdict readers that could disagree in silence ---
+#
+# Landed in plan `21.1-02` task 1, BEFORE the fix it falsifies, and watched
+# failing against the committed pre-fix module (`D-IMPL-170`). Its two
+# assertions are red at that commit and green at the next.
+
+
+def _cell_with_an_unbolded_lead_and_a_later_bolded_verdict(
+    document_text: str, req_id: str, later: str
+) -> str:
+    """`req_id`'s real cell, re-opened UNBOLDED with `later` bolded after it.
+
+    Derived from the row as it stands rather than retyped, for the reason
+    :func:`_table_line` records: a control anchored on a literal cell string is
+    anchored on a snapshot of its subject, and three controls broke exactly
+    that way when plan `21-06` wrote the verdicts they had transcribed.
+
+    The row's CITATIONS are carried through untouched, so a refusal is
+    attributable to the verdict alone and not to a cell that lost its evidence
+    on the way through the mutation.
+    """
+    line = _table_line(document_text, req_id)
+    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    if len(cells) != CELLS_PER_ROW:
+        raise AssertionError(
+            f"{req_id}'s traceability line split into {cells!r}, which is not"
+            " the three cells this mutation is built on"
+        )
+    status = cells[2]
+    lead = verdict_token(status)
+    if lead not in VERDICT_VOCABULARY or lead == later:
+        raise AssertionError(
+            f"{req_id} reads {lead!r}, which is either outside the vocabulary"
+            f" or already {later!r}. Either way the mutation would not produce"
+            " a cell asserting TWO DIFFERENT verdicts, which is the whole"
+            " subject of this control"
+        )
+    if not status.startswith(f"**{lead}**"):
+        raise AssertionError(
+            f"{req_id}'s cell does not open with a BOLDED {lead!r}, so"
+            " un-bolding its lead is not the mutation this control claims to"
+            f" make. The cell reads {status[:60]!r}"
+        )
+    remainder = status[len(lead) + 4 :]
+    mutated = f"{lead} — later **{later}**{remainder}"
+    return _doctored(
+        document_text, line, f"| {cells[0]} | {cells[1]} | {mutated} |"
+    )
+
+
+def test_control_19_an_unbolded_lead_and_a_later_bolded_verdict_is_two_verdicts() -> (
+    None
+):
+    """CONTROL 19 — `RR-2`, handed to the SHIPPED functions.
+
+    The defect: :func:`verdict_token` strips `**` and reads the LEADING
+    alphabetic run, while :func:`doubled_verdicts` reads only BOLDED runs. A
+    cell reading ``Complete — later **Partial** (…)`` is `Complete` to the
+    first and one verdict to the second. Measured against the real ledger with
+    `HARD-02` doctored to exactly that shape: `verdict_token` returns
+    ``'Complete'`` unchanged, and :func:`vocabulary_offenders`,
+    :func:`doubled_verdicts`, :func:`roster_rows_with_two_verdicts`,
+    :func:`channel_disagreements`, both :func:`unverdicted` calls, both
+    :func:`uncited_verdicts` calls and :func:`refuse_unresolvable` all return
+    empty. **Eight gates, zero refusals**, on a working-set row that visibly
+    reads `**Partial**`.
+
+    BOTH gates are asserted, not one. :func:`roster_rows_with_two_verdicts` is
+    a second implementation of the same predicate and it is the gate the
+    working set is actually held to; a control that watched only the
+    ledger-wide half would let the two drift apart, which is this phase's
+    defect class arriving one level up.
+
+    The victim is asserted NOT to be an offender on the real document first —
+    the reachability idiom `CONTROL 10`, `14` and `17` use — so a
+    green-before/red-after pair is attributable to the mutation and to nothing
+    else, and a refusal fired by some neighbouring row cannot satisfy it.
+    """
+    real = ledger_text()
+    victim = "HARD-02"
+    assert victim in WORKING_SET_ROSTER, (
+        f"{victim} is not in `WORKING_SET_ROSTER`, so the roster-scoped half of"
+        " this control would be quantified over a row the roster never reaches"
+        " and would pass no matter what the gate did"
+    )
+    assert not any(victim in message for message in doubled_verdicts(real)), (
+        f"{victim} is already reported as doubled on the real ledger, so this"
+        " control cannot distinguish its mutation from the status quo"
+    )
+    assert not any(
+        victim in message
+        for message in roster_rows_with_two_verdicts(real, WORKING_SET_ROSTER)
+    ), (
+        f"{victim} is already reported as doubled by the roster-scoped gate on"
+        " the real ledger; same reason"
+    )
+
+    doctored = _cell_with_an_unbolded_lead_and_a_later_bolded_verdict(
+        real, victim, "Partial"
+    )
+    mutated = [
+        status
+        for req_id, _phase, status in traceability_rows(doctored)
+        if req_id == victim
+    ][0]
+    assert verdict_token(mutated) == "Complete", (
+        "the leading-token reader no longer reads this cell as `Complete`, so"
+        " the two readers no longer disagree about it and the control is not"
+        f" testing `RR-2` any more. It read {verdict_token(mutated)!r}"
+    )
+    assert "**Partial**" in mutated, (
+        "the mutation did not leave a bolded second verdict in the cell"
+    )
+
+    ledger_wide = doubled_verdicts(doctored)
+    assert any(victim in message for message in ledger_wide), (
+        "a cell whose leading verdict is `Complete` and which later asserts"
+        " `**Partial**` was accepted by the ledger-wide gate. The two readers"
+        f" disagree and neither refuses: {ledger_wide!r}"
+    )
+    roster_scoped = roster_rows_with_two_verdicts(doctored, WORKING_SET_ROSTER)
+    assert any(victim in message for message in roster_scoped), (
+        "the ledger-wide gate refused but the roster-scoped one did not. They"
+        " are two implementations of one predicate and this is them drifting"
+        f" apart: {roster_scoped!r}"
+    )
+    for message in (
+        [m for m in ledger_wide if victim in m]
+        + [m for m in roster_scoped if victim in m]
+    ):
+        assert "Complete" in message and "Partial" in message, (
+            "the refusal fired but did not name the verdicts it found:"
+            f" {message!r}. A reader who cannot see WHICH two verdicts the"
+            " cell asserts cannot act on the refusal"
+        )
+
+
+def test_the_two_one_verdict_gates_read_the_same_predicate() -> None:
+    """The ledger-wide and roster-scoped gates share ONE reader, by source.
+
+    Not decoration. `RR-2` is two readers of a cell disagreeing in silence;
+    :func:`doubled_verdicts` and :func:`roster_rows_with_two_verdicts` are two
+    readers of a cell that today carry byte-identical inline copies of the same
+    predicate. `CONTROL 19` asserts both refuse the doctored cell, which two
+    divergent copies of the union rule would also satisfy — on the day they
+    land. This is the assertion that stops one of them being amended later
+    without the other.
+
+    Discriminating, and stated so a reader can check it: the shared predicate
+    is REQUIRED to reference :data:`BOLDED_RUN` itself, so this is not the
+    vacuous "``BOLDED_RUN`` appears nowhere" assertion, which a module that had
+    deleted the bolded reading entirely would also pass.
+    """
+    import inspect
+
+    assert "cell_verdicts" in globals(), (
+        "no shared verdict predicate exists in this module, so the ledger-wide"
+        " and roster-scoped one-verdict gates are two independent readers of"
+        " the same cell — which is `RR-2`'s own shape, one level up"
+    )
+    shared = inspect.getsource(globals()["cell_verdicts"])
+    assert "BOLDED_RUN" in shared, (
+        "the shared predicate does not read bolded runs at all, so requiring"
+        " the two gates not to read them is quantified over nothing"
+    )
+    for gate in (doubled_verdicts, roster_rows_with_two_verdicts):
+        source = inspect.getsource(gate)
+        assert "cell_verdicts(" in source, (
+            f"{gate.__name__} does not call the shared verdict predicate. A"
+            " second implementation is exactly what lets the ledger-wide and"
+            " roster-scoped gates drift apart"
+        )
+        assert "BOLDED_RUN" not in source, (
+            f"{gate.__name__} still reads {'BOLDED_RUN'} directly. A gate that"
+            " keeps its own copy of the reading is one edit away from"
+            " disagreeing with the other about what a cell says"
+        )
