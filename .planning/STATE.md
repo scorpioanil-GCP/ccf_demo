@@ -3,8 +3,56 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-22T18:00:00.000Z"
+last_updated: "2026-08-22T21:30:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21.1 WAVE 1 LANDED (`21.1-01`, three task commits `1241ccd`,
+  `58465f7`, `389fbf4`).** `RR-1` is closed: `fabric_diff` quantifies its pathspec
+  refusal PER MEMBER and NAMES the offending member instead of reporting the tuple.
+  Before this, `fabric_diff(base, ("scr/", "runtime/"))` returned the empty string
+  with no refusal at all -- `runtime/` matches 71 tracked files and satisfied the
+  guard on the typo's behalf, so a one-key typo in any of sixteen places across
+  `FABRIC` (2 members), `FENCE` (5) and `UAT_RECORDS` (11) converted a `D-11`
+  scope-fence assertion into a test of nothing while its own control stayed green.
+  **`CHANGED_TREE` IS SINGLE-MEMBER AND THE `D-GATE-21` RE-RUN RECORD IS WRONG
+  ABOUT IT** -- research measured it, the correction is recorded at the constant in
+  the module and in the plan SUMMARY, and a later reader holding that record will
+  otherwise think a constant went missing.
+  **THE CONTROLS WERE COMMITTED BEFORE THE FIX AND WATCHED FAILING** (`D-IMPL-170`,
+  criterion 8). At `58465f7` the module was 7 failed / 51 passed: `CONTROL 16` on its
+  new MIXED subject and all six `CONTROL 18` cases, every one returning `''` instead
+  of refusing. At `389fbf4` it is 58 passed. Both runs are in the SUMMARY verbatim.
+  **`CONTROL 18` MUTATES FIRST AND LAST, NOT JUST ONE POSITION** -- the plan asked for
+  one mutated member per constant, and one position cannot tell a per-member loop from
+  a degenerate one that inspects only `paths[0]`. Proven, not asserted: sabotaging the
+  loop to `paths[:1]` turns the three `-last` cases red and leaves the `-first` cases
+  green, and `paths[-1:]` does the exact mirror. Each case still mutates EXACTLY ONE
+  member, which is what criterion 2 asks.
+  **THE MECHANISM WAS CHOSEN AGAINST THE CHEAPER ONE ON PURPOSE.** `git ls-files
+  --error-unmatch` gives per-member semantics in ONE subprocess call and names the
+  member in stderr, but its refusal reads `exited 1` and `CONTROL 16` asserts the
+  literal substring `matches no file tracked`. Buying a subprocess call with an
+  amendment to a shipped control's assertion weakens the thing this phase exists to
+  strengthen, so the N-call loop was taken; `UAT_RECORDS` is the worst case at eleven
+  calls and the module still runs in 2.1s.
+  **THE SIX `VAC-` ROWS ARE MINTED `Pending` IN BOTH CHANNELS**, in ONE commit because
+  `channel_disagreements` refuses an id present in one channel only. On the
+  `RECON-01`..`10` precedent: rows written inside the gate checkpoint carry verdicts
+  no reviewer and no approver has seen. Their verdicts are `21.1-09`'s, before the
+  panel. The `Coverage:` counter was RE-DERIVED by running the shipped
+  `traceability_rows` over the edited file -- `143/143` -> `149/149`, both channels
+  agreeing at 149 -- and NOT by adding six to the previous sentence.
+  **SABOTAGE WATCHED RED A THIRD WAY**: `TESTS_TREE` pointed at `("tests-typo/",)`
+  now makes the `tests/`-untouched assertion REFUSE (2 failed / 56 passed) where
+  pre-`B-1` it was 45 green. Restored.
+  **This fix is a NO-OP on today's tree and that is stated rather than glossed**:
+  every member of all six constants matches at least one tracked file, so nothing
+  about the current run changes. It closes tomorrow's typo.
+  Gates after the wave: module 58 passed (was 51), `tools/docs_tests` 169 passed,
+  `make gate-tools` 406 + 212 (was 406 + 205), `tools.lints --all` exit 0, the
+  pinned-base fence over `src/ runtime/ examples/ public/ tests/ pyproject.toml
+  tools/lints/citations.py` EMPTY on every path, and `RETIREMENT-COUPLINGS.md`
+  regenerates to no diff. `D-15` honoured: STATE.md and ROADMAP.md backed up outside
+  the tree, hand-edited, diffed; no `state.*` or `roadmap.*` writer invoked.
   2026-08-22 -- **PHASE 21 IS CLOSED. `D-GATE-21` IS APPROVED BY DAVE AND LOGGED IN
   `docs/DECISIONS.md`, AND `phase-21` IS MERGED TO `main`.** Dave's words on the
   result: *"Phase 21 did what an audit phase is for: it made the ledger match the
