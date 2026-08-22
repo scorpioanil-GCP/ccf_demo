@@ -42,6 +42,67 @@ twenty-four of the fifty-four rows are about documentation. The citation still
 has to resolve; the machinery that resolves it already ships. Full repo-relative
 paths only — a bare basename is refused (`D-06`, unchanged).
 
+### AMENDED 2026-08-22 — Phase 21.1, `RR-3`: Phase 16's lane is nineteen rows, not eighteen
+
+**The correction.** `21-DOCS-16-SPLIT.md` — the document the Phase 16 verdicts
+were ruled from at `D-IMPL-175` — carried **eighteen** rows. The ledger's Phase
+16 `DOCS-` lane carries **nineteen**. The nineteenth is **`DOCS-22`**, and it
+appeared **zero** times in the split document and **zero** times in this one.
+Its exclusion was recorded only inside plan `21-04`'s own PLAN and SUMMARY,
+which are wave hand-offs and not documents anyone rules from — the same shape
+as §5 observation 5 below, and the reason Phase 21.1 exists.
+
+**How it was excluded is the finding, not that it was.** This was not an
+oversight. The split was built from the **54-row working set**, and the working
+set's membership predicate is *the verdict is not in the Complete family at the
+pinned base*. `DOCS-22`'s cell read `Complete` — bare, unbolded and **uncited**
+— so it was in the family, so it never entered the working set, so it never
+reached the split. Measured: the ledger's Phase 16 lane minus the working set
+is exactly `['DOCS-22']`, and the eighteen the split carries are precisely the
+lane's eighteen working-set members. **An unevidenced `Complete` bought
+exemption from the audit that would have checked it.** That is this project's
+defect class one level out from where the audit was looking.
+
+**`DOCS-22`, and its verdict.** The row's obligation is `D-IMPL-135`: the §6.3
+Discovery element `ProductDiscovery` carries a fourth axis, `audiences`, and —
+because adding a field to a shipped §6.3 element carries the full surface
+obligation — that obligation is discharged in all three parts the ruling names.
+Measured against the tree in this session rather than read off the ledger:
+**proposed `Complete`** — the axis ships at `src/ccf/products/contract.py:416`
+with eight named assertions gating it per property, including one that holds the
+values opaque to every module outside `contract.py`; and the fragment, the
+`_SHAPE_MOVED_BY_FRAGMENT` claim and the regenerated `docs/SURFACE-CHANGES.md`
+all have live referents under their own gates. The one thing a reader might
+expect and will not find — a product-catalog door — is out of scope by Dave's
+own deferral in that ruling, not owed. The full write-up is
+`21-DOCS-16-SPLIT.md`'s `DOCS-22` section.
+
+**It is NOT on the work list, and it couples to nothing on it.** §2 below is
+unchanged: five `Not built` rows, Group A's four-row knot (`DOCS-17`,
+`CLNT-17`, `DOCS-14`, `EXAM-02`) and Group B's `DOCS-15`. `DOCS-22` touches
+none of them — its evidence is in `src/`, `tests/` and `docs/surface-changes/`,
+none of which is under `DOCS-17`'s condemned ten or inside the published-pages
+thread that joins `DOCS-12`, `-13`, `-14` and `-15`. **An isolated row is a
+cheaper ruling than a coupled one, and this one is isolated.**
+
+**One ledger cell was amended, under `D-IMPL-179` limb 1.** Dave ruled it at the
+Phase 21.1 plan gate: *"Sitting outside the 54 does not make a false or
+incomplete cell harmless… One narrow cell edit, cited in the plan, is in
+bounds"*, bounded by *"do not widen into a full re-verdict of rows outside the
+working set."* `DOCS-22`'s cell now carries the `DCD-10` shape — bolded verdict,
+citations that resolve, qualifying clause — in **both** status channels, and the
+tick was already in the Complete family so the two channels agree before and
+after. **Exactly one row, two lines.** The other 78 rows carried as advisory
+`A-5` are untouched, `D-GATE-21` is unamended, and no verdict of the 54 moved.
+The consequence worth knowing: before the amendment `DOCS-22` carried **no
+citation at all**, so no gate in `tools/docs_tests/test_requirement_ledger.py`
+had anything to check about it — amending the cell is what put the row under a
+gate.
+
+**`D-IMPL-175` is not amended and nothing it ruled on was rewritten.** The
+eighteen verdicts stand as accepted. The nineteenth is a **NEW ask**, carried as
+item 8 of the split document's ruling list under a heading that says so.
+
 ---
 
 ## 2. The work list — what is genuinely not built
@@ -286,6 +347,16 @@ up.
 | `.planning/ROADMAP.md` §Coverage — `All **42** v0.2 requirements mapped` | `42` | **reported, not corrected** — see below | — |
 | `.planning/ROADMAP.md:47` — the Phase 21 commissioning bullet | `each of the 52 gets a verdict` | `each of the 54 gets a verdict` | criterion 1's own figure, which the same paragraph already uses two sentences earlier |
 | `.planning/ROADMAP.md:47` — the same bullet's lane list | six lanes summing to 52: `21 against Phase 17, 18 against Phase 16, 6 against Phase 14, 3 against Phase 9, 3 against Phase 13, 1 against Phase 18` | eight lanes summing to 54, adding `1 against Phase 15.5, 1 against Phase 15.6` | the strict parse's by-phase breakdown of the 54-member working set |
+
+**Added 2026-08-22 (Phase 21.1, `RR-3`) — do not "correct" the `18 against
+Phase 16` in the row above.** It is right. **`18` and `19` count different
+sets**: `18` is how many of the **54-row working set** are Phase 16 rows, and
+`19` is how many `DOCS-` rows the **ledger** carries against Phase 16. The
+difference is `DOCS-22` alone, which sits outside the working set because its
+cell already read `Complete` at the pinned base. Editing the `18` to `19` would
+make a correct counter wrong and would break the lane list's sum to 54 — which
+is precisely the failure mode this section exists to prevent, arriving from the
+other direction.
 | `.planning/ROADMAP.md:1888` — the Phase 21 goal line | `every one of the 52 `Pending` requirement rows` | `every one of the 54 not-`Complete` requirement rows` | as above; `not-`Complete`` rather than `Pending` because two of the 54 were never spelled `Pending` — which is the miscount the phase exists to correct |
 | `.planning/ROADMAP.md:1890` — the rationale line | `the ledger reads 52 outstanding` | `the ledger reads 54 outstanding` | as above |
 
@@ -385,3 +456,11 @@ pattern this phase exists over, one level up.*
 by running the strict parse at the time of writing. §5 observation 5 was added
 at the phase close by plan `21-07`, as a blocking finding from the CLAUDE.md
 §3.1 review; nothing else in this document changed.*
+
+*AMENDED 2026-08-22 by plan `21.1-04` (Phase 21.1, finding `RR-3`), additively.
+Three additions, each carrying its own dated marker: the Phase 16 lane
+correction and `DOCS-22`'s disposition at the end of §1; the do-not-correct note
+under §4's counter table; and this line. **Nothing written by plan `21-05` or
+plan `21-07` was rewritten, re-verdicted or removed**, and `D-IMPL-175` and
+`D-GATE-21` are both unamended. Every figure in the additions was re-measured
+against the tree in this session, not carried from a plan.*
