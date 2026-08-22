@@ -3,8 +3,67 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-22T22:20:00.000Z"
+last_updated: "2026-08-22T23:10:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21.1 WAVE 3 LANDED (`21.1-03`, four task commits `58bd861`,
+  `4ce0c95`, `d527c3a`, `9448ffa`).** `RR-4` and `RR-6` are closed, and a blocker found
+  at plan-check is closed with them.
+  **`RR-4` -- A DUPLICATE REQUIREMENT ID COLLAPSED INTO A DICT AND THE LEDGER REPORTED
+  CLEAN.** Measured at HEAD: `HARD-02`'s row duplicated under `Phase 99` with its
+  citations intact parsed to 150 rows holding the id TWICE, while `channel_disagreements`,
+  `vocabulary_offenders`, `doubled_verdicts`, `unverdicted(working_set)`,
+  `uncited_verdicts` and `refuse_unresolvable` ALL returned empty. In the checkbox
+  channel the dict kept the LAST bullet and resolved `HARD-02` to `False`. The refusal
+  is in the PARSERS, not the consumers -- FOUR dict builds plus TWO comprehensions read
+  `traceability_rows`, so a guard in one consumer would leave five holes. **The
+  `D-GATE-21` re-run record said two dict builds at `:779` and `:1648`; both the count
+  and the line numbers were wrong** and the correction is recorded. `uncited_verdicts`
+  is a WORSE shape than a collapse -- it APPENDS, so a duplicated row's citations MERGE
+  and an uncited duplicate is masked by its cited twin; closed upstream by the parser
+  refusal rather than patched at the site. Both refusals NAME every repeated id
+  (`repeated_ids`), never `len(rows) == len(set(ids))`: a shortfall is not something a
+  reader can act on.
+  **`RR-6` -- `_index()` RETURNED `{}` RATHER THAN REFUSING.** It now refuses unless it
+  resolves `INDEX_ANCHOR = src/ccf/client/client.py`, a NAMED path the module already
+  cites in its own positive citation control -- stronger than refusing an empty mapping,
+  which ACCEPTS a THINNED index, and thinned is the shape that makes the moved-path
+  branch go silent. Count-free per `D-21`. `CONTROL 22` carries both subjects and the
+  thinned one is the discriminating half; sabotage 4 shipped the weaker "refuse an empty
+  mapping" implementation and only the thinned subject caught it.
+  **THE PLAN-CHECK BLOCKER: A `.planning/` DOCUMENT COULD NOT BE CITED AT ALL.** The
+  lint's `CITATION` opens its path group `[A-Za-z0-9_]`, excluding `.`, so a cell citing
+  `.planning/REQUIREMENTS.md:1` extracted `planning/REQUIREMENTS.md` -- one character
+  late, a path not in the tree, refused as absent -- while the `::symbol` spelling is
+  refused as non-Python. No legal spelling existed, and `VAC-03`'s only evidence lives
+  under `.planning/phases/`. Module-local `LOOSE_CITATION` REPLACES `CITATION` in the
+  extraction tuple rather than joining it: measured, a widened pattern carried BESIDE
+  the lint's extracts the citation TWICE in EITHER order, because the dedup is a
+  `set[str]` over the path STRING. `D-07` intact -- `tools/lints/citations.py` is
+  byte-identical.
+  **BOUND REPRODUCED: 127 citations before and 127 after, SET-EQUAL AND ORDER-EQUAL,
+  zero added and zero dropped**; `refuse_unresolvable` over the real ledger returns `[]`
+  exactly as before. `NODE_ID` was dropped from the tuple only after its subsumption by
+  `LOOSE_NODE_ID` was PROVED by set equality of the `(id, path)` pairs over the real
+  ledger -- 213 = 213, sets equal.
+  **A CONTROL BEYOND THE PLAN, AND THE PLAN'S "REMOVE THE DEAD IMPORT" STEP DECLINED
+  WITH A REASON.** `test_each_widened_pattern_subsumes_the_lint_pattern_it_replaced`
+  keeps both lint patterns imported as the reference it measures against, because the
+  REPLACEMENT opens a fresh vacuity hole: once the tuple stops consulting the lint's
+  patterns, a later narrowing drops citations SILENTLY and
+  `test_the_scan_finds_citations_to_check` cannot see it (non-emptiness, no count).
+  Sabotage 7 shipped a `LOOSE_CITATION` requiring the leading dot -- **`CONTROL 23`
+  stayed GREEN** and only this check and `uncited_verdicts` went red.
+  **EVERY CONTROL COMMITTED BEFORE ITS FIX AND WATCHED FAILING** (`D-IMPL-170`,
+  criterion 8). 3 failed / 60 passed at `58bd861`, 63 passed at `4ce0c95`; 2 failed /
+  63 passed at `d527c3a`, 65 passed at `9448ffa`. Seven sabotages watched red against
+  the shipped module, each reddening exactly its own control. Module 60 -> 65 tests;
+  `gate-tools` leg 2 214 -> 219 with no `Makefile` edit; `tools.lints --all` exit 0;
+  the pinned-base fence over `src/ runtime/ examples/ public/ tests/ pyproject.toml
+  tools/lints/citations.py` EMPTY on every path; the `D-21` count sweep exits 1.
+  `VAC-04` is discharged mechanically; its ledger row stays `Pending` BY DESIGN until
+  plan `21.1-09`, so no `requirements.mark-complete` was run. `D-15` honoured: STATE.md
+  and ROADMAP.md backed up outside the tree, hand-edited, diffed; no `state.*` or
+  `roadmap.*` writer invoked. `RETIREMENT-COUPLINGS.md` regenerated LAST.
   2026-08-22 -- **PHASE 21.1 WAVE 2 LANDED (`21.1-02`, two task commits `3c8908e`,
   `5de6857`).** `RR-2` is closed: the module had TWO readers of a status cell that
   could disagree about what the cell says with neither refusing. `verdict_token`
