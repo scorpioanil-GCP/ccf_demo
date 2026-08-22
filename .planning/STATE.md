@@ -3,8 +3,55 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-22T21:30:00.000Z"
+last_updated: "2026-08-22T22:20:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21.1 WAVE 2 LANDED (`21.1-02`, two task commits `3c8908e`,
+  `5de6857`).** `RR-2` is closed: the module had TWO readers of a status cell that
+  could disagree about what the cell says with neither refusing. `verdict_token`
+  strips `**` and reads the LEADING alphabetic run; `doubled_verdicts` read only
+  BOLDED runs. A cell reading `Complete -- later **Partial** (...)` is `Complete` to
+  the first and one verdict to the second.
+  **MEASURED, NOT ARGUED: EIGHT GATES, ZERO REFUSALS.** `HARD-02`'s real cell was
+  doctored to exactly that shape with its citations left intact, and
+  `vocabulary_offenders`, `doubled_verdicts`, `roster_rows_with_two_verdicts` (BOTH
+  rosters), `channel_disagreements`, both `unverdicted` calls, both `uncited_verdicts`
+  calls and `refuse_unresolvable` ALL returned empty. A working-set row that visibly
+  reads `**Partial**` was reported `Complete` by the entire module.
+  **THE FIX IS ONE PREDICATE BOTH GATES READ.** `cell_verdicts(cell)` returns the SET
+  a cell asserts -- the leading token when it is in the vocabulary, unioned with every
+  bolded vocabulary run -- and refuses when that set has more than one member.
+  `doubled_verdicts` and `roster_rows_with_two_verdicts` both consume it and neither
+  keeps its own copy of the reading; the ledger-wide gate and the gate the working set
+  is actually held to can no longer drift apart. `verdict_token` is UNCHANGED: the
+  verdict of a row is the word its cell opens with, and `CONTROL 15` holds that.
+  **THE RULE WAS CHOSEN BY MEASUREMENT ACROSS EVERY REAL ROW, FROM THREE CANDIDATES,
+  AND THE OTHER TWO ARE TRAPS.** The union flags ZERO rows, so this fix required NO
+  ledger edit and surfaced no hidden bad row -- criterion 11's exception clause is
+  unused on this axis. *"Any vocabulary word anywhere in the cell"* flags THIRTEEN,
+  among them `DCD-02`, `DCD-09`, `DCD-10`, `CPS-03` and `EXAM-02`, rows Dave has
+  personally ruled on. *"The leading verdict must be bolded"* flags SEVENTY-FIVE --
+  roughly half the table -- because a bare leading verdict is long-standing convention.
+  **THE CONTROLS WERE COMMITTED BEFORE THE FIX AND WATCHED FAILING** (`D-IMPL-170`,
+  criterion 8). At `3c8908e` the module was 2 failed / 58 passed; at `5de6857` it is
+  60 passed. Both runs are in the SUMMARY verbatim.
+  **A SECOND CONTROL WAS ADDED THAT `CONTROL 19` CANNOT SUBSTITUTE FOR.**
+  `test_the_two_one_verdict_gates_read_the_same_predicate` asserts BY SOURCE that both
+  gates call `cell_verdicts` and neither reads `BOLDED_RUN` itself. Two divergent but
+  currently-equivalent copies of the union rule satisfy `CONTROL 19` on the day they
+  land; sabotage 3 built exactly that and only this control went red.
+  **KNOWN RESIDUAL `R-alpha`, STATED OPEN RATHER THAN CLOSED.** `Complete -- later
+  Partial (...)` with BOTH verdicts unbolded is still invisible to every reader in the
+  module including this fix. It is a WIDER shape than criteria 3 and 4 name, and every
+  stronger predicate measured flags rows already ruled on. Recorded in the SUMMARY.
+  `VAC-02` is discharged mechanically; its ledger row stays `Pending` BY DESIGN until
+  plan `21.1-09` writes verdicts, so no `requirements.mark-complete` was run -- ticking
+  the checkbox against a `Pending` table cell reddens `channel_disagreements` on the
+  spot. Module 51 -> 58 -> 60 tests; `gate-tools` leg 2 212 -> 214 with no `Makefile`
+  edit; `tools.lints --all` exit 0; the pinned-base fence over `src/ runtime/ examples/
+  public/ tests/ pyproject.toml tools/lints/citations.py` EMPTY on every path; the
+  `D-21` count sweep exits 1 on the module. `D-15` honoured: STATE.md and ROADMAP.md
+  backed up outside the tree, hand-edited, diffed; no `state.*` or `roadmap.*` writer
+  invoked. `RETIREMENT-COUPLINGS.md` regenerated LAST after every `.planning/` write.
   2026-08-22 -- **PHASE 21.1 WAVE 1 LANDED (`21.1-01`, three task commits `1241ccd`,
   `58465f7`, `389fbf4`).** `RR-1` is closed: `fabric_diff` quantifies its pathspec
   refusal PER MEMBER and NAMES the offending member instead of reporting the tuple.
