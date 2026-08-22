@@ -306,9 +306,9 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/HANDOFF-2026-08-15.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/HANDOFF-2026-08-17.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/PROJECT.md` | 1 | the phase's own planning tree — not shipped, not published |
-| `.planning/REQUIREMENTS.md` | 15 | the phase's own planning tree — not shipped, not published |
-| `.planning/ROADMAP.md` | 14 | the phase's own planning tree — not shipped, not published |
-| `.planning/STATE.md` | 6 | the phase's own planning tree — not shipped, not published |
+| `.planning/REQUIREMENTS.md` | 99 | the phase's own planning tree — not shipped, not published |
+| `.planning/ROADMAP.md` | 15 | the phase's own planning tree — not shipped, not published |
+| `.planning/STATE.md` | 10 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/16-config-consolidation.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/2026-08-14-property-not-shape-gating.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/milestones/v0.1-ROADMAP.md` | 6 | the phase's own planning tree — not shipped, not published |
@@ -633,6 +633,15 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-RESEARCH.md` | 17 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-REVIEW.md` | 10 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-VALIDATION.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-02-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-03-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-03-SUMMARY.md` | 9 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-04-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-04-SUMMARY.md` | 6 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-CLOSE-REVIEWS.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-DOCS-16-SPLIT.md` | 35 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-FINDINGS.md` | 10 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-RESEARCH.md` | 7 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 58 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |

@@ -1,0 +1,23 @@
+c51406be1170259336e8799f5d4c69b2e39d4c8a
+# The Phase 21 diff base. Read by `phase_base_commit()` in
+# `tools/docs_tests/test_requirement_ledger.py`, which plan `21-01` lands and
+# plan `21-06` re-asserts at the phase close. Four assertions are built on it:
+#
+#   git diff --stat $(head -1 <this file>)..HEAD -- src/ runtime/
+#   git diff --stat $(head -1 <this file>)..HEAD -- <the D-11 scope fence>
+#   git diff --stat $(head -1 <this file>)..HEAD -- <the 11 *-VERIFICATION.md>
+#   git diff --stat $(head -1 <this file>)..HEAD -- tools/lints/citations.py
+#
+# Each must print nothing — criterion 12 (untouched fabric), D-11 (the scope
+# fence), D-13/D-20 (no `human_needed` item is discharged by an executor), and
+# D-07 (the citation lint is named, not fixed).
+#
+# Pinned here, in the phase's FIRST plan, rather than resolved at close time
+# from a branch name, because a base that does not resolve makes an "is empty"
+# assertion vacuous rather than failing it. The SHA is a full 40 hex
+# characters and is validated by `git rev-parse --verify <sha>^{commit}`; a
+# short or annotated value is one rename away from resolving to something else.
+#
+# It is the commit AFTER the `docs` job's `fetch-depth: 0` fix, deliberately:
+# the workflow edit is therefore already in the base and no untouched-tree
+# assertion ever has to see it.

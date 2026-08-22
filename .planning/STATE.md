@@ -3,8 +3,568 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-21T23:20:00.000Z"
+last_updated: "2026-08-22T18:00:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21 IS CLOSED. `D-GATE-21` IS APPROVED BY DAVE AND LOGGED IN
+  `docs/DECISIONS.md`, AND `phase-21` IS MERGED TO `main`.** Dave's words on the
+  result: *"Phase 21 did what an audit phase is for: it made the ledger match the
+  tree, found the checks that could not fail, fixed them in-phase, and refused to
+  invent work or paper over gaps. Two-thirds of the 'outstanding' debt was already
+  shipped and never ticked."*
+  **ALL FOURTEEN SUCCESS CRITERIA MET.** Criterion 14 is the gate entry itself, and
+  `RECON-09` was amended `Partial` -> `Complete` in BOTH channels only AFTER the
+  entry existed -- the one conditional ledger edit `21-07` was permitted, and the
+  difference between a verdict and a hope. **THE OWN-TEN CENSUS IS NOW 9 `Complete`
+  / 1 `Partial`**; `RECON-10` stays `Partial` DELIBERATELY -- `D-IMPL-177` settles
+  the `All **42**` counter but the row's verdict is taken against its own text as
+  that text stood while the phase ran, and closing it is a future phase's business.
+  **DAVE RULED THREE TIMES AND ALL THREE ARE LOGGED.** `D-IMPL-175` accepts the
+  eighteen-row Phase 16 split AS WRITTEN -- ten `Complete`, five `Partial`, three
+  `Not built`, zero wholly `Orphaned` -- and holds `DOCS-18` limb 1 CLOSED under
+  `D-IMPL-96`: *"Do not re-open."* `D-IMPL-176` keeps ALL FIVE `Not built` rows on
+  the work list (*"Do not drop any in this gate"*), sequences the knot -- `DOCS-15`
+  FIRST, then replacements before removals, then the retirement pair -- keeps the
+  `00`-`08` half of `D-27` as Dave's alone with the quarantine standing, rules the
+  published-pages limb across `DOCS-12`/`13`/`14`/`15` **ONE documentation
+  workstream and not four**, and contains **A NEW RULING NOBODY HAD LOGGED: `s3-`
+  IS NOT A REQUIRED NAMING SCHEME.** *"Phase 16 is not resumable. Re-derive the
+  demonstration against today's surface under whatever directory name fits; the
+  obligation is the content, not the old section label."* `EXAM-02` and `DOCS-14`
+  keep their `Not built` verdicts; a future phase discharging them is not obliged
+  to build under an `s3-` directory. `D-IMPL-177` settles the `All **42**` counter:
+  *"v0.2 requirements"* for that ROADMAP sentence is the milestone-definition set
+  plus what inserted phases minted through 15.1 -- **the 42 the breakdown already
+  enumerates, NOT the 143-row table.** The number is UNCHANGED; the DESCRIPTIVE
+  clause is corrected in one line and the wave-5 unsettleable marker is removed,
+  because it is now settled. `D-19` was right to report rather than guess.
+  **THREE BLOCKING FINDINGS WERE FOUND AT CLOSE AND ALL THREE ARE FIXED IN-PHASE,
+  EACH WITH A STANDING CONTROL WATCHED GO RED**, and TWO OF THE THREE WERE FOUND
+  INDEPENDENTLY BY TWO PANEL REVIEWERS. `B-1`: a misspelled pathspec and a clean
+  tree are the same string -- `git diff -- scr/` exits 0 and prints nothing -- and
+  CONTROL A and CONTROL 13 could not see it because BOTH diff `CHANGED_TREE`,
+  never the constant they vouch for. Proven both ways: `TESTS_TREE -> tests-typo/`
+  is **45 passed, all green** against the wave-6 module and **2 failed** against the
+  fix. `B-2`: no standing check required a verdicted row to cite ANYTHING -- an
+  evidence-free `**Complete**` returned `[]` from every checker in the module, which
+  is how `DCD-02` survived five waves. `B-3`: the `DOCS-06`/`DOCS-08` unguarded-`ci`
+  gap reached the ledger cells and one SUMMARY and never `21-FINDINGS.md`; RECORDED,
+  not closed (`D-11`). **THREE FINDINGS REJECTED WITH MEASURED EVIDENCE AND RECORDED
+  AS REJECTED; SEVEN ADVISORIES CARRIED**, Dave ruling no action at gate on all of
+  them -- `A-1` (a `Pending` staleness policy), `A-5` (79 pre-existing uncited
+  Completes outside the working set), `A-6`/`A-8`, `A-7` (the CPS third channel).
+  **`make ci` EXIT 0 ON ALL SIX LEGS AT THE MERGE COMMIT:** `lint` 0, `typecheck` 0
+  (211 files), `test` 0 (**4105 passed / 118 skipped** -- byte-for-byte the wave-1
+  baseline, the mechanical proof `D-05` held), `gate-tools` 0 (406 + **205**, up
+  from 406 + 154 at the phase's start), `examples` 0, `docs-strict` 0. The ledger
+  module is **51** tests. Fence, `tests/`, the eleven UAT records and
+  `tools/lints/citations.py` all diff-empty against the pinned base `c51406b`.
+  **NO GSD STATE OR ROADMAP WRITER WAS INVOKED** (`D-15`); both files were backed up
+  outside the tree, hand-edited and diffed, the ROADMAP diff is exactly THREE hunks
+  (the `21-07` checkbox, the progress row, the Coverage block), no Success-Criteria
+  line appears in it, and `roadmap.get-phase 21 --raw` re-parses to **14** criteria
+  AFTER the edit. **THE `progress:` BLOCK BELOW IS STILL DELIBERATELY UNTOUCHED** --
+  `21-CONTEXT.md` deferred it explicitly as a GSD tooling limitation (the plan
+  counter cannot see that Phase 16 was RETIRED rather than executed), `D-19` names
+  three counters and none of them is this one, and Dave's gate authorization does
+  not reach it. Guessing it is what `D-IMPL-174` forbids.
+  **WHAT THIS GATE DID NOT DO, STATED RATHER THAN ABSORBED:** the 79 uncited
+  Complete-family rows outside the working set, the five `Not built` rows, `DOCS-18`
+  limb 1, `RECON-10`'s limb, and the 27 `human_needed` items are all still owed.
+  **NEXT: v0.2's remaining documentation debt.** `D-IMPL-176`'s one-workstream
+  ruling and its `DOCS-15`-first ordering are the entry point.
+  PRIOR CONTEXT FOLLOWS.
+  2026-08-22 -- **THE SS3.1 CLOSE PANEL AND THE SINGLE-AGENT REVIEW HAVE BOTH RUN
+  AGAINST THE SHIPPED ARTIFACTS. `21-07` TASK 1 IS LANDED AT `4755d10`. THE PHASE
+  IS AT THE GATE AND IS NOT CLOSED: `D-GATE-21` DOES NOT EXIST AND ONLY DAVE CAN
+  CREATE IT.**
+  Three reviewers, source INLINED rather than referenced by path (182 KB: the whole
+  check module, all 143 traceability rows with real line numbers, the whole of
+  `21-FINDINGS.md`). **Codex genuinely reviewed this time** -- every symbol and line
+  it cited resolves -- which is what inlining buys on a host where its sandbox fails
+  silently. Claude was NOT invoked: it is the executing model (SS3.1 independence).
+  **THREE BLOCKING FINDINGS, ALL FIXED IN-PHASE, EACH WITH A STANDING CONTROL
+  WATCHED GO RED.** Two of the three were found INDEPENDENTLY BY TWO REVIEWERS, and
+  both are this project's defect class inside this phase's own machinery.
+  **B-1 -- A MISSPELLED PATHSPEC AND A CLEAN TREE ARE THE SAME STRING.**
+  `git diff --stat <base>..HEAD -- scr/` exits 0 and prints nothing, so a one-key
+  typo in `FABRIC`, `FENCE`, `UAT_RECORDS`, `PINNED_FILES` or `TESTS_TREE` made its
+  assertion vacuous -- and CONTROL A and CONTROL 13 could not see it because BOTH
+  diff `CHANGED_TREE`, never the constant they vouch for. `CONTROL 13`'s name is
+  *`a_changed_tests_tree_would_be_detected`* and it never mentions `tests/`.
+  MEASURED BOTH WAYS: `TESTS_TREE -> tests-typo/` against the WAVE-6 module is
+  **45 passed, all green**; against the fixed module it is **2 failed**, one of them
+  criterion 6's own assertion. Fixed by a fourth refusal in `fabric_diff` via
+  `tracked_under`, with CONTROL 16 on four NEAR-MISS spellings and a positive twin.
+  **B-2 -- A VERDICT RESTING ON NO CITATION AT ALL PASSED EVERY GATE.** `RECON-02`
+  claims criterion 3 `Complete`; the four tests it cites enforce a DIFFERENT
+  proposition -- *given* a citation it resolves, plus ONE GLOBAL floor that some
+  citation exists somewhere. A row doctored to `**Complete** -- asserted without
+  evidence` returned `[]` from `refuse_unresolvable`, `vocabulary_offenders`,
+  `unverdicted` and `channel_disagreements`. **THAT IS HOW `DCD-02` SURVIVED FIVE
+  WAVES**, and wave 6 found it only by running the predicate BY HAND. Fixed by
+  `uncited_verdicts` + CONTROL 17 (green-before/red-after on `HARD-02`) + CONTROL
+  17b (the SAME cell must PASS as `Not built` and FAIL as `Complete`, so the rule
+  is not red-on-everything and `D-10` survives). ROSTER-SCOPED deliberately:
+  **79 rows outside the 54 carry a Complete-family verdict and no citation**, all
+  `D-19` carve-out, and a ledger-wide form would be red on landing for rows `D-11`
+  forbids touching. All 64 rows this phase verdicted already cite; the gate is
+  green on landing and retrofits no standard the phase failed.
+  **B-3 -- A GAP NAMED IN A HAND-OFF NEVER REACHED THE DOCUMENT DAVE RULES FROM.**
+  Plan `21-03` handed `21-05` two named gaps. The second reached `21-FINDINGS.md`;
+  the first -- `DOCS-06`/`DOCS-08`'s unguarded `ci`-composition limb, with a third
+  instance in `CLNT-16` -- reached the ledger CELLS and one SUMMARY and nothing
+  else. That is `D-IMPL-170`'s prohibition exactly. RECORDED in SS5 as observation
+  5, NOT closed -- closing it means a test that reads the `Makefile`, which is
+  building (`D-11`).
+  **THREE FINDINGS REJECTED AND RECORDED AS REJECTED.** (1) Codex: *"the module
+  never verifies a cited symbol"* -- FALSE at the repo level; `.planning/
+  REQUIREMENTS.md` is in the lint's `GATED_TREES` with no exemption and
+  `check_source` returns `cite03-node-id` on a missing symbol, measured. (2) Gemini:
+  *"`fabric_diff` is blind to the working tree"* -- true, documented in the function
+  itself, known since wave 1, and not a defect: the claim is about what the phase
+  COMMITTED. (3) Gemini: *"the completeness gate is blind to new `Pending` rows"* --
+  the mechanism reproduces, but it is INTENDED and documented; a gate refusing any
+  `Pending` would be red the moment the next phase is planned. Its adjacent
+  observation is carried as advisory A-1, a ruling for Dave.
+  **SEVEN ADVISORIES CARRIED, TWO OF THEM FOUND BY THE SINGLE-AGENT REVIEW ALONE**
+  -- `_table_line` is non-unique for all fourteen `CPS-` rows because the CPS-lane
+  evidence table is a THIRD status channel no gate reads (A-7), and this phase
+  introduced **28 new uppercase `**COMPLETE**` spellings** into the checkbox channel,
+  8 -> 36, none of them in the table the vocabulary gate reads (A-8).
+  **THE LEDGER DAVE APPROVES IS THE LEDGER THE PANEL READ.** `.planning/
+  REQUIREMENTS.md` is BYTE-IDENTICAL to `773775a`; this plan added no row and
+  changed no verdict. 143 rows, 54 + 10 verdicted, zero `Pending`.
+  **GATES, EVERY LEG RUN SEPARATELY AND READ IN FULL:** `lint` 0, `typecheck` 0
+  (211 files), `test` 0 (**4105 passed / 118 skipped**, 556s -- BYTE-FOR-BYTE the
+  wave-1..6 baseline, which is the mechanical proof `D-05` held), `gate-tools` 0
+  (406 + **205**, was 406 + 199), `examples` 0 (three legs, one address), and
+  `docs-strict` 0. Ledger module **51** tests, was 45. Fence, `tests/`, the eleven
+  UAT records and
+  `tools/lints/citations.py` all diff-empty against the pinned base.
+  **TWO THINGS DAVE MUST RULE ON THAT NO EXECUTOR CAN, UNCHANGED:** the `All **42**`
+  counter's provenance, and the four-row knot on the work list. Plus, now, the
+  eighteen-row Phase 16 split and the eight advisories.
+  **NO `D-GATE-21`, NO ROADMAP FLIP, NO MERGE, NO `RECON-09` AMENDMENT.** SS3.1 step
+  3: the review is necessary and NEVER sufficient.
+  PRIOR CONTEXT FOLLOWS.
+  2026-08-22 -- **PHASE 21 EXECUTION IS COMPLETE ON `phase-21`. `21-06` IS LANDED.**
+  The phase does NOT close here: `21-07` is the SS3.1 close panel, the single-agent
+  review and `D-GATE-21`, and Dave's ruling is the gate.
+  **ALL 54 ROWS OF THE FROZEN WORKING SET CARRY A VERDICT**, counted by a STRICT parse
+  and by membership against the Complete family rather than a string inequality:
+  **38 `Complete`, 2 `Complete as ruled`, 9 `Partial`, 5 `Not built`, 0 `Orphaned`.**
+  **THE PHASE'S OWN TEN `RECON-` ROWS CARRY VERDICTS TOO, AND THEY WERE WRITTEN BEFORE
+  THE CLOSE PANEL** rather than inside the gate checkpoint -- so the ledger Dave approves
+  and the ledger the panel reads are the SAME ledger. Eight `Complete`; two `Partial`,
+  each naming its outstanding limb. `RECON-09` (close hygiene) cannot read `Complete`
+  before `D-GATE-21` exists. `RECON-10` (the counters) is `Partial` because its own text
+  says CORRECTED and one of its three was reported instead. Wave 5's SUMMARY frontmatter
+  claimed `RECON-10` complete; the ledger verdict is against the row's text and says
+  otherwise, deliberately. **ZERO `Pending` REMAINS ANYWHERE IN THE LEDGER.**
+  The traceability table holds **143** rows -- 133 at the pinned base plus this phase's
+  own ten -- a figure REPORTED from the strict parse, carried by no standing check
+  (`D-21`).
+  **THE `D-12` SPLIT IS REPORTED AND STILL UNRULED.** `21-DOCS-16-SPLIT.md` reports
+  Phase 16's eighteen rows as ten already-satisfied, five split, three still owed and
+  ZERO wholly orphaned, with one orphaned LIMB (`DOCS-18` limb 1, revoked by
+  `D-IMPL-96`). All eighteen are unflipped, undropped, none retired and none built.
+  **THE WORK LIST IS FIVE `Not built` ROWS IN TWO GROUPS AND FOUR OF THEM ARE ONE KNOT**
+  -- `DOCS-17`, `CLNT-17`, `DOCS-14`, `EXAM-02`; `DOCS-15` stands nearly alone. Nothing
+  on it was built (`D-11`), and the empty pinned-base fence is the mechanical proof.
+  **ALL 27 `human_needed` ITEMS ACROSS 11 RECORDS** are named and quoted verbatim in
+  `21-FINDINGS.md` SS3 and shown untouched by a diff over all eleven paths. `gsd-sdk
+  query audit-uat` reports 24 across 9 because it filters on frontmatter `status:`;
+  named, not fixed (`D-20`).
+  **THE THREE COUNTERS, WITH THEIR OLD VALUES.** `.planning/REQUIREMENTS.md`'s
+  `Coverage: 94/94` -> `143/143`, running totals extended. `.planning/ROADMAP.md`'s
+  Phase 21 entry `52` -> `54` at three sites plus a lane list that did not sum to its own
+  count. `.planning/ROADMAP.md` SSCoverage's `All **42**` REPORTED, NOT CORRECTED under
+  `D-19`(a) -- it needs a ruling, and a marker at the site names it.
+  **THE COMPLETENESS GATE IS NOW STANDING**, in `Check C` at the foot of
+  `tools/docs_tests/test_requirement_ledger.py`: the working-set roster is re-derived
+  from the strict parse at the pinned base and compared ID FOR ID (never by length --
+  `D-21`), every roster row carries exactly one verdict, the phase's own roster is held
+  to the same gate, and `tests/` is byte-identical to the base (`D-05`). The module is
+  **45 tests**, up from 35; `gate-tools` is **406 + 199**, up from 406 + 189.
+  **CONTROLS 10, 12, 13 AND 14 LANDED WITH IT. CONTROL 11 WAS NEITHER RE-ADDED NOR
+  RENUMBERED** -- it shipped in wave 1 with the gate it falsifies. **CONTROL 15 WAS
+  ADDED BECAUSE A SABOTAGE THIS PLAN SPECIFIED REPORTED GREEN**, and the reason was
+  MEASURED rather than assumed: `doubled_verdicts` never calls `verdict_token`, and
+  across all 143 cells the first bolded run equals the leading token, so the mutation
+  was invisible to the entire module. CONTROL 15 makes it visible and goes red under it.
+  That is the wave-4 lesson arriving inside this plan's own machinery.
+  **ONE ROW WAS FOUND SHORT OF CRITERION 3 AND REPAIRED:** `DCD-02`'s status cell cited
+  two plan numbers and no file. It read `Partial` at the pinned base, so every wave
+  accepted it as already-verdicted and none re-read it. It now carries the four
+  full-path symbol citations its own checkbox twin has carried since Phase 15.6.
+  **`src/`, `runtime/` AND `tests/` ARE ALL DIFF-EMPTY** against the base pinned in
+  wave 1, as are the wider `D-11` fence and `tools/lints/citations.py`.
+  **NO GSD STATE OR ROADMAP WRITER WAS INVOKED** (`D-15`). Both files were backed up
+  outside the tree, hand-edited, and diffed. The `progress:` block below stays
+  deliberately untouched and byte-identical, for the reason wave 5 recorded.
+  **THE PHASE IS AWAITING THE SS3.1 CLOSE PANEL AND `D-GATE-21`. IT IS NOT COMPLETE.**
+  PRIOR CONTEXT FOLLOWS.
+  2026-08-22 -- **PHASE 21 WAVE 5 IS LANDED. `21-05` IS COMPLETE, ON `phase-21`.**
+  Two task commits `eedeefb` and `587ff78` plus the SUMMARY commit.
+  **`21-FINDINGS.md` IS THE ONE DOCUMENT DAVE RULES FROM.** Five sections and nothing
+  else: what the audit found, the work list, the verification debt, the counter
+  corrections, and four observations that are adjacent and not this phase's to act on.
+  **THE CENSUS ACROSS THE 54, BY STRICT PARSE AT WRITING TIME: 38 `Complete`, 2
+  `Complete as ruled`, 9 `Partial`, 5 `Not built`, 0 `Orphaned`.** Two-thirds of the
+  ledger's outstanding debt was work that had already shipped and was never ticked.
+  Table row count 143 -- REPORTED, not carried by any check (`D-21`).
+  **THE WORK LIST IS FIVE ROWS IN TWO GROUPS, AND FOUR OF THEM ARE ONE KNOT.**
+  `DOCS-17`, `CLNT-17`, `DOCS-14` and `EXAM-02` cannot be sequenced apart: the
+  replacements have to exist before the condemned trees can go, and the condemned trees
+  are where the replacements' subject matter currently lives. Two questions inside that
+  knot are Dave's alone -- the `00`-`08` half of `D-27`, and whether a Section-3
+  replacement keeps the `s3-` naming at all. `DOCS-15` stands nearly alone and is the
+  cheapest with the highest adoption leverage. Nothing on the list was built (`D-11`).
+  **ALL 27 `human_needed` ITEMS ACROSS 11 RECORDS ARE NAMED, QUOTED VERBATIM AND SHOWN
+  UNTOUCHED MECHANICALLY.** The roster was re-derived by parsing every
+  `.planning/phases/*/[0-9]*-VERIFICATION.md` for a `human_verification:` block -- 16
+  files match the glob, 11 carry the block -- and it matches `UAT_RECORDS` path for
+  path. **THE 24-VS-27 DELTA AND ITS CAUSE ARE STATED, NOT SILENTLY DROPPED:**
+  `gsd-sdk query audit-uat` filters on frontmatter `status:` and loses Phase 12
+  (`status: passed`, 1 item, whose own prose reads `human_needed`) and Phase 18
+  (`status: gaps_found`, 2 items). That is this phase's subject a THIRD time, in a third
+  tool. `audit-uat`'s filter is NAMED, NOT FIXED (`D-20`, on `D-07`'s reasoning).
+  Phase 15.1's two items were read from the SOURCE, not from `audit-uat --raw`, which
+  returns the literal `">-"` for them -- a folded-scalar artefact in the query.
+  **TWO COUNTERS CORRECTED, ONE REPORTED RATHER THAN GUESSED.**
+  `.planning/REQUIREMENTS.md`'s `Coverage: 94/94` -> `143/143` with the running totals
+  extended (101 / 123 / 133 / 143, each re-derived and 133 independently matching the
+  pinned base). `.planning/ROADMAP.md`'s Phase 21 entry `52` -> `54` at three sites,
+  and its lane list gains Phase 15.5 and Phase 15.6 so it sums to the count it states.
+  **THE ROADMAP'S `All **42**` IS REPORTED, NOT CORRECTED** under `D-19` constraint
+  (a): the sentence claims to be the traceability table's row count (143, never 42)
+  while the two paragraphs beneath it enumerate a defined subset that sums to exactly 42
+  and say outright that Phase 16's minting onward is not counted. The parse cannot
+  settle which it means; correcting it needs a RULING -- is "v0.2 requirements" the
+  whole table, or the milestone-definition set plus what inserted phases minted through
+  15.1? A marker at the site says so and points at `21-FINDINGS.md` SS4.
+  **EVERY COUNTER'S LOCATION WAS RE-RESOLVED AT EXECUTION TIME AND ONE HAD MOVED 38
+  LINES.** `D-19` cited the `Coverage:` counter at `.planning/REQUIREMENTS.md:423`; it
+  is at **461** today. The ROADMAP counter was 1946 when `D-19` was written and is
+  **1959** now. The phase's own ruling carried a stale line citation while the phase was
+  being executed -- the citation-drift hazard demonstrated on the phase that exists to
+  name it. Locate by `grep`, never by a line number written in a plan.
+  **NO GSD STATE OR ROADMAP WRITER WAS INVOKED AT ANY POINT IN THIS PLAN** (`D-15`,
+  `D-IMPL-154`/`155`). Both files were backed up outside the tree, hand-edited, and
+  `git diff` showed the intended replacement and nothing else. `roadmap.get-phase 21
+  --raw` re-parsed to **14** criteria AFTER the hand-edit, one per unwrapped line.
+  **THE `progress:` BLOCK BELOW IS STILL DELIBERATELY NOT TOUCHED.** Wave 1's
+  `stopped_at` note handed it to `21-05`; that is wrong and is corrected here.
+  `21-CONTEXT.md` DEFERRED it explicitly -- it is a GSD tooling limitation (the plan
+  counter cannot see that Phase 16 was retired rather than executed), not a ledger row,
+  and `D-19` names three counters, none of them this one. Guessing it is what
+  `D-IMPL-174` forbids.
+  **THE STALE `52` IN THE OLDER STATE ENTRIES BELOW WAS LEFT ALONE ON PURPOSE.** They
+  are dated records of what was believed at the time, the same discipline
+  `docs/DECISIONS.md` follows; the correction lives in this entry, not by rewriting
+  history. The one at line 400 already carries `THE COUNT IS 54, NOT 52`.
+  **NO TEST WAS WRITTEN AND NO NEW GUARD SHIPPED** (`D-05`). `gate-tools` is 406 + 189,
+  unmoved from waves 2, 3 and 4. Nothing new to sabotage; the assertions this plan leans
+  on shipped with their controls in waves 1 and 2, and CONTROL A -- which proves the
+  eleven-record untouched-diff is not vacuous -- is a STANDING test that ran green here.
+  **GATES:** `--citations` 0, `lint` 0, `typecheck` 0 (211 files), `gate-tools` 0
+  (406 + 189), ledger module 35 passed, sweep + ledger 68 passed, `refuse_unresolvable`
+  `[]`, channel disagreements `[]`, vocabulary offenders `[]`, doubled verdicts `[]`,
+  identical id set in both channels across all 143 ids. Fabric, fence, the eleven UAT
+  records and `tools/lints/citations.py` all diff-empty against the base.
+  **NEXT: `21-06` -- the ten `RECON-` verdicts before the close panel, the completeness
+  assertion, the position files and `make ci`.**
+  PRIOR CONTEXT FOLLOWS.
+  2026-08-22 -- **PHASE 21 WAVE 4 IS LANDED. `21-04` IS COMPLETE, ON `phase-21`.**
+  Three task commits `624ab9f`, `6fb22fd`, `b00d529` plus the SUMMARY commit.
+  **ALL FIFTY-FOUR ROWS NOW CARRY A VERDICT IN BOTH CHANNELS.** The only rows still
+  reading `Pending` anywhere in the ledger are this phase's own ten `RECON-` rows,
+  which are `21-06`'s. Nothing was flipped without evidence and no id was dropped:
+  the strict parse reports an identical id set in both channels with zero
+  disagreements, and every frozen roster is intact.
+  **THE SPLIT IS `21-DOCS-16-SPLIT.md`: TEN `Complete`, FIVE `Partial`, THREE `Not
+  built`, ZERO WHOLLY `Orphaned`** -- with ONE orphaned LIMB, inside `DOCS-18`.
+  **THE THIN SIDE-C PILE IS THE FINDING, NOT A FAILURE OF THE AUDIT.** `RETIRED.md`
+  retires the APPROACH and not the NEED, so an obligation about a NEED survives the
+  rejection of the approach that was to satisfy it. What actually died is `DOCS-18`'s
+  no-fabric-change assertion, and it died because `D-IMPL-96` REVOKED criterion 10 in
+  Dave's own words -- *"it has been used out of context"* -- taking `D-13`'s
+  enumerated exception and `gate_16.py` with it. `tools/gates/` holds no module. That
+  limb is named ORPHANED in the cell so a later reader does not open it as work.
+  **EIGHT ROWS HAD REAL WORK THE LEDGER NEVER RECORDED.** `DOCS-19`..`21` and
+  `DOCS-23`..`25` shipped in Phase 16's OWN post-stop plans (`16-22`..`16-31`), and
+  `DOCS-13`'s three harness legs shipped in PHASE 20 -- gated harder than the row
+  asked, because `ccf` is REFUSED BY NAME for that root in a branch checked before
+  the permitted-set test, so widening the set cannot admit it. `RETIRED.md`'s
+  "executed 6 of 21" is true of the ORIGINAL plan set as of 2026-08-17; the ROADMAP's
+  16/16 counts the later ten. Both are right about different sets.
+  **A SABOTAGE THAT REPORTED GREEN AND SHOULD NOT HAVE -- THE ONE FINDING TO CARRY.**
+  `D-IMPL-94`'s anchored citation was re-aimed from `docs/DECISIONS.md:352` to `:356`
+  and `--citations` stayed at **exit 0**. The reason: `D-IMPL-96`, which lives at
+  `:356`, CROSS-CITES `D-IMPL-94` in its own body, so `_anchor_verdict` still returns
+  `True`. Re-aimed at `:354` -- a line that does not carry the token -- `cite02-anchor`
+  went **RED in both channels**, then restored byte-identical. **An anchored line
+  citation into `docs/DECISIONS.md` is weaker than it looks, because entries
+  cross-cite each other's ids, and a control aimed at a cross-citing neighbour proves
+  nothing.** `21-03`'s sabotage happened to land on a line that did not carry its
+  token; had it landed on one that did, it would have reported the citation checked
+  when the mutation was simply invisible. Later waves: pick the sabotage target by
+  running `_anchor_verdict` and requiring `False`, not by assuming a neighbour differs.
+  **`DOCS-17` IS BLOCKED ON DAVE, NOT ON AN EXECUTOR.** All ten condemned directories
+  are in the tree, and that is a RULING rather than neglect: `D-IMPL-145` limb 2
+  quarantined `examples/00`-`08` deliberately and plan `17-08` returned the `00`-`08`
+  half of `D-27` undecided. Re-measured here rather than carried from the ruling:
+  **111 references across 15 published pages, 102 of them snippet includes**, and zero
+  published references to the `s1-*` trees. The figures have not moved. Coupled to
+  `CLNT-17`, which is `Not built` on the other half of the same disposition.
+  **A ROW WAS STATED IN A THIRD PLACE AGAIN, AND IT WAS A WAVE-3 LEFTOVER.** The
+  minting prose still read *"DOCS-01..DOCS-06 stay Pending against Phase 14"* after
+  `21-03` verdicted all six. Amended, with the amendment visible in the sentence, and
+  the load-bearing claim (the PHASE column, not the STATUS column) preserved. Second
+  occurrence of trap 7a in this phase. **Grep the whole ledger for a row's id before
+  declaring it done.**
+  **THE CITATION CHECKER CAUGHT MY OWN PROSE.** A `DOCS-20` clause naming the citation
+  FORM was extracted as a BARE BASENAME citation and `refuse_unresolvable` refused it.
+  Rephrased rather than exempted -- naming a form is not naming a file, and the
+  checker cannot tell the difference, which is the right way round.
+  **THREE SIDE-B ROWS GO ON `21-05`'S WORK LIST** with their closing costs written in
+  `21-04-SUMMARY.md` so they need not be re-derived: `DOCS-14` (Section 3, coupled to
+  `EXAM-02`), `DOCS-15` (the adoption-argument page) and `DOCS-17` (the retirement,
+  coupled to `CLNT-17` and blocked on Dave). Plus the split limbs of `DOCS-10`, `-11`,
+  `-12`, `-13` and `-18` limb 3. **The published-pages limb is the common thread**
+  across `DOCS-12`..`-15`: four rows are short by the same thing.
+  **NO TEST WAS WRITTEN, ANYWHERE, FOR ANY PURPOSE** (`D-05`). `gate-tools` is 406 +
+  189, UNMOVED from `21-02` and `21-03`. This plan's three task commits touch exactly
+  three paths: `.planning/REQUIREMENTS.md`, `21-DOCS-16-SPLIT.md` and the generated
+  coupling inventory.
+  **GATES:** `--citations` 0, `lint` 0, `typecheck` 0 (211 files), `test` 0 (4105
+  passed / 118 skipped, 10m39s -- identical to waves 1, 2 and 3), `gate-tools` 0
+  (406 + 189), ledger module 35 passed, sweep + ledger 68 passed,
+  `refuse_unresolvable` `[]` over 112 citation tokens, channel disagreements `[]`,
+  vocabulary offenders `[]`, doubled verdicts `[]`. Fabric, fence, the eleven UAT
+  records and `tools/lints/citations.py` all diff-empty against the base. All nine of
+  `examples/00-quickstart` through `08-e2e-demo` still present. **NEXT: `21-05` -- the
+  work list, the 27 `human_needed` items, the observations and the three counter
+  corrections.**
+  PRIOR CONTEXT FOLLOWS.
+  2026-08-22 -- **PHASE 21 WAVE 3 IS LANDED. `21-03` IS COMPLETE, ON `phase-21`.**
+  Three task commits `16b6fe2`, `1b81927`, `73bc457` plus the SUMMARY commits.
+  **THIRTY-SIX OF THE FIFTY-FOUR ROWS NOW CARRY A VERDICT IN BOTH CHANNELS.** The 14
+  added here are `HARD-01`..`03` (Phase 9), `EXAM-01`..`03` (Phase 13), `DOCS-01`..`06`
+  (Phase 14), `CPS-03` (15.5) and `DCD-02` (15.6). Zero `Pending` left in any of those
+  five lanes. The 18 still `Pending` are ALL the Phase 16 lane and are `21-04`'s.
+  **THE DOCUMENTATION LANE WAS NOT THE CITATION PROBLEM `21-02` FORECAST.** All six
+  Phase 14 rows took `D-17` ROUTE 1 -- cite the guarding test -- so route 2 was used
+  NOWHERE in that lane and route 3 nowhere either. The reason is structural and `21-04`
+  should carry it: Phase 14 shipped pages PLUS A GATE PER CLAIM (publish scan,
+  mkdocstrings strict-collection control, snippet gate, diagram bijection,
+  documented-command bijection, OpenAPI drift control, per-advisory content gates) and
+  gates are Python. Route 2 was spent where the evidence genuinely IS a ruling:
+  `HARD-01`'s six-item batch and `DOCS-06`'s logged D-10 amendment.
+  **EVERY ANCHORED LINE CITATION WAS RUN THROUGH THE SHIPPED `_anchor_verdict` BEFORE
+  IT WAS WRITTEN AND REQUIRED TO RETURN `True`, NEVER `None`.** All 14 occurrences.
+  A plain-word anchor returns `None` and the citation is UNCHECKED while looking
+  checked -- the hazard `D-17` was ruled not to be a relaxation of. Then `D-IMPL-70`
+  was deliberately re-aimed at `docs/DECISIONS.md:213` (which holds `D-IMPL-69`) and
+  `--citations` went **RED at `cite02-anchor`**, naming row, anchor and lines; restored
+  from a backup taken first.
+  **`CPS-03` IS `Complete as ruled` (`D-IMPL-173`) IN ALL THREE PLACES THE ROW IS
+  STATED -- NOT THE TWO THE PLAN NAMED.** The traceability table, the checkbox channel,
+  and the CPS-lane EVIDENCE TABLE, which still opened `Pending by design` and is not
+  parsed by `traceability_rows`, so nothing mechanical caught it or would have. Both
+  `D-IMPL-113` and `D-IMPL-121` are cited in each, with the `by design, not by
+  omission` clause intact. No seventh vocabulary word minted.
+  **`EXAM-02` IS THE PLAN'S ONE `Not built`, AND IT IS `Not built` RATHER THAN
+  `Orphaned` ON A MEASUREMENT:** `examples/s3-02-agentic-skills` is absent, no `s3-`
+  example of any number is tracked, no `example-s3-` target exists, and Phase 16 was
+  retired at `D-IMPL-152` before building the Section-3 suite -- BUT `RETIRED.md` says
+  retiring the phase retires the APPROACH not the NEED, and the Phase-13 substance
+  (`examples/01-agent-basics`, `02-skilling`, `05-workflow-hitl`, `06-decision-replay`)
+  is still tracked and still in the `examples:` aggregate. The named home is missing,
+  not the work. Work-list entry written in `21-03-SUMMARY.md` in the form `21-05`
+  needs, WITH ITS COUPLING TO `CLNT-17` STATED -- the two cannot be sequenced apart.
+  **THE THREE `EXAM` ROWS ARE JUDGED AGAINST THEIR `D-08` RE-HOMED TARGETS AND EACH
+  CELL NAMES ITS TARGET** (`T-21-16`). Judging against examples `00`-`07`, which are
+  still tracked and largely green, would have produced three `Complete`s and measured
+  the wrong thing.
+  **A NUMBER THAT HAD TO BE TAKEN TWICE, AND THE FIRST ONE WAS WRONG.** `DOCS-03`'s
+  artifact-class coverage is **21 of 27** on the RENDERED tree with `--8<--` snippet
+  includes resolved. Grepping page SOURCES gives **5 of 27** and is wrong -- the class
+  ids arrive through the included worked-example artifacts. The cell carries 21 and
+  says which count it is, so a later reader who greps `public/` and gets 5 knows they
+  hold the wrong predicate. **Any figure this phase takes over `public/` must resolve
+  includes first.**
+  **TWO NAMED GAPS FOR `21-05` THAT ARE NOT `Not built` ROWS:** (1) `DOCS-06` --
+  `docs-strict` IS a leg of `ci` and the workflow's `docs` job IS blocking, but **no
+  test in this tree reads the `ci` target's composition or the workflow**, so the
+  always-on limb is true by inspection and would not go red if a later edit dropped it;
+  same shape as the `Makefile`-citation hole already in `deferred-items.md`.
+  (2) `DOCS-03`'s six uncovered artifact classes, named in the cell.
+  **`DCD-02` WAS CONFIRMED AGAINST THE TREE AND NOT REWRITTEN** -- `KycScenario`'s
+  `debt_evidence` still ends `del view` / `return NO_DEBT_EVIDENCE`, unconditional,
+  which is `D-IMPL-119` limb 3(b)'s omission path. Not one character changed.
+  **THE CITATION LINT CAUGHT A RENAMED SYMBOL AGAIN, INSIDE THE WORK CORRECTING
+  CITATIONS** -- `cite03-node-id` on a draft `DOCS-06` citation to
+  `test_a2_the_maintainer_page_names_its_subject`. The citation was DROPPED rather than
+  repaired: A-2 is the surface-toolchain page and was never `DOCS-06`'s subject, so the
+  wrong name was downstream of wrong evidence. Second occurrence this phase.
+  **NO TEST WAS WRITTEN, ANYWHERE, FOR ANY PURPOSE** (`D-05`). `gate-tools` is 406 +
+  189, UNMOVED from `21-02` -- which is the mechanical proof. This plan's three task
+  commits touch exactly two paths: `.planning/REQUIREMENTS.md` and the generated
+  coupling inventory.
+  **GATES:** `--citations` 0, `lint` 0, `typecheck` 0 (211 files), `test` 0 (4105
+  passed / 118 skipped, 10m33s -- identical to waves 1 and 2), `gate-tools` 0
+  (406 + 189), ledger module 35 passed, sweep + ledger 68 passed,
+  `refuse_unresolvable` `[]` over 70 citation tokens, channel disagreements `[]`,
+  vocabulary offenders `[]`, doubled verdicts `[]`. Fabric, fence, the eleven UAT
+  records and `tools/lints/citations.py` all diff-empty against the base. The ten
+  `RECON-` rows are untouched. **NEXT: `21-04` -- the Phase 16 lane, 18 rows, the
+  hardest of the phase, and the one whose split Dave rules rather than the executor.**
+  PRIOR CONTEXT FOLLOWS.
+  2026-08-22 -- **PHASE 21 WAVE 2 IS LANDED. `21-02` IS COMPLETE, ON `phase-21`.**
+  Three task commits `1a7a8b6`, `e190f28`, `6fa56f4` plus the SUMMARY commit.
+  **TWENTY-TWO OF THE FIFTY-FOUR ROWS NOW CARRY A VERDICT IN BOTH CHANNELS** --
+  `CLNT-01`..`CLNT-22`, zero `Pending` left in the lane. Twenty-one `Complete`
+  (`CLNT-05` is `Complete as ruled`, against `D-IMPL-157`'s amended `-> bytes` seam)
+  and ONE `Not built`. Every citation is a full repo-relative `path.py::symbol` that
+  exists as written, and every one NAMES THE TEST that goes red on regression (`D-04`)
+  -- so a tick means "it goes red if this regresses", not "someone looked once".
+  **NO TEST WAS WRITTEN UNDER `tests/` AND NONE WAS WRITTEN ANYWHERE TO MANUFACTURE A
+  NAME FOR `D-04`** (`D-05`). Every guarding test already existed.
+  **THE ZERO-CITATION VACUITY GUARD LANDED, AND IT LANDED HONEST.** At the pinned base
+  `citations_in_status_cells` returned ZERO tokens across all 133 status cells, which is
+  why `21-01` withheld it; it went in during task 1 IMMEDIATELY AFTER the first eight
+  rows' citations, in the same commit. Relocated, never weakened. With it:
+  `test_the_scan_finds_citations_to_check` (the precondition -- carries NO count, per
+  `D-21`) and `CONTROL 5b`. Module 33 -> 35 tests, `gate-tools` leg 2 187 -> 189.
+  **THREE SABOTAGES, ALL AGAINST THE SHIPPED FUNCTION, ALL RESTORED FROM BACKUP.** The
+  limb returning `[]` turns CONTROL 5b RED and nothing else. A blinded extractor with the
+  guard intact turns 8 red. And -- the one worth keeping -- the WAVE-1 MODULE SHAPE
+  reconstructed (extractor blinded AND the limb removed) turns the precondition RED while
+  `test_every_cited_path_in_a_status_cell_resolves_as_written` stays GREEN over nothing.
+  That third run exists because the plan's stated discrimination became UNSATISFIABLE once
+  the guard shipped: the guard catches the same blindness, so both mechanisms fire. The
+  honest version is to reproduce the prior shape and show what the new test adds.
+  **`CLNT-17` IS THE PHASE'S FIRST NAMED ABSENCE, AND IT IS SPECIFIC (`D-10`):**
+  `examples/s1-00-companies-over-revenue/` and `examples/s1-01-hello-context-product/` are
+  both still tracked; `tests/examples/test_spine_separation.py` (14 functions, scoped
+  `s1-*`) and `tests/examples/test_section_one_is_agent_free.py` both still ship and still
+  enforce the shape rulings `D-25`/`D-26` suspended; `example-s1-00` and `example-s1-01`
+  are still Makefile targets; the coupling inventory still files 58 rows against `17-08`.
+  `17-08-SUMMARY.md` reads `status: blocked-at-task-3` -- DISPUTED ON A MEASUREMENT, not
+  skipped: deleting `s1-01` removes the last shipped `examples/` call site of
+  `refuse_request`, and `D-27`'s `00`-`08` half went back to Dave undecided. **NOT CLOSED
+  HERE** -- `D-11` forbids it and the fence assertion proves it was not; the work-list
+  entry is written in `21-02-SUMMARY.md` in the form `21-05` needs.
+  **A CITATION FORM THE PLAN ASKED FOR IS UNUSABLE IN THIS FILE, MEASURED.**
+  `.github/workflows/ci.yml:35` cannot be a status-cell citation: the lint's `CITATION`
+  path group refuses a LEADING DOT, so the token that matches is `github/workflows/ci.yml`
+  -- not a file in this tree -- and this phase's own `refuse_unresolvable` would refuse it,
+  correctly. A `Makefile` has no suffix and matches nothing at all (already in
+  `deferred-items.md`). So `CLNT-14` and `CLNT-16` cite the PYTHON that enforces the gate
+  and state reachability in prose. **`21-03`/`21-04` will hit this harder** -- far more of
+  the documentation lane's evidence lives in files the lint's path grammar cannot name.
+  **GATES:** `--citations` 0, `lint` 0, `typecheck` 0 (211 files), `gate-tools` 0
+  (406 + 189), `test_citation_coverage.py` 0 (the DCD-10 ceiling is unmoved -- every
+  citation written here is `::symbol`, never an unanchored line citation). Fabric, fence,
+  the eleven UAT records and `tools/lints/citations.py` all diff-empty against the base;
+  the only `tools/` write is `test_requirement_ledger.py`. The ten `RECON-` rows are
+  untouched. **NEXT: `21-03` -- the Phase 16 documentation lane, where the row claims are
+  not testable behaviour.**
+  PRIOR CONTEXT FOLLOWS.
+  2026-08-21 -- **PHASE 21 WAVE 1 IS LANDED. `21-01` IS COMPLETE, ON `phase-21`.**
+  Six commits `c51406b`..`845da98`. Nothing has a verdict yet, and that is the point:
+  this plan built the machinery that guards the audit WHILE it happens.
+  **THE `docs` JOB'S SHALLOW CHECKOUT WAS FIXED FIRST, BEFORE THE BASE WAS PINNED.** It is
+  the job that runs `pytest tools/publish_scan_tests tools/docs_tests -q`, its checkout
+  carried no `with:` block, and every pinned-base assertion this plan ships resolves a SHA
+  that is absent from a depth-1 clone -- `git` exits 128 and `fabric_diff` raises BY DESIGN.
+  Red from wave 1 for the whole phase, green locally, invisible until push. The `D-GATE-20`
+  shallow-clone defect in a different job. Base pinned AFTER the fix at `c51406b`, so no
+  untouched-tree assertion ever sees the workflow edit.
+  **THE PHASE'S OWN TEN ROWS ARE IN THE LEDGER, IN WAVE 1, `Pending` IN BOTH CHANNELS.**
+  Table 133 -> 143 rows, checkbox channel likewise, zero drift. `RECON-01`..`10` are NOT
+  members of the 54-row working set; they are verdicted in `21-06`, BEFORE the close panel.
+  Minted UNBOLDED, against the plan's action text and with its own parser requirement: the
+  plan said `**Pending**` in one place and "a bare `Pending`" in two others, and bolding ten
+  more would deepen the exact miscount this phase exists over -- `grep -c "| Pending |"`
+  already misses `CPS-03` because its cell is bolded.
+  **MEASURED WITH THE SHIPPED PARSER, NOT ESTIMATED:** 54 rows need a verdict under a
+  MEMBERSHIP test against the Complete family; 56 under the literal `!= "Complete"` reading,
+  which drags in `DCD-09` and `DCD-10` -- both already ruled on, both `[x]` in the other
+  channel. Zero citation-shaped tokens exist in any status cell today, which is why the
+  zero-CITATION guard is `21-02`'s and is RELOCATED, not weakened. Eleven
+  `human_verification` records carry 27 items; `audit-uat` says 24 across 9 because it
+  filters on frontmatter `status:` (`D-20`). The roster was re-derived by parse and agrees
+  with RESEARCH SS7 exactly.
+  **PER `D-21` NO STANDING CHECK CARRIES A ROW COUNT** -- verified with the guard the plan
+  specifies, which returns 0. That constrained the writing: the guard matches
+  `D-IMPL-172`-shaped tokens and `Makefile:138`-shaped citations as readily as
+  `EXPECTED_ROWS = 143`, so every such reference lives in a column-0 comment.
+  **ELEVEN NUMBERED CONTROLS PLUS TWO POSITIVE TWINS, EVERY MUTATION WATCHED RED against the
+  SHIPPED function** and reverted from backup. Two are worth remembering. CONTROL A did not
+  go red on its first run and the reason was not the module: `fabric_diff` compares COMMITS
+  and is blind to the working tree. The `PINNED_FILES` sabotage PASSED the first time for the
+  same reason -- the module was not yet committed -- and went red once it was. A control run
+  at the wrong moment reports the wrong thing, which is this project's defect class arriving
+  inside the machinery built to catch it.
+  **FIVE PLAN DEFECTS FOUND AND FIXED IN-FLIGHT, all recorded in `21-01-SUMMARY.md`:** the
+  future-import ordering (syntactically impossible as written); CONTROL 4's subject was
+  refused by CONTROL 3's branch, so it would have passed with the suffix rule deleted;
+  CONTROL 4b's subject matched neither citation pattern and could never have been extracted;
+  the refusal ORDER the plan enumerates makes branches 3 and 4 unreachable; and the declared
+  `citations_in_status_cells` signature cannot carry the `::` flag the suffix rule needs, so
+  a companion was added rather than the signature changed.
+  **NAMED, NOT FIXED,** in `.planning/phases/21-*/deferred-items.md`: `audit-uat`'s filter
+  (`D-20`), the citation lint's two silent-drop holes (`D-07`, now mechanically pinned), and
+  a stale `Makefile` citation to `.github/workflows/ci.yml:314` -- PRE-EXISTING, verified
+  against the base's parent, and uncatchable because a `Makefile` has no suffix the citation
+  lint scans.
+  **GATES:** `make lint` 0, `make typecheck` 0 (211 files), `make test` 0 (**4105 passed /
+  118 skipped**, 10m25s), `make gate-tools` 0 (406 + **187**, was 154), `--citations` 0.
+  Fabric, scope fence, the eleven UAT records and `tools/lints/citations.py` all diff-empty
+  against the base. **NEXT: `21-02` -- verdicts for the 22 `CLNT` rows, and the
+  zero-CITATION guard it owes.**
+  PRIOR CONTEXT FOLLOWS.
+  2026-08-21 -- **PHASE 21 IS PLANNED. SEVEN PLANS, SEVEN SERIAL WAVES, ON `phase-21`.**
+  Research -> pattern map -> plan -> THREE checker passes (10 findings -> 8 -> 5, all
+  verified against the tree before action) -> two planner revisions -> a surgical
+  advisory pass. Commits `0aa5bbd`..`637d997`. Coverage gates GREEN: `RECON-01`..`10`
+  all carried, decision coverage 21/21, all seven plans structurally valid.
+  **THE PHASE'S SUBJECT KEPT ARRIVING BEFORE THE PHASE.** Four separate count defects
+  were found and ruled during planning, every one the same shape -- a number standing in
+  for a set it never named: (1) `52` vs the strict parse's `54`, already ruled at the
+  discuss sitting; (2) GSD's UI-phase detector firing on Phase 21 because `grep -iE`
+  matched `form` inside *"in a form a reader can check"* -- treated as `--skip-ui`;
+  (3) `gsd-sdk query audit-uat` reporting `24 human_needed items across 9 files` when the
+  files carry `27 across 11`, because it FILTERS ON FRONTMATTER `status:` and drops Phase
+  12 (`status: passed`, 1 item) and Phase 18 (`status: gaps_found`, 2 items) -- criterion
+  11 AMENDED on Dave's ruling, `D-20`; (4) criterion 10 hardcoding `133 requirement ids`,
+  which the phase's OWN wave-1 mint of ten `RECON-` rows falsifies -- criterion 10 AMENDED
+  to drop the number entirely, `D-21`, whose binding consequence is that NO standing check
+  in this phase carries a hardcoded count and every fixed set is a frozen roster of NAMED
+  ids. `audit-uat`'s filter and the citation lint's ambiguous-basename hole are NAMED, NOT
+  FIXED (`D-07`, `D-20`) -- tooling repair inside an audit phase.
+  **THE CHECKER EARNED ITS KEEP TWICE OVER.** It reversed a planner judgement call that
+  would have added the phase's own ten `RECON-` rows AFTER Dave's approval, inside a
+  `checkpoint:human-verify` task -- ten rows entering the ledger carrying verdicts no
+  panel, no review and no human ever saw, which is the ledger-debt pattern this phase was
+  commissioned to end, one level up. Rows now mint in wave 1 and are verdicted in `21-06`,
+  BEFORE the close panel. It also caught `.github/workflows/ci.yml`'s `docs` job -- the one
+  that runs `tools/docs_tests` -- having NO `fetch-depth: 0`, which is the `D-GATE-20`
+  shallow-clone defect repeating in a different job; the fix lands in `21-01` task 1 before
+  the module does. And it caught the `D-21` guard against hardcoded counts being unable to
+  detect `EXPECTED_ROWS = 143` -- reproduced empirically, widened, re-verified.
+  **SEQUENCING IS THE PLAN'S SPINE:** `ci-core` must be green from wave 1, so every
+  INVARIANT check (citation refusal, channel agreement, vocabulary, one-verdict-per-cell)
+  lands in wave 1 where it is true of a partially-filled ledger, and the COMPLETENESS count
+  lands LAST in wave 6. Measured: ZERO citation-shaped tokens exist in any status cell
+  today, which is why the zero-citation vacuity guard had to move to wave 2.
+  **NEXT: `/gsd:execute-phase 21`.** The phase FINDS and RECORDS; it builds nothing.
+  Two untracked files Dave placed in `docs/` -- `CCF_SDK_DE_REQUIREMENTS.md` and
+  `Context_Product_Specification_Standard_v0-3.md` -- are for a LATER phase and were kept
+  out of every agent prompt and every commit.
+  PRIOR CONTEXT FOLLOWS.
   2026-08-21 -- **PHASE 20 IS GATED. `D-GATE-20` IS APPROVED BY DAVE AND LOGGED IN
   `docs/DECISIONS.md`, AND `phase-20` IS MERGED TO `main`.** 51 commits, `9e4bd0e`..`921e3b9`.
   All TEN Success Criteria met -- authored one-per-line BEFORE execution, which is the first
@@ -71,6 +631,134 @@ progress:
   completed_plans: 174
   percent: 93
 stopped_at: >-
+  **PHASE 21 IS CLOSED AND MERGED.** `D-GATE-21` is logged (Dave, 2026-08-22),
+  `RECON-09` reads `Complete` in both channels, the ROADMAP Phase 21 progress row
+  reads Complete with the gate date, and `phase-21` is merged to `main` with a
+  merge commit that references the gate. No force-push (`D-16`, `CLAUDE.md` SS2.2).
+  **THE THREE RULINGS ARE `D-IMPL-175`, `D-IMPL-176`, `D-IMPL-177`.** The one a
+  later reader is most likely to miss: **`s3-` is NOT a required naming scheme**
+  (`D-IMPL-176`). A future phase discharging `EXAM-02` or `DOCS-14` builds under
+  whatever directory name fits; the `Not built` verdicts' reference to a missing
+  `examples/s3-*` home is the MEASUREMENT that produced them, not a specification.
+  **THE WORK LIST SURVIVES THE GATE INTACT** -- all five rows, sequenced by Dave in
+  `21-FINDINGS.md` SS2: `DOCS-15` first, replacements before removals, the
+  retirement pair last, and the `00`-`08` half of `D-27` still his with the
+  `D-IMPL-145` quarantine standing.
+  **THE STANDING MACHINERY THE PHASE LEAVES BEHIND** is
+  `tools/docs_tests/test_requirement_ledger.py`, 51 tests, reached by `gate-tools`
+  -> `ci-core` -> `ci` with nothing else to wire. It refuses a bare, ambiguous,
+  nonexistent or directory citation; a channel disagreement; a seventh verdict word;
+  two verdicts in one cell; a roster row returned to `Pending` or deleted outright;
+  a verdicted row that cites nothing; a changed `tests/` tree; and a pathspec that
+  names no tracked subject. Seventeen numbered controls plus positive twins, every
+  one watched RED under a mutation of the SHIPPED function. **Per `D-21` no check in
+  it carries a hardcoded row count** -- the guard returns 0 matches.
+  **CARRIED, NOT CLOSED:** advisories `A-1`..`A-8` in `21-CLOSE-REVIEWS.md`; the 27
+  `human_needed` items in `21-FINDINGS.md` SS3; the `B-3` `ci`-composition guard in
+  SS5; the 79 uncited rows outside the working set.
+  PRIOR CONTEXT FOLLOWS.
+  **AT THE GATE, AWAITING DAVE.** The SS3.1 close panel and the single-agent review
+  have both run; three blocking findings are fixed in-phase with standing controls;
+  three findings are recorded as REJECTED and seven as carried advisories. Branch
+  `phase-21` at `4755d10`, tree clean apart from Dave's two untracked `docs/` files.
+  **WHAT IS DELIBERATELY NOT DONE, AND MUST NOT BE DONE WITHOUT DAVE'S RULING:**
+  the `D-GATE-21` entry in `docs/DECISIONS.md`; the ROADMAP Phase 21 progress row
+  flip to Complete; the `RECON-09` `Partial -> Complete` amendment in both channels
+  (its outstanding limb IS `D-GATE-21`); and the merge of `phase-21` to `main` with
+  a merge commit referencing the gate. `T-21-41`: closing on a green review instead
+  of his ruling is elevation of privilege, and SS3.1 step 3 says the review is
+  necessary and never sufficient.
+  **WHAT DAVE IS BEING ASKED FOR, IN ORDER:** (1) the eighteen-row Phase 16 split in
+  `21-DOCS-16-SPLIT.md` -- the ruling he deferred at the Phase 20 sitting; (2) the
+  five-row work list in `21-FINDINGS.md` SS2, including the four-row knot and the
+  `00`-`08` half of `D-27`; (3) the `All **42**` counter's provenance; (4) the eight
+  advisories in `21-CLOSE-REVIEWS.md`, of which A-1 (nothing prevents a FUTURE
+  ledger accumulating unverdicted rows the way these 54 did) and A-8 (the uppercase
+  spelling) are policy questions rather than defects.
+  **ON APPROVAL, AND ONLY THEN**, regenerate
+  `docs/surface/examples/RETIREMENT-COUPLINGS.md` as the LAST write before the merge
+  commit -- it walks `.planning/` and reddens the docs gate on every planning commit.
+  **DO NOT TOUCH THE FIVE `Not built` ROWS OR ANYTHING THEY NAME.** `D-11` holds to
+  the end of the phase.
+  **THE `progress:` COUNTERS ABOVE REMAIN DELIBERATELY UNTOUCHED**, for the reason
+  wave 5 recorded.
+  PRIOR CONTEXT FOLLOWS.
+  PHASE 21 EXECUTION IS DONE; `21-07` -- THE SS3.1 CLOSE PANEL AND `D-GATE-21` -- IS
+  NEXT. Branch `phase-21`, tree clean apart from Dave's two untracked `docs/` files.
+  Six of seven plans are complete; `21-07` is the gate checkpoint and is not complete
+  until Dave rules. **`21-07` ADDS NO LEDGER ROWS** -- every row it reviews was written
+  before it, on purpose.
+  **WHAT THE PANEL MUST BE GIVEN, PER `CLAUDE.md` SS3.1:** the SHIPPED CODE and the
+  shipped ledger, not the plans -- those decisions are executed. Write it to
+  `21-CLOSE-REVIEWS.md` so the pre-execution plan review survives. Brief it on the
+  findings already known and tell it not to re-derive them; its budget is better spent
+  on what is ADJACENT to each. Verify every finding against the tree before recording or
+  acting on it, and record the rejected ones AS rejected -- this project has received
+  confident, well-formatted, false findings twice.
+  **DO NOT TOUCH THE FIVE `Not built` ROWS OR ANYTHING THEY NAME.** `D-11` holds to the
+  end of the phase; the work list is Dave's to rule on and a later phase's to execute.
+  **THE `progress:` COUNTERS ABOVE REMAIN DELIBERATELY UNTOUCHED**, for the reason wave
+  5 recorded: `21-CONTEXT.md` deferred the block explicitly and `D-19` names three
+  counters, none of them this one.
+  **TWO THINGS DAVE MUST RULE ON THAT AN EXECUTOR CANNOT:** the `All **42**` counter's
+  provenance question, and the four-row knot on the work list.
+  **NEXT ACTION: run `/gsd-review --phase "Phase 21" --all`, then the single-agent
+  review, then present to Dave.**
+  PRIOR CONTEXT FOLLOWS.
+  PHASE 21 WAVE 5 IS DONE; WAVE 6 (`21-06`) IS NEXT. Branch `phase-21`, tree clean apart
+  from Dave's two untracked `docs/` files. `21-06` writes the ten `RECON-` verdicts -- the
+  only rows still reading `Pending` anywhere in the ledger -- BEFORE the close panel, lands
+  the completeness assertion `21-01` deliberately held back until every row was written,
+  updates the position files by hand, and runs `make ci`. `21-07` is the SS3.1 close panel,
+  the single-agent review and `D-GATE-21`.
+  **DO NOT TOUCH THE FIVE `Not built` ROWS OR ANYTHING THEY NAME.** `D-11` holds to the
+  end of the phase; the work list is Dave's to rule on and a later phase's to execute.
+  **THE `progress:` COUNTERS ABOVE REMAIN DELIBERATELY NOT TOUCHED, AND WAVE 1'S NOTE
+  HANDING THEM TO `21-05` WAS WRONG.** `21-CONTEXT.md` DEFERRED the `progress:` block
+  explicitly -- it is a GSD tooling limitation, not a ledger row -- and `D-19` names three
+  counters, none of them this one. Two of those three are corrected and the third is
+  reported rather than guessed; that work is DONE and `RECON-10` is discharged in substance,
+  awaiting only its verdict cell in `21-06`.
+  **THE ONE THING `21-06` MUST NOT INHERIT AS AN ASSUMPTION:** no row count is carried by
+  any check (`D-21`). 143 is a reported measurement, not a constant. Measure it.
+  **NEXT ACTION: continue `/gsd:execute-phase 21` at `21-02`.**
+  PRIOR CONTEXT FOLLOWS.
+  PHASE 21 IS PLANNED AND READY TO EXECUTE. Branch `phase-21`, tree clean apart from Dave's
+  two untracked `docs/` files. SEVEN plans, SEVEN serial waves -- serial because every audit
+  plan writes `.planning/REQUIREMENTS.md`. Wave 1 `21-01` pins the base, fixes the `docs`
+  job's shallow checkout, mints the phase's own ten `RECON-` rows and ships both standing
+  checks with CONTROLS 1-9, 9b, 11 and A-C; waves 2-4 write verdicts (22 `CLNT`, then 14
+  mixed, then Phase 16's 18 as a two-sided split); wave 5 the findings, work list, 27
+  `human_needed` items and three counter corrections; wave 6 the completeness count and the
+  untouched-fabric proof; wave 7 the SS3.1 close panel and `D-GATE-21`.
+  `21-CONTEXT.md` now carries TWENTY-ONE decisions `D-01`..`D-21` -- `D-17`/`D-18`/`D-19`
+  ruled by Dave after research, `D-20`/`D-21` after the checker passes.
+  **WHAT AN EXECUTOR MUST NOT DO:** close a gap it discovers (`D-11`), write a test to
+  manufacture a criterion-6 name (`D-05`), fix `tools/lints/citations.py` (`D-07`, now
+  mechanically pinned by `PINNED_FILES`), fix `audit-uat` (`D-20`), flip or drop Phase 16's
+  eighteen rows (`D-12`), discharge a `human_needed` item (`D-13`), backfill a `D-GATE`
+  (`D-14`), touch `src/` or `runtime/` (criterion 12), or use `gsd-sdk query state.*` /
+  `roadmap.*` (`D-15`). Regenerate `docs/surface/examples/RETIREMENT-COUPLINGS.md` LAST
+  after every `.planning/` edit, the SUMMARY included -- it walks `.planning/` and reddens
+  the docs gate on every planning commit.
+  **NEXT ACTION: `/gsd:execute-phase 21`.**
+  PRIOR CONTEXT FOLLOWS.
+  PHASE 21 CONTEXT IS GATHERED; THE PHASE WAS READY TO PLAN. Work is on branch `phase-21`.
+  `21-CONTEXT.md` carries SIXTEEN decisions `D-01`..`D-16`. **THE COUNT IS 54, NOT 52** --
+  a strict parse of the traceability table returns 133 rows, 54 of them not-`Complete`;
+  `grep -c "| Pending |"` misses `CPS-03` (bold `**Pending**`) and `DCD-02` (`**Partial**`),
+  and the wrong figure had already reached `D-GATE-20`, the first ROADMAP draft of this
+  phase and the progress report. The phase's own subject arrived before the phase did.
+  ROADMAP Success Criteria AMENDED IN-SESSION before any planning: ten -> FOURTEEN,
+  `roadmap.get-phase 21` confirms parsed count = 14. **THE SCOUT CHANGED THE PHASE SHAPE:**
+  `.planning/REQUIREMENTS.md` is ALREADY inside `tools/lints/citations.py`'s `GATED_TREES`
+  with NO `HISTORICAL_RECORDS` exemption, so a `path::symbol` citation written into a
+  requirement row is resolved by machinery that already ships -- criterion 3 needs no new
+  resolver. Phase 15.6's `DCD-02`..`DCD-12` rows are the adopted format AND the adopted
+  verdict vocabulary. The ledger's two status channels (checkbox list + traceability table)
+  measured at ZERO drift across all 133 ids and a standing check must keep them that way.
+  **NEXT ACTION: `/gsd:plan-phase 21`.** The phase FINDS and RECORDS; it builds nothing.
+  PRIOR CONTEXT FOLLOWS.
   PHASE 20 IS CLOSED AND PHASE 21 IS IN THE ROADMAP, UNPLANNED. Dave ruled three times at
   the Phase 20 close (2026-08-21): (1) the 52 `Pending` requirement rows get a ROW-BY-ROW
   reconciliation phase, not a wholesale tick; (2) the ten phases with no `D-GATE` entry are
