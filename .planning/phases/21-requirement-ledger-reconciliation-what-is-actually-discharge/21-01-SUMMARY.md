@@ -404,3 +404,12 @@ same task as the first citations.
 - `phase_base_commit`, `fabric_diff`, `PINNED_FILES`, `FENCE`, `UAT_RECORDS`
 - and it owes the zero-CITATION guard, `test_the_scan_finds_citations_to_check`,
   and `CONTROL 5b`, all three of which are deliberately absent here.
+
+## Self-Check: PASSED
+
+All four created files exist on disk; all seven commits `c51406b`, `3003fc8`,
+`d705f35`, `baf8efb`, `d21c1cf`, `845da98`, `771356e` resolve in this
+repository. Re-verified after the final commit: the module is 33 passed,
+`make gate-tools` is exit 0 (406 + 187), and the diff against the pinned base
+over `src/ runtime/ examples/ public/ pyproject.toml tools/lints/citations.py`
+is empty.
