@@ -1898,17 +1898,17 @@ Plans:
 
 **Requirements:** `RECON-01` .. `RECON-10`, minted at planning 2026-08-21. `RECON-01` parse + vocabulary (criteria 1, 2) · `RECON-02` evidence discipline (3, 6) · `RECON-03` refusal + sabotage control (4, 5) · `RECON-04` named absence + work list (7, 8) · `RECON-05` the Phase 16 split (9) · `RECON-06` channel agreement (10) · `RECON-07` the 27 `human_needed` items (11) · `RECON-08` untouched fabric (12) · `RECON-09` close hygiene (13, 14) · `RECON-10` the three stale counters (D-19, adjacent to criterion 1).
 
-**These ten rows are deliberately NOT added to `.planning/REQUIREMENTS.md` at planning**, against the `CLNT-23`..`32` precedent, because that file is this phase's SUBJECT: its traceability table is measured at 133 rows with a 54-row working set, and every plan's acceptance criteria assert those two figures. Minting ten `Pending` rows into it at planning would move both numbers before the audit ran. They are added at the gate, with their verdicts, once the audit's counts are recorded — see plan `21-07`.
+**These ten rows are minted into `.planning/REQUIREMENTS.md` in wave 1**, as `Pending`, following the `CLNT-23`..`32` precedent from Phase 20 — reversing an earlier planning decision to defer them to the gate (revised 2026-08-21 after the plan checker). The deferral's stated reason was that the ledger is this phase's subject and its 133-row / 54-working-set figures are asserted by every plan; that reason is defeated by the mechanism the plans already adopt — the working set is a **frozen 54-member roster taken by the strict parse at the pinned base**, so the phase's own edits cannot move the predicate, and ten added rows are absorbed the same way. The table reads 133 at the pinned base and **143** from plan `21-01` task 2 forward; the ten `RECON-` rows are this phase's own and are **not** members of the 54 it audits. Decisively: rows added at the gate would be written *after* Dave's approval, inside a `checkpoint:human-verify` task, and would therefore never be seen by the close-time cross-AI panel, never by the single-agent review, and never by Dave — ten rows entering the ledger carrying verdicts nobody reviewed, which is the exact ledger-debt pattern this phase was commissioned to end, one level up. Their verdicts are written in plan `21-06`, before the panel; plan `21-07` adds no ledger rows.
 
 **Plans:** 7 plans in 7 waves (serial — every audit plan writes to `.planning/REQUIREMENTS.md`, so no two can share a wave)
 
 Plans:
-- [ ] 21-01-PLAN.md — the standing checks, the pinned diff base, and the three rulings, before any verdict is written
+- [ ] 21-01-PLAN.md — the CI `docs`-job full-history checkout, the pinned diff base, the three rulings, the ten `RECON-` rows minted as `Pending`, and the standing checks, before any verdict is written
 - [ ] 21-02-PLAN.md — verdicts for the 22 `CLNT` rows (Phase 17's 21, plus Phase 18's `CLNT-15`)
 - [ ] 21-03-PLAN.md — verdicts for the remaining 14: `HARD-01`..`03`, `EXAM-01`..`03`, `DOCS-01`..`06`, `CPS-03`, `DCD-02`
 - [ ] 21-04-PLAN.md — Phase 16's eighteen `DOCS-` rows and the two-sided split Dave rules from
 - [ ] 21-05-PLAN.md — the work list, the 27 `human_needed` items, the observations, and the three counter corrections
-- [ ] 21-06-PLAN.md — the completeness assertion (held back until every row is written), the position files, and `make ci`
+- [ ] 21-06-PLAN.md — the ten `RECON-` verdicts (before the close panel), the completeness assertion (held back until every row is written), the position files, and `make ci`
 - [ ] 21-07-PLAN.md — the §3.1 close panel, the single-agent review, and `D-GATE-21`
 
 **Success Criteria** (what must be TRUE):

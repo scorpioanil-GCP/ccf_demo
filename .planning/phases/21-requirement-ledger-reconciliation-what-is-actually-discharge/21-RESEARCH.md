@@ -600,25 +600,40 @@ test and no tokenish anchor, the honest outcome is option 3 or a `Partial` that 
 
 ---
 
-## 7. The 24 `human_needed` Items (criterion 11 / D-13)
+## 7. The `human_needed` Items (criterion 11 / D-13) — 24 by the query, 27 in the files
 
-`gsd-sdk query audit-uat --raw` returns `{"results": [...], "summary": {...}}`.
-**Confirmed: 24 items across 9 phases** [VERIFIED].
+**CORRECTED 2026-08-21 (D-20, Dave).** This section originally read *"Confirmed: 24 items across
+9 phases"*, taken from `gsd-sdk query audit-uat --raw`. That query **filters on each record's
+frontmatter `status:`** and therefore drops two records that carry undischarged
+`human_verification:` blocks under a different status: Phase 12 (`status: passed`, 1 item — whose
+own prose reads *"**Status:** human_needed (all automated checks passed; one subjective legibility
+check remains)"*) and Phase 18 (`status: gaps_found`, 2 items). **The true figure is 27 items
+across 11 records**, and criterion 11 has been amended to say so. This is the 52-vs-54 miscount a
+third time, in a third tool.
 
-| Phase | Items | File path — cite these verbatim, do not re-derive |
+**The roster is re-derived by parsing every `.planning/phases/*/[0-9]*-VERIFICATION.md` for a
+`human_verification:` block — never by trusting `audit-uat`.** The table below is the result of
+that parse at `2c7335f` [VERIFIED]; re-run the parse at execution time rather than pasting it.
+`audit-uat`'s filter is **not fixed here** — same reasoning as D-07 for the citation lint: tooling
+repair inside an audit phase. It is named, not fixed.
+
+| Phase | Items | File path — verify by re-parsing, do not trust the query |
 |---|---|---|
 | 11 | 1 | `.planning/phases/11-performance-battery/11-VERIFICATION.md` |
+| 12 | 1 | `.planning/phases/12-synthetic-data-demonstration/12-VERIFICATION.md` — **dropped by `audit-uat`** (`status: passed`) |
 | 13 | 1 | `.planning/phases/13-examples-suite-upgrade/13-VERIFICATION.md` |
 | 14 | 2 | `.planning/phases/14-documentation-suite/14-VERIFICATION.md` |
 | 15.1 | 2 | `.planning/phases/15.1-ergonomics-gap-closure/15.1-VERIFICATION.md` |
 | 15.2 | 2 | `.planning/phases/15.2-substrate-adapters-and-query-pushdown/15.2-VERIFICATION.md` |
 | 15.3 | 5 | `.planning/phases/15.3-fluree-adapter-tier-1-substrate-inserted/15.3-VERIFICATION.md` |
 | 15.4 | 5 | `.planning/phases/15.4-backend-registration-seam-the-substrate-stops-naming-its-ada/15.4-VERIFICATION.md` |
+| 18 | 2 | `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/18-VERIFICATION.md` — **dropped by `audit-uat`** (`status: gaps_found`; `human_verification:` key at line 74) |
 | 18.1 | 3 | `.planning/phases/18.1-simplify-the-mcp-example-separate-the-server-from-the-client/18.1-VERIFICATION.md` |
 | 19 | 3 | `.planning/phases/19-the-client-seam-integrity-checks-must-be-able-to-fail-insert/19-VERIFICATION.md` |
-| | **24** | **9 files** |
+| | **27** | **11 files** |
 
-Matches D-13's list exactly (11, 13, 14, 15.1–15.4, 18.1, 19).
+D-13's original list (11, 13, 14, 15.1–15.4, 18.1, 19) was the query's nine. The parse adds
+Phase 12 and Phase 18; D-20 rules the parse authoritative and amends criterion 11 to 27 across 11.
 
 ⚠️ **Data-quality caveat:** Phase 15.1's two items return `name`, `expected` and `why_human` all
 as the literal string `">-"` [VERIFIED] — a YAML folded-scalar artefact in the query, not in the
@@ -626,8 +641,10 @@ source. **Read `15.1-VERIFICATION.md` directly for those two**; do not paste `">
 phase record.
 
 **The "left untouched" limb is mechanically assertable for free** — reuse the criterion-12 diff
-helper over these nine paths: `git diff --stat <pinned base>..HEAD -- <the nine>` prints
-nothing. Recommend it; it costs one line and turns an inspection claim into an observation.
+helper over these **eleven** paths: `git diff --stat <pinned base>..HEAD -- <the eleven>` prints
+nothing. Recommend it; it costs one line and turns an inspection claim into an observation. The
+roster must cover all eleven (D-20 consequence (c)), so Phase 12's and Phase 18's records cannot
+be edited without going red.
 
 ---
 
@@ -815,9 +832,15 @@ seven entries under one basename and hid two real unanchored citations behind a 
 
 ---
 
-## 11. Open Questions
+## 11. Open Questions (RESOLVED)
 
-1. **`CPS-03`'s ruled state has no word in the vocabulary.**
+All four were ruled by Dave at the 2026-08-21 planning sitting. Each carries the ruling that
+closed it. Nothing in this section remains open.
+
+1. **`CPS-03`'s ruled state has no word in the vocabulary.** — **(RESOLVED by D-18,
+   `D-IMPL-173`.)** `CPS-03` takes `Complete as ruled`, citing both `D-IMPL-113` and `D-IMPL-121`,
+   with the "by design, not by omission" clause. The vocabulary stays at D-09's six words; no
+   seventh is minted.
    - What we know: `CPS-03` is `Pending` and is ruled **"Pending by DESIGN under `D-IMPL-113`
      AND `D-IMPL-121`, not by omission"**, with `D-IMPL-113` instructing that *"the requirement
      row must say which, or a later reader will read an unmet requirement as an oversight."* The
@@ -832,6 +855,10 @@ seven entries under one basename and hid two real unanchored citations behind a 
      check (§5, CONTROL 9) must accept whatever is chosen.
 
 2. **Does criterion 3's "path::symbol" bind literally, given that markdown has no such form?**
+   — **(RESOLVED by D-17, `D-IMPL-172`.)** It binds as a READING, not a literal form: the
+   operative clause is the criterion's own final one, *"that the citation lint resolves."*
+   `path::symbol` stays required wherever the evidence is Python; an anchored line citation the
+   lint resolves is admissible where the evidence is a document. D-06 is unchanged.
    - What we know: §4(a) proves `NODE_ID` is `.py`-only. Roughly 24 of the 54 rows are about
      documentation.
    - Recommendation: read criterion 3 as *"a citation the lint resolves"*, with `path::symbol`
@@ -839,12 +866,18 @@ seven entries under one basename and hid two real unanchored citations behind a 
      reading in the plan so it is not read later as a relaxation. This is a reading, not a change
      — the criterion's own final clause is *"that the citation lint resolves."*
 
-3. **Do the three stale counters get corrected here?** (§1: `94/94`, `All 42`, and the ROADMAP
+3. **Do the three stale counters get corrected here?** — **(RESOLVED by D-19,
+   `D-IMPL-174`: YES, corrected, not merely reported)**, under three constraints — figures
+   produced by the strict parse and never assumed; a counter the parse cannot settle is reported
+   rather than guessed and that is said; every edit is a hand-edit under D-15 with a backup and a
+   diff. The recommendation below (report, do not fix) was OVERRIDDEN. (§1: `94/94`, `All 42`, and the ROADMAP
    Phase 21 prose's four instances of `52`.) They are adjacent to criterion 1 and not inside it.
    Recommendation: report, do not fix, unless Dave rules otherwise. Under D-15 the ROADMAP fix
    is a hand-edit with a backup and a diff.
 
-4. **Is `DEMO-03`'s re-homing target present?** `DEMO-03` is ticked `[x]` and its re-homing note
+4. **Is `DEMO-03`'s re-homing target present?** — **(RESOLVED by D-19's explicit
+   carve-out: reported, not flipped.)** The row is ticked and sits OUTSIDE the 54; it is an
+   observation in `21-FINDINGS.md` section 5 and nothing more. `DEMO-03` is ticked `[x]` and its re-homing note
    points at `public/tutorial/hello-ccf.md`. `ls public/tutorial/` returns `adopters-guide.md`
    and `demo-walkthrough.md` only [VERIFIED]. **This concerns a row OUTSIDE the 54** and is not
    this phase's to flip. Recommendation: note it in the report as an observation. Do not act.
