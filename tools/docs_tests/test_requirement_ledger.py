@@ -47,6 +47,8 @@ import re
 import subprocess
 from collections.abc import Sequence
 
+import pytest
+
 #: The repo root, resolved from this file rather than from the process CWD.
 #: A CWD-relative read finds no ledger at all and turns every assertion here
 #: into a test that passes over an empty document — the failure this project
@@ -392,3 +394,466 @@ def test_control_c_an_empty_path_list_fails_loudly() -> None:
             assert expected in str(failure)
         else:  # pragma: no cover - the refusal is the point
             raise AssertionError(f"{base!r}/{list(paths)} did not refuse")
+
+
+# ===========================================================================
+# The strict parse, and Check B — channel agreement, vocabulary, one verdict
+# per cell.
+#
+# The parse is `21-RESEARCH.md`'s algorithm, reimplemented here rather than
+# shipped as a tool: locate the traceability table by its literal header line,
+# take the contiguous run of `|` lines after the separator row, split on `|`,
+# and require exactly three cells.
+#
+# THE WORKING-SET PREDICATE IS A MEMBERSHIP TEST AGAINST THE COMPLETE FAMILY,
+# NEVER A STRING INEQUALITY AGAINST "Complete". A literal `!= "Complete"`
+# reading yields 56 rows because it drags in `DCD-09` (`Complete as ruled`) and
+# `DCD-10` (`Complete over the ruled scope`) — both already ruled on by Dave,
+# both checked `[x]` in the checkbox channel, and both therefore treated as
+# Complete by the ledger's other channel. The correct working set is 54. A
+# later reader running `grep -vc "| Complete |"` will get 56 and conclude a row
+# was skipped; that reader is holding the wrong predicate, not finding a gap.
+# ===========================================================================
+
+#: The ledger this module is about.
+LEDGER_PATH = REPO_ROOT / ".planning" / "REQUIREMENTS.md"
+
+#: The literal line the traceability table is located by. Matched exactly:
+#: a fuzzy match on a misspelled header is how a parser reports "clean" over a
+#: table it never found, which is `CONTROL 8`.
+TABLE_HEADER = "| Requirement | Phase | Status |"
+
+#: A traceability row is `| id | phase | status |` and nothing else.
+CELLS_PER_ROW = 3
+
+#: The checkbox channel. Anchored at `^- ` so an indented continuation
+#: sub-bullet cannot be read as a requirement id.
+CHECKBOX_LINE = re.compile(r"^- \[([ xX])\] \*\*([A-Z]+-\d+)\*\*", re.MULTILINE)
+
+#: The LEADING verdict of a status cell: the alphabetic run at the very start,
+#: cut at the first `(`, em dash or hyphen. Anchored at `^` so that `DCD-02`'s
+#: second bolded phrase after the em dash is not read as a second verdict.
+VERDICT_LEAD = re.compile(r"^([A-Za-z][A-Za-z ]*?)(?=\s*[(—-]|$)")
+
+#: Any `**bolded**` run inside a cell, for the one-verdict-per-cell check.
+BOLDED_RUN = re.compile(r"\*\*([^*]+)\*\*")
+
+#: The three ways this ledger says Complete. `D-09` fixed the vocabulary at six
+#: words precisely so a stricter scheme could not re-open `DCD-02`, `DCD-09`
+#: and `DCD-10`, which Dave has already ruled on.
+COMPLETE_FAMILY: frozenset[str] = frozenset(
+    {"Complete", "Complete as ruled", "Complete over the ruled scope"}
+)
+
+#: `D-09`'s six words, plus `Pending`. `Pending` is admitted because unaudited
+#: rows still carry it while the phase runs; the phase's LAST plan is what
+#: refuses a leftover `Pending`, and it is deliberately not this module's job —
+#: an assertion that every row is verdicted is red from the moment it lands
+#: until the final row is written.
+VERDICT_VOCABULARY: frozenset[str] = COMPLETE_FAMILY | frozenset(
+    {"Partial", "Not built", "Orphaned", "Pending"}
+)
+
+#: This phase's OWN ten requirement ids, minted into both channels as `Pending`
+#: by plan `21-01` task 2 and verdicted by plan `21-06` before the close panel.
+#:
+#: A FROZEN ROSTER OF NAMED IDS, per `D-21`, never a count. They are NOT
+#: members of the 54-row working set this phase audits — that set is its own
+#: frozen roster, taken by the strict parse at the pinned base.
+#:
+#: Provenance, as HISTORY and read by no assertion here: the traceability table
+#: carried 133 rows at the pinned base and carries 143 from plan `21-01` task 2
+#: forward. `D-21`'s binding consequence is that no standing check in this
+#: phase hardcodes either figure — what is asserted is that the two channels
+#: agree id-for-id on whatever the ledger contains. A reader who greps the
+#: pinned base and counts 133 has not found a discrepancy.
+PHASE_OWN_ROSTER: frozenset[str] = frozenset(
+    {
+        "RECON-01",
+        "RECON-02",
+        "RECON-03",
+        "RECON-04",
+        "RECON-05",
+        "RECON-06",
+        "RECON-07",
+        "RECON-08",
+        "RECON-09",
+        "RECON-10",
+    }
+)
+
+
+def ledger_text() -> str:
+    """The real `.planning/REQUIREMENTS.md`, read from the repo root."""
+    return LEDGER_PATH.read_text(encoding="utf-8")
+
+
+def traceability_rows(document_text: str) -> list[tuple[str, str, str]]:
+    """`(id, phase, status)` triples from the traceability table.
+
+    Rows are the CONTIGUOUS run of lines starting with `|` after the header's
+    separator row, which is what stops the parse at the table's end rather
+    than running on into the two-column evidence table further down the file.
+
+    **This RAISES rather than returning an empty list when the header is not
+    found or the run is empty.** That is a deliberate deviation from
+    `tools/docs_tests/test_advisory_discharge.py`'s navigation reader, which
+    returns an empty set when its heading is missing. The deviation exists
+    because the consumers here are *disagreement counters*: a reader that
+    returned nothing would let `channel_disagreements` report "zero
+    disagreements, clean" over a table it never located. `CONTROL 8` is
+    exactly that failure mode, watched refusing.
+    """
+    lines = document_text.splitlines()
+    try:
+        header_at = lines.index(TABLE_HEADER)
+    except ValueError:
+        raise AssertionError(
+            "the traceability table header"
+            f" {TABLE_HEADER!r} was not found in the document. A parser that"
+            " returned nothing here would report a clean, agreeing, fully"
+            " vocabularised ledger over a table it never located"
+        ) from None
+    rows: list[tuple[str, str, str]] = []
+    for line in lines[header_at + 2 :]:
+        if not line.startswith("|"):
+            break
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != CELLS_PER_ROW:
+            raise AssertionError(
+                f"traceability row {line!r} split into {cells!r}, which is not"
+                " the three cells a `| id | phase | status |` row has"
+            )
+        rows.append((cells[0], cells[1], cells[2]))
+    if not rows:
+        raise AssertionError(
+            "the traceability table header was found but no rows followed it."
+            " Every check built on this parse would pass over nothing"
+        )
+    return rows
+
+
+def verdict_token(status_cell: str) -> str:
+    """The LEADING bolded verdict of a status cell, and only that one.
+
+    `DCD-02`'s cell reads `**Partial** (plans …) — … **Pending by design** …`.
+    A reader that took the last bolded run, or every bolded run, would call
+    that row `Pending` or would call it two verdicts. It is one: `Partial`.
+    `CONTROL 9b` is the positive half of that discrimination.
+    """
+    bare = status_cell.replace("**", "").strip()
+    match = VERDICT_LEAD.match(bare)
+    if match is None:
+        return ""
+    return match.group(1).strip()
+
+
+def checkbox_channel(document_text: str) -> dict[str, bool]:
+    """Requirement id to checked-state, from the checkbox list.
+
+    Raises rather than returning an empty mapping, for the reason
+    :func:`traceability_rows` states: an empty channel makes every comparison
+    against it trivially agreeable.
+    """
+    found = {
+        match.group(2): match.group(1).lower() == "x"
+        for match in CHECKBOX_LINE.finditer(document_text)
+    }
+    if not found:
+        raise AssertionError(
+            "the checkbox channel parsed to nothing. Either the document is"
+            " not the ledger or the bullet shape changed; either way a"
+            " comparison against an empty channel agrees with everything"
+        )
+    return found
+
+
+def vocabulary_offenders(document_text: str) -> list[str]:
+    """One message per status cell whose leading verdict is not a known word."""
+    offenders: list[str] = []
+    for req_id, _phase, status in traceability_rows(document_text):
+        token = verdict_token(status)
+        if token not in VERDICT_VOCABULARY:
+            offenders.append(
+                f"{req_id} carries the verdict {token!r}, which is not one of"
+                f" {sorted(VERDICT_VOCABULARY)}. `D-09` fixes the vocabulary at"
+                " six words and no seventh is minted; a new word here is a"
+                " ruling for Dave, not an executor's choice"
+            )
+    return offenders
+
+
+def doubled_verdicts(document_text: str) -> list[str]:
+    """One message per status cell carrying more than one vocabulary word in bold.
+
+    A cell reading `**Complete** **Partial** (…)` is ambiguous about what the
+    row claims, and the leading-token reader above would silently report the
+    first. `CONTROL 11` is this check watched refusing exactly that shape.
+    """
+    offenders: list[str] = []
+    for req_id, _phase, status in traceability_rows(document_text):
+        bolded = [match.group(1).strip() for match in BOLDED_RUN.finditer(status)]
+        verdicts = [word for word in bolded if word in VERDICT_VOCABULARY]
+        if verdicts[1:]:
+            offenders.append(
+                f"{req_id}'s status cell carries the bolded verdicts"
+                f" {verdicts!r}. A row claims one thing; a reader taking the"
+                " leading token would report only the first"
+            )
+    return offenders
+
+
+def channel_disagreements(document_text: str) -> list[str]:
+    """One message per disagreement between the ledger's two status channels.
+
+    `D-02`: the checkbox list and the traceability table are two channels
+    saying the same thing, and a verdict written into one and not the other is
+    the drift this phase must not introduce. Every message NAMES the offending
+    id, because a count of disagreements is not something anyone can act on.
+    """
+    table = {
+        req_id: status for req_id, _phase, status in traceability_rows(document_text)
+    }
+    boxes = checkbox_channel(document_text)
+    messages: list[str] = []
+    for req_id in sorted(set(table) - set(boxes)):
+        messages.append(
+            f"{req_id} is in the traceability table and not in the checkbox"
+            " list — a row minted into one channel only"
+        )
+    for req_id in sorted(set(boxes) - set(table)):
+        messages.append(
+            f"{req_id} is in the checkbox list and not in the traceability"
+            " table — a row minted into one channel only"
+        )
+    for req_id in sorted(set(table) & set(boxes)):
+        reads_complete = verdict_token(table[req_id]) in COMPLETE_FAMILY
+        if boxes[req_id] is not reads_complete:
+            messages.append(
+                f"{req_id} reads {table[req_id]!r} in the traceability table"
+                f" and checked={boxes[req_id]} in the checkbox list. The two"
+                " channels disagree about whether this requirement is"
+                " discharged"
+            )
+    return messages
+
+
+def _doctored(document_text: str, old: str, new: str) -> str:
+    """Replace exactly one occurrence, refusing when the anchor is not unique.
+
+    A control that silently replaced nothing — because its anchor drifted —
+    would hand the checker an UNMODIFIED document and then assert a refusal
+    that never came, or worse, pass because something else was wrong. The
+    uniqueness check is what keeps a control attributable to its mutation.
+    """
+    occurrences = document_text.count(old)
+    if occurrences != 1:
+        raise AssertionError(
+            f"the control anchor {old!r} appears {occurrences} times in the"
+            " document; a mutation that lands nowhere, or lands twice, is not"
+            " the mutation the control claims to make"
+        )
+    return document_text.replace(old, new)
+
+
+# --- Preconditions — a vacuous pass is the failure this module exists to prevent.
+
+
+def test_the_ledger_parses_to_a_populated_table() -> None:
+    """The table is found, every row is three cells, and two known ids are in it.
+
+    Per `D-21` this carries NO row count. A NAMED member is a stronger floor
+    than a number: it does not have to be re-edited every time a row is
+    minted, and it cannot be silently satisfied by a row that happens to
+    restore an expected total. Naming one of the phase's own rows is also what
+    proves the wave-1 mint landed in THIS channel.
+    """
+    ids = [req_id for req_id, _phase, _status in traceability_rows(ledger_text())]
+    assert "HARD-01" in ids, "the ledger's first requirement id is missing"
+    assert "RECON-10" in ids, (
+        "the phase's own last row is not in the traceability table — the wave-1"
+        " mint did not land in this channel"
+    )
+
+
+def test_the_checkbox_channel_parses_to_a_populated_list() -> None:
+    """The other channel, held to the same floor and to no count."""
+    boxes = checkbox_channel(ledger_text())
+    assert "HARD-01" in boxes
+    assert "RECON-10" in boxes, (
+        "the phase's own last row is not in the checkbox list — the wave-1"
+        " mint landed in one channel only, which is the drift `D-02` forbids"
+    )
+
+
+def test_the_parse_does_not_depend_on_the_process_cwd(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """Run from anywhere, this module still reads the ledger it is about."""
+    monkeypatch.chdir(tmp_path)
+    assert TABLE_HEADER in ledger_text()
+
+
+# --- Check B, shipped: the properties true of a partially filled ledger ---
+
+
+def test_the_two_status_channels_agree() -> None:
+    """Criterion 10 as `D-21` amended it: id-for-id, on every id there is."""
+    disagreements = channel_disagreements(ledger_text())
+    assert disagreements == [], (
+        "the ledger's two status channels have drifted apart (`D-02`). The id"
+        " set is read from the ledger rather than compared against a carried"
+        " number (`D-21`); the channels were measured at ZERO drift on"
+        " 2026-08-21, and this phase must not introduce the first:\n"
+        + "\n".join(disagreements)
+    )
+
+
+def test_every_verdict_token_is_in_the_vocabulary() -> None:
+    """Criterion 2's mechanical limb: the six words, and no seventh."""
+    offenders = vocabulary_offenders(ledger_text())
+    assert offenders == [], "\n".join(offenders)
+
+
+def test_no_status_cell_carries_two_verdict_tokens() -> None:
+    """A row claims one thing. `CONTROL 11` is this gate watched refusing."""
+    offenders = doubled_verdicts(ledger_text())
+    assert offenders == [], "\n".join(offenders)
+
+
+def test_every_recon_row_is_present_in_both_channels() -> None:
+    """The wave-1 mint's own floor; plan `21-06` turns these into verdicts."""
+    table = {
+        req_id: status for req_id, _phase, status in traceability_rows(ledger_text())
+    }
+    boxes = checkbox_channel(ledger_text())
+    for req_id in sorted(PHASE_OWN_ROSTER):
+        assert req_id in table, f"{req_id} is missing from the traceability table"
+        assert req_id in boxes, f"{req_id} is missing from the checkbox list"
+        assert verdict_token(table[req_id]) == "Pending", (
+            f"{req_id} reads {table[req_id]!r}. The phase's own rows are minted"
+            " `Pending` in wave 1 and verdicted in plan `21-06`, before the"
+            " close panel — not here"
+        )
+        assert boxes[req_id] is False, (
+            f"{req_id} is ticked in the checkbox list while its table row is"
+            " still `Pending`"
+        )
+
+
+# --- CONTROL 6-9, 9b, 11: channel_disagreements and the parser, watched refusing
+
+
+def test_the_unmodified_document_passes() -> None:
+    """The baseline, so every refusal below is attributable to its mutation."""
+    text = ledger_text()
+    assert channel_disagreements(text) == []
+    assert vocabulary_offenders(text) == []
+    assert doubled_verdicts(text) == []
+
+
+def test_control_6_a_row_completed_in_one_channel_only_is_refused() -> None:
+    """The commonest drift: a verdict written into the table and not the list."""
+    doctored = _doctored(
+        ledger_text(),
+        "| RECON-10 | Phase 21 | Pending |",
+        "| RECON-10 | Phase 21 | Complete |",
+    )
+    messages = channel_disagreements(doctored)
+    assert messages, "a row Complete in one channel and unticked in the other passed"
+    assert any("RECON-10" in message for message in messages), (
+        f"the refusal fired but named no id: {messages!r}. A count of"
+        " disagreements is not something a reader can act on"
+    )
+
+
+def test_control_7_an_id_present_in_only_one_channel_is_refused() -> None:
+    """A row minted into the table and forgotten in the list."""
+    line = [
+        candidate
+        for candidate in ledger_text().splitlines()
+        if candidate.startswith("- [ ] **RECON-10**")
+    ][0]
+    doctored = _doctored(ledger_text(), line + "\n", "")
+    messages = channel_disagreements(doctored)
+    assert any("RECON-10" in message for message in messages), (
+        f"deleting an id from one channel was not refused by name: {messages!r}"
+    )
+
+
+def test_control_8_a_misspelled_table_header_refuses_rather_than_reporting_clean() -> (
+    None
+):
+    """The vacuity floor. A parser that returned nothing here would report
+    "zero disagreements, clean" over a table it never found — which is this
+    project's recurring defect shape, a check structurally incapable of
+    reporting the thing it appears to report."""
+    doctored = _doctored(
+        ledger_text(), TABLE_HEADER, "| Requirment | Phase | Status |"
+    )
+    try:
+        rows = traceability_rows(doctored)
+    except AssertionError as failure:
+        assert "was not found" in str(failure)
+        return
+    raise AssertionError(
+        f"a misspelled header parsed to {len(rows)} rows instead of raising"
+    )
+
+
+@pytest.mark.parametrize("minted", ["Done", "Shipped", "Closed"])
+def test_control_9_a_verdict_outside_the_vocabulary_is_refused(minted: str) -> None:
+    """Criterion 2's mechanical limb, watched refusing three plausible words."""
+    doctored = _doctored(
+        ledger_text(),
+        "| RECON-10 | Phase 21 | Pending |",
+        f"| RECON-10 | Phase 21 | {minted} |",
+    )
+    offenders = vocabulary_offenders(doctored)
+    assert any(minted in message for message in offenders), (
+        f"the verdict {minted!r} was accepted, or refused without being named:"
+        f" {offenders!r}"
+    )
+
+
+def test_control_9b_the_second_bolded_phrase_in_dcd_02_is_not_a_second_verdict() -> None:
+    """The POSITIVE half of the one-verdict-per-cell discrimination.
+
+    Without it, a reader that reported every bolded run would pass `CONTROL 9`
+    and `CONTROL 11` by refusing a compliant row — red on everything is not a
+    discriminator. `DCD-02`'s real cell is the subject, taken from the ledger
+    rather than retyped, so the control cannot drift away from its subject.
+    """
+    cell = [
+        status
+        for req_id, _phase, status in traceability_rows(ledger_text())
+        if req_id == "DCD-02"
+    ][0]
+    assert "Pending by design" in cell, (
+        "`DCD-02`'s cell no longer carries a second bolded phrase, so this"
+        " control has stopped testing the thing it was written for"
+    )
+    assert verdict_token(cell) == "Partial", (
+        f"the leading verdict of {cell!r} read as {verdict_token(cell)!r}"
+    )
+    assert doubled_verdicts(ledger_text()) == []
+
+
+def test_control_11_a_cell_with_two_verdict_tokens_is_refused() -> None:
+    """The NEGATIVE control for the one-verdict-per-cell gate.
+
+    It lands in the same wave as the gate it falsifies, deliberately. It
+    operates on a doctored in-memory cell and needs no written verdicts, so
+    nothing justifies deferring it — in a phase whose thesis is that an
+    unfalsified gate is not a gate, shipping the gate five waves before its
+    refusal is ever watched fire would be exactly that.
+    """
+    doctored = _doctored(
+        ledger_text(),
+        "| RECON-10 | Phase 21 | Pending |",
+        "| RECON-10 | Phase 21 | **Complete** **Partial** (doctored) |",
+    )
+    offenders = doubled_verdicts(doctored)
+    assert any("RECON-10" in message for message in offenders), (
+        f"a cell carrying two bolded verdicts was accepted: {offenders!r}"
+    )

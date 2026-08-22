@@ -243,6 +243,34 @@ is the plan that mints the requirement.
 - [x] **CLNT-31**: One README names each harness, what the reader installs, what to change first to point it at their own deployment, that how the MCP server is assembled is out of scope, and **states the who-holds-the-MCP-session asymmetry plainly**; a `make` target for the example is wired into `examples` and `make ci` is exit 0 at the phase close (criteria 9 and 10; `H-07`, `H-10`)
 - [x] **CLNT-32**: The agent prompt each client leg sends is data outside the client module — argv, env, or a declared artifact, never an instruction string literal in client source — and `cinv01a-prompt-shape` refuses a prose-candidate literal reaching a model-instruction sink, with named sabotage controls (ruling 6(a)/(b); `CLNT-12`/`D-22`)
 
+### Ledger Reconciliation (RECON)
+
+Minted at Phase 21 **wave 1**, by plan `21-01` task 2, following the
+`CLNT-23`..`CLNT-32` precedent — an inserted phase mints its own requirement
+IDs rather than borrowing a predecessor's, and the `RECON-` lane was verified
+free before minting. The lane is minted at the *start* of execution rather than
+at the gate on purpose: rows written after Dave's approval would never be seen
+by the close-time cross-AI panel, never by the single-agent review and never by
+Dave, which is the ledger-debt pattern this phase was commissioned to end,
+reproduced one level up.
+
+Every row is `Pending` here and stays `Pending` until plan `21-06` writes its
+verdict, before the close panel. **The ten rows are this phase's own and are
+NOT members of the 54-row working set it audits** — that set is a frozen roster
+of named ids taken by the strict parse at the pinned base recorded in
+`21-BASE-COMMIT.txt`. Each row names the Success Criteria it serves.
+
+- [ ] **RECON-01**: Every row in the 54-row working set carries exactly one verdict, counted by a STRICT parse of the traceability table rather than by a substring match, and every verdict token in the ledger is one of the six words Phase 15.6 established — `Complete`, `Complete as ruled`, `Complete over the ruled scope`, `Partial`, `Not built`, `Orphaned` — in the `DCD-02`..`DCD-12` status-cell shape, enforced by a membership check with no seventh word minted (criteria 1, 2; `D-09`)
+- [ ] **RECON-02**: Every verdict other than `Not built` and `Orphaned` cites its evidence in the status cell as a full repo-relative citation the citation lint resolves — `path::symbol` wherever the evidence is Python, an anchored line citation where it is a document (`D-IMPL-174`'s sibling ruling on criterion 3) — and every row whose property an existing test already guards names that test alongside its citation, with no test written in this phase for the purpose of manufacturing such a name (criteria 3, 6; `D-05`, `D-06`)
+- [ ] **RECON-03**: A bare basename, a nonexistent path, a directory, or a `::symbol` citation on a non-Python path in a requirement row is REFUSED by a standing check, so the ambiguous-basename hole cannot silently drop one of this phase's own citations — and that refusal carries NAMED sabotage controls that are observably RED as standing tests rather than as probes recorded in a SUMMARY (criteria 4, 5; `D-06`, `D-08`)
+- [ ] **RECON-04**: Every `Not built` and `Orphaned` verdict names the specific absence it rests on in a form a reader can check by looking rather than by trusting, and the `Not built` rows are delivered to Dave as a scoped work list — each with a one-line statement of what closing it would mean — with nothing on that list built in this phase (criteria 7, 8; `D-11`)
+- [ ] **RECON-05**: Phase 16's eighteen `DOCS-` rows are reported as a two-sided split with evidence on both sides — already satisfied elsewhere versus genuinely orphaned by the retirement — and are left unflipped and undropped pending Dave's ruling (criterion 9; `D-12`)
+- [ ] **RECON-06**: The checkbox list and the traceability table agree on EVERY requirement id the ledger contains, asserted by a standing check that reads the id set from the ledger rather than carrying a row count, so the two status channels cannot drift apart (criterion 10; `D-02`, `D-21`)
+- [ ] **RECON-07**: All 27 `human_needed` verification items across 11 phase records are named with their phases and left untouched — the roster re-derived by parsing every `.planning/phases/*/[0-9]*-VERIFICATION.md` for a `human_verification:` block rather than by a query that filters on frontmatter `status:` — and the phase record states plainly that they are out of scope and why (criterion 11; `D-13`, `D-20`)
+- [ ] **RECON-08**: `src/` and `runtime/` are untouched across the phase, asserted against a diff base pinned before any audit work happened, with a control proving the assertion is not vacuous; the same machinery holds the wider `D-11` scope fence and pins the citation lint byte-identical (criterion 12; `D-07`, `D-11`)
+- [ ] **RECON-09**: `make ci` is exit 0 at the phase close with `docs/surface/examples/RETIREMENT-COUPLINGS.md` regenerated LAST after every `.planning/` edit, the SUMMARY included, and a `D-GATE-21` entry is logged on Dave's approval without which the phase does not close (criteria 13, 14; `CLAUDE.md` §3.1)
+- [ ] **RECON-10**: The three stale counters are CORRECTED rather than merely reported — the coverage sentence in this file, the ROADMAP's §Coverage counter, and the ROADMAP Phase 21 entry's `52`/`54` disagreement — with every replacement figure produced by the strict parse rather than assumed, every edit a hand-edit under `D-15`, and the phase record naming each correction and its old value (`D-19`, `D-IMPL-174`)
+
 
 ## Future Requirements (deferred)
 
@@ -396,6 +424,16 @@ is the plan that mints the requirement.
 | CLNT-30 | Phase 20 | Complete |
 | CLNT-31 | Phase 20 | Complete |
 | CLNT-32 | Phase 20 | Complete |
+| RECON-01 | Phase 21 | Pending |
+| RECON-02 | Phase 21 | Pending |
+| RECON-03 | Phase 21 | Pending |
+| RECON-04 | Phase 21 | Pending |
+| RECON-05 | Phase 21 | Pending |
+| RECON-06 | Phase 21 | Pending |
+| RECON-07 | Phase 21 | Pending |
+| RECON-08 | Phase 21 | Pending |
+| RECON-09 | Phase 21 | Pending |
+| RECON-10 | Phase 21 | Pending |
 
 **The CPS lane was verified clause by clause against the tree at Phase 15.5's
 close (plan `15.5-14`), not against any SUMMARY.** Phase 15.1's re-approval had
