@@ -1944,9 +1944,11 @@ Plans:
 - `D-21` is still binding: no standing check may carry a hardcoded row count, and every fixed set is a frozen roster of named ids.
 - `D-15` is still binding: `.planning/STATE.md` and `.planning/ROADMAP.md` are hand-edited; no `state.*` or `roadmap.*` writer is invoked.
 
+**Scope widened 2026-08-22, before Wave 1.** Research found the class's *generator* by mutation: neutering each refusal branch one at a time leaves **eight refusals deletable with all 51 tests still green**, two of them unreachable dead code, because NOTHING in the module proves that a CONTROL's mutation reaches the assertion it vouches for. That is why `CONTROL A`, `CONTROL 5` and `CONTROL 13` all shipped mis-aimed. Dave ruled the generator in scope — closing the eight without it would clear the board and leave the engine running — bounded to THIS MODULE ONLY: no repo-wide reachability framework. Criteria 12, 13 and 14 and requirement `VAC-06` were added BEFORE any execution, per `D-GATE-19`.
+
 **Out of scope, explicitly:** the policy and work-list items Dave ruled carried at the `D-GATE-21` sitting — `A-1` (Pending staleness policy), the `DOCS-17`/`CLNT-17`/`DOCS-14`/`EXAM-02` knot, and any further wording change to the §Coverage `42` sentence beyond what `D-IMPL-177` already settled. No expansion of product surface: `src/`, `runtime/`, `examples/`, `public/` stay diff-empty.
 
-**Requirements:** `VAC-01` .. `VAC-05`, to be minted at planning. `VAC-01` per-member pathspec validation (criteria 1, 2) · `VAC-02` the dual-verdict cell (3, 4) · `VAC-03` the Phase 16 lane roster (5) · `VAC-04` duplicate-id collapse and index non-vacuity (6, 7) · `VAC-05` control discipline and close hygiene (8, 9, 10, 11).
+**Requirements:** `VAC-01` .. `VAC-06`, to be minted at planning. `VAC-01` per-member pathspec validation (criteria 1, 2) · `VAC-02` the dual-verdict cell (3, 4) · `VAC-03` the Phase 16 lane roster (5) · `VAC-04` duplicate-id collapse and index non-vacuity (6, 7) · `VAC-05` control discipline and close hygiene (8, 9, 10, 11) · `VAC-06` the generator of the class — refusal reachability and control aim (12, 13, 14), added 2026-08-22 on Dave's widened-scope ruling BEFORE Wave 1.
 
 **Success Criteria** (what must be TRUE):
 
@@ -1961,6 +1963,9 @@ Plans:
   9. No standing check this phase ships carries a hardcoded row count (`D-21`), and every fixed set is a frozen roster of named ids asserted id-for-id
   10. `make ci` is exit 0 with `docs/surface/examples/RETIREMENT-COUPLINGS.md` regenerated LAST and committed
   11. `D-GATE-21` is unamended and the 54 rows' verdicts are unchanged except where a blocker's fix requires it, and every such change is named in the phase record
+  12. Every refusal branch in the module is EITHER reachable and watched RED under a named CONTROL when its subject is broken, OR is identified as unreachable and REMOVED — no dead limb survives carrying a docstring that aims a control at it
+  13. Every CONTROL in the module is proven to reach the assertion it vouches for — its mutation is watched RED on the aimed limb and GREEN when that limb is intact — so a mis-aimed control (`CONTROL A`, `CONTROL 5`, `CONTROL 13` are the three known instances) cannot ship unnoticed again
+  14. A control that derives a diff base derives it PER MEMBER and carries no hardcoded SHA, and a member matching no tracked file makes that control REFUSE rather than silently skip
 
 ## Progress
 
