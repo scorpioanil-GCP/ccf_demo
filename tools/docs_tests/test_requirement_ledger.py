@@ -473,6 +473,91 @@ def asserted_pathspecs() -> tuple[tuple[str, tuple[str, ...]], ...]:
     )
 
 
+#: The names of the pathspec constants with MORE THAN ONE member — the set
+#: `RR-1` exposes, and the set `CONTROL 18` is parametrized over.
+#:
+#: `FABRIC` has two members, `FENCE` five and `UAT_RECORDS` eleven. The other
+#: three constants in :func:`asserted_pathspecs` are single-member and were
+#: genuinely protected by the tuple-level truthiness test that `B-1` installed;
+#: these three were not. **`CHANGED_TREE` is NOT a member of this roster** — it
+#: is single-member (`.planning/`), and the `D-GATE-21` re-run record's claim
+#: that it is multi-member is wrong. Recorded here because a later reader
+#: holding that record will otherwise think a constant went missing.
+#:
+#: A frozen roster of NAMED constants per `D-21`, never a count — and it is
+#: not allowed to be a transcription either. :func:`
+#: test_the_multi_member_pathspec_roster_matches_the_modules_own_arity` requires
+#: it to equal, by set equality on names, exactly the constants
+#: :func:`asserted_pathspecs` resolves to more than one member. That is what
+#: makes criterion 2 STANDING rather than true-on-the-day: a constant that
+#: gains a second member tomorrow is dragged into `CONTROL 18` automatically,
+#: and one that loses a member drops out of it automatically.
+MULTI_MEMBER_PATHSPECS: frozenset[str] = frozenset(
+    {"FABRIC", "FENCE", "UAT_RECORDS"}
+)
+
+
+def near_miss(member: str) -> str:
+    """A one-key misspelling of one pathspec member: its last two characters swapped.
+
+    DERIVED from the member rather than written down beside it. A literal table
+    of ``{"src/": "scr/"}`` is one edit away from naming a member that no longer
+    exists, and a control whose subject has drifted out of its own constant is
+    the failure this phase exists to close, arriving by a third route.
+
+    A trailing ``/`` is preserved so the mutation stays a directory pathspec:
+    ``src/`` becomes ``scr/``, ``runtime/`` becomes ``runtiem/``,
+    ``pyproject.toml`` becomes ``pyproject.tolm``, and a record path ending
+    ``-VERIFICATION.md`` becomes ``-VERIFICATION.dm``. Every caller then hands
+    the result to :func:`tracked_under` and REQUIRES an empty list, so a
+    transposition that happened to name a real file is caught here rather than
+    silently making the control vacuous.
+    """
+    stem, slash = (member[:-1], "/") if member.endswith("/") else (member, "")
+    if len(stem) < 2:
+        raise AssertionError(
+            f"the pathspec member {member!r} is too short to misspell by"
+            " transposition, so no near miss can be derived from it"
+        )
+    return f"{stem[:-2]}{stem[-1]}{stem[-2]}{slash}"
+
+
+def multi_member_cases() -> tuple[tuple[str, str], ...]:
+    """`CONTROL 18`'s subjects: each multi-member constant, first and last member.
+
+    Two positions rather than one, because a single position cannot tell a
+    per-member loop from a degenerate implementation that inspects only one end
+    of the tuple. Mutating the FIRST member alone passes for an implementation
+    that checks ``paths[0]``; mutating the LAST alone passes for one that checks
+    ``paths[-1]``. Each case still mutates EXACTLY ONE member, which is what
+    criterion 2 asks for.
+    """
+    return tuple(
+        (name, position)
+        for name in sorted(MULTI_MEMBER_PATHSPECS)
+        for position in ("first", "last")
+    )
+
+
+def test_the_multi_member_pathspec_roster_matches_the_modules_own_arity() -> None:
+    """:data:`MULTI_MEMBER_PATHSPECS` is derived, not transcribed.
+
+    Set equality on NAMES against the constants :func:`asserted_pathspecs`
+    resolves to more than one member. No count is asserted anywhere — what is
+    compared is two sets of names, so `D-21` is untouched and the roster cannot
+    drift away from the constants it claims to enumerate.
+    """
+    from_module = {name for name, spec in asserted_pathspecs() if len(spec) > 1}
+    assert MULTI_MEMBER_PATHSPECS == from_module, (
+        "the multi-member roster no longer matches the module's own arity."
+        f" MULTI_MEMBER_PATHSPECS names {sorted(MULTI_MEMBER_PATHSPECS)};"
+        f" asserted_pathspecs() resolves {sorted(from_module)} to more than one"
+        " member. A constant that gained a member is unguarded by CONTROL 18"
+        " until this roster is corrected, and a constant that lost one is being"
+        " guarded by a control that can no longer mutate exactly one member"
+    )
+
+
 def test_every_asserted_pathspec_names_a_tracked_subject() -> None:
     """Each emptiness assertion is over a pathspec that names something real.
 
@@ -505,6 +590,15 @@ def test_control_16_a_pathspec_that_names_nothing_is_refused() -> None:
     `src/`, `runtimes/` for `runtime/`, `citation.py` for `citations.py`,
     `test/` for `tests/`.
 
+    **The fifth subject is MIXED and it is the one that could not have passed
+    before**: ``("src/", "runtimes/")`` — one live member and one typo. The
+    four subjects above are all single-member, so the tuple-level truthiness
+    test `B-1` installed refused every one of them and none could reach `RR-1`.
+    A live sibling satisfies that test on the typo's behalf, and the pathspec
+    then limits `git diff` to a tree the phase never touched while reporting it
+    as the whole fence. See `CONTROL 18` for the same failure quantified over
+    every multi-member constant this module asserts emptiness over.
+
     Each subject is first handed to raw `git diff` to establish that the
     mutation was genuinely INVISIBLE before this guard existed — exit 0, empty
     stdout, indistinguishable from the clean tree the real constants produce.
@@ -517,6 +611,7 @@ def test_control_16_a_pathspec_that_names_nothing_is_refused() -> None:
         ("runtimes/",),
         ("tools/lints/citation.py",),
         ("test/",),
+        ("src/", "runtimes/"),
     )
     for spec in near_misses:
         raw = subprocess.run(
@@ -556,6 +651,95 @@ def test_the_positive_control_a_real_pathspec_is_still_accepted() -> None:
     those two are the same string.
     """
     assert fabric_diff(phase_base_commit(), FABRIC) == ""
+
+
+@pytest.mark.parametrize("name,position", multi_member_cases())
+def test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused(
+    name: str, position: str
+) -> None:
+    """CONTROL 18 — a typo in ONE member of a multi-member pathspec is refused.
+
+    `RR-1`, quantified. `B-1` closed the misspelled-pathspec hole for arity 1
+    and the write-up said the hole was closed; it was closed for arity 1.
+    :func:`tracked_under` was applied to the TUPLE, so
+    ``fabric_diff(base, ("scr/", "runtime/"))`` returned the empty string with
+    no refusal at all — ``runtime/`` matches seventy-one tracked files and
+    satisfied the truthiness test on the typo's behalf, while the diff the
+    assertion was built on had lost half its subject.
+
+    Four things are established per subject, in order, and each is a run rather
+    than an assumption:
+
+    1. the mutated member matches NOTHING — :func:`tracked_under` is run on it
+       and required to be empty, so the sabotage target is picked by running
+       the predicate rather than by trusting :func:`near_miss`;
+    2. every OTHER member is still live — which is precisely what makes the
+       tuple-level test pass, and without it this control would degenerate into
+       the all-members-broken case the pre-fix module already refused;
+    3. the mutated tuple is the SILENT kind through raw `git diff` — exit 0,
+       empty stdout, indistinguishable from the clean tree the real constant
+       produces — exactly as `CONTROL 16` establishes for its own subjects, so
+       the control shows what the refusal ADDS rather than only that it fires;
+    4. :func:`fabric_diff` refuses, and the refusal NAMES the mutated member
+       rather than the tuple. Naming the tuple would be the same aggregate
+       report one level up.
+    """
+    base = phase_base_commit()
+    real = dict(asserted_pathspecs())[name]
+    index = 0 if position == "first" else len(real) - 1
+    broken = near_miss(real[index])
+    mutated = tuple(
+        broken if at == index else member for at, member in enumerate(real)
+    )
+
+    assert not tracked_under((broken,)), (
+        f"the near miss {broken!r} derived from {name}[{index}] ="
+        f" {real[index]!r} matches a tracked file, so it is not a broken member"
+        " at all and this control would be watching the guard ACCEPT a live"
+        " pathspec. Pick the sabotage target by running the predicate"
+    )
+    survivors = tuple(member for at, member in enumerate(real) if at != index)
+    assert tracked_under(survivors), (
+        f"every member of {name} other than {real[index]!r} matches nothing"
+        " either, so this subject is the all-members-broken case the tuple-level"
+        " test already refused. It cannot reach RR-1 and proves nothing about"
+        " per-member quantification"
+    )
+
+    raw = subprocess.run(
+        ["git", "diff", "--stat", f"{base}..HEAD", "--", *mutated],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert raw.returncode == 0 and raw.stdout == "", (
+        f"{name} with {broken!r} substituted for {real[index]!r} was expected to"
+        " be the silent kind through raw `git diff` — exit 0 and empty stdout,"
+        " which is what makes a half-broken pathspec indistinguishable from a"
+        f" clean tree. It returned {raw.returncode}/{raw.stdout!r} instead, so"
+        " this control is no longer about the failure it was written for"
+    )
+
+    try:
+        result = fabric_diff(base, mutated)
+    except AssertionError as failure:
+        assert broken in str(failure), (
+            f"{name} with {broken!r} substituted was refused, but the refusal"
+            f" does not name the offending member: {failure}. A refusal that"
+            " reports the whole tuple leaves a reader to find the one-key typo"
+            " among eleven paths, and is the same aggregate report that let"
+            " RR-1 through"
+        )
+        return
+    raise AssertionError(
+        f"{name} with the single member {real[index]!r} misspelled as"
+        f" {broken!r} returned {result!r} instead of refusing. The surviving"
+        f" members {list(survivors)} match tracked files and satisfy the"
+        " pathspec guard on the typo's behalf, so every emptiness assertion"
+        f" built on {name} reports a clean tree over a comparison that lost"
+        " part of its subject"
+    )
 
 
 # ===========================================================================
