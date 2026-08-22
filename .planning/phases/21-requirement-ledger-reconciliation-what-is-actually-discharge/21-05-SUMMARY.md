@@ -237,7 +237,7 @@ The one lesson this plan re-applied rather than re-proved: **a control run at th
 | `make lint` | **exit 0** |
 | `make typecheck` | **exit 0** — 211 source files |
 | `make gate-tools` | **exit 0** — leg 1 **406**, leg 2 **189**; both unmoved, the mechanical proof no test was added |
-| `make test` | **exit 0** — see the note below |
+| `make test` | **exit 0** — **4105 passed / 118 skipped**, 10m37s — identical to the wave-1, wave-2, wave-3 and wave-4 baselines |
 | `refuse_unresolvable(ledger_text())` | **`[]`** |
 | `channel_disagreements` / `vocabulary_offenders` / `doubled_verdicts` | **`[]`**, **`[]`**, **`[]`** |
 | identical id set in both channels | **True**, across all **143** ids (measured, not carried — `D-21`) |
