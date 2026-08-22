@@ -3,8 +3,77 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-22T23:55:00.000Z"
+last_updated: "2026-08-23T01:05:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21.1 WAVE 5 LANDED (`21.1-05`, four task commits `9d22684`,
+  `ca26de7`, `4ca1bbf`, `9360865`).** `RR-11` is closed under `D-IMPL-180` and `VAC-06`'s
+  machinery is in: every refusal in the ledger module now has a NAME.
+  **`RR-11` CLOSED -- THE GATE THAT FORBADE ITS OWN PATTERN.**
+  `test_each_widened_pattern_subsumes_the_lint_pattern_it_replaced` compared path
+  STRINGS, so a dotted citation's correct `.planning/...` match was scored a SILENT DROP
+  against the lint's truncated twin `planning/...` -- which it COVERS. Re-measured this
+  session: lint `CITATION` -> `planning/REQUIREMENTS.md` at `(11, 37)`, `LOOSE_CITATION`
+  -> `.planning/REQUIREMENTS.md` at `(10, 37)`; as PATH STRINGS the twin is "missing",
+  as SPANS nothing was lost. The predicate is now `uncovered_lint_citations(document,
+  lint, widened, name)`, taking its subject as an ARGUMENT so a control can point it
+  somewhere other than the real ledger, and **the anti-vacuity clause moved INTO it** so
+  a control can watch it refuse. `CONTROL 23b` -- not 24, which belongs to wave 6 --
+  committed BEFORE the fix and watched RED (1 failed / 65 passed at `9d22684`, 66 passed
+  at `ca26de7`). It carries FOUR limbs because three weaker implementations pass fewer
+  than four, including **the substring trap**: a lint path that is a SUBSTRING of an
+  unrelated widened path is still a drop, and only the span form can tell a correction
+  from a loss. Verified end to end on the REAL ledger: the `.planning/` citation wave 4
+  had to withhold now extracts, resolves, and leaves the gate empty. `D-07` intact.
+  **LIMB IDENTITY -- THE GENERATOR OF THE VACUITY CLASS, ADDRESSED.** `_refuse(limb,
+  message)` is the one dispatcher every refusal raises through, appending `[limb:<id>]`
+  so every existing control keeps passing on the substring it already asserts,
+  UNAMENDED. `LIMBS` is a frozen roster of NAMED ids in `<function>.<branch>` form,
+  asserted by MEMBERSHIP and never by length (`D-21`). `neutered(limb)` turns ONE named
+  limb off for the length of a block and restores in a `finally`. **The switch is the
+  most dangerous object in the module and is guarded THREE ways, all STANDING rather
+  than one-off, so waves 6-8 can point controls at them:** an autouse fixture asserts
+  `neutering_switch_offenders()` empty after EVERY test, a standing test asserts it at
+  rest, and `_require_registered` is deliberately NOT a limb and NOT routed through
+  `_refuse` -- a guard on the switch that can disarm every other guard must not itself
+  be disarmable. A source-level test reads the module by `ast` and holds three
+  properties: no `raise AssertionError` outside a test body or the dispatcher; every
+  `_refuse` id registered AND prefixed with the function it sits in; and every
+  registered id has a call site -- **an id with no site is the mirror of a site with no
+  id**. Measured bijective: 31 limbs, 31 sites, one each.
+  **THE THREE DISPOSITIONS, ALL NAMED.** REMOVED: `refuse_unresolvable`'s zero-row limb,
+  structurally dead because `traceability_rows` refuses the same input one function
+  earlier -- no ARGUMENT can reach it -- and its id left `LIMBS` in the same commit.
+  REPAIRED: `base_ledger_text` takes `base` as an argument, so its shallow-clone guard
+  (a CI failure this project hit for REAL at the Phase 20 close) is reachable instead of
+  deleted, per `D-IMPL-179` limb 2. KEPT: `uncited_verdicts`' empty-roster limb --
+  **research classified it unreachable and that classification is WRONG.** No production
+  caller passes an empty roster, but a CONTROL can, and taking the subject as an
+  argument is this module's own idiom. Both repaired limbs get their controls in
+  `21.1-06`; both were probed reachable here.
+  **`CONTROL 5` RE-AIMED, AND WHAT LET THE MIS-AIM SURVIVE WAS THE ASSERTION.** Its
+  docstring named the removed limb for the whole of Phase 21; the refusal it always
+  observed is `traceability_rows.zero_rows`. Measured BEFORE the removal: both limbs'
+  messages contain the phrase `"no rows"`, so with the upstream limb neutered the
+  DOWNSTREAM one caught the same subject and the control stayed GREEN over an entirely
+  different refusal. It asserts the LIMB ID now, and under
+  `neutered("traceability_rows.zero_rows")` it goes RED -- **the first time in this
+  module's life a control has been proven to reach the limb it names**, and the shape
+  `21.1-07` generalises.
+  Nine sabotages watched red against the SHIPPED module, each reddening exactly its own
+  guard: three on the subsumption predicate (anti-vacuity dropped, span weakened to
+  substring, the wave-3 path-string predicate restored), two on the neutering switch (a
+  well-formed block green, the same block with the `finally`-restore removed caught by
+  the fixture), three on the source-level roster test (a bypassing raise, a wrong-prefix
+  id, an orphaned id), and `CONTROL 5` under its own neutered limb. Module 65 -> 68
+  tests, `tools/docs_tests` 176 -> 179, `gate-tools` 406 + 219 -> 406 + 222 with no
+  `Makefile` edit, `tools.lints --all` exit 0, the `D-21` count sweep exits 1, and the
+  pinned-base fence over `src/ runtime/ examples/ public/ tests/ pyproject.toml
+  tools/lints/citations.py` EMPTY on every path -- the only file this plan wrote under
+  `tools/` is the ledger module itself.
+  `VAC-06`'s ledger row stays `Pending` BY DESIGN until plan `21.1-09`, so no
+  `requirements.mark-complete` was run. `D-15` honoured: STATE.md and ROADMAP.md backed
+  up outside the tree, hand-edited, diffed; no `state.*` or `roadmap.*` writer invoked.
+  `RETIREMENT-COUPLINGS.md` regenerated LAST.
   2026-08-22 -- **PHASE 21.1 WAVE 4 LANDED (`21.1-04`, two task commits `fa2512d`,
   `c874aed`). DOCUMENTS ONLY -- no code, no module write.** `RR-3` is closed and Dave's
   `D-IMPL-179` limb 1 ruling is executed.
