@@ -4412,3 +4412,172 @@ def test_control_31b_a_pathspec_member_too_short_to_misspell_is_refused() -> Non
             " A near miss that is not a misspelling is the REAL pathspec, and"
             " a control handed the real pathspec is watching nothing"
         )
+
+
+# ===========================================================================
+# CONTROL 32 AND CONTROL 33 — THE GUARDS ON THE MACHINERY THIS PHASE BUILT.
+#
+# Plan `21.1-05` installed the refusal dispatcher, the `LIMBS` roster and the
+# neutering switch, and it built the switch's own guards STANDING rather than
+# as one-offs precisely so that these two controls could be aimed at them. It
+# also quoted `D-IMPL-170` on the same page: **a sabotage run once and written
+# up in a SUMMARY is a probe, not a control.** Until here, the two mechanisms
+# whose silent failure would make every other control in this module VACUOUS
+# were held by a probe each.
+#
+# Neither is a control over a refusal in the audited sense, so both belong to
+# plan `21.1-07`'s `guard` aim kind — the one whose obligation is INVERTED:
+# sabotage the guarded mechanism and require the control to fail. Each carries
+# its saboteur in its docstring under `SABOTEUR:` so `21.1-07` can lift it into
+# `CONTROL_AIM` without re-deriving it.
+#
+# **They are deliberately NOT `meta`.** A `meta` entry is excluded from every
+# invocation loop by design, so filing them there would leave the two controls
+# holding the two most dangerous mechanisms in the module registered,
+# enumerated and AIM-UNPROVEN. `meta` is a regress-stopper for the aim-proving
+# controls themselves; it is not a filing cabinet for a control that does not
+# fit.
+# ===========================================================================
+
+
+def test_control_32_a_refusal_with_no_registered_identity_is_itself_refused() -> None:
+    """CONTROL 32 — the dispatcher's UNREGISTERED-LIMB guard, held standing.
+
+    **What it guards.** :func:`_require_registered` is what stops a refusal
+    shipping without an identity. Every other control in this module asserts
+    `[limb:<id>]`, `neutered()` disarms exactly one named id, and plan
+    `21.1-07`'s coverage sweep quantifies over :data:`LIMBS` — all three rest on
+    the id being REGISTERED rather than merely spelled. A later edit that
+    turned this guard into a pass would let an unregistered id through
+    silently, and the whole `LIMBS`/`CONTROL_AIM` scheme would quietly stop
+    binding: a new refusal would carry a tag nobody enumerates, no coverage
+    check would see it unwatched, and `neutered("typo")` would turn nothing off
+    while reading exactly like a mutation that landed.
+
+    **Both directions, because both callers matter.** :func:`_refuse` refuses
+    an unregistered id at the RAISING side; :func:`neutered` refuses one at the
+    DISARMING side. A guard on only the first would let a typo silently neuter
+    nothing.
+
+    **The refusal NAMES the offending id**, and this control asserts that it
+    does. A message saying only "unregistered limb" would leave a reader to
+    find the typo among thirty ids, which is the aggregate report this module
+    is about one level up.
+
+    **This guard is deliberately un-neuterable**, per plan `21.1-05`: it is not
+    in :data:`LIMBS` and does not route through :func:`_refuse`, because a
+    guard on the switch that can disarm every other guard must not itself be
+    disarmable. So its RED comes from a source-level saboteur rather than from
+    `neutered()`.
+
+    SABOTEUR: make :func:`_require_registered` ACCEPT an unregistered id —
+    replace its body with `return`.
+    """
+    stranger = "no.such.function.no_such_branch"
+    assert stranger not in LIMBS, (
+        f"{stranger!r} is a registered limb, so this control's subject is not"
+        " an unregistered id at all and the guard it watches is never reached"
+    )
+    for name, call in (
+        ("_refuse", lambda: _refuse(stranger, "a refusal with no identity")),
+        ("neutered", lambda: neutered(stranger).__enter__()),
+    ):
+        try:
+            call()
+        except AssertionError as failure:
+            assert stranger in str(failure), (
+                f"`{name}` refused an unregistered id without NAMING it:"
+                f" {failure}. A reader would have to find the typo among thirty"
+                " registered ids"
+            )
+            assert "[limb:" not in str(failure), (
+                f"`{name}`'s registration guard raised through the dispatcher"
+                f" and carries a limb id: {failure}. It must not — a guard"
+                " routed through `_refuse` is a guard `neutered()` can turn"
+                " off, and this one guards the switch that turns the others off"
+            )
+            continue
+        raise AssertionError(
+            f"`{name}` ACCEPTED the unregistered limb id {stranger!r}. A"
+            " refusal with no registered identity cannot be quantified over:"
+            " no control can name it, no coverage sweep can see that nothing"
+            " watches it, and `neutered()` cannot tell it from a typo — so"
+            " every id-keyed guarantee in this module stops binding, in silence"
+        )
+
+
+def test_control_33_the_neutering_off_switch_cannot_leak_and_its_guard_can_fail() -> (
+    None
+):
+    """CONTROL 33 — the `_NEUTERED` OFF-SWITCH, and the fixture that watches it.
+
+    **What it guards, and why this is the most dangerous mechanism in the
+    module.** :data:`_NEUTERED` disarms refusals. A limb left in it is disarmed
+    for every test that runs afterwards in the session, and every one of those
+    tests goes GREEN over a guard that is no longer guarding — the phase's own
+    thesis arriving inside the machinery built to close it. One leak makes an
+    arbitrary suffix of this module vacuous, and nothing about the run looks
+    wrong.
+
+    **Two limbs, because there are two ways the switch fails.**
+
+    1. :func:`neutered` fails to RESTORE. Asserted the only way that matters:
+       an exception is raised inside the block, which is precisely the case a
+       restore written after the `yield` instead of in a `finally` would miss —
+       and a control's assertion failing INSIDE a `neutered()` block is the
+       single most likely way this module ever raises in one.
+    2. The autouse fixture's PREDICATE stops reporting. A fixture nobody has
+       watched fire is a fixture that might not. :func:`neutering_switch_offenders`
+       is a named function for exactly this reason (plan `21.1-05`), so this
+       limb leaks an id deliberately inside a scoped subject and requires the
+       predicate to NAME it — rather than trusting a fixture that has only ever
+       been observed passing.
+
+    The leak is scoped in a `try`/`finally` of its own, so this control cannot
+    become the leak it is testing for.
+
+    SABOTEUR: (1) move :func:`neutered`'s restore out of its `finally` and
+    after the `yield`; (2) make :func:`neutering_switch_offenders` return `[]`
+    unconditionally.
+    """
+    limb = "traceability_rows.zero_rows"
+
+    class _ControlBoom(Exception):
+        """Raised inside a `neutered()` block, to prove the restore is a `finally`."""
+
+    # --- limb 1: the restore survives an exception raised inside the block ---
+    try:
+        with neutered(limb):
+            assert limb in neutering_switch_offenders(), (
+                f"`neutered({limb!r})` did not turn the limb OFF, so the rest"
+                " of this control watches a switch that was never thrown and"
+                " the restore it asserts is a restore of nothing"
+            )
+            raise _ControlBoom
+    except _ControlBoom:
+        pass
+    assert neutering_switch_offenders() == [], (
+        f"`neutered({limb!r})` did not restore the limb when the block raised:"
+        f" {neutering_switch_offenders()!r}. An assertion failing inside a"
+        " `neutered()` block is the most likely way this module ever raises in"
+        " one, and a restore written after the `yield` rather than in a"
+        " `finally` would leave that limb disarmed for every test after it"
+    )
+
+    # --- limb 2: the fixture's own predicate REPORTS a leak, by name ---
+    _NEUTERED.add(limb)
+    try:
+        leaked = neutering_switch_offenders()
+    finally:
+        _NEUTERED.discard(limb)
+    assert leaked == [limb], (
+        "the neutering switch was left ON and the guard's own predicate"
+        f" reported {leaked!r} rather than {[limb]!r}. That predicate is what"
+        " the autouse fixture asserts after EVERY test in this module; a"
+        " predicate that cannot see a leak makes the fixture a decoration, and"
+        " every assertion downstream of a leaked limb passes VACUOUSLY"
+    )
+    assert neutering_switch_offenders() == [], (
+        "this control left the switch ON, which is the failure it exists to"
+        f" detect: {neutering_switch_offenders()!r}"
+    )
