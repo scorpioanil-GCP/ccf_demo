@@ -212,11 +212,40 @@ optional and its steps do not merge:
    independent models catch different blind spots, the single-agent pass
    because it reads at a depth a panel prompt cannot carry.
 
+   **What the panel IS, definitionally (D-GATE-21, Dave, 2026-08-22).**
+   The panel is *the set of available external AI reviewers, with the
+   executing model excluded for independence*. It is not a particular
+   command invocation. `/gsd-review --all` is the mechanism that gathers
+   them, and the reviewer set, credentials and model selection come from
+   that workflow — but the panel is discharged by the reviewers having
+   read the right subject, not by the command having been typed.
+
    **When execution has already happened, the panel reviews the *shipped
    code*, not the plans.** A phase whose plans were reviewed before
    execution does not get a second plan review at close — those decisions
    are already executed. Write the close-time panel to a distinct file
    (`<phase>-CLOSE-REVIEWS.md`) so the pre-execution plan review survives.
+
+   **The close-time payload is the committed tree, however the panel is
+   invoked.** `$HOME/.claude/get-shit-done/workflows/review.md` gathers
+   `*-PLAN.md`, `*-CONTEXT.md` and `*-RESEARCH.md` and asks for a *plan*
+   review — correct before execution, wrong at close. At close, either
+   `/gsd-review --all` gathers the shipped subjects (the changed source,
+   the artifacts the phase produced, the diff against the phase base), or
+   the payload is assembled by hand from those subjects and the three
+   reviewer invocations otherwise follow the workflow exactly. **Plans stay
+   the pre-execution review target; shipped code is the close-time target.**
+   A hand-assembled close-time payload is conforming, not a deviation —
+   but say so in the phase record, and name every subject that was left
+   out of it.
+
+   **Inline the source rather than pointing reviewers at paths.** On this
+   host, codex's sandbox (`bwrap`) fails in a way that lets it exit 0
+   having read nothing. Inlining the subject makes a silent sandbox failure
+   unable to empty the review. Before counting any reviewer as having
+   reviewed, check that the symbols and line numbers in its output actually
+   resolve against the tree — and record any reviewer that failed that test
+   as failed, rather than as a reviewer.
 
    **Give the panel the findings already known and tell it not to re-derive
    them** — its budget is better spent on what is *adjacent* to each known
