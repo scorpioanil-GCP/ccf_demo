@@ -46,10 +46,12 @@ the outside, by requiring that a cited path exist exactly as written.
 
 from __future__ import annotations
 
+import ast
+import contextlib
 import pathlib
 import re
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 
 import pytest
 
@@ -162,6 +164,279 @@ CHANGED_TREE: tuple[str, ...] = (".planning/",)
 UNRESOLVABLE_BASE = "0000000000000000000000000000000000000000"
 
 
+# ===========================================================================
+# Limb identity — the refusal dispatcher, the frozen roster, and the switch.
+#
+# `VAC-06`, plan `21.1-05`. Research found this phase's GENERATOR by mutation:
+# neuter each refusal branch one at a time and EIGHT of this module's refusals
+# could be deleted with all 51 tests still green. Nothing here proved that a
+# CONTROL's mutation reaches the assertion it vouches for, which is why
+# `CONTROL A`, `CONTROL 5` and `CONTROL 13` all shipped mis-aimed.
+#
+# **A limb with no identity cannot be quantified over.** Criterion 12 asks that
+# EVERY refusal branch be either reachable and watched or identified and
+# removed, and criterion 13 asks that every control be proven to reach the limb
+# it vouches for. Neither is expressible until each limb has a name the module
+# can hold, which is what this section installs.
+# ===========================================================================
+
+#: Every refusal branch in this module, one NAMED id per branch, as
+#: `<function>.<branch>`.
+#:
+#: A frozen roster of NAMES and never a count (`D-21`). It is asserted by
+#: MEMBERSHIP — :func:`_refuse` refuses an id that is not in it — and never by
+#: length: a length test is satisfied by any roster of the right size, which is
+#: precisely the substitution a roster exists to prevent.
+#:
+#: **Refusals only.** The four `path::symbol` findings inside
+#: :func:`refuse_unresolvable` — the ambiguous basename, the unique basename,
+#: the absent path, the directory, the unindexed path — are APPENDED to a
+#: returned list rather than raised, so they are not limbs of this dispatcher.
+#: They are watched by `CONTROL 1`–`CONTROL 4b` through the returned messages.
+#:
+#: Enumerated by reading the module rather than by transcription, and the
+#: enumeration is held to that by :func:`test_no_refusal_bypasses_the_dispatcher`
+#: below — a `raise AssertionError` outside a test body and outside the
+#: dispatcher itself is a refusal that shipped without an identity.
+LIMBS: frozenset[str] = frozenset(
+    {
+        "tracked_under.nonzero_exit",
+        "fabric_diff.empty_base",
+        "fabric_diff.empty_paths",
+        "fabric_diff.untracked_member",
+        "fabric_diff.nonzero_exit",
+        "near_miss.too_short_to_transpose",
+        "traceability_rows.header_absent",
+        "traceability_rows.cell_count",
+        "traceability_rows.zero_rows",
+        "traceability_rows.duplicate_ids",
+        "checkbox_channel.empty",
+        "checkbox_channel.duplicate_ids",
+        "_doctored.anchor_not_unique",
+        "_table_line.not_unique",
+        "_checkbox_line.not_unique",
+        "_index.anchor_unresolved",
+        "refuse_unresolvable.zero_rows",
+        "refuse_unresolvable.zero_citations",
+        "uncovered_lint_citations.lint_matches_nothing",
+        "base_ledger_text.nonzero_exit",
+        "roster_verdicts.absent_id",
+        "uncited_verdicts.empty_roster",
+        "_cell_with_an_unbolded_lead_and_a_later_bolded_verdict.cell_count",
+        "_cell_with_an_unbolded_lead_and_a_later_bolded_verdict.verdict_unusable",
+        "_cell_with_an_unbolded_lead_and_a_later_bolded_verdict.lead_not_bolded",
+        "_duplicated_table_row.cell_count",
+        "_duplicated_table_row.phase_collision",
+        "_duplicated_table_row.twin_identical",
+        "_duplicated_checkbox_bullet.not_a_bullet",
+        "_duplicated_checkbox_bullet.twin_identical",
+        "_duplicated_checkbox_bullet.twin_not_read",
+    }
+)
+
+#: The limbs currently turned OFF, for the length of one :func:`neutered` block.
+#:
+#: **This is the most dangerous object in the module and it is guarded twice.**
+#: A limb in here does not raise; :func:`_refuse` returns and control flow
+#: continues past the branch, which is exactly the mutation research used to
+#: find the eight unfalsified refusals. Leaked, it disarms every assertion
+#: downstream of it in silence. :func:`neutered` restores in a `finally`, an
+#: autouse fixture asserts the set is empty after EVERY test in this module,
+#: and :func:`test_the_neutering_switch_is_off_at_rest` asserts it at rest.
+_NEUTERED: set[str] = set()
+
+
+def _require_registered(limb: str) -> None:
+    """Refuse a limb id that is not in :data:`LIMBS`.
+
+    **Deliberately NOT routed through :func:`_refuse`, and this is structural.**
+    A guard on the switch that can disarm every other guard must not itself be
+    disarmable: were this a limb, neutering it would let an unregistered
+    refusal ship AND let :func:`neutered` silently turn off a typo, which is
+    failure mode 3 — *the mutation was invisible to the whole module*.
+    """
+    if limb not in LIMBS:
+        raise AssertionError(
+            f"the limb id {limb!r} is not in `LIMBS`. A refusal with no"
+            " registered identity cannot be quantified over: no control can"
+            " name it, no coverage check can see it is unwatched, and"
+            " `neutered()` cannot tell it from a typo. Register it in `LIMBS`"
+            " or use the id the branch already carries"
+        )
+
+
+def _refuse(limb: str, message: str) -> None:
+    """Raise `message`, tagged with `limb` — unless `limb` is neutered.
+
+    **Every refusal in this module raises through here**, so that each carries
+    a UNIQUE registered id and a control can assert the IDENTITY of the limb it
+    observes rather than a phrase two limbs happen to share. `CONTROL 5` is the
+    cautionary case: it asserted `"no rows" in str(failure)`, which passes on
+    the message of `refuse_unresolvable`'s zero-row limb AND on
+    `traceability_rows`' — and it had been observing the second while its
+    docstring named the first, for the whole of Phase 21.
+
+    The id is APPENDED to the message rather than replacing any of it, so every
+    control asserting a substring of its refusal keeps passing unamended.
+
+    ``from None`` because :func:`traceability_rows` calls this from inside an
+    ``except ValueError`` block and the chained `ValueError` is noise there.
+
+    **Returning under neuter is the point, not a convenience.** Control flow
+    continues past the branch, so a meta-control can ask the only question that
+    matters about a guard — *does anything in this module notice when it stops
+    guarding?*
+    """
+    _require_registered(limb)
+    if limb in _NEUTERED:
+        return
+    raise AssertionError(f"{message} [limb:{limb}]") from None
+
+
+@contextlib.contextmanager
+def neutered(limb: str) -> Iterator[None]:
+    """Turn one NAMED limb off for the length of the block, then restore it.
+
+    Restores in a `finally`, so an assertion failing inside the block cannot
+    leave the switch on. The id is required to be registered first: neutering a
+    typo would turn nothing off while reading exactly like a mutation that
+    landed, which is how a control passes for a reason unrelated to its subject.
+    """
+    _require_registered(limb)
+    already_off = limb in _NEUTERED
+    _NEUTERED.add(limb)
+    try:
+        yield
+    finally:
+        if not already_off:
+            _NEUTERED.discard(limb)
+
+
+def neutering_switch_offenders() -> list[str]:
+    """Every limb currently turned off — empty at rest, and asserted so.
+
+    A named function rather than an inline `assert not _NEUTERED`, so the
+    fixture's predicate is one a control can call with a leak in force and
+    watch report it. A guard falsifiable only by a one-off is the shape this
+    phase exists to end, and this one guards the switch that can disarm
+    everything else.
+    """
+    return sorted(_NEUTERED)
+
+
+@pytest.fixture(autouse=True)
+def _the_neutering_switch_is_restored() -> Iterator[None]:
+    """After EVERY test in this module, the neutering switch is off.
+
+    A :func:`neutered` block that failed to restore would leave its limb
+    disarmed for every later test in the session — and every one of them would
+    go GREEN over a guard that was no longer guarding. This reddens the run at
+    the test that leaked instead.
+    """
+    yield
+    leaked = neutering_switch_offenders()
+    assert not leaked, (
+        f"the neutering switch was left ON for {leaked!r} at the end of this"
+        " test. Every refusal named there is disarmed for the rest of the"
+        " session, so every later assertion that depends on one passes"
+        " VACUOUSLY — the failure this module exists to catch, arriving"
+        " through the machinery built to catch it"
+    )
+
+
+def test_the_neutering_switch_is_off_at_rest() -> None:
+    """No limb is neutered in a module nobody has neutered anything in.
+
+    The standing half of the pair. The autouse fixture catches a `neutered()`
+    block that leaked; this catches a limb turned off at import — a module-level
+    `_NEUTERED.add(...)`, or a fixture that adds and never removes — which the
+    fixture would report against whichever unlucky test ran first.
+    """
+    assert neutering_switch_offenders() == [], (
+        "a limb is turned off before any test asked for it:"
+        f" {neutering_switch_offenders()!r}. Every refusal named there is"
+        " disarmed for the whole session"
+    )
+
+
+def test_no_refusal_bypasses_the_dispatcher_and_no_limb_id_is_orphaned() -> None:
+    """Every refusal has a registered id, and every registered id has a site.
+
+    Read from this module's own SOURCE, by `ast`, because the property is
+    structural: a `raise AssertionError` added tomorrow in a checker would be a
+    refusal with no identity, invisible to every coverage question plans
+    `21.1-06`–`21.1-08` are built to ask, and no behavioural test can see it
+    until someone happens to hit it. `21.1-02` established the precedent — a
+    source-level control, added after two divergent inline copies satisfied the
+    behavioural one.
+
+    **Three limbs, and the third is the one that bites.**
+
+    1. no `raise AssertionError` outside a `test_*` body and outside the
+       dispatcher itself. :func:`_refuse` and :func:`_require_registered` are
+       the exceptions BY NAME — the dispatcher must raise, and its registration
+       guard must raise un-neuterably;
+    2. every `_refuse(...)` call names a literal id that is in :data:`LIMBS`
+       AND whose prefix is the function it sits in, so `<function>.<branch>` is
+       a fact rather than a convention;
+    3. every id in :data:`LIMBS` has at least one call site. **An id with no
+       site is the mirror of a site with no id** — it is what a removed limb
+       leaves behind, and it makes a coverage sweep report a control watching
+       a branch that no longer exists.
+    """
+    source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    dispatcher = {"_refuse", "_require_registered"}
+
+    bypassing: list[str] = []
+    mismatched: list[str] = []
+    sited: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        if node.name.startswith("test_") or node.name in dispatcher:
+            continue
+        for inner in ast.walk(node):
+            if (
+                isinstance(inner, ast.Raise)
+                and isinstance(inner.exc, ast.Call)
+                and isinstance(inner.exc.func, ast.Name)
+                and inner.exc.func.id == "AssertionError"
+            ):
+                bypassing.append(f"{node.name}:{inner.lineno}")
+            if (
+                isinstance(inner, ast.Call)
+                and isinstance(inner.func, ast.Name)
+                and inner.func.id == "_refuse"
+                and inner.args
+                and isinstance(inner.args[0], ast.Constant)
+            ):
+                limb = inner.args[0].value
+                sited.add(limb)
+                if limb not in LIMBS or not limb.startswith(f"{node.name}."):
+                    mismatched.append(f"{node.name}:{inner.lineno} -> {limb!r}")
+
+    assert not bypassing, (
+        f"these refusals raise `AssertionError` directly rather than through"
+        f" `_refuse`, so they carry no limb id: {bypassing}. A refusal with no"
+        " identity cannot be quantified over — no control can name it, and no"
+        " coverage check can see that nothing watches it"
+    )
+    assert not mismatched, (
+        f"these `_refuse` call sites name an id that is unregistered, or whose"
+        f" prefix is not the function it sits in: {mismatched}. The id form is"
+        " `<function>.<branch>`, and it is a fact about the source rather than"
+        " a naming convention"
+    )
+    orphaned = sorted(LIMBS - sited)
+    assert not orphaned, (
+        f"these ids are in `LIMBS` with no `_refuse` call site anywhere:"
+        f" {orphaned}. An id with no site is the mirror of a site with no id —"
+        " it is what removing a limb leaves behind, and it makes a coverage"
+        " sweep report a control watching a branch that no longer exists"
+    )
+
+
 # ---------------------------------------------------------------------------
 # The pinned base, and the diff machinery built on it.
 #
@@ -197,7 +472,8 @@ def tracked_under(paths: Sequence[str]) -> list[str]:
         check=False,
     )
     if completed.returncode != 0:
-        raise AssertionError(
+        _refuse(
+            "tracked_under.nonzero_exit",
             f"`git ls-files -- {list(paths)}` exited {completed.returncode}, so"
             " its empty output says nothing about whether the pathspec names a"
             f" real subject.\nstderr: {completed.stderr.strip()}"
@@ -266,18 +542,21 @@ def fabric_diff(base: str, paths: Sequence[str]) -> str:
     why the base-commit file is committed before this module is first run.
     """
     if not base.strip():
-        raise AssertionError(
+        _refuse(
+            "fabric_diff.empty_base",
             "no diff base was given, so `git diff` would compare HEAD against"
             " nothing and print nothing — which reads exactly like a clean tree"
         )
     if not paths:
-        raise AssertionError(
+        _refuse(
+            "fabric_diff.empty_paths",
             "no paths were given, so the diff is limited to nothing and is"
             " empty regardless of what the phase changed"
         )
     for member in paths:
         if not tracked_under((member,)):
-            raise AssertionError(
+            _refuse(
+                "fabric_diff.untracked_member",
                 f"the pathspec member {member!r} of {list(paths)} matches no"
                 " file tracked by `git`, so `git diff` limited to it exits ZERO"
                 " and prints NOTHING whatever the phase changed. A misspelled"
@@ -293,7 +572,8 @@ def fabric_diff(base: str, paths: Sequence[str]) -> str:
         check=False,
     )
     if completed.returncode != 0:
-        raise AssertionError(
+        _refuse(
+            "fabric_diff.nonzero_exit",
             f"`git diff --stat {base}..HEAD -- {list(paths)}` exited"
             f" {completed.returncode}, so its empty output says nothing about"
             f" the tree.\nstderr: {completed.stderr.strip()}"
@@ -543,10 +823,12 @@ def near_miss(member: str) -> str:
     """
     stem, slash = (member[:-1], "/") if member.endswith("/") else (member, "")
     if len(stem) < 2:
-        raise AssertionError(
+        _refuse(
+            "near_miss.too_short_to_transpose",
             f"the pathspec member {member!r} is too short to misspell by"
             " transposition, so no near miss can be derived from it"
         )
+        return member
     return f"{stem[:-2]}{stem[-1]}{stem[-2]}{slash}"
 
 
@@ -916,31 +1198,37 @@ def traceability_rows(document_text: str) -> list[tuple[str, str, str]]:
     try:
         header_at = lines.index(TABLE_HEADER)
     except ValueError:
-        raise AssertionError(
+        _refuse(
+            "traceability_rows.header_absent",
             "the traceability table header"
             f" {TABLE_HEADER!r} was not found in the document. A parser that"
             " returned nothing here would report a clean, agreeing, fully"
-            " vocabularised ledger over a table it never located"
-        ) from None
+            " vocabularised ledger over a table it never located",
+        )
+        return []
     rows: list[tuple[str, str, str]] = []
     for line in lines[header_at + 2 :]:
         if not line.startswith("|"):
             break
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if len(cells) != CELLS_PER_ROW:
-            raise AssertionError(
+            _refuse(
+                "traceability_rows.cell_count",
                 f"traceability row {line!r} split into {cells!r}, which is not"
                 " the three cells a `| id | phase | status |` row has"
             )
+            continue
         rows.append((cells[0], cells[1], cells[2]))
     if not rows:
-        raise AssertionError(
+        _refuse(
+            "traceability_rows.zero_rows",
             "the traceability table header was found but no rows followed it."
             " Every check built on this parse would pass over nothing"
         )
     twice = repeated_ids([req_id for req_id, _phase, _status in rows])
     if twice:
-        raise AssertionError(
+        _refuse(
+            "traceability_rows.duplicate_ids",
             f"duplicate requirement ids in the traceability table: {twice}."
             " Every consumer of this parse keys by id — four dict builds and"
             " two comprehensions — so one of the two rows survives and the"
@@ -1061,14 +1349,16 @@ def checkbox_channel(document_text: str) -> dict[str, bool]:
         for match in CHECKBOX_LINE.finditer(document_text)
     }
     if not found:
-        raise AssertionError(
+        _refuse(
+            "checkbox_channel.empty",
             "the checkbox channel parsed to nothing. Either the document is"
             " not the ledger or the bullet shape changed; either way a"
             " comparison against an empty channel agrees with everything"
         )
     twice = repeated_ids(matched)
     if twice:
-        raise AssertionError(
+        _refuse(
+            "checkbox_channel.duplicate_ids",
             f"duplicate requirement ids in the checkbox channel: {twice}. The"
             " mapping keeps the LAST bullet, so the earlier one's tick is"
             " discarded without a finding and every comparison against this"
@@ -1164,7 +1454,8 @@ def _doctored(document_text: str, old: str, new: str) -> str:
     """
     occurrences = document_text.count(old)
     if occurrences != 1:
-        raise AssertionError(
+        _refuse(
+            "_doctored.anchor_not_unique",
             f"the control anchor {old!r} appears {occurrences} times in the"
             " document; a mutation that lands nowhere, or lands twice, is not"
             " the mutation the control claims to make"
@@ -1192,11 +1483,12 @@ def _table_line(document_text: str, req_id: str) -> str:
         if line.startswith(f"| {req_id} | ")
     ]
     if not matches or matches[1:]:
-        raise AssertionError(
+        _refuse(
+            "_table_line.not_unique",
             f"{req_id} matched {matches!r} traceability lines; a control that"
             " doctors nothing, or doctors twice, is not the control it claims"
         )
-    return matches[0]
+    return matches[0] if matches else ""
 
 
 def _checkbox_line(document_text: str, req_id: str) -> str:
@@ -1220,11 +1512,12 @@ def _checkbox_line(document_text: str, req_id: str) -> str:
         and CHECKBOX_LINE.match(line).group(2) == req_id  # type: ignore[union-attr]
     ]
     if not matches or matches[1:]:
-        raise AssertionError(
+        _refuse(
+            "_checkbox_line.not_unique",
             f"{req_id} matched {matches!r} checkbox bullets; a control that"
             " doctors nothing, or doctors twice, is not the control it claims"
         )
-    return matches[0]
+    return matches[0] if matches else ""
 
 
 # --- Preconditions — a vacuous pass is the failure this module exists to prevent.
@@ -1580,7 +1873,8 @@ def _index() -> dict[str, list[str]]:
         _REPO_INDEX_CACHE.update(repo_index(REPO_ROOT))
     basename = INDEX_ANCHOR.rsplit("/", maxsplit=1)[-1]
     if INDEX_ANCHOR not in _REPO_INDEX_CACHE.get(basename, []):
-        raise AssertionError(
+        _refuse(
+            "_index.anchor_unresolved",
             f"the resolver index does not resolve `{INDEX_ANCHOR}`, a path"
             " this module already cites in its own positive citation control."
             f" Its entries for `{basename}` are"
@@ -1681,14 +1975,16 @@ def refuse_unresolvable(document_text: str) -> list[str]:
     """
     rows = traceability_rows(document_text)
     if not rows:
-        raise AssertionError(
+        _refuse(
+            "refuse_unresolvable.zero_rows",
             "the traceability table parsed to no rows, so 'every citation is a"
             " full path' would pass over nothing. A refusal that has never had"
             " a subject is not a refusal"
         )
     cited_pairs = citations_in_status_cells(document_text)
     if not cited_pairs:
-        raise AssertionError(
+        _refuse(
+            "refuse_unresolvable.zero_citations",
             "the traceability table has rows but not one citation-shaped token"
             " in any status cell, so 'every citation is a full path' is"
             " quantified over the empty set and is trivially true. A verdict"
@@ -2091,7 +2387,8 @@ def base_ledger_text() -> str:
         check=False,
     )
     if completed.returncode != 0:
-        raise AssertionError(
+        _refuse(
+            "base_ledger_text.nonzero_exit",
             "`git show <pinned base>:.planning/REQUIREMENTS.md` exited"
             f" {completed.returncode}, so the working-set roster cannot be"
             " re-derived and the comparison below would be against nothing."
@@ -2132,12 +2429,17 @@ def roster_verdicts(
     }
     absent = sorted(roster - set(table))
     if absent:
-        raise AssertionError(
+        _refuse(
+            "roster_verdicts.absent_id",
             f"{absent} named in {roster_name} but absent from the traceability"
             " table. A completeness assertion that skipped them would report"
             " green over a ledger that had quietly lost a row"
         )
-    return [(req_id, verdict_token(table[req_id])) for req_id in sorted(roster)]
+    return [
+        (req_id, verdict_token(table[req_id]))
+        for req_id in sorted(roster)
+        if req_id in table
+    ]
 
 
 def working_set(document_text: str) -> list[tuple[str, str]]:
@@ -2243,7 +2545,8 @@ def uncited_verdicts(
     per-row rule quantified over no rows is trivially satisfied.
     """
     if not roster:
-        raise AssertionError(
+        _refuse(
+            "uncited_verdicts.empty_roster",
             f"{roster_name} is empty, so 'every verdicted row cites its"
             " evidence' is quantified over nothing and is trivially true"
         )
@@ -2639,21 +2942,25 @@ def _cell_with_an_unbolded_lead_and_a_later_bolded_verdict(
     line = _table_line(document_text, req_id)
     cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
     if len(cells) != CELLS_PER_ROW:
-        raise AssertionError(
+        _refuse(
+            "_cell_with_an_unbolded_lead_and_a_later_bolded_verdict.cell_count",
             f"{req_id}'s traceability line split into {cells!r}, which is not"
             " the three cells this mutation is built on"
         )
+        return document_text
     status = cells[2]
     lead = verdict_token(status)
     if lead not in VERDICT_VOCABULARY or lead == later:
-        raise AssertionError(
+        _refuse(
+            "_cell_with_an_unbolded_lead_and_a_later_bolded_verdict.verdict_unusable",
             f"{req_id} reads {lead!r}, which is either outside the vocabulary"
             f" or already {later!r}. Either way the mutation would not produce"
             " a cell asserting TWO DIFFERENT verdicts, which is the whole"
             " subject of this control"
         )
     if not status.startswith(f"**{lead}**"):
-        raise AssertionError(
+        _refuse(
+            "_cell_with_an_unbolded_lead_and_a_later_bolded_verdict.lead_not_bolded",
             f"{req_id}'s cell does not open with a BOLDED {lead!r}, so"
             " un-bolding its lead is not the mutation this control claims to"
             f" make. The cell reads {status[:60]!r}"
@@ -2840,13 +3147,16 @@ def _duplicated_table_row(document_text: str, req_id: str) -> str:
     line = _table_line(document_text, req_id)
     cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
     if len(cells) != CELLS_PER_ROW:
-        raise AssertionError(
+        _refuse(
+            "_duplicated_table_row.cell_count",
             f"{req_id}'s traceability line split into {cells!r}, which is not"
             " the three cells this mutation needs to rebuild the row"
         )
+        return document_text
     other_phase = "Phase 99"
     if cells[1] == other_phase:
-        raise AssertionError(
+        _refuse(
+            "_duplicated_table_row.phase_collision",
             f"{req_id}'s phase cell already reads {other_phase!r}, so the"
             " derived twin would be byte-identical to the row and"
             " `_doctored` would refuse a non-unique anchor for the wrong"
@@ -2854,7 +3164,8 @@ def _duplicated_table_row(document_text: str, req_id: str) -> str:
         )
     twin = f"| {cells[0]} | {other_phase} | {cells[2]} |"
     if twin == line:
-        raise AssertionError(
+        _refuse(
+            "_duplicated_table_row.twin_identical",
             f"the derived twin for {req_id} is identical to its row, so the"
             " mutation would not be a SECOND row at all"
         )
@@ -2874,16 +3185,22 @@ def _duplicated_checkbox_bullet(document_text: str, req_id: str) -> str:
     line = _checkbox_line(document_text, req_id)
     match = CHECKBOX_LINE.match(line)
     if match is None:  # pragma: no cover - `_checkbox_line` already refused
-        raise AssertionError(f"{line!r} is not a checkbox bullet")
+        _refuse(
+            "_duplicated_checkbox_bullet.not_a_bullet",
+            f"{line!r} is not a checkbox bullet",
+        )
+        return document_text
     flipped = "x" if match.group(1).lower() != "x" else " "
     twin = line[: match.start(1)] + flipped + line[match.end(1) :]
     if twin == line:
-        raise AssertionError(
+        _refuse(
+            "_duplicated_checkbox_bullet.twin_identical",
             f"the derived twin bullet for {req_id} is identical to its"
             " bullet, so the mutation would not be a SECOND bullet at all"
         )
     if CHECKBOX_LINE.match(twin) is None or CHECKBOX_LINE.match(twin).group(2) != req_id:  # type: ignore[union-attr]
-        raise AssertionError(
+        _refuse(
+            "_duplicated_checkbox_bullet.twin_not_read",
             f"the derived twin bullet {twin!r} is not read by CHECKBOX_LINE as"
             f" a bullet for {req_id}, so the control's subject is not a"
             " duplicate id at all"
@@ -3172,7 +3489,8 @@ def uncovered_lint_citations(
                 " outside"
             )
     if not lint_matches_anything:
-        raise AssertionError(
+        _refuse(
+            "uncovered_lint_citations.lint_matches_nothing",
             f"the lint's `{name}` matches nothing in this document's status"
             " cells, so 'every citation the lint finds, the widening finds"
             " too' is quantified over the empty set and is trivially true."
