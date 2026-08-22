@@ -3,7 +3,7 @@ phase: 21-requirement-ledger-reconciliation-what-is-actually-discharge
 plan: 07
 subsystem: testing
 tags: [close-review, cross-ai-panel, sabotage-controls, ledger, gate, hitl]
-status: awaiting-gate
+status: complete
 
 requires:
   - phase: 21-requirement-ledger-reconciliation-what-is-actually-discharge
@@ -46,9 +46,9 @@ key-decisions:
 patterns-established:
   - "A phase's close panel is briefed on what is already known and pointed at what is ADJACENT to each, and the budget it saves is spent on the machinery rather than on re-deriving the findings"
 
-requirements-completed: []
+requirements-completed: [RECON-09]
 
-duration: 150min
+duration: 195min
 completed: 2026-08-22
 ---
 
@@ -56,9 +56,9 @@ completed: 2026-08-22
 
 **Three reviewers read the shipped check module and all 143 verdicted rows with the source inlined, and two of them walked independently into the same two holes — a pathspec that could be misspelled into vacuity while its own control watched a different constant, and a verdict resting on no citation at all, which is exactly how `DCD-02` survived five waves. Both are fixed with standing controls watched go red against the shipped function; a third blocking finding is a gap named in a wave hand-off that never reached the document Dave rules from; three further findings were rejected with measured evidence, and the phase now stops, because `D-GATE-21` is Dave's and nothing here creates it.**
 
-## Status: AT THE GATE, NOT COMPLETE
+## Status: CLOSED
 
-Task 1 is landed. **Task 2 is the blocking checkpoint and is outstanding.** `D-GATE-21` does not exist, the ROADMAP Phase 21 row is untouched, `phase-21` is unmerged, and `RECON-09` still reads `Partial` — correctly, because its outstanding limb *is* the gate.
+**Dave approved on 2026-08-22 and `D-GATE-21` is logged.** Task 1 (the panel, the review, the three fixes) landed at `4755d10`; task 2 (the gate) is recorded below. `RECON-09` was amended `Partial` → `Complete` **only after the entry existed**, which is the whole point of the row.
 
 ## Performance
 
@@ -248,3 +248,83 @@ Five claims here were measured rather than asserted, because all five read plaus
 - **Three findings were refuted by running the tool the reviewer claimed was absent** — `check_source` for R-1 — rather than by argument.
 - **The per-row citation gate was measured green over both rosters before it was written**, so it is not a standard retrofitted onto a phase that failed it, and the 79 out-of-scope rows were counted rather than estimated.
 - **The ledger was diffed against wave 6's commit** to establish that the panel and the approver see the same document, which is the whole reason the ten `RECON-` rows were verdicted before this plan rather than inside its checkpoint.
+
+---
+
+# Task 2 — the gate
+
+## Dave's ruling
+
+Approval granted 2026-08-22. His summary of the result, verbatim:
+
+> *"Phase 21 did what an audit phase is for: it made the ledger match the tree, found the checks that could not fail, fixed them in-phase, and refused to invent work or paper over gaps. Two-thirds of the 'outstanding' debt was already shipped and never ticked. That is a real result."*
+
+Every item in the gate package was accepted: the 54-row audit, `B-1` and `B-2` as fixed in-phase, `B-3` as *"Recorded, not closed — correct under D-11"*, the three rejections as *"Correctly rejected with evidence"*, the seven advisories as *"Correctly carried"*, the scope fence as holding, and the test count as *"Good proof no citation-manufacturing tests were added"*.
+
+## The three rulings, logged as new entries
+
+| Entry | Ruling |
+|---|---|
+| **`D-IMPL-175`** | Phase 16's eighteen `DOCS-` rows take the split's proposed verdicts **as written** — ten `Complete`, five `Partial`, three `Not built`, zero wholly `Orphaned`. `DOCS-18` limb 1 *"**Stays closed.** Do not re-open."* |
+| **`D-IMPL-176`** | All five `Not built` rows stay on the work list — *"Do not drop any in this gate."* Sequenced: `DOCS-15` first; replacements before removals; the `00`–`08` half of `D-27` still Dave's with the quarantine standing. **And the new ruling nobody had logged: `s3-` is NOT a required naming scheme** — *"Phase 16 is not resumable … the obligation is the content, not the old section label."* Published pages across `DOCS-12`/`13`/`14`/`15` are **one workstream, not four**. |
+| **`D-IMPL-177`** | *"v0.2 requirements"* in the ROADMAP §Coverage sentence means the milestone-definition set plus what inserted phases minted through 15.1 — **the 42 the breakdown enumerates, not the 143-row table.** Number unchanged; descriptive clause corrected in one line; the wave-5 unsettleable marker removed. |
+
+**`D-GATE-21`** follows them at `docs/DECISIONS.md:510`.
+
+## What changed at the gate, and nothing else did
+
+| File | Change |
+|---|---|
+| `docs/DECISIONS.md` | four entries **appended**, nothing edited — `D-IMPL-175`, `-176`, `-177`, `D-GATE-21` |
+| `.planning/REQUIREMENTS.md` | **`RECON-09` only** — `Partial` → `Complete` in both channels, `[ ]` → `[x]`. `git diff` is 2 insertions / 2 deletions and the only ids in it are `RECON-09`'s two lines. **No row added.** |
+| `.planning/ROADMAP.md` | exactly **three hunks** — the `21-07` plan checkbox, the Phase 21 progress row (`6/7` → `7/7 + close-fixes`, Complete, `2026-08-22 (D-GATE-21)`), and the §Coverage block |
+| `.planning/phases/21-*/21-FINDINGS.md` | §2 gains Dave's sequencing, the `s3-` ruling and the one-workstream ruling, quoted verbatim |
+| `.planning/STATE.md` | the gate recorded; `progress:` block byte-identical |
+| `docs/surface/examples/RETIREMENT-COUPLINGS.md` | regenerated **last** |
+
+## The amendment held to the gate it imposes
+
+`RECON-09`'s new cell was written **after** `D-GATE-21` existed and was then put through every standing check the phase built:
+
+| Check | Result |
+|---|---|
+| table rows | **143** — unchanged, no row added |
+| `channel_disagreements` | `[]` |
+| `vocabulary_offenders` | `[]` |
+| `doubled_verdicts` | `[]` |
+| `refuse_unresolvable` | `[]` |
+| `uncited_verdicts` over both rosters | `[]` — **the gate this plan added, applied to this plan's own edit** |
+| `unverdicted` over the 54 / over the ten | `[]` / `[]` |
+| frozen working-set roster vs the strict parse at the pinned base | **identical id-for-id** |
+| the phase's own ten | **9 `Complete`, 1 `Partial`** |
+
+`RECON-10` stays `Partial` **deliberately**. `D-IMPL-177` settles the counter, but the row's verdict is taken against its own text — *the three counters are CORRECTED* — as that text stood while the phase ran, and at that time the third was correctly reported rather than guessed. Amending it here would be back-dating a verdict onto a ruling that did not exist when the work was done, which is the defect the phase exists over. Closing it is a future phase's business, and `D-IMPL-177` is what that phase would cite.
+
+## `make ci` at the merge commit
+
+| Leg | Result |
+|---|---|
+| `make lint` | **exit 0** — 0 findings |
+| `make typecheck` | **exit 0** — 211 source files |
+| `make test` | **exit 0** — **4105 passed / 118 skipped** |
+| `make gate-tools` | **exit 0** — leg 1 **406**, leg 2 **205** |
+| `make examples` | **exit 0** |
+| `make docs-strict` | **exit 0** |
+
+## Deviations from Plan — task 2
+
+### 5. [Rule 1] A fabricated cross-reference was caught in my own gate entry before it was committed
+
+The first draft of `D-GATE-21` read *"Per `D-IMPL-183`'s ancestor `D-21`"*. **`D-IMPL-183` does not exist** — the log ends at `D-IMPL-177` after this sitting. It was found by a check written for the purpose: every `D-IMPL-NN` and `D-GATE-NN` token in the four new entries was extracted and required to match an existing entry heading. Thirteen ids checked, one missing, corrected to plain `D-21` before the commit. **`docs/DECISIONS.md` is exempt from the citation lint** — it is an append-only log whose citations are snapshots — so nothing in the toolchain would have caught it. This is the third distinct instance in this phase of a reference that looks checkable and is not, and it is recorded because it happened *inside the entry that closes the phase about exactly this*.
+
+### 6. The anchored citation into `docs/DECISIONS.md` was measured weak again, and said so in the row
+
+`RECON-09` cites `D-GATE-21` at `docs/DECISIONS.md:510`. Before writing it, the citation was run through the lint's `check_source` at the correct line **and at a deliberately wrong one**. Both returned `[]` — because `D-IMPL-176` and `D-IMPL-177` sit on the neighbouring lines and **cross-cite `D-GATE-21` in their own `Related:` clauses**, so `_anchor_verdict` returns `True` there too. That is wave 4's finding reproducing on this plan's own citation. Rather than pretend the anchor is load-bearing, the row says so in its own cell and names the id as the thing that actually locates the entry in an append-only log. The row's criterion-3 obligation is discharged by its **symbol** citation, which the resolver does check.
+
+### 7. The `progress:` block and the milestone `status:` were left alone
+
+`21-CONTEXT.md` deferred the `progress:` block explicitly — it is a GSD tooling limitation (the plan counter cannot see that Phase 16 was retired rather than executed), `D-IMPL-174` names three counters and none is this one, and Dave's gate authorization does not reach it. Byte-identical to the pre-plan backup, verified by diffing the block.
+
+## Self-Check: PASSED — re-run after the merge
+
+`D-GATE-21` present in `docs/DECISIONS.md`; `D-IMPL-175`, `-176`, `-177` present; every `D-IMPL`/`D-GATE` id cited by the four new entries resolves to a real entry heading. `RECON-09` reads `**Complete**` in the traceability table and `- [x]` in the checkbox list. The ROADMAP Phase 21 progress row reads Complete with `2026-08-22 (D-GATE-21)`, and `roadmap.get-phase 21 --raw` still parses **14** criteria. `.planning/STATE.md` frontmatter re-parses to all eight keys. The coupling report is current. `main` contains the phase.

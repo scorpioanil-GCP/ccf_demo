@@ -66,12 +66,39 @@ breaks another's evidence.
 condemned trees can go, and the condemned trees are where the replacements'
 subject matter currently lives.
 
-**Two questions inside Group A are yours and only yours:**
+**RULED AT THE `D-GATE-21` SITTING, 2026-08-22, AND LOGGED AS `D-IMPL-176`.**
+Two questions inside Group A were yours and only yours. **One is now ruled and
+one deliberately stays with you.**
 
-1. The `00`–`08` half of `D-27` — plan `17-08` returned it undecided and
-   `D-IMPL-145` quarantined it pending your ruling.
-2. Whether a Section-3 replacement keeps the `s3-` naming at all. The section
-   scheme was Phase 16's, and Phase 16 is not resumable.
+1. **The `00`–`08` half of `D-27` — still yours, and not delegated.** Verbatim:
+   *"still yours. Cost remains ~102 snippet includes across 15 pages.
+   Quarantine stands until you explicitly choose delete-and-re-cut vs
+   keep-quarantined."* Plan `17-08` returned it undecided and `D-IMPL-145`
+   limb 2 quarantined it; that quarantine stands.
+2. **Section-3 naming — RULED, and the scheme is freed.** Verbatim: *"**do not
+   keep `s3-` as a required scheme.** Phase 16 is not resumable. Re-derive the
+   demonstration against today's surface under whatever directory name fits;
+   the obligation is the content, not the old section label."* `EXAM-02` and
+   `DOCS-14` keep their `Not built` verdicts — the substance is genuinely
+   absent — but a future phase discharging them is **not** obliged to build
+   under an `s3-` directory, and a reader must not reconstruct the section
+   scheme as binding from those verdict cells.
+
+### The order Dave set for taking this list up
+
+**All five rows stay on the list. None was dropped at the gate** — verbatim:
+*"Keep all five on the work list. Do not drop any in this gate."*
+
+1. **`DOCS-15` first.** *"cheapest, highest adoption leverage, one page,
+   subject already gated in `s1-01`. Only coupling is that tree's survival
+   under CLNT-17."*
+2. **Replacements before removals.** *"DOCS-14 / EXAM-02 substance must exist
+   **before** DOCS-17 / CLNT-17 delete the trees that currently hold skilling,
+   HITL, cross-process, and `refuse_request` witnesses. D-27 still forbids
+   partial retirement."* This is the knot's resolution: it is sequenced, not
+   untangled — the coupling is real and the order is what makes it tractable.
+3. Then the retirement pair, once (1) and (2) exist and once the `D-27`
+   `00`–`08` half above is ruled.
 
 ### Group B — stands nearly alone
 
@@ -97,8 +124,11 @@ One line each, so you can rule on them without re-reading the ledger.
 | `DCD-02` | pointer population, `Pending by design` under `D-IMPL-119` limb 3(b) until the assembly path is principal-scoped. Confirmed against the tree, not rewritten. |
 
 **`DOCS-12`, `-13`, `-14` and `-15` are short by the same thing** — a
-documentation surface for the examples that actually shipped. That is one ruling
-question, not four.
+documentation surface for the examples that actually shipped. **Ruled
+2026-08-22 (`D-IMPL-176`):** verbatim, *"Published-pages limb across
+DOCS-12/13/14/15 is **one documentation workstream**, not four independent
+pages projects — plan it as one surface for the examples that actually
+shipped."* One workstream, not four.
 
 ---
 
