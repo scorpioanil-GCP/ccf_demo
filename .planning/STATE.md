@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-21T23:20:00.000Z"
+last_updated: "2026-08-22T02:35:00.000Z"
 last_activity: >-
   2026-08-21 -- **PHASE 20 IS GATED. `D-GATE-20` IS APPROVED BY DAVE AND LOGGED IN
   `docs/DECISIONS.md`, AND `phase-20` IS MERGED TO `main`.** 51 commits, `9e4bd0e`..`921e3b9`.
@@ -71,6 +71,22 @@ progress:
   completed_plans: 174
   percent: 93
 stopped_at: >-
+  PHASE 21 CONTEXT IS GATHERED; THE PHASE IS READY TO PLAN. Work is on branch `phase-21`.
+  `21-CONTEXT.md` carries SIXTEEN decisions `D-01`..`D-16`. **THE COUNT IS 54, NOT 52** --
+  a strict parse of the traceability table returns 133 rows, 54 of them not-`Complete`;
+  `grep -c "| Pending |"` misses `CPS-03` (bold `**Pending**`) and `DCD-02` (`**Partial**`),
+  and the wrong figure had already reached `D-GATE-20`, the first ROADMAP draft of this
+  phase and the progress report. The phase's own subject arrived before the phase did.
+  ROADMAP Success Criteria AMENDED IN-SESSION before any planning: ten -> FOURTEEN,
+  `roadmap.get-phase 21` confirms parsed count = 14. **THE SCOUT CHANGED THE PHASE SHAPE:**
+  `.planning/REQUIREMENTS.md` is ALREADY inside `tools/lints/citations.py`'s `GATED_TREES`
+  with NO `HISTORICAL_RECORDS` exemption, so a `path::symbol` citation written into a
+  requirement row is resolved by machinery that already ships -- criterion 3 needs no new
+  resolver. Phase 15.6's `DCD-02`..`DCD-12` rows are the adopted format AND the adopted
+  verdict vocabulary. The ledger's two status channels (checkbox list + traceability table)
+  measured at ZERO drift across all 133 ids and a standing check must keep them that way.
+  **NEXT ACTION: `/gsd:plan-phase 21`.** The phase FINDS and RECORDS; it builds nothing.
+  PRIOR CONTEXT FOLLOWS.
   PHASE 20 IS CLOSED AND PHASE 21 IS IN THE ROADMAP, UNPLANNED. Dave ruled three times at
   the Phase 20 close (2026-08-21): (1) the 52 `Pending` requirement rows get a ROW-BY-ROW
   reconciliation phase, not a wholesale tick; (2) the ten phases with no `D-GATE` entry are
