@@ -3,8 +3,62 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-22T05:50:00.000Z"
+last_updated: "2026-08-21T00:00:00.000Z"
 last_activity: >-
+  2026-08-21 -- **PHASE 21 WAVE 1 IS LANDED. `21-01` IS COMPLETE, ON `phase-21`.**
+  Six commits `c51406b`..`845da98`. Nothing has a verdict yet, and that is the point:
+  this plan built the machinery that guards the audit WHILE it happens.
+  **THE `docs` JOB'S SHALLOW CHECKOUT WAS FIXED FIRST, BEFORE THE BASE WAS PINNED.** It is
+  the job that runs `pytest tools/publish_scan_tests tools/docs_tests -q`, its checkout
+  carried no `with:` block, and every pinned-base assertion this plan ships resolves a SHA
+  that is absent from a depth-1 clone -- `git` exits 128 and `fabric_diff` raises BY DESIGN.
+  Red from wave 1 for the whole phase, green locally, invisible until push. The `D-GATE-20`
+  shallow-clone defect in a different job. Base pinned AFTER the fix at `c51406b`, so no
+  untouched-tree assertion ever sees the workflow edit.
+  **THE PHASE'S OWN TEN ROWS ARE IN THE LEDGER, IN WAVE 1, `Pending` IN BOTH CHANNELS.**
+  Table 133 -> 143 rows, checkbox channel likewise, zero drift. `RECON-01`..`10` are NOT
+  members of the 54-row working set; they are verdicted in `21-06`, BEFORE the close panel.
+  Minted UNBOLDED, against the plan's action text and with its own parser requirement: the
+  plan said `**Pending**` in one place and "a bare `Pending`" in two others, and bolding ten
+  more would deepen the exact miscount this phase exists over -- `grep -c "| Pending |"`
+  already misses `CPS-03` because its cell is bolded.
+  **MEASURED WITH THE SHIPPED PARSER, NOT ESTIMATED:** 54 rows need a verdict under a
+  MEMBERSHIP test against the Complete family; 56 under the literal `!= "Complete"` reading,
+  which drags in `DCD-09` and `DCD-10` -- both already ruled on, both `[x]` in the other
+  channel. Zero citation-shaped tokens exist in any status cell today, which is why the
+  zero-CITATION guard is `21-02`'s and is RELOCATED, not weakened. Eleven
+  `human_verification` records carry 27 items; `audit-uat` says 24 across 9 because it
+  filters on frontmatter `status:` (`D-20`). The roster was re-derived by parse and agrees
+  with RESEARCH SS7 exactly.
+  **PER `D-21` NO STANDING CHECK CARRIES A ROW COUNT** -- verified with the guard the plan
+  specifies, which returns 0. That constrained the writing: the guard matches
+  `D-IMPL-172`-shaped tokens and `Makefile:138`-shaped citations as readily as
+  `EXPECTED_ROWS = 143`, so every such reference lives in a column-0 comment.
+  **ELEVEN NUMBERED CONTROLS PLUS TWO POSITIVE TWINS, EVERY MUTATION WATCHED RED against the
+  SHIPPED function** and reverted from backup. Two are worth remembering. CONTROL A did not
+  go red on its first run and the reason was not the module: `fabric_diff` compares COMMITS
+  and is blind to the working tree. The `PINNED_FILES` sabotage PASSED the first time for the
+  same reason -- the module was not yet committed -- and went red once it was. A control run
+  at the wrong moment reports the wrong thing, which is this project's defect class arriving
+  inside the machinery built to catch it.
+  **FIVE PLAN DEFECTS FOUND AND FIXED IN-FLIGHT, all recorded in `21-01-SUMMARY.md`:** the
+  future-import ordering (syntactically impossible as written); CONTROL 4's subject was
+  refused by CONTROL 3's branch, so it would have passed with the suffix rule deleted;
+  CONTROL 4b's subject matched neither citation pattern and could never have been extracted;
+  the refusal ORDER the plan enumerates makes branches 3 and 4 unreachable; and the declared
+  `citations_in_status_cells` signature cannot carry the `::` flag the suffix rule needs, so
+  a companion was added rather than the signature changed.
+  **NAMED, NOT FIXED,** in `.planning/phases/21-*/deferred-items.md`: `audit-uat`'s filter
+  (`D-20`), the citation lint's two silent-drop holes (`D-07`, now mechanically pinned), and
+  a stale `Makefile` citation to `.github/workflows/ci.yml:314` -- PRE-EXISTING, verified
+  against the base's parent, and uncatchable because a `Makefile` has no suffix the citation
+  lint scans.
+  **GATES:** `make lint` 0, `make typecheck` 0 (211 files), `make test` 0 (**4105 passed /
+  118 skipped**, 10m25s), `make gate-tools` 0 (406 + **187**, was 154), `--citations` 0.
+  Fabric, scope fence, the eleven UAT records and `tools/lints/citations.py` all diff-empty
+  against the base. **NEXT: `21-02` -- verdicts for the 22 `CLNT` rows, and the
+  zero-CITATION guard it owes.**
+  PRIOR CONTEXT FOLLOWS.
   2026-08-21 -- **PHASE 21 IS PLANNED. SEVEN PLANS, SEVEN SERIAL WAVES, ON `phase-21`.**
   Research -> pattern map -> plan -> THREE checker passes (10 findings -> 8 -> 5, all
   verified against the tree before action) -> two planner revisions -> a surgical
@@ -110,6 +164,21 @@ progress:
   completed_plans: 174
   percent: 93
 stopped_at: >-
+  PHASE 21 WAVE 1 IS DONE; WAVE 2 (`21-02`) IS NEXT. Branch `phase-21`, tree clean apart
+  from Dave's two untracked `docs/` files. `tools/docs_tests/test_requirement_ledger.py`
+  is the contract every later plan consumes: `ledger_text`, `traceability_rows`,
+  `verdict_token`, `checkbox_channel`, `COMPLETE_FAMILY`, `VERDICT_VOCABULARY`,
+  `PHASE_OWN_ROSTER`, `citations_in_status_cells`, `refuse_unresolvable`,
+  `channel_disagreements`, `phase_base_commit`, `fabric_diff`, `PINNED_FILES`, `FENCE`,
+  `UAT_RECORDS`. `21-02` OWES the zero-CITATION guard, `test_the_scan_finds_citations_to_check`
+  and `CONTROL 5b` -- all three deliberately absent from wave 1 because zero citations exist
+  today and a guard that fails on landing would redden `ci-core` for five waves.
+  **THE `progress:` COUNTERS ABOVE ARE DELIBERATELY NOT TOUCHED HERE.** They were already
+  stale before this phase, they do not yet count Phase 21's seven plans, and correcting a
+  counter by guessing is precisely what `D-IMPL-174` forbids. Counter corrections belong to
+  `21-05` and `RECON-10`, produced by the strict parse.
+  **NEXT ACTION: continue `/gsd:execute-phase 21` at `21-02`.**
+  PRIOR CONTEXT FOLLOWS.
   PHASE 21 IS PLANNED AND READY TO EXECUTE. Branch `phase-21`, tree clean apart from Dave's
   two untracked `docs/` files. SEVEN plans, SEVEN serial waves -- serial because every audit
   plan writes `.planning/REQUIREMENTS.md`. Wave 1 `21-01` pins the base, fixes the `docs`
