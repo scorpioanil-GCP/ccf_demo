@@ -635,6 +635,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-VALIDATION.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-02-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-03-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-03-SUMMARY.md` | 8 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-04-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-RESEARCH.md` | 7 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
