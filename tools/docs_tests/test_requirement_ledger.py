@@ -3176,6 +3176,156 @@ def test_control_23_a_planning_document_can_be_cited_and_a_missing_one_cannot() 
     )
 
 
+def _document_with_citations(*cited: str) -> str:
+    """A minimal well-formed ledger whose ONE status cell carries every `cited`.
+
+    The plural twin of :func:`_document_with_citation`, added by plan `21.1-05`
+    for `CONTROL 23b`. Subsumption is a property of ONE CELL against itself —
+    the lint's matches and the widening's matches are compared inside the same
+    status cell — so a control that discriminates span containment from
+    path-string equality needs two citations in one cell, not two rows.
+    """
+    tokens = " ".join(f"`{one}`" for one in cited)
+    return "\n".join(
+        (
+            "- [ ] **TEST-01**: a control fixture, not a requirement",
+            "",
+            TABLE_HEADER,
+            "|-------------|-------|--------|",
+            f"| TEST-01 | Phase 21 | Pending ({tokens}) |",
+            "",
+        )
+    )
+
+
+def test_control_23b_the_subsumption_gate_compares_spans_not_path_strings() -> None:
+    """CONTROL 23b — `RR-11`, the gate that forbade the pattern it was built for.
+
+    Wave 3 shipped :data:`LOOSE_CITATION` **and, beside it, a gate that cannot
+    be satisfied by a dotted citation** — the exact shape the pattern exists to
+    admit. Wave 4 was the first plan to actually USE it and found the gate red
+    on a correct citation. Measured there, and re-measured by the first limb
+    below rather than transcribed: on `.planning/ROADMAP.md:1` the lint's
+    `CITATION` matches ONE CHARACTER LATE and yields the truncated twin
+    `planning/ROADMAP.md`, while `LOOSE_CITATION` matches at the dot and yields
+    the correct `.planning/ROADMAP.md`. As PATH STRINGS the twin scores as a
+    silent DROP; as SPANS the widened match **covers the lint's entirely** and
+    nothing was corrected away. `D-IMPL-180` (Dave, 2026-08-22) ruled the
+    repair: subsumption by SPAN CONTAINMENT, anti-vacuity clause kept.
+
+    It was green in wave 3 for failure mode 1 — *the subject never reached the
+    branch under test.* No dotted citation existed anywhere in the tree, and it
+    took a whole wave to produce one.
+
+    **Four limbs, because three weaker implementations pass fewer than four.**
+
+    1. the RR-11 shape ACCEPTED — and the truncation is RUN here, not assumed,
+       so this limb fails loudly if the two patterns ever stop disagreeing and
+       the control quietly stops being about anything;
+    2. a widening narrowed until it no longer covers a lint match is REFUSED
+       BY NAME — this is what a predicate that dropped the coverage test
+       entirely would pass;
+    3. a subject the LINT pattern matches nowhere RAISES — the anti-vacuity
+       clause, which is what *"every lint match is covered"* degenerates into
+       when there are no lint matches. A predicate that merely dropped this
+       clause would pass limbs 1 and 2 untouched;
+    4. **the substring trap.** A lint match whose PATH STRING is a substring of
+       an unrelated widened path elsewhere in the same cell is still uncovered.
+       An implementation comparing path strings by containment rather than
+       spans passes limbs 1, 2 and 3 and fails only this one.
+    """
+    assert "uncovered_lint_citations" in globals(), (
+        "the subsumption gate has no predicate a control can point at a"
+        " subject: it compares path STRINGS inline, so a dotted citation's"
+        " correct `.planning/…` match is scored a silent DROP against the"
+        " lint's truncated twin `planning/…`, and the gate can never be"
+        " satisfied by the shape `LOOSE_CITATION` exists to admit. That is"
+        " `RR-11`: wave 3 shipped a pattern and, beside it, a gate forbidding"
+        " its use for the thing it was built for"
+    )
+    uncovered = globals()["uncovered_lint_citations"]
+
+    # --- limb 1: the RR-11 shape is admissible, and the truncation is RUN ---
+    dotted = f"{_planning_document_citation()}:1"
+    subject = _document_with_citations(dotted)
+    cell = traceability_rows(subject)[0][2]
+    lint_hit = CITATION.search(cell)
+    widened_hit = LOOSE_CITATION.search(cell)
+    assert lint_hit is not None and widened_hit is not None, (
+        f"one of the two patterns matches nothing in {cell!r}, so this control"
+        " has no subject and its acceptance limb would be vacuous"
+    )
+    assert lint_hit.group("path") != widened_hit.group("path"), (
+        f"both patterns yield {lint_hit.group('path')!r} on a DOTTED citation,"
+        " so the truncated twin this control is about no longer exists and the"
+        " limbs below would pass for a reason unrelated to RR-11"
+    )
+    assert widened_hit.start() < lint_hit.start() and (
+        widened_hit.end() >= lint_hit.end()
+    ), (
+        f"the widened match {widened_hit.span()} does not start earlier than"
+        f" and cover the lint's {lint_hit.span()}, so the premise of the"
+        " repair — that nothing was corrected AWAY — is not true of this"
+        " subject"
+    )
+    assert uncovered(subject, CITATION, LOOSE_CITATION, "CITATION") == [], (
+        "a real dotted citation is still scored a silent drop against its own"
+        f" correction: the lint finds {lint_hit.group('path')!r} at"
+        f" {lint_hit.span()} and the widening finds"
+        f" {widened_hit.group('path')!r} at {widened_hit.span()}, which covers"
+        " it. Compared as path strings the twin is 'missing'; compared as"
+        " spans nothing was lost. `VAC-03`'s only evidence lives under"
+        " `.planning/`, so this gate blocks the phase's own close"
+    )
+
+    # --- limb 2: a widening narrowed until it drops a citation is refused ---
+    plain = "src/ccf/client/client.py:1"
+    mixed = _document_with_citations(dotted, plain)
+    dotted_only = re.compile(
+        r"(?P<path>\.[A-Za-z0-9_./+-]*\.md):(?P<lines>\d+)"
+    )
+    messages = uncovered(mixed, CITATION, dotted_only, "CITATION")
+    assert any("client.py" in message for message in messages), (
+        "a widening narrowed to dotted `.md` paths alone stopped finding"
+        f" {plain!r}, which the lint's own pattern does find, and the gate"
+        f" said nothing: {messages!r}. The extraction tuple consults the"
+        " widened pattern and NOT the lint's, so a later narrowing drops"
+        " citations in SILENCE — the hole the replacement itself opens"
+    )
+
+    # --- limb 3: anti-vacuity — no lint match at all is a refusal ---
+    barren = _document_with_citations()
+    try:
+        result = uncovered(barren, CITATION, LOOSE_CITATION, "CITATION")
+    except AssertionError as failure:
+        assert "CITATION" in str(failure), (
+            f"the empty-subject refusal does not name the pattern: {failure}"
+        )
+    else:
+        raise AssertionError(
+            f"a subject the lint's `CITATION` matches NOWHERE returned"
+            f" {result!r} instead of refusing. 'Every lint match is covered by"
+            " a widened match' is trivially true over zero lint matches, which"
+            " is the vacuity this whole module is about — and a predicate that"
+            " simply dropped this clause would pass every other limb here"
+        )
+
+    # --- limb 4: the substring trap — coverage is a SPAN, not a substring ---
+    trap = _document_with_citations("docs/DECISIONS.md:1", "DECISIONS.md:2")
+    with_a_slash = re.compile(
+        r"(?P<path>[A-Za-z0-9_.][A-Za-z0-9_./+-]*/[A-Za-z0-9_.+-]*\.md)"
+        r":(?P<lines>\d+)"
+    )
+    trapped = uncovered(trap, CITATION, with_a_slash, "CITATION")
+    assert any("DECISIONS.md:2" in message for message in trapped), (
+        "the bare `DECISIONS.md:2` citation was dropped by the narrowed"
+        " widening and the gate reported clean, because its path string is a"
+        f" SUBSTRING of `docs/DECISIONS.md`, which the widening does find:"
+        f" {trapped!r}. Containment of the STRING is not containment of the"
+        " SPAN, and only the span form can tell a correction from a loss"
+    )
+
+
 def test_each_widened_pattern_subsumes_the_lint_pattern_it_replaced() -> None:
     """Every citation the lint's own pattern finds, the widened one finds too.
 
