@@ -3,8 +3,59 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-21T00:00:00.000Z"
+last_updated: "2026-08-22T00:00:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21 WAVE 2 IS LANDED. `21-02` IS COMPLETE, ON `phase-21`.**
+  Three task commits `1a7a8b6`, `e190f28`, `6fa56f4` plus the SUMMARY commit.
+  **TWENTY-TWO OF THE FIFTY-FOUR ROWS NOW CARRY A VERDICT IN BOTH CHANNELS** --
+  `CLNT-01`..`CLNT-22`, zero `Pending` left in the lane. Twenty-one `Complete`
+  (`CLNT-05` is `Complete as ruled`, against `D-IMPL-157`'s amended `-> bytes` seam)
+  and ONE `Not built`. Every citation is a full repo-relative `path.py::symbol` that
+  exists as written, and every one NAMES THE TEST that goes red on regression (`D-04`)
+  -- so a tick means "it goes red if this regresses", not "someone looked once".
+  **NO TEST WAS WRITTEN UNDER `tests/` AND NONE WAS WRITTEN ANYWHERE TO MANUFACTURE A
+  NAME FOR `D-04`** (`D-05`). Every guarding test already existed.
+  **THE ZERO-CITATION VACUITY GUARD LANDED, AND IT LANDED HONEST.** At the pinned base
+  `citations_in_status_cells` returned ZERO tokens across all 133 status cells, which is
+  why `21-01` withheld it; it went in during task 1 IMMEDIATELY AFTER the first eight
+  rows' citations, in the same commit. Relocated, never weakened. With it:
+  `test_the_scan_finds_citations_to_check` (the precondition -- carries NO count, per
+  `D-21`) and `CONTROL 5b`. Module 33 -> 35 tests, `gate-tools` leg 2 187 -> 189.
+  **THREE SABOTAGES, ALL AGAINST THE SHIPPED FUNCTION, ALL RESTORED FROM BACKUP.** The
+  limb returning `[]` turns CONTROL 5b RED and nothing else. A blinded extractor with the
+  guard intact turns 8 red. And -- the one worth keeping -- the WAVE-1 MODULE SHAPE
+  reconstructed (extractor blinded AND the limb removed) turns the precondition RED while
+  `test_every_cited_path_in_a_status_cell_resolves_as_written` stays GREEN over nothing.
+  That third run exists because the plan's stated discrimination became UNSATISFIABLE once
+  the guard shipped: the guard catches the same blindness, so both mechanisms fire. The
+  honest version is to reproduce the prior shape and show what the new test adds.
+  **`CLNT-17` IS THE PHASE'S FIRST NAMED ABSENCE, AND IT IS SPECIFIC (`D-10`):**
+  `examples/s1-00-companies-over-revenue/` and `examples/s1-01-hello-context-product/` are
+  both still tracked; `tests/examples/test_spine_separation.py` (14 functions, scoped
+  `s1-*`) and `tests/examples/test_section_one_is_agent_free.py` both still ship and still
+  enforce the shape rulings `D-25`/`D-26` suspended; `example-s1-00` and `example-s1-01`
+  are still Makefile targets; the coupling inventory still files 58 rows against `17-08`.
+  `17-08-SUMMARY.md` reads `status: blocked-at-task-3` -- DISPUTED ON A MEASUREMENT, not
+  skipped: deleting `s1-01` removes the last shipped `examples/` call site of
+  `refuse_request`, and `D-27`'s `00`-`08` half went back to Dave undecided. **NOT CLOSED
+  HERE** -- `D-11` forbids it and the fence assertion proves it was not; the work-list
+  entry is written in `21-02-SUMMARY.md` in the form `21-05` needs.
+  **A CITATION FORM THE PLAN ASKED FOR IS UNUSABLE IN THIS FILE, MEASURED.**
+  `.github/workflows/ci.yml:35` cannot be a status-cell citation: the lint's `CITATION`
+  path group refuses a LEADING DOT, so the token that matches is `github/workflows/ci.yml`
+  -- not a file in this tree -- and this phase's own `refuse_unresolvable` would refuse it,
+  correctly. A `Makefile` has no suffix and matches nothing at all (already in
+  `deferred-items.md`). So `CLNT-14` and `CLNT-16` cite the PYTHON that enforces the gate
+  and state reachability in prose. **`21-03`/`21-04` will hit this harder** -- far more of
+  the documentation lane's evidence lives in files the lint's path grammar cannot name.
+  **GATES:** `--citations` 0, `lint` 0, `typecheck` 0 (211 files), `gate-tools` 0
+  (406 + 189), `test_citation_coverage.py` 0 (the DCD-10 ceiling is unmoved -- every
+  citation written here is `::symbol`, never an unanchored line citation). Fabric, fence,
+  the eleven UAT records and `tools/lints/citations.py` all diff-empty against the base;
+  the only `tools/` write is `test_requirement_ledger.py`. The ten `RECON-` rows are
+  untouched. **NEXT: `21-03` -- the Phase 16 documentation lane, where the row claims are
+  not testable behaviour.**
+  PRIOR CONTEXT FOLLOWS.
   2026-08-21 -- **PHASE 21 WAVE 1 IS LANDED. `21-01` IS COMPLETE, ON `phase-21`.**
   Six commits `c51406b`..`845da98`. Nothing has a verdict yet, and that is the point:
   this plan built the machinery that guards the audit WHILE it happens.
