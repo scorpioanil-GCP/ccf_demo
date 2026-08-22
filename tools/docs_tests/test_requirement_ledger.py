@@ -4075,3 +4075,340 @@ def test_control_28_a_table_anchor_that_is_absent_or_doubled_is_refused() -> Non
             " doctor a subject it never named, and then assert a refusal about"
             " a document it did not change"
         )
+
+
+def test_control_29_a_path_on_disk_but_absent_from_the_index_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CONTROL 29 — `refuse_unresolvable`'s MOVED-PATH branch: `RR-6`'s other half.
+
+    **This is the branch the function's own docstring calls "the second silent
+    hole" it exists to dodge, and until this landed nothing in the module could
+    see it work.** Its subject is a citation that resolves on disk while the
+    lint's resolver index lists a DIFFERENT path for that basename — which is
+    what a file move looks like from the index's side, and the shape the lint
+    drops without a finding.
+
+    **What the pre-fix module did, measured in plan `21.1-03` and recorded
+    here where the next reader will find it.** On a THINNED index this branch
+    returned SILENCE and an on-disk-but-unindexed path was ACCEPTED, while the
+    ambiguity branch one clause up happened to go red — but only because
+    `CONTROL 1` asserts the word AMBIGUOUS. One branch was guarded by ACCIDENT
+    and this one by NOTHING. `CONTROL 22` closed the index's own refusal;
+    this closes the branch downstream of it.
+
+    **Substituting :func:`_index` bypasses the non-vacuity guard plan `21.1-03`
+    installed inside it, and that is correct here.** This control is about the
+    branch that READS the index, not about the index — an anchor check on a
+    mapping the control built would only be re-asserting the control's own
+    fixture.
+
+    **The discriminator is a PHRASE and not a limb id, because this branch is
+    not a limb.** The five `path::symbol` findings inside
+    :func:`refuse_unresolvable` are APPENDED to a returned list rather than
+    raised through :func:`_refuse`, so they carry no `[limb:…]` tag by design —
+    registering them would have made :data:`LIMBS` a roster of FINDINGS rather
+    than of refusal branches. The phrase asserted below is unique to this
+    branch in the module; the check that it is unique is in
+    `21.1-06-SUMMARY.md`, and it is the reason the assertion names the CITED
+    PATH as well as the phrase.
+    """
+    moved_to = "some/other/place/client.py"
+    basename = INDEX_ANCHOR.rsplit("/", maxsplit=1)[-1]
+    monkeypatch.setattr(f"{__name__}._index", lambda: {basename: [moved_to]})
+    assert (REPO_ROOT / INDEX_ANCHOR).is_file(), (
+        f"{INDEX_ANCHOR} is not on disk, so this control's subject is not the"
+        " on-disk-but-unindexed shape at all — it is the absent-path shape,"
+        " which a different branch catches"
+    )
+    messages = refuse_unresolvable(_document_with_citation(f"{INDEX_ANCHOR}::ask"))
+    assert any(
+        "on disk but absent from the resolver's index" in message
+        and INDEX_ANCHOR in message
+        for message in messages
+    ), (
+        f"a citation to `{INDEX_ANCHOR}` — which IS on disk — was accepted"
+        f" against an index that lists only {moved_to!r} for `{basename}`:"
+        f" {messages!r}. That is the moved-path branch going SILENT, which is"
+        " exactly what it did on a thinned index before `CONTROL 22` and what"
+        " nothing in this module could observe until now. The lint treats such"
+        " a basename as AMBIGUOUS and drops the citation without a finding"
+    )
+
+
+def test_control_30_an_unresolvable_diff_base_refuses_rather_than_reading_clean() -> (
+    None
+):
+    """CONTROL 30 — `base_ledger_text` on a base `git show` cannot resolve.
+
+    **The failure it guards is one this project hit for real at the Phase 20
+    close: a depth-1 CI clone.** `git show <pinned base>:.planning/REQUIREMENTS.md`
+    then exits non-zero and prints nothing, and a function that returned that
+    empty stdout would hand :func:`derived_working_set` an empty document. The
+    strict parse of nothing is the empty set, so the working-set roster would
+    be re-derived as empty and every comparison against it would report a
+    clean, fully-verdicted ledger — forever, and only in CI.
+
+    Reachable only since plan `21.1-05` parameterised the function. Taking no
+    argument made the limb unreachable, and criterion 12 as authored offered
+    only *reachable and watched* or *unreachable and REMOVED* — which would
+    have deleted a guard against a failure that has already happened here.
+    `D-IMPL-179` limb 2 (Dave, 2026-08-22) ruled repair permitted, and this
+    control is the second half of that ruling: repaired, the limb satisfies
+    criterion 12's FIRST disposition outright.
+    """
+    limb = "base_ledger_text.nonzero_exit"
+    try:
+        text = base_ledger_text(UNRESOLVABLE_BASE)
+    except AssertionError as failure:
+        assert f"[limb:{limb}]" in str(failure), (
+            "a base `git show` cannot resolve was refused by a limb other than"
+            f" {limb!r}: {failure}"
+        )
+        return
+    raise AssertionError(
+        "`git show <unresolvable>:.planning/REQUIREMENTS.md` exits non-zero"
+        f" and `base_ledger_text` returned {len(text)} characters instead of"
+        " refusing. In a shallow CI clone the working-set roster would then be"
+        " re-derived from an empty document, and a roster comparison against"
+        " the empty set reports a clean ledger"
+    )
+
+
+def test_control_31_a_per_row_rule_over_an_empty_roster_is_refused() -> None:
+    """CONTROL 31 — `uncited_verdicts` on an empty roster.
+
+    **A per-row rule quantified over no rows is trivially satisfied**, which is
+    the single shape this whole phase is about. Criterion 3 — every verdict
+    other than `Not built` or `Orphaned` cites its evidence — is a per-row rule,
+    and over an empty roster it holds without a single row having been looked
+    at.
+
+    **Research classified this limb as UNREACHABLE and that classification is
+    wrong; the correction belongs on the page where the next reader will find
+    it.** Both production call sites pass a populated roster, so no CALLER
+    reaches it — but the function takes its roster as an ARGUMENT and a control
+    can hand it an empty one. The distinction research missed is between a limb
+    no INPUT can reach (:func:`refuse_unresolvable`'s zero-row branch, which
+    plan `21.1-05` removed because :func:`traceability_rows` refuses the same
+    input one function earlier) and a limb no CALLER happens to reach. Only the
+    first is unreachable. Taking the subject as an argument is this module's
+    own idiom, stated in :func:`derived_uat_records`' docstring.
+    """
+    limb = "uncited_verdicts.empty_roster"
+    try:
+        offenders = uncited_verdicts(ledger_text(), frozenset(), "an empty roster")
+    except AssertionError as failure:
+        assert f"[limb:{limb}]" in str(failure), (
+            "an empty roster was refused by a limb other than"
+            f" {limb!r}: {failure}"
+        )
+        return
+    raise AssertionError(
+        f"a per-row citation rule over an EMPTY roster returned {offenders!r}"
+        " instead of refusing. No row was examined, so the rule held without"
+        " being about anything — which is the vacuity this module exists to"
+        " detect, arriving at the boundary of the check that detects it"
+    )
+
+
+# ---------------------------------------------------------------------------
+# CONTROL 27b, 27c, 28b, 31b — TEN MORE UNWATCHED LIMBS, FOUND BY RUNNING THE
+# MUTATION SWEEP OVER THE WHOLE ROSTER RATHER THAN OVER RESEARCH'S TABLE A.
+#
+# Research inventoried TWENTY refusal branches and found EIGHT unfalsified.
+# Plan `21.1-05` built :data:`LIMBS` by reading the module and registered
+# THIRTY. Re-run across all thirty — one limb neutered at a time, the whole
+# module re-run each time — EIGHTEEN went unnoticed, not eight. The ten beyond
+# research's list are the ones wave 5 added, and they are almost all in the
+# CONTROL FIXTURES: the mutation helpers every other control in this module
+# depends on to have mutated the thing it claims to have mutated.
+#
+# That is the same class as `CONTROL 27`, one level wider. These controls take
+# sub-lettered numbers on the module's own convention (`4b`, `5b`, `9b`, `17b`,
+# `23b`) so that no number belonging to plan `21.1-07` or `21.1-08` is
+# consumed.
+# ---------------------------------------------------------------------------
+
+
+def test_control_27b_the_two_verdict_mutation_refuses_a_cell_it_cannot_mutate() -> None:
+    """CONTROL 27b — all three limbs of `CONTROL 19`'s mutation helper.
+
+    :func:`_cell_with_an_unbolded_lead_and_a_later_bolded_verdict` builds
+    `RR-2`'s shape — an unbolded lead with a different verdict bolded after it
+    — by DERIVING it from the victim's real cell. Three ways that derivation
+    can fail to be the mutation it claims, and each one leaves `CONTROL 19`
+    asserting a refusal about a cell that never asserted two verdicts:
+
+    * the row is not three cells, so cell two is not the status at all;
+    * the lead is outside the vocabulary, or is ALREADY the verdict the
+      mutation would append — either way the result asserts one verdict, not
+      two; and
+    * the lead is not BOLDED to begin with, so un-bolding it is a no-op and
+      the mutated cell is not `RR-2`'s shape.
+
+    Each subject is chosen so the aimed limb fires FIRST. The vocabulary limb
+    is reached through a lead that is already `Partial` rather than through a
+    nonsense word, because a nonsense lead is also unbolded-by-the-time-it-is-
+    read and the third limb would catch it on the second's behalf.
+    """
+    limb = "_cell_with_an_unbolded_lead_and_a_later_bolded_verdict"
+    cases = (
+        (
+            f"{limb}.cell_count",
+            _table_document("| TEST-01 | Phase 21 | **Complete** x | a fourth |"),
+        ),
+        (
+            f"{limb}.verdict_unusable",
+            _table_document("| TEST-01 | Phase 21 | **Partial** — x |"),
+        ),
+        (
+            f"{limb}.lead_not_bolded",
+            _table_document("| TEST-01 | Phase 21 | Complete — x |"),
+        ),
+    )
+    for aimed, subject in cases:
+        try:
+            mutated = _cell_with_an_unbolded_lead_and_a_later_bolded_verdict(
+                subject, "TEST-01", "Partial"
+            )
+        except AssertionError as failure:
+            assert f"[limb:{aimed}]" in str(failure), (
+                f"the subject aimed at {aimed!r} was refused by a different"
+                f" limb: {failure}. A neighbouring limb catching this"
+                " control's subject is how `CONTROL 5` vouched for the wrong"
+                " refusal for the whole of Phase 21"
+            )
+            continue
+        raise AssertionError(
+            f"a cell this mutation cannot turn into `RR-2`'s shape produced"
+            f" {mutated[:120]!r} instead of being refused by {aimed!r}."
+            " `CONTROL 19` would then assert that eight gates refuse a cell"
+            " asserting two verdicts, over a cell asserting one"
+        )
+
+
+def test_control_27c_the_duplicate_row_mutation_refuses_a_twin_that_is_not_one() -> (
+    None
+):
+    """CONTROL 27c — `_duplicated_table_row`'s two reachable limbs.
+
+    `CONTROL 20`'s mutation helper derives a SECOND row for the same id,
+    differing only in its phase cell. Two ways the derivation stops being that:
+    a row that is not three cells cannot be rebuilt, and a row already reading
+    the twin's phase would produce a byte-identical copy — which
+    :func:`_doctored` would then refuse as a non-unique anchor, for the wrong
+    reason and with the wrong message.
+
+    The phase-collision subject uses a TIGHT status cell (``|Pending|`` rather
+    than ``| Pending |``) on purpose. With canonical spacing the derived twin
+    is byte-identical to the row, so neutering the aimed limb hands the subject
+    to :data:`_duplicated_table_row.twin_identical` one clause down and the
+    control would go red on a NEIGHBOUR rather than on silence. Tight spacing
+    makes the twin genuinely different, so the aimed limb is the only thing
+    standing between this subject and a silent, wrong mutation.
+    """
+    cases = (
+        (
+            "_duplicated_table_row.cell_count",
+            _table_document("| TEST-01 | Phase 21 | Pending | a fourth |"),
+        ),
+        (
+            "_duplicated_table_row.phase_collision",
+            _table_document("| TEST-01 | Phase 99 |Pending|"),
+        ),
+    )
+    for aimed, subject in cases:
+        try:
+            mutated = _duplicated_table_row(subject, "TEST-01")
+        except AssertionError as failure:
+            assert f"[limb:{aimed}]" in str(failure), (
+                f"the subject aimed at {aimed!r} was refused by a different"
+                f" limb: {failure}"
+            )
+            continue
+        raise AssertionError(
+            f"a row this mutation cannot duplicate produced {mutated[:120]!r}"
+            f" instead of being refused by {aimed!r}. `CONTROL 20` would then"
+            " watch the duplicate-id refusal over a document carrying no"
+            " duplicate"
+        )
+
+
+def test_control_28b_a_checkbox_anchor_that_is_absent_or_doubled_is_refused() -> None:
+    """CONTROL 28b — `_checkbox_line` on both failure shapes, `CONTROL 28`'s twin.
+
+    The checkbox channel's resolver, and it needs its own control for the same
+    reason the channel needs its own duplicate-id refusal: **a guard on one
+    channel says nothing about the other.** `CONTROL 21` doctors a bullet
+    resolved through this function, so an id that resolves to nothing — or to
+    two bullets — would leave that control asserting a refusal about a document
+    it did not change.
+    """
+    limb = "_checkbox_line.not_unique"
+    absent = _table_document(
+        "| TEST-01 | Phase 21 | Pending |",
+        bullets=("- [ ] **TEST-01**: a control fixture",),
+    )
+    doubled = _table_document(
+        "| TEST-01 | Phase 21 | Pending |",
+        bullets=(
+            "- [ ] **TEST-01**: a control fixture",
+            "- [x] **TEST-01**: and its twin, ticked the other way",
+        ),
+    )
+    cases = (
+        ("matches no checkbox bullet", absent, "NOPE-99"),
+        ("matches two checkbox bullets", doubled, "TEST-01"),
+    )
+    for shape, subject, req_id in cases:
+        try:
+            line = _checkbox_line(subject, req_id)
+        except AssertionError as failure:
+            assert f"[limb:{limb}]" in str(failure), (
+                f"an anchor that {shape} was refused by a limb other than"
+                f" {limb!r}: {failure}"
+            )
+            continue
+        raise AssertionError(
+            f"an id that {shape} resolved to {line!r} instead of being"
+            " refused. `CONTROL 21`'s mutation would land nowhere, or land on"
+            " a bullet it never named, and the refusal it then asserts would"
+            " be about a document nobody mutated"
+        )
+
+
+def test_control_31b_a_pathspec_member_too_short_to_misspell_is_refused() -> None:
+    """CONTROL 31b — `near_miss` on a member it cannot derive a misspelling from.
+
+    :func:`near_miss` is `CONTROL 16`'s and `CONTROL 18`'s whole subject: it
+    DERIVES a one-key typo by transposing a member's last two characters,
+    rather than reading one out of a literal table that could drift away from
+    the constants it names. A member too short to transpose has no near miss,
+    and a helper that returned the member UNCHANGED would hand those controls
+    the REAL pathspec — which matches real tracked files, so the assertion
+    ``tracked_under(near_miss(member)) == []`` would fail confusingly, or, in
+    the mutation direction, ``fabric_diff`` would be handed a spec that names a
+    real subject and the control would report that a typo was accepted.
+
+    Reachable at the function's own boundary, in the idiom `CONTROL 31`
+    records: no production caller passes a one-character member — every member
+    of every asserted pathspec is longer — but the function takes its member as
+    an argument, and a limb no CALLER happens to reach is not a limb no INPUT
+    can reach.
+    """
+    limb = "near_miss.too_short_to_transpose"
+    for member in ("a", "x/"):
+        try:
+            derived = near_miss(member)
+        except AssertionError as failure:
+            assert f"[limb:{limb}]" in str(failure), (
+                f"the member {member!r} was refused by a limb other than"
+                f" {limb!r}: {failure}"
+            )
+            continue
+        raise AssertionError(
+            f"near_miss({member!r}) returned {derived!r} instead of refusing."
+            " A near miss that is not a misspelling is the REAL pathspec, and"
+            " a control handed the real pathspec is watching nothing"
+        )
