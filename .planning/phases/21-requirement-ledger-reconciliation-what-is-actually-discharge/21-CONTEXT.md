@@ -209,6 +209,29 @@ default on. Dave ruled on all three. Each becomes a `D-IMPL-NN` entry in
   fixed here** — same reasoning as D-07 for the citation lint: tooling repair
   inside an audit phase. It is named, not fixed.
 
+- **D-21:** Success criterion 10 is **AMENDED to drop its hardcoded row count**
+  (Dave, 2026-08-21). It read *"agree on every one of the **133** requirement
+  ids"*; it now reads *"agree on EVERY requirement id the ledger contains — 133
+  at the pinned base and 143 once this phase mints its own ten `RECON-` rows in
+  wave 1"*, and the standing check **reads the count from the ledger rather than
+  carrying one**.
+
+  Why it had to move: the revision that closed the plan-checker's `B-4` mints
+  this phase's own ten `RECON-` rows in wave 1, so **the phase's first action
+  falsifies its own criterion 10**. This is criterion 11's defect exactly
+  (`D-20`) and the **fourth count problem this phase has surfaced** — after
+  52-vs-54 in the commissioning prose, GSD's UI detector matching `form` inside
+  *"in a form a reader can check"*, and `audit-uat`'s 24-vs-27. Dave chose to
+  remove the brittle number rather than replace it, so a future row-minting
+  phase does not falsify it a fifth time.
+
+  Binding consequence: **no standing check in this phase hardcodes a row count.**
+  A count is measured from the subject at assertion time. Where a fixed set is
+  genuinely needed — the 54-member working set, the eleven `human_verification`
+  records, the ten `RECON-` rows — it is a **frozen roster of named ids taken at
+  the pinned base**, never a number, so that adding a row cannot silently satisfy
+  or silently break it.
+
 ### Claude's Discretion
 
 - Plan decomposition — whether the 54 rows are audited in one sequential pass or
