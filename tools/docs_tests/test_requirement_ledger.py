@@ -157,7 +157,7 @@ UNRESOLVABLE_BASE = "0000000000000000000000000000000000000000"
 # ---------------------------------------------------------------------------
 # The pinned base, and the diff machinery built on it.
 #
-# Ported from `tests/examples/test_hw1_harness_clients_readme.py::fabric_diff`
+# Ported from `tests/examples/test_hw1_harness_clients_readme.py::client_surface_diff`
 # and widened: that module asserted one tree, this one asserts four different
 # path sets through the same function, so all four share one control.
 # ---------------------------------------------------------------------------
