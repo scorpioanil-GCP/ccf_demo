@@ -3,8 +3,69 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-23T01:05:00.000Z"
+last_updated: "2026-08-23T02:40:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21.1 WAVE 6 LANDED (`21.1-06`, three task commits `b231dd9`,
+  `fcd8eb3`, `aa729d6`).** Criterion 12 is closed for every limb an INPUT can reach.
+  **FOURTEEN CONTROLS, EACH PROVEN TO REACH THE BRANCH IT NAMES.** `CONTROL 24`-`33`
+  plus `27b`, `27c`, `28b`, `31b`. Every one asserts the LIMB ID and not a phrase two
+  limbs might share, and every one was watched RED against the SHIPPED module with its
+  own limb neutered and GREEN with the limb intact. Both runs are in the SUMMARY,
+  verbatim.
+  **CRITERION 8'S READING, AND THE CONFLICT PUT TO DAVE.** Criterion 8 asks that every
+  control be watched failing against the PRE-FIX module. For a refusal that already
+  ships there IS no fix -- run against the pre-fix module these controls PASS -- so
+  criteria 8 and 12 cannot both be satisfied literally. The reading taken: the RED comes
+  from NEUTERING the aimed limb, which is stronger evidence, not weaker. A pre-fix red
+  shows a control failing against a module that LACKS the guard; a neutered red shows it
+  failing against the shipped module with exactly one NAMED branch disarmed, which is
+  what "proven to reach that branch" actually means.
+  **RESEARCH UNDERCOUNTED BY TEN, AND THE MEASUREMENT IS THE FINDING.** Research
+  inventoried TWENTY refusal branches and found eight unfalsified. Plan `21.1-05` built
+  `LIMBS` by READING the module and registered THIRTY. Re-run across all thirty -- one
+  limb neutered at a time, the whole module re-run each time -- EIGHTEEN went unnoticed.
+  The ten beyond research's list are wave 5's own additions and are almost all in the
+  CONTROL FIXTURES: `_checkbox_line`, `_duplicated_table_row`, `_duplicated_checkbox_bullet`
+  and `CONTROL 19`'s two-verdict mutation helper -- the machinery every other control in
+  the module depends on to have mutated the thing it claims to have mutated. They took
+  sub-lettered numbers on the module's own convention so no number belonging to
+  `21.1-07` or `21.1-08` was consumed.
+  **`CONTROL 32` AND `CONTROL 33` HOLD THE TWO MECHANISMS THIS PHASE ITSELF BUILT THAT
+  CAN DISARM EVERYTHING ELSE.** Plan `21.1-05` shipped both with a PROBE and quoted
+  `D-IMPL-170` against exactly that on the same page. `CONTROL 32` watches the
+  unregistered-limb guard in BOTH directions -- `_refuse` at the raising side, `neutered`
+  at the disarming side -- and asserts the refusal NAMES the offending id and carries no
+  limb tag of its own, because a guard routed through the dispatcher is a guard
+  `neutered()` can turn off. `CONTROL 33` watches the `_NEUTERED` off-switch two ways:
+  the restore survives an exception raised INSIDE the block (the case a restore written
+  after the `yield` rather than in a `finally` would miss), and the autouse fixture's own
+  predicate is watched REPORTING a deliberate, scoped leak rather than trusted. Both are
+  STANDING tests carrying their saboteur under `SABOTEUR:` so `21.1-07` can lift them into
+  `CONTROL_AIM` under the `guard` aim kind. NOT `meta`, which is excluded from every
+  invocation loop by design.
+  **FOUR SABOTAGES, EACH REDDENING EXACTLY ITS OWN CONTROL AND NOTHING ELSE:** the
+  registration guard made to ACCEPT an unregistered id; `neutered()`'s restore moved out
+  of its `finally`; the fixture predicate made to report nothing; and the moved-path
+  branch of `refuse_unresolvable` disarmed at source -- `CONTROL 29` was the ONLY test in
+  the module that noticed, which is criterion 13's discrimination shown rather than
+  claimed.
+  **`RR-12` OPENED, AND IT BLOCKS `21.1-07`'S COVERAGE ASSERTION.** Four limbs are
+  reachable ONLY with a sibling limb neutered: `_duplicated_table_row.twin_identical` and
+  all three `_duplicated_checkbox_bullet` limbs. Proven by enumeration -- the tick class
+  is `[ xX]`, `flipped` is always in it and `group(2)` is untouched, so no input reaches
+  two of them, and the phase-collision guard one clause above shadows the third. They are
+  not guards; they are DEGRADATION SHIMS, added so a neutered sibling produces SILENCE
+  rather than an `AttributeError`. Deleting them under criterion 12's second disposition
+  would reinstate the very crash wave 5 shaped them to prevent, so they are RECORDED, not
+  removed, and `21.1-07` needs a third disposition -- a `shim` aim kind or a frozen roster
+  of NAMED exempt ids -- before its coverage assertion can land.
+  Module 68 -> 82 tests, `tools/docs_tests` 179 -> 193, `gate-tools` 406 + 222 ->
+  406 + 236, `tools.lints --all` exit 0, the `D-21` count sweep exits 1, and the
+  pinned-base fence over `src/ runtime/ examples/ public/ tests/ pyproject.toml
+  tools/lints/citations.py` EMPTY on every path. `VAC-06`'s ledger row stays `Pending` BY
+  DESIGN until plan `21.1-09`, so no `requirements.mark-complete` was run. `D-15`
+  honoured: STATE.md and ROADMAP.md backed up outside the tree, hand-edited, diffed; no
+  `state.*` or `roadmap.*` writer invoked. `RETIREMENT-COUPLINGS.md` regenerated LAST.
   2026-08-22 -- **PHASE 21.1 WAVE 5 LANDED (`21.1-05`, four task commits `9d22684`,
   `ca26de7`, `4ca1bbf`, `9360865`).** `RR-11` is closed under `D-IMPL-180` and `VAC-06`'s
   machinery is in: every refusal in the ledger module now has a NAME.
