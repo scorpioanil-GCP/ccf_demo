@@ -216,7 +216,6 @@ LIMBS: frozenset[str] = frozenset(
         "_table_line.not_unique",
         "_checkbox_line.not_unique",
         "_index.anchor_unresolved",
-        "refuse_unresolvable.zero_rows",
         "refuse_unresolvable.zero_citations",
         "uncovered_lint_citations.lint_matches_nothing",
         "base_ledger_text.nonzero_exit",
@@ -1961,10 +1960,25 @@ def refuse_unresolvable(document_text: str) -> list[str]:
     a citation naming a DIRECTORY is refused rather than quietly resolving. A
     directory is never evidence: nothing in it is the thing the row claims.
 
-    **Two vacuity limbs, landed one wave apart, and the gap was deliberate.**
-    A zero-ROW parse raises here since plan ``21-01``, because a zero-row parse
-    was false the day it landed. A zero-CITATION parse raises since plan
-    ``21-02`` task 1, and not before: measured with this module's own extractor
+    **One vacuity limb, and the second was REMOVED as structurally dead.**
+    A zero-ROW parse raised here from plan ``21-01`` until plan ``21.1-05``
+    deleted the branch: :func:`traceability_rows` refuses the same input FIRST,
+    so no argument to this function could ever reach it. Research found it by
+    mutation — neutered, the whole suite stayed green — and criterion 12's
+    second disposition applies: *unreachable, and REMOVED*. Measured at the
+    removal, the branch was reachable ONLY with the upstream limb disarmed,
+    which is test machinery and not an input:
+
+    * both limbs present → ``[limb:traceability_rows.zero_rows]``
+    * ``traceability_rows.zero_rows`` neutered →
+      ``[limb:refuse_unresolvable.zero_rows]``
+
+    and **both messages contain the phrase "no rows"**, which is exactly how
+    `CONTROL 5` observed one limb for the whole of Phase 21 while its docstring
+    named the other.
+
+    A zero-CITATION parse raises since plan ``21-02`` task 1, and not before:
+    measured with this module's own extractor
     at the phase's pinned base, ``citations_in_status_cells(ledger_text())``
     returned **zero** tokens across every status cell, so the guard would have
     failed on landing and reddened ``ci-core`` for five waves. It was
@@ -1973,14 +1987,11 @@ def refuse_unresolvable(document_text: str) -> list[str]:
     :func:`test_the_scan_finds_citations_to_check` is the precondition proving
     the real ledger now yields citations for the refusal to be about.
     """
-    rows = traceability_rows(document_text)
-    if not rows:
-        _refuse(
-            "refuse_unresolvable.zero_rows",
-            "the traceability table parsed to no rows, so 'every citation is a"
-            " full path' would pass over nothing. A refusal that has never had"
-            " a subject is not a refusal"
-        )
+    # The parse still runs, and its OWN refusals still fire — a header that
+    # was never found and a table with zero rows are refused inside
+    # `traceability_rows`, by `traceability_rows.header_absent` and
+    # `traceability_rows.zero_rows`. Its return value is deliberately unused.
+    traceability_rows(document_text)
     cited_pairs = citations_in_status_cells(document_text)
     if not cited_pairs:
         _refuse(
@@ -2186,12 +2197,41 @@ def test_control_4b_a_directory_path_is_refused() -> None:
 
 
 def test_control_5_a_table_with_no_rows_raises() -> None:
-    """The wave-one vacuity floor: no subject means refuse, never return clean."""
+    """The wave-one vacuity floor: no subject means refuse, never return clean.
+
+    **RE-AIMED by plan `21.1-05`, and the history is the point.** Through the
+    whole of Phase 21 this docstring claimed the limb inside
+    :func:`refuse_unresolvable`. The refusal it has ALWAYS observed belongs to
+    :func:`traceability_rows`, which raises on the same input one function
+    earlier — and the limb it named was structurally unreachable and is now
+    removed. Found by mutation in Phase 21.1; it is the third mis-aimed control
+    in this module, after `CONTROL A` and `CONTROL 13`.
+
+    **What let the mis-aim survive is the ASSERTION, not the docstring.** It
+    read ``"no rows" in str(failure)``, and both limbs' messages contain that
+    phrase — measured before the removal, with the upstream limb neutered the
+    downstream one caught the same subject and this control stayed GREEN over
+    an entirely different refusal. Two limbs sharing a substring are
+    indistinguishable to a substring assertion.
+
+    So it asserts the LIMB ID from here on. A control names the identity of the
+    refusal it observes, never a phrase two refusals happen to share, and
+    `neutered("traceability_rows.zero_rows")` turns this control RED — the
+    first time in this module's life a control has been proven to reach the
+    limb it names.
+    """
+    limb = "traceability_rows.zero_rows"
     empty = "\n".join((TABLE_HEADER, "|-------------|-------|--------|", ""))
     try:
         messages = refuse_unresolvable(empty)
     except AssertionError as failure:
-        assert "no rows" in str(failure)
+        assert f"[limb:{limb}]" in str(failure), (
+            f"a table with no rows was refused by a limb other than {limb!r}:"
+            f" {failure}. This control's subject is the zero-row parse, and"
+            " asserting the shared phrase 'no rows' instead of the limb id is"
+            " what let it vouch for a refusal one function further in for the"
+            " whole of Phase 21"
+        )
         return
     raise AssertionError(
         f"a table with no rows returned {messages!r} instead of raising; every"
@@ -2369,18 +2409,39 @@ WORKING_SET_ROSTER: frozenset[str] = frozenset(
 )
 
 
-def base_ledger_text() -> str:
-    """`.planning/REQUIREMENTS.md` as it stood at the pinned base.
+def base_ledger_text(base: str | None = None) -> str:
+    """`.planning/REQUIREMENTS.md` as it stood at `base`, or at the pinned base.
 
     Raises on a non-zero `git` exit for the reason :func:`fabric_diff` does:
     an empty string from a failed command is indistinguishable from an empty
     string from a real read, and a roster comparison against an empty parse
     would be a comparison against nothing. In CI this is the assertion that
     needs full history — a depth-1 clone cannot resolve the base, `git`
-    exits non-zero, and this raises rather than reporting a clean roster.
+    exits non-zero, and this raises rather than reporting a clean roster. **A
+    depth-1 clone is not hypothetical here: it is a CI failure this project hit
+    for real at the Phase 20 close.**
+
+    **It takes its base as an ARGUMENT since plan `21.1-05`, and the repair is
+    the whole reason the guard still exists.** Taking no argument made the
+    refusal unreachable — no caller could hand it a base that fails to resolve
+    — and criterion 12 as authored offered only *reachable and watched* or
+    *unreachable and REMOVED*, which would have deleted a guard against a
+    failure this project has actually hit. `D-IMPL-179` limb 2 (Dave,
+    2026-08-22) ruled repair permitted: *"Deletion is for unreachable or
+    revoked limbs, not for a limb that can be made true."* Repaired, the limb
+    satisfies criterion 12's FIRST disposition outright, so this is arguably
+    not a third disposition at all — only the first one reached honestly.
+
+    The parameter defaults to :func:`phase_base_commit`, so every existing call
+    site is unchanged, and it is the same shape :func:`derived_uat_records` and
+    :func:`derived_working_set` already take. Its control lands in `21.1-06`.
     """
     completed = subprocess.run(
-        ["git", "show", f"{phase_base_commit()}:.planning/REQUIREMENTS.md"],
+        [
+            "git",
+            "show",
+            f"{base or phase_base_commit()}:.planning/REQUIREMENTS.md",
+        ],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
