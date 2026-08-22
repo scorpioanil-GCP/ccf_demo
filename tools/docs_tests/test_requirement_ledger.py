@@ -53,7 +53,7 @@ from collections.abc import Sequence
 
 import pytest
 
-from tools.lints.citations import CITATION, NODE_ID, repo_index
+from tools.lints.citations import CITATION, CITED_SUFFIXES, NODE_ID, repo_index
 
 #: The repo root, resolved from this file rather than from the process CWD.
 #: A CWD-relative read finds no ledger at all and turns every assertion here
@@ -1494,6 +1494,42 @@ LOOSE_NODE_ID = re.compile(
     r"::(?P<symbol>[A-Za-z_][A-Za-z0-9_]*)"
 )
 
+#: A LINE citation — `path/to/file.md:12`, `file.py:12-34` — with the same
+#: single character added to the front of the path group that
+#: :data:`LOOSE_NODE_ID` adds above: a leading dot.
+#:
+#: **Without it a `.planning/` document could not be cited AT ALL, in either
+#: direction.** The lint's `CITATION` opens its path group `[A-Za-z0-9_]`,
+#: which excludes `.`, so a cell citing `.planning/…/RECORD.md:1` matched one
+#: character LATE and yielded `planning/…/RECORD.md` — a path that is not in
+#: the tree, refused as absent. The `::symbol` spelling is refused too, because
+#: :func:`refuse_unresolvable` reserves `::` to Python and a `.planning/`
+#: record is markdown. Cite it with the dot and the citation is refused; omit
+#: it and `uncited_verdicts` refuses the row. There was no legal spelling, and
+#: nothing in this module said so.
+#:
+#: `D-07` stands — the lint is byte-identical and this is a MODULE-LOCAL
+#: widening, on exactly the precedent :data:`LOOSE_NODE_ID` set one shape up.
+#:
+#: **It REPLACES `CITATION` in :func:`citations_in_status_cells`'s tuple and is
+#: not added beside it.** Measured both ways: appended or prepended, the tuple
+#: extracts the citation TWICE — `planning/…` AND `.planning/…` — because the
+#: dedup there is a `set[str]` over the PATH STRING, and the truncated twin is
+#: then refused by name. Order cannot suppress it. One shape, one pattern, no
+#: twin by construction.
+#:
+#: Measured when it landed: the real ledger yielded the SAME 127 citations
+#: before and after, set-equal AND order-equal, with zero added and zero
+#: dropped — no existing citation begins with a dot. Those numbers are HISTORY
+#: and are read by no assertion (`D-21`); the standing property is
+#: :func:`test_each_widened_pattern_subsumes_the_lint_pattern_it_replaced`.
+LOOSE_CITATION = re.compile(
+    r"(?P<path>[A-Za-z0-9_.][A-Za-z0-9_./+-]*\.(?:"
+    + "|".join(CITED_SUFFIXES)
+    + r"))"
+    r":(?P<lines>\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)(?![\w-])"
+)
+
 _REPO_INDEX_CACHE: dict[str, list[str]] = {}
 
 #: A NAMED path this module already depends on, required to resolve through
@@ -1570,14 +1606,33 @@ def symbol_cited_paths(document_text: str) -> list[tuple[str, str]]:
 def citations_in_status_cells(document_text: str) -> list[tuple[str, str]]:
     """`(id, cited_path)` for every citation-shaped token inside a status cell.
 
-    The lint's own two patterns — `path.py::symbol` and `path.ext:NN[-MM]` —
-    plus the wider symbol form above, so a `::symbol` citation on a
-    non-Python path reaches the refusal instead of vanishing.
+    **ONE PATTERN PER CITATION SHAPE.** There are two shapes — `path::symbol`
+    and `path.ext:NN[-MM]` — and this tuple carries the module-local widening
+    of each, :data:`LOOSE_NODE_ID` and :data:`LOOSE_CITATION`, rather than the
+    widening AND the lint pattern it widens.
+
+    That is a structural choice with a measured reason. A widened pattern
+    carried BESIDE the lint's extracts the same citation twice whenever the two
+    disagree about where the path starts: appended or prepended, a cell citing
+    `.planning/…/RECORD.md:1` yields BOTH `planning/…/RECORD.md` and
+    `.planning/…/RECORD.md`, because the dedup below is a `set[str]` over the
+    PATH STRING. The truncated twin names a path that is not in the tree and
+    :func:`refuse_unresolvable` then refuses it by name — so the row stays
+    uncitable, behind a pattern that looks like it landed. Order cannot
+    suppress the twin; only carrying one pattern per shape can.
+
+    `NODE_ID` was DROPPED rather than assumed redundant. Measured over the real
+    ledger's status cells before it went, it and :data:`LOOSE_NODE_ID` returned
+    the same `(id, path)` pairs and the SETS WERE EQUAL. The subsumption is
+    kept standing by
+    :func:`test_each_widened_pattern_subsumes_the_lint_pattern_it_replaced`,
+    which is what stops a later narrowing of either widened pattern dropping
+    citations in silence.
     """
     found: list[tuple[str, str]] = []
     for req_id, _phase, status in traceability_rows(document_text):
         seen: set[str] = set()
-        patterns = (NODE_ID, CITATION, LOOSE_NODE_ID)
+        patterns = (LOOSE_NODE_ID, LOOSE_CITATION)
         for pattern in patterns:
             for match in pattern.finditer(status):
                 cited = match.group("path")
