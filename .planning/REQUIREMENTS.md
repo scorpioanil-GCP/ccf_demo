@@ -458,10 +458,17 @@ evidence per row:
 | CPS-13 | `make perf-micro` exit 0, all twelve benchmarks PASS. The three `test_gates.py` benchmarks — the ones a new contract field or the payload bind would move — are within ±1.8% of baseline |
 | CPS-14 | `docs/DECISIONS.md` `D-IMPL-98` .. `D-IMPL-106` (the eight questions, ruled with measured costs from `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md`), plus `D-IMPL-107` .. `D-IMPL-112` raised and ruled during execution |
 
-Coverage: 94/94 v0.2 requirements mapped, each to exactly one phase.
+Coverage: 143/143 v0.2 requirements mapped, each to exactly one phase.
 Counted from the traceability table above by counting its rows, not from the
 previous sentence: 56 rows before Phase 16's minting, 68 after, 82 after Phase
-15.5's, 94 after Phase 15.6's.
+15.5's, 94 after Phase 15.6's, 101 after Phase 16's post-stop plans minted
+DOCS-19..DOCS-25, 123 after Phase 17's and Phase 18's CLNT-01..CLNT-22, 133
+after Phase 20's CLNT-23..CLNT-32, and 143 once Phase 21 minted
+RECON-01..RECON-10 in wave 1. **Corrected 2026-08-22 by plan `21-05` under
+`D-19`:** the counter read `94/94` and the running totals stopped at Phase
+15.6, four rounds of minting behind the table they claim to count. Every total
+above was re-derived by the strict parse rather than carried; 133 independently
+matches the row count at Phase 21's pinned base.
 **DCD-01..DCD-12 were minted at execution rather than at planning**, by plan
 `15.6-03` task 1 (2026-08-12), under the same inserted-phase precedent
 CPS-01..14, DOCS-07..18, SUBQ-12..14 and ERGO-18..19 were minted under — an
