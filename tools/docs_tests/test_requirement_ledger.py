@@ -49,6 +49,8 @@ from collections.abc import Sequence
 
 import pytest
 
+from tools.lints.citations import CITATION, NODE_ID, repo_index
+
 #: The repo root, resolved from this file rather than from the process CWD.
 #: A CWD-relative read finds no ledger at all and turns every assertion here
 #: into a test that passes over an empty document — the failure this project
@@ -857,3 +859,319 @@ def test_control_11_a_cell_with_two_verdict_tokens_is_refused() -> None:
     assert any("RECON-10" in message for message in offenders), (
         f"a cell carrying two bolded verdicts was accepted: {offenders!r}"
     )
+
+
+# ===========================================================================
+# Check A — a cited path in a status cell names a full, repo-relative, EXISTING
+# file, and `::` is reserved to Python.
+#
+# THE D-17 READING, recorded here because this is where it bites, and marked as
+# a READING rather than a relaxation granted to make a criterion reachable.
+# Success criterion 3 asks for evidence in `path::symbol` form; its operative
+# clause is its own final one, "that the citation lint resolves". The lint
+# anchors its `::` pattern to `\.py`, so a markdown document has NO
+# `path::symbol` form at all, and roughly twenty-four of the fifty-four rows
+# this phase audits are about documentation. So: `path::symbol` stays preferred
+# and is REQUIRED wherever the evidence is Python; where the evidence is a
+# document, an anchored line citation the lint resolves is admissible. D-06 is
+# unchanged — full repo-relative paths, bare basenames REFUSED. Ruled by Dave
+# 2026-08-21 and logged as `D-IMPL-172` in `docs/DECISIONS.md`.
+#
+# WHERE THIS REFUSAL APPLIES, AND WHERE IT DOES NOT. It is scoped to the
+# TRACEABILITY STATUS CELL, deliberately, because `D-01` puts the evidence
+# there and that is therefore the evidence surface. Plan `21-02` also appends
+# the long form to each row's checkbox-channel twin; those copies are a READING
+# CONVENIENCE, not a second evidence surface, and they are covered only by the
+# repo-wide citation lint — the surface that carries the two silent-drop holes.
+# A reader who assumes the refusal covers both places this phase writes
+# citations has assumed too much, which is why it is said here.
+#
+# WHAT IS NOT HERE, AND WHY THAT IS NOT AN OVERSIGHT. The zero-CITATION vacuity
+# guard, and the precondition asserting the real ledger yields citations to
+# check, are plan `21-02`'s. Measured at this phase's pinned base: there are
+# ZERO citation-shaped tokens in any status cell, scanned with the lint's own
+# symbol and line-citation patterns. A guard raising on zero citations would
+# FAIL on landing and would redden `ci-core` for five waves, in a phase whose
+# own Makefile contract is that `ci-core` stays green from wave one. Both are
+# RELOCATED to the wave where the first citations exist, not weakened. Only the
+# zero-ROW guard lands here, because a zero-row parse is false today.
+#
+# The REFUSAL itself is correct here and needs nothing added later: a citation,
+# IF present, must resolve as written. That is vacuously true at zero citations
+# and becomes load-bearing the instant the first one is written.
+# ===========================================================================
+
+#: A `path::symbol` token with ANY suffix, and permitting a leading dot so a
+#: `.planning/...` path is visible too. Deliberately wider than the lint's
+#: `NODE_ID`, which is hard-anchored to `\.py`: a `::symbol` citation on a
+#: non-Python path matches NEITHER of the lint's patterns and is therefore
+#: entirely invisible to it, so it has to be refused BY NAME here or it is
+#: refused nowhere.
+LOOSE_NODE_ID = re.compile(
+    r"(?P<path>[A-Za-z0-9_.][A-Za-z0-9_./+-]*\.[A-Za-z0-9_+-]+)"
+    r"::(?P<symbol>[A-Za-z_][A-Za-z0-9_]*)"
+)
+
+_REPO_INDEX_CACHE: dict[str, list[str]] = {}
+
+
+def _index() -> dict[str, list[str]]:
+    """`tools.lints.citations.repo_index` over this repo, computed once.
+
+    The lint's own index rather than a bare `rglob`, because `repo_index`
+    prunes `SKIP_DIRS` — and a bare walk over a live agent worktree makes
+    EVERY basename ambiguous, which is how an ambiguity check silently stops
+    checking anything.
+    """
+    if not _REPO_INDEX_CACHE:
+        _REPO_INDEX_CACHE.update(repo_index(REPO_ROOT))
+    return _REPO_INDEX_CACHE
+
+
+def symbol_cited_paths(document_text: str) -> list[tuple[str, str]]:
+    """`(id, path)` for every `path::symbol` token in a status cell, any suffix."""
+    found: list[tuple[str, str]] = []
+    for req_id, _phase, status in traceability_rows(document_text):
+        for match in LOOSE_NODE_ID.finditer(status):
+            found.append((req_id, match.group("path")))
+    return found
+
+
+def citations_in_status_cells(document_text: str) -> list[tuple[str, str]]:
+    """`(id, cited_path)` for every citation-shaped token inside a status cell.
+
+    The lint's own two patterns — `path.py::symbol` and `path.ext:NN[-MM]` —
+    plus the wider symbol form above, so a `::symbol` citation on a
+    non-Python path reaches the refusal instead of vanishing.
+    """
+    found: list[tuple[str, str]] = []
+    for req_id, _phase, status in traceability_rows(document_text):
+        seen: set[str] = set()
+        patterns = (NODE_ID, CITATION, LOOSE_NODE_ID)
+        for pattern in patterns:
+            for match in pattern.finditer(status):
+                cited = match.group("path")
+                if cited not in seen:
+                    seen.add(cited)
+                    found.append((req_id, cited))
+    return found
+
+
+def refuse_unresolvable(document_text: str) -> list[str]:
+    """One message per citation that does not name a full, existing file.
+
+    Two reasons this exists, both measured against the shipped lint.
+
+    **The lint silently drops a citation whose basename is ambiguous.** With
+    two `client.py` in the tree, `client.py::NoSuchThing` produces no finding
+    at all — it is counted as an ambiguous path and skipped. **And it silently
+    drops a citation to a path that does not exist**: `src/ccf/nope/nope.py::x`
+    is counted as unresolved and skipped. The same silence, two holes.
+
+    A single existence predicate closes both without opening the lint. A path
+    that exists as written makes the lint's resolver return at its DIRECT
+    branch before the index is ever consulted, so the ambiguity branch becomes
+    structurally unreachable for this file's citations. `D-07` stands: the
+    repo-wide hole is NOT fixed here, and it stays named.
+
+    It also catches what the lint cannot see at all — a file MOVE. The lint
+    catches a symbol RENAME (a wrong symbol on a real path is a finding); a
+    citation whose path moved away is simply unresolved and dropped.
+
+    The predicate is ``(REPO_ROOT / cited).is_file()`` and NOT ``exists()``, so
+    a citation naming a DIRECTORY is refused rather than quietly resolving. A
+    directory is never evidence: nothing in it is the thing the row claims.
+    """
+    rows = traceability_rows(document_text)
+    if not rows:
+        raise AssertionError(
+            "the traceability table parsed to no rows, so 'every citation is a"
+            " full path' would pass over nothing. A refusal that has never had"
+            " a subject is not a refusal"
+        )
+    symbol_paths = set(symbol_cited_paths(document_text))
+    index = _index()
+    messages: list[str] = []
+    for req_id, cited in citations_in_status_cells(document_text):
+        basename = cited.rsplit("/", maxsplit=1)[-1]
+        candidates = index.get(basename, [])
+        if "/" not in cited:
+            if candidates[1:]:
+                messages.append(
+                    f"{req_id} cites `{cited}`, a BARE BASENAME that is"
+                    f" AMBIGUOUS in this repo — it names {candidates}. The"
+                    " citation lint DROPS an ambiguous basename without a"
+                    " finding, which is the hole this refusal exists to dodge"
+                    " from the outside (`D-06`, `D-07`)"
+                )
+            else:
+                messages.append(
+                    f"{req_id} cites `{cited}`, a BARE BASENAME. `D-06`"
+                    " requires a FULL repo-relative path, not an unambiguous"
+                    " one: a basename that is unique today becomes ambiguous"
+                    " the day someone adds a second file with that name, and"
+                    " the citation is then dropped in silence"
+                )
+            continue
+        target = REPO_ROOT / cited
+        if not target.is_file():
+            if target.is_dir():
+                messages.append(
+                    f"{req_id} cites `{cited}`, which is a DIRECTORY. The"
+                    " predicate is `is_file()` and not an existence test on"
+                    " purpose — a directory is never the evidence a row"
+                    " claims, and an existence test would let it through"
+                )
+            else:
+                messages.append(
+                    f"{req_id} cites `{cited}`, which is not in the tree at"
+                    " all. The citation lint counts this as an unresolved path"
+                    " and drops it WITHOUT a finding — the second silent hole,"
+                    " and the one that catches a file MOVE"
+                )
+            continue
+        if (req_id, cited) in symbol_paths and not cited.endswith(".py"):
+            messages.append(
+                f"{req_id} cites `{cited}` with a `::symbol`, but the path is"
+                " not Python. The lint's symbol pattern is hard-anchored to"
+                " `.py`, so this citation matches neither of its patterns and"
+                " is invisible to it. Where the evidence is a document, use an"
+                " anchored line citation the lint resolves (`D-IMPL` reading"
+                " of criterion 3, recorded above)"
+            )
+            continue
+        if candidates and cited not in candidates:
+            messages.append(
+                f"{req_id} cites `{cited}`, which is on disk but absent from"
+                f" the resolver's index, whose entries for `{basename}` are"
+                f" {candidates}. The lint would treat the basename as"
+                " AMBIGUOUS and drop the citation"
+            )
+    return messages
+
+
+def _document_with_citation(cited: str) -> str:
+    """A minimal well-formed ledger carrying exactly one citation.
+
+    Built rather than doctored from the real file because at this wave the
+    real file carries no citations at all, so there is nothing to doctor.
+    """
+    return "\n".join(
+        (
+            "- [ ] **TEST-01**: a control fixture, not a requirement",
+            "",
+            TABLE_HEADER,
+            "|-------------|-------|--------|",
+            f"| TEST-01 | Phase 21 | Pending (`{cited}`) |",
+            "",
+        )
+    )
+
+
+def test_every_cited_path_in_a_status_cell_resolves_as_written() -> None:
+    """Criterion 4, shipped: every citation names a full, existing file.
+
+    **Vacuously true at this wave, measured and stated**: the ledger carries
+    zero citation-shaped tokens in any status cell today. Plan `21-02` lands
+    the precondition that makes it non-vacuous, in the same task as the first
+    citations. The refusal needs nothing added when it does — it is already
+    the assertion that a citation, if present, resolves as written.
+    """
+    assert refuse_unresolvable(ledger_text()) == []
+
+
+# --- CONTROL 1-5: refuse_unresolvable, watched refusing ---
+
+
+def test_control_1_an_ambiguous_basename_is_refused() -> None:
+    """A basename with two paths behind it — the lint's own silent drop."""
+    messages = refuse_unresolvable(_document_with_citation("client.py::ask"))
+    assert messages, "an ambiguous bare basename was accepted"
+    assert any("AMBIGUOUS" in message for message in messages), (
+        f"refused, but without naming the ambiguity: {messages!r}"
+    )
+
+
+def test_control_2_a_unique_basename_is_refused_too() -> None:
+    """`D-06` is FULL paths, not unambiguous paths.
+
+    A basename that resolves to exactly one file today is still refused,
+    because it becomes ambiguous the day a second file takes that name — and
+    on that day the citation is dropped in silence rather than reported.
+    """
+    messages = refuse_unresolvable(_document_with_citation("spine.py::ask"))
+    assert any("BARE BASENAME" in message for message in messages), (
+        f"a unique bare basename was accepted: {messages!r}"
+    )
+
+
+def test_control_3_a_path_that_does_not_exist_is_refused() -> None:
+    """The SECOND silent-drop hole: an unresolved path is not a finding."""
+    cited = "src/ccf/nope/nope.py::x"
+    messages = refuse_unresolvable(_document_with_citation(cited))
+    assert any("src/ccf/nope/nope.py" in message for message in messages), (
+        f"a nonexistent path was accepted, or refused without being named:"
+        f" {messages!r}"
+    )
+
+
+def test_control_4_a_symbol_citation_on_a_non_python_path_is_refused() -> None:
+    """`::` is reserved to Python because the lint's pattern is anchored to it.
+
+    Two subjects, and the second is the discriminating one. A nonexistent
+    markdown path is refused for the ordinary reason — it is not in the tree.
+    An EXISTING markdown path carrying a `::symbol` is refused for the reason
+    this control is about: the lint cannot match it, so nothing else would
+    ever refuse it.
+    """
+    absent = refuse_unresolvable(_document_with_citation("docs/foo.md::heading"))
+    assert absent, "a `::symbol` on a nonexistent markdown path was accepted"
+    present = refuse_unresolvable(
+        _document_with_citation("docs/DECISIONS.md::heading")
+    )
+    assert any("not Python" in message for message in present), (
+        f"a `::symbol` on an EXISTING markdown path was accepted, or refused"
+        f" for the wrong reason: {present!r}"
+    )
+
+
+def test_control_4b_a_directory_path_is_refused() -> None:
+    """Why the predicate is `is_file()` and not an existence test.
+
+    The subject is a real tracked directory whose name carries a dot, so a
+    citation pattern can actually name it. Under an existence test it would
+    resolve and the row would carry a "citation" pointing at no evidence at
+    all.
+    """
+    cited = ".planning/phases/15.6-decision-completeness-and-defect-closure::x"
+    messages = refuse_unresolvable(_document_with_citation(cited))
+    assert any("DIRECTORY" in message for message in messages), (
+        f"a directory citation was accepted, or refused for the wrong reason:"
+        f" {messages!r}"
+    )
+
+
+def test_control_5_a_table_with_no_rows_raises() -> None:
+    """The wave-one vacuity floor: no subject means refuse, never return clean."""
+    empty = "\n".join((TABLE_HEADER, "|-------------|-------|--------|", ""))
+    try:
+        messages = refuse_unresolvable(empty)
+    except AssertionError as failure:
+        assert "no rows" in str(failure)
+        return
+    raise AssertionError(
+        f"a table with no rows returned {messages!r} instead of raising; every"
+        " citation check built on it would then pass over nothing"
+    )
+
+
+def test_the_positive_control_a_real_citation_is_not_refused() -> None:
+    """Red on everything is not a discriminator.
+
+    The subject is deliberately a path whose BASENAME is ambiguous in this
+    repo — there are two `client.py`. It is accepted anyway, which is the
+    whole design: a path that exists as written resolves at the direct branch
+    and the ambiguity never arises.
+    """
+    cited = "src/ccf/client/client.py::ProductClient"
+    assert refuse_unresolvable(_document_with_citation(cited)) == []
