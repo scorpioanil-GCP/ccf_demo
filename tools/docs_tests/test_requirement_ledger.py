@@ -2998,3 +2998,187 @@ def test_control_22_an_index_that_resolved_nothing_is_refused(
         " that runs after it would then be quantified over an index with no"
         " subject, and would report clean"
     )
+
+
+# ===========================================================================
+# CONTROL 23 — A `.planning/` DOCUMENT COULD NOT BE CITED AT ALL, IN EITHER
+# DIRECTION, AND NOTHING SAID SO.
+#
+# Landed in plan `21.1-03` task 3, BEFORE the pattern it falsifies, and
+# watched failing against the committed pre-fix module (`D-IMPL-170`).
+#
+# THE MEASUREMENT. A status cell citing an EXISTING `.planning/` document with
+# a line anchor extracted to a path that IS NOT IN THE TREE. `CITATION`'s path
+# group opens `[A-Za-z0-9_]`, which excludes `.`, so the match starts one
+# character LATE and names `planning/...` — refused as absent. The `::symbol`
+# spelling is refused too, because `refuse_unresolvable` reserves `::` to
+# Python and a `.planning/` record is markdown. Cite it with the dot and the
+# citation is refused; omit the citation and `uncited_verdicts` refuses the
+# row. There was NO LEGAL SPELLING.
+#
+# It is NEW debt rather than pre-existing: at this plan's HEAD the ledger
+# carried 127 citations and not one of them started with a dot, so nothing
+# had ever been refused for this reason. It is the SAME defect Phase 21
+# wave 2 hit on `.github/workflows/ci.yml` and carried; nobody connected it
+# to `.planning/`.
+#
+# `D-07` STANDS: the citation lint is NOT touched. The fix is a MODULE-LOCAL
+# widening, which is the move this module already makes one shape up —
+# `LOOSE_NODE_ID` is that precedent, in the module already, with the reasoning
+# written at the constant.
+#
+# WHY THE WIDENED PATTERN *REPLACES* THE LINT'S RATHER THAN JOINING IT, AND
+# WHY THAT IS NOT AN AESTHETIC CHOICE. Adding a dot-tolerant line-citation
+# pattern ALONGSIDE `CITATION` in the tuple `citations_in_status_cells`
+# iterates extracts the citation TWICE, in EITHER order — measured both ways
+# against a real `.planning/` path:
+#
+#     appended  -> ['planning/…/21-FINDINGS.md', '.planning/…/21-FINDINGS.md']
+#     prepended -> ['.planning/…/21-FINDINGS.md', 'planning/…/21-FINDINGS.md']
+#
+# Order cannot suppress the twin, because the dedup inside
+# `citations_in_status_cells` is a `set[str]` over the PATH STRING and
+# `planning/…` is not `.planning/…`. The truncated twin names a path that is
+# not in the tree, `refuse_unresolvable` refuses it BY NAME, and the row is
+# still uncitable — now behind a pattern that looks like it landed. So: the
+# tuple carries ONE PATTERN PER CITATION SHAPE. No twin by construction, and
+# no span arithmetic to get wrong.
+# ===========================================================================
+
+
+def _planning_document_citation() -> str:
+    """A repo-relative `.planning/` path that certainly exists, DERIVED not typed.
+
+    :data:`LEDGER_PATH` is the strongest possible anchor for this control: it
+    is the module's own subject, so a run in which it is absent has already
+    failed everywhere else. A transcribed phase-record path would be anchored
+    on a snapshot of `.planning/phases/`, which is exactly the drift
+    :func:`_table_line` exists to avoid one level down.
+    """
+    return LEDGER_PATH.relative_to(REPO_ROOT).as_posix()
+
+
+def test_control_23_a_planning_document_can_be_cited_and_a_missing_one_cannot() -> (
+    None
+):
+    """CONTROL 23 — the widened line citation, watched in BOTH directions.
+
+    **The acceptance half asserts `refuse_unresolvable(...) == []`, never
+    merely that something was extracted.** That is the assertion the naive
+    two-pattern spelling fails, because the truncated dot-less twin is refused
+    and the list is not empty — and the cheap way to make this control green
+    would be to weaken it to "a citation was extracted". Weakened, it would
+    report green over a row that still cannot be cited, which is this phase's
+    own defect class arriving inside this phase's own fix.
+
+    **The refusal half is not optional either.** A pattern that extracts a
+    citation nobody checks is worse than no pattern at all: it converts a
+    silent drop into a silent acceptance.
+
+    The extraction is asserted to be EXACTLY ONE path, which is what refuses
+    the twin structurally rather than by consequence.
+    """
+    existing = _planning_document_citation()
+    assert existing.startswith("."), (
+        f"{existing!r} does not begin with a dot, so this control's subject is"
+        " not the shape it is about and it would pass under the unwidened"
+        " pattern"
+    )
+    assert (REPO_ROOT / existing).is_file(), (
+        f"{existing!r} is not a file, so the acceptance half below would be"
+        " asserting that an ABSENT path resolves"
+    )
+
+    accepted = _document_with_citation(f"{existing}:1")
+    extracted = [path for _req_id, path in citations_in_status_cells(accepted)]
+    assert extracted == [existing], (
+        f"a status cell citing `{existing}:1` extracted to {extracted!r}"
+        f" rather than exactly [{existing!r}]. An empty list is the unwidened"
+        " pattern failing to see a leading dot at all; a list of TWO is the"
+        " truncated twin, which is what a dot-tolerant pattern ADDED beside"
+        " the lint's produces in either order"
+    )
+    assert refuse_unresolvable(accepted) == [], (
+        f"a status cell citing the EXISTING `{existing}` with a line anchor"
+        f" was refused: {refuse_unresolvable(accepted)!r}. There is then no"
+        " legal way to cite a `.planning/` document at all — the dotted"
+        " spelling is refused as absent and the `::symbol` spelling is"
+        " refused as non-Python — and any row whose only evidence lives"
+        " under `.planning/` is trapped in both directions"
+    )
+
+    absent = ".planning/phases/no-such-phase/NO-SUCH-RECORD.md"
+    assert not (REPO_ROOT / absent).exists(), (
+        f"{absent!r} exists, so the refusal half below is about a path that"
+        " resolves and would be asserting the opposite of what it claims"
+    )
+    messages = refuse_unresolvable(_document_with_citation(f"{absent}:1"))
+    assert any(absent in message for message in messages), (
+        f"a `.planning/` path that is NOT in the tree was accepted, or refused"
+        f" without being named: {messages!r}. A widened pattern whose"
+        " extractions nobody checks turns the citation lint's silent DROP into"
+        " a silent ACCEPTANCE, which is worse"
+    )
+
+
+def test_each_widened_pattern_subsumes_the_lint_pattern_it_replaced() -> None:
+    """Every citation the lint's own pattern finds, the widened one finds too.
+
+    **The hole this closes is opened BY the replacement.** Once
+    :func:`citations_in_status_cells` carries one module-local pattern per
+    citation shape, the lint's `NODE_ID` and `CITATION` are no longer consulted
+    at all — so a widened pattern that was later narrowed, or mis-transcribed,
+    would stop seeing citations SILENTLY.
+    :func:`test_the_scan_finds_citations_to_check` cannot catch that: it
+    asserts non-emptiness and carries no count (`D-21`, correctly), so losing
+    almost every citation still passes it. This is the assertion that a
+    replacement is a SUPERSET of what it replaced.
+
+    It is also why the two lint patterns stay imported. They are not dead: they
+    are the reference this check measures against, and measuring against the
+    lint's own regexes is stronger than measuring against a copy of them.
+
+    **Anti-vacuity clause:** the lint pattern is REQUIRED to find something in
+    the real ledger. "Every match is also a match" is trivially true of a
+    pattern that matches nothing, which is precisely the failure this is here
+    to detect.
+
+    This is what let `NODE_ID` be dropped from the extraction tuple rather than
+    assumed redundant. Measured over the real ledger at the time it landed,
+    `NODE_ID` and :data:`LOOSE_NODE_ID` returned the SAME 213 `(id, path)`
+    pairs and the sets were EQUAL — the counts are history and are read by no
+    assertion here; the subsumption below is the standing property.
+    """
+    assert "LOOSE_CITATION" in globals(), (
+        "no module-local line-citation pattern exists, so a status cell cannot"
+        " name a `.planning/` document at all: the lint's `CITATION` path"
+        " group excludes a leading dot and starts its match one character"
+        " late, and `refuse_unresolvable` reserves `::symbol` to Python. There"
+        " is no legal spelling, and nothing in this module says so"
+    )
+    text = ledger_text()
+    for name, lint_pattern, widened in (
+        ("NODE_ID", NODE_ID, LOOSE_NODE_ID),
+        ("CITATION", CITATION, globals()["LOOSE_CITATION"]),
+    ):
+        lint_pairs: list[tuple[str, str]] = []
+        widened_pairs: list[tuple[str, str]] = []
+        for req_id, _phase, status in traceability_rows(text):
+            for match in lint_pattern.finditer(status):
+                lint_pairs.append((req_id, match.group("path")))
+            for match in widened.finditer(status):
+                widened_pairs.append((req_id, match.group("path")))
+        assert lint_pairs, (
+            f"the lint's `{name}` matches nothing in the real ledger's status"
+            " cells, so 'the widened pattern finds everything it finds' is"
+            " quantified over the empty set and is trivially true"
+        )
+        missing = sorted(set(lint_pairs) - set(widened_pairs))
+        assert not missing, (
+            f"the module-local widening of `{name}` no longer finds"
+            f" {missing!r}, which the lint's own pattern does find. The"
+            " extraction tuple consults the widened pattern and NOT the"
+            " lint's, so these citations are now invisible to"
+            " `refuse_unresolvable` — dropped in silence, which is the exact"
+            " hole this module exists to dodge from the outside"
+        )
