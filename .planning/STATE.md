@@ -3,8 +3,80 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-22T12:00:00.000Z"
+last_updated: "2026-08-22T18:40:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21 WAVE 4 IS LANDED. `21-04` IS COMPLETE, ON `phase-21`.**
+  Three task commits `624ab9f`, `6fb22fd`, `b00d529` plus the SUMMARY commit.
+  **ALL FIFTY-FOUR ROWS NOW CARRY A VERDICT IN BOTH CHANNELS.** The only rows still
+  reading `Pending` anywhere in the ledger are this phase's own ten `RECON-` rows,
+  which are `21-06`'s. Nothing was flipped without evidence and no id was dropped:
+  the strict parse reports an identical id set in both channels with zero
+  disagreements, and every frozen roster is intact.
+  **THE SPLIT IS `21-DOCS-16-SPLIT.md`: TEN `Complete`, FIVE `Partial`, THREE `Not
+  built`, ZERO WHOLLY `Orphaned`** -- with ONE orphaned LIMB, inside `DOCS-18`.
+  **THE THIN SIDE-C PILE IS THE FINDING, NOT A FAILURE OF THE AUDIT.** `RETIRED.md`
+  retires the APPROACH and not the NEED, so an obligation about a NEED survives the
+  rejection of the approach that was to satisfy it. What actually died is `DOCS-18`'s
+  no-fabric-change assertion, and it died because `D-IMPL-96` REVOKED criterion 10 in
+  Dave's own words -- *"it has been used out of context"* -- taking `D-13`'s
+  enumerated exception and `gate_16.py` with it. `tools/gates/` holds no module. That
+  limb is named ORPHANED in the cell so a later reader does not open it as work.
+  **EIGHT ROWS HAD REAL WORK THE LEDGER NEVER RECORDED.** `DOCS-19`..`21` and
+  `DOCS-23`..`25` shipped in Phase 16's OWN post-stop plans (`16-22`..`16-31`), and
+  `DOCS-13`'s three harness legs shipped in PHASE 20 -- gated harder than the row
+  asked, because `ccf` is REFUSED BY NAME for that root in a branch checked before
+  the permitted-set test, so widening the set cannot admit it. `RETIRED.md`'s
+  "executed 6 of 21" is true of the ORIGINAL plan set as of 2026-08-17; the ROADMAP's
+  16/16 counts the later ten. Both are right about different sets.
+  **A SABOTAGE THAT REPORTED GREEN AND SHOULD NOT HAVE -- THE ONE FINDING TO CARRY.**
+  `D-IMPL-94`'s anchored citation was re-aimed from `docs/DECISIONS.md:352` to `:356`
+  and `--citations` stayed at **exit 0**. The reason: `D-IMPL-96`, which lives at
+  `:356`, CROSS-CITES `D-IMPL-94` in its own body, so `_anchor_verdict` still returns
+  `True`. Re-aimed at `:354` -- a line that does not carry the token -- `cite02-anchor`
+  went **RED in both channels**, then restored byte-identical. **An anchored line
+  citation into `docs/DECISIONS.md` is weaker than it looks, because entries
+  cross-cite each other's ids, and a control aimed at a cross-citing neighbour proves
+  nothing.** `21-03`'s sabotage happened to land on a line that did not carry its
+  token; had it landed on one that did, it would have reported the citation checked
+  when the mutation was simply invisible. Later waves: pick the sabotage target by
+  running `_anchor_verdict` and requiring `False`, not by assuming a neighbour differs.
+  **`DOCS-17` IS BLOCKED ON DAVE, NOT ON AN EXECUTOR.** All ten condemned directories
+  are in the tree, and that is a RULING rather than neglect: `D-IMPL-145` limb 2
+  quarantined `examples/00`-`08` deliberately and plan `17-08` returned the `00`-`08`
+  half of `D-27` undecided. Re-measured here rather than carried from the ruling:
+  **111 references across 15 published pages, 102 of them snippet includes**, and zero
+  published references to the `s1-*` trees. The figures have not moved. Coupled to
+  `CLNT-17`, which is `Not built` on the other half of the same disposition.
+  **A ROW WAS STATED IN A THIRD PLACE AGAIN, AND IT WAS A WAVE-3 LEFTOVER.** The
+  minting prose still read *"DOCS-01..DOCS-06 stay Pending against Phase 14"* after
+  `21-03` verdicted all six. Amended, with the amendment visible in the sentence, and
+  the load-bearing claim (the PHASE column, not the STATUS column) preserved. Second
+  occurrence of trap 7a in this phase. **Grep the whole ledger for a row's id before
+  declaring it done.**
+  **THE CITATION CHECKER CAUGHT MY OWN PROSE.** A `DOCS-20` clause naming the citation
+  FORM was extracted as a BARE BASENAME citation and `refuse_unresolvable` refused it.
+  Rephrased rather than exempted -- naming a form is not naming a file, and the
+  checker cannot tell the difference, which is the right way round.
+  **THREE SIDE-B ROWS GO ON `21-05`'S WORK LIST** with their closing costs written in
+  `21-04-SUMMARY.md` so they need not be re-derived: `DOCS-14` (Section 3, coupled to
+  `EXAM-02`), `DOCS-15` (the adoption-argument page) and `DOCS-17` (the retirement,
+  coupled to `CLNT-17` and blocked on Dave). Plus the split limbs of `DOCS-10`, `-11`,
+  `-12`, `-13` and `-18` limb 3. **The published-pages limb is the common thread**
+  across `DOCS-12`..`-15`: four rows are short by the same thing.
+  **NO TEST WAS WRITTEN, ANYWHERE, FOR ANY PURPOSE** (`D-05`). `gate-tools` is 406 +
+  189, UNMOVED from `21-02` and `21-03`. This plan's three task commits touch exactly
+  three paths: `.planning/REQUIREMENTS.md`, `21-DOCS-16-SPLIT.md` and the generated
+  coupling inventory.
+  **GATES:** `--citations` 0, `lint` 0, `typecheck` 0 (211 files), `test` 0 (4105
+  passed / 118 skipped, 10m39s -- identical to waves 1, 2 and 3), `gate-tools` 0
+  (406 + 189), ledger module 35 passed, sweep + ledger 68 passed,
+  `refuse_unresolvable` `[]` over 112 citation tokens, channel disagreements `[]`,
+  vocabulary offenders `[]`, doubled verdicts `[]`. Fabric, fence, the eleven UAT
+  records and `tools/lints/citations.py` all diff-empty against the base. All nine of
+  `examples/00-quickstart` through `08-e2e-demo` still present. **NEXT: `21-05` -- the
+  work list, the 27 `human_needed` items, the observations and the three counter
+  corrections.**
+  PRIOR CONTEXT FOLLOWS.
   2026-08-22 -- **PHASE 21 WAVE 3 IS LANDED. `21-03` IS COMPLETE, ON `phase-21`.**
   Three task commits `16b6fe2`, `1b81927`, `73bc457` plus the SUMMARY commits.
   **THIRTY-SIX OF THE FIFTY-FOUR ROWS NOW CARRY A VERDICT IN BOTH CHANNELS.** The 14
