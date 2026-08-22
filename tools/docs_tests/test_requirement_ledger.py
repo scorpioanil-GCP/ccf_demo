@@ -886,19 +886,20 @@ def test_control_11_a_cell_with_two_verdict_tokens_is_refused() -> None:
 # A reader who assumes the refusal covers both places this phase writes
 # citations has assumed too much, which is why it is said here.
 #
-# WHAT IS NOT HERE, AND WHY THAT IS NOT AN OVERSIGHT. The zero-CITATION vacuity
-# guard, and the precondition asserting the real ledger yields citations to
-# check, are plan `21-02`'s. Measured at this phase's pinned base: there are
-# ZERO citation-shaped tokens in any status cell, scanned with the lint's own
-# symbol and line-citation patterns. A guard raising on zero citations would
-# FAIL on landing and would redden `ci-core` for five waves, in a phase whose
-# own Makefile contract is that `ci-core` stays green from wave one. Both are
-# RELOCATED to the wave where the first citations exist, not weakened. Only the
-# zero-ROW guard lands here, because a zero-row parse is false today.
-#
-# The REFUSAL itself is correct here and needs nothing added later: a citation,
-# IF present, must resolve as written. That is vacuously true at zero citations
-# and becomes load-bearing the instant the first one is written.
+# THE ZERO-CITATION GUARD LANDED ONE WAVE LATE, ON PURPOSE, AND HERE IS THE
+# MEASUREMENT THAT FORCED IT. At this phase's pinned base there were ZERO
+# citation-shaped tokens in any status cell, scanned with the lint's own symbol
+# and line-citation patterns plus this module's wider symbol form. A guard
+# raising on zero citations would have FAILED on landing and would have
+# reddened `ci-core` for five waves, in a phase whose own Makefile contract is
+# that `ci-core` stays green from wave one. So plan `21-01` landed the zero-ROW
+# limb only — false the day it shipped, therefore honest the day it shipped —
+# and plan `21-02` task 1 landed the zero-CITATION limb immediately AFTER
+# writing the first eight rows' citations. RELOCATED, never weakened: the limb
+# raises, `CONTROL 5b` watches it raise, and
+# `test_the_scan_finds_citations_to_check` proves the real ledger yields
+# citations for `test_every_cited_path_in_a_status_cell_resolves_as_written` to
+# be about.
 # ===========================================================================
 
 #: A `path::symbol` token with ANY suffix, and permitting a leading dot so a
@@ -981,6 +982,18 @@ def refuse_unresolvable(document_text: str) -> list[str]:
     The predicate is ``(REPO_ROOT / cited).is_file()`` and NOT ``exists()``, so
     a citation naming a DIRECTORY is refused rather than quietly resolving. A
     directory is never evidence: nothing in it is the thing the row claims.
+
+    **Two vacuity limbs, landed one wave apart, and the gap was deliberate.**
+    A zero-ROW parse raises here since plan ``21-01``, because a zero-row parse
+    was false the day it landed. A zero-CITATION parse raises since plan
+    ``21-02`` task 1, and not before: measured with this module's own extractor
+    at the phase's pinned base, ``citations_in_status_cells(ledger_text())``
+    returned **zero** tokens across every status cell, so the guard would have
+    failed on landing and reddened ``ci-core`` for five waves. It was
+    RELOCATED to the wave that writes the first citations, never weakened —
+    ``CONTROL 5b`` watches it refuse, and
+    :func:`test_the_scan_finds_citations_to_check` is the precondition proving
+    the real ledger now yields citations for the refusal to be about.
     """
     rows = traceability_rows(document_text)
     if not rows:
@@ -989,10 +1002,18 @@ def refuse_unresolvable(document_text: str) -> list[str]:
             " full path' would pass over nothing. A refusal that has never had"
             " a subject is not a refusal"
         )
+    cited_pairs = citations_in_status_cells(document_text)
+    if not cited_pairs:
+        raise AssertionError(
+            "the traceability table has rows but not one citation-shaped token"
+            " in any status cell, so 'every citation is a full path' is"
+            " quantified over the empty set and is trivially true. A verdict"
+            " resting on no citation is a claim, not a finding (`D-03`)"
+        )
     symbol_paths = set(symbol_cited_paths(document_text))
     index = _index()
     messages: list[str] = []
-    for req_id, cited in citations_in_status_cells(document_text):
+    for req_id, cited in cited_pairs:
         basename = cited.rsplit("/", maxsplit=1)[-1]
         candidates = index.get(basename, [])
         if "/" not in cited:
@@ -1053,8 +1074,10 @@ def refuse_unresolvable(document_text: str) -> list[str]:
 def _document_with_citation(cited: str) -> str:
     """A minimal well-formed ledger carrying exactly one citation.
 
-    Built rather than doctored from the real file because at this wave the
-    real file carries no citations at all, so there is nothing to doctor.
+    Built rather than doctored from the real file because the subject each
+    control needs is a SPECIFIC malformed citation, and doctoring a real cell
+    into one would make the control depend on which row happened to be
+    verdicted at the time it ran.
     """
     return "\n".join(
         (
@@ -1071,13 +1094,44 @@ def _document_with_citation(cited: str) -> str:
 def test_every_cited_path_in_a_status_cell_resolves_as_written() -> None:
     """Criterion 4, shipped: every citation names a full, existing file.
 
-    **Vacuously true at this wave, measured and stated**: the ledger carries
-    zero citation-shaped tokens in any status cell today. Plan `21-02` lands
-    the precondition that makes it non-vacuous, in the same task as the first
-    citations. The refusal needs nothing added when it does — it is already
-    the assertion that a citation, if present, resolves as written.
+    **No longer vacuous, and the thing that makes it non-vacuous is a test
+    rather than a claim.** It was vacuous through plan `21-01`, because the
+    ledger carried no citations at all; plan `21-02` task 1 wrote the first
+    ones and landed both the zero-citation limb inside
+    :func:`refuse_unresolvable` and the precondition below in the same commit.
+    The refusal itself needed nothing added: it has always been the assertion
+    that a citation, IF present, resolves as written.
     """
     assert refuse_unresolvable(ledger_text()) == []
+
+
+def test_the_scan_finds_citations_to_check() -> None:
+    """The precondition. The real ledger yields citations, so the gate has work.
+
+    **The measurement that forced this test to be written one wave after the
+    gate it guards.** Run against this phase's pinned base,
+    ``citations_in_status_cells(ledger_text())`` returned an EMPTY list —
+    across every status cell, scanned with the citation lint's own symbol and
+    line-citation patterns plus :data:`LOOSE_NODE_ID`. So
+    :func:`test_every_cited_path_in_a_status_cell_resolves_as_written` passed
+    over nothing for the whole of plan `21-01`, and this assertion could not
+    have been written there without failing. Plan `21-02` task 1 wrote the
+    first citations into eight `CLNT` rows and then landed this, in that
+    order, so that the guard is honest from the moment it exists.
+
+    Per `D-21` this carries NO count. Non-emptiness is the property; a floor of
+    fifteen would have to be re-edited by every later wave and could be
+    silently satisfied by a citation nobody meant to write.
+    """
+    found = citations_in_status_cells(ledger_text())
+    assert found, (
+        "not one status cell in the real ledger carries a citation-shaped"
+        " token, so `test_every_cited_path_in_a_status_cell_resolves_as_written`"
+        " is quantified over the empty set and reports green over nothing. That"
+        " was TRUE at this phase's pinned base and is why this test landed in"
+        " plan `21-02` rather than `21-01`; it is not true again without a"
+        " regression"
+    )
 
 
 # --- CONTROL 1-5: refuse_unresolvable, watched refusing ---
@@ -1162,6 +1216,42 @@ def test_control_5_a_table_with_no_rows_raises() -> None:
     raise AssertionError(
         f"a table with no rows returned {messages!r} instead of raising; every"
         " citation check built on it would then pass over nothing"
+    )
+
+
+def test_control_5b_a_table_with_no_citations_raises() -> None:
+    """The vacuity floor `21-01` could not land: rows, verdicts, no citations.
+
+    ``CONTROL 5`` catches a table with no ROWS. This catches the subtler one —
+    a table full of confidently-verdicted rows that cite nothing at all, over
+    which "every citation is a full repo-relative path" is trivially true. The
+    subject is doctored in memory and carries two rows whose status cells hold
+    a bolded verdict and a qualifying clause and no citation, which is exactly
+    the shape a lazy audit produces.
+    """
+    doctored = "\n".join(
+        (
+            "- [ ] **TEST-01**: a control fixture, not a requirement",
+            "- [ ] **TEST-02**: a second one, so the table is not a single row",
+            "",
+            TABLE_HEADER,
+            "|-------------|-------|--------|",
+            "| TEST-01 | Phase 21 | **Complete** — someone looked once |",
+            "| TEST-02 | Phase 21 | **Partial** — and wrote it down |",
+            "",
+        )
+    )
+    assert traceability_rows(doctored), "the control's own subject is empty"
+    try:
+        messages = refuse_unresolvable(doctored)
+    except AssertionError as failure:
+        assert "not one citation-shaped token" in str(failure)
+        return
+    raise AssertionError(
+        f"a table of verdicts carrying no citations returned {messages!r}"
+        " instead of raising. `D-03` is that a verdict rests on a citation the"
+        " lint resolves; a refusal quantified over zero citations enforces"
+        " nothing while reporting green"
     )
 
 
