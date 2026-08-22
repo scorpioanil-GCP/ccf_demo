@@ -3,8 +3,66 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-22T23:10:00.000Z"
+last_updated: "2026-08-22T23:55:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21.1 WAVE 4 LANDED (`21.1-04`, two task commits `fa2512d`,
+  `c874aed`). DOCUMENTS ONLY -- no code, no module write.** `RR-3` is closed and Dave's
+  `D-IMPL-179` limb 1 ruling is executed.
+  **THE SPLIT DOCUMENT WAS SHORT A ROW, AND THE MECHANISM IS THE FINDING.** The ledger
+  carries NINETEEN Phase 16 `DOCS-` rows; `21-DOCS-16-SPLIT.md` ruled on EIGHTEEN, and
+  `DOCS-22` appeared ZERO times there and ZERO times in `21-FINDINGS.md` -- it existed
+  only in plan `21-04`'s PLAN and SUMMARY, a wave hand-off, which is `B-3` again. **It
+  was not an oversight.** The split was built from the 54-row WORKING SET, whose
+  predicate is *verdict not in the Complete family at the pinned base*. `DOCS-22`'s cell
+  read a bare, unbolded, UNCITED `Complete`, so it was in the family, so it never entered
+  the working set, so it never reached the split. Measured: lane minus working set ==
+  `['DOCS-22']`, and the split's eighteen are the lane's eighteen working-set members
+  exactly. **An unevidenced `Complete` bought exemption from the audit that would have
+  checked it.**
+  **THE ROSTER IS NOW NAMED, NOT COUNTED** (`D-21`). The split states nineteen NAMED ids
+  re-derived by parsing the ledger, with its derivation on the page -- a count cannot see
+  an absence and cannot see a swap. Roster == table == sections == the ledger's Phase 16
+  `DOCS-` ids, ID FOR ID. Totals re-derived from the amended table: eleven `Complete`,
+  five `Partial`, three `Not built`, old figures beside new; the only moved figure is
+  `Complete` 10 -> 11, and it moved by ADDITION, not by re-verdicting.
+  **`DOCS-22` MEASURED AGAINST THE TREE, NOT READ OFF THE LEDGER: `Complete`.** Both
+  limbs of `D-IMPL-135`. The `audiences` axis at `src/ccf/products/contract.py:416` with
+  EIGHT named assertions gating it per property -- the load-bearing one holding the
+  values OPAQUE to every module outside `contract.py`. All three parts of the surface
+  obligation with live referents: the fragment `16-27-discovery-audiences.md` proved
+  READ, the `_SHAPE_MOVED_BY_FRAGMENT` claim keyed to `register_product_class` and NOT
+  to `ProductDiscovery` (`D-IMPL-138`(c) ruled measure-don't-pre-decide; a `contract`-kind
+  export's shape move is invisible to the disturbance check and surfaces transitively),
+  and the regenerated `docs/SURFACE-CHANGES.md` under its byte-comparing currency gate.
+  11 passed. The ABSENCE is named (`D-10`): no product-catalog door, and it is out of
+  scope by Dave's own deferral rather than owed.
+  **THE LEDGER CELL AMENDED UNDER `D-IMPL-179` LIMB 1 -- ONE ROW, TWO LINES** (`:47` and
+  `:341`), `DCD-10` shape in BOTH channels. Tick unmoved: the verdict was and stays in
+  the Complete family, so `channel_disagreements` agrees before and after. The other 78
+  `A-5` rows are UNTOUCHED per Dave's bound; `D-GATE-21` unamended; `D-IMPL-175`
+  unamended and the nineteenth row carried as a NEW ask under its own heading. Citations
+  127 -> 132; before the amendment `DOCS-22` carried NO citation, so no gate had anything
+  to check about it.
+  **A NEW BLOCKING FINDING, `RR-11`, FOUND BY BEING THE FIRST TO ACTUALLY USE WAVE 3's
+  `LOOSE_CITATION` -- AND IT BLOCKS WAVE 9.** A `.planning/` line citation extracts and
+  resolves exactly as wave 3 built it to, but it REDDENS
+  `test_each_widened_pattern_subsumes_the_lint_pattern_it_replaced`: that check's
+  subsumption predicate compares path STRINGS, and for a dotted path the lint's `CITATION`
+  yields the TRUNCATED twin `planning/...` at offset 669 while the widening yields
+  `.planning/...` at 668, so the twin is scored as a silent drop. **The check can never be
+  satisfied by the shape `LOOSE_CITATION` exists to admit** -- wave 3 shipped the pattern
+  and a gate forbidding its use, and neither was observed because no dotted citation
+  existed. Wave 4 did NOT fix it: wave discipline serializes module writes and control
+  numbers 24+ are allocated to waves 5-8. `VAC-03`'s verdict at `21.1-09` needs a
+  `.planning/` citation, so this must be closed before wave 9. Recorded in
+  `21.1-04-SUMMARY.md` with the offsets and the false-positive mechanism.
+  `VAC-03` is discharged mechanically; its ledger row stays `Pending` BY DESIGN until
+  plan `21.1-09`, so no `requirements.mark-complete` was run. `D-15` honoured: STATE.md
+  and ROADMAP.md backed up outside the tree, hand-edited, diffed; no `state.*` or
+  `roadmap.*` writer invoked. `RETIREMENT-COUPLINGS.md` regenerated LAST, no diff.
+  `tools/docs_tests` 176 passed, unmoved; `tools.lints --all` exit 0; the pinned-base
+  fence over `src/ runtime/ examples/ public/ tests/ pyproject.toml
+  tools/lints/citations.py` EMPTY on every path.
   2026-08-22 -- **PHASE 21.1 WAVE 3 LANDED (`21.1-03`, four task commits `58bd861`,
   `4ce0c95`, `d527c3a`, `9448ffa`).** `RR-4` and `RR-6` are closed, and a blocker found
   at plan-check is closed with them.
