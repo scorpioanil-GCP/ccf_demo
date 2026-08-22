@@ -9,11 +9,15 @@ between the two channels, the verdict vocabulary, and one verdict per cell. It
 also holds the untouched-tree assertions that keep an audit phase from
 quietly becoming an implementation phase.
 
-The completeness count — *every row needing a verdict has one* — is
-deliberately NOT here. It is red from the moment it lands until the last row
-is written, and the `Makefile`'s `ci-core` target says in its own help text
-that it must stay green from wave one onward. It belongs to the phase's last
-plan.
+The completeness count — *every row needing a verdict has one* — was
+deliberately NOT here for five waves. It is red from the moment it lands until
+the last row is written, and the `Makefile`'s `ci-core` target says in its own
+help text that it must stay green from wave one onward, so it belonged to the
+phase's last execution plan. **Plan `21-06` landed it**, in `Check C` at the
+foot of this module, together with the phase's own ten rows held to the same
+gate and the proof that no test was written under `tests/` to manufacture a
+citation. From that commit forward the ledger cannot silently lose a verdict,
+cannot carry two on one row, and cannot shrink either roster.
 
 **Where this lives, and why that is the whole registration.** The `Makefile`'s
 `gate-tools` target has two legs, and leg two passes `tools/publish_scan_tests`
@@ -447,11 +451,14 @@ COMPLETE_FAMILY: frozenset[str] = frozenset(
     {"Complete", "Complete as ruled", "Complete over the ruled scope"}
 )
 
-#: `D-09`'s six words, plus `Pending`. `Pending` is admitted because unaudited
-#: rows still carry it while the phase runs; the phase's LAST plan is what
-#: refuses a leftover `Pending`, and it is deliberately not this module's job —
-#: an assertion that every row is verdicted is red from the moment it lands
-#: until the final row is written.
+#: `D-09`'s six words, plus `Pending`. `Pending` is admitted here because
+#: unaudited rows still carried it while the phase ran, and an assertion that
+#: every row is verdicted is red from the moment it lands until the final row
+#: is written. What refuses a LEFTOVER `Pending` is `Check C` at the foot of
+#: this module, landed by plan `21-06` once every row was written: a token in
+#: this vocabulary is admissible anywhere, but a roster row reading the bare
+#: `Pending` is refused by name. The two are deliberately separate — this set
+#: says what a cell MAY read, `Check C` says what a roster row MUST NOT.
 VERDICT_VOCABULARY: frozenset[str] = COMPLETE_FAMILY | frozenset(
     {"Partial", "Not built", "Orphaned", "Pending"}
 )
@@ -658,6 +665,33 @@ def _doctored(document_text: str, old: str, new: str) -> str:
     return document_text.replace(old, new)
 
 
+def _table_line(document_text: str, req_id: str) -> str:
+    """The one traceability line for `req_id`, or a refusal.
+
+    Added by plan `21-06`, and the reason is worth recording. `CONTROL 6`,
+    `CONTROL 9` and `CONTROL 11` were written against the literal anchor
+    ``| RECON-10 | Phase 21 | Pending |``, which was correct for the five
+    waves in which the phase's own rows were unverdicted and stopped existing
+    the moment this plan wrote their verdicts. :func:`_doctored` refuses an
+    anchor that is not unique, so all three went red rather than silently
+    doctoring nothing — but the lesson is the general one: **a control anchored
+    on a literal string is anchored on a snapshot of the subject.** Resolving
+    the line at run time makes the mutation survive every later edit to the
+    row's contents while still refusing if the row is gone.
+    """
+    matches = [
+        line
+        for line in document_text.splitlines()
+        if line.startswith(f"| {req_id} | ")
+    ]
+    if not matches or matches[1:]:
+        raise AssertionError(
+            f"{req_id} matched {matches!r} traceability lines; a control that"
+            " doctors nothing, or doctors twice, is not the control it claims"
+        )
+    return matches[0]
+
+
 # --- Preconditions — a vacuous pass is the failure this module exists to prevent.
 
 
@@ -724,7 +758,19 @@ def test_no_status_cell_carries_two_verdict_tokens() -> None:
 
 
 def test_every_recon_row_is_present_in_both_channels() -> None:
-    """The wave-1 mint's own floor; plan `21-06` turns these into verdicts."""
+    """The wave-1 mint's own floor: the phase's own rows exist in BOTH channels.
+
+    **Amended by plan `21-06`, which is the plan wave 1 said would amend it.**
+    As landed, this test additionally asserted that every `RECON-` row read a
+    bare `Pending` and was unticked — true for the five waves in which the
+    rows were minted and not yet audited, and false the moment their verdicts
+    were written. The Pending expectation is RETIRED rather than relaxed: what
+    replaces it is stricter, not looser. `test_every_phase_own_row_carries_a_verdict`
+    now requires the opposite — a vocabulary token that is NOT a bare
+    `Pending` — with `CONTROL 14` watching that refusal fire. What stays here
+    is the floor that outlives both states: the ids are in both channels, and
+    the two channels agree about each one.
+    """
     table = {
         req_id: status for req_id, _phase, status in traceability_rows(ledger_text())
     }
@@ -732,14 +778,11 @@ def test_every_recon_row_is_present_in_both_channels() -> None:
     for req_id in sorted(PHASE_OWN_ROSTER):
         assert req_id in table, f"{req_id} is missing from the traceability table"
         assert req_id in boxes, f"{req_id} is missing from the checkbox list"
-        assert verdict_token(table[req_id]) == "Pending", (
-            f"{req_id} reads {table[req_id]!r}. The phase's own rows are minted"
-            " `Pending` in wave 1 and verdicted in plan `21-06`, before the"
-            " close panel — not here"
-        )
-        assert boxes[req_id] is False, (
-            f"{req_id} is ticked in the checkbox list while its table row is"
-            " still `Pending`"
+        reads_complete = verdict_token(table[req_id]) in COMPLETE_FAMILY
+        assert boxes[req_id] is reads_complete, (
+            f"{req_id} reads {table[req_id]!r} in the traceability table and"
+            f" checked={boxes[req_id]} in the checkbox list — the phase's own"
+            " rows are held to `D-02` exactly as the rows they audit are"
         )
 
 
@@ -756,9 +799,10 @@ def test_the_unmodified_document_passes() -> None:
 
 def test_control_6_a_row_completed_in_one_channel_only_is_refused() -> None:
     """The commonest drift: a verdict written into the table and not the list."""
+    real = ledger_text()
     doctored = _doctored(
-        ledger_text(),
-        "| RECON-10 | Phase 21 | Pending |",
+        real,
+        _table_line(real, "RECON-10"),
         "| RECON-10 | Phase 21 | Complete |",
     )
     messages = channel_disagreements(doctored)
@@ -806,9 +850,10 @@ def test_control_8_a_misspelled_table_header_refuses_rather_than_reporting_clean
 @pytest.mark.parametrize("minted", ["Done", "Shipped", "Closed"])
 def test_control_9_a_verdict_outside_the_vocabulary_is_refused(minted: str) -> None:
     """Criterion 2's mechanical limb, watched refusing three plausible words."""
+    real = ledger_text()
     doctored = _doctored(
-        ledger_text(),
-        "| RECON-10 | Phase 21 | Pending |",
+        real,
+        _table_line(real, "RECON-10"),
         f"| RECON-10 | Phase 21 | {minted} |",
     )
     offenders = vocabulary_offenders(doctored)
@@ -850,9 +895,10 @@ def test_control_11_a_cell_with_two_verdict_tokens_is_refused() -> None:
     unfalsified gate is not a gate, shipping the gate five waves before its
     refusal is ever watched fire would be exactly that.
     """
+    real = ledger_text()
     doctored = _doctored(
-        ledger_text(),
-        "| RECON-10 | Phase 21 | Pending |",
+        real,
+        _table_line(real, "RECON-10"),
         "| RECON-10 | Phase 21 | **Complete** **Partial** (doctored) |",
     )
     offenders = doubled_verdicts(doctored)
@@ -1265,3 +1311,491 @@ def test_the_positive_control_a_real_citation_is_not_refused() -> None:
     """
     cited = "src/ccf/client/client.py::ProductClient"
     assert refuse_unresolvable(_document_with_citation(cited)) == []
+
+
+# ===========================================================================
+# Check C — completeness. Every row of the working set carries exactly one
+# verdict, the phase's own rows are held to the same gate, and `tests/` is
+# untouched.
+#
+# WHY THIS LANDS IN THE PHASE'S LAST EXECUTION PLAN AND NOT ITS FIRST. An
+# assertion that every row needing a verdict has one is RED from the moment it
+# lands until the final row is written, and the `Makefile`'s `ci-core` target
+# says in its own help text that it must stay green from wave one onward. Plan
+# `21-01` therefore shipped every property that is true of a PARTIALLY filled
+# ledger and deliberately withheld this one. Every row is written now, so the
+# assertion is true — and from this commit forward the ledger cannot silently
+# lose a verdict, cannot carry two on one row, and cannot shrink either roster.
+#
+# THE WORKING-SET PREDICATE IS MEMBERSHIP AGAINST `COMPLETE_FAMILY`, NEVER A
+# STRING INEQUALITY AGAINST "Complete". The section banner above states the
+# measurement; it is restated here because this is the section that consumes
+# it: the literal `!= "Complete"` reading yields 56 by dragging in `DCD-09`
+# (`Complete as ruled`) and `DCD-10` (`Complete over the ruled scope`), both
+# already ruled on by Dave and both checked `[x]` in the other channel.
+# ===========================================================================
+
+#: The `tests/` tree, for criterion 6's mechanical limb (`D-05`). Its own
+#: constant rather than a member of `FENCE`, because it falsifies a different
+#: claim: `FENCE` is "the audit closed no gap it discovered", and this is "the
+#: audit wrote no test in order to manufacture a citation for itself".
+TESTS_TREE: tuple[str, ...] = ("tests/",)
+
+#: The fifty-four rows this phase was commissioned to verdict — a FROZEN ROSTER
+#: OF NAMED IDS, per `D-21`, and never a count.
+#:
+#: Provenance: produced by the strict parse of `.planning/REQUIREMENTS.md` at
+#: this phase's pinned base, keeping every row whose leading verdict token was
+#: NOT in `COMPLETE_FAMILY`. It is frozen precisely because the phase MUTATES
+#: the predicate that produced it: every verdict written moves a row into the
+#: Complete family, so re-deriving the working set from the file as it stands
+#: today returns a shrinking set, and an assertion over a shrinking set reports
+#: green the instant the last row is written no matter which rows were skipped.
+#: `test_the_working_set_roster_is_exactly_the_strict_parse_at_the_pinned_base`
+#: re-derives it from the base and compares ID FOR ID, so the constant cannot
+#: silently drift from the thing it claims to be.
+#:
+#: THE TEN `RECON-` ROWS ARE NOT MEMBERS, and their absence is structural
+#: rather than a judgement call. They are this phase's OWN requirements, minted
+#: by plan `21-01` task 2 AFTER the base was pinned, so a parse taken at that
+#: base cannot contain them by construction. They are audited by
+#: `PHASE_OWN_ROSTER` and `test_every_phase_own_row_carries_a_verdict` — a
+#: separate roster and a separate assertion, because a phase does not audit
+#: itself inside the set it was commissioned to audit. Held to the same gate,
+#: and held to it BEFORE the close panel rather than after Dave's approval.
+#:
+#: History, read by no assertion here (`D-21`): the table carried 133 rows at
+#: the pinned base and carries 143 from plan `21-01` task 2 forward, and 54 of
+#: the former were outstanding. A reader who greps and counts has not found a
+#: discrepancy; no check in this module compares against any of those figures.
+WORKING_SET_ROSTER: frozenset[str] = frozenset(
+    {
+        # Phase 17 and Phase 18's client lane.
+        "CLNT-01",
+        "CLNT-02",
+        "CLNT-03",
+        "CLNT-04",
+        "CLNT-05",
+        "CLNT-06",
+        "CLNT-07",
+        "CLNT-08",
+        "CLNT-09",
+        "CLNT-10",
+        "CLNT-11",
+        "CLNT-12",
+        "CLNT-13",
+        "CLNT-14",
+        "CLNT-15",
+        "CLNT-16",
+        "CLNT-17",
+        "CLNT-18",
+        "CLNT-19",
+        "CLNT-20",
+        "CLNT-21",
+        "CLNT-22",
+        # Phase 14's documentation lane.
+        "DOCS-01",
+        "DOCS-02",
+        "DOCS-03",
+        "DOCS-04",
+        "DOCS-05",
+        "DOCS-06",
+        # Phase 16's lane — the eighteen reported as a two-sided split.
+        "DOCS-07",
+        "DOCS-08",
+        "DOCS-09",
+        "DOCS-10",
+        "DOCS-11",
+        "DOCS-12",
+        "DOCS-13",
+        "DOCS-14",
+        "DOCS-15",
+        "DOCS-16",
+        "DOCS-17",
+        "DOCS-18",
+        "DOCS-19",
+        "DOCS-20",
+        "DOCS-21",
+        "DOCS-23",
+        "DOCS-24",
+        "DOCS-25",
+        # Phase 9's hardening lane.
+        "HARD-01",
+        "HARD-02",
+        "HARD-03",
+        # Phase 13's examples lane.
+        "EXAM-01",
+        "EXAM-02",
+        "EXAM-03",
+        # The two rows a naive `grep -c "| Pending |"` misses, which is the
+        # miscount this phase exists to correct: one bolded, one `Partial`.
+        "CPS-03",
+        "DCD-02",
+    }
+)
+
+
+def base_ledger_text() -> str:
+    """`.planning/REQUIREMENTS.md` as it stood at the pinned base.
+
+    Raises on a non-zero `git` exit for the reason :func:`fabric_diff` does:
+    an empty string from a failed command is indistinguishable from an empty
+    string from a real read, and a roster comparison against an empty parse
+    would be a comparison against nothing. In CI this is the assertion that
+    needs full history — a depth-1 clone cannot resolve the base, `git`
+    exits non-zero, and this raises rather than reporting a clean roster.
+    """
+    completed = subprocess.run(
+        ["git", "show", f"{phase_base_commit()}:.planning/REQUIREMENTS.md"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise AssertionError(
+            "`git show <pinned base>:.planning/REQUIREMENTS.md` exited"
+            f" {completed.returncode}, so the working-set roster cannot be"
+            " re-derived and the comparison below would be against nothing."
+            " In CI this is a shallow checkout.\nstderr:"
+            f" {completed.stderr.strip()}"
+        )
+    return completed.stdout
+
+
+def derived_working_set(document_text: str) -> frozenset[str]:
+    """Every id whose leading verdict is NOT in the Complete family.
+
+    A function of its argument so it can be pointed at the pinned base's copy
+    of the ledger rather than at today's — which is the whole point, since
+    today's is the mutated one.
+    """
+    return frozenset(
+        req_id
+        for req_id, _phase, status in traceability_rows(document_text)
+        if verdict_token(status) not in COMPLETE_FAMILY
+    )
+
+
+def roster_verdicts(
+    document_text: str, roster: frozenset[str], roster_name: str
+) -> list[tuple[str, str]]:
+    """`(id, leading verdict)` for every member of `roster`, or a refusal.
+
+    **It raises when a roster id is absent from the table**, and that refusal
+    is the reason this function exists at all. An assertion written as "for
+    every row the parser matched, check the verdict" passes over the empty set
+    when the parser matches nothing, and passes over fifty-three rows when one
+    is deleted — reporting green on a ledger that lost a row. `CONTROL 12` and
+    `CONTROL 14` are that refusal watched firing, on each roster.
+    """
+    table = {
+        req_id: status for req_id, _phase, status in traceability_rows(document_text)
+    }
+    absent = sorted(roster - set(table))
+    if absent:
+        raise AssertionError(
+            f"{absent} named in {roster_name} but absent from the traceability"
+            " table. A completeness assertion that skipped them would report"
+            " green over a ledger that had quietly lost a row"
+        )
+    return [(req_id, verdict_token(table[req_id])) for req_id in sorted(roster)]
+
+
+def working_set(document_text: str) -> list[tuple[str, str]]:
+    """The fifty-four, each with its leading verdict token."""
+    return roster_verdicts(
+        document_text, WORKING_SET_ROSTER, "the frozen working-set roster"
+    )
+
+
+def phase_own_verdicts(document_text: str) -> list[tuple[str, str]]:
+    """The phase's own ten, each with its leading verdict token."""
+    return roster_verdicts(
+        document_text, PHASE_OWN_ROSTER, "the phase's own roster"
+    )
+
+
+def unverdicted(pairs: Sequence[tuple[str, str]]) -> list[str]:
+    """One message per row still lacking a verdict, NAMING the row.
+
+    A red run has to name the rows rather than report a shortfall: "three rows
+    are unverdicted" is not something a reader can act on, and it is one digit
+    away from being the kind of carried count `D-21` forbids.
+    """
+    return [
+        f"{req_id} reads {verdict!r}, which is not a verdict — it is either the"
+        " bare `Pending` a row carries before it is audited, or a token outside"
+        f" {sorted(VERDICT_VOCABULARY)}"
+        for req_id, verdict in pairs
+        if verdict == "Pending" or verdict not in VERDICT_VOCABULARY
+    ]
+
+
+def roster_rows_with_two_verdicts(
+    document_text: str, roster: frozenset[str]
+) -> list[str]:
+    """One message per roster row whose cell carries more than one verdict."""
+    offenders: list[str] = []
+    for req_id, _phase, status in traceability_rows(document_text):
+        if req_id not in roster:
+            continue
+        bolded = [match.group(1).strip() for match in BOLDED_RUN.finditer(status)]
+        verdicts = [word for word in bolded if word in VERDICT_VOCABULARY]
+        if verdicts[1:]:
+            offenders.append(
+                f"{req_id}'s status cell carries the bolded verdicts"
+                f" {verdicts!r}. Criterion 1 is that no row carries two"
+            )
+    return offenders
+
+
+# --- Check C, shipped ---
+
+
+def test_the_working_set_roster_is_exactly_the_strict_parse_at_the_pinned_base() -> (
+    None
+):
+    """The frozen roster is re-derived from the base and compared ID FOR ID.
+
+    **Never by length**, per `D-21` and per the idiom
+    :func:`test_the_uat_roster_matches_the_records_on_disk` already sets in
+    this module. A length comparison is weaker in a way that matters here: it
+    cannot see a SWAP — drop `CLNT-17` and add `CLNT-23` and the number is
+    unmoved — and it is itself the hardcoded row count `D-21` removed from
+    criterion 10 after this phase's own first action falsified it.
+
+    The re-derivation is also the non-vacuity proof. If
+    :func:`base_ledger_text` returned nothing the derived set would be empty
+    and this comparison would fail loudly, rather than a roster assertion
+    passing over a set nobody produced.
+    """
+    derived = derived_working_set(base_ledger_text())
+    missing_from_roster = sorted(derived - WORKING_SET_ROSTER)
+    absent_from_base = sorted(WORKING_SET_ROSTER - derived)
+    assert derived == WORKING_SET_ROSTER, (
+        "the frozen working-set roster and the strict parse at the pinned base"
+        " have diverged.\n  outstanding at the base but not in the roster:"
+        f" {missing_from_roster}\n  in the roster but not outstanding at the"
+        f" base: {absent_from_base}"
+    )
+    table = {
+        req_id for req_id, _phase, _status in traceability_rows(ledger_text())
+    }
+    lost = sorted(WORKING_SET_ROSTER - table)
+    assert not lost, (
+        f"{lost} are in the roster and no longer in the traceability table —"
+        " a row the phase was commissioned to verdict was dropped instead"
+    )
+
+
+def test_every_row_in_the_working_set_carries_a_verdict() -> None:
+    """Criterion 1, shipped: no row missed.
+
+    Held back from plan `21-01` deliberately and landed here, in the plan that
+    writes the last verdicts. The subject is the frozen roster rather than a
+    re-derivation from today's file, because every verdict written moves a row
+    out of a re-derived working set — so a re-derived assertion reports green
+    the moment the last row is written, whichever rows were skipped.
+    """
+    offenders = unverdicted(working_set(ledger_text()))
+    assert offenders == [], (
+        "rows the phase was commissioned to verdict are still unverdicted."
+        " They are named rather than counted, because a count is not something"
+        " a reader can act on:\n" + "\n".join(offenders)
+    )
+
+
+def test_no_row_in_the_working_set_carries_two_verdicts() -> None:
+    """Criterion 1's other half: and none carrying two.
+
+    `CONTROL 11` — landed in plan `21-01` with the ledger-wide gate it
+    falsifies — is the refusal watched firing on a doctored doubled cell.
+    """
+    offenders = roster_rows_with_two_verdicts(ledger_text(), WORKING_SET_ROSTER)
+    assert offenders == [], "\n".join(offenders)
+
+
+def test_no_test_was_written_to_manufacture_a_citation() -> None:
+    """Criterion 6's MECHANICAL limb (`D-05`), and only the mechanical limb.
+
+    The phase's one new check lives in `tools/docs_tests/`, so `tests/` must be
+    byte-identical to the pinned base. That a named test genuinely GUARDS the
+    property a row claims is a judgement no assertion can make, and it is
+    attested by inspection rather than by this test — said plainly here so
+    that a reader does not take a green run as more than it is.
+
+    `CONTROL 13` proves the comparison is comparing something.
+    """
+    diff = fabric_diff(phase_base_commit(), TESTS_TREE)
+    assert diff == "", (
+        "this phase wrote under `tests/`. `D-05` forbids it: a test written"
+        " during the audit to give a row a name to cite is a citation the"
+        " phase manufactured for itself, which is the opposite of evidence"
+        f":\n{diff}"
+    )
+
+
+def test_every_phase_own_row_carries_a_verdict() -> None:
+    """The phase's own ten, held to the gate they impose on the fifty-four.
+
+    And held to it BEFORE the close panel, not after. Rows verdicted inside
+    the gate checkpoint would carry verdicts no reviewer and no approver had
+    seen — the ledger-debt pattern this phase was commissioned to end,
+    reproduced one level up.
+    """
+    offenders = unverdicted(phase_own_verdicts(ledger_text()))
+    assert offenders == [], (
+        "the phase's own requirement rows are unverdicted while the rows it"
+        " audits are not:\n" + "\n".join(offenders)
+    )
+    doubled = roster_rows_with_two_verdicts(ledger_text(), PHASE_OWN_ROSTER)
+    assert doubled == [], "\n".join(doubled)
+
+
+# --- CONTROL 10, 12, 13, 14: Check C, watched refusing ---
+#
+# CONTROL 11 is NOT here. It landed in plan `21-01` task 2, in the same wave as
+# the ledger-wide one-verdict-per-cell gate it falsifies, and it is not
+# duplicated or renumbered here. The numbering continues at 10, 12, 13, 14 for
+# that reason.
+#
+# Each control hands the SAME function the shipped assertion calls a doctored
+# IN-MEMORY document. Nothing on disk is mutated.
+
+
+def test_control_10_a_ledger_with_one_row_still_pending_is_refused() -> None:
+    """CONTROL 10 — the control that matters for criterion 1.
+
+    Without it, an assertion over a roster the parser failed to match would
+    pass over an empty set and report that every row is verdicted. The subject
+    is verified to reach the branch under test: it is asserted ABSENT from the
+    offender list on the real document first, so a green-before/red-after pair
+    is attributable to the mutation and to nothing else.
+    """
+    real = ledger_text()
+    victim = "HARD-02"
+    assert not any(victim in message for message in unverdicted(working_set(real))), (
+        f"{victim} is already reported unverdicted on the real ledger, so this"
+        " control cannot distinguish its mutation from the status quo"
+    )
+    doctored = _doctored(
+        real, _table_line(real, victim), f"| {victim} | Phase 9 | Pending |"
+    )
+    offenders = unverdicted(working_set(doctored))
+    assert offenders, "a roster row returned to `Pending` was accepted"
+    assert any(victim in message for message in offenders), (
+        f"the refusal fired but did not name {victim}: {offenders!r}. A red run"
+        " that reports a shortfall rather than a row is not actionable"
+    )
+
+
+def test_control_12_a_roster_id_absent_from_the_table_is_refused() -> None:
+    """CONTROL 12 — a roster row deleted from the table refuses by name.
+
+    The failure this refuses is quieter than `CONTROL 10`'s: a deleted row is
+    not an unverdicted row, it is no row at all, and a completeness check
+    written as "for every row the parser matched" would report green over the
+    fifty-three that survived.
+    """
+    real = ledger_text()
+    victim = "EXAM-03"
+    assert working_set(real), "the control's own subject is empty"
+    doctored = _doctored(real, _table_line(real, victim) + "\n", "")
+    try:
+        pairs = working_set(doctored)
+    except AssertionError as failure:
+        assert victim in str(failure), (
+            f"the refusal fired but did not name {victim}: {failure}"
+        )
+        return
+    raise AssertionError(
+        f"deleting {victim} from the traceability table left"
+        f" {len(pairs)} pairs and no refusal; the assertion would then have"
+        " reported green over a ledger that lost a row"
+    )
+
+
+def test_control_13_a_changed_tests_tree_would_be_detected() -> None:
+    """CONTROL 13 — the non-vacuity twin of the `tests/`-untouched assertion.
+
+    `CONTROL A` makes the same argument for the fabric, the fence, the
+    verification records and the citation lint; this one is stated separately
+    because it falsifies a different claim and because criterion 6 rests on it
+    alone. The helper is reused rather than reimplemented: a second diff path
+    could pass here and be broken there.
+    """
+    diff = fabric_diff(phase_base_commit(), CHANGED_TREE)
+    assert diff.strip(), (
+        "`git diff` produced nothing for a tree this phase demonstrably writes"
+        f" to ({list(CHANGED_TREE)}), so the `tests/` emptiness above says"
+        " nothing about `tests/` and criterion 6's mechanical limb is vacuous"
+    )
+
+
+def test_control_14_a_phase_own_row_returned_to_pending_is_refused() -> None:
+    """CONTROL 14 — `CONTROL 10`'s shape, aimed at the phase's own roster.
+
+    Without it, a phase-own assertion over a roster the parser failed to match
+    would pass over an empty set — and the rows it passed over would be the
+    ten this phase minted for itself, which is the least-watched corner of the
+    ledger and therefore the one most worth a control.
+    """
+    real = ledger_text()
+    victim = "RECON-08"
+    assert not any(
+        victim in message for message in unverdicted(phase_own_verdicts(real))
+    ), (
+        f"{victim} is already reported unverdicted on the real ledger, so this"
+        " control cannot distinguish its mutation from the status quo"
+    )
+    doctored = _doctored(
+        real, _table_line(real, victim), f"| {victim} | Phase 21 | Pending |"
+    )
+    offenders = unverdicted(phase_own_verdicts(doctored))
+    assert any(victim in message for message in offenders), (
+        f"a phase-own row returned to `Pending` was accepted, or refused"
+        f" without being named: {offenders!r}"
+    )
+
+
+def test_control_15_a_verdict_that_is_not_leading_is_not_read_as_the_verdict() -> None:
+    """CONTROL 15 — the discrimination `CONTROL 9`/`9b` leave open on one side.
+
+    **Written because a sabotage this plan was told to run reported GREEN, and
+    the reason was measured rather than assumed** (the wave-4 lesson, applied
+    to this plan's own machinery). The mutation was: make :func:`verdict_token`
+    return the first ``**…**`` run *anywhere* in the cell instead of the
+    leading one, and watch `CONTROL 11` fail. It did not fail, for two
+    independent reasons, and neither is a defect in `CONTROL 11`:
+
+    * :func:`doubled_verdicts`, which is `CONTROL 11`'s entire subject, never
+      calls :func:`verdict_token` — it reads :data:`BOLDED_RUN` directly. No
+      mutation of the token reader can move that control.
+    * Measured across every status cell in the ledger, the first bolded run and
+      the leading token are IDENTICAL on every row, because every cell in this
+      ledger opens with its verdict. The mutation was invisible to the whole
+      module, not just to `CONTROL 11`.
+
+    `CONTROL 9b` covers the other side — a reader taking the LAST bolded run
+    goes red there, and on four shipped assertions besides. This covers the
+    first-run-anywhere side, by handing the reader the one cell shape the
+    corpus does not contain: a verdict that is not leading. The shipped reader
+    returns the prose prefix, which is not in the vocabulary and is refused by
+    name. A first-run-anywhere reader returns `Complete` and accepts it, which
+    is how a cell reading *"shipped in wave five — Complete"* would come to be
+    counted as a verdict.
+    """
+    real = ledger_text()
+    doctored = _doctored(
+        real,
+        _table_line(real, "RECON-10"),
+        "| RECON-10 | Phase 21 | shipped in wave five — **Complete** |",
+    )
+    offenders = vocabulary_offenders(doctored)
+    assert any("RECON-10" in message for message in offenders), (
+        "a status cell whose verdict is not leading was accepted, or refused"
+        f" without being named: {offenders!r}. The verdict of a row is the word"
+        " the cell OPENS with; a reader that hunts for a vocabulary word"
+        " anywhere in the prose will find one in almost any honest sentence"
+    )
