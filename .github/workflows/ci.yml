@@ -312,7 +312,23 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      # FULL history, not the default shallow clone — the same fix `D-GATE-20`
+      # recorded for the `test` job, applied here because THIS is the job that
+      # runs `pytest tools/publish_scan_tests tools/docs_tests -q`, and Phase
+      # 21 lands `tools/docs_tests/test_requirement_ledger.py` in that step.
+      # That module pins its diff base in `21-BASE-COMMIT.txt` under
+      # `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/`
+      # and asserts that `git diff --stat <base>..HEAD -- src/ runtime/` — and
+      # the scope fence, the eleven `human_verification` records, and
+      # `tools/lints/citations.py` — prints nothing. Under `fetch-depth: 1`
+      # that SHA is not in the clone, `git` exits 128, and `fabric_diff`
+      # refuses to read an empty string from a broken command as a clean tree,
+      # correctly: that is the check-that-cannot-fail shape this project keeps
+      # finding. Deepening the clone is the fix; softening the assertion would
+      # retire the only mechanical evidence for criteria 11 and 12.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
