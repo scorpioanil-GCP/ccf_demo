@@ -177,6 +177,34 @@ def phase_base_commit() -> str:
     return first_line.strip()
 
 
+def tracked_under(paths: Sequence[str]) -> list[str]:
+    """Every path tracked by `git` that the pathspec `paths` matches.
+
+    Added at the phase close, by the §3.1 cross-AI panel. It exists so that
+    :func:`fabric_diff` can tell a pathspec that names a real subject from one
+    that names nothing — see the fourth refusal there for why that distinction
+    is load-bearing rather than tidy.
+
+    Raises on a non-zero `git` exit for the reason every other subprocess in
+    this module does: an empty stdout from a failed command reads exactly like
+    an empty stdout from a real answer.
+    """
+    completed = subprocess.run(
+        ["git", "ls-files", "--", *paths],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise AssertionError(
+            f"`git ls-files -- {list(paths)}` exited {completed.returncode}, so"
+            " its empty output says nothing about whether the pathspec names a"
+            f" real subject.\nstderr: {completed.stderr.strip()}"
+        )
+    return [line for line in completed.stdout.splitlines() if line]
+
+
 def fabric_diff(base: str, paths: Sequence[str]) -> str:
     """``git diff --stat <base>..HEAD -- <paths>``, as a string.
 
@@ -187,10 +215,25 @@ def fabric_diff(base: str, paths: Sequence[str]) -> str:
     and an empty string from a failed command is indistinguishable from an
     empty string from a clean tree.
 
-    Three refusals rather than a quiet empty string: an empty base (``git diff
+    Four refusals rather than a quiet empty string: an empty base (``git diff
     ..HEAD`` compares HEAD against nothing), an empty path list (the diff is
-    limited to nothing and is empty regardless of what the phase changed), and
-    a non-zero exit from `git` itself.
+    limited to nothing and is empty regardless of what the phase changed), **a
+    pathspec that matches no tracked file**, and a non-zero exit from `git`
+    itself.
+
+    **The third refusal was added at the phase close and it closes a real
+    hole**, found independently by two reviewers on the §3.1 panel and then
+    measured. ``git diff --stat <base>..HEAD -- scr/`` exits ZERO and prints
+    NOTHING — a misspelled pathspec is indistinguishable from a clean tree, and
+    every emptiness assertion in this module is built on exactly that
+    comparison. `CONTROL A` and `CONTROL 13` could not see it, because both
+    diff :data:`CHANGED_TREE` rather than the constant the assertion they
+    vouch for actually passes: rename :data:`TESTS_TREE` to ``tests-typo/`` and
+    criterion 6's mechanical limb becomes vacuous while its own control stays
+    green. That is this project's defect class — *a check that passes for a
+    reason unrelated to what it claims to test* — arriving inside the machinery
+    built to catch it, for the third time in this phase. `CONTROL 16` is the
+    refusal watched firing on four near-miss spellings.
 
     Note that this compares COMMITS and is blind to the working tree, which is
     why the base-commit file is committed before this module is first run.
@@ -204,6 +247,15 @@ def fabric_diff(base: str, paths: Sequence[str]) -> str:
         raise AssertionError(
             "no paths were given, so the diff is limited to nothing and is"
             " empty regardless of what the phase changed"
+        )
+    if not tracked_under(paths):
+        raise AssertionError(
+            f"the pathspec {list(paths)} matches no file tracked by `git`, so"
+            " `git diff` limited to it exits ZERO and prints NOTHING whatever"
+            " the phase changed. A misspelled pathspec and a clean tree are"
+            " indistinguishable, and every 'is empty' assertion built on this"
+            " function would report success over a comparison that had no"
+            " subject"
         )
     completed = subprocess.run(
         ["git", "diff", "--stat", f"{base}..HEAD", "--", *paths],
@@ -400,6 +452,110 @@ def test_control_c_an_empty_path_list_fails_loudly() -> None:
             assert expected in str(failure)
         else:  # pragma: no cover - the refusal is the point
             raise AssertionError(f"{base!r}/{list(paths)} did not refuse")
+
+
+def asserted_pathspecs() -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """Every pathspec this module asserts a diff is EMPTY over, by name.
+
+    A function rather than a module constant so that :data:`TESTS_TREE` — which
+    is declared with `Check C` at the foot of this module, next to the claim it
+    falsifies — is resolved when this runs rather than when the module is read.
+    A second copy of the tuple up here would be one edit away from disagreeing
+    with the constants it names, which is the drift this whole phase is about.
+    """
+    return (
+        ("FABRIC", FABRIC),
+        ("FENCE", FENCE),
+        ("UAT_RECORDS", UAT_RECORDS),
+        ("PINNED_FILES", PINNED_FILES),
+        ("TESTS_TREE", TESTS_TREE),
+        ("CHANGED_TREE", CHANGED_TREE),
+    )
+
+
+def test_every_asserted_pathspec_names_a_tracked_subject() -> None:
+    """Each emptiness assertion is over a pathspec that names something real.
+
+    Added at the phase close by the §3.1 panel. Every "this tree is untouched"
+    assertion in this module resolves to `git diff --stat <base>..HEAD -- <spec>`
+    being the empty string, and `git` returns the empty string just as
+    willingly for a spec that matches nothing at all. Without this, a one-key
+    typo in :data:`FABRIC`, :data:`FENCE`, :data:`PINNED_FILES`,
+    :data:`UAT_RECORDS` or :data:`TESTS_TREE` silently converts the assertion
+    it feeds into a test of nothing, and the run stays green.
+
+    Per `D-21` this carries NO count — it names each pathspec constant and
+    requires it to match at least one tracked path. A floor of "at least N
+    files under `src/`" would be a carried number and would have to be
+    re-edited by every later phase.
+    """
+    for name, spec in asserted_pathspecs():
+        assert tracked_under(spec), (
+            f"the pathspec {name} = {list(spec)} matches no file tracked by"
+            " `git`. Every assertion built on it is a diff limited to nothing,"
+            " which prints nothing forever and reports a clean tree"
+        )
+
+
+def test_control_16_a_pathspec_that_names_nothing_is_refused() -> None:
+    """CONTROL 16 — a misspelled pathspec refuses instead of reading clean.
+
+    The subjects are deliberately **near misses of the real constants** rather
+    than obvious nonsense, because a typo is what actually happens: `scr/` for
+    `src/`, `runtimes/` for `runtime/`, `citation.py` for `citations.py`,
+    `test/` for `tests/`.
+
+    Each subject is first handed to raw `git diff` to establish that the
+    mutation was genuinely INVISIBLE before this guard existed — exit 0, empty
+    stdout, indistinguishable from the clean tree the real constants produce.
+    A control that only watched the new refusal fire would not show what the
+    refusal adds.
+    """
+    base = phase_base_commit()
+    near_misses = (
+        ("scr/",),
+        ("runtimes/",),
+        ("tools/lints/citation.py",),
+        ("test/",),
+    )
+    for spec in near_misses:
+        raw = subprocess.run(
+            ["git", "diff", "--stat", f"{base}..HEAD", "--", *spec],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert raw.returncode == 0 and raw.stdout == "", (
+            f"the near-miss pathspec {list(spec)} was expected to be the silent"
+            " kind — exit 0 and empty stdout — which is what makes it"
+            f" indistinguishable from a clean tree. It returned"
+            f" {raw.returncode}/{raw.stdout!r} instead, so this control is no"
+            " longer about the failure it was written for"
+        )
+        try:
+            result = fabric_diff(base, spec)
+        except AssertionError as failure:
+            assert "matches no file tracked" in str(failure), (
+                f"{list(spec)} was refused for the wrong reason: {failure}"
+            )
+            continue
+        raise AssertionError(
+            f"the misspelled pathspec {list(spec)} returned {result!r} instead"
+            " of refusing. An emptiness assertion over it would report a clean"
+            " tree for a comparison that had no subject"
+        )
+
+
+def test_the_positive_control_a_real_pathspec_is_still_accepted() -> None:
+    """CONTROL 16's discriminator. Red on everything is not a check.
+
+    :data:`FABRIC` is the subject precisely because its diff IS empty — the
+    phase touched no file under `src/` or `runtime/`. The guard must let that
+    empty result through while refusing the empty result a typo produces, and
+    those two are the same string.
+    """
+    assert fabric_diff(phase_base_commit(), FABRIC) == ""
 
 
 # ===========================================================================
@@ -1550,6 +1706,74 @@ def roster_rows_with_two_verdicts(
     return offenders
 
 
+#: The two verdicts criterion 3 exempts from citing evidence, because what they
+#: assert is an ABSENCE and an absence has no file to point at. `D-10` requires
+#: them to name the absence specifically instead — a directory listing, a
+#: `Makefile` target, a grep that returns zero — and that is a judgement no
+#: assertion can make. What IS mechanical is the other side: a row claiming a
+#: PRESENCE must point at one.
+CITATION_EXEMPT_VERDICTS: frozenset[str] = frozenset({"Not built", "Orphaned"})
+
+
+def uncited_verdicts(
+    document_text: str, roster: frozenset[str], roster_name: str
+) -> list[str]:
+    """One message per roster row that claims a presence and cites nothing.
+
+    **Added at the phase close, by the §3.1 cross-AI panel, which found the
+    same hole from two directions independently.** Criterion 3 — and
+    `RECON-02`, which claims it `Complete` — say that *every verdict other than
+    `Not built` and `Orphaned` cites its evidence in the status cell*. Nothing
+    in this module enforced that per row. :func:`refuse_unresolvable` answers a
+    different question: *given a citation, does it resolve* — plus a single
+    global floor that SOME citation exists somewhere in the table. So a row
+    reading ``**Complete** — asserted without evidence`` was invisible to every
+    gate here, measured, as long as any other row anywhere carried a citation.
+
+    **That is not hypothetical: it is how `DCD-02` survived five waves.** Its
+    cell carried a verdict, two plan numbers and no file at all, and the only
+    thing that found it was plan `21-06` running criterion 3's predicate by
+    hand across the roster. A defect found by hand once is a defect that
+    returns; this is that predicate made standing.
+
+    **Roster-scoped, deliberately, and this is the load-bearing choice.**
+    Seventy-nine rows elsewhere in the table carry a Complete-family verdict
+    and no citation — the `CPS-`, `DCD-` and `CLNT-23`..`32` lanes, all ruled
+    on in earlier phases and all outside this phase's working set by `D-19`'s
+    explicit carve-out. A ledger-wide form of this check would be red on the
+    day it landed for rows `D-11` forbids this phase to touch, and would be
+    narrowed or deleted on its first run — leaving the one place it can honestly
+    hold enforced by nothing. The pre-existing debt is REPORTED to Dave in
+    `21-CLOSE-REVIEWS.md` rather than smoothed over, which is the same
+    disposition `D-07` and `D-20` take.
+
+    Raises on an empty roster, for the reason every other checker here does: a
+    per-row rule quantified over no rows is trivially satisfied.
+    """
+    if not roster:
+        raise AssertionError(
+            f"{roster_name} is empty, so 'every verdicted row cites its"
+            " evidence' is quantified over nothing and is trivially true"
+        )
+    cited: dict[str, list[str]] = {}
+    for req_id, path in citations_in_status_cells(document_text):
+        cited.setdefault(req_id, []).append(path)
+    offenders: list[str] = []
+    for req_id, verdict in roster_verdicts(document_text, roster, roster_name):
+        if verdict in CITATION_EXEMPT_VERDICTS:
+            continue
+        if not cited.get(req_id):
+            offenders.append(
+                f"{req_id} reads {verdict!r} and its status cell carries no"
+                " citation-shaped token at all. Criterion 3: a verdict other"
+                " than `Not built` or `Orphaned` rests on evidence a reader can"
+                " follow, and a verdict resting on no citation is a claim, not"
+                " a finding (`D-03`). This is the shape `DCD-02` carried"
+                " undetected for five waves"
+            )
+    return offenders
+
+
 # --- Check C, shipped ---
 
 
@@ -1651,6 +1875,104 @@ def test_every_phase_own_row_carries_a_verdict() -> None:
     )
     doubled = roster_rows_with_two_verdicts(ledger_text(), PHASE_OWN_ROSTER)
     assert doubled == [], "\n".join(doubled)
+
+
+def test_every_verdicted_roster_row_cites_its_evidence() -> None:
+    """Criterion 3's per-row limb, made standing at the phase close.
+
+    Both rosters at once — the fifty-four this phase audits and the ten it
+    minted for itself — because `RECON-02` claims this property of the whole
+    audit and the phase's own rows are held to the gate they impose.
+
+    Until this landed, criterion 3 was enforced only in the direction that does
+    not matter on its own: a citation that IS written must resolve. A row that
+    wrote none was clean. `CONTROL 17` is the refusal watched firing, and
+    `CONTROL 17b` is the discriminator proving it does not simply refuse
+    everything — a `Not built` row rightly carries no citation.
+    """
+    roster = WORKING_SET_ROSTER | PHASE_OWN_ROSTER
+    offenders = uncited_verdicts(
+        ledger_text(), roster, "the working set and the phase's own roster"
+    )
+    assert offenders == [], (
+        "a row this phase verdicted claims a presence and cites nothing. The"
+        " rows are named rather than counted:\n" + "\n".join(offenders)
+    )
+
+
+def test_control_17_a_verdicted_row_stripped_of_its_citation_is_refused() -> None:
+    """CONTROL 17 — the refusal that would have caught `DCD-02` in wave 1.
+
+    The subject is verified to reach the branch under test before it is
+    doctored: `HARD-02` is asserted ABSENT from the offender list on the real
+    ledger first, so a green-before/red-after pair is attributable to the
+    mutation and to nothing else. That is the wave-1 lesson — a control whose
+    subject is already an offender tests nothing — made structural.
+
+    The doctored cell is deliberately *fluent*: it reads like a verdict
+    somebody thought about. That is exactly the shape `DCD-02` carried, and the
+    shape a reader skims past.
+    """
+    real = ledger_text()
+    roster = WORKING_SET_ROSTER | PHASE_OWN_ROSTER
+    victim = "HARD-02"
+    name = "the working set and the phase's own roster"
+    assert not any(
+        victim in message for message in uncited_verdicts(real, roster, name)
+    ), (
+        f"{victim} already cites nothing on the real ledger, so this control"
+        " cannot distinguish its mutation from the status quo"
+    )
+    doctored = _doctored(
+        real,
+        _table_line(real, victim),
+        f"| {victim} | Phase 9 | **Complete** — verified against the tree |",
+    )
+    offenders = uncited_verdicts(doctored, roster, name)
+    assert offenders, "a `Complete` resting on no citation at all was accepted"
+    assert any(victim in message for message in offenders), (
+        f"the refusal fired but did not name {victim}: {offenders!r}. A count"
+        " of uncited rows is not something a reader can act on"
+    )
+
+
+def test_control_17b_a_not_built_row_may_cite_nothing() -> None:
+    """CONTROL 17b — the discriminator. Red on everything is not a check.
+
+    `D-10` is that a `Not built` row names its absence specifically rather than
+    pointing at a file, because there is no file to point at. A per-row
+    citation rule that refused those rows too would be refusing the ledger's
+    own honest shape, and would be relaxed within a day.
+
+    Both halves are asserted on the SAME doctored cell, differing only in the
+    verdict word, so the discrimination is attributable to the verdict and to
+    nothing else about the row.
+    """
+    real = ledger_text()
+    roster = WORKING_SET_ROSTER | PHASE_OWN_ROSTER
+    victim = "DOCS-15"
+    name = "the working set and the phase's own roster"
+    line = _table_line(real, victim)
+    absence = "the page is absent from `public/` and every grep returns zero"
+    exempt = _doctored(
+        real, line, f"| {victim} | Phase 16 | **Not built** — {absence} |"
+    )
+    assert not any(
+        victim in message for message in uncited_verdicts(exempt, roster, name)
+    ), (
+        f"a `Not built` row citing no file was refused. `D-10` requires it to"
+        " name an absence, and an absence has no path — a rule that refuses"
+        " this refuses the ledger's honest shape"
+    )
+    claimed = _doctored(
+        real, line, f"| {victim} | Phase 16 | **Complete** — {absence} |"
+    )
+    assert any(
+        victim in message for message in uncited_verdicts(claimed, roster, name)
+    ), (
+        "the SAME cell reading `Complete` instead of `Not built` was also"
+        " accepted, so the check is not discriminating on the verdict at all"
+    )
 
 
 # --- CONTROL 10, 12, 13, 14: Check C, watched refusing ---

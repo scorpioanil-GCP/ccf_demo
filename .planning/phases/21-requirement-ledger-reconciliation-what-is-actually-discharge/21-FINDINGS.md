@@ -326,7 +326,32 @@ docstring's own stated purpose is to stop a reader believing the gate ran when
 it did not, and it now produces the opposite belief. Reported; fixing it is
 outside this phase.
 
+**5. Two `Complete` rows are true today and guarded by nothing, and they say
+so in their own cells.** `DOCS-06` and `DOCS-08` both turn on the `ci` target
+containing the docs and gate suites. It does — `ci` is `ci-core examples
+docs-strict gate-tools`, and `gate-tools` runs `tools/publish_scan_tests` and
+`tools/docs_tests` — so the verdict is right. But **no test in this tree reads
+the `ci` target's composition or the workflow**, so the *always-on* limb is
+true by inspection and would not go red if a later edit dropped a suite. Both
+cells name the gap; `CLNT-16` carries a third instance, where its *"before any
+example tree moves"* limb is simply not yet under load.
+
+Why it is here rather than in §2: it is not a `Not built` row and not an owed
+half of a `Partial`. It is a **guard** that is missing behind three verdicts
+that are otherwise correct. It cannot be closed from inside an audit — the
+`Makefile` has no suffix and is invisible to the citation lint by construction
+(the same shape as observation 2 and as the stale `Makefile` pointer in
+`deferred-items.md`), so closing it means writing a test that reads the
+`Makefile`, which is building. **Added at the phase close**: plan `21-03`
+identified this and handed it to plan `21-05`, and it reached the ledger cells
+but not this document. The §3.1 panel found it from the other end — two
+reviewers reading the cells and asking what guards them. *A gap named in a
+hand-off and absent from the document Dave rules from is the ledger-debt
+pattern this phase exists over, one level up.*
+
 ---
 
 *Written 2026-08-22 by plan `21-05`. Every count in this document was produced
-by running the strict parse at the time of writing.*
+by running the strict parse at the time of writing. §5 observation 5 was added
+at the phase close by plan `21-07`, as a blocking finding from the CLAUDE.md
+§3.1 review; nothing else in this document changed.*
