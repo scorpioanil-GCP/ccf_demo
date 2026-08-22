@@ -3,8 +3,47 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-22T02:35:00.000Z"
+last_updated: "2026-08-22T05:50:00.000Z"
 last_activity: >-
+  2026-08-21 -- **PHASE 21 IS PLANNED. SEVEN PLANS, SEVEN SERIAL WAVES, ON `phase-21`.**
+  Research -> pattern map -> plan -> THREE checker passes (10 findings -> 8 -> 5, all
+  verified against the tree before action) -> two planner revisions -> a surgical
+  advisory pass. Commits `0aa5bbd`..`637d997`. Coverage gates GREEN: `RECON-01`..`10`
+  all carried, decision coverage 21/21, all seven plans structurally valid.
+  **THE PHASE'S SUBJECT KEPT ARRIVING BEFORE THE PHASE.** Four separate count defects
+  were found and ruled during planning, every one the same shape -- a number standing in
+  for a set it never named: (1) `52` vs the strict parse's `54`, already ruled at the
+  discuss sitting; (2) GSD's UI-phase detector firing on Phase 21 because `grep -iE`
+  matched `form` inside *"in a form a reader can check"* -- treated as `--skip-ui`;
+  (3) `gsd-sdk query audit-uat` reporting `24 human_needed items across 9 files` when the
+  files carry `27 across 11`, because it FILTERS ON FRONTMATTER `status:` and drops Phase
+  12 (`status: passed`, 1 item) and Phase 18 (`status: gaps_found`, 2 items) -- criterion
+  11 AMENDED on Dave's ruling, `D-20`; (4) criterion 10 hardcoding `133 requirement ids`,
+  which the phase's OWN wave-1 mint of ten `RECON-` rows falsifies -- criterion 10 AMENDED
+  to drop the number entirely, `D-21`, whose binding consequence is that NO standing check
+  in this phase carries a hardcoded count and every fixed set is a frozen roster of NAMED
+  ids. `audit-uat`'s filter and the citation lint's ambiguous-basename hole are NAMED, NOT
+  FIXED (`D-07`, `D-20`) -- tooling repair inside an audit phase.
+  **THE CHECKER EARNED ITS KEEP TWICE OVER.** It reversed a planner judgement call that
+  would have added the phase's own ten `RECON-` rows AFTER Dave's approval, inside a
+  `checkpoint:human-verify` task -- ten rows entering the ledger carrying verdicts no
+  panel, no review and no human ever saw, which is the ledger-debt pattern this phase was
+  commissioned to end, one level up. Rows now mint in wave 1 and are verdicted in `21-06`,
+  BEFORE the close panel. It also caught `.github/workflows/ci.yml`'s `docs` job -- the one
+  that runs `tools/docs_tests` -- having NO `fetch-depth: 0`, which is the `D-GATE-20`
+  shallow-clone defect repeating in a different job; the fix lands in `21-01` task 1 before
+  the module does. And it caught the `D-21` guard against hardcoded counts being unable to
+  detect `EXPECTED_ROWS = 143` -- reproduced empirically, widened, re-verified.
+  **SEQUENCING IS THE PLAN'S SPINE:** `ci-core` must be green from wave 1, so every
+  INVARIANT check (citation refusal, channel agreement, vocabulary, one-verdict-per-cell)
+  lands in wave 1 where it is true of a partially-filled ledger, and the COMPLETENESS count
+  lands LAST in wave 6. Measured: ZERO citation-shaped tokens exist in any status cell
+  today, which is why the zero-citation vacuity guard had to move to wave 2.
+  **NEXT: `/gsd:execute-phase 21`.** The phase FINDS and RECORDS; it builds nothing.
+  Two untracked files Dave placed in `docs/` -- `CCF_SDK_DE_REQUIREMENTS.md` and
+  `Context_Product_Specification_Standard_v0-3.md` -- are for a LATER phase and were kept
+  out of every agent prompt and every commit.
+  PRIOR CONTEXT FOLLOWS.
   2026-08-21 -- **PHASE 20 IS GATED. `D-GATE-20` IS APPROVED BY DAVE AND LOGGED IN
   `docs/DECISIONS.md`, AND `phase-20` IS MERGED TO `main`.** 51 commits, `9e4bd0e`..`921e3b9`.
   All TEN Success Criteria met -- authored one-per-line BEFORE execution, which is the first
@@ -71,7 +110,27 @@ progress:
   completed_plans: 174
   percent: 93
 stopped_at: >-
-  PHASE 21 CONTEXT IS GATHERED; THE PHASE IS READY TO PLAN. Work is on branch `phase-21`.
+  PHASE 21 IS PLANNED AND READY TO EXECUTE. Branch `phase-21`, tree clean apart from Dave's
+  two untracked `docs/` files. SEVEN plans, SEVEN serial waves -- serial because every audit
+  plan writes `.planning/REQUIREMENTS.md`. Wave 1 `21-01` pins the base, fixes the `docs`
+  job's shallow checkout, mints the phase's own ten `RECON-` rows and ships both standing
+  checks with CONTROLS 1-9, 9b, 11 and A-C; waves 2-4 write verdicts (22 `CLNT`, then 14
+  mixed, then Phase 16's 18 as a two-sided split); wave 5 the findings, work list, 27
+  `human_needed` items and three counter corrections; wave 6 the completeness count and the
+  untouched-fabric proof; wave 7 the SS3.1 close panel and `D-GATE-21`.
+  `21-CONTEXT.md` now carries TWENTY-ONE decisions `D-01`..`D-21` -- `D-17`/`D-18`/`D-19`
+  ruled by Dave after research, `D-20`/`D-21` after the checker passes.
+  **WHAT AN EXECUTOR MUST NOT DO:** close a gap it discovers (`D-11`), write a test to
+  manufacture a criterion-6 name (`D-05`), fix `tools/lints/citations.py` (`D-07`, now
+  mechanically pinned by `PINNED_FILES`), fix `audit-uat` (`D-20`), flip or drop Phase 16's
+  eighteen rows (`D-12`), discharge a `human_needed` item (`D-13`), backfill a `D-GATE`
+  (`D-14`), touch `src/` or `runtime/` (criterion 12), or use `gsd-sdk query state.*` /
+  `roadmap.*` (`D-15`). Regenerate `docs/surface/examples/RETIREMENT-COUPLINGS.md` LAST
+  after every `.planning/` edit, the SUMMARY included -- it walks `.planning/` and reddens
+  the docs gate on every planning commit.
+  **NEXT ACTION: `/gsd:execute-phase 21`.**
+  PRIOR CONTEXT FOLLOWS.
+  PHASE 21 CONTEXT IS GATHERED; THE PHASE WAS READY TO PLAN. Work is on branch `phase-21`.
   `21-CONTEXT.md` carries SIXTEEN decisions `D-01`..`D-16`. **THE COUNT IS 54, NOT 52** --
   a strict parse of the traceability table returns 133 rows, 54 of them not-`Complete`;
   `grep -c "| Pending |"` misses `CPS-03` (bold `**Pending**`) and `DCD-02` (`**Partial**`),
