@@ -137,6 +137,54 @@ By phase: 21 Phase 17, 18 Phase 16, 6 Phase 14, 3 Phase 9, 3 Phase 13,
   approved-state branch (`CLAUDE.md` §2.2); the merge happens at the
   `D-GATE-21` entry.
 
+### Ruled at the 2026-08-21 planning sitting (after research, before plans)
+
+Three questions the research surfaced that a planner would otherwise have had to
+default on. Dave ruled on all three. Each becomes a `D-IMPL-NN` entry in
+`docs/DECISIONS.md` during execution.
+
+- **D-17:** Criterion 3's `path::symbol` **binds as a reading, not as a literal
+  form** — the operative clause is the criterion's own final one, *"that the
+  citation lint resolves."* `path::symbol` stays the preferred form and is
+  required wherever the evidence is Python. Where the evidence is a document,
+  an **anchored line citation the lint resolves** is admissible. Forced by the
+  tree: `tools/lints/citations.py:252` anchors the `::` pattern to `\.py`, so a
+  markdown document has no `path::symbol` form at all, and roughly 24 of the 54
+  rows are about documentation. **The plan and the SUMMARY must state this
+  reading explicitly**, so a later reader does not mistake it for a relaxation
+  granted to make the criterion reachable. D-06 is unchanged and still binds:
+  the path is full and repo-relative, and a bare basename is REFUSED.
+
+- **D-18:** `CPS-03` takes the verdict **`Complete as ruled`**, citing
+  `D-IMPL-113` **and** `D-IMPL-121` — both, per `D-IMPL-113`'s own instruction
+  that the row must say which. The vocabulary **stays at D-09's six words**; no
+  seventh is minted. Rationale: `DCD-09` already uses `Complete as ruled` for
+  exactly this shape — descoped against a recorded ruling — and the row is
+  closed by Dave's decision rather than open by omission. The row's status cell
+  must carry the "by design, not by omission" clause so the word is not read as
+  a claim that enforcement shipped.
+
+- **D-19:** The **three stale counters are corrected in this phase**, not merely
+  reported: `.planning/REQUIREMENTS.md:423` (*"Coverage: 94/94 v0.2 requirements
+  mapped"*), `.planning/ROADMAP.md:1946` (*"All **42** v0.2 requirements
+  mapped"*), and the ROADMAP's Phase 21 entry, which says **54 not-`Complete`
+  rows** and *"each of the 52 gets a verdict"* **in the same paragraph**
+  (`:47`, and `:1888`/`:1890` in the phase body). Constraints: (a) the replacement
+  figures are **produced by the strict parse, never assumed** — 133 is the table's
+  row count and is not automatically the right number for a sentence about *v0.2
+  requirements mapped*, which may be a defined subset; if the parse cannot settle
+  what a counter is counting, the counter is reported rather than guessed, and
+  that is said; (b) every edit is a **hand-edit under D-15** with a backup and a
+  diff showing insertions only or the intended replacement and nothing else;
+  (c) the phase record **names each correction and its old value**, because a
+  phase about honest counters that silently edits three counters would be its own
+  defect one level up.
+
+  Adjacent, and NOT covered by this ruling: `DEMO-03`'s re-homing note points at
+  `public/tutorial/hello-ccf.md`, which is not in the tree (`public/tutorial/`
+  holds `adopters-guide.md` and `demo-walkthrough.md` only). That row is ticked
+  and sits **outside the 54**. It is reported as an observation and not flipped.
+
 ### Claude's Discretion
 
 - Plan decomposition — whether the 54 rows are audited in one sequential pass or
