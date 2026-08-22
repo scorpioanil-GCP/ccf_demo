@@ -3,8 +3,82 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-22T00:00:00.000Z"
+last_updated: "2026-08-22T12:00:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21 WAVE 3 IS LANDED. `21-03` IS COMPLETE, ON `phase-21`.**
+  Three task commits `16b6fe2`, `1b81927`, `73bc457` plus the SUMMARY commits.
+  **THIRTY-SIX OF THE FIFTY-FOUR ROWS NOW CARRY A VERDICT IN BOTH CHANNELS.** The 14
+  added here are `HARD-01`..`03` (Phase 9), `EXAM-01`..`03` (Phase 13), `DOCS-01`..`06`
+  (Phase 14), `CPS-03` (15.5) and `DCD-02` (15.6). Zero `Pending` left in any of those
+  five lanes. The 18 still `Pending` are ALL the Phase 16 lane and are `21-04`'s.
+  **THE DOCUMENTATION LANE WAS NOT THE CITATION PROBLEM `21-02` FORECAST.** All six
+  Phase 14 rows took `D-17` ROUTE 1 -- cite the guarding test -- so route 2 was used
+  NOWHERE in that lane and route 3 nowhere either. The reason is structural and `21-04`
+  should carry it: Phase 14 shipped pages PLUS A GATE PER CLAIM (publish scan,
+  mkdocstrings strict-collection control, snippet gate, diagram bijection,
+  documented-command bijection, OpenAPI drift control, per-advisory content gates) and
+  gates are Python. Route 2 was spent where the evidence genuinely IS a ruling:
+  `HARD-01`'s six-item batch and `DOCS-06`'s logged D-10 amendment.
+  **EVERY ANCHORED LINE CITATION WAS RUN THROUGH THE SHIPPED `_anchor_verdict` BEFORE
+  IT WAS WRITTEN AND REQUIRED TO RETURN `True`, NEVER `None`.** All 14 occurrences.
+  A plain-word anchor returns `None` and the citation is UNCHECKED while looking
+  checked -- the hazard `D-17` was ruled not to be a relaxation of. Then `D-IMPL-70`
+  was deliberately re-aimed at `docs/DECISIONS.md:213` (which holds `D-IMPL-69`) and
+  `--citations` went **RED at `cite02-anchor`**, naming row, anchor and lines; restored
+  from a backup taken first.
+  **`CPS-03` IS `Complete as ruled` (`D-IMPL-173`) IN ALL THREE PLACES THE ROW IS
+  STATED -- NOT THE TWO THE PLAN NAMED.** The traceability table, the checkbox channel,
+  and the CPS-lane EVIDENCE TABLE, which still opened `Pending by design` and is not
+  parsed by `traceability_rows`, so nothing mechanical caught it or would have. Both
+  `D-IMPL-113` and `D-IMPL-121` are cited in each, with the `by design, not by
+  omission` clause intact. No seventh vocabulary word minted.
+  **`EXAM-02` IS THE PLAN'S ONE `Not built`, AND IT IS `Not built` RATHER THAN
+  `Orphaned` ON A MEASUREMENT:** `examples/s3-02-agentic-skills` is absent, no `s3-`
+  example of any number is tracked, no `example-s3-` target exists, and Phase 16 was
+  retired at `D-IMPL-152` before building the Section-3 suite -- BUT `RETIRED.md` says
+  retiring the phase retires the APPROACH not the NEED, and the Phase-13 substance
+  (`examples/01-agent-basics`, `02-skilling`, `05-workflow-hitl`, `06-decision-replay`)
+  is still tracked and still in the `examples:` aggregate. The named home is missing,
+  not the work. Work-list entry written in `21-03-SUMMARY.md` in the form `21-05`
+  needs, WITH ITS COUPLING TO `CLNT-17` STATED -- the two cannot be sequenced apart.
+  **THE THREE `EXAM` ROWS ARE JUDGED AGAINST THEIR `D-08` RE-HOMED TARGETS AND EACH
+  CELL NAMES ITS TARGET** (`T-21-16`). Judging against examples `00`-`07`, which are
+  still tracked and largely green, would have produced three `Complete`s and measured
+  the wrong thing.
+  **A NUMBER THAT HAD TO BE TAKEN TWICE, AND THE FIRST ONE WAS WRONG.** `DOCS-03`'s
+  artifact-class coverage is **21 of 27** on the RENDERED tree with `--8<--` snippet
+  includes resolved. Grepping page SOURCES gives **5 of 27** and is wrong -- the class
+  ids arrive through the included worked-example artifacts. The cell carries 21 and
+  says which count it is, so a later reader who greps `public/` and gets 5 knows they
+  hold the wrong predicate. **Any figure this phase takes over `public/` must resolve
+  includes first.**
+  **TWO NAMED GAPS FOR `21-05` THAT ARE NOT `Not built` ROWS:** (1) `DOCS-06` --
+  `docs-strict` IS a leg of `ci` and the workflow's `docs` job IS blocking, but **no
+  test in this tree reads the `ci` target's composition or the workflow**, so the
+  always-on limb is true by inspection and would not go red if a later edit dropped it;
+  same shape as the `Makefile`-citation hole already in `deferred-items.md`.
+  (2) `DOCS-03`'s six uncovered artifact classes, named in the cell.
+  **`DCD-02` WAS CONFIRMED AGAINST THE TREE AND NOT REWRITTEN** -- `KycScenario`'s
+  `debt_evidence` still ends `del view` / `return NO_DEBT_EVIDENCE`, unconditional,
+  which is `D-IMPL-119` limb 3(b)'s omission path. Not one character changed.
+  **THE CITATION LINT CAUGHT A RENAMED SYMBOL AGAIN, INSIDE THE WORK CORRECTING
+  CITATIONS** -- `cite03-node-id` on a draft `DOCS-06` citation to
+  `test_a2_the_maintainer_page_names_its_subject`. The citation was DROPPED rather than
+  repaired: A-2 is the surface-toolchain page and was never `DOCS-06`'s subject, so the
+  wrong name was downstream of wrong evidence. Second occurrence this phase.
+  **NO TEST WAS WRITTEN, ANYWHERE, FOR ANY PURPOSE** (`D-05`). `gate-tools` is 406 +
+  189, UNMOVED from `21-02` -- which is the mechanical proof. This plan's three task
+  commits touch exactly two paths: `.planning/REQUIREMENTS.md` and the generated
+  coupling inventory.
+  **GATES:** `--citations` 0, `lint` 0, `typecheck` 0 (211 files), `test` 0 (4105
+  passed / 118 skipped, 10m33s -- identical to waves 1 and 2), `gate-tools` 0
+  (406 + 189), ledger module 35 passed, sweep + ledger 68 passed,
+  `refuse_unresolvable` `[]` over 70 citation tokens, channel disagreements `[]`,
+  vocabulary offenders `[]`, doubled verdicts `[]`. Fabric, fence, the eleven UAT
+  records and `tools/lints/citations.py` all diff-empty against the base. The ten
+  `RECON-` rows are untouched. **NEXT: `21-04` -- the Phase 16 lane, 18 rows, the
+  hardest of the phase, and the one whose split Dave rules rather than the executor.**
+  PRIOR CONTEXT FOLLOWS.
   2026-08-22 -- **PHASE 21 WAVE 2 IS LANDED. `21-02` IS COMPLETE, ON `phase-21`.**
   Three task commits `1a7a8b6`, `e190f28`, `6fa56f4` plus the SUMMARY commit.
   **TWENTY-TWO OF THE FIFTY-FOUR ROWS NOW CARRY A VERDICT IN BOTH CHANNELS** --
