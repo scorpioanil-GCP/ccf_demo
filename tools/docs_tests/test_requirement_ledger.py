@@ -1146,6 +1146,34 @@ def _table_line(document_text: str, req_id: str) -> str:
     return matches[0]
 
 
+def _checkbox_line(document_text: str, req_id: str) -> str:
+    """The one checkbox bullet for `req_id`, or a refusal.
+
+    The checkbox twin of :func:`_table_line`, added by plan `21.1-03` for
+    `CONTROL 21`, and it exists for the same reason: a control anchored on a
+    literal bullet is anchored on a snapshot of a line that Phase 21 rewrote
+    row by row. Resolved at run time, refusing when the bullet is absent or
+    doubled — so a control that doctors nothing cannot then assert a refusal
+    that never came.
+
+    The anchor is :data:`CHECKBOX_LINE`'s own shape rather than a prefix
+    match, because the bullet carries its tick between the dash and the id and
+    a `startswith` test would have to guess which tick is there.
+    """
+    matches = [
+        line
+        for line in document_text.splitlines()
+        if CHECKBOX_LINE.match(line) is not None
+        and CHECKBOX_LINE.match(line).group(2) == req_id  # type: ignore[union-attr]
+    ]
+    if not matches or matches[1:]:
+        raise AssertionError(
+            f"{req_id} matched {matches!r} checkbox bullets; a control that"
+            " doctors nothing, or doctors twice, is not the control it claims"
+        )
+    return matches[0]
+
+
 # --- Preconditions — a vacuous pass is the failure this module exists to prevent.
 
 
@@ -2608,3 +2636,264 @@ def test_the_two_one_verdict_gates_read_the_same_predicate() -> None:
             " keeps its own copy of the reading is one edit away from"
             " disagreeing with the other about what a cell says"
         )
+
+
+# ===========================================================================
+# CONTROL 20, 21 and 22 — `RR-4` and `RR-6`, the two shapes that make a check
+# report clean over a subject it never had.
+#
+# Landed in plan `21.1-03` task 1, BEFORE the fixes they falsify, and watched
+# failing against the committed pre-fix module (`D-IMPL-170`).
+#
+# `RR-4` — A DUPLICATE REQUIREMENT ID COLLAPSES INTO A DICT AND THE LEDGER
+# REPORTS CLEAN. Measured against the real ledger at this plan's HEAD:
+# `HARD-02`'s row duplicated with a different phase cell and its citations
+# intact yields a parse holding the id TWICE, while every consumer that keys
+# by id keeps ONE — and `channel_disagreements`, `vocabulary_offenders`,
+# `doubled_verdicts`, `unverdicted(working_set)` and `uncited_verdicts` all
+# return empty. There are FOUR dict builds plus two comprehensions over
+# :func:`traceability_rows` and :func:`checkbox_channel`, which is why the
+# refusal belongs in the PARSERS: a guard written into one consumer leaves
+# five holes. `:1760`'s `uncited_verdicts` is a WORSE shape than a collapse —
+# it APPENDS, so a duplicated row's citations MERGE and an uncited duplicate
+# is masked by its cited twin. That is closed upstream by the parser refusal
+# rather than patched at the site.
+#
+# The ledger's own `Coverage` sentence says each requirement is mapped "to
+# exactly one phase". That sentence was falsified by nothing and guarded by
+# nothing.
+#
+# `RR-6` — `_index()` RETURNS AN EMPTY MAPPING RATHER THAN REFUSING. On a
+# thinned index the moved-path branch of :func:`refuse_unresolvable` — the one
+# its own docstring calls "the second silent hole" it exists to dodge —
+# returns SILENCE, and an on-disk-but-unindexed path is accepted. The
+# ambiguity branch is guarded only BY ACCIDENT, because `CONTROL 1` happens to
+# assert the word AMBIGUOUS in the message.
+# ===========================================================================
+
+
+def _duplicated_table_row(document_text: str, req_id: str) -> str:
+    """`req_id`'s real table line, followed by a SECOND copy under another phase.
+
+    DERIVED from the row rather than retyped, on `CONTROL 19`'s pattern. The
+    twin differs only in its PHASE cell and carries the row's citations through
+    untouched, so a refusal is attributable to the REPETITION and not to a
+    malformed, unverdicted or uncited second row. It refuses if the derived
+    twin is not actually a second row for the same id.
+    """
+    line = _table_line(document_text, req_id)
+    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    if len(cells) != CELLS_PER_ROW:
+        raise AssertionError(
+            f"{req_id}'s traceability line split into {cells!r}, which is not"
+            " the three cells this mutation needs to rebuild the row"
+        )
+    other_phase = "Phase 99"
+    if cells[1] == other_phase:
+        raise AssertionError(
+            f"{req_id}'s phase cell already reads {other_phase!r}, so the"
+            " derived twin would be byte-identical to the row and"
+            " `_doctored` would refuse a non-unique anchor for the wrong"
+            " reason"
+        )
+    twin = f"| {cells[0]} | {other_phase} | {cells[2]} |"
+    if twin == line:
+        raise AssertionError(
+            f"the derived twin for {req_id} is identical to its row, so the"
+            " mutation would not be a SECOND row at all"
+        )
+    return _doctored(document_text, line, f"{line}\n{twin}")
+
+
+def _duplicated_checkbox_bullet(document_text: str, req_id: str) -> str:
+    """`req_id`'s real checkbox bullet, followed by a SECOND copy with the tick flipped.
+
+    The tick is flipped rather than copied verbatim for two reasons. A
+    byte-identical copy makes :func:`_doctored`'s uniqueness check refuse the
+    anchor before the mutation lands, and — the load-bearing one — a flipped
+    tick is the shape that actually costs something: the dict comprehension
+    keeps the LAST bullet, so a duplicated `[x]`/`[ ]` pair silently decides
+    what the checkbox channel says about the row.
+    """
+    line = _checkbox_line(document_text, req_id)
+    match = CHECKBOX_LINE.match(line)
+    if match is None:  # pragma: no cover - `_checkbox_line` already refused
+        raise AssertionError(f"{line!r} is not a checkbox bullet")
+    flipped = "x" if match.group(1).lower() != "x" else " "
+    twin = line[: match.start(1)] + flipped + line[match.end(1) :]
+    if twin == line:
+        raise AssertionError(
+            f"the derived twin bullet for {req_id} is identical to its"
+            " bullet, so the mutation would not be a SECOND bullet at all"
+        )
+    if CHECKBOX_LINE.match(twin) is None or CHECKBOX_LINE.match(twin).group(2) != req_id:  # type: ignore[union-attr]
+        raise AssertionError(
+            f"the derived twin bullet {twin!r} is not read by CHECKBOX_LINE as"
+            f" a bullet for {req_id}, so the control's subject is not a"
+            " duplicate id at all"
+        )
+    return _doctored(document_text, line, f"{line}\n{twin}")
+
+
+def test_control_20_a_duplicate_id_in_the_traceability_table_is_refused() -> None:
+    """CONTROL 20 — `RR-4` in the table channel, watched refusing.
+
+    Reachability first, in this module's idiom: the real document parses, the
+    victim is a row of it, and :func:`_table_line` refuses unless the victim
+    matches EXACTLY ONE line — so a mutation that landed nowhere cannot be
+    mistaken for a refusal that never fired.
+
+    The assertion is on the PARSER, not on a consumer. Four dict builds and
+    two comprehensions read :func:`traceability_rows`; a control aimed at one
+    of them would say nothing about the other five.
+    """
+    real = ledger_text()
+    victim = "HARD-02"
+    rows = traceability_rows(real)
+    assert victim in [req_id for req_id, _phase, _status in rows], (
+        f"{victim} is not a row of the real traceability table, so this"
+        " control's mutation would be a row the ledger never had and the"
+        " refusal it watches would be about nothing"
+    )
+    doctored = _duplicated_table_row(real, victim)
+    twins = [
+        line for line in doctored.splitlines() if line.startswith(f"| {victim} | ")
+    ]
+    assert twins[1:] and not twins[2:], (
+        f"the mutation produced {twins!r} rather than exactly two rows for"
+        f" {victim}; the control's own subject is not a duplicate id"
+    )
+    try:
+        parsed = traceability_rows(doctored)
+    except AssertionError as failure:
+        assert victim in str(failure), (
+            "the duplicate was refused, but the refusal does not NAME the"
+            f" repeated id: {str(failure)!r}. A reader handed a shortfall"
+            " rather than a row cannot act on it (`D-21`, and"
+            " `unverdicted`'s own docstring)"
+        )
+        return
+    ids = [req_id for req_id, _phase, _status in parsed]
+    raise AssertionError(
+        "a traceability table carrying two rows for"
+        f" {victim} parsed to {len(ids)} rows and was accepted. Every"
+        " consumer that keys by id then keeps ONE of them, the other's phase"
+        " and verdict vanish, and the ledger's own claim that each"
+        " requirement maps to exactly one phase is falsified by nothing and"
+        " guarded by nothing"
+    )
+
+
+def test_control_21_a_duplicate_id_in_the_checkbox_channel_is_refused() -> None:
+    """CONTROL 21 — `RR-4` in the checkbox channel, INDEPENDENTLY.
+
+    Independently is the operative word. The two channels are two claims, and
+    a guard on one says nothing about the other: :func:`checkbox_channel`
+    builds its own dict from its own regex and would keep the LAST bullet for
+    a repeated id no matter what the table parser refused.
+    """
+    real = ledger_text()
+    victim = "HARD-02"
+    assert victim in checkbox_channel(real), (
+        f"{victim} is not a bullet of the real checkbox channel, so this"
+        " control's mutation would be a bullet the ledger never had"
+    )
+    doctored = _duplicated_checkbox_bullet(real, victim)
+    twins = [
+        line
+        for line in doctored.splitlines()
+        if CHECKBOX_LINE.match(line) is not None
+        and CHECKBOX_LINE.match(line).group(2) == victim  # type: ignore[union-attr]
+    ]
+    assert twins[1:] and not twins[2:], (
+        f"the mutation produced {twins!r} rather than exactly two bullets for"
+        f" {victim}; the control's own subject is not a duplicate id"
+    )
+    try:
+        channel = checkbox_channel(doctored)
+    except AssertionError as failure:
+        assert victim in str(failure), (
+            "the duplicate was refused, but the refusal does not NAME the"
+            f" repeated id: {str(failure)!r}"
+        )
+        return
+    raise AssertionError(
+        f"a checkbox channel carrying two bullets for {victim} was accepted"
+        f" and resolved it to {channel[victim]!r}. The dict keeps the LAST"
+        " bullet, so a duplicated tick silently decides what the channel says"
+        " about the row — and `channel_disagreements` then compares the table"
+        " against a claim nobody wrote"
+    )
+
+
+def test_control_22_an_index_that_resolved_nothing_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CONTROL 22 — `RR-6`: an index with no subject must refuse, not return `{}`.
+
+    TWO subjects, and the SECOND is the discriminating one.
+
+    * The EMPTY mapping is the obvious shape.
+    * A THINNED mapping — populated, but not with the path the module's own
+      citation checks depend on — is the shape that asks *what weaker
+      implementation would still pass this control?* A guard written as "refuse
+      an empty index" passes the first subject and accepts the second, and the
+      second is the one the research actually measured going silent: on a
+      thinned index the moved-path branch of :func:`refuse_unresolvable`
+      returns SILENCE and an on-disk-but-unindexed path is accepted. Only the
+      ambiguity branch is guarded today, and only BY ACCIDENT, because
+      `CONTROL 1` happens to assert the word AMBIGUOUS.
+
+    **`_REPO_INDEX_CACHE` is process-lifetime state, so the restoration is the
+    control's own obligation.** The real mapping is saved, the cache is cleared
+    around each subject, and the `finally` clears it a second time and puts the
+    saved contents back — a control that left junk in it would poison every
+    test that ran after it, which is a fresh instance of this phase's own
+    defect class arriving through the control rather than through the check.
+    The last assertion is that the restoration WORKED.
+    """
+    saved = dict(_REPO_INDEX_CACHE)
+    live = _index()
+    assert live, (
+        "the real resolver index is empty before this control does anything,"
+        " so the mutation below is indistinguishable from the baseline"
+    )
+    subjects = (
+        ("an EMPTY mapping", {}),
+        (
+            "a THINNED mapping that resolves nothing this module depends on",
+            {"nothing.py": ["nowhere/nothing.py"]},
+        ),
+    )
+    try:
+        for description, thinned in subjects:
+            monkeypatch.setattr(
+                "tools.docs_tests.test_requirement_ledger.repo_index",
+                lambda _root, _thinned=thinned: dict(_thinned),
+            )
+            _REPO_INDEX_CACHE.clear()
+            try:
+                returned = _index()
+            except AssertionError as failure:
+                assert "index" in str(failure), (
+                    f"{description} was refused, but the refusal does not say"
+                    f" what went silent: {str(failure)!r}"
+                )
+                continue
+            raise AssertionError(
+                f"`_index()` returned {description} as {returned!r} instead of"
+                " refusing. A resolver index with no subject makes"
+                " `refuse_unresolvable` report ZERO unresolvable citations,"
+                " which is indistinguishable from a clean ledger — the"
+                " moved-path branch stops checking and says nothing about it"
+            )
+    finally:
+        monkeypatch.undo()
+        _REPO_INDEX_CACHE.clear()
+        _REPO_INDEX_CACHE.update(saved)
+    restored = _index()
+    assert restored == live, (
+        "this control left `_REPO_INDEX_CACHE` thinned. Every citation check"
+        " that runs after it would then be quantified over an index with no"
+        " subject, and would report clean"
+    )
