@@ -875,6 +875,27 @@ def ledger_text() -> str:
     return LEDGER_PATH.read_text(encoding="utf-8")
 
 
+def repeated_ids(req_ids: Sequence[str]) -> list[str]:
+    """Every requirement id appearing more than once, NAMED and sorted.
+
+    **Deliberately not ``len(rows) == len(set(ids))``.** A self-comparison
+    would survive `D-21` on a technicality — it carries no number — but it
+    reports a SHORTFALL, and a shortfall is not something a reader can act on.
+    :func:`unverdicted` says so in its own docstring, and every other refusal
+    in this module names its rows. So does this one.
+
+    Returned sorted rather than in first-appearance order so a refusal message
+    is stable across two parses of the same document.
+    """
+    seen: set[str] = set()
+    twice: set[str] = set()
+    for req_id in req_ids:
+        if req_id in seen:
+            twice.add(req_id)
+        seen.add(req_id)
+    return sorted(twice)
+
+
 def traceability_rows(document_text: str) -> list[tuple[str, str, str]]:
     """`(id, phase, status)` triples from the traceability table.
 
@@ -916,6 +937,19 @@ def traceability_rows(document_text: str) -> list[tuple[str, str, str]]:
         raise AssertionError(
             "the traceability table header was found but no rows followed it."
             " Every check built on this parse would pass over nothing"
+        )
+    twice = repeated_ids([req_id for req_id, _phase, _status in rows])
+    if twice:
+        raise AssertionError(
+            f"duplicate requirement ids in the traceability table: {twice}."
+            " Every consumer of this parse keys by id — four dict builds and"
+            " two comprehensions — so one of the two rows survives and the"
+            " other's phase and verdict vanish without a finding. The"
+            " ledger's own `Coverage` sentence says each requirement is"
+            " mapped to exactly one phase; a repeated id falsifies it and"
+            " nothing observed that. `uncited_verdicts` is worse still: it"
+            " APPENDS citations per id, so a duplicated row's citations MERGE"
+            " and an UNCITED duplicate is masked by its cited twin"
         )
     return rows
 
@@ -1010,7 +1044,18 @@ def checkbox_channel(document_text: str) -> dict[str, bool]:
     Raises rather than returning an empty mapping, for the reason
     :func:`traceability_rows` states: an empty channel makes every comparison
     against it trivially agreeable.
+
+    **It refuses a repeated id INDEPENDENTLY of the table parser**, and
+    independently is the operative word. The two channels are two claims; a
+    guard on one says nothing about the other, and this dict comprehension
+    would keep the LAST bullet for a repeated id no matter what
+    :func:`traceability_rows` refused. Measured pre-fix on a duplicated
+    `HARD-02` whose twin carried the opposite tick: the channel resolved the
+    row to the TWIN's value, so a duplicated bullet silently decided what the
+    checkbox channel said about a row and `channel_disagreements` then
+    compared the table against a claim nobody wrote.
     """
+    matched = [match.group(2) for match in CHECKBOX_LINE.finditer(document_text)]
     found = {
         match.group(2): match.group(1).lower() == "x"
         for match in CHECKBOX_LINE.finditer(document_text)
@@ -1020,6 +1065,14 @@ def checkbox_channel(document_text: str) -> dict[str, bool]:
             "the checkbox channel parsed to nothing. Either the document is"
             " not the ledger or the bullet shape changed; either way a"
             " comparison against an empty channel agrees with everything"
+        )
+    twice = repeated_ids(matched)
+    if twice:
+        raise AssertionError(
+            f"duplicate requirement ids in the checkbox channel: {twice}. The"
+            " mapping keeps the LAST bullet, so the earlier one's tick is"
+            " discarded without a finding and every comparison against this"
+            " channel is then about a claim nobody wrote"
         )
     return found
 
@@ -1443,6 +1496,22 @@ LOOSE_NODE_ID = re.compile(
 
 _REPO_INDEX_CACHE: dict[str, list[str]] = {}
 
+#: A NAMED path this module already depends on, required to resolve through
+#: the index before :func:`_index` will hand it to anything.
+#:
+#: It is the subject of `the positive citation control`
+#: (:func:`test_the_positive_control_a_real_citation_is_not_refused`), chosen
+#: there precisely because its basename is AMBIGUOUS in this repo — there are
+#: two `client.py`. So an index that still resolves it is an index whose
+#: ambiguity branch has a live subject, which is the property the anchor is
+#: for.
+#:
+#: A NAME and not a floor, per `D-21`. "More than five thousand basenames"
+#: would be a carried number that every later phase had to re-edit, and a
+#: growing tree would satisfy it while the entries this module actually
+#: consults had been pruned away.
+INDEX_ANCHOR = "src/ccf/client/client.py"
+
 
 def _index() -> dict[str, list[str]]:
     """`tools.lints.citations.repo_index` over this repo, computed once.
@@ -1451,9 +1520,41 @@ def _index() -> dict[str, list[str]]:
     prunes `SKIP_DIRS` — and a bare walk over a live agent worktree makes
     EVERY basename ambiguous, which is how an ambiguity check silently stops
     checking anything.
+
+    **It REFUSES an index that resolved nothing rather than returning it, and
+    the test is that it resolves :data:`INDEX_ANCHOR`.** `RR-6`: an index with
+    no subject makes :func:`refuse_unresolvable` report ZERO unresolvable
+    citations, which is indistinguishable from a clean ledger. Measured on a
+    thinned index, the two branches that read this mapping behave differently
+    and BOTH are wrong:
+
+    * the ambiguity branch degrades to the weaker bare-basename message and
+      happens to go red, but only because `CONTROL 1` asserts the word
+      AMBIGUOUS — it is guarded by ACCIDENT, not by design; and
+    * the moved-path branch — the one this module's own docstring calls "the
+      second silent hole" it exists to dodge — returns SILENCE, and an
+      on-disk-but-unindexed path is ACCEPTED.
+
+    The anchor form is chosen over "refuse an empty mapping" deliberately: an
+    emptiness test accepts a THINNED index, and thinned is the shape that
+    makes the moved-path branch go quiet. `CONTROL 22` carries both subjects
+    and the thinned one is the discriminating half.
     """
     if not _REPO_INDEX_CACHE:
         _REPO_INDEX_CACHE.update(repo_index(REPO_ROOT))
+    basename = INDEX_ANCHOR.rsplit("/", maxsplit=1)[-1]
+    if INDEX_ANCHOR not in _REPO_INDEX_CACHE.get(basename, []):
+        raise AssertionError(
+            f"the resolver index does not resolve `{INDEX_ANCHOR}`, a path"
+            " this module already cites in its own positive citation control."
+            f" Its entries for `{basename}` are"
+            f" {_REPO_INDEX_CACHE.get(basename, [])}. An index with no subject"
+            " does not make `refuse_unresolvable` fail — it makes it return"
+            " ZERO unresolvable citations, which reads exactly like a clean"
+            " ledger. The moved-path branch stops checking and says nothing,"
+            " and the ambiguity branch is guarded only by `CONTROL 1`"
+            " happening to assert the word AMBIGUOUS"
+        )
     return _REPO_INDEX_CACHE
 
 
