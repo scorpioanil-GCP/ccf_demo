@@ -306,7 +306,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/HANDOFF-2026-08-15.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/HANDOFF-2026-08-17.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/PROJECT.md` | 1 | the phase's own planning tree — not shipped, not published |
-| `.planning/REQUIREMENTS.md` | 41 | the phase's own planning tree — not shipped, not published |
+| `.planning/REQUIREMENTS.md` | 98 | the phase's own planning tree — not shipped, not published |
 | `.planning/ROADMAP.md` | 14 | the phase's own planning tree — not shipped, not published |
 | `.planning/STATE.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/16-config-consolidation.md` | 1 | the phase's own planning tree — not shipped, not published |
@@ -637,6 +637,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-03-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-03-SUMMARY.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-04-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-DOCS-16-SPLIT.md` | 35 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-RESEARCH.md` | 7 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 58 | append-only decision log |
