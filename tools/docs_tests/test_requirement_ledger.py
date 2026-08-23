@@ -2846,9 +2846,54 @@ def working_set(document_text: str) -> list[tuple[str, str]]:
 
 
 def phase_own_verdicts(document_text: str) -> list[tuple[str, str]]:
-    """The phase's own ten, each with its leading verdict token."""
+    """The phase's own rows, each with its leading verdict token.
+
+    "Ten" until wave 9 extended :data:`PHASE_OWN_ROSTER` with the six `VAC-`
+    rows and left this line behind — corrected at the close (cursor, finding 9).
+    The roster's size is not stated here on purpose (`D-21`): it is derived, and
+    :func:`test_control_42_the_phase_own_roster_is_derived_not_transcribed`
+    holds the derivation against it.
+    """
     return roster_verdicts(
         document_text, PHASE_OWN_ROSTER, "the phase's own roster"
+    )
+
+
+#: The `Phase` column values whose rows are THIS phase family's own — the
+#: parent audit phase and the fix phase inserted after it. Named rather than
+#: pattern-matched on the id prefix, because the id families (`RECON-`, `VAC-`)
+#: are a naming convention and the phase column is what the ledger actually
+#: asserts about ownership.
+PHASE_OWN_PHASES: frozenset[str] = frozenset({"Phase 21", "Phase 21.1"})
+
+
+def derived_phase_own_roster(document_text: str) -> frozenset[str]:
+    """:data:`PHASE_OWN_ROSTER`, re-derived from the ledger's own `Phase` column.
+
+    **Added at the phase close — the single-agent review's finding 1.**
+    :data:`PHASE_OWN_ROSTER` was the ONE id-roster in this module with no
+    derivation counterpart. :data:`UAT_RECORDS` has one, :data:`WORKING_SET_ROSTER`
+    has the strict parse at the pinned base, :data:`MULTI_MEMBER_PATHSPECS` has
+    the arity check, :data:`LIMBS` has the `ast` site scan, :data:`CONTROLS` has
+    :func:`enumerated_controls`, :data:`FIXED_SETS` has
+    :func:`derived_fixed_sets`. This one was a transcription.
+
+    Measured before this existed: a `VAC-07` row minted into BOTH channels with
+    an unevidenced `**Complete**` and simply never added to the roster was named
+    by ZERO of eight gates — `channel_disagreements`, `vocabulary_offenders`,
+    `doubled_verdicts`, `uncited_verdicts`, `refuse_unresolvable`,
+    `roster_rows_with_two_verdicts` and `unverdicted` on both rosters. That is
+    `RR-3`'s mechanism exactly — an unrostered row buys exemption from the audit
+    that would have checked it — arriving on the roster of the phase whose
+    subject `RR-3` is.
+
+    :data:`WORKING_SET_ROSTER` cannot catch it by construction: it is frozen at
+    the pinned base and a row minted after that base is not in it.
+    """
+    return frozenset(
+        req_id
+        for req_id, phase, _status in traceability_rows(document_text)
+        if phase in PHASE_OWN_PHASES
     )
 
 
@@ -3094,6 +3139,38 @@ def test_every_verdicted_roster_row_cites_its_evidence() -> None:
     assert offenders == [], (
         "a row this phase verdicted claims a presence and cites nothing. The"
         " rows are named rather than counted:\n" + "\n".join(offenders)
+    )
+
+
+def test_control_42_the_phase_own_roster_is_derived_not_transcribed() -> None:
+    """CONTROL 42 — a row this phase minted cannot escape by not being rostered.
+
+    Set equality, both directions, against :func:`derived_phase_own_roster`. No
+    count (`D-21`): what is compared is two sets of ids.
+
+    The two directions fail for different reasons and both matter. A row in the
+    ledger under this phase family but NOT in the roster is the eight-gates-silent
+    case the single-agent review reproduced. A roster id with no such row is the
+    mirror — the roster claiming a subject the ledger does not have, which makes
+    every gate quantified over it refuse on a row that is simply absent.
+    """
+    derived = derived_phase_own_roster(ledger_text())
+    assert derived, (
+        "the derivation found NO rows under this phase family at all, so the"
+        " equality below is between the roster and the empty set and would"
+        " report a roster of sixteen as entirely spurious. A derivation that"
+        " resolved nothing is the vacuity this module exists to detect"
+    )
+    unrostered = sorted(derived - PHASE_OWN_ROSTER)
+    unbacked = sorted(PHASE_OWN_ROSTER - derived)
+    assert not unrostered and not unbacked, (
+        "`PHASE_OWN_ROSTER` and the ledger's own `Phase` column disagree."
+        f"\n  in the ledger under {sorted(PHASE_OWN_PHASES)}, not in the roster:"
+        f" {unrostered}"
+        f"\n  in the roster, backed by no such row: {unbacked}"
+        "\nA row minted by this phase and left out of the roster is named by"
+        " NONE of the gates quantified over it — the mechanism that let"
+        " `DOCS-22` sit outside the working set with an unevidenced `Complete`"
     )
 
 
@@ -5533,6 +5610,19 @@ CONTROL_AIM: dict[str, Aim] = {
         # `CONTROL 16` refuses, and it produces a real `[limb:…]` refusal.
         saboteur=_substituting(tracked_under=_returning(list)),
     ),
+    "test_control_42_the_phase_own_roster_is_derived_not_transcribed": Aim(
+        kind="guard",
+        targets=frozenset({"derived_phase_own_roster"}),
+        invoke=lambda: test_control_42_the_phase_own_roster_is_derived_not_transcribed(),
+        # The stand-in drops one id from the derivation, which is the shape the
+        # control exists to catch seen from the other side: a row the ledger
+        # holds that the roster does not.
+        saboteur=_substituting(
+            derived_phase_own_roster=_returning(
+                lambda: frozenset(sorted(PHASE_OWN_ROSTER)[1:])
+            )
+        ),
+    ),
     "test_control_41_the_multi_member_cases_reach_every_member": Aim(
         kind="guard",
         targets=frozenset({"multi_member_cases"}),
@@ -5943,6 +6033,7 @@ CONTROLS: frozenset[str] = frozenset(
         "test_control_c_an_empty_path_list_fails_loudly",
         "test_control_16_a_pathspec_that_names_nothing_is_refused",
         "test_control_41_the_multi_member_cases_reach_every_member",
+        "test_control_42_the_phase_own_roster_is_derived_not_transcribed",
         "test_control_37_a_derived_base_refuses_a_member_it_cannot_resolve",
         "test_the_positive_control_a_real_pathspec_is_still_accepted",
         "test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused",
@@ -6713,6 +6804,7 @@ FIXED_SETS: frozenset[str] = frozenset(
         "FIXED_SETS",
         "LIMBS",
         "MULTI_MEMBER_PATHSPECS",
+        "PHASE_OWN_PHASES",
         "PHASE_OWN_ROSTER",
         "PINNED_FILES",
         "TESTS_TREE",
