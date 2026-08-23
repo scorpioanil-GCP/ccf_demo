@@ -1383,9 +1383,17 @@ Phase: **22 — The Adoption Argument: What RAG, Hand-Rolled Assembly and a Sema
   eight PASSes. The phase's own check-vacuity class, inside the plan written to gate
   it. Mitigated only by the blocking checkpoint that follows, which is the
   reviewer-diligence pattern §3.1 rejects.
-  **OPEN AND OWED TO DAVE:** (a) the phase is on `main` -- all four planning commits
-  plus the ROADMAP hand-edits -- and CLAUDE.md §2.2 puts phase work on a phase branch
-  with the merge at `D-GATE-22`; there is no `phase-22` branch to merge. (b) The
+  **BRANCH RULED BY DAVE 2026-08-23, BEFORE EXECUTION: NO PHASE BRANCH. EVERYTHING
+  ON `main`.** Verbatim: *"put everything on main now before I execute the phase."*
+  This is a deliberate departure from CLAUDE.md §2.2, which puts phase work on a
+  phase branch with the merge at `D-GATE-<Phase>` -- Phase 22 has no `phase-22`
+  branch and will have no merge commit referencing `D-GATE-22`. A later reader must
+  NOT read the missing branch as an error. Planning was pushed at `10046cb`;
+  `main` == `origin/main`, 8 commits, planning artifacts and the regenerated coupling
+  report ONLY -- `src/`, `runtime/` and `examples/` absent from the whole range,
+  verified by name before the push.
+  **STILL OPEN AND OWED TO DAVE:** (a) checker W-1 above -- `22-06`'s panel gate
+  passes on an all-FAILED reviewer record. (b) The
   criterion 3 / criterion 8 reading for the prose-cited client seam is STATED in the
   page, the `DOCS-15` ledger cell and the phase record, each with a STOP if it reads
   as a widening -- deliberately not decided, per `D-10`: *"a scope question for Dave,
