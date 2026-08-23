@@ -421,3 +421,10 @@ renders.
 Per `docs/DECISIONS.md` **D-15**, no `state.*` or `roadmap.*` SDK writer was
 invoked and neither `.planning/STATE.md` nor `.planning/ROADMAP.md` was
 modified. Both are hand-edited by the orchestrator after the phase.
+
+## Self-Check: PASSED
+
+All four subject files exist on disk. All four commits resolve in
+`git log --all`: `b71308b`, `0b3b20d`, `2c6825b`, `294e83f`.
+`git diff --stat ad50402..HEAD` is empty for `.planning/STATE.md`,
+`.planning/ROADMAP.md`, `examples/`, `src/` and `runtime/`.
