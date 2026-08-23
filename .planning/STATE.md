@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-23T13:10:00.000Z"
+last_updated: "2026-08-23T16:15:00.000Z"
 last_activity: >-
   2026-08-23 -- **PHASE 21.1 IS CLOSED. `D-GATE-21.1` APPROVED BY DAVE**, logged at
   `docs/DECISIONS.md:532` alongside five ruling entries `D-IMPL-183`..`D-IMPL-187`.
@@ -1321,8 +1321,8 @@ are in `D-IMPL-147`.
 ## Current Position
 
 Phase: **22 — The Adoption Argument: What RAG, Hand-Rolled Assembly and a Semantic
-  Layer Lack (INSERTED).** ADDED 2026-08-23 by hand (`D-15`), **DISCUSSED 2026-08-23,
-  NOT PLANNED.** Takes up the Phase 21 work list in the order `D-IMPL-176` sequenced
+  Layer Lack (INSERTED).** ADDED 2026-08-23 by hand (`D-15`), **DISCUSSED AND PLANNED 2026-08-23 --
+  SIX PLANS IN SIX SERIAL WAVES, READY TO EXECUTE.** Takes up the Phase 21 work list in the order `D-IMPL-176` sequenced
   it: *"DOCS-15 first -- cheapest, highest adoption leverage, one page, subject already
   gated in `s1-01`. Only coupling is that tree's survival under CLNT-17."* Fifteen
   decisions in `22-CONTEXT.md`; fifteen Success Criteria locked in the ROADMAP entry
@@ -1338,7 +1338,59 @@ Phase: **22 — The Adoption Argument: What RAG, Hand-Rolled Assembly and a Sema
   note somebody has to remember. Coverage is locked to a DEFAULT, not discussed: exactly
   the three alternatives `DOCS-15` names and no fourth, and the staleness claim rests
   only on what `s1-01` already measures -- `examples/s1-02-freshness-and-debt` is NOT
-  invented here. Next action: `/gsd:plan-phase 22`.
+  invented here.
+  **PLANNING CLOSED 2026-08-23 AFTER FOUR CHECKER ROUNDS AND THREE REVISIONS**
+  (`8dfde2d`, `7c2432d`, `79e959d`, `00428f9`). Issue count fell 10 -> 8 -> 5 -> 0
+  blockers; the loop never stalled, it hit its 3-iteration maximum with one blocker
+  left and **Dave authorised one extra pass rather than force-proceeding**, ruling:
+  *"Handing the executor a named instruction is exactly an unwatched condition... Do
+  not force-proceed with a known hole in the module that refuses ungrounded claims."*
+  **EVERY BLOCKER THE LOOP FOUND WAS IN THE PROOF MACHINERY, NEVER IN THE PAGE** --
+  the phase's own defect class, four times, in the phase whose subject is honest
+  citation. (1) The `debt-profile.yaml` include fails `make docs-strict`: 15
+  `pub01-whitepaper-shingle` findings against 0 on every include the page keeps,
+  because the file quotes the whitepaper and the scan reads the RENDERED site with
+  tags stripped and no allowlist. Dropped; `expected.yaml`'s declared `debt_signal_*`
+  and `debt_weak_factor` carry criterion 11 instead. (2) The coupling report stales
+  the moment the page is written and `test_the_committed_report_is_current` runs in
+  WAVE 1 -- and the terminal byte-identical assertion would have stopped the last
+  plan ON A CORRECT TREE, demonstrated live when the planner's own edits moved
+  exactly two `.planning/` row counts. Replaced by a diff CONFINED to
+  `.planning/STATE.md` and `.planning/phases/22-*`. (3) `CAVEAT_CONTRACT` was matched
+  against `Paragraph.text`, which `strip_markup` strips of backtick code spans --
+  `.raw` sees 10 `D-IMPL-NN` paragraphs, `.text` sees 6 -- so the floor proving
+  non-vacuity was itself vacuous and would have gone RED on a correct page. (4) **THE
+  GATE REFUSED THE CAVEAT CRITERION 6 REQUIRES**: `sentences_claiming_passage_extraction`
+  flagged *"no shipped pipeline produces passage anchors from documents"* as an
+  offender, because it matched the SHAPE of an extraction claim without reading
+  whether the sentence asserts or denies it. The denial-exemption limb that fixes it
+  then had a hole of its own -- a denial at offset 0 exempted the whole sentence, so
+  *"No shipped pipeline produces passage anchors, though CCF does extract them from
+  documents"* passed clean. **THE LIMB NOW HAS THREE CONDITIONS AND THREE MUTATIONS,
+  ONE PER CONDITION**: vocabulary, ordering, and a contrastive pivot between the
+  denial and any later extraction verb. Measured, not argued: both smuggle sentences
+  flip to REPORTED, the criterion-6 caveat stays EXEMPT (`so` is not a pivot), and
+  across all 43 published pages **0 paragraphs change verdict**.
+  Final shape: **6 plans, 6 serial waves**, `22-06` NON-AUTONOMOUS carrying the
+  CLAUDE.md §3.1 close on the `21.1-10` precedent -- a separate plan rather than a
+  task so the counter reads 5/6 and a finished `22-05` cannot READ as a finished
+  phase. `22-03` ships 7 non-vacuity floors, 11 controls, 7 sabotage runs across 9
+  mutations. Coverage 15/15 criteria and 15/15 `D-NN` in frontmatter `must_haves`.
+  `src/`, `runtime/` and `examples/` absent from every `files_modified`.
+  **CARRIED, NOT BLOCKING (checker W-1, worth closing before wave 6):** `22-06` task
+  1 has no floor requiring that ANY reviewer succeeded -- a record honestly reading
+  "codex FAILED, cursor FAILED, gemini FAILED" satisfies all eight checks and records
+  eight PASSes. The phase's own check-vacuity class, inside the plan written to gate
+  it. Mitigated only by the blocking checkpoint that follows, which is the
+  reviewer-diligence pattern §3.1 rejects.
+  **OPEN AND OWED TO DAVE:** (a) the phase is on `main` -- all four planning commits
+  plus the ROADMAP hand-edits -- and CLAUDE.md §2.2 puts phase work on a phase branch
+  with the merge at `D-GATE-22`; there is no `phase-22` branch to merge. (b) The
+  criterion 3 / criterion 8 reading for the prose-cited client seam is STATED in the
+  page, the `DOCS-15` ledger cell and the phase record, each with a STOP if it reads
+  as a widening -- deliberately not decided, per `D-10`: *"a scope question for Dave,
+  not a quiet widening."*
+  Next action: `/gsd:execute-phase 22`.
 
 Phase: **20 — Client Access from Three Harnesses (ADK, Anthropic Agent SDK, LangGraph)**
   ADDED 2026-08-20 (Dave, `/gsd-phase`). **SCOPE CONFIRMED AND ALL FOUR OPEN QUESTIONS
