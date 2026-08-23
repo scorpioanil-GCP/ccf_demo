@@ -1,10 +1,10 @@
-# Phase 16's eighteen `DOCS-` rows — the two-sided split
+# Phase 16's nineteen `DOCS-` rows — the two-sided split
 
 Phase 16 was a documentation-and-examples rewrite that executed sixteen plans
 and was retired on 2026-08-17 at `D-IMPL-152` when its example surface was
 rejected. **That ruling retired the approach, not the need** — `RETIRED.md`
 says so in its own heading: *"THE PLAN SET IS RETIRED. THE OBLIGATIONS ARE NOT
-DISCHARGED."* So the eighteen requirement rows the phase minted are not
+DISCHARGED."* So the nineteen requirement rows the phase minted are not
 automatically dead, and they are not automatically alive either. This document
 sorts them by one test — **does the obligation this row states have a satisfied
 referent in the tree as it stands today?** — and asks you to rule.
@@ -14,17 +14,85 @@ about history, never about today's tree. Eight of these rows were substantively
 shipped by plans that ran *after* the phase's original stop, and by Phases 17,
 18 and 20 that replaced it; the ledger never recorded any of it.
 
-**The headline finding.** Ten rows are done. Three are genuinely not built and
-belong on your work list. Five are split — a limb shipped and a limb did not.
-**Exactly one limb, in one row, is orphaned** — and that is a real result, not
-a thin one: an obligation about a *need* survives an approach's rejection, so
-almost nothing here died with the phase. What did die is `DOCS-18`'s
+**The headline finding.** Eleven rows are done. Three are genuinely not built
+and belong on your work list. Five are split — a limb shipped and a limb did
+not. **Exactly one limb, in one row, is orphaned** — and that is a real result,
+not a thin one: an obligation about a *need* survives an approach's rejection,
+so almost nothing here died with the phase. What did die is `DOCS-18`'s
 no-fabric-change assertion, and it died because **you revoked it yourself** at
 `D-IMPL-96`.
 
 ---
 
-## The eighteen rows
+## AMENDED 2026-08-22 — Phase 21.1, `RR-3`: this document was short a row
+
+> **What changed and why.** As first written and as ruled on, this document
+> carried **eighteen** rows. The ledger carries **nineteen**. `DOCS-22` was
+> never in this document, never in `21-FINDINGS.md`, and never in any other
+> document you rule from — its exclusion was recorded only inside plan
+> `21-04`'s own PLAN and SUMMARY, which are wave hand-offs. That is the same
+> defect as `B-3` at the Phase 21 close: a gap named in a hand-off that never
+> reached the page. Phase 21.1 finding `RR-3`.
+>
+> **`D-IMPL-175` is NOT amended, and nothing already ruled on is rewritten.**
+> The eighteen verdicts you accepted on 2026-08-22 stand exactly as accepted —
+> ten `Complete`, five `Partial`, three `Not built`, `DOCS-18` limb 1 closed.
+> No verdict, evidence line, section or ruling question below has been
+> re-opened, re-verdicted, softened or removed.
+>
+> **The nineteenth row is a NEW ask.** `DOCS-22`'s row, its section, and
+> ruling item 8 are additive and carry this date. **Do not read `DOCS-22` as
+> approved because it sits among eighteen rows that are** — it has not been
+> put to you before this amendment.
+>
+> **What else the amendment touched:** the title and opening paragraph
+> (eighteen → nineteen), the totals line (both figures shown, old beside new),
+> and the lane-roster section immediately below, which did not exist before.
+> `RR-8` — this document's `both`/`three` gate-suite miscount in `DOCS-08` —
+> is **carried, not fixed**, and stays as written.
+
+---
+
+## The lane roster — the nineteen ids, named
+
+**Why this section exists.** Until this amendment the document stated its scope
+as a count — *"eighteen"* — and a count cannot see an absence and cannot see a
+swap. A reader could not tell from any page here which ids the lane held, so a
+missing row was invisible rather than merely unnoticed. The roster is therefore
+stated as **named ids**, and a future gap is visible by reading rather than by
+re-counting.
+
+**How the list was derived.** Parsed from the ledger, not transcribed from this
+document or from any plan: every row of `.planning/REQUIREMENTS.md`'s
+traceability table whose id is in the `DOCS-` family and whose phase cell reads
+`Phase 16`, in ledger order.
+
+1. `DOCS-07`
+2. `DOCS-08`
+3. `DOCS-09`
+4. `DOCS-10`
+5. `DOCS-11`
+6. `DOCS-12`
+7. `DOCS-13`
+8. `DOCS-14`
+9. `DOCS-15`
+10. `DOCS-16`
+11. `DOCS-17`
+12. `DOCS-18`
+13. `DOCS-19`
+14. `DOCS-20`
+15. `DOCS-21`
+16. `DOCS-22`
+17. `DOCS-23`
+18. `DOCS-24`
+19. `DOCS-25`
+
+Nineteen ids. Every one of them is ruled on below — the eighteen at
+`D-IMPL-175`, and `DOCS-22` as this amendment's new ask.
+
+---
+
+## The nineteen rows
 
 | Id | The obligation, in one line | Side | Proposed verdict | Evidence in one line |
 |---|---|---|---|---|
@@ -43,12 +111,19 @@ no-fabric-change assertion, and it died because **you revoked it yourself** at
 | DOCS-19 | The four `D-IMPL-126` consumption papercuts closed in the fabric | A | **Complete** | All four ship and each has its own gate — `from_declared`, the dual-channel refusal, the typed 503, and `X-CCF-Content-Address` |
 | DOCS-20 | The MCP egress door carries a parameterised tool beside its resource | A | **Complete** | `runtime/ccf_runtime/mcp/egress.py` carries `PRODUCT_REQUEST_TOOL` behind an opt-in pair, with a seven-scenario parity matrix proving the tool is never the weaker path |
 | DOCS-21 | Experience server handlers gated, or their ungated status pinned | A | **Complete** | Both limbs: `get_context` and `get_lineage` traverse the resource's own governance sequence, and the three tools that stay ungated are pinned by a named test whose inversion is the fix |
+| DOCS-22 | `ProductDiscovery` carries a fourth axis, `audiences`, and the full §6.3 surface obligation is discharged | A | **Complete** *(NEW — added 2026-08-22, not covered by `D-IMPL-175`)* | `src/ccf/products/contract.py:416` carries the axis, eight named assertions in `tests/products/test_discovery_audiences.py` gate it per property, and all three limbs of the surface obligation have live referents — fragment, shape claim and regenerated log |
 | DOCS-23 | One `ccf_config.yaml`, typed, schema-exported, unknown keys refused by name | A | **Complete** | `src/ccf/deployment/config.py` plus `docs/schemas/ccf.deployment-config.json`, with refusals that name one unknown key and that name two together in one message |
 | DOCS-24 | Reserved sections derive their five fields; adopter-owned still state three | A | **Complete** | `_RESERVED_SECTIONS` drives the derivation, and the R-1 refusal family proves it does not over-reach into SDK-owned sections |
 | DOCS-25 | Single-file and multi-file forms register at identical content addresses | A | **Complete** | `tests/deployment/test_config_equivalence.py` compares both forms pin for pin, with a perturbation control proving the comparison still discriminates |
 
-**Totals: ten Complete, five Partial, three Not built, zero wholly Orphaned —
-with one orphaned limb inside `DOCS-18`.**
+**Totals, re-derived from the table above after the amendment: eleven
+Complete, five Partial, three Not built, zero wholly Orphaned — with one
+orphaned limb inside `DOCS-18`.** The figures this document carried before
+2026-08-22 were *ten Complete, five Partial, three Not built, zero wholly
+Orphaned*; the single moved figure is `Complete`, ten → eleven, and it moved
+because `DOCS-22` was added, not because any of the eighteen was re-verdicted.
+Ten plus five plus three is eighteen; eleven plus five plus three is nineteen,
+which is the lane roster above, id for id.
 
 ---
 
@@ -379,6 +454,116 @@ signature of the fix.
 
 **Proposed: `Complete`.**
 
+## DOCS-22 — `ProductDiscovery`'s fourth axis, and the surface obligation that came with it
+
+**ADDED 2026-08-22 by Phase 21.1 (`RR-3`). This row was not in this document
+when you ruled at `D-IMPL-175`, so its verdict is a NEW ask and not one of the
+eighteen you accepted.**
+
+**The obligation.** Two limbs, both from `D-IMPL-135`
+(`docs/DECISIONS.md:436`). *Limb 1:* `ProductDiscovery` — the §6.3 **Discovery**
+element — carries a fourth axis, `audiences`, on the same footing as the other
+three: opaque, deployment-declared, uninterpreted. *Limb 2:* because adding a
+field to a **shipped** §6.3 element carries the full surface obligation, that
+obligation is discharged in all three parts `D-IMPL-135` names by hand — a
+`docs/surface-changes/` fragment claiming exactly the names that move, a
+`_SHAPE_MOVED_BY_FRAGMENT` claim per `D-IMPL-130`, and a regenerated
+`docs/SURFACE-CHANGES.md` whose currency gate compares on bytes.
+
+**Measured against the tree as it stands, not read off the ledger.** The
+ledger's own cell for this row said `Complete` in one bare, unbolded, uncited
+word — which is the finding, not the evidence. Everything below was re-run in
+this session.
+
+**Side A, limb 1 — the axis ships.** `src/ccf/products/contract.py:416` reads
+`audiences: frozenset[str] = frozenset()`, the fourth field after `domain`,
+`intents` and `capabilities`, and the sentinel at `:472` states it explicitly
+(`audiences=frozenset()`, `:476`) rather than inheriting the field default —
+*this class declares no audience* said positively rather than left to a reader.
+It reaches the authoring surface too: `docs/schemas/ccf.product-class.json`
+carries `audiences` as an array defaulting to `[]`, and the
+`ccf.product-class` document's `discovery:` block parses an `audiences:` list.
+
+The limb is gated **per property**, not by one test standing for the set —
+`tests/products/test_discovery_audiences.py`, eight named assertions across
+three classes:
+
+- `test_the_three_axis_construction_still_constructs` — the additive claim, in
+  the only form that can falsify it: every pre-existing three-axis construction
+  still constructs unedited.
+- `test_not_discoverable_states_the_fourth_axis_explicitly`.
+- `test_a_fourth_axis_value_round_trips`, including through the dump.
+- `test_register_product_class_carries_the_axis_through_unchanged`.
+- `test_a_ccf_product_class_document_carrying_audiences_parses` — the
+  declarative channel, so the axis is reachable without writing Python
+  (`CLAUDE.md` §6.4).
+- `test_a_bare_string_is_refused_not_coerced_to_characters` — the refusal that
+  matters for a `frozenset[str]`, where the silent failure is a string
+  shredded into characters rather than a type error.
+- `test_two_values_differing_only_in_audiences_have_different_addresses` — the
+  axis is inside the content address, so a declared audience is a pinned fact
+  rather than decoration.
+- `test_no_module_outside_contract_py_reads_audiences` — **the strongest of the
+  eight, and the one worth naming.** It holds the axis OPAQUE: nothing in `src/`
+  or `runtime/` interprets an audience, so no audience vocabulary can accrete in
+  library code. That is `CLAUDE.md` §11's mechanism-not-values rule asserted
+  rather than asserted-about. Re-measured here independently: the grep for
+  `audiences` across `src/` and `runtime/` returns hits in
+  `src/ccf/products/contract.py` and nowhere else.
+
+**Side A, limb 2 — the surface obligation, all three parts with live
+referents.**
+
+1. *The fragment.* `docs/surface-changes/16-27-discovery-audiences.md` exists,
+   claims both names that move as `reshaped`, opens with what did **not**
+   change, and states `Migration: none` for each. That it is actually READ —
+   rather than merely present — is held by
+   `tests/test_surface_drift.py::test_a_phase_16_fragment_is_actually_read`,
+   which asserts the read in both directions because the glob was Phase-15
+   anchored until plan `16-22` and a green build was not evidence it had
+   widened.
+2. *The `_SHAPE_MOVED_BY_FRAGMENT` claim.* Present at
+   `tests/test_surface_shape_capture.py:486` — **keyed to
+   `ccf.products.contract.register_product_class`, not to `ProductDiscovery`.**
+   This is the part a reader should not have to reconstruct. `D-IMPL-135`
+   anticipated the claim landing on `ProductDiscovery`, reasoning that adding a
+   field moves the class's shape; `D-IMPL-138`(c) ruled *measure, do not
+   pre-decide*; and the measurement put it elsewhere. `ProductDiscovery` is a
+   `contract`-kind export and the disturbance check walks only `class`- and
+   `function`-kind entries, so its own shape move is structurally invisible
+   there — the move surfaces **transitively**, on the one `function`-kind entry
+   carrying `NOT_DISCOVERABLE` as a default, because a function's captured
+   shape renders a default's `repr()` inline. The fragment records that
+   reasoning on its own page rather than leaving the mismatch to look like an
+   error.
+3. *The regenerated log.* `docs/SURFACE-CHANGES.md` carries both surfaces at
+   `:9687` and `:9712`, each closed by *Recorded by
+   `16-27-discovery-audiences.md`*, and
+   `tests/test_surface_drift.py::test_the_curated_log_is_assembled_from_the_current_fragments`
+   is the currency gate that compares it against the fragments.
+
+Run in this session: `tests/products/test_discovery_audiences.py` plus the two
+drift gates plus `test_no_committed_plain_class_or_function_shape_is_disturbed`
+— **11 passed**.
+
+**What `Complete` does NOT say, named specifically so it is not over-read
+(`D-10`).** There is still **no product-catalog door**: `ProductDiscovery` is
+the schema and `RegisteredProductClass` the registry entry, and nothing in
+`runtime/` serves a catalog of product classes — measured, the only `/catalog`
+route is the **skill** catalog (`runtime/ccf_runtime/http_api/routes/skill.py`,
+gated by `ApiDependencies.skill_catalog`) and the only discovery Tool is the
+**agent** one (`runtime/ccf_runtime/mcp/experience.py:218`). That is not a
+shortfall of this row. `D-IMPL-135` put the door **explicitly out of scope** in
+Dave's own words — *"Not yet on product catalog"* — so the row's predicate is
+the axis and its surface obligation, both of which are met. A second, narrower
+residual is named in the fragment rather than here: a `contract`-kind export's
+shape move is invisible to the disturbance check, which is a property of that
+check and not of this row.
+
+**Proposed: `Complete`** — both limbs, each with a named referent, and the one
+thing a reader might expect to find and will not is out of scope by your own
+ruling rather than missing.
+
 ## DOCS-23 — the single-file authoring document
 
 **The obligation.** A single `ccf_config.yaml` is a typed, schema-exported
@@ -446,4 +631,33 @@ eight `hw1` documents registering at identical content addresses in both forms.
    surface for the examples that actually shipped. Rule whether that is one
    piece of work or four.
 7. **Nothing here was flipped without evidence, dropped, retired or built.**
-   All eighteen ids stay in both ledger channels.
+   All nineteen ids stay in both ledger channels.
+
+---
+
+### NEW asks — added 2026-08-22 by Phase 21.1 (`RR-3`), and NOT ruled on
+
+Items 1–7 above are the asks you answered at `D-IMPL-175`, unchanged. The two
+below have never been put to you. They are marked NEW so that a nineteenth row
+appearing under a heading you have already signed cannot read as approved.
+
+8. **`DOCS-22` — accept `Complete`, or send it back.** NEW and un-ruled. Both
+   limbs measured above: the `audiences` axis ships with eight named
+   assertions gating it per property, and all three parts of the §6.3 surface
+   obligation have live referents. The one thing absent — a product-catalog
+   door — you put out of scope yourself at `D-IMPL-135`. If you accept, the
+   lane's totals become eleven `Complete`, five `Partial`, three `Not built`.
+9. **`DOCS-22`'s ledger cell has been amended, narrowly, under your ruling at
+   `D-IMPL-179` limb 1.** RECORDED here rather than asked, so the change is
+   visible on the page a ruling is made from. The cell read
+   `| DOCS-22 | Phase 16 | Complete |` — bare, unbolded, uncited, one of the
+   79 rows carried as advisory `A-5`. It now carries the `DCD-10` status-cell
+   shape: a bolded verdict, citations that resolve, and a qualifying clause.
+   **ONE cell. The other 78 `A-5` rows are untouched**, per your bound — *"do
+   not widen into a full re-verdict of rows outside the working set"*. The
+   consequence worth knowing: before the amendment `DOCS-22` carried **no
+   citation at all**, so no gate in
+   `tools/docs_tests/test_requirement_ledger.py` had anything to check about
+   it; after it, its citations are inside `refuse_unresolvable`'s ledger-wide
+   sweep and a broken one is refused by name. Amending the cell is what put
+   the row under a gate.
