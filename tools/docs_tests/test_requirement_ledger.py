@@ -5984,6 +5984,10 @@ CONTROL_AIM: dict[str, Aim] = {
         targets=frozenset({"pathspec"}),
     ),
     # --- `D-21` made standing ----------------------------------------------
+    "test_control_38b_every_pathspec_aimed_control_reads_every_member": Aim(
+        kind="meta",
+        targets=frozenset({"pathspec"}),
+    ),
     "test_control_39_the_count_sweep_finds_a_planted_count": Aim(
         kind="guard",
         targets=frozenset({"carried_counts", "module_source"}),
@@ -6086,6 +6090,7 @@ CONTROLS: frozenset[str] = frozenset(
         "test_control_36b_every_guard_aimed_control_reaches_the_guard_it_holds",
         "test_control_36c_every_shim_keeps_its_degradation_silent",
         "test_control_38_every_pathspec_aimed_control_exercises_the_constant_it_names",
+        "test_control_38b_every_pathspec_aimed_control_reads_every_member",
         "test_control_39_the_count_sweep_finds_a_planted_count",
         "test_control_40_the_count_sweep_refuses_a_subject_it_cannot_sweep",
     }
@@ -6702,6 +6707,90 @@ def test_control_38_every_pathspec_aimed_control_exercises_the_constant_it_names
     assert proven, (
         "no pathspec aim was proven at all, so this control passed over the"
         " empty set"
+    )
+
+
+def test_control_38b_every_pathspec_aimed_control_reads_every_member() -> None:
+    """CONTROL 38b — misspell ONE member; the control must still fail.
+
+    **`B-1`'s second site, converged on by codex (finding 2) and the
+    single-agent review (finding 3).** `CONTROL 38` substitutes a near miss for
+    EVERY member of a constant at once. That proves the control reads the
+    constant; it cannot tell a control that reads every member from one that
+    reads only the first, because corrupting all of them corrupts the first.
+    The saboteur's own message reads "misspelled member by member", which is
+    what it was not.
+
+    Measured against the shipped module before this existed: `CONTROL A`
+    narrowed to ``for member in resolved[name][:1]`` left the whole suite GREEN,
+    `CONTROL 38` included. Fourteen members of :data:`FENCE` and
+    :data:`UAT_RECORDS` were vouched for by a meta-control that would not have
+    noticed their loss.
+
+    This is the same quantifier the fix itself uses, one level up, and it is the
+    same correction `CONTROL 41` makes for `CONTROL 18`: the proof has to
+    quantify the way the thing it proves quantifies.
+
+    A red here must be the control's own :class:`AssertionError`. A crash is not
+    coverage — it is indistinguishable from a caught defect to every assertion
+    in this module, which is the instrument this phase exists NOT to build.
+    """
+    resolved = dict(asserted_pathspecs())
+    failures: list[str] = []
+    proven: set[str] = set()
+
+    for name in sorted(CONTROL_AIM):
+        aim = CONTROL_AIM[name]
+        if aim.kind != "pathspec":
+            continue
+        intact = _run_control(aim)
+        if intact is not None:
+            failures.append(
+                f"{name} does not pass with its constants INTACT — it raised"
+                f" {type(intact).__name__}: {intact}. A control that is red"
+                " anyway is red under any substitution"
+            )
+            continue
+        for target in sorted(aim.targets):
+            members = resolved[target]
+            for index, member in enumerate(members):
+                typo = near_miss(member)
+                assert not tracked_under((typo,)), (
+                    f"the derived misspelling {typo!r} of {target}[{index}] ="
+                    f" {member!r} names something `git` tracks, so substituting"
+                    " it would not break the control and this proof would pass"
+                    " over a member it corrupted only in name"
+                )
+                mutated = tuple(
+                    typo if at == index else other
+                    for at, other in enumerate(members)
+                )
+                with _substituted(target, mutated):
+                    raised = _run_control(aim)
+                if raised is None:
+                    failures.append(
+                        f"{name} PASSED with member {index} of {target}"
+                        f" misspelled — {member!r} became {typo!r} and the"
+                        " control reported success. It does not read that"
+                        " member, so the emptiness assertion over"
+                        f" {target} says nothing about it. That is RR-1's"
+                        " quantifier defect in the proof rather than in the"
+                        " code it proves"
+                    )
+                elif not isinstance(raised, AssertionError):
+                    failures.append(
+                        f"{name} went red with member {index} of {target}"
+                        f" misspelled, but it CRASHED — {type(raised).__name__}:"
+                        f" {raised}. A crash is not coverage"
+                    )
+                else:
+                    proven.add(f"{target}[{index}]")
+
+    assert not failures, "\n".join(failures)
+    assert proven, (
+        "no pathspec member was proven at all, so this control passed over the"
+        " empty set — which is the vacuity it exists to detect, arriving inside"
+        " itself"
     )
 
 
