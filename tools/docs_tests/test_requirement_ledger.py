@@ -5605,6 +5605,10 @@ CONTROL_AIM: dict[str, Aim] = {
         kind="meta",
         targets=frozenset({"shim"}),
     ),
+    "test_control_38_every_pathspec_aimed_control_exercises_the_constant_it_names": Aim(
+        kind="meta",
+        targets=frozenset({"pathspec"}),
+    ),
 }
 
 #: Every control in this module, by NAME — the roster the enumeration below is
@@ -5676,6 +5680,7 @@ CONTROLS: frozenset[str] = frozenset(
         "test_control_36_every_discriminator_discriminates",
         "test_control_36b_every_guard_aimed_control_reaches_the_guard_it_holds",
         "test_control_36c_every_shim_keeps_its_degradation_silent",
+        "test_control_38_every_pathspec_aimed_control_exercises_the_constant_it_names",
     }
 )
 
@@ -6190,4 +6195,104 @@ def test_control_36c_every_shim_keeps_its_degradation_silent() -> None:
         "no shim aim was proven at all, so this control passed over the empty"
         " set — and the four limbs `D-IMPL-181` ruled on would be back to"
         " being excused rather than proven"
+    )
+
+
+# ===========================================================================
+# CONTROL 38 — every `pathspec`-aimed control EXERCISES the constant it names.
+#
+# `VAC-06`, criterion 13's pathspec half, plan `21.1-08`. The last of the six
+# aim kinds to get a proof, and it lands BEFORE the two repairs it forces so
+# that it is observed RED naming exactly the two controls this project shipped
+# mis-aimed for a whole phase.
+#
+# THE REASONING IS THE MODULE'S OWN: if a control genuinely exercises a
+# constant, corrupting that constant must break it. `CONTROL 13` diffs
+# `CHANGED_TREE` while vouching for an assertion over `TESTS_TREE`, so
+# corrupting `TESTS_TREE` does nothing to it — which is precisely the defect,
+# expressed as a test rather than as a paragraph. `CONTROL A` is the same shape
+# four times over.
+#
+# PER CONSTANT, NEVER PER ENTRY. `CONTROL A`'s docstring calls it "the
+# non-vacuity proof for all four emptiness assertions above at once" and
+# `RECON-08`'s shipped ledger cell repeats that claim verbatim. A proof that it
+# reaches ONE of the four while its entry counts as satisfied is `RR-9` living
+# inside the meta-control built to end `RR-9`. Three-quarters-proven is not
+# proven.
+#
+# THIS ONLY WORKS BECAUSE THE CONTROLS READ THEIR CONSTANTS THROUGH THE MODULE
+# GLOBAL AT CALL TIME. :func:`asserted_pathspecs` is a function for exactly
+# that reason and its docstring says so. A control carrying `("tests/",)` in
+# its body does not read the constant at all, the substitution below is
+# invisible to it, and this check would pass over a control it proves nothing
+# about.
+# ===========================================================================
+
+
+def test_control_38_every_pathspec_aimed_control_exercises_the_constant_it_names() -> (
+    None
+):
+    """CONTROL 38 — misspell ONE named pathspec constant; the control must fail.
+
+    For every `pathspec` entry in :data:`CONTROL_AIM` and for EACH constant in
+    its target set INDEPENDENTLY: replace that one module global with a tuple
+    of near-miss misspellings of its own members, invoke the control through
+    its registry thunk, and require it NOT to pass. Then restore and require it
+    to pass.
+
+    **The misspellings are DERIVED through :func:`near_miss` from the members
+    the constant actually holds**, never written down — a literal typo table is
+    one edit away from naming a member that no longer exists, and a control
+    whose subject has drifted out of its own constant is this phase's defect
+    class by a third route. Each derived misspelling is required to be untracked
+    before it is used, so a transposition that happened to name a real file is
+    caught here rather than making the proof vacuous.
+
+    **The red must be the control's own `AssertionError`.** A crash is not
+    coverage: it is indistinguishable from a caught defect to every coverage
+    assertion in this module, which is the instrument this phase exists NOT to
+    build. Same requirement `CONTROL 36`, `36b` and `36c` carry.
+
+    The shared :func:`_aim_proof` loop is reused rather than hand-copied for the
+    fourth time — the three-divergent-inline-copies shape plan `21.1-02` was
+    written to end.
+    """
+    targets = sorted(
+        target
+        for aim in CONTROL_AIM.values()
+        if aim.kind == "pathspec"
+        for target in aim.targets
+    )
+    assert targets, (
+        "no `pathspec` aim is registered at all, so the loop below runs over"
+        " the empty set — the vacuity this module exists to detect, arriving"
+        " inside the check that detects it"
+    )
+    resolved = dict(asserted_pathspecs())
+    unresolvable = sorted(set(targets) - set(resolved))
+    assert not unresolvable, (
+        f"these `pathspec` targets name no constant `asserted_pathspecs()`"
+        f" resolves: {unresolvable}"
+    )
+    for target in targets:
+        for member in resolved[target]:
+            typo = near_miss(member)
+            assert not tracked_under((typo,)), (
+                f"the derived misspelling {typo!r} of {target}'s member"
+                f" {member!r} names something `git` tracks, so substituting it"
+                " would not break the control and this proof would pass over a"
+                " constant it corrupted only in name"
+            )
+
+    failures, proven = _aim_proof(
+        "pathspec",
+        lambda _aim, target: _substituted(
+            target, tuple(near_miss(member) for member in resolved[target])
+        ),
+        "misspelled member by member",
+    )
+    assert not failures, "\n".join(failures)
+    assert proven, (
+        "no pathspec aim was proven at all, so this control passed over the"
+        " empty set"
     )
