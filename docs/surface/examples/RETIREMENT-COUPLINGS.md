@@ -656,6 +656,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-FINDINGS.md` | 10 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-RESEARCH.md` | 7 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-01-PLAN.md` | 53 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-01-SUMMARY.md` | 24 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-02-PLAN.md` | 29 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-04-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-05-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
