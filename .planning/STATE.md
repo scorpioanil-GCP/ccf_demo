@@ -272,7 +272,7 @@ last_activity: >-
   five `Partial`, three `Not built`, old figures beside new; the only moved figure is
   `Complete` 10 -> 11, and it moved by ADDITION, not by re-verdicting.
   **`DOCS-22` MEASURED AGAINST THE TREE, NOT READ OFF THE LEDGER: `Complete`.** Both
-  limbs of `D-IMPL-135`. The `audiences` axis at `src/ccf/products/contract.py:416` with
+  limbs of `D-IMPL-135`. The `audiences` axis at `src/ccf/products/contract.py::audiences` with
   EIGHT named assertions gating it per property -- the load-bearing one holding the
   values OPAQUE to every module outside `contract.py`. All three parts of the surface
   obligation with live referents: the fragment `16-27-discovery-audiences.md` proved
