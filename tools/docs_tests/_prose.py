@@ -229,6 +229,23 @@ def paragraphs(text: str) -> list[Paragraph]:
 SENTENCE_BREAK = re.compile(r"""[.!?][)\]"'*`_]*\s""")
 
 
+def sentence_bounds(text: str, offset: int) -> tuple[int, int]:
+    """``(start, end)`` of the sentence of `text` containing `offset`.
+
+    Exposed alongside :func:`sentence_at` rather than folded into it because a
+    caller that needs to compare POSITIONS inside the sentence — is this anchor
+    before that verb? — has to map them back into the paragraph's coordinate
+    system, and recovering the offset with ``text.index(sentence)`` silently
+    picks the FIRST occurrence when a paragraph repeats a sentence. Returning
+    the bounds removes the search.
+    """
+    start = 0
+    for match in SENTENCE_BREAK.finditer(text, 0, offset):
+        start = match.end()
+    end_match = SENTENCE_BREAK.search(text, offset)
+    return start, end_match.end() if end_match else len(text)
+
+
 def sentence_at(text: str, offset: int) -> str:
     """The sentence of `text` containing character `offset`.
 
@@ -241,11 +258,7 @@ def sentence_at(text: str, offset: int) -> str:
     added — see that constant's comment for the measurement and for both
     directions of the failure.
     """
-    start = 0
-    for match in SENTENCE_BREAK.finditer(text, 0, offset):
-        start = match.end()
-    end_match = SENTENCE_BREAK.search(text, offset)
-    end = end_match.end() if end_match else len(text)
+    start, end = sentence_bounds(text, offset)
     return text[start:end]
 
 

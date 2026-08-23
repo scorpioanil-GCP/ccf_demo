@@ -81,6 +81,7 @@ from __future__ import annotations
 import pathlib
 import re
 import shutil
+from collections.abc import Iterator
 
 import pytest
 
@@ -93,6 +94,15 @@ from tools.lints.citations import NODE_ID, repo_index, resolve_cited, symbol_spa
 #: than a claim about a tool. Word-bounded where a bare substring would
 #: over-match: unbounded ``RAG`` also matches "storage", "paragraph",
 #: "coverage", "leverage" and "average".
+#:
+#: **The second block is the page's own vocabulary, and its absence was the
+#: Phase 22 close's most severe finding.** The page writes *"a document search"*
+#: at line 319 and *"a retrieval system"* at line 332 and neither was in this
+#: constant, so a limit asserted of either was outside candidacy entirely.
+#: Measured before the addition, all three of *"A retrieval system cannot
+#: answer…"*, *"A document search is unable to compute…"* and *"An embedding
+#: index has no way to represent an ownership path."* were ADMITTED — written in
+#: the page's own nouns.
 EXTERNAL_APPROACH = re.compile(
     r"\bRAG\b"
     r"|retrieval-augmented"
@@ -103,24 +113,118 @@ EXTERNAL_APPROACH = re.compile(
     r"|prompt templates?"
     r"|hand-rolled"
     r"|hand rolled"
-    r"|chunked documents",
+    r"|chunked documents"
+    # The page's own nouns for the same three subjects.
+    r"|retrieval systems?"
+    r"|document searches"
+    r"|document search"
+    r"|embedding indexe?s?"
+    r"|vector indexe?s?"
+    r"|\bchunks?\b",
     re.IGNORECASE,
 )
+
+#: Subjects that are NOT an external approach, for AW-1's condition (ii).
+#: **Matched against ``Paragraph.text``.**
+#:
+#: Two families, and both are on the page. CCF-side subjects, because a limit
+#: predicated of **CCF** is not the AW-1 offence: with paragraph-and-heading
+#: candidacy the page's most honest sentence would otherwise be reported, since
+#: line 331 concedes *"…the one place on this page where a retrieval system does
+#: something this deployment does not do"*. And question-side subjects, because
+#: ``D-02``'s REQUIRED form is a fact about the question and those facts are
+#: written with limit verbs: *"The question itself has no way to be answered by
+#: reading one record"* is the recast the page is obliged to use, and control
+#: 4's (b) half has held it since the gate shipped.
+#:
+#: Recasting correct prose to satisfy a gate that misjudges it is how a gate
+#: teaches authors to write worse pages — the failure controls 5 and 6 exist to
+#: prevent.
+#:
+#: This is nonetheless an EXEMPTION vocabulary, in the same spirit as
+#: ``EXTRACTION_DENIAL``: an exemption that fires too easily switches the
+#: obligation off while the suite stays green. So it names specific subjects and
+#: nothing generic — **no bare pronoun**, in particular. A bare ``it`` would
+#: exempt *"It cannot answer a question whose answer no single document
+#: states."*, which is the measured sentence the heading-carry exists to catch.
+RE_ANCHORING_SUBJECT = re.compile(
+    # CCF's side of the comparison.
+    r"\bCCF\b"
+    r"|\bthe SDK\b"
+    r"|\bthe fabric\b"
+    r"|\bthis fabric\b"
+    r"|\bthis deployment\b"
+    r"|\bthe deployment\b"
+    r"|\bthis page\b"
+    r"|\bthis example\b"
+    r"|\bPattern 5\b"
+    r"|\bno shipped pipeline\b"
+    r"|\bthe projection\b"
+    r"|\bthe product\b"
+    # The question's side — D-02's required recast.
+    r"|\bthe question\b"
+    r"|\bthis question\b"
+    r"|\bthe answer\b"
+    r"|\bthe figure\b"
+    r"|\bthe record\b"
+    r"|\bthe estate\b",
+    re.IGNORECASE,
+)
+
+#: What disqualifies a ``RE_ANCHORING_SUBJECT`` from re-anchoring — AW-1's
+#: condition (iii). **Matched against the ``Paragraph.text`` window immediately
+#: preceding the subject.**
+#:
+#: Without it, condition (ii) is a hole rather than a correction. *"RAG over a
+#: vector store, unlike this deployment, cannot answer the question."* and
+#: *"…where a retrieval system does something this deployment does not do"* have
+#: the identical shape — approach, then CCF subject, then limit verb — and only
+#: the contrastive frame tells them apart. The first is the naked ``X can't Y``
+#: the obligation exists to refuse; the second is the page conceding a limit of
+#: its own. Both are held, verbatim, by control 14.
+CONTRASTIVE_FRAME = re.compile(
+    r"\b(?:unlike|rather than|instead of|compared to|compared with|whereas"
+    r"|as opposed to|versus|vs\.?)\s*$",
+    re.IGNORECASE,
+)
+
+#: How wide a window ahead of a ``RE_ANCHORING_SUBJECT`` is searched for a
+#: ``CONTRASTIVE_FRAME``. Wide enough for ``as opposed to `` plus a comma and a
+#: space; narrow enough that a contrastive word belonging to an earlier clause
+#: cannot reach. A constant rather than a literal because control 14 asserts
+#: against it.
+CONTRASTIVE_WINDOW = 24
 
 #: AW-1's offence — the ``X can't Y`` shape. **Matched against
 #: ``Paragraph.text``**: it is ordinary prose, and a limit verb inside a code
 #: span is a literal, not an assertion. Word-bounded on purpose; an unbounded
 #: ``no`` matches "note" and "nothing" and would make every paragraph an
 #: offender.
+#:
+#: **The bare plural was missing and it is the requirement's own word.**
+#: ``DOCS-15`` reads *"states what each **lacks**"*; this constant carried
+#: ``lacks`` and ``lacking`` and not ``lack``, so the one spelling the
+#: requirement uses was the one spelling that got through. Measured ADMITTED
+#: with ``Vector stores`` as the subject, before the widening below: *"lack an
+#: ownership path"*, *"will never compute"*, *"are not able to"*, *"simply do
+#: not compute"*, *"stop short of computing"*, *"miss the ownership path
+#: entirely"*.
+#:
+#: ``never`` is admitted only behind a modal — ``can|could|will|would|shall`` —
+#: and NOT bare. Bare ``never`` matches the honesty caveat AW-2 requires the
+#: page to carry (*"Pattern 5, unstructured ingestion, was never built"*), which
+#: sits under a heading naming ``document search``, so under
+#: paragraph-and-heading candidacy a bare token would have made the two
+#: obligations contradict each other: AW-2 demands the sentence and AW-1 would
+#: refuse it.
 LIMIT_VERB = re.compile(
     r"\bcannot\b"
     r"|\bcan't\b"
     r"|\bcan not\b"
     r"|\bunable to\b"
-    r"|\blacks\b"
-    r"|\blacking\b"
-    r"|\bfails to\b"
-    r"|\bfail to\b"
+    r"|\bnot able to\b"
+    r"|\black(?:s|ed|ing)?\b"
+    r"|\bfails? to\b"
     r"|\bhas no\b"
     r"|\bhave no\b"
     r"|\bdoes not support\b"
@@ -128,7 +232,12 @@ LIMIT_VERB = re.compile(
     r"|\bdo not support\b"
     r"|\bincapable of\b"
     r"|\bno way to\b"
-    r"|\bfalls short\b",
+    r"|\bfalls? short\b"
+    r"|\bstops? short\b"
+    r"|\b(?:can|could|will|would|shall)\s+never\b"
+    r"|\bdo(?:es)?\s+not\s+\w+"
+    r"|\bdo(?:es)?n't\s+\w+"
+    r"|\bmiss(?:es)?\b",
     re.IGNORECASE,
 )
 
@@ -245,22 +354,134 @@ CAVEAT_ABSENCE = re.compile(
 # --------------------------------------------------------------------------
 
 
+#: An ATX heading line, with its level. Applied to ``Paragraph.text``, which is
+#: exactly the heading line for a heading paragraph: a heading is a run of one
+#: non-blank line, so ``_prose.paragraphs`` emits it on its own.
+HEADING = re.compile(r"(#{1,6})\s+(?P<title>\S.*)$")
+
+
+def paragraphs_with_their_subject(
+    pages: list[pathlib.Path],
+) -> Iterator[tuple[pathlib.Path, _prose.Paragraph, str]]:
+    """``(page, paragraph, subject)`` for every prose paragraph in `pages`.
+
+    ``subject`` is the paragraph's own text joined with the text of every
+    heading it sits under — the whole ancestor stack, not just the nearest one,
+    so a subject established at ``##`` still governs a ``###`` subsection that
+    does not restate it.
+
+    **Why this exists, and it is the Phase 22 close's most severe finding.**
+    AW-1 used to require the approach noun and the limit verb in the SAME
+    SENTENCE. The page establishes each of its three comparison subjects in a
+    heading — ``### RAG over a vector store``, ``### Hand-rolled context
+    assembly``, ``### A semantic layer plus prompt templates`` — and then never
+    restates it in the body. Measured: the entire published tree yielded FOUR
+    ``EXTERNAL_APPROACH`` candidate paragraphs and THREE OF THEM WERE THOSE
+    HEADINGS, so every subsection BODY was outside candidacy and the obligation
+    had jurisdiction over nothing where it mattered most. *"It cannot answer a
+    question whose answer no single document states."* dropped straight into a
+    subsection body and was ADMITTED.
+
+    Candidacy widens; judgement does not. The unit of judgement stays the
+    sentence, and the three conditions in
+    :func:`sentences_asserting_a_capability_limit` are what stop a carried
+    subject from condemning a sentence whose limit belongs to CCF.
+    """
+    for page in pages:
+        stack: dict[int, str] = {}
+        for paragraph in _prose.page_paragraphs(page):
+            if paragraph.fenced:
+                continue
+            heading = HEADING.match(paragraph.text)
+            if heading is not None:
+                level = len(heading.group(1))
+                stack = {
+                    depth: title for depth, title in stack.items() if depth < level
+                }
+                stack[level] = paragraph.text
+            subject = " || ".join([paragraph.text, *stack.values()])
+            yield page, paragraph, subject
+
+
+def _reanchoring_subjects(sentence: str) -> list[int]:
+    """Offsets of the ``RE_ANCHORING_SUBJECT`` matches in `sentence` that count.
+
+    A subject standing behind a ``CONTRASTIVE_FRAME`` — *"RAG, **unlike** this
+    deployment, cannot…"* — is naming CCF as the thing being contrasted AGAINST,
+    not as the thing the limit is predicated of, so it does not re-anchor. That
+    is condition (iii).
+    """
+    return [
+        match.start()
+        for match in RE_ANCHORING_SUBJECT.finditer(sentence)
+        if CONTRASTIVE_FRAME.search(
+            sentence[max(0, match.start() - CONTRASTIVE_WINDOW) : match.start()]
+        )
+        is None
+    ]
+
+
 def sentences_asserting_a_capability_limit(
     pages: list[pathlib.Path],
 ) -> list[str]:
     """AW-1: ``page:line — sentence`` for each naked ``X can't Y``.
 
-    A paragraph naming an external approach is a candidate; the offence is
-    judged on the SENTENCE carrying the approach, so a limit verb three
-    sentences away — attached to something else entirely — does not condemn a
-    correct sentence, and a negation three sentences away does not exonerate an
-    incorrect one.
+    **Candidacy is the paragraph plus its heading stack**
+    (:func:`paragraphs_with_their_subject`); **judgement is the sentence**. A
+    limit verb three sentences away — attached to something else entirely — does
+    not condemn a correct sentence.
+
+    A ``LIMIT_VERB`` inside a candidate paragraph is an offence unless one of
+    three conditions exempts it. Each is watched by its own half of control 14,
+    and each was measured before it was written:
+
+    (i)   **Anchoring.** The nearest subject anchor standing BEFORE the verb
+          decides what the limit is predicated of. Approach anchors come from
+          ``EXTERNAL_APPROACH``, CCF anchors from ``CCF_SUBJECT``. With no
+          anchor before the verb at all, the carried subject rules and the
+          sentence is an offender — that is what catches *"It cannot answer a
+          question whose answer no single document states."* under a heading
+          naming RAG.
+    (ii)  **Re-anchoring.** A nearest-preceding non-approach anchor exempts,
+          because the limit is being predicated of something other than the
+          approach. Two live cases: line 331 of the page, *"…where a retrieval
+          system does something this deployment does not do"*, is the page
+          conceding its own limit; and *"The question itself has no way to be
+          answered by reading one record"* is ``D-02``'s required recast, held
+          by control 4's (b) half since the gate shipped.
+    (iii) **Contrastive frame.** A CCF anchor introduced by ``unlike``, ``rather
+          than``, ``compared to`` and their siblings does NOT re-anchor. Without
+          this, condition (ii) is a hole: *"RAG over a vector store, unlike this
+          deployment, cannot answer the question."* has the identical anchor
+          order to line 331 and is the naked claim the obligation exists to
+          refuse.
+
+    Do not delete a condition as clutter, and do not narrow the vocabularies to
+    make a red go away. Narrowing the gate to fit the prose is the move this
+    module exists to stop; if the page goes red, the page is what changes.
     """
     offenders: list[str] = []
-    for page, paragraph in _prose.iter_paragraphs(pages):
-        for match in EXTERNAL_APPROACH.finditer(paragraph.text):
-            sentence = _prose.sentence_at(paragraph.text, match.start())
-            if LIMIT_VERB.search(sentence) is None:
+    for page, paragraph, subject in paragraphs_with_their_subject(pages):
+        if EXTERNAL_APPROACH.search(subject) is None:
+            continue
+        for match in LIMIT_VERB.finditer(paragraph.text):
+            start, end = _prose.sentence_bounds(paragraph.text, match.start())
+            sentence = paragraph.text[start:end]
+            verb = match.start() - start
+            anchors = [
+                (found.start(), "approach")
+                for found in EXTERNAL_APPROACH.finditer(sentence)
+            ]
+            anchors += [
+                (offset, "other") for offset in _reanchoring_subjects(sentence)
+            ]
+            preceding = [anchor for anchor in anchors if anchor[0] < verb]
+            if preceding and max(preceding)[1] == "other":
+                # The nearest subject standing ahead of the verb is not the
+                # approach, so the limit is predicated of something else — CCF,
+                # or the question. That is a legitimate way to be right, and
+                # both the page's most honest sentence and D-02's required
+                # recast are written exactly this way.
                 continue
             report = f"{_prose.relative(page)}:{paragraph.lineno} — {sentence.strip()}"
             if report not in offenders:
@@ -398,18 +619,75 @@ def test_some_published_paragraph_names_an_external_approach() -> None:
 
     This became satisfiable only when this phase's page shipped: before
     ``public/concepts/answers-no-document-contains.md`` existed, no published
-    paragraph named RAG, a vector store or a semantic layer at all. Ten
-    candidate sentences match today.
+    paragraph named RAG, a vector store or a semantic layer at all.
+
+    **Measured today: 17 candidate paragraphs, all on that page** — and the
+    number is stated as paragraphs because that is the unit of candidacy.
+    The earlier docstring here said *"Ten candidate sentences match today"*,
+    which was ten regex MATCHES across four paragraphs, three of them headings.
+    A match count reads as coverage evidence and is not one: it counted the same
+    four paragraphs repeatedly while the three subsection bodies the obligation
+    most needed to reach were outside candidacy entirely. Counting the wrong
+    unit is how the most severe finding of the Phase 22 close hid behind a green
+    floor.
     """
     triggered = [
         f"{_prose.relative(page)}:{paragraph.lineno}"
-        for page, paragraph in _prose.iter_paragraphs(_prose.published_pages())
-        if EXTERNAL_APPROACH.search(paragraph.text)
+        for page, paragraph, subject in paragraphs_with_their_subject(
+            _prose.published_pages()
+        )
+        if EXTERNAL_APPROACH.search(subject)
     ]
     assert triggered, (
         "no published paragraph matches EXTERNAL_APPROACH, so AW-1 is "
         "filtering an empty set and its green means nothing — this is AW-1's "
         "corpus floor and it is red"
+    )
+
+
+def test_the_heading_carry_is_load_bearing_on_the_shipped_page() -> None:
+    """Candidacy really does reach subsection BODIES, not only their headings.
+
+    The floor above would stay green with the heading carry deleted, because
+    the headings themselves match either way. This is the assertion that goes
+    red instead — and the two numbers it compares are the finding: measured at
+    the Phase 22 close, the published tree yielded **6** paragraphs naming an
+    approach in their own text and **4 of the 6 were headings**, so the bodies
+    of ``### RAG over a vector store``, ``### Hand-rolled context assembly`` and
+    ``### A semantic layer plus prompt templates`` were outside AW-1's
+    jurisdiction completely. With the carry they are 17.
+    """
+    pages = _prose.published_pages()
+    own_text = {
+        (_prose.relative(page), paragraph.lineno)
+        for page, paragraph in _prose.iter_paragraphs(pages)
+        if EXTERNAL_APPROACH.search(paragraph.text)
+    }
+    carried = {
+        (_prose.relative(page), paragraph.lineno)
+        for page, paragraph, subject in paragraphs_with_their_subject(pages)
+        if EXTERNAL_APPROACH.search(subject)
+    }
+    assert own_text <= carried, (
+        "the heading carry LOST candidates the own-text scan finds, which "
+        f"means it is not a widening at all: {sorted(own_text - carried)}"
+    )
+    assert carried - own_text, (
+        "no published paragraph becomes a candidate through its heading, so "
+        "paragraphs_with_their_subject is carrying nothing and AW-1 is back to "
+        "requiring the approach noun and the limit verb in the same sentence — "
+        "the shape under which every comparison subsection BODY on this page "
+        "was outside candidacy"
+    )
+    headings_only = {
+        (_prose.relative(page), paragraph.lineno)
+        for page, paragraph in _prose.iter_paragraphs(pages)
+        if EXTERNAL_APPROACH.search(paragraph.text) and HEADING.match(paragraph.text)
+    }
+    assert len(headings_only) >= 3, (
+        "fewer than three published headings name an external approach, so the "
+        "page has stopped establishing its comparison subjects in headings and "
+        f"this test is measuring something else: {sorted(headings_only)}"
     )
 
 
@@ -594,6 +872,26 @@ def _copied_tree(tmp_path: pathlib.Path, extra: str) -> list[pathlib.Path]:
         with target.open("a", encoding="utf-8") as handle:
             handle.write("\n\n" + extra + "\n")
     return [target]
+
+
+def _standalone(tmp_path: pathlib.Path, body: str) -> list[pathlib.Path]:
+    """A one-page tree built from `body` under a heading naming NO approach.
+
+    The counterpart to :func:`_copied_tree`, and it exists because appending is
+    the wrong fixture for a **candidacy** question. The adoption page's last
+    heading is ``## Where a document search is stronger, and this is not``, so
+    an appended paragraph is a candidate through the heading carry whatever noun
+    it uses — which made the first draft of control 16 survive two of the three
+    vocabulary sabotages it exists to catch.
+
+    Use :func:`_copied_tree` when the question is *"does the gate guard the
+    shipped page?"* and this when the question is *"does this vocabulary
+    matter?"*.
+    """
+    page = tmp_path / "standalone.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(f"{NEUTRAL_HEADING}\n\n{body}\n", encoding="utf-8")
+    return [page]
 
 
 def test_control_1_an_injected_capability_limit_sentence_is_refused(
@@ -973,6 +1271,184 @@ def test_control_11_a_decoy_negation_does_not_exonerate(
         "NEXT sentence — _prose.SENTENCE_BREAK has lost its markup-closer "
         "class, so sentence scoping silently became paragraph scoping"
     )
+
+
+def test_control_14_the_three_aw_1_conditions_are_held_one_at_a_time(
+    tmp_path: pathlib.Path,
+) -> None:
+    """AW-1's conditions, each with its own tree and its own message.
+
+    Four copied trees. If any assertion here ever inverts, AW-1 has either
+    lost jurisdiction over the subsection bodies again or acquired an exemption
+    broad enough to switch itself off.
+
+    Every sentence below is VERBATIM and must not be paraphrased. They are the
+    measured cases from the Phase 22 close review, and a paraphrase that
+    happened to restate the approach noun inside the sentence would pass under
+    the very predicate the (a) half exists to refuse.
+    """
+    # (a) ANCHORING — the subject is established in the HEADING and never
+    # restated, so the body sentence carries only a pronoun. Measured ADMITTED
+    # under sentence-scoped candidacy: three of the four candidate paragraphs on
+    # the whole published tree were headings, and the bodies were unreachable.
+    carried = _standalone(
+        tmp_path / "a",
+        "## RAG over a vector store\n\nIt cannot answer a question whose "
+        "answer no single document states.",
+    )
+    assert sentences_asserting_a_capability_limit(carried), (
+        "condition (i) failed: a naked capability claim in a subsection BODY, "
+        "whose subject is established only in the subsection HEADING, was "
+        "admitted — the heading carry in paragraphs_with_their_subject is gone "
+        "and every comparison subsection is outside AW-1's jurisdiction"
+    )
+
+    # (b) RE-ANCHORING — the page's own line 331, verbatim. The limit is
+    # predicated of THIS DEPLOYMENT, and it is the page conceding what it does
+    # not do. Reporting it would be the gate demanding the page be less honest.
+    conceded = _copied_tree(
+        tmp_path / "b",
+        "Extractive provenance over a document corpus is the one place on this "
+        "page where a retrieval system does something this deployment does not "
+        "do, and the page says so rather than routing around it.",
+    )
+    assert sentences_asserting_a_capability_limit(conceded) == [], (
+        "condition (ii) failed: the page's own concession — a limit predicated "
+        "of THIS DEPLOYMENT, standing after the approach noun — was reported as "
+        "a claim about the approach. AW-1 is now demanding that the page stop "
+        "admitting what it cannot do, which is the opposite of what D-02 asks"
+    )
+
+    # (b') RE-ANCHORING, the D-02 recast. The required form is a fact about the
+    # QUESTION and it is written with a limit verb.
+    recast = _copied_tree(
+        tmp_path / "b2",
+        "The deployment is compared against RAG over a vector store. The "
+        "question itself has no way to be answered by reading one record, "
+        "because the answer is a sum over two ownership paths.",
+    )
+    assert sentences_asserting_a_capability_limit(recast) == [], (
+        "condition (ii) failed on D-02's REQUIRED recast: a fact about the "
+        "question, in a paragraph that also names an approach, was reported as "
+        "a claim about the approach — the gate now refuses the only form the "
+        "page is permitted to use"
+    )
+
+    # (c) CONTRASTIVE FRAME — the same anchor order as (b), and the opposite
+    # meaning. Without condition (iii), condition (ii) is a hole this walks
+    # straight through.
+    framed = _copied_tree(
+        tmp_path / "c",
+        "RAG over a vector store, unlike this deployment, cannot answer the "
+        "question.",
+    )
+    assert sentences_asserting_a_capability_limit(framed), (
+        "condition (iii) failed: a CCF subject introduced by ``unlike`` "
+        "re-anchored a limit that is plainly predicated of RAG — the "
+        "CONTRASTIVE_FRAME guard is gone, so condition (ii) has become an "
+        "exemption any author can reach by naming CCF anywhere ahead of the verb"
+    )
+
+
+#: The six ``X can't Y`` spellings measured ADMITTED at the Phase 22 close, with
+#: ``Vector stores`` as the subject in every one so the only variable is the
+#: verb. VERBATIM: each is a real miss, and the first is ``DOCS-15``'s own word.
+MEASURED_LIMIT_SPELLINGS = (
+    "Vector stores lack an ownership path.",
+    "Vector stores will never compute a sum over two paths.",
+    "Vector stores are not able to compute a sum over two paths.",
+    "Vector stores simply do not compute a sum over two paths.",
+    "Vector stores stop short of computing a sum over two paths.",
+    "Vector stores miss the ownership path entirely.",
+)
+
+
+def test_control_15_every_measured_limit_spelling_is_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """``LIMIT_VERB``'s vocabulary, held against the spellings it let through.
+
+    One tree per spelling, so a red names the spelling rather than the set. A
+    single tree carrying all six would go green the moment any ONE of them was
+    caught, which is the shape of control this project keeps finding vacuous.
+
+    The cross-assertion matters as much as the refusal: none of these is an
+    AW-2 offence, so AW-2 must stay silent on all six. A LIMIT_VERB widening
+    that started firing AW-2 would mean the two obligations had stopped testing
+    different things.
+
+    Built on :func:`_standalone` so that the only thing varying is the verb:
+    the subject ``Vector stores`` is in ``EXTERNAL_APPROACH`` on its own, and
+    the heading names no approach, so a red here is a red about the verb.
+    """
+    for index, sentence in enumerate(MEASURED_LIMIT_SPELLINGS):
+        pages = _standalone(tmp_path / f"v{index}", sentence)
+        assert sentences_asserting_a_capability_limit(pages), (
+            f"AW-1 admitted {sentence!r} — LIMIT_VERB has lost the spelling "
+            "that carries it. This set is the measured miss list from the "
+            "Phase 22 close; the first entry is the word DOCS-15 itself uses"
+        )
+        assert sentences_claiming_passage_extraction(pages) == [], (
+            f"AW-2 fired on {sentence!r}, which is an AW-1 shape carrying no "
+            "passage-anchor claim at all — the two obligations are no longer "
+            "testing different things"
+        )
+
+
+#: A heading that names no external approach, so a control built on it tests
+#: its sentence's vocabulary and not the heading's. Asserted inside control 16
+#: rather than trusted.
+NEUTRAL_HEADING = "# A control page"
+
+#: The three claims measured ADMITTED at the Phase 22 close **written in the
+#: page's own nouns** — line 320 says "document search", line 332 says "a
+#: retrieval system" — none of which was in ``EXTERNAL_APPROACH``. VERBATIM.
+MEASURED_APPROACH_NOUNS = (
+    "A retrieval system cannot answer a question whose answer no single "
+    "document states.",
+    "A document search is unable to compute a sum over two ownership paths.",
+    "An embedding index has no way to represent an ownership path.",
+)
+
+
+def test_control_16_the_pages_own_nouns_for_the_three_approaches_are_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """``EXTERNAL_APPROACH`` covers the vocabulary the page actually writes.
+
+    A subject vocabulary that misses the words the guarded page uses is a
+    vocabulary that guards a different page. All three of these were admitted
+    at the close, and the evasion needed no ingenuity: it needed a thesaurus the
+    page had already opened.
+
+    **This control builds its own page rather than appending to the shipped
+    one, and the reason is that the appending form was measured VACUOUS.** The
+    adoption page's last heading is ``## Where a document search is stronger,
+    and this is not``, which names an approach — so an appended paragraph
+    inherits candidacy from that heading no matter what noun it uses, and two
+    of the three vocabulary sabotages below passed green on the first draft of
+    this control. A control that survives the mutation it exists to catch is
+    the exact defect this module is written against, so the fixture changed
+    rather than the assertion. Control 9 sets the same precedent for the same
+    reason.
+
+    The neutral heading is asserted, not assumed: a heading that drifted into
+    naming an approach would silently reintroduce the vacuity.
+    """
+    assert EXTERNAL_APPROACH.search(NEUTRAL_HEADING) is None, (
+        f"the control's own heading {NEUTRAL_HEADING!r} names an external "
+        "approach, so every sentence below is a candidate through the heading "
+        "carry and the vocabulary sabotages this control exists to catch would "
+        "pass green — which is what happened on this control's first draft"
+    )
+    for index, sentence in enumerate(MEASURED_APPROACH_NOUNS):
+        assert sentences_asserting_a_capability_limit(
+            _standalone(tmp_path / f"n{index}", sentence)
+        ), (
+            f"AW-1 admitted {sentence!r} — EXTERNAL_APPROACH does not name the "
+            "subject, so the claim was never a candidate. The page writes this "
+            "noun itself; a vocabulary that misses it guards nothing"
+        )
 
 
 def test_control_13_the_caveat_clause_swapped_for_an_overclaim_is_refused(
