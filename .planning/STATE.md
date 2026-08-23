@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-23T12:00:00.000Z"
+last_updated: "2026-08-23T13:10:00.000Z"
 last_activity: >-
   2026-08-23 -- **PHASE 21.1 IS CLOSED. `D-GATE-21.1` APPROVED BY DAVE**, logged at
   `docs/DECISIONS.md:532` alongside five ruling entries `D-IMPL-183`..`D-IMPL-187`.
@@ -1236,25 +1236,48 @@ progress:
   completed_plans: 175
   percent: 93
 stopped_at: >-
-  **PHASE 21.1 IS CLOSED AND MERGED.** `D-GATE-21.1` is logged with Dave as
-  approver; `D-GATE-21` is unamended and remains in force. All fifteen Success
-  Criteria read as met, six of them under the readings `D-IMPL-184` confirms.
-  **THE MILESTONE IS NOT COMPLETE AND MUST NOT BE COMPLETED ON THIS COUNTER.** The
-  ROADMAP now shows every phase checked, but `DOCS-07`..`DOCS-19` remain undischarged
-  against a retired Phase 16, and the five `Not built` rows (`DOCS-14`, `DOCS-15`,
-  `DOCS-17`, `CLNT-17`, `EXAM-02`) are still on the work list that `D-IMPL-176`
-  sequenced -- four of them one knot that cannot be sequenced apart. `DOCS-18` limb 1
-  stays closed by `D-IMPL-175`, `RECON-10` still carries an outstanding limb needing
-  a ruling on what *v0.2 requirements* counts, and all 27 `human_needed` verification
-  items across 11 phase records are NAMED, not discharged (`D-20`). A phase counter
-  reading 100% over that debt is exactly the miscount Phase 21 existed to end.
-  **THE NEXT DECISION IS DAVE'S**, and it is which of the named work items opens the
-  next phase -- `D-IMPL-176` recommends `DOCS-15` first, cheapest and highest
-  adoption leverage, with replacements before removals. **`D-IMPL-187` is the one
-  piece of technical debt this phase created rather than inherited**: `Aim.kind` is
-  scalar, so a control spanning two kinds can declare only one of them; making it
-  plural changes every entry in a 63-entry registry and both directions of
-  `CONTROL 34`, which is redesign and belongs in a planned phase, not a close.
+  **PHASE 22 IS DISCUSSED, NOT PLANNED.** `22-CONTEXT.md` and `22-DISCUSSION-LOG.md`
+  are committed at `815f810`; the phase entry and its **fifteen Success Criteria** are
+  hand-written into `.planning/ROADMAP.md` per `D-15`, and the criteria were LOCKED AT
+  THE DISCUSS SITTING -- before planning and before Wave 1 -- per `D-GATE-19`. Nothing
+  is planned and nothing is executed.
+  **THE PHASE IS ONE PAGE PLUS THE GATE THAT KEEPS IT HONEST**, in Dave's words, and it
+  discharges `DOCS-15` alone. Two rulings shape it. `D-02`: you can snippet-include what
+  CCF does and you CANNOT include what RAG lacks, so every *what the alternative lacks*
+  claim is RECAST as a checkable fact about the QUESTION -- *"no document in any source
+  system states Jane's 30.0%"* is verifiable against `events.yaml` and
+  `source-estate.yaml`; *"RAG can't do this"* is not -- and the reader draws the
+  inference. An uncited *lacks* sentence is `DCD-02`'s class, a strong-looking claim
+  with nothing to open. `D-04`: **the wording gate SHIPS WITH THE PAGE**, one module in
+  the `tools/docs_tests/test_gate_two_wording.py` shape carrying both obligations, with
+  non-vacuity floors and injected-violation controls, `public/`-scoped and explicitly
+  NOT a repo-wide rhetoric linter. That reversed the stretch-goal call on a PRICE
+  CHANGE rather than a re-ask, once the proven in-repo instrument was found. Dave:
+  *"if the criterion matters, something can go red when it is violated."*
+  **VERIFIED BEFORE LOCKING, NOT ASSUMED:** `check_paths: true` already fails the strict
+  build on a missing file AND a missing named section, with `test_snippet_gate.py` as
+  the negative control; `examples/s1-01-hello-context-product/spine.py` already carries
+  the SAME SEVEN marker regions the adopter's guide includes from `00-quickstart`, plus
+  twenty documented artifacts and an output test, so **the page is a pure `public/`
+  addition with ZERO changes under `examples/`** -- it was built to be included from and
+  NOTHING HAS EVER INCLUDED FROM IT; the `hw1` trees carry ZERO snippet markers, so the
+  client surface is cited in PROSE, already gated because `public` is in the citation
+  lint's `GATED_TREES`; and every line number cited in `22-CONTEXT.md` was resolved
+  against the tree before it was written.
+  **A LIVE DEFECT WAS FOUND DURING THE SITTING AND IS RECORDED, NOT FIXED.**
+  `tools/retirement_sweep.py` swallows failure at FOUR sites -- `:789`, `:973`, `:982`
+  and `:1111`/`:1124`. Run under the system `python3` rather than `.venv/bin/python`,
+  three modules fail to import, **six coupling rows vanish silently**, the tool prints a
+  confident `238 coupling rows` and exits 0, and the staleness gate then reports the
+  CORRECT committed report as stale. A tool that cannot tell *"there is no coupling"*
+  from *"I could not look"*, deciding what is safe to delete -- this project's own
+  check-vacuity class, one tool over. It is `CLNT-17`/`DOCS-17` machinery and is OUT OF
+  SCOPE for Phase 22.
+  **THE MILESTONE IS STILL NOT COMPLETE AND MUST NOT BE COMPLETED ON THE PHASE COUNTER.**
+  `DOCS-07`..`DOCS-19` remain undischarged against a retired Phase 16; four of the five
+  `Not built` rows (`DOCS-14`, `DOCS-17`, `CLNT-17`, `EXAM-02`) are still one knot;
+  `RECON-10` carries an outstanding limb; and all 27 `human_needed` items across 11 phase
+  records are NAMED, not discharged (`D-20`). **Next action: `/gsd:plan-phase 22`.**
 ---
 
 # STATE — CCF SDK
@@ -1296,6 +1319,26 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+Phase: **22 — The Adoption Argument: What RAG, Hand-Rolled Assembly and a Semantic
+  Layer Lack (INSERTED).** ADDED 2026-08-23 by hand (`D-15`), **DISCUSSED 2026-08-23,
+  NOT PLANNED.** Takes up the Phase 21 work list in the order `D-IMPL-176` sequenced
+  it: *"DOCS-15 first -- cheapest, highest adoption leverage, one page, subject already
+  gated in `s1-01`. Only coupling is that tree's survival under CLNT-17."* Fifteen
+  decisions in `22-CONTEXT.md`; fifteen Success Criteria locked in the ROADMAP entry
+  BEFORE planning per `D-GATE-19`. **The page is a Concepts page titled for the
+  QUESTION, not for any rival** -- a title naming RAG would promise exactly the
+  assertion `D-02` bars the body from making, and the new gate would then be policing a
+  claim the title had already made. It cites `s1-01` for the UBO demonstration and the
+  client surface (`ccf.client`, `hw1`) for the hand-rolled-assembly contrast, which is
+  about the SEAM and not the graph; it adds NOTHING to the `00`--`08` trees' 102
+  includes that `DOCS-17` must re-cut; and it is a declared `CLNT-17` DEPENDENCY --
+  `s1-01` cannot be removed until this page is re-pointed or its demonstration
+  re-homed, which lands mechanically as coupling rows owned by `17-08` rather than as a
+  note somebody has to remember. Coverage is locked to a DEFAULT, not discussed: exactly
+  the three alternatives `DOCS-15` names and no fourth, and the staleness claim rests
+  only on what `s1-01` already measures -- `examples/s1-02-freshness-and-debt` is NOT
+  invented here. Next action: `/gsd:plan-phase 22`.
 
 Phase: **20 — Client Access from Three Harnesses (ADK, Anthropic Agent SDK, LangGraph)**
   ADDED 2026-08-20 (Dave, `/gsd-phase`). **SCOPE CONFIRMED AND ALL FOUR OPEN QUESTIONS
