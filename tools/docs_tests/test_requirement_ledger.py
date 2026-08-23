@@ -5391,6 +5391,10 @@ CONTROL_AIM: dict[str, Aim] = {
         kind="meta",
         targets=frozenset(AIM_KINDS),
     ),
+    "test_control_35_every_limb_aimed_control_reaches_the_limb_it_names": Aim(
+        kind="meta",
+        targets=frozenset({"limb"}),
+    ),
 }
 
 #: Every control in this module, by NAME — the roster the enumeration below is
@@ -5457,6 +5461,7 @@ CONTROLS: frozenset[str] = frozenset(
         "test_control_32_a_refusal_with_no_registered_identity_is_itself_refused",
         "test_control_33_the_neutering_off_switch_cannot_leak_and_its_guard_can_fail",
         "test_control_34_every_control_declares_an_aim_and_every_limb_is_claimed",
+        "test_control_35_every_limb_aimed_control_reaches_the_limb_it_names",
     }
 )
 
@@ -5619,4 +5624,145 @@ def test_control_34_every_control_declares_an_aim_and_every_limb_is_claimed() ->
         " carrying no thunk is what makes that exclusion structural. Every"
         " other kind needs one, because a meta-control that builds its own"
         " subject proves nothing about the control"
+    )
+
+
+# ===========================================================================
+# CONTROL 35 — every `limb`-aimed control is PROVEN to reach the limb it names.
+#
+# Criterion 13's own words made mechanical: red on the aimed limb, green when
+# that limb is intact. It is the check that would have caught `CONTROL 5` in
+# wave 1 — and the `CONTROL 5` re-point sabotage in this plan's SUMMARY
+# reproduces that historical defect and watches this control name it.
+# ===========================================================================
+
+
+def _run_control(aim: Aim) -> Exception | None:
+    """Invoke a control through its thunk; return what it raised, or `None`.
+
+    **It restores :data:`_NEUTERED` on the way out, unconditionally.** A
+    sabotaged control can leak the switch — `CONTROL 32` under its own
+    saboteur calls `neutered(...).__enter__()` with no matching `__exit__`,
+    deliberately — and a leaked limb is disarmed for every test that runs
+    afterwards in the session. That is the phase's own thesis arriving inside
+    the machinery built to close it, and the autouse fixture would report it
+    against whichever meta-control happened to be last.
+
+    :class:`Exception` and not :class:`BaseException`: a `KeyboardInterrupt`
+    is not a control failing.
+    """
+    if aim.invoke is None:  # pragma: no cover - `CONTROL 34` holds this
+        raise ValueError("a `meta` entry has no thunk and is never invoked")
+    snapshot = set(_NEUTERED)
+    try:
+        aim.invoke()
+    except Exception as failure:
+        return failure
+    else:
+        return None
+    finally:
+        _NEUTERED.clear()
+        _NEUTERED.update(snapshot)
+
+
+#: The `(control, limb)` pairs whose neutered RED is a CASCADE rather than the
+#: control's own `AssertionError` — a frozen roster of NAMED pairs (`D-21`).
+#:
+#: **Why this is asserted rather than tolerated.** Neutering a limb makes
+#: control flow continue past a branch that was protecting later code, so some
+#: controls go red with something other than an `AssertionError`. That still
+#: establishes reachability, and the paired green-when-intact run bounds it.
+#: But *a crash and a caught defect are indistinguishable to a coverage
+#: assertion* — the whole reason `D-IMPL-181` exists — so every cascade is
+#: NAMED here and the set of observed cascades is compared to this roster id
+#: for id. A control that starts crashing where it used to assert reddens the
+#: run and gets read by a human, rather than quietly counting as coverage.
+#:
+#: **It is EMPTY today, and that is a measurement rather than an oversight.**
+#: Swept across every `limb` target in :data:`CONTROL_AIM`, one limb neutered
+#: at a time, every single red was the control's own `AssertionError` —
+#: including `traceability_rows.header_absent`, which plan `21.1-07` predicted
+#: would cascade. It does not, because plan `21.1-05` reshaped six branches to
+#: degrade to SILENCE rather than crash for exactly this reason. That
+#: reshaping is what makes `CONTROL 34`, `35`, `36b` and `36c` trustworthy at
+#: all, and this empty roster is the standing evidence that it still holds.
+CASCADING_REDS: frozenset[tuple[str, str]] = frozenset()
+
+
+def test_control_35_every_limb_aimed_control_reaches_the_limb_it_names() -> None:
+    """CONTROL 35 — neuter the limb a control names, and the control must fail.
+
+    For every `limb` entry and for EACH target in its set INDEPENDENTLY, not
+    per entry: `CONTROL C` covers two limbs and a proof that it reaches one of
+    them is not a proof that it reaches the other. `CONTROL 27b` covers three
+    and `CONTROL 27c` two, for the same reason.
+
+    **Three properties, and the third is the one this wave was commissioned
+    for.**
+
+    1. with every limb intact the control PASSES — otherwise its red below
+       says nothing, because a control that is red anyway is red under any
+       mutation;
+    2. with exactly ONE of its named limbs neutered the control does NOT pass.
+       Any exception counts; the property under test is that the control does
+       not report success over a guard that stopped guarding;
+    3. the RED is either the control's own `AssertionError` or a NAMED
+       cascade in :data:`CASCADING_REDS`. **A crash is not coverage** — if
+       neutering a limb made the module explode, this loop would conclude
+       "the control reaches that limb" when all it reached was the wreckage.
+
+    `meta` entries are excluded because they carry no thunk (see :class:`Aim`),
+    and `pathspec` aims are PROVEN in plan `21.1-08`, in the same plan as the
+    `CONTROL A` and `CONTROL 13` re-aims and committed before them, so that the
+    pathspec prover is observed RED naming exactly the two controls this
+    project shipped mis-aimed.
+    """
+    failures: list[str] = []
+    cascades: set[tuple[str, str]] = set()
+    proven: set[str] = set()
+
+    for name in sorted(CONTROL_AIM):
+        aim = CONTROL_AIM[name]
+        if aim.kind != "limb":
+            continue
+        intact = _run_control(aim)
+        if intact is not None:
+            failures.append(
+                f"{name} does not pass with every limb INTACT — it raised"
+                f" {type(intact).__name__}: {intact}. A control that is red"
+                " anyway is red under any mutation, so nothing below about it"
+                " would mean anything"
+            )
+            continue
+        for target in sorted(aim.targets):
+            with neutered(target):
+                raised = _run_control(aim)
+            if raised is None:
+                failures.append(
+                    f"{name} PASSED with {target!r} neutered. It does not"
+                    " reach the limb it vouches for: the refusal it watches"
+                    " was turned OFF and the control reported success anyway,"
+                    " which is exactly the state `CONTROL 5` shipped in for"
+                    " the whole of Phase 21"
+                )
+                continue
+            proven.add(target)
+            if not isinstance(raised, AssertionError):
+                cascades.add((name, target))
+
+    unexpected = sorted(cascades - CASCADING_REDS)
+    stale = sorted(CASCADING_REDS - cascades)
+    assert not failures and not unexpected and not stale, (
+        "\n".join(failures)
+        + ("\n" if failures else "")
+        + f"cascading reds observed but not in `CASCADING_REDS`: {unexpected}"
+        f"\ncascades in `CASCADING_REDS` that did not happen: {stale}"
+        + "\nA red that is not the control's own `AssertionError` is a CRASH,"
+        " and a crash is indistinguishable from a caught defect to every"
+        " coverage assertion in this module. Each one is named so a human"
+        " reads it rather than counting it as coverage"
+    )
+    assert proven, (
+        "no limb aim was proven at all, so this control passed over the empty"
+        " set — the vacuity it exists to detect, arriving inside itself"
     )
