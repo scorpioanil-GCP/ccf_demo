@@ -85,6 +85,7 @@ import shutil
 import pytest
 
 from tools.docs_tests import _prose
+from tools.lints.citations import NODE_ID, repo_index, resolve_cited, symbol_spans
 
 #: AW-1's subjects — the external approaches the page is compared against.
 #: **Matched against ``Paragraph.text``**: these are prose nouns, and an
@@ -902,4 +903,150 @@ def test_control_11_a_decoy_negation_does_not_exonerate(
     assert sentences_claiming_passage_extraction(sibling), (
         "condition (iii) failed on its sibling measured case: a leading "
         "denial followed by ``but`` exonerated the claim after the pivot"
+    )
+
+
+# --------------------------------------------------------------------------
+# D-06 — the per-claim symbol resolver. `22-CONTEXT.md` rules this STRETCH and
+# NON-BLOCKING, and explicitly not a substitute for the D-04 gate above. It
+# landed because the decision rule's three conditions all held: the module was
+# green with every sabotage reverted, `make gate-tools` was exit 0, and the
+# executing context was under half consumed.
+#
+# **What this adds over `cite03-node-id`, stated plainly rather than left to be
+# assumed, because a duplicate check is worse than no check.** The citation
+# lint already runs `cite03` over `public/`, and it resolves the same node ids
+# through the same functions — this test imports them rather than
+# reimplementing either, so the two cannot drift. It is stronger in exactly one
+# place: `cite03` treats a node id whose PATH does not resolve as UNCHECKED,
+# because in general prose `module.py::test_name` is more often a placeholder
+# than a broken pointer. On the published tree that policy leaves a hole — a
+# node id on a page is an invitation to the reader to go and open it, and one
+# pointing at a file that no longer exists is exactly the DCD-02 defect this
+# phase's page exists to model the opposite of. Here an unresolvable path is a
+# FAILURE, not a shrug.
+#
+# It is also reached by a different gate: this runs under `make gate-tools` and
+# the CI docs job, where `cite03` runs under `make lint`.
+# --------------------------------------------------------------------------
+
+
+def published_node_ids() -> list[tuple[str, int, str, str]]:
+    """``(page, lineno, cited path, symbol)`` for every node id in `public/`.
+
+    Line-scoped on purpose and NOT a violation of this package's
+    paragraph-scoping rule: a node id is a token, not a claim, so there is no
+    qualification two lines down that could change its reading. The rule exists
+    for prose whose unit of meaning is the paragraph.
+    """
+    found: list[tuple[str, int, str, str]] = []
+    for page in _prose.published_pages():
+        for lineno, line in enumerate(
+            page.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            for match in NODE_ID.finditer(line):
+                found.append(
+                    (
+                        _prose.relative(page),
+                        lineno,
+                        match.group("path"),
+                        match.group("symbol"),
+                    )
+                )
+    return found
+
+
+def unresolved_node_ids(pages: list[pathlib.Path]) -> list[str]:
+    """``page:line — reason`` for every node id in `pages` that does not resolve."""
+    base = _prose.REPO_ROOT
+    index = repo_index(base)
+    offenders: list[str] = []
+    for page in pages:
+        for lineno, line in enumerate(
+            page.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            for match in NODE_ID.finditer(line):
+                cited, symbol = match.group("path"), match.group("symbol")
+                target, ambiguous = resolve_cited(cited, base, index)
+                if target is None:
+                    offenders.append(
+                        f"{_prose.relative(page)}:{lineno} — {cited}::{symbol} names"
+                        f" {'an ambiguous' if ambiguous else 'no'} file in the repo"
+                    )
+                    continue
+                source = target.read_text(encoding="utf-8", errors="replace")
+                if symbol not in symbol_spans(source, target):
+                    offenders.append(
+                        f"{_prose.relative(page)}:{lineno} — {cited} defines no"
+                        f" {symbol!r}"
+                    )
+    return offenders
+
+
+def test_the_published_tree_carries_node_ids_to_resolve() -> None:
+    """D-06's non-vacuity floor.
+
+    A resolver that reports green over an empty set is worse than none.
+    Twenty-two node ids are written across the published tree today, all of
+    them on this phase's page.
+    """
+    found = published_node_ids()
+    assert found, (
+        "no path::symbol node id appears anywhere under "
+        f"{_prose.PUBLIC_DIR} — the D-06 resolver is passing over an empty set"
+    )
+
+
+def test_every_published_node_id_resolves() -> None:
+    offenders = unresolved_node_ids(_prose.published_pages())
+    assert not offenders, (
+        "D-06: a published page cites a symbol that does not resolve. A node "
+        "id on a page is an invitation to the reader to open it, so a stale "
+        "one is a strong-looking claim with nothing behind it — re-resolve it "
+        "against the tree, or remove it: " + "; ".join(offenders)
+    )
+
+
+def test_control_12_a_renamed_symbol_and_a_missing_file_are_both_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """D-06's injected control, in two halves — symbol, then path.
+
+    The second half is the one ``cite03-node-id`` would let through: an
+    unresolvable path is UNCHECKED there and a FAILURE here, which is the
+    entire reason this test earns its place beside the lint rather than
+    duplicating it.
+    """
+    renamed = _copy(tmp_path / "symbol")
+    text = renamed.read_text(encoding="utf-8")
+    assert "src/ccf/client/client.py::ProductClient" in text, (
+        "the fixture's anchor node id is gone; the mutation below would be a "
+        "no-op and the refusal would prove nothing"
+    )
+    renamed.write_text(
+        text.replace(
+            "src/ccf/client/client.py::ProductClient",
+            "src/ccf/client/client.py::ProductClientX",
+        ),
+        encoding="utf-8",
+    )
+    offenders = unresolved_node_ids([renamed])
+    assert any("ProductClientX" in offender for offender in offenders), (
+        "a renamed symbol resolved anyway — the resolver is reading nothing, "
+        f"got {offenders}"
+    )
+
+    missing = _copy(tmp_path / "path")
+    missing.write_text(
+        text.replace(
+            "src/ccf/client/client.py::ProductClient",
+            "src/ccf/client/no_such_module.py::ProductClient",
+        ),
+        encoding="utf-8",
+    )
+    offenders = unresolved_node_ids([missing])
+    assert any("no_such_module.py" in offender for offender in offenders), (
+        "a node id naming a file that does not exist was admitted — this is "
+        "the half cite03 leaves UNCHECKED, and it is the reason this test "
+        f"exists, so it must not be green: {offenders}"
     )
