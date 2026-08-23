@@ -3,13 +3,45 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-23T21:40:00.000Z"
+last_updated: "2026-08-23T22:10:00.000Z"
 last_activity: >-
-  2026-08-23 -- **PHASE 22 WAVES 1-5 LANDED. `DOCS-15` IS VERDICTED IN BOTH LEDGER CHANNELS.
-  THE PHASE IS NOT CLOSED** -- `CLAUDE.md` SS3.1's close is wave 6 (`22-06`): the cross-AI
-  panel on the SHIPPED tree with the source INLINED, then the additive single-agent
-  review, every finding verified against the tree, blockers fixed in-phase, then Dave and
-  `D-GATE-22`. Five plans, thirteen task commits `b71308b`..`15c900e`.
+  2026-08-23 -- **PHASE 22 IS CLOSED. `D-GATE-22` IS LOGGED AND `DOCS-15` IS DISCHARGED**
+  under the ruled coupling to `s1-01`/`CLNT-17`. Six plans in six serial waves on `main`
+  (no phase branch, `d7a70eb`), 51 commits from the phase base `951eb4a`.
+  **THE SS3.1 CLOSE FOUND EIGHT BLOCKING DEFECTS IN THE PHASE'S OWN GATE AND ALL EIGHT ARE
+  FIXED IN-PHASE**, each watched RED before green. The panel (codex, cursor, gemini;
+  `claude` excluded) read the SHIPPED tree with 78 KB INLINED and found the VOCABULARY
+  holes; the additive single-agent depth pass found what no panel reviewer reached --
+  **AW-1 had no jurisdiction over the body of any comparison subsection** (four candidate
+  paragraphs, three of them HEADINGS, so the gate was near-vacuous over exactly the prose
+  it was commissioned for), and **the page stated two things that were FALSE about tests
+  it cited** (`DCD-02` class, on a page written to model its opposite). Both fixed and
+  re-verified by the orchestrator against the real page rather than read off a report:
+  all four previously-admitted sentences CAUGHT including the pronoun form, and **zero
+  offenders on the shipped page, so no prose was recast and the gate was not narrowed**.
+  Two findings recorded REJECTED with refuting evidence, one of them a TRUE MECHANISM
+  REACHED THROUGH A FALSE EXAMPLE, recorded as both halves. **The close-gate check STOPPED
+  once, correctly** -- two of fifteen findings had no recorded disposition -- and the STOP
+  is preserved in the record rather than overwritten.
+  **TWO RULINGS LANDED MID-PHASE**: `D-IMPL-188` and its amendment bounded Phase 21's five
+  untouched-tree assertions to Phase 21.1's close, because each had been diffing against
+  `HEAD` and so forbade every future commit under `src/`, `runtime/`, `examples/`,
+  `public/`, `pyproject.toml` and `tests/` forever. Phase 22's first commit turned the
+  `D-11` scope fence red on a correct tree; the window was wrong, not the tree.
+  **FIVE ITEMS CARRIED WITH RULINGS, NONE ABSORBED** (see `D-GATE-22`): the `expected.yaml`
+  unbacked universal CARRIED to the next `s1-01` opening; ROADMAP criterion 2 CARRIED as a
+  known non-vacuity gap (strip every approach noun from the page and AW-1 returns
+  VACUOUSLY clean with no test red); the `_prose.SENTENCE_BREAK` widening ACCEPTED as a
+  documented cross-gate behaviour change in `test_gate_two_wording.py`; AW-1 condition
+  (ii)'s pronoun residual ACCEPTED as stated blindness because regex gates do not do
+  coreference; and **the standing policy from this gate forward -- THE `D-IMPL-188` CEILING
+  MOVES ONLY BY AN EXPLICIT `D-IMPL` OR GATE ENTRY NAMING THE OLD PIN, THE NEW PIN AND
+  WHY.** `D-06` LANDED rather than owed. Gates at the gate commit: `lint` 0, `gate-tools`
+  0 (**406 + 298**, the docs suite up from 291 and the adoption module 24 -> 31),
+  `docs-strict` 0; and at `22-05` the full six-leg `make ci` exit 0 with the test leg in
+  FOUR foreground chunks at **4105 passed / 118 skipped**, byte-for-byte the `D-GATE-21.1`
+  baseline. `src/`, `runtime/` and `examples/` DIFF-EMPTY across the whole phase, proven
+  PER MEMBER.
   **WHAT SHIPPED, MEASURED.** `public/concepts/answers-no-document-contains.md` -- **339
   lines**, 5 `## ` sections and 8 `### ` subsections, nav-wired under Concepts, and
   **five `--8<--` includes, every one against `examples/s1-01-hello-context-product`**:
