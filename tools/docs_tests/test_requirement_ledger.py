@@ -243,6 +243,9 @@ LIMBS: frozenset[str] = frozenset(
         "_duplicated_checkbox_bullet.not_a_bullet",
         "_duplicated_checkbox_bullet.twin_identical",
         "_duplicated_checkbox_bullet.twin_not_read",
+        "carried_counts.empty_roster",
+        "carried_counts.empty_source",
+        "carried_counts.unbound_roster",
     }
 )
 
@@ -5767,6 +5770,35 @@ CONTROL_AIM: dict[str, Aim] = {
         kind="meta",
         targets=frozenset({"pathspec"}),
     ),
+    # --- `D-21` made standing ----------------------------------------------
+    "test_control_39_the_count_sweep_finds_a_planted_count": Aim(
+        kind="guard",
+        targets=frozenset({"carried_counts", "module_source"}),
+        invoke=lambda: test_control_39_the_count_sweep_finds_a_planted_count(),
+        # Two stand-ins, because the two targets fail differently and the
+        # aim proof breaks exactly one at a time. A `carried_counts` that
+        # finds nothing is the sweep gone blind; a `module_source` that
+        # returns a line the sweep matches is the sweep pointed at a
+        # subject that is not this module, and `CONTROL 39` asserts the
+        # real source CLEAN before it plants anything, so it notices.
+        saboteur=_substituting(
+            carried_counts=_returning(list),
+            module_source=_returning(
+                lambda: "assert len(rows) " + "=" + "= " + str(149) + "\n"
+            ),
+        ),
+    ),
+    "test_control_40_the_count_sweep_refuses_a_subject_it_cannot_sweep": Aim(
+        kind="limb",
+        targets=frozenset(
+            {
+                "carried_counts.empty_roster",
+                "carried_counts.empty_source",
+                "carried_counts.unbound_roster",
+            }
+        ),
+        invoke=lambda: test_control_40_the_count_sweep_refuses_a_subject_it_cannot_sweep(),
+    ),
 }
 
 #: Every control in this module, by NAME — the roster the enumeration below is
@@ -5839,6 +5871,8 @@ CONTROLS: frozenset[str] = frozenset(
         "test_control_36b_every_guard_aimed_control_reaches_the_guard_it_holds",
         "test_control_36c_every_shim_keeps_its_degradation_silent",
         "test_control_38_every_pathspec_aimed_control_exercises_the_constant_it_names",
+        "test_control_39_the_count_sweep_finds_a_planted_count",
+        "test_control_40_the_count_sweep_refuses_a_subject_it_cannot_sweep",
     }
 )
 
@@ -6454,3 +6488,341 @@ def test_control_38_every_pathspec_aimed_control_exercises_the_constant_it_names
         "no pathspec aim was proven at all, so this control passed over the"
         " empty set"
     )
+
+
+# ===========================================================================
+# `D-21`, made standing — the carried-count sweep, and the sweep watched
+# finding a planted count.
+#
+# `VAC-05` criterion 9, plan `21.1-09`. Every wave of this phase ran the sweep
+# `grep -nE "== *[0-9]{2,}|len\(.*\) *[=!<>]= *[0-9]"` by hand and recorded that
+# it exited 1. **That is a probe, and `D-IMPL-170` is that a probe is not a
+# control**: a shell command in a SUMMARY is evidence somebody looked once, it
+# runs in no gate, and nothing in the tree notices when it stops being run.
+# The identical argument this phase makes about every other check applies to
+# the check that polices this phase's own house rule.
+#
+# **The grep is a FLOOR, not the check, and the floor's own hole is named.**
+# Phase 21's wave 1 had to widen a guard because it could not detect
+# `EXPECTED_ROWS` bound to a literal — a bare assignment matches neither
+# shape. So the sweep carries a SECOND limb the grep never had: no fixed set
+# in this module may be compared by LENGTH. That is where a carried count
+# actually does damage, because a length comparison is satisfied by any roster
+# of the right size, which is precisely the substitution a roster exists to
+# prevent.
+# ===========================================================================
+
+#: The line shapes that carry a count into a check, by the name of the defect.
+#:
+#: The two patterns are the ones every wave of this phase ran by hand, kept
+#: byte-identical so the standing check and the recorded probes are the same
+#: question. Their limits are stated rather than hidden: neither sees a bare
+#: `NAME = <literal>` binding, and neither sees an inequality such as `> 1`.
+#: The second limb below is what covers the damage those miss.
+CARRIED_COUNT_SHAPES: dict[str, re.Pattern[str]] = {
+    "an equality against a multi-digit literal": re.compile(r"== *[0-9]{2,}"),
+    "a length compared against a numeric literal": re.compile(
+        r"len\(.*\) *[=!<>]= *[0-9]"
+    ),
+}
+
+def derived_fixed_sets() -> frozenset[str]:
+    """Every FIXED SET this module holds, ENUMERATED from its own globals.
+
+    The predicate is: a module-level name that is UPPERCASE, does not open
+    with an underscore, and is bound to a `frozenset`, `tuple` or `dict`.
+
+    **Derived rather than transcribed, on the `MULTI_MEMBER_PATHSPECS`
+    precedent plan `21.1-01` set** — a constant that a later phase adds is
+    dragged into the length check on its first run instead of waiting for
+    somebody to remember this list. That is not hypothetical: written as a
+    transcription first, this roster shipped MISSING TWO — the sweep's own
+    :data:`CARRIED_COUNT_SHAPES`, and `CITED_SUFFIXES` — and the omission was
+    found by writing the enumeration and diffing it, not by re-reading the
+    list.
+
+    The leading-underscore exclusion is deliberate and NAMED: `_NEUTERED` and
+    `_REPO_INDEX_CACHE` are MUTABLE RUNTIME STATE, not fixed sets. `_NEUTERED`
+    in particular is emptied and refilled by :func:`neutered`, and the autouse
+    fixture asserts it EMPTY after every test — a rule saying it must never be
+    measured by length would be wrong about it. Note that `str.isupper()` is
+    true of `_NEUTERED`, so the underscore test is doing real work rather than
+    restating the case test.
+    """
+    return frozenset(
+        name
+        for name, value in globals().items()
+        if name.isupper()
+        and not name.startswith("_")
+        and isinstance(value, (frozenset, tuple, dict))
+    )
+
+
+#: Every FIXED SET this module holds, by NAME — the roster
+#: :func:`derived_fixed_sets` is frozen against.
+#:
+#: A roster of names, not a count — the rule applied to itself. The membership
+#: obligation is `D-21`'s: each of these is compared id-for-id, by membership
+#: or by set equality, and never by length. :func:`carried_counts` holds that
+#: mechanically, and refuses a name that is not bound here at all: a roster
+#: renamed out from under this list would leave the length limb quantified
+#: over nothing while still reporting clean.
+#:
+#: **Why a roster AS WELL AS the enumeration**, on exactly the reasoning
+#: :data:`CONTROLS` carries: a predicate that quietly stops matching a
+#: constant drops it from the length check in silence while both directions
+#: still look healthy. The frozen roster is what makes that visible.
+FIXED_SETS: frozenset[str] = frozenset(
+    {
+        "AIM_KINDS",
+        "CARRIED_COUNT_SHAPES",
+        "CASCADING_REDS",
+        "CHANGED_TREE",
+        "CITATION_EXEMPT_VERDICTS",
+        "CITED_SUFFIXES",
+        "COMPLETE_FAMILY",
+        "CONTROLS",
+        "CONTROL_AIM",
+        "CONTROL_A_PATHSPECS",
+        "FABRIC",
+        "FENCE",
+        "FIXED_SETS",
+        "LIMBS",
+        "MULTI_MEMBER_PATHSPECS",
+        "PHASE_OWN_ROSTER",
+        "PINNED_FILES",
+        "TESTS_TREE",
+        "UAT_RECORDS",
+        "VERDICT_VOCABULARY",
+        "WORKING_SET_ROSTER",
+    }
+)
+
+
+def carried_counts(source: str) -> list[str]:
+    """One message per line of `source` that carries a count into a check.
+
+    Two limbs, both NAMED in the message so a reader can act on it:
+
+    1. the line matches one of :data:`CARRIED_COUNT_SHAPES`; or
+    2. the line calls `len(...)` on one of :data:`FIXED_SETS`.
+
+    Findings are RETURNED rather than raised, which is what makes this a
+    `guard` in the sense `D-IMPL-182` ratified: the control that holds it
+    sabotages it and requires the control to notice, because there is no limb
+    to neuter.
+    """
+    if not source.strip():
+        _refuse(
+            "carried_counts.empty_source",
+            "the carried-count sweep was handed an empty subject, so 'no"
+            " standing check carries a row count' is quantified over no lines"
+            " at all and is trivially true. This is the shape a sweep takes"
+            " when its subject moved and nobody noticed"
+        )
+    empty = sorted(
+        name
+        for name, roster in (
+            ("CARRIED_COUNT_SHAPES", CARRIED_COUNT_SHAPES),
+            ("FIXED_SETS", FIXED_SETS),
+        )
+        if not roster
+    )
+    if empty:
+        _refuse(
+            "carried_counts.empty_roster",
+            f"the carried-count sweep's own rosters {empty} are EMPTY, so the"
+            " limb each one drives is quantified over nothing and reports"
+            " clean for free. A sweep whose subject roster has been emptied is"
+            " the vacuity this module exists to detect, arriving inside the"
+            " check that detects it"
+        )
+    module = globals()
+    unbound = sorted(name for name in FIXED_SETS if name not in module)
+    if unbound:
+        _refuse(
+            "carried_counts.unbound_roster",
+            f"`FIXED_SETS` names {unbound}, which this module does not define."
+            " The length limb below is then quantified over a name nothing"
+            " holds, so a set renamed out from under this roster is swept for"
+            " free while the sweep still reports clean"
+        )
+    length_patterns = {
+        name: re.compile(r"len\([^)\n]*\b" + re.escape(name) + r"\b")
+        for name in sorted(FIXED_SETS)
+    }
+    offenders: list[str] = []
+    for lineno, line in enumerate(source.splitlines(), 1):
+        for defect, pattern in CARRIED_COUNT_SHAPES.items():
+            found = pattern.search(line)
+            if found is not None:
+                offenders.append(
+                    f"line {lineno} carries {defect}: {found.group(0)!r} in"
+                    f" {line.strip()!r}"
+                )
+        for name, pattern in length_patterns.items():
+            if pattern.search(line) is not None:
+                offenders.append(
+                    f"line {lineno} compares the fixed set `{name}` by LENGTH:"
+                    f" {line.strip()!r}. A length is satisfied by any roster"
+                    " of the right size, which is the substitution a roster of"
+                    " named ids exists to prevent (`D-21`)"
+                )
+    return offenders
+
+
+def module_source() -> str:
+    """This module's own source, which is the sweep's subject."""
+    return pathlib.Path(__file__).read_text(encoding="utf-8")
+
+
+def test_no_standing_check_in_this_module_carries_a_carried_count() -> None:
+    """Criterion 9, standing: no check here carries a row count.
+
+    The house rule every wave of this phase asserted with a shell command now
+    runs in `gate-tools` → `ci-core` → `ci` like everything else it polices.
+
+    Two limbs, and the first is the one that keeps the second honest: the
+    frozen :data:`FIXED_SETS` roster must agree ID FOR ID with
+    :func:`derived_fixed_sets`, so a constant a later phase adds cannot sit
+    outside the length check while this test still reports green.
+    """
+    derived = derived_fixed_sets()
+    undeclared = sorted(derived - FIXED_SETS)
+    stale = sorted(FIXED_SETS - derived)
+    assert not undeclared and not stale, (
+        "`FIXED_SETS` and the enumeration of this module's own constants"
+        " disagree."
+        f"\n  constants the module holds that the roster does not name:"
+        f" {undeclared}"
+        f"\n  names in the roster the module no longer holds: {stale}"
+        "\nA constant missing from the roster is swept for FREE by the length"
+        " limb below while this check still reports clean — which is how this"
+        " very roster shipped its first draft missing two"
+    )
+
+    offenders = carried_counts(module_source())
+    assert offenders == [], (
+        "a standing check in this module carries a count. `D-21`: no"
+        " hardcoded row count, and every fixed set is a frozen roster of named"
+        " ids asserted id-for-id.\n" + "\n".join(offenders)
+    )
+
+
+def test_control_39_the_count_sweep_finds_a_planted_count() -> None:
+    """CONTROL 39 — the sweep watched FINDING a planted count, on both limbs.
+
+    **A sweep never observed finding anything is this phase's defect class
+    inside the audit of this phase's defect class.** Phase 21 shipped three
+    mis-aimed controls; a green grep is exactly the artefact those produced.
+
+    Green-before/red-after, so the finding is attributable to the plant and to
+    nothing else: the real module source is asserted CLEAN first, then each
+    plant is appended to a copy of it and the sweep is required to NAME the
+    planted line. Both limbs are exercised, because :data:`CONTROL_AIM` claims
+    both and a proof of one is not a proof of the other.
+
+    **The plants are ASSEMBLED at run time rather than written as literals,
+    and the ROSTER NAME is assembled too.** A source file containing the
+    offending text verbatim would be found by the standing sweep above — the
+    control would redden the module it is defending. The first draft of this
+    control did exactly that: it named the roster inside a `len(...)` call in
+    its own body, and `test_no_standing_check_in_this_module_carries_a_carried_count`
+    reported it on line 6665. That red is the best evidence in this file that
+    the sweep works, and it is recorded here rather than quietly fixed.
+    Assembling every offending piece keeps the plant out of the swept source
+    while leaving it a real line the real sweep really matches.
+    """
+    real = module_source()
+    assert carried_counts(real) == [], (
+        "this module already carries a count, so this control cannot"
+        " distinguish its plant from the status quo"
+    )
+
+    equality = "=" + "="
+    shape_plant = f"    assert len(rows) {equality} {149}"
+    found = carried_counts(real + "\n" + shape_plant + "\n")
+    assert found, "a planted row count was swept over and reported clean"
+    assert any("carries a" in message for message in found), (
+        f"the sweep fired but named no defect shape: {found!r}"
+    )
+
+    roster = "LIM" + "BS"
+    length_plant = "    assert len(" + roster + ") " + equality + " " + str(31)
+    found = carried_counts(real + "\n" + length_plant + "\n")
+    assert found, "a fixed set compared by LENGTH was swept over and reported clean"
+    assert any("`LIMBS`" in message and "LENGTH" in message for message in found), (
+        "the sweep fired but did not name the fixed set compared by length:"
+        f" {found!r}. A count of offending lines is not something a reader can"
+        " act on"
+    )
+
+
+def test_control_40_the_count_sweep_refuses_a_subject_it_cannot_sweep() -> None:
+    """CONTROL 40 — the sweep's two anti-vacuity limbs, by limb id.
+
+    A sweep over an empty subject reports clean, and so does a length limb
+    whose roster names something the module no longer defines. Both are the
+    vacuity this module exists to detect arriving at the boundary of the check
+    that detects it, so both refuse and both are watched refusing here.
+
+    **`try`/`except` and not `pytest.raises`**, on the idiom `CONTROL 24`
+    established. `pytest.raises` raises `Failed` when nothing was raised, and
+    `Failed` is not an `AssertionError` — so `CONTROL 35` would score this
+    control's neutered red as a CASCADE and require it in
+    :data:`CASCADING_REDS`, turning a clean proof of reach into a named crash.
+    Measured: written with `pytest.raises`, this control reddened `CONTROL 35`
+    on exactly that clause.
+    """
+    absent = "A_ROSTER_THIS_MODULE_DOES_NOT_DEFINE"
+    try:
+        swept = carried_counts("   \n\n  ")
+    except AssertionError as refusal:
+        assert "[limb:carried_counts.empty_source]" in str(refusal), (
+            "an empty subject was refused by a limb other than"
+            f" `carried_counts.empty_source`: {refusal}"
+        )
+    else:
+        raise AssertionError(
+            "the carried-count sweep was handed an empty subject and returned"
+            f" {swept!r} rather than refusing. Zero offending lines out of zero"
+            " lines is the report a sweep gives when its subject has moved"
+        )
+
+    try:
+        with _substituted("CARRIED_COUNT_SHAPES", {}):
+            swept = carried_counts(module_source())
+    except AssertionError as refusal:
+        assert "[limb:carried_counts.empty_roster]" in str(refusal), (
+            "an emptied shape roster was refused by a limb other than"
+            f" `carried_counts.empty_roster`: {refusal}"
+        )
+        assert "CARRIED_COUNT_SHAPES" in str(refusal), (
+            f"the refusal fired but did not name the emptied roster: {refusal}"
+        )
+    else:
+        raise AssertionError(
+            "`CARRIED_COUNT_SHAPES` was emptied and the sweep returned"
+            f" {swept!r} rather than refusing. Zero offending lines out of"
+            " zero shapes is the report a sweep gives when its own roster has"
+            " been emptied under it"
+        )
+
+    with _substituted("FIXED_SETS", FIXED_SETS | {absent}):
+        try:
+            swept = carried_counts(module_source())
+        except AssertionError as refusal:
+            assert "[limb:carried_counts.unbound_roster]" in str(refusal), (
+                "a stale roster name was refused by a limb other than"
+                f" `carried_counts.unbound_roster`: {refusal}"
+            )
+            assert absent in str(refusal), (
+                f"the refusal fired but did not name {absent!r}: {refusal}. A"
+                " count of unbound names is not something a reader can act on"
+            )
+        else:
+            raise AssertionError(
+                "`FIXED_SETS` named a set this module does not define and the"
+                f" sweep returned {swept!r} rather than refusing. The length"
+                " limb is then quantified over a name nothing holds"
+            )
