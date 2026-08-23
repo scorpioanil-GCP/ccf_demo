@@ -73,7 +73,7 @@ last_activity: >-
   **CI EXIT 0 ON ALL SIX LEGS**: lint 0; typecheck clean over 211 files; `test`
   **4105 passed / 118 skipped**, byte-for-byte the `D-GATE-21` baseline, which is the
   mechanical proof `D-05` held and that the phase changed no behaviour; `gate-tools`
-  406 + 265 (406 + 205 at the phase's start); eleven examples with three harness legs
+  406 + 266 (406 + 205 at the phase's start); eleven examples with three harness legs
   at one content address; `docs-strict` strict-built. **THE TEST LEG RAN AS THREE
   PYTEST INVOCATIONS, NOT ONE**, because background runs on this host were terminated
   twice at 68% -- every `tests/` directory is covered and the total lands exactly on
