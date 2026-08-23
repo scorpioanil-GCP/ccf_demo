@@ -4581,3 +4581,265 @@ def test_control_33_the_neutering_off_switch_cannot_leak_and_its_guard_can_fail(
         "this control left the switch ON, which is the failure it exists to"
         f" detect: {neutering_switch_offenders()!r}"
     )
+
+
+# ===========================================================================
+# CONTROL 27d and CONTROL 27e — the four DEGRADATION SHIMS, held to the
+# INVERTED obligation of `D-IMPL-181` (criterion 15).
+#
+# Plan `21.1-06` swept all thirty registered limbs and found four reachable
+# ONLY with a sibling neutered. It filed them as `RR-12` and stopped, because
+# criterion 12 as authored offered only *reachable-and-watched* or
+# *unreachable-and-REMOVED*, and REMOVING these reinstates the crash plan
+# `21.1-05` shaped them to prevent. Dave ruled the third disposition
+# (`D-IMPL-181`, 2026-08-22): they are CONTROLLED, under a new aim kind
+# `shim`, with an inverted obligation — and **coverage quantifies over `shim`
+# exactly as over every other kind, with no exempt roster**, because an exempt
+# roster *"excuses them without proving they work"*.
+#
+# WHY THE INVERSION MATTERS TO THE MACHINERY BELOW, AND NOT MERELY TO THE
+# TAXONOMY. A crash and a caught defect are INDISTINGUISHABLE to a coverage
+# assertion. If neutering limb X made this module explode, `CONTROL 34`'s
+# coverage limb and `CONTROL 35`'s aim proof would both conclude "the control
+# reaches limb X" when all either reached was the wreckage. These four exist
+# so that a neutered sibling produces a NAMED refusal or a plain return, never
+# an `AttributeError` — and each control below asserts BOTH halves: the shim
+# fires by name when its sibling is disarmed, and the degradation stays SILENT
+# when the shim itself is disarmed on top.
+#
+# HOW THEY ARE REACHED, MEASURED RATHER THAN REASONED. Three of the four need
+# only a sibling neutered. The fourth —
+# `_duplicated_checkbox_bullet.twin_identical` — is unreachable under EVERY
+# input and every real regex, because `twin == line` requires the flipped tick
+# to equal the tick it replaced and the tick class admits no such value. It is
+# reached here by substituting a PATTERN OBJECT whose reported group span is a
+# character the twin would rewrite to itself. That is a control fixture in
+# this module's established idiom (`CONTROL 22` substitutes `repo_index`,
+# `CONTROL 29` substitutes `_index`), not a reshaping of the shim — Dave
+# rejected reshaping as *"new mechanism in a prove-existing-mechanism wave"*.
+# ===========================================================================
+
+
+class _TickSpanMatch:
+    """A match object reporting a tick span that rewrites to ITSELF.
+
+    `_duplicated_checkbox_bullet` builds its twin as
+    ``line[:m.start(1)] + flipped + line[m.end(1):]`` where `flipped` is `"x"`
+    unless `m.group(1)` already lowercases to `"x"`. Reporting a group VALUE
+    the flip reads as "not a tick" while reporting a group SPAN that already
+    holds an ``x`` makes the twin byte-identical to the line — which is the
+    one shape `_duplicated_checkbox_bullet.twin_identical` exists to refuse and
+    the only way to put a subject in front of it.
+    """
+
+    def __init__(self, span_at: int, req_id: str) -> None:
+        self._span_at = span_at
+        self._req_id = req_id
+
+    def group(self, index: int) -> str:
+        return "not-a-tick" if index == 1 else self._req_id
+
+    def start(self, index: int) -> int:
+        return self._span_at
+
+    def end(self, index: int) -> int:
+        return self._span_at + 1
+
+
+class _TickSpanPattern:
+    """:data:`CHECKBOX_LINE`, with every match's group-1 span moved onto an `x`.
+
+    Delegates `finditer` to the real pattern so `checkbox_channel` and
+    `_checkbox_line` still see the document exactly as they would; only the
+    twin derivation inside `_duplicated_checkbox_bullet` is affected.
+    """
+
+    def __init__(self, real: re.Pattern[str], req_id: str) -> None:
+        self._real = real
+        self._req_id = req_id
+
+    def match(self, line: str) -> _TickSpanMatch | None:
+        found = self._real.match(line)
+        if found is None:
+            return None
+        return _TickSpanMatch(found.start(1), self._req_id)
+
+    def finditer(self, text: str) -> Iterator[re.Match[str]]:
+        return self._real.finditer(text)
+
+
+def _bullet_document(tick: str = "x") -> str:
+    """A minimal ledger whose one row carries one checkbox bullet."""
+    return _table_document(
+        "| TEST-01 | Phase 21 | Pending |",
+        bullets=(f"- [{tick}] **TEST-01**: a control fixture, not a requirement",),
+    )
+
+
+def test_control_27d_the_duplicate_row_twin_guard_fires_and_degrades_silently() -> (
+    None
+):
+    """CONTROL 27d — `_duplicated_table_row.twin_identical`, a SHIM (`D-IMPL-181`).
+
+    **Three limbs, in the order that makes the disposition legible.**
+
+    1. the guard is DOWNSTREAM — on the same subject with nothing neutered,
+       `_duplicated_table_row.phase_collision` one clause above catches it
+       first, which is exactly why no input reaches this branch and why plan
+       `21.1-06` could not write an ordinary control for it;
+    2. with the sibling neutered the shim fires BY NAME, as an
+       `AssertionError` carrying its own limb id — the SILENT degradation,
+       rather than the `IndexError` a missing guard would produce further
+       down;
+    3. with the shim neutered on top, the helper returns without raising and
+       the "duplicate" it produced is BYTE-IDENTICAL to the row it copied —
+       a mutation that is not a mutation, handed to `CONTROL 20` as though it
+       were one. That is what the shim is holding back, shown rather than
+       asserted.
+
+    SABOTEUR: `neutered("_duplicated_table_row.twin_identical")` — limb 2's
+    refusal stops arriving and this control goes red on limb 2's own message.
+    """
+    limb = "_duplicated_table_row.twin_identical"
+    sibling = "_duplicated_table_row.phase_collision"
+    subject = _table_document("| TEST-01 | Phase 99 | Pending |")
+
+    try:
+        _duplicated_table_row(subject, "TEST-01")
+    except AssertionError as failure:
+        assert f"[limb:{sibling}]" in str(failure), (
+            f"the subject was refused by a limb other than {sibling!r}:"
+            f" {failure}. This control's whole disposition rests on the shim"
+            " sitting DOWNSTREAM of a guard that catches every real input"
+        )
+    else:
+        raise AssertionError(
+            "the subject was ACCEPTED with nothing neutered, so"
+            f" {limb!r} is reachable by an ordinary input after all and it is"
+            " not a shim — it is a limb owed an ordinary control"
+        )
+
+    with neutered(sibling):
+        try:
+            produced = _duplicated_table_row(subject, "TEST-01")
+        except AssertionError as failure:
+            assert f"[limb:{limb}]" in str(failure), (
+                f"with {sibling!r} disarmed the refusal came from a limb other"
+                f" than {limb!r}: {failure}"
+            )
+        else:
+            raise AssertionError(
+                f"with {sibling!r} disarmed the derived twin was accepted and"
+                f" the helper returned {produced[-60:]!r}. The mutation is then"
+                " not a second row at all, and `CONTROL 20` would assert a"
+                " duplicate-id refusal over a document carrying one row"
+            )
+
+        with neutered(limb):
+            degraded = _duplicated_table_row(subject, "TEST-01")
+
+    twins = [
+        line for line in degraded.splitlines() if line.startswith("| TEST-01 | ")
+    ]
+    assert twins[1:] and twins[0] == twins[1], (
+        "with the shim disarmed the helper was expected to degrade SILENTLY"
+        " into a byte-identical pair — the shape the shim refuses — and it"
+        f" produced {twins!r} instead. A crash here would be read as coverage"
+        " by every meta-control below"
+    )
+
+
+def test_control_27e_the_duplicate_bullet_shims_fire_and_degrade_silently() -> None:
+    """CONTROL 27e — the three `_duplicated_checkbox_bullet` SHIMS (`D-IMPL-181`).
+
+    One control over all three because they are ONE degradation apparatus: the
+    `not_a_bullet` shim's plain `return` is what stops `match.start(1)` raising
+    an `AttributeError` when `_checkbox_line` has been disarmed, and the two
+    twin guards below it are the tripwires that catch a derivation which
+    stopped being a duplicate. Splitting them to fit a schema is the narrowing
+    this phase exists to stop; `CONTROL C` is the standing precedent.
+
+    **Each of the three is reached, fired by name, and then disarmed and
+    watched degrading silently.**
+
+    * `not_a_bullet` — reached with `_checkbox_line.not_unique` disarmed, so
+      the helper is handed the empty string that limb returns. Disarmed on
+      top, the helper RETURNS THE DOCUMENT UNCHANGED: that plain `return` is
+      the shim, and deleting it is what brings the `AttributeError` back.
+    * `twin_not_read` — reached by narrowing :data:`CHECKBOX_LINE` to the
+      ticked form alone, so the flipped twin is no longer read as a bullet.
+    * `twin_identical` — reached by substituting :class:`_TickSpanPattern`,
+      because no input and no real pattern can make the flipped tick equal the
+      tick it replaced (the class is `[ xX]` and the flip is total on all
+      three). See the section banner for why that is a fixture rather than a
+      reshaping.
+
+    SABOTEUR: `neutered(<the shim's own id>)` — the named refusal stops
+    arriving and this control goes red on that shim's `else` branch.
+    """
+    subject = _bullet_document()
+
+    # --- `not_a_bullet`: the shim whose removal restores the AttributeError ---
+    absent = "not_a_bullet"
+    with neutered("_checkbox_line.not_unique"):
+        try:
+            _duplicated_checkbox_bullet(subject, "NOSUCH-99")
+        except AssertionError as failure:
+            assert f"[limb:_duplicated_checkbox_bullet.{absent}]" in str(failure), (
+                "an id with no bullet, reached through a disarmed"
+                f" `_checkbox_line`, was refused by another limb: {failure}"
+            )
+        else:
+            raise AssertionError(
+                "an id with no bullet at all was accepted by"
+                " `_duplicated_checkbox_bullet`"
+            )
+        with neutered(f"_duplicated_checkbox_bullet.{absent}"):
+            degraded = _duplicated_checkbox_bullet(subject, "NOSUCH-99")
+    assert degraded == subject, (
+        "with the `not_a_bullet` shim disarmed the helper was expected to"
+        " return its subject UNCHANGED — that plain `return` is the shim, and"
+        " without it `match.start(1)` raises `AttributeError` on a `None`"
+        f" match. It returned {degraded[:60]!r} instead"
+    )
+
+    # --- `twin_not_read`: the flipped twin is no longer read as a bullet ---
+    real_pattern = CHECKBOX_LINE
+    ticked_only = re.compile(r"^- \[(x)\] \*\*([A-Z]+-\d+)\*\*", re.MULTILINE)
+    for shim, replacement in (
+        ("twin_not_read", ticked_only),
+        ("twin_identical", _TickSpanPattern(real_pattern, "TEST-01")),
+    ):
+        limb = f"_duplicated_checkbox_bullet.{shim}"
+        globals()["CHECKBOX_LINE"] = replacement
+        try:
+            try:
+                produced = _duplicated_checkbox_bullet(subject, "TEST-01")
+            except AssertionError as failure:
+                assert f"[limb:{limb}]" in str(failure), (
+                    f"the {shim!r} subject was refused by another limb:"
+                    f" {failure}"
+                )
+            else:
+                raise AssertionError(
+                    f"the {shim!r} subject was ACCEPTED and the helper returned"
+                    f" {produced[:60]!r}. A twin the channel cannot read as a"
+                    " second bullet for this id is not a duplicate at all, and"
+                    " `CONTROL 21` would then assert a duplicate-id refusal"
+                    " over a document that carries no duplicate"
+                )
+            with neutered(limb):
+                degraded = _duplicated_checkbox_bullet(subject, "TEST-01")
+        finally:
+            globals()["CHECKBOX_LINE"] = real_pattern
+        assert degraded != subject, (
+            f"with the {shim!r} shim disarmed the helper was expected to"
+            " degrade SILENTLY into a document carrying the useless twin, and"
+            " it returned its subject unchanged instead"
+        )
+
+    assert CHECKBOX_LINE is real_pattern, (
+        "this control did not restore `CHECKBOX_LINE`, so every checkbox"
+        " assertion after it in the session reads the document through a"
+        " pattern it never agreed to"
+    )
