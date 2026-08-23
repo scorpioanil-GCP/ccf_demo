@@ -656,6 +656,14 @@ def test_control_4_a_negation_in_a_different_sentence_does_not_exonerate(
     Second, the reverse: an approach named in one sentence and a limit verb
     belonging to a different subject in the next is NOT an offender. Together
     the two halves pin the unit of judgement to the sentence.
+
+    Third, the same reverse case **with the boundary closed by markup**. The two
+    halves above both spell their sentence ends as ``. `` and therefore pass
+    under a ``SENTENCE_BREAK`` that cannot see ``.**``, ``."``, ``.)`` or
+    ``.` ``, which is how the narrow form survived Phase 22 with 88 invisible
+    boundaries in the published tree and six on this very page. Markdown prose
+    ends sentences inside markup constantly, so the plain-punctuation fixture
+    was proving the scoping for the spelling the tree uses least.
     """
     offending = _copied_tree(
         tmp_path / "a",
@@ -677,6 +685,21 @@ def test_control_4_a_negation_in_a_different_sentence_does_not_exonerate(
         "a limit verb in a neighbouring sentence, attached to the question "
         "rather than to the approach, was reported as an offender — the "
         "scoping widened from sentence to paragraph"
+    )
+    # (c) The same innocent shape with the boundary closed by ``**``. Measured
+    # under the narrow ``[.!?]\s`` form: REPORTED as an offender, because the
+    # two sentences were read as one. Verbatim, and not to be re-punctuated.
+    markup_closed = _copied_tree(
+        tmp_path / "c",
+        "The deployment is compared against **RAG over a vector store.** The "
+        "question itself has no way to be answered by reading one record, "
+        "because the answer is a sum over two ownership paths.",
+    )
+    assert sentences_asserting_a_capability_limit(markup_closed) == [], (
+        "a sentence boundary closed by markup was invisible, so an approach "
+        "named in one sentence merged with the next sentence's limit verb and "
+        "correct prose was reported as an offender — _prose.SENTENCE_BREAK has "
+        "lost its markup-closer class"
     )
 
 
@@ -903,6 +926,25 @@ def test_control_11_a_decoy_negation_does_not_exonerate(
     assert sentences_claiming_passage_extraction(sibling), (
         "condition (iii) failed on its sibling measured case: a leading "
         "denial followed by ``but`` exonerated the claim after the pivot"
+    )
+
+    # (e) SENTENCE SCOPING under condition (ii). The denial is a complete,
+    # correct sentence of its own; the overclaim is the NEXT sentence and the
+    # denial qualifies nothing in it. The limb must not reach across the
+    # boundary — and it did, measured, whenever the denial closed inside
+    # markup, because ``[.!?]\s`` cannot see ``.**``. Verbatim: re-punctuating
+    # this fixture with a plain ``. `` would make it pass under the very
+    # SENTENCE_BREAK this half exists to refuse.
+    across = _copied_tree(
+        tmp_path / "e",
+        "**No shipped pipeline produces passage anchors.** CCF extracts "
+        "passage anchors from your documents on every assembly.",
+    )
+    assert sentences_claiming_passage_extraction(across), (
+        "condition (ii) failed across a markup-closed sentence boundary: a "
+        "denial that is its own complete sentence exempted an overclaim in the "
+        "NEXT sentence — _prose.SENTENCE_BREAK has lost its markup-closer "
+        "class, so sentence scoping silently became paragraph scoping"
     )
 
 

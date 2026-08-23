@@ -189,12 +189,35 @@ def paragraphs(text: str) -> list[Paragraph]:
     return found
 
 
-#: What ends a sentence: terminal punctuation followed by whitespace.
+#: What ends a sentence: terminal punctuation, **any run of markup closers**,
+#: then whitespace.
 #:
-#: Deliberately crude, and copied in spirit from
+#: **Why the closer class is not optional.** The obvious spelling — ``[.!?]\s``
+#: — cannot see a sentence that ends inside markup, and Markdown prose ends
+#: sentences inside markup constantly: ``.**`` closing a bold run, ``."`` and
+#: ``.'`` closing a quotation, ``.)`` and ``.]`` closing a parenthetical,
+#: ``.` `` closing a code span, ``._`` closing an emphasis run. Measured on the
+#: published tree at the Phase 22 close: **88 sentence boundaries across 16
+#: pages were invisible** under the narrow form, six of them on
+#: ``public/concepts/answers-no-document-contains.md`` alone (lines 3, 18, 25,
+#: 35, 51 and 244).
+#:
+#: **And the failure is not one-directional, which is what makes it a defect
+#: rather than a coarseness.** :func:`sentence_at` promises to stop a paragraph
+#: being exonerated by a negation belonging to a different sentence. An
+#: invisible boundary breaks that promise BOTH ways: a bold-closed denial merges
+#: with the following sentence and exempts a claim it never qualified, and a
+#: bold-closed sentence naming an external approach merges with the next
+#: sentence's limit verb and condemns prose that is correct. The first is a hole,
+#: the second is a false positive, and neither is the "safe truncation" the
+#: citation lint's comment describes.
+#:
+#: Still deliberately crude, and still copied in spirit from
 #: `tools.lints.citations._SENTENCE_BREAK`, whose comment states the reason a
 #: mis-split is safe: it truncates the window, which can only cost a match,
-#: never invent one.
+#: never invent one. That lint keeps the narrow form because its window is a
+#: two-line source slice rather than a joined paragraph; widening it is a
+#: separate change against a separate consumer and was not made here.
 #:
 #: `citation_sentence()` itself is NOT reused, and the reason is a signature
 #: mismatch rather than an oversight: it takes ``(lines, lineno, column)`` and
@@ -203,7 +226,7 @@ def paragraphs(text: str) -> list[Paragraph]:
 #: unit is a whole paragraph rather than a two-line window. What is reused is
 #: the finding — *match in a joined window, then map the offset back to a
 #: sentence* — which is the part that took Phase 15.1 six sweeps to learn.
-SENTENCE_BREAK = re.compile(r"[.!?]\s")
+SENTENCE_BREAK = re.compile(r"""[.!?][)\]"'*`_]*\s""")
 
 
 def sentence_at(text: str, offset: int) -> str:
@@ -212,6 +235,11 @@ def sentence_at(text: str, offset: int) -> str:
     Scoping a qualification to the sentence that carries the claim, rather than
     to the whole paragraph, is what stops a paragraph from being exonerated by
     a negation that belongs to a different sentence three lines away.
+
+    That promise is only as good as :data:`SENTENCE_BREAK`, and it was false for
+    every sentence this tree closes inside markup until the closer class was
+    added — see that constant's comment for the measurement and for both
+    directions of the failure.
     """
     start = 0
     for match in SENTENCE_BREAK.finditer(text, 0, offset):
