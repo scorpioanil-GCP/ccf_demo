@@ -3,9 +3,92 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-23T07:30:00.000Z"
+last_updated: "2026-08-23T12:00:00.000Z"
 last_activity: >-
-  2026-08-22 -- **PHASE 21.1 WAVE 9 LANDED (`21.1-09`, four commits `6c38d7a`,
+  2026-08-23 -- **PHASE 21.1 IS CLOSED. `D-GATE-21.1` APPROVED BY DAVE**, logged at
+  `docs/DECISIONS.md:532` alongside five ruling entries `D-IMPL-183`..`D-IMPL-187`.
+  `docs/DECISIONS.md` is APPEND-ONLY across the gate commit -- 12 insertions, ZERO
+  deletions -- and **`D-GATE-21` is BYTE-IDENTICAL**, verified by sha256 of its own
+  line against `HEAD` rather than by reading it. The parent gate stays in force;
+  21.1 was a fix wave on the verification machinery, never a re-opening of the
+  54-row audit.
+  **WAVE 10 (`21.1-10`) IS THE CLAUDE.md SS3.1 CLOSE, RUN IN ITS ORDER**: cross-AI
+  panel on the SHIPPED tree, then the additive single-agent review, every finding
+  verified against the tree, blockers fixed in-phase, then STOP for Dave. Nine
+  commits `d478d06`..`e3c6c6d`.
+  **THE PANEL FOUND FOUR MORE INSTANCES OF THIS PHASE'S OWN DEFECT CLASS, ALL FOUR
+  INSIDE THE MACHINERY BUILT TO CLOSE IT.** gemini, codex and cursor read the
+  committed tree per `D-IMPL-178` -- 553 KB / 8272 lines INLINED rather than pointed
+  at by path, because codex on this host has exited 0 having read nothing when its
+  bubblewrap sandbox failed; it emitted that warning three times on this run and the
+  inlined source made it harmless. The panel was briefed on the known defects and
+  told to report what is ADJACENT to each, which is the instruction that produced
+  the blocker. **Reviewers converged from FOUR directions on ONE thing: `RR-1`'s fix
+  quantifies PER MEMBER and the controls vouching for it quantified PER CONSTANT.**
+  Every instance proven by SABOTAGE against the shipped module, never by argument:
+  `fabric_diff` degraded to validate only the two ends of a pathspec left **all 94
+  tests GREEN**, so nine of `UAT_RECORDS`' eleven members were watched by nothing;
+  `CONTROL A` narrowed to read only the first member left **all 94 GREEN**, because
+  `CONTROL 38` corrupts every member at once and cannot tell the two apart; a
+  `VAC-07` row minted in BOTH channels with an unevidenced `**Complete**` and simply
+  never rostered was named by **ZERO of EIGHT gates** -- `PHASE_OWN_ROSTER` was the
+  one id-roster in the module with no derivation counterpart, which is `RR-3`'s
+  mechanism arriving on the roster of the phase whose subject `RR-3` is; and
+  `_index()` accepted an index thinned from **5073 basenames to 1** so long as it
+  retained the anchor, after which `refuse_unresolvable` returned `[]` over the real
+  ledger with the moved-path branch checking nothing.
+  **ALL FOUR FIXED IN-PHASE, EACH WITH A STANDING CONTROL REGISTERED IN
+  `CONTROL_AIM`** so the meta-controls hold it to the same aim discipline -- a
+  control added at the close cannot ship mis-aimed either. `CONTROL 41` (per-member
+  coverage, committed RED first at `0a03c64`), `CONTROL 38b`, `CONTROL 42` with
+  `derived_phase_own_roster`, `_index.thinned_index` with `CONTROL 43`,
+  `dispatcher_bypasses(source)` widened to bare raises and `async def` with
+  `CONTROL 44`, and `CONTROL 45` for the ruled-in roster.
+  **TWO THINGS ABOUT HOW THE CLOSE WENT ARE THE EVIDENCE, NOT THE ANECDOTE.** (1) A
+  close fix REGENERATED the phase's defect class and the machinery caught it in
+  seconds: adding `_index.thinned_index` made `CONTROL 22` -- which asserted
+  `"index" in str(failure)`, a substring BOTH limbs satisfy -- go GREEN with the limb
+  it names neutered, and `CONTROL 35` reported it BY NAME. That is the `CONTROL 5`
+  defect wave 5 fixed, reproduced by the executor and caught by the instrument this
+  phase built. `CONTROL 22` now asserts the limb id. (2) A RED FOR THE WRONG REASON
+  NEARLY PASSED FOR A CAUGHT DEFECT, inside the verification of a finding about
+  exactly that: the first `fabric_diff` sabotage reddened the suite via an unrelated
+  `IndexError` on the empty-paths branch, not `CONTROL 18` catching anything. Taken
+  at face value the blocking finding would have been recorded REJECTED.
+  **FIVE FINDINGS REJECTED AND RECORDED AS REJECTED**, with the evidence that
+  refutes each -- and one of them was CAUSED by the executor's own review brief
+  paraphrasing `D-IMPL-123`'s ceiling scope loosely, which is named as its cause
+  rather than left as the reviewer's error. 22 panel findings plus 9 from the
+  single-agent review; every citation resolved against the tree individually rather
+  than sampled; no reviewer failed to review.
+  **THREE LEDGER ROWS AMENDED, EACH ONLY AFTER THE GATE ENTRY EXISTED** -- the
+  `RECON-09` discipline, the difference between a verdict and a hope. `VAC-05`
+  `Partial` -> `Complete` with its tick, its outstanding limb having BEEN criterion
+  11's second half; `VAC-03`'s Dave-only limb closed by `D-IMPL-183`, verdict
+  unchanged; `VAC-06`'s "56 aim proofs" DATED to wave 7 and marked read-by-no-
+  assertion rather than re-measured to 72, because a present-tense count in prose no
+  gate reads is stale the moment the next control lands -- `D-21`'s own subject
+  arriving outside code. `DOCS-22` amended AND rostered per ruling 2, ONE row only,
+  no `A-5` sweep, with `CONTROL 45` proving the rostering is not decorative.
+  **CI EXIT 0 ON ALL SIX LEGS**: lint 0; typecheck clean over 211 files; `test`
+  **4105 passed / 118 skipped**, byte-for-byte the `D-GATE-21` baseline, which is the
+  mechanical proof `D-05` held and that the phase changed no behaviour; `gate-tools`
+  406 + 265 (406 + 205 at the phase's start); eleven examples with three harness legs
+  at one content address; `docs-strict` strict-built. **THE TEST LEG RAN AS THREE
+  PYTEST INVOCATIONS, NOT ONE**, because background runs on this host were terminated
+  twice at 68% -- every `tests/` directory is covered and the total lands exactly on
+  the known baseline, and it is recorded rather than glossed. Fence diff EMPTY on
+  every path; the ONLY file written under `tools/` is the ledger module (`D-11`).
+  Module 51 -> **112** tests; `CONTROLS` 63; `LIMBS` 36. Coupling report regenerated
+  LAST -- no diff.
+  **CARRIED, NOT CLOSED** (`D-IMPL-185`, `D-IMPL-187`): `R-alpha` (a cell with BOTH
+  verdicts unbolded is still invisible -- it needs a vocabulary ruling, not a stronger
+  regex; every stronger predicate measured flags rows already ruled on), `A-7`, the
+  carried `RR-5`/`RR-7`/`RR-8`/`RR-10` and `A-1`..`A-8`, and **the scalar `Aim.kind`
+  -- the most substantive residual**, since a control spanning two kinds can declare
+  only one and `CONTROL 23b` therefore proves one of the four limbs its docstring
+  names.
+  PRIOR: 2026-08-22 -- **PHASE 21.1 WAVE 9 LANDED (`21.1-09`, four commits `6c38d7a`,
   `5239623`, `6fe2ef1`, plus the metadata pair).** **THE PHASE'S OWN SIX ROWS ARE
   VERDICTED IN BOTH CHANNELS, BEFORE THE CLOSE PANEL, AND `PHASE_OWN_ROSTER` NOW
   GATES THEM.** Five in the Complete family and one honest `Partial`: `VAC-05`
@@ -1148,305 +1231,30 @@ last_activity: >-
   EMPTY, with CONTROL 6/7 proving the assertion is not vacuous.
 progress:
   total_phases: 19
-  completed_phases: 17
+  completed_phases: 18
   total_plans: 188
-  completed_plans: 174
+  completed_plans: 175
   percent: 93
 stopped_at: >-
-  **PHASE 21.1 IS EXECUTION-COMPLETE AT 9/10 AND STOPS AT THE CLOSE.** All six
-  `VAC-` rows carry a verdict in BOTH channels, written BEFORE the panel reads the
-  tree, and zero `Pending` remains in this phase's lane. What is left is plan
-  `21.1-10` and nothing else: the CLAUDE.md SS3.1 close -- cross-AI panel on the
-  SHIPPED tree per `D-IMPL-178`, then the additive single-agent review, EVERY
-  finding verified against the tree before it is recorded or acted on (this project
-  has twice received confident, well-formatted, FALSE findings), blocking findings
-  fixed in-phase, and then a STOP for Dave. **The phase does NOT close without
-  `D-GATE-21.1`, and `VAC-05` is amended to `Complete` only after that entry
-  exists** -- exactly the `RECON-09` sequence, and the one conditional ledger edit
-  plan `21.1-10` is permitted. The ROADMAP Phase 21.1 progress row still reads
-  **Executing** on purpose. Brief the panel on what is already known and tell it
-  not to re-derive it; its budget is better spent on what is ADJACENT to each known
-  defect. The known set: `R-α`, advisory `A-7`, the six criterion readings, and the
-  wave-4 CI blocker this wave fixed -- whose neighbourhood is *which other gates
-  does no wave run?*
-  PRIOR: **PHASE 21 IS CLOSED AND MERGED.** `D-GATE-21` is logged (Dave, 2026-08-22),
-  `RECON-09` reads `Complete` in both channels, the ROADMAP Phase 21 progress row
-  reads Complete with the gate date, and `phase-21` is merged to `main` with a
-  merge commit that references the gate. No force-push (`D-16`, `CLAUDE.md` SS2.2).
-  **THE THREE RULINGS ARE `D-IMPL-175`, `D-IMPL-176`, `D-IMPL-177`.** The one a
-  later reader is most likely to miss: **`s3-` is NOT a required naming scheme**
-  (`D-IMPL-176`). A future phase discharging `EXAM-02` or `DOCS-14` builds under
-  whatever directory name fits; the `Not built` verdicts' reference to a missing
-  `examples/s3-*` home is the MEASUREMENT that produced them, not a specification.
-  **THE WORK LIST SURVIVES THE GATE INTACT** -- all five rows, sequenced by Dave in
-  `21-FINDINGS.md` SS2: `DOCS-15` first, replacements before removals, the
-  retirement pair last, and the `00`-`08` half of `D-27` still his with the
-  `D-IMPL-145` quarantine standing.
-  **THE STANDING MACHINERY THE PHASE LEAVES BEHIND** is
-  `tools/docs_tests/test_requirement_ledger.py`, 51 tests, reached by `gate-tools`
-  -> `ci-core` -> `ci` with nothing else to wire. It refuses a bare, ambiguous,
-  nonexistent or directory citation; a channel disagreement; a seventh verdict word;
-  two verdicts in one cell; a roster row returned to `Pending` or deleted outright;
-  a verdicted row that cites nothing; a changed `tests/` tree; and a pathspec that
-  names no tracked subject. Seventeen numbered controls plus positive twins, every
-  one watched RED under a mutation of the SHIPPED function. **Per `D-21` no check in
-  it carries a hardcoded row count** -- the guard returns 0 matches.
-  **CARRIED, NOT CLOSED:** advisories `A-1`..`A-8` in `21-CLOSE-REVIEWS.md`; the 27
-  `human_needed` items in `21-FINDINGS.md` SS3; the `B-3` `ci`-composition guard in
-  SS5; the 79 uncited rows outside the working set.
-  PRIOR CONTEXT FOLLOWS.
-  **AT THE GATE, AWAITING DAVE.** The SS3.1 close panel and the single-agent review
-  have both run; three blocking findings are fixed in-phase with standing controls;
-  three findings are recorded as REJECTED and seven as carried advisories. Branch
-  `phase-21` at `4755d10`, tree clean apart from Dave's two untracked `docs/` files.
-  **WHAT IS DELIBERATELY NOT DONE, AND MUST NOT BE DONE WITHOUT DAVE'S RULING:**
-  the `D-GATE-21` entry in `docs/DECISIONS.md`; the ROADMAP Phase 21 progress row
-  flip to Complete; the `RECON-09` `Partial -> Complete` amendment in both channels
-  (its outstanding limb IS `D-GATE-21`); and the merge of `phase-21` to `main` with
-  a merge commit referencing the gate. `T-21-41`: closing on a green review instead
-  of his ruling is elevation of privilege, and SS3.1 step 3 says the review is
-  necessary and never sufficient.
-  **WHAT DAVE IS BEING ASKED FOR, IN ORDER:** (1) the eighteen-row Phase 16 split in
-  `21-DOCS-16-SPLIT.md` -- the ruling he deferred at the Phase 20 sitting; (2) the
-  five-row work list in `21-FINDINGS.md` SS2, including the four-row knot and the
-  `00`-`08` half of `D-27`; (3) the `All **42**` counter's provenance; (4) the eight
-  advisories in `21-CLOSE-REVIEWS.md`, of which A-1 (nothing prevents a FUTURE
-  ledger accumulating unverdicted rows the way these 54 did) and A-8 (the uppercase
-  spelling) are policy questions rather than defects.
-  **ON APPROVAL, AND ONLY THEN**, regenerate
-  `docs/surface/examples/RETIREMENT-COUPLINGS.md` as the LAST write before the merge
-  commit -- it walks `.planning/` and reddens the docs gate on every planning commit.
-  **DO NOT TOUCH THE FIVE `Not built` ROWS OR ANYTHING THEY NAME.** `D-11` holds to
-  the end of the phase.
-  **THE `progress:` COUNTERS ABOVE REMAIN DELIBERATELY UNTOUCHED**, for the reason
-  wave 5 recorded.
-  PRIOR CONTEXT FOLLOWS.
-  PHASE 21 EXECUTION IS DONE; `21-07` -- THE SS3.1 CLOSE PANEL AND `D-GATE-21` -- IS
-  NEXT. Branch `phase-21`, tree clean apart from Dave's two untracked `docs/` files.
-  Six of seven plans are complete; `21-07` is the gate checkpoint and is not complete
-  until Dave rules. **`21-07` ADDS NO LEDGER ROWS** -- every row it reviews was written
-  before it, on purpose.
-  **WHAT THE PANEL MUST BE GIVEN, PER `CLAUDE.md` SS3.1:** the SHIPPED CODE and the
-  shipped ledger, not the plans -- those decisions are executed. Write it to
-  `21-CLOSE-REVIEWS.md` so the pre-execution plan review survives. Brief it on the
-  findings already known and tell it not to re-derive them; its budget is better spent
-  on what is ADJACENT to each. Verify every finding against the tree before recording or
-  acting on it, and record the rejected ones AS rejected -- this project has received
-  confident, well-formatted, false findings twice.
-  **DO NOT TOUCH THE FIVE `Not built` ROWS OR ANYTHING THEY NAME.** `D-11` holds to the
-  end of the phase; the work list is Dave's to rule on and a later phase's to execute.
-  **THE `progress:` COUNTERS ABOVE REMAIN DELIBERATELY UNTOUCHED**, for the reason wave
-  5 recorded: `21-CONTEXT.md` deferred the block explicitly and `D-19` names three
-  counters, none of them this one.
-  **TWO THINGS DAVE MUST RULE ON THAT AN EXECUTOR CANNOT:** the `All **42**` counter's
-  provenance question, and the four-row knot on the work list.
-  **NEXT ACTION: run `/gsd-review --phase "Phase 21" --all`, then the single-agent
-  review, then present to Dave.**
-  PRIOR CONTEXT FOLLOWS.
-  PHASE 21 WAVE 5 IS DONE; WAVE 6 (`21-06`) IS NEXT. Branch `phase-21`, tree clean apart
-  from Dave's two untracked `docs/` files. `21-06` writes the ten `RECON-` verdicts -- the
-  only rows still reading `Pending` anywhere in the ledger -- BEFORE the close panel, lands
-  the completeness assertion `21-01` deliberately held back until every row was written,
-  updates the position files by hand, and runs `make ci`. `21-07` is the SS3.1 close panel,
-  the single-agent review and `D-GATE-21`.
-  **DO NOT TOUCH THE FIVE `Not built` ROWS OR ANYTHING THEY NAME.** `D-11` holds to the
-  end of the phase; the work list is Dave's to rule on and a later phase's to execute.
-  **THE `progress:` COUNTERS ABOVE REMAIN DELIBERATELY NOT TOUCHED, AND WAVE 1'S NOTE
-  HANDING THEM TO `21-05` WAS WRONG.** `21-CONTEXT.md` DEFERRED the `progress:` block
-  explicitly -- it is a GSD tooling limitation, not a ledger row -- and `D-19` names three
-  counters, none of them this one. Two of those three are corrected and the third is
-  reported rather than guessed; that work is DONE and `RECON-10` is discharged in substance,
-  awaiting only its verdict cell in `21-06`.
-  **THE ONE THING `21-06` MUST NOT INHERIT AS AN ASSUMPTION:** no row count is carried by
-  any check (`D-21`). 143 is a reported measurement, not a constant. Measure it.
-  **NEXT ACTION: continue `/gsd:execute-phase 21` at `21-02`.**
-  PRIOR CONTEXT FOLLOWS.
-  PHASE 21 IS PLANNED AND READY TO EXECUTE. Branch `phase-21`, tree clean apart from Dave's
-  two untracked `docs/` files. SEVEN plans, SEVEN serial waves -- serial because every audit
-  plan writes `.planning/REQUIREMENTS.md`. Wave 1 `21-01` pins the base, fixes the `docs`
-  job's shallow checkout, mints the phase's own ten `RECON-` rows and ships both standing
-  checks with CONTROLS 1-9, 9b, 11 and A-C; waves 2-4 write verdicts (22 `CLNT`, then 14
-  mixed, then Phase 16's 18 as a two-sided split); wave 5 the findings, work list, 27
-  `human_needed` items and three counter corrections; wave 6 the completeness count and the
-  untouched-fabric proof; wave 7 the SS3.1 close panel and `D-GATE-21`.
-  `21-CONTEXT.md` now carries TWENTY-ONE decisions `D-01`..`D-21` -- `D-17`/`D-18`/`D-19`
-  ruled by Dave after research, `D-20`/`D-21` after the checker passes.
-  **WHAT AN EXECUTOR MUST NOT DO:** close a gap it discovers (`D-11`), write a test to
-  manufacture a criterion-6 name (`D-05`), fix `tools/lints/citations.py` (`D-07`, now
-  mechanically pinned by `PINNED_FILES`), fix `audit-uat` (`D-20`), flip or drop Phase 16's
-  eighteen rows (`D-12`), discharge a `human_needed` item (`D-13`), backfill a `D-GATE`
-  (`D-14`), touch `src/` or `runtime/` (criterion 12), or use `gsd-sdk query state.*` /
-  `roadmap.*` (`D-15`). Regenerate `docs/surface/examples/RETIREMENT-COUPLINGS.md` LAST
-  after every `.planning/` edit, the SUMMARY included -- it walks `.planning/` and reddens
-  the docs gate on every planning commit.
-  **NEXT ACTION: `/gsd:execute-phase 21`.**
-  PRIOR CONTEXT FOLLOWS.
-  PHASE 21 CONTEXT IS GATHERED; THE PHASE WAS READY TO PLAN. Work is on branch `phase-21`.
-  `21-CONTEXT.md` carries SIXTEEN decisions `D-01`..`D-16`. **THE COUNT IS 54, NOT 52** --
-  a strict parse of the traceability table returns 133 rows, 54 of them not-`Complete`;
-  `grep -c "| Pending |"` misses `CPS-03` (bold `**Pending**`) and `DCD-02` (`**Partial**`),
-  and the wrong figure had already reached `D-GATE-20`, the first ROADMAP draft of this
-  phase and the progress report. The phase's own subject arrived before the phase did.
-  ROADMAP Success Criteria AMENDED IN-SESSION before any planning: ten -> FOURTEEN,
-  `roadmap.get-phase 21` confirms parsed count = 14. **THE SCOUT CHANGED THE PHASE SHAPE:**
-  `.planning/REQUIREMENTS.md` is ALREADY inside `tools/lints/citations.py`'s `GATED_TREES`
-  with NO `HISTORICAL_RECORDS` exemption, so a `path::symbol` citation written into a
-  requirement row is resolved by machinery that already ships -- criterion 3 needs no new
-  resolver. Phase 15.6's `DCD-02`..`DCD-12` rows are the adopted format AND the adopted
-  verdict vocabulary. The ledger's two status channels (checkbox list + traceability table)
-  measured at ZERO drift across all 133 ids and a standing check must keep them that way.
-  **NEXT ACTION: `/gsd:plan-phase 21`.** The phase FINDS and RECORDS; it builds nothing.
-  PRIOR CONTEXT FOLLOWS.
-  PHASE 20 IS CLOSED AND PHASE 21 IS IN THE ROADMAP, UNPLANNED. Dave ruled three times at
-  the Phase 20 close (2026-08-21): (1) the 52 `Pending` requirement rows get a ROW-BY-ROW
-  reconciliation phase, not a wholesale tick; (2) the ten phases with no `D-GATE` entry are
-  gated by their ROADMAP completion rows and are NOT backfilled -- logged as `D-IMPL-171`;
-  (3) Phase 16's eighteen `DOCS-` rows are DEFERRED until the audit reports the split, in
-  Dave's words *"tell me after the audit"*. Phase 21 is written into the ROADMAP BY HAND
-  (bullet + detail section + progress row, `phase.add` not used per `D-IMPL-154`/`155`) with
-  TEN Success Criteria authored one-per-unwrapped-line BEFORE execution; `roadmap.get-phase
-  21` confirms parsed count = 10. **NEXT ACTION: `/gsd:discuss-phase 21`, then plan it.** The
-  phase FINDS and RECORDS; it does not build what a `not-built` verdict surfaces -- that is a
-  later phase and Dave's call.
-  PRIOR CONTEXT FOLLOWS.
-  PHASE 20 IS CLOSED. `D-GATE-20` is logged (append-only, at the end of `docs/DECISIONS.md`)
-  and `phase-20` is merged to `main`. SS3.1 ran IN ORDER and the order mattered: execution ->
-  cross-AI close panel against the SHIPPED CODE -> additive single-agent review -> every
-  finding verified against the tree -> all five blocking findings fixed in-phase -> presented
-  to Dave -> ruling -> gate entry -> merge.
-  **THE ONE THING OWED NEXT IS THE REQUIREMENT-LEDGER RECONCILIATION, AND IT BLOCKS v0.2.**
-  `.planning/REQUIREMENTS.md` carries 52 rows reading `Pending`: 21 Phase 17, 18 Phase 16,
-  6 Phase 14, 3 Phase 9, 3 Phase 13, 1 Phase 18. Phase 20's own ten (`CLNT-23`..`CLNT-32`)
-  are `Complete` and match the tree. **The eighteen Phase 16 rows are NOT bookkeeping** --
-  Phase 16 was RETIRED (`D-IMPL-152`), not completed, and its 14 unexecuted plans live in
-  `abandoned/`; `DOCS-07`..`DOCS-25` are obligations attached to an approach that no longer
-  exists and they need a RULING (re-home onto a new phase, or formally drop), not a tick.
-  The other 34 rows are most likely unreconciled bookkeeping against GATED phases, but that
-  is a HYPOTHESIS TO BE VERIFIED ROW BY ROW AGAINST THE TREE, NOT AN ASSUMPTION TO ACT ON --
-  only 12 of the 22 `CLNT-` ids are named anywhere in `docs/DECISIONS.md`. **DO NOT RUN
-  `/gsd:complete-milestone`:** the plan counter reads 100% because it counts SUMMARY files
-  against PLAN files and cannot see that a phase was retired rather than executed, which is
-  this project's own recurring defect class -- a check that cannot report the thing it
-  appears to report. ALSO OPEN: 24 `human_needed` verification items across 9 phases (11,
-  13, 14, 15.1-15.4, 18.1, 19), all requiring Dave rather than an executor; the largest is
-  Phase 11's first perf baseline, which needs a live GitHub Actions dispatch and a
-  `D-IMPL-70` approval.
-  PRIOR CONTEXT FOLLOWS.
-  PHASE 20 IS EXECUTION-COMPLETE, THE CLOSE PANEL IS DONE, AND IT IS NOT GATED. Work is on
-  branch `phase-20` (`9e4bd0e`..`7f59289`+), NOT on `main`.
-  **STEP 1 OF SS3.1 IS COMPLETE.** The CROSS-AI CLOSE PANEL ran 2026-08-21 against the
-  SHIPPED CODE and is committed at `7f59289` as
-  `.planning/phases/20-.../20-CLOSE-REVIEWS.md` (356 lines, with a verbatim-reproduction
-  appendix). Reviewers: gemini, codex, cursor; `claude` SKIPPED as the executing model.
-  304 KB / 5,889 lines of committed source was INLINED into the prompt -- required,
-  because codex reviews nothing at exit 0 on this host. Eleven findings claimed, EVERY ONE
-  VERIFIED against the tree: THREE BLOCKING, four advisory, FOUR REJECTED (recorded as
-  rejected).
-  **THE THREE BLOCKING FINDINGS -- ALL FIXED 2026-08-21 (`08826ba`, `86142a0`, `ad3edb0`),
-  each with a standing control verified RED under sabotage. Recorded below as found:**
-  **B-1** `examples/hw1-harness-clients/runner/drive.py::marker_violations` vs
-  `examples/hw1-harness-clients/runner/drive.py::observed_markers` vs
-  `examples/hw1-harness-clients/runner/drive.py::CONSOLE_VOCABULARY`.
-  `marker_violations` property 4 compares whole WORDS of a declared name against the chrome
-  vocabulary; `observed_markers` matches by raw SUBSTRING; and `CONSOLE_VOCABULARY` OMITS
-  `product`, a word all three legs print (`print("context product")`). PROVEN by running
-  the shipped functions: names `product`, `text`, `ntex` are ACCEPTED by the marker guard,
-  and an address-only leg then PASSES `payload_violations` -- CONTROL A's exact subject
-  passing the check written to refuse it. LATENT, not live: the six current names in
-  `runner/scenario-rows.yaml` are safe. Root cause: the vocabulary was sourced from
-  `consume.py::main` + the runner, but the check greps the LEG's stdout.
-  **B-2** `tools/lints/no_hardcoding.py::resolved_text`. The CINV-01a destination arm resolves
-  `node.args[1]` ONLY, so `os.environ.get(k, default="...")` and `os.getenv(k,
-  default="...")` ESCAPE it. PROVEN against `check_source`: positional FLAGGED, both
-  keyword spellings NOT FLAGGED. Both spellings are valid Python (executed to confirm).
-  This is one spelling of the exact "env var worn as a hat" shape ruling 6(b) minted the
-  arm to refuse.
-  **B-3** `examples/hw1-harness-clients/runner/drive.py::marker_violations`,
-  `examples/hw1-harness-clients/runner/drive.py::payload_violations` and
-  `examples/hw1-harness-clients/runner/drive.py::compare_addresses`. `marker_violations`, `payload_violations` and
-  `compare_addresses` appear ONLY in `drive.py` -- no test imports or probes them. CONTROL
-  A-F ran as ONE-SHOT mutation probes recorded in `20-03-SUMMARY.md:164-172`, not standing
-  tests, unlike the purity gate (C-20-1..9) and the no-model guard (CONTROL 1-3) which both
-  ship pytest controls. B-1 IS THE DIRECT CONSEQUENCE. **Whether a SUMMARY-recorded
-  one-shot probe discharges `CLNT-12` IS A RULING FOR DAVE, not a thing to decide alone.**
-  **ADVISORY (4):** A-1 `tools/lints/no_hardcoding.py::check_source` -- the message says a prompt is refused
-  "not by how long it is" while `_is_prose_candidate` floors at `MIN_PROMPT_CHARS = 40`;
-  the FLOOR is a documented measured knee (CONTROL 8) and is NOT the defect, the SENTENCE
-  is. Only three-way consensus finding. A-2 `runner/model_stub.py` `seen` written and never
-  read, which its own docstring at `:45` calls the `C-10` pattern this project refuses.
-  A-3 `examples/hw1-harness-clients/runner/drive.py::reference_run` has no subprocess
-  timeout while `examples/hw1-harness-clients/runner/drive.py::drive_leg` does.
-  A-4 a leg timeout orphans the door grandchild -- already documented in situ at `:966-971`.
-  **REJECTED (4), and why it matters:** codex quoted a docstring sentence that DOES NOT
-  EXIST in the file it cited (`grep -n reference tests/examples/test_hw1_harness_clients_
-  no_model.py` returns NOTHING) -- the fabricated-citation mode this project has rejected
-  reviewer output for before. gemini's case-sensitivity scenario runs BACKWARDS through
-  `_words` (`examples/hw1-harness-clients/runner/drive.py::_words`), which lowercases. Full rejection reasoning in the report.
-  **NEXT ACTION, in this order:** (2) the SINGLE-AGENT code review (`/gsd-code-review`),
-  ADDITIVE and never a substitute for the panel; (3) FIX B-1, B-2, B-3 IN-PHASE -- each
-  fix carries its own standing sabotage control per `CLNT-12`, and B-1's fix must turn the
-  appendix reproduction RED; (4) present deliverables + this report + the triage to Dave;
-  (5) `D-GATE-20` and the merge to `main`. PANEL RELIABILITY OBSERVED THIS ROUND: cursor
-  was the STRONGEST (both surviving blockers plus the seed of the third, accurate
-  `path:line` throughout); codex DID read when source was inlined (95,655 tokens) but
-  fabricated one citation; gemini found no fabricated symbols but reasoned backwards once.
-  `make gate-tools` at `7f59289` is EXIT 0 (406 + 154) -- adding this report under
-  `.planning/` did NOT stale the coupling inventory. No shipped code changed, so the
-  executor's green `make ci` at `d9b3f5a` still stands.
-  PRIOR CONTEXT FOLLOWS.
-  PHASE 20 IS EXECUTION-COMPLETE AND NOT YET GATED. Work is on branch `phase-20`
-  (`9e4bd0e`..`5c0cc24`), NOT on `main`. NEXT ACTION, per CLAUDE.md SS3.1 and in this order:
-  (1) the CROSS-AI PANEL against the SHIPPED CODE -- `/gsd-review --phase "Phase 20" --all`
-  -- written to a DISTINCT `20-CLOSE-REVIEWS.md` so the pre-execution plan reviews survive;
-  (2) the single-agent code review, which is ADDITIVE and never a substitute; (3) VERIFY
-  EVERY FINDING against the tree before recording or acting on it, and record rejected
-  findings as rejected; (4) fix all blocking findings IN-PHASE; (5) present to Dave with the
-  triage; (6) `D-GATE-20` and the merge to `main`.
-  TWO RESIDUALS ARE CARRIED, NEITHER PAPERED OVER. (1) THE POST-SUMMARY REGENERATION WINDOW:
-  GSD writes a plan's SUMMARY AFTER its tasks, so a final `tools/retirement_sweep.py --report`
-  can be invalidated by that plan's own summary naming a retiring path. Measured at wave 8 --
-  it added EXACTLY ONE row and skipping the step would have left `make ci` RED on a tree
-  nobody else had touched. It is a HAND-RUN STEP, NOT A MECHANISM: the next phase's first
-  plan must repeat it if it edits `.planning/**` before asserting `make ci`. The currency test
-  was NOT exempted; if the hand-run proves insufficient that is a `D-IMPL` and a STOP.
-  (2) The x86_64 `claude-agent-sdk==0.2.128` wheel bundling the `claude` CLI is UNVERIFIED
-  from this aarch64 host. NO FALLBACK WAS BUILT and none should be -- a second leg-2 path CI
-  never exercises is criterion 6's own failure mode. Confirm with one CI run or
-  `pip download claude-agent-sdk==0.2.128 --platform manylinux_2_17_x86_64 --no-deps` and
-  inspect the wheel for `_bundled/claude`. The README states the wheel bundles the CLI without
-  qualifying by architecture; that is the sentence to correct if it resolves against us.
-  **WHAT WAS ACTUALLY VERIFIED AT CLOSE, AND BY WHOM -- DO NOT RE-DERIVE, DO NOT OVERCLAIM.**
-  The executor ran a FULL `make ci` to EXIT 0 at `d9b3f5a`: **4083 passed / 118 skipped**,
-  406 lint, 154 docs. The ORCHESTRATOR verified, at HEAD, independently: `make gate-tools`
-  EXIT 0 (406 + 154); `tests/examples` **456 passed / 37 skipped**; criterion 7 (`git diff
-  9e4bd0e..HEAD -- src/` EMPTY); `s2-01` gone with exactly ONE `client_langgraph.py` under
-  `examples/`; ten `CLNT-23..32` rows flipped; the ten Success Criteria still parsing as TEN
-  after the ROADMAP hand-edit; and a live `make example-hw1-harness-clients` printing three
-  legs plus the reference at one address with declared names and NO refusal line. THE
-  ORCHESTRATOR DID NOT COMPLETE A FULL `make ci` ITSELF -- see the harness note below. The
-  delta between the executor's green run and HEAD is ONLY `.planning/ROADMAP.md`,
-  `.planning/STATE.md` and the regenerated inventory, and NO test under `tests/` reads
-  `ROADMAP.md` or `STATE.md` (measured), so the untested surface is nil.
-  **HARNESS LIMITATION, OPERATIONAL:** a full `make ci` CANNOT be completed in one tool call
-  in this environment -- foreground Bash caps at 10 minutes and background jobs were KILLED
-  at ~3 minutes, twice. A partial run reached lint OK, typecheck OK, suite 34% with ZERO
-  failures before external `Terminated` (NOT a test failure). Do not read that termination as
-  a red build. To verify the full suite, either run it OUTSIDE the agent harness, or run the
-  components separately (`make lint`, `make typecheck`, `make test`, `make examples`,
-  `make docs-strict`, `make gate-tools`). Also: NEVER pipe a long build through `tail` in a
-  background job -- `tail` buffers until EOF, so a kill leaves an EMPTY log. Redirect to a
-  file and read the file.
-  **HOW TO BRIEF THE CLOSE PANEL.** Review the SHIPPED CODE, not the plans -- the plans
-  already had FOUR review rounds (11 -> 7 -> 4 -> 0 findings) and those decisions are
-  executed. Give the panel the findings ALREADY KNOWN and tell it NOT to re-derive them; its
-  budget is better spent on what is ADJACENT. This phase's defect classes, for aiming it:
-  (a) CHECKS THAT COULD NOT FAIL -- four found and closed, three by the executors sabotaging
-  their own controls; (b) A GUARD NARROWED FOR A TRANSIENT REASON (`D-IMPL-166`); (c) GATES
-  NOBODY CONSULTED -- the wave-1 `artifacts/` bijection and a docstring path silently
-  acquiring a coupling row. REVIEWER RELIABILITY ON THIS HOST: `codex` has reviewed NOTHING
-  at exit 0 when its sandbox fails -- inline the source for it and check it actually read
-  something; `gemini` has FABRICATED symbols. Verify EVERY finding against the tree with a
-  `path:line` before recording it, and record rejected findings AS REJECTED.
+  **PHASE 21.1 IS CLOSED AND MERGED.** `D-GATE-21.1` is logged with Dave as
+  approver; `D-GATE-21` is unamended and remains in force. All fifteen Success
+  Criteria read as met, six of them under the readings `D-IMPL-184` confirms.
+  **THE MILESTONE IS NOT COMPLETE AND MUST NOT BE COMPLETED ON THIS COUNTER.** The
+  ROADMAP now shows every phase checked, but `DOCS-07`..`DOCS-19` remain undischarged
+  against a retired Phase 16, and the five `Not built` rows (`DOCS-14`, `DOCS-15`,
+  `DOCS-17`, `CLNT-17`, `EXAM-02`) are still on the work list that `D-IMPL-176`
+  sequenced -- four of them one knot that cannot be sequenced apart. `DOCS-18` limb 1
+  stays closed by `D-IMPL-175`, `RECON-10` still carries an outstanding limb needing
+  a ruling on what *v0.2 requirements* counts, and all 27 `human_needed` verification
+  items across 11 phase records are NAMED, not discharged (`D-20`). A phase counter
+  reading 100% over that debt is exactly the miscount Phase 21 existed to end.
+  **THE NEXT DECISION IS DAVE'S**, and it is which of the named work items opens the
+  next phase -- `D-IMPL-176` recommends `DOCS-15` first, cheapest and highest
+  adoption leverage, with replacements before removals. **`D-IMPL-187` is the one
+  piece of technical debt this phase created rather than inherited**: `Aim.kind` is
+  scalar, so a control spanning two kinds can declare only one of them; making it
+  plural changes every entry in a 63-entry registry and both directions of
+  `CONTROL 34`, which is redesign and belongs in a planned phase, not a close.
 ---
 
 # STATE — CCF SDK
