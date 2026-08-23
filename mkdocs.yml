@@ -107,7 +107,7 @@ markdown_extensions:
   - pymdownx.inlinehilite
 
 # Every path enumerated explicitly — no globs. The nav is authoritative: it
-# lists 42 pages, and `charter.md` is the single `not_in_nav` page, for the 43
+# lists 43 pages, and `charter.md` is the single `not_in_nav` page, for the 44
 # markdown files under `public/`. (The eleven `.mmd` diagram sources under
 # `public/diagrams/` are embedded by the Concepts pages, not nav entries.)
 nav:
@@ -126,6 +126,9 @@ nav:
       - Bind a harness adapter: how-to/bind-a-harness-adapter.md
       - Write a graph backend adapter: how-to/write-a-graph-backend-adapter.md
   - Concepts:
+      # D-11 placement: the adoption argument leads Concepts because a
+      # first-time reader reaches this section without finishing the tutorial.
+      - Answers no document contains: concepts/answers-no-document-contains.md
       - Pillars:
           - Data and Context Layer: concepts/pillars/data-context.md
           - Orchestration Layer: concepts/pillars/orchestration.md
