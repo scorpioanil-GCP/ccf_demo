@@ -222,8 +222,18 @@ CAVEAT_CONTRACT = re.compile(
 #: The caveat's second half — no shipped pipeline produces those anchors.
 #: **Matched against ``Paragraph.text``**: it is ordinary un-backticked prose
 #: on the shipped page, and it is a sentence a reader must actually read.
+#:
+#: **The bounded gaps exclude EVERY terminal, not just the full stop.** They
+#: read ``[^.!?]`` rather than ``[^.]`` because the point of bounding them at
+#: all is to keep the three tokens inside ONE sentence — a "caveat" stitched out
+#: of fragments of two sentences is not a caveat a reader reads. Measured with
+#: ``[^.]``: replacing the shipped caveat clause with ``**No shipped pipeline
+#: ships!** CCF produces passage anchors from your documents on every
+#: assembly.`` still satisfied this constant, so the positive AW-2 obligation
+#: reported GREEN on a page whose caveat had been swapped for the overclaim the
+#: obligation exists to prevent. Control 13 holds it.
 CAVEAT_ABSENCE = re.compile(
-    r"no shipped pipeline\b[^.]{0,80}\bpassage anchors\b[^.]{0,40}\bdocuments\b",
+    r"no shipped pipeline\b[^.!?]{0,80}\bpassage anchors\b[^.!?]{0,40}\bdocuments\b",
     re.IGNORECASE,
 )
 
@@ -542,6 +552,23 @@ def test_the_passage_anchor_caveat_states_both_halves_in_one_paragraph() -> None
 
 #: The page under guard, repo-relative inside the published tree.
 ADOPTION_PAGE = "concepts/answers-no-document-contains.md"
+
+#: The shipped caveat clause control 13 substitutes away, **verbatim as the page
+#: wraps it**. A paraphrase would either fail to anchor — turning the control
+#: into a no-op the fixture-integrity assertion has to catch — or drop the
+#: markup-closed boundary that is half of what the control measures.
+CAVEAT_CLAUSE = (
+    "Pattern 5, unstructured ingestion, was\n"
+    "never built, so no shipped pipeline produces passage anchors from documents."
+)
+
+#: What control 13 puts in its place: a denial fragment about something else,
+#: closed with ``!**``, followed by the overclaim. Measured before the fix, this
+#: page passed **both** AW-2 obligations.
+CAVEAT_CLAUSE_SWAPPED_FOR_AN_OVERCLAIM = (
+    "**No shipped pipeline ships!** CCF produces passage anchors from your\n"
+    "documents on every assembly."
+)
 
 
 def _copy(tmp_path: pathlib.Path) -> pathlib.Path:
@@ -945,6 +972,54 @@ def test_control_11_a_decoy_negation_does_not_exonerate(
         "denial that is its own complete sentence exempted an overclaim in the "
         "NEXT sentence — _prose.SENTENCE_BREAK has lost its markup-closer "
         "class, so sentence scoping silently became paragraph scoping"
+    )
+
+
+def test_control_13_the_caveat_clause_swapped_for_an_overclaim_is_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The Phase 22 close's composed defect, held as one control.
+
+    Both AW-2 obligations reported GREEN on a page whose caveat clause had been
+    replaced by the exact overclaim the obligations exist to prevent, and it
+    took two independent defects to do it:
+
+    * ``CAVEAT_ABSENCE`` bounded its gaps with ``[^.]``, which excludes the full
+      stop and nothing else — so ``no shipped pipeline`` from the denial
+      fragment stitched across ``!`` to ``passage anchors ... documents`` in the
+      overclaim, and the POSITIVE obligation found a caveat that was gone; and
+    * ``_prose.SENTENCE_BREAK`` could not see ``.**``, so the denial and the
+      claim were one sentence, the denial preceded every extraction verb, no
+      pivot stood between them, and the NEGATIVE obligation's limb exempted the
+      overclaim outright.
+
+    Control 3 does not reach this: the mutation is IN the page, so the
+    unmodified-copy baseline carries it. This control substitutes rather than
+    appends for the same reason.
+
+    Both halves are asserted here rather than split, because the finding is
+    that they compose. Either one alone leaves the page reported honest.
+    """
+    page = _copy(tmp_path)
+    text = page.read_text(encoding="utf-8")
+    assert CAVEAT_CLAUSE in text, (
+        "the fixture's anchor clause is gone from the shipped page, so the "
+        "substitution below is a no-op and both refusals would prove nothing"
+    )
+    text = text.replace(CAVEAT_CLAUSE, CAVEAT_CLAUSE_SWAPPED_FOR_AN_OVERCLAIM)
+    page.write_text(text, encoding="utf-8")
+
+    assert paragraphs_carrying_the_caveat([page]) == [], (
+        "AW-2's positive obligation still found the caveat on a page whose "
+        "caveat clause has been replaced by an overclaim — CAVEAT_ABSENCE is "
+        "stitching its three tokens across a sentence terminal again, so its "
+        "bounded gaps must exclude every terminal (`[^.!?]`), not only `.`"
+    )
+    assert sentences_claiming_passage_extraction([page]), (
+        "AW-2's negative obligation admitted the substituted overclaim — the "
+        "denial fragment ahead of it exempted it, which is what happens when "
+        "_prose.SENTENCE_BREAK cannot see the markup-closed boundary between "
+        "the two"
     )
 
 
