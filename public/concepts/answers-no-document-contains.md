@@ -94,3 +94,80 @@ the obligation each of those states puts on the answer.
 ```yaml
 --8<-- "examples/s1-01-hello-context-product/artifacts/expected.yaml"
 ```
+
+## What a governed answer has to do
+
+Three obligations follow from the fourth fact above, and each one is visible in
+the example's call spine. The spine holds the fabric calls and nothing else — no
+entity class, no source system, no identifier, no threshold, no policy version
+and no query — so what follows is mechanism rather than this deployment's
+domain.
+
+### It is computed, from artifacts, over a graph at a named boundary
+
+The answer is derived at a temporal boundary the deployment names, and the four
+operator categories that derive it are built from the deployment's own parameter
+artifacts rather than from anything in the spine. The graph view is taken at that
+boundary first and handed to the chain, because the similarity corpus is read out
+of the graph at the boundary rather than lazily at first invocation — a corpus
+read later would be a corpus read at a different moment than the one the answer
+claims.
+
+Each operator leaves a witness the deployment declares. A jurisdiction-restricted
+party substituted out, a screening candidate below the similarity floor, an edge
+type the traversal was never given, an observation not yet legally effective at
+the boundary: if any of those references surfaces anywhere in the served payload,
+the operator named beside it has stopped working, and
+`tests/examples/test_s1_01_output.py::test_every_declared_absence_really_is_absent`
+goes red against the serialized payload rather than against one field.
+
+```py
+--8<-- "examples/s1-01-hello-context-product/spine.py:operators"
+```
+
+### Which company, and when, is the caller's question — not the fabric's configuration
+
+The subject is not a setting. It arrives on the request, and the request's
+subject *seeds the traversal*, which is what puts the subject inside the compiled
+graph query and therefore inside the pins the replay record keeps. Before that
+was true, two questions about two different companies pinned identically — the
+record could not tell them apart. The projection plan is a named local for a
+related reason: the binder has to be handed the same object the engine will run,
+and a disagreement between the projection's own `projection-requirements.yaml`
+and the product class's declared operator keys refuses there, before anything is
+assembled, by refusal rather than by repair.
+
+Two tests hold this.
+`tests/examples/test_s1_01_output.py::test_a_different_company_gets_a_different_answer`
+asks the same class about a company one step up the same ownership chain and
+fails if the two answers name the same people — one graph, one ingest, no second
+query.
+`tests/examples/test_s1_01_output.py::test_the_same_company_at_a_later_instant_gets_a_different_answer`
+re-asks the first question at a later boundary against a graph nothing was added
+to in between, and fails if the party the declaration says should appear does
+not: a share transfer recorded before the first boundary and legally effective
+after it is invisible in one answer and decisive in the other.
+
+```py
+--8<-- "examples/s1-01-hello-context-product/spine.py:project"
+```
+
+### The decision is recorded before it is delivered, and every pin resolves
+
+Delivery is what the successful append returns. There is no branch that reaches a
+served product without a recorded decision, so an unrecorded answer is an answer
+that was never served. The questions actually put to the graph are pinned by
+content hash rather than described, and the canonical query bytes land in the
+store *before* the record is appended — so no moment exists at which a recorded
+pin dangles and nothing can resolve it.
+
+What the decision was obliged to do is recorded the same way, in the record
+itself rather than as a pointer at the profile that bound it, so that editing the
+profile tomorrow cannot rewrite what yesterday's answer was obliged to do.
+`tests/examples/test_s1_01_output.py::test_the_obligation_in_force_is_pinned_into_the_replay_record`
+checks the obligation on every answered question against the one the product
+carries, and the third question's against the deployment's own declaration.
+
+```py
+--8<-- "examples/s1-01-hello-context-product/spine.py:serve"
+```
