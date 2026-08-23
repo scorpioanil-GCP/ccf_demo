@@ -315,3 +315,25 @@ and the deployment declines to declare them for the reason its own expectation
 document gives: restating them there would be authoring the answer the
 computation exists to produce. The band names, the weak factor and the two
 obligations are the claim; the arithmetic behind them belongs to the run.
+
+## Where a document search is stronger, and this is not
+
+The lineage entry a Context Product carries has a `passage_anchor` field, and the
+contract behind it ships: `D-IMPL-46` rules the `PassageCitationProvider`
+Protocol, and `src/ccf/contracts/claims.py::PassageAnchor` is the typed anchor
+that field takes (whitepaper §7.10.3). Pattern 5, unstructured ingestion, was
+never built, so no shipped pipeline produces passage anchors from documents.
+What the lineage on this page's answer anchors is the source identity and the
+observation envelope each ownership claim arrived on, accumulated by set-union
+across corroborating sources — which is what this question needs, and it is a
+different thing.
+
+Extractive provenance over a document corpus is the one place on this page where
+a retrieval system does something this deployment does not do, and the page says
+so rather than routing around it: a comparison that implied otherwise would
+overclaim at exactly the point where it is most exposed. What is claimed here is
+narrower, and it is the whole claim. The answer is computed from a graph at a
+named boundary, under a policy regime, with the operators that shaped it and the
+obligation in force recorded before it was delivered — and the price of that is
+that its provenance points at observations and source systems rather than at
+sentences.
