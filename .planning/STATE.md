@@ -3,8 +3,62 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-23T02:40:00.000Z"
+last_updated: "2026-08-23T04:15:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21.1 WAVE 7 LANDED (`21.1-07`, four task commits `e8916d4`,
+  `e62c090`, `f1cd3b8`, `6436163`).** **CRITERION 13 IS CLOSED FOR EVERY KIND THIS PLAN
+  OWNS. The generator of the phase's defect class now has a standing check.** Nothing in
+  this module had ever proved that a CONTROL's mutation reaches the assertion it vouches
+  for, which is why `CONTROL A`, `CONTROL 5` and `CONTROL 13` all shipped mis-aimed.
+  **`CONTROL_AIM` -- 54 ENTRIES, ONE PER CONTROL, SIX AIM KINDS.** Every control now
+  DECLARES what it vouches for: 23 `limb`, 18 `guard`, 4 `discriminator`, 2 `shim`, 2
+  `pathspec`, 5 `meta`. Each entry carries a FROZENSET of targets, never one value --
+  `CONTROL C` covers two limbs and `CONTROL A` four constants, and a single-target
+  registry would have let either satisfy its entry while remaining unproven for the rest,
+  which is `RR-9` living inside the meta-control built to end `RR-9`.
+  **COVERAGE IS BIDIRECTIONAL AND OVER THE UNION.** `CONTROL 34` requires every `LIMBS`
+  id to be claimed by some `limb` or `shim` entry and every claimed id to be a registered
+  limb, by set equality on NAMES in both directions, plus a frozen `CONTROLS` roster
+  asserted set-equal to the enumeration -- because a predicate that quietly stops matching
+  a control satisfies coverage VACUOUSLY for it while both directions still pass. The four
+  positive twins are the standing proof that is not hypothetical: they are named
+  `test_the_positive_control_...`, outside the `test_control_` convention.
+  **`RR-12` IS CLOSED, AND THE SHIMS ARE PROVEN RATHER THAN EXCUSED (`D-IMPL-181`,
+  criterion 15).** `CONTROL 27d` and `CONTROL 27e` reach all four shim limbs, fire each BY
+  NAME with its sibling disarmed, and then watch the helper degrade SILENTLY when the shim
+  itself is disarmed on top. **`_duplicated_checkbox_bullet.twin_identical` is unreachable
+  under EVERY input and every real regex** -- `twin == line` requires the flipped tick to
+  equal the tick it replaced and the class `[ xX]` admits no such value -- so it is reached
+  by substituting a PATTERN OBJECT whose reported group span rewrites to itself, on the
+  substitution idiom `CONTROL 22` and `CONTROL 29` already use. No exempt roster; Dave
+  rejected one because it *"excuses them without proving they work"*.
+  **FIFTY-SIX AIM PROOFS RUN AS STANDING TESTS**, not probes: `CONTROL 35` proves 27
+  limb-target pairs across 26 limbs, `CONTROL 36` four discriminators, `CONTROL 36b`
+  twenty-one guard pairs and `CONTROL 36c` all four shims. **EVERY SINGLE RED WAS THE
+  CONTROL'S OWN `AssertionError` -- not one crash anywhere**, measured, and `CASCADING_REDS`
+  freezes that as a NAMED (and today empty) roster so a control that starts crashing where
+  it used to assert reddens the run instead of counting as coverage. That is the property
+  `D-IMPL-181` exists to protect: a crash and a caught defect are indistinguishable to a
+  coverage assertion.
+  **`CONTROL 32` AND `CONTROL 33` TOOK `guard`, NOT `meta`, AND THE ASYMMETRY IS THE
+  ARGUMENT.** A `meta` entry is excluded from every invocation loop by design and carries
+  no thunk at all, which makes the exclusion structural. For the aim-provers that is
+  legitimate. For the two controls holding the mechanisms that can disarm everything else
+  it would have been dodging the taxonomy -- registered, enumerated, aim-unproven.
+  **EIGHT SABOTAGES, EACH NAMING ITS OFFENDER AND EACH RESTORED:** an unregistered control;
+  the same control rostered; `CONTROL C` narrowed to one of its two limbs; an entry
+  claiming an id that is not in `LIMBS`; **`CONTROL 5` re-pointed at a real limb it does
+  not observe -- the historical defect reproduced mechanically and caught in under a
+  second**; and `CONTROL 17b`, `CONTROL 32` and `CONTROL 27d` each weakened until they
+  would survive their own saboteur.
+  Module 82 -> 89 tests, `tools/docs_tests` 193 -> 200, `gate-tools` 406 + 236 ->
+  406 + 243, `tools.lints --all` exit 0, the `D-21` count sweep exits 1, and the
+  pinned-base fence over `src/ runtime/ examples/ public/ tests/ pyproject.toml
+  tools/lints/citations.py` EMPTY on every path. The only file written under `tools/` is
+  the ledger module. `VAC-06`'s ledger row stays `Pending` BY DESIGN until plan `21.1-09`,
+  so no `requirements.mark-complete` was run. `D-15` honoured: STATE.md and ROADMAP.md
+  backed up outside the tree, hand-edited, diffed; no `state.*` or `roadmap.*` writer
+  invoked. `RETIREMENT-COUPLINGS.md` regenerated LAST.
   2026-08-22 -- **PHASE 21.1 WAVE 6 LANDED (`21.1-06`, three task commits `b231dd9`,
   `fcd8eb3`, `aa729d6`).** Criterion 12 is closed for every limb an INPUT can reach.
   **FOURTEEN CONTROLS, EACH PROVEN TO REACH THE BRANCH IT NAMES.** `CONTROL 24`-`33`
