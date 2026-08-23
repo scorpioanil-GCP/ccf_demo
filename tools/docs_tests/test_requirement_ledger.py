@@ -1316,19 +1316,40 @@ VERDICT_VOCABULARY: frozenset[str] = COMPLETE_FAMILY | frozenset(
     {"Partial", "Not built", "Orphaned", "Pending"}
 )
 
-#: This phase's OWN ten requirement ids, minted into both channels as `Pending`
-#: by plan `21-01` task 2 and verdicted by plan `21-06` before the close panel.
+#: The requirement ids THIS PHASE FAMILY MINTED FOR ITSELF, across both of its
+#: phases: Phase 21's ten `RECON-` ids, minted into both channels as `Pending`
+#: by plan `21-01` task 2 and verdicted by plan `21-06`, and Phase 21.1's six
+#: `VAC-` ids, minted by plan `21.1-01` task 3 and verdicted by plan `21.1-09`.
 #:
-#: A FROZEN ROSTER OF NAMED IDS, per `D-21`, never a count. They are NOT
-#: members of the 54-row working set this phase audits — that set is its own
-#: frozen roster, taken by the strict parse at the pinned base.
+#: **Why the phase's own rows are held to the gate the phase imposes.** Four
+#: checks read this roster — :func:`test_every_phase_own_row_carries_a_verdict`,
+#: :func:`test_every_recon_row_is_present_in_both_channels`, the roster-scoped
+#: two-verdict gate, and :func:`uncited_verdicts` through
+#: :func:`test_every_verdicted_roster_row_cites_its_evidence`. A phase that
+#: exempted its own rows from them would be auditing everyone's ledger honesty
+#: but its own, which is the defect one level up rather than a smaller one. The
+#: argument is not decoration: it is why the six were minted in WAVE 1 rather
+#: than at the gate. Rows written inside the gate checkpoint carry verdicts no
+#: reviewer and no approver has ever seen, and the panel would then be reading a
+#: different document from the one Dave approves.
+#:
+#: **The ORDER of the two edits is load-bearing and is the sequencing trap Phase
+#: 21 learned the hard way.** Extending this roster makes those four gates start
+#: reading the new ids, and they are TRUE only once the verdicts are written. A
+#: roster extension landing before the verdicts ships a red module.
+#:
+#: A FROZEN ROSTER OF NAMED IDS, per `D-21`, never a count. Its members are NOT
+#: members of the 54-row working set Phase 21 audits — that set is its own
+#: frozen roster, taken by the strict parse at the pinned base — and the two
+#: rosters are deliberately unioned rather than merged wherever a check must
+#: cover both.
 #:
 #: Provenance, as HISTORY and read by no assertion here: the traceability table
-#: carried 133 rows at the pinned base and carries 143 from plan `21-01` task 2
-#: forward. `D-21`'s binding consequence is that no standing check in this
-#: phase hardcodes either figure — what is asserted is that the two channels
-#: agree id-for-id on whatever the ledger contains. A reader who greps the
-#: pinned base and counts 133 has not found a discrepancy.
+#: carried 133 rows at the pinned base, 143 from plan `21-01` task 2, and 149
+#: from plan `21.1-01`. `D-21`'s binding consequence is that no standing check
+#: in this phase family hardcodes any of those figures — what is asserted is
+#: that the two channels agree id-for-id on whatever the ledger contains. A
+#: reader who greps the pinned base and counts 133 has not found a discrepancy.
 PHASE_OWN_ROSTER: frozenset[str] = frozenset(
     {
         "RECON-01",
@@ -1341,6 +1362,12 @@ PHASE_OWN_ROSTER: frozenset[str] = frozenset(
         "RECON-08",
         "RECON-09",
         "RECON-10",
+        "VAC-01",
+        "VAC-02",
+        "VAC-03",
+        "VAC-04",
+        "VAC-05",
+        "VAC-06",
     }
 )
 
@@ -1780,6 +1807,14 @@ def test_no_status_cell_carries_two_verdict_tokens() -> None:
 
 def test_every_recon_row_is_present_in_both_channels() -> None:
     """The wave-1 mint's own floor: the phase's own rows exist in BOTH channels.
+
+    **The name says `recon` and the roster is now wider.** It reads
+    :data:`PHASE_OWN_ROSTER`, which plan `21.1-09` extended to the six `VAC-`
+    ids alongside the ten `RECON-` ids; the name is left as landed because
+    renaming a shipped test to track a widened subject buys nothing a reader
+    needs and costs every citation that names it. What the test asserts has
+    never been "the `RECON-` rows" — it has always been *whatever this phase
+    family minted for itself*, and that is what the roster holds.
 
     **Amended by plan `21-06`, which is the plan wave 1 said would amend it.**
     As landed, this test additionally asserted that every `RECON-` row read a
@@ -2523,10 +2558,11 @@ TESTS_TREE: tuple[str, ...] = ("tests/",)
 #: re-derives it from the base and compares ID FOR ID, so the constant cannot
 #: silently drift from the thing it claims to be.
 #:
-#: THE TEN `RECON-` ROWS ARE NOT MEMBERS, and their absence is structural
-#: rather than a judgement call. They are this phase's OWN requirements, minted
-#: by plan `21-01` task 2 AFTER the base was pinned, so a parse taken at that
-#: base cannot contain them by construction. They are audited by
+#: THE TEN `RECON-` ROWS ARE NOT MEMBERS, and neither are the six `VAC-` rows
+#: Phase 21.1 minted; their absence is structural rather than a judgement call.
+#: They are this phase family's OWN requirements, minted by plan `21-01` task 2
+#: and plan `21.1-01` task 3, both AFTER the base was pinned, so a parse taken
+#: at that base cannot contain them by construction. They are audited by
 #: `PHASE_OWN_ROSTER` and `test_every_phase_own_row_carries_a_verdict` — a
 #: separate roster and a separate assertion, because a phase does not audit
 #: itself inside the set it was commissioned to audit. Held to the same gate,
@@ -2911,7 +2947,10 @@ def test_no_test_was_written_to_manufacture_a_citation() -> None:
 
 
 def test_every_phase_own_row_carries_a_verdict() -> None:
-    """The phase's own ten, held to the gate they impose on the fifty-four.
+    """The phase family's own sixteen, held to the gate they impose on the fifty-four.
+
+    Ten `RECON-` ids from Phase 21, verdicted by plan `21-06`, and six `VAC-`
+    ids from Phase 21.1, verdicted by plan `21.1-09`.
 
     And held to it BEFORE the close panel, not after. Rows verdicted inside
     the gate checkpoint would carry verdicts no reviewer and no approver had
@@ -2930,9 +2969,12 @@ def test_every_phase_own_row_carries_a_verdict() -> None:
 def test_every_verdicted_roster_row_cites_its_evidence() -> None:
     """Criterion 3's per-row limb, made standing at the phase close.
 
-    Both rosters at once — the fifty-four this phase audits and the ten it
-    minted for itself — because `RECON-02` claims this property of the whole
-    audit and the phase's own rows are held to the gate they impose.
+    Both rosters at once — the fifty-four this phase audits and the sixteen
+    this phase family minted for itself — because `RECON-02` claims this
+    property of the whole audit and the phase's own rows are held to the gate
+    they impose. From plan `21.1-09` the second roster includes the six `VAC-`
+    ids, so `VAC-03`'s verdict, whose evidence is a `.planning/` document, is
+    held to the citation rule exactly as a verdict citing Python is.
 
     Until this landed, criterion 3 was enforced only in the direction that does
     not matter on its own: a citation that IS written must resolve. A row that
