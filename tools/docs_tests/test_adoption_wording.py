@@ -23,6 +23,14 @@ The two obligations, each named so a failure says which one broke:
     paired contrast as a bounded fallback, and this obligation is what stops a
     residual pairing from still reading as a naked *"X can't Y"*.
 
+    **Candidacy is the paragraph PLUS its heading stack**, and that is a Phase
+    22 close repair rather than the original design. The sentence-scoped form
+    had jurisdiction over no comparison subsection BODY on the page it guards,
+    because the page establishes each subject in a heading and never restates
+    it. See :func:`paragraphs_with_their_subject` for the measurement and
+    :func:`sentences_asserting_a_capability_limit` for the three conditions
+    that keep the widened candidacy from condemning correct prose.
+
 ``AW-2``
     No published sentence claims CCF extracts passage anchors from documents,
     and the honesty caveat is present with **both** halves in one paragraph:
@@ -38,10 +46,10 @@ rhetoric linter and must not become one.
 corpus floor.** This is the ``A-3`` shape in
 ``tools/docs_tests/test_advisory_discharge.py``: a floor is right when the
 corpus *should* contain the thing being filtered, and wrong when it should
-not. Measured at this plan's HEAD, the published tree carries exactly three
-paragraph-level ``passage anchor`` / ``passage-level lineage`` occurrences —
-one in the adoption page's caveat, and two correct ``passage-level lineage``
-sentences in ``public/concepts/pillars/hitl.md`` and
+not. Measured at the Phase 22 close, the published tree carries exactly three
+paragraphs matching ``PASSAGE_ANCHOR`` — one in the adoption page's caveat,
+and two correct ``passage-level lineage`` sentences in
+``public/concepts/pillars/hitl.md`` and
 ``public/how-to/compose-a-workflow-with-hitl.md`` — and **zero** paragraphs
 assert extraction from documents, by design. A floor demanding that some
 paragraph trigger the extraction predicate would therefore be RED on a correct
@@ -66,14 +74,30 @@ what it cannot see is how a defect class survives a green build:**
    identifier-shaped vocabulary. Measured on this tree: of the ten published
    paragraphs carrying a ``D-IMPL-NN`` id, four write it *only* inside a code
    span; ``.text`` sees six and ``.raw`` sees ten. ``CAVEAT_CONTRACT`` is
-   therefore matched against ``.raw`` and is the only constant here that is.
-   Control 9 holds that choice and sabotage 6 was watched breaking it.
+   therefore matched against ``.raw``; control 9 holds that choice and sabotage
+   6 was watched breaking it.
+
+   **AW-2's two halves used to disagree about this and did not say so, and the
+   asymmetry was a hole.** The positive half read ``.raw`` for exactly the
+   reason above while the negative half read ``.text`` only — so the page's own
+   house spelling, ``passage_anchor`` at line 321, was an evasion the
+   obligation could not see. The negative predicate now scans both fields.
+   Control 17 holds it and the choice is stated at both predicates.
 
 Every constant below states, in its ``#:`` comment, which ``Paragraph`` field
 it is matched against. That is not decoration: matching the wrong field turns a
 correct page red and an incorrect one green, and the four consequences of
 getting ``CAVEAT_CONTRACT`` wrong all read as either a mysterious floor failure
 or a control passing for the wrong reason.
+
+**A note on the controls, written after the Phase 22 close found two of them
+vacuous.** Appending an injected sentence to a copy of the adoption page is the
+right fixture for *"does the gate guard this page?"* and the WRONG one for
+*"does this vocabulary matter?"* — the page's last heading names an external
+approach, so an appended paragraph is an AW-1 candidate whatever noun it uses.
+Controls that ask a vocabulary question build their own page through
+:func:`_standalone`. Two of control 16's three sabotages passed green before
+that change.
 """
 
 from __future__ import annotations
