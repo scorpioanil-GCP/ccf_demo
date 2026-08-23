@@ -35,3 +35,23 @@ c51406be1170259336e8799f5d4c69b2e39d4c8a
 # BASE changed, and neither did what any of the four assertions claims: each
 # still says "Phase 21 did not write here". What changed is that it has
 # stopped also saying "and no later phase ever may".
+
+# --- AMENDED by `D-IMPL-188`. Nothing above this line was altered. ---
+#
+# A FIFTH assertion is built on this base and was never listed above, because
+# it landed in a later plan:
+#
+#   git diff --stat $(head -1 21-BASE-COMMIT.txt)..HEAD -- tests/
+#
+# criterion 6's mechanical limb (`D-05`) — the audit wrote no test in order to
+# manufacture a citation for itself. The amendment bounds it at the SAME
+# ceiling as the four, so it now reads
+#
+#   git diff --stat $(head -1 21-BASE-COMMIT.txt)..$(head -1 21-CLOSE-COMMIT.txt) -- tests/
+#
+# The paragraph above says "the four assertions"; read it as every
+# untouched-tree assertion in the module, which is five. Nothing about the BASE
+# changed, and neither did what the fifth one claims: it still says "Phase 21
+# wrote no test under `tests/`". What changed is that it has stopped also
+# saying "and no later phase ever may" — a forward prohibition that was green
+# only because Phase 22 happens not to write there.

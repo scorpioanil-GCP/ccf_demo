@@ -575,6 +575,12 @@ def phase_close_commit() -> str:
     moment Phase 22 wrote a page under `public/`. Bounding the window at this
     phase's own close leaves the first claim exactly as it was and removes the
     second.
+
+    **Every untouched-tree assertion in this module now reads it.** The ruling
+    landed over four of the five and recorded the `tests/` assertion as an open
+    residual; its amendment folded that one in at the SAME pin rather than at a
+    second one. One ceiling for the phase, or the assertions drift onto windows
+    that only look alike.
     """
     first_line = CLOSE_COMMIT_FILE.read_text(encoding="utf-8").splitlines()[0]
     return first_line.strip()
@@ -784,13 +790,20 @@ def derived_base(
     the reason this is a function rather than a table.
 
     **`ceiling` is a parameter because the thing this vouches for gained one
-    (`D-IMPL-188`).** `CONTROL A` uses this to prove that the four bounded
-    emptiness assertions are comparing something, and those assertions compare
-    ``base..<pinned close commit>``. A base derived against HEAD would give
-    that control a differing window that is not the window the assertion uses
-    — a control green for a reason unrelated to its subject, which is `RR-9`
-    arriving through the repair for the unbounded ceiling. The default keeps
-    `CONTROL 13`, whose assertion is unbounded, reading exactly as it did.
+    (`D-IMPL-188`).** `CONTROL A` and `CONTROL 13` use this to prove that the
+    bounded emptiness assertions are comparing something, and those assertions
+    compare ``base..<pinned close commit>``. A base derived against HEAD would
+    give those controls a differing window that is not the window the assertion
+    uses — a control green for a reason unrelated to its subject, which is
+    `RR-9` arriving through the repair for the unbounded ceiling.
+
+    **The default is `HEAD` and every caller that vouches for a bounded
+    assertion now passes the ceiling explicitly.** `CONTROL 13` passed it once
+    the amendment bounded its subject too; the default survives for
+    `CONTROL 37`, whose subjects are misspellings with no history at any
+    ceiling. A default that silently served a bounded caller would be the
+    empty-ceiling trapdoor one argument further out, which is why the default
+    is HEAD rather than the pin.
 
     **ONE member, never a tuple, and that quantifier is the whole point.** It
     is the same per-member property plan `21.1-01` installed in
@@ -917,8 +930,8 @@ def test_the_pinned_diff_ceiling_resolves() -> None:
        not a bound on this one, and the window it describes is not the window
        anybody ruled on;
     4. **it is a STRICT DESCENDANT of the base.** A ceiling at or before the
-       base makes the window EMPTY, and an empty window makes every one of the
-       four bounded assertions vacuously green — forever, silently, and while
+       base makes the window EMPTY, and an empty window makes every bounded
+       assertion in this module vacuously green — forever, silently, and while
        reading exactly like a clean tree. That is this module's defect class
        arriving through the repair that introduced the ceiling, and it is the
        reason this test exists rather than a `git rev-parse` in a comment.
@@ -956,14 +969,14 @@ def test_the_pinned_diff_ceiling_resolves() -> None:
     )
     assert reachable.returncode == 0, (
         f"the pinned ceiling {ceiling} is not an ancestor of HEAD, so it bounds"
-        " some other line of history and the window the four assertions"
+        " some other line of history and the window the bounded assertions"
         " compare is not the window `D-IMPL-188` ruled on"
     )
 
     assert ceiling != base, (
         f"the pinned ceiling and the pinned base are the same commit {base}."
-        " The window is then EMPTY and all four bounded assertions are"
-        " vacuously green forever, over a comparison with nothing in it"
+        " The window is then EMPTY and every bounded assertion is vacuously"
+        " green forever, over a comparison with nothing in it"
     )
     after_base = subprocess.run(
         ["git", "merge-base", "--is-ancestor", base, ceiling],
@@ -1468,9 +1481,10 @@ def test_every_asserted_pathspec_names_a_tracked_subject() -> None:
     Added at the phase close by the §3.1 panel. Every "this tree is untouched"
     assertion in this module resolves to
     `git diff --stat <base>..<ceiling> -- <spec>` being the empty string — the
-    ceiling is the pinned close commit for the four `D-IMPL-188` bounded, and
-    HEAD for :data:`TESTS_TREE` — and `git` returns the empty string just as
-    willingly for a spec that matches nothing at all. Without this, a one-key
+    ceiling is the pinned close commit for every one of them since
+    `D-IMPL-188`'s amendment bounded :data:`TESTS_TREE` alongside the four
+    bounded first — and `git` returns the empty string just as willingly for a
+    spec that matches nothing at all. Without this, a one-key
     typo in :data:`FABRIC`, :data:`FENCE`, :data:`PINNED_FILES`,
     :data:`UAT_RECORDS` or :data:`TESTS_TREE` silently converts the assertion
     it feeds into a test of nothing, and the run stays green.
@@ -3535,9 +3549,36 @@ def test_no_test_was_written_to_manufacture_a_citation() -> None:
     attested by inspection rather than by this test — said plainly here so
     that a reader does not take a green run as more than it is.
 
-    `CONTROL 13` proves the comparison is comparing something.
+    **Bounded at the phase's own close commit, by `D-IMPL-188`'s amendment.**
+    This is the fifth untouched-tree assertion and it carried exactly the
+    defect the other four carried: *Phase 21 wrote no test to manufacture a
+    citation* is a WINDOWED claim, and with HEAD as the upper bound the
+    assertion also said *and no later phase may ever write under `tests/`* — a
+    forward prohibition nobody ruled on, which no phase boundary could lift,
+    and which was green only because Phase 22 happens not to write there. The
+    next phase that legitimately adds a test would have gone red for
+    archaeology rather than for a manufactured citation.
+
+    **The ceiling is the one already pinned, and it was not advanced.** The
+    same `21-CLOSE-COMMIT.txt` the other four read. Moving it forward to take
+    in Phase 22 would widen the window to cover work this claim is not about,
+    which is the opposite repair.
+
+    It was left unbounded in the original ruling and recorded there as its
+    residual rather than folded in silently, because the four bounded first are
+    vouched for by `CONTROL A` and this one is vouched for by `CONTROL 13`
+    alone — an asymmetry that deserved its own ruling.
+
+    The window's own non-vacuity — the ceiling resolves, is an ancestor of
+    HEAD, and is a STRICT DESCENDANT of the base, so the window is not empty —
+    is proven once by :func:`test_the_pinned_diff_ceiling_resolves`, and this
+    assertion inherits it. A second copy of that check here would be noise
+    rather than rigour.
+
+    `CONTROL 13` proves the comparison is comparing something, over the same
+    window, and watches the refusal a misspelled `tests/` produces.
     """
-    diff = fabric_diff(phase_base_commit(), TESTS_TREE)
+    diff = fabric_diff(phase_base_commit(), TESTS_TREE, phase_close_commit())
     assert diff == "", (
         "this phase wrote under `tests/`. `D-05` forbids it: a test written"
         " during the audit to give a row a name to cite is a citation the"
@@ -3869,6 +3910,42 @@ def test_control_13_a_changed_tests_tree_would_be_detected() -> None:
     and never spelled as a literal here, so `CONTROL 38`'s substitution is
     visible to this control. :func:`fabric_diff` is reused rather than
     reimplemented: a second diff path could pass here and be broken there.
+
+    **It moved to the pinned ceiling in LOCKSTEP with its subject
+    (`D-IMPL-188`'s amendment).** When the other four assertions were bounded
+    this control deliberately did not move, because the assertion it vouches
+    for was still unbounded and a control on a different window from its
+    subject is `CONTROL A` mis-aimed again. That reasoning inverts the moment
+    the subject is bounded: `CONTROL 13` is now exactly the control that has to
+    move. Both ends move together — :func:`derived_base` takes the ceiling too,
+    so the member's base is the parent of the last commit that touched it *at
+    or before the ceiling* and it therefore differs across exactly the window
+    the assertion uses.
+
+    **And it now runs `CONTROL 18`'s pattern, which arity one had left it
+    outside of.** `CONTROL 18` is parametrized over
+    :data:`MULTI_MEMBER_PATHSPECS`, and :data:`TESTS_TREE` has one member, so
+    the per-member typo proof never reached it. `CONTROL 16` demonstrates the
+    silent-empty-then-refuse shape for a single-member spec, but its subjects
+    are LITERALS — ``("test/",)`` is written down beside `tests/` rather than
+    derived from it, so it proves a property of the limb and not a property of
+    this constant, and it would go on passing if :data:`TESTS_TREE` drifted.
+    The steps below derive the mutation from the constant this control resolves
+    at call time:
+
+    1. the near miss matches NOTHING — the sabotage target is picked by running
+       :func:`tracked_under` rather than by trusting :func:`near_miss`;
+    2. it is the SILENT kind through raw `git diff` IN THE WINDOW THE ASSERTION
+       USES — exit zero, empty stdout, indistinguishable from the clean tree
+       the real constant produces. This is the step that shows what the refusal
+       ADDS rather than only that it fires;
+    3. :func:`fabric_diff` refuses, by the named limb rather than by a shared
+       substring (`CONTROL 5`'s lesson), and the refusal names the member.
+
+    `CONTROL 18`'s second step — *every OTHER member is still live* — has no
+    subject at arity one and is omitted rather than faked: there is no sibling
+    to satisfy a tuple-level guard on the typo's behalf, which is why `RR-1`
+    never reached this constant in the first place.
     """
     resolved = dict(asserted_pathspecs())
     assert "TESTS_TREE" in resolved, (
@@ -3876,19 +3953,66 @@ def test_control_13_a_changed_tests_tree_would_be_detected() -> None:
         " control has nothing to diff and the `tests/` emptiness assertion is"
         " vouched for by nothing"
     )
+    pinned_base = phase_base_commit()
+    ceiling = phase_close_commit()
     compared: list[str] = []
     for member in resolved["TESTS_TREE"]:
-        base = derived_base(member)
-        diff = fabric_diff(base, (member,))
+        base = derived_base(member, ceiling=ceiling)
+        diff = fabric_diff(base, (member,), ceiling)
         compared.append(member)
         assert diff.strip(), (
-            f"`git diff --stat {base}..HEAD -- {member}` produced NOTHING for"
-            f" the member {member!r} of TESTS_TREE, whose base is the parent of"
-            " its own last-touching commit — so the member demonstrably changed"
-            " in that commit and nothing has touched it since. An empty diff"
-            " here means the comparison is broken, and criterion 6's mechanical"
-            " limb is vacuous"
+            f"`git diff --stat {base}..{ceiling} -- {member}` produced NOTHING"
+            f" for the member {member!r} of TESTS_TREE, whose base is the"
+            " parent of its own last-touching commit at or before the ceiling"
+            " — so the member demonstrably changed in that commit and nothing"
+            " between it and the ceiling touched it. An empty diff here means"
+            " the comparison is broken, and criterion 6's mechanical limb is"
+            " vacuous"
         )
+
+        broken = near_miss(member)
+        assert not tracked_under((broken,)), (
+            f"the near miss {broken!r} derived from TESTS_TREE's member"
+            f" {member!r} matches a tracked file, so it is not a broken"
+            " pathspec at all and the steps below would be watching the guard"
+            " ACCEPT a live one. Pick the sabotage target by running the"
+            " predicate"
+        )
+        raw = subprocess.run(
+            ["git", "diff", "--stat", f"{pinned_base}..{ceiling}", "--", broken],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert raw.returncode == 0 and raw.stdout == "", (
+            f"TESTS_TREE misspelled as {broken!r} was expected to be the silent"
+            " kind through raw `git diff` in the window the assertion uses —"
+            " exit zero and empty stdout, which is what makes a misspelled"
+            " pathspec indistinguishable from a clean tree. It returned"
+            f" {raw.returncode}/{raw.stdout!r} instead, so this step is no"
+            " longer about the failure it was written for"
+        )
+        try:
+            result = fabric_diff(pinned_base, (broken,), ceiling)
+        except AssertionError as failure:
+            assert "[limb:fabric_diff.untracked_member]" in str(failure), (
+                f"{broken!r} was refused by a DIFFERENT limb: {failure}. A"
+                " substring shared by two messages is what kept `CONTROL 5`"
+                " green over the wrong refusal for a whole phase"
+            )
+            assert broken in str(failure), (
+                f"{broken!r} was refused, but the refusal does not name the"
+                f" offending member: {failure}. An aggregate report one level"
+                " up is the defect class this module is about"
+            )
+        else:
+            raise AssertionError(
+                f"TESTS_TREE misspelled as {broken!r} returned {result!r}"
+                " instead of refusing. Criterion 6's mechanical limb would then"
+                " be an emptiness assertion over a comparison with no subject,"
+                " reporting a clean `tests/` tree forever"
+            )
     assert compared, (
         "this control compared NOTHING — `TESTS_TREE` resolved to no members at"
         " all, so it passed over the empty set and criterion 6's mechanical"

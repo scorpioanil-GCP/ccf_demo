@@ -42,3 +42,47 @@
 # matters: a ceiling at or before the base makes the window EMPTY, and every
 # one of the four assertions is then vacuously green forever — the failure
 # mode the module exists to detect, arriving through its own repair.
+#
+# --- AMENDED by `D-IMPL-188`. The SHA on line 1 did not change, and nothing
+# --- above this line was altered.
+#
+# THE LIST ABOVE IS FOUR AND THE SET IS NOW FIVE. Residual 1 of the original
+# ruling was the fifth untouched-tree assertion, left at HEAD and recorded as
+# open:
+#
+#   git diff --stat <base>..<ceiling> -- tests/
+#
+# `test_no_test_was_written_to_manufacture_a_citation`, criterion 6's
+# mechanical limb (`D-05`). Dave ruled it in: *"Bound it too. The defect is the
+# same class you just closed for the other four."* It now reads THIS pin, the
+# same one the four above read.
+#
+# WHY IT WAS LEFT OUT AND WHY THAT WAS WRONG. The four above are vouched for
+# by `CONTROL A`; this one is vouched for by `CONTROL 13` alone, and at the
+# time `CONTROL 13` correctly did NOT move to the ceiling — a control on a
+# different window from its subject is the mis-aim the module exists to
+# prevent. The asymmetry made it a separate ruling rather than a silent
+# inclusion. But "Phase 21 wrote no test to manufacture a citation" is a
+# WINDOWED claim exactly as the other four are, and unbounded it also said "no
+# later phase may ever write under `tests/`" — green today only because Phase
+# 22 happens not to write there, and red for archaeology on the next phase
+# that legitimately adds a test.
+#
+# THE PIN WAS NOT ADVANCED. Dave: *"Do not advance the ceiling
+# opportunistically; same bound as the four already fixed."* Moving it forward
+# to take in Phase 22 would widen the window to cover work the claim is not
+# about, which is the opposite repair.
+#
+# `CONTROL 13` MOVED IN LOCKSTEP, and gained `CONTROL 18`'s pattern. It derives
+# its base per member against THIS ceiling, and it now also derives a near miss
+# from :data:`TESTS_TREE`, proves that misspelling is the SILENT kind through
+# raw `git diff` in this same window, and watches
+# `fabric_diff.untracked_member` refuse it by name. `CONTROL 18` itself is
+# parametrized over the multi-member constants only, so arity one had left
+# `tests/` outside it; `CONTROL 16` shows the shape for a single-member spec
+# but its subjects are literals rather than derived from the constant.
+#
+# NO SECOND WINDOW CHECK WAS ADDED. `test_the_pinned_diff_ceiling_resolves`
+# already proves this pin resolves, is an ancestor of HEAD, and is a STRICT
+# DESCENDANT of the base — so the window is non-empty. The fifth assertion
+# inherits it; a duplicate would be noise rather than rigour.
