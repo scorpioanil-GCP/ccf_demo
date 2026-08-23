@@ -154,10 +154,20 @@ UAT_MARKER = re.compile(r"^human_verification:", re.MULTILINE)
 #: by nothing at all.
 PINNED_FILES: tuple[str, ...] = ("tools/lints/citations.py",)
 
-#: A tree that genuinely differs between the pinned base and HEAD, for
-#: `CONTROL A`. Chosen because the phase's entire product is written here —
-#: the base-commit file, the ledger's verdicts, every SUMMARY. If this ever
-#: came back empty the control would be the thing to fix, never the assertion.
+#: A tree that genuinely differs between the pinned base and HEAD.
+#:
+#: **It is no longer `CONTROL A`'s subject, nor `CONTROL 13`'s, and that is the
+#: whole of `RR-9`.** Both controls diffed THIS while vouching for emptiness
+#: assertions over :data:`FABRIC`, :data:`FENCE`, :data:`UAT_RECORDS`,
+#: :data:`PINNED_FILES` and :data:`TESTS_TREE`, so neither could see a one-key
+#: typo in any of those — the control stayed green because `.planning/` had
+#: changed, which is true of every phase and says nothing about the constant the
+#: assertion passes. Plan `21.1-08` re-aimed both onto their own constants
+#: against a base derived PER MEMBER by :func:`derived_base`.
+#:
+#: Retained rather than deleted because :func:`asserted_pathspecs` enumerates it
+#: and :func:`test_every_asserted_pathspec_names_a_tracked_subject` therefore
+#: holds it to naming a real subject. It is not the target of any aim.
 CHANGED_TREE: tuple[str, ...] = (".planning/",)
 
 #: A SHA that resolves to nothing, for `CONTROL B`. Hex, so it is
@@ -823,22 +833,87 @@ def test_the_citation_lint_is_not_modified() -> None:
 # --- CONTROL A-C: fabric_diff, watched producing output and watched refusing ---
 
 
+#: The four emptiness assertions `CONTROL A` is the non-vacuity proof for, named
+#: by the pathspec constant each one passes.
+#:
+#: A frozen roster of NAMES (`D-21`), resolved through
+#: :func:`asserted_pathspecs` at call time rather than spelled as literals in
+#: the control's body — which is the property that makes `CONTROL 38`'s
+#: substitution visible to the control at all.
+#:
+#: **Kept at four rather than narrowed to fit a weaker control.** `CONTROL A`'s
+#: docstring has always claimed to be "the non-vacuity proof for all four
+#: emptiness assertions above at once", and `RECON-08`'s shipped ledger cell
+#: repeats that claim verbatim. Narrowing a claim to fit a weak control is the
+#: move this phase exists to stop, so the control was strengthened to the claim
+#: instead: nineteen members, each against its own derived base.
+CONTROL_A_PATHSPECS: frozenset[str] = frozenset(
+    {"FABRIC", "FENCE", "UAT_RECORDS", "PINNED_FILES"}
+)
+
+
 def test_control_a_a_base_and_path_that_differ_produce_output() -> None:
-    """CONTROL A — the diff machinery is watched producing something.
+    """CONTROL A — the four emptiness assertions, proven to be comparing something.
 
     **This is the control that matters**, and it is the non-vacuity proof for
-    all four emptiness assertions above at once. Every one of them passes on
-    an empty string, and an empty string is what a broken command, an
-    unresolvable base and a misspelled path all produce. Handing the same
-    function a pair that genuinely differs is the only thing separating "the
-    fabric did not change" from "nothing was compared".
+    all four emptiness assertions above at once —
+    :func:`test_the_fabric_is_untouched` over :data:`FABRIC`,
+    :func:`test_the_scope_fence_holds` over :data:`FENCE`,
+    :func:`test_the_human_needed_verification_records_are_untouched` over
+    :data:`UAT_RECORDS` and :func:`test_the_citation_lint_is_not_modified` over
+    :data:`PINNED_FILES`. Every one of them passes on an empty string, and an
+    empty string is what a broken command, an unresolvable base and a misspelled
+    path all produce.
+
+    **It did not pass any of those four constants until plan `21.1-08`, and it
+    was never observed RED.** It diffed :data:`CHANGED_TREE` — `.planning/`,
+    which every phase writes to — so it was green for a reason unrelated to
+    what it claimed to test, and a one-key typo in any of the nineteen members
+    below left all four assertions vacuous with this control still green.
+    `RR-9`, the third instance of this project's own defect class arriving
+    inside the machinery built to catch it.
+
+    **Per member, against a base derived per member.** The pinned base cannot
+    serve: `tests/` is genuinely untouched against it and so, by construction,
+    is anything else these assertions hold empty. :func:`derived_base` takes
+    each member's own last-touching commit and uses its parent, which carries no
+    SHA and produces a differing base for every one of the nineteen (criterion
+    14). A member that matches nothing REFUSES there rather than being skipped.
+
+    **The constants are resolved through :func:`asserted_pathspecs` at call
+    time**, never spelled as literals here. A control carrying its constant in
+    its own body does not read the constant at all, which would make
+    `CONTROL 38`'s substitution invisible to it — `RR-9` re-shipping inside the
+    repair for `RR-9`.
     """
-    diff = fabric_diff(phase_base_commit(), CHANGED_TREE)
-    assert diff.strip(), (
-        "`git diff` produced nothing for a tree this phase demonstrably writes"
-        f" to ({list(CHANGED_TREE)}). The empty results above therefore say"
-        " nothing about the fabric, the fence, the verification records or the"
-        " citation lint, and all four are vacuous until this is fixed"
+    resolved = dict(asserted_pathspecs())
+    unresolvable = sorted(CONTROL_A_PATHSPECS - set(resolved))
+    assert not unresolvable, (
+        f"`CONTROL_A_PATHSPECS` names {unresolvable}, which"
+        " `asserted_pathspecs()` does not resolve. The assertions those names"
+        " stand for would then be vouched for by nothing at all"
+    )
+    compared: list[str] = []
+    for name in sorted(CONTROL_A_PATHSPECS):
+        for member in resolved[name]:
+            base = derived_base(member)
+            diff = fabric_diff(base, (member,))
+            compared.append(f"{name}:{member}")
+            assert diff.strip(), (
+                f"`git diff --stat {base}..HEAD -- {member}` produced NOTHING"
+                f" for the member {member!r} of {name}, whose base is the parent"
+                " of its own last-touching commit — so the member demonstrably"
+                " changed in that commit and nothing has touched it since. An"
+                " empty diff here means the comparison is broken, and the"
+                f" emptiness assertion over {name} is therefore saying nothing"
+                " about that member at all"
+            )
+    assert compared, (
+        "this control compared NOTHING — `CONTROL_A_PATHSPECS` or the constants"
+        " it names resolved to no members at all, so it passed over the empty"
+        " set and all four emptiness assertions are vouched for by nothing."
+        " That is the vacuity this control exists to detect, arriving inside"
+        " the control itself"
     )
 
 
@@ -3016,17 +3091,58 @@ def test_control_12_a_roster_id_absent_from_the_table_is_refused() -> None:
 def test_control_13_a_changed_tests_tree_would_be_detected() -> None:
     """CONTROL 13 — the non-vacuity twin of the `tests/`-untouched assertion.
 
-    `CONTROL A` makes the same argument for the fabric, the fence, the
-    verification records and the citation lint; this one is stated separately
-    because it falsifies a different claim and because criterion 6 rests on it
-    alone. The helper is reused rather than reimplemented: a second diff path
-    could pass here and be broken there.
+    :func:`test_no_test_was_written_to_manufacture_a_citation` diffs
+    :data:`TESTS_TREE` and requires the result to be empty. This proves that
+    comparison is a comparison of something. `CONTROL A` makes the same argument
+    for the fabric, the fence, the verification records and the citation lint;
+    this one is stated separately because it falsifies a different claim and
+    because criterion 6's mechanical limb rests on it alone. `RECON-02`'s
+    shipped ledger cell cites it for exactly that proposition.
+
+    **Until plan `21.1-08` it diffed :data:`CHANGED_TREE` and had never
+    mentioned `tests/` at all** — `21-06-SUMMARY.md:144` recorded it as "GREEN,
+    non-vacuously" and it was NEVER OBSERVED RED. Rename :data:`TESTS_TREE` to
+    ``tests-typo/`` and criterion 6's mechanical limb went vacuous while this
+    control stayed green, because `.planning/` had changed and `.planning/`
+    always changes. `RR-9`, and `D-IMPL-170`: a control never observed failing
+    is not a control.
+
+    **It could not be repaired by swapping the constant in.**
+    ``fabric_diff(pinned_base, TESTS_TREE)`` is the EMPTY STRING — `tests/` is
+    genuinely untouched, which is the whole point of the assertion — so a
+    re-aimed control asserting a non-empty diff against the pinned base would
+    simply fail. :func:`derived_base` supplies a base at which the member does
+    differ, derived from the member's own history and carrying no SHA, and it
+    REFUSES on a member that matches nothing rather than skipping it.
+
+    The constant is resolved through :func:`asserted_pathspecs` AT CALL TIME
+    and never spelled as a literal here, so `CONTROL 38`'s substitution is
+    visible to this control. :func:`fabric_diff` is reused rather than
+    reimplemented: a second diff path could pass here and be broken there.
     """
-    diff = fabric_diff(phase_base_commit(), CHANGED_TREE)
-    assert diff.strip(), (
-        "`git diff` produced nothing for a tree this phase demonstrably writes"
-        f" to ({list(CHANGED_TREE)}), so the `tests/` emptiness above says"
-        " nothing about `tests/` and criterion 6's mechanical limb is vacuous"
+    resolved = dict(asserted_pathspecs())
+    assert "TESTS_TREE" in resolved, (
+        "`asserted_pathspecs()` no longer resolves `TESTS_TREE`, so this"
+        " control has nothing to diff and the `tests/` emptiness assertion is"
+        " vouched for by nothing"
+    )
+    compared: list[str] = []
+    for member in resolved["TESTS_TREE"]:
+        base = derived_base(member)
+        diff = fabric_diff(base, (member,))
+        compared.append(member)
+        assert diff.strip(), (
+            f"`git diff --stat {base}..HEAD -- {member}` produced NOTHING for"
+            f" the member {member!r} of TESTS_TREE, whose base is the parent of"
+            " its own last-touching commit — so the member demonstrably changed"
+            " in that commit and nothing has touched it since. An empty diff"
+            " here means the comparison is broken, and criterion 6's mechanical"
+            " limb is vacuous"
+        )
+    assert compared, (
+        "this control compared NOTHING — `TESTS_TREE` resolved to no members at"
+        " all, so it passed over the empty set and criterion 6's mechanical"
+        " limb is vouched for by nothing"
     )
 
 
