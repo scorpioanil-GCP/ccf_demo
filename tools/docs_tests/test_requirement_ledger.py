@@ -375,6 +375,41 @@ def test_the_neutering_switch_is_off_at_rest() -> None:
     )
 
 
+def dispatcher_bypasses(source: str) -> list[str]:
+    """`<function>:<line>` for every `AssertionError` raised outside the dispatcher.
+
+    **Takes its subject as an ARGUMENT** — the shape `D-IMPL-180` established
+    for `uncovered_lint_citations`, so a control can hand it a source and watch
+    it find a planted bypass. A predicate that can only read its own file is a
+    predicate no control can watch refuse.
+
+    **Two shapes were invisible to this until the phase close** (single-agent
+    review, finding 6): a BARE ``raise AssertionError`` parses its `exc` as
+    `ast.Name`, not `ast.Call`, and was not detected at all; and `async def`
+    bodies were never walked, because the node filter named `ast.FunctionDef`
+    alone. Both are refusals with no limb id, which is precisely what this
+    check exists to forbid — a refusal with no identity cannot be neutered, so
+    no control can prove anything watches it.
+    """
+    tree = ast.parse(source)
+    dispatcher = {"_refuse", "_require_registered"}
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if node.name.startswith("test_") or node.name in dispatcher:
+            continue
+        for inner in ast.walk(node):
+            if not isinstance(inner, ast.Raise):
+                continue
+            raised = inner.exc
+            if isinstance(raised, ast.Call):
+                raised = raised.func
+            if isinstance(raised, ast.Name) and raised.id == "AssertionError":
+                found.append(f"{node.name}:{inner.lineno}")
+    return found
+
+
 def test_no_refusal_bypasses_the_dispatcher_and_no_limb_id_is_orphaned() -> None:
     """Every refusal has a registered id, and every registered id has a site.
 
@@ -404,22 +439,15 @@ def test_no_refusal_bypasses_the_dispatcher_and_no_limb_id_is_orphaned() -> None
     tree = ast.parse(source)
     dispatcher = {"_refuse", "_require_registered"}
 
-    bypassing: list[str] = []
+    bypassing = dispatcher_bypasses(source)
     mismatched: list[str] = []
     sited: set[str] = set()
     for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         if node.name.startswith("test_") or node.name in dispatcher:
             continue
         for inner in ast.walk(node):
-            if (
-                isinstance(inner, ast.Raise)
-                and isinstance(inner.exc, ast.Call)
-                and isinstance(inner.exc.func, ast.Name)
-                and inner.exc.func.id == "AssertionError"
-            ):
-                bypassing.append(f"{node.name}:{inner.lineno}")
             if (
                 isinstance(inner, ast.Call)
                 and isinstance(inner.func, ast.Name)
@@ -450,6 +478,53 @@ def test_no_refusal_bypasses_the_dispatcher_and_no_limb_id_is_orphaned() -> None
         f" {orphaned}. An id with no site is the mirror of a site with no id —"
         " it is what removing a limb leaves behind, and it makes a coverage"
         " sweep report a control watching a branch that no longer exists"
+    )
+
+
+def test_control_44_a_planted_dispatcher_bypass_is_found_in_every_shape() -> None:
+    """CONTROL 44 — the bypass sweep watched finding each shape it must find.
+
+    **The single-agent close review's finding 6.** Until this phase's close the
+    predicate required `isinstance(inner.exc, ast.Call)`, so a BARE
+    ``raise AssertionError`` — `exc` is an `ast.Name` — was invisible, and
+    `async def` bodies were never walked at all. Both are refusals carrying no
+    limb id, and a refusal with no identity cannot be neutered, so no control
+    can prove anything watches it. The sweep that exists to forbid exactly that
+    could not see two of the three ways to write it.
+
+    The clean subject is asserted CLEAN first. A sweep that reports its planted
+    bypass and would have reported the subject anyway has proven nothing about
+    the plant, which is the wave-1 lesson made structural.
+
+    The three shapes are named rather than counted (`D-21`), and each is
+    checked to be found ON ITS OWN — a sweep that finds one and is credited for
+    three is the aggregate report that let `RR-1` through.
+    """
+    clean = "def helper():\n    _refuse('helper.branch', 'because')\n"
+    assert dispatcher_bypasses(clean) == [], (
+        "the sweep reports a bypass in a function that raises only through the"
+        f" dispatcher: {dispatcher_bypasses(clean)}. Its plants below would"
+        " then be credited to a sweep that flags everything"
+    )
+
+    plants = {
+        "a called AssertionError": "def helper():\n    raise AssertionError('x')\n",
+        "a BARE AssertionError": "def helper():\n    raise AssertionError\n",
+        "an async body": "async def helper():\n    raise AssertionError('x')\n",
+    }
+    unseen = sorted(
+        shape for shape, planted in plants.items() if not dispatcher_bypasses(planted)
+    )
+    assert not unseen, (
+        f"the dispatcher-bypass sweep does not see {unseen}. Each is a refusal"
+        " raised outside `_refuse`, so it carries no limb id, cannot be"
+        " neutered, and no control can prove anything watches it — while this"
+        " module's own source check reports clean over it"
+    )
+
+    assert dispatcher_bypasses(clean + plants["a BARE AssertionError"]), (
+        "the sweep loses the planted bare raise when a clean function precedes"
+        " it, so it is not walking every definition in the source it is given"
     )
 
 
@@ -5741,6 +5816,15 @@ CONTROL_AIM: dict[str, Aim] = {
         targets=frozenset({"_index.thinned_index"}),
         invoke=lambda: test_control_43_an_index_thinned_around_the_anchor_is_refused(),
     ),
+    "test_control_44_a_planted_dispatcher_bypass_is_found_in_every_shape": Aim(
+        kind="guard",
+        targets=frozenset({"dispatcher_bypasses"}),
+        invoke=lambda: test_control_44_a_planted_dispatcher_bypass_is_found_in_every_shape(),
+        # The stand-in is the predicate as it shipped before the close: blind
+        # to a bare raise and to async bodies. A sweep that finds nothing is
+        # the sweep gone blind, and this control must go red under it.
+        saboteur=_substituting(dispatcher_bypasses=_returning(list)),
+    ),
     "test_control_41_the_multi_member_cases_reach_every_member": Aim(
         kind="guard",
         targets=frozenset({"multi_member_cases"}),
@@ -6157,6 +6241,7 @@ CONTROLS: frozenset[str] = frozenset(
         "test_control_41_the_multi_member_cases_reach_every_member",
         "test_control_42_the_phase_own_roster_is_derived_not_transcribed",
         "test_control_43_an_index_thinned_around_the_anchor_is_refused",
+        "test_control_44_a_planted_dispatcher_bypass_is_found_in_every_shape",
         "test_control_37_a_derived_base_refuses_a_member_it_cannot_resolve",
         "test_the_positive_control_a_real_pathspec_is_still_accepted",
         "test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused",
