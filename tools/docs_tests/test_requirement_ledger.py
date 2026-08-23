@@ -3315,14 +3315,47 @@ def test_every_verdicted_roster_row_cites_its_evidence() -> None:
     `CONTROL 17b` is the discriminator proving it does not simply refuse
     everything — a `Not built` row rightly carries no citation.
     """
-    roster = WORKING_SET_ROSTER | PHASE_OWN_ROSTER
-    offenders = uncited_verdicts(
-        ledger_text(), roster, "the working set and the phase's own roster"
-    )
+    roster = citation_roster()
+    offenders = uncited_verdicts(ledger_text(), roster, CITATION_ROSTER_NAME)
     assert offenders == [], (
         "a row this phase verdicted claims a presence and cites nothing. The"
         " rows are named rather than counted:\n" + "\n".join(offenders)
     )
+
+
+#: Rows held to the citation-presence rule by RULING rather than by roster
+#: membership.
+#:
+#: `DOCS-22`'s cell was amended to a bolded, cited verdict in wave 4 under
+#: `D-IMPL-179` limb 1 — and the §3.1 close panel then found that NO gate held
+#: those citations. The row is outside :data:`WORKING_SET_ROSTER` (that absence
+#: IS `RR-3`'s mechanism: an unevidenced `Complete` at the pinned base never
+#: entered the working set, so it never reached the audit that would have
+#: checked it) and outside :data:`PHASE_OWN_ROSTER` (it is a Phase 16 row, and
+#: that roster is now DERIVED from the ledger's `Phase` column, so it cannot be
+#: widened by hand without `CONTROL 42` saying so). Dave ruled at
+#: `D-GATE-21.1`: **amend AND roster** — one row only, both channels, no `A-5`
+#: sweep.
+#:
+#: A named roster and not a predicate, because the ruling is about ONE row and a
+#: predicate would quietly recruit the other 78 `A-5` rows the ruling excludes.
+RULED_IN_ROSTER: frozenset[str] = frozenset({"DOCS-22"})
+
+
+def citation_roster() -> frozenset[str]:
+    """The rows the citation-presence rule quantifies over — ONE reader.
+
+    The union was spelled out at three call sites, which is the two-readers
+    shape `RR-2` was: the gate and the two controls that vouch for it could
+    drift apart, and nothing compared them. One function now, so a row added to
+    the roster is added to the gate and to its controls at once.
+    """
+    return WORKING_SET_ROSTER | PHASE_OWN_ROSTER | RULED_IN_ROSTER
+
+
+CITATION_ROSTER_NAME = (
+    "the working set, the phase's own roster and the rows ruled in"
+)
 
 
 def test_control_42_the_phase_own_roster_is_derived_not_transcribed() -> None:
@@ -3371,9 +3404,9 @@ def test_control_17_a_verdicted_row_stripped_of_its_citation_is_refused() -> Non
     shape a reader skims past.
     """
     real = ledger_text()
-    roster = WORKING_SET_ROSTER | PHASE_OWN_ROSTER
+    roster = citation_roster()
     victim = "HARD-02"
-    name = "the working set and the phase's own roster"
+    name = CITATION_ROSTER_NAME
     assert not any(
         victim in message for message in uncited_verdicts(real, roster, name)
     ), (
@@ -3393,6 +3426,49 @@ def test_control_17_a_verdicted_row_stripped_of_its_citation_is_refused() -> Non
     )
 
 
+def test_control_45_the_ruled_in_row_is_actually_held_to_the_citation_rule() -> None:
+    """CONTROL 45 — `D-GATE-21.1` ruling 2's roster half, made non-decorative.
+
+    Adding an id to :data:`RULED_IN_ROSTER` is a claim that the row's citations
+    are now HELD. A roster entry no gate consumes is a rostering that reads like
+    enforcement and enforces nothing — this phase's subject, arriving in its own
+    closing amendment.
+
+    Measured before the ruling: `DOCS-22` was in neither roster, so
+    `uncited_verdicts` was quantified over 70 ids that did not include it, and
+    stripping its citations changed nothing anywhere in the module.
+
+    The row is asserted CLEAN on the real ledger first, so the red-after is
+    attributable to the mutation and not to a row that was already an offender —
+    the wave-1 lesson `CONTROL 17` made structural.
+    """
+    real = ledger_text()
+    roster = citation_roster()
+    for victim in sorted(RULED_IN_ROSTER):
+        assert victim in roster, (
+            f"{victim} is in `RULED_IN_ROSTER` and NOT in the roster the gate"
+            " reads, so rostering it changed nothing at all"
+        )
+        assert not any(
+            victim in message
+            for message in uncited_verdicts(real, roster, CITATION_ROSTER_NAME)
+        ), (
+            f"{victim} already cites nothing on the real ledger, so this"
+            " control cannot distinguish its mutation from the status quo"
+        )
+        doctored = _doctored(
+            real,
+            _table_line(real, victim),
+            f"| {victim} | Phase 16 | **Complete** — verified against the tree |",
+        )
+        offenders = uncited_verdicts(doctored, roster, CITATION_ROSTER_NAME)
+        assert any(victim in message for message in offenders), (
+            f"{victim} stripped of every citation was NOT refused:"
+            f" {offenders!r}. It is rostered by ruling and the gate does not"
+            " hold it, which is the state the close panel found it in"
+        )
+
+
 def test_control_17b_a_not_built_row_may_cite_nothing() -> None:
     """CONTROL 17b — the discriminator. Red on everything is not a check.
 
@@ -3406,9 +3482,9 @@ def test_control_17b_a_not_built_row_may_cite_nothing() -> None:
     nothing else about the row.
     """
     real = ledger_text()
-    roster = WORKING_SET_ROSTER | PHASE_OWN_ROSTER
+    roster = citation_roster()
     victim = "DOCS-15"
-    name = "the working set and the phase's own roster"
+    name = CITATION_ROSTER_NAME
     line = _table_line(real, victim)
     absence = "the page is absent from `public/` and every grep returns zero"
     exempt = _doctored(
@@ -5825,6 +5901,19 @@ CONTROL_AIM: dict[str, Aim] = {
         # the sweep gone blind, and this control must go red under it.
         saboteur=_substituting(dispatcher_bypasses=_returning(list)),
     ),
+    "test_control_45_the_ruled_in_row_is_actually_held_to_the_citation_rule": Aim(
+        kind="guard",
+        targets=frozenset({"citation_roster"}),
+        invoke=lambda: test_control_45_the_ruled_in_row_is_actually_held_to_the_citation_rule(),
+        # The stand-in is the roster as it stood before the ruling — the union
+        # without the ruled-in rows. The control must go red under it, or the
+        # rostering it vouches for is decorative.
+        saboteur=_substituting(
+            citation_roster=_returning(
+                lambda: WORKING_SET_ROSTER | PHASE_OWN_ROSTER
+            )
+        ),
+    ),
     "test_control_41_the_multi_member_cases_reach_every_member": Aim(
         kind="guard",
         targets=frozenset({"multi_member_cases"}),
@@ -6242,6 +6331,7 @@ CONTROLS: frozenset[str] = frozenset(
         "test_control_42_the_phase_own_roster_is_derived_not_transcribed",
         "test_control_43_an_index_thinned_around_the_anchor_is_refused",
         "test_control_44_a_planted_dispatcher_bypass_is_found_in_every_shape",
+        "test_control_45_the_ruled_in_row_is_actually_held_to_the_citation_rule",
         "test_control_37_a_derived_base_refuses_a_member_it_cannot_resolve",
         "test_the_positive_control_a_real_pathspec_is_still_accepted",
         "test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused",
@@ -7099,6 +7189,7 @@ FIXED_SETS: frozenset[str] = frozenset(
         "MULTI_MEMBER_PATHSPECS",
         "PHASE_OWN_PHASES",
         "PHASE_OWN_ROSTER",
+        "RULED_IN_ROSTER",
         "PINNED_FILES",
         "TESTS_TREE",
         "UAT_RECORDS",
