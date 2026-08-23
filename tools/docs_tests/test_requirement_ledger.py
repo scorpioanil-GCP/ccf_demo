@@ -51,7 +51,8 @@ import contextlib
 import pathlib
 import re
 import subprocess
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from typing import NamedTuple
 
 import pytest
 
@@ -4842,4 +4843,780 @@ def test_control_27e_the_duplicate_bullet_shims_fire_and_degrade_silently() -> N
         "this control did not restore `CHECKBOX_LINE`, so every checkbox"
         " assertion after it in the session reads the document through a"
         " pattern it never agreed to"
+    )
+
+
+# ===========================================================================
+# CONTROL_AIM — every control DECLARES what it vouches for, and CONTROL 34
+# holds the declaration complete in both directions.
+#
+# `VAC-06`, criterion 13, plan `21.1-07`. This is the phase's GENERATOR, not
+# another instance of it. Nothing in this module has ever proved that a
+# CONTROL's mutation reaches the assertion it vouches for, which is why
+# `CONTROL A`, `CONTROL 5` and `CONTROL 13` all shipped mis-aimed and why
+# eighteen refusals sat unfalsified for a whole phase. Closing those without
+# closing this would clear the board and leave the engine running.
+#
+# IT LANDS LATE, OVER A FROZEN SET, AND DOES NOT GROW. Every control this
+# phase ships exists by the end of plan `21.1-06` (plus the two shim controls
+# above). Landing the registry earlier would have frozen it over a partial set
+# and forced an amendment in every later wave — and an artefact amended once
+# per wave is an artefact nobody reads on the wave that matters. The
+# forward-binding property comes from the COVERAGE limb rather than from the
+# landing date: once this exists, a control added by any later phase without
+# an entry reddens the run, which is the same shape `_refuse` already performs
+# on refusal ids.
+#
+# THE ENTRY CARRIES A FROZENSET OF TARGETS, NEVER ONE TARGET, and two measured
+# cases force it. `CONTROL C` is ONE test looping over TWO refusals —
+# `fabric_diff`'s empty-base limb and its no-paths limb — and no other test
+# exercises either; with one target per control one of the two is unclaimed
+# and the coverage limb is red on landing. `CONTROL A` vouches for FOUR
+# pathspec constants, and `RECON-08`'s shipped ledger cell repeats that claim
+# verbatim; with one target the aim proof would establish that it reaches ONE
+# of the four while it satisfies its entry and remains unproven for three.
+# The consequence that makes the plural honest rather than decorative: the aim
+# proofs quantify over the SET, one target at a time. A control that survives
+# with one of its targets broken has not been proven for that target, whatever
+# it proves for the others. `CONTROL C` is NOT split to fit the schema — its
+# docstring calls its two subjects "the two other ways to compare nothing and
+# call it clean", and narrowing a control to fit a registry is the move this
+# phase exists to stop.
+# ===========================================================================
+
+#: The six aim kinds, as a frozen roster of NAMES (`D-21`).
+#:
+#: * `limb` — the control observes a NAMED refusal raised through
+#:   :func:`_refuse`. Proof: neuter that one limb and the control must fail.
+#: * `pathspec` — the control vouches for an emptiness assertion over a named
+#:   pathspec constant. Proof: plan `21.1-08`, in the same plan as the
+#:   `CONTROL A` and `CONTROL 13` re-aims and committed before them.
+#: * `discriminator` — the control's subject must be ACCEPTED. Criterion 13's
+#:   red-on-the-aimed-limb wording does not fit a control with no mutation and
+#:   no limb; the obligation is INVERTED (see `CONTROL 36`).
+#: * `guard` — the control holds one of the module's own guard mechanisms,
+#:   which REPORTS its findings rather than raising a limb. Obligation
+#:   inverted the same way: sabotage the mechanism and the control must fail
+#:   (see `CONTROL 36b`).
+#: * `shim` — the control holds a DEGRADATION SHIM: a limb reachable only
+#:   under a sibling's neutering, existing so that degradation is SILENT
+#:   rather than a crash (`D-IMPL-181`, criterion 15; `CONTROL 36c`).
+#: * `meta` — the control is one of the aim-proving controls itself.
+AIM_KINDS: frozenset[str] = frozenset(
+    {"limb", "pathspec", "discriminator", "guard", "shim", "meta"}
+)
+
+
+class Aim(NamedTuple):
+    """What one CONTROL vouches for, and how a meta-control can run it.
+
+    `invoke` is a ZERO-ARGUMENT thunk that runs the control's own subject —
+    most often the control function itself. **A meta-control that builds its
+    own subject proves nothing about the control**, so where a control takes a
+    fixture or a parameter the thunk supplies it rather than reimplementing
+    what the control does.
+
+    `invoke` is `None` for, and ONLY for, `meta` entries. That is not a
+    convenience: `meta` entries are EXCLUDED from every invocation loop by
+    design — a meta-control that invoked itself would recurse forever — and
+    carrying no thunk makes the exclusion structural rather than a filter
+    someone can drop. You cannot prove the prover forever, and the regress has
+    to stop somewhere it can be seen stopping.
+
+    `saboteur` maps ONE target name to a context manager that breaks it, for
+    the kinds whose obligation is inverted. It is carried here, as DATA beside
+    the aim, rather than as a chain of special cases inside the meta-controls.
+    """
+
+    kind: str
+    targets: frozenset[str]
+    invoke: Callable[[], None] | None = None
+    saboteur: Callable[[str], contextlib.AbstractContextManager[None]] | None = None
+
+
+@contextlib.contextmanager
+def _substituted(name: str, replacement: object) -> Iterator[None]:
+    """Replace this module's global `name` for the length of the block.
+
+    A module global rather than an attribute patch because every checker here
+    is called by NAME from the control bodies, so this is the substitution the
+    control actually sees — the same reason `CONTROL 29` patches `_index` in
+    this module's namespace rather than somewhere upstream.
+    """
+    original = globals()[name]
+    globals()[name] = replacement
+    try:
+        yield
+    finally:
+        globals()[name] = original
+
+
+def _substituting(**by_target: object) -> Callable[[str], contextlib.AbstractContextManager[None]]:
+    """A saboteur that swaps each NAMED target for its stand-in.
+
+    Keyed by target so an entry with two targets carries two stand-ins and the
+    aim proofs can break exactly one at a time.
+    """
+
+    def _saboteur(target: str) -> contextlib.AbstractContextManager[None]:
+        return _substituted(target, by_target[target])
+
+    return _saboteur
+
+
+def _returning(make_value: Callable[[], object]) -> Callable[..., object]:
+    """A stand-in that ignores its arguments and returns a fresh `make_value()`.
+
+    Fresh rather than shared, so a control that mutates what it was handed
+    cannot poison the next invocation.
+    """
+
+    def _replacement(*_args: object, **_kwargs: object) -> object:
+        return make_value()
+
+    return _replacement
+
+
+def _every_bolded_run(status_cell: str) -> set[str]:
+    """`cell_verdicts` with the vocabulary filter removed — `CONTROL 9b`'s saboteur.
+
+    The reader `CONTROL 9b` exists to reject: it calls `DCD-02`'s second
+    bolded phrase a second verdict, which is the shape that would make the
+    one-verdict-per-cell gates red on the ledger's own honest rows.
+    """
+    return {run.group(1).strip() for run in BOLDED_RUN.finditer(status_cell)}
+
+
+@contextlib.contextmanager
+def _restore_written_after_the_yield(limb: str) -> Iterator[None]:
+    """`neutered` with its restore moved OUT of the `finally` — `CONTROL 33`'s saboteur.
+
+    Named in plan `21.1-06` task 3 and lifted here rather than re-derived. It
+    leaks the limb when the block raises, which is precisely the case
+    `CONTROL 33`'s first limb exists to catch; `_run_control` restores
+    :data:`_NEUTERED` afterwards so the leak cannot escape the meta-control.
+    """
+    _require_registered(limb)
+    already_off = limb in _NEUTERED
+    _NEUTERED.add(limb)
+    yield
+    if not already_off:
+        _NEUTERED.discard(limb)
+
+
+def _with_monkeypatch(control: Callable[[pytest.MonkeyPatch], None]) -> Callable[[], None]:
+    """A thunk for a control that takes the `monkeypatch` fixture.
+
+    A fixture cannot be requested from inside another test, so the thunk opens
+    the context itself. It runs the CONTROL, not a copy of it.
+    """
+
+    def _thunk() -> None:
+        with pytest.MonkeyPatch.context() as patcher:
+            control(patcher)
+
+    return _thunk
+
+
+#: Every CONTROL in this module, keyed by its test-function NAME, with the aim
+#: it vouches for.
+#:
+#: **Keyed by a literal name rather than by `function.__name__`**, so that a
+#: control renamed without its entry orphans the entry and `CONTROL 34` says
+#: so. A derived key would satisfy the "every entry names a control that
+#: exists" direction unconditionally, which is a check that cannot fail.
+CONTROL_AIM: dict[str, Aim] = {
+    # --- the diff machinery -------------------------------------------------
+    "test_control_a_a_base_and_path_that_differ_produce_output": Aim(
+        kind="pathspec",
+        targets=frozenset({"FABRIC", "FENCE", "UAT_RECORDS", "PINNED_FILES"}),
+        invoke=lambda: test_control_a_a_base_and_path_that_differ_produce_output(),
+    ),
+    "test_control_b_an_unresolvable_base_fails_loudly": Aim(
+        kind="limb",
+        targets=frozenset({"fabric_diff.nonzero_exit"}),
+        invoke=lambda: test_control_b_an_unresolvable_base_fails_loudly(),
+    ),
+    "test_control_c_an_empty_path_list_fails_loudly": Aim(
+        kind="limb",
+        targets=frozenset({"fabric_diff.empty_base", "fabric_diff.empty_paths"}),
+        invoke=lambda: test_control_c_an_empty_path_list_fails_loudly(),
+    ),
+    "test_control_16_a_pathspec_that_names_nothing_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"fabric_diff.untracked_member"}),
+        invoke=lambda: test_control_16_a_pathspec_that_names_nothing_is_refused(),
+    ),
+    "test_the_positive_control_a_real_pathspec_is_still_accepted": Aim(
+        kind="discriminator",
+        targets=frozenset({"tracked_under"}),
+        invoke=lambda: test_the_positive_control_a_real_pathspec_is_still_accepted(),
+        # `fabric_diff` is made to refuse EVERY pathspec by way of the module's
+        # OWN untracked-member limb rather than by a fake `AssertionError`: a
+        # `tracked_under` that reports nothing tracked is exactly the state
+        # `CONTROL 16` refuses, and it produces a real `[limb:…]` refusal.
+        saboteur=_substituting(tracked_under=_returning(list)),
+    ),
+    "test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"fabric_diff.untracked_member"}),
+        # Parametrized over six cases; the thunk binds one representative pair.
+        # Every case mutates exactly one member and reaches the same limb, so a
+        # proof on one is a proof of reach — arity is `CONTROL 18`'s own subject,
+        # not this registry's.
+        invoke=lambda: (
+            test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused(
+                "FABRIC", "first"
+            )
+        ),
+    ),
+    # --- the two status channels -------------------------------------------
+    "test_control_6_a_row_completed_in_one_channel_only_is_refused": Aim(
+        kind="guard",
+        targets=frozenset({"channel_disagreements"}),
+        invoke=lambda: test_control_6_a_row_completed_in_one_channel_only_is_refused(),
+        saboteur=_substituting(channel_disagreements=_returning(list)),
+    ),
+    "test_control_7_an_id_present_in_only_one_channel_is_refused": Aim(
+        kind="guard",
+        targets=frozenset({"channel_disagreements"}),
+        invoke=lambda: test_control_7_an_id_present_in_only_one_channel_is_refused(),
+        saboteur=_substituting(channel_disagreements=_returning(list)),
+    ),
+    "test_control_8_a_misspelled_table_header_refuses_rather_than_reporting_clean": Aim(
+        kind="limb",
+        targets=frozenset({"traceability_rows.header_absent"}),
+        invoke=lambda: (
+            test_control_8_a_misspelled_table_header_refuses_rather_than_reporting_clean()
+        ),
+    ),
+    "test_control_9_a_verdict_outside_the_vocabulary_is_refused": Aim(
+        kind="guard",
+        targets=frozenset({"vocabulary_offenders"}),
+        # Parametrized over three minted words; the thunk binds one.
+        invoke=lambda: test_control_9_a_verdict_outside_the_vocabulary_is_refused("Done"),
+        saboteur=_substituting(vocabulary_offenders=_returning(list)),
+    ),
+    "test_control_9b_the_second_bolded_phrase_in_dcd_02_is_not_a_second_verdict": Aim(
+        kind="discriminator",
+        targets=frozenset({"cell_verdicts"}),
+        invoke=lambda: (
+            test_control_9b_the_second_bolded_phrase_in_dcd_02_is_not_a_second_verdict()
+        ),
+        saboteur=_substituting(cell_verdicts=_every_bolded_run),
+    ),
+    "test_control_11_a_cell_with_two_verdict_tokens_is_refused": Aim(
+        kind="guard",
+        targets=frozenset({"doubled_verdicts"}),
+        invoke=lambda: test_control_11_a_cell_with_two_verdict_tokens_is_refused(),
+        saboteur=_substituting(doubled_verdicts=_returning(list)),
+    ),
+    "test_control_15_a_verdict_that_is_not_leading_is_not_read_as_the_verdict": Aim(
+        kind="guard",
+        targets=frozenset({"vocabulary_offenders"}),
+        invoke=lambda: (
+            test_control_15_a_verdict_that_is_not_leading_is_not_read_as_the_verdict()
+        ),
+        saboteur=_substituting(vocabulary_offenders=_returning(list)),
+    ),
+    "test_control_19_an_unbolded_lead_and_a_later_bolded_verdict_is_two_verdicts": Aim(
+        kind="guard",
+        targets=frozenset({"doubled_verdicts", "roster_rows_with_two_verdicts"}),
+        invoke=lambda: (
+            test_control_19_an_unbolded_lead_and_a_later_bolded_verdict_is_two_verdicts()
+        ),
+        saboteur=_substituting(
+            doubled_verdicts=_returning(list),
+            roster_rows_with_two_verdicts=_returning(list),
+        ),
+    ),
+    # --- the citation checks ------------------------------------------------
+    "test_control_1_an_ambiguous_basename_is_refused": Aim(
+        kind="guard",
+        targets=frozenset({"refuse_unresolvable"}),
+        invoke=lambda: test_control_1_an_ambiguous_basename_is_refused(),
+        saboteur=_substituting(refuse_unresolvable=_returning(list)),
+    ),
+    "test_control_2_a_unique_basename_is_refused_too": Aim(
+        kind="guard",
+        targets=frozenset({"refuse_unresolvable"}),
+        invoke=lambda: test_control_2_a_unique_basename_is_refused_too(),
+        saboteur=_substituting(refuse_unresolvable=_returning(list)),
+    ),
+    "test_control_3_a_path_that_does_not_exist_is_refused": Aim(
+        kind="guard",
+        targets=frozenset({"refuse_unresolvable"}),
+        invoke=lambda: test_control_3_a_path_that_does_not_exist_is_refused(),
+        saboteur=_substituting(refuse_unresolvable=_returning(list)),
+    ),
+    "test_control_4_a_symbol_citation_on_a_non_python_path_is_refused": Aim(
+        kind="guard",
+        targets=frozenset({"refuse_unresolvable"}),
+        invoke=lambda: test_control_4_a_symbol_citation_on_a_non_python_path_is_refused(),
+        saboteur=_substituting(refuse_unresolvable=_returning(list)),
+    ),
+    "test_control_4b_a_directory_path_is_refused": Aim(
+        kind="guard",
+        targets=frozenset({"refuse_unresolvable"}),
+        invoke=lambda: test_control_4b_a_directory_path_is_refused(),
+        saboteur=_substituting(refuse_unresolvable=_returning(list)),
+    ),
+    "test_control_5_a_table_with_no_rows_raises": Aim(
+        kind="limb",
+        targets=frozenset({"traceability_rows.zero_rows"}),
+        invoke=lambda: test_control_5_a_table_with_no_rows_raises(),
+    ),
+    "test_control_5b_a_table_with_no_citations_raises": Aim(
+        kind="limb",
+        targets=frozenset({"refuse_unresolvable.zero_citations"}),
+        invoke=lambda: test_control_5b_a_table_with_no_citations_raises(),
+    ),
+    "test_the_positive_control_a_real_citation_is_not_refused": Aim(
+        kind="discriminator",
+        targets=frozenset({"refuse_unresolvable"}),
+        invoke=lambda: test_the_positive_control_a_real_citation_is_not_refused(),
+        saboteur=_substituting(
+            refuse_unresolvable=_returning(
+                lambda: ["sabotage: every citation refused, compliant or not"]
+            )
+        ),
+    ),
+    "test_control_23_a_planning_document_can_be_cited_and_a_missing_one_cannot": Aim(
+        kind="guard",
+        targets=frozenset({"refuse_unresolvable", "citations_in_status_cells"}),
+        invoke=lambda: (
+            test_control_23_a_planning_document_can_be_cited_and_a_missing_one_cannot()
+        ),
+        saboteur=_substituting(
+            refuse_unresolvable=_returning(list),
+            citations_in_status_cells=_returning(list),
+        ),
+    ),
+    "test_control_23b_the_subsumption_gate_compares_spans_not_path_strings": Aim(
+        kind="limb",
+        targets=frozenset({"uncovered_lint_citations.lint_matches_nothing"}),
+        invoke=lambda: (
+            test_control_23b_the_subsumption_gate_compares_spans_not_path_strings()
+        ),
+    ),
+    "test_control_29_a_path_on_disk_but_absent_from_the_index_is_refused": Aim(
+        kind="guard",
+        targets=frozenset({"refuse_unresolvable"}),
+        invoke=_with_monkeypatch(
+            test_control_29_a_path_on_disk_but_absent_from_the_index_is_refused
+        ),
+        saboteur=_substituting(refuse_unresolvable=_returning(list)),
+    ),
+    # --- completeness -------------------------------------------------------
+    "test_control_10_a_ledger_with_one_row_still_pending_is_refused": Aim(
+        kind="guard",
+        targets=frozenset({"unverdicted"}),
+        invoke=lambda: test_control_10_a_ledger_with_one_row_still_pending_is_refused(),
+        saboteur=_substituting(unverdicted=_returning(list)),
+    ),
+    "test_control_12_a_roster_id_absent_from_the_table_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"roster_verdicts.absent_id"}),
+        invoke=lambda: test_control_12_a_roster_id_absent_from_the_table_is_refused(),
+    ),
+    "test_control_13_a_changed_tests_tree_would_be_detected": Aim(
+        kind="pathspec",
+        targets=frozenset({"TESTS_TREE"}),
+        invoke=lambda: test_control_13_a_changed_tests_tree_would_be_detected(),
+    ),
+    "test_control_14_a_phase_own_row_returned_to_pending_is_refused": Aim(
+        kind="guard",
+        targets=frozenset({"unverdicted"}),
+        invoke=lambda: test_control_14_a_phase_own_row_returned_to_pending_is_refused(),
+        saboteur=_substituting(unverdicted=_returning(list)),
+    ),
+    "test_control_17_a_verdicted_row_stripped_of_its_citation_is_refused": Aim(
+        kind="guard",
+        targets=frozenset({"uncited_verdicts"}),
+        invoke=lambda: (
+            test_control_17_a_verdicted_row_stripped_of_its_citation_is_refused()
+        ),
+        saboteur=_substituting(uncited_verdicts=_returning(list)),
+    ),
+    "test_control_17b_a_not_built_row_may_cite_nothing": Aim(
+        kind="discriminator",
+        targets=frozenset({"CITATION_EXEMPT_VERDICTS"}),
+        invoke=lambda: test_control_17b_a_not_built_row_may_cite_nothing(),
+        saboteur=_substituting(CITATION_EXEMPT_VERDICTS=frozenset()),
+    ),
+    # --- the parsers and the control fixtures -------------------------------
+    "test_control_20_a_duplicate_id_in_the_traceability_table_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"traceability_rows.duplicate_ids"}),
+        invoke=lambda: (
+            test_control_20_a_duplicate_id_in_the_traceability_table_is_refused()
+        ),
+    ),
+    "test_control_21_a_duplicate_id_in_the_checkbox_channel_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"checkbox_channel.duplicate_ids"}),
+        invoke=lambda: test_control_21_a_duplicate_id_in_the_checkbox_channel_is_refused(),
+    ),
+    "test_control_22_an_index_that_resolved_nothing_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"_index.anchor_unresolved"}),
+        invoke=_with_monkeypatch(test_control_22_an_index_that_resolved_nothing_is_refused),
+    ),
+    "test_control_24_a_pathspec_git_rejects_refuses_rather_than_reading_empty": Aim(
+        kind="limb",
+        targets=frozenset({"tracked_under.nonzero_exit"}),
+        invoke=lambda: (
+            test_control_24_a_pathspec_git_rejects_refuses_rather_than_reading_empty()
+        ),
+    ),
+    "test_control_25_a_traceability_row_that_is_not_three_cells_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"traceability_rows.cell_count"}),
+        invoke=lambda: (
+            test_control_25_a_traceability_row_that_is_not_three_cells_is_refused()
+        ),
+    ),
+    "test_control_26_an_empty_checkbox_channel_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"checkbox_channel.empty"}),
+        invoke=lambda: test_control_26_an_empty_checkbox_channel_is_refused(),
+    ),
+    "test_control_27_a_control_mutation_that_lands_nowhere_or_twice_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"_doctored.anchor_not_unique"}),
+        invoke=lambda: (
+            test_control_27_a_control_mutation_that_lands_nowhere_or_twice_is_refused()
+        ),
+    ),
+    "test_control_27b_the_two_verdict_mutation_refuses_a_cell_it_cannot_mutate": Aim(
+        kind="limb",
+        targets=frozenset(
+            {
+                "_cell_with_an_unbolded_lead_and_a_later_bolded_verdict.cell_count",
+                "_cell_with_an_unbolded_lead_and_a_later_bolded_verdict.verdict_unusable",
+                "_cell_with_an_unbolded_lead_and_a_later_bolded_verdict.lead_not_bolded",
+            }
+        ),
+        invoke=lambda: (
+            test_control_27b_the_two_verdict_mutation_refuses_a_cell_it_cannot_mutate()
+        ),
+    ),
+    "test_control_27c_the_duplicate_row_mutation_refuses_a_twin_that_is_not_one": Aim(
+        kind="limb",
+        targets=frozenset(
+            {
+                "_duplicated_table_row.cell_count",
+                "_duplicated_table_row.phase_collision",
+            }
+        ),
+        invoke=lambda: (
+            test_control_27c_the_duplicate_row_mutation_refuses_a_twin_that_is_not_one()
+        ),
+    ),
+    "test_control_27d_the_duplicate_row_twin_guard_fires_and_degrades_silently": Aim(
+        kind="shim",
+        targets=frozenset({"_duplicated_table_row.twin_identical"}),
+        invoke=lambda: (
+            test_control_27d_the_duplicate_row_twin_guard_fires_and_degrades_silently()
+        ),
+    ),
+    "test_control_27e_the_duplicate_bullet_shims_fire_and_degrade_silently": Aim(
+        kind="shim",
+        targets=frozenset(
+            {
+                "_duplicated_checkbox_bullet.not_a_bullet",
+                "_duplicated_checkbox_bullet.twin_identical",
+                "_duplicated_checkbox_bullet.twin_not_read",
+            }
+        ),
+        invoke=lambda: (
+            test_control_27e_the_duplicate_bullet_shims_fire_and_degrade_silently()
+        ),
+    ),
+    "test_control_28_a_table_anchor_that_is_absent_or_doubled_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"_table_line.not_unique"}),
+        invoke=lambda: (
+            test_control_28_a_table_anchor_that_is_absent_or_doubled_is_refused()
+        ),
+    ),
+    "test_control_28b_a_checkbox_anchor_that_is_absent_or_doubled_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"_checkbox_line.not_unique"}),
+        invoke=lambda: (
+            test_control_28b_a_checkbox_anchor_that_is_absent_or_doubled_is_refused()
+        ),
+    ),
+    "test_control_30_an_unresolvable_diff_base_refuses_rather_than_reading_clean": Aim(
+        kind="limb",
+        targets=frozenset({"base_ledger_text.nonzero_exit"}),
+        invoke=lambda: (
+            test_control_30_an_unresolvable_diff_base_refuses_rather_than_reading_clean()
+        ),
+    ),
+    "test_control_31_a_per_row_rule_over_an_empty_roster_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"uncited_verdicts.empty_roster"}),
+        invoke=lambda: test_control_31_a_per_row_rule_over_an_empty_roster_is_refused(),
+    ),
+    "test_control_31b_a_pathspec_member_too_short_to_misspell_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"near_miss.too_short_to_transpose"}),
+        invoke=lambda: (
+            test_control_31b_a_pathspec_member_too_short_to_misspell_is_refused()
+        ),
+    ),
+    # --- this phase's own machinery -----------------------------------------
+    "test_control_32_a_refusal_with_no_registered_identity_is_itself_refused": Aim(
+        kind="guard",
+        targets=frozenset({"_require_registered"}),
+        invoke=lambda: (
+            test_control_32_a_refusal_with_no_registered_identity_is_itself_refused()
+        ),
+        saboteur=_substituting(_require_registered=_returning(lambda: None)),
+    ),
+    "test_control_33_the_neutering_off_switch_cannot_leak_and_its_guard_can_fail": Aim(
+        kind="guard",
+        targets=frozenset({"neutered", "neutering_switch_offenders"}),
+        invoke=lambda: (
+            test_control_33_the_neutering_off_switch_cannot_leak_and_its_guard_can_fail()
+        ),
+        saboteur=_substituting(
+            neutered=_restore_written_after_the_yield,
+            neutering_switch_offenders=_returning(list),
+        ),
+    ),
+    # --- the aim-proving controls themselves --------------------------------
+    "test_control_34_every_control_declares_an_aim_and_every_limb_is_claimed": Aim(
+        kind="meta",
+        targets=frozenset(AIM_KINDS),
+    ),
+}
+
+#: Every control in this module, by NAME — the roster the enumeration below is
+#: frozen against.
+#:
+#: **Why a roster as well as an enumeration.** :func:`enumerated_controls`
+#: reads the module's globals with a name predicate, and a predicate that
+#: quietly stops matching a control satisfies coverage VACUOUSLY for that
+#: control while both directions of `CONTROL 34` still pass. The four positive
+#: twins are the standing proof that this is not hypothetical: they are named
+#: `test_the_positive_control_…`, outside the `test_control_` convention, and
+#: a predicate written to that convention alone drops them in silence.
+#:
+#: Named ids, set equality, no count (`D-21`).
+CONTROLS: frozenset[str] = frozenset(
+    {
+        "test_control_a_a_base_and_path_that_differ_produce_output",
+        "test_control_b_an_unresolvable_base_fails_loudly",
+        "test_control_c_an_empty_path_list_fails_loudly",
+        "test_control_16_a_pathspec_that_names_nothing_is_refused",
+        "test_the_positive_control_a_real_pathspec_is_still_accepted",
+        "test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused",
+        "test_control_6_a_row_completed_in_one_channel_only_is_refused",
+        "test_control_7_an_id_present_in_only_one_channel_is_refused",
+        "test_control_8_a_misspelled_table_header_refuses_rather_than_reporting_clean",
+        "test_control_9_a_verdict_outside_the_vocabulary_is_refused",
+        "test_control_9b_the_second_bolded_phrase_in_dcd_02_is_not_a_second_verdict",
+        "test_control_11_a_cell_with_two_verdict_tokens_is_refused",
+        "test_control_15_a_verdict_that_is_not_leading_is_not_read_as_the_verdict",
+        "test_control_19_an_unbolded_lead_and_a_later_bolded_verdict_is_two_verdicts",
+        "test_control_1_an_ambiguous_basename_is_refused",
+        "test_control_2_a_unique_basename_is_refused_too",
+        "test_control_3_a_path_that_does_not_exist_is_refused",
+        "test_control_4_a_symbol_citation_on_a_non_python_path_is_refused",
+        "test_control_4b_a_directory_path_is_refused",
+        "test_control_5_a_table_with_no_rows_raises",
+        "test_control_5b_a_table_with_no_citations_raises",
+        "test_the_positive_control_a_real_citation_is_not_refused",
+        "test_control_23_a_planning_document_can_be_cited_and_a_missing_one_cannot",
+        "test_control_23b_the_subsumption_gate_compares_spans_not_path_strings",
+        "test_control_29_a_path_on_disk_but_absent_from_the_index_is_refused",
+        "test_control_10_a_ledger_with_one_row_still_pending_is_refused",
+        "test_control_12_a_roster_id_absent_from_the_table_is_refused",
+        "test_control_13_a_changed_tests_tree_would_be_detected",
+        "test_control_14_a_phase_own_row_returned_to_pending_is_refused",
+        "test_control_17_a_verdicted_row_stripped_of_its_citation_is_refused",
+        "test_control_17b_a_not_built_row_may_cite_nothing",
+        "test_control_20_a_duplicate_id_in_the_traceability_table_is_refused",
+        "test_control_21_a_duplicate_id_in_the_checkbox_channel_is_refused",
+        "test_control_22_an_index_that_resolved_nothing_is_refused",
+        "test_control_24_a_pathspec_git_rejects_refuses_rather_than_reading_empty",
+        "test_control_25_a_traceability_row_that_is_not_three_cells_is_refused",
+        "test_control_26_an_empty_checkbox_channel_is_refused",
+        "test_control_27_a_control_mutation_that_lands_nowhere_or_twice_is_refused",
+        "test_control_27b_the_two_verdict_mutation_refuses_a_cell_it_cannot_mutate",
+        "test_control_27c_the_duplicate_row_mutation_refuses_a_twin_that_is_not_one",
+        "test_control_27d_the_duplicate_row_twin_guard_fires_and_degrades_silently",
+        "test_control_27e_the_duplicate_bullet_shims_fire_and_degrade_silently",
+        "test_control_28_a_table_anchor_that_is_absent_or_doubled_is_refused",
+        "test_control_28b_a_checkbox_anchor_that_is_absent_or_doubled_is_refused",
+        "test_control_30_an_unresolvable_diff_base_refuses_rather_than_reading_clean",
+        "test_control_31_a_per_row_rule_over_an_empty_roster_is_refused",
+        "test_control_31b_a_pathspec_member_too_short_to_misspell_is_refused",
+        "test_control_32_a_refusal_with_no_registered_identity_is_itself_refused",
+        "test_control_33_the_neutering_off_switch_cannot_leak_and_its_guard_can_fail",
+        "test_control_34_every_control_declares_an_aim_and_every_limb_is_claimed",
+    }
+)
+
+
+def enumerated_controls() -> dict[str, Callable[..., None]]:
+    """Every CONTROL in this module, read from its own globals.
+
+    **The predicate is `_control_` anywhere in the name, NOT the
+    `test_control_` prefix.** The four positive twins are named
+    `test_the_positive_control_…`; a predicate written to the prefix alone
+    drops all four in silence, and each of them is the discriminator half of a
+    pair whose negative half the prefix DOES match — so the enumeration would
+    look complete while covering only one side of four discriminations.
+
+    Enumerated rather than transcribed so that a control added by a later
+    phase reddens :func:`test_control_34_every_control_declares_an_aim_and_every_limb_is_claimed`
+    on its first run, and frozen against :data:`CONTROLS` so that a predicate
+    which stops matching a control cannot satisfy coverage vacuously for it.
+    """
+    return {
+        name: value
+        for name, value in globals().items()
+        if name.startswith("test_") and "_control_" in name and callable(value)
+    }
+
+
+def test_control_34_every_control_declares_an_aim_and_every_limb_is_claimed() -> None:
+    """CONTROL 34 — the registry is complete, in BOTH directions, by NAME.
+
+    Six limbs, none of them a count (`D-21`):
+
+    1. the enumeration equals :data:`CONTROLS` — a control the predicate stops
+       matching is named here rather than silently exempted;
+    2. every enumerated control has a :data:`CONTROL_AIM` entry, and every
+       entry names a control that exists. **A control that ships without an
+       entry fails the run**, which is the forward-binding clause: this is why
+       the registry does not have to be re-visited by a later phase to keep
+       working;
+    3. every kind is one of :data:`AIM_KINDS`, and every entry declares at
+       least one target — an entry with an empty target set claims nothing and
+       would satisfy the union below for free;
+    4. every limb id in :data:`LIMBS` is claimed by the UNION of the `limb`
+       and `shim` target sets, and every id in those sets is in `LIMBS`.
+       **`shim` is quantified over exactly as every other kind — there is no
+       exempt roster** (`D-IMPL-181`; Dave rejected one because it *"excuses
+       them without proving they work"*);
+    5. every `pathspec` target names a constant :func:`asserted_pathspecs`
+       resolves, and every `discriminator`, `guard` and `shim` entry carries a
+       target this module actually defines;
+    6. `meta` entries carry NO thunk and every other entry carries one. That
+       is what makes the invocation exclusion structural rather than a filter
+       someone can drop — see :class:`Aim`.
+
+    **Not satisfiable by a partial or an empty roster.** The union is compared
+    to `LIMBS` by set equality in both directions, the enumeration to
+    `CONTROLS` the same way, and both are required to be non-empty — so a
+    registry emptied by a bad edit reddens rather than passing over nothing,
+    which is the vacuity this whole module exists to detect arriving at the
+    boundary of the check that detects it.
+    """
+    enumerated = enumerated_controls()
+    assert enumerated, (
+        "the control enumeration found NOTHING, so every limb below is"
+        " quantified over the empty set and this check reports green over a"
+        " module with no controls in it at all"
+    )
+
+    unmatched = sorted(CONTROLS - set(enumerated))
+    unrostered = sorted(set(enumerated) - CONTROLS)
+    assert not unmatched and not unrostered, (
+        "the enumeration and the frozen `CONTROLS` roster disagree."
+        f"\n  in `CONTROLS`, not found by the predicate: {unmatched}"
+        f"\n  found by the predicate, not in `CONTROLS`: {unrostered}"
+        "\nA control the predicate stops matching satisfies every coverage"
+        " limb below VACUOUSLY for that control while both directions still"
+        " pass — which is why the roster exists beside the enumeration"
+    )
+
+    unregistered = sorted(set(enumerated) - set(CONTROL_AIM))
+    orphaned = sorted(set(CONTROL_AIM) - set(enumerated))
+    assert not unregistered and not orphaned, (
+        "`CONTROL_AIM` does not name exactly the controls this module has."
+        f"\n  controls with no registry entry: {unregistered}"
+        f"\n  registry entries naming no control: {orphaned}"
+        "\nA control that ships without an entry is a control nothing proves"
+        " is aimed at anything, which is how `CONTROL A`, `CONTROL 5` and"
+        " `CONTROL 13` all shipped mis-aimed"
+    )
+
+    bad_kinds = sorted(
+        f"{name} -> {aim.kind!r}"
+        for name, aim in CONTROL_AIM.items()
+        if aim.kind not in AIM_KINDS
+    )
+    assert not bad_kinds, (
+        f"these entries declare a kind outside {sorted(AIM_KINDS)}:"
+        f" {bad_kinds}. A kind with no proof loop behind it is a filing"
+        " cabinet, not a disposition"
+    )
+    aimless = sorted(name for name, aim in CONTROL_AIM.items() if not aim.targets)
+    assert not aimless, (
+        f"these entries declare no target at all: {aimless}. An empty target"
+        " set claims nothing, satisfies every union below for free, and leaves"
+        " the control it belongs to registered and aim-unproven"
+    )
+
+    claimed: set[str] = set()
+    for aim in CONTROL_AIM.values():
+        if aim.kind in {"limb", "shim"}:
+            claimed |= aim.targets
+    unwatched = sorted(LIMBS - claimed)
+    unregistered_limbs = sorted(claimed - LIMBS)
+    assert not unwatched and not unregistered_limbs, (
+        "the `limb` and `shim` aims do not account for `LIMBS`, id for id."
+        f"\n  registered limbs no control claims: {unwatched}"
+        f"\n  claimed ids that are not registered limbs: {unregistered_limbs}"
+        "\nAn unclaimed limb is a refusal nothing is proven to reach; a"
+        " claimed id that is not a limb is a control vouching for a branch"
+        " that does not exist"
+    )
+
+    pathspec_names = {name for name, _spec in asserted_pathspecs()}
+    module = globals()
+    misdirected: list[str] = []
+    for name, aim in CONTROL_AIM.items():
+        for target in sorted(aim.targets):
+            if aim.kind == "pathspec" and target not in pathspec_names:
+                misdirected.append(
+                    f"{name} -> {target!r} is not a constant"
+                    " `asserted_pathspecs()` resolves"
+                )
+            if aim.kind in {"discriminator", "guard"} and target not in module:
+                misdirected.append(
+                    f"{name} -> {target!r} is not defined in this module"
+                )
+            if aim.kind == "meta" and target not in AIM_KINDS:
+                misdirected.append(f"{name} -> {target!r} is not an aim kind")
+    assert not misdirected, (
+        "these aims name a target that does not exist:\n"
+        + "\n".join(misdirected)
+        + "\nA control vouching for a subject the module does not have is"
+        " vouching for nothing, and its aim proof would be about a name"
+    )
+
+    thunkless = sorted(
+        name
+        for name, aim in CONTROL_AIM.items()
+        if aim.kind != "meta" and aim.invoke is None
+    )
+    thunked_meta = sorted(
+        name
+        for name, aim in CONTROL_AIM.items()
+        if aim.kind == "meta" and aim.invoke is not None
+    )
+    assert not thunkless and not thunked_meta, (
+        f"entries with no invocation thunk: {thunkless}"
+        f"\nmeta entries carrying one: {thunked_meta}"
+        "\n`meta` entries are EXCLUDED from every invocation loop by design —"
+        " a meta-control that invoked itself would recurse forever — and"
+        " carrying no thunk is what makes that exclusion structural. Every"
+        " other kind needs one, because a meta-control that builds its own"
+        " subject proves nothing about the control"
     )
