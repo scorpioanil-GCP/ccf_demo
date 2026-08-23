@@ -274,3 +274,44 @@ The threshold is somewhere else again. It is jurisdiction-conditioned regulatory
 policy rather than a property of the question, so it lives in the policy bundle,
 and the same question asked under a different regime returns a different set of
 people out of the same graph.
+
+## What this deployment measures about its own answer
+
+An answer that was right six weeks ago is not the same asset as an answer that
+is right now, and this deployment measures the difference rather than asserting
+it. Question 1 and question 3 of the expectation included above are the same
+question about the same company, asked at two instants against the same graph
+with nothing ingested in between. The declaration states which routing state the
+deployment expects its own calibration to put each of them in:
+`debt_signal_first_question` is `ok`, `debt_signal_third_question` is
+`forced_llm`. The later question crosses this deployment's Forced-LLM band.
+
+The declaration also states which factor moved. `debt_weak_factor` is
+`freshness` — completeness and semantic consistency stay where they were — so an
+examiner reading the assessment can see which of the three dimensions collapsed
+rather than only that the debt rose. And `obligation_first_question` and
+`obligation_third_question` state what each routing state puts on the answer:
+the first is the SDK's named sentinel for a state its calibration deliberately
+leaves unbound, the second is this deployment's own sentence, quoted from its own
+calibration artifact. No CCF release contains that string, or any obligation
+string.
+
+Three tests hold this.
+`tests/examples/test_s1_01_output.py::test_the_debt_figure_is_measured_and_not_constant`
+is the one a runner goes red on if the crossing stops happening: it asserts that
+the later question measures strictly more debt than the earlier one, that the
+two routing states are the two the declaration names, that the weak factor falls
+between them, and that the other two factors do not move at all.
+`tests/examples/test_s1_01_output.py::test_the_delivered_product_carries_its_debt`
+holds that the debt rides the delivered product — a first-class decision input
+for the consumer, rather than a log line read afterwards.
+`tests/examples/test_s1_01_output.py::test_the_routing_state_carries_what_this_deployment_says_it_obliges`
+holds both obligations, and holds that the two differ.
+
+What those tests assert is the band crossing and the direction the freshness
+factor moves. They do not assert any particular Context Debt figure, so this
+page states none. The figures are a decay computation over the assembled view,
+and the deployment declines to declare them for the reason its own expectation
+document gives: restating them there would be authoring the answer the
+computation exists to produce. The band names, the weak factor and the two
+obligations are the claim; the arithmetic behind them belongs to the run.
