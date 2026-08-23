@@ -1028,20 +1028,44 @@ def near_miss(member: str) -> str:
     return f"{stem[:-2]}{stem[-1]}{stem[-2]}{slash}"
 
 
-def multi_member_cases() -> tuple[tuple[str, str], ...]:
-    """`CONTROL 18`'s subjects: each multi-member constant, first and last member.
+def multi_member_cases() -> tuple[tuple[str, int], ...]:
+    """`CONTROL 18`'s subjects: each multi-member constant, EVERY member.
 
-    Two positions rather than one, because a single position cannot tell a
-    per-member loop from a degenerate implementation that inspects only one end
-    of the tuple. Mutating the FIRST member alone passes for an implementation
-    that checks ``paths[0]``; mutating the LAST alone passes for one that checks
-    ``paths[-1]``. Each case still mutates EXACTLY ONE member, which is what
-    criterion 2 asks for.
+    **Widened from two positions to every member at the phase close, by the
+    §3.1 panel's `B-1`.** Two positions — first and last — defeats a degenerate
+    implementation that inspects ``paths[0]``, and defeats one that inspects
+    ``paths[-1]``. It does NOT defeat one that inspects both ends, and that is
+    the implementation the per-member fix exists to exclude. Measured: with
+    :func:`fabric_diff` degraded to ``paths[:1] + paths[-1:]`` the whole suite
+    stayed green, while a typo in any of :data:`UAT_RECORDS`' nine interior
+    members still produced a silent empty diff — `RR-1`'s own failure mode,
+    unwatched.
+
+    A control that quantifies over a spot-check while the code it vouches for
+    quantifies over a collection is the tuple-versus-members defect one level
+    up, which is why the cases now come from the constants' own arity.
+
+    Each case still mutates EXACTLY ONE member, which is what criterion 2 asks
+    for; there are simply as many cases as there are members. The second
+    element is the member INDEX, so what a case mutates is visible to
+    :func:`test_control_41_the_multi_member_cases_reach_every_member` rather
+    than derived privately inside `CONTROL 18`.
+
+    The arity is read from this module's own globals and NOT from
+    :func:`asserted_pathspecs`, for one reason that is easy to "fix" back into
+    a defect: this function runs at IMPORT time, inside
+    ``@pytest.mark.parametrize``, and :func:`asserted_pathspecs` names
+    :data:`TESTS_TREE`, which is bound far below this line. Calling it here
+    raises `NameError` at collection. The tie to the authoritative resolver is
+    kept where it can be checked instead —
+    :func:`test_control_41_the_multi_member_cases_reach_every_member` compares
+    these cases against :func:`asserted_pathspecs` at TEST time, so the two
+    cannot drift apart in silence.
     """
     return tuple(
-        (name, position)
+        (name, index)
         for name in sorted(MULTI_MEMBER_PATHSPECS)
-        for position in ("first", "last")
+        for index in range(len(globals()[name]))
     )
 
 
@@ -1228,9 +1252,9 @@ def test_the_positive_control_a_real_pathspec_is_still_accepted() -> None:
     assert fabric_diff(phase_base_commit(), FABRIC) == ""
 
 
-@pytest.mark.parametrize("name,position", multi_member_cases())
+@pytest.mark.parametrize("name,index", multi_member_cases())
 def test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused(
-    name: str, position: str
+    name: str, index: int
 ) -> None:
     """CONTROL 18 — a typo in ONE member of a multi-member pathspec is refused.
 
@@ -1261,7 +1285,6 @@ def test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused(
     """
     base = phase_base_commit()
     real = dict(asserted_pathspecs())[name]
-    index = 0 if position == "first" else len(real) - 1
     broken = near_miss(real[index])
     mutated = tuple(
         broken if at == index else member for at, member in enumerate(real)
@@ -1315,6 +1338,26 @@ def test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused(
         f" built on {name} reports a clean tree over a comparison that lost"
         " part of its subject"
     )
+
+
+def _control_18_over_every_case() -> None:
+    """`CONTROL 18`'s registry thunk — EVERY case, not a representative one.
+
+    The entry used to bind one pair and say that a proof on one case is a proof
+    of reach, because every case reaches the same limb. That reasoning is sound
+    about the LIMB and silent about the CASES: a control whose parametrization
+    shrinks still satisfies a thunk that names one surviving case by hand. The
+    close panel raised exactly that (cursor, finding 3), and since `B-1` widened
+    the case set from two per constant to every member, a hand-bound
+    representative is also a second place the arity has to be maintained.
+
+    Running the generator means `CONTROL 35`'s neutered invocation covers every
+    member of every multi-member constant, and nothing here names a case.
+    """
+    for name, index in multi_member_cases():
+        test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused(
+            name, index
+        )
 
 
 # ===========================================================================
@@ -5503,15 +5546,11 @@ CONTROL_AIM: dict[str, Aim] = {
     "test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused": Aim(
         kind="limb",
         targets=frozenset({"fabric_diff.untracked_member"}),
-        # Parametrized over six cases; the thunk binds one representative pair.
-        # Every case mutates exactly one member and reaches the same limb, so a
-        # proof on one is a proof of reach — arity is `CONTROL 18`'s own subject,
-        # not this registry's.
-        invoke=lambda: (
-            test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused(
-                "FABRIC", "first"
-            )
-        ),
+        # The thunk runs EVERY case rather than a bound representative. A
+        # representative satisfies the entry while the parametrization shrinks
+        # underneath it, and after `B-1` widened the cases to every member it
+        # would also be a second site holding the arity by hand.
+        invoke=_control_18_over_every_case,
     ),
     # --- the two status channels -------------------------------------------
     "test_control_6_a_row_completed_in_one_channel_only_is_refused": Aim(
