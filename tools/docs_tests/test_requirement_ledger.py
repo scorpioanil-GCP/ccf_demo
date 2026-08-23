@@ -6326,7 +6326,7 @@ def enumerated_controls() -> dict[str, Callable[..., None]]:
 def test_control_34_every_control_declares_an_aim_and_every_limb_is_claimed() -> None:
     """CONTROL 34 — the registry is complete, in BOTH directions, by NAME.
 
-    Six limbs, none of them a count (`D-21`):
+    Seven limbs, none of them a count (`D-21`):
 
     1. the enumeration equals :data:`CONTROLS` — a control the predicate stops
        matching is named here rather than silently exempted;

@@ -27,8 +27,8 @@ are Phase 21's own. Their verdicts are written in plan `21-06`.
 its verdict is *not a member of the Complete family* — `Complete`, `Complete as
 ruled`, `Complete over the ruled scope`. It is **never** a string inequality
 against `"Complete"`. A later reader who runs `grep -vc "| Complete |"` will get
-**56**, not 54, because that reading drags in `DCD-09` (`Complete over the ruled
-scope`) and `DCD-10` (`Complete as ruled`). You have already ruled on both, and
+**56**, not 54, because that reading drags in `DCD-09` (`Complete as ruled`)
+and `DCD-10` (`Complete over the ruled scope`). You have already ruled on both, and
 both are checked `[x]` in the other channel. **56 is the wrong predicate finding
 nothing, not a skipped row.**
 
