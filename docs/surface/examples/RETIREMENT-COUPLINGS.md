@@ -642,7 +642,12 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-DOCS-16-SPLIT.md` | 35 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-FINDINGS.md` | 10 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/21-requirement-ledger-reconciliation-what-is-actually-discharge/21-RESEARCH.md` | 7 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-01-PLAN.md` | 48 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-02-PLAN.md` | 26 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-04-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-05-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-CONTEXT.md` | 9 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-PATTERNS.md` | 36 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 58 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
