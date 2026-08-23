@@ -3,9 +3,175 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-23T16:15:00.000Z"
+last_updated: "2026-08-23T21:40:00.000Z"
 last_activity: >-
-  2026-08-23 -- **PHASE 21.1 IS CLOSED. `D-GATE-21.1` APPROVED BY DAVE**, logged at
+  2026-08-23 -- **PHASE 22 WAVES 1-5 LANDED. `DOCS-15` IS VERDICTED IN BOTH LEDGER CHANNELS.
+  THE PHASE IS NOT CLOSED** -- `CLAUDE.md` SS3.1's close is wave 6 (`22-06`): the cross-AI
+  panel on the SHIPPED tree with the source INLINED, then the additive single-agent
+  review, every finding verified against the tree, blockers fixed in-phase, then Dave and
+  `D-GATE-22`. Five plans, thirteen task commits `b71308b`..`15c900e`.
+  **WHAT SHIPPED, MEASURED.** `public/concepts/answers-no-document-contains.md` -- **339
+  lines**, 5 `## ` sections and 8 `### ` subsections, nav-wired under Concepts, and
+  **five `--8<--` includes, every one against `examples/s1-01-hello-context-product`**:
+  `artifacts/ubo-question.yaml`, `artifacts/expected.yaml` (both whole-file, because no
+  artifact under `s1-01` carries a snippet marker and `examples/` is fenced) and
+  `spine.py`'s `operators`, `project` and `serve` marker regions. The standing gate is
+  `tools/docs_tests/test_adoption_wording.py` -- **1052 lines, 24 tests**: 7 non-vacuity
+  floors, 3 shipped assertions (`AW-1` negative, `AW-2` negative, `AW-2` positive), 12
+  controls, 3 for `D-06`. All 24 run inside `make gate-tools` leg 2, counted rather than
+  assumed (`--collect-only` matches `test_adoption_wording.py::` **24** times).
+  **`examples/00`-`08` AND `examples/external/00-hello-context` GAINED ZERO NEW
+  REFERENCES, MEASURED OVER THE WHOLE PUBLISHED TREE RATHER THAN OVER THE NEW PAGE
+  ALONE.** `git grep -cE 'examples/0[0-8]|examples/external/00-hello-context' -- public/`
+  summed to **111 at `951eb4a` and 111 at `HEAD`** -- exactly `D-08`'s figure -- and the
+  same grep against the page itself exits 1. The 102 includes `DOCS-17` must re-cut are
+  untouched.
+  **THE `D-15` NARROWING, TAKEN AS A DECISION AND NOT FOUND AS A GAP.** `D-15` allowed
+  the staleness claim to rest only on what `s1-01` already measures, and named the figures
+  `0.035 ok` -> `0.221 forced_llm`. **No test asserts those literals.**
+  `tests/examples/test_s1_01_output.py::test_the_debt_figure_is_measured_and_not_constant`
+  asserts a MONOTONIC relation (`stale.debt > fresh.debt`), the two band NAMES, and the
+  DIRECTION of the weak factor -- nothing numeric. So the page claims the band crossing
+  and the moving factor, and names `expected.yaml`'s `debt_signal_first_question`,
+  `debt_signal_third_question` and `debt_weak_factor` as what carries ROADMAP criterion
+  11's evidence, in place of the dropped `debt-profile.yaml` include. **The literals
+  appear nowhere**: `grep '0\.035\|0\.221'` exits 1 on the page AND on `expected.yaml`,
+  `ubo-question.yaml` and `spine.py` -- so no source the page renders contains either
+  token. This is `22-CONTEXT.md` `D-15`'s narrow-or-drop clause exercised deliberately.
+  **THE `debt-profile.yaml` EXCLUSION IS A MEASUREMENT, NOT A PREFERENCE.** Run in the
+  venv against `tools.publish_scan.scan_text` with `whitepaper_shingles()`:
+  **`debt-profile.yaml` 15 `pub01-whitepaper-shingle` findings, against 0 on each of the
+  five includes the page carries** (`ubo-question.yaml` 0, `expected.yaml` 0,
+  `spine.py:operators` 0, `spine.py:project` 0, `spine.py:serve` 0). `spine.py:gate`
+  scores the SAME 15, which is why that region's exclusion is load-bearing twice -- once
+  for length (149 body lines) and once for the post-build scan. `make docs-strict`'s
+  fourth step reads the RENDERED site with HTML stripped, so an included `<pre><code>`
+  block is scanned as running words, and there is no allowlist and no `--exit-zero`
+  (`D-20`). **The line-slice workaround was evaluated and REJECTED, with the measurement
+  that decided it**: an out-of-range slice renders an EMPTY code block at exit 0, because
+  `check_paths: true` guards a missing file and a missing named section and guards a line
+  range not at all. A silently-blankable include on the one page whose purpose is
+  modelling honest citation is not a trade this phase makes. Do not reinstate it.
+  **THE CLIENT-SEAM CITATION READING, STATED FOR THE CLOSE VERIFIER RATHER THAN LEFT TO
+  BE RECONSTRUCTED FROM THREE PLANS. CRITERION 8 GOVERNS THE SEAM, NOT CRITERION 3.** The
+  client-surface citations are prose `path::symbol` node ids rather than snippet includes
+  because **no file in `src/` carries a snippet section marker at all** -- `grep -rn --
+  "--8<--" src/` returns 0 -- and the two `hw1` trees carry none either, so an include at
+  that seam is not a form that exists to be chosen. The citations ARE checked, by
+  `cite03-node-id` in the citation lint, which is exactly what criterion 8 requires of the
+  client-seam contrast; criterion 3's include requirement is discharged by the five `s1-01`
+  includes carrying the page's fabric claims. **This is a division of labour between
+  criteria 3 and 8, not a widening of criterion 3** -- nothing criterion 3 would have
+  required as an include was downgraded to prose; the form was never available there.
+  Watched rather than asserted: `ProductClient` -> `ProductClientX` on the page made
+  `tools.lints --all` exit 1 naming the rule and the bad symbol.
+  **`D-06` LANDED. IT IS NOT OWED.** The stretch shipped in plan `22-03` task 3
+  (`3ed8403`): `tools/docs_tests/test_adoption_wording.py::test_every_published_node_id_resolves`
+  with its floor (`test_the_published_tree_carries_node_ids_to_resolve`) and its control
+  (`test_control_12_a_renamed_symbol_and_a_missing_file_are_both_refused`), taking the
+  module from 21 tests to 24. **Measured: 22 node ids across the published tree, all on
+  the new page; 0 unresolvable paths, 0 missing symbols.** It is stronger than
+  `cite03-node-id` in exactly one place -- `cite03` treats a node id whose PATH does not
+  resolve as UNCHECKED, and on the published tree that is a hole, because a node id on a
+  page is an invitation to the reader to open it. ROADMAP criterion 15's naming obligation
+  fires only when the stretch does NOT land, so there is no *owed* entry, and its absence
+  is the correct outcome rather than an omission.
+  **TWO MID-PHASE RULINGS FROM DAVE, AND THE PHASE DOES NOT READ CORRECTLY WITHOUT THEM.**
+  `D-IMPL-188` and its AMENDMENT (`docs/DECISIONS.md`; commits `59de8ae`, `33835f2`,
+  `d894eb0`, `78069c3`). **Phase 22's FIRST commit turned a Phase 21 gate RED on a correct
+  tree.** `fabric_diff` hardcoded `..HEAD`, so five untouched-tree assertions in
+  `tools/docs_tests/test_requirement_ledger.py` diffed their pinned base against `HEAD` and
+  therefore forbade EVERY future commit under `src/`, `runtime/`, `examples/`, `public/`,
+  `pyproject.toml` and `tests/`, forever -- a forward prohibition nobody ruled on and no
+  phase boundary could lift. The window was wrong, not the tree:
+  `git diff <base>..951eb4a -- <the fence>` is EMPTY. Dave ruled twice -- four assertions
+  first, then `test_no_test_was_written_to_manufacture_a_citation` on residual 1 -- and
+  bound ALL FIVE to Phase 21.1's close `951eb4a3e2d8e072ec7f059e372545753d415a25`, pinned
+  in `21-CLOSE-COMMIT.txt`. **The repair had to move the CONTROLS, not only the
+  assertions**, and `CONTROL 13`'s first-round reasoning INVERTED between the two rulings.
+  `tools/docs_tests/test_requirement_ledger.py` and the two pin files therefore CHANGED
+  during this phase; that change is RULED, not a fence breach, and no plan in waves 2-5
+  touched the module. Module 106 -> **113 passed**.
+  **AN OPEN RESIDUAL, CARRIED AND NOT CLOSED: NOTHING ASSERTS THAT A BOUNDED ASSERTION
+  ACTUALLY READS THE PIN.** `test_the_pinned_diff_ceiling_resolves` proves the pin is
+  SANE; nothing proves it is USED. Verified BOTH ways: deleting the ceiling argument from
+  `test_no_test_was_written_to_manufacture_a_citation` leaves the module at **113 passed**,
+  while deleting it from `test_the_scope_fence_holds` IS caught (**1 failed, 112 passed**)
+  -- because Phase 22 has since written under `public/`. **The bound proves itself only
+  where the tree has since moved**; on a window clean at both ends it is invisible and
+  costs nothing to remove until the day it matters, which is this module's own defect
+  class one level out. Closing it needs an assertion over the module's SOURCE SHAPE, a
+  class of check the module does not have. Residual 3 -- nothing stops a future executor
+  ADVANCING the ceiling to go green -- is a governance question carried to `D-GATE-22`.
+  **NO REQUIREMENT ROW WAS MINTED, AND THAT IS A MEASUREMENT RATHER THAN A SILENCE.**
+  Extracted with the ledger gate's own `traceability_rows` parser at both revisions:
+  **149 ids at `951eb4a`, 149 now, `diff` exit 0**. The whole `.planning/REQUIREMENTS.md`
+  delta is four lines -- `DOCS-15`'s two channels and `CLNT-17`'s two. `DOCS-15` reads
+  **`Complete as ruled`** in both, with ten node ids in the cell, six of them the gate's
+  own controls and floors, because a row claiming non-vacuity should cite the proof of
+  non-vacuity and not only the assertion. **`CLNT-17` keeps `Not built` and its unticked
+  box**; only the coupling sentence was appended, and it carries no bolded vocabulary word
+  so `cell_verdicts` still reads one verdict per cell. Criterion 14's wave-1 mint clause
+  is discharged by the empty id-set diff, and the phase acquires no `PHASE_OWN_ROSTER`
+  because it minted nothing to roster.
+  **THE COUPLING LANDS MECHANICALLY, WHICH IS CRITERION 10's SECOND HALF.** 20 rows in
+  `docs/surface/examples/RETIREMENT-COUPLINGS.md` name the page, every one owned by
+  `17-08`; report at **264 rows / 81 files**. The client-surface citations produced NO
+  rows -- `src/ccf/client` and the `hw1` trees are not retiring paths -- which is worth
+  knowing before anyone reads the report expecting them.
+  **THE FABRIC DIFF IS PER MEMBER, ONE COMMAND PER MEMBER, AND THE TYPO CONTRAST IS
+  RECORDED BESIDE IT** (`VAC-01`, criterion 12). Against `951eb4a`, which resolves and is
+  an ancestor of `HEAD`: `src` names **142** tracked files and diffs EMPTY; `runtime`
+  **71**, EMPTY; `examples` **323**, EMPTY. The example tree SET is identical at both ends
+  -- 14 direct children and 34 nested trees, `diff` exit 0 both ways -- so nothing was
+  created, moved or removed rather than merely unedited. **The sabotage: `srcX` names 0
+  tracked files and `git diff --stat 951eb4a -- srcX` ALSO prints nothing.** A misspelled
+  member is INDISTINGUISHABLE from a clean one on the diff alone; only the `ls-files > 0`
+  guard tells them apart, and with `srcX` substituted the whole check exits 1 naming the
+  member instead of reporting clean.
+  **CI EXIT 0 ON ALL SIX LEGS, EVERY LEG IN THE FOREGROUND.** lint 0; typecheck clean over
+  **211** files; `test` **4105 passed / 118 skipped**, BYTE-FOR-BYTE the `D-GATE-21`/
+  `D-GATE-21.1` baseline, which is the mechanical proof this phase changed no behaviour;
+  `gate-tools` **406 + 291**; eleven examples with three harness legs at one content
+  address; `docs-strict` strict-built on all four steps. **THE TEST LEG RAN AS FOUR
+  FOREGROUND PYTEST INVOCATIONS, NOT ONE** -- a background job on this host dies at about
+  ten minutes and a killed run is indistinguishable from a pass -- and the chunking is
+  PROVEN to cover the suite rather than assumed: 1332 + 1082 + 870 + 939 = **4223**, equal
+  to the full `--collect-only` count, and the four chunks' node-id sets are SET-EQUAL to
+  the full collection and pairwise disjoint (`diff` exit 0; dedupe changes nothing).
+  4105 + 118 = 4223. `gate-tools` leg 2 rose 266 -> **291** and the added file is exactly
+  one, `test_adoption_wording.py`; test-def count 237 -> 262 across the two trees, +24 for
+  the new module and +1 for `D-IMPL-188`'s `test_the_pinned_diff_ceiling_resolves`.
+  **THE SABOTAGE INVENTORY, AND THE HONEST ANSWER TO THE QUESTION.** Fifteen mutations
+  across the phase, every one watched and reverted: 3 in wave 1 (a renamed marker, a
+  missing snippet FILE, a deleted `nav:` entry -- all three failed the strict build), 1 in
+  wave 2 (`cite03-node-id` on a renamed symbol), 9 across 8 runs in wave 3, 2 in wave 4,
+  plus this wave's `srcX`. **THREE CONTROLS COULD NOT BE MADE TO FAIL, AND THEY ARE NAMED
+  RATHER THAN GLOSSED.** Wave 3's sabotage 5 emptied `_copied_tree`'s page list: six
+  controls went RED, but controls 5, 6 and 8 stayed GREEN **VACUOUSLY**, because each
+  asserts `== []` and an empty page list satisfies that. That is the demonstration that a
+  false-positive control cannot detect its own fixture disappearing, which is precisely
+  why controls 1, 2 and 4 exist beside them. No control raised an unrelated exception in
+  any run. Four plan predictions were WRONG and are recorded as corrections rather than
+  smoothed over -- a sabotage whose prediction is wrong teaches nothing, and the prediction
+  is part of the sabotage.
+  **TWO GATE FINDINGS CARRIED OUT OF WAVE 4.** (1) **A ROW CHECKED BY ONLY ONE OF THE TWO
+  CHECKERS IS HALF CHECKED.** The ledger gate's `refuse_unresolvable` checks the cited
+  PATH exists; the citation lint checks the SYMBOL exists. A node id mutated to a symbol
+  that does not exist left the ledger module GREEN at 113 and reddened only
+  `tools.lints --all`. Nothing is exposed today -- both run in `ci-core` -- but the
+  division should be read where a later reader will find it. (2) **THE SYSTEM-INTERPRETER
+  TRAP FIRED AND WAS MEASURED**: `/usr/bin/python3` printed **258** coupling rows at exit
+  0 where the venv printed **264**. Six rows dropped SILENTLY, at exit 0, which is why
+  criterion 13 says *in the venv*.
+  **`D-15` HONOURED THROUGHOUT.** `.planning/STATE.md` and `.planning/REQUIREMENTS.md`
+  hand-edited, backed up outside the tree and diffed; **no `state.*` and no `roadmap.*`
+  writer was invoked in any wave**. `.planning/ROADMAP.md` is UNMODIFIED by execution --
+  71 insertions and **ZERO deletions** against `951eb4a` across its four planning commits,
+  so no criterion line was ever edited or renumbered; the fifteen criteria stand as locked
+  at the discuss sitting. `RETIREMENT-COUPLINGS.md` regenerated in the venv after every
+  `.planning/` and `public/` write, and again after this wave's SUMMARY.
+  PRIOR: 2026-08-23 -- **PHASE 21.1 IS CLOSED. `D-GATE-21.1` APPROVED BY DAVE**, logged at
   `docs/DECISIONS.md:532` alongside five ruling entries `D-IMPL-183`..`D-IMPL-187`.
   `docs/DECISIONS.md` is APPEND-ONLY across the gate commit -- 12 insertions, ZERO
   deletions -- and **`D-GATE-21` is BYTE-IDENTICAL**, verified by sha256 of its own
