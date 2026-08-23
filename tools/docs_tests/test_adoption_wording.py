@@ -80,6 +80,7 @@ from __future__ import annotations
 
 import pathlib
 import re
+import shutil
 
 import pytest
 
@@ -525,4 +526,380 @@ def test_the_passage_anchor_caveat_states_both_halves_in_one_paragraph() -> None
         "half alone reads as a gap with no contract behind it — which is why "
         "both halves are required in ONE paragraph, the contract half matched "
         "against Paragraph.raw and the absence half against Paragraph.text"
+    )
+
+
+# --------------------------------------------------------------------------
+# Controls — a gate nobody has watched fail is a gate that may scan nothing.
+#
+# The fixture source is the page THIS PHASE SHIPS, not the adopter's guide. An
+# injected violation appended to the adoption page proves the gate guards the
+# page it exists for, and the unmodified-copy baseline (control 3) then also
+# proves the shipped page is clean. Every control mutates a COPY under
+# ``tmp_path``; nothing here writes to ``public/``.
+# --------------------------------------------------------------------------
+
+#: The page under guard, repo-relative inside the published tree.
+ADOPTION_PAGE = "concepts/answers-no-document-contains.md"
+
+
+def _copy(tmp_path: pathlib.Path) -> pathlib.Path:
+    """An unmodified copy of the adoption page, for substitution controls."""
+    source = _prose.PUBLIC_DIR / ADOPTION_PAGE
+    assert source.is_file(), f"control fixture source missing: {source}"
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    target = tmp_path / pathlib.Path(ADOPTION_PAGE).name
+    shutil.copy(source, target)
+    return target
+
+
+def _copied_tree(tmp_path: pathlib.Path, extra: str) -> list[pathlib.Path]:
+    """A one-page tree: the adoption page with `extra` appended.
+
+    The source-exists assertion lives in :func:`_copy` and is what stops a
+    renamed fixture from silently yielding an empty list — an empty list makes
+    every predicate return ``[]``, which turns every refusal control green for
+    the worst possible reason.
+    """
+    target = _copy(tmp_path)
+    if extra:
+        with target.open("a", encoding="utf-8") as handle:
+            handle.write("\n\n" + extra + "\n")
+    return [target]
+
+
+def test_control_1_an_injected_capability_limit_sentence_is_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """AW-1 fires on an injected naked claim, and AW-2 stays silent."""
+    pages = _copied_tree(
+        tmp_path,
+        "RAG over a vector store cannot answer a question whose answer no "
+        "single document states.",
+    )
+    offenders = sentences_asserting_a_capability_limit(pages)
+    assert offenders, (
+        "AW-1 admitted a naked capability claim — the gate is scanning "
+        "nothing, or EXTERNAL_APPROACH/LIMIT_VERB have drifted"
+    )
+    assert any(
+        pathlib.Path(ADOPTION_PAGE).name in offender and re.search(r":\d+ — ", offender)
+        for offender in offenders
+    ), f"the offender string names no page and line: {offenders}"
+    # The cross-assertion: the two obligations must be proven to be testing
+    # different things, so AW-2 must behave here exactly as it does on the
+    # clean page — no extraction offender, and the caveat still found.
+    assert sentences_claiming_passage_extraction(pages) == [], (
+        "AW-2's negative predicate fired on an AW-1 violation; the two "
+        "obligations are not testing different things"
+    )
+    assert paragraphs_carrying_the_caveat(pages), (
+        "AW-2's positive predicate lost the caveat when an AW-1 violation was "
+        "injected; the two obligations are not independent"
+    )
+
+
+def test_control_2_an_injected_extraction_claim_is_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """AW-2 fires on an injected extraction claim, and AW-1 stays silent."""
+    pages = _copied_tree(
+        tmp_path,
+        "CCF extracts passage anchors from your documents and attaches one to "
+        "every claim it serves.",
+    )
+    offenders = sentences_claiming_passage_extraction(pages)
+    assert offenders, (
+        "AW-2 admitted a claim that CCF extracts passage anchors from "
+        "documents — either the gate is scanning nothing, or the denial limb "
+        "has become unconditional"
+    )
+    # The cross-assertion, in the other direction.
+    assert sentences_asserting_a_capability_limit(pages) == [], (
+        "AW-1 fired on an AW-2 violation; the two obligations are not testing "
+        "different things"
+    )
+
+
+def test_control_3_the_unmodified_copy_passes_every_assertion(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The controls' baseline: every refusal above comes from the mutation.
+
+    Routed through ``_copied_tree`` with an empty injection on purpose, so that
+    breaking the helper is visible here too — a baseline that cannot notice its
+    own fixture disappearing vouches for nothing.
+    """
+    pages = _copied_tree(tmp_path, "")
+    assert sentences_asserting_a_capability_limit(pages) == [], (
+        "the shipped page asserts a capability limit of an external approach"
+    )
+    assert sentences_claiming_passage_extraction(pages) == [], (
+        "the shipped page claims CCF extracts passage anchors from documents"
+    )
+    assert paragraphs_carrying_the_caveat(pages), (
+        "the shipped page does not carry both halves of the caveat in one "
+        "paragraph"
+    )
+
+
+def test_control_4_a_negation_in_a_different_sentence_does_not_exonerate(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Sentence scoping, proven from both sides rather than asserted.
+
+    First: a paragraph whose opening sentence is emphatically not a capability
+    claim still fails if a later sentence is one. A paragraph-scoped reading
+    would call the whole thing exonerated.
+
+    Second, the reverse: an approach named in one sentence and a limit verb
+    belonging to a different subject in the next is NOT an offender. Together
+    the two halves pin the unit of judgement to the sentence.
+    """
+    offending = _copied_tree(
+        tmp_path / "a",
+        "RAG over a vector store is not the target of this page. A vector "
+        "store cannot answer a question whose answer no single document "
+        "states.",
+    )
+    assert sentences_asserting_a_capability_limit(offending), (
+        "a negation in a neighbouring sentence exonerated a capability claim "
+        "— the scoping regressed from sentence to paragraph"
+    )
+    innocent = _copied_tree(
+        tmp_path / "b",
+        "The deployment is compared against RAG over a vector store. The "
+        "question itself has no way to be answered by reading one record, "
+        "because the answer is a sum over two ownership paths.",
+    )
+    assert sentences_asserting_a_capability_limit(innocent) == [], (
+        "a limit verb in a neighbouring sentence, attached to the question "
+        "rather than to the approach, was reported as an offender — the "
+        "scoping widened from sentence to paragraph"
+    )
+
+
+def test_control_5_a_bare_enumeration_of_the_three_approaches_is_not_an_offender(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The AW-1 trigger boundary, held from the other side.
+
+    Naming the three approaches asserts nothing about any of them. If this
+    ever fails, the gate has started demanding padding in correct prose.
+    """
+    pages = _copied_tree(
+        tmp_path,
+        "The three approaches this deployment is usually compared against are "
+        "RAG over a vector store, hand-rolled context assembly, and a "
+        "semantic layer plus prompt templates.",
+    )
+    assert sentences_asserting_a_capability_limit(pages) == [], (
+        "AW-1 reported a bare enumeration of the three approaches as an "
+        "offender; the gate is now demanding padding in correct prose"
+    )
+
+
+def test_control_6_a_question_fact_recast_is_not_an_offender(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The form D-02 REQUIRES the page to use must pass.
+
+    Dave's ruling: *"'No document in any source system states Jane's 30.0%' is
+    verifiable against `events.yaml` and `source-estate.yaml` — includable.
+    'RAG can't do this' is not."* A gate that refused the first would make the
+    obligation unsatisfiable.
+    """
+    pages = _copied_tree(
+        tmp_path,
+        "No document in any source system states the 30.0% aggregate "
+        "ownership figure; it is a sum over two paths, and the example's "
+        "expectation artifact declares it before the run computes it.",
+    )
+    assert sentences_asserting_a_capability_limit(pages) == [], (
+        "AW-1 reported a D-02-conforming question-fact as an offender; the "
+        "gate now refuses the only form the page is permitted to use"
+    )
+
+
+def test_control_7_a_caveat_missing_its_absence_half_is_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Substitute the absence half away; the contract half survives intact."""
+    page = _copy(tmp_path)
+    text = page.read_text(encoding="utf-8").replace(
+        "no shipped pipeline produces passage anchors from documents",
+        "the ingestion pipeline is out of scope for this deployment",
+    )
+    page.write_text(text, encoding="utf-8")
+    # Fixture integrity first: assert the mutation removed the RIGHT half.
+    assert "D-IMPL-46" in text and "passage_anchor" in text, (
+        "the fixture removed the wrong half — the contract half is gone too, "
+        "so an empty result below would prove nothing"
+    )
+    assert "no shipped pipeline produces" not in text, (
+        "the fixture removed nothing; the absence half is still present"
+    )
+    assert paragraphs_carrying_the_caveat([page]) == [], (
+        "AW-2's positive predicate accepted a caveat carrying only its "
+        "contract half — half a caveat still parses as honest, which is the "
+        "whole reason both halves are required in one paragraph"
+    )
+
+
+def test_control_8_a_correct_passage_level_lineage_sentence_is_not_an_offender(
+    tmp_path: pathlib.Path,
+) -> None:
+    """AW-2's false-positive boundary, held from the other side.
+
+    Lineage ATTACHMENT is a shipped capability and the published tree already
+    describes it twice, in ``public/concepts/pillars/hitl.md`` and
+    ``public/how-to/compose-a-workflow-with-hitl.md``. Only extraction FROM
+    DOCUMENTS is the overclaim.
+    """
+    pages = _copied_tree(
+        tmp_path,
+        "A review queue holds generated content with its passage-level "
+        "lineage attached, so a reviewer can see what each claim rests on "
+        "before the content is released.",
+    )
+    assert sentences_claiming_passage_extraction(pages) == [], (
+        "AW-2 reported a correct passage-level-lineage attachment sentence as "
+        "an extraction claim; the vocabulary has widened past its subject"
+    )
+
+
+def test_control_9_a_backticked_identifier_spelling_is_still_seen(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The ``.raw`` field choice, held rather than asserted.
+
+    ``_prose.strip_markup`` deletes backtick code spans from
+    ``Paragraph.text``, and this repository writes decision ids and identifiers
+    backticked as house style: measured, four of the ten published paragraphs
+    carrying a ``D-IMPL-NN`` id write it ONLY inside a code span, so ``.text``
+    sees six and ``.raw`` sees ten. Matched against ``.text``,
+    ``CAVEAT_CONTRACT`` would therefore find nothing on a CORRECT page.
+
+    This control builds its own page rather than copying the shipped one, on
+    purpose: the field choice must not silently depend on how plan 02 happened
+    to spell the caveat. Control 3 and
+    ``test_the_positive_caveat_assertion_has_something_to_assert_over`` already
+    cover the shipped spelling.
+
+    If a later reader "simplifies" the predicate onto one field, this goes red
+    and says why.
+    """
+    page = tmp_path / "backticked.md"
+    page.write_text(
+        "# A control page\n"
+        "\n"
+        "The lineage entry carries a `passage_anchor` field and the contract\n"
+        "behind it ships: `D-IMPL-46` rules the Protocol that fills it. No\n"
+        "shipped pipeline produces passage anchors from documents, because\n"
+        "the unstructured ingestion pattern was never built.\n",
+        encoding="utf-8",
+    )
+    carrying = paragraphs_carrying_the_caveat([page])
+    assert len(carrying) == 1, (
+        "the backticked identifier spelling was not seen: CAVEAT_CONTRACT "
+        f"must be matched against Paragraph.raw, not .text — got {carrying}"
+    )
+    # The inverse, in the same test, for the field that would be wrong.
+    paragraph = next(
+        par for par in _prose.page_paragraphs(page) if CAVEAT_ABSENCE.search(par.text)
+    )
+    assert CAVEAT_CONTRACT.search(paragraph.raw) is not None, (
+        "the contract half is not visible in Paragraph.raw — the fixture is "
+        "wrong, not the field choice"
+    )
+    assert CAVEAT_CONTRACT.search(paragraph.text) is None, (
+        "the contract half is visible in Paragraph.text, so strip_markup no "
+        "longer removes code spans and the .raw/.text split has stopped "
+        "meaning anything — re-measure before changing the field"
+    )
+
+
+def test_control_10_a_positive_extraction_claim_without_any_denial_is_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The denial limb did not simply switch AW-2 off.
+
+    The exemption is CONDITIONAL, and here its condition is absent: a bare
+    positive claim with no denial anywhere in the sentence. Without this
+    control, a limb that exempted unconditionally would ship green — which is
+    exactly what sabotage 7a produces.
+    """
+    pages = _copied_tree(
+        tmp_path,
+        "CCF produces passage anchors from your documents as part of every "
+        "assembly.",
+    )
+    assert sentences_claiming_passage_extraction(pages), (
+        "AW-2 admitted a bare positive extraction claim carrying no denial at "
+        "all — the denial limb has become unconditional and the obligation is "
+        "switched off"
+    )
+
+
+def test_control_11_a_decoy_negation_does_not_exonerate(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The limb's three conditions, held one at a time.
+
+    Three copied trees, three assertions, three messages naming which shape
+    failed. If ANY half ever goes green, the limb has become the hole it was
+    added to close.
+
+    The (c) sentences are used VERBATIM and must not be paraphrased. They are
+    the measured cases: under the two-condition form — vocabulary and ordering,
+    with no pivot check — both were EXEMPTED outright, reported by nothing, and
+    a paraphrase that happened to drop the pivot would pass under the very
+    predicate this half exists to refuse, leaving the control vouching for
+    nothing.
+    """
+    # (a) VOCABULARY — an unrelated negative clause is not a denial of
+    # extraction. This is what a general negation vocabulary would exempt.
+    decoy = _copied_tree(
+        tmp_path / "a",
+        "CCF produces passage anchors from documents, and no vector store is "
+        "involved.",
+    )
+    assert sentences_claiming_passage_extraction(decoy), (
+        "condition (i) failed: an out-of-vocabulary negation exonerated a "
+        "positive extraction claim — EXTRACTION_DENIAL has been widened into "
+        "a general negation vocabulary"
+    )
+
+    # (b) ORDERING — an in-vocabulary denial appended AFTER the claim cannot
+    # retroactively withdraw it.
+    trailing = _copied_tree(
+        tmp_path / "b",
+        "CCF produces passage anchors from documents, though no shipped "
+        "pipeline is involved in the UBO example.",
+    )
+    assert sentences_claiming_passage_extraction(trailing), (
+        "condition (ii) failed: a denial standing AFTER the extraction verb "
+        "exonerated the claim — the limb has become position-blind"
+    )
+
+    # (c) PIVOT — a denial at the START of a sentence must not exempt a claim
+    # that rides the clause after ``though`` or ``but``. Verbatim, measured.
+    pivoted = _copied_tree(
+        tmp_path / "c",
+        "No shipped pipeline produces passage anchors, though CCF does "
+        "extract them from documents.",
+    )
+    assert sentences_claiming_passage_extraction(pivoted), (
+        "condition (iii) failed: a leading denial followed by a contrastive "
+        "pivot exonerated the claim riding the clause after it — this is the "
+        "exact sentence the two-condition form exempted"
+    )
+    sibling = _copied_tree(
+        tmp_path / "d",
+        "No shipped pipeline produces passage anchors from documents, but CCF "
+        "extracts them from your documents anyway.",
+    )
+    assert sentences_claiming_passage_extraction(sibling), (
+        "condition (iii) failed on its sibling measured case: a leading "
+        "denial followed by ``but`` exonerated the claim after the pivot"
     )
