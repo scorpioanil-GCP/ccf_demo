@@ -1,0 +1,49 @@
+### Phase 22 Close-Time Review — Findings
+
+Findings are ranked by severity. All citations refer to the shipped subjects inlined above.
+
+---
+
+#### 1. Vacuous Exemption Hole in AW-2 Gate via non-pivot conjunctions
+**File/Symbol:** `tools/docs_tests/test_adoption_wording.py::sentences_claiming_passage_extraction`
+**Failure Scenario:** The exemption limb (lines 280–304) for the AW-2 obligation ("no extraction claims") uses a narrow `CONTRASTIVE_PIVOT` vocabulary (e.g., `but`, `however`) to detect when a sentence turns from a denial back into an assertion. It ignores non-pivot conjunctions such as semicolons, commas, or "and".
+**Input/State:** A sentence such as `"No pipeline produces passage anchors; CCF extracts them from documents."`
+**Outcome:** The gate returns `[]` (passes). The `precedes` check is satisfied by the first clause, and since `;` is not in `CONTRASTIVE_PIVOT`, the `turns` check remains `False`. The assertion in the second clause is wrongly exempted.
+**Confidence:** High.
+
+#### 2. Over-broad `EXTRACTION_DENIAL` allows unrelated negation to bypass gate
+**File/Symbol:** `tools/docs_tests/test_adoption_wording.py::EXTRACTION_DENIAL`
+**Failure Scenario:** The regex (lines 191–201) includes the phrase `no pipeline` without word boundaries or extraction-specific context.
+**Input/State:** A sentence such as `"No pipeline-related cost is incurred, and CCF extracts passage anchors from documents."`
+**Outcome:** The gate returns `[]` (passes). The string `"no pipeline"` matches at the start of the sentence, satisfying the `precedes` condition for the subsequent extraction claim. This allows an author to ship an overclaim simply by prepending an unrelated negative clause containing the word "pipeline".
+**Confidence:** High.
+
+#### 3. Check Vacuity: `CAVEAT_ABSENCE` crosses sentence boundaries via greedy regex
+**File/Symbol:** `tools/docs_tests/test_adoption_wording.py::CAVEAT_ABSENCE`
+**Failure Scenario:** The regex (lines 220–223) uses `[^.]{0,80}` to stay within a sentence but fails to exclude other sentence terminators like `?` or `!`.
+**Input/State:** A paragraph containing: `"Is there no shipped pipeline? We produce passage anchors. Check these documents."`
+**Outcome:** `paragraphs_carrying_the_caveat` (lines 316–330) returns a positive match. The check "passes" for a reason unrelated to the actual presence of the caveat's negative limb, because the regex greedy-matches across the question mark and period.
+**Confidence:** High.
+
+#### 4. Markup Leak in `strip_markup` blind to multi-backtick spans
+**File/Symbol:** `tools/docs_tests/_prose.py::strip_markup`
+**Failure Scenario:** `_CODE_SPAN_RE` (line 75) uses `re.compile(r"`[^`]*`")`, which only correctly handles single-backtick spans. Double or triple backticks (used for escaping or fence markers) are partially leaked or mis-matched.
+**Input/State:** A sentence using double-backticks for emphasis: `Comparing them establishes ``assembly-path integrity``.`
+**Outcome:** `strip_markup` matches the first two backticks and leaves `"assembly-path integrity"` visible in `Paragraph.text`. If a wording gate is configured to skip code spans (the default), it will incorrectly scan content that authors intended to hide within a code span.
+**Confidence:** High.
+
+#### 5. Adjacent Finding to F4: D-06 Resolver Instability
+**File/Symbol:** `tools/docs_tests/test_adoption_wording.py::unresolved_node_ids`
+**Failure Scenario:** This gate (lines 1000–1035) relies on `repo_index` from `tools.lints.citations`. Known finding **F4** reports a significant discrepancy (6 rows) in coupling counts between Python environments.
+**Input/State:** A published page citing a valid symbol that is missed by the indexer in a specific environment (e.g., CI vs local).
+**Outcome:** The gate may silently skip verification of node IDs if the underlying indexer exhibits the same instability described in F4. This turns the D-06 "strong" resolver into a vacuous pass in the environment where the index is truncated.
+**Confidence:** Medium (extrapolated from F4).
+
+---
+
+### Evidence of search and clean results
+
+1. **AW-1 Clean Result:** Scanned `public/concepts/answers-no-document-contains.md` for `EXTERNAL_APPROACH` (`RAG`, `vector store`, etc.) combined with `LIMIT_VERB` (`cannot`, `lacks`, etc.). No violations found; the page consistently recasts limits as question-facts (e.g., "written down in no record") or test-backed assertions ("is what holds it") rather than bare capability claims.
+2. **Control Baseline:** Verified `test_adoption_wording.py` line 670 (`test_control_3`). The unmodified shipped page passes all current wording obligations, confirming that the defects found are vulnerabilities in the protection machinery rather than failures of the current content.
+3. **Paragraph Lineno Integrity:** Traced `_prose.py::paragraphs` (lines 100–165). Paragraph start-lines are correctly reset on blank lines and fence markers, ensuring that `page:line` failure reports are accurate.
+4. **Snippet Include Blindness:** Confirmed that `test_adoption_wording.py` correctly documents its own blindness to `--8<--` includes (line 120), a known limitation that is mitigated by the example suite but remains a potential gap for un-executed prose.

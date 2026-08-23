@@ -1,0 +1,119 @@
+# Phase 22 close-time review — independent panel findings
+
+Reviewed the inlined shipped page, `_prose.py`, and `test_adoption_wording.py` against AW-1/AW-2, denial-limb logic, `.raw`/`.text` field split, and D-06. Findings below are **adjacent** to F1–F4; known items are not re-derived.
+
+---
+
+## Findings (most severe first)
+
+### 1. AW-2 negative predicate is blind to backticked-only `passage_anchor` subjects
+
+**Claim:** `sentences_claiming_passage_extraction` can miss a document-extraction overclaim when “passage anchor” appears only inside a code span.
+
+**Location:** `tools/docs_tests/test_adoption_wording.py` — `sentences_claiming_passage_extraction`, loop at `PASSAGE_ANCHOR.finditer(paragraph.text)`; paired with `_prose.strip_markup` in `tools/docs_tests/_prose.py`.
+
+**Failure scenario:** Author adds to the adoption page (or any `public/` page):
+
+> CCF extracts provenance from your PDFs via the `passage_anchor` field on every claim.
+
+After `strip_markup`, `paragraph.text` becomes something like “CCF extracts provenance from your PDFs via the field…”. `PASSAGE_ANCHOR` never fires (it matches `passage anchors?` / `passage-level lineage`, not the stripped identifier). `EXTRACTION_VERB` and `DOCUMENT_SOURCE` still match. `test_no_published_sentence_claims_ccf_extracts_passage_anchors_from_documents` stays green; AW-2 is switched off for exactly the identifier-shaped vocabulary the module doc says is special-cased for the **positive** half only.
+
+**Confidence:** **High** — structural `.text`-only subject scan while `strip_markup` removes backtick spans.
+
+---
+
+### 2. No control watches the backticked-subject blind spot (vacuous refusal risk)
+
+**Claim:** Control 2 proves refusal for prose “passage anchors”, not for backticked-only `passage_anchor` extraction claims.
+
+**Location:** `tools/docs_tests/test_adoption_wording.py` — `test_control_2_an_injected_extraction_claim_is_refused` (injection uses “passage anchors” in prose); contrast with `test_control_9_a_backticked_identifier_spelling_is_still_seen` (positive `.raw` contract only).
+
+**Failure scenario:** Someone narrows `PASSAGE_ANCHOR` or moves the negative predicate to a field that drops code spans; the suite stays green on control 2 and control 10–11, because no control injects the backticked-subject shape. The gate can regress to “scans nothing for the identifier form” without a red run.
+
+**Confidence:** **High** — control coverage gap next to a documented `.raw`/`.text` split.
+
+---
+
+### 3. `EXTRACTION_DENIAL`’s `|no pipeline` can false-exonerate a positive extraction claim in one sentence
+
+**Claim:** The denial limb can treat an unrelated “no pipeline” phrase as a production denial and exempt a sentence that still asserts extraction.
+
+**Location:** `tools/docs_tests/test_adoption_wording.py` — `EXTRACTION_DENIAL` (`|no pipeline`); exemption logic in `sentences_claiming_passage_extraction` (`denial < min(verbs)` and pivot check).
+
+**Failure scenario:** Injected sentence (same paragraph, passes all three candidate checks):
+
+> There is no pipeline for this question and CCF produces passage anchors from documents.
+
+- `EXTRACTION_DENIAL` matches “no pipeline” before “produces”.
+- `CONTRASTIVE_PIVOT` does not include `and`.
+- Limb returns exempt → `sentences_claiming_passage_extraction` returns `[]` → main AW-2 assertion green.
+
+Control 11(a) uses decoy negation “no vector store”, not in-vocabulary “no pipeline” in this position; nothing in the twelve controls exercises this hole.
+
+**Confidence:** **Medium–high** — follows directly from regex + ordering rules; not run against the live tree here, but the logic path is explicit.
+
+---
+
+### 4. Denial-limb load-bearing test proves exemption on the real tree, not that exemption is tight
+
+**Claim:** `test_the_denial_limb_is_load_bearing_on_the_shipped_page` is half a vacuity check: it shows the limb exempts the shipped caveat, but not that the limb refuses over-broad exemptions.
+
+**Location:** `tools/docs_tests/test_adoption_wording.py` — `test_the_denial_limb_is_load_bearing_on_the_shipped_page`.
+
+**Failure scenario:** Regression widens `EXTRACTION_DENIAL` (e.g. keeping `|no pipeline`) or drops pivot enforcement. Shipped page still exempts correctly → second `assert not offenders` still passes. Without a control like finding #3, deletion or widening of the limb can ship green until someone authors a violating page on `main`.
+
+**Confidence:** **Medium** — classic “proves the happy path, not the false-negative path” check vacuity adjacent to F2.
+
+---
+
+### 5. `CAVEAT_ABSENCE` is paragraph-scoped but period-bounded — cross-sentence absence wording fails while contract half still matches
+
+**Claim:** The positive AW-2 assertion can go red on an honest caveat split across sentences in one paragraph.
+
+**Location:** `tools/docs_tests/test_adoption_wording.py` — `CAVEAT_ABSENCE` (`[^.]{0,80}` / `[^.]{0,40}`); `paragraphs_carrying_the_caveat` applies it to full `paragraph.text`.
+
+**Failure scenario:** Same paragraph, two sentences:
+
+1. “`D-IMPL-46` and `passage_anchor` ship in the contract.”  
+2. “No shipped pipeline produces passage anchors. Documents are the gap Pattern 5 never closed.”
+
+`CAVEAT_CONTRACT` matches `paragraph.raw`; `CAVEAT_ABSENCE` fails because `documents` is past a `.` barrier from `passage anchors`. `test_the_passage_anchor_caveat_states_both_halves_in_one_paragraph` fails despite semantically correct caveat. Shipped page avoids this by keeping the absence phrase in one sentence; the gate is brittle, not wrong, on HEAD.
+
+**Confidence:** **Medium** — regex structure is explicit; shipped page currently satisfies it.
+
+---
+
+### 6. AW-1 / AW-2 main assertions scan all of `public/`, but corpus floors are not pinned to `ADOPTION_PAGE`
+
+**Claim:** Non-vacuity floors can stay green if the phase page vanishes but other pages still trigger vocabulary.
+
+**Location:** `tools/docs_tests/test_adoption_wording.py` — `test_some_published_paragraph_names_an_external_approach`, `test_the_passage_vocabulary_is_present_in_the_published_tree`, `test_the_positive_caveat_assertion_has_something_to_assert_over` (all use `_prose.published_pages()`); mitigated by `test_control_3_the_unmodified_copy_passes_every_assertion` on `ADOPTION_PAGE`.
+
+**Failure scenario:** Adoption page deleted or gutted; another page still mentions “vector store” or “passage-level lineage”. Floors and tree-wide negative assertions can remain satisfied while the Phase 22 deliverable no longer carries the obligations. Control 3 would catch adoption-page regression **only if** it keeps running and `_copy` still resolves `concepts/answers-no-document-contains.md`.
+
+**Confidence:** **Low–medium** — partially mitigated by control 3; still a split between “tree has vocabulary” and “the page under guard says the right things.”
+
+---
+
+## What I looked for and did **not** find
+
+| Question | Result |
+|----------|--------|
+| Shipped caveat sentence tripping AW-2 negative (deny-then-explain via `so`, not pivot) | **Clean** on inlined text — `was never built` / `no shipped pipeline` precede `produces`; `so` ∉ `CONTRASTIVE_PIVOT`. |
+| Naked “RAG / vector store / semantic layer **can’t** …” in the three comparison subsections | **Clean** — RAG block uses question-facts + test citations; hand-rolled block cites client seam only. |
+| `CAVEAT_CONTRACT` / `CAVEAT_ABSENCE` both satisfied on shipped caveat paragraph | **Clean** — contract tokens backticked in `.raw`; absence phrase in one `.text` sentence. |
+| `_prose` walk depending on CWD | **Clean** — `REPO_ROOT`/`PUBLIC_DIR` anchored; `test_the_walk_does_not_depend_on_the_process_cwd` present. |
+| Control 3 baseline vacuity (empty copy passes everything) | **Clean** — `_copy` asserts source exists; empty injection still runs all three predicates. |
+| D-06 floor passing on empty node-id set while resolver assertion is vacuous | **Clean on stated HEAD** — module claims 22 ids on adoption page; floor + `test_every_published_node_id_resolves` are separate. |
+| Sentence splitter breaking on `12.0%` / `25.0%` in AW predicates | **Clean** — `SENTENCE_BREAK` requires `[.!?]\s`; decimal points are not followed by whitespace. |
+| Honesty section “retrieval system … does not do” as AW-1 violation | **Not a finding** — sentence limits the deployment, not an external approach; outside AW-1’s stated offence shape (and appears intentional for the caveat). |
+
+---
+
+## Summary
+
+The highest-value defects are in **verification machinery**, not the inlined page prose: AW-2’s negative scan is **`★ Insight ─────────────────────────────────────`**
+The positive caveat check deliberately splits fields (`.raw` for backticked ids, `.text` for readable prose), but the negative extraction scan only walks `.text`. That is the same “strip_markup deletes the evidence” failure mode control 9 guards on one side only.
+`─────────────────────────────────────────────────`
+
+asymmetric to the positive caveat’s `.raw`/`.text` design**, with **no injected control** for the backticked-subject case (adjacent to F2’s “deleting the load-bearing part still goes green”). The denial limb’s **`|no pipeline`** token is the second vacuity hotspot: it can exempt unrelated co-occurrence in one sentence, and **load-bearing test #7 only proves the shipped caveat is exempted, not that exemptions are narrow**. The shipped page itself reads consistent with Phase 22 intent on the material inlined here.

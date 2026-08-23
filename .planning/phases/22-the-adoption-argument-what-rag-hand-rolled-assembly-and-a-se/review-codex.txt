@@ -1,0 +1,29 @@
+**Findings**
+
+1. **AW-2’s denial limb can exempt a sentence that denies first and then asserts extraction without a listed pivot.**  
+   File/symbol: `tools/docs_tests/test_adoption_wording.py::sentences_claiming_passage_extraction`, with pivot vocabulary in `CONTRASTIVE_PIVOT`.  
+   Scenario: append `No shipped pipeline produces passage anchors from documents, and CCF extracts them from your documents anyway.` The sentence matches `PASSAGE_ANCHOR`, `EXTRACTION_VERB`, and `DOCUMENT_SOURCE`; `EXTRACTION_DENIAL` appears before the first verb; `CONTRASTIVE_PIVOT` does not match `and` or `anyway`; the function continues and returns no offender. Wrong outcome: an explicit extraction claim is admitted.  
+   Confidence: high.
+
+2. **The positive caveat assertion is not anchored to the adoption page it is supposed to protect.**  
+   File/symbol: `tools/docs_tests/test_adoption_wording.py::test_the_passage_anchor_caveat_states_both_halves_in_one_paragraph` and `paragraphs_carrying_the_caveat`.  
+   Scenario: remove the caveat from `public/concepts/answers-no-document-contains.md`, but add one paragraph with `D-IMPL-46`, `passage_anchor`, and `no shipped pipeline produces passage anchors from documents` to any other `public/*.md` page. `paragraphs_carrying_the_caveat(_prose.published_pages())` still returns non-empty, so the adoption page can lose the load-bearing honesty caveat while the gate stays green.  
+   Confidence: high.
+
+3. **AW-1 misses the ordinary plural capability-limit verb “lack.”**  
+   File/symbol: `tools/docs_tests/test_adoption_wording.py::LIMIT_VERB`.  
+   Scenario: append `Vector stores lack temporal graph traversal at a named boundary.` `EXTERNAL_APPROACH` matches `Vector stores`, but `LIMIT_VERB` includes `lacks` and `lacking`, not bare `lack`, so `sentences_asserting_a_capability_limit` reports no offender. Wrong outcome: the exact “what X lacks” form the phase is trying to police can pass when the subject is plural.  
+   Confidence: high.
+
+4. **AW-2 misses extraction claims that use the shipped identifier spelling `passage_anchor`.**  
+   File/symbol: `tools/docs_tests/test_adoption_wording.py::PASSAGE_ANCHOR` and `sentences_claiming_passage_extraction`.  
+   Scenario: append `CCF extracts \`passage_anchor\` values from documents.` `_prose.strip_markup` removes the backticked identifier from `Paragraph.text`, and `PASSAGE_ANCHOR` deliberately does not match `passage_anchor`, so the negative AW-2 predicate never considers the sentence. Wrong outcome: a direct passage-anchor extraction overclaim using the actual field name is admitted.  
+   Confidence: medium-high.
+
+**Looked For, Not Found**
+
+I did not find a direct naked “RAG cannot …” style assertion in the shipped page text itself; the page’s RAG section is mostly framed as question facts plus shipped mechanism.
+
+I did not find the specific cwd-vacuity failure in the paragraph reader: `_prose.REPO_ROOT` is resolved from `__file__`, and `test_the_walk_does_not_depend_on_the_process_cwd` directly exercises that.
+
+I did not find the known half-check from F3 repeated in D-06’s resolver: `unresolved_node_ids` fails both missing paths and missing symbols, and control 12 mutates both cases.
