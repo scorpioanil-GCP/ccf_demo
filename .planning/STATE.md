@@ -59,7 +59,9 @@ last_activity: >-
   `test` **4105 passed / 118 skipped**, BYTE-FOR-BYTE the `D-GATE-21` baseline, which
   is the mechanical proof `D-05` held; `gate-tools` 406 + 248 (205 at the phase's
   start); eleven examples; `docs-strict` strict-built. Module 51 -> 91 -> **94**.
-  Coupling report regenerated LAST, after the SUMMARY, and committed. Pinned-base
+  Coupling report regenerated LAST, after the SUMMARY commit -- NO DIFF, so no
+  report commit; the committed report is current and its `.planning/REQUIREMENTS.md`
+  row reads 99 couplings at the wave-8 head and 99 now. Pinned-base
   fence empty on every path. `D-15` honoured: backed up outside the tree,
   hand-edited, diffed -- 8 frontmatter keys, 15 Success Criteria.
   **RESIDUALS NAMED, NOT CLOSED:** `R-α` (both verdicts unbolded -- needs a
