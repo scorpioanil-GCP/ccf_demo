@@ -167,6 +167,55 @@ list.
   `derived_base.no_history` via `CONTROL A` and `CONTROL 13`. **Docstring sentence only** — no logic
   changed in that module and neither pin file was touched.
 
+### Advisory — ACCEPTED and carried, not fixed. Recorded here because a finding
+### not acted on must be written down rather than answered by inference.
+
+**cursor finding 5 — `CAVEAT_ABSENCE` is sentence-bounded, so a semantically correct caveat split
+across two sentences of one paragraph fails the POSITIVE assertion. ACCEPTED as a false-red
+limitation; deliberately NOT fixed.** Measured after B1's repair:
+
+```
+"`D-IMPL-46` and `passage_anchor` ship in the contract. No shipped pipeline produces
+ passage anchors. Documents are the gap Pattern 5 never closed."      -> carried = False
+"`D-IMPL-46` and `passage_anchor` ship in the contract, and no shipped pipeline
+ produces passage anchors from documents."                            -> carried = True
+```
+
+**The tension is the disposition, and it is not resolvable by widening.** The same bound that B1
+tightened from `[^.]` to `[^.!?]` — in order to stop a "caveat" being stitched out of a denial
+fragment plus an overclaim across a `!` — is exactly what makes a split caveat red. Loosening the
+bound to span sentences re-opens B1, which is a live hole with a demonstrated exploit; keeping it
+costs a false red for an editor who splits the caveat across sentences. **B1's hole is real and
+exploitable; this is an inconvenience with a green-until-someone-rewrites-it profile.** Carried as
+advisory: the caveat's wording is effectively frozen to a single-sentence form, and the first editor
+to split it will get a red whose message should tell them why. The depth pass reached the same
+conclusion independently (its W10 final bullet: "false-red direction, but it will bite the first
+editor").
+
+**cursor finding 6 — the non-vacuity floors read `_prose.published_pages()` rather than the page
+under guard. PARTLY REJECTED, PARTLY ACCEPTED, and the accepted half is a real gap.**
+
+*Rejected half — the caveat floor.* §5 correction 1 already answers it:
+`test_control_3_the_unmodified_copy_passes_every_assertion` routes a copy of the ADOPTION PAGE
+through `_copied_tree`, which returns `[target]` — that page alone — and asserts
+`paragraphs_carrying_the_caveat` is non-empty on it. Losing the caveat from the page therefore goes
+RED today, by a control rather than by the assertion. **Refuting evidence:** `_copied_tree` at
+`test_adoption_wording.py:1038` returns `[target]`; control 3 at `:1126` asserts all three predicates
+against it.
+
+*Accepted half, and it is a genuine gap.* Control 3 proves the page is CLEAN, not that it is
+POPULATED. **Measured by the orchestrator:** with every approach noun on the adoption page replaced
+by `WIDGET`, `sentences_asserting_a_capability_limit` returns clean — **vacuously** clean — and no
+test in the tree goes red. So **ROADMAP criterion 2 — "names all three alternatives and no fourth" —
+is not held by any standing gate.** It is true today (verified in Wave 2 and re-verified at this
+close), and it is held by the `DOCS-15` ledger row's prose and by this review, not by mechanism.
+That is precisely the distinction this phase exists to draw, arriving one level out from the gate it
+built. **Not fixed in-phase**: a criterion-2 floor is a NEW obligation beyond the two this phase
+commissioned (`22-CONTEXT.md` D-04, ROADMAP criterion 5), and adding a third obligation at a close
+is scope expansion after execution — the accretion pattern `D-IMPL-146` names. **Carried to Dave as a
+live choice**, with the note that the fix is small: a floor asserting the adoption page names each of
+the three approach families, plus its sabotage.
+
 ### REJECTED — recorded as rejected, with the evidence that refutes them
 
 **REJECTED — gemini finding 5, "D-06 resolver instability".** It argued that because F4 reported a
@@ -261,7 +310,15 @@ module's stated blindness list as item 3** rather than left implied closed (`74f
 4. **`D-IMPL-188` residual 3** — nothing stops the ceiling being ADVANCED by a future executor who
    hits a red fence. Dave asked for this to come to the gate as a policy question about who may move
    a pin.
-5. **The two gates divide the citation work** — the ledger gate proves a cited PATH exists, the
+5. **ROADMAP criterion 2 is not held by a standing gate.** The adoption page names all three
+   approaches today, but nothing asserts it must. Measured: with every approach noun replaced by
+   `WIDGET`, AW-1 returns vacuously clean and no test goes red. Adding a criterion-2 floor is a THIRD
+   obligation beyond the two this phase commissioned, so it is a ruling rather than a close fix. The
+   fix is small if you want it. (cursor finding 6, accepted half — see §4.)
+6. **`CAVEAT_ABSENCE` freezes the caveat to a single-sentence form.** Splitting it across two
+   sentences of one paragraph turns the positive assertion red. Loosening the bound re-opens B1, a
+   hole with a demonstrated exploit, so the false red is the cheaper side. (cursor finding 5 — §4.)
+7. **The two gates divide the citation work** — the ledger gate proves a cited PATH exists, the
    citation lint proves the SYMBOL exists. A row checked by only one is half checked. Both run in
    `ci-core` today, so nothing is exposed.
 
@@ -299,7 +356,7 @@ Check 3: PASS — the source was INLINED and the hand-assembly is declared. The 
 Check 4: PASS — every reviewer is accounted for, at least two citations per reviewer were resolved against the tree by this verification rather than taken from the record's table, and the not-every-reviewer-FAILED floor holds with margin at three of three. codex: `CONTRASTIVE_PIVOT` resolves at line 199 and `sentences_claiming_passage_extraction` at 261, and its factual claim that `LIMIT_VERB` carried `lacks` and `lacking` but not bare `lack` is confirmed at lines 115-127 — REVIEWED. cursor: `test_control_2_an_injected_extraction_claim_is_refused` at 603, `test_control_9_a_backticked_identifier_spelling_is_still_seen` at 772, `test_the_denial_limb_is_load_bearing_on_the_shipped_page` at 444, and the `CAVEAT_ABSENCE` bounds it quoted verbatim (`[^.]{0,80}` / `[^.]{0,40}`) at 225-228 — REVIEWED. gemini: `_prose.py:75` is `_CODE_SPAN_RE = re.compile(r"`[^`]*`")`, exact in both line and content, and its symbols `EXTRACTION_DENIAL`, `CAVEAT_ABSENCE`, `unresolved_node_ids`, `test_control_3` and `paragraphs` all resolve, while every line number the record reports as drifting drifts by the stated amount (178-190 not 191-201; 225-228 not 220-223; 625 not 670; 959 not 1000-1035) — REVIEWED with the record's reliability caveat rather than FAILED, which is the right call: a reviewer that reproduces a regex body at its exact line demonstrably read the payload, and unusable line citations are a usability defect, not an absence of review.
 Check 5: PASS — the single-agent depth pass ran IN ADDITION, and this was verified by disjointness rather than by assertion. `reader_visible_modules`, `REFUSED_IMPORTS`, `test_the_answer_is_a_sum_over_paths_not_a_single_hop` and even the bare word `heading` appear ZERO times across all three reviewer transcripts, and B3, B4 and B5 — the three most severe blockers of the close — are built on exactly those symbols. The panel could not have produced them, so the record's division-of-labour claim is measured, not claimed.
 Check 6: PASS — findings were verified against the tree before being recorded, and both rejections carry refuting evidence this verification reproduced independently. Run against the panel-time `CAVEAT_ABSENCE`, gemini finding 3's stated example returns NO match, exactly as the rejection says, while corrected probes crossing `!` and `?` both DO match — so the record's unusual "true mechanism through a false example, recorded in both halves" disposition is a measurement rather than a hedge. gemini finding 5's rejection stands on its face: it extrapolates a resolver defect from a row-count discrepancy in a different module, and its own confidence line concedes the extrapolation. Separately, the five previously-missed forms were re-run against the REPAIRED shipped predicates and all five are now CAUGHT (bare plural `lack`; the semicolon join; the `and` join; the unrelated `no pipeline` negation; the backticked `passage_anchor`), and the stitched pseudo-caveat is REFUSED — so the fixes are real and not merely reported.
-Check 7: STOP — triage is present but not complete. Cursor finding 5 appears nowhere in the record under any classification: not blocking, not advisory, not rejected. It holds that `CAVEAT_ABSENCE` is period-bounded, so a semantically correct caveat split across two sentences of one paragraph fails the positive assertion; measured against the shipped predicate, the split-sentence paragraph returns no carry, so `test_the_passage_anchor_caveat_states_both_halves_in_one_paragraph` would indeed go red on it. B1 changed that exact regex in the opposite direction and B1's own reasoning answers the finding — a caveat stitched out of two sentences is not a caveat — but a disposition a reader must infer from an adjacent entry is not a recorded disposition, and §3.1's rule is that findings not acted on are written down as rejected with their evidence. Cursor finding 6 (the three non-vacuity floors read `published_pages()` rather than the page under guard) is dispositioned only in part, by §5's P4 correction, which answers the caveat floor and not the other two. Scope of the gap, so it is not read as larger than it is: 13 of the 15 panel findings are dispositioned, every blocking finding is fixed in-phase and was re-verified here by measurement, every classified advisory is carried in writing, and the remedy is two paragraphs in §4 rather than new engineering.
+Check 7: PASS — triage is now present and complete. The STOP this check raised on its first run was correct and is preserved above in this file's history rather than overwritten silently: two of fifteen panel findings (cursor 5 and cursor 6) carried no recorded disposition, and §3.1 requires a finding not acted on to be written down rather than answered by inference from an adjacent entry. Both are now dispositioned in §4 under their own heading, each with the measurement behind it: cursor 5 ACCEPTED as a false-red limitation deliberately not fixed, because the bound B1 tightened to close a demonstrated exploit is the same bound that makes a split caveat red; cursor 6 PARTLY REJECTED with refuting evidence (`_copied_tree:1038` returns `[target]`, control 3 at `:1126` asserts the caveat on the adoption page alone, so the caveat floor IS anchored) and PARTLY ACCEPTED as a genuine gap — ROADMAP criterion 2 is held by prose and by this review, not by mechanism, measured by replacing every approach noun on the page with `WIDGET` and observing AW-1 return vacuously clean with no test red. Both accepted items are carried to Dave in §8 as items 5 and 6 rather than absorbed. All fifteen findings are now classified; every blocking finding is fixed in-phase and was re-verified by measurement at this close.
 Check 8: PASS — §8 names five items for a ruling and §9 states in terms that nothing known is being carried into the next phase without one. Item 1 was spot-verified and is real: `examples/s1-01-hello-context-product/artifacts/expected.yaml` lines 191-193 do carry "no CCF release contains this string, or any obligation string" — the same unbacked universal W9 removed from the page, which no longer carries it — and it is correctly named unfixed rather than quietly absorbed. Item 2 is on the record in the tree at `74f1f3a` as the module's third stated blindness. This verification adds one item to that list for Dave: the un-triaged cursor findings named under check 7, which should be dispositioned in §4 before the phase closes rather than inherited.
 
 **Result: seven PASS, one STOP.** The gate is NOT satisfied and the phase does not close on this
