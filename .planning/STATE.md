@@ -3,9 +3,71 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-23T05:35:00.000Z"
+last_updated: "2026-08-23T07:30:00.000Z"
 last_activity: >-
-  2026-08-22 -- **PHASE 21.1 WAVE 8 LANDED (`21.1-08`, three task commits `fb0dc86`,
+  2026-08-22 -- **PHASE 21.1 WAVE 9 LANDED (`21.1-09`, four commits `6c38d7a`,
+  `5239623`, `6fe2ef1`, plus the metadata pair).** **THE PHASE'S OWN SIX ROWS ARE
+  VERDICTED IN BOTH CHANNELS, BEFORE THE CLOSE PANEL, AND `PHASE_OWN_ROSTER` NOW
+  GATES THEM.** Five in the Complete family and one honest `Partial`: `VAC-05`
+  reads **Partial** because criterion 11's second half is a phase record that is
+  not closed until `D-GATE-21.1` exists, and Dave writes that -- amended after,
+  exactly as `RECON-09` was, "which is the difference between a verdict and a
+  hope". `VAC-06` reads **Complete as ruled** naming `D-IMPL-181` AND `D-IMPL-182`,
+  because the row as written admits TWO dispositions and the shipped module needs
+  THREE. `VAC-03` is the first row in this ledger to cite a `.planning/` document
+  -- the shape that had NO legal spelling until wave 3's `LOOSE_CITATION` and could
+  not satisfy the subsumption gate until wave 5 closed `RR-11` -- and it extracts
+  with the leading dot intact, produces no truncated twin, resolves clean and
+  leaves the gate empty. Verdicts written FIRST and the roster extended AFTER, in
+  ONE commit: a roster extension landing first makes four gates true-only-later and
+  ships a red module. Five sabotages watched refusing BY NAME over the new roster
+  members, so the extension is not vacuous.
+  **`make ci` HAD BEEN RED SINCE WAVE 4 AND NO WAVE SAW IT.** Waves 4-8 each
+  recorded `tools/docs_tests`, `gate-tools` and `tools.lints --all`; none ran the
+  gate. `test_the_unanchored_python_citation_population_cannot_regrow` was failing
+  on two citations wave 4 wrote in the `path.py:LINE` form -- `.planning/STATE.md:275`
+  and the ROADMAP progress row -- against `D-IMPL-114`'s `path.py::Symbol` rule and
+  `D-IMPL-123`'s ceiling of ZERO. **Criterion 10's own subject arriving inside the
+  plan that owns criterion 10: a gate nobody runs is a gate that cannot fail.**
+  Fixed by CONVERTING both to `src/ccf/products/contract.py::audiences`, not by
+  raising the ceiling, which would have hidden the regression class.
+  **THE `D-21` SWEEP IS A STANDING CHECK NOW, NOT A GREEN GREP RECITED NINE TIMES.**
+  `carried_counts(source)` runs in `gate-tools` -> `ci-core` -> `ci` and carries a
+  SECOND limb the grep never had: no fixed set may be compared by LENGTH. That
+  covers the grep's own hole -- `len(LIMBS) > 0` is INVISIBLE to it, a single digit
+  and no `=`, and it is exactly the substitution a roster of named ids exists to
+  prevent. Watched finding TWO planted counts in the real module file, named by
+  line and by roster, green again on removal. `CONTROL 39` (guard, 2 targets) and
+  `CONTROL 40` (limb, 3 targets) registered, enumerated and aim-proven; every red
+  the control's own `AssertionError`; `CASCADING_REDS` still frozen EMPTY.
+  **THREE INSTANCES OF THE PHASE'S OWN DEFECT CLASS FOUND IN THIS WAVE'S OWN WORK,
+  BEFORE THE SUMMARY.** `FIXED_SETS` written as a transcription shipped MISSING TWO
+  -- including the sweep's own `CARRIED_COUNT_SHAPES` -- found by writing the
+  enumeration and diffing it, now frozen against `derived_fixed_sets()`. `CONTROL
+  39`'s first draft named `LIMBS` inside a `len(...)` in its own body and the
+  standing sweep caught it on line 6665, which is the best evidence in the file that
+  it works. `CONTROL 40` written with `pytest.raises` produced a `Failed`, not an
+  `AssertionError`, so `CONTROL 35` scored its neutered red a CASCADE; rewritten to
+  the `try`/`except` idiom `CONTROL 24` established.
+  **CRITERION 11 MEASURED, NOT ASSERTED:** the traceability table at the `D-GATE-21`
+  merge `f60e186` parsed by the shipped strict parse and compared cell-for-cell
+  against today -- **NOT ONE of the 54 moved**, in cell text or verdict token. Only
+  `DOCS-22` (outside the 54, amended under `D-IMPL-179` limb 1, verdict unchanged)
+  and the six newly-verdicted `VAC-` rows. `D-GATE-21` unamended, verified by
+  content hash rather than by reading.
+  **`make ci` EXIT 0 ON ALL SIX LEGS**: lint 0; typecheck clean over 211 files;
+  `test` **4105 passed / 118 skipped**, BYTE-FOR-BYTE the `D-GATE-21` baseline, which
+  is the mechanical proof `D-05` held; `gate-tools` 406 + 248 (205 at the phase's
+  start); eleven examples; `docs-strict` strict-built. Module 51 -> 91 -> **94**.
+  Coupling report regenerated LAST, after the SUMMARY, and committed. Pinned-base
+  fence empty on every path. `D-15` honoured: backed up outside the tree,
+  hand-edited, diffed -- 8 frontmatter keys, 15 Success Criteria.
+  **RESIDUALS NAMED, NOT CLOSED:** `R-α` (both verdicts unbolded -- needs a
+  vocabulary ruling, not a stronger regex; every stronger predicate flags thirteen
+  already-ruled rows), advisory `A-7`, and the carried `RR-5`/`RR-7`/`RR-8`/`RR-10`
+  and `A-1`..`A-8`. Open for Dave: `DOCS-22`'s verdict (split-doc ruling item 8),
+  six criterion readings, and `D-GATE-21.1` itself.
+  PRIOR: 2026-08-22 -- **PHASE 21.1 WAVE 8 LANDED (`21.1-08`, three task commits `fb0dc86`,
   `dc8a3a7`, `77aa5dc`).** **`RR-9` IS CLOSED AND CRITERION 14 IS DISCHARGED. THE LAST
   TWO MIS-AIMED CONTROLS NOW DIFF THE CONSTANTS THEY VOUCH FOR.** `CONTROL 13` claimed to
   be the non-vacuity twin of the `tests/`-untouched assertion and had never mentioned
@@ -1089,7 +1151,23 @@ progress:
   completed_plans: 174
   percent: 93
 stopped_at: >-
-  **PHASE 21 IS CLOSED AND MERGED.** `D-GATE-21` is logged (Dave, 2026-08-22),
+  **PHASE 21.1 IS EXECUTION-COMPLETE AT 9/10 AND STOPS AT THE CLOSE.** All six
+  `VAC-` rows carry a verdict in BOTH channels, written BEFORE the panel reads the
+  tree, and zero `Pending` remains in this phase's lane. What is left is plan
+  `21.1-10` and nothing else: the CLAUDE.md SS3.1 close -- cross-AI panel on the
+  SHIPPED tree per `D-IMPL-178`, then the additive single-agent review, EVERY
+  finding verified against the tree before it is recorded or acted on (this project
+  has twice received confident, well-formatted, FALSE findings), blocking findings
+  fixed in-phase, and then a STOP for Dave. **The phase does NOT close without
+  `D-GATE-21.1`, and `VAC-05` is amended to `Complete` only after that entry
+  exists** -- exactly the `RECON-09` sequence, and the one conditional ledger edit
+  plan `21.1-10` is permitted. The ROADMAP Phase 21.1 progress row still reads
+  **Executing** on purpose. Brief the panel on what is already known and tell it
+  not to re-derive it; its budget is better spent on what is ADJACENT to each known
+  defect. The known set: `R-α`, advisory `A-7`, the six criterion readings, and the
+  wave-4 CI blocker this wave fixed -- whose neighbourhood is *which other gates
+  does no wave run?*
+  PRIOR: **PHASE 21 IS CLOSED AND MERGED.** `D-GATE-21` is logged (Dave, 2026-08-22),
   `RECON-09` reads `Complete` in both channels, the ROADMAP Phase 21 progress row
   reads Complete with the gate date, and `phase-21` is merged to `main` with a
   merge commit that references the gate. No force-push (`D-16`, `CLAUDE.md` SS2.2).
