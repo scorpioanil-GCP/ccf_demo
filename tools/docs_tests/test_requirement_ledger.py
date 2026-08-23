@@ -227,6 +227,7 @@ LIMBS: frozenset[str] = frozenset(
         "_table_line.not_unique",
         "_checkbox_line.not_unique",
         "_index.anchor_unresolved",
+        "_index.thinned_index",
         "refuse_unresolvable.zero_citations",
         "uncovered_lint_citations.lint_matches_nothing",
         "derived_base.no_history",
@@ -1360,6 +1361,75 @@ def _control_18_over_every_case() -> None:
         )
 
 
+def test_control_43_an_index_thinned_around_the_anchor_is_refused() -> None:
+    """CONTROL 43 — the thinning the anchor limb cannot see.
+
+    **The single-agent close review's finding 2.** `_index.anchor_unresolved`
+    guards a mapping of more than five thousand basenames with ONE named
+    member, so a thinning that RETAINS :data:`INDEX_ANCHOR` was accepted:
+    measured, ``{"client.py": [INDEX_ANCHOR]}`` passed and
+    `refuse_unresolvable` then returned `[]` over the real ledger with the
+    moved-path branch reading an empty candidate list for every citation.
+
+    `CONTROL 22`'s THINNED subject drops the anchor, so it exercises only the
+    thinnings the anchor limb already catches. This is the other half.
+
+    The subject is built from the ledger's REAL cited paths rather than a
+    made-up one, so the mutation removes something the ledger actually depends
+    on, and the anchor is left in place so the red is attributable to
+    `_index.thinned_index` and to nothing else.
+    """
+    saved = dict(_REPO_INDEX_CACHE)
+    live = _index()
+    assert live, (
+        "the real resolver index is empty before this control does anything,"
+        " so the mutation below is indistinguishable from the baseline"
+    )
+    anchor_basename = INDEX_ANCHOR.rsplit("/", maxsplit=1)[-1]
+    cited_on_disk = sorted(
+        {
+            cited
+            for _req_id, cited in citations_in_status_cells(ledger_text())
+            if (REPO_ROOT / cited).is_file()
+            and cited.rsplit("/", maxsplit=1)[-1] != anchor_basename
+        }
+    )
+    assert cited_on_disk, (
+        "this ledger cites no on-disk path outside the anchor's own basename,"
+        " so the mutation below removes nothing and this control would pass"
+        " over a thinning that thinned nothing"
+    )
+    try:
+        _REPO_INDEX_CACHE.clear()
+        _REPO_INDEX_CACHE.update({anchor_basename: [INDEX_ANCHOR]})
+        try:
+            returned = _index()
+        except AssertionError as failure:
+            assert "[limb:_index.thinned_index]" in str(failure), (
+                "an index thinned to the anchor alone was refused, but not by"
+                f" the limb this control vouches for: {str(failure)!r}"
+            )
+        else:
+            raise AssertionError(
+                "`_index()` returned an index thinned to the anchor alone as"
+                f" {returned!r} instead of refusing. It resolves"
+                f" {INDEX_ANCHOR} and nothing else, so the moved-path branch of"
+                " `refuse_unresolvable` reads an empty candidate list for every"
+                " cited on-disk path and checks none of them, while reporting"
+                " zero unresolvable citations — which reads exactly like a"
+                " clean ledger"
+            )
+    finally:
+        _REPO_INDEX_CACHE.clear()
+        _REPO_INDEX_CACHE.update(saved)
+    restored = _index()
+    assert restored == live, (
+        "this control left `_REPO_INDEX_CACHE` thinned. Every citation check"
+        " that runs after it would then be quantified over an index with no"
+        " subject, and would report clean"
+    )
+
+
 # ===========================================================================
 # The strict parse, and Check B — channel agreement, vocabulary, one verdict
 # per cell.
@@ -2201,6 +2271,23 @@ def _index() -> dict[str, list[str]]:
     emptiness test accepts a THINNED index, and thinned is the shape that
     makes the moved-path branch go quiet. `CONTROL 22` carries both subjects
     and the thinned one is the discriminating half.
+
+    **A SECOND limb was added at the phase close — the single-agent review's
+    finding 2 — because the anchor alone did not deliver what the paragraph
+    above claims.** One named member was standing in for a mapping of more than
+    five thousand basenames, so a thinning that RETAINED the anchor was
+    accepted: measured, `{"client.py": [INDEX_ANCHOR]}` passed, and
+    `refuse_unresolvable` then returned `[]` over the real ledger with the
+    moved-path branch checking nothing. That is `RR-1`'s quantifier defect — a
+    collection guarded by a single truth — in the guard written to close the
+    index's own vacuity.
+
+    The second limb holds the index against the subject it is USED for: every
+    path this ledger cites that IS a file on disk must have its basename in the
+    mapping. Conditioned on `is_file()` on purpose — a citation of a genuinely
+    missing file is `refuse_unresolvable`'s report to make, not this function's
+    crash — and derived from the real citations rather than from a second
+    hand-named roster, which would be the same spot-check one level up.
     """
     if not _REPO_INDEX_CACHE:
         _REPO_INDEX_CACHE.update(repo_index(REPO_ROOT))
@@ -2217,6 +2304,27 @@ def _index() -> dict[str, list[str]]:
             " ledger. The moved-path branch stops checking and says nothing,"
             " and the ambiguity branch is guarded only by `CONTROL 1`"
             " happening to assert the word AMBIGUOUS"
+        )
+    unindexed = sorted(
+        {
+            cited
+            for _req_id, cited in citations_in_status_cells(ledger_text())
+            if (REPO_ROOT / cited).is_file()
+            and cited.rsplit("/", maxsplit=1)[-1] not in _REPO_INDEX_CACHE
+        }
+    )
+    if unindexed:
+        _refuse(
+            "_index.thinned_index",
+            f"the resolver index does not hold a basename for {unindexed},"
+            " each of which this ledger cites and each of which IS a file on"
+            " disk. The index is therefore not the lint's index over this"
+            " repository, and the moved-path branch of `refuse_unresolvable`"
+            " reads an empty candidate list for those citations and checks"
+            " NOTHING — returning zero unresolvable citations, which reads"
+            " exactly like a clean ledger. The anchor limb above cannot see"
+            " this: it is one named member vouching for a mapping of"
+            " thousands, which is the shape `RR-1` was"
         )
     return _REPO_INDEX_CACHE
 
@@ -3868,9 +3976,14 @@ def test_control_22_an_index_that_resolved_nothing_is_refused(
             try:
                 returned = _index()
             except AssertionError as failure:
-                assert "index" in str(failure), (
-                    f"{description} was refused, but the refusal does not say"
-                    f" what went silent: {str(failure)!r}"
+                assert "[limb:_index.anchor_unresolved]" in str(failure), (
+                    f"{description} was refused, but NOT by the limb this"
+                    " control vouches for — it reports"
+                    f" {str(failure)!r}. Asserting a substring that BOTH limbs"
+                    " of `_index` satisfy is how `CONTROL 5` stayed green over"
+                    " an entirely different refusal for the whole of Phase 21,"
+                    " and the close fix that added `_index.thinned_index`"
+                    " reproduced that defect here within the minute"
                 )
                 continue
             raise AssertionError(
@@ -5623,6 +5736,11 @@ CONTROL_AIM: dict[str, Aim] = {
             )
         ),
     ),
+    "test_control_43_an_index_thinned_around_the_anchor_is_refused": Aim(
+        kind="limb",
+        targets=frozenset({"_index.thinned_index"}),
+        invoke=lambda: test_control_43_an_index_thinned_around_the_anchor_is_refused(),
+    ),
     "test_control_41_the_multi_member_cases_reach_every_member": Aim(
         kind="guard",
         targets=frozenset({"multi_member_cases"}),
@@ -6038,6 +6156,7 @@ CONTROLS: frozenset[str] = frozenset(
         "test_control_16_a_pathspec_that_names_nothing_is_refused",
         "test_control_41_the_multi_member_cases_reach_every_member",
         "test_control_42_the_phase_own_roster_is_derived_not_transcribed",
+        "test_control_43_an_index_thinned_around_the_anchor_is_refused",
         "test_control_37_a_derived_base_refuses_a_member_it_cannot_resolve",
         "test_the_positive_control_a_real_pathspec_is_still_accepted",
         "test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused",
