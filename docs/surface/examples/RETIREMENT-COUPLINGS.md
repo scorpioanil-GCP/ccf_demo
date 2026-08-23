@@ -672,6 +672,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-04-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-04-SUMMARY.md` | 27 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-05-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-CLOSE-REVIEWS.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-CONTEXT.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-PATTERNS.md` | 36 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
