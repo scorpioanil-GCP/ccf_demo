@@ -284,10 +284,26 @@ DOCUMENT_SOURCE = re.compile(
 #: exonerate any sentence carrying an unrelated negative clause anywhere in it,
 #: and an exemption that broad becomes the hole it was added to close —
 #: control 11's (a) half is written against exactly that failure.
+#:
+#: **``no pipeline`` was too bare and it was a hole of exactly that kind.**
+#: Measured at the Phase 22 close: *"No pipeline-related cost is incurred, and
+#: CCF extracts passage anchors from documents."* was EXEMPTED, because a
+#: negation about pipeline COST satisfied a denial vocabulary that is supposed
+#: to take a production claim as its object. Every ``pipeline`` form now refuses
+#: a **hyphenated modifier** — ``pipeline-related``, ``pipeline-adjacent`` — and
+#: that one guard is the whole fix.
+#:
+#: A second guard was drafted alongside it (a lookahead requiring a production
+#: verb within one clause) and was **removed before it shipped**, because it was
+#: redundant with the hyphen guard on every case either could catch: sabotaging
+#: each in turn left the suite green, since the other still refused the
+#: sentence. Two conditions that cannot be told apart by any control are one
+#: condition and one piece of decoration, and the decoration is what a later
+#: reader trusts.
 EXTRACTION_DENIAL = re.compile(
-    r"no shipped pipeline"
-    r"|no such pipeline"
-    r"|no pipeline"
+    r"\bno shipped pipelines?\b(?!-)"
+    r"|\bno such pipelines?\b(?!-)"
+    r"|\bno pipelines?\b(?!-)"
     r"|was never built"
     r"|never built"
     r"|does not produce"
@@ -298,13 +314,34 @@ EXTRACTION_DENIAL = re.compile(
     re.IGNORECASE,
 )
 
-#: The denial limb's condition (iii). **Matched against ``Paragraph.text``**:
-#: a pivot written inside a code span is not a pivot a reader reads. A sentence
-#: that opens with a denial and then TURNS against it is asserting the claim on
-#: the far side of the pivot, and conditions (i) and (ii) alone exempt it
-#: outright — measured, not supposed. ``so`` is absent from this vocabulary on
-#: purpose: the shipped caveat denies and then EXPLAINS, which is the
-#: construction the limb exists to permit.
+#: The denial limb's condition (iii) — a CLAUSE BOUNDARY. **Matched against
+#: ``Paragraph.text``**: a join written inside a code span is not a join a
+#: reader reads. A sentence that opens with a denial and then starts a new
+#: clause is asserting whatever that new clause says, and conditions (i) and
+#: (ii) alone exempt it outright — measured, not supposed.
+#:
+#: **The adversative-only form was a hole, and all three close reviewers found
+#: it.** Modelling only ``though``/``but``/``however`` means any COORDINATING
+#: join slips past. Measured EXEMPTED before this widening:
+#:
+#: * ``No shipped pipeline produces passage anchors from documents, and CCF
+#:   extracts them anyway.``
+#: * ``No pipeline produces passage anchors; CCF extracts them from documents.``
+#: * ``There is no pipeline for this question and CCF produces passage anchors
+#:   from documents.``
+#:
+#: So ``and``, ``;`` and ``so`` join the vocabulary. **A bare comma does NOT**,
+#: and that is a deliberate boundary rather than an omission: the shipped caveat
+#: reads *"…was never built, so no shipped pipeline produces passage anchors
+#: from documents"*, whose denial and production verb are separated by a comma.
+#: A comma-as-boundary would refuse the one sentence ``ROADMAP`` criterion 6
+#: requires the page to carry.
+#:
+#: ``so`` is now IN the vocabulary, reversing this constant's earlier comment,
+#: and condition (iv) is what makes that safe: the shipped caveat's clause after
+#: ``so`` REPEATS the denial (*"no shipped pipeline produces…"*), so it is not a
+#: turn. The exemption no longer rests on one conjunction being absent from a
+#: list — it rests on the trailing clause still denying.
 CONTRASTIVE_PIVOT = re.compile(
     r"\bthough\b"
     r"|\bbut\b"
@@ -312,7 +349,10 @@ CONTRASTIVE_PIVOT = re.compile(
     r"|\byet\b"
     r"|\bwhile\b"
     r"|\bwhereas\b"
-    r"|\balthough\b",
+    r"|\balthough\b"
+    r"|\band\b"
+    r"|\bso\b"
+    r"|;",
     re.IGNORECASE,
 )
 
@@ -517,20 +557,29 @@ def sentences_claiming_passage_extraction(
     (ii)  **Ordering.** The earliest denial stands BEFORE the earliest
           extraction verb in the same sentence, so a denial appended after the
           claim cannot retroactively withdraw it.
-    (iii) **Pivot.** No ``CONTRASTIVE_PIVOT`` stands between that denial and
-          any later extraction verb. Without this, a denial at the START of a
-          sentence exempts everything after it — measured: *"No shipped
-          pipeline produces passage anchors, though CCF does extract them from
-          documents."* was EXEMPTED under the two-condition form.
+    (iii) **Clause boundary.** No ``CONTRASTIVE_PIVOT`` stands between that
+          denial and any later extraction verb. Without this, a denial at the
+          START of a sentence exempts everything after it — measured: *"No
+          shipped pipeline produces passage anchors, though CCF does extract
+          them from documents."* was EXEMPTED under the two-condition form, and
+          so was every COORDINATING join until ``and``, ``;`` and ``so`` were
+          added at the Phase 22 close.
+    (iv)  **The trailing clause still denies.** A boundary only counts as a TURN
+          if the clause carrying the later verb has no denial of its own. This
+          is what keeps the widened vocabulary from refusing correct prose: *"No
+          shipped pipeline extracts passage anchors from documents, and no
+          shipped pipeline produces them either."* crosses an ``and`` and is
+          still a denial throughout, and the shipped caveat's clause after
+          ``so`` repeats ``no shipped pipeline`` verbatim. Without (iv) the
+          exemption would rest on ``so`` being absent from a list, which is a
+          much weaker thing to rest on.
 
-    In one line: **the limb exempts a sentence that denies and then EXPLAINS,
-    and refuses one that denies and then TURNS.** The shipped caveat joins its
-    halves with ``so``, which is not a pivot, so it stays exempt.
+    In one line: **the limb exempts a sentence that denies and keeps denying,
+    and refuses one that denies and then TURNS.**
 
     Do not delete a condition as clutter. Each one is watched by its own
     sabotage mutation and its own half of control 11; the mutation count tracks
-    the condition count, and a fourth condition would ship with a fourth
-    mutation.
+    the condition count, and condition (iv) shipped with the (f) half.
     """
     offenders: list[str] = []
     for page, paragraph in _prose.iter_paragraphs(pages):
@@ -544,18 +593,22 @@ def sentences_claiming_passage_extraction(
                 denial = min(denials)
                 precedes = denial < min(verbs)
                 turns = any(
-                    denial < pivot.start() < verb
-                    for pivot in CONTRASTIVE_PIVOT.finditer(sentence)
+                    denial < boundary.start() < verb
+                    and not any(
+                        boundary.start() < later < verb for later in denials
+                    )
+                    for boundary in CONTRASTIVE_PIVOT.finditer(sentence)
                     for verb in verbs
                 )
                 if precedes and not turns:
                     # The sentence DENIES extraction rather than asserting it,
                     # and denies it in the one word order that cannot be read
                     # the other way: an in-vocabulary denial, standing ahead of
-                    # every extraction verb, with nothing turning against it
-                    # before one. That is a legitimate way to be right, and it
-                    # is the way ROADMAP criterion 6 requires the caveat to be
-                    # written.
+                    # every extraction verb, with no clause boundary turning
+                    # against it before one — or, where a boundary is crossed,
+                    # with the trailing clause still denying. That is a
+                    # legitimate way to be right, and it is the way ROADMAP
+                    # criterion 6 requires the caveat to be written.
                     continue
             report = f"{_prose.relative(page)}:{paragraph.lineno} — {sentence.strip()}"
             if report not in offenders:
@@ -1272,6 +1325,57 @@ def test_control_11_a_decoy_negation_does_not_exonerate(
         "class, so sentence scoping silently became paragraph scoping"
     )
 
+    # (f) CONDITION (iv), from the side that must stay GREEN. A sentence that
+    # denies, crosses a boundary, and KEEPS denying is correct prose. Without
+    # (iv), widening condition (iii) to coordinating joins would refuse it —
+    # and would refuse the shipped caveat's ``so`` clause with it.
+    still_denying = _copied_tree(
+        tmp_path / "f",
+        "No shipped pipeline extracts passage anchors from documents, and no "
+        "shipped pipeline produces them either.",
+    )
+    assert sentences_claiming_passage_extraction(still_denying) == [], (
+        "condition (iv) failed: a sentence that denies, crosses an ``and``, and "
+        "denies again was reported as an overclaim. The widened clause-boundary "
+        "vocabulary is only safe because a boundary counts as a TURN when the "
+        "trailing clause has no denial of its own — restore that, do not narrow "
+        "CONTRASTIVE_PIVOT back to adversatives only"
+    )
+
+    # (g) CONDITION (iii), the coordinating joins. All three measured EXEMPTED
+    # at the Phase 22 close, and all three panel reviewers found the same hole:
+    # modelling only ``though``/``but``/``however`` lets ``and`` and ``;``
+    # through. VERBATIM.
+    for index, sentence in enumerate(MEASURED_COORDINATING_JOINS):
+        joined = _copied_tree(tmp_path / f"g{index}", sentence)
+        assert sentences_claiming_passage_extraction(joined), (
+            f"condition (iii) failed on {sentence!r} — a leading denial "
+            "exonerated a claim riding a COORDINATING clause. "
+            "CONTRASTIVE_PIVOT has been narrowed back to adversatives, which "
+            "is the shape all three close reviewers independently reported"
+        )
+
+    # (h) CONDITION (i), the hyphen guard, ISOLATED. The only denial-vocabulary
+    # hit is ``no pipeline`` inside ``pipeline-related``, and **no clause
+    # boundary is crossed** — ``when`` is not one — so this half goes red if and
+    # only if the hyphen guard is removed.
+    #
+    # The isolation is the point and it was got wrong first: the (g) sentences
+    # are refused by the boundary widening as well, so they stay green with the
+    # vocabulary sabotaged. A control that survives the mutation it names is
+    # this module's own subject.
+    unrelated_cost = _copied_tree(
+        tmp_path / "h",
+        "No pipeline-related cost is produced when CCF extracts passage "
+        "anchors from documents.",
+    )
+    assert sentences_claiming_passage_extraction(unrelated_cost), (
+        "condition (i) failed: a negation about pipeline COST satisfied a "
+        "denial vocabulary that is supposed to take a PRODUCTION claim as its "
+        "object, and exonerated an extraction claim in the same clause — the "
+        "``no pipelines?\\b(?!-)`` hyphen guard is gone"
+    )
+
 
 def test_control_14_the_three_aw_1_conditions_are_held_one_at_a_time(
     tmp_path: pathlib.Path,
@@ -1394,6 +1498,18 @@ def test_control_15_every_measured_limit_spelling_is_refused(
             "testing different things"
         )
 
+
+#: The three coordinating-join evasions measured EXEMPTED at the Phase 22
+#: close. VERBATIM: each is a real miss, and a paraphrase that happened to use
+#: ``but`` instead of ``and`` would pass under the very predicate the (g) half
+#: exists to refuse.
+MEASURED_COORDINATING_JOINS = (
+    "No shipped pipeline produces passage anchors from documents, and CCF "
+    "extracts them anyway.",
+    "No pipeline produces passage anchors; CCF extracts them from documents.",
+    "There is no pipeline for this question and CCF produces passage anchors "
+    "from documents.",
+)
 
 #: A heading that names no external approach, so a control built on it tests
 #: its sentence's vocabulary and not the heading's. Asserted inside control 16
