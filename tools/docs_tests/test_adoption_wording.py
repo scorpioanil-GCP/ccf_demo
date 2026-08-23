@@ -241,15 +241,27 @@ LIMIT_VERB = re.compile(
     re.IGNORECASE,
 )
 
-#: AW-2's subject. **Matched against ``Paragraph.text``**: the prose forms are
-#: what a reader takes away. **Never a bare ``passage``** — ``public/charter.md``
+#: AW-2's subject. **Matched against ``Paragraph.text`` AND ``Paragraph.raw``**
+#: — see :func:`sentences_claiming_passage_extraction` for why the negative
+#: predicate reads both. **Never a bare ``passage``** — ``public/charter.md``
 #: writes *"A page that names a proprietary passage fails the build"* in an
 #: entirely unrelated sense, and a bare token would report that correct
-#: sentence as an offender. Note that the underscored identifier
-#: ``passage_anchor`` is deliberately NOT matched here; it belongs to
-#: ``CAVEAT_CONTRACT``, which reads ``.raw``.
+#: sentence as an offender.
+#:
+#: **The underscored identifier is matched here now, and its absence was a
+#: hole.** It used to be left to ``CAVEAT_CONTRACT`` on the grounds that
+#: ``CAVEAT_CONTRACT`` reads ``.raw`` — but that is the POSITIVE half of AW-2,
+#: and the negative half was reading ``.text`` only, from which
+#: ``strip_markup`` deletes backtick spans. Measured ADMITTED at the Phase 22
+#: close, both in the page's own house spelling (it writes ``passage_anchor``
+#: at line 321):
+#:
+#: * ``CCF produces a `passage_anchor` for every claim it extracts from your
+#:   documents.``
+#: * ``The unstructured pipeline extracts `passage_anchor` values from PDFs at
+#:   ingest.``
 PASSAGE_ANCHOR = re.compile(
-    r"passage anchors?|passage-level lineage",
+    r"passage anchors?|passage-level lineage|passage_anchors?",
     re.IGNORECASE,
 )
 
@@ -534,6 +546,22 @@ def sentences_claiming_passage_extraction(
 ) -> list[str]:
     """AW-2, negative: ``page:line — sentence`` for each extraction claim.
 
+    **Both ``Paragraph`` fields are scanned, and the reason is the same one
+    :func:`paragraphs_carrying_the_caveat` gives for its positive half** — this
+    is the single place the field choice for AW-2 is stated, because the two
+    halves were asymmetric and undocumented and that asymmetry was a hole.
+    ``strip_markup`` deletes backtick code spans from ``.text``; this repository
+    writes identifiers backticked as house style, and the guarded page itself
+    writes ``passage_anchor`` that way at line 321. So the positive half already
+    read ``.raw`` for its identifier tokens while this half read ``.text``
+    only — and the page's own house spelling was therefore an evasion. Measured
+    ADMITTED: ``CCF produces a `passage_anchor` for every claim it extracts from
+    your documents.``
+
+    Scanning both and de-duplicating by report string is preferred to scanning
+    ``.raw`` alone: ``.text`` is what a reader takes away, and a report quoting
+    the stripped sentence is the more openable of the two. Control 17 holds it.
+
     A sentence is a CANDIDATE when it names a passage anchor, applies an
     extraction verb, and names a document source. **All three, and that is the
     problem this predicate has to solve**, because the honesty caveat ROADMAP
@@ -583,37 +611,50 @@ def sentences_claiming_passage_extraction(
     """
     offenders: list[str] = []
     for page, paragraph in _prose.iter_paragraphs(pages):
-        for match in PASSAGE_ANCHOR.finditer(paragraph.text):
-            sentence = _prose.sentence_at(paragraph.text, match.start())
-            verbs = [found.start() for found in EXTRACTION_VERB.finditer(sentence)]
-            if not verbs or DOCUMENT_SOURCE.search(sentence) is None:
-                continue
-            denials = [found.start() for found in EXTRACTION_DENIAL.finditer(sentence)]
-            if denials:
-                denial = min(denials)
-                precedes = denial < min(verbs)
-                turns = any(
-                    denial < boundary.start() < verb
-                    and not any(
-                        boundary.start() < later < verb for later in denials
+        for field in (paragraph.text, paragraph.raw):
+            for match in PASSAGE_ANCHOR.finditer(field):
+                sentence = _prose.sentence_at(field, match.start())
+                if _sentence_denies_or_asserts_extraction(sentence):
+                    report = (
+                        f"{_prose.relative(page)}:{paragraph.lineno}"
+                        f" — {sentence.strip()}"
                     )
-                    for boundary in CONTRASTIVE_PIVOT.finditer(sentence)
-                    for verb in verbs
-                )
-                if precedes and not turns:
-                    # The sentence DENIES extraction rather than asserting it,
-                    # and denies it in the one word order that cannot be read
-                    # the other way: an in-vocabulary denial, standing ahead of
-                    # every extraction verb, with no clause boundary turning
-                    # against it before one — or, where a boundary is crossed,
-                    # with the trailing clause still denying. That is a
-                    # legitimate way to be right, and it is the way ROADMAP
-                    # criterion 6 requires the caveat to be written.
-                    continue
-            report = f"{_prose.relative(page)}:{paragraph.lineno} — {sentence.strip()}"
-            if report not in offenders:
-                offenders.append(report)
+                    if report not in offenders:
+                        offenders.append(report)
     return offenders
+
+
+def _sentence_denies_or_asserts_extraction(sentence: str) -> bool:
+    """Whether `sentence` ASSERTS passage extraction from documents.
+
+    Split out of :func:`sentences_claiming_passage_extraction` when that
+    predicate started reading two fields, so the four conditions are written
+    once. Two copies of a judgement rule drift into two judgement rules —
+    ``_prose``'s own docstring records the same finding about scoping.
+    """
+    verbs = [found.start() for found in EXTRACTION_VERB.finditer(sentence)]
+    if not verbs or DOCUMENT_SOURCE.search(sentence) is None:
+        return False
+    denials = [found.start() for found in EXTRACTION_DENIAL.finditer(sentence)]
+    if denials:
+        denial = min(denials)
+        precedes = denial < min(verbs)
+        turns = any(
+            denial < boundary.start() < verb
+            and not any(boundary.start() < later < verb for later in denials)
+            for boundary in CONTRASTIVE_PIVOT.finditer(sentence)
+            for verb in verbs
+        )
+        if precedes and not turns:
+            # The sentence DENIES extraction rather than asserting it, and
+            # denies it in the one word order that cannot be read the other
+            # way: an in-vocabulary denial, standing ahead of every extraction
+            # verb, with no clause boundary turning against it before one — or,
+            # where a boundary is crossed, with the trailing clause still
+            # denying. That is a legitimate way to be right, and it is the way
+            # ROADMAP criterion 6 requires the caveat to be written.
+            return False
+    return True
 
 
 def paragraphs_carrying_the_caveat(
@@ -621,7 +662,11 @@ def paragraphs_carrying_the_caveat(
 ) -> list[str]:
     """AW-2, positive: ``page:line`` for each paragraph with BOTH halves.
 
-    **One ``Paragraph`` object, two fields, and that is deliberate.**
+    **One ``Paragraph`` object, two fields, and that is deliberate.** The
+    negative half's field choice is stated at
+    :func:`sentences_claiming_passage_extraction`; the two are written down
+    together on purpose, because they were asymmetric and silent about it until
+    the Phase 22 close.
     ``CAVEAT_CONTRACT`` is matched against ``.raw`` because both of its tokens
     are identifiers the page writes backticked, and ``strip_markup`` deletes
     code spans from ``.text``; ``CAVEAT_ABSENCE`` is matched against ``.text``
@@ -1564,6 +1609,57 @@ def test_control_16_the_pages_own_nouns_for_the_three_approaches_are_refused(
             f"AW-1 admitted {sentence!r} — EXTERNAL_APPROACH does not name the "
             "subject, so the claim was never a candidate. The page writes this "
             "noun itself; a vocabulary that misses it guards nothing"
+        )
+
+
+#: The two overclaims measured ADMITTED at the Phase 22 close **in the page's
+#: own house spelling** — it writes ``passage_anchor`` backticked at line 321.
+#: VERBATIM, backticks included: strip them and the sentences pass under the
+#: predicate this control exists to refuse.
+MEASURED_IDENTIFIER_SPELLINGS = (
+    "CCF produces a `passage_anchor` for every claim it extracts from your "
+    "documents.",
+    "The unstructured pipeline extracts `passage_anchor` values from PDFs at "
+    "ingest.",
+)
+
+
+def test_control_17_the_backticked_identifier_spelling_is_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """AW-2's negative half sees what its positive half has always seen.
+
+    Two things must both hold and each has its own message, because they fail
+    for different reasons: ``PASSAGE_ANCHOR`` must carry the underscored
+    identifier, and the predicate must scan a field the identifier survives in.
+    Either alone leaves the evasion open.
+
+    The second assertion is the field one and it is written as a property of
+    ``Paragraph`` rather than of the predicate: if ``strip_markup`` ever stopped
+    deleting code spans, the ``.raw``/``.text`` split would have stopped meaning
+    anything and this control would be passing for a reason unrelated to what it
+    claims. Control 9 makes the same assertion for the positive half.
+    """
+    assert PASSAGE_ANCHOR.search("passage_anchor") is not None, (
+        "PASSAGE_ANCHOR no longer matches the underscored identifier, so the "
+        "spelling the guarded page uses at line 321 is invisible to AW-2's "
+        "negative half"
+    )
+    for index, sentence in enumerate(MEASURED_IDENTIFIER_SPELLINGS):
+        pages = _copied_tree(tmp_path / f"i{index}", sentence)
+        assert not any(
+            "passage_anchor" in par.text for _, par in _prose.iter_paragraphs(pages)
+        ), (
+            "the injected identifier survived strip_markup into Paragraph.text, "
+            "so this control would pass with the predicate reading .text alone "
+            "— the fixture has lost its backticks, or strip_markup has stopped "
+            "removing code spans"
+        )
+        assert sentences_claiming_passage_extraction(pages), (
+            f"AW-2 admitted {sentence!r} — the page's own house spelling is an "
+            "evasion. Either PASSAGE_ANCHOR has lost the underscored form, or "
+            "the negative predicate is back to reading Paragraph.text only "
+            "while the positive half reads .raw"
         )
 
 
