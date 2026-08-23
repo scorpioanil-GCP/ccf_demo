@@ -399,6 +399,33 @@ CAVEAT_ABSENCE = re.compile(
 )
 
 
+#: The page under guard, repo-relative inside the published tree. Declared here
+#: rather than beside the controls because two assertions ABOVE the controls are
+#: named for this page and must actually be scoped to it.
+ADOPTION_PAGE = "concepts/answers-no-document-contains.md"
+
+
+def shipped_page() -> list[pathlib.Path]:
+    """The one-page list for assertions whose NAME says *the shipped page*.
+
+    Two tests below say ``..._on_the_shipped_page`` and used to walk
+    ``_prose.published_pages()``. Nothing was lost by narrowing them: the
+    tree-wide statement of each is already made by the standing assertions in
+    the section above, and a test whose name and scope disagree is a message
+    quality defect in a module whose whole subject is checks that pass for the
+    wrong reason.
+
+    The existence assertion is what stops a renamed or moved page from turning
+    both of them into tests over an empty list.
+    """
+    page = _prose.PUBLIC_DIR / ADOPTION_PAGE
+    assert page.is_file(), (
+        f"the page under guard is missing: {page}. Every assertion named "
+        "'on the shipped page' would pass over nothing"
+    )
+    return [page]
+
+
 # --------------------------------------------------------------------------
 # Predicates. Each returns openable ``page:line — sentence`` strings, because
 # a red run whose message cannot be opened is a red run nobody acts on.
@@ -754,8 +781,12 @@ def test_the_heading_carry_is_load_bearing_on_the_shipped_page() -> None:
     of ``### RAG over a vector store``, ``### Hand-rolled context assembly`` and
     ``### A semantic layer plus prompt templates`` were outside AW-1's
     jurisdiction completely. With the carry they are 17.
+
+    **Scoped to the shipped page, because that is what its name says**, and
+    because every one of those 17 is on it. The tree-wide corpus floor is the
+    test above.
     """
-    pages = _prose.published_pages()
+    pages = shipped_page()
     own_text = {
         (_prose.relative(page), paragraph.lineno)
         for page, paragraph in _prose.iter_paragraphs(pages)
@@ -811,6 +842,10 @@ def test_the_passage_vocabulary_is_present_in_the_published_tree() -> None:
 def test_the_positive_caveat_assertion_has_something_to_assert_over() -> None:
     """The contract half exists somewhere in the tree.
 
+    **Tree-scoped, and the name deliberately does not say otherwise** — it asks
+    whether the vocabulary has anything to match ANYWHERE, which is a corpus
+    floor. Its shipped-page counterpart is control 3.
+
     Separate from the assertion below, which requires BOTH halves in one
     paragraph. If only this one is red, the contract half has gone missing or
     ``CAVEAT_CONTRACT`` has been moved onto the wrong ``Paragraph`` field.
@@ -830,6 +865,11 @@ def test_the_positive_caveat_assertion_has_something_to_assert_over() -> None:
 def test_the_denial_limb_is_load_bearing_on_the_shipped_page() -> None:
     """The limb is exercised by the real tree, not dead code.
 
+    **Scoped to the shipped page, because that is what its name says.** The
+    tree-wide form of the second assertion is already made by
+    ``test_no_published_sentence_claims_ccf_extracts_passage_anchors_from_documents``
+    above, so narrowing costs no coverage and makes the name true.
+
     Two things are asserted, and both are needed. First, that the published
     tree really does carry a sentence matching ``PASSAGE_ANCHOR``,
     ``EXTRACTION_VERB`` and ``DOCUMENT_SOURCE`` all three — so there is a
@@ -838,7 +878,7 @@ def test_the_denial_limb_is_load_bearing_on_the_shipped_page() -> None:
     build green and nobody would find out; without the second, the caveat the
     page is required to carry would be reported as the overclaim it denies.
     """
-    pages = _prose.published_pages()
+    pages = shipped_page()
     candidates = [
         f"{_prose.relative(page)}:{paragraph.lineno} — {sentence.strip()}"
         for page, paragraph in _prose.iter_paragraphs(pages)
@@ -926,8 +966,6 @@ def test_the_passage_anchor_caveat_states_both_halves_in_one_paragraph() -> None
 # ``tmp_path``; nothing here writes to ``public/``.
 # --------------------------------------------------------------------------
 
-#: The page under guard, repo-relative inside the published tree.
-ADOPTION_PAGE = "concepts/answers-no-document-contains.md"
 
 #: The shipped caveat clause control 13 substitutes away, **verbatim as the page
 #: wraps it**. A paraphrase would either fail to anchor — turning the control
@@ -1363,6 +1401,10 @@ def test_control_11_a_decoy_negation_does_not_exonerate(
         "**No shipped pipeline produces passage anchors.** CCF extracts "
         "passage anchors from your documents on every assembly.",
     )
+    # This half also watches the OTHER way sentence scoping can be lost: a
+    # denial searched over the whole PARAGRAPH rather than the sentence exempts
+    # the second sentence here just as an invisible boundary does. Measured —
+    # that mutation turns this control and control 13 red and nothing else.
     assert sentences_claiming_passage_extraction(across), (
         "condition (ii) failed across a markup-closed sentence boundary: a "
         "denial that is its own complete sentence exempted an overclaim in the "
@@ -1663,6 +1705,63 @@ def test_control_17_the_backticked_identifier_spelling_is_refused(
         )
 
 
+def test_control_18_the_two_caveat_halves_in_different_paragraphs_are_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The property the positive assertion's own TITLE names, finally watched.
+
+    ``test_the_passage_anchor_caveat_states_both_halves_in_one_paragraph`` says
+    *in one paragraph* and nothing measured it. Splitting the halves across two
+    paragraphs turned NO test red, so the words "in one paragraph" were carried
+    by the assertion's name rather than by the assertion. Control 7 does not
+    reach it: 7 removes the absence half from the page entirely, which stays red
+    under a page-scoped predicate too.
+
+    The scoping matters for the reason the assertion's own docstring gives: half
+    a caveat still parses as honest. A contract half at the top of a page and an
+    absence half four screens down are not a caveat a reader reads together.
+
+    Fixture integrity comes first and is what stops this from being a control
+    that passes because its page carries neither half.
+    """
+    page = tmp_path / "split.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        "# A control page\n"
+        "\n"
+        "The lineage entry carries a `passage_anchor` field and the contract\n"
+        "behind it ships: `D-IMPL-46` rules the Protocol that fills it.\n"
+        "\n"
+        "Some entirely unrelated paragraph stands between the two halves, which\n"
+        "is the whole point of the fixture.\n"
+        "\n"
+        "No shipped pipeline produces passage anchors from documents, because\n"
+        "the unstructured ingestion pattern was never built.\n",
+        encoding="utf-8",
+    )
+    paragraphs = [par for par in _prose.page_paragraphs(page) if not par.fenced]
+    assert any(CAVEAT_CONTRACT.search(par.raw) for par in paragraphs), (
+        "the fixture carries no contract half at all, so the refusal below "
+        "would prove nothing about paragraph scoping"
+    )
+    assert any(CAVEAT_ABSENCE.search(par.text) for par in paragraphs), (
+        "the fixture carries no absence half at all, so the refusal below "
+        "would prove nothing about paragraph scoping"
+    )
+    assert not any(
+        CAVEAT_CONTRACT.search(par.raw) and CAVEAT_ABSENCE.search(par.text)
+        for par in paragraphs
+    ), "the fixture put both halves in ONE paragraph; it is not testing the split"
+
+    assert paragraphs_carrying_the_caveat([page]) == [], (
+        "AW-2's positive predicate accepted a caveat whose two halves sit in "
+        "DIFFERENT paragraphs. The assertion this backs is named 'states both "
+        "halves in one paragraph'; the scoping is the paragraph, not the page, "
+        "because half a caveat four screens from its other half is not a caveat "
+        "a reader reads"
+    )
+
+
 def test_control_13_the_caveat_clause_swapped_for_an_overclaim_is_refused(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -1736,8 +1835,16 @@ def test_control_13_the_caveat_clause_swapped_for_an_overclaim_is_refused(
 # --------------------------------------------------------------------------
 
 
-def published_node_ids() -> list[tuple[str, int, str, str]]:
-    """``(page, lineno, cited path, symbol)`` for every node id in `public/`.
+def published_node_ids(
+    pages: list[pathlib.Path] | None = None,
+) -> list[tuple[str, int, str, str]]:
+    """``(page, lineno, cited path, symbol)`` for every node id in `pages`.
+
+    Defaults to the whole published tree. **The `pages` parameter exists so
+    :func:`unresolved_node_ids` can call this rather than re-implement it** —
+    it used to carry its own copy of the same line scan, which is two copies of
+    one scoping rule, and this package's own ``_prose`` docstring records what
+    three copies of a scoping rule turn into.
 
     Line-scoped on purpose and NOT a violation of this package's
     paragraph-scoping rule: a node id is a token, not a claim, so there is no
@@ -1745,7 +1852,7 @@ def published_node_ids() -> list[tuple[str, int, str, str]]:
     for prose whose unit of meaning is the paragraph.
     """
     found: list[tuple[str, int, str, str]] = []
-    for page in _prose.published_pages():
+    for page in _prose.published_pages() if pages is None else pages:
         for lineno, line in enumerate(
             page.read_text(encoding="utf-8").splitlines(), start=1
         ):
@@ -1762,29 +1869,26 @@ def published_node_ids() -> list[tuple[str, int, str, str]]:
 
 
 def unresolved_node_ids(pages: list[pathlib.Path]) -> list[str]:
-    """``page:line — reason`` for every node id in `pages` that does not resolve."""
+    """``page:line — reason`` for every node id in `pages` that does not resolve.
+
+    The scan is :func:`published_node_ids`; this function is only the
+    resolution. Keeping them one scan is what stops a page from being read by
+    the floor and not by the resolver, or the reverse.
+    """
     base = _prose.REPO_ROOT
     index = repo_index(base)
     offenders: list[str] = []
-    for page in pages:
-        for lineno, line in enumerate(
-            page.read_text(encoding="utf-8").splitlines(), start=1
-        ):
-            for match in NODE_ID.finditer(line):
-                cited, symbol = match.group("path"), match.group("symbol")
-                target, ambiguous = resolve_cited(cited, base, index)
-                if target is None:
-                    offenders.append(
-                        f"{_prose.relative(page)}:{lineno} — {cited}::{symbol} names"
-                        f" {'an ambiguous' if ambiguous else 'no'} file in the repo"
-                    )
-                    continue
-                source = target.read_text(encoding="utf-8", errors="replace")
-                if symbol not in symbol_spans(source, target):
-                    offenders.append(
-                        f"{_prose.relative(page)}:{lineno} — {cited} defines no"
-                        f" {symbol!r}"
-                    )
+    for relative, lineno, cited, symbol in published_node_ids(pages):
+        target, ambiguous = resolve_cited(cited, base, index)
+        if target is None:
+            offenders.append(
+                f"{relative}:{lineno} — {cited}::{symbol} names"
+                f" {'an ambiguous' if ambiguous else 'no'} file in the repo"
+            )
+            continue
+        source = target.read_text(encoding="utf-8", errors="replace")
+        if symbol not in symbol_spans(source, target):
+            offenders.append(f"{relative}:{lineno} — {cited} defines no {symbol!r}")
     return offenders
 
 
