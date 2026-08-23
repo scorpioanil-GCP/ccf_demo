@@ -194,8 +194,13 @@ Start from the fourth fact above. The figure the question returns is written
 down in no record anywhere in the estate the question is asked over. It is a sum
 over two ownership paths — 12.0% held directly, plus 60.0% of a holding company
 that itself holds 30.0% of Acme — and
+`tests/examples/test_s1_01_output.py::test_the_aggregate_ownership_answer_matches_the_declared_expectation`
+is what holds the served figure to the deployment's own declaration, per party
+and in order. What holds it to being a *sum* rather than a *hop* is the
+boundary case:
 `tests/examples/test_s1_01_output.py::test_the_answer_is_a_sum_over_paths_not_a_single_hop`
-is what holds it to being a sum rather than a hop.
+takes the one party whose stake a single hop down is exactly the threshold and
+requires her reported interest to land strictly below it.
 
 Three further facts about the same question, each of them a different answer out
 of the same graph. The same product class asked about Beta Holdings — one step up
@@ -230,11 +235,16 @@ When the wire never spoke at all, `src/ccf/client/errors.py::TransportError`
 says so, and that distinction is the taxonomy's whole point: a refusal is the
 fabric working, an exception is the fabric never having been reached.
 
-Three facts about that seam, each one held by a test. The consuming programs
-under `examples/hw1-companies-over-revenue` and `examples/hw1-harness-clients`
-import nothing from `ccf` beyond that surface, asserted as a property of their
-import trees by
+Three facts about that seam, each one held by a test. The reader-visible entry
+modules of `examples/hw1-companies-over-revenue` import nothing from `ccf`
+beyond that surface, and the three foreign-harness clients under
+`examples/hw1-harness-clients` import nothing from `ccf` at all — that root
+refuses the package by name. Both are asserted as an AST property of the
+modules sitting *directly* in each example root by
 `tests/examples/test_client_example_purity.py::test_the_client_example_imports_only_the_client_and_stdlib`.
+Each root's producer-side code — the deployment, the server, the runner — lives
+one directory down and is deliberately outside that gate, because it is the
+producer's world and imports the fabric legitimately.
 The same consuming program run over two different transports returns the same
 content address, held by
 `tests/examples/test_hw1_two_transports.py::test_both_documented_transports_return_the_same_answer`.
@@ -293,8 +303,11 @@ rather than only that the debt rose. And `obligation_first_question` and
 `obligation_third_question` state what each routing state puts on the answer:
 the first is the SDK's named sentinel for a state its calibration deliberately
 leaves unbound, the second is this deployment's own sentence, quoted from its own
-calibration artifact. No CCF release contains that string, or any obligation
-string.
+calibration artifact. The obligation the consumer reads is byte-identical to the
+string in `examples/s1-01-hello-context-product/artifacts/debt-profile.yaml` —
+`tests/examples/test_s1_01_output.py::test_the_routing_state_carries_what_this_deployment_says_it_obliges`
+compares the two — so the SDK supplied the binding and the carrying, and the
+deployment supplied every word.
 
 Three tests hold this.
 `tests/examples/test_s1_01_output.py::test_the_debt_figure_is_measured_and_not_constant`
