@@ -1064,6 +1064,65 @@ def test_the_multi_member_pathspec_roster_matches_the_modules_own_arity() -> Non
     )
 
 
+def test_control_41_the_multi_member_cases_reach_every_member() -> None:
+    """CONTROL 41 — `CONTROL 18`'s subjects reach EVERY member, not two ends.
+
+    **`B-1`, found by the §3.1 close panel — cursor and codex converged on it
+    independently.** `RR-1` was that :func:`tracked_under` was applied to the
+    pathspec TUPLE and not to its MEMBERS. Wave 1 quantified
+    :func:`fabric_diff` per member and built `CONTROL 18` to prove it, and
+    `CONTROL 18` did not prove it: :func:`multi_member_cases` yielded two cases
+    per constant, the first member and the last, so every member BETWEEN the
+    ends was mutated by nothing.
+
+    Measured against the shipped module before this control existed:
+    :func:`fabric_diff` degraded to validate only ``paths[:1] + paths[-1:]``
+    left the whole suite GREEN. :data:`UAT_RECORDS` has eleven members, so a
+    one-key typo in any of members 2 through 10 produced a silent empty diff
+    over a real breach — `RR-1`'s own failure mode, in the constant with the
+    most members, watched by nothing.
+
+    Two ends is not an arbitrary weakening: it is what defeats a degenerate
+    implementation reading ONE end. It does not defeat one reading BOTH ends,
+    and *that* is the implementation the fix has to exclude. The remedy is to
+    quantify the CASES the way the fix quantifies the members.
+
+    The case's second element is the member INDEX rather than a position word,
+    because a position word leaves `CONTROL 18` to derive the index privately
+    and leaves this check nothing to compare. What a control mutates has to be
+    visible in the case, or its coverage is unmeasurable from outside it.
+
+    No count is asserted (`D-21`): what is compared is two sets of indices,
+    derived from the constants' own arity.
+    """
+    resolved = dict(asserted_pathspecs())
+    covered: dict[str, set[object]] = {}
+    for name, index in multi_member_cases():
+        covered.setdefault(name, set()).add(index)
+
+    assert covered, (
+        "`multi_member_cases()` produced NO cases at all, so `CONTROL 18` is"
+        " parametrized over the empty set and reports green having mutated"
+        " nothing. That is the vacuity this module exists to detect, arriving"
+        " in the generator that feeds the control which closed `RR-1`"
+    )
+
+    unmutated: list[str] = []
+    for name in sorted(MULTI_MEMBER_PATHSPECS):
+        every = set(range(len(resolved[name])))
+        gap = sorted(every - covered.get(name, set()), key=repr)
+        if gap:
+            unmutated.append(
+                f"{name} has members at indices {sorted(every)} and"
+                f" `multi_member_cases()` mutates {sorted(covered.get(name, set()), key=repr)}."
+                f" Members {gap} are mutated by no case, so a `fabric_diff`"
+                f" that validated only the members it does mutate would pass"
+                f" `CONTROL 18` while a typo in {gap} still produced a silent"
+                " empty diff — which is RR-1 exactly"
+            )
+    assert not unmutated, "\n".join(unmutated)
+
+
 def test_every_asserted_pathspec_names_a_tracked_subject() -> None:
     """Each emptiness assertion is over a pathspec that names something real.
 
@@ -5328,6 +5387,21 @@ def _returning(make_value: Callable[[], object]) -> Callable[..., object]:
     return _replacement
 
 
+def _two_ends_only_cases() -> tuple[tuple[str, int], ...]:
+    """`CONTROL 41`'s saboteur — the generator as it stood before `B-1`.
+
+    First and last member of each constant, which is exactly the coverage the
+    close panel proved insufficient. A control asserting completeness has to be
+    watched refusing the incomplete case, or it is a check that cannot fail.
+    """
+    resolved = dict(asserted_pathspecs())
+    return tuple(
+        (name, index)
+        for name in sorted(MULTI_MEMBER_PATHSPECS)
+        for index in sorted({0, len(resolved[name]) - 1})
+    )
+
+
 def _every_bolded_run(status_cell: str) -> set[str]:
     """`cell_verdicts` with the vocabulary filter removed — `CONTROL 9b`'s saboteur.
 
@@ -5415,6 +5489,16 @@ CONTROL_AIM: dict[str, Aim] = {
         # `tracked_under` that reports nothing tracked is exactly the state
         # `CONTROL 16` refuses, and it produces a real `[limb:…]` refusal.
         saboteur=_substituting(tracked_under=_returning(list)),
+    ),
+    "test_control_41_the_multi_member_cases_reach_every_member": Aim(
+        kind="guard",
+        targets=frozenset({"multi_member_cases"}),
+        invoke=lambda: test_control_41_the_multi_member_cases_reach_every_member(),
+        # The stand-in is the generator as it shipped before `B-1` — first and
+        # last member only. A completeness check that has never been watched
+        # refusing an incomplete case is the shape this control was added to
+        # close, one level up.
+        saboteur=_substituting(multi_member_cases=_returning(_two_ends_only_cases)),
     ),
     "test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused": Aim(
         kind="limb",
@@ -5819,6 +5903,7 @@ CONTROLS: frozenset[str] = frozenset(
         "test_control_b_an_unresolvable_base_fails_loudly",
         "test_control_c_an_empty_path_list_fails_loudly",
         "test_control_16_a_pathspec_that_names_nothing_is_refused",
+        "test_control_41_the_multi_member_cases_reach_every_member",
         "test_control_37_a_derived_base_refuses_a_member_it_cannot_resolve",
         "test_the_positive_control_a_real_pathspec_is_still_accepted",
         "test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused",
