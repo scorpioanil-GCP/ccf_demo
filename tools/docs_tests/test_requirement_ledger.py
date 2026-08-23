@@ -219,6 +219,8 @@ LIMBS: frozenset[str] = frozenset(
         "_index.anchor_unresolved",
         "refuse_unresolvable.zero_citations",
         "uncovered_lint_citations.lint_matches_nothing",
+        "derived_base.no_history",
+        "derived_base.no_parent",
         "base_ledger_text.nonzero_exit",
         "roster_verdicts.absent_id",
         "uncited_verdicts.empty_roster",
@@ -579,6 +581,122 @@ def fabric_diff(base: str, paths: Sequence[str]) -> str:
             f" the tree.\nstderr: {completed.stderr.strip()}"
         )
     return completed.stdout
+
+
+def repository_root_commit() -> str:
+    """This repository's root commit — the one commit that has no parent.
+
+    DERIVED by ``git rev-list --max-parents=0 HEAD``, never written down.
+    Criterion 14 forbids a hardcoded SHA in a derived base and a root commit is
+    not exempt from that merely because it never moves.
+
+    It exists so that :func:`derived_base`'s no-parent limb is REACHABLE. A
+    registered limb nothing can reach is the dead-limb disposition criterion 12
+    forbids, and registering one inside the plan that closes criterion 14 would
+    be this phase's own defect class arriving in its own repair. Plan
+    `21.1-05` applied the same discipline to :func:`base_ledger_text`, whose
+    shallow-clone limb was unreachable until the base became a parameter.
+
+    Returns the LAST line, which is the oldest root when a repository has more
+    than one. An empty string when `git` finds none at all: the caller is
+    `CONTROL 37`, which asserts the result is a full SHA before it uses it, so
+    this needs no limb of its own — and a limb no input could reach is exactly
+    what the paragraph above rules out.
+    """
+    completed = subprocess.run(
+        ["git", "rev-list", "--max-parents=0", "HEAD"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    roots = completed.stdout.split()
+    return roots[-1] if roots else ""
+
+
+def derived_base(member: str, last_touching: str | None = None) -> str:
+    """A commit at which ONE pathspec member genuinely differs from HEAD.
+
+    `VAC-06`, criterion 14, plan `21.1-08`. **The shape `CONTROL 13` and
+    `CONTROL A` needed and did not have.** Both claimed to be the non-vacuity
+    proof for an emptiness assertion and both diffed :data:`CHANGED_TREE`
+    instead of the constant the assertion they vouch for actually passes —
+    `RR-9`. Neither could be repaired by swapping the constant in, because
+    ``fabric_diff(pinned_base, TESTS_TREE)`` is the EMPTY STRING: `tests/` is
+    genuinely untouched, which is the whole point of the assertion, so a
+    re-aimed control asserting a non-empty diff against the PINNED base would
+    simply fail. The base has to differ per member instead.
+
+    **Derived, never written down.** ``git log -1 --format=%H -- <member>``
+    names the commit that last touched this member; its parent is a base at
+    which the member necessarily differs from HEAD, because nothing after that
+    commit touched it. A SHA in the source would go stale on the first rebase
+    or squash-merge while reading exactly as authoritative — criterion 14's
+    prohibition, and the reason this is a function rather than a table.
+
+    **ONE member, never a tuple, and that quantifier is the whole point.** It
+    is the same per-member property plan `21.1-01` installed in
+    :func:`fabric_diff`, arriving from the other side: a tuple-level derivation
+    would take its base from whichever member happened to have history and
+    carry a typo'd sibling along in silence.
+
+    **Self-guarding, which is criterion 14's second half.** ``git log`` EXITS
+    ZERO on a pathspec that matches nothing and prints NOTHING — measured for
+    ``scr/``, ``runtimes/``, ``example/`` and ``tests-typo/`` — so a control
+    reading that output would SKIP the member without noticing. The empty
+    result is refused by name instead.
+
+    `last_touching` is a parameter with a default for the reason
+    :func:`base_ledger_text`'s base is: it makes the no-parent limb reachable.
+    A member whose last-touching commit is a root commit has no ``^``, and
+    nothing in this repository's history puts one there, so `CONTROL 37` hands
+    it :func:`repository_root_commit` — a real root, derived — rather than the
+    limb being registered and unreachable.
+
+    Both refusals NAME the member. An aggregate report one level up is the
+    defect class this module is about.
+    """
+    if last_touching is None:
+        found = subprocess.run(
+            ["git", "log", "-1", "--format=%H", "--", member],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        last_touching = found.stdout.strip()
+        if not last_touching:
+            _refuse(
+                "derived_base.no_history",
+                f"`git log -1 --format=%H -- {member!r}` named no commit, so"
+                " nothing tracked has ever matched this member and no base can"
+                " be derived from it. `git log` exits ZERO on a pathspec that"
+                " matches nothing, so a one-key typo produces the empty string"
+                " and a control reading it would SKIP the member in silence"
+                " rather than fail — which is a member of a pathspec constant"
+                " going unchecked while the control stays green."
+                f"\nstderr: {found.stderr.strip()}"
+            )
+    parent = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{last_touching}^"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if parent.returncode != 0:
+        _refuse(
+            "derived_base.no_parent",
+            f"the commit that last touched {member!r} has no resolvable"
+            f" parent — `git rev-parse --verify {last_touching}^` exited"
+            f" {parent.returncode} — so there is no earlier commit to diff"
+            " this member against. A root commit reaches this, and so does a"
+            " history truncated by a shallow clone. Returning its empty stdout"
+            " would hand `fabric_diff` an empty base, which compares HEAD"
+            f" against nothing and prints nothing.\nstderr:"
+            f" {parent.stderr.strip()}"
+        )
+    return parent.stdout.strip()
 
 
 def derived_uat_records(base: pathlib.Path) -> frozenset[str]:
@@ -4846,6 +4964,78 @@ def test_control_27e_the_duplicate_bullet_shims_fire_and_degrade_silently() -> N
     )
 
 
+def test_control_37_a_derived_base_refuses_a_member_it_cannot_resolve() -> None:
+    """CONTROL 37 — both of :func:`derived_base`'s refusals, watched by ID.
+
+    Criterion 14's second half: *a member matching no tracked file makes that
+    control REFUSE rather than silently skip.* The proof is that the refusal
+    fires, and that it is the refusal this control names — asserted as the
+    `[limb:…]` tag rather than as a phrase, because `CONTROL 5` spent the whole
+    of Phase 21 green over the WRONG refusal on the strength of the substring
+    ``"no rows"``, which two limbs' messages carry.
+
+    **Both limbs, because both are registered.** Plan `21.1-07`'s coverage limb
+    requires every id in :data:`LIMBS` to be claimed by a control, so a limb
+    landed here without a subject that reaches it reddens `CONTROL 34` on the
+    day it lands. That is criterion 12's dead-limb disposition, and shipping one
+    inside the plan that closes criterion 14 would be this phase's own defect
+    class arriving in its own repair.
+
+    * `no_history` — a one-key misspelling, DERIVED through :func:`near_miss`
+      from a member of a real constant rather than written down beside it, and
+      required to be untracked before it is used. ``git log`` exits ZERO and
+      prints nothing for it, which is precisely the silent skip.
+    * `no_parent` — this repository's own ROOT commit, handed in through
+      `last_touching`. Nothing in the tree puts a root commit at the head of a
+      member's history, so without the parameter this limb would be
+      unreachable; :func:`repository_root_commit` derives a real one.
+    """
+    root = repository_root_commit()
+    assert re.fullmatch(r"[0-9a-f]{40}", root), (
+        f"`git rev-list --max-parents=0 HEAD` produced {root!r} rather than a"
+        " root commit, so the no-parent limb below has no subject and this"
+        " control would report success over a refusal it never reached"
+    )
+
+    for member in (near_miss(FABRIC[0]), near_miss(TESTS_TREE[0])):
+        assert not tracked_under((member,)), (
+            f"the derived misspelling {member!r} names something `git` tracks,"
+            " so it has history and cannot reach the no-history limb. The"
+            " subject has drifted into a real path and this control would pass"
+            " for a reason unrelated to what it claims to test"
+        )
+        try:
+            produced = derived_base(member)
+        except AssertionError as failure:
+            assert "[limb:derived_base.no_history]" in str(failure), (
+                f"the member {member!r} was refused by a DIFFERENT limb:"
+                f" {failure}"
+            )
+        else:
+            raise AssertionError(
+                f"`derived_base({member!r})` returned {produced!r} instead of"
+                " refusing. `git log` exits zero on a pathspec that matches"
+                " nothing, so the member would be SKIPPED in silence — and a"
+                " pathspec constant with an unchecked member is exactly the"
+                " state `RR-1` and `RR-9` both describe"
+            )
+
+    try:
+        produced = derived_base(TESTS_TREE[0], last_touching=root)
+    except AssertionError as failure:
+        assert "[limb:derived_base.no_parent]" in str(failure), (
+            f"the root-commit subject was refused by a DIFFERENT limb: {failure}"
+        )
+    else:
+        raise AssertionError(
+            f"`derived_base(..., last_touching=<root commit>)` returned"
+            f" {produced!r} instead of refusing. `git rev-parse` writes NOTHING"
+            " to stdout when it fails, so the empty string would be handed on"
+            " as a diff base — and `git diff ..HEAD` compares HEAD against"
+            " nothing and prints nothing, which reads exactly like a clean tree"
+        )
+
+
 # ===========================================================================
 # CONTROL_AIM — every control DECLARES what it vouches for, and CONTROL 34
 # holds the declaration complete in both directions.
@@ -5041,6 +5231,14 @@ CONTROL_AIM: dict[str, Aim] = {
         kind="limb",
         targets=frozenset({"fabric_diff.empty_base", "fabric_diff.empty_paths"}),
         invoke=lambda: test_control_c_an_empty_path_list_fails_loudly(),
+    ),
+    "test_control_37_a_derived_base_refuses_a_member_it_cannot_resolve": Aim(
+        kind="limb",
+        # BOTH ids in one target set. A single target would leave the other
+        # limb unclaimed and redden `CONTROL 34`'s coverage limb, which is the
+        # case the frozenset schema was written for.
+        targets=frozenset({"derived_base.no_history", "derived_base.no_parent"}),
+        invoke=lambda: test_control_37_a_derived_base_refuses_a_member_it_cannot_resolve(),
     ),
     "test_control_16_a_pathspec_that_names_nothing_is_refused": Aim(
         kind="limb",
@@ -5427,6 +5625,7 @@ CONTROLS: frozenset[str] = frozenset(
         "test_control_b_an_unresolvable_base_fails_loudly",
         "test_control_c_an_empty_path_list_fails_loudly",
         "test_control_16_a_pathspec_that_names_nothing_is_refused",
+        "test_control_37_a_derived_base_refuses_a_member_it_cannot_resolve",
         "test_the_positive_control_a_real_pathspec_is_still_accepted",
         "test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused",
         "test_control_6_a_row_completed_in_one_channel_only_is_refused",
