@@ -1983,9 +1983,10 @@ Plans:
   9. No standing check this phase ships carries a hardcoded row count (`D-21`), and every fixed set is a frozen roster of named ids asserted id-for-id
   10. `make ci` is exit 0 with `docs/surface/examples/RETIREMENT-COUPLINGS.md` regenerated LAST and committed
   11. `D-GATE-21` is unamended and the 54 rows' verdicts are unchanged except where a blocker's fix requires it, and every such change is named in the phase record
-  12. Every refusal branch in the module is EITHER reachable and watched RED under a named CONTROL when its subject is broken, OR is identified as unreachable and REMOVED — no dead limb survives carrying a docstring that aims a control at it
+  12. Every refusal branch in the module takes exactly ONE of three dispositions — reachable, watched RED under a named CONTROL when its subject is broken; unreachable, REMOVED so no dead limb survives carrying a docstring that aims a control at it; or a SHIM, reachable only under a sibling's neutering and existing to keep that degradation SILENT, controlled under aim kind `shim` (`D-IMPL-181`)
   13. Every CONTROL in the module is proven to reach the assertion it vouches for — its mutation is watched RED on the aimed limb and GREEN when that limb is intact — so a mis-aimed control (`CONTROL A`, `CONTROL 5`, `CONTROL 13` are the three known instances) cannot ship unnoticed again
   14. A control that derives a diff base derives it PER MEMBER and carries no hardcoded SHA, and a member matching no tracked file makes that control REFUSE rather than silently skip
+  15. A CONTROL aimed at a SHIM carries the INVERTED obligation — with the sibling limb neutered it proves the shim keeps the failure SILENT rather than crashing, and it goes RED when the shim is removed or broken so the crash returns; coverage quantifies over `shim` entries exactly as over every other kind, with no exempt roster
 
 ## Progress
 
