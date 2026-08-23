@@ -3,8 +3,70 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-23T04:15:00.000Z"
+last_updated: "2026-08-23T05:35:00.000Z"
 last_activity: >-
+  2026-08-22 -- **PHASE 21.1 WAVE 8 LANDED (`21.1-08`, three task commits `fb0dc86`,
+  `dc8a3a7`, `77aa5dc`).** **`RR-9` IS CLOSED AND CRITERION 14 IS DISCHARGED. THE LAST
+  TWO MIS-AIMED CONTROLS NOW DIFF THE CONSTANTS THEY VOUCH FOR.** `CONTROL 13` claimed to
+  be the non-vacuity twin of the `tests/`-untouched assertion and had never mentioned
+  `tests/`; `CONTROL A` claimed to be "the non-vacuity proof for all four emptiness
+  assertions above at once" and passed none of their constants. Both diffed
+  `CHANGED_TREE` -- `.planning/`, which every phase writes to -- so both were green for a
+  reason unrelated to what they claimed to test, and `RECON-02`'s and `RECON-08`'s shipped
+  ledger cells cited them for propositions they did not establish. **Both cells are now
+  true.**
+  **THE CRUX: `CONTROL 13` COULD NOT BE REPAIRED BY SWAPPING THE CONSTANT.**
+  `fabric_diff(pinned_base, TESTS_TREE)` is the EMPTY STRING -- `tests/` is genuinely
+  untouched, which is the whole point of the assertion -- so a re-aimed control asserting
+  a non-empty diff against the pinned base would simply fail. **`derived_base(member)`
+  derives the base PER MEMBER** from that member's own last-touching commit
+  (`git log -1 --format=%H -- <member>`) and its parent. NO HARDCODED SHA (criterion 14);
+  re-derived this session for ALL 21 MEMBERS of all six constants, every one resolving to
+  a differing base and a non-empty diff.
+  **IT IS SELF-GUARDING, WHICH IS CRITERION 14'S SECOND HALF.** `git log` EXITS ZERO and
+  prints NOTHING for a pathspec that matches nothing, so a control reading that output
+  would SKIP the member in silence. `derived_base.no_history` REFUSES instead, naming the
+  member. `derived_base.no_parent` is made REACHABLE rather than registered-and-dead:
+  `last_touching` is a parameter with a default, on the discipline plan `21.1-05` applied
+  to `base_ledger_text`, and `repository_root_commit()` derives this repository's real
+  root for `CONTROL 37` to hand it. Registering a limb nothing could reach would have been
+  criterion 12's dead-limb disposition shipping inside the plan that closes criterion 14.
+  **`CONTROL 38` IS THE STRONGEST SINGLE PIECE OF EVIDENCE THE PHASE PRODUCES: THE CHECK
+  THAT COULD NOT FAIL, FAILING.** Committed at `dc8a3a7` BEFORE either repair and observed
+  RED naming BOTH controls -- and, for `CONTROL A`, EACH of the four constants it did not
+  reach rather than stopping at the first. Per constant, never per entry: a proof that
+  reaches one of four while the entry counts as satisfied is `RR-9` living inside the
+  meta-control built to end `RR-9`.
+  **THE LITERAL-SPELLING TRAP IS CLOSED BY A STANDING TEST.** Both re-aimed controls
+  resolve their constants through `asserted_pathspecs()` AT CALL TIME and never spell them
+  as literals; sabotage S38e rewrote `CONTROL A` to carry `("src/", "runtime/")` in its own
+  body and `CONTROL 38` reddened on all four constants.
+  **FIVE SABOTAGES, EACH WATCHED AND RESTORED:** a typo'd `TESTS_TREE` makes `CONTROL 13`
+  REFUSE BY LIMB ID rather than skip; one misspelled `FENCE` member makes `CONTROL A`
+  refuse NAMING that member; a narrowed `CONTROL_A_PATHSPECS` reddens `CONTROL 38` naming
+  the three constants abandoned; an emptied one reddens `CONTROL A` itself; and the
+  literal rewrite above. **THIS WAVE'S OWN INSTANCE OF THE CLASS:** both re-aimed controls
+  would have PASSED OVER AN EMPTY ROSTER as first written -- found by going looking after
+  they worked, closed with an explicit compared-nothing guard, and S38d is it firing.
+  **`CONTROL A`'S FOUR-ASSERTION CLAIM IS KEPT AND MADE TRUE, NOT NARROWED.** Nineteen
+  members across `FABRIC`, `FENCE`, `UAT_RECORDS` and `PINNED_FILES`. `RECON-08`'s shipped
+  cell repeats the claim verbatim, and narrowing a claim to fit a weak control is the move
+  this phase exists to stop.
+  **CRITERION 14'S SCOPE READING, RECORDED FOR THE GATE:** "carries no hardcoded SHA"
+  scopes to controls that DERIVE a base. `phase_base_commit()` reads the phase's PINNED
+  anchor from `21-BASE-COMMIT.txt` and `UNRESOLVABLE_BASE` is an all-zeros SHA that
+  resolves to nothing ON PURPOSE for `CONTROL B`. Neither is a derived base; neither was
+  touched. The module's SHA sweep returns `UNRESOLVABLE_BASE` and nothing else.
+  Module 89 -> 91 tests, `tools/docs_tests` 200 -> 202, `gate-tools` 406 + 243 ->
+  406 + 245, `tools.lints --all` exit 0, the `D-21` count sweep exits 1, and the
+  pinned-base fence over `src/ runtime/ examples/ public/ tests/ pyproject.toml
+  tools/lints/citations.py` EMPTY. Module timing 2.42-2.52s before, 3.72-4.12s after --
+  a correct control that is slower is not a trade this phase makes against correctness.
+  `CASCADING_REDS` still EMPTY; every red above is an `AssertionError`. `D-IMPL-182`'s two
+  prohibitions honoured: no seventh aim disposition, no registry rename. `VAC-06`'s ledger
+  row stays `Pending` BY DESIGN until plan `21.1-09`. `D-15` honoured: STATE.md and
+  ROADMAP.md backed up outside the tree, hand-edited, diffed; no `state.*` or `roadmap.*`
+  writer invoked. `RETIREMENT-COUPLINGS.md` regenerated LAST.
   2026-08-22 -- **PHASE 21.1 WAVE 7 LANDED (`21.1-07`, four task commits `e8916d4`,
   `e62c090`, `f1cd3b8`, `6436163`).** **CRITERION 13 IS CLOSED FOR EVERY KIND THIS PLAN
   OWNS. The generator of the phase's defect class now has a standing check.** Nothing in
