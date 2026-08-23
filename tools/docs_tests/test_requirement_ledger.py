@@ -686,6 +686,18 @@ def fabric_diff(base: str, paths: Sequence[str], ceiling: str = "HEAD") -> str:
 
     Note that this compares COMMITS and is blind to the working tree, which is
     why the base-commit file is committed before this module is first run.
+
+    **And the third refusal reads a different revision from the diff, which
+    bounds what it can catch.** :func:`tracked_under` shells out to ``git
+    ls-files``, which reports the INDEX at HEAD, while the diff below compares
+    ``base..<ceiling>``. A pathspec member that names a file created *after*
+    the ceiling is therefore tracked at HEAD, satisfies the refusal, and still
+    contributes a necessarily-empty diff — the same "empty for a reason
+    unrelated to a clean tree" shape the refusal exists to end, one revision
+    over. It is covered today by ``derived_base.no_history``, which `CONTROL A`
+    and `CONTROL 13` watch, and it is recorded here rather than repaired
+    because the repair is a second `git` revision argument threaded through
+    every caller.
     """
     if not base.strip():
         _refuse(
