@@ -80,6 +80,20 @@ PHASE_DIR = (
 #: vacuous rather than failing it.
 BASE_COMMIT_FILE = PHASE_DIR / "21-BASE-COMMIT.txt"
 
+#: Where `D-IMPL-188` pinned this phase's diff CEILING — Phase 21.1's close
+#: commit, the last commit of the phase family the four untouched-tree
+#: assertions below are about.
+#:
+#: Pinned in a committed file rather than spelled as a literal in a function
+#: body, on exactly the reasoning :data:`BASE_COMMIT_FILE` carries: the value
+#: needs a place to say WHY it is that value, and a bare SHA in the source has
+#: nowhere to put the paragraph. It is validated by
+#: :func:`test_the_pinned_diff_ceiling_resolves` — a full SHA, resolvable, an
+#: ancestor of HEAD, and a STRICT DESCENDANT of the base, because a ceiling at
+#: or before the base makes the window empty and every assertion built on it
+#: vacuously green forever.
+CLOSE_COMMIT_FILE = PHASE_DIR / "21-CLOSE-COMMIT.txt"
+
 #: Success criterion 12, verbatim: the phase touches no file under `src/` or
 #: `runtime/`. This phase FINDS and RECORDS; it builds nothing.
 FABRIC: tuple[str, ...] = ("src/", "runtime/")
@@ -213,6 +227,7 @@ LIMBS: frozenset[str] = frozenset(
     {
         "tracked_under.nonzero_exit",
         "fabric_diff.empty_base",
+        "fabric_diff.empty_ceiling",
         "fabric_diff.empty_paths",
         "fabric_diff.untracked_member",
         "fabric_diff.nonzero_exit",
@@ -543,6 +558,28 @@ def phase_base_commit() -> str:
     return first_line.strip()
 
 
+def phase_close_commit() -> str:
+    """The pinned diff CEILING, read from the file `D-IMPL-188` wrote.
+
+    Read from a committed file rather than returned as a literal, for the two
+    reasons :func:`phase_base_commit` is: the value needs a place to record
+    WHY it is that value, and a pin that lives beside its own justification is
+    one a later reader can evaluate instead of merely obeying.
+
+    **Why there is a ceiling at all.** Every untouched-tree assertion in this
+    module is `git diff <base>..<ceiling> -- <paths>` required to be empty, and
+    until `D-IMPL-188` the ceiling was HEAD. That made each assertion say two
+    things: *Phase 21 did not write here*, which is what it was commissioned
+    to say, and *no later phase may ever write here*, which nobody ruled on
+    and which no phase boundary could lift. The second claim came due the
+    moment Phase 22 wrote a page under `public/`. Bounding the window at this
+    phase's own close leaves the first claim exactly as it was and removes the
+    second.
+    """
+    first_line = CLOSE_COMMIT_FILE.read_text(encoding="utf-8").splitlines()[0]
+    return first_line.strip()
+
+
 def tracked_under(paths: Sequence[str]) -> list[str]:
     """Every path tracked by `git` that the pathspec `paths` matches.
 
@@ -572,8 +609,8 @@ def tracked_under(paths: Sequence[str]) -> list[str]:
     return [line for line in completed.stdout.splitlines() if line]
 
 
-def fabric_diff(base: str, paths: Sequence[str]) -> str:
-    """``git diff --stat <base>..HEAD -- <paths>``, as a string.
+def fabric_diff(base: str, paths: Sequence[str], ceiling: str = "HEAD") -> str:
+    """``git diff --stat <base>..<ceiling> -- <paths>``, as a string.
 
     A function of its arguments so a control can hand it a base and a path
     that genuinely **do** differ and watch it produce output. That control is
@@ -582,11 +619,23 @@ def fabric_diff(base: str, paths: Sequence[str]) -> str:
     and an empty string from a failed command is indistinguishable from an
     empty string from a clean tree.
 
-    Four refusals rather than a quiet empty string: an empty base (``git diff
-    ..HEAD`` compares HEAD against nothing), an empty path list (the diff is
-    limited to nothing and is empty regardless of what the phase changed), **a
-    pathspec ANY MEMBER of which matches no tracked file**, and a non-zero exit
-    from `git` itself.
+    Five refusals rather than a quiet empty string: an empty base (``git diff
+    ..HEAD`` compares HEAD against nothing), **an empty ceiling**, an empty
+    path list (the diff is limited to nothing and is empty regardless of what
+    the phase changed), **a pathspec ANY MEMBER of which matches no tracked
+    file**, and a non-zero exit from `git` itself.
+
+    **`ceiling` defaults to ``HEAD``, and the empty-ceiling refusal is what
+    keeps the default from being a trapdoor (`D-IMPL-188`).** ``git diff
+    <base>.. -- <paths>`` is not an error: `git` reads the missing right-hand
+    side as HEAD. So a ceiling that arrives empty — a pin file truncated to
+    nothing, a helper returning `""` from a failed read — does not fail; it
+    silently restores the unbounded comparison this parameter exists to end,
+    and the assertion goes on passing while claiming a window it is not using.
+    That is this module's defect class exactly, so the empty ceiling is
+    refused by name rather than defaulted around. An UNRESOLVABLE ceiling is
+    caught one refusal further down, by the non-zero exit, which `CONTROL B`
+    watches on both bounds.
 
     **The third refusal is quantified PER MEMBER, and that quantifier is the
     whole of `RR-1`.** It was added at the Phase 21 close as ONE truthiness test
@@ -638,6 +687,14 @@ def fabric_diff(base: str, paths: Sequence[str]) -> str:
             "no diff base was given, so `git diff` would compare HEAD against"
             " nothing and print nothing — which reads exactly like a clean tree"
         )
+    if not ceiling.strip():
+        _refuse(
+            "fabric_diff.empty_ceiling",
+            "no diff ceiling was given, so `git diff <base>.. -- <paths>`"
+            " falls back to HEAD without erroring. The comparison silently"
+            " becomes the UNBOUNDED one `D-IMPL-188` bounded, while the"
+            " assertion goes on reporting on a window it is not using"
+        )
     if not paths:
         _refuse(
             "fabric_diff.empty_paths",
@@ -656,7 +713,7 @@ def fabric_diff(base: str, paths: Sequence[str]) -> str:
                 " success over a comparison that had no subject"
             )
     completed = subprocess.run(
-        ["git", "diff", "--stat", f"{base}..HEAD", "--", *paths],
+        ["git", "diff", "--stat", f"{base}..{ceiling}", "--", *paths],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -665,7 +722,7 @@ def fabric_diff(base: str, paths: Sequence[str]) -> str:
     if completed.returncode != 0:
         _refuse(
             "fabric_diff.nonzero_exit",
-            f"`git diff --stat {base}..HEAD -- {list(paths)}` exited"
+            f"`git diff --stat {base}..{ceiling} -- {list(paths)}` exited"
             f" {completed.returncode}, so its empty output says nothing about"
             f" the tree.\nstderr: {completed.stderr.strip()}"
         )
@@ -703,8 +760,10 @@ def repository_root_commit() -> str:
     return roots[-1] if roots else ""
 
 
-def derived_base(member: str, last_touching: str | None = None) -> str:
-    """A commit at which ONE pathspec member genuinely differs from HEAD.
+def derived_base(
+    member: str, last_touching: str | None = None, ceiling: str = "HEAD"
+) -> str:
+    """A commit at which ONE pathspec member genuinely differs from `ceiling`.
 
     `VAC-06`, criterion 14, plan `21.1-08`. **The shape `CONTROL 13` and
     `CONTROL A` needed and did not have.** Both claimed to be the non-vacuity
@@ -716,12 +775,22 @@ def derived_base(member: str, last_touching: str | None = None) -> str:
     re-aimed control asserting a non-empty diff against the PINNED base would
     simply fail. The base has to differ per member instead.
 
-    **Derived, never written down.** ``git log -1 --format=%H -- <member>``
-    names the commit that last touched this member; its parent is a base at
-    which the member necessarily differs from HEAD, because nothing after that
-    commit touched it. A SHA in the source would go stale on the first rebase
-    or squash-merge while reading exactly as authoritative — criterion 14's
-    prohibition, and the reason this is a function rather than a table.
+    **Derived, never written down.** ``git log -1 --format=%H <ceiling> --
+    <member>`` names the commit that last touched this member at or before the
+    ceiling; its parent is a base at which the member necessarily differs from
+    the ceiling, because nothing between that commit and the ceiling touched
+    it. A SHA in the source would go stale on the first rebase or squash-merge
+    while reading exactly as authoritative — criterion 14's prohibition, and
+    the reason this is a function rather than a table.
+
+    **`ceiling` is a parameter because the thing this vouches for gained one
+    (`D-IMPL-188`).** `CONTROL A` uses this to prove that the four bounded
+    emptiness assertions are comparing something, and those assertions compare
+    ``base..<pinned close commit>``. A base derived against HEAD would give
+    that control a differing window that is not the window the assertion uses
+    — a control green for a reason unrelated to its subject, which is `RR-9`
+    arriving through the repair for the unbounded ceiling. The default keeps
+    `CONTROL 13`, whose assertion is unbounded, reading exactly as it did.
 
     **ONE member, never a tuple, and that quantifier is the whole point.** It
     is the same per-member property plan `21.1-01` installed in
@@ -747,7 +816,7 @@ def derived_base(member: str, last_touching: str | None = None) -> str:
     """
     if last_touching is None:
         found = subprocess.run(
-            ["git", "log", "-1", "--format=%H", "--", member],
+            ["git", "log", "-1", "--format=%H", ceiling, "--", member],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
@@ -757,7 +826,8 @@ def derived_base(member: str, last_touching: str | None = None) -> str:
         if not last_touching:
             _refuse(
                 "derived_base.no_history",
-                f"`git log -1 --format=%H -- {member!r}` named no commit, so"
+                f"`git log -1 --format=%H {ceiling} -- {member!r}` named no"
+                " commit, so"
                 " nothing tracked has ever matched this member and no base can"
                 " be derived from it. `git log` exits ZERO on a pathspec that"
                 " matches nothing, so a one-key typo produces the empty string"
@@ -827,9 +897,100 @@ def test_the_pinned_diff_base_resolves() -> None:
     )
 
 
+def test_the_pinned_diff_ceiling_resolves() -> None:
+    """Non-vacuity for the OTHER end of the window (`D-IMPL-188`).
+
+    :func:`test_the_pinned_diff_base_resolves` is the precedent and this is its
+    twin, because the ceiling can go wrong in every way the base can and in one
+    way the base cannot.
+
+    Four properties, in order, and the fourth is the whole point:
+
+    1. a full 40 hex characters — a short or annotated value is one rename
+       away from resolving to something else, which is the base file's own
+       argument;
+    2. it RESOLVES, via ``git rev-parse --verify <sha>^{commit}``. A ceiling
+       that does not resolve makes `git diff` exit non-zero, which
+       :func:`fabric_diff` refuses by name — but it should be named HERE, as
+       a broken pin, rather than four assertions down as a broken diff;
+    3. it is an ANCESTOR of HEAD. A ceiling on some other line of history is
+       not a bound on this one, and the window it describes is not the window
+       anybody ruled on;
+    4. **it is a STRICT DESCENDANT of the base.** A ceiling at or before the
+       base makes the window EMPTY, and an empty window makes every one of the
+       four bounded assertions vacuously green — forever, silently, and while
+       reading exactly like a clean tree. That is this module's defect class
+       arriving through the repair that introduced the ceiling, and it is the
+       reason this test exists rather than a `git rev-parse` in a comment.
+
+    Strictness is asserted separately from ancestry because
+    ``git merge-base --is-ancestor A A`` succeeds: a ceiling pinned to the base
+    itself would pass the ancestry check and produce the empty window anyway.
+    """
+    base = phase_base_commit()
+    ceiling = phase_close_commit()
+
+    assert re.fullmatch(r"[0-9a-f]{40}", ceiling), (
+        f"the pinned ceiling {ceiling!r} is not a full SHA; a short or"
+        " annotated value is one rename away from resolving to something else"
+    )
+    resolved = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{ceiling}^{{commit}}"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert resolved.returncode == 0, (
+        f"the pinned ceiling {ceiling} does not resolve in this repository:"
+        f" {resolved.stderr.strip()}. Every bounded assertion below would then"
+        " fail as a broken diff rather than as the broken pin it is"
+    )
+
+    reachable = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ceiling, "HEAD"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert reachable.returncode == 0, (
+        f"the pinned ceiling {ceiling} is not an ancestor of HEAD, so it bounds"
+        " some other line of history and the window the four assertions"
+        " compare is not the window `D-IMPL-188` ruled on"
+    )
+
+    assert ceiling != base, (
+        f"the pinned ceiling and the pinned base are the same commit {base}."
+        " The window is then EMPTY and all four bounded assertions are"
+        " vacuously green forever, over a comparison with nothing in it"
+    )
+    after_base = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", base, ceiling],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert after_base.returncode == 0, (
+        f"the pinned base {base} is not an ancestor of the pinned ceiling"
+        f" {ceiling}, so the window runs BACKWARDS or across a fork and"
+        " `git diff <base>..<ceiling>` says nothing about what this phase"
+        " wrote. A ceiling that is not after the base is the empty-window"
+        " failure this check exists for"
+    )
+
+
 def test_the_fabric_is_untouched() -> None:
-    """Criterion 12, in its own words: no file under `src/` or `runtime/`."""
-    diff = fabric_diff(phase_base_commit(), FABRIC)
+    """Criterion 12, in its own words: no file under `src/` or `runtime/`.
+
+    **Bounded at the phase's own close commit (`D-IMPL-188`), not at HEAD.**
+    The claim is unchanged — *Phase 21 wrote no file under `src/` or
+    `runtime/`* — and it is the claim criterion 12 asks for. What is gone is
+    the second, unruled claim an unbounded upper bound smuggled in: *and no
+    later phase ever may*. See :func:`phase_close_commit`.
+    """
+    diff = fabric_diff(phase_base_commit(), FABRIC, phase_close_commit())
     assert diff == "", (
         "this phase changed a file under `src/` or `runtime/`. Criterion 12"
         " forbids it: the phase FINDS and RECORDS, and the work a `Not built`"
@@ -846,8 +1007,21 @@ def test_the_scope_fence_holds() -> None:
     a gap closed in `src/` — and the ROADMAP's out-of-scope paragraph names
     the behaviour rather than the tree: *an executor that starts closing gaps
     it discovered has turned an audit into an unplanned implementation phase.*
+
+    **Bounded at the phase's own close commit (`D-IMPL-188`), and this is the
+    assertion that forced the ruling.** With HEAD as the upper bound the fence
+    was not a fence around Phase 21 — it was a permanent freeze on `src/`,
+    `runtime/`, `examples/`, `public/` and `pyproject.toml` for every phase
+    that would ever follow, which `D-11` does not say and nobody ruled. Phase
+    22 wrote one page under `public/` and this went red on a correct tree.
+
+    **The fix is the window, NOT the pathspec.** Dropping `public/` from
+    :data:`FENCE` to make the run green was considered and rejected: it would
+    narrow the claim to fit the failure, which is the move the docstring below
+    already forbids in its own words — *this assertion is not narrowed to
+    accommodate the change that tripped it*. The five members stand.
     """
-    diff = fabric_diff(phase_base_commit(), FENCE)
+    diff = fabric_diff(phase_base_commit(), FENCE, phase_close_commit())
     assert diff == "", (
         "this phase wrote inside the `D-11` scope fence. The finding is"
         " REPORTED — as a verdict, a named absence and a work-list entry —"
@@ -857,8 +1031,16 @@ def test_the_scope_fence_holds() -> None:
 
 
 def test_the_human_needed_verification_records_are_untouched() -> None:
-    """`D-13`/`D-20`: no `human_needed` item is discharged by an executor."""
-    diff = fabric_diff(phase_base_commit(), UAT_RECORDS)
+    """`D-13`/`D-20`: no `human_needed` item is discharged by an executor.
+
+    **Bounded at the phase's own close commit (`D-IMPL-188`).** `D-13` is
+    about what THIS phase's executors did with eleven undischarged records,
+    and that is what the bounded window measures. Held open at HEAD it also
+    said no future phase may ever touch one of these files — including the
+    phase in which Dave finally discharges them, which would have made
+    discharging an item a red build.
+    """
+    diff = fabric_diff(phase_base_commit(), UAT_RECORDS, phase_close_commit())
     assert diff == "", (
         "a phase verification record changed. Every item in these files needs"
         " Dave, not an executor (`D-13`), and the roster covers all eleven"
@@ -898,8 +1080,15 @@ def test_the_uat_roster_matches_the_records_on_disk() -> None:
 
 
 def test_the_citation_lint_is_not_modified() -> None:
-    """`D-07`: the lint's silent-drop holes are NAMED, not fixed, in this phase."""
-    diff = fabric_diff(phase_base_commit(), PINNED_FILES)
+    """`D-07`: the lint's silent-drop holes are NAMED, not fixed, in this phase.
+
+    **Bounded at the phase's own close commit (`D-IMPL-188`).** `D-07` is
+    scoped to *this phase* in its own wording — fixing the lint HERE would be
+    tooling repair inside an audit. Bounded at HEAD, the assertion instead
+    prohibited the repair permanently, in the file whose two named holes are
+    still open and still want fixing in a phase commissioned to fix them.
+    """
+    diff = fabric_diff(phase_base_commit(), PINNED_FILES, phase_close_commit())
     assert diff == "", (
         "`tools/lints/citations.py` changed. `D-07` holds it byte-identical"
         " for this phase: the ambiguous-basename hole stays open and stays"
@@ -964,6 +1153,17 @@ def test_control_a_a_base_and_path_that_differ_produce_output() -> None:
     its own body does not read the constant at all, which would make
     `CONTROL 38`'s substitution invisible to it — `RR-9` re-shipping inside the
     repair for `RR-9`.
+
+    **It compares against the SAME CEILING the four assertions do
+    (`D-IMPL-188`), and that is not cosmetic.** The four now compare
+    ``base..<pinned close commit>``; a control proving that ``derived..HEAD``
+    produces output would be vouching for a window nothing asserts. Both ends
+    move together: :func:`derived_base` takes the ceiling too, so each member's
+    base is the parent of the last commit that touched it *at or before the
+    ceiling* and the member therefore differs across exactly the window the
+    assertion uses. A control and the assertion it vouches for that drift onto
+    different windows are `CONTROL A` mis-aimed for the second time, which is
+    what `RR-9` already cost this module once.
     """
     resolved = dict(asserted_pathspecs())
     unresolvable = sorted(CONTROL_A_PATHSPECS - set(resolved))
@@ -972,20 +1172,22 @@ def test_control_a_a_base_and_path_that_differ_produce_output() -> None:
         " `asserted_pathspecs()` does not resolve. The assertions those names"
         " stand for would then be vouched for by nothing at all"
     )
+    ceiling = phase_close_commit()
     compared: list[str] = []
     for name in sorted(CONTROL_A_PATHSPECS):
         for member in resolved[name]:
-            base = derived_base(member)
-            diff = fabric_diff(base, (member,))
+            base = derived_base(member, ceiling=ceiling)
+            diff = fabric_diff(base, (member,), ceiling)
             compared.append(f"{name}:{member}")
             assert diff.strip(), (
-                f"`git diff --stat {base}..HEAD -- {member}` produced NOTHING"
-                f" for the member {member!r} of {name}, whose base is the parent"
-                " of its own last-touching commit — so the member demonstrably"
-                " changed in that commit and nothing has touched it since. An"
-                " empty diff here means the comparison is broken, and the"
-                f" emptiness assertion over {name} is therefore saying nothing"
-                " about that member at all"
+                f"`git diff --stat {base}..{ceiling} -- {member}` produced"
+                f" NOTHING for the member {member!r} of {name}, whose base is"
+                " the parent of its own last-touching commit at or before the"
+                " ceiling — so the member demonstrably changed in that commit"
+                " and nothing between it and the ceiling touched it. An empty"
+                " diff here means the comparison is broken, and the emptiness"
+                f" assertion over {name} is therefore saying nothing about that"
+                " member at all"
             )
     assert compared, (
         "this control compared NOTHING — `CONTROL_A_PATHSPECS` or the constants"
@@ -1003,35 +1205,72 @@ def test_control_b_an_unresolvable_base_fails_loudly() -> None:
     rebase, a truncated pin, a typo, a shallow CI clone. Every one makes `git
     diff` exit non-zero with an empty stdout, and a function that returned
     that stdout would report a clean tree forever.
+
+    **BOTH ENDS, since `D-IMPL-188` gave the window a second pinned end.** The
+    ceiling is a pin in a committed file exactly as the base is, so every way
+    the base can stop resolving is a way the ceiling can stop resolving —
+    and an assertion whose ceiling has gone stale reports a clean tree for the
+    same reason. A control that watched only the base would leave the newer of
+    the two pins unwatched, which is the half-covered shape `RR-1` was.
     """
-    try:
-        result = fabric_diff(UNRESOLVABLE_BASE, FABRIC)
-    except AssertionError as failure:
-        assert "exited" in str(failure)
-        return
-    raise AssertionError(
-        f"an unresolvable base returned {result!r} instead of failing; an 'is"
-        " empty' assertion built on that reports success for a comparison that"
-        " never happened"
+    subjects = (
+        ("base", UNRESOLVABLE_BASE, "HEAD"),
+        ("ceiling", phase_base_commit(), UNRESOLVABLE_BASE),
     )
+    for end, base, ceiling in subjects:
+        try:
+            result = fabric_diff(base, FABRIC, ceiling)
+        except AssertionError as failure:
+            assert "exited" in str(failure), (
+                f"an unresolvable {end} was refused for the wrong reason:"
+                f" {failure}"
+            )
+            continue
+        raise AssertionError(
+            f"an unresolvable {end} returned {result!r} instead of failing; an"
+            " 'is empty' assertion built on that reports success for a"
+            " comparison that never happened"
+        )
 
 
 def test_control_c_an_empty_path_list_fails_loudly() -> None:
-    """CONTROL C — the two other ways to compare nothing and call it clean.
+    """CONTROL C — the three other ways to compare nothing and call it clean.
 
     ``git diff --stat ..HEAD`` and a diff limited to no paths both print
     nothing and both exit zero.
+
+    **The third subject is the EMPTY CEILING, and it is the worst of them
+    (`D-IMPL-188`).** The other two produce a comparison with nothing in it;
+    an empty ceiling produces a comparison with the WRONG THING in it. ``git
+    diff <base>.. -- <paths>`` does not error — `git` reads the missing
+    right-hand side as HEAD — so an empty ceiling silently restores the
+    unbounded window the ruling removed, and the assertion keeps passing while
+    reporting on a window it no longer uses. That is a check green for a
+    reason unrelated to what it claims, which is this module's whole subject,
+    so it is refused by name rather than defaulted around.
+
+    **NOT split into three controls to fit the registry.** The docstring calls
+    these "the ways to compare nothing and call it clean" and they are one
+    subject seen three ways; narrowing a control to fit a schema is the move
+    this phase exists to stop. The registry entry carries all three limbs, and
+    `CONTROL 35` proves each is reached INDEPENDENTLY.
     """
-    for base, paths, expected in (
-        ("", FABRIC, "no diff base was given"),
-        (phase_base_commit(), (), "no paths were given"),
+    for base, paths, ceiling, expected in (
+        ("", FABRIC, "HEAD", "no diff base was given"),
+        (phase_base_commit(), FABRIC, "", "no diff ceiling was given"),
+        (phase_base_commit(), (), "HEAD", "no paths were given"),
     ):
         try:
-            fabric_diff(base, paths)
+            fabric_diff(base, paths, ceiling)
         except AssertionError as failure:
-            assert expected in str(failure)
+            assert expected in str(failure), (
+                f"{base!r}..{ceiling!r}/{list(paths)} was refused for the wrong"
+                f" reason: {failure}"
+            )
         else:  # pragma: no cover - the refusal is the point
-            raise AssertionError(f"{base!r}/{list(paths)} did not refuse")
+            raise AssertionError(
+                f"{base!r}..{ceiling!r}/{list(paths)} did not refuse"
+            )
 
 
 def asserted_pathspecs() -> tuple[tuple[str, tuple[str, ...]], ...]:
@@ -1227,8 +1466,10 @@ def test_every_asserted_pathspec_names_a_tracked_subject() -> None:
     """Each emptiness assertion is over a pathspec that names something real.
 
     Added at the phase close by the §3.1 panel. Every "this tree is untouched"
-    assertion in this module resolves to `git diff --stat <base>..HEAD -- <spec>`
-    being the empty string, and `git` returns the empty string just as
+    assertion in this module resolves to
+    `git diff --stat <base>..<ceiling> -- <spec>` being the empty string — the
+    ceiling is the pinned close commit for the four `D-IMPL-188` bounded, and
+    HEAD for :data:`TESTS_TREE` — and `git` returns the empty string just as
     willingly for a spec that matches nothing at all. Without this, a one-key
     typo in :data:`FABRIC`, :data:`FENCE`, :data:`PINNED_FILES`,
     :data:`UAT_RECORDS` or :data:`TESTS_TREE` silently converts the assertion
@@ -1279,8 +1520,16 @@ def test_control_16_a_pathspec_that_names_nothing_is_refused() -> None:
     stdout, indistinguishable from the clean tree the real constants produce.
     A control that only watched the new refusal fire would not show what the
     refusal adds.
+
+    **The raw comparison uses the SAME WINDOW the guarded assertions use
+    (`D-IMPL-188`).** Its job is to establish that the mutation is the silent
+    kind *in the comparison the assertion actually performs*; run against a
+    different upper bound it would be establishing that about some other
+    comparison, and a control demonstrating a property of a window nothing
+    asserts has demonstrated nothing.
     """
     base = phase_base_commit()
+    ceiling = phase_close_commit()
     near_misses = (
         ("scr/",),
         ("runtimes/",),
@@ -1290,7 +1539,7 @@ def test_control_16_a_pathspec_that_names_nothing_is_refused() -> None:
     )
     for spec in near_misses:
         raw = subprocess.run(
-            ["git", "diff", "--stat", f"{base}..HEAD", "--", *spec],
+            ["git", "diff", "--stat", f"{base}..{ceiling}", "--", *spec],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
@@ -1304,7 +1553,7 @@ def test_control_16_a_pathspec_that_names_nothing_is_refused() -> None:
             " longer about the failure it was written for"
         )
         try:
-            result = fabric_diff(base, spec)
+            result = fabric_diff(base, spec, ceiling)
         except AssertionError as failure:
             assert "matches no file tracked" in str(failure), (
                 f"{list(spec)} was refused for the wrong reason: {failure}"
@@ -1324,8 +1573,15 @@ def test_the_positive_control_a_real_pathspec_is_still_accepted() -> None:
     phase touched no file under `src/` or `runtime/`. The guard must let that
     empty result through while refusing the empty result a typo produces, and
     those two are the same string.
+
+    **Bounded exactly as its subject is (`D-IMPL-188`).** This is the
+    discriminator for :func:`test_the_fabric_is_untouched` and it has to run
+    the same comparison: unbounded, it would go red the day a later phase
+    touches `src/` legitimately, while the assertion it discriminates for
+    stayed green — a control and its subject disagreeing about the tree, which
+    is worse than either being wrong alone.
     """
-    assert fabric_diff(phase_base_commit(), FABRIC) == ""
+    assert fabric_diff(phase_base_commit(), FABRIC, phase_close_commit()) == ""
 
 
 @pytest.mark.parametrize("name,index", multi_member_cases())
@@ -1358,8 +1614,19 @@ def test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused(
     4. :func:`fabric_diff` refuses, and the refusal NAMES the mutated member
        rather than the tuple. Naming the tuple would be the same aggregate
        report one level up.
+
+    **Step 3 replicates the guarded assertion's own `git diff`, so it moved
+    with it (`D-IMPL-188`).** This is where the unbounded ceiling was found:
+    held at HEAD while the assertions moved to the pinned close commit, step 3
+    read Phase 22's page under `public/` and the case ``FENCE[3]`` — the
+    `public/` member — became the ONE case that passed, because mutating that
+    member is what removed the only path with a real diff. Four sibling cases
+    went red on a correct tree and the asymmetry was the tell. A control that
+    replicates a call has to replicate the window too, or the two drift apart
+    and the control stops being about its subject.
     """
     base = phase_base_commit()
+    ceiling = phase_close_commit()
     real = dict(asserted_pathspecs())[name]
     broken = near_miss(real[index])
     mutated = tuple(
@@ -1381,7 +1648,7 @@ def test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused(
     )
 
     raw = subprocess.run(
-        ["git", "diff", "--stat", f"{base}..HEAD", "--", *mutated],
+        ["git", "diff", "--stat", f"{base}..{ceiling}", "--", *mutated],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -1396,7 +1663,7 @@ def test_control_18_one_misspelled_member_of_a_multi_member_pathspec_is_refused(
     )
 
     try:
-        result = fabric_diff(base, mutated)
+        result = fabric_diff(base, mutated, ceiling)
     except AssertionError as failure:
         assert broken in str(failure), (
             f"{name} with {broken!r} substituted was refused, but the refusal"
@@ -5848,7 +6115,17 @@ CONTROL_AIM: dict[str, Aim] = {
     ),
     "test_control_c_an_empty_path_list_fails_loudly": Aim(
         kind="limb",
-        targets=frozenset({"fabric_diff.empty_base", "fabric_diff.empty_paths"}),
+        # THREE limbs since `D-IMPL-188`. `CONTROL 35` proves each is reached
+        # independently, so the empty-ceiling limb cannot be carried by its
+        # two older siblings — which is the whole reason the target set is a
+        # frozenset rather than one name.
+        targets=frozenset(
+            {
+                "fabric_diff.empty_base",
+                "fabric_diff.empty_ceiling",
+                "fabric_diff.empty_paths",
+            }
+        ),
         invoke=lambda: test_control_c_an_empty_path_list_fails_loudly(),
     ),
     "test_control_37_a_derived_base_refuses_a_member_it_cannot_resolve": Aim(

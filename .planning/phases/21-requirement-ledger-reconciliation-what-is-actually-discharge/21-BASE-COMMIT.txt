@@ -21,3 +21,17 @@ c51406be1170259336e8799f5d4c69b2e39d4c8a
 # It is the commit AFTER the `docs` job's `fetch-depth: 0` fix, deliberately:
 # the workflow edit is therefore already in the base and no untouched-tree
 # assertion ever has to see it.
+#
+# --- APPENDED by `D-IMPL-188`. Nothing above this line was altered. ---
+#
+# The four assertions above are no longer open-ended at HEAD. Their UPPER
+# BOUND is now pinned in `21-CLOSE-COMMIT.txt`, beside this file, so each one
+# reads
+#
+#   git diff --stat $(head -1 21-BASE-COMMIT.txt)..$(head -1 21-CLOSE-COMMIT.txt) -- <paths>
+#
+# The `..HEAD` lines above are the form the assertions shipped in and are left
+# exactly as written; read them together with that file. Nothing about the
+# BASE changed, and neither did what any of the four assertions claims: each
+# still says "Phase 21 did not write here". What changed is that it has
+# stopped also saying "and no later phase ever may".

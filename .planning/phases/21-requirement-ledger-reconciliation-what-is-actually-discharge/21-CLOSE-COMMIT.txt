@@ -1,0 +1,44 @@
+951eb4a3e2d8e072ec7f059e372545753d415a25
+# The Phase 21 diff CEILING. Read by `phase_close_commit()` in
+# `tools/docs_tests/test_requirement_ledger.py`. `D-IMPL-188` bounded this
+# phase's four untouched-tree assertions here, so that each compares the
+# window `<21-BASE-COMMIT.txt>..<this file>` rather than
+# `<21-BASE-COMMIT.txt>..HEAD`:
+#
+#   git diff --stat <base>..<ceiling> -- src/ runtime/
+#   git diff --stat <base>..<ceiling> -- <the D-11 scope fence>
+#   git diff --stat <base>..<ceiling> -- <the 11 *-VERIFICATION.md>
+#   git diff --stat <base>..<ceiling> -- tools/lints/citations.py
+#
+# WHY. With HEAD as the upper bound, each assertion said "Phase 21 did not
+# write here" on the day it landed and "NO phase may ever write here"
+# thereafter — a forward prohibition over `src/`, `runtime/`, `examples/`,
+# `public/` and `pyproject.toml` that nobody ruled on and that no phase
+# boundary could lift. Phase 22 added
+# `public/concepts/answers-no-document-contains.md` and the `D-11` scope
+# fence went red on a correct tree. Bounding restores each assertion to
+# exactly the claim it carried during Phase 21 — *Phase 21 did not write
+# here* — and stops it making a claim about the future. Retiring the
+# assertions, dropping `public/` from the fence, and reverting Phase 22 were
+# all considered and all rejected.
+#
+# WHAT THIS SHA IS. Phase 21.1's close commit — the last commit of the phase
+# family these four assertions are about, merged and pushed to `main` at
+# `D-GATE-21.1`. Every commit after it is Phase 22 work or later, and the
+# window therefore covers the whole of Phase 21 and Phase 21.1 and nothing
+# else.
+#
+# Pinned in a committed file rather than resolved at run time from a tag or a
+# branch name, for the same reason the base is: a ceiling that does not
+# resolve — or one that silently falls back to HEAD — makes an "is empty"
+# assertion vacuous rather than failing it. `git diff <base>.. -- <paths>`
+# means `<base>..HEAD`, so an EMPTY ceiling is exactly that silent fallback;
+# it is refused by name through the `fabric_diff.empty_ceiling` limb.
+#
+# The value is a full 40 hex characters, and
+# `test_the_pinned_diff_ceiling_resolves` requires it to resolve through
+# `git rev-parse --verify <sha>^{commit}`, to be an ancestor of HEAD, and to
+# be a STRICT DESCENDANT of the base. The last of those is the one that
+# matters: a ceiling at or before the base makes the window EMPTY, and every
+# one of the four assertions is then vacuously green forever — the failure
+# mode the module exists to detect, arriving through its own repair.
