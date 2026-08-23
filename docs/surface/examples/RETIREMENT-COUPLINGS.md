@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **244** across **80** files
+- Coupling rows: **257** across **81** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **146** across **50** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **235**
 
@@ -20,7 +20,7 @@ Rows by owning plan:
 | 16-15 | 24 |
 | 16-17 | 41 |
 | 16-18 | 111 |
-| 17-08 | 58 |
+| 17-08 | 71 |
 
 Rows by coupling shape:
 
@@ -35,8 +35,8 @@ Rows by coupling shape:
 | `makefile-recipe` | 16 |
 | `markdown-link` | 8 |
 | `path-construction` | 11 |
-| `prose` | 44 |
-| `snippet-include` | 53 |
+| `prose` | 52 |
+| `snippet-include` | 58 |
 | `string-literal` | 9 |
 | `tmp_path-synthetic` | 5 |
 
@@ -136,6 +136,19 @@ Rows by coupling shape:
 | `perf/suites/crossproc/conftest.py` | 3 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `perf/suites/crossproc/conftest.py` | 52 | `examples/04-cross-process` | `path-construction` | live | - | - | 16-17 | constructed as `examples/04-cross-process` |
 | `perf/synth/artifacts/controlplane.yaml` | 3 | `examples/04-cross-process` | `comment` | documentary | - | - | 16-17 |  |
+| `public/concepts/answers-no-document-contains.md` | 33 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `public/concepts/answers-no-document-contains.md` | 63 | `tests/examples/test_s1_01_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `public/concepts/answers-no-document-contains.md` | 69 | `examples/s1-01-hello-context-product` | `snippet-include` | live | - | - | 17-08 |  |
+| `public/concepts/answers-no-document-contains.md` | 77 | `tests/examples/test_s1_01_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `public/concepts/answers-no-document-contains.md` | 80 | `tests/examples/test_s1_01_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `public/concepts/answers-no-document-contains.md` | 95 | `examples/s1-01-hello-context-product` | `snippet-include` | live | - | - | 17-08 |  |
+| `public/concepts/answers-no-document-contains.md` | 121 | `tests/examples/test_s1_01_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `public/concepts/answers-no-document-contains.md` | 125 | `examples/s1-01-hello-context-product` | `snippet-include` | live | - | - | 17-08 |  |
+| `public/concepts/answers-no-document-contains.md` | 141 | `tests/examples/test_s1_01_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `public/concepts/answers-no-document-contains.md` | 145 | `tests/examples/test_s1_01_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `public/concepts/answers-no-document-contains.md` | 152 | `examples/s1-01-hello-context-product` | `snippet-include` | live | - | - | 17-08 |  |
+| `public/concepts/answers-no-document-contains.md` | 167 | `tests/examples/test_s1_01_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `public/concepts/answers-no-document-contains.md` | 172 | `examples/s1-01-hello-context-product` | `snippet-include` | live | - | - | 17-08 |  |
 | `public/how-to/bind-a-harness-adapter.md` | 16 | `examples/03-harness-portability` | `prose` | documentary | - | - | 16-15 |  |
 | `public/how-to/bind-a-harness-adapter.md` | 63 | `examples/03-harness-portability` | `snippet-include` | live | - | - | 16-15 |  |
 | `public/how-to/bind-a-harness-adapter.md` | 70 | `examples/03-harness-portability` | `snippet-include` | live | - | - | 16-15 |  |
