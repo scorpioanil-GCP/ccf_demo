@@ -83,6 +83,22 @@ what it cannot see is how a defect class survives a green build:**
    house spelling, ``passage_anchor`` at line 321, was an evasion the
    obligation could not see. The negative predicate now scans both fields.
    Control 17 holds it and the choice is stated at both predicates.
+3. **Pronoun reference across a re-anchoring.** AW-1's condition (ii) exempts a
+   limit verb whose nearest preceding subject anchor is a CCF anchor, because
+   the limit is then being predicated of this deployment rather than of the
+   approach. That reads POSITION, not REFERENCE, and a pronoun can refer past
+   the nearest anchor. Measured at the Phase 22 close, injected under a heading
+   naming an approach and EXEMPTED: *"A vector store is popular here at CCF,
+   and this deployment aside it cannot answer the question."* — where ``it``
+   refers to the vector store, not to the deployment. Condition (iii) closes
+   the contrastive-frame form of this (``unlike``, ``rather than``, ``compared
+   to``), and the three adjacent shapes were measured CAUGHT: a smuggled CCF
+   anchor with no contrastive word, a CCF anchor followed by an approach anchor,
+   and a bare pronoun after a CCF mention. What remains open is the case where
+   a pronoun's referent is not its nearest anchor and no framing word marks the
+   turn. **Resolving that needs reference resolution, which a regex gate does
+   not have**, so it is named here rather than implied closed. The phrasing is
+   contrived, and it is still a shape rather than a curiosity.
 
 Every constant below states, in its ``#:`` comment, which ``Paragraph`` field
 it is matched against. That is not decoration: matching the wrong field turns a
