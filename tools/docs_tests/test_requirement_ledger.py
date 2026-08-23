@@ -5395,6 +5395,18 @@ CONTROL_AIM: dict[str, Aim] = {
         kind="meta",
         targets=frozenset({"limb"}),
     ),
+    "test_control_36_every_discriminator_discriminates": Aim(
+        kind="meta",
+        targets=frozenset({"discriminator"}),
+    ),
+    "test_control_36b_every_guard_aimed_control_reaches_the_guard_it_holds": Aim(
+        kind="meta",
+        targets=frozenset({"guard"}),
+    ),
+    "test_control_36c_every_shim_keeps_its_degradation_silent": Aim(
+        kind="meta",
+        targets=frozenset({"shim"}),
+    ),
 }
 
 #: Every control in this module, by NAME — the roster the enumeration below is
@@ -5462,6 +5474,9 @@ CONTROLS: frozenset[str] = frozenset(
         "test_control_33_the_neutering_off_switch_cannot_leak_and_its_guard_can_fail",
         "test_control_34_every_control_declares_an_aim_and_every_limb_is_claimed",
         "test_control_35_every_limb_aimed_control_reaches_the_limb_it_names",
+        "test_control_36_every_discriminator_discriminates",
+        "test_control_36b_every_guard_aimed_control_reaches_the_guard_it_holds",
+        "test_control_36c_every_shim_keeps_its_degradation_silent",
     }
 )
 
@@ -5511,7 +5526,11 @@ def test_control_34_every_control_declares_an_aim_and_every_limb_is_claimed() ->
     5. every `pathspec` target names a constant :func:`asserted_pathspecs`
        resolves, and every `discriminator`, `guard` and `shim` entry carries a
        target this module actually defines;
-    6. `meta` entries carry NO thunk and every other entry carries one. That
+    6. every `discriminator` and `guard` entry carries a SABOTEUR and no
+       other kind does — a control whose obligation is inverted has no limb to
+       neuter, and the thing that breaks its subject is carried as data beside
+       the aim;
+    7. `meta` entries carry NO thunk and every other entry carries one. That
        is what makes the invocation exclusion structural rather than a filter
        someone can drop — see :class:`Aim`.
 
@@ -5604,6 +5623,26 @@ def test_control_34_every_control_declares_an_aim_and_every_limb_is_claimed() ->
         + "\n".join(misdirected)
         + "\nA control vouching for a subject the module does not have is"
         " vouching for nothing, and its aim proof would be about a name"
+    )
+
+    saboteurless = sorted(
+        f"{name} ({aim.kind})"
+        for name, aim in CONTROL_AIM.items()
+        if aim.kind in {"discriminator", "guard"} and aim.saboteur is None
+    )
+    over_saboteured = sorted(
+        f"{name} ({aim.kind})"
+        for name, aim in CONTROL_AIM.items()
+        if aim.kind not in {"discriminator", "guard"} and aim.saboteur is not None
+    )
+    assert not saboteurless and not over_saboteured, (
+        f"inverted-obligation entries with no saboteur: {saboteurless}"
+        f"\nentries carrying a saboteur that is never used: {over_saboteured}"
+        "\nA `discriminator` or a `guard` cannot be proven by neutering a limb"
+        " — it has no limb — so the thing that breaks its subject is carried"
+        " HERE, as data beside the aim, rather than as a chain of special"
+        " cases inside the meta-controls. `limb` and `shim` aims break their"
+        " subject with `neutered()` and need none"
     )
 
     thunkless = sorted(
@@ -5765,4 +5804,191 @@ def test_control_35_every_limb_aimed_control_reaches_the_limb_it_names() -> None
     assert proven, (
         "no limb aim was proven at all, so this control passed over the empty"
         " set — the vacuity it exists to detect, arriving inside itself"
+    )
+
+
+# ===========================================================================
+# CONTROL 36, 36b and 36c — the three INVERTED obligations.
+#
+# Criterion 13 says every control's "mutation is watched RED on the aimed limb
+# and GREEN when that limb is intact". Three families of control in this
+# module have no mutation and no limb, and reading the criterion literally
+# either excludes them — which is the narrowing-a-claim-to-fit-a-weak-control
+# move this phase exists to stop — or is unsatisfiable:
+#
+# * the four POSITIVE TWINS, whose job is that a compliant subject is
+#   ACCEPTED. "Red on everything is not a check" is their whole purpose and
+#   each of their docstrings says so;
+# * the controls over guards that REPORT their findings rather than raising a
+#   limb — `channel_disagreements`, `unverdicted`, `refuse_unresolvable` and
+#   the rest — including `CONTROL 32` and `CONTROL 33`, which hold the two
+#   mechanisms whose silent failure makes every other control here vacuous;
+# * the four DEGRADATION SHIMS (`D-IMPL-181`, criterion 15).
+#
+# THE READING, recorded for Dave at the close. Each of the three is proven by
+# breaking what it vouches for and requiring the control to FAIL: a
+# discriminator that stays green while its subject predicate refuses
+# everything is discriminating nothing; a control over a guard that stays
+# green while the guard reports nothing is holding nothing; and a shim whose
+# refusal can be turned off without a control noticing is not being kept
+# silent by anything. Same obligation as `CONTROL 35`, inverted subject.
+#
+# EACH RED IS REQUIRED TO BE THE CONTROL'S OWN `AssertionError`. A crash and a
+# caught defect are indistinguishable to a coverage assertion, and building an
+# instrument that cannot tell them apart is what this whole wave exists to
+# avoid.
+# ===========================================================================
+
+
+def _aim_proof(
+    kind: str,
+    broken: Callable[[Aim, str], contextlib.AbstractContextManager[None]],
+    verb: str,
+) -> tuple[list[str], set[tuple[str, str]]]:
+    """Run one inverted-obligation loop, returning `(failures, proven pairs)`.
+
+    Shared by `CONTROL 36`, `36b` and `36c` because the three differ in one
+    thing only — HOW the subject is broken — and three hand-copied loops is
+    the two-divergent-inline-copies shape plan `21.1-02` was written to end.
+    """
+    failures: list[str] = []
+    proven: set[tuple[str, str]] = set()
+    for name in sorted(CONTROL_AIM):
+        aim = CONTROL_AIM[name]
+        if aim.kind != kind:
+            continue
+        intact = _run_control(aim)
+        if intact is not None:
+            failures.append(
+                f"{name} does not pass with its subject INTACT — it raised"
+                f" {type(intact).__name__}: {intact}. A control that is red"
+                " anyway is red under any sabotage"
+            )
+            continue
+        for target in sorted(aim.targets):
+            with broken(aim, target):
+                raised = _run_control(aim)
+            if raised is None:
+                failures.append(
+                    f"{name} PASSED with {target!r} {verb}. It does not reach"
+                    " what it vouches for: the subject was broken and the"
+                    " control reported success anyway"
+                )
+            elif not isinstance(raised, AssertionError):
+                failures.append(
+                    f"{name} went red with {target!r} {verb}, but it CRASHED"
+                    f" — {type(raised).__name__}: {raised}. A crash is not"
+                    " coverage: it is indistinguishable from a caught defect"
+                    " to every assertion in this module, which is the"
+                    " instrument this wave exists NOT to build"
+                )
+            else:
+                proven.add((name, target))
+    return failures, proven
+
+
+def test_control_36_every_discriminator_discriminates() -> None:
+    """CONTROL 36 — a positive twin whose subject predicate refuses everything.
+
+    Four entries, each with a saboteur carried in its registry entry:
+
+    * the positive pathspec control — `tracked_under` reports NOTHING tracked,
+      so `fabric_diff` refuses every pathspec through its own
+      `fabric_diff.untracked_member` limb. Sabotaging the predicate `CONTROL
+      16` depends on, rather than raising a manufactured `AssertionError`,
+      keeps the refusal a REAL one carrying a real limb id;
+    * `CONTROL 9b` — `cell_verdicts` returns every bolded run whether or not
+      it is a vocabulary word, which is precisely the reader `CONTROL 9b`
+      exists to reject: it calls `DCD-02`'s second bolded phrase a second
+      verdict;
+    * `CONTROL 17b` — :data:`CITATION_EXEMPT_VERDICTS` is emptied, so a
+      `Not built` row is required to cite a file it cannot have;
+    * the positive citation control — `refuse_unresolvable` returns an
+      offender for every citation, compliant or not.
+
+    Without this, a checker rewritten to refuse EVERYTHING would satisfy every
+    negative control in this module and be caught by nothing. Red on
+    everything is not a check.
+    """
+    failures, proven = _aim_proof(
+        "discriminator",
+        lambda aim, target: aim.saboteur(target),  # type: ignore[misc]
+        "forced to refuse everything",
+    )
+    assert not failures, "\n".join(failures)
+    assert proven, (
+        "no discriminator was proven at all, so this control passed over the"
+        " empty set"
+    )
+
+
+def test_control_36b_every_guard_aimed_control_reaches_the_guard_it_holds() -> None:
+    """CONTROL 36b — sabotage the guarded mechanism; the control must fail.
+
+    **The `guard` kind is real and `CONTROL 32`/`33` take it, not `meta`.**
+    A `meta` entry is excluded from every invocation loop by design, and for
+    the aim-proving controls that exclusion is legitimate — you cannot prove
+    the prover forever, and the regress has to stop somewhere it can be seen
+    stopping. `CONTROL 32` and `CONTROL 33` are not provers. They are ordinary
+    controls over two ordinary in-module guards, and filing them under `meta`
+    would have left the two controls holding the two mechanisms whose silent
+    failure makes every other control here vacuous registered, enumerated and
+    AIM-UNPROVEN. That is not stopping a regress; it is dodging the taxonomy.
+    Both saboteurs are lifted from their `SABOTEUR:` docstring lines rather
+    than re-derived.
+
+    **A LETTER SUFFIX rather than the next free number**, on the module's own
+    convention for a control landing beside its sibling — `4b`, `5b`, `9b`,
+    `17b`, `23b`, `27b`..`27e`, `28b` and `31b` all did. This is the
+    guard-kind twin of `CONTROL 36`'s discriminator loop: same inverted
+    obligation, different subject. Numbers 37 and 38 belong to plan `21.1-08`
+    and are not renumbered around it.
+    """
+    failures, proven = _aim_proof(
+        "guard",
+        lambda aim, target: aim.saboteur(target),  # type: ignore[misc]
+        "sabotaged",
+    )
+    assert not failures, "\n".join(failures)
+    assert proven, (
+        "no guard aim was proven at all, so this control passed over the empty"
+        " set"
+    )
+
+
+def test_control_36c_every_shim_keeps_its_degradation_silent() -> None:
+    """CONTROL 36c — the shims, held to criterion 15's inverted obligation.
+
+    `D-IMPL-181`. A shim is a limb reachable ONLY with a sibling neutered,
+    existing so that the degradation is SILENT rather than an `AttributeError`
+    or an `IndexError`. Its control proves both halves — the shim fires by
+    name with the sibling disarmed, and the helper still returns rather than
+    crashing when the shim is disarmed on top — and this loop proves the
+    control is aimed at it: **disarm the shim and the control goes red, with
+    its own `AssertionError` rather than with the wreckage.**
+
+    That last clause is the point of the whole kind. If disarming a shim made
+    the module explode, `CONTROL 34`'s coverage limb and `CONTROL 35`'s aim
+    proof would both conclude "the control reaches that limb" when all either
+    reached was the crash — the instrument this wave was commissioned to
+    destroy, rebuilt inside the wave that destroys it.
+
+    **Coverage quantifies over `shim` exactly as over every other kind and
+    there is no exempt roster**, which Dave rejected explicitly: an exempt
+    roster *"excuses them without proving they work"*. The four ids are
+    `_duplicated_table_row.twin_identical`,
+    `_duplicated_checkbox_bullet.not_a_bullet`,
+    `_duplicated_checkbox_bullet.twin_identical` and
+    `_duplicated_checkbox_bullet.twin_not_read`.
+    """
+    failures, proven = _aim_proof(
+        "shim",
+        lambda _aim, target: neutered(target),
+        "disarmed",
+    )
+    assert not failures, "\n".join(failures)
+    assert proven, (
+        "no shim aim was proven at all, so this control passed over the empty"
+        " set — and the four limbs `D-IMPL-181` ruled on would be back to"
+        " being excused rather than proven"
     )
