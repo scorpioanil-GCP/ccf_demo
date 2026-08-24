@@ -679,6 +679,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/22.1-the-hygiene-block-the-tool-that-could-not-tell-none-from/22.1-CLOSE-REVIEW-cursor.txt` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22.1-the-hygiene-block-the-tool-that-could-not-tell-none-from/22.1-HUMAN-VERIFICATION-PACKET.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-01-PLAN.md` | 24 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-01-SUMMARY.md` | 36 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-02-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-03-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-04-PLAN.md` | 28 | the phase's own planning tree — not shipped, not published |
