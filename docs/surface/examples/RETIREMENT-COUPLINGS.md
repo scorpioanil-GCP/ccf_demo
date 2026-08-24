@@ -8,36 +8,37 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **285** across **82** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **164** across **51** files
-- References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **235**
+- Coupling rows: **395** across **117** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **274** across **86** files
+- References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **126**
 
 Rows by owning plan:
 
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 10 |
-| 16-15 | 27 |
-| 16-17 | 48 |
-| 16-18 | 119 |
+| 16-15 | 42 |
+| 16-17 | 69 |
+| 16-18 | 193 |
 | 17-08 | 81 |
 
 Rows by coupling shape:
 
 | Shape | Rows |
 | --- | --- |
-| `comment` | 21 |
+| `comment` | 30 |
+| `config-token` | 1 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 67 |
+| `docstring` | 111 |
 | `indirect-execution` | 1 |
 | `literal-set-member` | 4 |
 | `makefile-recipe` | 16 |
 | `markdown-link` | 8 |
 | `path-construction` | 11 |
-| `prose` | 62 |
+| `prose` | 111 |
 | `snippet-include` | 58 |
-| `string-literal` | 16 |
+| `string-literal` | 23 |
 | `tmp_path-synthetic` | 13 |
 
 ## Reading the columns
@@ -52,6 +53,7 @@ Rows by coupling shape:
 | File | Line | Retiring path | Shape | Liveness | Witnesses | Intermediate | Owner | Note |
 | --- | ---: | --- | --- | --- | ---: | --- | --- | --- |
 | `.github/workflows/live-legs.yml` | 6 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 |  |
+| `.gitignore` | 23 | `examples/external/00-hello-context` | `config-token` | live | - | - | 16-18 |  |
 | `Makefile` | 192 | `examples/00-quickstart` | `comment` | documentary | - | - | 16-18 |  |
 | `Makefile` | 193 | `examples/00-quickstart` | `makefile-recipe` | live | - | - | 16-18 |  |
 | `Makefile` | 195 | `examples/01-agent-basics` | `comment` | documentary | - | - | 16-18 |  |
@@ -90,6 +92,115 @@ Rows by coupling shape:
 | `README.md` | 63 | `examples/05-workflow-hitl` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 64 | `examples/06-decision-replay` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 65 | `examples/07-artifact-store-mcp` | `markdown-link` | live | - | - | 16-17 |  |
+| `archive/examples/00-quickstart/README.md` | 1 | `examples/00-quickstart` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/00-quickstart/README.md` | 35 | `examples/00-quickstart` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/00-quickstart/README.md` | 41 | `tests/examples/test_quickstart_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/00-quickstart/README.md` | 55 | `tests/examples/test_quickstart_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/00-quickstart/README.md` | 108 | `tests/examples/test_quickstart_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/00-quickstart/README.md` | 226 | `tests/examples/test_quickstart_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/00-quickstart/README.md` | 244 | `tests/examples/test_quickstart_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/00-quickstart/artifacts/expected.yaml` | 5 | `tests/examples/test_quickstart_output.py` | `comment` | documentary | - | - | 16-18 |  |
+| `archive/examples/00-quickstart/run.py` | 1 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/00-quickstart/run.py` | 11 | `tests/examples/test_quickstart_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/00-quickstart/run.py` | 22 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/00-quickstart/run.py` | 138 | `tests/examples/test_quickstart_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/01-agent-basics/README.md` | 1 | `examples/01-agent-basics` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/01-agent-basics/README.md` | 36 | `examples/01-agent-basics` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/01-agent-basics/README.md` | 41 | `tests/examples/test_agent_basics_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/01-agent-basics/README.md` | 49 | `tests/examples/test_agent_basics_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/01-agent-basics/README.md` | 135 | `examples/01-agent-basics` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/01-agent-basics/artifacts/expected.yaml` | 5 | `tests/examples/test_agent_basics_output.py` | `comment` | documentary | - | - | 16-18 |  |
+| `archive/examples/01-agent-basics/run.py` | 1 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/01-agent-basics/run.py` | 11 | `tests/examples/test_agent_basics_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/01-agent-basics/run.py` | 195 | `tests/examples/test_agent_basics_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/02-skilling/README.md` | 1 | `examples/02-skilling` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/02-skilling/README.md` | 34 | `examples/02-skilling` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/02-skilling/README.md` | 41 | `tests/examples/test_skilling_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/02-skilling/README.md` | 49 | `tests/examples/test_skilling_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/02-skilling/README.md` | 119 | `examples/02-skilling` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/02-skilling/artifacts/expected.yaml` | 5 | `tests/examples/test_skilling_output.py` | `comment` | documentary | - | - | 16-18 |  |
+| `archive/examples/02-skilling/run.py` | 1 | `examples/02-skilling` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/02-skilling/run.py` | 11 | `tests/examples/test_skilling_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/03-harness-portability/README.md` | 1 | `examples/03-harness-portability` | `prose` | documentary | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/README.md` | 34 | `examples/03-harness-portability` | `prose` | documentary | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/README.md` | 40 | `tests/examples/test_harness_portability_output.py` | `prose` | documentary | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/README.md` | 61 | `tests/examples/test_harness_portability_output.py` | `prose` | documentary | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/artifacts/expected.yaml` | 6 | `tests/examples/test_harness_portability_output.py` | `comment` | documentary | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/legs/__init__.py` | 1 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/run.py` | 1 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/run.py` | 26 | `tests/examples/test_harness_portability_output.py` | `docstring` | documentary | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/run.py` | 177 | `tests/examples/test_harness_portability_output.py` | `docstring` | documentary | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/run.py` | 494 | `tests/examples/test_harness_portability_output.py` | `docstring` | documentary | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/run.py` | 614 | `examples/03-harness-portability` | `string-literal` | live | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/run.py` | 618 | `examples/03-harness-portability` | `string-literal` | live | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/run.py` | 628 | `examples/03-harness-portability` | `string-literal` | live | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/run.py` | 668 | `examples/03-harness-portability` | `string-literal` | live | - | - | 16-15 |  |
+| `archive/examples/03-harness-portability/run.py` | 701 | `examples/03-harness-portability` | `string-literal` | live | - | - | 16-15 |  |
+| `archive/examples/04-cross-process/README.md` | 1 | `examples/04-cross-process` | `prose` | documentary | - | - | 16-17 |  |
+| `archive/examples/04-cross-process/README.md` | 22 | `examples/05-workflow-hitl` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/04-cross-process/README.md` | 58 | `examples/04-cross-process` | `prose` | documentary | - | - | 16-17 |  |
+| `archive/examples/04-cross-process/README.md` | 62 | `tests/examples/test_cross_process_output.py` | `prose` | documentary | - | - | 16-17 |  |
+| `archive/examples/04-cross-process/README.md` | 66 | `tests/examples/test_cross_process_output.py` | `prose` | documentary | - | - | 16-17 |  |
+| `archive/examples/04-cross-process/producer_child.py` | 1 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `archive/examples/04-cross-process/producer_child.py` | 3 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `archive/examples/04-cross-process/producer_child.py` | 31 | `tests/examples/test_cross_process_output.py` | `docstring` | documentary | - | - | 16-17 |  |
+| `archive/examples/04-cross-process/producer_child.py` | 240 | `tests/examples/test_cross_process_output.py` | `docstring` | documentary | - | - | 16-17 |  |
+| `archive/examples/04-cross-process/run.py` | 1 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `archive/examples/04-cross-process/run.py` | 11 | `tests/examples/test_cross_process_output.py` | `docstring` | documentary | - | - | 16-17 |  |
+| `archive/examples/04-cross-process/run.py` | 141 | `tests/examples/test_cross_process_output.py` | `docstring` | documentary | - | - | 16-17 |  |
+| `archive/examples/05-workflow-hitl/README.md` | 1 | `examples/05-workflow-hitl` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/05-workflow-hitl/README.md` | 36 | `examples/05-workflow-hitl` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/05-workflow-hitl/README.md` | 40 | `tests/examples/test_workflow_hitl_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/05-workflow-hitl/README.md` | 45 | `tests/examples/test_workflow_hitl_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/05-workflow-hitl/artifacts/replay-values.yaml` | 16 | `examples/06-decision-replay` | `comment` | documentary | - | - | 16-18 |  |
+| `archive/examples/05-workflow-hitl/artifacts/task-definition.yaml` | 6 | `examples/00-quickstart` | `comment` | documentary | - | - | 16-18 |  |
+| `archive/examples/05-workflow-hitl/run.py` | 1 | `examples/05-workflow-hitl` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/05-workflow-hitl/run.py` | 13 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/05-workflow-hitl/run.py` | 49 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/05-workflow-hitl/run.py` | 49 | `examples/06-decision-replay` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/05-workflow-hitl/run.py` | 57 | `examples/05-workflow-hitl` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/05-workflow-hitl/run.py` | 275 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/06-decision-replay/README.md` | 1 | `examples/06-decision-replay` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/06-decision-replay/README.md` | 33 | `tests/examples/test_decision_replay_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/06-decision-replay/README.md` | 52 | `examples/06-decision-replay` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/06-decision-replay/README.md` | 57 | `tests/examples/test_decision_replay_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/06-decision-replay/artifacts/expected.yaml` | 5 | `tests/examples/test_decision_replay_output.py` | `comment` | documentary | - | - | 16-18 |  |
+| `archive/examples/06-decision-replay/run.py` | 1 | `examples/06-decision-replay` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/06-decision-replay/run.py` | 15 | `tests/examples/test_decision_replay_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/06-decision-replay/run.py` | 32 | `examples/06-decision-replay` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/06-decision-replay/run.py` | 441 | `tests/examples/test_decision_replay_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/07-artifact-store-mcp/README.md` | 1 | `examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 16-17 |  |
+| `archive/examples/07-artifact-store-mcp/README.md` | 36 | `examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 16-17 |  |
+| `archive/examples/07-artifact-store-mcp/README.md` | 40 | `tests/examples/test_artifact_store_output.py` | `prose` | documentary | - | - | 16-17 |  |
+| `archive/examples/07-artifact-store-mcp/README.md` | 45 | `tests/examples/test_artifact_store_output.py` | `prose` | documentary | - | - | 16-17 |  |
+| `archive/examples/07-artifact-store-mcp/README.md` | 49 | `tests/examples/test_artifact_store_output.py` | `prose` | documentary | - | - | 16-17 |  |
+| `archive/examples/07-artifact-store-mcp/artifacts/expected.yaml` | 5 | `tests/examples/test_artifact_store_output.py` | `comment` | documentary | - | - | 16-17 |  |
+| `archive/examples/07-artifact-store-mcp/mcp_store_child.py` | 3 | `examples/07-artifact-store-mcp` | `docstring` | documentary | - | - | 16-17 |  |
+| `archive/examples/07-artifact-store-mcp/run.py` | 1 | `examples/07-artifact-store-mcp` | `docstring` | documentary | - | - | 16-17 |  |
+| `archive/examples/07-artifact-store-mcp/run.py` | 27 | `tests/examples/test_artifact_store_output.py` | `docstring` | documentary | - | - | 16-17 |  |
+| `archive/examples/07-artifact-store-mcp/run.py` | 242 | `tests/examples/test_artifact_store_output.py` | `docstring` | documentary | - | - | 16-17 |  |
+| `archive/examples/08-e2e-demo/README.md` | 1 | `examples/08-e2e-demo` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/08-e2e-demo/README.md` | 22 | `examples/08-e2e-demo` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/08-e2e-demo/README.md` | 26 | `tests/examples/test_e2e_demo_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/08-e2e-demo/README.md` | 30 | `tests/examples/test_e2e_demo_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/08-e2e-demo/README.md` | 110 | `examples/08-e2e-demo` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/08-e2e-demo/README.md` | 115 | `public/tutorial/demo-walkthrough.md` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/08-e2e-demo/run.py` | 1 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/08-e2e-demo/run.py` | 4 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/08-e2e-demo/run.py` | 31 | `tests/examples/test_e2e_demo_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/08-e2e-demo/run.py` | 575 | `tests/examples/test_e2e_demo_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/08-e2e-demo/run.py` | 1095 | `examples/08-e2e-demo` | `string-literal` | live | - | - | 16-18 |  |
+| `archive/examples/external/00-hello-context/README.md` | 1 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/external/00-hello-context/README.md` | 53 | `tests/examples/test_ext00_serve_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/external/00-hello-context/README.md` | 69 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/external/00-hello-context/README.md` | 75 | `tests/examples/test_ext00_serve_output.py` | `prose` | documentary | - | - | 16-18 |  |
+| `archive/examples/external/00-hello-context/artifacts/expected.yaml` | 8 | `tests/examples/test_ext00_serve_output.py` | `comment` | documentary | - | - | 16-18 |  |
+| `archive/examples/external/00-hello-context/replay_server.py` | 1 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/external/00-hello-context/run.py` | 1 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/external/00-hello-context/run.py` | 812 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 16-18 |  |
+| `archive/examples/external/00-hello-context/serve.py` | 1 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/external/00-hello-context/serve.py` | 49 | `tests/examples/test_ext00_serve_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `archive/examples/external/00-hello-context/serve.py` | 361 | `tests/examples/test_ext00_serve_output.py` | `docstring` | documentary | - | - | 16-18 |  |
 | `docs/CONTEXT_PRODUCT_REVISION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/CONTEXT_PRODUCT_REVISION.md` | 342 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 162 | `examples/06-decision-replay` | `prose` | documentary | - | - | 16-18 |  |
@@ -285,26 +396,26 @@ Rows by coupling shape:
 | `tests/products/test_gate_two_call_shape.py` | 207 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `tests/products/test_gate_two_call_shape.py` | 425 | `examples/06-decision-replay` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/products/test_gate_two_call_shape.py` | 426 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/products/test_gate_two_call_shape.py` | 637 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 11 | - | 17-08 | `MINIMUM_GATE_CALL_SITES` — floor 12, 12 witnesses, headroom 0; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 8 (16-15) |
-| `tests/products/test_gate_two_call_shape.py` | 657 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 13 | - | 17-08 | `MINIMUM_PROJECTING_BODIES` — floor 14, 14 witnesses, headroom 0; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=2, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=2, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 8 (16-15) |
-| `tests/products/test_gate_two_call_shape.py` | 684 | `examples/s1-01-hello-context-product` | `count-constant` | live | 12 | - | 17-08 | `MINIMUM_RESOLVED_BINDER_SITES` — floor 12, 12 witnesses, headroom 0; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=2, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=2, examples/s1-01-hello-context-product=1; first break: wave 8 (16-15) |
+| `tests/products/test_gate_two_call_shape.py` | 637 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 2 | - | 17-08 | `MINIMUM_GATE_CALL_SITES` — floor 12, 12 witnesses, headroom 0; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 12 (17-08) |
+| `tests/products/test_gate_two_call_shape.py` | 657 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 2 | - | 17-08 | `MINIMUM_PROJECTING_BODIES` — floor 14, 14 witnesses, headroom 0; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 12 (17-08) |
+| `tests/products/test_gate_two_call_shape.py` | 684 | `examples/s1-01-hello-context-product` | `count-constant` | live | 1 | - | 17-08 | `MINIMUM_RESOLVED_BINDER_SITES` — floor 12, 12 witnesses, headroom 0; under retiring paths: examples/s1-01-hello-context-product=1; first break: wave 12 (17-08) |
 | `tests/products/test_gate_two_call_shape.py` | 1414 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
-| `tests/products/test_gate_two_call_shape.py` | 1776 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 11 | - | 17-08 | `_gate_scopes()` feeds `MINIMUM_GATE_CALL_SITES` — floor 12, 12 witnesses, headroom 0; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 8 (16-15) |
-| `tests/products/test_gate_two_call_shape.py` | 2554 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 13 | - | 17-08 | `_projecting_scopes()` feeds `MINIMUM_PROJECTING_BODIES` — floor 14, 14 witnesses, headroom 0; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=2, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=2, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 8 (16-15) |
+| `tests/products/test_gate_two_call_shape.py` | 1776 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 2 | - | 17-08 | `_gate_scopes()` feeds `MINIMUM_GATE_CALL_SITES` — floor 12, 12 witnesses, headroom 0; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 12 (17-08) |
+| `tests/products/test_gate_two_call_shape.py` | 2554 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 2 | - | 17-08 | `_projecting_scopes()` feeds `MINIMUM_PROJECTING_BODIES` — floor 14, 14 witnesses, headroom 0; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 12 (17-08) |
 | `tests/products/test_gate_two_call_shape.py` | 2875 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
 | `tests/products/test_gate_two_call_shape.py` | 3173 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/produce.py` |
 | `tests/products/test_gate_two_call_shape.py` | 3217 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/produce.py` |
 | `tests/products/test_gate_two_call_shape.py` | 3269 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/produce.py` |
 | `tests/products/test_gate_two_call_shape.py` | 3308 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
 | `tests/products/test_gate_two_call_shape.py` | 3310 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
-| `tests/products/test_gate_two_call_shape.py` | 3318 | `examples/s1-01-hello-context-product` | `count-scan-function` | live | 12 | - | 17-08 | `_resolved_binder_sites()` feeds `MINIMUM_RESOLVED_BINDER_SITES` — floor 12, 12 witnesses, headroom 0; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=2, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=2, examples/s1-01-hello-context-product=1; first break: wave 8 (16-15) |
+| `tests/products/test_gate_two_call_shape.py` | 3318 | `examples/s1-01-hello-context-product` | `count-scan-function` | live | 1 | - | 17-08 | `_resolved_binder_sites()` feeds `MINIMUM_RESOLVED_BINDER_SITES` — floor 12, 12 witnesses, headroom 0; under retiring paths: examples/s1-01-hello-context-product=1; first break: wave 12 (17-08) |
 | `tests/products/test_gate_two_call_shape.py` | 4402 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
 | `tests/products/test_gate_two_call_shape.py` | 4409 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/products/test_request_contract.py` | 699 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/request-contract.yaml` |
 | `tests/products/test_request_contract.py` | 740 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/products/test_required_operators_guard.py` | 3 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/products/test_required_operators_guard.py` | 112 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 11 | - | 17-08 | `MINIMUM_IMPLEMENTATIONS` — floor 9, 14 witnesses, headroom 5; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 11 (16-18) |
-| `tests/products/test_required_operators_guard.py` | 235 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 11 | - | 17-08 | `_implementations()` feeds `MINIMUM_IMPLEMENTATIONS` — floor 9, 14 witnesses, headroom 5; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 11 (16-18) |
+| `tests/products/test_required_operators_guard.py` | 112 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 2 | - | 17-08 | `MINIMUM_IMPLEMENTATIONS` — floor 9, 14 witnesses, headroom 5; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
+| `tests/products/test_required_operators_guard.py` | 235 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 2 | - | 17-08 | `_implementations()` feeds `MINIMUM_IMPLEMENTATIONS` — floor 9, 14 witnesses, headroom 5; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
 | `tests/replay/test_engine_rehydration.py` | 1138 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/product-governance.yaml` |
 | `tools/docs_tests/test_gate_two_wording.py` | 162 | `public/tutorial/adopters-guide.md` | `docstring` | documentary | - | - | 16-18 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 17 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
@@ -703,6 +814,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-03-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-03-SUMMARY.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-04-PLAN.md` | 28 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-04-SUMMARY.md` | 44 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-05-PLAN.md` | 25 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-06-PLAN.md` | 13 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-07-PLAN.md` | 20 | the phase's own planning tree — not shipped, not published |
@@ -713,7 +825,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-CONTEXT.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-DISCUSSION-LOG.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-RESEARCH.md` | 75 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/deferred-items.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/deferred-items.md` | 6 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 83 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |

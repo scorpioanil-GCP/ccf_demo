@@ -74,3 +74,45 @@ was untouched.
   widened together, which is what the coupling requires. Recorded because a
   future reader widening one and not the other would get a partial result with
   no message saying why.
+
+## From plan `23-04`
+
+**4. The citation lint resolves a moved-away path by SUFFIX, so a stale
+`examples/…` citation silently keeps passing after the archive move.**
+
+`tools/lints/citations.py::resolve_cited` tries the literal path first and,
+failing that, accepts a citation as a **suffix** of exactly one indexed repo
+file. After the move, `examples/04-cross-process/producer_child.py` does not
+exist — but `archive/examples/04-cross-process/producer_child.py` ends with
+`/examples/04-cross-process/producer_child.py`, it is the only candidate, and
+the citation resolves and is reported as *checked and passing*.
+
+Measured, on the pre-move tree (`git archive HEAD~1`) against the post-move
+tree, with the same checker and the `--base` flag proven live by an empty-tree
+control (0 matched) and a `src`-only control (353 matched, 317 unresolvable):
+
+```bash
+PYTHONPATH=src:runtime .venv/bin/python -m tools.lints --citations --report --base <premove>
+PYTHONPATH=src:runtime .venv/bin/python -m tools.lints --citations --report --base .
+# both, byte-identical, all eight lines:
+#   citations: 1762 matched in 1111 files (675 files exempt as dated records)
+#     checked and passing: 1300   findings: 0   explicitly historical: 50
+#     UNCHECKED — no anchor: 345  anchor not resolvable: 13
+#     path ambiguous: 15          path unresolvable: 39
+```
+
+- **This is a SECOND, stronger hole than the one `D-07`/`D-IMPL-192` records.**
+  That entry's measured case is a citation repointed at a *non-existent*
+  `archive/…` path, which resolves to nothing and is therefore **unchecked**.
+  This case is the mirror: a citation left at the *old* `examples/…` path,
+  which resolves to the moved file and is therefore **checked and green**.
+  Both are silent; only the second makes a green gate assert something false.
+- **Consequence for `23-06`.** The four permitted `D-07` citation edits are
+  still correct and still owed, but **no gate goes red if they are skipped**,
+  and none goes red if they are made wrongly. `23-06` must not treat a green
+  `make lint` as evidence that it made them.
+- **Not fixed here.** Narrowing `resolve_cited` is a design call about what a
+  suffix citation means — the fallback exists deliberately so `manifest.py`
+  and `deployment/manifest.py` resolve — and tightening it would need a rule
+  for when a citation's leading segment names a tree it must actually be in.
+  That is the durable fix `D-IMPL-192` already backlogs, not a widening.
