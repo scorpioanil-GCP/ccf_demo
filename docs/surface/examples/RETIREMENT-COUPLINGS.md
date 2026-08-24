@@ -678,11 +678,11 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/22.1-the-hygiene-block-the-tool-that-could-not-tell-none-from/22.1-CLOSE-REVIEW-PAYLOAD.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22.1-the-hygiene-block-the-tool-that-could-not-tell-none-from/22.1-CLOSE-REVIEW-cursor.txt` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22.1-the-hygiene-block-the-tool-that-could-not-tell-none-from/22.1-HUMAN-VERIFICATION-PACKET.md` | 3 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-CONTEXT.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-CONTEXT.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-DISCUSSION-LOG.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-RESEARCH.md` | 75 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 70 | append-only decision log |
+| `docs/DECISIONS.md` | 75 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |
