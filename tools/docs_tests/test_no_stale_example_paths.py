@@ -306,3 +306,146 @@ def test_the_include_half_sees_the_block_form(tmp_path: pathlib.Path) -> None:
         "the block include form escaped the scan — the include parser was "
         "re-implemented instead of imported from tools.publish_scan"
     )
+
+
+# --------------------------------------------------------------------------
+# Criterion 18 (`D-IMPL-194`) — the archive prefix, controlled in BOTH
+# directions.
+#
+# The defect these controls close: `PATH_TOKEN`'s negative lookbehind omits
+# ``/``, so ``archive/examples/04-cross-process/producer_child.py`` tokenized as
+# ``examples/04-cross-process/producer_child.py`` — the prefix silently
+# stripped — and was then resolved against a path that will not exist once the
+# ten condemned trees move. A CORRECTLY re-pointed page therefore produced
+# offenders naming paths it never wrote, and this module went RED on a correct
+# tree.
+#
+# Both directions are controlled because the obvious one-character alternative
+# (adding ``/`` to the lookbehind class) fixes the false offenders by making
+# ``archive/examples/X`` match NOTHING — trading a noisy check for a blind one.
+# Control 1 alone would pass under that mutation; control 2 is what refuses it,
+# and it asserts on the offender's TEXT rather than on a count, because
+# "reported the right path" and "reported the stripped path" are the same
+# count.
+# --------------------------------------------------------------------------
+
+
+def test_the_alternation_matches_each_prefix_through_its_own_branch() -> None:
+    """The tokenizer itself, before any filesystem is involved.
+
+    Three branches, three whole tokens, no stripping in either direction: the
+    archive branch must not swallow the bare form and the bare form must not
+    decapitate the archive one.
+    """
+    assert PATH_TOKEN.findall("see tests/examples/test_x.py here") == [
+        "tests/examples/test_x.py"
+    ]
+    assert PATH_TOKEN.findall("see examples/00-quickstart/run.py here") == [
+        "examples/00-quickstart/run.py"
+    ]
+    assert PATH_TOKEN.findall(
+        "see archive/examples/04-cross-process/producer_child.py here"
+    ) == ["archive/examples/04-cross-process/producer_child.py"]
+
+
+def test_a_correctly_re_pointed_archive_path_yields_no_offenders(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Direction 1 — a correct tree must be silent.
+
+    The repo has no `archive/` yet, so the "correct" tree is stood up
+    synthetically and `_prose.REPO_ROOT` is pointed at it. The two
+    preconditions below are what stop this control passing vacuously: the
+    archive target must exist under the synthetic root, and the STRIPPED form
+    must not — otherwise a stripping tokenizer would resolve by accident, which
+    is exactly what masks the defect on today's un-moved tree.
+    """
+    root = tmp_path / "repo"
+    kept = root / "archive" / "examples" / "04-cross-process" / "producer_child.py"
+    kept.parent.mkdir(parents=True)
+    kept.write_text("", encoding="utf-8")
+    assert kept.exists()
+    assert not (root / "examples" / "04-cross-process" / "producer_child.py").exists()
+
+    monkeypatch.setattr(_prose, "REPO_ROOT", root)
+
+    page = tmp_path / "page.md"
+    page.write_text(
+        "The assembler for this walkthrough lives in "
+        "`archive/examples/04-cross-process/producer_child.py`, which is where "
+        "the retired tree now sits.\n",
+        encoding="utf-8",
+    )
+    assert prose_path_offenders([page]) == [], (
+        "a correctly re-pointed page produced offenders — the tokenizer is "
+        "stripping the archive/ prefix and resolving a path the page never wrote"
+    )
+
+
+def test_a_stale_archive_path_is_reported_with_its_prefix_intact(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Direction 2 — a stale archive path must still be caught, and NAMED.
+
+    The assertion is on the offender string, not on the offender count. A
+    tokenizer that strips `archive/` also produces exactly one offender here;
+    only the text distinguishes the two, and the text is what a reader follows.
+    """
+    pages = _copied_page(
+        tmp_path,
+        "The producer lives in `archive/examples/does-not-exist/producer.py`, "
+        "which it does not.",
+    )
+    offenders = prose_path_offenders(pages)
+    assert offenders, "a stale archive path escaped the scan entirely"
+    assert any(
+        offender.endswith("archive/examples/does-not-exist/producer.py")
+        for offender in offenders
+    ), (
+        "the offender was reported without its archive/ prefix — the reader is "
+        f"sent to look for a file nobody named: {offenders}"
+    )
+
+
+def test_a_stale_bare_examples_path_is_still_reported(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Direction 3 — the pre-existing behaviour, asserted so it cannot be lost.
+
+    Unchanged by the archive branch, and that is the point: a widening that
+    quietly stopped catching bare `examples/` paths would still satisfy the
+    other two controls.
+    """
+    pages = _copied_page(
+        tmp_path,
+        "The quickstart lives in `examples/does-not-exist/run.py`.",
+    )
+    offenders = prose_path_offenders(pages)
+    assert any(
+        offender.endswith("examples/does-not-exist/run.py")
+        and "archive/" not in offender
+        for offender in offenders
+    ), offenders
+
+
+def test_the_include_half_reports_an_archive_target_unstripped(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The include walk does NOT read `PATH_TOKEN`, and this pins that.
+
+    Measured while implementing criterion 18: `include_offenders` tokenizes
+    with `tools.publish_scan.include_targets` and resolves the whole target, so
+    it never had the stripping defect. That is a property worth asserting
+    rather than re-discovering — if anyone ever "unifies" the two halves onto
+    the prose tokenizer, this fails.
+    """
+    pages = _copied_page(
+        tmp_path,
+        '```py\n--8<-- "archive/examples/does-not-exist/run.py"\n```',
+    )
+    offenders = include_offenders(pages)
+    assert offenders, "the include half admitted an archive target that does not exist"
+    assert any(
+        "archive/examples/does-not-exist/run.py" in offender for offender in offenders
+    ), offenders
