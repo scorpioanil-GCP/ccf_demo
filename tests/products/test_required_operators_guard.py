@@ -238,6 +238,44 @@ def test_the_scan_is_not_vacuous() -> None:
     ]
 
 
+def test_the_scan_root_membership_is_exactly_the_expected_set() -> None:
+    """The floor above cannot see a root SWAP. This is the half that can.
+
+    ``23-RESEARCH.md`` finding **S-16**, stated at its sharpest here: setting
+    ``SCANNED_TREES = ("archive",)`` after Phase 23's move keeps
+    :data:`MINIMUM_IMPLEMENTATIONS` green on the very same witnesses — they
+    were merely renamed — while every projection under the SURVIVING
+    ``examples/`` trees silently stops being scanned. Both the count and the
+    exit code stay identical. A floor asserts a total, not a source.
+
+    So the source is asserted, and by set equality rather than by ``in``
+    checks: an ``in`` check passes over a tuple that has grown, and a tree
+    joining this scan quietly is the other direction of the same problem.
+
+    ``tests/`` stays excluded for the reason the constant's own comment
+    gives — a test may build a deliberately-tautological plan to prove a guard
+    fires — and ``archive`` was added in plan ``23-03``, before the move, so
+    that the widening could be proven a no-op while the archive did not yet
+    exist. The floor was NOT touched: widening the root preserves the count
+    exactly, because the same witnesses are found at the new path. Lowering
+    the floor is the fix that loses the coverage.
+    """
+    assert set(SCANNED_TREES) == {"src", "runtime", "examples", "archive"}, (
+        "this guard's scan roots changed. A root REMOVED stops a tree being"
+        " scanned with the floor still green; a root ADDED widens the guard"
+        " without review. Neither is visible in a count."
+    )
+    assert "examples" in SCANNED_TREES, (
+        "the live examples tree left the scan. After Phase 23 it still holds"
+        " the surviving example trees, and they are the ones a swap loses."
+    )
+    assert "archive" in SCANNED_TREES, (
+        "the archive left the scan. The ten condemned example trees keep their"
+        " projections after the move; a scan that stops at the archive"
+        " boundary reports a smaller tree, not a cleaner one."
+    )
+
+
 @pytest.mark.parametrize(
     ("path", "function"),
     _implementations(),

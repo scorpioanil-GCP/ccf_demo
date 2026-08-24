@@ -1768,6 +1768,48 @@ def _gate_scopes() -> list[tuple[pathlib.Path, ast.AST]]:
     return found
 
 
+def test_the_scan_root_membership_is_exactly_the_expected_sets() -> None:
+    """The three floors in this module cannot see a root SWAP. This can.
+
+    ``23-RESEARCH.md`` finding **S-16**. All three counts below —
+    :data:`MINIMUM_GATE_CALL_SITES`, :data:`MINIMUM_PROJECTING_BODIES` and
+    :data:`MINIMUM_RESOLVED_BINDER_SITES` — are floors, and a floor asserts a
+    total, not a source. After Phase 23's move,
+    ``BINDER_SCANNED_TREES = ("archive",)`` alone keeps all of them green on
+    the identical witnesses while the surviving ``examples/`` trees stop being
+    scanned entirely. Nothing else in this module would say so.
+
+    Asserted by set equality, not by ``in`` checks. An ``in`` check passes over
+    a tuple that has grown, and growth is how a tree joins a scan nobody
+    reviewed.
+
+    ``archive`` was added in plan ``23-03`` *before* the move, so the widening
+    could be proven a strict no-op against a tree where ``archive/`` did not
+    yet exist. **No floor constant was touched.** Widening the root preserves
+    every count exactly — the same witnesses are found at the new path — and
+    :func:`test_the_binder_scan_is_not_vacuous` says why lowering one instead
+    is the fix that loses the coverage.
+    """
+    assert set(SCANNED_TREES) == {"src", "runtime", "examples", "archive"}, (
+        "the gate-call scan roots changed. `tests/` stays out for the reason"
+        " the module docstring gives; `examples` and `archive` must BOTH be in,"
+        " because after the move the witnesses are split across the two and a"
+        " count cannot tell which side it read them from."
+    )
+    assert set(BINDER_SCANNED_TREES) == {"examples", "archive"}, (
+        "the binder-coverage scan roots changed. This is the tightest of the"
+        " three floors and the one S-16 names: `('archive',)` alone keeps"
+        " 14/12 green on renamed witnesses while every surviving example stops"
+        " being scanned."
+    )
+    for name, trees in (
+        ("SCANNED_TREES", SCANNED_TREES),
+        ("BINDER_SCANNED_TREES", BINDER_SCANNED_TREES),
+    ):
+        assert "examples" in trees, f"{name} lost the live examples tree"
+        assert "archive" in trees, f"{name} lost the archive"
+
+
 def test_the_gate_scan_is_not_vacuous() -> None:
     """A tripwire that matched zero call sites would pass forever."""
     found = _gate_scopes()
