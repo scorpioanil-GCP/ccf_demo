@@ -765,7 +765,7 @@ re-pointed, not as lost.
 |---|---|
 | `ef336f3` | `refactor(23-04)`: the 265-file pure rename set. Nothing else. |
 | `fc9b906` | `chore(23-04)`: `.gitignore` re-point for the archived `.store/` (Rule 3) |
-| `DOCS_SHA` | `docs(23-04)`: summary, deferred item 4, regenerated coupling report |
+| `689b58a` | `docs(23-04)`: summary, deferred item 4, regenerated coupling report |
 
 ---
 
