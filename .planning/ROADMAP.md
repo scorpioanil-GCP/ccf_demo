@@ -2135,7 +2135,12 @@ Criteria are never authored retroactively.
 All **42** v0.2 requirements mapped, each to exactly one phase — the
 milestone-scoped count: the set defined at milestone definition plus what the
 inserted phases minted through Phase 15.1. It is **not** the traceability
-table's row count, which is 143 and was never 42. It arrives in two halves.
+table's row count, which is **149** and was never 42 — the figure produced by
+the strict parse (`tools/docs_tests/test_requirement_ledger.py::traceability_rows`)
+rather than assumed. *Re-measured in Phase 22.1: this clause read `143`, correct
+when `D-IMPL-177` landed at `014f646` and drifted by six as Phases 21.1 and 22
+minted rows. The clause was right and its figure was not; `D-19`/`D-IMPL-174`
+require the replacement to come from the parse, so it does.* It arrives in two halves.
 
 **Ruled by Dave at the `D-GATE-21` sitting, 2026-08-22, and logged as
 `D-IMPL-177`.** Phase 21 examined this counter under `D-19` and REPORTED rather

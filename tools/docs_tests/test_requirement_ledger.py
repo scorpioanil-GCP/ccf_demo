@@ -241,6 +241,7 @@ LIMBS: frozenset[str] = frozenset(
         "_doctored.anchor_not_unique",
         "_table_line.not_unique",
         "_checkbox_line.not_unique",
+        "_an_unticked_id.none_available",
         "_index.anchor_unresolved",
         "_index.thinned_index",
         "refuse_unresolvable.zero_citations",
@@ -2226,6 +2227,44 @@ def _doctored(document_text: str, old: str, new: str) -> str:
     return document_text.replace(old, new)
 
 
+def _an_unticked_id(document_text: str) -> str:
+    """An id that is UNTICKED in the checkbox channel, resolved at run time.
+
+    `_table_line` below records the lesson that a control anchored on a
+    literal string is anchored on a snapshot of the subject, and fixes it by
+    resolving the LINE at run time. The id itself stayed hardcoded, so the
+    same lesson was still live one level up: `CONTROL 6` and `CONTROL 7` both
+    require a subject that is unticked, and both named `RECON-10`. Phase 22.1
+    verdicted that row, and both controls stopped being controls — 6 could no
+    longer manufacture a disagreement and 7 raised `IndexError` looking for a
+    bullet that no longer had that shape. **Neither was noticed by its own
+    assertion**; `CONTROL 36b`, which checks that every guard-aimed control
+    passes with its subject INTACT, is what caught them.
+
+    Refuses rather than returning a placeholder if every row is ticked: a
+    control with no available subject must go red, not quietly pass.
+    """
+    unticked = [
+        req_id
+        for req_id, checked in sorted(checkbox_channel(document_text).items())
+        if not checked
+    ]
+    if not unticked:
+        _refuse(
+            "_an_unticked_id.none_available",
+            "no row in the checkbox channel is unticked, so CONTROL 6 and"
+            " CONTROL 7 have no subject to doctor. They are not passing —"
+            " they have nothing to test. Re-point them at a property that"
+            " still exists rather than deleting them.",
+        )
+    # `if unticked else ""` for the reason `_checkbox_line` carries it: with
+    # the refusal above NEUTERED, an unguarded `unticked[0]` raises IndexError,
+    # and a crash is indistinguishable from a caught defect to every coverage
+    # assertion in this module. Measured: it produced this module's first entry
+    # in `CASCADING_REDS` until this line landed.
+    return unticked[0] if unticked else ""
+
+
 def _table_line(document_text: str, req_id: str) -> str:
     """The one traceability line for `req_id`, or a refusal.
 
@@ -2399,14 +2438,18 @@ def test_the_unmodified_document_passes() -> None:
 def test_control_6_a_row_completed_in_one_channel_only_is_refused() -> None:
     """The commonest drift: a verdict written into the table and not the list."""
     real = ledger_text()
+    subject = _an_unticked_id(real)
+    phase = dict(
+        (req_id, phase) for req_id, phase, _status in traceability_rows(real)
+    )[subject]
     doctored = _doctored(
         real,
-        _table_line(real, "RECON-10"),
-        "| RECON-10 | Phase 21 | Complete |",
+        _table_line(real, subject),
+        f"| {subject} | {phase} | Complete |",
     )
     messages = channel_disagreements(doctored)
     assert messages, "a row Complete in one channel and unticked in the other passed"
-    assert any("RECON-10" in message for message in messages), (
+    assert any(subject in message for message in messages), (
         f"the refusal fired but named no id: {messages!r}. A count of"
         " disagreements is not something a reader can act on"
     )
@@ -2414,14 +2457,11 @@ def test_control_6_a_row_completed_in_one_channel_only_is_refused() -> None:
 
 def test_control_7_an_id_present_in_only_one_channel_is_refused() -> None:
     """A row minted into the table and forgotten in the list."""
-    line = [
-        candidate
-        for candidate in ledger_text().splitlines()
-        if candidate.startswith("- [ ] **RECON-10**")
-    ][0]
-    doctored = _doctored(ledger_text(), line + "\n", "")
+    real = ledger_text()
+    subject = _an_unticked_id(real)
+    doctored = _doctored(real, _checkbox_line(real, subject) + "\n", "")
     messages = channel_disagreements(doctored)
-    assert any("RECON-10" in message for message in messages), (
+    assert any(subject in message for message in messages), (
         f"deleting an id from one channel was not refused by name: {messages!r}"
     )
 
@@ -5203,6 +5243,40 @@ def test_control_28_a_table_anchor_that_is_absent_or_doubled_is_refused() -> Non
         )
 
 
+def test_control_28c_a_ledger_with_no_unticked_row_refuses_a_subject() -> None:
+    """CONTROL 28c — `_an_unticked_id`'s NO-SUBJECT branch.
+
+    `CONTROL 6` and `CONTROL 7` both need a row that is unticked. They used to
+    NAME one (`RECON-10`), and when Phase 22.1 verdicted it both silently
+    stopped being controls — 6 could no longer manufacture a disagreement, 7
+    raised `IndexError`. Resolving the subject at run time fixes that, but it
+    introduces a failure mode of its own: on a ledger where every row is
+    ticked there is no subject at all, and a helper that returned a
+    placeholder would hand both controls a document they never changed.
+
+    So it refuses, and this proves the refusal fires. The fixture is the
+    honest end state of this project — every row discharged — which is
+    exactly when the hole would open.
+    """
+    limb = "_an_unticked_id.none_available"
+    all_ticked = ledger_text().replace("- [ ] **", "- [x] **")
+    assert "- [ ] **" not in all_ticked, "the fixture still carries an unticked row"
+
+    try:
+        subject = _an_unticked_id(all_ticked)
+    except AssertionError as failure:
+        assert f"[limb:{limb}]" in str(failure), (
+            f"a fully-ticked ledger was refused by a limb other than {limb!r}:"
+            f" {failure}"
+        )
+        return
+    raise AssertionError(
+        f"a ledger with no unticked row resolved a subject {subject!r} instead"
+        " of being refused. CONTROL 6 and CONTROL 7 would then doctor a row"
+        " that is already ticked and assert a disagreement that cannot arise"
+    )
+
+
 def test_control_29_a_path_on_disk_but_absent_from_the_index_is_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -6623,6 +6697,11 @@ CONTROL_AIM: dict[str, Aim] = {
             test_control_28b_a_checkbox_anchor_that_is_absent_or_doubled_is_refused()
         ),
     ),
+    "test_control_28c_a_ledger_with_no_unticked_row_refuses_a_subject": Aim(
+        kind="limb",
+        targets=frozenset({"_an_unticked_id.none_available"}),
+        invoke=lambda: test_control_28c_a_ledger_with_no_unticked_row_refuses_a_subject(),
+    ),
     "test_control_30_an_unresolvable_diff_base_refuses_rather_than_reading_clean": Aim(
         kind="limb",
         targets=frozenset({"base_ledger_text.nonzero_exit"}),
@@ -6786,6 +6865,7 @@ CONTROLS: frozenset[str] = frozenset(
         "test_control_27e_the_duplicate_bullet_shims_fire_and_degrade_silently",
         "test_control_28_a_table_anchor_that_is_absent_or_doubled_is_refused",
         "test_control_28b_a_checkbox_anchor_that_is_absent_or_doubled_is_refused",
+        "test_control_28c_a_ledger_with_no_unticked_row_refuses_a_subject",
         "test_control_30_an_unresolvable_diff_base_refuses_rather_than_reading_clean",
         "test_control_31_a_per_row_rule_over_an_empty_roster_is_refused",
         "test_control_31b_a_pathspec_member_too_short_to_misspell_is_refused",
