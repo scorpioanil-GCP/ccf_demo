@@ -101,10 +101,25 @@ INTERNAL_PATH_TOKENS: tuple[str, ...] = (
 #: evaded by `./docs/…`, by `public/../docs/…`, and by anything not yet
 #: enumerated (`references/`, absolute paths). A target is permitted only if it
 #: normalizes to a relative path under one of these roots.
+#:
+#: `archive/examples/` was admitted by Phase 23 (`D-IMPL-194` criterion 17,
+#: against the archive root `D-03` pinned), because the ten retired example
+#: trees move there intact and every published include that follows them would
+#: otherwise be a boundary violation. **The narrow spelling is deliberate:**
+#: `archive/` would admit every future sibling under the archive root to the
+#: published tree by inheritance, which is a boundary change nobody would be
+#: asked to approve. `archive/examples/` admits exactly the pinned root and
+#: nothing else — `archive/secrets/x.md` still escapes.
+#:
+#: This tuple is the boundary itself, so it is guarded rather than trusted:
+#: `tools/publish_scan_tests/test_publish_scan.py::test_the_publication_allowlist_has_exactly_the_expected_membership`
+#: and its four neighbours fail to a removal, to `("",)`, to a broad
+#: `archive/`, and to any silently-added root.
 INCLUDE_ALLOWED_PREFIXES: tuple[str, ...] = (
     "examples/",
     "public/",
     "perf/baselines/",
+    "archive/examples/",
 )
 
 #: Individual repo-root files the published tree legitimately embeds. Kept
