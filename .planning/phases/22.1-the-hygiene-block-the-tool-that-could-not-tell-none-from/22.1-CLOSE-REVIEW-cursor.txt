@@ -1,0 +1,108 @@
+## Verdict
+
+The import/scan swallow is closed for the paths that were measured. The same defect class still has at least one live silent-skip in `count_coupling_rows`, and several new tests can stay green under mutations that break the production wiring they appear to guard.
+
+---
+
+### 1. Unexamined without recording
+
+**Yes — unintentional.**
+
+In `count_coupling_rows`, after a successful `read_text`:
+
+```python
+            try:
+                parsed = ast.parse(source)
+            except SyntaxError:
+                continue
+```
+
+No `record_unexaminable`. A floor-bearing `test_*.py` that fails to parse contributes zero rows and is absent from `unexaminable()`. Same class as the old import swallow: “could not look” looks like “nothing to report.”
+
+**Adjacent, weaker form of the same class:**
+
+```python
+                scan = getattr(module, floor.scan, None)
+                if not callable(scan):
+                    continue
+```
+
+AST found a floor; the named scan is missing or not callable; no record. The module imported, but that floor was never measured.
+
+**Deliberate (K3):** `_comment_lines`’s `except (tokenize.TokenError, IndentationError, SyntaxError)` fallback — not recorded. See §3.
+
+`read_text`, `_load_module` (no loader + `exec_module`), scan `except`, and `inline_tree_witness_rows`’s non-`AssertionError` path all record in the inlined text.
+
+---
+
+### 2. Vacuous NEW tests
+
+| Test | Vacuity risk |
+| --- | --- |
+| `test_head_examines_every_subject_it_walks` | **High with its “floor”.** It asserts `head().unexaminable == ()`. The companion `test_the_examination_record_is_not_vacuous` only proves `count_coupling_rows` → module-level `unexaminable()`. Mutation: drop `unexaminable=unexaminable()` from `sweep()`’s `Sweep(...)`. HEAD stays green; `main` never refuses on a real incomplete walk; the floor stays green. |
+| `test_the_run_refuses…` / `test_the_refusal_does_not_write…` | Prove `main` against a **monkeypatched** `sweep` returning a canned `Sweep`. They do not prove a broken import flows through real `sweep()` into `result.unexaminable`. Same wiring hole as above. |
+| `test_control_the_rows_a_broken_module_owes_are_exactly_what_vanishes` | Name/doc claim “exactly what vanishes.” Body only asserts `len(healthy) == 2`, `broken == []`, `unexaminable() != ()`. No id-for-id (or even set) comparison of owed rows. Deletes the recorder → red; does **not** pin which couplings were lost. |
+| `test_the_examination_record_is_not_vacuous` | `unexaminable() != ()` only. Companion to import recording, not to `Sweep`/`main`. |
+| Import / scan recording tests | Relatively strong on the recorder itself (`stage`, subject suffix, detail substring). |
+| `test_control_a_clean_sweep_still_exits_zero_and_writes` | Needed anti-always-refuse control. Still only `target.exists()` — not that `render(result)` was written. |
+
+**Decisive mutation that should go red but can stay green:** remove `unexaminable=unexaminable()` from the `Sweep` construction in `sweep()`. Recorder tests + HEAD emptiness + monkeypatched `main` tests can all remain green.
+
+---
+
+### 3. K3 polarity — correct
+
+`classify` (inlined):
+
+```python
+        if line in comments:
+            return SHAPE_COMMENT, DOCUMENTARY
+        ...
+        return default_shape, LIVE
+```
+
+- Tokenize success: trailing `# …` puts the **line** in `comments` → DOCUMENTARY.
+- Fallback: only `text.lstrip().startswith("#")` → trailing comment on a code line is **not** in the set → LIVE.
+
+Example: `x = 1  # examples/04-cross-process` under fallback is reported as a live coupling. That **over**-reports relative to a full tokenize pass. For a deletion gate, over-reporting is the safe direction.
+
+The comment’s “false red here would be a real coupling found” is a bit muddled (it is a false **positive coupling**, not a false red of the refusal), but the polarity claim is right. Exempting this fallback from `record_unexaminable` is consistent with “absence of evidence ≠ evidence of absence” only if you accept that this path still answers, just conservatively — which it does.
+
+---
+
+### 4. `_UNEXAMINABLE` vs `count_coupling_rows` / `sweep`
+
+**Production `sweep()` path:** OK. `reset_unexaminable()` at the top of `sweep()`, append during the walk, snapshot via `unexaminable=unexaminable()`. `main` refuses on `result.unexaminable`, not the live list.
+
+**Not safe as a shared accumulator for direct `count_coupling_rows` use:**
+
+- `reset_unexaminable`’s docstring: called at the top of every `sweep` — **not** of `count_coupling_rows`.
+- Tests must `reset_unexaminable()` themselves. Forget that → cross-test pollution (`!= ()` false green, or `len == 1` false red).
+- Two `count_coupling_rows` calls without reset accumulate; dedupe only collapses identical `(subject, stage, detail)`.
+- Same-process concurrent calls would race on the module list (not shown as guarded).
+
+So: safe inside a single `sweep()`; footgun for the test/API pattern of calling `count_coupling_rows` + reading `unexaminable()` directly — which is exactly how the new tests are written.
+
+---
+
+### 5. Other test / doc defects
+
+1. **Channel split** — HEAD / refusal claim “we examine everything” via `Sweep.unexaminable`; non-vacuity / import controls claim it via `_UNEXAMINABLE`. That is how the wiring mutation in §2 survives.
+
+2. **`Unexaminable` docstring** still says “three gate modules fail to import”; the new test preamble corrects that to **one** module / six rows. Stale claim in the shipped type.
+
+3. **Hardcoded lengths** — `assert len(recorded) == 1`, `assert len(scans) == 1`, `assert len(healthy) == 2`. Adjacent to D-21: fixture-local, but not named-id rosters.
+
+4. **`test_control_a_clean_sweep_still_exits_zero_and_writes`** — `exists()` only; a trivial/empty write satisfies it.
+
+5. **No new control** in the inlined suite for `read_text`’s `"read"` stage or `inline_tree_witness_rows`’s `"sabotage-run"` recording — those sites can regress silently while import/scan tests stay green.
+
+6. **Ledger side (`_an_unticked_id` / 28c)** — adjacent to K2, not re-derived: 28c is a real limb control. Residual: `return unticked[0] if unticked else ""` still exists so a neutered `_refuse` does not crash into `CASCADING_REDS`; 28c is what makes that neutering go red. Fine if 28c stays in `CONTROL_AIM` / `CONTROLS` (it is added in the diff).
+
+---
+
+`★ Insight ─────────────────────────────────────`
+Recording failures into a side channel only helps if **every consumer that prints a confident total** reads that channel. Here, tests that assert on `_UNEXAMINABLE` and tests that assert on `Sweep.unexaminable` / `main` can diverge — the classic “guarded the helper, not the wiring” vacuity. The `SyntaxError: continue` skip is the same swallow class one AST step earlier than the fixed import failure.
+`─────────────────────────────────────────────────`
+
+**Bottom line:** Close the `SyntaxError` (and ideally non-callable scan) silent continues the same way as import/scan; add one end-to-end test that a broken module under real `sweep()` → non-empty `Sweep.unexaminable` → `main` exit 1 without monkeypatching `sweep`; treat HEAD emptiness as meaningless until that wiring is forced red when removed.

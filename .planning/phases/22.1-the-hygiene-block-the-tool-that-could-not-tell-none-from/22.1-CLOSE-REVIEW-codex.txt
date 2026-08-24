@@ -1,0 +1,58 @@
+**Findings**
+
+1. **Remaining silent skip: parse failure.**  
+   In `count_coupling_rows()`, this path still drops a walked subject without recording it:
+
+   ```python
+   try:
+       parsed = ast.parse(source)
+   except SyntaxError:
+       continue
+   ```
+
+   A `test_*.py` file that is readable but unparsable is examined far enough to be selected, then silently excluded from the count-side sweep. That is the same “could not look” polarity as import failure, even if the tool cannot know whether it contained floors.
+
+2. **Remaining silent skip: missing/non-callable scan.**  
+   Also in `count_coupling_rows()`:
+
+   ```python
+   scan = getattr(module, floor.scan, None)
+   if not callable(scan):
+       continue
+   ```
+
+   Here the AST already found a floor, so the subject is definitely real. If the named scan helper is missing or not callable, that floor goes unmeasured without `record_unexaminable(...)`. This is the clearest adjacent instance of the same defect class.
+
+3. **K3 polarity is mostly correct.**  
+   `_comment_lines()` fallback only records lines whose stripped text starts with `#`. In `classify()`, `line in comments` makes the hit `DOCUMENTARY`; otherwise it falls through to `LIVE` unless docstring/tmp-path logic applies. So a trailing comment missed by fallback is treated as live code, which over-reports coupling. For a deletion-safety sweep, that is the conservative direction.
+
+   The exemption argument is therefore valid for “missed trailing comments.” It is not a general proof that every tokenization failure is safe, but the shown fallback’s known miss does bias toward false positives, not false negatives.
+
+4. **`_UNEXAMINABLE` is not safe for direct `count_coupling_rows()` use.**  
+   `sweep()` calls `reset_unexaminable()` at the top, but `count_coupling_rows()` does not. The new tests manually call `reset_unexaminable()` before direct calls, but production callers/tests must remember that hidden precondition. A direct call can inherit stale records from an earlier direct call, because `unexaminable()` reads the module-level collector.
+
+   That can create false refusal state or make a recorder test pass for the wrong reason. Safer shape: either make `count_coupling_rows()` return its own record, or scope the collector to a run object/context instead of a module global.
+
+5. **Some new tests assert less than they appear to.**
+
+   `test_the_examination_record_is_not_vacuous()` only asserts:
+
+   ```python
+   assert unexaminable() != ()
+   ```
+
+   A bogus recorder entry with the wrong subject, wrong stage, or wrong exception would satisfy it. The following detailed import test covers that better, so this one is mainly redundant as a floor for `head().unexaminable == ()`.
+
+   `test_control_the_rows_a_broken_module_owes_are_exactly_what_vanishes()` has the same weakness at the end:
+
+   ```python
+   assert unexaminable() != ()
+   ```
+
+   It proves “some record exists,” not that the vanished rows are attributed to the broken module or import stage. A mutation that records a generic placeholder during failure would leave this green.
+
+   `test_a_scan_that_will_not_run_is_recorded()` is better, but still does not assert the scan yielded zero rows. A broken implementation that records the scan exception but also fabricates/retains rows would pass this test.
+
+   `test_control_a_clean_sweep_still_exits_zero_and_writes()` monkeypatches `sweep()` to return a `Sweep` with default `unexaminable=()`. That proves `main()` does not refuse a clean `Sweep`, but it does not exercise the collector reset behavior or prove a real clean sweep is isolated from stale `_UNEXAMINABLE`.
+
+**Bottom line:** the main fix closes import, read, scan-exception, and sabotage-run exceptions, but the adjacent live holes are `except SyntaxError: continue` and especially `if not callable(scan): continue` in `count_coupling_rows()`. The mutable global collector is also a residual design risk because direct callers must manually reset it.

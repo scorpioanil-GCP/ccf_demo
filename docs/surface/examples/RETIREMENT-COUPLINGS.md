@@ -309,7 +309,7 @@ Rows by coupling shape:
 | `tools/docs_tests/test_no_stale_example_paths.py` | 42 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 45 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
 | `tools/docs_tests/test_resolver_seam_obligations.py` | 328 | `examples/s1-01-hello-context-product` | `string-literal` | live | - | - | 17-08 |  |
-| `tools/docs_tests/test_retirement_sweep.py` | 462 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-15 |  |
+| `tools/docs_tests/test_retirement_sweep.py` | 465 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-15 |  |
 | `tools/docs_tests/test_snippet_gate.py` | 52 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/run.py` |
 | `tools/lints/tests/test_citations.py` | 350 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 16-18 |  |
 | `tools/measure_examples.py` | 261 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 16-18 |  |
@@ -675,6 +675,8 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-CLOSE-REVIEWS.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-CONTEXT.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22-the-adoption-argument-what-rag-hand-rolled-assembly-and-a-se/22-PATTERNS.md` | 36 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/22.1-the-hygiene-block-the-tool-that-could-not-tell-none-from/22.1-CLOSE-REVIEW-PAYLOAD.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/22.1-the-hygiene-block-the-tool-that-could-not-tell-none-from/22.1-CLOSE-REVIEW-cursor.txt` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/22.1-the-hygiene-block-the-tool-that-could-not-tell-none-from/22.1-HUMAN-VERIFICATION-PACKET.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 64 | append-only decision log |

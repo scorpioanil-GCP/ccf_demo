@@ -5259,7 +5259,21 @@ def test_control_28c_a_ledger_with_no_unticked_row_refuses_a_subject() -> None:
     exactly when the hole would open.
     """
     limb = "_an_unticked_id.none_available"
-    all_ticked = ledger_text().replace("- [ ] **", "- [x] **")
+    real = ledger_text()
+
+    # The floor the close panel found missing. Without it, a change to the
+    # ledger's bullet SPELLING makes `.replace` a no-op, the `not in` check
+    # passes because the old spelling was never there, `_an_unticked_id` then
+    # refuses because it can find no unticked row IN THE OLD SPELLING, and this
+    # control returns early having "confirmed" a refusal that fired for format
+    # drift rather than for an all-ticked ledger. Measured: it passes.
+    assert "- [ ] **" in real, (
+        "the ledger carries no unticked bullet in the spelling this control"
+        " mutates, so the mutation below changes nothing and the refusal it"
+        " observes would be about the spelling, not about an all-ticked ledger"
+    )
+
+    all_ticked = real.replace("- [ ] **", "- [x] **")
     assert "- [ ] **" not in all_ticked, "the fixture still carries an unticked row"
 
     try:

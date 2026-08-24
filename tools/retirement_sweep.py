@@ -450,8 +450,14 @@ class Unexaminable:
     were previously indistinguishable, because every failure path returned
     ``None`` and the caller moved on. The run then printed a confident total
     at exit 0. Reproduced on a real tree: under ``/usr/bin/python3`` rather
-    than ``.venv/bin/python``, three gate modules fail to import, six coupling
-    rows vanish, and the tool reports the smaller number without complaint.
+    than ``.venv/bin/python``, ONE gate module fails to import for want of
+    ``joserfc``, its six coupling rows vanish, and the tool reports the smaller
+    number without complaint. (The Phase 22 discuss sitting recorded *three*
+    modules; on this tree it is one, and that one accounts for all six rows,
+    attributed row by row rather than inferred from the delta. The larger
+    remembered figure survived in THIS docstring after being corrected
+    everywhere else, and was caught by the close panel — which is the defect
+    class this type exists to record, in the type that records it.)
 
     Recorded rather than raised so that ONE run names EVERY unexaminable
     subject; stopping at the first would hide the rest behind it.
@@ -469,7 +475,23 @@ _UNEXAMINABLE: list[Unexaminable] = []
 
 
 def reset_unexaminable() -> None:
-    """Drop the record. Called at the top of every :func:`sweep`."""
+    """Drop the record. Called at the top of every :func:`sweep`.
+
+    **It is NOT called by :func:`count_coupling_rows` and must not be** — that
+    function is one of three row-producing stages :func:`sweep` calls, and
+    resetting inside it would wipe the records the other two made. The
+    consequence, named rather than left to be discovered: a caller invoking
+    :func:`count_coupling_rows` DIRECTLY inherits whatever an earlier direct
+    call recorded, because :func:`unexaminable` reads a module-level list.
+    Every test here that calls it directly resets first.
+
+    The close panel raised this in all three reviews and it is ACCEPTED rather
+    than fixed: the production path is :func:`sweep`, which resets, and that
+    reset is itself held by a control
+    (``test_control_the_wiring_test_fails_when_the_sweep_records_nothing``).
+    Scoping the collector to a run object would be the better shape and is a
+    refactor, not a hygiene fix.
+    """
     _UNEXAMINABLE.clear()
 
 
@@ -1029,7 +1051,10 @@ def count_coupling_rows(roots: Sequence[pathlib.Path] | None = None) -> list[Cou
                 continue
             try:
                 parsed = ast.parse(source)
-            except SyntaxError:
+            except SyntaxError as exc:
+                # Same polarity as the import swallow. The file was selected and
+                # read; failing to parse it is not evidence it carried no floor.
+                record_unexaminable(relative(path), "parse", exc)
                 continue
             floors = _floors(parsed)
             if not floors:
@@ -1041,6 +1066,16 @@ def count_coupling_rows(roots: Sequence[pathlib.Path] | None = None) -> list[Cou
             for floor in floors:
                 scan = getattr(module, floor.scan, None)
                 if not callable(scan):
+                    # The clearest adjacent instance: the AST already FOUND this
+                    # floor, so the subject is real and its scan is unmeasurable
+                    # rather than absent. Silence here is a floor going
+                    # unmeasured while the total reads complete.
+                    record_unexaminable(
+                        f"{rel}::{floor.scan}",
+                        "scan",
+                        "named scan is missing from the imported module or is"
+                        " not callable",
+                    )
                     continue
                 try:
                     result = scan()

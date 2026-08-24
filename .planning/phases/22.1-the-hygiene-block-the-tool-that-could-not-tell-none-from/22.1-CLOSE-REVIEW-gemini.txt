@@ -1,0 +1,29 @@
+Based on a review of the provided diff and project context, here is the report on the findings adjacent to the Phase 22.1 changes.
+
+### 1. Unexamined Paths Without Recording
+There are two paths in `tools/retirement_sweep.py` where a subject is skipped silently without invoking `record_unexaminable`:
+
+*   **Syntax Errors in Test Files:** In `count_coupling_rows` (Line 1030 in full text), if `ast.parse(source)` raises a `SyntaxError`, the loop executes `continue`. This silently ignores malformed Python files that might contain floors.
+*   **Missing/Invalid Scan Functions:** In `count_coupling_rows` (Line 1040 in full text), the check `if not callable(scan): continue` skips the floor if the attribute named in `floor.scan` is missing from the module or is not a callable. This should be recorded as a `scan` or `import` stage failure, as the "subject" (the floor) exists but cannot be measured.
+
+### 2. Vacuous Pass Potential in New Tests
+*   **`test_the_examination_record_is_not_vacuous`:** This test (Line 924 of the test file) asserts `unexaminable() != ()`. It can pass vacuously if any unrelated part of the setup or a previous test leaked a record into the global `_UNEXAMINABLE` list. Furthermore, a mutation that causes `record_unexaminable` to always append a "dummy" entry would satisfy this test even if the specific recording logic for imports/scans was deleted.
+*   **`test_head_examines_every_subject_it_walks`:** This test is environmentally dependent. If the test runner's environment changes such that a module is skipped before it even reaches `_load_module` (e.g., a change to `iter_source_files`), the assertion `unexaminable == ()` would pass because nothing was attempted, not because everything succeeded.
+
+### 3. K3 Exemption Polarity Trace
+The argument in `_comment_lines` (Line 534) is **correct**.
+1.  **The Fallback:** If `tokenize` fails, the fallback only catches lines starting with `#`. It misses trailing comments (e.g., `x = 1 # {WAVE_8}/run.py`).
+2.  **The Polarity:** In `classify` (Line 565 full text), a line is `DOCUMENTARY` if it is in the `comments` set. 
+3.  **The Result:** If a line with a trailing comment is missed by the fallback, `classify` falls through to the final return: `return default_shape, LIVE`.
+4.  **The Safety:** Marking a line as `LIVE` creates a coupling. A coupling prevents deletion. For a retirement tool, over-reporting "live" status is the safe failure mode, as it prevents the accidental deletion of code that might still be in use.
+
+### 4. Safety of Module-Level Mutable Collector
+The `_UNEXAMINABLE` collector is **brittle for unit testing** but safe for `main()`.
+*   **The Risk:** `sweep()` (Line 1433) correctly calls `reset_unexaminable()`, ensuring `main()` starts clean. However, `count_coupling_rows()` (Line 1022) **does not** reset the collector. 
+*   **The Consequence:** If a developer writes a new test that calls `count_coupling_rows` directly without manually calling `reset_unexaminable()`, the test will be polluted by any recordings from previous tests in the same process. 
+*   **Deduplication:** The deduplication in `unexaminable()` (Line 484) hides the *count* of leaks but doesn't prevent unrelated subjects from persisting across test boundaries.
+
+### 5. Brittle and Incomplete Assertions
+*   **Literal Formatting in `test_control_28c`:** This test (Line 5243) relies on the literal string `"- [ ] **"`. If the project changes the ledger format (e.g., removing the space or the bolding), the `.replace()` will fail silently, but the `assert "- [ ] **" not in all_ticked` might still pass, leading to a vacuous test of the refusal limb.
+*   **Weak Control in `test_control_a_clean_sweep_still_exits_zero_and_writes`:** This test (Line 1102) mocks `sweep` to return an object with an empty `unexaminable` tuple. It proves `main` reacts to the `Sweep` object, but it **does not verify** that `sweep()` actually populates that tuple from the global `unexaminable()` collector. If the link between the global list and the `Sweep` return value were broken, this test would remain green while the tool failed to report errors in production.
+*   **Index Error Risk in `_an_unticked_id`:** The logic `return unticked[0] if unticked else ""` (Line 2244) returns an empty string if the refusal is neutered. In `test_control_6` (Line 2438), this results in `_table_line(real, "")`, which will likely raise its own internal refusal, potentially masking the fact that the subject resolution failed.

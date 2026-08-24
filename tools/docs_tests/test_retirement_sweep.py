@@ -63,15 +63,18 @@ from tools.retirement_sweep import (  # noqa: E402
     SHAPE_INDIRECT_EXECUTION,
     SHAPE_INLINE_TREE_WITNESS,
     UNOWNED,
+    Coupling,
     Sweep,
     Unexaminable,
     count_coupling_rows,
     main,
+    record_unexaminable,
     indirect_execution_rows,
     inline_tree_witness_rows,
     iter_source_files,
     outside_swept_trees,
     python_hits,
+    read_text,
     render,
     reset_unexaminable,
     sweep,
@@ -957,7 +960,17 @@ def test_the_examination_record_is_not_vacuous(tmp_path: pathlib.Path) -> None:
     _module_that_will_not_import(tmp_path)
     reset_unexaminable()
     count_coupling_rows(roots=[tmp_path])
-    assert unexaminable() != (), "the recorder never fired on a module that cannot import"
+
+    # NOT `!= ()`. A recorder mutated to append a constant placeholder on every
+    # failure would satisfy non-emptiness while carrying no information, which
+    # is this project's own vacuity class inside its own floor. The subject and
+    # the stage are asserted so the record has to be ABOUT the thing that failed.
+    recorded = unexaminable()
+    assert recorded, "the recorder never fired on a module that cannot import"
+    assert any(
+        item.subject.endswith("test_will_not_import.py") and item.stage == "import"
+        for item in recorded
+    ), [item.line() for item in recorded]
 
 
 def test_a_module_that_will_not_import_is_recorded_rather_than_skipped(
@@ -998,13 +1011,29 @@ def test_control_the_rows_a_broken_module_owes_are_exactly_what_vanishes(
     healthy = count_coupling_rows(roots=[good])
     assert len(healthy) == 2, "the healthy fixture must yield rows to lose"
 
+    owed = {(row.shape, row.witnesses, row.retiring_path) for row in healthy}
+    assert owed, "the healthy fixture pinned no rows, so nothing is owed"
+
     reset_unexaminable()
     broken = count_coupling_rows(roots=[bad])
 
-    assert broken == [], "the broken module yielded rows it could not have measured"
+    # The name of this test says EXACTLY what vanishes, so it pins the rows
+    # rather than counting them. Asserting only `broken == []` would be
+    # satisfied by a module with no floor at all, which is the very confusion
+    # the recorder exists to end.
+    assert {(row.shape, row.witnesses, row.retiring_path) for row in broken} == set()
+    assert owed - {(row.shape, row.witnesses, row.retiring_path) for row in broken} == owed, (
+        "the broken module yielded some of the rows it could not have measured"
+    )
+
     # The row counts alone are indistinguishable from a module with no floor.
-    # Only the record separates "no coupling" from "could not look".
-    assert unexaminable() != (), "the loss was silent — the defect is not closed"
+    # Only the record separates "no coupling" from "could not look" — and it has
+    # to NAME the module, or it cannot be acted on.
+    recorded = unexaminable()
+    assert any(
+        item.subject.endswith("test_will_not_import.py") and item.stage == "import"
+        for item in recorded
+    ), f"the loss was silent or unattributed: {[i.line() for i in recorded]}"
 
 
 def test_a_scan_that_will_not_run_is_recorded(tmp_path: pathlib.Path) -> None:
@@ -1114,3 +1143,227 @@ def test_control_a_clean_sweep_still_exits_zero_and_writes(
 
     assert main(["--report"]) == 0
     assert target.exists(), "a clean run did not write the report"
+    # `exists()` alone is satisfied by a zero-byte write. The written bytes must
+    # be what `render` produces for that result, or this control passes on a
+    # tool that creates an empty file and reports success.
+    assert target.read_text(encoding="utf-8") == render(
+        Sweep(rows=(), files_scanned=1, excluded=(), retiring_source_hits=0)
+    ), "the clean run wrote something other than the rendered report"
+
+
+def test_the_sweep_carries_the_examination_record_into_its_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`sweep()` must WIRE the collector into the `Sweep` it returns.
+
+    **This is the hole the close panel found, and it was decisive.** Every other
+    test in this section proves one of two things: that the RECORDER fires
+    (against `count_coupling_rows` and the module-level collector directly), or
+    that `main()` refuses (against a monkeypatched `sweep` returning a canned
+    `Sweep`). Neither touches the single line that joins them.
+
+    Measured, before this landed: deleting `unexaminable=unexaminable()` from
+    `sweep()`'s `Sweep(...)` construction left **all 41 tests green** while the
+    tool regressed completely — 261 rows at exit 0 under the system interpreter,
+    which is the original defect exactly. A guard that survives the deletion of
+    the thing it guards is not a guard.
+
+    It is also this repo's own `D-IMPL-188` residual one module over: *nothing
+    asserts that the bounded assertion actually READS the pin*. Here it does.
+    """
+    marker = Unexaminable(
+        subject="tests/synthetic/test_marker.py",
+        stage="import",
+        detail="planted by the wiring test",
+    )
+
+    def recording_stage() -> list[Coupling]:
+        record_unexaminable(marker.subject, marker.stage, marker.detail)
+        return []
+
+    # Patch one of the three row-producing stages `sweep()` calls, so the record
+    # is made INSIDE the real `sweep()` run rather than handed to it.
+    monkeypatch.setattr(
+        "tools.retirement_sweep.count_coupling_rows", recording_stage
+    )
+    result = sweep()
+
+    assert marker in result.unexaminable, (
+        "a subject recorded during the real sweep did not reach the Sweep it"
+        f" returned: {[item.line() for item in result.unexaminable]}. `main()`"
+        " reads `result.unexaminable`, so the refusal cannot fire and the run"
+        " reports a smaller total at exit 0 — the original defect, restored"
+    )
+
+
+def test_control_the_wiring_test_fails_when_the_sweep_records_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The wiring test's own false-positive control.
+
+    If `sweep()` returned every record ever made by any earlier caller — a
+    collector never reset — the assertion above would pass for the wrong
+    reason. `sweep()` calls `reset_unexaminable()` at its top, so a record made
+    BEFORE it must not survive into its result.
+    """
+    stale = Unexaminable(
+        subject="tests/synthetic/test_stale.py",
+        stage="import",
+        detail="recorded before the sweep began",
+    )
+    record_unexaminable(stale.subject, stale.stage, stale.detail)
+
+    monkeypatch.setattr(
+        "tools.retirement_sweep.count_coupling_rows", lambda: []
+    )
+    result = sweep()
+
+    assert stale not in result.unexaminable, (
+        "a record made before `sweep()` ran survived into its result, so"
+        " `reset_unexaminable()` is not being called and the wiring assertion"
+        " above proves nothing about THIS run"
+    )
+
+
+def test_a_file_that_will_not_parse_is_recorded(tmp_path: pathlib.Path) -> None:
+    """The parse site, found by the close panel — all three reviewers named it.
+
+    A `test_*.py` that is readable but unparsable was selected and read, then
+    dropped with a bare `continue`. Failing to parse a file is not evidence it
+    carried no floor; it is the same "could not look" polarity as the import
+    swallow, one step earlier in the same loop.
+    """
+    _write(
+        tmp_path,
+        "test_will_not_parse.py",
+        f'''
+        """A floor in a file that cannot be parsed."""
+
+        MINIMUM_SITES = 2
+
+
+        def _sites():
+            return ["{WAVE_8}/run.py:1", "{WAVE_11}/run.py:2"]
+
+
+        def test_the_scan_is_not_vacuous() -> None:
+            assert len(_sites()) >= MINIMUM_SITES
+
+        this is not python(((
+        ''',
+    )
+    reset_unexaminable()
+    rows = count_coupling_rows(roots=[tmp_path])
+
+    assert rows == [], "an unparsable file cannot have yielded measured rows"
+    parses = [item for item in unexaminable() if item.stage == "parse"]
+    assert len(parses) == len(unexaminable()), [i.line() for i in unexaminable()]
+    assert parses[0].subject.endswith("test_will_not_parse.py")
+    assert "SyntaxError" in parses[0].detail, parses[0].detail
+
+
+def test_a_floor_whose_scan_symbol_is_missing_is_recorded(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The clearest adjacent instance, in codex's words — and it is.
+
+    Here the module IMPORTS and the AST has already FOUND the floor, so the
+    subject is not merely unreadable: it is a known, real floor whose scan
+    cannot be run. Dropping it left a floor unmeasured while the total still
+    read complete.
+    """
+    _write(
+        tmp_path,
+        "test_scan_symbol_missing.py",
+        f'''
+        """A floor whose named scan does not survive to module scope."""
+
+        MINIMUM_SITES = 2
+
+
+        def _sites():
+            return ["{WAVE_8}/run.py:1", "{WAVE_11}/run.py:2"]
+
+
+        def test_the_scan_is_not_vacuous() -> None:
+            assert len(_sites()) >= MINIMUM_SITES
+
+
+        del _sites
+        ''',
+    )
+    reset_unexaminable()
+    count_coupling_rows(roots=[tmp_path])
+
+    scans = [item for item in unexaminable() if item.stage == "scan"]
+    assert scans, [item.line() for item in unexaminable()]
+    assert scans[0].subject.endswith("::_sites"), scans[0].subject
+    assert "not callable" in scans[0].detail, scans[0].detail
+
+
+def test_a_file_that_cannot_be_read_is_recorded(tmp_path: pathlib.Path) -> None:
+    """The `read` stage, which had no control until the close panel said so.
+
+    `read_text` fires on ZERO files in this tree today — measured — so its
+    recording had no live subject and could have regressed in silence while the
+    import and scan tests stayed green. A control does not need a live subject;
+    it needs a subject it can make.
+    """
+    unreadable = tmp_path / "not-utf8.py"
+    unreadable.write_bytes(b"\xff\xfe\x00 this is not utf-8 \x00")
+
+    reset_unexaminable()
+    assert read_text(unreadable) is None, "the fixture is readable after all"
+
+    reads = [item for item in unexaminable() if item.stage == "read"]
+    assert reads, [item.line() for item in unexaminable()]
+    assert reads[0].subject.endswith("not-utf8.py"), reads[0].subject
+    assert "UnicodeDecodeError" in reads[0].detail, reads[0].detail
+
+
+def test_a_sabotage_run_that_cannot_be_measured_is_recorded(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The `sabotage-run` stage — the last site the close panel found uncontrolled.
+
+    Detector 3 measures an inline witness by RESTRICTING the helper the test
+    calls and re-running the test. An `AssertionError` from that re-run IS the
+    measurement: the test failed without its retiring witnesses, so the coupling
+    is real. Any OTHER exception is the ABSENCE of a measurement, and returning
+    `False` for it reports one.
+
+    The fixture indexes into the helper's result, so under restriction — where
+    the result is empty — the re-run raises `IndexError` rather than failing an
+    assertion.
+    """
+    _write(
+        tmp_path,
+        "test_unmeasurable_inline.py",
+        f'''
+        import pathlib
+
+        REPO = pathlib.Path({str(REPO_ROOT)!r})
+        SCANNED_TREES = ("examples",)
+
+
+        def _sources(trees):
+            return [REPO / "{WAVE_8}" / "run.py"]
+
+
+        def test_a_witness_exists() -> None:
+            found = _sources(SCANNED_TREES)
+            # Indexes rather than asserting: under restriction this raises
+            # IndexError, which is not a measurement of anything.
+            assert found[0] is not None
+        ''',
+    )
+    reset_unexaminable()
+    inline_tree_witness_rows(roots=[tmp_path])
+
+    runs = [item for item in unexaminable() if item.stage == "sabotage-run"]
+    assert runs, (
+        "an inline re-run that raised a non-AssertionError was reported as a"
+        f" measurement: {[item.line() for item in unexaminable()]}"
+    )
+    assert runs[0].subject.endswith("::test_a_witness_exists"), runs[0].subject
+    assert "IndexError" in runs[0].detail, runs[0].detail
