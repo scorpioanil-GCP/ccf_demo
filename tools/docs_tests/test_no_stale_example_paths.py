@@ -68,15 +68,42 @@ import pytest
 from tools.docs_tests import _prose
 from tools.publish_scan import include_targets
 
-#: An `examples/…` or `tests/examples/…` path token.
+#: An `examples/…`, `tests/examples/…` or `archive/examples/…` path token.
 #:
 #: The trailing character class excludes ``.``, ``,`` and ``)`` so a path at the
 #: end of a sentence does not absorb the punctuation. The lookbehind stops the
 #: inner ``examples`` of ``tests/examples/x`` from being re-matched as a bare
-#: ``examples/x`` that does not exist — verified at HEAD, where no
-#: ``<prefix>/examples/`` token exists anywhere in the published tree.
+#: ``examples/x`` that does not exist.
+#:
+#: **The ``archive/examples`` branch, and the alternative that was rejected**
+#: (`D-IMPL-194` criterion 18). This constant previously carried the sentence
+#: *"verified at HEAD, where no ``<prefix>/examples/`` token exists anywhere in
+#: the published tree"*, and Phase 23 is what makes that false: the ten retired
+#: example trees move to ``archive/examples/`` and the published pages follow
+#: them. Before the branch existed, the lookbehind class ``[A-Za-z0-9_.-]``
+#: omitted ``/``, so ``archive/examples/04-cross-process/producer_child.py``
+#: tokenized as ``examples/04-cross-process/producer_child.py`` — prefix
+#: silently stripped — and was resolved against a path that will not exist
+#: after the move. A CORRECTLY re-pointed page produced offenders naming paths
+#: it never wrote, i.e. this module went RED on a correct tree.
+#:
+#: The obvious one-character alternative — adding ``/`` to the lookbehind class
+#: — was **rejected**, because it makes ``archive/examples/X`` match *nothing*:
+#: a false-offender bug traded for total blindness over the archive. It is also
+#: unnecessary. The lookbehind's stated job (stopping the inner ``examples`` of
+#: ``tests/examples/x`` being re-read) is done by leftmost-match consumption —
+#: ``re.findall`` resumes after the end of the previous match — with the
+#: lookbehind guarding only the case where no outer token matched at all.
+#:
+#: The branch is spelled ``archive/examples``, not ``archive``, mirroring the
+#: narrow spelling of `tools/publish_scan.py::INCLUDE_ALLOWED_PREFIXES`: the
+#: archive root `D-03` pinned is admitted, and a future archive sibling is not
+#: admitted by inheritance. Ordering matters — the longest branches come first,
+#: so the alternation cannot match a prefix of a longer form and stop.
 PATH_TOKEN = re.compile(
-    r"(?<![A-Za-z0-9_.-])(?:tests/examples|examples)/[A-Za-z0-9_./-]*[A-Za-z0-9_/]"
+    r"(?<![A-Za-z0-9_.-])"
+    r"(?:archive/examples|tests/examples|examples)"
+    r"/[A-Za-z0-9_./-]*[A-Za-z0-9_/]"
 )
 
 

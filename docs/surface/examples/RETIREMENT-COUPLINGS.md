@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **267** across **81** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **146** across **50** files
+- Coupling rows: **280** across **81** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **159** across **50** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **235**
 
 Rows by owning plan:
@@ -18,8 +18,8 @@ Rows by owning plan:
 | --- | --- |
 | 16-02 | 10 |
 | 16-15 | 24 |
-| 16-17 | 41 |
-| 16-18 | 111 |
+| 16-17 | 47 |
+| 16-18 | 118 |
 | 17-08 | 81 |
 
 Rows by coupling shape:
@@ -37,8 +37,8 @@ Rows by coupling shape:
 | `path-construction` | 11 |
 | `prose` | 62 |
 | `snippet-include` | 58 |
-| `string-literal` | 9 |
-| `tmp_path-synthetic` | 5 |
+| `string-literal` | 16 |
+| `tmp_path-synthetic` | 11 |
 
 ## Reading the columns
 
@@ -308,6 +308,13 @@ Rows by coupling shape:
 | `tools/docs_tests/test_no_stale_example_paths.py` | 18 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 16-18 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 42 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 45 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 370 | `examples/00-quickstart` | `string-literal` | live | - | - | 16-18 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 371 | `examples/00-quickstart` | `string-literal` | live | - | - | 16-18 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 374 | `examples/04-cross-process` | `string-literal` | live | - | - | 16-17 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 375 | `examples/04-cross-process` | `string-literal` | live | - | - | 16-17 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 392 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 16-17 | constructed as `archive/examples/04-cross-process/producer_child.py` |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 396 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 16-17 | constructed as `examples/04-cross-process/producer_child.py` |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 402 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 16-17 |  |
 | `tools/docs_tests/test_resolver_seam_obligations.py` | 328 | `examples/s1-01-hello-context-product` | `string-literal` | live | - | - | 17-08 |  |
 | `tools/docs_tests/test_retirement_sweep.py` | 465 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-15 |  |
 | `tools/docs_tests/test_snippet_gate.py` | 52 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/run.py` |
@@ -315,9 +322,15 @@ Rows by coupling shape:
 | `tools/measure_examples.py` | 261 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 16-18 |  |
 | `tools/measure_examples.py` | 308 | `examples/01-agent-basics` | `string-literal` | live | - | - | 16-18 |  |
 | `tools/measure_examples.py` | 320 | `examples/00-quickstart` | `string-literal` | live | - | - | 16-18 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 163 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 180 | `public/tutorial/demo-walkthrough.md` | `string-literal` | live | - | - | 16-18 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 190 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 165 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 182 | `public/tutorial/demo-walkthrough.md` | `string-literal` | live | - | - | 16-18 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 192 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 416 | `tests/examples/test_quickstart_output.py` | `string-literal` | live | - | - | 16-18 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 432 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 433 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 16-17 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 436 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 456 | `examples/00-quickstart` | `string-literal` | live | - | - | 16-18 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 457 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 16-18 |  |
 
 ## Measured but not assigned
 
