@@ -484,11 +484,31 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 #: The trees a gate call site can live in. ``tests/`` is deliberately excluded
 #: — see the docstring's closing section.
-SCANNED_TREES: tuple[str, ...] = ("src", "runtime", "examples")
+#:
+#: ``archive`` joined in plan ``23-03``, ahead of Phase 23's move of ten
+#: condemned example trees into ``archive/examples/`` (``D-03``). Measured on
+#: the pre-move tree, 9 of the 12 gate call sites and 11 of the 14 projecting
+#: bodies live in those ten trees, so without the member all three floors below
+#: go red after the move — at 3, 3 and 1 — in a way that reads like a
+#: legitimate removal. **The roots were widened and no floor was touched.** The
+#: same witnesses are found at the new path, so every count is preserved
+#: exactly; lowering a floor instead is the fix that sheds the coverage, which
+#: is the trade :func:`test_the_binder_scan_is_not_vacuous` refuses in its own
+#: docstring.
+#:
+#: The member is the top-level ``archive``, matching this tuple's existing
+#: shape (tree names joined to ``REPO_ROOT``, not path prefixes) and
+#: ``tools/lints/__main__.py::LINTED_TREES``'s spelling — deliberately not the
+#: narrow ``archive/examples/`` the default-deny publication allowlist took in
+#: plan ``23-02``. Guarded by
+#: :func:`test_the_scan_root_membership_is_exactly_the_expected_sets`, because
+#: none of the three floors can see one root swapped for another.
+SCANNED_TREES: tuple[str, ...] = ("src", "runtime", "examples", "archive")
 
-#: The trees the binder-coverage tripwire scans. ``examples/`` only, and the
-#: docstring says why that is the honest scope rather than a shortfall.
-BINDER_SCANNED_TREES: tuple[str, ...] = ("examples",)
+#: The trees the binder-coverage tripwire scans. Example trees only, and the
+#: docstring says why that is the honest scope rather than a shortfall — the
+#: archive is example trees that were retired, not a new kind of subject.
+BINDER_SCANNED_TREES: tuple[str, ...] = ("examples", "archive")
 
 #: The gate call and the keyword carrying the engine's side of Gate 2.
 GATE_CALL = "run_gates"
