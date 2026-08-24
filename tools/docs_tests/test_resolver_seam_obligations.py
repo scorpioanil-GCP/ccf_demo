@@ -116,7 +116,24 @@ NODE_ID = re.compile(
 #: Where a cited example must live. A citation of a ``src/`` symbol is not a
 #: worked example — the point of the citation is that the adopter can read a
 #: shipped, CI-run deployment doing the thing.
-EXAMPLE_PREFIX = "examples/"
+#:
+#: A **tuple**, consumed by ``str.startswith``, since plan ``23-03``. Phase 23
+#: moves ten example trees into ``archive/examples/`` (``D-03``) and re-points
+#: two of this seam's citations there under ``D-07``. With a single prefix
+#: those correctly re-pointed citations stop being recognised as citations at
+#: all: :func:`cited_examples` drops them, only the ``s1-01`` citation
+#: survives, and :func:`test_both_seams_cite_both_call_sites`'s ``>= 2`` fails
+#: while the docstrings are in fact correct. ``23-RESEARCH.md`` §7.3 measured
+#: that this test did NOT fire in the bare-move trial and WILL fire in the real
+#: phase — the break arrives one wave after the edit that causes it, in the
+#: most confusing shape available.
+#:
+#: An archived example is still a shipped, CI-run deployment: ``D-02`` keeps
+#: the paired tests under ``tests/`` and ``D-06`` states the archived trees
+#: leave the ``examples:`` aggregate but do NOT leave CI. So the citation
+#: remains a citation of a worked example, which is why this is a widening
+#: rather than a second concept.
+EXAMPLE_PREFIX: tuple[str, ...] = ("examples/", "archive/examples/")
 
 
 def normalized(doc: str) -> str:

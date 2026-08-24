@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **284** across **82** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **163** across **51** files
+- Coupling rows: **285** across **82** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **164** across **51** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **235**
 
 Rows by owning plan:
@@ -18,7 +18,7 @@ Rows by owning plan:
 | --- | --- |
 | 16-02 | 10 |
 | 16-15 | 27 |
-| 16-17 | 47 |
+| 16-17 | 48 |
 | 16-18 | 119 |
 | 17-08 | 81 |
 
@@ -29,7 +29,7 @@ Rows by coupling shape:
 | `comment` | 21 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 66 |
+| `docstring` | 67 |
 | `indirect-execution` | 1 |
 | `literal-set-member` | 4 |
 | `makefile-recipe` | 16 |
@@ -252,11 +252,11 @@ Rows by coupling shape:
 | `tests/examples/test_artifact_schema_headers.py` | 61 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-02 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 62 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 123 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 172 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 175 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 183 | `examples/08-e2e-demo` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 451 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 504 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 201 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 204 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 212 | `examples/08-e2e-demo` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 511 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 564 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 16-02 |  |
 | `tests/examples/test_client_example_purity.py` | 588 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_demo_generator.py` | 4 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_demo_generator.py` | 22 | `examples/08-e2e-demo` | `path-construction` | live | - | - | 16-18 | constructed as `examples/08-e2e-demo` |
@@ -318,7 +318,8 @@ Rows by coupling shape:
 | `tools/docs_tests/test_no_stale_example_paths.py` | 392 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 16-17 | constructed as `archive/examples/04-cross-process/producer_child.py` |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 396 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 16-17 | constructed as `examples/04-cross-process/producer_child.py` |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 402 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 16-17 |  |
-| `tools/docs_tests/test_resolver_seam_obligations.py` | 328 | `examples/s1-01-hello-context-product` | `string-literal` | live | - | - | 17-08 |  |
+| `tools/docs_tests/test_resolver_seam_obligations.py` | 218 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `tools/docs_tests/test_resolver_seam_obligations.py` | 372 | `examples/s1-01-hello-context-product` | `string-literal` | live | - | - | 17-08 |  |
 | `tools/docs_tests/test_retirement_sweep.py` | 465 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-15 |  |
 | `tools/docs_tests/test_snippet_gate.py` | 52 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/run.py` |
 | `tools/lints/tests/test_citations.py` | 350 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 16-18 |  |
