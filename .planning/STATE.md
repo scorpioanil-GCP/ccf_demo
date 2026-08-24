@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-24T00:55:00.000Z"
+last_updated: "2026-08-24T03:00:00.000Z"
 last_activity: >-
   2026-08-23 -- **PHASE 22 IS CLOSED. `D-GATE-22` IS LOGGED AND `DOCS-15` IS DISCHARGED**
   under the ruled coupling to `s1-01`/`CLNT-17`. Six plans in six serial waves on `main`
@@ -1429,76 +1429,73 @@ last_activity: >-
   EMPTY, with CONTROL 6/7 proving the assertion is not vacuous.
 progress:
   total_phases: 27
-  completed_phases: 26
+  completed_phases: 27
   total_plans: 204
   completed_plans: 204
-  percent: 96
+  percent: 100
 stopped_at: >-
-  **PHASE 22.1 IS EXECUTED AND VERIFIED; IT IS NOT YET GATED.** Three waves on
-  `main` from the phase base `589763d`. All nine Success Criteria met, LOCKED at the
-  discuss sitting before Wave 1 per `D-GATE-19`. **What remains is the SS3.1 close:
-  the cross-AI panel on the SHIPPED tree, the additive single-agent depth pass, the
-  verification of every finding against the tree, and Dave's ruling. Nothing is
-  presented to Dave until the panel has run.**
-  **THE DEFECT, REPRODUCED AND CLOSED.** `tools/retirement_sweep.py` decides what is
-  safe to delete and could not tell *"there is no coupling"* from *"I could not
-  look"*: every failure path returned `None`. Measured on the real tree BEFORE and
-  AFTER -- under `/usr/bin/python3` rather than `.venv/bin/python`,
-  `tests/products/test_gate_two_call_shape.py` fails to import for want of
-  `joserfc`, its SIX floor rows vanish, and the total drops **267 -> 261 AT EXIT 0**.
-  After: the venv run is unchanged at 267/exit 0 and the system-python run EXITS 1
-  naming the module. **A correction to the record rather than an inheritance of it:**
-  the Phase 22 sitting recorded *"three modules fail to import"*; on this tree it is
-  **ONE**, and that one accounts for all six rows, attributed row by row rather than
-  inferred from the delta.
-  **THE REFUSAL COMES BEFORE THE WRITE, AND THAT WAS A HOLE IN THE FIRST DRAFT OF THE
-  FIX.** An exit code alone does not protect the file: rendering an incomplete walk
-  over the committed report replaces a good inventory with a smaller one, and the
-  staleness gate then reports the CORRECT report as stale -- the original defect's
-  own confusing symptom. Caught in-wave, and `test_the_refusal_does_not_write_the_report`
-  ISOLATES it: sabotage 4 moves the refusal after the write and fells that test ALONE.
-  **RECON-10 WAS ONE COMMIT STALE, NOT OWED -- AND VERDICTING IT DISARMED TWO
-  CONTROLS, WHICH IS THE MORE IMPORTANT HALF.** Limbs re-measured with the gate's own
-  parser: live coverage sentence `149/149` against a strict parse of **149 rows**;
-  `WORKING_SET_ROSTER` **54** with zero surviving `52`. Limb 3 was closed by
-  `D-IMPL-177` at `014f646` -- the commit AFTER the one that wrote this row's
-  *outstanding limb* text (`f285ac2`). One correction WAS owed: the corrected clause
-  said the table *is 143*, true when the ruling landed and drifted by six since; now
-  **149** from the parse. `RECON-10` -> **`Complete as ruled`** in both channels.
-  Then `CONTROL 6` and `CONTROL 7`, which both need an UNTICKED subject and both NAMED
-  `RECON-10`, stopped being controls -- 6 could no longer manufacture a disagreement,
-  7 raised `IndexError`. **Neither noticed; `CONTROL 36b` caught them.** Subject now
-  DERIVED at run time (`_an_unticked_id`), with `CONTROL 28c` proving its no-subject
-  branch refuses. Three of that module's own gates fired on the fix and each was
-  OBEYED rather than worked around: `D-21` refused a carried count, the limb registry
-  refused an unregistered id, and the cascade check refused an `IndexError` where an
-  `AssertionError` was owed.
-  **THE 27 ITEMS ARE ASSEMBLED AND THE COUNT RECONCILES.** All eleven records carry a
-  machine-readable `human_verification:` frontmatter block and THAT is the
-  authoritative source -- the prose is written five different ways and scraping it
-  undercounts. `/gsd:audit-uat` reports 24 across 9 because it filters on
-  `status: human_needed`; Phase 12 (`passed`, 1) and Phase 18 (`gaps_found`, 2) carry
-  items under other statuses. **24 + 1 + 2 = 27.** Triaged 19 decisions / 4 needing a
-  run / 4 needing a reading. **DELIVERED, NOT RULED** (`D-11`, `D-20`).
-  **`DOCS-17` AND `CLNT-17` STILL READ `Not built`, DELIBERATELY** (criterion 7,
-  `D-IMPL-189` point 4). Dave: *"Logging a verdict for a future move is the same
-  ledger dishonesty this pass is cleaning up."* **The archive move is NOT in this
-  phase and no part of it was performed.**
-  **CI EXIT 0 ON ALL SIX LEGS, EVERY LEG IN THE FOREGROUND.** lint 0; typecheck 211
-  files; `test` **4105 passed / 118 skipped**, BYTE-FOR-BYTE the `D-GATE-21`/`21.1`/`22`
-  baseline, which is the mechanical proof this phase changed no behaviour; `gate-tools`
-  **406 + 307**; eleven examples with three harness legs at one content address;
-  `docs-strict` 0. **The test leg ran as FOUR foreground chunks and the coverage is
-  PROVEN twice** -- 999+1056+1108+1060 = **4223**, equal to the full `--collect-only`,
-  AND the chunks' node-id sets are set-equal to the full collection and pairwise
-  disjoint, because a sum alone is satisfied by a partition that double-counts one
-  directory and omits another.
-  **`src/`, `runtime/`, `examples/` DIFF-EMPTY** per member -- 142, 71, 323 tracked
-  files -- with the `VAC-01` sabotage recorded beside it: `srcX` names 0 tracked files
-  and ALSO diffs empty, so only the `ls-files > 0` guard tells a misspelled member
-  from a clean one.
-  **Next action: the SS3.1 cross-AI panel on the shipped tree, then the single-agent
-  depth pass, then `D-GATE-22.1`.**
+  **PHASE 22.1 IS CLOSED. `D-GATE-22.1` IS LOGGED AND `RECON-10` IS DISCHARGED.**
+  Six commits on `main` from the phase base `589763d` (no phase branch, following
+  Phase 22's precedent at `d7a70eb`). All nine Success Criteria met, LOCKED at the
+  discuss sitting before Wave 1 per `D-GATE-19`. **`main` is SIX COMMITS AHEAD OF
+  `origin/main`, which is still at `589763d` — the push is the one outstanding
+  mechanical step.**
+  **THE §3.1 PANEL FOUND THIS PHASE'S OWN DEFECT CLASS INSIDE THE PHASE, AND THAT
+  IS THE ARGUMENT FOR THE PANEL.** codex, gemini and cursor read the SHIPPED tree
+  with a hand-assembled **49 KB INLINED** payload, briefed on the known findings and
+  told to report what is ADJACENT. **Cursor named a one-line mutation and gemini
+  reached it independently: delete `unexaminable=unexaminable()` from `sweep()`'s
+  `Sweep` construction. MEASURED -- ALL 41 TESTS STAYED GREEN while the tool
+  regressed completely to 261 rows at exit 0.** Every test proved either that the
+  RECORDER fires or that `main()` REFUSES; nothing touched the line joining them --
+  *"guarded the helper, not the wiring."* That is `D-IMPL-188`'s open residual
+  (*nothing asserts the bounded assertion READS the pin*) one module over. Now held,
+  with a false-positive control proving `sweep()` resets rather than accumulates.
+  **THE DEFECT THE PHASE WAS COMMISSIONED FOR, REPRODUCED AND CLOSED.** Under
+  `/usr/bin/python3` rather than `.venv/bin/python`, ONE module fails to import for
+  want of `joserfc`, its SIX rows vanish, and the total drops **267 -> 261 AT EXIT
+  0**; after, the venv run is unchanged and the system-python run EXITS 1 naming the
+  module. The Phase 22 sitting recorded *three* modules; it is **one**, attributed
+  row by row. **The refusal precedes the WRITE** -- an exit code alone does not
+  protect the file -- and that was a hole in the first draft, isolated by its own
+  test.
+  **THIRTEEN FINDINGS: 9 FIXED, 1 ACCEPTED, 2 REJECTED, 1 CONFIRMED CORRECT -- AND
+  ONE REJECTION WAS ITSELF WRONG AND IS RECORDED AS SUCH.** Gemini said `CONTROL 28c`
+  could pass vacuously on a ledger bullet-spelling change; the orchestrator reasoned
+  it would FAIL, then RAN it -- it **passes**. Gemini was right. A floor now catches
+  it. *An unverified rejection is as bad as an unverified acceptance.* Cursor also
+  found the `Unexaminable` docstring still reading *"three gate modules"* -- the
+  stale figure corrected in the commit message, the test preamble, `STATE.md` and the
+  ROADMAP and left wrong in the SHIPPED TYPE.
+  **`RECON-10` WAS ONE COMMIT STALE, NOT OWED -- AND VERDICTING IT DISARMED TWO
+  CONTROLS.** `D-IMPL-177` closed its third limb at `014f646`, the commit AFTER the
+  one that wrote its *outstanding limb* text (`f285ac2`). One correction WAS owed
+  (the clause said *143*; the parse says **149**). Then `CONTROL 6` and `CONTROL 7`,
+  which both need an UNTICKED subject and both NAMED `RECON-10`, stopped being
+  controls; **neither noticed and `CONTROL 36b` caught them**. Subject now DERIVED.
+  **TEN SABOTAGES, every prediction held, each felling EXACTLY its predicted tests.
+  No control could not be made to fail.**
+  **CI:** lint 0; typecheck **211**; `gate-tools` **406 + 313**; `docs-strict` 0;
+  `examples` 0; `test` **4105 passed / 118 skipped** unchanged. **Dave ruled the full
+  four-chunk re-run NOT a condition of approval** -- product trees byte-identical to
+  the run at `5fb56ce`, `--collect-only` finding ZERO files under `tools/`, collect
+  still 4223, chunk A reproducing 962/37.
+  **CARRIED BY DAVE'S RULING, NOT BLOCKING:** (1) the module-level collector is a
+  footgun for direct callers, accepted and documented, production goes through
+  `sweep()`; (2) `D-IMPL-188`-style *pin-not-read* cousins OUTSIDE this module stay
+  open as verification-tools debt; (3) **`DOCS-17` and `CLNT-17` remain `Not built`**
+  until the archive phase makes `Partial` true (`D-IMPL-189` point 4); (4) the
+  **27-item packet is delivered and NOT discharged**.
+  **THE MILESTONE IS STILL NOT COMPLETE AND MUST NOT BE COMPLETED ON THE PHASE
+  COUNTER.** `DOCS-07`..`DOCS-19` remain undischarged against a retired Phase 16;
+  the four `Not built` rows (`DOCS-14`, `DOCS-17`, `CLNT-17`, `EXAM-02`) are one knot;
+  all 27 `human_needed` items are NAMED, not discharged (`D-20`).
+  **Next, in Dave's order and at his choosing: push `main`; then the ARCHIVE MOVE
+  (`D-IMPL-189`), which is a separate phase and performs the `Partial` verdicts;
+  then CONTEXT PRODUCT CONSTRUCTION against the three `references/` documents, whose
+  two conflicts with shipped mechanism -- nine contract elements vs eight, eight
+  named operators vs four categories -- need Dave's ruling BEFORE code, and whose
+  proposed `D-IMPL-30`..`39` numbers are already taken and need renumbering.**
 ---
 
 # STATE — CCF SDK
