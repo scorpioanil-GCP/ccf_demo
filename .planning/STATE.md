@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-24T03:00:00.000Z"
+last_updated: "2026-08-24T13:30:00.000Z"
 last_activity: >-
   2026-08-23 -- **PHASE 22 IS CLOSED. `D-GATE-22` IS LOGGED AND `DOCS-15` IS DISCHARGED**
   under the ruled coupling to `s1-01`/`CLNT-17`. Six plans in six serial waves on `main`
@@ -1434,6 +1434,92 @@ progress:
   completed_plans: 204
   percent: 100
 stopped_at: >-
+  **PHASE 23 IS OPEN, DISCUSSED AND NOT PLANNED. NOTHING IS EXECUTING.**
+  `main` == `origin/main` at `efa0044` (the Phase 22.1 packet sweep, PUSHED 2026-08-24 —
+  the step the prior entry left outstanding). The working tree carries the Phase 23
+  sitting, UNCOMMITTED at the time of writing: `.planning/ROADMAP.md` (+123, **ZERO
+  deletions** — insert-only), `docs/DECISIONS.md` (+4, **append-only**), the phase
+  directory with `23-CONTEXT.md` and `23-DISCUSSION-LOG.md`, and the regenerated
+  coupling report.
+  **THE SITTING'S OWN FINDING: THE DRAFTED ENTRY WAS WRONG ON ITS PREMISE AND DAVE'S
+  QUESTION IS WHAT FALSIFIED IT.** The gray-area menu was REJECTED rather than answered.
+  Dave asked *"Isn't the S1 pair what we just completed, client side examples?"* — and it
+  is not: the client-side pair is `examples/hw1-companies-over-revenue` (2026-08-16,
+  Phases 17/18) and `examples/hw1-harness-clients` (2026-08-20, Phase 20).
+  `examples/s1-00-companies-over-revenue` (2026-08-14) is the PREDECESSOR that
+  `hw1-companies-over-revenue` rebuilt — its README is titled *"HW-1 — companies over a
+  revenue threshold you choose"*, the same scenario — and `s1-01` (2026-08-10) is not a
+  client example at all. **Scope corrected mid-sitting from TWELVE trees to TEN, before
+  planning and before any criterion was written.**
+  **THE REASONING WAS THEN TESTED AND THE FIRST ANSWER WAS THE WRONG ONE.** Dave put back
+  *"you are recommending we keep the s1 examples because they do not buy us much for the
+  amount of work…is that correct?"* — and the honest answer is **no**. The benefit is
+  **ZERO, not small**: neither `s1` tree is in the `examples:` aggregate (`example-s1-01`
+  needs a Fluree server, `example-s1-00` needs Docker or `CCF_TEST_POSTGRES`), so both are
+  ALREADY outside the always-on job that archiving exists to clear. The cost is not work
+  volume — 37 files and a path substitution — it is that archiving `s1-01` would make a
+  `D-IMPL-189` commitment FALSE, since all **7** published `s1` references are to `s1-01`
+  on `public/concepts/answers-no-document-contains.md`, the page Phase 22 shipped
+  2026-08-23, five of them `--8<--` includes. **The third and strongest measurement
+  surfaced only under that challenge: BOTH `s1` TREES ARE LIVE FIXTURES FOR CORE SUITES,
+  NOT EXAMPLE TESTS** — `s1-00` named by 11 test files including
+  `tests/deployment/test_config_derivation.py` and a `fixtures/s1-00-multifile/` tree,
+  `s1-01` by 6 including `tests/products/test_gate_two_call_shape.py`,
+  `tests/replay/test_engine_rehydration.py` and `tests/halflife/test_debt.py`.
+  **SIX RULINGS, LOGGED AS `D-IMPL-190` AND `D-IMPL-191`. TWO OF THEM AMEND `D-IMPL-189`,
+  AND EACH NAMES THE OLD CLAUSE AND THE NEW ONE** per the standing policy `D-GATE-22` set
+  for `D-IMPL-188`. (1) Ten trees, `CLNT-17` excluded and staying `Not built`. (2) **THE
+  PAIRED TESTS STAY UNDER `tests/`** — AMENDS `D-IMPL-189` point 1 (*"their paired tests
+  moved with them"*), because `pyproject.toml:142` sets `testpaths = ["tests"]`, so moving
+  them removes **515 tests** and drops the suite from **4105 / 118** to roughly 3590 — a
+  baseline `D-GATE-21`, `21.1`, `22` and `22.1` each cite as the mechanical proof the
+  phase changed no behaviour — to achieve a DOCUMENTATION archive. The clause predates
+  anyone checking `testpaths`. (3) Archive lives OUTSIDE `examples/`. (4) Archive stays
+  RUNNABLE but ships NO `make` targets — forced, because two condemned-tree tests EXECUTE
+  rather than read. (5) The sweep's `Retirement` table re-points to Phase 23 plans and
+  archived paths STILL count as couplings; going blind to the archive would reproduce the
+  exact Phase 22.1 defect. (6) **THE DONE-LIMB SAYS "OUT OF THE `examples:` AGGREGATE",
+  NOT "OUT OF LIVE CI"** — AMENDS `D-IMPL-189` point 3, because under ruling 2 the tests
+  stay, so 25 of 31 `tests/examples` files still READ the archived sources and 2 still
+  EXECUTE them. A cell reading *"out of live CI"* would be FALSE the day it is written,
+  which is the `RECON-09` failure exactly.
+  **SIXTEEN SUCCESS CRITERIA LOCKED AT THE SITTING**, before planning and before Wave 1
+  (`D-GATE-19`, `D-IMPL-174`), each ONE LINE — verified 16 numbered, sequential, with
+  ZERO continuation lines inside the block, because a wrapped criterion parses as a single
+  verification truth and that is how 15.3 and 15.4 shipped gated against less than they
+  read as.
+  **SCOPE RE-MEASURED, NOT CARRIED FROM THE RULING** (`D-19`, `D-IMPL-174`): **265**
+  tracked files across the ten trees (confirms `D-IMPL-189` exactly); **102** snippet
+  includes + **9** prose paths across **15** pages = **111**, which is `D-08`'s pinned
+  figure and `21-04`'s re-measure. **`D-IMPL-189`'s OWN "99 snippet includes and 108 prose
+  paths" DOES NOT MATCH THE TREE and must not be quoted into any plan.** **TEN of the
+  ELEVEN `examples:` aggregate members go** (`Makefile:256`), sole survivor
+  `example-hw1-harness-clients` — the always-on examples job is **91% condemned trees**,
+  which is the concrete benefit this phase buys. I had first written "nine"; `example-ext-00`
+  is condemned too.
+  **THE `D-11` SCOPE FENCE IS SAFE AND NEEDS NO REPAIR, CHECKED BECAUSE PHASE 22 WAS
+  BITTEN HERE.** `D-IMPL-188` bounded the untouched-tree assertions to
+  `base..951eb4a`, so Phase 23's 265-file write under `examples/` falls AFTER the ceiling
+  and is invisible to them; `test_requirement_ledger.py`'s scope/fence tests pass today.
+  Side effect worth knowing: once this phase writes under `examples/`, that limb becomes
+  self-proving the way `public/` already is, closing part of `D-IMPL-188`'s open residual
+  (*nothing asserts the bounded assertion READS the pin*) without targeting it.
+  **TWO FINDINGS AGAINST `CLNT-17` RAISED AND EXPRESSLY NOT RULED — no plan in Phase 23
+  may act on either.** (1) Its stated blocker is WRONG ON THE TREE: the cell says deleting
+  `s1-01` strands *"the last shipped `examples/` call site of `refuse_request`"*, which is
+  why `17-08-SUMMARY.md` reads `blocked-at-task-3`; there are **THREE** `.py` call sites
+  and two are in `s1-00` (`consume.py`, `produce.py`). Carried unexamined since Phase 17.
+  (2) `CLNT-17` may be MIS-FRAMED as an example-retirement row at all, given that both
+  `s1` trees are core-suite fixtures.
+  **STILL TRUE AND NOT CHANGED BY THIS SITTING. DO NOT RUN `complete-milestone`.**
+  `DOCS-07`..`DOCS-19` remain undischarged against a retired Phase 16; four `Not built`
+  rows (`DOCS-14`, `DOCS-17`, `CLNT-17`, `EXAM-02`) are one knot; all 27 `human_needed`
+  items are NAMED, not discharged (`D-20`), ten of the nineteen decision items live.
+  **NEXT: `/gsd:plan-phase 23`.** Do NOT write criteria retroactively — they are locked.
+  Regenerate `docs/surface/examples/RETIREMENT-COUPLINGS.md` LAST after any `.planning/`
+  write. Background Bash dies at ~10 min here: run `make ci` legs in the FOREGROUND and
+  split the test leg into chunks proven to cover the suite.
+  PRIOR FOLLOWS.
   **PHASE 22.1 IS CLOSED. `D-GATE-22.1` IS LOGGED AND `RECON-10` IS DISCHARGED.**
   Six commits on `main` from the phase base `589763d` (no phase branch, following
   Phase 22's precedent at `d7a70eb`). All nine Success Criteria met, LOCKED at the
@@ -1537,6 +1623,33 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+Phase: **23 — The Archive Move: Retiring the Ten Condemned Example Trees Without
+  Deleting Them (INSERTED).** ADDED 2026-08-24 by hand (`D-15`) at `efa0044`, **DISCUSSED
+  2026-08-24, NOT PLANNED.** Performs `D-IMPL-189`'s archive-with-repoint as the allowed
+  intermediate state for `DOCS-17`, which becomes **`Partial`** for the first time.
+  **Scope was CORRECTED mid-sitting from TWELVE trees to TEN**, before planning and before
+  any criterion was written, because Dave asked whether the `s1` pair was the client-side
+  work just completed — it is not; that is `hw1-*`, and `s1-00` is the PREDECESSOR
+  `hw1-companies-over-revenue` rebuilt. **`CLNT-17` is EXCLUDED and stays `Not built`.**
+  **SIXTEEN Success Criteria LOCKED at the sitting** (`D-GATE-19`, `D-IMPL-174`), each ONE
+  LINE, verified sequential with zero continuation lines. Six rulings logged as
+  `D-IMPL-190` and `D-IMPL-191`; **two AMEND `D-IMPL-189`** — point 1 (the paired tests
+  STAY under `tests/`, so the **4105 / 118** baseline holds) and point 3 (the done-limb
+  says *out of the `examples:` aggregate*, NOT *out of live CI*, because 25 of 31
+  `tests/examples` files still read the archived sources and 2 still execute them). Each
+  amendment names the old clause and the new one per the `D-IMPL-188` policy.
+  **Why this phase and not another:** it is the ONLY retirement work unblocked today.
+  Both outstanding rulings govern DELETION — `D-27`'s `00`–`08` half is Dave's and
+  undecided, and `D-IMPL-176` point 2 requires `DOCS-14`/`EXAM-02` first — and nothing is
+  deleted here. It is also the first movement `DOCS-17` has had since it was minted, and
+  clears **ten of the eleven** members of the always-on `examples:` job.
+  **NEXT: `/gsd:plan-phase 23`.** Criteria are locked; do not author any retroactively.
+
+**PRIOR POSITIONS FOLLOW — preserved, not rewritten.** The chain below is a
+dated record of what was current at the time, the same discipline
+`docs/DECISIONS.md` follows; corrections live in the entry above, never by
+editing history.
 
 Phase: **22 — The Adoption Argument: What RAG, Hand-Rolled Assembly and a Semantic
   Layer Lack (INSERTED).** ADDED 2026-08-23 by hand (`D-15`), **DISCUSSED AND PLANNED 2026-08-23 --
