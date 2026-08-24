@@ -145,6 +145,7 @@ if str(REPO_ROOT) not in sys.path:  # the tools/ package is not installed
     sys.path.insert(0, str(REPO_ROOT))
 
 from tools.check_schema_headers import (  # noqa: E402
+    ARTIFACT_GLOBS,
     DEFERRED_PREFIX,
     check_directory,
     discover,
@@ -152,6 +153,34 @@ from tools.check_schema_headers import (  # noqa: E402
 
 #: The tree the bijection closes over.
 EXAMPLES_ROOT = REPO_ROOT / "examples"
+
+#: The archive Phase 23 retires ten example trees into (`D-03` pins the path).
+#: It does not exist yet when this constant is introduced; every consumer below
+#: therefore filters on :func:`present_roots`, so the widening is a strict
+#: no-op until the move lands.
+ARCHIVE_EXAMPLES_ROOT = REPO_ROOT / "archive" / "examples"
+
+#: Every root this module walks. **The gate must reach both.** Measured on the
+#: pre-move tree, 216 artifact documents in the ten condemned trees carry a
+#: `$schema` header, and after the move every one of them needs an extra `../`.
+#: With the walk narrow, `tools/check_schema_headers.py::discover` finds
+#: nothing in the archive and the gate reports CLEAN over 216 rotten headers
+#: while producing only 2 failures — the "reports clean because it did not
+#: look" defect, arriving inside the phase written to prevent it.
+GATED_EXAMPLE_ROOTS: tuple[pathlib.Path, ...] = (
+    EXAMPLES_ROOT,
+    ARCHIVE_EXAMPLES_ROOT,
+)
+
+
+def present_roots() -> tuple[pathlib.Path, ...]:
+    """The gated roots that exist on disk right now.
+
+    ``archive/`` is absent before Phase 23's move and ``examples/`` will still
+    exist after it, so filtering here is what lets the roots be widened ahead
+    of the move without a single assertion changing result.
+    """
+    return tuple(root for root in GATED_EXAMPLE_ROOTS if root.is_dir())
 
 #: The mechanical example-root predicate: a directory that *directly* contains
 #: a file with this name. See the module docstring for why it is this and not
@@ -241,8 +270,33 @@ def bijection_violations(
     return uncovered, orphaned
 
 
+def all_example_roots() -> set[pathlib.Path]:
+    """Every example root under every gated root that exists.
+
+    The union, so a control asserting "this directory is NOT an example root"
+    keeps meaning that after the archive move relocates the directory. Asserting
+    against ``EXAMPLES_ROOT`` alone would make such a control silently vacuous
+    the day its subject moved into the archive.
+    """
+    found: set[pathlib.Path] = set()
+    for root in present_roots():
+        found |= example_roots(root)
+    return found
+
+
+def all_covered_artifact_directories() -> set[pathlib.Path]:
+    """Every covered ``artifacts/`` directory under every gated root."""
+    found: set[pathlib.Path] = set()
+    for root in present_roots():
+        found |= covered_artifact_directories(root)
+    return found
+
+
 def _artifact_documents() -> list[pathlib.Path]:
-    return sorted(REPO_ROOT.glob("examples/**/artifacts/*.yaml"))
+    found: list[pathlib.Path] = []
+    for pattern in ARTIFACT_GLOBS:
+        found.extend(REPO_ROOT.glob(pattern))
+    return sorted(found)
 
 
 # ---------------------------------------------------------------------------
@@ -258,14 +312,16 @@ def test_the_example_tree_is_populated() -> None:
     coverage gate is supposed to be immune to.
     """
     assert EXAMPLES_ROOT.is_dir(), f"missing example tree: {EXAMPLES_ROOT}"
-    assert example_roots(EXAMPLES_ROOT), (
-        f"no `{EXAMPLE_ROOT_MARKER}` found anywhere under {EXAMPLES_ROOT} —"
-        " the example-root predicate collects nothing, so the bijection below"
-        " would close over an empty set"
-    )
-    assert covered_artifact_directories(EXAMPLES_ROOT), (
-        f"no `{ARTIFACTS_DIRNAME}/*.yaml` found under {EXAMPLES_ROOT}"
-    )
+    assert present_roots(), "no gated example root exists on disk at all"
+    for root in present_roots():
+        assert example_roots(root), (
+            f"no `{EXAMPLE_ROOT_MARKER}` found anywhere under {root} — the"
+            " example-root predicate collects nothing there, so the bijection"
+            " below would close over an empty set for that root"
+        )
+        assert covered_artifact_directories(root), (
+            f"no `{ARTIFACTS_DIRNAME}/*.yaml` found under {root}"
+        )
 
 
 def test_this_module_gates_the_same_set_the_tool_checks() -> None:
@@ -278,7 +334,7 @@ def test_this_module_gates_the_same_set_the_tool_checks() -> None:
     """
     local = sorted(
         str(path.relative_to(REPO_ROOT))
-        for path in covered_artifact_directories(EXAMPLES_ROOT)
+        for path in all_covered_artifact_directories()
     )
     tool = sorted(
         str(path.relative_to(REPO_ROOT)) for path in discover(require_all=True)
@@ -298,7 +354,9 @@ def test_this_module_gates_the_same_set_the_tool_checks() -> None:
 
 def test_every_example_root_has_a_covered_artifact_directory() -> None:
     """Left side: an example without covered artifacts is an example the gate cannot see."""
-    uncovered, _ = bijection_violations(EXAMPLES_ROOT)
+    uncovered = [
+        name for root in present_roots() for name in bijection_violations(root)[0]
+    ]
     assert not uncovered, (
         "example roots (directories directly containing"
         f" `{EXAMPLE_ROOT_MARKER}`) with no covered `{ARTIFACTS_DIRNAME}/`"
@@ -309,7 +367,9 @@ def test_every_example_root_has_a_covered_artifact_directory() -> None:
 
 def test_every_covered_artifact_directory_sits_under_an_example_root() -> None:
     """Right side: a covered directory under no example root is coverage of a ghost."""
-    _, orphaned = bijection_violations(EXAMPLES_ROOT)
+    orphaned = [
+        name for root in present_roots() for name in bijection_violations(root)[1]
+    ]
     assert not orphaned, (
         f"covered `{ARTIFACTS_DIRNAME}/` directories whose parent is not an"
         f" example root (no `{EXAMPLE_ROOT_MARKER}` beside them) — either the"
@@ -333,7 +393,7 @@ def test_every_example_roots_artifact_directory_is_non_vacuous() -> None:
     """
     empty = sorted(
         str(root.relative_to(REPO_ROOT))
-        for root in example_roots(EXAMPLES_ROOT)
+        for root in all_example_roots()
         if not sorted((root / ARTIFACTS_DIRNAME).glob("*.yaml"))
     )
     assert not empty, (
@@ -431,7 +491,7 @@ def test_the_predicate_excludes_the_py_bearing_non_examples(
         f"{relative} carries no `.py` module, so it is no longer the"
         " counter-example this control exists to exclude"
     )
-    assert directory not in example_roots(EXAMPLES_ROOT), (
+    assert directory not in all_example_roots(), (
         f"{relative} was collected as an example root; the predicate has"
         f" loosened from `{EXAMPLE_ROOT_MARKER}` to something that catches"
         " support directories"
@@ -453,7 +513,7 @@ def test_the_predicate_excludes_fixtures_directories_as_a_shape() -> None:
     """
     collected = sorted(
         str(root.relative_to(REPO_ROOT))
-        for root in example_roots(EXAMPLES_ROOT)
+        for root in all_example_roots()
         if root.name == "fixtures"
     )
     assert not collected, (
@@ -523,10 +583,110 @@ def test_a_single_file_config_example_is_outside_the_bijection(
         " config has none; now that it has one, widen the example-root"
         " predicate to collect it and delete this test"
     )
-    assert root not in example_roots(EXAMPLES_ROOT), (
+    assert root not in all_example_roots(), (
         f"{relative} is now collected as an example root but owns no"
         f" `{ARTIFACTS_DIRNAME}/`, so the bijection's left side cannot hold"
     )
+
+
+# ---------------------------------------------------------------------------
+# The gated roots. A walk that does not reach a tree reports clean over it.
+# ---------------------------------------------------------------------------
+
+
+def test_the_gated_roots_are_the_live_tree_and_the_archive() -> None:
+    """Membership of the walked root set, asserted rather than counted.
+
+    ``23-RESEARCH.md`` finding **S-16** in this module's own terms. Nothing here
+    is a floor any more — the bijection replaced the aggregate document
+    floor — but the same blindness applies to a root set: swapping
+    ``EXAMPLES_ROOT`` for ``ARCHIVE_EXAMPLES_ROOT`` leaves the bijection closing
+    perfectly over the archived trees while the surviving examples stop being
+    gated, and every assertion in this module stays green.
+
+    Asserted by set equality, so a root ADDED without review fails here too.
+    """
+    assert set(GATED_EXAMPLE_ROOTS) == {EXAMPLES_ROOT, ARCHIVE_EXAMPLES_ROOT}, (
+        "the gated root set changed. A root removed here stops a whole tree"
+        " being header-checked with no assertion in this module able to say so."
+    )
+    assert EXAMPLES_ROOT in GATED_EXAMPLE_ROOTS
+    assert ARCHIVE_EXAMPLES_ROOT in GATED_EXAMPLE_ROOTS
+
+
+def test_the_discovery_globs_reach_the_live_tree_and_the_archive() -> None:
+    """The tool's own root set, which is the one that decides what is read.
+
+    This module's root set and
+    ``tools/check_schema_headers.py::ARTIFACT_GLOBS`` are two statements of one
+    thing, and :func:`test_this_module_gates_the_same_set_the_tool_checks`
+    compares what they *find*. On today's tree that comparison is satisfied by
+    both being blind to the archive at once, because the archive does not
+    exist — so the membership is asserted directly as well.
+    """
+    assert set(ARTIFACT_GLOBS) == {
+        f"examples/**/{ARTIFACTS_DIRNAME}/*.yaml",
+        f"archive/examples/**/{ARTIFACTS_DIRNAME}/*.yaml",
+    }, (
+        "the tool's artifact-discovery globs changed. Narrowing them is how the"
+        " header gate goes SILENT rather than red: measured on the pre-move"
+        " tree, 216 documents in the ten condemned trees carry a `$schema`"
+        " header, and a walk that does not reach them reports clean over every"
+        " one."
+    )
+
+
+def test_the_discovery_finds_an_archived_artifact_directory(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The widening proven by BEHAVIOUR, against a synthetic tree.
+
+    Asserting the glob strings alone would only prove the glob is what it is.
+    ``discover`` takes a ``base`` so a control can point it at ``tmp_path``,
+    exactly as :func:`covered_artifact_directories` is parameterized on its
+    tree and for the same stated reason — and that is what makes this a control
+    rather than a restatement.
+
+    Both roots are planted, and both must be found: a widening that reached the
+    archive by *losing* the live tree would satisfy a one-sided check.
+    """
+    for relative in (
+        f"examples/live-example/{ARTIFACTS_DIRNAME}",
+        f"archive/examples/retired-example/{ARTIFACTS_DIRNAME}",
+    ):
+        directory = tmp_path / relative
+        directory.mkdir(parents=True)
+        (directory / "thing.yaml").write_text("a: 1\n", encoding="utf-8")
+
+    found = sorted(
+        str(path.relative_to(tmp_path))
+        for path in discover(require_all=True, base=tmp_path)
+    )
+    assert found == [
+        f"archive/examples/retired-example/{ARTIFACTS_DIRNAME}",
+        f"examples/live-example/{ARTIFACTS_DIRNAME}",
+    ], found
+
+
+def test_the_discovery_ignores_an_artifact_directory_outside_both_roots(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The widening is a widening, not an opening.
+
+    ``archive/`` bare is not a root: only ``archive/examples/`` is, matching the
+    narrow spelling plan ``23-02`` chose for the publication allowlist. A
+    ``tests/`` or ``archive/scratch/`` directory of YAML is not artifact
+    material and must stay outside the gate.
+    """
+    for relative in (
+        f"archive/scratch/{ARTIFACTS_DIRNAME}",
+        f"tests/fixtures/{ARTIFACTS_DIRNAME}",
+    ):
+        directory = tmp_path / relative
+        directory.mkdir(parents=True)
+        (directory / "thing.yaml").write_text("a: 1\n", encoding="utf-8")
+
+    assert discover(require_all=True, base=tmp_path) == []
 
 
 # ---------------------------------------------------------------------------

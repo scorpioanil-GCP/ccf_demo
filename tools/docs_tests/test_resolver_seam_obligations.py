@@ -194,6 +194,33 @@ def test_the_repo_root_resolves_off_the_process_cwd() -> None:
     assert (REPO_ROOT / "pyproject.toml").is_file(), REPO_ROOT
 
 
+def test_the_example_prefixes_are_the_live_tree_and_the_archive() -> None:
+    """Both prefixes count as "a shipped example", and neither one alone does.
+
+    Measured in `23-RESEARCH.md` §7.3: after Phase 23 re-points the two runtime
+    seam citations to `archive/examples/04-cross-process/producer_child.py`,
+    a single-prefix filter stops recognising them **as citations at all**.
+    `cited_examples` returns fewer pairs, `test_both_seams_cite_both_call_sites`
+    asserts `len(paths) >= 2`, and the failure reads as a docstring that lost a
+    citation rather than as a filter that stopped matching one. That is the
+    most confusing shape a break can take: a correctly re-pointed citation,
+    silently reclassified as not-a-citation.
+
+    Set equality, not `in` checks: the live tree must still be recognised, or
+    the `s1-01` citations this phase deliberately does not move fall out too.
+    """
+    assert set(EXAMPLE_PREFIX) == {"examples/", "archive/examples/"}, (
+        "the cited-example prefix set changed. A prefix REMOVED silently"
+        " reclassifies real citations as non-citations; a prefix ADDED lets a"
+        " citation of something that is not a worked example satisfy the seam."
+    )
+    for prefix in EXAMPLE_PREFIX:
+        assert prefix.endswith("/"), (
+            f"{prefix!r} does not end in `/`, so it would admit a sibling tree"
+            " by name prefix"
+        )
+
+
 # --------------------------------------------------------------------------
 # The obligation itself.
 # --------------------------------------------------------------------------

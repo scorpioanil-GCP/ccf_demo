@@ -118,6 +118,11 @@ import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
+#: Every root this gate discovers artifact documents under, as globs relative
+#: to :data:`REPO_ROOT`. **A root absent from here is a tree this gate reports
+#: clean over without reading it** — the discovery is the whole of its scope.
+ARTIFACT_GLOBS: tuple[str, ...] = ("examples/**/artifacts/*.yaml",)
+
 #: The exact first-line prefix an annotated artifact document carries.
 HEADER_PREFIX = "# yaml-language-server: $schema="
 
@@ -376,18 +381,25 @@ def check_directory(directory: pathlib.Path) -> list[str]:
     return problems
 
 
-def discover(require_all: bool) -> list[pathlib.Path]:
-    """Return the artifact directories to check.
+def discover(
+    require_all: bool, base: pathlib.Path | None = None
+) -> list[pathlib.Path]:
+    """Return the artifact directories to check, under ``base``.
 
     Auto-arming by default: a directory joins the checked set as soon as it
     carries its first header or deferral marker. ``require_all`` returns
     every artifact directory regardless, which is the tree-wide form.
+
+    ``base`` defaults to :data:`REPO_ROOT` and exists so a control can run this
+    over a synthetic tree, the same reason
+    ``tests/examples/test_artifact_schema_headers.py::covered_artifact_directories``
+    is parameterized on its tree. Without it the only way to prove
+    :data:`ARTIFACT_GLOBS` reaches a root is to assert that the glob strings
+    are the glob strings, which proves nothing about what gets read.
     """
+    root = REPO_ROOT if base is None else base
     directories = sorted(
-        {
-            path.parent
-            for path in REPO_ROOT.glob("examples/**/artifacts/*.yaml")
-        }
+        {path.parent for pattern in ARTIFACT_GLOBS for path in root.glob(pattern)}
     )
     if require_all:
         return directories
