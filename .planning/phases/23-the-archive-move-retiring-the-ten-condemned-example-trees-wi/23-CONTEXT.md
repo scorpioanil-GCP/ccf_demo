@@ -53,6 +53,20 @@ amendment names the old clause and the new one per the standing policy
 ### What the verdict may claim
 - **D-06 (`D-IMPL-191` r4):** **The done-limb says "out of the `examples:` aggregate", NOT "out of live CI".** AMENDS `D-IMPL-189` point 3. After the move the trees leave the aggregate but **do not leave CI**: under D-02 the tests stay, so 25 of 31 `tests/examples` files still READ the archived sources and 2 still EXECUTE them. A cell reading *"out of live CI"* would be false on the day it is written — the `RECON-09` failure, the difference between a verdict and a hope. The cell must NAME what still exercises them.
 
+### The four permitted `src/`/`runtime/` edits
+- **D-07 (`D-IMPL-192`):** **Criterion 14 is AMENDED to permit EXACTLY FOUR path-string-only citation updates, and nothing else** under `src/`, `runtime/` or `pyproject.toml`. **OLD:** those three are diff-empty. **NEW:** diff-empty except the four below. They are `path::symbol` NODE IDS — the checked citation form — in shipped library docstrings, and they name condemned trees this phase moves:
+
+| # | File | Line | Old → new |
+|---|---|---|---|
+| 1 | `src/ccf/products/bind.py` | 74 | `examples/04-cross-process/producer_child.py::resolve` → `archive/examples/04-cross-process/producer_child.py::resolve` |
+| 2 | `runtime/ccf_runtime/mcp/egress.py` | 306 | same `04-cross-process` target |
+| 3 | `runtime/ccf_runtime/mcp/experience.py` | 334 | same `04-cross-process` target |
+| 4 | `runtime/ccf_runtime/mcp/experience.py` | 483 | `examples/external/00-hello-context/serve.py::context_provider` → `archive/examples/external/00-hello-context/serve.py::context_provider` |
+
+  **Why this was blocking, measured by sabotage rather than argued:** `bind.py:74` was repointed at a non-existent `archive/...` path and `python -m tools.lints --all` **exited 0 with zero mentions** of the rule, the file or the bad path (restored byte-identical). `cite03-node-id` treats a node id whose PATH does not resolve as UNCHECKED; Phase 22's `test_every_published_node_id_resolves` closes that hole for `public/` **only**. Without the amendment the phase ships four citations pointing at nothing and **no gate can say so**.
+  **Hard limits.** A **fifth** edit under any of the three members is a **scope breach**. Each of the four is proven **PATH-STRING-ONLY** — no symbol, signature, behaviour or surrounding prose altered — with the unmoved **4105 / 118** baseline as the mechanical proof. **The five `s1-01` citations are NOT touched** (`egress.py:304`, `experience.py:332`, `bind.py:76`, `request.py:365`, `request.py:558`), because `s1-01` is not moving.
+  **A numbering correction, recorded because the ruling was requested against the wrong ordinal:** the exchange called this *"criterion 13"*; on the tree it is **criterion 14**. Criterion 13 is `CLNT-17`'s byte-identical protection — the one thing the same sitting said not to weaken. Dave's ruling names the criterion by CONTENT, which is unambiguous. **Criterion 13 is untouched and verified byte-identical against `HEAD`.**
+
 ### Claude's Discretion
 - The archive's INTERNAL layout beneath `archive/examples/`, provided every include resolves. **The root path itself is NOT discretionary — it is pinned to `archive/examples/` (D-03).**
 - How the include re-point is mechanized (path substitution vs. per-page edit), provided criterion 5's RED-before-GREEN control holds.
@@ -119,6 +133,7 @@ amendment names the old clause and the new one per the standing policy
 
 - **`CLNT-17`'s stated blocker is wrong on the tree** — its cell claims deleting `s1-01` strands *"the last shipped `examples/` call site of `refuse_request`"*, which is why `17-08-SUMMARY.md` reads `blocked-at-task-3`. There are **three** `.py` call sites and two are in `s1-00`. **Raised, expressly not ruled; no plan in this phase may act on it.**
 - **`CLNT-17` may be mis-framed as an example-retirement row at all**, given that both `s1` trees are core-suite fixtures. If so, *"retire these example trees"* is the wrong obligation and will keep reading as owed work nobody can safely do. **Dave's ruling, not an executor's.**
+- **BACKLOG (`D-IMPL-192`): a standing check that every `path::symbol` node id under `src/` and `runtime/` RESOLVES** — the counterpart to Phase 22's `tools/docs_tests/test_adoption_wording.py::test_every_published_node_id_resolves`, which covers the published tree only. This is the durable fix for the class `D-07` works around; until it exists, the workaround is a workaround. **Rejected as Phase 23 scope** — it is `D-06`'s twin and real work, not an archive move.
 - **The `00`–`08` half of `D-27`** (deletion) remains undecided and Dave's.
 - **`DOCS-14` / `EXAM-02`** still owe the replacement surface; `D-IMPL-176` point 2 sequences them before any removal.
 - **The 27-item human-verification packet** is delivered and awaiting Dave (`D-20`); ten of nineteen decision items are live.
