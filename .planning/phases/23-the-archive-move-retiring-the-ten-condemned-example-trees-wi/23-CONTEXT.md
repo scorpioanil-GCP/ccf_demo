@@ -16,6 +16,15 @@ On completion `DOCS-17` is verdicted `Partial` for the first time.
 **`CLNT-17` and the `s1` pair are NOT in this phase.** `CLNT-17` stays
 `Not built` and no `s1` tree is moved, renamed or re-pointed.
 
+**PHASE 23 MUST NOT INVENT A `CLNT-17` DISPOSITION.** Dave, at the scope lock
+2026-08-24: *"Phase 23 should not invent a CLNT-17 disposition. Plan and execute
+the archive move only."* This is a hard boundary, not a preference. The row's
+framing is unresolved — its `refuse_request` blocker premise is FALSE on the
+tree, and it may not be an example-retirement obligation at all — and that
+question is Dave's and is to be settled BEFORE any attempt to close `CLNT-17`.
+A plan, a test, a ledger cell or a commit message in this phase that assigns
+`CLNT-17` any verdict, limb or disposition is a scope breach.
+
 The sixteen Success Criteria are in the ROADMAP entry and were **LOCKED at this
 sitting, before planning and before Wave 1** (`D-GATE-19`, `D-IMPL-174`).
 </domain>
@@ -35,7 +44,7 @@ amendment names the old clause and the new one per the standing policy
 - **D-02 (`D-IMPL-190` r2):** **The paired tests STAY under `tests/`; only the sources move.** AMENDS `D-IMPL-189` point 1. **OLD:** *"their paired tests moved with them"*. **NEW:** they remain under `tests/` and are re-pointed. `pyproject.toml:142` sets `testpaths = ["tests"]`, so moving them removes 515 tests from the suite and drops the baseline from **4105/118** to roughly 3590 — a baseline four gates cite as proof of no behaviour change — to achieve a *documentation* archive. `D-IMPL-189`'s clause predates anyone checking `testpaths`.
 
 ### Archive shape
-- **D-03 (`D-IMPL-191` r1):** **The archive lives OUTSIDE `examples/`**, so `examples/` keeps meaning *things we teach with*. Mechanically neutral — `pymdownx.snippets` resolves `base_path` against the repo root, not `public/`.
+- **D-03 (`D-IMPL-191` r1):** **The archive lives OUTSIDE `examples/`**, so `examples/` keeps meaning *things we teach with*. Mechanically neutral — `pymdownx.snippets` resolves `base_path` against the repo root, not `public/`. **The path is PINNED to `archive/examples/…` by Dave 2026-08-24 at the scope-lock**; it is no longer the planner's to choose. This is a concretion WITHIN ruling 1, not a change to it, so no new `D-IMPL` entry is minted.
 - **D-04 (`D-IMPL-191` r2):** **The archive stays RUNNABLE but ships NO `make` targets.** It must stay executable regardless, because two condemned-tree tests execute rather than read. All ten `example-0N`-family targets are **deleted, not renamed** — a target is an invitation to run, and these are no longer the teaching path.
 
 ### The sweep
@@ -45,7 +54,7 @@ amendment names the old clause and the new one per the standing policy
 - **D-06 (`D-IMPL-191` r4):** **The done-limb says "out of the `examples:` aggregate", NOT "out of live CI".** AMENDS `D-IMPL-189` point 3. After the move the trees leave the aggregate but **do not leave CI**: under D-02 the tests stay, so 25 of 31 `tests/examples` files still READ the archived sources and 2 still EXECUTE them. A cell reading *"out of live CI"* would be false on the day it is written — the `RECON-09` failure, the difference between a verdict and a hope. The cell must NAME what still exercises them.
 
 ### Claude's Discretion
-- The archive directory's exact name and internal layout, provided it is outside `examples/` (D-03) and every include resolves.
+- The archive's INTERNAL layout beneath `archive/examples/`, provided every include resolves. **The root path itself is NOT discretionary — it is pinned to `archive/examples/` (D-03).**
 - How the include re-point is mechanized (path substitution vs. per-page edit), provided criterion 5's RED-before-GREEN control holds.
 - Plan and wave decomposition.
 
