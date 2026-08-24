@@ -441,10 +441,62 @@ def relative(path: pathlib.Path) -> str:
         return path.as_posix()
 
 
+@dataclasses.dataclass(frozen=True)
+class Unexaminable:
+    """A subject the sweep could not look at.
+
+    The sweep decides what is safe to delete. A subject it cannot examine is
+    NOT evidence of no coupling — it is the absence of evidence — and the two
+    were previously indistinguishable, because every failure path returned
+    ``None`` and the caller moved on. The run then printed a confident total
+    at exit 0. Reproduced on a real tree: under ``/usr/bin/python3`` rather
+    than ``.venv/bin/python``, three gate modules fail to import, six coupling
+    rows vanish, and the tool reports the smaller number without complaint.
+
+    Recorded rather than raised so that ONE run names EVERY unexaminable
+    subject; stopping at the first would hide the rest behind it.
+    """
+
+    subject: str
+    stage: str
+    detail: str
+
+    def line(self) -> str:
+        return f"  {self.subject} [{self.stage}] {self.detail}"
+
+
+_UNEXAMINABLE: list[Unexaminable] = []
+
+
+def reset_unexaminable() -> None:
+    """Drop the record. Called at the top of every :func:`sweep`."""
+    _UNEXAMINABLE.clear()
+
+
+def record_unexaminable(subject: str, stage: str, exc: BaseException | str) -> None:
+    """Note that `subject` could not be examined at `stage`, and why."""
+    detail = (
+        exc if isinstance(exc, str) else f"{type(exc).__name__}: {exc}".strip()
+    )
+    _UNEXAMINABLE.append(Unexaminable(subject=subject, stage=stage, detail=detail))
+
+
+def unexaminable() -> tuple[Unexaminable, ...]:
+    """Every subject this run could not examine, deduplicated, in order."""
+    seen: dict[tuple[str, str, str], Unexaminable] = {}
+    for item in _UNEXAMINABLE:
+        seen.setdefault((item.subject, item.stage, item.detail), item)
+    return tuple(seen.values())
+
+
 def read_text(path: pathlib.Path) -> str | None:
     try:
         return path.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, OSError):
+    except (UnicodeDecodeError, OSError) as exc:
+        # Measured at the time this was closed: `iter_source_files()` yields
+        # zero files this cannot read, so recording here costs no false red
+        # today and closes the class for the day a file arrives that it can.
+        record_unexaminable(relative(path), "read", exc)
         return None
 
 
@@ -482,6 +534,13 @@ def _comment_lines(source: str) -> set[int]:
             if token.type == tokenize.COMMENT:
                 lines.add(token.start[0])
     except (tokenize.TokenError, IndentationError, SyntaxError):
+        # DELIBERATELY NOT recorded as unexaminable, and the reason is the
+        # polarity. This is a real fallback, not a swallow: it still answers,
+        # by scanning for `#`-prefixed lines. What it misses is a TRAILING
+        # comment, and a line missing from this set is classified as live code
+        # rather than DOCUMENTARY -- so the degraded path OVER-reports a
+        # coupling. For a tool that decides what is safe to delete, that is the
+        # safe direction, and a false red here would be a real coupling found.
         for number, text in enumerate(source.splitlines(), start=1):
             if text.lstrip().startswith("#"):
                 lines.add(number)
@@ -780,13 +839,19 @@ def _module_tree_constants(tree: ast.Module) -> dict[str, tuple[str, ...]]:
 def _load_module(path: pathlib.Path) -> types.ModuleType | None:
     """Import a gate module by file location, without polluting `sys.modules`."""
     name = "_retirement_sweep_" + relative(path).replace("/", "_").removesuffix(".py")
+    rel = relative(path)
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
+        record_unexaminable(rel, "import", "no loader for this file location")
         return None
     module = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(module)
-    except Exception:  # noqa: BLE001 - a module that will not import yields no rows
+    except Exception as exc:  # noqa: BLE001 - recorded, then refused by main()
+        # NOT "yields no rows". A module that will not import yields no rows
+        # AND no evidence that it had none to yield; the caller cannot tell the
+        # two apart, so the run refuses instead of reporting a smaller total.
+        record_unexaminable(rel, "import", exc)
         return None
     return module
 
@@ -979,7 +1044,9 @@ def count_coupling_rows(roots: Sequence[pathlib.Path] | None = None) -> list[Cou
                     continue
                 try:
                     result = scan()
-                except Exception:  # noqa: BLE001 - an unrunnable scan yields no row
+                except Exception as exc:  # noqa: BLE001 - recorded, then refused
+                    # An unrunnable scan is not a floor with no witnesses.
+                    record_unexaminable(f"{rel}::{floor.scan}", "scan", exc)
                     continue
                 paths = _paths_of(result)
                 counts = _distribution(paths)
@@ -1121,7 +1188,14 @@ def inline_tree_witness_rows(
                         test()
                     except AssertionError:
                         return False
-                    except Exception:  # noqa: BLE001 - unmeasurable, not a witness
+                    except Exception as exc:  # noqa: BLE001 - recorded, then refused
+                        # An AssertionError above is a MEASUREMENT: the test
+                        # failed under restriction, which is the witness. Any
+                        # other exception is the absence of a measurement, and
+                        # returning False here reports it as one.
+                        record_unexaminable(
+                            f"{relative(path)}::{node.name}", "sabotage-run", exc
+                        )
                         return False
                     finally:
                         setattr(module, helper, original)
@@ -1347,6 +1421,7 @@ class Sweep:
     files_scanned: int
     excluded: tuple[tuple[str, int, str], ...]
     retiring_source_hits: int
+    unexaminable: tuple[Unexaminable, ...] = ()
 
     @property
     def unowned(self) -> tuple[Coupling, ...]:
@@ -1355,6 +1430,7 @@ class Sweep:
 
 def sweep() -> Sweep:
     """Measure every live coupling to every retiring path, repo-wide."""
+    reset_unexaminable()
     rows: list[Coupling] = []
     excluded_counts: dict[str, tuple[int, str]] = {}
     retiring_source_hits = 0
@@ -1415,6 +1491,7 @@ def sweep() -> Sweep:
         files_scanned=files_scanned,
         excluded=excluded,
         retiring_source_hits=retiring_source_hits,
+        unexaminable=unexaminable(),
     )
 
 
@@ -1615,6 +1692,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     result = sweep()
 
+    # The refusal comes BEFORE the write, deliberately. A run that could not
+    # examine every subject has measured what happened to load, not what is
+    # coupled, and rendering that over the committed report replaces a good
+    # inventory with a smaller one -- while the staleness gate then reports the
+    # CORRECT report as stale. An exit code alone does not protect the file.
+    if result.unexaminable:
+        print(
+            f"REFUSING: {len(result.unexaminable)} subject(s) could not be"
+            " examined, so this count is not a measurement of coupling --"
+            " it is a measurement of what happened to load."
+            + (" The report was NOT written." if args.report else ""),
+            file=sys.stderr,
+        )
+        for item in result.unexaminable:
+            print(item.line(), file=sys.stderr)
+        return 1
+
     if args.report:
         REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
         REPORT_PATH.write_text(render(result), encoding="utf-8")
@@ -1633,6 +1727,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         for row in result.unowned:
             print(f"  {row.file}:{row.line} -> {row.retiring_path}", file=sys.stderr)
         return 1
+
     return 0
 
 

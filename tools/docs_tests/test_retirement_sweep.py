@@ -64,14 +64,18 @@ from tools.retirement_sweep import (  # noqa: E402
     SHAPE_INLINE_TREE_WITNESS,
     UNOWNED,
     Sweep,
+    Unexaminable,
     count_coupling_rows,
+    main,
     indirect_execution_rows,
     inline_tree_witness_rows,
     iter_source_files,
     outside_swept_trees,
     python_hits,
     render,
+    reset_unexaminable,
     sweep,
+    unexaminable,
 )
 
 #: One retiring example directory per wave, taken from the schedule so this
@@ -878,3 +882,235 @@ def test_no_gitignored_path_reaches_the_report() -> None:
         "the sweep read gitignored paths, so the inventory is not reproducible:\n  "
         + "\n  ".join(ignored)
     )
+
+
+# ---------------------------------------------------------------------------
+# The sweep must not report "no coupling" when it means "I could not look".
+# ---------------------------------------------------------------------------
+#
+# Phase 22.1. The sweep decides what is safe to delete. Every failure path in
+# it used to return `None` and let the caller move on, so a gate module that
+# would not import contributed no rows and the run printed a confident total
+# at exit 0. MEASURED on the real tree, both before and after: under
+# `/usr/bin/python3` rather than `.venv/bin/python`,
+# `tests/products/test_gate_two_call_shape.py` fails to import for want of
+# `joserfc`, its SIX floor rows vanish, and the total drops 267 -> 261 at
+# EXIT 0. The staleness gate then reports the CORRECT committed report as
+# stale. This is the project's own check-vacuity class (`D-GATE-21.1`) one
+# tool over, and it sits directly upstream of the retirement decision.
+#
+# A correction to the record while closing it: the Phase 22 discuss sitting
+# recorded "three modules fail to import". On this tree it is ONE module, and
+# that one accounts for all six rows -- attributed row by row, not inferred
+# from the delta. The smaller true number is recorded rather than the larger
+# remembered one.
+
+
+def _module_that_will_not_import(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A floor-carrying module whose import raises, as `joserfc` does at HEAD.
+
+    It carries a real floor so it reaches `_load_module` at all: the walk
+    parses first and only imports a module that has something to measure.
+    """
+    return _write(
+        tmp_path,
+        "test_will_not_import.py",
+        f'''
+        """A floor whose module cannot be imported."""
+
+        import a_package_that_is_not_installed_anywhere  # noqa: F401
+
+        MINIMUM_SITES = 2
+
+
+        def _sites():
+            return [
+                "{WAVE_8}/run.py:1",
+                "{WAVE_11}/run.py:2",
+            ]
+
+
+        def test_the_scan_is_not_vacuous() -> None:
+            assert len(_sites()) >= MINIMUM_SITES
+        ''',
+    )
+
+
+def test_head_examines_every_subject_it_walks() -> None:
+    """At HEAD, in the venv, nothing was unexaminable — and that is measured."""
+    assert head().unexaminable == (), (
+        "the sweep could not examine every subject at HEAD: "
+        + "; ".join(item.line() for item in head().unexaminable)
+    )
+
+
+def test_the_examination_record_is_not_vacuous(tmp_path: pathlib.Path) -> None:
+    """The floor under the assertion above.
+
+    An empty `unexaminable` tuple is the right answer only if the sweep
+    actually tried to import something. If the walk imported nothing, the
+    tuple would be empty for the wrong reason and
+    `test_head_examines_every_subject_it_walks` would pass over a sweep that
+    looked at nothing. This proves the recorder fires when there IS something
+    to record, so its silence at HEAD carries information.
+    """
+    _module_that_will_not_import(tmp_path)
+    reset_unexaminable()
+    count_coupling_rows(roots=[tmp_path])
+    assert unexaminable() != (), "the recorder never fired on a module that cannot import"
+
+
+def test_a_module_that_will_not_import_is_recorded_rather_than_skipped(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The import site: recorded, named, and with the reason attached."""
+    _module_that_will_not_import(tmp_path)
+    reset_unexaminable()
+    rows = count_coupling_rows(roots=[tmp_path])
+
+    assert rows == [], "a module that will not import cannot have yielded rows"
+    recorded = unexaminable()
+    assert len(recorded) == 1, [item.line() for item in recorded]
+    item = recorded[0]
+    assert item.subject.endswith("test_will_not_import.py")
+    assert item.stage == "import"
+    assert "a_package_that_is_not_installed_anywhere" in item.detail, item.detail
+
+
+def test_control_the_rows_a_broken_module_owes_are_exactly_what_vanishes(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The HEAD defect in miniature: same module, importable vs not.
+
+    Proves the loss is silent WITHOUT the recorder — the row count alone
+    cannot tell the two runs apart — which is the whole reason the recorder
+    has to exist. Two rows here stand in for the six at HEAD.
+    """
+    good = tmp_path / "good"
+    bad = tmp_path / "bad"
+    good.mkdir()
+    bad.mkdir()
+
+    _synthetic_floor_module(good)
+    _module_that_will_not_import(bad)
+
+    reset_unexaminable()
+    healthy = count_coupling_rows(roots=[good])
+    assert len(healthy) == 2, "the healthy fixture must yield rows to lose"
+
+    reset_unexaminable()
+    broken = count_coupling_rows(roots=[bad])
+
+    assert broken == [], "the broken module yielded rows it could not have measured"
+    # The row counts alone are indistinguishable from a module with no floor.
+    # Only the record separates "no coupling" from "could not look".
+    assert unexaminable() != (), "the loss was silent — the defect is not closed"
+
+
+def test_a_scan_that_will_not_run_is_recorded(tmp_path: pathlib.Path) -> None:
+    """The scan site: the module imports, the floor's scan function raises."""
+    _write(
+        tmp_path,
+        "test_scan_raises.py",
+        f'''
+        """A floor whose scan cannot be run."""
+
+        MINIMUM_SITES = 2
+
+
+        def _sites():
+            raise RuntimeError("this scan cannot be measured")
+
+
+        def test_the_scan_is_not_vacuous() -> None:
+            assert len(_sites()) >= MINIMUM_SITES
+
+
+        _UNUSED = ["{WAVE_8}/run.py", "{WAVE_11}/run.py"]
+        ''',
+    )
+    reset_unexaminable()
+    count_coupling_rows(roots=[tmp_path])
+
+    scans = [item for item in unexaminable() if item.stage == "scan"]
+    assert len(scans) == 1, [item.line() for item in unexaminable()]
+    assert scans[0].subject.endswith("::_sites")
+    assert "this scan cannot be measured" in scans[0].detail
+
+
+def _sweep_with_one_unexaminable() -> Sweep:
+    return Sweep(
+        rows=(),
+        files_scanned=1,
+        excluded=(),
+        retiring_source_hits=0,
+        unexaminable=(
+            Unexaminable(
+                subject="tests/products/test_gate_two_call_shape.py",
+                stage="import",
+                detail="ModuleNotFoundError: No module named 'joserfc'",
+            ),
+        ),
+    )
+
+
+def test_the_run_refuses_when_a_subject_could_not_be_examined(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Exit non-zero, and NAME the subject — a bare count is not actionable."""
+    monkeypatch.setattr(
+        "tools.retirement_sweep.sweep", _sweep_with_one_unexaminable
+    )
+    assert main([]) == 1
+    err = capsys.readouterr().err
+    assert "REFUSING" in err
+    assert "tests/products/test_gate_two_call_shape.py" in err
+    assert "joserfc" in err
+
+
+def test_the_refusal_does_not_write_the_report(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """An exit code alone does not protect the file.
+
+    The refusal has to come BEFORE the write. Rendering an incomplete walk
+    over the committed report replaces a good inventory with a smaller one,
+    and the staleness gate then reports the CORRECT report as stale — which
+    is exactly the confusing symptom the original defect produced.
+    """
+    target = tmp_path / "REPORT.md"
+    target.write_text("the good inventory\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "tools.retirement_sweep.sweep", _sweep_with_one_unexaminable
+    )
+    monkeypatch.setattr("tools.retirement_sweep.REPORT_PATH", target)
+
+    assert main(["--report"]) == 1
+    assert target.read_text(encoding="utf-8") == "the good inventory\n", (
+        "the refusing run overwrote the committed report"
+    )
+    assert "was NOT written" in capsys.readouterr().err
+
+
+def test_control_a_clean_sweep_still_exits_zero_and_writes(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+) -> None:
+    """The refusal's own false-positive control.
+
+    A guard that refuses everything is not a guard. With nothing unexaminable
+    the run must still write and still exit 0 — otherwise the two assertions
+    above are satisfied by a tool that never works.
+    """
+    target = tmp_path / "REPORT.md"
+    monkeypatch.setattr(
+        "tools.retirement_sweep.sweep",
+        lambda: Sweep(rows=(), files_scanned=1, excluded=(), retiring_source_hits=0),
+    )
+    monkeypatch.setattr("tools.retirement_sweep.REPORT_PATH", target)
+
+    assert main(["--report"]) == 0
+    assert target.exists(), "a clean run did not write the report"
