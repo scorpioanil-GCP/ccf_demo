@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-23T22:10:00.000Z"
+last_updated: "2026-08-24T00:55:00.000Z"
 last_activity: >-
   2026-08-23 -- **PHASE 22 IS CLOSED. `D-GATE-22` IS LOGGED AND `DOCS-15` IS DISCHARGED**
   under the ruled coupling to `s1-01`/`CLNT-17`. Six plans in six serial waves on `main`
@@ -1428,54 +1428,77 @@ last_activity: >-
   `## ` headings by name and order). CRITERION 7 ASSERTED: `git diff 9e4bd0e..HEAD -- src/`
   EMPTY, with CONTROL 6/7 proving the assertion is not vacuous.
 progress:
-  total_phases: 19
-  completed_phases: 18
-  total_plans: 188
-  completed_plans: 175
-  percent: 93
+  total_phases: 27
+  completed_phases: 26
+  total_plans: 204
+  completed_plans: 204
+  percent: 96
 stopped_at: >-
-  **PHASE 22 IS DISCUSSED, NOT PLANNED.** `22-CONTEXT.md` and `22-DISCUSSION-LOG.md`
-  are committed at `815f810`; the phase entry and its **fifteen Success Criteria** are
-  hand-written into `.planning/ROADMAP.md` per `D-15`, and the criteria were LOCKED AT
-  THE DISCUSS SITTING -- before planning and before Wave 1 -- per `D-GATE-19`. Nothing
-  is planned and nothing is executed.
-  **THE PHASE IS ONE PAGE PLUS THE GATE THAT KEEPS IT HONEST**, in Dave's words, and it
-  discharges `DOCS-15` alone. Two rulings shape it. `D-02`: you can snippet-include what
-  CCF does and you CANNOT include what RAG lacks, so every *what the alternative lacks*
-  claim is RECAST as a checkable fact about the QUESTION -- *"no document in any source
-  system states Jane's 30.0%"* is verifiable against `events.yaml` and
-  `source-estate.yaml`; *"RAG can't do this"* is not -- and the reader draws the
-  inference. An uncited *lacks* sentence is `DCD-02`'s class, a strong-looking claim
-  with nothing to open. `D-04`: **the wording gate SHIPS WITH THE PAGE**, one module in
-  the `tools/docs_tests/test_gate_two_wording.py` shape carrying both obligations, with
-  non-vacuity floors and injected-violation controls, `public/`-scoped and explicitly
-  NOT a repo-wide rhetoric linter. That reversed the stretch-goal call on a PRICE
-  CHANGE rather than a re-ask, once the proven in-repo instrument was found. Dave:
-  *"if the criterion matters, something can go red when it is violated."*
-  **VERIFIED BEFORE LOCKING, NOT ASSUMED:** `check_paths: true` already fails the strict
-  build on a missing file AND a missing named section, with `test_snippet_gate.py` as
-  the negative control; `examples/s1-01-hello-context-product/spine.py` already carries
-  the SAME SEVEN marker regions the adopter's guide includes from `00-quickstart`, plus
-  twenty documented artifacts and an output test, so **the page is a pure `public/`
-  addition with ZERO changes under `examples/`** -- it was built to be included from and
-  NOTHING HAS EVER INCLUDED FROM IT; the `hw1` trees carry ZERO snippet markers, so the
-  client surface is cited in PROSE, already gated because `public` is in the citation
-  lint's `GATED_TREES`; and every line number cited in `22-CONTEXT.md` was resolved
-  against the tree before it was written.
-  **A LIVE DEFECT WAS FOUND DURING THE SITTING AND IS RECORDED, NOT FIXED.**
-  `tools/retirement_sweep.py` swallows failure at FOUR sites -- `:789`, `:973`, `:982`
-  and `:1111`/`:1124`. Run under the system `python3` rather than `.venv/bin/python`,
-  three modules fail to import, **six coupling rows vanish silently**, the tool prints a
-  confident `238 coupling rows` and exits 0, and the staleness gate then reports the
-  CORRECT committed report as stale. A tool that cannot tell *"there is no coupling"*
-  from *"I could not look"*, deciding what is safe to delete -- this project's own
-  check-vacuity class, one tool over. It is `CLNT-17`/`DOCS-17` machinery and is OUT OF
-  SCOPE for Phase 22.
-  **THE MILESTONE IS STILL NOT COMPLETE AND MUST NOT BE COMPLETED ON THE PHASE COUNTER.**
-  `DOCS-07`..`DOCS-19` remain undischarged against a retired Phase 16; four of the five
-  `Not built` rows (`DOCS-14`, `DOCS-17`, `CLNT-17`, `EXAM-02`) are still one knot;
-  `RECON-10` carries an outstanding limb; and all 27 `human_needed` items across 11 phase
-  records are NAMED, not discharged (`D-20`). **Next action: `/gsd:plan-phase 22`.**
+  **PHASE 22.1 IS EXECUTED AND VERIFIED; IT IS NOT YET GATED.** Three waves on
+  `main` from the phase base `589763d`. All nine Success Criteria met, LOCKED at the
+  discuss sitting before Wave 1 per `D-GATE-19`. **What remains is the SS3.1 close:
+  the cross-AI panel on the SHIPPED tree, the additive single-agent depth pass, the
+  verification of every finding against the tree, and Dave's ruling. Nothing is
+  presented to Dave until the panel has run.**
+  **THE DEFECT, REPRODUCED AND CLOSED.** `tools/retirement_sweep.py` decides what is
+  safe to delete and could not tell *"there is no coupling"* from *"I could not
+  look"*: every failure path returned `None`. Measured on the real tree BEFORE and
+  AFTER -- under `/usr/bin/python3` rather than `.venv/bin/python`,
+  `tests/products/test_gate_two_call_shape.py` fails to import for want of
+  `joserfc`, its SIX floor rows vanish, and the total drops **267 -> 261 AT EXIT 0**.
+  After: the venv run is unchanged at 267/exit 0 and the system-python run EXITS 1
+  naming the module. **A correction to the record rather than an inheritance of it:**
+  the Phase 22 sitting recorded *"three modules fail to import"*; on this tree it is
+  **ONE**, and that one accounts for all six rows, attributed row by row rather than
+  inferred from the delta.
+  **THE REFUSAL COMES BEFORE THE WRITE, AND THAT WAS A HOLE IN THE FIRST DRAFT OF THE
+  FIX.** An exit code alone does not protect the file: rendering an incomplete walk
+  over the committed report replaces a good inventory with a smaller one, and the
+  staleness gate then reports the CORRECT report as stale -- the original defect's
+  own confusing symptom. Caught in-wave, and `test_the_refusal_does_not_write_the_report`
+  ISOLATES it: sabotage 4 moves the refusal after the write and fells that test ALONE.
+  **RECON-10 WAS ONE COMMIT STALE, NOT OWED -- AND VERDICTING IT DISARMED TWO
+  CONTROLS, WHICH IS THE MORE IMPORTANT HALF.** Limbs re-measured with the gate's own
+  parser: live coverage sentence `149/149` against a strict parse of **149 rows**;
+  `WORKING_SET_ROSTER` **54** with zero surviving `52`. Limb 3 was closed by
+  `D-IMPL-177` at `014f646` -- the commit AFTER the one that wrote this row's
+  *outstanding limb* text (`f285ac2`). One correction WAS owed: the corrected clause
+  said the table *is 143*, true when the ruling landed and drifted by six since; now
+  **149** from the parse. `RECON-10` -> **`Complete as ruled`** in both channels.
+  Then `CONTROL 6` and `CONTROL 7`, which both need an UNTICKED subject and both NAMED
+  `RECON-10`, stopped being controls -- 6 could no longer manufacture a disagreement,
+  7 raised `IndexError`. **Neither noticed; `CONTROL 36b` caught them.** Subject now
+  DERIVED at run time (`_an_unticked_id`), with `CONTROL 28c` proving its no-subject
+  branch refuses. Three of that module's own gates fired on the fix and each was
+  OBEYED rather than worked around: `D-21` refused a carried count, the limb registry
+  refused an unregistered id, and the cascade check refused an `IndexError` where an
+  `AssertionError` was owed.
+  **THE 27 ITEMS ARE ASSEMBLED AND THE COUNT RECONCILES.** All eleven records carry a
+  machine-readable `human_verification:` frontmatter block and THAT is the
+  authoritative source -- the prose is written five different ways and scraping it
+  undercounts. `/gsd:audit-uat` reports 24 across 9 because it filters on
+  `status: human_needed`; Phase 12 (`passed`, 1) and Phase 18 (`gaps_found`, 2) carry
+  items under other statuses. **24 + 1 + 2 = 27.** Triaged 19 decisions / 4 needing a
+  run / 4 needing a reading. **DELIVERED, NOT RULED** (`D-11`, `D-20`).
+  **`DOCS-17` AND `CLNT-17` STILL READ `Not built`, DELIBERATELY** (criterion 7,
+  `D-IMPL-189` point 4). Dave: *"Logging a verdict for a future move is the same
+  ledger dishonesty this pass is cleaning up."* **The archive move is NOT in this
+  phase and no part of it was performed.**
+  **CI EXIT 0 ON ALL SIX LEGS, EVERY LEG IN THE FOREGROUND.** lint 0; typecheck 211
+  files; `test` **4105 passed / 118 skipped**, BYTE-FOR-BYTE the `D-GATE-21`/`21.1`/`22`
+  baseline, which is the mechanical proof this phase changed no behaviour; `gate-tools`
+  **406 + 307**; eleven examples with three harness legs at one content address;
+  `docs-strict` 0. **The test leg ran as FOUR foreground chunks and the coverage is
+  PROVEN twice** -- 999+1056+1108+1060 = **4223**, equal to the full `--collect-only`,
+  AND the chunks' node-id sets are set-equal to the full collection and pairwise
+  disjoint, because a sum alone is satisfied by a partition that double-counts one
+  directory and omits another.
+  **`src/`, `runtime/`, `examples/` DIFF-EMPTY** per member -- 142, 71, 323 tracked
+  files -- with the `VAC-01` sabotage recorded beside it: `srcX` names 0 tracked files
+  and ALSO diffs empty, so only the `ls-files > 0` guard tells a misspelled member
+  from a clean one.
+  **Next action: the SS3.1 cross-AI panel on the shipped tree, then the single-agent
+  depth pass, then `D-GATE-22.1`.**
 ---
 
 # STATE — CCF SDK
