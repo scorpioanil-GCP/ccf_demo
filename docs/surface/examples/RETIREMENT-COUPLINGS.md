@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **280** across **81** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **159** across **50** files
+- Coupling rows: **284** across **82** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **163** across **51** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **235**
 
 Rows by owning plan:
@@ -17,9 +17,9 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 10 |
-| 16-15 | 24 |
+| 16-15 | 27 |
 | 16-17 | 47 |
-| 16-18 | 118 |
+| 16-18 | 119 |
 | 17-08 | 81 |
 
 Rows by coupling shape:
@@ -29,7 +29,7 @@ Rows by coupling shape:
 | `comment` | 21 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 64 |
+| `docstring` | 66 |
 | `indirect-execution` | 1 |
 | `literal-set-member` | 4 |
 | `makefile-recipe` | 16 |
@@ -38,7 +38,7 @@ Rows by coupling shape:
 | `prose` | 62 |
 | `snippet-include` | 58 |
 | `string-literal` | 16 |
-| `tmp_path-synthetic` | 11 |
+| `tmp_path-synthetic` | 13 |
 
 ## Reading the columns
 
@@ -278,6 +278,9 @@ Rows by coupling shape:
 | `tests/invariants/test_citation_coverage.py` | 45 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
 | `tests/lints/test_examples_scope.py` | 41 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
 | `tests/lints/test_examples_scope.py` | 55 | `examples/03-harness-portability` | `tmp_path-synthetic` | survives | - | - | 16-15 |  |
+| `tests/lints/test_examples_scope.py` | 90 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
+| `tests/lints/test_examples_scope.py` | 104 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
+| `tests/lints/test_examples_scope.py` | 112 | `examples/03-harness-portability` | `tmp_path-synthetic` | survives | - | - | 16-15 |  |
 | `tests/perf_smoke/test_smoke.py` | 71 | `examples/04-cross-process` | `indirect-execution` | live | - | `perf/suites/crossproc/conftest.py` | 16-17 | runs `perf/suites` out of process; `perf/suites/crossproc/conftest.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
 | `tests/products/test_gate_two_call_shape.py` | 207 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `tests/products/test_gate_two_call_shape.py` | 425 | `examples/06-decision-replay` | `docstring` | documentary | - | - | 16-18 |  |
@@ -319,6 +322,7 @@ Rows by coupling shape:
 | `tools/docs_tests/test_retirement_sweep.py` | 465 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-15 |  |
 | `tools/docs_tests/test_snippet_gate.py` | 52 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/run.py` |
 | `tools/lints/tests/test_citations.py` | 350 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 16-18 |  |
+| `tools/lints/tests/test_scope.py` | 41 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
 | `tools/measure_examples.py` | 261 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 16-18 |  |
 | `tools/measure_examples.py` | 308 | `examples/01-agent-basics` | `string-literal` | live | - | - | 16-18 |  |
 | `tools/measure_examples.py` | 320 | `examples/00-quickstart` | `string-literal` | live | - | - | 16-18 |  |
