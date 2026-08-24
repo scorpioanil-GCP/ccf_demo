@@ -13,12 +13,14 @@ import pathlib
 import pytest
 
 from tools.publish_scan import (
+    INCLUDE_ALLOWED_PREFIXES,
     PREBUILD_TREE,
     RULE_INCLUDE_ESCAPE,
     RULE_INTERNAL_PATH,
     RULE_SHINGLE,
     RULE_SYMLINK,
     WHITEPAPER,
+    include_escapes,
     iter_files,
     main,
     scan_prebuild,
@@ -352,3 +354,106 @@ def test_the_prebuild_tree_is_populated() -> None:
 
 def test_main_exits_zero_in_prebuild_mode_on_this_repo() -> None:
     assert main(["--pre-build"]) == 0
+
+
+# --- the publication allowlist itself (criterion 17, D-IMPL-194) -----------
+#
+# `INCLUDE_ALLOWED_PREFIXES` is the default-deny publication boundary (D-01,
+# D-02). Until Phase 23 a grep over the whole tree found NO test naming it, so
+# every one of the assertions below is new: the tuple could be emptied, widened
+# to `("",)` or have a root removed and nothing in CI would say so. Phase 23
+# had to widen it to admit the archive root, and widening an unguarded
+# default-deny boundary as a side effect of getting a build green is not a
+# trade this project makes — so the guard lands in the same change as the
+# widening.
+#
+# Three things are asserted, because each fails to a different mutation:
+# exact membership (catches a removal), no-empty-member (catches `("",)`,
+# which `str.startswith` treats as "everything is permitted"), and a
+# representative internal path from several non-admitted trees still escaping
+# (catches a widening that keeps the membership assertion honest but changes
+# what the boundary MEANS).
+
+
+def test_the_publication_allowlist_has_exactly_the_expected_membership() -> None:
+    """The default-deny boundary, held from the removal side.
+
+    Spelled as an equality against a literal set rather than as a series of
+    `in` checks: an `in` check passes over a tuple that has grown, and growth
+    is the direction that publishes something new.
+    """
+    assert set(INCLUDE_ALLOWED_PREFIXES) == {
+        "examples/",
+        "public/",
+        "perf/baselines/",
+        "archive/examples/",
+    }, INCLUDE_ALLOWED_PREFIXES
+
+
+def test_no_allowlisted_prefix_is_empty() -> None:
+    """`("",)` would make `startswith` admit the entire repository.
+
+    The membership assertion above catches this too, but only incidentally —
+    this one names the failure mode, so a future edit that legitimately adds a
+    root cannot silently take the empty string with it.
+    """
+    assert all(prefix for prefix in INCLUDE_ALLOWED_PREFIXES), (
+        "an empty prefix makes str.startswith admit every target — the"
+        f" allowlist stops being an allowlist: {INCLUDE_ALLOWED_PREFIXES}"
+    )
+    assert all(prefix.endswith("/") for prefix in INCLUDE_ALLOWED_PREFIXES), (
+        "a prefix without a trailing slash admits sibling trees by name"
+        f" prefix (`examples` would admit `examples-scratch/`): {INCLUDE_ALLOWED_PREFIXES}"
+    )
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "src/ccf/products/bind.py",
+        "runtime/ccf_runtime/mcp/egress.py",
+        "docs/schemas/ccf.agent.json",
+        "tests/examples/test_quickstart_output.py",
+        "references/anything.md",
+    ],
+)
+def test_an_internal_tree_still_escapes_the_allowlist(target: str) -> None:
+    """Default-deny still denies, from five trees the allowlist never names."""
+    assert include_escapes(target) is True, target
+
+
+def test_the_archive_examples_root_is_admitted(tmp_path: pathlib.Path) -> None:
+    """Criterion 17 — the widening itself, asserted at the function.
+
+    Measured at PHASE_BASE this was `True`: every re-pointed include was a
+    publication-boundary violation and `make docs-strict` could not go green by
+    re-pointing alone.
+    """
+    assert include_escapes("archive/examples/00-quickstart/run.py:boot") is False
+    assert include_escapes("archive/examples/04-cross-process/producer_child.py") is False
+    # And through the directive parser, not only the predicate.
+    root = _prebuild_page(
+        tmp_path, '--8<-- "archive/examples/00-quickstart/run.py:assemble"\n'
+    )
+    assert scan_prebuild(root) == []
+
+
+def test_the_widening_is_the_narrow_one_and_does_not_open_the_archive_tree() -> None:
+    """`archive/examples/`, never `archive/`.
+
+    `archive/` would admit every future sibling under the archive root to the
+    published tree by inheritance. The narrow spelling admits exactly the root
+    `D-03` pinned, and this assertion is what stops the broad one being
+    substituted later as a convenience.
+    """
+    assert include_escapes("archive/secrets/x.md") is True
+    assert include_escapes("archive/notes.md") is True
+    assert "archive/" not in INCLUDE_ALLOWED_PREFIXES, INCLUDE_ALLOWED_PREFIXES
+
+
+def test_the_existing_roots_are_still_admitted() -> None:
+    """The widening is a strict superset — nothing that was permitted moved."""
+    assert include_escapes("examples/00-quickstart/run.py:boot") is False
+    assert include_escapes("public/tutorial/adopters-guide.md") is False
+    assert include_escapes("perf/baselines/latency.json") is False
+    assert include_escapes("openapi.json") is False
