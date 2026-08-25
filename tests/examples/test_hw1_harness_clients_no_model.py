@@ -9,7 +9,7 @@ door serves over pipes, so a socket-refusing guard around either leg proves no
 egress whatsoever, which is strictly stronger than "no model".
 
 The technique is copied, deliberately, from
-``examples/03-harness-portability/legs/deterministic.py::install_no_model_guard``
+``archive/examples/03-harness-portability/legs/deterministic.py::install_no_model_guard``
 — **copied and not imported**: that module is producer-side, imports all three
 harness SDKs at module scope, and importing it here would couple this phase's
 gate to an unrelated example's dependencies. Two of its disciplines are the

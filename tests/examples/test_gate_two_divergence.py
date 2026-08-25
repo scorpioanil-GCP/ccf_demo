@@ -93,7 +93,7 @@ from ccf.products.contract import (
 from ccf.products.gates import LineageMismatchRefusal, ServableProduct, run_gates
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE = REPO_ROOT / "examples" / "00-quickstart" / "run.py"
+EXAMPLE = REPO_ROOT / "archive" / "examples" / "00-quickstart" / "run.py"
 
 #: Test-side vocabulary, never a deployment value. Appended to one of the
 #: deployment's OWN authored operator keys, so the perturbation is derived from

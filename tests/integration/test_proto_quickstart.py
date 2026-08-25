@@ -1,6 +1,6 @@
 """The proto-quickstart: L1 → L6 end to end on a banking fixture (D-01/D-02).
 
-The private precursor of ``examples/00-quickstart``, which Phase 8 formalizes.
+The private precursor of ``archive/examples/00-quickstart``, which Phase 8 formalizes.
 It runs the whole vertical slice — ingest signal envelopes through L2 into the
 SQLite graph, execute the four-category operator chain, project, gate, record
 the decision, deliver — and it exists to answer one question per invariant:

@@ -1,6 +1,6 @@
 """The quickstart's assertions, under a runner that can actually fail (D-09).
 
-``examples/00-quickstart/run.py`` used to carry its own guarantee: eleven
+``archive/examples/00-quickstart/run.py`` used to carry its own guarantee: eleven
 ``assert`` statements and six ``print`` summaries, checked by ``make example-00``
 exiting zero. D-09 moves that guarantee here, because ``make examples`` proves a
 spine *runs* and ``pytest`` proves it is *correct* — and a printed summary
@@ -95,7 +95,7 @@ from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
 from ccf.replay.record import DecisionReplayRecord
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE = REPO_ROOT / "examples" / "00-quickstart" / "run.py"
+EXAMPLE = REPO_ROOT / "archive" / "examples" / "00-quickstart" / "run.py"
 
 
 def _load_example() -> Any:

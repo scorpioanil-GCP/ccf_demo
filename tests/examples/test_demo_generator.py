@@ -1,7 +1,7 @@
 """Determinism pins for the e2e-demo synthetic data generator (DEMO-01).
 
 Phase 12 CONTEXT D-05..D-08: the generator is a pure interpreter of
-``examples/08-e2e-demo/artifacts/scenario.yaml``; determinism is pinned by
+``archive/examples/08-e2e-demo/artifacts/scenario.yaml``; determinism is pinned by
 regenerating and comparing logical-content checksums against the artifact's
 ``expected`` block. A mismatch here is the drift alarm working as designed —
 changing the scenario or the generator REQUIRES updating the pins in the
@@ -19,7 +19,7 @@ import pytest
 import yaml
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE_DIR = REPO_ROOT / "examples" / "08-e2e-demo"
+EXAMPLE_DIR = REPO_ROOT / "archive" / "examples" / "08-e2e-demo"
 SCENARIO_PATH = EXAMPLE_DIR / "artifacts" / "scenario.yaml"
 
 

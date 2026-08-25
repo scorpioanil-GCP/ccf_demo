@@ -1,6 +1,6 @@
 """ERGO-12, tree-wide — the `$schema` header gate at the point every delegate landed.
 
-Plan 15-12 added `$schema` headers to `examples/00-quickstart/artifacts/` only
+Plan 15-12 added `$schema` headers to `archive/examples/00-quickstart/artifacts/` only
 and delegated the rest to the eight example rewrites (15-13 through 15-20). Each
 of those plans carries the step and each ran `make schema-headers DIR=…` over
 its own directory. A **delegated** requirement needs a gate at the point where
@@ -52,14 +52,14 @@ So coverage is now a **two-sided bijection** against the examples that exist:
 
 * An **example root** is *a directory that directly contains a file named*
   ``run.py``. Mechanical, checkable, and depth-agnostic — which matters,
-  because ``examples/external/00-hello-context`` is at depth 2 and does carry
+  because ``archive/examples/external/00-hello-context`` is at depth 2 and does carry
   ``artifacts/``, so "top-level directories under ``examples/``" would wrongly
   exclude it. The looser predicate "a directory under ``examples/`` containing
   a ``.py``" is *false against this tree*: 12 directories satisfy it and only
   10 carry ``artifacts/``. The two that do not — and the reason the loose
   predicate would make this gate unbuildable — are
-  ``examples/03-harness-portability/legs/`` and
-  ``examples/external/00-hello-context/fixtures/``, each all-``.py`` and no
+  ``archive/examples/03-harness-portability/legs/`` and
+  ``archive/examples/external/00-hello-context/fixtures/``, each all-``.py`` and no
   ``artifacts/``. A control below asserts both are excluded, and asserts the
   same for ``fixtures/`` **as a shape**, which is what keeps the rule true
   when plan 16-09 ships its own fixtures directory at wave 4.
@@ -120,7 +120,7 @@ so a file with neither a header nor a marker fails rather than falling through.
 
 At the phase close exactly one document carries it, and it is a **permanent**
 exemption rather than debt (ruled by 15-16):
-``examples/08-e2e-demo/artifacts/scenario.yaml`` is `generator.py`'s input,
+``archive/examples/08-e2e-demo/artifacts/scenario.yaml`` is `generator.py`'s input,
 describing the synthetic world that exists before any fabric does, and it
 carries YAML floats the artifact loader refuses by design — no envelope can
 accept it without changing the data and every pinned checksum with it.
@@ -516,7 +516,7 @@ def test_the_predicate_excludes_fixtures_directories_as_a_shape() -> None:
     `examples/` altogether, so the directory never existed and never will. The
     justification is unchanged and does not depend on it: a shape rule holds
     for the NEXT `fixtures/` directory an example ships, and
-    `examples/external/00-hello-context/fixtures/` is the live one it already
+    `archive/examples/external/00-hello-context/fixtures/` is the live one it already
     excludes.
     """
     collected = sorted(

@@ -1,6 +1,6 @@
 """Session-scoped cross-process server fixture (Phase 11 D-15/D-18/D-20).
 
-Spawns ``examples/04-cross-process/producer_child.py`` — a real ``/runtime``
+Spawns ``archive/examples/04-cross-process/producer_child.py`` — a real ``/runtime``
 MCP egress server plus a real A2A/peering endpoint, both bound to ephemeral
 ports on 127.0.0.1 — in its own OS process, and yields warm clients so the
 benchmarks in this suite time *transport only*.
@@ -49,7 +49,7 @@ import pytest
 import yaml
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_EXAMPLE_04 = _REPO_ROOT / "examples" / "04-cross-process"
+_EXAMPLE_04 = _REPO_ROOT / "archive" / "examples" / "04-cross-process"
 _CHILD = _EXAMPLE_04 / "producer_child.py"
 _EXAMPLE_ARTIFACTS = _EXAMPLE_04 / "artifacts"
 

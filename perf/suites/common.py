@@ -137,7 +137,7 @@ def build_operator_registry(
 ) -> tuple[OperatorRegistry, str]:
     """Register the four canonical operators from the declared parameters.
 
-    Mirrors the registration shape of ``examples/04-cross-process`` — every
+    Mirrors the registration shape of ``archive/examples/04-cross-process`` — every
     parameter value comes from ``controlplane.yaml``/``ontology.yaml``; the
     similarity corpus is read off the booted fabric's graph view at the
     artifact-declared boundary.

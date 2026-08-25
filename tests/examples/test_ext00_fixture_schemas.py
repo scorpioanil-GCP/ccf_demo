@@ -1,4 +1,4 @@
-"""Fixture schema smoke-tests for examples/external/00-hello-context (D-01b).
+"""Fixture schema smoke-tests for archive/examples/external/00-hello-context (D-01b).
 
 The committed model-API fixtures are live captures (phase 13.2 plan 03);
 these tests pin their structure against the installed SDKs' own types so
@@ -25,7 +25,7 @@ from anthropic.types import Message
 from google.genai.types import GenerateContentResponse
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE_DIR = REPO_ROOT / "examples" / "external" / "00-hello-context"
+EXAMPLE_DIR = REPO_ROOT / "archive" / "examples" / "external" / "00-hello-context"
 FIXTURES = EXAMPLE_DIR / "fixtures"
 
 

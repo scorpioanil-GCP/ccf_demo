@@ -204,7 +204,7 @@ mandate wearing a call-site check's clothing.
 deployment has a second operator-set document when its artifact tree
 **registers** one: any manifest under it declaring ``class_id:
 ccf.projection-requirements`` (:data:`REQUIREMENTS_CLASS_ID`). *Any* manifest,
-because the filename varies — ``examples/04-cross-process`` declares it in
+because the filename varies — ``archive/examples/04-cross-process`` declares it in
 ``producer-manifest.yaml``, so a fixed filename would answer wrongly there. A
 deployment that authors **one** document has no second operand for the binder
 to compare, and there is nothing for the call to do.
@@ -422,8 +422,8 @@ module narrows it, and a reader who takes "the binder tripwire was
 strengthened" for "dual authorship is now enforced" has taken the wrong
 conclusion.
 
-Granularity is the **lexical body, not the file**. ``examples/06-decision-replay/run.py``
-and ``examples/external/00-hello-context/run.py`` each carry two plan-construction
+Granularity is the **lexical body, not the file**. ``archive/examples/06-decision-replay/run.py``
+and ``archive/examples/external/00-hello-context/run.py`` each carry two plan-construction
 sites, and a file-level check would let one of the two go unbound while the file
 still passed.
 
@@ -535,7 +535,7 @@ BINDER_PLAN_KEYWORD = "plan"
 #: the product class's claim against the projection's OWN document, and a
 #: deployment that authors one document has no second operand for the
 #: comparison. Read from any manifest in the deployment's artifact tree —
-#: `examples/04-cross-process` declares it in `producer-manifest.yaml`, so a
+#: `archive/examples/04-cross-process` declares it in `producer-manifest.yaml`, so a
 #: fixed filename would answer wrongly there (D-IMPL-137).
 REQUIREMENTS_CLASS_ID = "ccf.projection-requirements"
 
@@ -616,7 +616,7 @@ CALL_MARKER = "()"
 #: One gate call site per body that serves a product — **twelve**, counted from
 #: the tree by executing :func:`_gate_scopes`: examples 00, 01, 02, 03,
 #: ``04-cross-process/producer_child.py``, 06, 07 and 08, plus
-#: ``examples/external/00-hello-context/serve.py``, the two spine examples
+#: ``archive/examples/external/00-hello-context/serve.py``, the two spine examples
 #: ``s1-00-companies-over-revenue/produce.py`` and
 #: ``s1-01-hello-context-product/spine.py``, and — added in Phase 17 —
 #: ``src/ccf/products/resolver.py::GovernedResolver.__call__``, the first
@@ -639,8 +639,8 @@ MINIMUM_GATE_CALL_SITES = 12
 #: Bodies that construct a plan and execute it — **fourteen**, counted from the
 #: tree by executing :func:`_projecting_scopes`, including the two replay
 #: environments' ``resolve_plan`` methods which construct one and return it
-#: (``examples/06-decision-replay/run.py``, which contributes two bodies, and
-#: ``examples/external/00-hello-context/run.py``), and — added in Phase 17 —
+#: (``archive/examples/06-decision-replay/run.py``, which contributes two bodies, and
+#: ``archive/examples/external/00-hello-context/run.py``), and — added in Phase 17 —
 #: ``examples/hw1-companies-over-revenue/deployment/projection.py::build_projection``,
 #: the client example's one permitted Python module.
 #:
@@ -664,8 +664,8 @@ MINIMUM_PROJECTING_BODIES = 14
 #: failure mode restated, so it is asserted rather than assumed.
 #:
 #: **Twelve, counted from the tree**, against thirteen projecting bodies: one
-#: readable site per binder call, with ``examples/06-decision-replay/run.py``
-#: and ``examples/external/00-hello-context/`` each contributing two (a serving
+#: readable site per binder call, with ``archive/examples/06-decision-replay/run.py``
+#: and ``archive/examples/external/00-hello-context/`` each contributing two (a serving
 #: body and a ``resolve_plan``), and **zero** unreadable. The thirteenth
 #: projecting body, ``examples/s1-00-companies-over-revenue/produce.py``,
 #: makes no binder call at all: it authors ONE operator-set document and is
@@ -1411,7 +1411,7 @@ def _registers_requirements(root: pathlib.Path | None) -> bool:
     """Whether this deployment registers a ``ccf.projection-requirements``.
 
     Any YAML in the artifact tree, because the manifest's filename varies —
-    ``examples/04-cross-process`` declares it in ``producer-manifest.yaml``.
+    ``archive/examples/04-cross-process`` declares it in ``producer-manifest.yaml``.
     A single-file deployment's ``ccf_config.yaml`` is scanned the same way:
     it can never actually carry this registration (`ccf.projection-requirements`
     is not one of `D-IMPL-136`'s eight reserved section names — see
@@ -4399,7 +4399,7 @@ def test_the_plan_recognition_refuses_an_unrelated_required_keyword() -> None:
     **The evidence base was n = 1 when this was written; it is n = 2 today**
     (IN-02). Measured 2026-08-06: twelve calls under ``examples/`` pass
     ``required=``, eleven of them are plan constructions, and the twelfth is
-    ``examples/03-harness-portability/run.py::main``'s ``--mode``
+    ``archive/examples/03-harness-portability/run.py::main``'s ``--mode``
     ``add_argument``. On that count, making that one CLI flag optional — or
     retiring example 03 — turned a ``tests/products/`` Gate-2 test red for a
     reason with nothing to do with Gate 2.

@@ -585,7 +585,7 @@ def test_c20_3_the_gate_refuses_a_ccf_import_deferred_into_a_function_body(
 
     Indented four spaces inside ``main``, so a pattern anchored at the start of
     a line finds nothing. This is precisely why
-    ``examples/external/00-hello-context/run.py::_assert_zero_ccf_imports`` is
+    ``archive/examples/external/00-hello-context/run.py::_assert_zero_ccf_imports`` is
     **not** the precedent for criterion 5: it is a grep, and criterion 5 says
     AST.
     """

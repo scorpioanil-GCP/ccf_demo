@@ -1,6 +1,6 @@
 """G-B — no projection derives `required_operators()` from the registry's keys.
 
-Plan 15-13 changed `examples/00-quickstart`'s `QuickstartPlan.required_operators()`
+Plan 15-13 changed `archive/examples/00-quickstart`'s `QuickstartPlan.required_operators()`
 to declare its keys from the `ccf.product-class` artifact rather than return
 `operators.keys()`, and 15-14 through 15-20 carried the same change through the
 rest of the suite. **That closes the instances. It does not close the pattern.**

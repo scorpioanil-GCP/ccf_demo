@@ -1,6 +1,6 @@
 """The workflow/HITL example's assertions, grouped by what they cover (D-09).
 
-``examples/05-workflow-hitl/run.py`` used to carry its own guarantee: 94
+``archive/examples/05-workflow-hitl/run.py`` used to carry its own guarantee: 94
 ``assert`` statements and 18 ``print`` summaries, checked by ``make example-05``
 exiting zero. D-09 moves that guarantee here, because ``make examples`` proves a
 spine *runs* and ``pytest`` proves it is *correct*.
@@ -56,7 +56,7 @@ The ReviewQueue                               :func:`test_the_review_item_is_bou
 Where each relocated assertion came from
 -----------------------------------------
 
-Pre-rewrite line numbers are against ``examples/05-workflow-hitl/run.py`` at the
+Pre-rewrite line numbers are against ``archive/examples/05-workflow-hitl/run.py`` at the
 plan's base commit (``df074b0``).
 
 ===========================================  ==========================
@@ -171,7 +171,7 @@ from ccf_runtime.http_api.errors import (
 )
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE = REPO_ROOT / "examples" / "05-workflow-hitl" / "run.py"
+EXAMPLE = REPO_ROOT / "archive" / "examples" / "05-workflow-hitl" / "run.py"
 
 #: Which typed refusal each negative case must produce. The KEYS name the four
 #: failure modes the spine drives; the VALUES are imported SDK constants, never
@@ -819,7 +819,7 @@ def test_the_author_versioned_definitions_kept_their_bump_check(
         " (D-IMPL-85). What it means is that example 05 changed shape — it keeps"
         " these four in `run.py` so the four `register_versioned` calls stay"
         " visible as the thing being taught, which is the reason"
-        " `examples/05-workflow-hitl/artifacts/manifest.yaml` gives for leaving"
+        " `archive/examples/05-workflow-hitl/artifacts/manifest.yaml` gives for leaving"
         " them out. If that move was deliberate, this test and that manifest"
         " comment need correcting together; if it was not, revert it"
     )

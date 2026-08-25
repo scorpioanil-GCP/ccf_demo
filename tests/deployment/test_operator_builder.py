@@ -476,7 +476,7 @@ def test_a_parameters_mapping_of_three_builds_a_three_operator_registry(
 ) -> None:
     """Which operators exist is per-deployment policy, expressed by the mapping.
 
-    ``examples/02-skilling`` registers three, not four, so a builder with a
+    ``archive/examples/02-skilling`` registers three, not four, so a builder with a
     hardcoded set of four keys would refuse a deployment the SDK has no business
     refusing.
     """

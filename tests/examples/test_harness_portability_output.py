@@ -1,6 +1,6 @@
 """The harness-portability proof's assertions, under a runner that can fail (D-09).
 
-``examples/03-harness-portability/run.py`` used to carry its own guarantee:
+``archive/examples/03-harness-portability/run.py`` used to carry its own guarantee:
 the deterministic drive's ``assert`` statements and ``print`` summaries,
 checked by ``make example-03`` exiting zero. D-09 moves that guarantee here,
 because ``make examples`` proves a spine *runs* and ``pytest`` proves it is
@@ -90,7 +90,7 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE_DIR = REPO_ROOT / "examples" / "03-harness-portability"
+EXAMPLE_DIR = REPO_ROOT / "archive" / "examples" / "03-harness-portability"
 EXAMPLE = EXAMPLE_DIR / "run.py"
 
 

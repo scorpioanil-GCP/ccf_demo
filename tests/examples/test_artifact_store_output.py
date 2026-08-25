@@ -1,6 +1,6 @@
 """The ArtifactStore pluggability proof's assertions, under `pytest` (D-09).
 
-``examples/07-artifact-store-mcp/run.py`` used to carry its own guarantee: the
+``archive/examples/07-artifact-store-mcp/run.py`` used to carry its own guarantee: the
 ``assert`` statements and ``print`` summaries of ``main()``, checked by
 ``make example-07`` exiting zero. D-09 moves that guarantee here, because
 ``make examples`` proves a spine *runs* and ``pytest`` proves it is *correct*.
@@ -72,7 +72,7 @@ from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
 from ccf.products.contract import ContextProductContract
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE_DIR = REPO_ROOT / "examples" / "07-artifact-store-mcp"
+EXAMPLE_DIR = REPO_ROOT / "archive" / "examples" / "07-artifact-store-mcp"
 EXAMPLE = EXAMPLE_DIR / "run.py"
 MANIFEST = EXAMPLE_DIR / "artifacts" / "manifest.yaml"
 
