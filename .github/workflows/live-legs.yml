@@ -17,27 +17,27 @@ name: live-legs
 
 on:
   workflow_dispatch:
-  schedule:
-    # Plan 15.3-05, D-09: the fluree upstream-drift detector, run against the
-    # FLOATING 4.1 tag while ci.yml pins 4.1.4 exactly. Justification: 12 v4
-    # releases Apr–Jul 2026, and 4.1.3 shipped a documented breaking change
-    # INSIDE a minor. Discovering an upstream break on its own schedule beats
-    # discovering it in the middle of someone else's phase.
-    #
-    # NOTE — this is a change to the workflow's TRIGGER SURFACE. Until now the
-    # workflow was `workflow_dispatch:` only and consumed Actions minutes only
-    # when a human asked for it; from here it consumes them on a cadence. The
-    # cost was accepted on the record as threat T-15.3-19 (weekly, one leg,
-    # seconds of runtime against a ~70 MB Rust binary), so it is a decision
-    # rather than a side effect. `fluree-drift` deliberately carries no
-    # `if:` guard: it should answer to both triggers, so a human can ask
-    # "has upstream moved?" without waiting for Monday. It is now the only
-    # job here, so the trigger surface and the job set finally agree — the
-    # two live harness-portability legs that needed
-    # `if: github.event_name == 'workflow_dispatch'` to stay opt-in were
-    # deleted in Phase 23 (see the file header).
-    - cron: "0 7 * * 1"      # weekly, Mondays 07:00 UTC — a cadence, not a
-                             # value; tune freely without a decision.
+  # THE WEEKLY `schedule:` CRON WAS REMOVED 2026-08-25 by Dave's ruling on
+  # packet item #11 (`D-IMPL-200`, Phase 23.1). Verbatim: *"Nobody
+  # commissioned it; it bills live services."* The block removed was
+  # `schedule:` with `- cron: "0 7 * * 1"` (weekly, Mondays 07:00 UTC), added
+  # by plan 15.3-05 under `D-09`.
+  #
+  # WHAT THE REMOVAL DOES NOT CHANGE. The `D-09` upstream-drift detector below
+  # still exists and still runs — on `workflow_dispatch` only, which is the
+  # trigger surface this workflow had before 15.3-05 widened it. `D-09`'s
+  # reasoning survives as the reason to DISPATCH it (12 v4 releases Apr–Jul
+  # 2026, and 4.1.3 shipped a documented breaking change INSIDE a minor, so
+  # ci.yml pins `4.1.4` exactly while this pins the floating `4.1`); what does
+  # not survive is the unasked-for cadence that billed for it weekly.
+  #
+  # NO JOB REFERENCED THE REMOVED TRIGGER. `fluree-drift` is the only job here
+  # and deliberately carries no `if:` guard — it answered both triggers and now
+  # answers the one that remains. The two live harness-portability legs that
+  # DID carry `if: github.event_name == 'workflow_dispatch'` were deleted in
+  # Phase 23 (see the file header). Threat `T-15.3-19` accepted the weekly
+  # Actions-minute cost on the record; with the cadence gone, that accepted
+  # cost is no longer being incurred.
 
 jobs:
   # ---------------------------------------------------------------------
