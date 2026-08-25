@@ -387,9 +387,10 @@ otherwise.
 fragment trees?* The claim rested on one absence, so it was searched for:
 
 1. **The gate the Makefile comment names does not exist.**
-   `tests/examples/test_surface_audit.py` is referenced at `Makefile:535`,
-   `tests/products/test_required_operators_guard.py:322` and
-   `tests/products/test_gate_two_call_shape.py:1874` — and
+   `tests/examples/test_surface_audit.py` is referenced by the `Makefile`'s
+   `measure-examples` comment and by comments in
+   `tests/products/test_required_operators_guard.py` and
+   `tests/products/test_gate_two_call_shape.py` — and
    **`[ -e tests/examples/test_surface_audit.py ]` is FALSE**. Three live source
    files cite a module that is gone.
 2. **`git grep -ln measure_examples` returns 54 files.** All but four are
@@ -487,7 +488,7 @@ Nothing below was widened into by this plan.
 | **9** | **STILL OPEN.** `.planning/ROADMAP.md`'s Phase 23 goal prose still says *limb done — out of live CI*, the clause `D-IMPL-191` r4 amended and the shipped cell is FORBIDDEN to claim; `STATE.md`'s Position block still says *SIXTEEN criteria* and *25 of 31* | the three named edits, to **`23-13`**. **Nothing gates any of them** — which is how they went two rulings stale without a red |
 | **10** | **STILL OPEN.** Nothing gates a ledger cell's WORDING and the two channels can carry different verdicts for one row (`S-L2`, `S-L3b`, `S-L4`, `S-D8a`, `S-D8b`, all at **114 passed**) | a cross-channel verdict-equality assertion would close `S-L4` and `S-D8a` cheaply; the wording limbs need `R-alpha`'s vocabulary ruling |
 | **11** | **NEW, found by this plan.** `test_no_stale_example_paths.py`'s control comment names the lookbehind as the blinding mutation; the shipped alternation makes that mutation inert. The controls catch the real thing (IS-1b); the narration does not describe the shipped module | a one-paragraph comment correction, in a module this plan does not own |
-| **12** | **NEW, found by this plan.** `tests/examples/test_surface_audit.py` does **not exist**, and three live source files cite it — `Makefile:535`, `test_required_operators_guard.py:322`, `test_gate_two_call_shape.py:1874` | whoever next touches those comments; and it is a data point for the `cite03-node-id` UNCHECKED hole, since a prose citation of a missing module is exactly what that disposition lets through |
+| **12** | **NEW, found by this plan.** `tests/examples/test_surface_audit.py` does **not exist**, and three live source files cite it — the `Makefile`'s `measure-examples` comment and comments in `tests/products/test_required_operators_guard.py` and `tests/products/test_gate_two_call_shape.py` | whoever next touches those comments; and it is a data point for the `cite03-node-id` UNCHECKED hole, since a prose citation of a missing module is exactly what that disposition lets through |
 
 ---
 
@@ -578,3 +579,36 @@ again. Regenerate **LAST**, **in the venv**, and verify twice.
 - `FOUND` `a6175b3` — `docs(23-12)` this summary
 - `FOUND` `dabd4db` — `chore(23-12)` the report regeneration
 - `test_the_committed_report_is_current` green at the final commit
+
+---
+
+## Postscript — this wave reproduced its own headline defect, and the gate it had just repaired caught it
+
+Every wave in this project's recent history has found the phase's own defect
+class inside its own work. This one did too, and the instance is unusually
+literal.
+
+Writing the `## Current Position` narrative for `STATE.md` and the finding above
+into this SUMMARY, I spelled the three stale citations of the missing
+`tests/examples/test_surface_audit.py` **in the `path.py:LINE` form** — the exact
+form `D-IMPL-114` forbids and whose ceiling of ZERO this plan had repaired
+ninety minutes earlier. Run over the hand-edited `STATE.md`:
+
+```
+tests/invariants/test_citation_coverage.py::test_the_unanchored_python_citation_population_cannot_regrow
+  1 unanchored citations of Python targets are in D-IMPL-123's scope, ceiling 0
+  - .planning/STATE.md:1510 cites test_gate_two_call_shape.py:1874
+```
+
+Converted the same way Wave 10's was — the references now name the files and say
+where in them, with no line anchor — and the module returns to `5 passed`.
+
+**Two things worth carrying out of it.** First, the gate is genuinely load-
+bearing: it caught a fresh instance within one wave of being repaired, against
+a writer who knew about it. Second, **only ONE of the three was flagged.** The
+`Makefile` reference is not a Python target and is out of scope by design, but
+`tests/products/test_required_operators_guard.py:322` — written in the same
+sentence, in the same form, in the same file — was **not** in the offender set.
+The scoping rule that admits one and not the other was not chased down here and
+is not asserted anywhere; it is recorded so a later reader does not take the
+single-offender output as proof that only one was written.

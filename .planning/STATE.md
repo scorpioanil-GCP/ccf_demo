@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-25T06:40:00.000Z"
+last_updated: "2026-08-25T18:30:00.000Z"
 last_activity: >-
   2026-08-23 -- **PHASE 22 IS CLOSED. `D-GATE-22` IS LOGGED AND `DOCS-15` IS DISCHARGED**
   under the ruled coupling to `s1-01`/`CLNT-17`. Six plans in six serial waves on `main`
@@ -1434,7 +1434,105 @@ progress:
   completed_plans: 204
   percent: 100
 stopped_at: >-
-  **PHASE 23 WAVE 11 LANDED. `DOCS-17` READS `Partial` FOR THE FIRST TIME SINCE IT
+  **PHASE 23 WAVE 12 LANDED, AND IT FOUND `make ci` RED.** Four commits on `phase-23`
+  (`8e431eb`, `a6175b3`, `dabd4db`, `5bf2056`). 12 of 13 waves done; `23-13` is the
+  SS3.1 close.
+  **THE FIRST FULL-SUITE RUN SINCE WAVE 4, AND IT WAS NOT GREEN.**
+  `tests/invariants/test_citation_coverage.py::test_the_unanchored_python_citation_population_cannot_regrow`
+  had been failing since `d0ed316` -- Wave 10's own summary commit, which wrote
+  `archive/examples/08-e2e-demo/run.py:4` into `deferred-items.md` in the `path.py:LINE`
+  form `D-IMPL-114` forbids, against `D-IMPL-123`'s ceiling of **ZERO**. Waves 10 and 11
+  each reported green having run `tools/docs_tests`, `gate-tools` and targeted modules --
+  and neither `tests/invariants` nor `make ci`. **This is the `21.1-09` defect class
+  verbatim: a gate nobody runs is a gate that cannot fail.** FIXED BY CONVERSION, not by
+  raising the ceiling (`8e431eb`): line 4 sits inside a module docstring so no `::Symbol`
+  anchor exists, and the reference is now spelled in prose against the bare path the same
+  paragraph already used. Re-run **5 passed**.
+  **SIX LEGS AT EXIT 0, EVERY ONE IN THE FOREGROUND, EVERY EXIT CODE READ WITHOUT A PIPE.**
+  lint 0; typecheck clean over **211** files; `test` **4115 passed / 118 skipped / 0
+  failed**; `gate-tools` **415 + 339** (406 + 291 at the Phase 22 close); `examples`
+  running **EXACTLY ONE** target, `example-hw1-harness-clients`, three harness legs at one
+  content address -- criterion 3's benefit made visible; `docs-strict` 0 on all four steps,
+  each recorded separately.
+  **THE TEST LEG RAN AS FOUR FOREGROUND CHUNKS WHOSE COVERAGE IS PROVEN THREE WAYS, NOT
+  ASSUMED.** 1007 + 1056 + 986 + 1184 = **4233**, equal to the full `--collect-only` total;
+  both set-equality directions EMPTY (`FULL\UNION` 0 and `UNION\FULL` 0); all six pairwise
+  intersections 0. The chunk plan was sabotaged four ways with predictions stated first --
+  and **S-K2's sum-still-matches variant is the one that earns disjointness its place**:
+  chunk 3 gains `perf_gate` (28) while chunk 4 loses `mcp` (28), the sum lands on **4233
+  IDENTICAL**, and only disjointness and set-equality see it. **The plan predicted "only
+  disjointness catches it" and that is CORRECTED**: set-equality catches the omission too;
+  the true and narrower claim is that the SUM ALONE is blind. S-K3 killed a background
+  chunk at 25 s: `wait` reported **137**, the log ends mid-progress at `[ 27%]` with
+  **zero** summary lines and **zero** `F`/`E` lines, and `( exit 137 ) | tail -1; echo $?`
+  reports **0** where `${PIPESTATUS[0]}` reports **137**.
+  **`make ci` WAS NOT RUN AS ONE COMMAND, AND THAT IS RECORDED AS A DEVIATION RATHER THAN
+  GLOSSED.** The pipeline measures ~870 s against a 600 s foreground cap; the only way to
+  fit it in one call is to background it, which is the exact move criterion 15 exists to
+  forbid. It is discharged as its own **ten** commands, printed from `make -n ci` as the
+  proof the ten are the whole of it, each run in the foreground.
+  **CRITERION 7, RE-MEASURED AND GATED ON NO LITERAL.** Suite **4223 -> 4233**;
+  **LOST-UNRECOVERED = ZERO** (63 raw-lost ids, all 63 recovered at their `archive/`
+  re-path); **ten genuine additions, each named to its wave** -- Wave 3's eight plus
+  `D-IMPL-197`'s two. `tests/examples` **515 -> 521**, lost-set EMPTY, six named additions.
+  The superseded **4105 passed / 118 skipped** pin is quoted once, as superseded, and was
+  compared against nothing. The `skipped` limb is nevertheless unmoved at exactly **118**.
+  **CRITERION 14 RE-TAKEN AT PHASE END WITH THE `VAC-01` FLOOR PER MEMBER.** `src` 142
+  tracked -> names only `bind.py`; `runtime` 71 -> the two `mcp` modules; `pyproject.toml`
+  1 -> **EMPTY**; changed lines under `src/`+`runtime/` **= 8**, four edits x both sides,
+  **every one a pure `examples/` -> `archive/examples/` prefix**. The five `s1-01`
+  citations byte-identical and `request.py` byte-identical in full
+  (`b1a2b8e33c24ba24...`). `srcX`/`runtimeX`/`pyprojectX.toml` all print `tracked=0
+  diff-names=0` -- **identical output to a genuinely clean member**, which is the whole
+  argument for the floor.
+  **CRITERION 1 RE-PROVEN AT PHASE END AND THE CONTENT CLAUSE SCOPED WHERE IT BELONGS.**
+  R = **265**, D = **0**, `git ls-files archive/` = **265**. *No file content changed in
+  the move* is evidenced at `23-04`'s move commit `ef336f3` specifically -- `R=265, D=0,
+  M=0` and **zero renames below 100% similarity** -- because the 221 in-archive edits that
+  follow are Wave 5's, deliberate, and land after.
+  **TEN INDEPENDENT SABOTAGES OF THIS PHASE'S OWN VERIFICATION CODE. TWO PREDICTIONS WRONG,
+  ONE SABOTAGE ITSELF MIS-AIMED, ALL THREE RECORDED AS SUCH.** IS-2 deleted
+  `perf/baselines/` instead of `archive/examples/` and is recorded as mis-aimed rather than
+  quietly re-run. IS-4's prediction that the control would stay green was wrong -- the
+  control's own non-vacuity precondition fired, which is it working. IS-7 conflated the
+  test-side and tool-side root guards, which the module's docstrings distinguish
+  deliberately.
+  **TWO NEW FINDINGS, BOTH CARRIED.** (1) **Criterion 18's control comment names a mutation
+  the shipped module makes INERT.** Adding `/` to `PATH_TOKEN`'s lookbehind -- the exact
+  mutation the comment calls the blinding one -- leaves **all 17 tests PASSING**, because
+  the `archive/examples` alternation BRANCH matches from `archive`, which is
+  space-preceded. Proven with three regexes side by side. The controls are NOT mis-aimed:
+  dropping the branch reds **6** tests including both direction controls. But the sentence
+  naming the lookbehind as load-bearing is false about the shipped tokenizer, and an editor
+  removing the branch "because the lookbehind handles it" would find out the hard way.
+  (2) **`tests/examples/test_surface_audit.py` DOES NOT EXIST** while three live source
+  files cite it -- the `Makefile`'s `measure-examples` comment and comments in
+  `tests/products/test_required_operators_guard.py` and
+  `tests/products/test_gate_two_call_shape.py`. Found by running SS14.8's second-reader search rather
+  than assuming the absence.
+  **THE SIXTEEN/TWO SPLIT ON THE LOCKED CRITERIA, MEASURED PER CRITERION.** sha256 of each
+  criterion line against `PHASE_BASE`: **1-6, 8-11, 13-18 IDENTICAL**; **criterion 7
+  AMENDED** at `a6d7367` (`D-IMPL-196`) and `06786db` (`D-IMPL-198` r1); **criterion 12
+  AMENDED** at `06786db` (`D-IMPL-198` r2). Both are DECISION commits; neither was authored
+  by execution. The plan's own verification line said all eighteen would be byte-identical
+  -- **FALSIFIED, and correctly so.**
+  **THE CHECKED-AND-LEFT REGISTER CORRECTED.** *"Confirm none of them is gated"* is too
+  strong: **six** of the listed left-alone documents DO carry live coupling rows and
+  **three** are members of `KNOWN_COUPLED_FILES`. The true statement is that **no standing
+  check RESOLVES a path in any of them** -- `gate-tools` green at 415 + 339 and none
+  appears in any offender list.
+  **CARRIED, NOT CLOSED:** deferred items 1/4 (three headered documents still outside the
+  `$schema` gate -- 216 headered, 213 seen), 2, 3, **7** (now carried by five waves; the
+  rendered-include-body witness this repo does not have), **8**, **9** (the ROADMAP goal
+  prose and the STATE Position block, both still two rulings stale, both owed to `23-13`,
+  **nothing gates either**), **10**, and the two new items above.
+  `D-15` honoured: `STATE.md` and `ROADMAP.md` backed up outside the tree, hand-edited and
+  diffed; **no `state.*` and no `roadmap.*` writer invoked**; not one Success Criterion line
+  touched, verified per criterion by sha256 before and after the edit.
+  `RETIREMENT-COUPLINGS.md` regenerated **LAST**, in the venv, after the SUMMARY commit --
+  one row added, this document's own -- and **verified twice**: a second regeneration
+  produces NO DIFF and `test_the_committed_report_is_current` is green.
+  PRIOR: **PHASE 23 WAVE 11 LANDED. `DOCS-17` READS `Partial` FOR THE FIRST TIME SINCE IT
   WAS MINTED, AND THE CELL SAYS WHICH LIMB ON WHAT MEASUREMENT.** Three task commits
   on `phase-23`. 11 of 13 waves done; `23-12` is the full `make ci`, `23-13` the
   SS3.1 close.
