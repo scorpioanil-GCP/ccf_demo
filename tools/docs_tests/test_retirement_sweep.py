@@ -299,6 +299,34 @@ def archive_sweep_problems(
 
     The floor is tied to the SCHEDULE rather than set at `>= 1`, because one
     stray row would satisfy `>= 1` while nine of the ten trees went unseen.
+
+    **The count floor is NOT the whole check, and the reason is a measurement
+    made at the phase close rather than an argument.** Criterion 10's own words
+    are *"suppressing an archived path's coupling row is watched RED, so the
+    sweep cannot go blind to the archive"*. Against the count floor alone that
+    is FALSE: at the close the row set held 131 archive rows across ten trees,
+    and suppressing **every one of the 21 rows** for
+    `archive/examples/03-harness-portability` left 110 rows against a floor of
+    10 and this predicate returned EMPTY — green over a tree it did not look
+    at. The same input in its concentrated form (21 rows, all naming one tree,
+    nine trees contributing nothing) also passed. **The criterion's own named
+    mutation could not turn it red**, which is this phase's defect class — a
+    tool that reports clean because it did not look — arriving inside the
+    control written to prevent it.
+
+    So the coverage is asserted PER TREE and not summed. The count floor is
+    kept because it names a different diagnosis (a shrunken row set) and
+    because a reader following the old reasoning should still find it, but the
+    per-tree clause is what discharges criterion 10.
+
+    **The docstring's former escape clause is retired deliberately.** It read
+    *"a tree whose last reference is legitimately discharged should not turn
+    this red"*. That case cannot arise silently: deletion is still OWED for
+    every scheduled row (`D-IMPL-191` ruling 3), and a tree whose last
+    reference is genuinely discharged is a tree on its way out of the schedule
+    — so the row leaves `archived` with it and the clause stops applying by
+    itself. Until then, zero rows for a scheduled archived tree is the exact
+    state the criterion says must be red.
     """
     problems: list[str] = []
     archived = [
@@ -320,18 +348,27 @@ def archive_sweep_problems(
             " schedule — the sweep is reporting clean over a tree it did not"
             " look at"
         )
+    seen = {row.retiring_path for row in archive_rows}
+    unseen = [path for path in archived if path not in seen]
+    if unseen:
+        problems.append(
+            f"{len(unseen)} of {len(archived)} scheduled archived trees have"
+            " ZERO coupling rows, so the sweep is reporting clean over them"
+            " while the row TOTAL stays above the floor — a count cannot see a"
+            f" tree go dark: {', '.join(unseen)}"
+        )
     return problems
 
 
 def test_the_sweep_reaches_the_archive() -> None:
     """An archived path still counts, and the row set proves the walk got there.
 
-    Measured at the time of writing: **131 rows** name an archived path and
-    **all ten** archived trees are named by at least one of them, against a
-    floor of ten. The per-tree coverage is recorded rather than asserted — a
-    tree whose last reference is legitimately discharged should not turn this
-    red, but the count falling below the number of scheduled archived trees
-    should.
+    Measured at the phase close: **131 rows** name an archived path and **all
+    ten** archived trees are named by at least one of them — the smallest
+    contribution is 2 rows (`archive/examples/06-decision-replay`) and the
+    largest 29 (`archive/examples/04-cross-process`). Both clauses are
+    asserted: the total against the floor, and every scheduled archived tree
+    against zero.
     """
     assert not archive_sweep_problems(RETIREMENT_SCHEDULE, head().rows), "; ".join(
         archive_sweep_problems(RETIREMENT_SCHEDULE, head().rows)
@@ -434,6 +471,20 @@ def test_control_the_resolution_check_refuses_a_broken_schedule(
             "one",
             "against 10 archived trees",
         ),
+        (
+            "criterion 10's OWN mutation — every row for ONE archived tree"
+            " suppressed, the total left far above the floor",
+            lambda: RETIREMENT_SCHEDULE,
+            "one-tree-dark",
+            "have ZERO coupling rows",
+        ),
+        (
+            "the CONCENTRATED set — enough rows to clear the floor, all of them"
+            " naming a single tree",
+            lambda: RETIREMENT_SCHEDULE,
+            "concentrated",
+            "have ZERO coupling rows",
+        ),
     ],
 )
 def test_control_the_archive_sweep_check_refuses_a_blind_sweep(
@@ -454,6 +505,19 @@ def test_control_the_archive_sweep_check_refuses_a_blind_sweep(
     case is the proof that the floor is TIED to the schedule rather than set
     at a constant. Without it, weakening `len(archived)` to `1` would pass
     every control in this module.
+
+    **The fifth and sixth cases were added at the phase close, and they are
+    there because the first four PASSED on the exact mutation criterion 10
+    names.** Cases 1-4 all shrink the row set below the floor, so a count alone
+    refuses every one of them and the per-tree question is never asked. Case 5
+    is criterion 10's own words — *"suppressing an archived path's coupling
+    row"* — applied to every row of one tree with the total left far above the
+    floor; case 6 is the concentrated form, where the row set is large enough
+    to clear the floor because a single tree contributes all of it. Both were
+    measured GREEN against the count floor before the per-tree clause existed.
+    Each asserts the `ZERO coupling rows` fragment specifically, because a
+    refusal that merely says "too few rows" would send a reader to look for a
+    shrunken sweep instead of a tree that went dark.
     """
     row_set: Sequence[Coupling]
     if rows == "none":
@@ -466,6 +530,39 @@ def test_control_the_archive_sweep_check_refuses_a_blind_sweep(
         ][:1]
         assert stray, "no archive row at HEAD to build the stray-row control from"
         row_set = tuple(stray)
+    elif rows in {"one-tree-dark", "concentrated"}:
+        # The victim is derived from the SCHEDULE, never spelled, so a future
+        # re-point cannot leave this control silently pointed at nothing.
+        victim = next(
+            entry.path
+            for entry in RETIREMENT_SCHEDULE
+            if entry.path.startswith(ARCHIVE_PREFIX)
+        )
+        victim_rows = [row for row in head().rows if row.retiring_path == victim]
+        assert victim_rows, (
+            f"no coupling row at HEAD names {victim}, so this control would"
+            " suppress nothing and prove nothing"
+        )
+        if rows == "one-tree-dark":
+            row_set = tuple(
+                row for row in head().rows if row.retiring_path != victim
+            )
+            # The whole point: the total must stay ABOVE the floor, or the
+            # count clause refuses first and the per-tree clause goes unproven.
+            above = [
+                row
+                for row in row_set
+                if row.retiring_path.startswith(ARCHIVE_PREFIX)
+            ]
+            assert len(above) >= len(
+                [e for e in RETIREMENT_SCHEDULE if e.path.startswith(ARCHIVE_PREFIX)]
+            ), (
+                "suppressing one tree dropped the archive row total below the"
+                " floor, so the count clause fires and this control no longer"
+                " isolates the per-tree clause"
+            )
+        else:
+            row_set = tuple(victim_rows)
     else:
         row_set = head().rows
     problems = archive_sweep_problems(build(), row_set)
