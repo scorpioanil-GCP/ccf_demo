@@ -1893,12 +1893,20 @@ Phase: **23 — The Archive Move: Retiring the Ten Condemned Example Trees Witho
   any criterion was written, because Dave asked whether the `s1` pair was the client-side
   work just completed — it is not; that is `hw1-*`, and `s1-00` is the PREDECESSOR
   `hw1-companies-over-revenue` rebuilt. **`CLNT-17` is EXCLUDED and stays `Not built`.**
-  **SIXTEEN Success Criteria LOCKED at the sitting** (`D-GATE-19`, `D-IMPL-174`), each ONE
-  LINE, verified sequential with zero continuation lines. Six rulings logged as
+  **EIGHTEEN Success Criteria LOCKED at the sitting** (`D-GATE-19`, `D-IMPL-174`), each ONE
+  LINE, verified sequential with zero continuation lines. **CORRECTED at the close,
+  2026-08-25: this block said SIXTEEN.** Sixteen was the count when this paragraph was
+  written; criteria 17 and 18 were AMENDED IN by `D-IMPL-194` before Wave 1, and the set
+  has been eighteen for the whole of execution. Nothing gated the figure. Six rulings logged as
   `D-IMPL-190` and `D-IMPL-191`; **two AMEND `D-IMPL-189`** — point 1 (the paired tests
   STAY under `tests/`, so the **4105 / 118** baseline holds) and point 3 (the done-limb
-  says *out of the `examples:` aggregate*, NOT *out of live CI*, because 25 of 31
-  `tests/examples` files still read the archived sources and 2 still execute them). Each
+  says *out of the `examples:` aggregate*, NOT *out of live CI*, because **19 of 31**
+  `tests/examples` files still read the archived sources and 2 still execute them —
+  **CORRECTED at the close, 2026-08-25: this block said 25 of 31.** `D-IMPL-195` ruling 3
+  amended the figure to 19 and criterion 12 with it: the 25 was produced by a regex
+  (`0[0-8]-[a-z]`) that matched inside `s1-00-companies-over-revenue` and the `hw1-`
+  names. Wave 11 re-measured **19 at `PHASE_BASE` and 19 at `HEAD`**, so the superseded
+  25 reproduced at neither end). Each
   amendment names the old clause and the new one per the `D-IMPL-188` policy.
   **Why this phase and not another:** it is the ONLY retirement work unblocked today.
   Both outstanding rulings govern DELETION — `D-27`'s `00`–`08` half is Dave's and

@@ -2108,7 +2108,11 @@ archive location — out of the `examples:` aggregate and the always-on CI job,
 and every published snippet include and prose path re-pointed so
 `make docs-strict` stays green. **NOTHING IS DELETED.** On completion `DOCS-17`
 is verdicted **`Partial`** for the first time, on the seam `D-IMPL-189` point 3
-names: limb done — out of live CI, sources preserved under archive, includes
+names: limb done — **out of the `examples:` aggregate** (AMENDED at the
+close, 2026-08-25: this goal paragraph still carried the clause *"out of live
+CI"* that `D-IMPL-191` ruling 4 amended and that criterion 12 FORBIDS the
+shipped cell from claiming — nothing gated the goal prose, which is how it went
+two rulings stale without a red), sources preserved under archive, includes
 re-pointed, strict build green; limb owed — full retirement and the re-cut
 against a replacement surface.
 
