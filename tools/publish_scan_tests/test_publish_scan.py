@@ -452,8 +452,20 @@ def test_the_widening_is_the_narrow_one_and_does_not_open_the_archive_tree() -> 
 
 
 def test_the_existing_roots_are_still_admitted() -> None:
-    """The widening is a strict superset — nothing that was permitted moved."""
-    assert include_escapes("examples/00-quickstart/run.py:boot") is False
+    """The widening is a strict superset — no PREFIX that was permitted left.
+
+    The docstring used to read *"nothing that was permitted moved"*, and Phase
+    23 made that sentence false in the one way that matters: the quickstart
+    tree this test originally witnessed DID move, to
+    ``archive/examples/00-quickstart/``. `include_escapes` is a prefix
+    predicate and never touches the disk, so the assertion stayed green over a
+    path that no longer exists — a control witnessing a subject that was
+    swapped rather than removed, which is the class this phase spent itself
+    hunting. The witnesses are now trees that are still under ``examples/``
+    after the move, so the control and its subject agree.
+    """
+    assert include_escapes("examples/s1-01-hello-context-product/spine.py:boot") is False
+    assert include_escapes("examples/hw1-harness-clients/client_adk.py") is False
     assert include_escapes("public/tutorial/adopters-guide.md") is False
     assert include_escapes("perf/baselines/latency.json") is False
     assert include_escapes("openapi.json") is False

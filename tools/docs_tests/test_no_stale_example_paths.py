@@ -381,12 +381,20 @@ def test_a_correctly_re_pointed_archive_path_yields_no_offenders(
 ) -> None:
     """Direction 1 — a correct tree must be silent.
 
-    The repo has no `archive/` yet, so the "correct" tree is stood up
-    synthetically and `_prose.REPO_ROOT` is pointed at it. The two
-    preconditions below are what stop this control passing vacuously: the
-    archive target must exist under the synthetic root, and the STRIPPED form
-    must not — otherwise a stripping tokenizer would resolve by accident, which
-    is exactly what masks the defect on today's un-moved tree.
+    The "correct" tree is stood up SYNTHETICALLY and `_prose.REPO_ROOT` is
+    pointed at it, rather than read from the repo. That was originally because
+    the repo had no `archive/` — this control was written in plan `23-02`,
+    ahead of plan `23-04`'s move — and it stays synthetic now that the move has
+    happened, for a stronger reason: the synthetic root is the only way to hold
+    the second precondition, which is that the STRIPPED form must NOT exist. On
+    the real tree `examples/` still holds four surviving trees, so a future one
+    named like a moved one would satisfy the stripped form by accident and this
+    control would pass while blind.
+
+    The two preconditions below are what stop it passing vacuously: the archive
+    target must exist under the synthetic root, and the STRIPPED form must not
+    — otherwise a stripping tokenizer resolves by accident, which is exactly
+    what masked the defect on the pre-move tree.
     """
     root = tmp_path / "repo"
     kept = root / "archive" / "examples" / "04-cross-process" / "producer_child.py"

@@ -628,9 +628,15 @@ def test_the_discovery_globs_reach_the_live_tree_and_the_archive() -> None:
     This module's root set and
     ``tools/check_schema_headers.py::ARTIFACT_GLOBS`` are two statements of one
     thing, and :func:`test_this_module_gates_the_same_set_the_tool_checks`
-    compares what they *find*. On today's tree that comparison is satisfied by
-    both being blind to the archive at once, because the archive does not
-    exist — so the membership is asserted directly as well.
+    compares what they *find*. **When this was written in plan ``23-03`` the
+    archive did not yet exist, so that comparison was satisfied by both being
+    blind to it at once — which is why the membership is asserted directly as
+    well.** The archive exists now (plan ``23-04`` moved ten trees into it, and
+    ``discover(require_all=True)`` returns 10 archived artifact directories
+    against 1 live one), so the two-blind-at-once case is historical rather
+    than current. The direct membership assertion stays: a *future* narrowing
+    would re-create exactly that state, and the comparison alone would not say
+    so.
     """
     assert set(ARTIFACT_GLOBS) == {
         f"examples/**/{ARTIFACTS_DIRNAME}/*.yaml",
