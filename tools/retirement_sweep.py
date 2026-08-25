@@ -112,48 +112,134 @@ from tools.publish_scan import SKIP_DIRS  # noqa: E402
 
 @dataclasses.dataclass(frozen=True)
 class Retirement:
-    """One path this phase retires, with the plan and wave that retires it."""
+    """One path this phase retires, with the plan and wave that retires it.
+
+    `former_path` is the spelling the tree had BEFORE it was moved, empty for
+    a tree that never moved. It is matched alongside `path`, and the reason is
+    a measurement rather than a precaution.
+
+    **Plan 23-10 re-pointed the ten moved trees from `examples/…` to
+    `archive/examples/…`, and the re-point alone made the sweep stop reporting
+    three references it had reported the run before** — `tools/measure_examples.py`
+    lines 261, 308 and 320, two of them `live` argparse help strings naming
+    `examples/01-agent-basics` and `examples/00-quickstart`. Those references
+    did not stop existing and did not stop being coupled to the tree; the tree
+    moved out from under a spelling nobody re-pointed. Dropping them would have
+    been the sweep going blind in the same run as the change made to stop it
+    going blind, and `test_every_known_coupled_file_is_found` — the hand-built
+    floor — is what caught it.
+
+    Matched only for LOOKUP (`retiring_paths`, `_entry_for`), never for
+    CONTAINMENT: `containing_retirement` still asks only about `path`, because
+    nothing lives at the former location any more and a source file cannot be
+    inside a directory that is not there.
+    """
 
     path: str
     owner: str
     wave: int
+    former_path: str = ""
+
+    def spellings(self) -> tuple[str, ...]:
+        """Every spelling of this tree a reference in the repo may carry."""
+        if self.former_path:
+            return (self.path, self.former_path)
+        return (self.path,)
 
 
-#: The ten retiring example directories, the `tests/examples/` modules that
-#: retire with them, and the two published pages scheduled for deletion.
-#: Owners and waves come from the phase's own retirement schedule: 16-15
-#: retires `03-harness-portability` at wave 8; 16-17 retires `04-cross-process`
-#: and `07-artifact-store-mcp` at wave 10; 16-18 retires the remaining seven,
-#: the retiring test modules and the two published pages at wave 11. Each
-#: owner was checked against the owning plan's own `files_modified`.
+#: The ten retiring example directories — now at their `archive/examples/`
+#: paths — the `tests/examples/` modules that retire with them, and the two
+#: published pages scheduled for deletion.
+#:
+#: **Re-pointed and re-owned by plan 23-10 (`D-IMPL-195` ruling 2, `D-05`).**
+#: The table previously named `examples/…` paths that plan 23-04 has since
+#: moved, owned by `16-15`/`16-17`/`16-18` — plans of a phase `D-IMPL-152`
+#: RETIRED. Nobody owned those rows, and after the move nothing verified that
+#: the paths were still there.
+#:
+#: **An archived path still counts as a live coupling.** Dave: *"Same rule as
+#: the sweep table: archived path still counts."* Deletion remains OWED for
+#: every row below; re-pointing an owner discharges nothing. Making the sweep
+#: blind to the archive would reproduce the exact defect Phase 22.1 was
+#: commissioned to fix — a tool that reports clean because it did not look.
+#:
+#: **Owners.** The ten moved trees take `23-04`, the plan that performed the
+#: move. The fourteen rows that did NOT move — twelve `tests/examples/`
+#: modules and the two `public/tutorial/` pages — take `23-10`, this plan, as
+#: the single named archive-quarantine owner `D-IMPL-195` ruling 2 permits.
+#: `23-10` is a real plan id a reader can go and find; "Phase 23" alone is not.
+#: Neither owner deletes anything: the obligation is quarantined, not
+#: discharged.
+#:
+#: **Waves are UNCHANGED — 8, 10, 11, 12.** The field orders retirements
+#: against each other for `_first_break` and the cross-wave check; the relative
+#: order of these rows did not change, so renumbering would alter that ordering
+#: for no gain while risking the same import-time `StopIteration` class that
+#: the path re-point itself risked (see `EXAMPLE_DIR_PREFIXES` in
+#: `tools/docs_tests/test_retirement_sweep.py`). The wave integers no longer
+#: correspond to the retired Phase 16 plan numbering, and did not before this
+#: re-point either — wave 12 already belonged to Phase 17.
+#:
+#: Every path below was confirmed to exist on disk, and is now ASSERTED to —
+#: see `test_every_scheduled_path_resolves_on_disk`.
 RETIREMENT_SCHEDULE: tuple[Retirement, ...] = (
-    # --- wave 8 (16-15) ---
-    Retirement("examples/03-harness-portability", "16-15", 8),
-    Retirement("tests/examples/test_harness_portability_output.py", "16-15", 8),
-    # --- wave 10 (16-17) ---
-    Retirement("examples/04-cross-process", "16-17", 10),
-    Retirement("examples/07-artifact-store-mcp", "16-17", 10),
-    Retirement("tests/examples/test_cross_process_output.py", "16-17", 10),
-    Retirement("tests/examples/test_artifact_store_output.py", "16-17", 10),
-    # --- wave 11 (16-18) ---
-    Retirement("examples/00-quickstart", "16-18", 11),
-    Retirement("examples/01-agent-basics", "16-18", 11),
-    Retirement("examples/02-skilling", "16-18", 11),
-    Retirement("examples/05-workflow-hitl", "16-18", 11),
-    Retirement("examples/06-decision-replay", "16-18", 11),
-    Retirement("examples/08-e2e-demo", "16-18", 11),
-    Retirement("examples/external/00-hello-context", "16-18", 11),
-    Retirement("tests/examples/test_quickstart_output.py", "16-18", 11),
-    Retirement("tests/examples/test_agent_basics_output.py", "16-18", 11),
-    Retirement("tests/examples/test_skilling_output.py", "16-18", 11),
-    Retirement("tests/examples/test_workflow_hitl_output.py", "16-18", 11),
-    Retirement("tests/examples/test_decision_replay_output.py", "16-18", 11),
-    Retirement("tests/examples/test_e2e_demo_output.py", "16-18", 11),
-    Retirement("tests/examples/test_ext00_fixture_schemas.py", "16-18", 11),
-    Retirement("tests/examples/test_ext00_hardening.py", "16-18", 11),
-    Retirement("tests/examples/test_ext00_serve_output.py", "16-18", 11),
-    Retirement("public/tutorial/adopters-guide.md", "16-18", 11),
-    Retirement("public/tutorial/demo-walkthrough.md", "16-18", 11),
+    # --- wave 8 (was 16-15) ---
+    Retirement(
+        "archive/examples/03-harness-portability", "23-04", 8,
+        former_path="examples/03-harness-portability",
+    ),
+    Retirement("tests/examples/test_harness_portability_output.py", "23-10", 8),
+    # --- wave 10 (was 16-17) ---
+    Retirement(
+        "archive/examples/04-cross-process", "23-04", 10,
+        former_path="examples/04-cross-process",
+    ),
+    Retirement(
+        "archive/examples/07-artifact-store-mcp", "23-04", 10,
+        former_path="examples/07-artifact-store-mcp",
+    ),
+    Retirement("tests/examples/test_cross_process_output.py", "23-10", 10),
+    Retirement("tests/examples/test_artifact_store_output.py", "23-10", 10),
+    # --- wave 11 (was 16-18) ---
+    Retirement(
+        "archive/examples/00-quickstart", "23-04", 11,
+        former_path="examples/00-quickstart",
+    ),
+    Retirement(
+        "archive/examples/01-agent-basics", "23-04", 11,
+        former_path="examples/01-agent-basics",
+    ),
+    Retirement(
+        "archive/examples/02-skilling", "23-04", 11,
+        former_path="examples/02-skilling",
+    ),
+    Retirement(
+        "archive/examples/05-workflow-hitl", "23-04", 11,
+        former_path="examples/05-workflow-hitl",
+    ),
+    Retirement(
+        "archive/examples/06-decision-replay", "23-04", 11,
+        former_path="examples/06-decision-replay",
+    ),
+    Retirement(
+        "archive/examples/08-e2e-demo", "23-04", 11,
+        former_path="examples/08-e2e-demo",
+    ),
+    Retirement(
+        "archive/examples/external/00-hello-context", "23-04", 11,
+        former_path="examples/external/00-hello-context",
+    ),
+    Retirement("tests/examples/test_quickstart_output.py", "23-10", 11),
+    Retirement("tests/examples/test_agent_basics_output.py", "23-10", 11),
+    Retirement("tests/examples/test_skilling_output.py", "23-10", 11),
+    Retirement("tests/examples/test_workflow_hitl_output.py", "23-10", 11),
+    Retirement("tests/examples/test_decision_replay_output.py", "23-10", 11),
+    Retirement("tests/examples/test_e2e_demo_output.py", "23-10", 11),
+    Retirement("tests/examples/test_ext00_fixture_schemas.py", "23-10", 11),
+    Retirement("tests/examples/test_ext00_hardening.py", "23-10", 11),
+    Retirement("tests/examples/test_ext00_serve_output.py", "23-10", 11),
+    Retirement("public/tutorial/adopters-guide.md", "23-10", 11),
+    Retirement("public/tutorial/demo-walkthrough.md", "23-10", 11),
     # --- wave 12 (17-08) ---
     # Phase 17's condemned trees (D-27, D-31). The wave integer continues the
     # existing sequence rather than restarting at Phase 17's own wave 6: `wave`
@@ -308,15 +394,26 @@ class Coupling:
 
 
 def retiring_paths() -> tuple[str, ...]:
-    """Every path the schedule retires, longest first so the most specific wins."""
+    """Every spelling of every retiring path, longest first so the most specific wins.
+
+    Both spellings of a moved tree — see `Retirement.former_path`. A reference
+    written before the move is still a reference to the tree.
+    """
     return tuple(
-        sorted((entry.path for entry in RETIREMENT_SCHEDULE), key=len, reverse=True)
+        sorted(
+            {
+                spelling
+                for entry in RETIREMENT_SCHEDULE
+                for spelling in entry.spellings()
+            },
+            key=lambda spelling: (-len(spelling), spelling),
+        )
     )
 
 
 def _entry_for(path: str) -> Retirement | None:
     for entry in RETIREMENT_SCHEDULE:
-        if entry.path == path:
+        if path in entry.spellings():
             return entry
     return None
 
@@ -679,6 +776,29 @@ def python_hits(path: pathlib.Path, source: str) -> list[Coupling]:
 
     found: list[Coupling] = []
     seen: set[tuple[int, str, str]] = set()
+    #: Targets already filed on a given line, so a target that is a SUBSTRING
+    #: of a longer one already filed there is not filed twice.
+    #:
+    #: `text_hits` has carried this rule since it was written; `python_hits`
+    #: did not need it until plan 23-10 gave a moved tree two spellings, at
+    #: which point `archive/examples/04-cross-process` and its own former
+    #: spelling `examples/04-cross-process` both matched the SAME characters
+    #: and filed two rows for one reference. Measured: the two synthetic
+    #: single-reference fixtures each returned 2 rows where they assert 1, and
+    #: the repo-wide total read **315** rows instead of 264.
+    #:
+    #: `targets` is longest-first, so the longer spelling is always filed
+    #: first and the shorter one is the one suppressed.
+    filed_on_line: dict[int, set[str]] = {}
+
+    def shadowed(line: int, target: str) -> bool:
+        return any(
+            target != other and target in other
+            for other in filed_on_line.get(line, ())
+        )
+
+    def file_on_line(line: int, target: str) -> None:
+        filed_on_line.setdefault(line, set()).add(target)
 
     # `/`-chain reconstructions first, so a constructed path is reported as a
     # construction rather than as two unrelated segment literals.
@@ -701,9 +821,10 @@ def python_hits(path: pathlib.Path, source: str) -> list[Coupling]:
             if target in chain:
                 shape, liveness = classify(node.lineno, SHAPE_PATH_CONSTRUCTION)
                 key = (node.lineno, target, shape)
-                if key in seen:
+                if key in seen or shadowed(node.lineno, target):
                     continue
                 seen.add(key)
+                file_on_line(node.lineno, target)
                 found.append(
                     Coupling(
                         file=rel,
@@ -735,9 +856,10 @@ def python_hits(path: pathlib.Path, source: str) -> list[Coupling]:
                 default = shapes.get(id(node), SHAPE_STRING_LITERAL)
                 shape, liveness = classify(node.lineno, default)
                 key = (line, target, shape)
-                if key in seen:
+                if key in seen or shadowed(line, target):
                     continue
                 seen.add(key)
+                file_on_line(line, target)
                 found.append(
                     Coupling(
                         file=rel,

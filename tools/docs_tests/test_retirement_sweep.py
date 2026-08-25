@@ -81,23 +81,39 @@ from tools.retirement_sweep import (  # noqa: E402
     unexaminable,
 )
 
+#: The prefixes an *example directory* row can carry. `archive/examples/` is
+#: here because plan 23-04 moved the ten condemned trees there and plan 23-10
+#: re-pointed the schedule at their new home; a predicate that still admitted
+#: only `examples/` would match nothing for waves 8, 10 and 11, `next()` would
+#: raise `StopIteration` DURING COLLECTION, and this whole module would vanish
+#: — which reads exactly like a module that passed. Watched: with the schedule
+#: re-pointed and this tuple left at `("examples/",)`, `--collect-only` reports
+#: **0 tests collected, 1 error** where the phase base reports **47**.
+#:
+#: `examples/` is KEPT rather than replaced: the `17-08` `s1` rows still live
+#: under `examples/` (`D-05` leaves them alone), and a later wave that adds an
+#: unmoved tree at waves 8/10/11 must not re-break collection.
+EXAMPLE_DIR_PREFIXES: tuple[str, ...] = ("examples/", "archive/examples/")
+
+
+def _example_dir_for_wave(wave: int) -> str:
+    """One retiring example directory from `wave`, taken from the schedule.
+
+    Derived so this module carries no retiring-path token of its own — the
+    reason the fixtures are computed rather than written down.
+    """
+    return next(
+        entry.path
+        for entry in RETIREMENT_SCHEDULE
+        if entry.wave == wave and entry.path.startswith(EXAMPLE_DIR_PREFIXES)
+    )
+
+
 #: One retiring example directory per wave, taken from the schedule so this
 #: module carries no retiring-path token of its own.
-WAVE_8 = next(
-    entry.path
-    for entry in RETIREMENT_SCHEDULE
-    if entry.wave == 8 and entry.path.startswith("examples/")
-)
-WAVE_10 = next(
-    entry.path
-    for entry in RETIREMENT_SCHEDULE
-    if entry.wave == 10 and entry.path.startswith("examples/")
-)
-WAVE_11 = next(
-    entry.path
-    for entry in RETIREMENT_SCHEDULE
-    if entry.wave == 11 and entry.path.startswith("examples/")
-)
+WAVE_8 = _example_dir_for_wave(8)
+WAVE_10 = _example_dir_for_wave(10)
+WAVE_11 = _example_dir_for_wave(11)
 
 #: The known instances, assembled by hand across three review rounds. The
 #: sweep exists because hand assembly kept missing rows, so this is the floor
@@ -407,6 +423,14 @@ def test_shape_4_the_indirect_execution_is_detected(tmp_path: pathlib.Path) -> N
     assumed, because "the path is constructed, not written" is the whole
     reason a token pass is blind to this shape and the reason it survived two
     review rounds.
+
+    **The synthetic runner joins EVERY segment of `WAVE_10`, not the first
+    two.** The earlier form spelled `/ "{...split('/')[0]}" / "{...split('/')[1]}"`,
+    which silently assumed a two-segment retiring path. Plan 23-10 re-pointed
+    the schedule at `archive/examples/…` — three segments — and the fixture
+    then built `archive/examples`, a path that retires nothing, so the detector
+    correctly found zero rows and the test failed on its own fixture rather
+    than on the detector. Watched: 0 rows where 1 was asserted.
     """
     test_module = _write(
         tmp_path,
@@ -420,6 +444,10 @@ def test_shape_4_the_indirect_execution_is_detected(tmp_path: pathlib.Path) -> N
             subprocess.run([sys.executable, "tools/synthetic_runner.py"], check=True)
         ''',
     )
+    # Twelve spaces because that is the column `{segments}` sits at below, and
+    # `_write` runs `textwrap.dedent`: a continuation line indented less than
+    # the block would shrink the common prefix and un-indent the whole fixture.
+    segments = ("\n" + " " * 12).join(f'/ "{part}"' for part in WAVE_10.split("/"))
     runner = _write(
         tmp_path,
         "tools/synthetic_runner.py",
@@ -428,8 +456,7 @@ def test_shape_4_the_indirect_execution_is_detected(tmp_path: pathlib.Path) -> N
 
         TARGET = (
             pathlib.Path(__file__).resolve().parents[1]
-            / "{WAVE_10.split("/")[0]}"
-            / "{WAVE_10.split("/")[1]}"
+            {segments}
         )
         ''',
     )
