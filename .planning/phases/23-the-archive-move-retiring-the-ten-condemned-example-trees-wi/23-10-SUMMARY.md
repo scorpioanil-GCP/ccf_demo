@@ -455,3 +455,44 @@ red before this plan began.
 ## Self-Check: PASSED
 
 Verified after the SUMMARY commit — see the appendix appended below.
+
+### Self-check appendix — run after the report regeneration
+
+**Files claimed, all present:**
+
+```
+FOUND: tools/retirement_sweep.py
+FOUND: tools/docs_tests/test_retirement_sweep.py
+FOUND: .planning/phases/23-.../23-10-SUMMARY.md
+FOUND: .planning/phases/23-.../deferred-items.md
+FOUND: docs/surface/examples/RETIREMENT-COUPLINGS.md
+```
+
+**Commits claimed, all resolvable:**
+
+| Hash | What |
+| --- | --- |
+| `b6ecc05` | task 1 — the table re-pointed, `former_path`, the double-count fix, the fixture repair |
+| `1e33b47` | task 2 — the two assertions, seven non-vacuity controls, the redundancy collapse |
+| `d0ed316` | this SUMMARY and deferred item 8 |
+| `46dc898` | the coupling report, regenerated LAST with the changed sweep |
+
+**Gates at the final commit, measured after the regeneration:**
+
+- `tools/docs_tests/test_retirement_sweep.py` — **57 passed, 0 failed**
+- `make gate-tools` leg 1 — **415 passed**
+- `make gate-tools` leg 2 — **338 passed, 1 failed**
+- `python -m tools.lints --all` — **exit 0**
+- `docs/surface/examples/RETIREMENT-COUPLINGS.md` — **270 rows / 83 files /
+  1938 files scanned**, and a second `--report` run is byte-identical
+- `git status --short` — clean apart from three untracked `references/*.md`
+  that predate this session
+
+**The one red, and it is not this plan's.**
+`tools/docs_tests/test_requirement_ledger.py::test_every_cited_path_in_a_status_cell_resolves_as_written`
+— `EXAM-01 cites 'examples/external/00-hello-context/run.py', which is not in
+the tree at all`. That is a `.planning/REQUIREMENTS.md` cell, untouched by this
+plan, red before this plan began, and owned by plan `23-11`. Verified unchanged
+in content, not merely unchanged in count.
+
+## Self-Check: PASSED
