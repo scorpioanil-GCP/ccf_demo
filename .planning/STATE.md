@@ -19,7 +19,12 @@ last_activity: >-
   contract elements is already resolved by `D-IMPL-30` in favour of NINE and `AssemblyMode`
   ships. The other eight candidates in `CCF_SDK_DE_REQUIREMENTS.md` are NOT VERIFIED and
   must not be quoted as findings; all ten collide with logged ids (log at `D-IMPL-198`,
-  `199` is the next free). Dave lifted the do-not-query-the-vault constraint for the
+  `199` is the next free). **THAT ANCHOR IS WITHDRAWN AS STALE (`e75a1f3`) AND CORRECTED
+  IN PLACE, superseded value named rather than overwritten (`D-19`, `D-IMPL-174`):**
+  Phase 23.1 has since consumed `199` (`D-IMPL-199`), `200` (`D-IMPL-200`) and `201`
+  (`D-IMPL-201`), so the next free id is **`202`**, and `23.1-06` renumbered the ten
+  candidates to **`202`-`211`** on Dave's ruling. **The collision claim itself STANDS** --
+  all ten proposed ids `D-IMPL-30`..`D-IMPL-39` were taken; only the next-free anchor moved. Dave lifted the do-not-query-the-vault constraint for the
   Context Product rollout. PRIOR: 2026-08-25 -- **PHASE 23 IS CLOSED. `D-GATE-23` IS LOGGED AND THE ARCHIVE MOVE IS DONE.**
   Thirteen plans in thirteen serial waves on branch `phase-23`, **76 commits** from
   `PHASE_BASE` `b87fe58`, merged to `main --no-ff` naming the entry. **All EIGHTEEN
@@ -106,17 +111,64 @@ last_activity: >-
 progress:
   total_phases: 30
   completed_phases: 28
-  total_plans: 217
-  completed_plans: 216
+  total_plans: 225
+  completed_plans: 222
   percent: 93
-  measured: "2026-08-25 -- counted from the tree, not incremented. Superseded values,
+  measured: "**OPERATIVE RE-MEASURE, 2026-08-25 by `23.1-06`, stated FIRST and alone
+    because token presence is not token force -- everything below this paragraph is
+    PRESERVED HISTORY and two of its sentences are WITHDRAWN in place.** Re-measured
+    from the tree, NOT incremented (Dave, 2026-08-25: *re-measure and hand-correct; do
+    not increment*). **total_plans 225** = `*-PLAN.md` files at depth 1 under
+    `.planning/phases/*/`; **completed_plans 222** = those with a matching
+    `*-SUMMARY.md` beside them. Positive controls recorded beside the figures: the
+    misspelled suffix `*-PLANN.md` returns **0** and `*-SUMMARYY.md` matches **0**
+    plans, so a match is a match and not a glob that saw nothing; a known-present
+    probe (`23.1-05-PLAN.md`) is matched and a known-absent probe (`23.1-06-PLAN.md`)
+    is unmatched. **The THREE unmatched plans are NAMED rather than rounded up, and
+    all three are IN FLIGHT: `23.1-06`, `23.1-07`, `23.1-08`** -- this wave and the two
+    after it, so completed_plans is EXPECTED to trail total_plans by exactly three
+    until Phase 23.1 closes. **What the depth-1 rule deliberately EXCLUDES, named so
+    the count is not read as a tree-wide total:** 27 further `*-PLAN.md` files sit one
+    level deeper -- 14 under Phase 16 `abandoned/` (retired, `D-IMPL-152`, history and
+    not a work queue) and 13 under Phase 15.2 `void-plans-pre-D-IMPL-87/`. Counting
+    every depth returns 252. **SUPERSEDED VALUES NAMED rather than overwritten
+    silently (`D-19`, `D-IMPL-174`): total_plans 217 -> 225, completed_plans 216 ->
+    222.** `23.1-05` measured 225/221 the day before; the one-plan delta is
+    `23.1-05-SUMMARY.md` itself, written after that measurement was taken. Summary
+    files re-measured with it: **242** at depth 1 (was 236), **20** of them with no
+    matching PLAN, which is still why `gsd-sdk query progress.bar` reports an
+    impossible 242/225 -- it counts summaries against plans. **percent stays 93**: it
+    is 28 of 30 PHASES, not 222 of 225 plans.
+    **THE METHOD SENTENCE BELOW IS WITHDRAWN AND RE-MEASURED HERE (criterion 19).**
+    It asserted `28 = ls -d .planning/phases/*/ and ### Phase sections in ROADMAP.md,
+    which agree`. Those two channels **no longer agree and no longer read 28**:
+    measured 2026-08-25, **30** `### Phase ` detail sections against **29** phase
+    directories. The set comparison in both directions names the single genuine
+    difference: **Phase 24 has a ROADMAP entry and no directory**, because it is
+    banked and not planned -- and **no Phase 24 directory is manufactured to make the
+    two channels agree**, which would be the same defect criterion 10 forbids one file
+    over. One further difference is an INSTRUMENT artefact and is named so it is not
+    read as a third phase: a naive string compare also reports `9` against `09`,
+    because the Phase 9 directory is zero-padded and the heading is not; normalised,
+    the delta is Phase 24 alone. Control: a fabricated phase number `99` appears in
+    neither channel.
+    ---- PRESERVED BELOW AS SUPERSEDED HISTORY, NOT DELETED ----
+    2026-08-25 -- counted from the tree, not incremented. Superseded values,
     named rather than overwritten silently: total_phases 27, completed_phases 27,
-    total_plans 204, completed_plans 204. Method: 28 = `ls -d .planning/phases/*/`
+    total_plans 204, completed_plans 204. Method **[WITHDRAWN 2026-08-25 -- see the
+    OPERATIVE RE-MEASURE at the head of this block; the two channels no longer
+    agree and no longer read 28]**: 28 = `ls -d .planning/phases/*/`
     and `### Phase ` sections in ROADMAP.md, which agree; 217 = `*-PLAN.md` files;
     216 = those with a matching `*-SUMMARY.md`. THE ONE EXCEPTION IS NAMED rather
     than rounded up: `22-06-PLAN.md`, Phase 22's CLOSE plan, has no SUMMARY -- the
     close work itself was done and `D-GATE-22` is logged, so the gap is the missing
-    artifact, not missing work. There are also 236 SUMMARY files, 20 of them with no
+    artifact, not missing work. **[EXCEPTION RETIRED 2026-08-25 -- `22-06-PLAN.md`
+    NOW HAS A SUMMARY. The one exception this block named was CLOSED by Phase 23.1
+    plan `23.1-05`, which wrote `22-06-SUMMARY.md` RETROACTIVELY from the Phase 22
+    close record with its authorship stated in the file (ROADMAP criterion 10,
+    Outcome A). The superseded wording is left above rather than deleted. The plan
+    counter was NOT the reason for the write and is named as not the reason: the
+    figures were 221 of 225 AFTER it, still short.]** There are also 236 SUMMARY files, 20 of them with no
     matching PLAN (`*-CLOSE-FIXES-`, `*-REVIEW-FIXES-`, `18-D-IMPL-149-`, `17-03b-`
     and similar), which is why `gsd-sdk query progress.bar` reports the impossible
     236/217 -- it counts summaries against plans. percent stays 100 because every
@@ -384,7 +436,14 @@ recorded failure mode of this file is exactly the pair going out of step -- it r
   file's `progress:` block was wrong in three of four fields** -- 27/27/204/204 against
   a measured 28/28/217/216. (6) **`22-06-PLAN.md`, Phase 22's CLOSE plan, has NO
   SUMMARY** while `D-GATE-22` is logged -- the close work was done, the artifact was
-  never written; recorded, not manufactured.
+  never written; recorded, not manufactured. **[CLAIM SUPERSEDED 2026-08-25 and
+  corrected in place by `23.1-06` under criterion 19, the finding-as-recorded preserved
+  above: `22-06-SUMMARY.md` NOW EXISTS.]** `23.1-05` wrote it RETROACTIVELY from the
+  Phase 22 close record, with its retroactive authorship stated in the file and with
+  what it deliberately does NOT contain -- duration, per-task narration, deviations --
+  named, because those are unknowable now. ROADMAP criterion 10, Outcome A. It was NOT
+  written to make a counter agree, and the measurement says so: the plan figures read
+  221 of 225 after the write and were still short.
   **AN EARLIER SPELLING OF THE (4) MEASUREMENT WAS ALSO WRONG and is named so the
   figure is not trusted on its first form:** it reported 15.5 and 15.6 as missing rows
   too, because the regex required a period after the phase number and those two rows are
