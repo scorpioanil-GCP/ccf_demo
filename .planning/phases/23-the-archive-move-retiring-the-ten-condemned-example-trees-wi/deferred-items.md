@@ -226,3 +226,54 @@ researcher. It is now measured, at `PHASE_BASE` and at `HEAD`, and it is 19.
 `tests/examples` collects **519** (515 at `PHASE_BASE` plus wave 3's four named
 additions). Plan `23-11` must write the measured figures into the `DOCS-17`
 cell, not the carried ones.
+
+### 7. A published page renders a bare `examples/` path from INSIDE an included body — and no witness in this phase can see it
+
+Found at wave `23-08` while running the two re-pointed shell commands. The
+two witnesses criterion 5 pits against each other — `mkdocs build --strict`
+and `tools/docs_tests/test_no_stale_example_paths.py` — **both read page
+SOURCES under `public/`.** Neither reads the *rendered* body a `--8<--` pulls
+in. So a stale path living in the included file is published to the reader at
+exit 0 on all four `docs-strict` steps.
+
+Measured on the shipped tree, after this wave's re-point:
+
+```
+120 includes resolved across the published tree
+  2 of them render a bare examples/ path;  4 stale lines in total
+
+public/reference/artifacts/task-definitions.md:16
+    -> archive/examples/05-workflow-hitl/artifacts/task-definition.yaml [+6]
+       "# `examples/00-quickstart`."
+public/tutorial/demo-walkthrough.md:304
+    -> archive/examples/08-e2e-demo/run.py [+1]
+       '"""examples/08-e2e-demo — raw data becomes governed context (DEMO-02).'
+public/tutorial/demo-walkthrough.md:304
+    -> archive/examples/08-e2e-demo/run.py [+4]
+       '``PYTHONPATH=src:runtime python examples/08-e2e-demo/run.py`` (or'
+```
+
+Confirmed in the BUILT site, not only in the source:
+
+```bash
+grep -rho "examples/08-e2e-demo/run.py" site --include=*.html | wc -l   # 3
+```
+
+**The sharpest form of it:** `demo-walkthrough.md` now tells the reader to run
+`archive/examples/08-e2e-demo/run.py` at lines 18 and 310 — both verified to
+run — and then, at line 304, inlines a docstring telling them to run
+`examples/08-e2e-demo/run.py`, which does not exist. The page contradicts
+itself 286 lines apart, and every gate is green.
+
+**Not fixed here, deliberately.** The fix is under `archive/examples/`, which
+is outside this plan's `<files>`, and `run.py:1095` prints
+`examples/08-e2e-demo: OK` as a run label — unasserted today
+(`grep -rn "08-e2e-demo: OK" tests/` is empty) but a live output string.
+Handed to `23-09`, which already owns the archive's prose obligations
+(`CLNT-30`'s "marked historical") and the 13 `make example-*` strings on these
+same pages.
+
+**The durable fix is a third witness**, not a one-off edit: nothing checks the
+*rendered* include body. That is a gate this repo does not have, and it is the
+same shape as `D-IMPL-192`'s backlog item — a checked form whose check stops at
+a boundary nobody noticed.
