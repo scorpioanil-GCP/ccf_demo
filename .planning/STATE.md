@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-24T13:30:00.000Z"
+last_updated: "2026-08-25T04:05:00.000Z"
 last_activity: >-
   2026-08-23 -- **PHASE 22 IS CLOSED. `D-GATE-22` IS LOGGED AND `DOCS-15` IS DISCHARGED**
   under the ruled coupling to `s1-01`/`CLNT-17`. Six plans in six serial waves on `main`
@@ -1434,6 +1434,84 @@ progress:
   completed_plans: 204
   percent: 100
 stopped_at: >-
+  **PHASE 23 IS MID-EXECUTION. 7 OF 13 WAVES DONE. A FORMAL MID-PHASE CHECKPOINT,
+  called by the orchestrator per `D-10`, because the session is being cleared.**
+  Branch **`phase-23`**, `PHASE_BASE = b87fe58`, HEAD `94405c9`, 34 commits.
+  Working tree CLEAN apart from the three untracked `references/` documents.
+  **THE MOVE HAS HAPPENED**: 265 files at `archive/examples/`, 58 left under
+  `examples/` (the four survivors `s1-00`, `s1-01`, `hw1-companies-over-revenue`,
+  `hw1-harness-clients`). Proven a PURE RENAME SET in the strong form — 265
+  `R100`, 0 D/A/M, `0 insertions(+), 0 deletions(-)`.
+  **WAVES DONE:** 1 pin+rulings · 2 criteria 17/18 (allowlist, `PATH_TOKEN`) ·
+  3 seven gate widenings + the `RULE_TREE_SCOPE` fix · **4 THE MOVE** ·
+  5 `$schema`/`parents[N]`/`SNIPPET_SOURCE` · 6 the four permitted citations ·
+  7 tests+perf re-point, the five `CLNT-30` tests green.
+  **WAVES REMAINING:** 8 includes+prose · 9 Makefile/CI · 10 the sweep ·
+  11 the ledger and `DOCS-17`→`Partial` · 12 full `make ci` · 13 the §3.1 close.
+  **THREE THINGS ARE OPEN FOR DAVE AND THE PHASE CANNOT CLOSE WITHOUT THEM.**
+  **(1) A PHASE-20 ASSERTION IS RED, MADE RED BY AN AUTHORISED EDIT.**
+  `tests/examples/test_hw1_harness_clients_readme.py::test_criterion_seven_no_sdk_mechanism_ships_at_all`
+  asserts `git diff <phase-20-base>..HEAD -- src/` is EMPTY — **unbounded at
+  `..HEAD`**, so it forbids every future commit under `src/` forever. The one
+  insertion breaking it is the `src/ccf/products/bind.py` citation `D-IMPL-192`
+  EXPLICITLY AUTHORISED. **This is `D-IMPL-188`'s exact defect class one module
+  over**: `D-IMPL-188` bounded the ledger module's assertions to
+  `base..951eb4a` and nobody bounded this one. Two Dave-level documents
+  contradict. NOT FIXED, deliberately — the test's own docstring says a
+  non-empty result is *"a blocking finding to report, never a reason to narrow
+  this assertion."* Options put to Dave: (a) bound it to a pinned ceiling
+  naming old pin -> new pin, RECOMMENDED; (b) record the edit as an explicit
+  exception; (c) revert the edit, which reopens `D-IMPL-192`.
+  **(2) CRITERION 7'S OTHER LIMB IS ALSO BROKEN, AND THAT ONE IS THE
+  ORCHESTRATOR'S ERROR.** `tests/examples` collects **519**, not the **515**
+  criterion 7 names — Wave 3's four additions, required by criteria 17/18 and
+  blocker B2. `D-IMPL-196` amended the TOTAL to an accounted delta while
+  writing *"the `tests/examples` = 515 limb ... UNCHANGED"* — preserving a
+  second instance of the same conflict in the same sentence. Same remedy owed.
+  **(3) CRITERION 12'S "2 EXECUTE" NEEDS A STATED READING.** Measured: **2**
+  archived trees are reached by a test that SPAWNS A PROCESS; **14** modules
+  `exec_module` archived source IN-PROCESS; 18 of 31 reference an archived tree
+  at all. Criterion 12 already requires re-measurement at Wave 11, so this may
+  need a reading rather than an amendment — but it must be STATED, not left for
+  a verifier to pick. **Confirming `D-IMPL-195` ruling 3 was right for a
+  stronger reason than known then:** "25 of 31" does not reproduce at
+  `PHASE_BASE` EITHER — 19 at both ends — so it was a measurement error from the
+  start, never drift.
+  **SEVEN RULINGS THIS PHASE, `D-IMPL-190`..`D-IMPL-196`, FIVE OF THEM
+  AMENDMENTS naming old clause -> new** per the `D-IMPL-188` policy. Criteria
+  set is **EIGHTEEN** and LOCKED (`D-GATE-19`); criteria 3, 7 and 12 amended
+  pre-execution, 14 amended by `D-IMPL-192`, 17 and 18 added by `D-IMPL-194`.
+  **STANDING HAZARDS, EACH FOUND BY MEASUREMENT THIS PHASE — do not re-derive
+  them.** (a) **THE CITATION LINT IS GREEN AND FALSE** on stale paths:
+  `resolve_cited` falls back to SUFFIX matching, so a citation naming a moved
+  path resolves to the archived file and is reported CHECKED AND PASSING.
+  Stronger than `D-IMPL-192`'s hole, which merely leaves one unchecked. Proven
+  by planting a dangling node id and diffing the whole `tools/docs_tests`
+  failure set: IDENTICAL. Nothing in this repository sees it. BACKLOG.
+  (b) **`ccf` IS EDITABLE-INSTALLED**, so a broken `parents[N]` depth cannot
+  fail — a meta-path finder resolves the import regardless of `sys.path` — and
+  `test_cross_process_output.py` imports the child IN-PROCESS, so **no standing
+  gate in this repo can witness that class at all.** The fix is proven; the
+  guard does not exist. (c) **THE `D-IMPL-123` CITATION CEILING HAS BITTEN THIS
+  PHASE THREE TIMES** — twice by the orchestrator, once as a SHIPPED RED commit
+  by an executor who ran the invariant in the same tool call as the commit
+  without `&&`. Run it as its own step and READ THE OUTPUT. Use
+  `path.py::Symbol`, never a line anchor. (d) Tests go QUIET rather than red in
+  at least three ways found here: an empty parametrization SKIPS; twelve cases
+  collapsed to four `[NOTSET]` skips; and two controls went PASS -> SKIP with a
+  skip message asserting something FALSE about the tree. **A skipped test and a
+  passing test are indistinguishable in the total AND in the node-id set.**
+  (e) `git checkout --` can silently destroy an uncommitted fix while
+  `git diff --quiet` reports success — sabotage only after the fix is
+  committed, and sanity-grep POSITIVELY on restore.
+  **NOTHING IS IN FLIGHT.** No agent is running. Wave 8 was offered and not
+  started, pending Dave's ruling on the three open items — though Wave 8
+  (includes and prose) is mechanically independent of all three.
+  **`D-10` (Dave, 2026-08-24): `STATE.md` and `ROADMAP.md` move ONCE at phase
+  completion or at a formal mid-phase checkpoint. This IS that checkpoint.**
+  Executors leave both files alone. `RETIREMENT-COUPLINGS.md` is generated:
+  regenerate LAST, in the venv, after every `.planning/` or `public/` write.
+  PRIOR FOLLOWS.
   **PHASE 23 IS OPEN, DISCUSSED AND NOT PLANNED. NOTHING IS EXECUTING.**
   `main` == `origin/main` at `efa0044` (the Phase 22.1 packet sweep, PUSHED 2026-08-24 —
   the step the prior entry left outstanding). The working tree carries the Phase 23
