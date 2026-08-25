@@ -116,3 +116,62 @@ PYTHONPATH=src:runtime .venv/bin/python -m tools.lints --citations --report --ba
   and `deployment/manifest.py` resolve — and tightening it would need a rule
   for when a citation's leading segment names a tree it must actually be in.
   That is the durable fix `D-IMPL-192` already backlogs, not a widening.
+
+---
+
+## Wave 5 (`23-05`) — three prose drifts nobody owns, and one that nobody may
+
+**Not fixed here.** All four name paths the move relocated, none is a control,
+and each sits in a file outside this plan's `files_modified`. Recorded rather
+than fixed so `23-12` can rule on them with the population in front of it.
+
+### 1. Five stale `examples/…` prose references inside `tests/examples/test_artifact_schema_headers.py`
+
+```bash
+grep -n 'examples/03-harness-portability/legs\|examples/external/00-hello-context\|examples/08-e2e-demo' \
+  tests/examples/test_artifact_schema_headers.py | grep -v archive
+#   55, 61, 62, 123, 519   (five lines; line 3 names plan 15-12's original scope and is history, not drift)
+```
+
+The module docstring and one control's docstring describe the tree in prose and
+still say `examples/…`. The **constants** are re-pointed (this plan, task 2) and
+every assertion is green; only the narration drifted. **This matters because no
+later plan in the phase owns this module** — `grep -l test_artifact_schema_headers
+.planning/phases/23-*/23-*-PLAN.md` returns `23-03` and `23-05` and nothing else.
+Left alone because plan `23-05` scopes task 2 to *"the path strings only"*.
+
+### 2. `examples/external/README.md:50` still lists `00-hello-context` as a resident
+
+```bash
+git ls-files examples/external   # examples/external/README.md   (the only survivor)
+grep -n '00-hello-context' examples/external/README.md   # line 50, an index-table row
+```
+
+The tree moved to `archive/examples/external/00-hello-context`; the directory
+it left behind keeps a README whose index table still lists it. `D-09` requires
+the external example be *"marked historical"*, and this is the surviving half
+of that surface. Not in any plan's `files_modified`.
+
+### 3. Sixteen archived prose lines tell a reader to run a path that is gone
+
+```bash
+grep -rn 'python examples/' archive/examples/ | wc -l               # 16
+grep -rn 'python examples/' archive/examples/*/[a-z]*.py \
+  archive/examples/*/*/[a-z]*.py | wc -l                            # 6, in .py docstrings
+```
+
+e.g. `archive/examples/04-cross-process/producer_child.py:3` — *"Run by `run.py`
+as `python examples/04-cross-process/producer_child.py`"*. Task 1 was scoped to
+*"only the `parents[N]` index; no other line in any of the four files moves"*,
+and `D-04` deletes the `make` targets anyway, so the invitation-to-run prose is
+arguably wrong in a second way. Untouched.
+
+### 4. Three headered documents sit outside the header gate — **pre-existing, and NOT to be fixed here**
+
+`archive/examples/03-harness-portability/artifacts/agents/{agent-definition,
+debt-profile,policy-regime}.yaml` carry `$schema` headers (all three repaired by
+this plan) but are **one level below** `ARTIFACT_GLOBS`' `*/artifacts/*.yaml`.
+Pre-existing since plan 15-12. `tools/check_schema_headers.py:150-153` already
+records that deepening the glob *"would turn the bijection's right side red"*,
+so this is a real decision, not a one-character fix. Already logged above by
+plan `23-03`; repeated here only because this plan measured the exact three.
