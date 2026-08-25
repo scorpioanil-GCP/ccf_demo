@@ -187,12 +187,27 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-**PHASE 23 IS EXECUTED AND PRESENTED TO DAVE. IT IS NOT APPROVED AND NOT CLOSED.**
-  All **13 of 13** waves landed on `phase-23`; HEAD `97a1823`, **74 commits** from
-  `PHASE_BASE` `b87fe58`; `main` is still AT `b87fe58` and **nothing is merged or
-  pushed**. `D-GATE-23` is **NOT written** -- `grep -c "D-GATE-23" docs/DECISIONS.md`
-  = **0**. Approval authority is Dave's alone and `/gsd-review` passing is necessary,
-  never sufficient (`CLAUDE.md` §3.1).
+**PHASE 23 IS CLOSED, GATED, MERGED AND PUSHED.**
+  **CORRECTED 2026-08-25 (post-gate). This block read: *"PHASE 23 IS EXECUTED AND
+  PRESENTED TO DAVE. IT IS NOT APPROVED AND NOT CLOSED,"* and named HEAD `97a1823`,
+  **74 commits**, `main` still AT `b87fe58`, nothing merged or pushed, and
+  `grep -c "D-GATE-23" docs/DECISIONS.md` = **0**. Every one of those was TRUE when
+  written and FALSE by the time of this edit. The frontmatter above was updated at the
+  gate and this block was not, so THE FILE CONTRADICTED ITSELF FOR A DAY -- header
+  saying closed, body saying not approved. Nothing gated the pair, which is how it
+  went a full ruling stale.**
+  All **13 of 13** waves landed on `phase-23`. **COMMIT COUNT RE-MEASURED rather than
+  inherited:** the frontmatter's *76 commits* was true when written and the branch grew
+  by one afterwards (the `D-GATE-23` entry itself). Measured at the merge:
+  `git rev-list --count --no-merges b87fe58..5a96628` = **77** branch commits, plus the
+  merge commit = **78** reachable; the merge's second parent IS `5e9deb4`, so that is
+  the `phase-23` tip. `D-GATE-23` **LOGGED** 2026-08-25 (Dave) at `5e9deb4` --
+  `grep -c "D-GATE-23" docs/DECISIONS.md` = **1**. Merged to `main --no-ff` at
+  **`5a96628`**, the merge commit naming the entry. **PUSHED to `origin/main`
+  2026-08-25 ON DAVE'S EXPLICIT INSTRUCTION** -- the merge sitting did not authorise a
+  push, so it was HELD for a day rather than assumed; `origin/main` was at `efa0044`,
+  is now at `5a96628`, and `main` is **0 commits ahead**. Approval authority is Dave's
+  alone and `/gsd-review` passing is necessary, never sufficient (`CLAUDE.md` §3.1).
   **WAVE 13 -- the §3.1 close.** Cross-AI panel on the SHIPPED tree with the source
   INLINED (117,567 bytes, nine subjects): codex, cursor, gemini, all three PROVEN to
   have read (every cited symbol resolves; every quote traces to the payload). Record
@@ -222,11 +237,54 @@ are in `D-IMPL-147`.
   target three legs one address; docs-strict 0 on four steps. Coupling report
   regenerated LAST and verified TWICE.
   **`make ci` was AGAIN not run as one command** (~870s vs a 600s cap; backgrounding
-  is what criterion 15 forbids) -- **CARRIED TO DAVE, NOT DECIDED**.
+  is what criterion 15 forbids) -- carried to Dave and **SINCE DECIDED**.
+  **CORRECTED 2026-08-25 (post-gate): this line read *"CARRIED TO DAVE, NOT DECIDED."***
+  `D-GATE-23` **BLESSES the chunked-foreground form** as an allowed satisfaction of
+  criterion 15 on this host, under four conditions all met here: `make -n ci` proves
+  the chunk list IS the full recipe; every constituent command runs FOREGROUND with its
+  exit code recorded; the deviation is NAMED wherever it is used; and criterion 15's
+  coverage proof is discharged. Expressly refused: backgrounding the whole pipeline and
+  treating a kill as unknown-or-pass, claiming *"make ci green"* without naming the
+  chunking, and silent substitution. **CRITERION 15's TEXT IS STILL OWED and NOT
+  DISCHARGED** -- until that follow-up lands, `D-GATE-23` is the governing statement and
+  a later phase inherits the reading from the gate entry, not from the criterion.
   **CLNT-17 hash `5bcc68ca...` equals the `efa0044` pin.** Sixteen criteria
   byte-identical to `PHASE_BASE`; 7 and 12 amended BY RULING at decision commits.
-  **NEXT: Dave's ruling. On approval -- and only then -- `D-GATE-23` is logged and
-  `phase-23` merges `--no-ff` to `main` naming the entry.**
+  **NEXT, as this line read BEFORE the gate: *"Dave's ruling. On approval -- and only
+  then -- `D-GATE-23` is logged and `phase-23` merges `--no-ff` to `main` naming the
+  entry."* THAT HAPPENED, and the push followed a day later on instruction.**
+  **WHAT IS ACTUALLY NEXT: NOTHING IS IN FLIGHT AND THERE IS NO PHASE 24.** Do **NOT**
+  run `complete-milestone` -- v0.2 is NOT done even though every ROADMAP phase reads
+  checked. **THE OPEN-ROW FIGURE IS MEASURED HERE, and it CORRECTS a wrong number this
+  session put in front of Dave before the file was touched.** A progress report earlier
+  today said *"45 not-`Complete` requirement rows"*; **45 was produced by
+  `grep -c "Not built\|Partial\|Pending" .planning/REQUIREMENTS.md`, which counts LINES
+  CONTAINING those words -- including evidence prose that merely discusses a verdict --
+  and is not a row count at all.** The instrument was wrong, not the ledger. Counted as
+  rows: `grep -c "^- \[ \]"` = **13** open requirement bullets against **136** checked,
+  and they are named rather than summarised -- `DOCS-03`, `DOCS-10`, `DOCS-11`,
+  `DOCS-12`, `DOCS-13`, `DOCS-14`, `DOCS-17`, `DOCS-18`, `EXAM-01`, `EXAM-02`,
+  `EXAM-03`, `DCD-02`, `CLNT-17`. **A SECOND INHERITED FIGURE IS CORRECTED WITH IT:**
+  the frontmatter above says *"`DOCS-07`..`DOCS-19` remain undischarged"*; measured
+  against the tree, `DOCS-07`, `-08`, `-09`, `-15`, `-16` and `-19` now read checked, so
+  the surviving `DOCS-` set is the eight listed above. The frontmatter is left as
+  written -- it is the record of the gate -- and this is the correction to it. And the
+  27-item
+  `.planning/phases/22.1-*/22.1-HUMAN-VERIFICATION-PACKET.md` is assembled and awaiting
+  Dave. **THE PACKET AND THE TOOL DISAGREE AND THE PACKET IS THE AUTHORITY:** the packet
+  says *27 items across 11 records*, while `gsd-sdk query audit-uat` returns **24 items
+  across 9 files** -- it filters on record frontmatter status, so two records it cannot
+  see are two records it reports nothing for, which is the `22.1` defect class arriving
+  in the counter that measures `22.1`'s own output. Do not take the 24. **OWED AND UNSTARTED:** criterion 15's text; the DELETION half of `D-27`; the
+  two `CLNT-17` framing questions, RAISED AND EXPRESSLY NOT RULED; `DOCS-14`/`EXAM-02`'s
+  replacement surface; deferred items 7-10.
+  **TWO DEFECTS FOUND WHILE MAKING THIS CORRECTION, REPORTED TO DAVE AND DELIBERATELY
+  NOT FIXED HERE, because this edit was scoped to this section.** (1) `## Project
+  Reference` ABOVE still reads *"Current focus: **PHASE 19**"* and has since Phase 19 --
+  a second stale block in this same file, older than the one just corrected. (2)
+  **Phase 23 has a `## Phase Details` section and a progress-table row but NO BULLET in
+  the ROADMAP's `## Phases` checklist** -- the identical omission already recorded
+  against Phase 17, and the reason `roadmap.analyze` reports 27/27 phases complete.
   PRIOR -- the phase entry as discussed, preserved rather than rewritten:
 Phase: **23 — The Archive Move: Retiring the Ten Condemned Example Trees Without
   Deleting Them (INSERTED).** ADDED 2026-08-24 by hand (`D-15`) at `efa0044`, **DISCUSSED
