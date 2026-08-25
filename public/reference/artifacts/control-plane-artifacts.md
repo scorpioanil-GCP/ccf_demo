@@ -25,13 +25,13 @@ are separate documents, each validated closed-world against its own contract.
 The half-life table:
 
 ```yaml
---8<-- "examples/00-quickstart/artifacts/half-life-table.yaml"
+--8<-- "archive/examples/00-quickstart/artifacts/half-life-table.yaml"
 ```
 
 The debt profile:
 
 ```yaml
---8<-- "examples/00-quickstart/artifacts/debt-profile.yaml"
+--8<-- "archive/examples/00-quickstart/artifacts/debt-profile.yaml"
 ```
 
 And a class the SDK does *not* own, carried in the open `DeclaredArtifact`
@@ -39,5 +39,5 @@ envelope. The SDK fixes `semver`, `class_id` and canonical serializability;
 everything under `declaration:` is the deployment's own:
 
 ```yaml
---8<-- "examples/00-quickstart/artifacts/policy-bundle.yaml"
+--8<-- "archive/examples/00-quickstart/artifacts/policy-bundle.yaml"
 ```

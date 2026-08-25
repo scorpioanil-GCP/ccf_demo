@@ -14,7 +14,7 @@ them. The single-writer invariant
 survives the crossing: an admitted product still reaches the graph through the
 assembly worker and nowhere else.
 
-Everything below is literal-included from `examples/04-cross-process`, which
+Everything below is literal-included from `archive/examples/04-cross-process`, which
 runs two real OS processes in CI. Its scenario is the whitepaper's own
 canonical Pattern 4 exemplar — syndicated lending covenant cross-reference. A
 lead arranger's fabric assembles the covenant slice it is permitted to surface;
@@ -44,7 +44,7 @@ and the consumer's names its own resolution spec, its own policy bundle, and its
 own view of what it will admit:
 
 ```py
---8<-- "examples/04-cross-process/run.py:boot"
+--8<-- "archive/examples/04-cross-process/run.py:boot"
 ```
 
 Several of the consumer's documents are content-identical to a producer
@@ -65,7 +65,7 @@ surface, and the
 covers versioning:
 
 ```yaml
---8<-- "examples/04-cross-process/artifacts/peering-trust.yaml"
+--8<-- "archive/examples/04-cross-process/artifacts/peering-trust.yaml"
 ```
 
 Note what is *not* in that document: key material. Signing keys are generated
@@ -77,7 +77,7 @@ A payload ceiling is registered alongside it, because a trust boundary that will
 accept an arbitrarily large body is not a boundary:
 
 ```py
---8<-- "examples/04-cross-process/run.py:peer-trust-policy"
+--8<-- "archive/examples/04-cross-process/run.py:peer-trust-policy"
 ```
 
 ## Step 2 — stand up the admission gate
@@ -88,7 +88,7 @@ policy bindings against, the audit log every verdict lands in, and the store
 that keeps admission records:
 
 ```py
---8<-- "examples/04-cross-process/run.py:peer-gate"
+--8<-- "archive/examples/04-cross-process/run.py:peer-gate"
 ```
 
 ## Step 3 — start the producer and receive
@@ -98,7 +98,7 @@ announces readiness on stdout with the ports it bound, so there are no fixed
 ports and no sleeps anywhere in the handshake:
 
 ```py
---8<-- "examples/04-cross-process/run.py:peer-spawn"
+--8<-- "archive/examples/04-cross-process/run.py:peer-spawn"
 ```
 
 ## Step 4 — read the product over MCP
@@ -112,7 +112,7 @@ than two renderings of one; the example's test module asserts that byte
 equality:
 
 ```py
---8<-- "examples/04-cross-process/run.py:mcp-egress"
+--8<-- "archive/examples/04-cross-process/run.py:mcp-egress"
 ```
 
 ## Step 5 — admit over A2A
@@ -127,7 +127,7 @@ versions, and graph snapshot survive alongside the consumer's. Inbound lineage
 extends the consumer's; it never replaces it:
 
 ```py
---8<-- "examples/04-cross-process/run.py:peer-admit"
+--8<-- "archive/examples/04-cross-process/run.py:peer-admit"
 ```
 
 Before anything is reported admitted, an immutable admission record is
@@ -137,7 +137,7 @@ the record through the store. There is no "latest" and no overwrite path — see
 the [artifact store Protocols](../reference/protocols/artifact-store.md):
 
 ```py
---8<-- "examples/04-cross-process/run.py:peer-admission-record"
+--8<-- "archive/examples/04-cross-process/run.py:peer-admission-record"
 ```
 
 ## Step 6 — let it into the graph, through L2 only
@@ -148,7 +148,7 @@ graph digest is taken before and after to show that the substrate moves only
 at that call:
 
 ```py
---8<-- "examples/04-cross-process/run.py:peer-ingest"
+--8<-- "archive/examples/04-cross-process/run.py:peer-ingest"
 ```
 
 ## Step 7 — verify the negative path
@@ -160,7 +160,7 @@ test module asserts the audit entry. A trust boundary you have not watched
 refuse something is a trust boundary you have not tested:
 
 ```py
---8<-- "examples/04-cross-process/run.py:peer-refusal"
+--8<-- "archive/examples/04-cross-process/run.py:peer-refusal"
 ```
 
 ## What to change first

@@ -12,7 +12,7 @@ substrate stand up an MCP server implementing the artifact resource contract
 rather than forking anything. The store is a substrate reached *through*
 mechanism — it never becomes a second writer to the graph.
 
-Everything below is literal-included from `examples/07-artifact-store-mcp`,
+Everything below is literal-included from `archive/examples/07-artifact-store-mcp`,
 which runs the identical workload twice against the two stores in CI and
 asserts the results are byte-identical.
 
@@ -37,11 +37,11 @@ Two configuration artifacts, the same shape, a different declared type. This
 pair is the entire swap surface:
 
 ```yaml
---8<-- "examples/07-artifact-store-mcp/artifacts/store_file.yaml"
+--8<-- "archive/examples/07-artifact-store-mcp/artifacts/store_file.yaml"
 ```
 
 ```yaml
---8<-- "examples/07-artifact-store-mcp/artifacts/store_mcp.yaml"
+--8<-- "archive/examples/07-artifact-store-mcp/artifacts/store_mcp.yaml"
 ```
 
 Neither file names a Python symbol, and neither is read by anything except
@@ -55,7 +55,7 @@ where a backend is named. Everything downstream receives whatever the
 artifact declared:
 
 ```py
---8<-- "examples/07-artifact-store-mcp/run.py:store-factory"
+--8<-- "archive/examples/07-artifact-store-mcp/run.py:store-factory"
 ```
 
 ## Step 3 — let the workload persist, without naming a backend
@@ -68,7 +68,7 @@ URI and an exact content address. The
 covers how those versions are minted:
 
 ```py
---8<-- "examples/07-artifact-store-mcp/run.py:store-persist"
+--8<-- "archive/examples/07-artifact-store-mcp/run.py:store-persist"
 ```
 
 ## Step 4 — run it twice
@@ -80,7 +80,7 @@ name differing. One workload, called twice — that is the structural form of
 "nothing else in the deployment changes":
 
 ```py
---8<-- "examples/07-artifact-store-mcp/run.py:store-swap"
+--8<-- "archive/examples/07-artifact-store-mcp/run.py:store-swap"
 ```
 
 Two properties make that structural rather than merely stated, and both are
@@ -89,7 +89,7 @@ per-run parameter, so there is nothing else that could vary between the calls.
 And both runs boot from the same manifest:
 
 ```py
---8<-- "examples/07-artifact-store-mcp/run.py:boot"
+--8<-- "archive/examples/07-artifact-store-mcp/run.py:boot"
 ```
 
 The store is deliberately **not** a manifest field. Which substrate persists

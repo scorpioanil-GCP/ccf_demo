@@ -28,5 +28,5 @@ A complete agent definition from the examples suite. Every key the factory requi
 nothing is elided, because a partial artifact teaches the wrong shape.
 
 ```yaml
---8<-- "examples/01-agent-basics/artifacts/agent-definition.yaml"
+--8<-- "archive/examples/01-agent-basics/artifacts/agent-definition.yaml"
 ```

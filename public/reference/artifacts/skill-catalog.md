@@ -36,5 +36,5 @@ more sit beside it in that example: one permitted but never granted, and one who
 exceed the envelope so the compatibility check refuses the grant. Every entry is one document.
 
 ```yaml
---8<-- "examples/02-skilling/artifacts/skill-catalog-enrollment-metrics.yaml"
+--8<-- "archive/examples/02-skilling/artifacts/skill-catalog-enrollment-metrics.yaml"
 ```

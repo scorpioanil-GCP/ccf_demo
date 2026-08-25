@@ -13,5 +13,5 @@ to improvise.
 ## Worked example
 
 ```yaml
---8<-- "examples/05-workflow-hitl/artifacts/task-definition.yaml"
+--8<-- "archive/examples/05-workflow-hitl/artifacts/task-definition.yaml"
 ```
