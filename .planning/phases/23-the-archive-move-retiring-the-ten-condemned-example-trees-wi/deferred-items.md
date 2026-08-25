@@ -277,3 +277,47 @@ same pages.
 *rendered* include body. That is a gate this repo does not have, and it is the
 same shape as `D-IMPL-192`'s backlog item — a checked form whose check stops at
 a boundary nobody noticed.
+
+### 8. `tools/measure_examples.py` carries three stale `examples/…` references, two of them live — visible again, still nobody's to fix
+
+**Found by plan `23-10`, by the floor rather than by reading.** Re-pointing the
+schedule at `archive/examples/…` made `test_every_known_coupled_file_is_found`
+go red naming exactly one file: `tools/measure_examples.py`. Its three
+references had been rows all along, and they spell the pre-move form:
+
+| Line | Text | Shape |
+| --- | --- | --- |
+| 261 | `a plan rewriting ``examples/01-agent-basics`` passes` | `docstring` (documentary) |
+| 308 | `" (e.g. examples/01-agent-basics). Each example-rewrite plan"` | `string-literal` (**live** — argparse help) |
+| 320 | `" examples/00-quickstart."` | `string-literal` (**live** — argparse help) |
+
+All three name a directory that is no longer there. The tool's `--example`
+argument advertises two paths a user cannot pass.
+
+**Not fixed in `23-10`.** `tools/measure_examples.py` is not in this plan's
+`files_modified`, and — more to the point — *fixing* it does not restore the
+floor entry, because the floor asserts that the sweep FINDS the file. Editing
+the help text discharges the coupling and drops the file off the floor by the
+other route. That is a real gap in `KNOWN_COUPLED_FILES`' design (it cannot
+tell "the sweep narrowed" from "the coupling was discharged"), and it is the
+same shape as the `dissolution_problems` idiom already in the module for a
+different subject.
+
+**What `23-10` did instead** was make the sweep stop being able to lose the
+reference: `Retirement.former_path` matches a moved tree at BOTH spellings.
+**45 rows across 20 files** name a former spelling today — every one of them an
+old-form reference that the re-point alone would have made invisible at exit 0.
+
+**What that does NOT do, said plainly so nobody reads it as item 7's fix:** the
+`former_path` matching is invisible inside `archive/examples/**`, because those
+files are now themselves under a retiring path and their references are dropped
+as deleted-with-their-source (**248** such hits, up from 134). Item 7's two
+stale lines — `archive/examples/08-e2e-demo/run.py:4` and
+`archive/examples/05-workflow-hitl/artifacts/task-definition.yaml:6` — are both
+inside the archive and are still seen by nothing. **Item 7 is CARRIED
+UNCHANGED**, with the same edits owed and the same durable fix: a third witness
+that reads rendered include bodies.
+
+**Owed to:** whichever plan re-points `tools/measure_examples.py`'s help text,
+which must also decide what `KNOWN_COUPLED_FILES` should say once the coupling
+is genuinely discharged rather than merely re-spelled.
