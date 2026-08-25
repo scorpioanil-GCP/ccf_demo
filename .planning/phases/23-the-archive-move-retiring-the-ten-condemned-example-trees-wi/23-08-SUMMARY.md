@@ -557,3 +557,26 @@ verdicted at `23-11`.
 | `276f900` | 1 | 111 references re-pointed across 15 pages, proven a pure prefix substitution |
 | `652106b` | 1 (finding) | deferred item 7 — the included-body blind spot |
 | _(this)_ | — | SUMMARY |
+
+---
+
+## Self-Check: PASSED
+
+All 15 modified pages, `deferred-items.md` and this SUMMARY exist on disk. All
+three commits resolve (`276f900`, `652106b`, `3fa64d2`).
+
+The two verification rows asserted above were run after writing, not before, and
+both hold:
+
+```bash
+git diff --name-only b87fe58..HEAD -- public/ | wc -l          # 15
+git diff b87fe58..HEAD -- src/ runtime/ pyproject.toml         # 4 changed lines, and only these:
+  archive/examples/04-cross-process/producer_child.py::resolve   x3
+  archive/examples/external/00-hello-context/serve.py::context_provider
+```
+
+**Exactly the four `D-07` / `D-IMPL-192` path-string-only citation edits from
+plan `23-06`. No fifth edit; criterion 14's fence holds.**
+
+Three untracked files under `references/` predate this session and were not
+touched.
