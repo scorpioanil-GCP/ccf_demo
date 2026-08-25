@@ -43,13 +43,18 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 #: was `ontology` until the marker was removed from the source, at which point
 #: all three tests using it failed with "fixture drifted from its source" —
 #: which is the coupling reporting itself correctly. `boot`
-#: (the `[start:boot]` marker inside `examples/00-quickstart/run.py::run`) is
-#: the marker verified present today.
+#: (the `[start:boot]` marker inside
+#: `archive/examples/00-quickstart/run.py::run`) is the marker verified present
+#: today.
 #:
-#: Plan 16-18 repoints BOTH constants again at the Section-1 spine when
-#: `examples/00-quickstart` retires. Recorded here so the terminal plan does not
-#: have to rediscover the coupling from a failing assertion.
-SNIPPET_SOURCE = REPO_ROOT / "examples" / "00-quickstart" / "run.py"
+#: The note here used to say plan 16-18 would repoint BOTH constants at the
+#: Section-1 spine when `examples/00-quickstart` retired. That plan never ran:
+#: `docs/DECISIONS.md` `D-IMPL-152` RETIRED Phase 16, so no live plan owned this
+#: coupling. Phase 23 inherited it by being the phase that MOVED the file --
+#: `D-03` pins the archive at `archive/examples/`, and plan `23-04` performed
+#: the move -- and plan `23-05` repointed the constant here. Do not go looking
+#: for 16-18; it does not exist.
+SNIPPET_SOURCE = REPO_ROOT / "archive" / "examples" / "00-quickstart" / "run.py"
 SECTION = "boot"
 
 #: Subprocess bound — a hung mkdocs must fail the suite, not stall CI.
