@@ -89,11 +89,23 @@ last_activity: >-
   `DOCS-14`/`EXAM-02`'s replacement surface. **DELETION REMAINS OWED FOR EVERY SCHEDULED ROW**
   (`D-IMPL-191` ruling 3).
 progress:
-  total_phases: 27
-  completed_phases: 27
-  total_plans: 204
-  completed_plans: 204
+  total_phases: 28
+  completed_phases: 28
+  total_plans: 217
+  completed_plans: 216
   percent: 100
+  measured: "2026-08-25 -- counted from the tree, not incremented. Superseded values,
+    named rather than overwritten silently: total_phases 27, completed_phases 27,
+    total_plans 204, completed_plans 204. Method: 28 = `ls -d .planning/phases/*/`
+    and `### Phase ` sections in ROADMAP.md, which agree; 217 = `*-PLAN.md` files;
+    216 = those with a matching `*-SUMMARY.md`. THE ONE EXCEPTION IS NAMED rather
+    than rounded up: `22-06-PLAN.md`, Phase 22's CLOSE plan, has no SUMMARY -- the
+    close work itself was done and `D-GATE-22` is logged, so the gap is the missing
+    artifact, not missing work. There are also 236 SUMMARY files, 20 of them with no
+    matching PLAN (`*-CLOSE-FIXES-`, `*-REVIEW-FIXES-`, `18-D-IMPL-149-`, `17-03b-`
+    and similar), which is why `gsd-sdk query progress.bar` reports the impossible
+    236/217 -- it counts summaries against plans. percent stays 100 because every
+    PHASE is complete; it is not 216/217."
 stopped_at: >-
   **PHASE 23 IS CLOSED, GATED AND MERGED. NOTHING IS IN FLIGHT.**
   `D-GATE-23` logged 2026-08-25 (Dave). Branch `phase-23`, `PHASE_BASE` `b87fe58`, **76
@@ -298,13 +310,39 @@ are in `D-IMPL-147`.
   in the counter that measures `22.1`'s own output. Do not take the 24. **OWED AND UNSTARTED:** criterion 15's text; the DELETION half of `D-27`; the
   two `CLNT-17` framing questions, RAISED AND EXPRESSLY NOT RULED; `DOCS-14`/`EXAM-02`'s
   replacement surface; deferred items 7-10.
-  **TWO DEFECTS FOUND WHILE MAKING THIS CORRECTION, REPORTED TO DAVE AND DELIBERATELY
-  NOT FIXED HERE, because this edit was scoped to this section.** (1) `## Project
-  Reference` ABOVE still reads *"Current focus: **PHASE 19**"* and has since Phase 19 --
-  a second stale block in this same file, older than the one just corrected. (2)
-  **Phase 23 has a `## Phase Details` section and a progress-table row but NO BULLET in
-  the ROADMAP's `## Phases` checklist** -- the identical omission already recorded
-  against Phase 17, and the reason `roadmap.analyze` reports 27/27 phases complete.
+  **TWO DEFECTS WERE FOUND WHILE MAKING THIS CORRECTION, reported to Dave, deferred one
+  commit, and are now BOTH FIXED. This paragraph is kept as the record of the sequence,
+  updated rather than deleted.** (1) `## Project Reference` ABOVE read *"Current focus:
+  **PHASE 19**"* and had done since Phase 19 -- through SEVEN closed phases. **FIXED**;
+  the superseded paragraph is demoted there to *"Prior focus (Phase 19)"*. (2) Phase 23
+  had a `## Phase Details` section and a progress-table row but NO BULLET in the
+  ROADMAP's `## Phases` checklist -- the identical omission already recorded against
+  Phase 17. **FIXED.**
+  **A CLAIM MADE ABOUT (2) WAS WRONG AND IS WITHDRAWN HERE.** The commit that fixed it
+  said *"`roadmap.analyze` reported 27 phases with Phase 23 INVISIBLE to it. Measured
+  after: 28."* **THE BEFORE WAS NEVER MEASURED.** The 27 came from this file's own
+  hand-written `progress:` block, not from the tool, and the refuting evidence is in the
+  same tree: Phases 13.2 and 13.3 ALSO had no checklist bullet and `roadmap.analyze` saw
+  both, so it reads the `### Phase ` DETAIL SECTIONS and a missing bullet never hid
+  anything from it. The bullet was still owed; the reason given for it was not measured.
+  **A SWEEP FOR THE SAME CLASS THEN FOUND FOUR MORE, ALL FIXED IN THE SAME SITTING.**
+  The ROADMAP states its phase set in THREE places and this file in a FOURTH, and
+  nothing compares any pair. Measured: **28** detail sections, **26** checklist bullets,
+  **25** progress-table rows. (3) **13.2 and 13.3 had no checklist bullet** -- added,
+  with their `D-IMPL-171` no-gate status named. (4) **13.2, 13.3 and 15.4 had no
+  progress-table row** -- added; the table skipped 15.3 straight to 15.5. (5) **This
+  file's `progress:` block was wrong in three of four fields** -- 27/27/204/204 against
+  a measured 28/28/217/216. (6) **`22-06-PLAN.md`, Phase 22's CLOSE plan, has NO
+  SUMMARY** while `D-GATE-22` is logged -- the close work was done, the artifact was
+  never written; recorded, not manufactured.
+  **AN EARLIER SPELLING OF THE (4) MEASUREMENT WAS ALSO WRONG and is named so the
+  figure is not trusted on its first form:** it reported 15.5 and 15.6 as missing rows
+  too, because the regex required a period after the phase number and those two rows are
+  written without one. Re-measured with the period optional: 15.4 alone. **FIVE
+  MEASUREMENT ERRORS IN ONE SITTING, EVERY ONE IN THE INSTRUMENT AND NONE IN THE
+  MECHANISM** -- the 45-row grep, the `head`-exit-code check, the unmeasured 27, this
+  regex, and the 27 propagated into a commit message. That is the standing lesson of
+  this file's `B1`, arriving in the housekeeping that documents it.
   PRIOR -- the phase entry as discussed, preserved rather than rewritten:
 Phase: **23 — The Archive Move: Retiring the Ten Condemned Example Trees Without
   Deleting Them (INSERTED).** ADDED 2026-08-24 by hand (`D-15`) at `efa0044`, **DISCUSSED
