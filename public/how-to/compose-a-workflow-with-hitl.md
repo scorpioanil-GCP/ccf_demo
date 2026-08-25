@@ -29,7 +29,7 @@ posture.
 Run the worked example with:
 
 ```sh
-make example-05
+PYTHONPATH=src:runtime python archive/examples/05-workflow-hitl/run.py
 ```
 
 ## Step 1 — declare the process

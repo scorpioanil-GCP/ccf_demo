@@ -33,7 +33,7 @@ posture; nothing on this page puts key material in version control.
 Run the worked example with:
 
 ```sh
-make example-04
+PYTHONPATH=src:runtime python archive/examples/04-cross-process/run.py
 ```
 
 ## Step 0 — two deployments, two manifests

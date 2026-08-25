@@ -26,7 +26,7 @@ thing the governance check tests every grant against.
 Run the worked example at any point with:
 
 ```sh
-make example-02
+PYTHONPATH=src:runtime python archive/examples/02-skilling/run.py
 ```
 
 Exit 0 means every assertion held, including the refusal — the example fails

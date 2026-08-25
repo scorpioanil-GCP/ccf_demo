@@ -152,7 +152,9 @@ conformance: ## Client adapter conformance suite — the D-15 parity gate, by na
 # Finalized in plan 08-12: `ci` = ci-core + examples is the phase gate
 # command, reproducing the always-on Actions pipeline (ci.yml lint + test +
 # examples jobs) locally command-for-command (D-10). Live legs are opt-in
-# (live-legs.yml, D-11) and deliberately not part of `ci`.
+# (D-11) and deliberately not part of `ci`; since Phase 23 the surviving ones
+# are the three `example-hw1-harness-clients-live-*` targets below, and
+# `live-legs.yml` carries only the D-09 fluree drift detector.
 #
 # Amended in plan 14-10: D-IMPL-72 pre-authorized adding the docs gate to this
 # composition, effective at the plan that creates the docs build target. That
@@ -290,7 +292,7 @@ example-s1-00: ## Run examples/s1-00-companies-over-revenue (MIN_REVENUE=<n> opt
 
 # HW-1 — the first example a newcomer reads. NOT in the `examples:` aggregate
 # and NOT in any workflow: it needs a populated deployment, the always-on
-# pipeline is network-free, and `live-legs.yml`'s three jobs are all
+# pipeline is network-free, and `live-legs.yml`'s one remaining job is
 # `runs-on: ubuntu-latest` with no database secrets. A red check nobody can
 # make green is worse than no check. See the example's README.
 #

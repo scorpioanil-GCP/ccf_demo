@@ -28,7 +28,7 @@ the surface an alternative implementation must satisfy.
 Run the worked example with:
 
 ```sh
-make example-07
+PYTHONPATH=src:runtime python archive/examples/07-artifact-store-mcp/run.py
 ```
 
 ## Step 1 — put the store choice in an artifact

@@ -7,10 +7,13 @@ workflow with a human gate, replay the decision that came out, and finally
 consume the result from a process that has never heard of CCF.
 
 Every block of code and every artifact on this page is **literal-included
-from an example the CI pipeline runs**. Nothing here is pasted, so nothing
-here can drift: if one of these sources moves, this page fails to build. Each
-section names the one command that runs its example, so you can reproduce
-what you are reading as you read it.
+from an example CI executes**. Nothing here is pasted, so nothing here can
+drift: if one of these sources moves, this page fails to build. The examples
+themselves live under `archive/examples/` — they are no longer the teaching
+path and no `make` target invites you to run them (`D-04`) — but their tests
+under `tests/examples/` still execute them on every commit. Each section names
+the one command that runs its example directly, so you can reproduce what you
+are reading as you read it.
 
 The through-line to keep in view: the code you see is thin, generic
 machinery, and everything specific to a deployment lives in versioned
@@ -36,12 +39,13 @@ install end to end before going further:
 make ci
 ```
 
-That runs the invariant lints, `mypy --strict`, the full test suite, and every
-example in this guide.
+That runs the invariant lints, `mypy --strict`, and the full test suite —
+which includes the `tests/examples/` modules that execute every example on
+this page.
 
 ## Declare an ontology and serve your first Context Product
 
-Run: `make example-00`.
+Run: `PYTHONPATH=src:runtime python archive/examples/00-quickstart/run.py`.
 
 A deployment's vocabulary — which entity kinds exist, which attributes
 identify them, which relationships connect them — is an artifact, not code.
@@ -156,7 +160,7 @@ You now have a fabric. Everything that follows consumes it.
 
 ## Declare an agent
 
-Run: `make example-01`.
+Run: `PYTHONPATH=src:runtime python archive/examples/01-agent-basics/run.py`.
 
 The SDK ships six archetypes as mechanism. It ships no agents at all — an
 agent is a declared, versioned Control Plane artifact, produced by the Agent
@@ -216,7 +220,7 @@ lands in the replay record's fourth dimension:
 
 ## Grant a skill — and revoke it
 
-Run: `make example-02`.
+Run: `PYTHONPATH=src:runtime python archive/examples/02-skilling/run.py`.
 
 Skilling is the second, separate specialization channel. Capabilities attach
 and detach over an agent's life **without re-declaring the agent**: the
@@ -275,7 +279,7 @@ never seen its own governance check fire does not know whether it works.
 
 ## Compose a workflow with a human gate
 
-Run: `make example-05`.
+Run: `PYTHONPATH=src:runtime python archive/examples/05-workflow-hitl/run.py`.
 
 Workflows are Control Plane artifacts too — states, transitions, terminal
 conditions, and exception routes, all declared rather than coded. See the
@@ -357,7 +361,7 @@ the hash of what they were shown — alongside the engine's step sequence:
 
 ## Replay the decision
 
-Run: `make example-06`.
+Run: `PYTHONPATH=src:runtime python archive/examples/06-decision-replay/run.py`.
 
 Replay is the payoff for everything above. From a record address alone, the
 engine resolves the graph snapshot, the policy bundle version, the agent
@@ -398,7 +402,7 @@ that catches an artifact quietly becoming a moving target.
 
 ## Consume the fabric from outside
 
-Run: `make example-ext-00`.
+Run: `PYTHONPATH=src:runtime python archive/examples/external/00-hello-context/run.py`.
 
 The last step is the one your consumers will actually experience. An external
 agent runtime reaches Context Products over MCP egress and needs **nothing**

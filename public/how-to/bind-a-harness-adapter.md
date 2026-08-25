@@ -27,7 +27,7 @@ socket. A live leg exists and is opt-in.
 Run the worked example with:
 
 ```sh
-make example-03
+PYTHONPATH=src:runtime python archive/examples/03-harness-portability/run.py --mode deterministic
 ```
 
 ## The four seams

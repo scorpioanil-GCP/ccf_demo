@@ -12,13 +12,14 @@ a fraud ring none of them can see, and the exact point in the fabric where
 it becomes visible.*
 
 Run it yourself first if you like — one command, deterministic, the same
-run CI performs:
+run CI performs (via `tests/examples/test_e2e_demo_output.py`, which loads
+and executes this driver):
 
 ```
 PYTHONPATH=src:runtime python archive/examples/08-e2e-demo/run.py
 ```
 
-(or `make example-08`). Everything below is that run, stage by stage.
+Everything below is that run, stage by stage.
 
 ---
 
@@ -310,9 +311,11 @@ including the byte-comparison, where a test runner can fail a build:
 PYTHONPATH=src:runtime python archive/examples/08-e2e-demo/run.py
 ```
 
-or `make example-08`; it also runs inside `make examples` and therefore
-`make ci`, deterministically, on every commit. A full run takes roughly
-40 seconds, dominated by 6,870 per-row SQLite ingests.
+The tree is archived (`D-IMPL-193`) and no `make` target runs it any more
+(`D-04`), but `tests/examples/test_e2e_demo_output.py` executes this same
+driver inside `make test` and therefore `make ci`, deterministically, on
+every commit. A full run takes roughly 40 seconds, dominated by 6,870
+per-row SQLite ingests.
 
 Optionally, `--live` adds a narration-only step (never in always-on CI):
 the prompt artifact below is rendered against the deterministic
