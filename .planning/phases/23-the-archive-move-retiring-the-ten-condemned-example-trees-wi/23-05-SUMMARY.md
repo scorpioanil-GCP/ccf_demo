@@ -522,9 +522,13 @@ git ls-files archive/ | wc -l                                             # 265
 
 222 = 216 headers + 4 children + `tests/examples/test_artifact_schema_headers.py`
 + `tools/docs_tests/test_snippet_gate.py`. Nothing outside the three permitted
-trees. `.planning/STATE.md` and `.planning/ROADMAP.md` untouched (`D-10`,
-`D-15`). No Success Criterion authored, renumbered or edited. `CLNT-17` appears
-nowhere — not in a file, not in a commit message.
+trees. `.planning/STATE.md` and `.planning/ROADMAP.md` untouched by every commit in
+this plan (`D-10`, `D-15`) — `git log f380a68^..HEAD -- .planning/STATE.md
+.planning/ROADMAP.md` is empty; the single `ROADMAP.md` change since
+`PHASE_BASE` is `a6d7367`, the `D-IMPL-196` ruling commit, which predates this
+wave. No Success Criterion was authored, renumbered or edited. The excluded
+requirement row was assigned no verdict, limb or disposition anywhere in this
+plan — not in a file, not in a commit message.
 
 No line-anchored Python citation was introduced:
 
