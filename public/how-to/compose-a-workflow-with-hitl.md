@@ -14,7 +14,7 @@ override boundary, and the review queue, each of which writes to the replay
 record by construction rather than by an opt-in hook. There is no path
 through the HITL surface that produces an unrecorded human action.
 
-Everything below is literal-included from `examples/05-workflow-hitl`, which
+Everything below is literal-included from `archive/examples/05-workflow-hitl`, which
 runs in CI.
 
 ## Before you start
@@ -29,7 +29,7 @@ posture.
 Run the worked example with:
 
 ```sh
-make example-05
+PYTHONPATH=src:runtime python archive/examples/05-workflow-hitl/run.py
 ```
 
 ## Step 1 — declare the process
@@ -42,7 +42,7 @@ which runtime executes it is resolved later at the adapter binding. The
 documents the fields:
 
 ```yaml
---8<-- "examples/05-workflow-hitl/artifacts/workflow-definition.yaml"
+--8<-- "archive/examples/05-workflow-hitl/artifacts/workflow-definition.yaml"
 ```
 
 Who may approve at a gate is a *separate* artifact, so the approver role and the
@@ -50,7 +50,7 @@ quorum move without touching the process shape — and the two changes are
 separately versioned and separately audited:
 
 ```yaml
---8<-- "examples/05-workflow-hitl/artifacts/approval-policy.yaml"
+--8<-- "archive/examples/05-workflow-hitl/artifacts/approval-policy.yaml"
 ```
 
 Whether a signed principal binding is required at all is a third, separate
@@ -58,7 +58,7 @@ statement. Flip it and the transport's behaviour changes on the next
 submission, with no code edit:
 
 ```yaml
---8<-- "examples/05-workflow-hitl/artifacts/hitl-policy.yaml"
+--8<-- "archive/examples/05-workflow-hitl/artifacts/hitl-policy.yaml"
 ```
 
 ## Step 2 — boot the fabric and construct the workflow
@@ -73,11 +73,11 @@ manifest by the example's choice, not by necessity: a manifest may name them as
 check stays visible at the call site:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:boot"
+--8<-- "archive/examples/05-workflow-hitl/run.py:boot"
 ```
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:register-definitions"
+--8<-- "archive/examples/05-workflow-hitl/run.py:register-definitions"
 ```
 
 The engine is then constructed with its injected seams and the workflow comes
@@ -87,7 +87,7 @@ for the surface, including the adapter seam for external engines when you
 outgrow the in-fabric one:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:workflow-construct"
+--8<-- "archive/examples/05-workflow-hitl/run.py:workflow-construct"
 ```
 
 ## Step 3 — run until it suspends
@@ -97,7 +97,7 @@ is a persisted state at the Control Plane boundary, not a blocked thread — the
 process can wait as long as a human takes:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:workflow-suspend"
+--8<-- "archive/examples/05-workflow-hitl/run.py:workflow-suspend"
 ```
 
 ## Step 4 — record the approval
@@ -109,7 +109,7 @@ make the action replayable rather than merely logged. The
 values:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:hitl-approval"
+--8<-- "archive/examples/05-workflow-hitl/run.py:hitl-approval"
 ```
 
 Then watch the refusals. An approval from an unauthorized principal, or one
@@ -121,13 +121,13 @@ reached the authority path, live in
 `tests/examples/test_workflow_hitl_output.py`:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:hitl-refusals"
+--8<-- "archive/examples/05-workflow-hitl/run.py:hitl-refusals"
 ```
 
 And the admitted case, for contrast:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:hitl-admitted"
+--8<-- "archive/examples/05-workflow-hitl/run.py:hitl-admitted"
 ```
 
 ## Step 5 — resume
@@ -137,7 +137,7 @@ Exception paths are ordinary transitions here, not error handling bolted on
 afterwards, so an escalation route is as inspectable as the happy path:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:workflow-resume"
+--8<-- "archive/examples/05-workflow-hitl/run.py:workflow-resume"
 ```
 
 ## Step 6 — find the human in the replay record
@@ -148,7 +148,7 @@ decision replays it against the approval that was actually given — see
 [replay anatomy](../concepts/replay-anatomy.md):
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:hitl-replay"
+--8<-- "archive/examples/05-workflow-hitl/run.py:hitl-replay"
 ```
 
 ## Step 7 — review before release, and escalate on failure
@@ -159,7 +159,7 @@ until a second named human releases it; the release lands on dimension 2 exactly
 as the approval did:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:review-queue"
+--8<-- "archive/examples/05-workflow-hitl/run.py:review-queue"
 ```
 
 An exception path is an ordinary transition, so a failing node routes to the
@@ -167,7 +167,7 @@ handler its definition declares and the transition is traced and audited like
 any other:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:exception-path"
+--8<-- "archive/examples/05-workflow-hitl/run.py:exception-path"
 ```
 
 ## What to change first

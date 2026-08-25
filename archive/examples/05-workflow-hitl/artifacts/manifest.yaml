@@ -1,0 +1,184 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.deployment-manifest.json
+# The one document naming what this deployment puts in force (D-06, D-08,
+# D-IMPL-80; banking/lending domain, D-IMPL-52).
+#
+# Every artifact is ENUMERATED, never globbed: the set of Control Plane artifacts
+# in force is dimension 2 of the five-dimension Decision Replay record, and a
+# pattern would make that set a function of directory contents at boot time with
+# no artifact recording that a dropped-in file changed what was in force.
+# `ManifestEntry` refuses a glob at parse.
+#
+# The BACKEND is declared as a kind only (D-08). There is no DSN and no database
+# path here, deliberately: a connection string is a deployment ENVIRONMENT value,
+# and putting one in a versioned, content-hashed artifact would persist it into
+# the audit plane.
+#
+# Each `key` is the Control Plane key its artifact is in force under AND the key
+# it comes back under on `BootedFabric.artifacts`. Short unnamespaced keys are
+# this deployment's own vocabulary and `run.py` names them as literals; the five
+# ref-resolved entries keep their full namespaced keys, because those keys are
+# what an agent definition's, a task definition's or a workflow definition's
+# versioned-URI refs resolve against — and a ref and its key must be the same
+# string.
+#
+# **What is NOT here, and why.** Six documents in this directory are outside the
+# manifest. None of them is outside it because naming one would be *dangerous* —
+# that was true when plan 15-19 wrote this note, and the SDK has since closed it.
+# What the SDK now does, so an adopter reading this file learns the mechanism
+# rather than a convention:
+#
+#   * The `ccf.` prefix is RESERVED (D-IMPL-84). A manifest entry naming a
+#     `ccf.`-prefixed class id the SDK does not ship is REFUSED at load, before
+#     any document is read. It used to resolve to the open `DeclaredArtifact`
+#     envelope, which meant a document that merely had `semver`, `class_id` and
+#     `declaration` could register and pin under an SDK class name — arbitrary
+#     content entering Decision Replay dimension 2 wearing `ccf.hitl-policy` or
+#     `ccf.workflow-definition`. What the reservation buys: the class id in a
+#     manifest now means what it says, so `registry.artifact_class_of(key)` is
+#     evidence rather than an unverified claim.
+#   * The registration PATH is fixed by the class, not by the deployment
+#     (D-IMPL-85). Declaring `registration: typed` for an author-versioned class
+#     is refused in the same preflight, because `register_typed` runs no D-05
+#     bump check and the author's `artifact_version` claim would go unheld.
+#
+# So the six are outside the manifest by this example's own choice, not by
+# necessity:
+#
+#   * `agent-definition.yaml`, `prompt-artifact.yaml`, `task-definition.yaml`,
+#     `workflow-definition.yaml` — `ccf.agent-definition`, `ccf.prompt-artifact`,
+#     `ccf.task-definition` and `ccf.workflow-definition` are **author-versioned**
+#     SDK-owned classes. A manifest CAN name them, as `registration: versioned`,
+#     and `load_and_boot` then registers them through `register_versioned` with
+#     its bump check. This example keeps them in `run.py` so the four
+#     `register_versioned` calls stay visible as the thing being taught — the
+#     four-outcome D-05 table is the lesson, and a manifest line hides it.
+#   * `hitl-policy.yaml`, `scope-mapping.yaml` — `ccf.hitl-policy` and
+#     `ccf.scope-mapping` are SDK-owned classes that are deliberately not
+#     manifest-addressable: the transport and the authorizer read their real
+#     contracts back off the Control Plane by key, and `run.py` registers both
+#     itself. Naming either here is now a refusal (D-IMPL-84), where it was
+#     previously an envelope resolution the adopter had to know to avoid.
+#
+# All six still carry real `$schema` headers — plan 15-14 committed their
+# schemas. It committed them without making any class manifest-addressable; the
+# four author-versioned ones became addressable later and separately, as
+# `registration: versioned` (D-IMPL-85). The other two did not, and will not.
+#
+# What the manifest DID absorb: the five documents that used to sit inline in
+# `agent.yaml`, `task.yaml` and `workflow.yaml` under `referenced_artifacts:`,
+# walked at run time by a hand-written registration closure.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, every `key`, every `path`, and the
+# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: sterling-mutual
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+    registration: typed
+
+  - path: policy-bundle.yaml
+    key: policy-bundle
+    class_id: sterling-mutual.policy-bundle
+    role: register
+    registration: typed
+
+  # The agent's axis-4 and axis-5 declarations, under the keys its versioned-URI
+  # refs resolve against. `register`, because a policy regime and a debt profile
+  # are precisely "what this agent was permitted to do".
+  - path: agent-policy-regime.yaml
+    key: sterling-mutual/policy-bundle/lending-operations
+    class_id: policy-bundle
+    role: register
+    registration: typed
+
+  - path: agent-debt-profile.yaml
+    key: sterling-mutual/debt-profile/disbursement-review
+    class_id: debt-profile
+    role: register
+    registration: typed
+
+  # What the task's first step may invoke.
+  - path: task-skill.yaml
+    key: sterling-mutual/skill/verify-loan-file
+    class_id: skill
+    role: register
+    registration: typed
+
+  # Where a failing node escalates, and who may approve at the gate. Both are
+  # standing statements of what the fabric may do, and the keys are what the
+  # workflow definition's `exception_refs` and `gate_policies` resolve against.
+  - path: exception-handler.yaml
+    key: sterling-mutual/exception-handler/loan-file-fetch-failed
+    class_id: exception-handler
+    role: register
+    registration: typed
+
+  - path: approval-policy.yaml
+    key: sterling-mutual/approval-policy/disbursement-officer
+    class_id: approval-policy
+    role: register
+    registration: typed
+
+  # --- role: load — parsed and validated through the same seam as everything
+  #     above, then handed back on `BootedFabric.artifacts`. Never registered,
+  #     never pinned, never in replay dimension 2.
+
+  # The events batch. The SDK FIXES this role (D-IMPL-80, SDK_ARTIFACT_ROLES);
+  # writing `role: register` here is refused before anything is read.
+  - path: events.yaml
+    key: events
+    class_id: ccf.signal-batch
+    role: load
+    registration: typed
+
+  # Where the six driver-registered documents file in the Control Plane, plus the
+  # approver signing key's name. Wiring the driver reads; the artifacts
+  # themselves are registered by `register_versioned` / `register_typed`.
+  - path: agent-registration.yaml
+    key: agent-registration
+    class_id: sterling-mutual.agent-registration
+    role: load
+    registration: typed
+
+  # What this run's human actors do. The POLICY governing them is registered
+  # (`hitl-policy.yaml`, `approval-policy.yaml`); one run's actions are not.
+  - path: hitl-drive.yaml
+    key: hitl-drive
+    class_id: sterling-mutual.hitl-drive
+    role: load
+    registration: typed
+
+  # What this run's replay record is shaped from. An envelope for one record is
+  # not a statement of what was permitted.
+  - path: replay-values.yaml
+    key: replay-values
+    class_id: sterling-mutual.replay-values
+    role: load
+    registration: typed
+
+  # Synthetic credential material. `load`, and never otherwise: registering it
+  # would content-hash tokens into the audit plane.
+  - path: tokens.yaml
+    key: tokens
+    class_id: sterling-mutual.token-table
+    role: load
+    registration: typed

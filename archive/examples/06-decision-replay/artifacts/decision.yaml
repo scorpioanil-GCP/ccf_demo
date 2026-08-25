@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# This decision's instants (energy/grid-ops domain, D-IMPL-52).
+#
+# Explicit inputs, never clock reads: the example is replayable precisely
+# because these are data. `clock_base` seeds the audit clock, which must exist
+# before the FIRST registration — and the first registration happens inside
+# `load_and_boot`, so this one document is read through the artifact loader
+# ahead of boot. That is the single ordering constraint the one-call boot cannot
+# absorb.
+#
+# **This document is `role: load` in the manifest, and that is a decision, not
+# an oversight.** Registering it would content-hash "what instant this run asked
+# about" into Control Plane state and therefore into replay dimension 2 — but
+# dimension 2 records what the fabric was PERMITTED TO DO, not what any one run
+# asked of it. Compare `events.yaml`, which is `role: load` for the same reason
+# and additionally has that role FIXED by the SDK (D-IMPL-80).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM]. Every timestamp
+# states its zone — the loader refuses a zone-less one rather than guessing
+# (D-IMPL-38).
+
+semver: "1.0.0"
+class_id: boreal-grid.decision-inputs
+
+declaration:
+  temporal_boundary: 2026-06-10T06:00:00Z
+  now: 2026-06-10T06:00:05Z
+
+  # Seeds the ticking audit clock. Every Control Plane registration and every
+  # HITL action is stamped from it, so the audit sequence is a function of this
+  # value rather than of when the example happened to run.
+  clock_base: 2026-06-10T06:05:00Z

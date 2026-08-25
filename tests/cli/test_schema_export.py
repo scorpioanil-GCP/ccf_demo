@@ -57,7 +57,7 @@ from tools.dump_schemas import (
 # Repo root from this file's own path, never ``Path.cwd()`` — pytest may be
 # invoked from anywhere and the baseline is a fixed repo artifact.
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-_QUICKSTART_ARTIFACTS = _REPO_ROOT / "examples" / "00-quickstart" / "artifacts"
+_QUICKSTART_ARTIFACTS = _REPO_ROOT / "archive" / "examples" / "00-quickstart" / "artifacts"
 
 
 def test_every_sdk_artifact_class_has_a_committed_schema() -> None:

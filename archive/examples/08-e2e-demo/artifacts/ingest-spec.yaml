@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# The L1 envelope mapping: how raw source-system rows become `SignalEnvelope`
+# payloads (banking domain, D-IMPL-52).
+#
+# This example does not ingest from a `ccf.signal-batch`. Its whole subject is
+# three *live* source systems that `generator.py` writes from `scenario.yaml`,
+# so the events do not exist until the run creates them and there is no static
+# batch document to name. What IS declarable is the mapping, and it is here:
+# sources and tables are selected by the mechanism ROLES `scenario.yaml`
+# declares, and payload keys map onto column ROLES, never column names — which
+# is why `run.py` holds no source vocabulary at all (CLAUDE.md §6.4).
+#
+# Entry order is ingest order. The registry is ingested last so that KYC legal
+# names are the display names the resolved counterparty carries at the boundary.
+#
+# **This document is `role: register`.** Re-authoring it changes what the fabric
+# admits into the graph, which is a standing statement of what the fabric was
+# permitted to do — the D-IMPL-80 test comes back `register`. It is not raw
+# event data (that never reaches the Control Plane; contrast `ccf.signal-batch`,
+# whose role the SDK fixes to `load`), it is the deployment's declaration of how
+# observation becomes claim.
+#
+# A policy bundle's — and this mapping's — SCHEMA is the deployment's, not the
+# SDK's. So the document uses the open `DeclaredArtifact` envelope: the SDK
+# fixes `semver`, `class_id` and canonical serializability, and everything under
+# `declaration:` is this deployment's own.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: meridian-bank.ingest-spec
+
+declaration:
+  ingest:
+    - source_role: ledger
+      table_role: entities
+      envelope_id_role: id
+      observed_time_role: opened
+      payload:
+        account_ref: id
+        party_display_name: holder
+        party_tax_ref: tax_id
+        account_currency: currency
+      constants:
+        record_classification: internal
+
+    - source_role: ledger
+      table_role: movements
+      envelope_id_role: id
+      observed_time_role: booked
+      payload:
+        movement_ref: id
+        movement_amount: amount
+        movement_memo: memo
+      constants:
+        record_classification: internal
+
+    - source_role: transfer_log
+      table_role: movements
+      envelope_id_role: id
+      observed_time_role: sent
+      payload:
+        transfer_ref: id
+        origin_party_name: sender
+        beneficiary_party_name: beneficiary
+        site_address: beneficiary_address
+        transfer_amount: amount
+        transfer_currency: currency
+        transfer_sent_at: sent
+        transfer_purpose: purpose
+      constants:
+        record_classification: internal
+
+    - source_role: registry
+      table_role: entities
+      envelope_id_role: id
+      observed_time_role: registered
+      payload:
+        party_tax_ref: tax_id
+        party_display_name: name
+        site_address: address
+        party_jurisdiction: jurisdiction
+      constants:
+        record_classification: internal

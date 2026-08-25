@@ -1,6 +1,6 @@
 # Performance-battery Control Plane bundle (Phase 11 D-09; CLAUDE.md §6.4).
 #
-# Mirrors examples/04-cross-process/artifacts/controlplane.yaml in shape:
+# Mirrors archive/examples/04-cross-process/artifacts/controlplane.yaml in shape:
 # Control Plane keys, policy bundle, MAX_TTL ceiling, declared operator
 # parameter sets, product class, perspective, and the decision's explicit
 # instants. Every value is neutral and invented for the perf battery; the

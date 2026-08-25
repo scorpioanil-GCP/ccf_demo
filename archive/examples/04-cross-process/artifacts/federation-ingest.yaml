@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# How an admitted federated product becomes L1 signal on the CONSUMER's side
+# (syndicated-lending domain, whitepaper §8.3 Pattern 4).
+#
+# The mapping from a peer's product payload onto the consumer's own ingress
+# vocabulary. The entity RULE it maps onto lives in
+# `consumer-resolution-spec.yaml`; this document is the mapping only, because a
+# resolution spec is closed-world over resolution rules (D-03) and one artifact
+# class means one document.
+#
+# **`role: register` in the manifest.** What shape of peer claim this fabric
+# will turn into signal is a standing statement of what it was permitted to do.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: harborline-syndications.federation-ingest
+
+declaration:
+  system_id: syndicate-peering-federation
+  payload_records_key: entities
+  record_key_aliases:
+    entity_uri: contribution_uri
+    entity_class: contribution_class
+  # The class the consumer's resolution spec mints federated claims into. Named
+  # here as well so the ingest mapping and the resolution rule are two
+  # independent statements of one class rather than one statement read twice.
+  contribution_class: syndicate_contribution

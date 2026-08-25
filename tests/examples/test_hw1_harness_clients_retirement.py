@@ -13,12 +13,30 @@ client"*. The census below is therefore scoped to LangGraph and to nothing
 else. See :func:`langgraph_client_count` for why a wider census would be a
 gate that goes red against the tree this phase was ruled to produce.
 
-**`H-14` is a marking, not a move**, so `examples/external/00-hello-context/`
-stays and keeps `client_adk.py`, `client_anthropic.py` and `client_bare.py`.
+**`H-14` is a marking, not a deletion**, so the historical example stays and
+keeps `client_adk.py`, `client_anthropic.py` and `client_bare.py`.
 :func:`historical_example_violations` asserts that positively. Without it this
 module would only ever push toward deleting things, and a later change could
 satisfy a count by removing the historical example — the opposite of what was
 ruled.
+
+**Where that example lives changed at Phase 23, and `D-IMPL-193` is why the
+change is not a contradiction.** `H-14`'s words are *"stays CI-green and is
+marked historical"*. Dave clarified at the Phase 23 scope lock that
+**"CI-green" means ITS TESTS KEEP PASSING** — not that the tree stays in the
+always-on `examples:` aggregate — so plan `23-04` moved it, intact and
+runnable, to `archive/examples/external/00-hello-context/`, and plan `23-07`
+re-pointed the five assertions here that name it. Read the ruling's second
+half with the first: it *"does NOT authorize deleting the tree or dropping the
+tests that execute it … the five standing tests that go red on the move must
+be RE-POINTED and GREEN. Satisfying this by removing a test rather than
+re-pointing it is a scope breach."* Nothing here was removed, skipped or
+`xfail`ed; the module collects the same sixteen tests it collected before the
+move, and the "two of these names" census widened its subject rather than
+lowering its count. The **prose** half of the marking obligation — the README
+sentence naming the pre-Phase-17 surface and Phase 20's trio as canonical —
+is `CLNT-30`'s and lands with the other README work in plan `23-09`; this
+module has never asserted it and does not begin to here.
 
 **What was carried forward, and in what shape.**
 `tests/examples/test_s2_client_transport_spike.py` was deleted by plan `20-07`;
@@ -61,8 +79,17 @@ import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-#: The tree of shipped examples. Every claim below is scoped to it.
+#: The tree of shipped examples. `H-13`'s claims are scoped to it, and it stays
+#: `examples/` — `H-13` is about what a directory listing of the LIVE tree
+#: shows.
 EXAMPLES_ROOT = REPO_ROOT / "examples"
+
+#: Where Phase 23 moved the ten condemned example trees, `H-14`'s among them
+#: (`docs/DECISIONS.md` `D-IMPL-191` ruling 1, plan `23-04`). A second root
+#: rather than a re-pointed one: `H-13`'s census and `H-14`'s presence check
+#: are now about DIFFERENT trees, and collapsing them would let a claim about
+#: one be satisfied by the other.
+ARCHIVE_EXAMPLES_ROOT = REPO_ROOT / "archive" / "examples"
 
 #: Where the Phase 16 orphans went. Outside `examples/`, outside every
 #: `tools/lints/__main__.py::RULE_TREE_SCOPE` tree, and unpublished — `mkdocs.yml`
@@ -85,13 +112,18 @@ LANGGRAPH_CLIENT_NAME = "client_langgraph.py"
 #: LangGraph client".
 MAXIMUM_LANGGRAPH_CLIENTS = 1
 
-#: The example `H-14` rules stays, relative to `EXAMPLES_ROOT`.
+#: The example `H-14` rules stays, relative to :data:`ARCHIVE_EXAMPLES_ROOT`
+#: since plan `23-04`. `D-IMPL-193` ruled that `H-14`'s *"stays CI-green"*
+#: means THESE TESTS KEEP PASSING, not that the tree stays in the always-on
+#: `examples:` aggregate — so the tree moved and this constant was re-pointed.
+#: The same ruling refuses the other reading: it *"does not authorize dropping
+#: or weakening the tests that still execute it"*.
 HISTORICAL_EXAMPLE = pathlib.PurePosixPath("external/00-hello-context")
 
 #: The three client programs `H-14`'s example must keep. Two of these names
 #: also exist under `examples/hw1-harness-clients/`; that duplication is the
 #: MANDATED state and is discharged by the historical marking in
-#: `examples/external/00-hello-context/README.md`, never by a count.
+#: `archive/examples/external/00-hello-context/README.md`, never by a count.
 HISTORICAL_EXAMPLE_CLIENTS = (
     "client_adk.py",
     "client_anthropic.py",
@@ -160,14 +192,19 @@ def langgraph_client_count(examples_root: pathlib.Path) -> int:
     `H-13`'s claim is *"afterwards `examples/` holds exactly one LangGraph
     client"* — a 2→1 reduction and nothing wider. A per-harness census
     refusing any count above one would go **red against the tree `H-14`
-    mandates**: `examples/external/00-hello-context/` legitimately keeps its
-    own `client_adk.py` and `client_anthropic.py` alongside
-    `examples/hw1-harness-clients/`'s, so `examples/` carries two of each name
-    after plan `20-07` and that is the ruled state, not a violation. ADK and
-    Anthropic duplication is discharged by the historical marking in
-    `examples/external/00-hello-context/README.md`, which
+    mandates**: `archive/examples/external/00-hello-context/` legitimately
+    keeps its own `client_adk.py` and `client_anthropic.py` alongside
+    `examples/hw1-harness-clients/`'s, so the two example roots carry two of
+    each name after plan `20-07` and that is the ruled state, not a violation.
+    ADK and Anthropic duplication is discharged by the historical marking in
+    `archive/examples/external/00-hello-context/README.md`, which
     :func:`historical_example_violations` protects from being "satisfied" by
     deletion. Do not widen this function into a general census.
+
+    **This function keeps `examples_root` as its only subject and is called
+    with the LIVE tree.** `H-13`'s sentence is about what `examples/` holds;
+    the archive is not `examples/` and adding it here would answer a different
+    question with the same number.
     """
     return len(list(examples_root.rglob(LANGGRAPH_CLIENT_NAME)))
 
@@ -343,13 +380,21 @@ def test_the_example_tree_holds_exactly_one_langgraph_client() -> None:
 
 
 def test_the_historical_example_keeps_all_three_of_its_clients() -> None:
-    """`H-14`: the marking is a sentence, so the example must still be here."""
-    violations = historical_example_violations(EXAMPLES_ROOT)
+    """`H-14`: the marking is a sentence, so the example must still be here.
+
+    Re-pointed at :data:`ARCHIVE_EXAMPLES_ROOT` by plan `23-07`, never
+    relaxed: `D-IMPL-193` calls satisfying this ruling by removing a test
+    rather than re-pointing it a scope breach, and the assertion below is the
+    identical positive one, over the tree's new location.
+    """
+    violations = historical_example_violations(ARCHIVE_EXAMPLES_ROOT)
     assert not violations, "\n".join(violations)
 
 
-#: The tree the deleted spike guarded, repo-relative.
-GUARDED_EXAMPLE = pathlib.PurePosixPath("examples") / HISTORICAL_EXAMPLE
+#: The tree the deleted spike guarded, repo-relative. Under `archive/` since
+#: plan `23-04`; the guard follows the tree, because what it protects is the
+#: example's own committed bytes and those moved with it.
+GUARDED_EXAMPLE = pathlib.PurePosixPath("archive/examples") / HISTORICAL_EXAMPLE
 
 
 def test_nothing_is_untracked_under_the_historical_example() -> None:
@@ -579,15 +624,25 @@ def test_control_a_missing_guarded_tree_is_a_violation_in_both_arms(
 def test_two_of_these_names_under_examples_is_the_mandated_state(name: str) -> None:
     """There is NO control for "two ADK clients", because two is correct.
 
-    `H-14` keeps `examples/external/00-hello-context/` and `H-10` puts Phase
-    20's trio at `examples/hw1-harness-clients/`, so `examples/` carries two
-    `client_adk.py` and two `client_anthropic.py` by ruling. This test records
-    that as the expected state rather than leaving the absence of a per-harness
-    census looking like an oversight — and it fails if a later change quietly
-    resolves the duplication by deletion instead of by the marking.
+    `H-14` keeps `archive/examples/external/00-hello-context/` and `H-10` puts
+    Phase 20's trio at `examples/hw1-harness-clients/`, so the two example
+    roots together carry two `client_adk.py` and two `client_anthropic.py` by
+    ruling. This test records that as the expected state rather than leaving
+    the absence of a per-harness census looking like an oversight — and it
+    fails if a later change quietly resolves the duplication by deletion
+    instead of by the marking.
+
+    **The census spans BOTH roots since plan `23-07`, and the count of two is
+    unchanged.** Plan `23-04` moved `H-14`'s example under `archive/`; a
+    census left scoped to `EXAMPLES_ROOT` would find one of each and could be
+    made green only by lowering the expected count to one — which is the
+    deletion-shaped outcome this test exists to refuse, arrived at by
+    arithmetic instead of by `rm`. `D-IMPL-193` forbids weakening these
+    assertions, so the subject widened and the number did not.
     """
     found = sorted(
-        path.relative_to(EXAMPLES_ROOT).as_posix()
-        for path in EXAMPLES_ROOT.rglob(name)
+        path.relative_to(root).as_posix()
+        for root in (EXAMPLES_ROOT, ARCHIVE_EXAMPLES_ROOT)
+        for path in root.rglob(name)
     )
     assert len(found) == 2, found

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# Where the six driver-registered documents file in the Control Plane, and the
+# name of the key the approver signs with.
+#
+# `role: load`. These are WIRING the driver reads, not artifacts in force: the
+# six documents themselves are registered by `register_versioned` /
+# `register_typed` in `run.py` — the four author-versioned ones by this
+# example's choice, so the bump check is visible at the call site, and the two
+# SDK classes the manifest cannot address because it cannot (see each document's
+# own header for which is which). Registering this index alongside them would
+# content-hash a lookup table into replay dimension 2 and say the fabric was
+# "permitted" to know where things live, which is not a permission.
+#
+# Each key here is also the string a versioned-URI ref resolves against —
+# `{tenant}/{artifact_class}/{name}` for the ref-resolved ones (DESIGN.md §3.5).
+# A ref and its registration key must be the same string, so they are stated once
+# and read by both sides.
+#
+# The signing key's IDENTIFIER is artifact content; the key MATERIAL never is.
+# `run.py` mints a P-256 JWK into the run's scratch directory under this name.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: sterling-mutual.agent-registration
+
+declaration:
+  # Author-versioned SDK classes — `register_versioned`, D-05 bump check.
+  agent_definition_key: sterling-mutual/ccf.agent-definition/disbursement-analytics
+  task_definition_key: sterling-mutual/ccf.task-definition/loan-disbursement
+  workflow_definition_key: sterling-mutual/workflows/loan-disbursement
+  prompt_artifact_key: sterling-mutual/prompt/disbursement-briefing
+
+  # SDK classes the manifest cannot address — `register_typed`, real contracts.
+  hitl_policy_key: sterling-mutual/hitl/disbursement-hitl-policy
+  scope_mapping_key: sterling-mutual/scope-mapping
+
+  # The approver signing key's identifier (D-IMPL-21 reference impl #2).
+  signing_key_id: sterling-mutual-disbursement-approver-key

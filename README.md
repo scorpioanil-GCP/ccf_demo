@@ -39,41 +39,53 @@ The smallest possible fabric — register an ontology, ingest events through
 L1, assemble, and serve one typed Context Product:
 
 ```sh
-make example-00
+PYTHONPATH=src:runtime python archive/examples/00-quickstart/run.py
 ```
 
-Then read [`examples/00-quickstart/README.md`](examples/00-quickstart/README.md)
+Then read
+[`archive/examples/00-quickstart/README.md`](archive/examples/00-quickstart/README.md)
 for what each assertion demonstrates and what to change first to adapt it.
 
 ## The examples suite
 
-The eight examples are the adoption contract (CLAUDE.md §9): runnable
-end-to-end against the reference backends (SQLite graph store, file-backed
+These eight are the adoption contract (CLAUDE.md §9): runnable end-to-end
+against the reference backends (SQLite graph store, file-backed
 ArtifactStore), each a thin generic driver beside the definition artifacts
 that carry everything specific (the No-Hardcoding Rule, CLAUDE.md §6.4).
-`make examples` runs all eight in order — the same command CI runs.
+
+**They live under `archive/examples/` and no `make` target runs them any
+more.** They were archived rather than deleted in Phase 23 (`D-IMPL-189`,
+`D-IMPL-193`) and their `make` targets were deleted with them (`D-04`,
+`D-IMPL-195` ruling 1), because they are no longer the teaching path — a
+target is an invitation to run. Nothing about them stopped working: the
+modules under `tests/examples/` still execute them on every commit, so the
+commands below run today. `make examples` now composes one member,
+`example-hw1-harness-clients`.
 
 | Example | Demonstrates | Command |
 | --- | --- | --- |
-| [`00-quickstart`](examples/00-quickstart/) | The smallest fabric: L1 ingest → graph → operator chain → projection → three L6 gates → one typed Context Product, replay-recorded | `make example-00` |
-| [`01-agent-basics`](examples/01-agent-basics/) | Archetype/agent separation: an agent declared from `AnalyticsInsightsAgent` via a definition artifact, constructed only through the Agent Factory, all six specialization axes | `make example-01` |
-| [`02-skilling`](examples/02-skilling/) | Channel-2 specialization: governed skill grant / exercise / revoke through the Control Plane, tier-1 refusal fires, grant-set in force lands in replay | `make example-02` |
-| [`03-harness-portability`](examples/03-harness-portability/) | One agent definition executed unmodified under all three harnesses (Claude Agent SDK, Google ADK, LangGraph) with equivalence asserted — the harness-neutrality proof | `make example-03` (live legs: `make example-03-live-ollama`, `make example-03-live-anthropic`) |
-| [`04-cross-process`](examples/04-cross-process/) | Assembler agent in one OS process, consumer in another: one Context Product over MCP egress and A2A, Control Plane admission verification incl. a tamper refusal | `make example-04` |
-| [`05-workflow-hitl`](examples/05-workflow-hitl/) | Multi-step workflow with ApprovalGate + ExceptionEscalation: suspend on the gate, approve through the auth-bound HITL door, human action in the replay record | `make example-05` |
-| [`06-decision-replay`](examples/06-decision-replay/) | Replay a prior decision: exact-version resolution of snapshot, policy bundle, agent version, skill-set, and prompt artifacts from the ArtifactStore; byte-equal reproduction | `make example-06` |
-| [`07-artifact-store-mcp`](examples/07-artifact-store-mcp/) | Swap the file-backed ArtifactStore for the MCP-backed reference store; nothing else changes — the §7.4 pluggability proof | `make example-07` |
+| [`00-quickstart`](archive/examples/00-quickstart/) | The smallest fabric: L1 ingest → graph → operator chain → projection → three L6 gates → one typed Context Product, replay-recorded | `PYTHONPATH=src:runtime python archive/examples/00-quickstart/run.py` |
+| [`01-agent-basics`](archive/examples/01-agent-basics/) | Archetype/agent separation: an agent declared from `AnalyticsInsightsAgent` via a definition artifact, constructed only through the Agent Factory, all six specialization axes | `PYTHONPATH=src:runtime python archive/examples/01-agent-basics/run.py` |
+| [`02-skilling`](archive/examples/02-skilling/) | Channel-2 specialization: governed skill grant / exercise / revoke through the Control Plane, tier-1 refusal fires, grant-set in force lands in replay | `PYTHONPATH=src:runtime python archive/examples/02-skilling/run.py` |
+| [`03-harness-portability`](archive/examples/03-harness-portability/) | One agent definition executed unmodified under all three harnesses (Claude Agent SDK, Google ADK, LangGraph) with equivalence asserted — the harness-neutrality proof | `PYTHONPATH=src:runtime python archive/examples/03-harness-portability/run.py --mode deterministic` |
+| [`04-cross-process`](archive/examples/04-cross-process/) | Assembler agent in one OS process, consumer in another: one Context Product over MCP egress and A2A, Control Plane admission verification incl. a tamper refusal | `PYTHONPATH=src:runtime python archive/examples/04-cross-process/run.py` |
+| [`05-workflow-hitl`](archive/examples/05-workflow-hitl/) | Multi-step workflow with ApprovalGate + ExceptionEscalation: suspend on the gate, approve through the auth-bound HITL door, human action in the replay record | `PYTHONPATH=src:runtime python archive/examples/05-workflow-hitl/run.py` |
+| [`06-decision-replay`](archive/examples/06-decision-replay/) | Replay a prior decision: exact-version resolution of snapshot, policy bundle, agent version, skill-set, and prompt artifacts from the ArtifactStore; byte-equal reproduction | `PYTHONPATH=src:runtime python archive/examples/06-decision-replay/run.py` |
+| [`07-artifact-store-mcp`](archive/examples/07-artifact-store-mcp/) | Swap the file-backed ArtifactStore for the MCP-backed reference store; nothing else changes — the §7.4 pluggability proof | `PYTHONPATH=src:runtime python archive/examples/07-artifact-store-mcp/run.py` |
 
 ## Verification
 
 ```sh
-make ci        # lints + mypy --strict + full test suite + all eight examples
+make ci        # lints + mypy --strict + full test suite + the examples suite
 ```
 
 `make ci` runs the same command strings as the always-on GitHub Actions
 pipeline's invariant legs (`.github/workflows/ci.yml`); Actions additionally
-runs the lint unit tests and a Postgres service-container leg. The opt-in
-live-model legs live in `.github/workflows/live-legs.yml`.
+runs the lint unit tests and a Postgres service-container leg. The full test
+suite is where the archived examples above are executed. The opt-in
+live-model legs are the three `example-hw1-harness-clients-live-*` targets in
+the `Makefile`; `.github/workflows/live-legs.yml` now carries only the fluree
+upstream-drift detector.
 
 ## Documentation
 

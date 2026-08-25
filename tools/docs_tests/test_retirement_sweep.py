@@ -37,10 +37,13 @@ work, not fabric mechanism.
 
 from __future__ import annotations
 
+import collections.abc
+import dataclasses
 import pathlib
 import subprocess
 import sys
 import textwrap
+from typing import Sequence
 
 import pytest
 
@@ -57,6 +60,7 @@ from tools.retirement_sweep import (  # noqa: E402
     LIVE,
     REPORT_PATH,
     RETIREMENT_SCHEDULE,
+    Retirement,
     SHAPE_COUNT_CONSTANT,
     SHAPE_COUNT_SCAN_FUNCTION,
     SHAPE_DOCSTRING,
@@ -81,23 +85,39 @@ from tools.retirement_sweep import (  # noqa: E402
     unexaminable,
 )
 
+#: The prefixes an *example directory* row can carry. `archive/examples/` is
+#: here because plan 23-04 moved the ten condemned trees there and plan 23-10
+#: re-pointed the schedule at their new home; a predicate that still admitted
+#: only `examples/` would match nothing for waves 8, 10 and 11, `next()` would
+#: raise `StopIteration` DURING COLLECTION, and this whole module would vanish
+#: — which reads exactly like a module that passed. Watched: with the schedule
+#: re-pointed and this tuple left at `("examples/",)`, `--collect-only` reports
+#: **0 tests collected, 1 error** where the phase base reports **47**.
+#:
+#: `examples/` is KEPT rather than replaced: the `17-08` `s1` rows still live
+#: under `examples/` (`D-05` leaves them alone), and a later wave that adds an
+#: unmoved tree at waves 8/10/11 must not re-break collection.
+EXAMPLE_DIR_PREFIXES: tuple[str, ...] = ("examples/", "archive/examples/")
+
+
+def _example_dir_for_wave(wave: int) -> str:
+    """One retiring example directory from `wave`, taken from the schedule.
+
+    Derived so this module carries no retiring-path token of its own — the
+    reason the fixtures are computed rather than written down.
+    """
+    return next(
+        entry.path
+        for entry in RETIREMENT_SCHEDULE
+        if entry.wave == wave and entry.path.startswith(EXAMPLE_DIR_PREFIXES)
+    )
+
+
 #: One retiring example directory per wave, taken from the schedule so this
 #: module carries no retiring-path token of its own.
-WAVE_8 = next(
-    entry.path
-    for entry in RETIREMENT_SCHEDULE
-    if entry.wave == 8 and entry.path.startswith("examples/")
-)
-WAVE_10 = next(
-    entry.path
-    for entry in RETIREMENT_SCHEDULE
-    if entry.wave == 10 and entry.path.startswith("examples/")
-)
-WAVE_11 = next(
-    entry.path
-    for entry in RETIREMENT_SCHEDULE
-    if entry.wave == 11 and entry.path.startswith("examples/")
-)
+WAVE_8 = _example_dir_for_wave(8)
+WAVE_10 = _example_dir_for_wave(10)
+WAVE_11 = _example_dir_for_wave(11)
 
 #: The known instances, assembled by hand across three review rounds. The
 #: sweep exists because hand assembly kept missing rows, so this is the floor
@@ -163,6 +183,393 @@ def test_every_known_coupled_file_is_found() -> None:
     assert not missing, (
         "the sweep missed files three review rounds already identified as"
         " coupled: " + ", ".join(missing)
+    )
+
+
+# ---------------------------------------------------------------------------
+# The schedule must still be about the tree — plan 23-10, criterion 10.
+#
+# The gap these two close, named by the researcher as S-13 and reproduced
+# before they were written: leave the schedule pointed at the OLD `examples/…`
+# paths after plan 23-04's move and the sweep reports a confident **384 rows
+# across 117 files at EXIT 0** over ten directories that are not there, while
+# **46 of the 47 tests in this module pass**. The one red is
+# `test_the_committed_report_is_current`, which is red whenever the report has
+# not been regenerated and therefore cannot tell a stale schedule from a stale
+# snapshot. That is the Phase 22.1 defect exactly — a tool reporting clean
+# because it did not look — arriving in the table the tool reads.
+# ---------------------------------------------------------------------------
+
+#: The prefix an archived tree's path carries. A PREFIX, not a retiring path:
+#: this module still spells no retiring path of its own, and every concrete
+#: path below is taken from `RETIREMENT_SCHEDULE`.
+ARCHIVE_PREFIX = "archive/examples/"
+
+
+def _no_archived_tree(schedule: Sequence[Retirement]) -> str:
+    """The two ways a schedule can name no archived tree, told apart.
+
+    **ONE clause, two diagnoses, and the shape is a sabotage result rather
+    than a preference.** Both predicates below first shipped with a separate
+    `if not schedule` early return in front of this condition. Sabotage
+    S-16v(c) deleted `archive_sweep_problems`' copy and **every control stayed
+    GREEN** — because an empty schedule contains no archived path either, so
+    the emptiness guard was detecting nothing this condition was not already
+    detecting. It was a second check kept for the look of it. Its only real
+    contribution was the MESSAGE, which is preserved here: "empty" and "names
+    only survivors" are very different states to find a schedule in, and a
+    refusal that cannot tell them apart sends its reader to the wrong place.
+    """
+    if not schedule:
+        return "the schedule is EMPTY and schedules nothing at all"
+    return f"the schedule is SILENT about the archive — no path under {ARCHIVE_PREFIX}"
+
+
+def scheduled_path_problems(schedule: Sequence[Retirement]) -> list[str]:
+    """Every way the schedule's own existence claim fails to hold.
+
+    The claim is the schedule's own comment, quoted rather than paraphrased so
+    that this is visibly the comment's enforcement and not a new rule:
+
+        "Each path was confirmed to exist before being listed — the unowned-row
+        gate is fail-closed, and a schedule naming a path that is not there is
+        the same class of defect as one that omits a path."
+
+    Nothing asserted it until plan 23-10, which is why plan 23-04 could move
+    ten directories out from under the table and leave every gate green.
+
+    Takes the schedule as an ARGUMENT — this module's idiom — so the controls
+    can point it at a synthetic one instead of reasoning about what it would
+    do. **The anti-vacuity clauses live INSIDE the predicate** for the same
+    reason: a check whose emptiness guard sits in the caller is a check a
+    second caller can lose.
+
+    Four clauses, and the last two are the halves that matter:
+
+    1. An empty schedule. `all(...)` over nothing is `True`.
+    2. A schedule naming no archived tree. This is the *silence* case, and it
+       is the same defect class as a stale path rather than a milder one: a
+       table that stops naming ten directories reports clean about them just
+       as effectively as a table that names them wrongly. Deleting the ten
+       rows would otherwise satisfy clause 3 perfectly.
+    3. A scheduled `path` that does not exist — the stale-path case, S-13.
+    4. A `former_path` that DOES exist. `former_path` records the spelling a
+       tree had BEFORE the move; if something is at that location again then
+       either the move was undone or the field was "corrected" to a live path,
+       and in both readings the row is lying about the tree.
+    """
+    problems: list[str] = []
+    if not any(entry.path.startswith(ARCHIVE_PREFIX) for entry in schedule):
+        problems.append(
+            _no_archived_tree(schedule)
+            + " — a resolution check whose subject set contains no moved tree"
+            " cannot demonstrate the property it was written for, and passes"
+            " over the ten directories it is supposed to be about"
+        )
+    for entry in schedule:
+        if not (REPO_ROOT / entry.path).exists():
+            problems.append(
+                f"{entry.path} is scheduled (owner {entry.owner}, wave"
+                f" {entry.wave}) and is NOT on disk"
+            )
+        if entry.former_path and (REPO_ROOT / entry.former_path).exists():
+            problems.append(
+                f"{entry.path} records {entry.former_path} as its pre-move"
+                " spelling, but something exists at that path — the row"
+                " no longer describes the tree"
+            )
+    return problems
+
+
+def test_every_scheduled_path_resolves_on_disk() -> None:
+    """The schedule is about this tree, not about a tree it used to be about."""
+    assert not scheduled_path_problems(RETIREMENT_SCHEDULE), "; ".join(
+        scheduled_path_problems(RETIREMENT_SCHEDULE)
+    )
+
+
+def archive_sweep_problems(
+    schedule: Sequence[Retirement], rows: Sequence[Coupling]
+) -> list[str]:
+    """Every way "the archive is swept" fails to be what the row set shows.
+
+    `D-IMPL-191` ruling 3: *an archived path CONTINUES to count as a live
+    coupling, because deletion is still owed and the coupling is still a real
+    obligation.* This asserts the walk actually reaches it.
+
+    The floor is tied to the SCHEDULE rather than set at `>= 1`, because one
+    stray row would satisfy `>= 1` while nine of the ten trees went unseen.
+
+    **The count floor is NOT the whole check, and the reason is a measurement
+    made at the phase close rather than an argument.** Criterion 10's own words
+    are *"suppressing an archived path's coupling row is watched RED, so the
+    sweep cannot go blind to the archive"*. Against the count floor alone that
+    is FALSE: at the close the row set held 131 archive rows across ten trees,
+    and suppressing **every one of the 21 rows** for
+    `archive/examples/03-harness-portability` left 110 rows against a floor of
+    10 and this predicate returned EMPTY — green over a tree it did not look
+    at. The same input in its concentrated form (21 rows, all naming one tree,
+    nine trees contributing nothing) also passed. **The criterion's own named
+    mutation could not turn it red**, which is this phase's defect class — a
+    tool that reports clean because it did not look — arriving inside the
+    control written to prevent it.
+
+    So the coverage is asserted PER TREE and not summed. The count floor is
+    kept because it names a different diagnosis (a shrunken row set) and
+    because a reader following the old reasoning should still find it, but the
+    per-tree clause is what discharges criterion 10.
+
+    **The docstring's former escape clause is retired deliberately.** It read
+    *"a tree whose last reference is legitimately discharged should not turn
+    this red"*. That case cannot arise silently: deletion is still OWED for
+    every scheduled row (`D-IMPL-191` ruling 3), and a tree whose last
+    reference is genuinely discharged is a tree on its way out of the schedule
+    — so the row leaves `archived` with it and the clause stops applying by
+    itself. Until then, zero rows for a scheduled archived tree is the exact
+    state the criterion says must be red.
+    """
+    problems: list[str] = []
+    archived = [
+        entry.path for entry in schedule if entry.path.startswith(ARCHIVE_PREFIX)
+    ]
+    if not archived:
+        return [
+            _no_archived_tree(schedule)
+            + ", so a sweep that produced ZERO archive rows would satisfy this"
+            " check vacuously"
+        ]
+    archive_rows = [
+        row for row in rows if row.retiring_path.startswith(ARCHIVE_PREFIX)
+    ]
+    if len(archive_rows) < len(archived):
+        problems.append(
+            f"{len(archive_rows)} coupling rows name a path under"
+            f" {ARCHIVE_PREFIX}, against {len(archived)} archived trees in the"
+            " schedule — the sweep is reporting clean over a tree it did not"
+            " look at"
+        )
+    seen = {row.retiring_path for row in archive_rows}
+    unseen = [path for path in archived if path not in seen]
+    if unseen:
+        problems.append(
+            f"{len(unseen)} of {len(archived)} scheduled archived trees have"
+            " ZERO coupling rows, so the sweep is reporting clean over them"
+            " while the row TOTAL stays above the floor — a count cannot see a"
+            f" tree go dark: {', '.join(unseen)}"
+        )
+    return problems
+
+
+def test_the_sweep_reaches_the_archive() -> None:
+    """An archived path still counts, and the row set proves the walk got there.
+
+    Measured at the phase close: **131 rows** name an archived path and **all
+    ten** archived trees are named by at least one of them — the smallest
+    contribution is 2 rows (`archive/examples/06-decision-replay`) and the
+    largest 29 (`archive/examples/04-cross-process`). Both clauses are
+    asserted: the total against the floor, and every scheduled archived tree
+    against zero.
+    """
+    assert not archive_sweep_problems(RETIREMENT_SCHEDULE, head().rows), "; ".join(
+        archive_sweep_problems(RETIREMENT_SCHEDULE, head().rows)
+    )
+
+
+def _s1_only_schedule() -> tuple[Retirement, ...]:
+    """The unmoved survivors, derived rather than spelled.
+
+    The `s1` pair and its three test modules are the rows `D-05` leaves alone.
+    As a control input they are the *silence* case: every path resolves, so a
+    resolution check written without clause 2 passes over them while the
+    schedule says nothing at all about ten moved directories.
+    """
+    survivors = tuple(
+        entry
+        for entry in RETIREMENT_SCHEDULE
+        if not entry.path.startswith(ARCHIVE_PREFIX) and not entry.former_path
+    )
+    assert survivors, "no unmoved rows to build the s1-only control from"
+    return survivors
+
+
+def _one_missing_path_schedule() -> tuple[Retirement, ...]:
+    """The real schedule with one archived row re-pointed at a near miss."""
+    return tuple(
+        dataclasses.replace(entry, path=entry.path + "-old")
+        if entry.path.startswith(ARCHIVE_PREFIX)
+        and entry.path == _example_dir_for_wave(11)
+        else entry
+        for entry in RETIREMENT_SCHEDULE
+    )
+
+
+def _former_path_resolves_schedule() -> tuple[Retirement, ...]:
+    """The real schedule with one row claiming a pre-move spelling that exists."""
+    live = next(
+        entry.path
+        for entry in RETIREMENT_SCHEDULE
+        if not entry.path.startswith(ARCHIVE_PREFIX)
+    )
+    return tuple(
+        dataclasses.replace(entry, former_path=live)
+        if entry.path == _example_dir_for_wave(11)
+        else entry
+        for entry in RETIREMENT_SCHEDULE
+    )
+
+
+@pytest.mark.parametrize(
+    ("label", "build", "expected_fragment"),
+    [
+        ("an EMPTY schedule — the vacuity case", tuple, "EMPTY"),
+        ("an s1-ONLY schedule — the silence case", _s1_only_schedule, "SILENT"),
+        (
+            "one archived path re-pointed to a near miss",
+            _one_missing_path_schedule,
+            "NOT on disk",
+        ),
+        (
+            "a former_path that resolves — the row stops describing the tree",
+            _former_path_resolves_schedule,
+            "pre-move spelling",
+        ),
+    ],
+)
+def test_control_the_resolution_check_refuses_a_broken_schedule(
+    label: str,
+    build: "collections.abc.Callable[[], Sequence[Retirement]]",
+    expected_fragment: str,
+) -> None:
+    """Control: each of the four clauses fires, and fires for its own reason.
+
+    Asserting the message FRAGMENT rather than merely that some problem was
+    reported, because four clauses sharing one `assert problems` is four
+    clauses of which any one may have stopped working.
+    """
+    problems = scheduled_path_problems(build())
+    assert problems, label
+    assert any(expected_fragment in problem for problem in problems), (
+        f"{label}: refused, but no problem mentions {expected_fragment!r}."
+        f" Problems: {problems}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("label", "build", "rows", "expected_fragment"),
+    [
+        ("an EMPTY schedule — the vacuity case", tuple, "head", "EMPTY"),
+        ("an s1-ONLY schedule — the silence case", _s1_only_schedule, "head", "SILENT"),
+        (
+            "a sweep that produced no rows at all",
+            lambda: RETIREMENT_SCHEDULE,
+            "none",
+            "did not look at",
+        ),
+        (
+            "ONE stray archive row against ten scheduled archived trees",
+            lambda: RETIREMENT_SCHEDULE,
+            "one",
+            "against 10 archived trees",
+        ),
+        (
+            "criterion 10's OWN mutation — every row for ONE archived tree"
+            " suppressed, the total left far above the floor",
+            lambda: RETIREMENT_SCHEDULE,
+            "one-tree-dark",
+            "have ZERO coupling rows",
+        ),
+        (
+            "the CONCENTRATED set — enough rows to clear the floor, all of them"
+            " naming a single tree",
+            lambda: RETIREMENT_SCHEDULE,
+            "concentrated",
+            "have ZERO coupling rows",
+        ),
+    ],
+)
+def test_control_the_archive_sweep_check_refuses_a_blind_sweep(
+    label: str,
+    build: "collections.abc.Callable[[], Sequence[Retirement]]",
+    rows: str,
+    expected_fragment: str,
+) -> None:
+    """Control: the archive-swept check cannot pass over nothing.
+
+    The third case is the REAL schedule with an EMPTY row set. A check written
+    as "some row names the archive" would report the same thing here as an
+    empty schedule does, and the two are entirely different failures.
+
+    **The fourth case is what makes the floor a floor.** One stray archive row
+    against ten scheduled archived trees is exactly the input a `>= 1`
+    assertion would wave through while nine of the ten went unseen — so this
+    case is the proof that the floor is TIED to the schedule rather than set
+    at a constant. Without it, weakening `len(archived)` to `1` would pass
+    every control in this module.
+
+    **The fifth and sixth cases were added at the phase close, and they are
+    there because the first four PASSED on the exact mutation criterion 10
+    names.** Cases 1-4 all shrink the row set below the floor, so a count alone
+    refuses every one of them and the per-tree question is never asked. Case 5
+    is criterion 10's own words — *"suppressing an archived path's coupling
+    row"* — applied to every row of one tree with the total left far above the
+    floor; case 6 is the concentrated form, where the row set is large enough
+    to clear the floor because a single tree contributes all of it. Both were
+    measured GREEN against the count floor before the per-tree clause existed.
+    Each asserts the `ZERO coupling rows` fragment specifically, because a
+    refusal that merely says "too few rows" would send a reader to look for a
+    shrunken sweep instead of a tree that went dark.
+    """
+    row_set: Sequence[Coupling]
+    if rows == "none":
+        row_set = ()
+    elif rows == "one":
+        stray = [
+            row
+            for row in head().rows
+            if row.retiring_path.startswith(ARCHIVE_PREFIX)
+        ][:1]
+        assert stray, "no archive row at HEAD to build the stray-row control from"
+        row_set = tuple(stray)
+    elif rows in {"one-tree-dark", "concentrated"}:
+        # The victim is derived from the SCHEDULE, never spelled, so a future
+        # re-point cannot leave this control silently pointed at nothing.
+        victim = next(
+            entry.path
+            for entry in RETIREMENT_SCHEDULE
+            if entry.path.startswith(ARCHIVE_PREFIX)
+        )
+        victim_rows = [row for row in head().rows if row.retiring_path == victim]
+        assert victim_rows, (
+            f"no coupling row at HEAD names {victim}, so this control would"
+            " suppress nothing and prove nothing"
+        )
+        if rows == "one-tree-dark":
+            row_set = tuple(
+                row for row in head().rows if row.retiring_path != victim
+            )
+            # The whole point: the total must stay ABOVE the floor, or the
+            # count clause refuses first and the per-tree clause goes unproven.
+            above = [
+                row
+                for row in row_set
+                if row.retiring_path.startswith(ARCHIVE_PREFIX)
+            ]
+            assert len(above) >= len(
+                [e for e in RETIREMENT_SCHEDULE if e.path.startswith(ARCHIVE_PREFIX)]
+            ), (
+                "suppressing one tree dropped the archive row total below the"
+                " floor, so the count clause fires and this control no longer"
+                " isolates the per-tree clause"
+            )
+        else:
+            row_set = tuple(victim_rows)
+    else:
+        row_set = head().rows
+    problems = archive_sweep_problems(build(), row_set)
+    assert problems, label
+    assert any(expected_fragment in problem for problem in problems), (
+        f"{label}: refused, but no problem mentions {expected_fragment!r}."
+        f" Problems: {problems}"
     )
 
 
@@ -407,6 +814,14 @@ def test_shape_4_the_indirect_execution_is_detected(tmp_path: pathlib.Path) -> N
     assumed, because "the path is constructed, not written" is the whole
     reason a token pass is blind to this shape and the reason it survived two
     review rounds.
+
+    **The synthetic runner joins EVERY segment of `WAVE_10`, not the first
+    two.** The earlier form spelled `/ "{...split('/')[0]}" / "{...split('/')[1]}"`,
+    which silently assumed a two-segment retiring path. Plan 23-10 re-pointed
+    the schedule at `archive/examples/…` — three segments — and the fixture
+    then built `archive/examples`, a path that retires nothing, so the detector
+    correctly found zero rows and the test failed on its own fixture rather
+    than on the detector. Watched: 0 rows where 1 was asserted.
     """
     test_module = _write(
         tmp_path,
@@ -420,6 +835,10 @@ def test_shape_4_the_indirect_execution_is_detected(tmp_path: pathlib.Path) -> N
             subprocess.run([sys.executable, "tools/synthetic_runner.py"], check=True)
         ''',
     )
+    # Twelve spaces because that is the column `{segments}` sits at below, and
+    # `_write` runs `textwrap.dedent`: a continuation line indented less than
+    # the block would shrink the common prefix and un-indent the whole fixture.
+    segments = ("\n" + " " * 12).join(f'/ "{part}"' for part in WAVE_10.split("/"))
     runner = _write(
         tmp_path,
         "tools/synthetic_runner.py",
@@ -428,8 +847,7 @@ def test_shape_4_the_indirect_execution_is_detected(tmp_path: pathlib.Path) -> N
 
         TARGET = (
             pathlib.Path(__file__).resolve().parents[1]
-            / "{WAVE_10.split("/")[0]}"
-            / "{WAVE_10.split("/")[1]}"
+            {segments}
         )
         ''',
     )

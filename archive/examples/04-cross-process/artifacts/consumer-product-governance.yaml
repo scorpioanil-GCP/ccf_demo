@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# The CONSUMER's product-governance numbers (syndicated-lending domain).
+#
+# The consumer registers its own MAX_TTL ceiling for the class it admits,
+# because the ceiling a consumer enforces is the consumer's policy — a peer does
+# not get to raise it by declaring a longer one.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: harborline-syndications.product-governance
+
+declaration:
+  max_ttl_seconds: 900

@@ -1,6 +1,6 @@
 """G-B — no projection derives `required_operators()` from the registry's keys.
 
-Plan 15-13 changed `examples/00-quickstart`'s `QuickstartPlan.required_operators()`
+Plan 15-13 changed `archive/examples/00-quickstart`'s `QuickstartPlan.required_operators()`
 to declare its keys from the `ccf.product-class` artifact rather than return
 `operators.keys()`, and 15-14 through 15-20 carried the same change through the
 rest of the suite. **That closes the instances. It does not close the pattern.**
@@ -77,7 +77,25 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 #: The trees a projection can live in. `tests/` is deliberately excluded: a
 #: test may legitimately build a deliberately-tautological plan to prove a
 #: guard fires, and this module is one of the places that happens.
-SCANNED_TREES: tuple[str, ...] = ("src", "runtime", "examples")
+#:
+#: `archive` joined in plan `23-03`, ahead of Phase 23's move of ten condemned
+#: example trees into `archive/examples/` (`D-03`). Nine of the fourteen
+#: `required_operators` implementations this scan finds live in those ten
+#: trees, so without the member the scan would find five after the move and
+#: :data:`MINIMUM_IMPLEMENTATIONS` would go red in a way that reads like a
+#: legitimate removal. **Widening the root is the honest fix and lowering the
+#: floor is not**: the same witnesses are found at the new path, so the count
+#: is preserved exactly, whereas a lowered floor buys a green build by
+#: shedding the coverage the floor exists to hold.
+#:
+#: The member is the top-level `archive`, matching this tuple's existing shape
+#: (tree names joined to `REPO_ROOT`, not path prefixes) — the same inheriting
+#: spelling `tools/lints/__main__.py::LINTED_TREES` took, and deliberately
+#: NOT the narrow spelling the default-deny publication allowlist took in plan
+#: `23-02`. Guarded by
+#: :func:`test_the_scan_root_membership_is_exactly_the_expected_set`, because
+#: the floor below cannot see one root being swapped for another.
+SCANNED_TREES: tuple[str, ...] = ("src", "runtime", "examples", "archive")
 
 #: The method whose return value is the declared side of Gate 2.
 TARGET_METHOD = "required_operators"
@@ -236,6 +254,44 @@ def test_the_scan_is_not_vacuous() -> None:
     assert len(found) >= MINIMUM_IMPLEMENTATIONS, [
         str(path.relative_to(REPO_ROOT)) for path, _ in found
     ]
+
+
+def test_the_scan_root_membership_is_exactly_the_expected_set() -> None:
+    """The floor above cannot see a root SWAP. This is the half that can.
+
+    ``23-RESEARCH.md`` finding **S-16**, stated at its sharpest here: setting
+    ``SCANNED_TREES = ("archive",)`` after Phase 23's move keeps
+    :data:`MINIMUM_IMPLEMENTATIONS` green on the very same witnesses — they
+    were merely renamed — while every projection under the SURVIVING
+    ``examples/`` trees silently stops being scanned. Both the count and the
+    exit code stay identical. A floor asserts a total, not a source.
+
+    So the source is asserted, and by set equality rather than by ``in``
+    checks: an ``in`` check passes over a tuple that has grown, and a tree
+    joining this scan quietly is the other direction of the same problem.
+
+    ``tests/`` stays excluded for the reason the constant's own comment
+    gives — a test may build a deliberately-tautological plan to prove a guard
+    fires — and ``archive`` was added in plan ``23-03``, before the move, so
+    that the widening could be proven a no-op while the archive did not yet
+    exist. The floor was NOT touched: widening the root preserves the count
+    exactly, because the same witnesses are found at the new path. Lowering
+    the floor is the fix that loses the coverage.
+    """
+    assert set(SCANNED_TREES) == {"src", "runtime", "examples", "archive"}, (
+        "this guard's scan roots changed. A root REMOVED stops a tree being"
+        " scanned with the floor still green; a root ADDED widens the guard"
+        " without review. Neither is visible in a count."
+    )
+    assert "examples" in SCANNED_TREES, (
+        "the live examples tree left the scan. After Phase 23 it still holds"
+        " the surviving example trees, and they are the ones a swap loses."
+    )
+    assert "archive" in SCANNED_TREES, (
+        "the archive left the scan. The ten condemned example trees keep their"
+        " projections after the move; a scan that stops at the archive"
+        " boundary reports a smaller tree, not a cleaner one."
+    )
 
 
 @pytest.mark.parametrize(

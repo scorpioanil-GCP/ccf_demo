@@ -21,7 +21,7 @@ for the whole of criterion 6.
 without an agent in front of it, and the split is Section 1's shape — every
 Section-1 example carries it, so plan 16-08's second example arms these
 assertions by existing rather than by being listed. Section 2 and 3 examples are
-out of scope here; ``examples/00-quickstart/run.py`` carries the same seven
+out of scope here; ``archive/examples/00-quickstart/run.py`` carries the same seven
 marker names in a single module, which is the pre-`D-11` shape this one
 replaces. It was never inside the `s1-*` glob these checks scan, so it is not a
 carve-out from a rule this module enforces — the checks below simply never see

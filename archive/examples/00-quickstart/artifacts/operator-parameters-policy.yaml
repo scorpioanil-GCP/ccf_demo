@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.policy.json
+# Policy category parameters (whitepaper §7.4; D-IMPL-76; banking domain,
+# D-IMPL-52).
+#
+# Read as: the payments-analyst perspective may see internally-classified
+# state, and each class carries its sensitivity in its own field.
+#
+# `classification_attribute_by_class` lives HERE rather than in the resolution
+# spec: one artifact, one consumer (D-03). It is read by the operator this
+# document configures, and by nothing else.
+#
+# This document deliberately declares NO `permitted_policy_bundle_versions`.
+# That set is a content hash minted at registration, so an adopter has no value
+# to author; `build_operator_registry` completes the parameter set from the
+# adopter-passed pins (D-IMPL-76). An entity class absent from the map below is
+# inadmissible, and an entity carrying no permitted classification is excluded:
+# the fabric does not admit state it cannot prove is admissible.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: every entity class name, attribute name and classification
+# value is [ADAPT]; the keys `classification_attribute_by_class` and
+# `permitted_classifications` are [MECHANISM].
+
+semver: "1.0.0"
+
+# Which attribute carries each class's policy classification — per class,
+# because a mandate's sensitivity and a customer's are different fields.
+classification_attribute_by_class:
+  customer: customer_classification
+  account: account_classification
+  mandate: mandate_classification
+  branch: branch_classification
+
+permitted_classifications:
+  - internal

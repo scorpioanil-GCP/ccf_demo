@@ -1,0 +1,176 @@
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.deployment-manifest.json
+# The one document naming what this deployment puts in force (D-06, D-08,
+# D-IMPL-80; financial-services domain, D-IMPL-52).
+#
+# Every artifact is ENUMERATED, never globbed: the set of Control Plane
+# artifacts in force is dimension 2 of the five-dimension Decision Replay
+# record, and a pattern would make that set a function of directory contents at
+# boot time with no artifact recording that a dropped-in file changed what was
+# in force. `ManifestEntry` refuses a glob at parse.
+#
+# The BACKEND is declared as a kind only (D-08). There is no DSN and no
+# database path here, deliberately: a connection string is a deployment
+# ENVIRONMENT value, and putting one in a versioned, content-hashed artifact
+# would persist it into the audit plane. `serve.py` supplies a scratch path and
+# `load_and_boot` refuses loudly if the declared kind and the supplied
+# connection argument disagree.
+#
+# Each `key` is the Control Plane key its artifact is in force under AND the
+# key it comes back under on `BootedFabric.artifacts`. `serve.py` and `run.py`
+# name these keys directly — they are this deployment's own vocabulary, so
+# those lines are configuration an adopter reads and edits, not type
+# introspection. Keys are short and unnamespaced here because two code files
+# name them as literals; the ONE Control Plane key that is not a manifest key —
+# the MAX_TTL ceiling in `product-class.yaml` — stays namespaced, because its
+# pin is minted by registration rather than by this file.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, every `key`, every `path`, and the
+# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: first-meridian-bank
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+    registration: typed
+
+  - path: policy-bundle.yaml
+    key: policy-bundle
+    class_id: first-meridian-bank.policy-bundle
+    role: register
+    registration: typed
+
+  - path: operator-parameters-traversal.yaml
+    key: traversal
+    class_id: ccf.operator-parameters.traversal
+    role: register
+    registration: typed
+
+  - path: operator-parameters-temporal.yaml
+    key: temporal
+    class_id: ccf.operator-parameters.temporal
+    role: register
+    registration: typed
+
+  - path: operator-parameters-policy.yaml
+    key: policy
+    class_id: ccf.operator-parameters.policy
+    role: register
+    registration: typed
+
+  - path: operator-parameters-similarity.yaml
+    key: similarity
+    class_id: ccf.operator-parameters.similarity
+    role: register
+    registration: typed
+
+  - path: perspective.yaml
+    key: perspective
+    class_id: ccf.perspective
+    role: register
+    registration: typed
+
+  - path: product-class.yaml
+    key: product-class
+    class_id: ccf.product-class
+    role: register
+    registration: typed
+
+  # The OTHER half of design E2's bound pair. `product-class.yaml` above
+  # carries the Control Plane claim that fills the product's lineage; this
+  # document carries what the projection actually requires, and it is what
+  # both plan sites read — `serve.py`'s and the replay environment's in
+  # `run.py`. Two separately authored documents, bound by
+  # `refuse_operator_set_divergence` between plan construction and
+  # `ProjectionEngine.execute` (D-IMPL-86 and its 2026-08-05 correction).
+  # `register`, because the operator set a projection depends on is part of
+  # what this fabric was permitted to do and belongs in replay dimension 2.
+  - path: projection-requirements.yaml
+    key: projection-requirements
+    class_id: ccf.projection-requirements
+    role: register
+    registration: typed
+
+  - path: product-governance.yaml
+    key: product-governance
+    class_id: first-meridian-bank.product-governance
+    role: register
+    registration: typed
+
+  # What this front door is permitted to expose. Re-authoring the allowlist,
+  # the auth issuer or a tool's advertised prose IS a change to what was in
+  # force, and a regulator asking "what could this deployment serve, and to
+  # whom" is asking for exactly this document — so it is registered.
+  - path: experience.yaml
+    key: experience
+    class_id: first-meridian-bank.experience-surface
+    role: register
+    registration: typed
+
+  # The one entity this deployment serves context for. `get_context` refuses
+  # every other reference, so this is a scope statement about what the fabric
+  # may serve, not a per-run input.
+  - path: focus.yaml
+    key: focus
+    class_id: first-meridian-bank.context-focus
+    role: register
+    registration: typed
+
+  # --- role: load — parsed and validated through the same seam as everything
+  #     above, then handed back on `BootedFabric.artifacts`. Never registered,
+  #     never pinned, never in replay dimension 2.
+
+  # The events batch is `role: load` and the SDK FIXES it that way (D-IMPL-80,
+  # SDK_ARTIFACT_ROLES): registering a signal batch would content-hash raw
+  # event data into Control Plane state and therefore into Decision Replay
+  # dimension 2, so re-authoring this file would look like a change to what was
+  # in force — exactly as a policy-bundle bump does. It is not. Events are what
+  # the fabric OBSERVED; the Control Plane is what the fabric was PERMITTED TO
+  # DO. Writing `role: register` here is refused before anything is read.
+  - path: events.yaml
+    key: events
+    class_id: ccf.signal-batch
+    role: load
+    registration: typed
+
+  # This run's decision instants. The deployment's own class, so the role is
+  # the deployment's call — and it is `load` for the same reason: what instant
+  # one run asked about is not part of what the fabric was permitted to do.
+  - path: decision.yaml
+    key: decision
+    class_id: first-meridian-bank.decision-inputs
+    role: load
+    registration: typed
+
+  # What the deployment expects the served product to contain. An expectation
+  # is not a permission, so it is parsed and returned, never put in force.
+  - path: expected.yaml
+    key: expected
+    class_id: first-meridian-bank.expected-product
+    role: load
+    registration: typed
+
+  # The SYNTHETIC bearer-token table. `role: load`, and never otherwise:
+  # registering it would content-hash credential material into the audit plane.
+  - path: tokens.yaml
+    key: tokens
+    class_id: first-meridian-bank.token-table
+    role: load
+    registration: typed

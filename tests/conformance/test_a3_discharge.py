@@ -28,7 +28,7 @@ This module is the discharge (plan 08-10, D-02 — not deferred again):
 * The regression half: a non-``ResultMessage`` object still raises the
   ``TypeError`` at the gate — discharging A3 must not have widened it.
 
-``examples/03-harness-portability``'s Claude leg routes its replay hook
+``archive/examples/03-harness-portability``'s Claude leg routes its replay hook
 through this same real-message path, so the example is the second half of
 the discharge evidence.
 

@@ -150,6 +150,22 @@ RULE_NODE_ID = "cite03-node-id"
 #: absent from it — ``references`` and the repo-root files — were scanned and
 #: carry none; they are excluded to keep the walk honest about what it covers
 #: rather than because nobody looked.
+#:
+#: ``archive`` joined in plan ``23-03``, ahead of Phase 23's move of ten
+#: condemned example trees into ``archive/examples/`` (``D-03``). Measured on
+#: the pre-move tree, **252** of the 1109 hosts this walk reads live inside
+#: those ten trees; without the member the walk would read 857 after the move
+#: and ``tests/invariants/test_citation_coverage.py::MINIMUM_SCANNED_CITATION_HOSTS``
+#: would go red in a way that reads like a legitimate removal. Archiving a file
+#: does not make its citations stop being claims about this tree.
+#:
+#: The member is the top-level ``archive`` rather than ``archive/examples``,
+#: matching this tuple's existing shape (tree names, not path prefixes) and
+#: ``tools/lints/__main__.py::LINTED_TREES``'s spelling. For a walk whose
+#: default is default-allow, the inheriting spelling is the safe one; the
+#: publication allowlist in ``tools/publish_scan.py`` deliberately took the
+#: narrow one for the opposite reason. Guarded by
+#: ``tools/lints/tests/test_scope.py``.
 GATED_TREES: tuple[str, ...] = (
     "src",
     "runtime",
@@ -161,6 +177,7 @@ GATED_TREES: tuple[str, ...] = (
     "perf",
     ".planning",
     ".github",
+    "archive",
 )
 
 #: Files whose citations are dated snapshots rather than maintained pointers,

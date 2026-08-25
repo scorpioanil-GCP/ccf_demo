@@ -204,7 +204,7 @@ mandate wearing a call-site check's clothing.
 deployment has a second operator-set document when its artifact tree
 **registers** one: any manifest under it declaring ``class_id:
 ccf.projection-requirements`` (:data:`REQUIREMENTS_CLASS_ID`). *Any* manifest,
-because the filename varies — ``examples/04-cross-process`` declares it in
+because the filename varies — ``archive/examples/04-cross-process`` declares it in
 ``producer-manifest.yaml``, so a fixed filename would answer wrongly there. A
 deployment that authors **one** document has no second operand for the binder
 to compare, and there is nothing for the call to do.
@@ -422,8 +422,8 @@ module narrows it, and a reader who takes "the binder tripwire was
 strengthened" for "dual authorship is now enforced" has taken the wrong
 conclusion.
 
-Granularity is the **lexical body, not the file**. ``examples/06-decision-replay/run.py``
-and ``examples/external/00-hello-context/run.py`` each carry two plan-construction
+Granularity is the **lexical body, not the file**. ``archive/examples/06-decision-replay/run.py``
+and ``archive/examples/external/00-hello-context/run.py`` each carry two plan-construction
 sites, and a file-level check would let one of the two go unbound while the file
 still passed.
 
@@ -484,11 +484,31 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 #: The trees a gate call site can live in. ``tests/`` is deliberately excluded
 #: — see the docstring's closing section.
-SCANNED_TREES: tuple[str, ...] = ("src", "runtime", "examples")
+#:
+#: ``archive`` joined in plan ``23-03``, ahead of Phase 23's move of ten
+#: condemned example trees into ``archive/examples/`` (``D-03``). Measured on
+#: the pre-move tree, 9 of the 12 gate call sites and 11 of the 14 projecting
+#: bodies live in those ten trees, so without the member all three floors below
+#: go red after the move — at 3, 3 and 1 — in a way that reads like a
+#: legitimate removal. **The roots were widened and no floor was touched.** The
+#: same witnesses are found at the new path, so every count is preserved
+#: exactly; lowering a floor instead is the fix that sheds the coverage, which
+#: is the trade :func:`test_the_binder_scan_is_not_vacuous` refuses in its own
+#: docstring.
+#:
+#: The member is the top-level ``archive``, matching this tuple's existing
+#: shape (tree names joined to ``REPO_ROOT``, not path prefixes) and
+#: ``tools/lints/__main__.py::LINTED_TREES``'s spelling — deliberately not the
+#: narrow ``archive/examples/`` the default-deny publication allowlist took in
+#: plan ``23-02``. Guarded by
+#: :func:`test_the_scan_root_membership_is_exactly_the_expected_sets`, because
+#: none of the three floors can see one root swapped for another.
+SCANNED_TREES: tuple[str, ...] = ("src", "runtime", "examples", "archive")
 
-#: The trees the binder-coverage tripwire scans. ``examples/`` only, and the
-#: docstring says why that is the honest scope rather than a shortfall.
-BINDER_SCANNED_TREES: tuple[str, ...] = ("examples",)
+#: The trees the binder-coverage tripwire scans. Example trees only, and the
+#: docstring says why that is the honest scope rather than a shortfall — the
+#: archive is example trees that were retired, not a new kind of subject.
+BINDER_SCANNED_TREES: tuple[str, ...] = ("examples", "archive")
 
 #: The gate call and the keyword carrying the engine's side of Gate 2.
 GATE_CALL = "run_gates"
@@ -515,7 +535,7 @@ BINDER_PLAN_KEYWORD = "plan"
 #: the product class's claim against the projection's OWN document, and a
 #: deployment that authors one document has no second operand for the
 #: comparison. Read from any manifest in the deployment's artifact tree —
-#: `examples/04-cross-process` declares it in `producer-manifest.yaml`, so a
+#: `archive/examples/04-cross-process` declares it in `producer-manifest.yaml`, so a
 #: fixed filename would answer wrongly there (D-IMPL-137).
 REQUIREMENTS_CLASS_ID = "ccf.projection-requirements"
 
@@ -596,7 +616,7 @@ CALL_MARKER = "()"
 #: One gate call site per body that serves a product — **twelve**, counted from
 #: the tree by executing :func:`_gate_scopes`: examples 00, 01, 02, 03,
 #: ``04-cross-process/producer_child.py``, 06, 07 and 08, plus
-#: ``examples/external/00-hello-context/serve.py``, the two spine examples
+#: ``archive/examples/external/00-hello-context/serve.py``, the two spine examples
 #: ``s1-00-companies-over-revenue/produce.py`` and
 #: ``s1-01-hello-context-product/spine.py``, and — added in Phase 17 —
 #: ``src/ccf/products/resolver.py::GovernedResolver.__call__``, the first
@@ -619,8 +639,8 @@ MINIMUM_GATE_CALL_SITES = 12
 #: Bodies that construct a plan and execute it — **fourteen**, counted from the
 #: tree by executing :func:`_projecting_scopes`, including the two replay
 #: environments' ``resolve_plan`` methods which construct one and return it
-#: (``examples/06-decision-replay/run.py``, which contributes two bodies, and
-#: ``examples/external/00-hello-context/run.py``), and — added in Phase 17 —
+#: (``archive/examples/06-decision-replay/run.py``, which contributes two bodies, and
+#: ``archive/examples/external/00-hello-context/run.py``), and — added in Phase 17 —
 #: ``examples/hw1-companies-over-revenue/deployment/projection.py::build_projection``,
 #: the client example's one permitted Python module.
 #:
@@ -644,8 +664,8 @@ MINIMUM_PROJECTING_BODIES = 14
 #: failure mode restated, so it is asserted rather than assumed.
 #:
 #: **Twelve, counted from the tree**, against thirteen projecting bodies: one
-#: readable site per binder call, with ``examples/06-decision-replay/run.py``
-#: and ``examples/external/00-hello-context/`` each contributing two (a serving
+#: readable site per binder call, with ``archive/examples/06-decision-replay/run.py``
+#: and ``archive/examples/external/00-hello-context/`` each contributing two (a serving
 #: body and a ``resolve_plan``), and **zero** unreadable. The thirteenth
 #: projecting body, ``examples/s1-00-companies-over-revenue/produce.py``,
 #: makes no binder call at all: it authors ONE operator-set document and is
@@ -1391,7 +1411,7 @@ def _registers_requirements(root: pathlib.Path | None) -> bool:
     """Whether this deployment registers a ``ccf.projection-requirements``.
 
     Any YAML in the artifact tree, because the manifest's filename varies —
-    ``examples/04-cross-process`` declares it in ``producer-manifest.yaml``.
+    ``archive/examples/04-cross-process`` declares it in ``producer-manifest.yaml``.
     A single-file deployment's ``ccf_config.yaml`` is scanned the same way:
     it can never actually carry this registration (`ccf.projection-requirements`
     is not one of `D-IMPL-136`'s eight reserved section names — see
@@ -1766,6 +1786,48 @@ def _gate_scopes() -> list[tuple[pathlib.Path, ast.AST]]:
                     found.append((path, scope))
                     break
     return found
+
+
+def test_the_scan_root_membership_is_exactly_the_expected_sets() -> None:
+    """The three floors in this module cannot see a root SWAP. This can.
+
+    ``23-RESEARCH.md`` finding **S-16**. All three counts below —
+    :data:`MINIMUM_GATE_CALL_SITES`, :data:`MINIMUM_PROJECTING_BODIES` and
+    :data:`MINIMUM_RESOLVED_BINDER_SITES` — are floors, and a floor asserts a
+    total, not a source. After Phase 23's move,
+    ``BINDER_SCANNED_TREES = ("archive",)`` alone keeps all of them green on
+    the identical witnesses while the surviving ``examples/`` trees stop being
+    scanned entirely. Nothing else in this module would say so.
+
+    Asserted by set equality, not by ``in`` checks. An ``in`` check passes over
+    a tuple that has grown, and growth is how a tree joins a scan nobody
+    reviewed.
+
+    ``archive`` was added in plan ``23-03`` *before* the move, so the widening
+    could be proven a strict no-op against a tree where ``archive/`` did not
+    yet exist. **No floor constant was touched.** Widening the root preserves
+    every count exactly — the same witnesses are found at the new path — and
+    :func:`test_the_binder_scan_is_not_vacuous` says why lowering one instead
+    is the fix that loses the coverage.
+    """
+    assert set(SCANNED_TREES) == {"src", "runtime", "examples", "archive"}, (
+        "the gate-call scan roots changed. `tests/` stays out for the reason"
+        " the module docstring gives; `examples` and `archive` must BOTH be in,"
+        " because after the move the witnesses are split across the two and a"
+        " count cannot tell which side it read them from."
+    )
+    assert set(BINDER_SCANNED_TREES) == {"examples", "archive"}, (
+        "the binder-coverage scan roots changed. This is the tightest of the"
+        " three floors and the one S-16 names: `('archive',)` alone keeps"
+        " 14/12 green on renamed witnesses while every surviving example stops"
+        " being scanned."
+    )
+    for name, trees in (
+        ("SCANNED_TREES", SCANNED_TREES),
+        ("BINDER_SCANNED_TREES", BINDER_SCANNED_TREES),
+    ):
+        assert "examples" in trees, f"{name} lost the live examples tree"
+        assert "archive" in trees, f"{name} lost the archive"
 
 
 def test_the_gate_scan_is_not_vacuous() -> None:
@@ -4337,7 +4399,7 @@ def test_the_plan_recognition_refuses_an_unrelated_required_keyword() -> None:
     **The evidence base was n = 1 when this was written; it is n = 2 today**
     (IN-02). Measured 2026-08-06: twelve calls under ``examples/`` pass
     ``required=``, eleven of them are plan constructions, and the twelfth is
-    ``examples/03-harness-portability/run.py::main``'s ``--mode``
+    ``archive/examples/03-harness-portability/run.py::main``'s ``--mode``
     ``add_argument``. On that count, making that one CLI flag optional — or
     retiring example 03 — turned a ``tests/products/`` Gate-2 test red for a
     reason with nothing to do with Gate 2.

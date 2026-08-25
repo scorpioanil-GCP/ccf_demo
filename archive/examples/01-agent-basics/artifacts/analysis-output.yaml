@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# Agent-basics scripted-analyst content (D-12 — keyless and model-free).
+#
+# The deterministic LLM-seam stub in `run.py` is mechanism only: its CLASS
+# lives in code, its canned output CONTENT lives here. These are structured
+# data records (not prompt text), which keeps CINV-01 mechanical over `run.py`:
+# zero prompt-shaped or domain string literals in code.
+#
+# **`role: load` in the manifest.** What a model said on one run is an
+# observation of that run, never a statement of what the fabric may do.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id`, the model identifier and every output record's
+# fields and values are [ADAPT]; the keys `semver`, `class_id`, `declaration`,
+# `model_version` and `outputs` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: cascadia-fieldworks.analysis-output
+
+declaration:
+  # Dimension-3 identifier the scripted stub reports (LLMClientProtocol
+  # `model_version`). A declared deployment value, not an SDK default.
+  model_version: scripted-analyst/2026-05-11
+
+  # The records the stub emits, in order, when the agent's analytic step asks
+  # for its next output. Field vocabulary is this deployment's.
+  outputs:
+    - finding: response-window-at-risk
+      subject: work-order:WO-88213
+      assigned_technician: technician:CFW-TECH-0417
+      recommended_action: escalate-to-standby-crew

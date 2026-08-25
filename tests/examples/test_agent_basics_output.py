@@ -1,6 +1,6 @@
 """Example 01's assertions, under a runner that can actually fail (D-09).
 
-``examples/01-agent-basics/run.py`` used to carry its own guarantee: 38
+``archive/examples/01-agent-basics/run.py`` used to carry its own guarantee: 38
 ``assert`` statements and 9 ``print`` summaries, checked by ``make example-01``
 exiting zero. D-09 moves that guarantee here, because ``make examples`` proves a
 spine *runs* and ``pytest`` proves it is *correct* — and a printed summary
@@ -135,7 +135,7 @@ from ccf.llm import LLMClientProtocol
 from ccf.replay.record import NO_GRANTS_SET_HASH, DecisionReplayRecord
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE = REPO_ROOT / "examples" / "01-agent-basics" / "run.py"
+EXAMPLE = REPO_ROOT / "archive" / "examples" / "01-agent-basics" / "run.py"
 
 
 def _load_example() -> Any:

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.similarity.json
+# Similarity category parameters (whitepaper §7.4; banking domain, D-IMPL-52).
+#
+# Read as: rank ledger movements against the memo query at or above 50%.
+#
+# `similarity_corpus_attribute_by_class` lives HERE rather than in the
+# resolution spec: one artifact, one consumer (D-03). The SDK holds no corpus;
+# the deployment says what text means "this movement". Two rules govern it and
+# they get opposite answers (plan 15-11):
+#
+#   * a class ABSENT from this map contributes no corpus entry, silently — the
+#     map is this deployment's statement of which classes are rankable;
+#   * an entity of a class this map NAMES that carries no such attribute is
+#     REFUSED at registry-build time. Refuse, never repair: skipping it would be
+#     a governed omission produced by no rule anyone wrote down.
+#
+# The corpus's version identity is not here. It is a property of the graph state
+# at a named boundary, not of these parameters, so the deployment assigns it
+# alongside the boundary (see `product-governance.yaml`) — INV-CH7-27.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the query text, the threshold, every entity class name and the
+# attribute name are [ADAPT]; the keys `query`, `minimum_score_percent`,
+# `ranked_entity_classes` and `similarity_corpus_attribute_by_class` are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+query: "standing order"
+minimum_score_percent: 50
+ranked_entity_classes:
+  - movement
+
+similarity_corpus_attribute_by_class:
+  movement: movement_memo

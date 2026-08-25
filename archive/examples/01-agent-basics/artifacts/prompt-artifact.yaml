@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.prompt-artifact.json
+# Agent-basics prompt artifact (CLAUDE.md §6.2 axis 6; D-IMPL-28; D-13).
+#
+# The template text and its declared parameters live here, never in code — a
+# prompt string literal in `run.py` would be the No-Hardcoding Rule (§6.4)
+# firing, and CINV-01 lints `/examples` for exactly that. Validation is
+# parse-only (D-13): `declared_parameters` must exactly equal the set Jinja2
+# reports as undeclared variables in `template`; nothing renders here.
+#
+# Author-versioned like the agent definition, and absent from the manifest for
+# the same reason — see `agent-registration.yaml`.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the artifact name, tenant, template text and parameter names
+# are [ADAPT]; the keys `schema_version`, `artifact_version`, `name`, `tenant`,
+# `declared_parameters` and `template` are [MECHANISM].
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+name: work-order-briefing
+tenant: cascadia-fieldworks
+declared_parameters: [work_order_ref, as_of]
+template: |
+  Brief the on-call dispatcher on work order {{ work_order_ref }} as of
+  {{ as_of }}: current assignment, time since the fault was observed, and
+  whether the response-time commitment is still achievable.

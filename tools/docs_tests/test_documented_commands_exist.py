@@ -198,9 +198,14 @@ def test_the_gate_refuses_an_undocumented_composed_example() -> None:
     The Makefile text is mutated in memory rather than on disk — this plan does
     not own the Makefile (plan 16-12 does), and a control that edits the tree to
     prove a point is a control that can leave the tree edited.
+
+    The injection anchors on ``examples: example-`` rather than on any
+    particular member. It used to name ``example-00`` and stopped taking the
+    moment plan 23-09 deleted that target — the ``assert`` below caught it,
+    which is the whole reason a fixture carries its own non-vacuity guard.
     """
     mutated = _makefile_text().replace(
-        "examples: example-00", "examples: example-99 example-00", 1
+        "examples: example-", "examples: example-99 example-", 1
     )
     assert "example-99" in composed_examples(mutated), "the fixture did not take"
     offenders = undocumented_examples(_prose.published_pages(), mutated)

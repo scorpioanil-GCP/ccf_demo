@@ -55,7 +55,7 @@ work out the gap:
   the seam claim, and it is real.
 * Loop-level execution — one agent definition genuinely *running* under two
   harnesses' own loops — is **example 03's obligation in Phase 8**
-  (``examples/03-harness-portability``, D-06). The stronger claim is handed on
+  (``archive/examples/03-harness-portability``, D-06). The stronger claim is handed on
   rather than dropped.
 * Every equality this module asserts has an *observed* failure mode, added by
   06-20 so that no assertion here is green for a reason unrelated to
@@ -73,7 +73,7 @@ work out the gap:
   harness, decides what an effect is" — which is the governed-emission claim CCF
   actually wants — and not as three independent implementations agreeing.
 
-The polished ``examples/03-harness-portability`` directory with its README is
+The polished ``archive/examples/03-harness-portability`` directory with its README is
 Phase 8 scope (D-06). This is the I.3 precursor, and it ships as conformance
 rather than as an example so the claim is in CI from the wave it was made.
 

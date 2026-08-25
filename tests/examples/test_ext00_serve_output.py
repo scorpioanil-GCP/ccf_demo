@@ -1,4 +1,4 @@
-"""What `examples/external/00-hello-context/serve.py` assembled, and what an
+"""What `archive/examples/external/00-hello-context/serve.py` assembled, and what an
 external consumer actually received (plan 15-20).
 
 `make example-ext-00` proves the spine runs; `pytest` proves it is correct
@@ -89,7 +89,7 @@ from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
 from ccf.products.gates import ServableProduct
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE_DIR = REPO_ROOT / "examples" / "external" / "00-hello-context"
+EXAMPLE_DIR = REPO_ROOT / "archive" / "examples" / "external" / "00-hello-context"
 
 
 def _load_module(name: str, path: pathlib.Path) -> Any:

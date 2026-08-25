@@ -1,6 +1,6 @@
 """Example 02's assertions, under a runner that can actually fail (D-09).
 
-``examples/02-skilling/run.py`` used to carry its own guarantee: 60 ``assert``
+``archive/examples/02-skilling/run.py`` used to carry its own guarantee: 60 ``assert``
 statements and 8 ``print`` summaries, checked by ``make example-02`` exiting
 zero. D-09 moves that guarantee here, because ``make examples`` proves a spine
 *runs* and ``pytest`` proves it is *correct*.
@@ -117,7 +117,7 @@ from ccf.replay.record import NO_GRANTS_SET_HASH, DecisionReplayRecord
 from ccf.skills.grants import RequirementsExceedRegime, grant_set_hash
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE = REPO_ROOT / "examples" / "02-skilling" / "run.py"
+EXAMPLE = REPO_ROOT / "archive" / "examples" / "02-skilling" / "run.py"
 
 
 def _load_example() -> Any:

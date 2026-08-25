@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.agent-definition.json
+# Agent-basics agent definition — a declared, versioned Control Plane artifact
+# (CLAUDE.md §6.1/§6.2; D-IMPL-28). Field-service domain, D-IMPL-52.
+#
+# All six specialization axes are here, as values. `/src` holds none of them:
+# the SDK ships the six-axis schema and the Agent Factory, never a specific
+# agent (CLAUDE.md §6.1 — "any agent found in library code is a defect";
+# No-Hardcoding Rule §6.4). Instruction bindings are versioned-URI refs only;
+# an inline prompt string here or anywhere else is a D-13 violation.
+#
+# This document is NOT named by `manifest.yaml`. It carries D-IMPL-28 two-field
+# versioning and registers through `register_versioned`, which holds
+# `artifact_version` against content identity (the D-05 bump check);
+# `load_and_boot` registers through `register_typed`, which does not. See
+# `agent-registration.yaml` for the key `run.py` registers it under.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the agent name, tenant, role, region, every URI and parameter
+# name are [ADAPT]; the six axis keys (`archetypes`, `context_contract`,
+# `perspective`, `policy_regime`, `halflife_debt_profile`,
+# `instruction_bindings`), the versioning keys (`schema_version`,
+# `artifact_version`) and `ref` are [MECHANISM].
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+name: response-time-analytics
+tenant: cascadia-fieldworks
+
+# axis 1 — ordered archetype list (D-IMPL-19)
+archetypes: [analytics_insights]
+
+# axis 2 — context contract: the product class the fabric in this example
+# actually serves (`product-class.yaml`), so the agent consumes a real gated
+# product.
+context_contract:
+  consumes:
+    - product_class: cascadia-fieldworks.work-order-context
+      schema_version: "1.0.0"
+
+# axis 3 — perspective (Π role-conditioning). The same role `perspective.yaml`
+# serves the product under; the served payload's `role` field is the witness.
+perspective:
+  role: dispatch-analyst
+  selection_params:
+    region: pacific-northwest
+
+# axis 4 — policy regime (versioned-URI ref, never inline). Resolves to the
+# key `agent-policy-regime.yaml` is registered under by the manifest.
+policy_regime:
+  ref: "ccf-artifact://cascadia-fieldworks/policy-bundle/field-operations@1.0.0"
+
+# axis 5 — half-life and debt profile (versioned-URI ref) -> agent-debt-profile.yaml
+halflife_debt_profile:
+  ref: "ccf-artifact://cascadia-fieldworks/debt-profile/dispatch-window-review@1.0.0"
+
+# axis 6 — instruction bindings: refs plus declared parameter names (D-13)
+instruction_bindings:
+  - prompt: "ccf-artifact://cascadia-fieldworks/prompt/work-order-briefing@1.0.0"
+    parameters: [work_order_ref, as_of]

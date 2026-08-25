@@ -1,0 +1,242 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.deployment-manifest.json
+# The one document naming what this deployment puts in force (D-06, D-08,
+# D-IMPL-80; energy/grid-ops domain, D-IMPL-52).
+#
+# Every artifact is ENUMERATED, never globbed: the set of Control Plane
+# artifacts in force is dimension 2 of the five-dimension Decision Replay
+# record, and a pattern would make that set a function of directory contents at
+# boot time with no artifact recording that a dropped-in file changed what was
+# in force. `ManifestEntry` refuses a glob at parse. In this example that
+# property is not abstract — the replay leg resolves dimension 2 back out of the
+# record and refuses a version the Control Plane never registered.
+#
+# The BACKEND is declared as a kind only (D-08). There is no DSN and no database
+# path here, deliberately: a connection string is a deployment ENVIRONMENT
+# value, and putting one in a versioned, content-hashed artifact would persist
+# it into the audit plane.
+#
+# Each `key` is the Control Plane key its artifact is in force under AND the key
+# it comes back under on `BootedFabric.artifacts`. Short unnamespaced keys are
+# this deployment's own vocabulary and `run.py` names them as literals; the four
+# ref-resolved entries keep their full namespaced keys because those keys are
+# what an agent definition's, a task definition's or a workflow definition's
+# versioned-URI refs resolve against, and a ref and its key must be the same
+# string.
+#
+# **What is NOT here, and why.** Seven documents in this directory are outside
+# the manifest, each for a stated reason rather than by omission:
+#
+#   * `agent-definition.yaml`, `prompt-artifact.yaml`,
+#     `skill-catalog-entry.yaml`, `task-definition.yaml`,
+#     `workflow-definition.yaml` — `ccf.agent-definition`,
+#     `ccf.prompt-artifact`, `ccf.skill-catalog-entry`, `ccf.task-definition`
+#     and `ccf.workflow-definition` are **author-versioned** SDK-owned classes.
+#     Every one of them registers through `register_versioned`, which holds the
+#     author's version claim against content identity (the D-05 bump check);
+#     `register_typed` does not run that check. So they are deliberately absent
+#     from `SDK_ARTIFACT_CLASSES`. A manifest CAN name them, as
+#     `registration: versioned`; declaring `typed` for one is refused at
+#     preflight (D-IMPL-85), because that entry would parse fine while dropping
+#     the governance the class exists to carry. They stay in `run.py` so the
+#     bump check is visible at the call site. They still carry real `$schema`
+#     headers — plan 15-14 committed their schemas.
+#   * `hitl-policy.yaml`, `scope-mapping.yaml` — `ccf.hitl-policy` and
+#     `ccf.scope-mapping` are SDK-owned classes that genuinely are NOT
+#     manifest-addressable: they appear in neither `SDK_ARTIFACT_CLASSES` nor
+#     `SDK_VERSIONED_ARTIFACT_CLASSES`, and the `ccf.` prefix is RESERVED
+#     (D-IMPL-84), so a manifest entry naming one is REFUSED at load rather
+#     than resolved to the open `DeclaredArtifact` envelope. The refusal is the
+#     improvement: the envelope would have handed the transport and the
+#     authorizer — which read their real contracts back off the Control Plane
+#     by key — the wrong type, silently. `run.py` registers both itself.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, every `key`, every `path`, and the
+# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: boreal-grid
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+    registration: typed
+
+  - path: policy-bundle.yaml
+    key: policy-bundle
+    class_id: boreal-grid.policy-bundle
+    role: register
+    registration: typed
+
+  - path: operator-parameters-traversal.yaml
+    key: traversal
+    class_id: ccf.operator-parameters.traversal
+    role: register
+    registration: typed
+
+  - path: operator-parameters-temporal.yaml
+    key: temporal
+    class_id: ccf.operator-parameters.temporal
+    role: register
+    registration: typed
+
+  - path: operator-parameters-policy.yaml
+    key: policy
+    class_id: ccf.operator-parameters.policy
+    role: register
+    registration: typed
+
+  - path: operator-parameters-similarity.yaml
+    key: similarity
+    class_id: ccf.operator-parameters.similarity
+    role: register
+    registration: typed
+
+  - path: perspective.yaml
+    key: perspective
+    class_id: ccf.perspective
+    role: register
+    registration: typed
+
+  - path: product-class.yaml
+    key: product-class
+    class_id: ccf.product-class
+    role: register
+    registration: typed
+
+  # The OTHER half of design E2's bound pair. `product-class.yaml` above
+  # carries the Control Plane claim that fills the product's lineage; this
+  # document carries what the projection actually requires, and it is what
+  # both of `run.py`'s plan sites read. Two separately authored documents,
+  # bound by `refuse_operator_set_divergence` between plan construction and
+  # `ProjectionEngine.execute` (D-IMPL-86 and its 2026-08-05 correction).
+  # `register`, because the operator set a projection depends on is part of
+  # what this fabric was permitted to do and belongs in replay dimension 2.
+  - path: projection-requirements.yaml
+    key: projection-requirements
+    class_id: ccf.projection-requirements
+    role: register
+    registration: typed
+
+  - path: product-governance.yaml
+    key: product-governance
+    class_id: boreal-grid.product-governance
+    role: register
+    registration: typed
+
+  # The agent's axis-4 and axis-5 declarations, under the keys its versioned-URI
+  # refs resolve against. `register`, because a policy regime and a debt profile
+  # are precisely "what this agent was permitted to do".
+  - path: agent-policy-regime.yaml
+    key: boreal-grid/policy-bundle/grid-operations-regime
+    class_id: policy-bundle
+    role: register
+    registration: typed
+
+  - path: agent-debt-profile.yaml
+    key: boreal-grid/debt-profile/load-shed-review
+    class_id: debt-profile
+    role: register
+    registration: typed
+
+  # What the task's first step may invoke, and who may approve at the gate.
+  # `register`: both are standing statements of what the fabric may do, and the
+  # keys are what the definitions' refs resolve against.
+  - path: task-skill.yaml
+    key: boreal-grid/skill/collect-feeder-telemetry
+    class_id: skill
+    role: register
+    registration: typed
+
+  - path: approval-policy.yaml
+    key: boreal-grid/approval-policy/shift-supervisor
+    class_id: approval-policy
+    role: register
+    registration: typed
+
+  # --- role: load — parsed and validated through the same seam as everything
+  #     above, then handed back on `BootedFabric.artifacts`. Never registered,
+  #     never pinned, never in replay dimension 2.
+
+  # The events batch. The SDK FIXES this role (D-IMPL-80, SDK_ARTIFACT_ROLES);
+  # writing `role: register` here is refused before anything is read.
+  - path: events.yaml
+    key: events
+    class_id: ccf.signal-batch
+    role: load
+    registration: typed
+
+  # This run's decision instants. The deployment's own class, so the role is the
+  # deployment's call — and it is `load` because what instant one run asked
+  # about is not part of what the fabric was permitted to do.
+  - path: decision.yaml
+    key: decision
+    class_id: boreal-grid.decision-inputs
+    role: load
+    registration: typed
+
+  # What the deployment expects the product to contain. An expectation is not a
+  # permission, so it is parsed and returned, never put in force.
+  - path: expected.yaml
+    key: expected
+    class_id: boreal-grid.expected-product
+    role: load
+    registration: typed
+
+  # Where the seven driver-registered documents file in the Control Plane.
+  # Wiring the driver reads; the artifacts themselves are registered by
+  # `register_versioned`/`register_typed`, not from here.
+  - path: agent-registration.yaml
+    key: agent-registration
+    class_id: boreal-grid.agent-registration
+    role: load
+    registration: typed
+
+  # The grant request and the dispatch. `load`: the ledger audits the grant
+  # independently when it admits it, so registering the request would record the
+  # asking as well as the granting.
+  - path: skill-dispatch.yaml
+    key: skill-dispatch
+    class_id: boreal-grid.skill-dispatch
+    role: load
+    registration: typed
+
+  # What this run's human actors do. The POLICY governing them is registered
+  # (`hitl-policy.yaml`, `approval-policy.yaml`); one run's actions are not.
+  - path: hitl-drive.yaml
+    key: hitl-drive
+    class_id: boreal-grid.hitl-drive
+    role: load
+    registration: typed
+
+  # Synthetic credential material. `load`, and never otherwise: registering it
+  # would content-hash tokens into the audit plane.
+  - path: tokens.yaml
+    key: tokens
+    class_id: boreal-grid.token-table
+    role: load
+    registration: typed
+
+  # The two negative probes. `load`: a probe is not a permission — putting it in
+  # force would say the fabric was permitted to resolve an unregistered version,
+  # which is the opposite of what the probe proves.
+  - path: replay-probes.yaml
+    key: replay-probes
+    class_id: boreal-grid.replay-probes
+    role: load
+    registration: typed

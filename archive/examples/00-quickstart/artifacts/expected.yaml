@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# What the served product should contain, as declared by the deployment that
+# authored the events (banking domain, D-IMPL-52).
+#
+# This document exists so that `tests/examples/test_quickstart_output.py` has a
+# source for its domain expectations OTHER THAN ITSELF. A value the test module
+# authored would be the test agreeing with itself about what this deployment's
+# vocabulary says; read from here, the assertion is against the deployment's
+# own declaration. CINV-01 now reaches `tests/` (D-IMPL-78) and will flag an
+# inlined domain literal, but the discipline is the point, not the lint.
+#
+# **`role: load` in the manifest.** An expectation is not something the fabric
+# is permitted to do, so it has no business in Control Plane state or in replay
+# dimension 2. It is parsed, validated, and handed back — which is exactly what
+# `role: load` means.
+#
+# Only DOMAIN expectations live here. Values that are SDK mechanism — that a
+# keyless deployment records `model_version: none`, that the replay content
+# address is the record's content hash — are asserted directly in the test
+# module, because they are claims about the SDK rather than about this domain.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: meridian-bank.expected-product
+
+declaration:
+  # The mandate is absent and the account it authorized survives: the policy
+  # operator substituted the RESTRICTED node out along with the edge that would
+  # otherwise have leaked its existence by absence. The second account is
+  # absent because similarity ranked it out.
+  entity_classes:
+    - customer
+    - account
+    - branch
+  relationship_types:
+    - holds
+    - domiciled_at
+  entity_count: 3

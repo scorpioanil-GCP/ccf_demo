@@ -1,24 +1,22 @@
-# Example 03 live legs — opt-in by design (D-11). The deterministic pipeline
-# runs unconditionally in ci.yml; these jobs exercise the same three harness
-# legs against a *live* model and are dispatched manually.
+# THE TWO LIVE HARNESS-PORTABILITY JOBS WERE REMOVED IN PHASE 23 and this file
+# now carries the D-09 fluree upstream-drift detector alone. Each ran a `make`
+# target that no longer exists: both were deleted with the tree they ran
+# (D-04, D-IMPL-193, D-IMPL-195 ruling 1), because
+# `archive/examples/03-harness-portability` is no longer the teaching path.
+# Dave's reason for deleting rather than re-pointing is on the record —
+# *"Re-pointing into archive keeps CI load on unsupported trees."* A deleted
+# target with a live workflow still calling it is a broken workflow, not a
+# retirement, so the jobs went with the targets.
 #
-# Primary way to exercise the Ollama leg is a local run against a local Ollama
-# (`make example-03-live-ollama` — see examples/03-harness-portability/README.md
-# and the 08-CONTEXT discretion note); this workflow exists so the leg can also
-# be run on a GitHub-hosted runner. Runners are CPU-only (~16GB RAM), so only a
-# small model is feasible and runs are slow (08-RESEARCH.md Pitfall 2).
+# The file KEEPS its name and path. Five documents outside this phase's scope
+# reference `.github/workflows/live-legs.yml` by path (README.md, the Makefile,
+# docs/PHASE_I5_GATE.md, docs/09-ruling-batch-minicycle.md and the coupling
+# report), and renaming it to match its remaining contents would trade one
+# stale reference for five.
 name: live-legs
 
 on:
   workflow_dispatch:
-    inputs:
-      ollama_model:
-        description: >-
-          Ollama model for the live leg (must be small enough for a CPU-only
-          runner — qwen3:0.6b-class)
-        required: false
-        default: "qwen3:0.6b"
-        type: string
   schedule:
     # Plan 15.3-05, D-09: the fluree upstream-drift detector, run against the
     # FLOATING 4.1 tag while ci.yml pins 4.1.4 exactly. Justification: 12 v4
@@ -31,112 +29,17 @@ on:
     # when a human asked for it; from here it consumes them on a cadence. The
     # cost was accepted on the record as threat T-15.3-19 (weekly, one leg,
     # seconds of runtime against a ~70 MB Rust binary), so it is a decision
-    # rather than a side effect. The two manually-dispatched example-03 legs
-    # below are NOT scheduled — GitHub runs every job in a workflow on every
-    # trigger unless the job says otherwise, so each of those two carries an
-    # explicit `if: github.event_name == 'workflow_dispatch'`. `fluree-drift`
-    # deliberately carries no guard: it should answer to both triggers, so a
-    # human can ask "has upstream moved?" without waiting for Monday.
+    # rather than a side effect. `fluree-drift` deliberately carries no
+    # `if:` guard: it should answer to both triggers, so a human can ask
+    # "has upstream moved?" without waiting for Monday. It is now the only
+    # job here, so the trigger surface and the job set finally agree — the
+    # two live harness-portability legs that needed
+    # `if: github.event_name == 'workflow_dispatch'` to stay opt-in were
+    # deleted in Phase 23 (see the file header).
     - cron: "0 7 * * 1"      # weekly, Mondays 07:00 UTC — a cadence, not a
                              # value; tune freely without a decision.
 
 jobs:
-  examples-live-ollama:
-    name: example 03 live leg (Ollama, keyless — D-03)
-    runs-on: ubuntu-latest
-    # Dispatch only. The `schedule:` trigger added for the fluree drift
-    # detector would otherwise pull this job along with it — GitHub runs every
-    # job in a workflow on every trigger — turning an opt-in 15-minute
-    # CPU-only model run into a weekly one nobody asked for. D-11 makes this
-    # leg opt-in; the guard is what keeps it opt-in after the trigger surface
-    # widened.
-    if: github.event_name == 'workflow_dispatch'
-    # CPU-only runner safeguard (Ollama SUG5): a slow model pull or generation
-    # must not hang the runner.
-    timeout-minutes: 15
-
-    env:
-      CCF_OLLAMA_BASE_URL: "http://127.0.0.1:11434"
-      CCF_OLLAMA_MODEL: ${{ inputs.ollama_model }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install package with dev extras
-        run: python -m pip install -e ".[dev]"
-
-      - name: Provision .venv for the Makefile command surface
-        run: |
-          python -m venv .venv
-          .venv/bin/pip install -e ".[dev]"
-
-      - name: Install Ollama (official install script)
-        run: curl -fsSL https://ollama.com/install.sh | sh
-
-      - name: Start Ollama and pull the model
-        run: |
-          ollama serve &
-          # Wait for the server to answer before pulling.
-          for i in $(seq 1 30); do
-            curl -fsS "$CCF_OLLAMA_BASE_URL/api/tags" >/dev/null 2>&1 && break
-            sleep 1
-          done
-          ollama pull "$CCF_OLLAMA_MODEL"
-
-      - name: Run example 03 live leg (Ollama)
-        run: make example-03-live-ollama
-
-  examples-live-anthropic:
-    name: example 03 live leg (Anthropic, secret-gated — D-11)
-    runs-on: ubuntu-latest
-    # Dispatch only, same reason as the Ollama leg above — and one sharper: a
-    # scheduled run of this job spends real API credit weekly, and on a
-    # repository without the secret it would go red every Monday for a reason
-    # unrelated to anything anyone changed.
-    if: github.event_name == 'workflow_dispatch'
-    timeout-minutes: 15
-
-    steps:
-      - uses: actions/checkout@v4
-
-      # Fail fast with a clear message when the secret is absent, before any
-      # setup work. The key reaches only this job and is never echoed
-      # (T-08-28); the deterministic pipeline in ci.yml is keyless.
-      - name: Require ANTHROPIC_API_KEY secret
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          if [ -z "$ANTHROPIC_API_KEY" ]; then
-            echo "::error::ANTHROPIC_API_KEY secret is not configured for this" \
-              "repository. Add it under Settings > Secrets and variables >" \
-              "Actions, then re-dispatch this workflow."
-            exit 1
-          fi
-          echo "ANTHROPIC_API_KEY secret is present."
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install package with dev extras
-        run: python -m pip install -e ".[dev]"
-
-      - name: Provision .venv for the Makefile command surface
-        run: |
-          python -m venv .venv
-          .venv/bin/pip install -e ".[dev]"
-
-      - name: Run example 03 live leg (Anthropic)
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: make example-03-live-anthropic
-
   # ---------------------------------------------------------------------
   # The D-09 upstream-drift detector (plan 15.3-05).
   #

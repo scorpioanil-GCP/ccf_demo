@@ -17,7 +17,13 @@ coverage.xml
 # Perf battery run outputs are never committed (Phase 11 D-02); baselines are.
 perf/results/
 # Runtime ArtifactStore output of examples/external servers — never committed.
+# The archive line is the identity re-point of the line above, added at plan
+# 23-04: the ten condemned trees moved to `archive/examples/`, the pattern above
+# stopped matching, and 17 generated files under
+# `archive/examples/external/00-hello-context/.store/` became visibly untracked.
+# The archived trees stay RUNNABLE (D-04), so this output keeps being produced.
 examples/external/*/.store/
+archive/examples/external/*/.store/
 # Build output of `mkdocs build` — never committed (D-02 / 14-RESEARCH Pitfall 6);
 # `public/` and `openapi.json` are the committed halves.
 site/

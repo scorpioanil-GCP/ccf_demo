@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.deployment-manifest.json
+# The CONSUMER deployment's manifest (D-06, D-08, D-IMPL-80;
+# syndicated-lending domain, whitepaper §8.3 Pattern 4).
+#
+# The second of this example's two manifests — see `producer-manifest.yaml` for
+# why there are two. The consuming fabric has its own Control Plane, its own
+# graph and its own replay dimension 2, and the A2A trust boundary exists
+# precisely because the producer's artifact set is not in force here.
+#
+# Three documents below are content-identical to a producer document and are
+# still separate files: `consumer-policy-bundle.yaml`,
+# `consumer-product-class.yaml` and the ceiling in
+# `consumer-product-governance.yaml`. Each states, on the consumer's own
+# authority, what it will admit. Sharing one file would make the agreement
+# unfalsifiable — an edit would move both ends together and the admission check
+# would keep passing for a reason unrelated to what it verifies.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, every `key`, every `path`, and the
+# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: harborline-syndications
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: consumer-resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+    registration: typed
+
+  - path: consumer-policy-bundle.yaml
+    key: policy-bundle
+    class_id: harborline-syndications.policy-bundle
+    role: register
+    registration: typed
+
+  - path: consumer-product-class.yaml
+    key: product-class
+    class_id: ccf.product-class
+    role: register
+    registration: typed
+
+  - path: consumer-product-governance.yaml
+    key: product-governance
+    class_id: harborline-syndications.product-governance
+    role: register
+    registration: typed
+
+  # Who this fabric admits from, and what shape of peer claim it turns into
+  # signal. Both are standing statements of what it was permitted to do.
+  - path: peering-trust.yaml
+    key: peering-trust
+    class_id: harborline-syndications.peering-trust
+    role: register
+    registration: typed
+
+  - path: federation-ingest.yaml
+    key: federation-ingest
+    class_id: harborline-syndications.federation-ingest
+    role: register
+    registration: typed
+
+  # --- role: load — parsed and validated through the same seam as everything
+  #     above, then handed back on `BootedFabric.artifacts`. Never registered,
+  #     never pinned, never in replay dimension 2.
+
+  # This run's admission instant. A run's inputs are not permissions.
+  - path: consumer-decision.yaml
+    key: decision
+    class_id: harborline-syndications.decision-inputs
+    role: load
+    registration: typed
+
+  # The consumer's own lineage at admission — a statement about its state at one
+  # instant, not about what it may do.
+  - path: consumer-lineage.yaml
+    key: consumer-lineage
+    class_id: harborline-syndications.consumer-lineage
+    role: load
+    registration: typed

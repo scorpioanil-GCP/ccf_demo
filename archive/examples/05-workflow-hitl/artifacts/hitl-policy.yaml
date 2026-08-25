@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.hitl-policy.json
+# The D-16 Control Plane value governing every human action at the authority path
+# (CLAUDE.md §8.2; D-IMPL-20/21).
+#
+# `signed_binding_required: true` means a submission without a verifiable
+# `SignedPrincipalBinding` is refused before it lands. The transport re-resolves
+# this policy per submission, so flipping the value here flips behaviour with
+# zero code change — which is the point of it being an artifact rather than a
+# constructor argument.
+#
+# **Not addressable by the manifest, and this one really is not.**
+# `ccf.hitl-policy` is an SDK-owned class absent from BOTH
+# `SDK_ARTIFACT_CLASSES` and `SDK_VERSIONED_ARTIFACT_CLASSES`, and the `ccf.`
+# prefix is reserved — so a manifest entry naming it is REFUSED at load
+# (D-IMPL-84). It used to resolve to the open `DeclaredArtifact` envelope, which
+# is what the refusal replaced: the transport reads its real contract back off
+# the Control Plane by key and would have found the wrong type there, silently.
+# `run.py` registers it itself.
+#
+# `role: register` in spirit and in fact: a HITL policy is the standing statement
+# of what a human was permitted to do. The RUN's human actions are separate, and
+# they are `hitl-drive.yaml`, which is `role: load`.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the VALUE of `signed_binding_required` is [ADAPT]; the keys
+# `semver` and `signed_binding_required` are [MECHANISM].
+
+semver: "1.0.0"
+signed_binding_required: true

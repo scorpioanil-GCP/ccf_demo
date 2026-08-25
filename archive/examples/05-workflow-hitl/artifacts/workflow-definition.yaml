@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.workflow-definition.json
+# Workflow-HITL workflow definition (CLAUDE.md §8.1; D-IMPL-28; SDK-defined).
+# Wraps the pinned loan-disbursement task and adds ONLY routing: transitions,
+# terminal states, the per-node exception ref that drives the ExceptionEscalation
+# path, and the per-gate approval-policy binding. Every routing value lives here,
+# never in code (§6.4; CINV-01).
+#
+# **Registered by the driver, and this is the ruling plan 15-19 was asked to
+# make.** `ccf.workflow-definition` is author-versioned: it registers through
+# `register_versioned`, which holds the author's `artifact_version` claim against
+# content identity (the D-05 bump check). `register_typed` does not run that
+# check — a workflow's routing could be re-authored under an unchanged version
+# and nothing would refuse it — which is why a manifest entry declaring
+# `registration: typed` for this class is refused at preflight (D-IMPL-85).
+# A manifest may name it as `registration: versioned`; `run.py` registers it
+# itself, under the key `agent-registration.yaml` names, so the bump check is
+# visible at the call site.
+#
+# The two documents this one used to carry inline under `referenced_artifacts:`
+# are now `exception-handler.yaml` and `approval-policy.yaml`, enumerated by the
+# manifest under the keys these refs resolve against.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `name`, `tenant`, every state name, and the domain vocabulary
+# inside each `ref` are [ADAPT]; the keys `schema_version`, `artifact_version`,
+# `name`, `tenant`, `task_definition_ref`, `start`, `transitions`, `source`,
+# `target`, `terminal_states`, `exception_refs` and `gate_policies` are
+# [MECHANISM].
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+name: loan-disbursement-workflow
+tenant: sterling-mutual
+
+task_definition_ref: "ccf-artifact://sterling-mutual/ccf.task-definition/loan-disbursement@1.0.0"
+
+start: verify-loan-file
+transitions:
+  - source: verify-loan-file
+    target: assess-disbursement
+  - source: assess-disbursement
+    target: disbursement-approval
+  - source: disbursement-approval
+    target: disbursed
+  - source: disbursement-approval
+    target: declined
+terminal_states: [disbursed, declined]
+
+# The ExceptionEscalation path (D-IMPL-61): a failure in the loan-file
+# verification step is a first-class recorded transition to this handler.
+exception_refs:
+  verify-loan-file: "ccf-artifact://sterling-mutual/exception-handler/loan-file-fetch-failed@1.0.0"
+
+gate_policies:
+  disbursement-approval: "ccf-artifact://sterling-mutual/approval-policy/disbursement-officer@1.0.0"

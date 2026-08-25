@@ -1,6 +1,6 @@
 """The cross-process example's assertions, under a runner that can fail (D-09).
 
-``examples/04-cross-process`` used to carry its own guarantee: 68 ``assert``
+``archive/examples/04-cross-process`` used to carry its own guarantee: 68 ``assert``
 statements and prints in ``producer_child.py``, 14 more in ``run.py``, checked
 by ``make example-04`` exiting zero. D-09 moves that guarantee here, because
 ``make examples`` proves a spine *runs* and ``pytest`` proves it is *correct*.
@@ -116,7 +116,7 @@ from ccf.peering.protocol import InboundProduct
 from ccf.products.gates import ServableProduct
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE_DIR = REPO_ROOT / "examples" / "04-cross-process"
+EXAMPLE_DIR = REPO_ROOT / "archive" / "examples" / "04-cross-process"
 
 
 def _load(name: str, filename: str) -> Any:
@@ -124,7 +124,7 @@ def _load(name: str, filename: str) -> Any:
 
     The example directory joins ``sys.path`` because ``run.py`` imports its
     sibling ``producer_child`` by module name — the same resolution the
-    ``python examples/04-cross-process/run.py`` invocation gets from
+    ``python archive/examples/04-cross-process/run.py`` invocation gets from
     ``sys.path[0]``. The insert is idempotent and appends one directory holding
     exactly two modules; it is deliberately NOT a ``sys.path`` swap that some
     later import could observe half-applied. This suite shares a process with

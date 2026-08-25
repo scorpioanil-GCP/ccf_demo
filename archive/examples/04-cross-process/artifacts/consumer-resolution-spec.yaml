@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.resolution-spec.json
+# The CONSUMER deployment's federation-ingress vocabulary
+# (syndicated-lending domain, whitepaper §8.3 Pattern 4).
+#
+# The producer's entities arrive as claims about *another fabric's* graph, so
+# they resolve into their own declared entity class rather than merging into any
+# vocabulary of the consumer's own. Merging them would assert that the consumer
+# had independently observed what a peer told it.
+#
+# A separate `ccf.resolution-spec` document at the standard nesting, rather than
+# a rule buried inside a federation bundle: one artifact class, one document
+# (15-13 R1), and the consumer is a deployment in its own right.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the entity class, match key, identity keys and attribute names
+# are [ADAPT]; the keys `semver`, `entity_rules`, `relationship_rules`,
+# `match_key`, `entity_class`, `identity_keys` and `attribute_keys` are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+entity_rules:
+  - match_key: contribution_uri
+    entity_class: syndicate_contribution
+    identity_keys: [contribution_uri]
+    attribute_keys: [contribution_class]
+
+# No relationship rules: a federated claim carries entities, and the producer's
+# edges are the producer's assertion about its own graph, not the consumer's.
+relationship_rules: []

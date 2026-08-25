@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# The approval policy the load-shed gate binds (CLAUDE.md §8.2; energy/grid-ops
+# domain, D-IMPL-52).
+#
+# Who may approve, and how many of them. `register`, because an approval policy
+# is precisely a statement of what the fabric is permitted to do at a gate — and
+# re-authoring it must read back as a change to what was in force. The manifest
+# registers it under the key the workflow definition's `gate_policies` ref
+# names.
+#
+# `quorum` is QUOTED: the canonical serializer refuses bare numeric coercions
+# where the deployment means an exact token (D-IMPL-38).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: approval-policy
+
+declaration:
+  approver_role: shift-supervisor
+  quorum: "1"

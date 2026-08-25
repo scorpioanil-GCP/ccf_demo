@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# The AGENT's policy regime — specialization axis 4 (CLAUDE.md §6.2;
+# banking/lending domain, D-IMPL-52).
+#
+# Distinct from `policy-bundle.yaml`, which governs the fabric's assembly and
+# admission. This one governs the agent the workflow's agent node invokes.
+#
+# The agent definition reaches this document by versioned-URI ref, never inline
+# (§6.4). The manifest registers it under the key that ref resolves to — so the
+# ref and the registration are two independent statements of one fact, and a
+# rename on either side is a resolution failure rather than a silent drift.
+#
+# It used to be an inline `referenced_artifacts:` block inside `agent.yaml`,
+# walked at run time by a hand-written registration closure. As its own document
+# it carries an honest `$schema` header, and the manifest — not a loop in adopter
+# code — is what puts it in force.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: policy-bundle
+
+declaration:
+  regime: lending-operations
+  permitted_classifications: [internal]

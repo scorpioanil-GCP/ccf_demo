@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# What the human dimension of this run does (CLAUDE.md §8.2; D-IMPL-20/21;
+# D-16; energy/grid-ops domain, D-IMPL-52).
+#
+# The recorded decision includes an AUTH-BOUND approval: the D-16 policy in
+# `hitl-policy.yaml` requires a signed principal binding, and the approver
+# principal is derived from the verified token grant — so the hardened HITL
+# surface is demonstrated *in replay*, reproduced from the record alone. The
+# decision also crosses an OverrideBoundary: the shift supervisor substitutes
+# the agent's shed determination, and BOTH the original and the override land in
+# the replay record (§8.2 — "the original agent output and the override are both
+# in the replay record"; T-07-16).
+#
+# `role: load`. What one run's human actors did is not a standing statement of
+# what the fabric was permitted to do — the POLICY that governs them is
+# (`hitl-policy.yaml`, `approval-policy.yaml`), and those are registered.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: boreal-grid.hitl-drive
+
+declaration:
+  # The JWK the example mints and the identity provider reads back. A key id,
+  # not a key: the private material is generated into the run's scratch dir and
+  # never committed.
+  signing_key_id: boreal-grid-shift-supervisor-key
+
+  # subject_id deliberately equals the active token's client_id in `tokens.yaml`
+  # (D-IMPL-67 derivation + subject-conflict refusal).
+  approver:
+    identity:
+      subject_id: shift-supervisor-8
+      identity_provider_ref: idp://boreal-grid/dev-token-file
+    authentication:
+      method: bearer-token
+      assurance_level: dev
+      session_ref: session-ss-8
+    action_time: "2026-06-10T06:10:00+00:00"
+
+  drive:
+    execution_id: exec-shed-1
+    approval_action: approve
+    resume_decision: authorized
+    expected_gate: load-shed-authorization
+
+  node_outputs:
+    collect-telemetry:
+      telemetry_window: "30min"
+      feeders_reported: "3"
+
+  debt_factors:
+    freshness: "1.0"
+    completeness: "1.0"
+    semantic_consistency: "1.0"
+
+  # OverrideBoundary material. The agent's shed determination is surfaced at a
+  # typed boundary and the shift supervisor substitutes a shallower, longer
+  # shed. Losing the original would make the override unrepudiable. The
+  # overrider's subject_id equals the active token's client_id (D-IMPL-67), and
+  # the resolution is signed under the same D-16 policy as the approval.
+  override:
+    event:
+      event_key: boreal-grid/exec-shed-1/shed-scope-override
+      workflow_state_ref: boreal-grid/exec-shed-1
+    overrider:
+      # Which `tokens.yaml` entry this overrider's identity is bound to.
+      token_label: approver
+      identity:
+        subject_id: shift-supervisor-8
+        identity_provider_ref: idp://boreal-grid/dev-token-file
+      authentication:
+        method: bearer-token
+        assurance_level: dev
+        session_ref: session-ss-8-override
+      action_time: "2026-06-10T06:12:00+00:00"
+    # The agent's output at the boundary (quoted decimals — artifact numbers
+    # with a decimal point are strings, parsed by mechanism).
+    original:
+      feeder_ref: boreal-grid/entity/feeder-fdr-207
+      shed_megawatts: "12.5"
+      duration_minutes: "30"
+    # The human's substitution: shed less load for longer.
+    substitute:
+      feeder_ref: boreal-grid/entity/feeder-fdr-207
+      shed_megawatts: "9.0"
+      duration_minutes: "45"
+    drive:
+      # `override` substitutes; `confirm` keeps the agent value — either way a
+      # recorded action, never an absence (§8.2).
+      action: override

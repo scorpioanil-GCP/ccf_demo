@@ -1,6 +1,6 @@
 """The demo's guarantee, under a runner that can actually fail (D-09).
 
-``examples/08-e2e-demo/run.py`` used to carry its own verification: sixteen
+``archive/examples/08-e2e-demo/run.py`` used to carry its own verification: sixteen
 ``_require`` calls checked by ``make example-08`` exiting zero. D-09 moves that
 here, because ``make examples`` proves a spine *runs* and ``pytest`` proves it is
 *correct*.
@@ -134,7 +134,7 @@ from ccf.skills.catalog import SKILL_CATALOG_ENTRY
 from ccf.skills.grants import SKILL_GRANT
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE_DIR = REPO_ROOT / "examples" / "08-e2e-demo"
+EXAMPLE_DIR = REPO_ROOT / "archive" / "examples" / "08-e2e-demo"
 EXAMPLE = EXAMPLE_DIR / "run.py"
 
 

@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.declared-artifact.json
+# The policy bundle in force (financial-services domain, D-IMPL-52).
+#
+# A deployment-authored class: the SDK owns the schema of what it ships and
+# never invents one for a regulatory regime that is not its own, so this
+# document points its header at the committed `DeclaredArtifact` envelope and
+# declares its own `class_id`.
+#
+# A *version* of this bundle is resolved from the Control Plane, stamped onto
+# every claim at assembly, and carried into the product's lineage — which is
+# what the replay record pins (whitepaper §7.10). `build_operator_registry`
+# completes the policy operator's parameter set from that pin (D-IMPL-76): the
+# admitted-version set is a content hash minted at registration, so no adopter
+# has a value to author for it.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: first-meridian-bank.policy-bundle
+
+declaration:
+  regime: first-meridian-credit-desk
+  jurisdiction: US
+  permitted_classifications:
+    - internal

@@ -68,7 +68,26 @@ from tools.lints import (
 #: Trees that are linted, and the package root each one contributes.
 #: (directory, strip_prefix) — module names are derived relative to the root
 #: that actually holds the package, so `src/ccf/x.py` is `ccf.x`.
-LINTED_TREES: tuple[str, ...] = ("src", "runtime", "examples", "tests")
+#:
+#: ``archive`` joined in plan ``23-03``, ahead of Phase 23's move of ten
+#: condemned example trees into ``archive/examples/`` (``D-03``). Without it
+#: the runner was measured EXITING 0 over the moved trees — 265 files leaving
+#: CINV-01's reach because the walk stopped looking, which is precisely the
+#: defect class Phase 22.1 was commissioned to close. Adding it here is
+#: necessary and NOT sufficient: ``no-hardcoding`` names its own trees in
+#: ``RULE_TREE_SCOPE`` below and had to gain the member there too.
+#:
+#: **The member is the top-level ``archive``, not ``archive/examples``, and the
+#: asymmetry with plan 23-02 is deliberate.** These are tree names, not path
+#: prefixes — ``run`` joins each to the repo base and derives module names
+#: relative to it. For a LINT the inheriting default is the safe one: a future
+#: ``archive/anything`` should be linted the day it appears. Contrast
+#: ``tools/publish_scan.py::INCLUDE_ALLOWED_PREFIXES``, which took the NARROW
+#: ``archive/examples/`` in plan 23-02, because a publication allowlist is
+#: default-DENY and there inheritance is the unsafe direction. Both spellings
+#: are reasoned at their own constant; neither is a slip to be tidied into
+#: consistency. Guarded by ``tools/lints/tests/test_scope.py``.
+LINTED_TREES: tuple[str, ...] = ("src", "runtime", "examples", "tests", "archive")
 
 #: Per-rule tree scoping — the lint posture over ``/examples``, stated in
 #: config rather than left to path accident (plan 08-01; 08-RESEARCH.md Open
@@ -120,8 +139,25 @@ LINTED_TREES: tuple[str, ...] = ("src", "runtime", "examples", "tests")
 #: A rule that fired there would be measuring the wrong thing. The rule's two
 #: package-level exemptions live in ``tools/lints/substrate_names.py`` rather
 #: than here, because they are about packages *inside* ``src``, not trees.
+#:
+#: ``no-hardcoding`` also covers ``archive`` (plan ``23-03``). **This mapping is
+#: a POSITIVE scope** — read the paragraph above: rules absent from it inherit
+#: every linted tree, but a rule PRESENT in it names its trees and inherits
+#: nothing. So widening ``LINTED_TREES`` alone would have left CINV-01 skipping
+#: the entire archive, silently, with the gate exiting 0. Archived example code
+#: is still example code and CLAUDE.md §6.4 binds it to the No-Hardcoding Rule,
+#: so the member belongs here as much as ``examples`` does.
+#:
+#: The other five rules take **no** archive entry, and that is a decision rather
+#: than an omission: they are scoped ``("src", "runtime")`` and ``("src",)``,
+#: which the archive was never a member of, so it is outside them by
+#: construction. CINV-02 in particular must stay off the archive for the same
+#: reason it stays off ``examples`` — CLAUDE.md §7.3 words the invariant over
+#: core, and ``archive/examples/03-harness-portability`` necessarily imports
+#: harness SDKs. ``tools/lints/tests/test_scope.py`` asserts the non-edit so a
+#: later symmetry pass cannot quietly add one.
 RULE_TREE_SCOPE: dict[str, tuple[str, ...]] = {
-    "no-hardcoding": ("src", "runtime", "examples", "tests"),
+    "no-hardcoding": ("src", "runtime", "examples", "tests", "archive"),
     "harness-imports": ("src", "runtime"),
     "algorithmic": ("src", "runtime"),
     "orchestration-imports": ("src", "runtime"),

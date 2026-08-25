@@ -116,7 +116,24 @@ NODE_ID = re.compile(
 #: Where a cited example must live. A citation of a ``src/`` symbol is not a
 #: worked example — the point of the citation is that the adopter can read a
 #: shipped, CI-run deployment doing the thing.
-EXAMPLE_PREFIX = "examples/"
+#:
+#: A **tuple**, consumed by ``str.startswith``, since plan ``23-03``. Phase 23
+#: moves ten example trees into ``archive/examples/`` (``D-03``) and re-points
+#: two of this seam's citations there under ``D-07``. With a single prefix
+#: those correctly re-pointed citations stop being recognised as citations at
+#: all: :func:`cited_examples` drops them, only the ``s1-01`` citation
+#: survives, and :func:`test_both_seams_cite_both_call_sites`'s ``>= 2`` fails
+#: while the docstrings are in fact correct. ``23-RESEARCH.md`` §7.3 measured
+#: that this test did NOT fire in the bare-move trial and WILL fire in the real
+#: phase — the break arrives one wave after the edit that causes it, in the
+#: most confusing shape available.
+#:
+#: An archived example is still a shipped, CI-run deployment: ``D-02`` keeps
+#: the paired tests under ``tests/`` and ``D-06`` states the archived trees
+#: leave the ``examples:`` aggregate but do NOT leave CI. So the citation
+#: remains a citation of a worked example, which is why this is a widening
+#: rather than a second concept.
+EXAMPLE_PREFIX: tuple[str, ...] = ("examples/", "archive/examples/")
 
 
 def normalized(doc: str) -> str:
@@ -192,6 +209,33 @@ def test_both_resolver_protocols_were_found_with_a_docstring() -> None:
 def test_the_repo_root_resolves_off_the_process_cwd() -> None:
     """The path check must not follow the CWD — `_prose.REPO_ROOT`'s own finding."""
     assert (REPO_ROOT / "pyproject.toml").is_file(), REPO_ROOT
+
+
+def test_the_example_prefixes_are_the_live_tree_and_the_archive() -> None:
+    """Both prefixes count as "a shipped example", and neither one alone does.
+
+    Measured in `23-RESEARCH.md` §7.3: after Phase 23 re-points the two runtime
+    seam citations to `archive/examples/04-cross-process/producer_child.py`,
+    a single-prefix filter stops recognising them **as citations at all**.
+    `cited_examples` returns fewer pairs, `test_both_seams_cite_both_call_sites`
+    asserts `len(paths) >= 2`, and the failure reads as a docstring that lost a
+    citation rather than as a filter that stopped matching one. That is the
+    most confusing shape a break can take: a correctly re-pointed citation,
+    silently reclassified as not-a-citation.
+
+    Set equality, not `in` checks: the live tree must still be recognised, or
+    the `s1-01` citations this phase deliberately does not move fall out too.
+    """
+    assert set(EXAMPLE_PREFIX) == {"examples/", "archive/examples/"}, (
+        "the cited-example prefix set changed. A prefix REMOVED silently"
+        " reclassifies real citations as non-citations; a prefix ADDED lets a"
+        " citation of something that is not a worked example satisfy the seam."
+    )
+    for prefix in EXAMPLE_PREFIX:
+        assert prefix.endswith("/"), (
+            f"{prefix!r} does not end in `/`, so it would admit a sibling tree"
+            " by name prefix"
+        )
 
 
 # --------------------------------------------------------------------------

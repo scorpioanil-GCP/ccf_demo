@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.perspective.json
+# The Π role-conditioning this product is served under (whitepaper §7.5;
+# INV-CH7-43; e-commerce domain, D-IMPL-52).
+#
+# Both values land verbatim in replay dimension 4, so a decision is re-readable
+# against the viewpoint that produced it — and, in this example, so that the
+# governed comparison across the three harness legs has a declared viewpoint to
+# be equal *about*.
+#
+# The `role` here is the same role the agent definition declares on its axis-3
+# perspective, which is what makes the agent's conditioning and the fabric's
+# projection two statements about one viewpoint rather than two viewpoints.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the principal id and the role name are [ADAPT]; the keys
+# `principal_id` and `role` are [MECHANISM].
+
+semver: "1.0.0"
+
+principal_id: commerce-ops-207
+role: commerce-analyst

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# Where this deployment registers its agent definition
+# (clinical-trials-operations domain, D-IMPL-52).
+#
+# `agent-definition.yaml` is absent from the manifest on purpose: it carries
+# D-IMPL-28 two-field versioning and must register through
+# `register_versioned`, whose D-05 bump check holds the author's
+# `artifact_version` claim against content identity. `load_and_boot` registers
+# through `register_typed`, which does not. The same reasoning covers the three
+# skill catalog entries, which `SkillCatalog.register` registers the same way —
+# `skilling-scenario.yaml` enumerates those.
+#
+# The regime key below is also the manifest key that document is registered
+# under, which is how `run.py` and the test module reach the agent's own regime
+# without naming a long string in code.
+#
+# **`role: load` in the manifest.** A pointer to where something will be
+# registered is not itself a permission; the registration is.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every key path is [ADAPT]; the keys `semver`,
+# `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: helix-trials.agent-registration
+
+declaration:
+  agent_definition_key: helix-trials/agents/enrollment-analytics
+  policy_regime_key: helix-trials/policy-bundle/trial-operations-regime
+  halflife_debt_profile_key: helix-trials/debt-profile/enrollment-review

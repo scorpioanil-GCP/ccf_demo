@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# The CONSUMER's peering declarations — who it is on the wire, and which peer it
+# will admit from (syndicated-lending domain, whitepaper §8.3 Pattern 4; D-IMPL-15, D-23).
+#
+# **Why this is not a `ccf.peering-trust-policy` document.** That SDK class
+# requires each grant's `signing_keys` — key MATERIAL, generated per run into a
+# temp directory and never committed. A standalone document of that class cannot
+# be authored, so a header naming it would be one its own class rejects. What is
+# authorable is the trust-policy REQUEST: which identifier the peer is entitled
+# to sign under, which producing agent it may assert, which schema it may send,
+# and which policy regime it may claim. `run.py` completes it with the run's
+# public key. (Same shape as `max_ttl_version`'s deliberate absence from a
+# product-class document.)
+#
+# No key material is here. Every identity value below is OBVIOUSLY SYNTHETIC —
+# fictional peer names and a hash-shaped label, never real credentials.
+#
+# **`role: register` in the manifest.** Who this fabric admits from is exactly
+# "what this fabric was permitted to do"; re-authoring it must read back as a
+# change to what was in force.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: harborline-syndications.peering-trust
+
+declaration:
+  # The consuming fabric's own federation identity and its trust-policy lane.
+  consumer_peer_id: hollis-participant-bank
+  trust_policy_semver: "1.0.0"
+
+  # The authoritative Control Plane ceiling the admission gate applies, and
+  # defence in depth at the transport. Both are this deployment's numbers, not
+  # recommendations (D-IMPL-38: the SDK ships neither).
+  inbound_payload_ceiling_bytes: 65536
+  max_request_bytes: 262144
+
+  # The route this deployment mounts its federation endpoint at. A deployment's
+  # URL space is the deployment's; the SDK holds no default.
+  receive_path: /ccf/peering/inbound
+
+  # The producing peer: which identity it runs as, which key id it signs under,
+  # and which producing agent it asserts in the protected header. The trust
+  # entry is built from exactly these declarations (D-23: entitlements are per
+  # peer, per entry).
+  producer_peer_id: harborline-lead-arranger
+  producer_key_id: harborline-lead-arranger-key-1
+  producer_hash: "sha256:harborline-covenant-slice-assembler"

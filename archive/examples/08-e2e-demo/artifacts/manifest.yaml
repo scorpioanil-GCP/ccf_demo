@@ -1,0 +1,211 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.deployment-manifest.json
+# The one document naming what this deployment puts in force (D-06, D-08,
+# D-IMPL-80; banking domain, D-IMPL-52).
+#
+# Every artifact is ENUMERATED, never globbed: the set of Control Plane
+# artifacts in force is dimension 2 of the five-dimension Decision Replay
+# record, and a pattern would make that set a function of directory contents at
+# boot time with no artifact recording that a dropped-in file changed what was
+# in force. `ManifestEntry` refuses a glob at parse.
+#
+# The BACKEND is declared as a kind only (D-08). There is no DSN and no database
+# path here, deliberately: a connection string is a deployment ENVIRONMENT
+# value, and putting one in a versioned, content-hashed artifact would persist
+# it into the audit plane.
+#
+# Each `key` is the Control Plane key its artifact is in force under AND the key
+# it comes back under on `BootedFabric.artifacts`. Short unnamespaced keys are
+# this deployment's own vocabulary and `run.py` names them as literals; the two
+# agent-referenced entries keep their full namespaced keys because those keys
+# are what the agent definition's versioned-URI refs resolve against, and a ref
+# and its key must be the same string.
+#
+# **What is NOT here, and why.** Four documents in this directory are outside
+# the manifest, each for a stated reason rather than by omission:
+#
+#   * `scenario.yaml` — the generator's input, not a fabric artifact. It
+#     describes the synthetic *world*, which exists before any fabric does.
+#   * `agent-definition.yaml`, `prompt-artifact.yaml`,
+#     `skill-catalog-entry.yaml` — `ccf.agent-definition`,
+#     `ccf.prompt-artifact` and `ccf.skill-catalog-entry` are **author-versioned**
+#     SDK-owned classes. Every one of them registers through
+#     `register_versioned`, which holds the author's version claim against
+#     content identity (the D-05 bump check); `register_typed` does not run that
+#     check. So they are deliberately absent from `SDK_ARTIFACT_CLASSES`. A
+#     manifest CAN name them, as `registration: versioned`; declaring `typed`
+#     for one is refused at preflight (D-IMPL-85), because that entry would
+#     parse fine while dropping the governance the class exists to carry. They
+#     stay in `run.py` so the bump check is visible at the call site. They still
+#     carry real `$schema` headers — plan 15-14 committed their schemas.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, every `key`, every `path`, and the
+# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: meridian-bank
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+    registration: typed
+
+  - path: policy-bundle.yaml
+    key: policy-bundle
+    class_id: meridian-bank.policy-bundle
+    role: register
+    registration: typed
+
+  - path: half-life-table.yaml
+    key: half-life-table
+    class_id: ccf.half-life-table
+    role: register
+    registration: typed
+
+  - path: debt-profile.yaml
+    key: debt-profile
+    class_id: ccf.debt-profile
+    role: register
+    registration: typed
+
+  - path: operator-parameters-traversal.yaml
+    key: traversal
+    class_id: ccf.operator-parameters.traversal
+    role: register
+    registration: typed
+
+  - path: operator-parameters-temporal.yaml
+    key: temporal
+    class_id: ccf.operator-parameters.temporal
+    role: register
+    registration: typed
+
+  - path: operator-parameters-policy.yaml
+    key: policy
+    class_id: ccf.operator-parameters.policy
+    role: register
+    registration: typed
+
+  - path: operator-parameters-similarity.yaml
+    key: similarity
+    class_id: ccf.operator-parameters.similarity
+    role: register
+    registration: typed
+
+  - path: perspective.yaml
+    key: perspective
+    class_id: ccf.perspective
+    role: register
+    registration: typed
+
+  - path: product-class.yaml
+    key: product-class
+    class_id: ccf.product-class
+    role: register
+    registration: typed
+
+  # The OTHER half of design E2's bound pair. `product-class.yaml` above
+  # carries the Control Plane claim that fills the product's lineage; this
+  # document carries what the projection actually requires, and it is what
+  # `PaymentNetworkPlan` reads. Two separately authored documents, bound by
+  # `refuse_operator_set_divergence` between plan construction and
+  # `ProjectionEngine.execute` (D-IMPL-86 and its 2026-08-05 correction).
+  # `register`, because the operator set a projection depends on is part of
+  # what this fabric was permitted to do and belongs in replay dimension 2.
+  - path: projection-requirements.yaml
+    key: projection-requirements
+    class_id: ccf.projection-requirements
+    role: register
+    registration: typed
+
+  - path: product-governance.yaml
+    key: product-governance
+    class_id: meridian-bank.product-governance
+    role: register
+    registration: typed
+
+  # The L1 mapping. `register` because re-authoring it changes what the fabric
+  # admits into the graph — a standing statement of what the fabric was
+  # permitted to do. It carries no event data; contrast `ccf.signal-batch`,
+  # whose `load` role the SDK fixes for exactly that reason.
+  - path: ingest-spec.yaml
+    key: ingest-spec
+    class_id: meridian-bank.ingest-spec
+    role: register
+    registration: typed
+
+  # The agent's axis-4 and axis-5 declarations, under the keys its
+  # versioned-URI refs resolve against. `register`, because a policy regime and
+  # a debt profile are precisely "what this agent was permitted to do".
+  - path: agent-policy-regime.yaml
+    key: meridian-bank/policy-bundle/financial-crime-regime
+    class_id: policy-bundle
+    role: register
+    registration: typed
+
+  - path: agent-debt-profile.yaml
+    key: meridian-bank/debt-profile/ring-investigation
+    class_id: debt-profile
+    role: register
+    registration: typed
+
+  # --- role: load — parsed and validated through the same seam as everything
+  #     above, then handed back on `BootedFabric.artifacts`. Never registered,
+  #     never pinned, never in replay dimension 2.
+
+  # This run's decision instants. The deployment's own class, so the role is the
+  # deployment's call — and it is `load` because what instant one run asked
+  # about is not part of what the fabric was permitted to do.
+  - path: decision.yaml
+    key: decision
+    class_id: meridian-bank.decision-inputs
+    role: load
+    registration: typed
+
+  # What the deployment expects both passes to produce. An expectation is not a
+  # permission, so it is parsed and returned, never put in force.
+  - path: expected.yaml
+    key: expected
+    class_id: meridian-bank.expected-outcomes
+    role: load
+    registration: typed
+
+  # Where the three author-versioned documents file in the Control Plane.
+  # Wiring the driver reads; the artifacts themselves are registered by
+  # `register_versioned` for the D-05 bump check, not from here.
+  - path: agent-registration.yaml
+    key: agent-registration
+    class_id: meridian-bank.agent-registration
+    role: load
+    registration: typed
+
+  # The grant request and the dispatch. `load`: the ledger audits the grant
+  # independently when it admits it, so registering the request would record the
+  # asking as well as the granting.
+  - path: skill-dispatch.yaml
+    key: skill-dispatch
+    class_id: meridian-bank.skill-dispatch
+    role: load
+    registration: typed
+
+  # `--live` provider configuration. Never consulted on the deterministic path.
+  - path: live-narration.yaml
+    key: live-narration
+    class_id: meridian-bank.live-narration
+    role: load
+    registration: typed

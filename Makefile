@@ -54,10 +54,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	conformance \
 	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 \
-	example-00 example-01 example-02 example-03 example-04 example-05 \
-	example-06 example-07 example-08 example-ext-00 example-hw1-harness-clients \
-	example-03-live-ollama example-03-live-anthropic \
-	example-ext-00-live-anthropic example-ext-00-live-adk \
+	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
 	example-hw1-harness-clients-live-langgraph \
@@ -155,7 +152,9 @@ conformance: ## Client adapter conformance suite — the D-15 parity gate, by na
 # Finalized in plan 08-12: `ci` = ci-core + examples is the phase gate
 # command, reproducing the always-on Actions pipeline (ci.yml lint + test +
 # examples jobs) locally command-for-command (D-10). Live legs are opt-in
-# (live-legs.yml, D-11) and deliberately not part of `ci`.
+# (D-11) and deliberately not part of `ci`; since Phase 23 the surviving ones
+# are the three `example-hw1-harness-clients-live-*` targets below, and
+# `live-legs.yml` carries only the D-09 fluree drift detector.
 #
 # Amended in plan 14-10: D-IMPL-72 pre-authorized adding the docs gate to this
 # composition, effective at the plan that creates the docs build target. That
@@ -188,36 +187,6 @@ ci: ci-core examples docs-strict gate-tools ## Full local reproduction of the al
 gate-tools: ## Run the tools/ suites CI runs that `testpaths` excludes from `make test`
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/lints/tests -q
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/publish_scan_tests tools/docs_tests -q
-
-example-00: ## Run examples/00-quickstart (reference backends, D-13)
-	$(ENV) $(PYTHON) examples/00-quickstart/run.py
-
-example-01: ## Run examples/01-agent-basics
-	$(ENV) $(PYTHON) examples/01-agent-basics/run.py
-
-example-02: ## Run examples/02-skilling
-	$(ENV) $(PYTHON) examples/02-skilling/run.py
-
-example-03: ## Run examples/03-harness-portability (deterministic leg only, D-12)
-	$(ENV) $(PYTHON) examples/03-harness-portability/run.py --mode deterministic
-
-example-04: ## Run examples/04-cross-process
-	$(ENV) $(PYTHON) examples/04-cross-process/run.py
-
-example-05: ## Run examples/05-workflow-hitl
-	$(ENV) $(PYTHON) examples/05-workflow-hitl/run.py
-
-example-06: ## Run examples/06-decision-replay
-	$(ENV) $(PYTHON) examples/06-decision-replay/run.py
-
-example-07: ## Run examples/07-artifact-store-mcp
-	$(ENV) $(PYTHON) examples/07-artifact-store-mcp/run.py
-
-example-08: ## Run examples/08-e2e-demo (deterministic; --live is opt-in and never CI, D-10/D-12)
-	$(ENV) $(PYTHON) examples/08-e2e-demo/run.py
-
-example-ext-00: ## Run examples/external/00-hello-context — all legs deterministic via replay server
-	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py
 
 # The runner is `runner/drive.py`, and BOTH halves of that path are load-bearing.
 # The subdirectory keeps the one `ccf`-importing file structurally outside
@@ -253,7 +222,7 @@ example-hw1-harness-clients: ## Run examples/hw1-harness-clients — three harne
 # `tests/examples/test_s1_01_output.py` boots it, and the three gates that need
 # no substrate (agent-free AST guard, spine separation, artifact headers) still
 # run on this leg.
-examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 example-hw1-harness-clients ## Run the eleven network-free examples in order, stopping on first failure
+examples: example-hw1-harness-clients ## Run the network-free examples suite (one member since D-04), stopping on first failure
 
 # Container-gated substrate legs (DI-15.2-04, D-GATE-15.2). These reproduce the
 # ci.yml service-container steps command-for-command, so a developer runs a leg
@@ -323,7 +292,7 @@ example-s1-00: ## Run examples/s1-00-companies-over-revenue (MIN_REVENUE=<n> opt
 
 # HW-1 — the first example a newcomer reads. NOT in the `examples:` aggregate
 # and NOT in any workflow: it needs a populated deployment, the always-on
-# pipeline is network-free, and `live-legs.yml`'s three jobs are all
+# pipeline is network-free, and `live-legs.yml`'s one remaining job is
 # `runs-on: ubuntu-latest` with no database secrets. A red check nobody can
 # make green is worse than no check. See the example's README.
 #
@@ -440,18 +409,6 @@ perf-replay: ## Replay-at-scale ladder: byte-exact + curve shape (D-16; 15% gate
 	$(ENV_PERF) $(PYTHON) -m pytest perf/suites/replay -q \
 		--benchmark-disable-gc --benchmark-json=perf/results/replay.raw.json
 	$(ENV_PERF) $(PYTHON) perf/gate.py perf/results/replay.raw.json --suite replay
-
-example-03-live-ollama: ## Example 03 live leg via Ollama (opt-in, D-11; not part of `examples`)
-	$(ENV) $(PYTHON) examples/03-harness-portability/run.py --mode live --provider ollama
-
-example-03-live-anthropic: ## Example 03 live leg via Anthropic (opt-in, D-11; not part of `examples`)
-	$(ENV) $(PYTHON) examples/03-harness-portability/run.py --mode live --provider anthropic
-
-example-ext-00-live-anthropic: ## External example 00 Anthropic leg live (opt-in, D-11; never in `examples`/`ci`)
-	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py --live --legs anthropic
-
-example-ext-00-live-adk: ## External example 00 ADK/Gemini leg live (opt-in, D-11; never in `examples`/`ci`)
-	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py --live --legs adk
 
 # The three `--live` opt-ins for examples/hw1-harness-clients. `--live` means
 # ONE thing across every leg (`H-09`): point at the real tracked deployment

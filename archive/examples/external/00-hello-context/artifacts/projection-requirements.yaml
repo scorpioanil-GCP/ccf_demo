@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.projection-requirements.json
+# What this deployment's projection depends on (design E2; `docs/DECISIONS.md`
+# D-IMPL-86 and its correction of 2026-08-05; banking domain, D-IMPL-52).
+#
+# This is the document `CreditContextPlan.required_operators()` answers from —
+# in BOTH of this example's plan sites, `serve.py`'s front-door assembly and
+# `run.py`'s `HelloReplayEnvironment.resolve_plan`.
+# `product-class.yaml`'s `required_operator_keys` is the other document: the
+# Control Plane CLAIM, the value that fills `lineage.operators_invoked` and
+# never `execution`.
+#
+# **Why two documents.** With one, the two sides of Gate 2 are not merely equal
+# in practice, they are identical by construction: the declaration would feed
+# `plan.required`, `required_operators()` would return it, `build_operator_plan`
+# resolves each key self-keyed, the engine writes `outputs[operator.key]` and
+# returns `frozenset(outputs)` — an identity through five pure transforms with
+# no branch. Nothing a deployment could author would make the two sides
+# diverge, so Gate 2 could not fail for a reason an author controls.
+#
+# **Where drift actually fails.** In `ccf.deployment.binder`'s
+# `refuse_operator_set_divergence`, called between plan construction and
+# `ProjectionEngine.execute` — once in `serve.py`, once in `run.py`'s replay
+# environment. Edit one key here and leave `product-class.yaml` alone (or the
+# reverse) and the run refuses, naming both sets and their difference. That
+# refusal is NOT Gate 2, which sits downstream and verifies assembly-path
+# integrity.
+#
+# **The residual, stated rather than softened.** An author who transcribes one
+# of these documents out of the other collapses the check. Dual authorship is
+# convention-assisted at the authoring boundary even though the comparison
+# itself is structural — D-IMPL-86 accepts this in its own words.
+#
+# Note the path depth in the `$schema` line above: this example lives one
+# directory deeper than the numbered suite, so it is `../../../../docs`.
+#
+# `plan_id` matches `product-governance.yaml`'s, which is what `serve.py`
+# passes as the plan's identity, what replay dimension 5 carries, and what the
+# replay environment refuses a mismatch against before it plans.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the `plan_id` value and the operator key names are [ADAPT];
+# the keys `semver`, `plan_id` and `required_operator_keys` are [MECHANISM].
+
+semver: "1.0.0"
+
+plan_id: first-meridian-bank.credit-context.plan
+
+required_operator_keys:
+  - traversal.typed-neighborhood
+  - temporal.as-of-boundary
+  - policy.principal-subgraph
+  - similarity.corpus-select

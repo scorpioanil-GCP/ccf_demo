@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.traversal.json
+# Traversal category parameters (whitepaper §7.4; energy/grid-ops domain,
+# D-IMPL-52).
+#
+# Read as: expand two hops from feeders over the one typed edge that carries the
+# feed evidence. No field carries a default — `depth_limit` in particular is the
+# operator's entire correctness claim (INV-CH7-24), and a default bound is one
+# nobody chose (D-IMPL-38).
+#
+# The parameter hash of the operator built from this document lands in replay
+# dimension 5, so re-authoring this file moves the recorded step sequence.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: every entity class name, relationship type and the depth value
+# are [ADAPT]; the keys `semver`, `seed_entity_classes`, `relationship_types`
+# and `depth_limit` are [MECHANISM].
+
+semver: "1.0.0"
+
+seed_entity_classes:
+  - feeder
+relationship_types:
+  - fed_from
+depth_limit: 2

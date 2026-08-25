@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# The channel-2 scenario this run drives (CLAUDE.md §6.2; D-IMPL-12/29;
+# clinical-trials-operations domain, D-IMPL-52).
+#
+# `catalog_documents` ENUMERATES the catalog entries to register. Enumerated,
+# never globbed, for the same reason the manifest enumerates: the set of skills
+# a deployment offers is governance, and a pattern would make it a function of
+# directory contents with no artifact recording that a dropped-in file widened
+# the catalog.
+#
+# **`role: load` in the manifest.** A script for a run is not a statement of
+# what the fabric may do. The grants named here become Control Plane state when
+# the ledger accepts them — audited, hashed, and in replay dimension 4 — and
+# that is where the governance actually lives. Registering this document would
+# instead put "what one run asked for" into dimension 2.
+#
+# A grant's `agent_definition_hash` is deliberately absent: it is derived
+# identity, computed by mechanism at request time from the parsed definition. A
+# hash is never a fixture value (D-IMPL-26).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id`, every file name, skill name, grant name, tenant,
+# scope identifier, argument name, output-record content and actor string is
+# [ADAPT]; the keys `semver`, `class_id`, `declaration`, and the grant field
+# names (`schema_version`, `artifact_version`, `name`, `tenant`, `skill_name`,
+# `skill_version`) are [MECHANISM].
+
+semver: "1.0.0"
+class_id: helix-trials.skilling-scenario
+
+declaration:
+  # The catalog this deployment offers. Registration is discovery; only one of
+  # these is ever granted.
+  catalog_documents:
+    - skill-catalog-enrollment-metrics.yaml
+    - skill-catalog-site-status-feed.yaml
+    - skill-catalog-amendment-writeback.yaml
+
+  # Grant documents. The permitted one binds; the impermissible one is refused
+  # by the tier-1 compatibility check against the agent's axis-4 regime.
+  grants:
+    permitted:
+      schema_version: "1.0.0"
+      artifact_version: "1.0.0"
+      name: enrollment-analytics-metrics
+      tenant: helix-trials
+      skill_name: enrollment-metrics
+      skill_version: "1.0.0"
+    impermissible:
+      schema_version: "1.0.0"
+      artifact_version: "1.0.0"
+      name: enrollment-analytics-amendment
+      tenant: helix-trials
+      skill_name: protocol-amendment-writeback
+      skill_version: "1.0.0"
+
+  # The registered-but-never-granted entry, named so the test module can assert
+  # its absence from the agent's bound surface by name rather than by count.
+  never_granted_skill_name: site-status-feed
+
+  # The tier-1 excess identifiers the refusal must name — a declared, reviewed
+  # expected outcome kept beside the grant that produces it.
+  expected_excess:
+    scopes: [protocol-write]
+
+  # The composition-root callable binding (D-19): the key `run.py` registers,
+  # and the deterministic record the bound callable answers with (merged with
+  # the typed arguments at invoke time). Content here, mechanism in code.
+  callable:
+    registered_key: enrollment-metrics
+    output_record:
+      computed: enrollment-velocity
+      screened: "412"
+      enrolled: "365"
+      days_to_target: "23"
+
+  # Dispatch drive values: the typed arguments the exercise step supplies and
+  # the full output the invocation must return.
+  dispatch:
+    arguments:
+      cohort_ref: HX-COH-2201
+    expected_output:
+      computed: enrollment-velocity
+      screened: "412"
+      enrolled: "365"
+      days_to_target: "23"
+      cohort_ref: HX-COH-2201
+
+  # The audited action sequence the whole cycle must produce, in order. A
+  # reviewed expectation: request, effect, request, refusal, revocation.
+  expected_grant_actions:
+    - grant_requested
+    - grant_effective
+    - grant_requested
+    - grant_refused
+    - grant_revoked
+
+  # Acting principals for the audited grant lifecycle (identity binding is
+  # D-IMPL-21 scope; these are recorded actor strings).
+  actors:
+    requesting_actor: trial-platform-operator

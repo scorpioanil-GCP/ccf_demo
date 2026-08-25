@@ -118,6 +118,44 @@ import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
+#: Every root this gate discovers artifact documents under, as globs relative
+#: to :data:`REPO_ROOT`. **A root absent from here is a tree this gate reports
+#: clean over without reading it** — the discovery is the whole of its scope.
+#:
+#: The archive root joined in plan ``23-03``, ahead of Phase 23's move of ten
+#: condemned example trees into ``archive/examples/`` (``D-03``). It is not a
+#: preference. Measured on the pre-move tree, **216** artifact documents in
+#: those ten trees carry a ``$schema`` header — 196 at ``../../../`` and 20 at
+#: ``../../../../`` — and every one of them needs an extra ``../`` after the
+#: move. With the discovery narrow, this gate finds nothing in the archive and
+#: reports CLEAN over all 216 while producing two unrelated failures. A gate
+#: that goes SILENT rather than red is the defect class Phase 22.1 was
+#: commissioned to close, arriving inside the phase written to prevent it.
+#:
+#: The member is the NARROW ``archive/examples/``, not a bare ``archive/``,
+#: matching the spelling plan ``23-02`` chose for
+#: ``tools/publish_scan.py::INCLUDE_ALLOWED_PREFIXES``: a scratch directory of
+#: YAML under some future ``archive/`` sibling is not artifact material and
+#: must not be pulled into an artifact gate by inheritance. (The lint trees in
+#: ``tools/lints/__main__.py::LINTED_TREES`` deliberately took the *inheriting*
+#: spelling instead, because there the default is default-allow and reaching
+#: more is the safe direction. The asymmetry is reasoned at both constants.)
+#:
+#: **Known gap, pre-existing and NOT closed here.** The pattern matches one
+#: level under ``artifacts/``, so a nested ``artifacts/<subdir>/*.yaml`` is
+#: invisible to this gate. Measured on the pre-move tree, three headered
+#: documents sit in ``examples/03-harness-portability/artifacts/agents/`` and
+#: are outside this discovery today. Deepening the pattern would put their
+#: parent into the covered set, whose parent is not an example root, and the
+#: bijection's right side in
+#: ``tests/examples/test_artifact_schema_headers.py`` would go red — so it is a
+#: real decision rather than a one-character fix. Recorded rather than widened
+#: silently, and logged to this phase's deferred items.
+ARTIFACT_GLOBS: tuple[str, ...] = (
+    "examples/**/artifacts/*.yaml",
+    "archive/examples/**/artifacts/*.yaml",
+)
+
 #: The exact first-line prefix an annotated artifact document carries.
 HEADER_PREFIX = "# yaml-language-server: $schema="
 
@@ -376,18 +414,25 @@ def check_directory(directory: pathlib.Path) -> list[str]:
     return problems
 
 
-def discover(require_all: bool) -> list[pathlib.Path]:
-    """Return the artifact directories to check.
+def discover(
+    require_all: bool, base: pathlib.Path | None = None
+) -> list[pathlib.Path]:
+    """Return the artifact directories to check, under ``base``.
 
     Auto-arming by default: a directory joins the checked set as soon as it
     carries its first header or deferral marker. ``require_all`` returns
     every artifact directory regardless, which is the tree-wide form.
+
+    ``base`` defaults to :data:`REPO_ROOT` and exists so a control can run this
+    over a synthetic tree, the same reason
+    ``tests/examples/test_artifact_schema_headers.py::covered_artifact_directories``
+    is parameterized on its tree. Without it the only way to prove
+    :data:`ARTIFACT_GLOBS` reaches a root is to assert that the glob strings
+    are the glob strings, which proves nothing about what gets read.
     """
+    root = REPO_ROOT if base is None else base
     directories = sorted(
-        {
-            path.parent
-            for path in REPO_ROOT.glob("examples/**/artifacts/*.yaml")
-        }
+        {path.parent for pattern in ARTIFACT_GLOBS for path in root.glob(pattern)}
     )
     if require_all:
         return directories

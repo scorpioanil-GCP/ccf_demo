@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.task-definition.json
+# Decision-replay task definition (CLAUDE.md §6.4/§8.1; D-IMPL-28). The minimal
+# grid-ops decision path: one telemetry skill step, then the load-shed
+# authorization gate. Every step value lives here, never in code (§6.4); refs
+# are pinned versioned URIs (D-IMPL-26) resolving against keys the manifest
+# registers.
+#
+# Author-versioned, and kept at the call site rather than in the manifest: a
+# manifest may name it as `registration: versioned`, and declaring `typed` for
+# it is refused at preflight (D-IMPL-85) — see `agent-definition.yaml`'s header
+# for the D-05 reasoning. The document root IS the artifact; the Control Plane
+# key it registers under lives in `agent-registration.yaml`.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the name, tenant, step names and refs are [ADAPT]; the keys
+# `schema_version`, `artifact_version`, `name`, `tenant`, `steps`, `kind`,
+# `name`, `ref` and the `kind` enum values are [MECHANISM].
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+name: load-shed-authorization
+tenant: boreal-grid
+
+steps:
+  - kind: skill
+    name: collect-telemetry
+    ref: "ccf-artifact://boreal-grid/skill/collect-feeder-telemetry@1.0.0"
+  - kind: hitl-gate
+    name: load-shed-authorization

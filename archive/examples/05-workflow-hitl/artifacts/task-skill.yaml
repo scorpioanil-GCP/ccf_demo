@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# What the task's first step may invoke (CLAUDE.md §6.2 channel 2;
+# banking/lending domain, D-IMPL-52).
+#
+# `role: register` — a skill an agent may reach is a standing statement of what
+# the fabric was permitted to do, and the key is what the task definition's
+# `ccf-artifact://sterling-mutual/skill/verify-loan-file@1.0.0` ref resolves
+# against. A ref and its registration key must be the same string.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: skill
+
+declaration:
+  capability: verify-loan-file
+  source: loan-origination-system

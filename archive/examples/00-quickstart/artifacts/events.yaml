@@ -1,0 +1,115 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.signal-batch.json
+# Quickstart event stream — L1 signal envelopes (banking domain, D-IMPL-52).
+#
+# A handful of events, but not a flat happy path: the stream is built so the
+# fabric has something real to do at each layer.
+#
+#   * ev-101 asserts the SAME customer as ev-100 from a DIFFERENT source with
+#     identical attributes -> one claim whose lineage accumulates by set-union
+#     (INV-CH7-17), not a second node.
+#   * ev-102 introduces a second, permitted account that the similarity
+#     operator must rank out — so "similarity did something" is
+#     distinguishable from an identity function.
+#   * ev-103 carries a RESTRICTED mandate, which the policy operator must
+#     substitute out along with the edge that would otherwise leak its
+#     existence by absence.
+#   * ev-104 introduces the branch the surviving account is domiciled at —
+#     an internally-classified node two hops from the customer, so the
+#     bounded traversal has a real second hop to walk.
+#
+# The document adopts the SDK's OWN envelope vocabulary — `source: {system_id}`,
+# `raw_payload:` — rather than a flat shape the loader would have to translate.
+# A translation removed is one that cannot drift.
+#
+# Payload keys are the *source systems'* vocabulary, never the fabric's.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: everything under `raw_payload:` and every source system id is
+# [ADAPT]; the envelope keys (`envelope_id`, `tenant_id`, `source`,
+# `system_id`, `ingestion_timestamp`, `observed_time`, `raw_payload`) are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: meridian-bank
+
+envelopes:
+  - envelope_id: ev-100
+    tenant_id: meridian-bank
+    source:
+      system_id: core-banking
+    ingestion_timestamp: 2026-06-01T09:00:00Z
+    observed_time: 2026-06-01T08:55:00Z
+    raw_payload:
+      customer_ref: "MB-CUST-000088"
+      customer_name: "Alpenrose Logistics GmbH"
+      segment: "corporate"
+      customer_classification: "internal"
+      account_number: "MB-ACC-4401"
+      account_type: "payments"
+      currency: "EUR"
+      account_description: "corporate payments account eur sepa instant"
+      account_classification: "internal"
+
+  - envelope_id: ev-101
+    tenant_id: meridian-bank
+    source:
+      system_id: crm
+    ingestion_timestamp: 2026-06-01T09:05:00Z
+    observed_time: 2026-06-01T08:55:00Z
+    raw_payload:
+      customer_ref: "MB-CUST-000088"
+      customer_name: "Alpenrose Logistics GmbH"
+      segment: "corporate"
+      customer_classification: "internal"
+
+  - envelope_id: ev-102
+    tenant_id: meridian-bank
+    source:
+      system_id: payments-hub
+    ingestion_timestamp: 2026-06-01T09:10:00Z
+    observed_time: 2026-06-01T09:05:00Z
+    raw_payload:
+      customer_ref: "MB-CUST-000088"
+      customer_name: "Alpenrose Logistics GmbH"
+      segment: "corporate"
+      customer_classification: "internal"
+      account_number: "MB-ACC-7702"
+      account_type: "deposit"
+      currency: "GBP"
+      account_description: "merchant term deposit gbp fixed"
+      account_classification: "internal"
+
+  - envelope_id: ev-103
+    tenant_id: meridian-bank
+    source:
+      system_id: mandate-registry
+    ingestion_timestamp: 2026-06-01T09:15:00Z
+    observed_time: 2026-06-01T09:12:00Z
+    raw_payload:
+      mandate_id: "MND-0009"
+      mandate_scheme: "sepa_b2b_direct_debit"
+      mandate_classification: "restricted"
+      account_number: "MB-ACC-4401"
+      account_type: "payments"
+      currency: "EUR"
+      account_description: "corporate payments account eur sepa instant"
+      account_classification: "internal"
+
+  - envelope_id: ev-104
+    tenant_id: meridian-bank
+    source:
+      system_id: branch-directory
+    ingestion_timestamp: 2026-06-01T09:20:00Z
+    observed_time: 2026-06-01T09:18:00Z
+    raw_payload:
+      branch_code: "MB-BR-016"
+      branch_name: "Frankfurt Westend Corporate Center"
+      branch_classification: "internal"
+      account_number: "MB-ACC-4401"
+      account_type: "payments"
+      currency: "EUR"
+      account_description: "corporate payments account eur sepa instant"
+      account_classification: "internal"

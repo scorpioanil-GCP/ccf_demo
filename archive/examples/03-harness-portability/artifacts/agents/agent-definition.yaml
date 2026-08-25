@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.agent-definition.json
+# Harness-portability agent definition — THE one agent definition all three
+# harness legs share byte-identically (CLAUDE.md §6.1/§6.5; EXAM-04, D-01).
+# A declared, versioned Control Plane artifact (D-IMPL-28), e-commerce domain
+# (D-IMPL-52).
+#
+# This file deliberately names no harness — no vendor, no SDK, no loop. Harness
+# binding happens at runtime through each HarnessAdapterProtocol adapter
+# (§7.3), never in the definition (§6.5). All six specialization axes are here,
+# as values; `/src` and the example code hold none of them (No-Hardcoding Rule
+# §6.4). Decimals are quoted so they parse as text, never floats (D-IMPL-26).
+#
+# **One class, one document.** This file is now the `ccf.agent-definition` at
+# its root. The Control Plane key it is registered under moved to
+# `../agent-registration.yaml`, and the two artifacts its axis-4 and axis-5
+# refs point at are now their own documents (`policy-regime.yaml`,
+# `debt-profile.yaml`) beside this one — a ref, never the artifact, is the
+# whole point of `VersionedRef`, and a definition that carried its referents
+# inline gave one document several version identities.
+#
+# **Not a manifest entry, deliberately.** `ccf.agent-definition` is SDK-owned
+# but is absent from `SDK_ARTIFACT_CLASSES`, because it needs
+# `register_versioned`'s D-05 hash-verified bump check and `load_and_boot`
+# registers through `register_typed`. Naming it in the manifest would resolve
+# it to the open envelope and drop that check.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: tenant, agent name, product-class names, role/selection values,
+# prompt parameter names, and both `ref` targets. [MECHANISM]: the six axis
+# field names (`archetypes`, `context_contract`, `perspective`,
+# `policy_regime`, `halflife_debt_profile`, `instruction_bindings`), the two
+# version fields, and the `ccf-artifact://` URI scheme.
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+name: order-experience-insights
+tenant: atlas-commerce
+
+# axis 1 — ordered archetype list (D-IMPL-19)
+archetypes: [analytics_insights]
+
+# axis 2 — context contract: the product class the fabric in this example
+# actually serves (`../product-class.yaml`), so every leg consumes a real
+# gated product.
+context_contract:
+  consumes:
+    - product_class: atlas-commerce.order-experience-context
+      schema_version: "1.0.0"
+
+# axis 3 — perspective (Π role-conditioning)
+perspective:
+  role: commerce-analyst
+  selection_params:
+    region: pacific-coast
+
+# axis 4 — policy regime (versioned-URI ref, never inline). The referent is
+# `policy-regime.yaml` beside this file.
+policy_regime:
+  ref: "ccf-artifact://atlas-commerce/policy-bundle/order-operations@1.0.0"
+
+# axis 5 — half-life and debt profile (versioned-URI ref). The referent is
+# `debt-profile.yaml` beside this file.
+halflife_debt_profile:
+  ref: "ccf-artifact://atlas-commerce/debt-profile/order-window-review@1.0.0"
+
+# axis 6 — instruction bindings: refs plus declared parameter names. The
+# referent is `../prompt.yaml`.
+instruction_bindings:
+  - prompt: "ccf-artifact://atlas-commerce/prompt/order-experience-briefing@1.0.0"
+    parameters: [order_ref, as_of]

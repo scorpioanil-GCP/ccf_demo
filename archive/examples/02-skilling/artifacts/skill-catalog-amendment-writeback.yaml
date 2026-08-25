@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.skill-catalog-entry.json
+# The skill the governance check must REFUSE (CLAUDE.md §6.2; D-IMPL-29;
+# clinical-trials-operations domain, D-IMPL-52).
+#
+# Its `required_scopes` include `protocol-write`, which
+# `agent-policy-regime.yaml` does not permit. The grant requested for it in
+# `skilling-scenario.yaml` is refused by the tier-1 compatibility check, which
+# names the excess scopes in a typed returned value — a refused grant is a bad
+# request, not a broken fabric, so it is a value rather than an exception, and
+# it is audited as `grant_refused`.
+#
+# Nothing binds: after the refusal the skill does not exist from the agent's
+# surface, and the in-force grant-set identity has not moved.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the skill name, tenant, description, command, argument names,
+# scope identifiers and product-class names are [ADAPT]; `schema_version`,
+# `artifact_version`, `skill_type`, `argument_schema`, `binding`, `command`,
+# `requirements` and its two keys are [MECHANISM].
+
+schema_version: "2.0.0"
+artifact_version: "1.0.0"
+name: protocol-amendment-writeback
+tenant: helix-trials
+skill_type: tool
+description: >-
+  Write a protocol-amendment notification back to the trial master file for a
+  named cohort — a capability this agent's regime does not permit it to bind.
+argument_schema:
+  properties:
+    cohort_ref:
+      type: string
+      description: The enrollment cohort the amendment applies to.
+  required: [cohort_ref]
+binding:
+  command: tmf-amendment-cli
+requirements:
+  required_scopes: [enrollment-read, protocol-write]
+  required_context_products: [helix-trials.enrollment-summary]

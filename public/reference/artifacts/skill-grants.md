@@ -22,5 +22,5 @@ axis-4 reference, declaring the one requirement scope agents under that regime m
 deliberately excluding another.
 
 ```yaml
---8<-- "examples/02-skilling/artifacts/agent-policy-regime.yaml"
+--8<-- "archive/examples/02-skilling/artifacts/agent-policy-regime.yaml"
 ```

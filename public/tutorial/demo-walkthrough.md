@@ -7,18 +7,19 @@
 
 # How data folds into context
 
-*A narrated walk through `examples/08-e2e-demo`: three systems of record,
+*A narrated walk through `archive/examples/08-e2e-demo`: three systems of record,
 a fraud ring none of them can see, and the exact point in the fabric where
 it becomes visible.*
 
 Run it yourself first if you like — one command, deterministic, the same
-run CI performs:
+run CI performs (via `tests/examples/test_e2e_demo_output.py`, which loads
+and executes this driver):
 
 ```
-PYTHONPATH=src:runtime python examples/08-e2e-demo/run.py
+PYTHONPATH=src:runtime python archive/examples/08-e2e-demo/run.py
 ```
 
-(or `make example-08`). Everything below is that run, stage by stage.
+Everything below is that run, stage by stage.
 
 ---
 
@@ -68,13 +69,13 @@ re-pinning is a deliberate, reviewed event — that is the drift alarm
 working as designed.)
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/scenario.yaml"
+--8<-- "archive/examples/08-e2e-demo/artifacts/scenario.yaml"
 ```
 
 The interpreter that turns this artifact into three SQLite databases:
 
 ```python
---8<-- "examples/08-e2e-demo/generator.py"
+--8<-- "archive/examples/08-e2e-demo/generator.py"
 ```
 
 ## 3. Stage 1–2: generate, then prove raw data finds nothing
@@ -122,7 +123,7 @@ resolution spec carries the deployment's graph vocabulary — entity
 classes, identity keys, relationship rules:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/resolution-spec.yaml"
+--8<-- "archive/examples/08-e2e-demo/artifacts/resolution-spec.yaml"
 ```
 
 The ingest spec carries the L1 mapping, which selects scenario sources
@@ -130,7 +131,7 @@ and columns **by mechanism role**, never by name — which is why `run.py`
 contains no source vocabulary at all:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/ingest-spec.yaml"
+--8<-- "archive/examples/08-e2e-demo/artifacts/ingest-spec.yaml"
 ```
 
 Read the two load-bearing rules in the resolution spec closely:
@@ -180,14 +181,14 @@ permitted to do, enumerated rather than globbed, and it is what `run.py`
 hands to one `load_and_boot` call:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/manifest.yaml"
+--8<-- "archive/examples/08-e2e-demo/artifacts/manifest.yaml"
 ```
 
 The policy bundle it puts in force, stamped onto every claim at assembly
 and carried into replay dimension 2:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/policy-bundle.yaml"
+--8<-- "archive/examples/08-e2e-demo/artifacts/policy-bundle.yaml"
 ```
 
 And the per-observation-type half-life table that later shows up as a
@@ -195,11 +196,11 @@ freshness number in Stage 5, with the debt profile whose risk
 sensitivity scales it:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/half-life-table.yaml"
+--8<-- "archive/examples/08-e2e-demo/artifacts/half-life-table.yaml"
 ```
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/debt-profile.yaml"
+--8<-- "archive/examples/08-e2e-demo/artifacts/debt-profile.yaml"
 ```
 
 ## 6. Stage 5: the agent and its governed skill find the ring
@@ -211,7 +212,7 @@ specialization (context contract, policy regime, instruction binding)
 fixed in a definition artifact:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/agent-definition.yaml"
+--8<-- "archive/examples/08-e2e-demo/artifacts/agent-definition.yaml"
 ```
 
 Capability arrives through the second channel — **skilling** (CLAUDE.md
@@ -225,13 +226,13 @@ tight the ring's structure must be. The catalog entry declares the
 argument schema:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/skill-catalog-entry.yaml"
+--8<-- "archive/examples/08-e2e-demo/artifacts/skill-catalog-entry.yaml"
 ```
 
 The grant that binds it, and the dispatch values the callable interprets:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/skill-dispatch.yaml"
+--8<-- "archive/examples/08-e2e-demo/artifacts/skill-dispatch.yaml"
 ```
 
 Invoked over the typed Context Product — the same detection, the same
@@ -290,7 +291,7 @@ This is the committed file the run's stdout must equal, byte for byte —
 the same banners you saw quoted above:
 
 ```
---8<-- "examples/08-e2e-demo/artifacts/expected_output.txt"
+--8<-- "archive/examples/08-e2e-demo/artifacts/expected_output.txt"
 ```
 
 And the thin, generic driver that produced it — six labeled stages of
@@ -301,18 +302,20 @@ manifest above; deleting the artifacts would leave it nothing to run
 including the byte-comparison, where a test runner can fail a build:
 
 ```python
---8<-- "examples/08-e2e-demo/run.py"
+--8<-- "archive/examples/08-e2e-demo/run.py"
 ```
 
 ## 9. Running it yourself
 
 ```
-PYTHONPATH=src:runtime python examples/08-e2e-demo/run.py
+PYTHONPATH=src:runtime python archive/examples/08-e2e-demo/run.py
 ```
 
-or `make example-08`; it also runs inside `make examples` and therefore
-`make ci`, deterministically, on every commit. A full run takes roughly
-40 seconds, dominated by 6,870 per-row SQLite ingests.
+The tree is archived (`D-IMPL-193`) and no `make` target runs it any more
+(`D-04`), but `tests/examples/test_e2e_demo_output.py` executes this same
+driver inside `make test` and therefore `make ci`, deterministically, on
+every commit. A full run takes roughly 40 seconds, dominated by 6,870
+per-row SQLite ingests.
 
 Optionally, `--live` adds a narration-only step (never in always-on CI):
 the prompt artifact below is rendered against the deterministic
@@ -321,9 +324,9 @@ investigation summary. Detection itself is identical in both modes —
 the model narrates a result the fabric already proved:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/prompt-artifact.yaml"
+--8<-- "archive/examples/08-e2e-demo/artifacts/prompt-artifact.yaml"
 ```
 
-**Where to go next:** open `examples/08-e2e-demo/artifacts/scenario.yaml`
+**Where to go next:** open `archive/examples/08-e2e-demo/artifacts/scenario.yaml`
 and change something — a member, an amount, the tolerance. The pins will
 fail loudly, you will re-pin deliberately, and the demo will be yours.

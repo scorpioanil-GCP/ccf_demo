@@ -1,0 +1,168 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.deployment-manifest.json
+# The one document naming what this deployment puts in force (D-06, D-08,
+# D-IMPL-80; clinical-trials-operations domain, D-IMPL-52).
+#
+# **This manifest names THREE operator-parameters documents, not four, and that
+# is the point of this example's fabric.** Which operators exist is
+# per-deployment policy expressed by the artifact set: there is no similarity
+# document, so the mapping handed to `build_operator_registry` has three
+# entries and the registry holds three operators. No flag is passed, no `None`
+# is passed, and no disabled operator is registered. TWO further documents each
+# declare the same three keys, separately (design E2, D-IMPL-86):
+# `product-class.yaml` as the product's CLAIM — what fills
+# `lineage.operators_invoked` — and `projection-requirements.yaml` as the
+# PROJECTION's own requirement, which is what the plan is built from. `run.py`
+# binds them with a refusal before it projects, so a fourth key appearing in
+# one document and not the other stops the run.
+#
+# **What this manifest deliberately does not carry.** The agent definition and
+# the three skill catalog entries are absent. All four carry D-IMPL-28 two-field
+# versioning and register through `register_versioned` (the catalog through
+# `SkillCatalog.register`, which calls it), whose D-05 bump check holds the
+# author's `artifact_version` claim against content identity.
+# `load_and_boot` registers through `register_typed`, which does not run that
+# check — so routing them here would drop it silently. `run.py` registers them
+# itself; `agent-registration.yaml` and `skilling-scenario.yaml` name them.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, every `key`, every `path`, and the
+# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: helix-trials
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+    registration: typed
+
+  - path: policy-bundle.yaml
+    key: policy-bundle
+    class_id: helix-trials.policy-bundle
+    role: register
+    registration: typed
+
+  # Three categories, and no fourth. See the note at the top.
+  - path: operator-parameters-traversal.yaml
+    key: traversal
+    class_id: ccf.operator-parameters.traversal
+    role: register
+    registration: typed
+
+  - path: operator-parameters-temporal.yaml
+    key: temporal
+    class_id: ccf.operator-parameters.temporal
+    role: register
+    registration: typed
+
+  - path: operator-parameters-policy.yaml
+    key: policy
+    class_id: ccf.operator-parameters.policy
+    role: register
+    registration: typed
+
+  - path: perspective.yaml
+    key: perspective
+    class_id: ccf.perspective
+    role: register
+    registration: typed
+
+  - path: product-class.yaml
+    key: product-class
+    class_id: ccf.product-class
+    role: register
+    registration: typed
+
+  # Design E2's second authored operator set (D-IMPL-86), and the second of the
+  # two documents that must name the same three keys. `role: register`, not
+  # `load`, and the reason is the same one that puts `product-class.yaml` two
+  # entries above: this document governs WHAT THE PROJECTION DOES, which is
+  # Control Plane configuration — what this fabric is permitted to do — rather
+  # than an observation of one run. So it belongs in the pin set and in the
+  # Decision Replay dimension 2 set, beside the product-class document it is
+  # bound to. A deployment that changed which operators its projection depends
+  # on and left no trace in dimension 2 would have changed what the fabric was
+  # permitted to do with no artifact recording it.
+  - path: projection-requirements.yaml
+    key: projection-requirements
+    class_id: ccf.projection-requirements
+    role: register
+    registration: typed
+
+  - path: product-governance.yaml
+    key: product-governance
+    class_id: helix-trials.product-governance
+    role: register
+    registration: typed
+
+  # The agent's axis-4 regime — which carries the D-IMPL-29 `skill_governance`
+  # envelope this whole example turns on — and its axis-5 profile. Their keys
+  # are the `{tenant}/{artifact_class}/{name}` the definition's refs resolve to.
+  - path: agent-policy-regime.yaml
+    key: helix-trials/policy-bundle/trial-operations-regime
+    class_id: policy-bundle
+    role: register
+    registration: typed
+
+  - path: agent-debt-profile.yaml
+    key: helix-trials/debt-profile/enrollment-review
+    class_id: debt-profile
+    role: register
+    registration: typed
+
+  # --- role: load — parsed and validated through the same seam, then handed
+  #     back on `BootedFabric.artifacts`. Never registered, never pinned, never
+  #     in replay dimension 2.
+
+  # `role: load` is FIXED by the SDK for this class (D-IMPL-80): registering a
+  # signal batch would content-hash raw event data into Control Plane state.
+  - path: events.yaml
+    key: events
+    class_id: ccf.signal-batch
+    role: load
+    registration: typed
+
+  # `decision.yaml` is deliberately NOT here either, and for a different reason
+  # than the author-versioned documents. This deployment injects its clock into
+  # the Control Plane registry so the audited grant lifecycle is reproducible —
+  # and the registry is an argument to `load_and_boot`, so the decision instant
+  # must be known before the manifest is read. It is loaded through the same
+  # `load_artifact` seam, one line earlier.
+
+  - path: expected.yaml
+    key: expected
+    class_id: helix-trials.expected-product
+    role: load
+    registration: typed
+
+  - path: agent-registration.yaml
+    key: agent-registration
+    class_id: helix-trials.agent-registration
+    role: load
+    registration: typed
+
+  # The channel-2 scenario: which catalog documents to register, which grants
+  # to request, the dispatch arguments, and the reviewed refusal outcome. A
+  # SCRIPT for a run is not a statement of what the fabric may do — the grants
+  # it names become Control Plane state through the ledger, audited, and that
+  # is where the governance lives.
+  - path: skilling-scenario.yaml
+    key: skilling-scenario
+    class_id: helix-trials.skilling-scenario
+    role: load
+    registration: typed

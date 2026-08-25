@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.signal-batch.json
+# Hello-context event stream — L1 signal envelopes (financial-services domain,
+# D-IMPL-52; authored fresh — nothing here is ported).
+#
+# A handful of events, but not a flat happy path: the stream is built so the
+# fabric has something real to do at each layer.
+#
+#   * ev-102 asserts the SAME borrower as ev-101 from a DIFFERENT source with
+#     identical attributes -> one claim whose lineage accumulates by
+#     set-union, not a second node.
+#   * ev-105 carries a stale, off-topic legacy rating narrative that the
+#     similarity operator must rank out — so "similarity did something" is
+#     distinguishable from an identity function.
+#   * ev-106 carries a RESTRICTED signal, which the policy operator must
+#     substitute out along with the edge that would otherwise leak its
+#     existence by absence.
+#
+# The two signals that survive are exactly what changes the decision the
+# served context informs: liquidity coverage strengthened and covenant
+# headroom widened -> extend the credit line rather than hold it.
+#
+# The document adopts the SDK's OWN envelope vocabulary — `source: {system_id}`,
+# `raw_payload:` — rather than a flat shape a loader would have to translate.
+# A translation removed is one that cannot drift.
+#
+# Payload keys are the *source systems'* vocabulary, never the fabric's.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: everything under `raw_payload:` and every source system id is
+# [ADAPT]; the envelope keys (`envelope_id`, `tenant_id`, `source`,
+# `system_id`, `ingestion_timestamp`, `observed_time`, `raw_payload`) are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: first-meridian-bank
+
+envelopes:
+  - envelope_id: ev-101
+    tenant_id: first-meridian-bank
+    source:
+      system_id: loan-origination
+    ingestion_timestamp: 2026-07-01T09:00:00Z
+    observed_time: 2026-07-01T08:45:00Z
+    raw_payload:
+      borrower_ref: "FMB-BRW-0007"
+      borrower_name: "Acme Industrial Holdings"
+      borrower_sector: "manufacturing"
+      borrower_classification: "internal"
+      facility_ref: "FMB-FAC-0007-RCF"
+      facility_kind: "revolving-credit"
+      facility_limit: "25000000"
+      facility_classification: "internal"
+
+  - envelope_id: ev-102
+    tenant_id: first-meridian-bank
+    source:
+      system_id: relationship-crm
+    ingestion_timestamp: 2026-07-01T09:05:00Z
+    observed_time: 2026-07-01T08:45:00Z
+    raw_payload:
+      borrower_ref: "FMB-BRW-0007"
+      borrower_name: "Acme Industrial Holdings"
+      borrower_sector: "manufacturing"
+      borrower_classification: "internal"
+
+  - envelope_id: ev-103
+    tenant_id: first-meridian-bank
+    source:
+      system_id: treasury-feed
+    ingestion_timestamp: 2026-07-01T09:10:00Z
+    observed_time: 2026-07-01T09:00:00Z
+    raw_payload:
+      facility_ref: "FMB-FAC-0007-RCF"
+      facility_kind: "revolving-credit"
+      facility_limit: "25000000"
+      facility_classification: "internal"
+      signal_ref: "FMB-SIG-LIQ-Q2"
+      signal_kind: "liquidity-observation"
+      signal_summary: "liquidity coverage strengthened this quarter covenant headroom widened"
+      signal_classification: "internal"
+
+  - envelope_id: ev-104
+    tenant_id: first-meridian-bank
+    source:
+      system_id: covenant-monitor
+    ingestion_timestamp: 2026-07-01T09:15:00Z
+    observed_time: 2026-07-01T09:05:00Z
+    raw_payload:
+      facility_ref: "FMB-FAC-0007-RCF"
+      facility_kind: "revolving-credit"
+      facility_limit: "25000000"
+      facility_classification: "internal"
+      signal_ref: "FMB-SIG-COV-HEADROOM"
+      signal_kind: "covenant-observation"
+      signal_summary: "covenant headroom above threshold after quarter close"
+      signal_classification: "internal"
+
+  - envelope_id: ev-105
+    tenant_id: first-meridian-bank
+    source:
+      system_id: rating-archive
+    ingestion_timestamp: 2026-07-01T09:20:00Z
+    observed_time: 2024-11-15T10:00:00Z
+    raw_payload:
+      facility_ref: "FMB-FAC-0007-RCF"
+      facility_kind: "revolving-credit"
+      facility_limit: "25000000"
+      facility_classification: "internal"
+      signal_ref: "FMB-SIG-RATING-2024"
+      signal_kind: "annual-rating"
+      signal_summary: "legacy annual rating narrative superseded and unrelated"
+      signal_classification: "internal"
+
+  - envelope_id: ev-106
+    tenant_id: first-meridian-bank
+    source:
+      system_id: workout-desk
+    ingestion_timestamp: 2026-07-01T09:25:00Z
+    observed_time: 2026-07-01T09:10:00Z
+    raw_payload:
+      facility_ref: "FMB-FAC-0007-RCF"
+      facility_kind: "revolving-credit"
+      facility_limit: "25000000"
+      facility_classification: "internal"
+      signal_ref: "FMB-SIG-WATCHLIST"
+      signal_kind: "watchlist-note"
+      signal_summary: "confidential watchlist annotation restricted to workout desk"
+      signal_classification: "restricted"

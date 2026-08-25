@@ -13,7 +13,7 @@ policy-verified, lineage-preserving effects coming out. No module in the SDK
 core imports a harness — a CI lint enforces it — so harness code exists only
 behind the adapter Protocol.
 
-Everything below is literal-included from `examples/03-harness-portability`,
+Everything below is literal-included from `archive/examples/03-harness-portability`,
 which drives real loop machinery from three harnesses in CI and asserts
 byte-level equivalence.
 
@@ -27,7 +27,7 @@ socket. A live leg exists and is opt-in.
 Run the worked example with:
 
 ```sh
-make example-03
+PYTHONPATH=src:runtime python archive/examples/03-harness-portability/run.py --mode deterministic
 ```
 
 ## The four seams
@@ -60,14 +60,14 @@ runtime changes. The
 documents the schema:
 
 ```yaml
---8<-- "examples/03-harness-portability/artifacts/agents/agent-definition.yaml"
+--8<-- "archive/examples/03-harness-portability/artifacts/agents/agent-definition.yaml"
 ```
 
 Per-harness deployment values — session vocabulary, reported model
 identifiers — live in their own artifact, well away from the agent's identity:
 
 ```yaml
---8<-- "examples/03-harness-portability/artifacts/harnesses.yaml"
+--8<-- "archive/examples/03-harness-portability/artifacts/harnesses.yaml"
 ```
 
 ## Step 2 — construct the agent once
@@ -78,7 +78,7 @@ different text. See the
 [agent Protocols](../reference/protocols/agents.md):
 
 ```py
---8<-- "examples/03-harness-portability/run.py:harness-agent"
+--8<-- "archive/examples/03-harness-portability/run.py:harness-agent"
 ```
 
 ## Step 3 — wire the replay hook
@@ -89,7 +89,7 @@ adapter that corrupted what it delivered moves the address and the comparison
 goes red naming the field:
 
 ```py
---8<-- "examples/03-harness-portability/run.py:harness-replay-hook"
+--8<-- "archive/examples/03-harness-portability/run.py:harness-replay-hook"
 ```
 
 ## Step 4 — drive every leg with the same inputs
@@ -100,7 +100,7 @@ is recovered from *that leg's own* carrier, so the values being compared in the
 next step are three independently produced values rather than one shared one:
 
 ```py
---8<-- "examples/03-harness-portability/run.py:harness-legs"
+--8<-- "archive/examples/03-harness-portability/run.py:harness-legs"
 ```
 
 ## Step 5 — assert equivalence on what CCF governs
@@ -123,7 +123,7 @@ the point is that what CCF governs is identical while the harnesses stay
 distinguishable. This is the set the comparison covers:
 
 ```py
---8<-- "examples/03-harness-portability/legs/deterministic.py:harness-governed-fields"
+--8<-- "archive/examples/03-harness-portability/legs/deterministic.py:harness-governed-fields"
 ```
 
 ## What to change first

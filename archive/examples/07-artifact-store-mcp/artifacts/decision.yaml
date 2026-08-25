@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# This decision's inputs (logistics domain, D-09).
+#
+# Explicit inputs, never clock reads. Both store-backed runs replay the
+# IDENTICAL decision precisely because these are data — a clock read here would
+# make the two runs' products differ for a reason that has nothing to do with
+# the store, and the byte-equality assertion would be testing the wall clock.
+#
+# **`role: load` in the manifest.** Registering this would content-hash "what
+# instant this run asked about" into Control Plane state and therefore into
+# replay dimension 2 — but dimension 2 records what the fabric was PERMITTED TO
+# DO, not what any one run asked of it.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM]. Every timestamp
+# states its zone — the loader refuses a zone-less one rather than guessing
+# (D-IMPL-38).
+
+semver: "1.0.0"
+class_id: nordhaven-logistics.decision-inputs
+
+declaration:
+  temporal_boundary: 2026-07-01T07:00:00Z
+  now: 2026-07-01T07:00:05Z

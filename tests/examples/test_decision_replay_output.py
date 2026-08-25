@@ -1,6 +1,6 @@
 """The decision-replay example's assertions, grouped by replay dimension (D-09).
 
-``examples/06-decision-replay/run.py`` used to carry its own guarantee: 101
+``archive/examples/06-decision-replay/run.py`` used to carry its own guarantee: 101
 ``assert`` statements and 29 ``print`` summaries, checked by ``make example-06``
 exiting zero. D-09 moves that guarantee here, because ``make examples`` proves a
 spine *runs* and ``pytest`` proves it is *correct*.
@@ -168,7 +168,7 @@ from ccf.workflow.definitions import WORKFLOW_DEFINITION
 from ccf_runtime.http_api.errors import ERROR_TENANT_UNAUTHORIZED
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE = REPO_ROOT / "examples" / "06-decision-replay" / "run.py"
+EXAMPLE = REPO_ROOT / "archive" / "examples" / "06-decision-replay" / "run.py"
 
 
 def _load_example() -> Any:

@@ -7,10 +7,13 @@ workflow with a human gate, replay the decision that came out, and finally
 consume the result from a process that has never heard of CCF.
 
 Every block of code and every artifact on this page is **literal-included
-from an example the CI pipeline runs**. Nothing here is pasted, so nothing
-here can drift: if one of these sources moves, this page fails to build. Each
-section names the one command that runs its example, so you can reproduce
-what you are reading as you read it.
+from an example CI executes**. Nothing here is pasted, so nothing here can
+drift: if one of these sources moves, this page fails to build. The examples
+themselves live under `archive/examples/` — they are no longer the teaching
+path and no `make` target invites you to run them (`D-04`) — but their tests
+under `tests/examples/` still execute them on every commit. Each section names
+the one command that runs its example directly, so you can reproduce what you
+are reading as you read it.
 
 The through-line to keep in view: the code you see is thin, generic
 machinery, and everything specific to a deployment lives in versioned
@@ -36,12 +39,13 @@ install end to end before going further:
 make ci
 ```
 
-That runs the invariant lints, `mypy --strict`, the full test suite, and every
-example in this guide.
+That runs the invariant lints, `mypy --strict`, and the full test suite —
+which includes the `tests/examples/` modules that execute every example on
+this page.
 
 ## Declare an ontology and serve your first Context Product
 
-Run: `make example-00`.
+Run: `PYTHONPATH=src:runtime python archive/examples/00-quickstart/run.py`.
 
 A deployment's vocabulary — which entity kinds exist, which attributes
 identify them, which relationships connect them — is an artifact, not code.
@@ -52,7 +56,7 @@ source systems converges on one node without either system knowing about the
 other.
 
 ```yaml
---8<-- "examples/00-quickstart/artifacts/resolution-spec.yaml"
+--8<-- "archive/examples/00-quickstart/artifacts/resolution-spec.yaml"
 ```
 
 That document is one of fourteen. A **deployment manifest** names every one of
@@ -65,7 +69,7 @@ the SDK fixes it that way: registering raw events would make re-authoring an
 events file look like a change to what the fabric was *permitted* to do.
 
 ```yaml
---8<-- "examples/00-quickstart/artifacts/manifest.yaml"
+--8<-- "archive/examples/00-quickstart/artifacts/manifest.yaml"
 ```
 
 Loading that manifest and booting the fabric is one call. Assembly is where the
@@ -73,7 +77,7 @@ single-writer invariant lives — every artifact is pinned to a version before
 the fabric boots, and only the assembly worker ever writes to the graph:
 
 ```py
---8<-- "examples/00-quickstart/run.py:boot"
+--8<-- "archive/examples/00-quickstart/run.py:boot"
 ```
 
 Raw source records enter through L1 as signal envelopes. The envelope carries
@@ -82,7 +86,7 @@ fabric saw it and when the world produced it. Because the batch came back
 already parsed, ingest is one loop over it:
 
 ```py
---8<-- "examples/00-quickstart/run.py:ingest"
+--8<-- "archive/examples/00-quickstart/run.py:ingest"
 ```
 
 Reading is done by composable operators in four categories — traversal,
@@ -94,7 +98,7 @@ is configuration you read and edit, not type introspection. See the
 for the surface each one implements:
 
 ```py
---8<-- "examples/00-quickstart/run.py:operators"
+--8<-- "archive/examples/00-quickstart/run.py:operators"
 ```
 
 A projection is the one piece of genuine deployment code in this picture: it
@@ -110,7 +114,7 @@ document stops the deployment before anything is assembled (design E2,
 `D-IMPL-86`).
 
 ```py
---8<-- "examples/00-quickstart/run.py:project"
+--8<-- "archive/examples/00-quickstart/run.py:project"
 ```
 
 Three validation gates stand between a candidate and a servable product:
@@ -134,7 +138,7 @@ them. A helper that did both would be comparing a value against itself. The
 document the typed surface:
 
 ```py
---8<-- "examples/00-quickstart/run.py:gate"
+--8<-- "archive/examples/00-quickstart/run.py:gate"
 ```
 
 Before delivery, the decision is recorded across five dimensions. This is
@@ -142,21 +146,21 @@ audit by construction: there is no path that serves a product without
 producing its record.
 
 ```py
---8<-- "examples/00-quickstart/run.py:record"
+--8<-- "archive/examples/00-quickstart/run.py:record"
 ```
 
 Serving writes that record to the artifact store, content-addressed, and
 hands back the product together with the reference:
 
 ```py
---8<-- "examples/00-quickstart/run.py:serve"
+--8<-- "archive/examples/00-quickstart/run.py:serve"
 ```
 
 You now have a fabric. Everything that follows consumes it.
 
 ## Declare an agent
 
-Run: `make example-01`.
+Run: `PYTHONPATH=src:runtime python archive/examples/01-agent-basics/run.py`.
 
 The SDK ships six archetypes as mechanism. It ships no agents at all — an
 agent is a declared, versioned Control Plane artifact, produced by the Agent
@@ -166,7 +170,7 @@ contract, perspective, policy regime, half-life and debt profile, and
 instruction bindings by reference — never inline prompt text):
 
 ```yaml
---8<-- "examples/01-agent-basics/artifacts/agent-definition.yaml"
+--8<-- "archive/examples/01-agent-basics/artifacts/agent-definition.yaml"
 ```
 
 The artifacts the definition *references* — its policy regime and its debt
@@ -184,7 +188,7 @@ the call site. The
 document the schemas:
 
 ```py
---8<-- "examples/01-agent-basics/run.py:agent-artifacts"
+--8<-- "archive/examples/01-agent-basics/run.py:agent-artifacts"
 ```
 
 Construction goes through the factory and nowhere else. The agent's identity
@@ -192,7 +196,7 @@ derives from the content hash of its definition, so identity is a property of
 the artifact rather than of anything written in code:
 
 ```py
---8<-- "examples/01-agent-basics/run.py:agent-factory"
+--8<-- "archive/examples/01-agent-basics/run.py:agent-factory"
 ```
 
 Each of the six axes resolves observably — the context contract admits the
@@ -204,19 +208,19 @@ test per axis. The [agent Protocol surface](../reference/protocols/agents.md)
 names the methods used here:
 
 ```py
---8<-- "examples/01-agent-basics/run.py:specialization-axes"
+--8<-- "archive/examples/01-agent-basics/run.py:specialization-axes"
 ```
 
 Which agent, at which version, composed from which archetypes — all of it
 lands in the replay record's fourth dimension:
 
 ```py
---8<-- "examples/01-agent-basics/run.py:agent-replay"
+--8<-- "archive/examples/01-agent-basics/run.py:agent-replay"
 ```
 
 ## Grant a skill — and revoke it
 
-Run: `make example-02`.
+Run: `PYTHONPATH=src:runtime python archive/examples/02-skilling/run.py`.
 
 Skilling is the second, separate specialization channel. Capabilities attach
 and detach over an agent's life **without re-declaring the agent**: the
@@ -226,7 +230,7 @@ what makes the governance check mechanical. This is the entry the cycle below
 grants; the same example registers two more it never binds:
 
 ```yaml
---8<-- "examples/02-skilling/artifacts/skill-catalog-enrollment-metrics.yaml"
+--8<-- "archive/examples/02-skilling/artifacts/skill-catalog-enrollment-metrics.yaml"
 ```
 
 Registration puts the entries in the Control Plane catalog and constructs the
@@ -234,7 +238,7 @@ agent against a live view of the grant ledger — so grants and revocations take
 effect at invocation time on the same constructed agent:
 
 ```py
---8<-- "examples/02-skilling/run.py:skill-catalog"
+--8<-- "archive/examples/02-skilling/run.py:skill-catalog"
 ```
 
 A grant is a request through the ledger. It is audited, it changes the
@@ -245,13 +249,13 @@ agent's surface. The
 artifact shapes:
 
 ```py
---8<-- "examples/02-skilling/run.py:skill-grant"
+--8<-- "archive/examples/02-skilling/run.py:skill-grant"
 ```
 
 Exercising the granted capability is an ordinary typed invocation:
 
 ```py
---8<-- "examples/02-skilling/run.py:skill-exercise"
+--8<-- "archive/examples/02-skilling/run.py:skill-exercise"
 ```
 
 Governance is structural, not advisory. A grant whose declared requirements
@@ -260,13 +264,13 @@ excess scopes, the refusal is audited, and nothing binds — the capability
 simply does not exist from the agent's point of view:
 
 ```py
---8<-- "examples/02-skilling/run.py:skill-refusal"
+--8<-- "archive/examples/02-skilling/run.py:skill-refusal"
 ```
 
 Revocation is symmetrical, and equally audited:
 
 ```py
---8<-- "examples/02-skilling/run.py:skill-revoke"
+--8<-- "archive/examples/02-skilling/run.py:skill-revoke"
 ```
 
 Adapt this first by writing your own catalog entries and regime scopes. The
@@ -275,7 +279,7 @@ never seen its own governance check fire does not know whether it works.
 
 ## Compose a workflow with a human gate
 
-Run: `make example-05`.
+Run: `PYTHONPATH=src:runtime python archive/examples/05-workflow-hitl/run.py`.
 
 Workflows are Control Plane artifacts too — states, transitions, terminal
 conditions, and exception routes, all declared rather than coded. See the
@@ -283,7 +287,7 @@ conditions, and exception routes, all declared rather than coded. See the
 for the schema:
 
 ```yaml
---8<-- "examples/05-workflow-hitl/artifacts/workflow-definition.yaml"
+--8<-- "archive/examples/05-workflow-hitl/artifacts/workflow-definition.yaml"
 ```
 
 A workflow definition is one of the six **author-versioned** SDK classes.
@@ -297,7 +301,7 @@ registers its four itself so those calls stay visible as the thing being
 taught:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:register-definitions"
+--8<-- "archive/examples/05-workflow-hitl/run.py:register-definitions"
 ```
 
 The engine is constructed with its injected seams — the artifact store, the
@@ -307,14 +311,14 @@ from the factory. The
 page documents the surfaces:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:workflow-construct"
+--8<-- "archive/examples/05-workflow-hitl/run.py:workflow-construct"
 ```
 
 Execution runs until it reaches the approval gate, then suspends with
 persisted state. Suspension is a declared outcome, not an exception:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:workflow-suspend"
+--8<-- "archive/examples/05-workflow-hitl/run.py:workflow-suspend"
 ```
 
 The human's action arrives through the authenticated HTTP door and is bound
@@ -323,7 +327,7 @@ to exactly what the approver saw, by content hash, and signed. The
 [HTTP API reference](../reference/http-api.md) cover the door:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:hitl-approval"
+--8<-- "archive/examples/05-workflow-hitl/run.py:hitl-approval"
 ```
 
 Every failure mode fails closed and typed — unauthenticated, expired,
@@ -332,32 +336,32 @@ the authority path. The spine drives all four; that each is the *right* typed
 refusal is asserted in `tests/examples/test_workflow_hitl_output.py`:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:hitl-refusals"
+--8<-- "archive/examples/05-workflow-hitl/run.py:hitl-refusals"
 ```
 
 The valid submission is admitted, and the audited principal is **derived from
 the verified token**, never taken from the caller's claim about itself:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:hitl-admitted"
+--8<-- "archive/examples/05-workflow-hitl/run.py:hitl-admitted"
 ```
 
 The human decision then drives the workflow to its declared terminal state:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:workflow-resume"
+--8<-- "archive/examples/05-workflow-hitl/run.py:workflow-resume"
 ```
 
 And the human action lands in the record verbatim — approver, signature, and
 the hash of what they were shown — alongside the engine's step sequence:
 
 ```py
---8<-- "examples/05-workflow-hitl/run.py:hitl-replay"
+--8<-- "archive/examples/05-workflow-hitl/run.py:hitl-replay"
 ```
 
 ## Replay the decision
 
-Run: `make example-06`.
+Run: `PYTHONPATH=src:runtime python archive/examples/06-decision-replay/run.py`.
 
 Replay is the payoff for everything above. From a record address alone, the
 engine resolves the graph snapshot, the policy bundle version, the agent
@@ -368,7 +372,7 @@ itself lives in `tests/examples/test_decision_replay_output.py`, where a runner
 can fail on it; the spine is the call it asserts about:
 
 ```py
---8<-- "examples/06-decision-replay/run.py:replay-reproduce"
+--8<-- "archive/examples/06-decision-replay/run.py:replay-reproduce"
 ```
 
 Version resolution is the mechanism that makes the reproduction meaningful.
@@ -379,7 +383,7 @@ is what the recorded grant-set hash is recomputed from rather than trusted. The
 seam these resolutions go through:
 
 ```py
---8<-- "examples/06-decision-replay/run.py:replay-agent-version"
+--8<-- "archive/examples/06-decision-replay/run.py:replay-agent-version"
 ```
 
 The negative case is the proof that the record is version-sensitive rather
@@ -389,7 +393,7 @@ Control Plane never registered — and the test suite then asserts that replayin
 that copy raises `ReplayUnresolvable` rather than reproducing anything:
 
 ```py
---8<-- "examples/06-decision-replay/run.py:replay-version-sensitivity"
+--8<-- "archive/examples/06-decision-replay/run.py:replay-version-sensitivity"
 ```
 
 If you take one habit from this guide into production, take this one: assert
@@ -398,7 +402,7 @@ that catches an artifact quietly becoming a moving target.
 
 ## Consume the fabric from outside
 
-Run: `make example-ext-00`.
+Run: `PYTHONPATH=src:runtime python archive/examples/external/00-hello-context/run.py`.
 
 The last step is the one your consumers will actually experience. An external
 agent runtime reaches Context Products over MCP egress and needs **nothing**
@@ -406,7 +410,7 @@ from this codebase — no imports, no shared types, no build coupling. The whole
 integration surface is a URL and a token:
 
 ```py
---8<-- "examples/external/00-hello-context/client_bare.py:mcp-connect"
+--8<-- "archive/examples/external/00-hello-context/client_bare.py:mcp-connect"
 ```
 
 Everything else is discovered from the server: the advertised tools, their
@@ -414,7 +418,7 @@ argument schemas, and the products on offer. A consumer written this way keeps
 working as the fabric grows new surfaces:
 
 ```py
---8<-- "examples/external/00-hello-context/client_bare.py:mcp-discover"
+--8<-- "archive/examples/external/00-hello-context/client_bare.py:mcp-discover"
 ```
 
 Reading a product resource is the terminal step — and this client, with zero
@@ -424,7 +428,7 @@ the wire is the real boundary. The
 documents the egress side:
 
 ```py
---8<-- "examples/external/00-hello-context/client_bare.py:mcp-resource"
+--8<-- "archive/examples/external/00-hello-context/client_bare.py:mcp-resource"
 ```
 
 ## Where to go next

@@ -1,0 +1,134 @@
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.declared-artifact.json
+# Hello-context Experience-surface deployment values (CLAUDE.md §8.3 — the MCP
+# front door for external agent runtimes; §7.1; financial-services domain,
+# D-IMPL-52).
+#
+# Everything the MCP surface advertises lives HERE, never in `serve.py`:
+# server identity, auth issuer/resource values, tool names AND their prose
+# descriptions (No-Hardcoding, §6.4 — code is interpreter only), the
+# agent-exposure declaration, and the model name a live-mode client leg uses.
+# `serve.py` composes what this file declares.
+#
+# `role: register` in the manifest, deliberately: this document is the answer
+# to "what could this deployment serve, and to whom", so re-authoring the
+# allowlist or the auth issuer IS a change to what was in force and belongs in
+# replay dimension 2. Contrast `tokens.yaml`, which is `role: load` because
+# credential material must never be content-hashed into the audit plane.
+#
+# [ADAPT] domain vocabulary and prose — safe to change for your domain
+# [MECHANISM] structural keys interpreted by serve.py — do not rename
+#
+# In this file: `class_id`, `server_name`, issuer/resource URLs, scope names,
+# tool prose, model names and allowlisted tool names are [ADAPT]; the keys
+# `semver`, `class_id`, `declaration`, `auth`, `tools`, `tool_allowlist`,
+# `agent_exposure` and `live_mode` and their inner field names are [MECHANISM].
+
+semver: "1.0.0"
+class_id: first-meridian-bank.experience-surface
+
+declaration:
+  server_name: first-meridian-bank.credit-context.experience
+
+  # AuthSettings values (D-26: verifier AND settings, together, always).
+  # Bearer-token auth is on from day one; there is no anonymous mode (D-12).
+  auth:
+    issuer_url: "https://auth.first-meridian.example"
+    resource_server_url: "https://context.first-meridian.example"
+    required_scope: "context:read"
+
+  # Who this front door may serve, and in what capacity (15.5-06).
+  #
+  # Authentication answers "is this caller who it says it is"; entitlement
+  # answers "may this caller receive THIS product class, and as WHOM". The
+  # front door requires both, and neither is optional: `build_experience_
+  # server` refuses to build without an entitlement source, so there is no
+  # configuration of this example that answers every verified caller.
+  #
+  # `client_id` values match `tokens.yaml` — the verified identity, never a
+  # value a caller supplies. The permitted product class is deliberately NOT
+  # restated here: `serve.py` derives it from the product the fabric actually
+  # assembled, so an entitlement can never name a class this deployment does
+  # not serve, and the two cannot drift.
+  entitlement:
+    policy_version: "1.0.0"
+    principals:
+      - client_id: external-analyst-07
+        roles: ["credit-analyst"]
+
+  # Deployment-side tools composed onto the experience server in serve.py.
+  # The prose below is the tool description the MCP surface advertises —
+  # artifact-carried, never inline in code (§6.4).
+  tools:
+    get_context:
+      name: get_context
+      description: >-
+        Return the credit-context Context Product for one borrower of one
+        tenant, as canonical JSON. Arguments: tenant (the owning tenant id)
+        and entity (the borrower reference). Serving is replay-recorded
+        fabric-side; the caller carries no audit obligation.
+    get_lineage:
+      name: get_lineage
+      description: >-
+        Read-only: return the lineage block of the served credit-context
+        product — operators invoked, policy bundle versions, graph snapshot
+        instant — as canonical JSON.
+    get_replay_record:
+      name: get_replay_record
+      description: >-
+        Read-only: return the five-dimension Decision Replay record the
+        fabric appended for the most recent externally-served product, read
+        back from the ArtifactStore, as canonical JSON.
+
+  # [MECHANISM] `tool_allowlist`: the D-05 exposure control passed into
+  # `build_experience_server`. A tool absent from this list is never
+  # registered, so tools/list cannot advertise it and a model physically
+  # cannot call it (registration-time omission — D-IMPL-74). This deployment
+  # advertises exactly the three external-consumption tools; the agent
+  # tools (list_agents, invoke_agent) are deliberately absent because this
+  # example exposes no agents (see agent_exposure below).
+  tool_allowlist:
+    - get_context  # [ADAPT]
+    - get_lineage  # [ADAPT]
+    - get_replay_record  # [ADAPT]
+
+  # This example exposes NO agents on the front door (hello-world scope).
+  # Because the agent tools are absent from tool_allowlist above, the SDK
+  # builder registers neither and requires neither agent seam, so serve.py
+  # passes no agent_directory and no agent_invoker at all — a deployment
+  # does not hand in dead callables to satisfy a signature (D-03).
+  #
+  # [ADAPT] Declaring an agent here is only half the change: add
+  # `list_agents` to tool_allowlist and pass an agent_directory that
+  # validates each entry into an `ExposedAgent`. serve.py refuses to
+  # compose if you declare agents without allowlisting the tool, rather
+  # than letting the entry sit silently unreachable.
+  agent_exposure:
+    agents: []
+    invocation_refusal: "no agents are exposed on this deployment"
+
+  # What the LLM client legs ASK. A prompt in client code is the
+  # No-Hardcoding Rule firing (CLAUDE.md §6.4) exactly as a model name in
+  # client code would be, and for the same reason: the client is an
+  # interpreter, the deployment supplies the values. It sat as an
+  # `os.environ.get("CCF_EXAMPLE_QUESTION", <literal>)` fallback in
+  # `client_adk.py` and `client_anthropic.py` until Phase 20's tightened
+  # `cinv01a-prompt-shape` refused a literal reaching a model-instruction
+  # sink and surfaced both. The text is unchanged from that fallback — only
+  # where it lives changed — and `run.py` passes it to every leg through
+  # `CCF_EXAMPLE_QUESTION`, which the legs now read as REQUIRED.
+  #
+  # A different question is safe for offline CI: `replay_server.py`'s
+  # fingerprint compares model, tool names and message counts, and records an
+  # intentional residual that message CONTENT is not part of the comparison.
+  #
+  # [ADAPT] the whole string.
+  client_question: >-
+    Use the available tools to retrieve the governed context, then state your
+    recommendation.
+
+  # Model the LLM client legs use when run live (CI runs transport-level
+  # replay instead — D-09). A model name in code is a deployment value in
+  # code, so it lives here and legs read it from env.
+  live_mode:
+    anthropic_model: claude-sonnet-4-5
+    gemini_model: gemini-3.5-flash

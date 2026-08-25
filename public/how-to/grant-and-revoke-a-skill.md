@@ -12,7 +12,7 @@ carrying away from this page is that the agent's definition artifact is
 byte-identical before and after a full grant/exercise/refuse/revoke cycle:
 capability changed four times, identity never moved.
 
-Everything below is literal-included from `examples/02-skilling`, which runs
+Everything below is literal-included from `archive/examples/02-skilling`, which runs
 in CI on every commit.
 
 ## Before you start
@@ -26,7 +26,7 @@ thing the governance check tests every grant against.
 Run the worked example at any point with:
 
 ```sh
-make example-02
+PYTHONPATH=src:runtime python archive/examples/02-skilling/run.py
 ```
 
 Exit 0 means every assertion held, including the refusal — the example fails
@@ -43,14 +43,14 @@ policy regime either permits or does not. The
 the typed shape:
 
 ```yaml
---8<-- "examples/02-skilling/artifacts/skill-catalog-enrollment-metrics.yaml"
+--8<-- "archive/examples/02-skilling/artifacts/skill-catalog-enrollment-metrics.yaml"
 ```
 
 The driver registers what the artifact declared. Note that registration binds
 nothing — a catalog entry is an offer, not a capability:
 
 ```py
---8<-- "examples/02-skilling/run.py:skill-catalog"
+--8<-- "archive/examples/02-skilling/run.py:skill-catalog"
 ```
 
 ## Step 2 — grant
@@ -65,7 +65,7 @@ grant document's fields and the
 factory produces:
 
 ```py
---8<-- "examples/02-skilling/run.py:skill-grant"
+--8<-- "archive/examples/02-skilling/run.py:skill-grant"
 ```
 
 ## Step 3 — exercise it
@@ -75,7 +75,7 @@ governed context in, governed effect out — the same posture a harness adapter
 exposes at its skill-exposure seam:
 
 ```py
---8<-- "examples/02-skilling/run.py:skill-exercise"
+--8<-- "archive/examples/02-skilling/run.py:skill-exercise"
 ```
 
 ## Step 4 — watch an impermissible grant get refused
@@ -86,7 +86,7 @@ value* naming the exact excess scopes — not an exception, not a log line, and
 not something a caller can waive:
 
 ```py
---8<-- "examples/02-skilling/run.py:skill-refusal"
+--8<-- "archive/examples/02-skilling/run.py:skill-refusal"
 ```
 
 Widening the envelope to admit that skill is an axis-4 change, which means a
@@ -103,7 +103,7 @@ actually held then, not the ones it holds now — see
 [HITL and audit Protocols](../reference/protocols/hitl.md):
 
 ```py
---8<-- "examples/02-skilling/run.py:skill-revoke"
+--8<-- "archive/examples/02-skilling/run.py:skill-revoke"
 ```
 
 ## What to change first

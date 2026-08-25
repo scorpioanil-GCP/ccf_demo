@@ -1,4 +1,4 @@
-"""Permanent hardening guards for examples/external/00-hello-context (13.3).
+"""Permanent hardening guards for archive/examples/external/00-hello-context (13.3).
 
 The Phase 13.2 cross-AI review left four warn-or-skip paths in the external
 example. Phase 13.3 closed them; these tests are the permanent pins so a
@@ -33,7 +33,7 @@ from typing import Any
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-EXAMPLE_DIR = REPO_ROOT / "examples" / "external" / "00-hello-context"
+EXAMPLE_DIR = REPO_ROOT / "archive" / "examples" / "external" / "00-hello-context"
 FIXTURES = EXAMPLE_DIR / "fixtures"
 
 

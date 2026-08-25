@@ -28,7 +28,7 @@ faithfully rather than witnessing it independently, so it cannot catch a
 misdeclaration (`D-IMPL-86`).
 
 ```yaml
---8<-- "examples/00-quickstart/artifacts/product-class.yaml"
+--8<-- "archive/examples/00-quickstart/artifacts/product-class.yaml"
 ```
 
 The TTL ceiling itself, and the product's own lifetime, are two separately
@@ -36,5 +36,5 @@ authored numbers in the deployment's own governance document — which is exactl
 what leaves Gate 3 something to check:
 
 ```yaml
---8<-- "examples/00-quickstart/artifacts/product-governance.yaml"
+--8<-- "archive/examples/00-quickstart/artifacts/product-governance.yaml"
 ```

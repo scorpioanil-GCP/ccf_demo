@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.declared-artifact.json
+# What the served product should contain, as declared by the deployment that
+# authored the events (financial-services domain, D-IMPL-52).
+#
+# This is an **independent expectation**, not a propagation check: nothing in
+# `serve.py` reads these values, so they and the assembled payload move
+# separately and either side changing alone fails the assertion. It is read by
+# `tests/examples/test_ext00_serve_output.py`, which is where the guarantee now
+# lives — `make example-ext-00` proves the spine runs; `pytest` proves it is
+# correct (D-09).
+#
+# `role: load`: an expectation is not a permission, so it is parsed and handed
+# back, never put in force.
+#
+# Regeneration is a REVIEWED event. If you enrich `events.yaml`, run the
+# example, review what changed, then edit these values deliberately in the same
+# commit as the enrichment.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: first-meridian-bank.expected-product
+
+declaration:
+  entity_count: 4
+  entity_classes:
+    - borrower
+    - credit_facility
+    - financial_signal
+  relationship_types:
+    - evidenced_by
+    - holds

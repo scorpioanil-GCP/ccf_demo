@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# What the served product should contain, as declared by the deployment that
+# authored the events (energy/grid-ops domain, D-IMPL-52).
+#
+# This document exists so that `tests/examples/test_decision_replay_output.py`
+# has a source for its domain expectations OTHER THAN ITSELF. A value the test
+# module authored would be the test agreeing with itself about what this
+# deployment's vocabulary says; read from here, the assertion is against the
+# deployment's own declaration. CINV-01 reaches `tests/` (D-IMPL-78).
+#
+# **`role: load` in the manifest.** An expectation is not something the fabric
+# is permitted to do, so it has no business in Control Plane state or in replay
+# dimension 2. It is parsed, validated, and handed back.
+#
+# Only DOMAIN expectations live here. Values that are SDK mechanism — that the
+# replay content address is the record's content hash, that a moving-target ref
+# raises `MovingTargetRefused` — are asserted directly in the test module.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: boreal-grid.expected-product
+
+declaration:
+  # The RESTRICTED defense-site spur is absent: the policy operator substituted
+  # it out along with the `fed_from` edge that would otherwise have leaked its
+  # existence by absence. The routine-load feeder is absent because similarity
+  # ranked it out. What survives is the overloaded feeder and the substation it
+  # is fed from.
+  entity_classes:
+    - feeder
+    - substation
+  relationship_types:
+    - fed_from
+  entity_count: 2

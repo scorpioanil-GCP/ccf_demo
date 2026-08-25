@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# How the skill is granted and how it is invoked (CLAUDE.md §6.2 channel 2;
+# D-IMPL-29; energy/grid-ops domain, D-IMPL-52).
+#
+# **Why this is a deployment-authored document and not a `ccf.skill-grant`.**
+# `SkillGrant` requires `agent_definition_hash`, which is *derived identity* —
+# computed by mechanism at request time from the definition's content. A hash is
+# never an artifact value, so a standalone document of that class cannot be
+# authored, and pointing a `ccf.skill-grant` header at this file would be a
+# header its own class rejects. What is authorable is the grant REQUEST, and
+# that is what `grant_request` below is: `run.py` completes it into a real
+# `ccf.skill-grant` by supplying the hash. That completed grant is what lands in
+# the ArtifactStore and what the replay leg resolves back to recompute the
+# recorded grant-set hash.
+#
+# `role: load`: the ledger audits the grant independently when it admits it, so
+# registering the request would record the asking as well as the granting.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: boreal-grid.skill-dispatch
+
+declaration:
+  # The authorable half of the grant. `agent_definition_hash` is absent on
+  # purpose — see the header comment.
+  grant_request:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: load-analytics-telemetry
+    tenant: boreal-grid
+    skill_name: feeder-load-metrics
+    skill_version: "1.0.0"
+
+  requesting_actor: grid-platform-operator
+
+  # The composition-root callable binding (D-19) and its deterministic output
+  # record — content here, mechanism in code.
+  callable_output_record:
+    computed: sustained-load
+    load_percent: "104"
+    overload_band: "sustained-30min"
+    shed_candidate: "yes"
+
+  dispatch:
+    arguments:
+      feeder_ref: BG-FDR-114-2
+    expected_output:
+      computed: sustained-load
+      load_percent: "104"
+      overload_band: "sustained-30min"
+      shed_candidate: "yes"
+      feeder_ref: BG-FDR-114-2

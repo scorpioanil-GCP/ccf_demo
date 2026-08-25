@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# Who may approve at the disbursement gate, and how many of them (CLAUDE.md §8.2;
+# banking/lending domain, D-IMPL-52).
+#
+# The per-gate binding the workflow definition names under `gate_policies`. It is
+# a separate artifact from the process shape deliberately: who may approve moves
+# — a role is reassigned, a quorum is raised after an incident — without touching
+# the transitions, and the two changes are separately versioned and separately
+# audited.
+#
+# `role: register`. An approval policy is the canonical case of "what was the
+# fabric permitted to do": it is the answer a regulator asks for.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: approval-policy
+
+declaration:
+  approver_role: disbursement-officer
+  quorum: "1"

@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# The AGENT's half-life and debt profile — specialization axis 5 (CLAUDE.md §6.2;
+# whitepaper §7.7; banking/lending domain, D-IMPL-52).
+#
+# What staleness this agent tolerates, and at what `D_c` the fabric forces an LLM
+# stage or fails closed. Thresholds are DEPLOYMENT values: a number here is a
+# calibration, and a calibration in `/src` is the defect CLAUDE.md §11 names.
+#
+# Quoted decimals, per the artifact convention: a YAML float would round through
+# the canonical serializer and change the artifact's content hash.
+#
+# The agent definition reaches this document by versioned-URI ref; the manifest
+# registers it under the key that ref resolves to.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: debt-profile
+
+declaration:
+  review_cycle: per-decision
+  risk_sensitivity: "1.1"
+  forced_llm_threshold: "0.35"
+  fail_closed_threshold: "0.80"

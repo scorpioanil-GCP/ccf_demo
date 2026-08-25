@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# The policy bundle in force (banking domain, D-IMPL-52).
+#
+# A *version* of this bundle is resolved from the Control Plane, stamped onto
+# every claim at assembly, and carried into the product's policy binding and
+# into replay dimension 2.
+#
+# A policy bundle's SCHEMA is the deployment's, not the SDK's — the SDK never
+# invents a policy-bundle schema on a user's behalf (CLAUDE.md §11). So this
+# document uses the open `DeclaredArtifact` envelope: the `$schema` header names
+# that envelope, which is the only schema the SDK owns here, and `class_id`
+# below says what kind of thing this actually is. The manifest entry must agree
+# with it.
+#
+# Not to be confused with `agent-policy-regime.yaml`, which is the policy regime
+# the AGENT is declared under (specialization axis 4, CLAUDE.md §6.2). This one
+# governs the fabric's assembly and admission; that one governs which skills the
+# agent may bind.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: meridian-bank.policy-bundle
+
+declaration:
+  regime: meridian-bank-financial-crime
+  jurisdiction: DE
+  permitted_classifications:
+    - internal
