@@ -714,6 +714,8 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-DISCUSSION-LOG.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-RESEARCH.md` | 75 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/deferred-items.md` | 32 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/23.1-the-v0-2-close-out-every-open-row-gets-a-verdict-inserted/23.1-02-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/23.1-the-v0-2-close-out-every-open-row-gets-a-verdict-inserted/23.1-03-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 86 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
