@@ -563,4 +563,26 @@ nobody noticed — and it is a gate this repository does not have.
    reproducing it with the correct marking in place.
 5. **Deferred item 7 is still open** and is a gate-shaped gap, not two typos.
 
+## Closing measurement — after the coupling report was regenerated
+
+Standing hazard 6 honoured in its order: the SUMMARY was committed (`19a45fb`)
+**before** `tools/retirement_sweep.py --report` ran, because the sweep walks
+`.planning/` and this document is itself a coupling source. Wave 8 regenerated
+first and left `test_the_committed_report_is_current` red; this wave did not.
+
+- Report regenerated **in the venv** (`D-13` — the system interpreter drops rows
+  silently at exit 0): **384 coupling rows across 117 files, 1937 files
+  scanned**; the committed report moved by 42 insertions / 52 deletions.
+- `tools/docs_tests/test_retirement_sweep.py` — **47 passed**.
+- `tools/docs_tests` end to end — **275 passed, 1 failed**, byte-for-byte the
+  `6c2e004` baseline. The single failure is
+  `test_requirement_ledger.py::test_every_cited_path_in_a_status_cell_resolves_as_written`
+  (EXAM-01, plan `23-11`'s), left untouched as instructed.
+- Working tree clean apart from three untracked `references/*.md` files that
+  predate this wave.
+
+**No `state.*` and no `roadmap.*` GSD writer was invoked in this wave**
+(`D-15`); `.planning/STATE.md` and `.planning/ROADMAP.md` are unmodified by this
+plan and are left to the orchestrator.
+
 ## Self-Check: PASSED
