@@ -7,10 +7,26 @@
 > a bearer token**, reached through `CCF_MCP_URL` and `CCF_TOKEN`. It predates
 > `ccf.client`, the `mcp+stdio` transport adapter, the Phase 18.1 binding in
 > which a deployment declares its own server program, and the Phase 19 wire
-> form. It is **not deprecated**: it stays CI-green under
-> `make example-ext-00`, and the eight assertions below — auth refusal, dual
-> serve-path byte equality, byte-equal replay reproduction — are exercised
-> every run and are the reason it was kept rather than retired.
+> form. It is **not deprecated**: it stays CI-green, and the eight assertions
+> below — auth refusal, dual serve-path byte equality, byte-equal replay
+> reproduction — are exercised every run and are the reason it was kept rather
+> than retired.
+>
+> **Where it lives now, and what "CI-green" means.** In Phase 23 this tree
+> moved from the suite into `archive/examples/external/00-hello-context/`
+> (`D-IMPL-189`, `D-IMPL-193`), and its `make` target was deleted with the
+> other thirteen (`D-04`, `D-IMPL-195` ruling 1). `D-IMPL-193` clarified
+> `CLNT-30`/`H-14`'s *"stays CI-green"* to mean **its tests keep passing** —
+> not that it stays a member of the always-on `examples:` aggregate. They do:
+> `tests/examples/test_ext00_hardening.py`,
+> `tests/examples/test_ext00_serve_output.py` and
+> `tests/examples/test_ext00_fixture_schemas.py` still execute this tree on
+> every commit, and the same ruling forbids retiring them rather than
+> re-pointing them. Run it directly with
+> `PYTHONPATH=src:runtime python archive/examples/external/00-hello-context/run.py`.
+> **The marking obligation was NOT lifted by the move** — only the tree's
+> location changed.
+>
 > **`examples/hw1-harness-clients/` is the canonical foreign-harness → MCP-door
 > demonstration going forward**: one Google ADK client, one Anthropic Agent SDK
 > client and one LangGraph client reaching one `mcp+stdio` door and landing on
@@ -28,7 +44,8 @@ record; whitepaper §6.3, §7.6) through an authenticated MCP front door
 Pattern 3 in the whitepaper; bidirectional, ingress and egress, in the
 SDK; whitepaper §8.3, CLAUDE.md §7.1 — SDK extension: bidirectional).
 Four client legs consume it, and **none of them imports CCF** (the family
-charter's zero-CCF-imports rule — see [`../README.md`](../README.md)):
+charter's zero-CCF-imports rule — see
+[`examples/external/README.md`](../../../../examples/external/README.md)):
 
 1. `client_bare.py` — a plain `mcp` client, no LLM. Also retrieves the
    product's lineage and its Decision Replay record (the five-dimension

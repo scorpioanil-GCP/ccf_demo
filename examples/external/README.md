@@ -13,10 +13,22 @@ derives and serves — a contract, not a stored record; whitepaper §6.3,
 Context Protocol, the open standard by which agent runtimes discover
 and call external tools/resources; CCF uses it as its primary egress
 front door — CLAUDE.md §7.1, §8.3; whitepaper §8.3 Pattern 3). The
-existing suite examples `00`–`08` are unchanged and demonstrate CCF's
-*internal* mechanism; this family demonstrates the **primary adoption
-path**: CCF as governed context infrastructure behind a URL, never a
-framework the client must adopt.
+suite examples `00`–`08` demonstrate CCF's *internal* mechanism; this
+family demonstrates the **primary adoption path**: CCF as governed
+context infrastructure behind a URL, never a framework the client must
+adopt.
+
+> **This directory holds only this charter.** Its one member,
+> `00-hello-context`, moved to
+> [`archive/examples/external/00-hello-context`](../../archive/examples/external/00-hello-context/)
+> in Phase 23 (`D-IMPL-189`, `D-IMPL-193`), along with the suite
+> examples `00`–`08`. The charter stays here because it governs the
+> *family* rather than any one member, and because the band map below
+> is what a future `10`–`19` or `50+` example is written against. What
+> moved is where the code lives; nothing in the charter was withdrawn,
+> and `H-14`'s ruling that the external example is kept and marked
+> historical is discharged in the archived example's own README, not
+> by deleting it.
 
 ## The zero-CCF-imports rule
 
@@ -47,7 +59,7 @@ themselves readable by clients over the same MCP surface.
 
 | Band | Domain | Status |
 | --- | --- | --- |
-| `00-hello-context` | Hello world — minimal financial-services scenario: one product, one decision the served context visibly changes | Phase 13.1 |
+| `00-hello-context` | Hello world — minimal financial-services scenario: one product, one decision the served context visibly changes | Phase 13.1 — **archived** at `archive/examples/external/00-hello-context` (`D-IMPL-193`); tests still run |
 | `10`–`19` | Financial-services depth progression (credit review, covenant monitoring, policy-pressure scenarios) | Reserved — future phases |
 | `50+` | The SituationalIntelligence family | Reserved — future phases |
 
@@ -58,7 +70,8 @@ financial services (10-band) → SituationalIntelligence (50-band).
 ## Client-leg conventions
 
 Every example in this family follows the multi-leg pattern
-(structural analog: `examples/03-harness-portability`):
+(structural analog: `archive/examples/03-harness-portability`, archived
+alongside):
 
 - **Leg naming:** one file per harness, `client_<harness>.py` —
   `client_bare.py` (generic `mcp` client, no LLM),
