@@ -67,7 +67,7 @@ They sit one directory **below** `ARTIFACT_GLOBS`' `**/artifacts/*.yaml`, whose
 last segment must be literally `artifacts`. All three were repaired by this
 plan and all three resolve; what is missing is the *witness*, not the fix.
 This is pre-existing since plan 15-12, is **not** this wave's to fix
-(`D-IMPL-196`), and `tools/check_schema_headers.py:150-153` already records why:
+(`D-IMPL-196`), and `tools/check_schema_headers.py::ARTIFACT_GLOBS` already carries the reason:
 deepening the glob turns the bijection's right side red.
 
 Measured, not inherited:
@@ -567,6 +567,32 @@ scrubbed environment**
   archived prose lines inviting a reader to `python examples/…`. Left alone
   because task 2 is scoped to *"the path strings only"* and task 1 to *"only the
   `parents[N]` index"*.
+
+---
+
+## A defect I shipped and then fixed, recorded rather than smoothed
+
+The final commit `f6d5821` went in **RED**. `deferred-items.md`, as I first
+wrote it, carried two line-anchored Python citations:
+
+```
+- deferred-items.md:163 cites archive/examples/04-cross-process/producer_child.py:3
+- deferred-items.md:174 cites tools/check_schema_headers.py:150-153
+assert 2 <= 0
+```
+
+`D-IMPL-123`'s ceiling is **ZERO** and `D-IMPL-114` rules that prose cites
+`path.py::Symbol`. I ran `tests/invariants/test_citation_coverage.py` before the
+first three commits and it passed each time; on the fourth I ran it in the same
+tool call as `git add`/`git commit` **without an `&&` between them**, so the
+commit proceeded over a failing gate. That is a process defect of mine, not the
+plan's, and it is exactly the class the brief warned had *"bitten the phase
+twice"*.
+
+Fixed in the following commit by converting both to the ruled form — the
+docstring named by file rather than by line, and
+`tools/check_schema_headers.py::ARTIFACT_GLOBS` instead of `:150-153`. **The
+ceiling was NOT raised.** `5 passed` after.
 
 ---
 

@@ -160,7 +160,8 @@ grep -rn 'python examples/' archive/examples/*/[a-z]*.py \
   archive/examples/*/*/[a-z]*.py | wc -l                            # 6, in .py docstrings
 ```
 
-e.g. `archive/examples/04-cross-process/producer_child.py:3` — *"Run by `run.py`
+e.g. the module docstring of
+`archive/examples/04-cross-process/producer_child.py` — *"Run by `run.py`
 as `python examples/04-cross-process/producer_child.py`"*. Task 1 was scoped to
 *"only the `parents[N]` index; no other line in any of the four files moves"*,
 and `D-04` deletes the `make` targets anyway, so the invitation-to-run prose is
@@ -171,7 +172,7 @@ arguably wrong in a second way. Untouched.
 `archive/examples/03-harness-portability/artifacts/agents/{agent-definition,
 debt-profile,policy-regime}.yaml` carry `$schema` headers (all three repaired by
 this plan) but are **one level below** `ARTIFACT_GLOBS`' `*/artifacts/*.yaml`.
-Pre-existing since plan 15-12. `tools/check_schema_headers.py:150-153` already
-records that deepening the glob *"would turn the bijection's right side red"*,
+Pre-existing since plan 15-12. `tools/check_schema_headers.py::ARTIFACT_GLOBS` already
+carries a note that deepening the glob *"would turn the bijection's right side red"*,
 so this is a real decision, not a one-character fix. Already logged above by
 plan `23-03`; repeated here only because this plan measured the exact three.
