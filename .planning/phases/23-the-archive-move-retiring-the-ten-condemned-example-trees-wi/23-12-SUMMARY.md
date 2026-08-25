@@ -530,3 +530,51 @@ with direct `python` invocations. Named so nobody reads `20 ≠ 9` as a residue.
 - `8e431eb` — `fix(23-12)`, the citation ceiling repair
 - every figure in this document measured in this session; none inherited from
   the brief, from a decision entry, or from an earlier wave's SUMMARY
+
+---
+
+## Appendix — criterion 11, run AFTER this summary's commit rather than predicted before it
+
+```
+$ .venv/bin/python -m tools.retirement_sweep --report          # EXIT=0
+wrote docs/surface/examples/RETIREMENT-COUPLINGS.md
+270 coupling rows across 83 files (142 rows outside the three swept trees); 1940 files scanned
+
+$ git diff docs/surface/examples/RETIREMENT-COUPLINGS.md
++| `.planning/phases/23-…/23-12-SUMMARY.md` | 12 | the phase's own planning tree — not shipped, not published |
+```
+
+**Exactly one row, and it is this document.** Committed at `dabd4db`.
+
+**Verified TWICE, as the brief requires:**
+
+```
+$ .venv/bin/python -m tools.retirement_sweep --report          # EXIT=0  (second run)
+$ git diff --stat docs/surface/examples/RETIREMENT-COUPLINGS.md
+(no output — NO DIFF)
+
+$ pytest tools/docs_tests/test_retirement_sweep.py::test_the_committed_report_is_current -q
+1 passed
+```
+
+**The venv obligation, measured rather than quoted.** `/usr/bin/python3 -m
+tools.retirement_sweep` does not merely under-report here — it cannot import
+`joserfc` and the sweep's own import walk records
+`tests/products/test_gate_two_call_shape.py [import] ModuleNotFoundError`. The
+venv is not a preference.
+
+**Handed to `23-13` explicitly:** `docs/surface/examples/RETIREMENT-COUPLINGS.md`
+is GENERATED and walks `.planning/`, so plan `23-13`'s own SUMMARY, its
+`23-CLOSE-REVIEWS.md`, and every `STATE.md`/`ROADMAP.md` edit will make it stale
+again. Regenerate **LAST**, **in the venv**, and verify twice.
+
+**Working tree at this plan's end:** clean apart from three untracked
+`references/*.md` files that predate the phase.
+
+## Self-Check: PASSED
+
+- `FOUND` `.planning/phases/23-…/23-12-SUMMARY.md`
+- `FOUND` `8e431eb` — `fix(23-12)` the citation ceiling repair
+- `FOUND` `a6175b3` — `docs(23-12)` this summary
+- `FOUND` `dabd4db` — `chore(23-12)` the report regeneration
+- `test_the_committed_report_is_current` green at the final commit
