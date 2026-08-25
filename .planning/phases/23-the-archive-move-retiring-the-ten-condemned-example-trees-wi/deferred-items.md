@@ -312,8 +312,9 @@ old-form reference that the re-point alone would have made invisible at exit 0.
 `former_path` matching is invisible inside `archive/examples/**`, because those
 files are now themselves under a retiring path and their references are dropped
 as deleted-with-their-source (**248** such hits, up from 134). Item 7's two
-stale lines — `archive/examples/08-e2e-demo/run.py:4` and
-`archive/examples/05-workflow-hitl/artifacts/task-definition.yaml:6` — are both
+stale lines — the fourth line of `archive/examples/08-e2e-demo/run.py`'s module
+docstring, and line 6 of
+`archive/examples/05-workflow-hitl/artifacts/task-definition.yaml` — are both
 inside the archive and are still seen by nothing. **Item 7 is CARRIED
 UNCHANGED**, with the same edits owed and the same durable fix: a third witness
 that reads rendered include bodies.
