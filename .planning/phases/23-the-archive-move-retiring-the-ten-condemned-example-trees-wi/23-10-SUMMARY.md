@@ -35,7 +35,7 @@ decisions:
 metrics:
   duration: one session
   completed: 2026-08-24
-  commits: 3 (2 task + 1 report regeneration after the SUMMARY)
+  commits: 5 (2 task, 1 SUMMARY + deferred items, 1 report regeneration after the SUMMARY, 1 self-check appendix)
 ---
 
 # Phase 23 Plan 10: The Table Points At The Archive, And The Sweep Can No Longer Lose It — Summary
