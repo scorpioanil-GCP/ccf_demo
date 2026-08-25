@@ -612,3 +612,35 @@ sentence, in the same form, in the same file — was **not** in the offender set
 The scoping rule that admits one and not the other was not chased down here and
 is not asserted anywhere; it is recorded so a later reader does not take the
 single-offender output as proof that only one was written.
+
+---
+
+## Closing verification — all six legs RE-RUN at the final tree
+
+The figures in this document were taken before the hand edits to `STATE.md`,
+`ROADMAP.md` and this SUMMARY. Four `tests/` directories contain modules that
+read `.planning/` or the coupling report — `tests/examples` (2),
+`tests/client` (1), `tests/deployment` (2), `tests/invariants` (1) — so the whole
+pipeline was re-run at the final commit rather than assumed to have held.
+
+| Leg | Exit | Final measurement |
+|---|---:|---|
+| `lint` | 0 | silent |
+| `typecheck` | 0 | `Success: no issues found in 211 source files` |
+| chunk 1 | 0 | `970 passed, 37 skipped, 9 warnings in 114.34s` |
+| chunk 2 | 0 | `997 passed, 59 skipped, 4 warnings in 97.49s` |
+| chunk 3 | 0 | `964 passed, 22 skipped, 104 warnings in 126.34s` |
+| chunk 4 | 0 | `1184 passed, 4 warnings in 315.57s` |
+| `gate-tools` | 0 | `415 passed` + `339 passed` |
+| `examples` | 0 | `legs compared 3`, one target |
+| `docs-strict` | 0 | four steps |
+
+**4115 passed / 118 skipped / 0 failed; `--collect-only` 4233** — identical to
+the pre-edit run in every figure. `git status --porcelain` clean apart from the
+three pre-existing untracked `references/*.md`.
+
+**The coupling report is current at the final commit** (`7c0d380`): regenerated
+in the venv after every `.planning/` write, a second regeneration produces no
+diff, and `test_the_committed_report_is_current` is green. **`23-13` inherits the
+obligation** — its SUMMARY, its `23-CLOSE-REVIEWS.md` and every `STATE.md` /
+`ROADMAP.md` edit will make it stale again.
