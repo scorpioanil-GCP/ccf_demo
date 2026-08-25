@@ -1885,6 +1885,47 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
+**PHASE 23 IS EXECUTED AND PRESENTED TO DAVE. IT IS NOT APPROVED AND NOT CLOSED.**
+  All **13 of 13** waves landed on `phase-23`; HEAD `97a1823`, **74 commits** from
+  `PHASE_BASE` `b87fe58`; `main` is still AT `b87fe58` and **nothing is merged or
+  pushed**. `D-GATE-23` is **NOT written** -- `grep -c "D-GATE-23" docs/DECISIONS.md`
+  = **0**. Approval authority is Dave's alone and `/gsd-review` passing is necessary,
+  never sufficient (`CLAUDE.md` §3.1).
+  **WAVE 13 -- the §3.1 close.** Cross-AI panel on the SHIPPED tree with the source
+  INLINED (117,567 bytes, nine subjects): codex, cursor, gemini, all three PROVEN to
+  have read (every cited symbol resolves; every quote traces to the payload). Record
+  in `23-CLOSE-REVIEWS.md`, a file distinct from any pre-execution plan review. The
+  additive single-agent depth pass ran separately and is recorded separately.
+  **THREE BLOCKING FINDINGS, all fixed in-phase and independently re-sabotaged.**
+  **B1 -- CRITERION 10 WAS NOT DISCHARGED.** Its own words are *"suppressing an
+  archived path's coupling row is watched RED"*; against the shipped
+  `archive_sweep_problems` that was FALSE. Suppressing all 21 coupling rows for
+  `archive/examples/03-harness-portability` left 110 rows against a floor of 10 and
+  the predicate returned EMPTY. The phase's own defect class -- a tool that reports
+  clean because it did not look -- INSIDE the control commissioned to prevent it.
+  Fixed by asserting per-tree coverage; count floor KEPT (different diagnosis);
+  re-sabotaged in BOTH directions (2 failed / 4 passed each way).
+  **B2 -- the two-channel drift class arriving for real:** `DOCS-01`'s channel-1 cell
+  claimed the adopter's guide teaches six `make example-*` targets this phase DELETED;
+  measured **0**. Only channel 1 was false; 114 green across both states.
+  **B3 -- deferred item 9's three edits, owed to `23-13` BY NAME and unmade:** the
+  ROADMAP goal prose still said *out of live CI*, STATE said *SIXTEEN criteria* and
+  *25 of 31*. All corrected, marked inline.
+  Plus THREE advisories FIXED (prose the move falsified), FOUR carried (deferred
+  items 13-16), ONE recorded NOT NEW, and **FOUR REJECTED AS FALSE with their
+  refuting commands kept** -- two of the four traceable to MY OWN payload omissions.
+  **SIX LEGS AT EXIT 0 after the fixes**, every one in the foreground: lint 0;
+  typecheck 211 files; test **4115 / 118 / 0** as four chunks proven three ways;
+  gate-tools **415 + 341** (339 + the two new B1 controls, each named); examples one
+  target three legs one address; docs-strict 0 on four steps. Coupling report
+  regenerated LAST and verified TWICE.
+  **`make ci` was AGAIN not run as one command** (~870s vs a 600s cap; backgrounding
+  is what criterion 15 forbids) -- **CARRIED TO DAVE, NOT DECIDED**.
+  **CLNT-17 hash `5bcc68ca...` equals the `efa0044` pin.** Sixteen criteria
+  byte-identical to `PHASE_BASE`; 7 and 12 amended BY RULING at decision commits.
+  **NEXT: Dave's ruling. On approval -- and only then -- `D-GATE-23` is logged and
+  `phase-23` merges `--no-ff` to `main` naming the entry.**
+  PRIOR -- the phase entry as discussed, preserved rather than rewritten:
 Phase: **23 — The Archive Move: Retiring the Ten Condemned Example Trees Without
   Deleting Them (INSERTED).** ADDED 2026-08-24 by hand (`D-15`) at `efa0044`, **DISCUSSED
   2026-08-24, NOT PLANNED.** Performs `D-IMPL-189`'s archive-with-repoint as the allowed
