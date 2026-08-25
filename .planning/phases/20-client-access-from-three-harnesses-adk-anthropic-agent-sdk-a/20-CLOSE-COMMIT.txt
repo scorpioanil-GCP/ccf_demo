@@ -1,0 +1,53 @@
+c920af15937506e904bfa302789d5b2f01189363
+# The Phase 20 diff CEILING. Read by `phase_close_commit()` in
+# `tests/examples/test_hw1_harness_clients_readme.py`. `D-IMPL-197` bounded
+# this phase's two criterion-7 untouched-tree assertions here, so that each
+# compares the window `<20-BASE-COMMIT.txt>..<this file>` rather than
+# `<20-BASE-COMMIT.txt>..HEAD`:
+#
+#   git diff --stat <base>..<ceiling> -- src/ccf/client/
+#   git diff --stat <base>..<ceiling> -- src/
+#
+# WHY. With HEAD as the upper bound, each assertion said "Phase 20 did not
+# write here" on the day it landed and "NO phase may ever write here"
+# thereafter — a forward prohibition over the whole library tree that nobody
+# ruled on and that no phase boundary could lift. Phase 23 inserted a single
+# citation line in `src/ccf/products/bind.py` — an edit `D-IMPL-192`
+# EXPLICITLY AUTHORISED — and `test_criterion_seven_no_sdk_mechanism_ships_at_all`
+# went red on a correct tree. The window, not the tree, was wrong:
+# `git diff --stat <base>..c920af1 -- src/` is EMPTY, and
+# `git diff --stat <base>..HEAD -- src/` is that one authorised line.
+#
+# This is `D-IMPL-188`'s defect class exactly, one module over, and it is
+# repaired the same way. Rejected and recorded as rejected: special-casing
+# `bind.py` out of the pathspec (it narrows the assertion to admit one edit
+# and leaves the forward prohibition standing for every other file), and
+# reverting the `D-IMPL-192` citation (the tree is correct; the assertion's
+# window is not).
+#
+# WHAT THIS SHA IS. Phase 20's close commit — the `D-GATE-20` merge to `main`,
+# 2026-08-21. Every commit after it is Phase 21 work or later, so the window
+# covers the whole of Phase 20 and nothing else. The pin was NOT advanced to
+# take in later phases: widening the window to cover work the claim is not
+# about is the opposite repair.
+#
+# Pinned in a committed file rather than resolved at run time from a tag or a
+# branch name, for the same reason the base is: a ceiling that does not
+# resolve — or one that silently falls back to HEAD — makes an "is empty"
+# assertion vacuous rather than failing it. `git diff <base>.. -- <paths>`
+# means `<base>..HEAD`, so an EMPTY ceiling is exactly that silent fallback;
+# it is refused by name through the `client_surface_diff` empty-ceiling limb
+# and watched firing by `CONTROL 7c`.
+#
+# The value is a full 40 hex characters, and
+# `test_the_pinned_diff_ceiling_resolves` requires it to resolve through
+# `git rev-parse --verify <sha>^{commit}`, to be an ancestor of HEAD, and to
+# be a STRICT DESCENDANT of the base. The last of those is the one that
+# matters: a ceiling at or before the base makes the window EMPTY, and both
+# criterion-7 assertions are then vacuously green forever — the failure mode
+# the module exists to detect, arriving through its own repair.
+#
+# THE CONTROLS MOVED IN LOCKSTEP. `CONTROL 6` derives its non-empty diff from
+# THIS window (`examples/`, 16 files across it), not from `..HEAD`. A control
+# on a different window from its subject is the mis-aim the module exists to
+# prevent.

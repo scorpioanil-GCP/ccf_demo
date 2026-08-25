@@ -66,6 +66,18 @@ BASE_COMMIT_FILE = (
     / "20-BASE-COMMIT.txt"
 )
 
+#: Where `D-IMPL-197` pinned criterion 7's diff CEILING: Phase 20's close
+#: commit, the `D-GATE-20` merge. Pinned in a file for the same reason the base
+#: is — a ceiling that does not resolve, or that silently falls back to `HEAD`,
+#: makes an "is empty" assertion vacuous rather than failing it.
+CLOSE_COMMIT_FILE = (
+    REPO_ROOT
+    / ".planning"
+    / "phases"
+    / "20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a"
+    / "20-CLOSE-COMMIT.txt"
+)
+
 #: Criterion 7's own words: *"the phase diff touching no file under
 #: `src/ccf/client/`"*.
 CLIENT_SURFACE = ("src/ccf/client/",)
@@ -79,6 +91,12 @@ LIBRARY_TREE = ("src/",)
 #: A path that genuinely differs across this phase, for `CONTROL 6`. Every plan
 #: of Phase 20 wrote here; if this ever came back empty the control would be
 #: the thing to fix, not the assertion.
+#:
+#: `D-IMPL-197`: the control reads the SAME bounded window as its subject
+#: (`<base>..<ceiling>`, 16 files under `examples/`), not `..HEAD`. A control
+#: on a different window from the assertion it vouches for is the mis-aim this
+#: module exists to prevent, and it would have kept reporting "the machinery
+#: works" from Phase 23's archive move while saying nothing about Phase 20.
 CHANGED_TREE = ("examples/",)
 
 #: A SHA that resolves to nothing, for `CONTROL 7`. Hex so it is syntactically
@@ -465,8 +483,21 @@ def phase_base_commit() -> str:
     return first_line.strip()
 
 
-def client_surface_diff(base: str, paths: Sequence[str]) -> str:
-    """``git diff --stat <base>..HEAD -- <paths>``, as a string.
+def phase_close_commit() -> str:
+    """The pinned diff CEILING, read from the file `D-IMPL-197` wrote.
+
+    Phase 20's close commit — the `D-GATE-20` merge. Read the same way the base
+    is, from line 1 of a committed file, so that a truncated or corrupted pin
+    is a loud failure rather than a silent fallback to `HEAD`.
+    """
+    first_line = CLOSE_COMMIT_FILE.read_text(encoding="utf-8").splitlines()[0]
+    return first_line.strip()
+
+
+def client_surface_diff(
+    base: str, paths: Sequence[str], ceiling: str = "HEAD"
+) -> str:
+    """``git diff --stat <base>..<ceiling> -- <paths>``, as a string.
 
     A function of its arguments so a control can hand it a base and a path that
     genuinely **do** differ and watch the assertion built on it fail. That
@@ -479,11 +510,36 @@ def client_surface_diff(base: str, paths: Sequence[str]) -> str:
     Three refusals rather than a quiet empty string: an empty base, an empty
     path list (``git diff --stat <base>..HEAD --`` limits to nothing and prints
     nothing, forever), and a non-zero exit from `git` itself.
+
+    **`D-IMPL-197` added `ceiling`, and a FOURTH refusal that keeps its
+    default from being a trapdoor.** ``git diff <base>.. -- <paths>`` is not an
+    error: `git` reads the missing right-hand side as HEAD. So a ceiling that
+    arrives empty — a pin file truncated to nothing, a helper returning `""`
+    from a failed read — does not fail; it silently restores the unbounded
+    comparison this parameter exists to end, and the assertion goes on passing
+    while claiming a window it is not using. That is this module's defect class
+    exactly, so the empty ceiling is refused BY NAME rather than defaulted
+    around. `CONTROL 7c` watches it fire. An UNRESOLVABLE ceiling is caught one
+    refusal further down by the non-zero exit, which `CONTROL 7` now watches on
+    both bounds.
+
+    **Why the parameter exists at all.** Unbounded at `..HEAD`, the two
+    criterion-7 assertions below said *"Phase 20 did not write here"* on the
+    day they landed and **"no phase may ever write here"** thereafter. Phase 23
+    inserted one citation line in `src/ccf/products/bind.py` under an explicit
+    `D-IMPL-192` authorisation and the wider assertion went red on a correct
+    tree. Same class as `D-IMPL-188`, same repair.
     """
     if not base.strip():
         raise AssertionError(
             "no diff base was given, so `git diff` would compare HEAD against"
             " nothing and print nothing — which reads exactly like a clean tree"
+        )
+    if not ceiling.strip():
+        raise AssertionError(
+            "no diff ceiling was given, so `git diff <base>.. -- <paths>`"
+            " compares against HEAD — silently restoring the unbounded window"
+            " the ceiling exists to end, while the assertion goes on passing"
         )
     if not paths:
         raise AssertionError(
@@ -491,7 +547,7 @@ def client_surface_diff(base: str, paths: Sequence[str]) -> str:
             " empty regardless of what the phase changed"
         )
     completed = subprocess.run(
-        ["git", "diff", "--stat", f"{base}..HEAD", "--", *paths],
+        ["git", "diff", "--stat", f"{base}..{ceiling}", "--", *paths],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -499,7 +555,7 @@ def client_surface_diff(base: str, paths: Sequence[str]) -> str:
     )
     if completed.returncode != 0:
         raise AssertionError(
-            f"`git diff --stat {base}..HEAD -- {list(paths)}` exited"
+            f"`git diff --stat {base}..{ceiling} -- {list(paths)}` exited"
             f" {completed.returncode}, so its empty output says nothing about"
             f" the tree.\nstderr: {completed.stderr.strip()}"
         )
@@ -531,9 +587,64 @@ def test_the_pinned_diff_base_resolves() -> None:
     )
 
 
+def test_the_pinned_diff_ceiling_resolves() -> None:
+    """Non-vacuity for the other bound (`D-IMPL-197`).
+
+    Three requirements, and the third is the one that matters. The ceiling must
+    be a full SHA `git` can reach, it must be an ancestor of HEAD, and it must
+    be a **STRICT DESCENDANT of the base** — because a ceiling at or before the
+    base makes the window EMPTY, and both criterion-7 assertions are then
+    vacuously green forever. That is the failure mode this module exists to
+    detect, arriving through its own repair.
+    """
+    base = phase_base_commit()
+    ceiling = phase_close_commit()
+    assert re.fullmatch(r"[0-9a-f]{40}", ceiling), (
+        f"the pinned ceiling {ceiling!r} is not a full SHA; a short or"
+        " annotated value is one rename away from resolving to something else"
+    )
+    resolved = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{ceiling}^{{commit}}"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert resolved.returncode == 0, (
+        f"the pinned ceiling {ceiling} does not resolve in this repository:"
+        f" {resolved.stderr.strip()}"
+    )
+    for earlier, later, why in (
+        (ceiling, "HEAD", "the ceiling is not an ancestor of HEAD, so the"
+                          " window reaches outside this history"),
+        (base, ceiling, "the ceiling is not a descendant of the base, so the"
+                        " window is EMPTY and every assertion built on it is"
+                        " vacuously green"),
+    ):
+        ancestry = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", earlier, later],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert ancestry.returncode == 0, f"{why} ({earlier}..{later})"
+    assert base != ceiling, (
+        "the ceiling IS the base, so the window is empty and both criterion-7"
+        " assertions pass without comparing anything"
+    )
+
+
 def test_criterion_seven_no_file_under_the_client_surface_changed() -> None:
-    """Criterion 7, in its own words: the phase diff touches no client file."""
-    diff = client_surface_diff(phase_base_commit(), CLIENT_SURFACE)
+    """Criterion 7, in its own words: the phase diff touches no client file.
+
+    `D-IMPL-197`: bounded at Phase 20's close commit. The claim is exactly the
+    one it carried during Phase 20 — *this phase wrote no client file* — and it
+    no longer forbids every future commit under `src/ccf/client/`.
+    """
+    diff = client_surface_diff(
+        phase_base_commit(), CLIENT_SURFACE, phase_close_commit()
+    )
     assert diff == "", (
         "Phase 20 changed files under `src/ccf/client/`. Criterion 7 forbids"
         " new SDK mechanism — no new transport, no new adapter, no change to"
@@ -550,8 +661,19 @@ def test_criterion_seven_no_sdk_mechanism_ships_at_all() -> None:
     no SDK mechanism ships at all. A non-empty result here is a **blocking
     finding to report**, never a reason to narrow this assertion back to the
     client surface.
+
+    **`D-IMPL-197` bounded the WINDOW and did not narrow the PATH.** That
+    distinction is the whole ruling. Phase 23's authorised `bind.py` citation
+    turned this red, and the two repairs available were to drop the offending
+    file from :data:`LIBRARY_TREE` — which is precisely the narrowing the
+    paragraph above forbids, and which would have left the forward prohibition
+    standing over every other file — or to stop the assertion making a claim
+    about commits that are not Phase 20's. The pathspec is untouched; the
+    upper bound moved from `HEAD` to the `D-GATE-20` merge.
     """
-    diff = client_surface_diff(phase_base_commit(), LIBRARY_TREE)
+    diff = client_surface_diff(
+        phase_base_commit(), LIBRARY_TREE, phase_close_commit()
+    )
     assert diff == "", (
         "Phase 20 changed files under `src/`. This phase ships example and"
         " test material only; a library change is a blocking finding and is"
@@ -567,8 +689,17 @@ def test_control_6_a_base_and_path_that_differ_produce_output() -> None:
     base or a misspelled path all produce. Handing the same function a pair
     that genuinely differs is the only thing separating "the client surface did
     not change" from "nothing was compared".
+
+    **`D-IMPL-197` moved this control to the bounded window in lockstep with
+    the assertions it vouches for.** Left at `..HEAD` it would have gone on
+    reporting a healthy diff machinery out of Phase 23's 265-file archive move
+    while proving nothing whatever about the Phase 20 window the assertions
+    actually read. A control on a different window from its subject is the
+    mis-aim this module exists to prevent.
     """
-    diff = client_surface_diff(phase_base_commit(), CHANGED_TREE)
+    diff = client_surface_diff(
+        phase_base_commit(), CHANGED_TREE, phase_close_commit()
+    )
     assert diff.strip(), (
         "`git diff` produced nothing for a tree this phase demonstrably wrote"
         f" to ({list(CHANGED_TREE)}). The empty results above therefore say"
@@ -584,17 +715,25 @@ def test_control_7_an_unresolvable_base_fails_loudly() -> None:
     stops resolving after a rebase, a truncated pin, a typo. Every one of them
     makes `git diff` exit non-zero with an empty stdout, and a function that
     returned that stdout would report a clean client surface forever.
+
+    `D-IMPL-197`: watched on BOTH bounds now. An unresolvable ceiling fails the
+    same quiet way an unresolvable base does, and the ceiling is the newer pin,
+    so it is the one more likely to rot unnoticed.
     """
-    try:
-        result = client_surface_diff(UNRESOLVABLE_BASE, CLIENT_SURFACE)
-    except AssertionError as failure:
-        assert "exited" in str(failure)
-        return
-    raise AssertionError(
-        "an unresolvable base returned"
-        f" {result!r} instead of failing; an 'is empty' assertion built on"
-        " that reports success for a comparison that never happened"
-    )
+    for base, ceiling, which in (
+        (UNRESOLVABLE_BASE, phase_close_commit(), "base"),
+        (phase_base_commit(), UNRESOLVABLE_BASE, "ceiling"),
+    ):
+        try:
+            result = client_surface_diff(base, CLIENT_SURFACE, ceiling)
+        except AssertionError as failure:
+            assert "exited" in str(failure)
+            continue
+        raise AssertionError(
+            f"an unresolvable {which} returned"
+            f" {result!r} instead of failing; an 'is empty' assertion built on"
+            " that reports success for a comparison that never happened"
+        )
 
 
 def test_control_7b_an_empty_base_and_an_empty_path_list_both_refuse() -> None:
@@ -610,8 +749,50 @@ def test_control_7b_an_empty_base_and_an_empty_path_list_both_refuse() -> None:
         (phase_base_commit(), (), "no paths were given"),
     ):
         try:
-            client_surface_diff(base, paths)
+            client_surface_diff(base, paths, phase_close_commit())
         except AssertionError as failure:
             assert expected in str(failure)
         else:  # pragma: no cover - the refusal is the point
             raise AssertionError(f"{base!r}/{list(paths)} did not refuse")
+
+
+def test_control_7c_an_empty_ceiling_refuses_instead_of_meaning_head() -> None:
+    """CONTROL 7c — the trapdoor under the ceiling parameter, watched shut.
+
+    The quietest failure available to `D-IMPL-197`'s own repair. ``git diff
+    <base>.. -- <paths>`` is **not an error**: `git` reads the missing
+    right-hand side as HEAD. So a ceiling that arrives empty — a pin file
+    truncated to nothing, a read that failed and returned `""` — does not fail
+    the way an unresolvable one does. It silently restores the unbounded
+    comparison the ceiling exists to end, and both criterion-7 assertions go on
+    passing while claiming a window they are not using.
+
+    Watched two ways: the refusal fires by name, AND the unbounded comparison
+    it would otherwise have performed is shown to be the one that is currently
+    RED — so this control is proving something with live consequences, not a
+    hypothetical.
+    """
+    try:
+        result = client_surface_diff(phase_base_commit(), LIBRARY_TREE, "")
+    except AssertionError as failure:
+        assert "no diff ceiling was given" in str(failure)
+    else:  # pragma: no cover - the refusal is the point
+        raise AssertionError(
+            f"an empty ceiling returned {result!r} instead of refusing; the"
+            " assertion above would then be comparing against HEAD while"
+            " reporting a bounded window"
+        )
+    unbounded = subprocess.run(
+        ["git", "diff", "--stat", f"{phase_base_commit()}..HEAD", "--", *LIBRARY_TREE],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert unbounded.returncode == 0
+    assert unbounded.stdout.strip(), (
+        "the unbounded window is EMPTY, so this control no longer distinguishes"
+        " a refused empty ceiling from a silent fallback to HEAD. That is not a"
+        " reason to weaken the control: re-derive a path where the two windows"
+        " genuinely differ"
+    )
