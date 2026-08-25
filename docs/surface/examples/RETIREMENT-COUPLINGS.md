@@ -700,7 +700,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-09-PLAN.md` | 20 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-09-SUMMARY.md` | 37 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-10-PLAN.md` | 7 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-10-SUMMARY.md` | 16 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-10-SUMMARY.md` | 17 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-11-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-CONTEXT.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-DISCUSSION-LOG.md` | 1 | the phase's own planning tree — not shipped, not published |
