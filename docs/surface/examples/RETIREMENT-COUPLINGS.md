@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **270** across **83** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **142** across **52** files
+- Coupling rows: **274** across **83** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **146** across **52** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **248**
 
 Rows by owning plan:
@@ -17,8 +17,8 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 10 |
-| 17-08 | 81 |
-| 23-04 | 167 |
+| 17-08 | 82 |
+| 23-04 | 170 |
 | 23-10 | 12 |
 
 Rows by coupling shape:
@@ -29,7 +29,7 @@ Rows by coupling shape:
 | `config-token` | 1 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 67 |
+| `docstring` | 71 |
 | `indirect-execution` | 1 |
 | `literal-set-member` | 4 |
 | `makefile-recipe` | 2 |
@@ -300,12 +300,15 @@ Rows by coupling shape:
 | `tools/docs_tests/test_no_stale_example_paths.py` | 371 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 374 | `archive/examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 375 | `archive/examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 392 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 | constructed as `archive/examples/04-cross-process/producer_child.py` |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 396 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 | constructed as `examples/04-cross-process/producer_child.py` |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 402 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 400 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 | constructed as `archive/examples/04-cross-process/producer_child.py` |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 404 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 | constructed as `examples/04-cross-process/producer_child.py` |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 410 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tools/docs_tests/test_resolver_seam_obligations.py` | 218 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/docs_tests/test_resolver_seam_obligations.py` | 372 | `examples/s1-01-hello-context-product` | `string-literal` | live | - | - | 17-08 |  |
-| `tools/docs_tests/test_retirement_sweep.py` | 786 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 23-04 |  |
+| `tools/docs_tests/test_retirement_sweep.py` | 309 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/docs_tests/test_retirement_sweep.py` | 368 | `archive/examples/06-decision-replay` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/docs_tests/test_retirement_sweep.py` | 369 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/docs_tests/test_retirement_sweep.py` | 883 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 23-04 |  |
 | `tools/docs_tests/test_snippet_gate.py` | 57 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
 | `tools/lints/tests/test_citations.py` | 350 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
 | `tools/lints/tests/test_scope.py` | 41 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
@@ -319,8 +322,9 @@ Rows by coupling shape:
 | `tools/publish_scan_tests/test_publish_scan.py` | 432 | `archive/examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tools/publish_scan_tests/test_publish_scan.py` | 433 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tools/publish_scan_tests/test_publish_scan.py` | 436 | `archive/examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 456 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/publish_scan_tests/test_publish_scan.py` | 457 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 460 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 467 | `examples/s1-01-hello-context-product` | `string-literal` | live | - | - | 17-08 |  |
+| `tools/publish_scan_tests/test_publish_scan.py` | 469 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
 
 ## Measured but not assigned
 
@@ -704,10 +708,12 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-11-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-11-SUMMARY.md` | 8 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-12-SUMMARY.md` | 12 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-13-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-CLOSE-REVIEWS.md` | 13 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-CONTEXT.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-DISCUSSION-LOG.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-RESEARCH.md` | 75 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/deferred-items.md` | 30 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/deferred-items.md` | 32 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 85 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
