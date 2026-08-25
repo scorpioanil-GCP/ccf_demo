@@ -624,3 +624,36 @@ schema was introduced; every edit is a path string or a `parents[N]` index.
 | 2 | `e8818eb` | every `$schema` header in the archive resolves from its own directory again |
 | 3 | `82e1024` | `SNIPPET_SOURCE` names the archived quickstart, and says who inherited it |
 | — | (final) | this summary, the deferred items, and the regenerated coupling report |
+
+---
+
+## Self-Check: PASSED
+
+Files claimed created/modified, verified present:
+
+```bash
+[ -f .planning/phases/23-.../23-05-SUMMARY.md ]                      # FOUND
+[ -f archive/examples/00-quickstart/run.py ]                         # FOUND
+[ -f archive/examples/04-cross-process/producer_child.py ]           # FOUND
+```
+
+Commits claimed, verified in `git log`: `f380a68`, `e8818eb`, `82e1024`,
+`f6d5821`, `aa81298`, `44699a5` — all FOUND.
+
+Final consolidated run:
+
+```
+checked=216  resolved=216  unresolved=0
+OK   archive/examples/04-cross-process/producer_child.py
+OK   archive/examples/07-artifact-store-mcp/mcp_store_child.py
+OK   archive/examples/external/00-hello-context/serve.py
+OK   archive/examples/external/00-hello-context/run.py
+pytest tests/examples/test_artifact_schema_headers.py
+       tools/docs_tests/test_snippet_gate.py
+       tests/products/test_gate_two_call_shape.py
+       tests/products/test_required_operators_guard.py
+# 146 passed
+```
+
+`git status --short` (excluding three pre-existing untracked files under
+`references/` that predate this session): clean.
