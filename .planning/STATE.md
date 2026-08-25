@@ -3,9 +3,24 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-25T13:30:00.000Z"
+last_updated: "2026-08-25T18:45:00.000Z"
 last_activity: >-
-  2026-08-25 -- **PHASE 23 IS CLOSED. `D-GATE-23` IS LOGGED AND THE ARCHIVE MOVE IS DONE.**
+  2026-08-25 -- **PHASE 23.1 AND PHASE 24 ARE ON THE ROADMAP. NOTHING IS IN FLIGHT.**
+  Dave supplied the Phase 24 requirements (Context Production) and RULED THE SEQUENCING:
+  **the v0.2 close-out runs BEFORE Phase 24**, which is why it is numbered `23.1` and not
+  `25`. Phase 23.1 carries **NINETEEN** Success Criteria, LOCKED in the ROADMAP entry
+  before planning per `D-GATE-19`; it BUILDS NOTHING. Phase 24 carries **NO criteria and
+  that is deliberate** -- `D-GATE-19` locks them at the discuss sitting, which follows
+  `D-GATE-23.1`. **TWO SDK-SURFACE IMPACTS FOUND AND RAISED TO DAVE, BOTH UNRULED**: the
+  Context Product Specification Standard's closed EIGHT-operator vocabulary against the
+  SDK's FOUR categories (`src/ccf/operators/categories.py`), and its SIX universal
+  validation gates against the SDK's THREE where `D-IMPL-102` limb 3 has ALREADY RULED
+  that no fourth joins `run_gates`. One apparent impact CHECKED AND REJECTED: nine-vs-eight
+  contract elements is already resolved by `D-IMPL-30` in favour of NINE and `AssemblyMode`
+  ships. The other eight candidates in `CCF_SDK_DE_REQUIREMENTS.md` are NOT VERIFIED and
+  must not be quoted as findings; all ten collide with logged ids (log at `D-IMPL-198`,
+  `199` is the next free). Dave lifted the do-not-query-the-vault constraint for the
+  Context Product rollout. PRIOR: 2026-08-25 -- **PHASE 23 IS CLOSED. `D-GATE-23` IS LOGGED AND THE ARCHIVE MOVE IS DONE.**
   Thirteen plans in thirteen serial waves on branch `phase-23`, **76 commits** from
   `PHASE_BASE` `b87fe58`, merged to `main --no-ff` naming the entry. **All EIGHTEEN
   Success Criteria met**, locked before Wave 1 per `D-GATE-19` and amended ONLY by ruling --
@@ -89,11 +104,11 @@ last_activity: >-
   `DOCS-14`/`EXAM-02`'s replacement surface. **DELETION REMAINS OWED FOR EVERY SCHEDULED ROW**
   (`D-IMPL-191` ruling 3).
 progress:
-  total_phases: 28
+  total_phases: 30
   completed_phases: 28
   total_plans: 217
   completed_plans: 216
-  percent: 100
+  percent: 93
   measured: "2026-08-25 -- counted from the tree, not incremented. Superseded values,
     named rather than overwritten silently: total_phases 27, completed_phases 27,
     total_plans 204, completed_plans 204. Method: 28 = `ls -d .planning/phases/*/`
@@ -105,8 +120,26 @@ progress:
     matching PLAN (`*-CLOSE-FIXES-`, `*-REVIEW-FIXES-`, `18-D-IMPL-149-`, `17-03b-`
     and similar), which is why `gsd-sdk query progress.bar` reports the impossible
     236/217 -- it counts summaries against plans. percent stays 100 because every
-    PHASE is complete; it is not 216/217."
+    PHASE is complete; it is not 216/217.
+    SUPERSEDED 2026-08-25 by the ROADMAP additions: total_phases 28 -> **30** and percent
+    100 -> **93** (28 of 30), because Phase 23.1 and Phase 24 are now entries and neither
+    is complete. Re-measured with CORRECTED instruments and a sabotage control that goes
+    RED: checklist / detail / progress = **30 / 30 / 30**, both set deltas empty in BOTH
+    directions. TWO FALSE FINDINGS were produced and discarded on the way there, both from
+    my own regexes reporting ABSENCE: one required a trailing period after a phase number
+    (`| 15.5` has none) and one disallowed a `~~strikethrough~~` prefix (Phase 14.1's
+    bullet is struck through as superseded). The first is the EXACT error recorded against
+    a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
+  **PHASE 23.1 IS THE NEXT PHASE AND IT IS NOT YET PLANNED. NOTHING IS IN FLIGHT.**
+  Its NINETEEN Success Criteria are LOCKED in the ROADMAP entry (`dcd8cad` + the criterion
+  19 follow-up) and were written BEFORE planning per `D-GATE-19`. Two of Dave's rulings are
+  RECORDED there rather than re-litigated: `D-27`'s `00`-`08` half is **KEEP-QUARANTINED
+  for v0.2** (criterion 7 LOGS it, does not make it, and DELETION STAYS OWED), and the four
+  `[run]` packet items split with `#1` reserved to Dave by `D-13`/`D-IMPL-70` and `#10`
+  needing GitHub Actions output this session cannot fetch. **Phase 24 (Context Production)
+  starts as soon as `D-GATE-23.1` lands** -- Dave confirmed this explicitly. NEXT ACTION:
+  `plan-phase 23.1`. PRIOR STATE:
   **PHASE 23 IS CLOSED, GATED AND MERGED. NOTHING IS IN FLIGHT.**
   `D-GATE-23` logged 2026-08-25 (Dave). Branch `phase-23`, `PHASE_BASE` `b87fe58`, **76
   commits**, merged to `main --no-ff` naming the entry. `D-GATE-21`, `D-GATE-21.1`,
@@ -218,6 +251,23 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**PHASE 23.1 (THE v0.2 CLOSE-OUT) IS THE NEXT PHASE. IT IS NOT PLANNED AND NOTHING IS
+IN FLIGHT.** Written 2026-08-25 after Dave supplied the Phase 24 requirements and ruled
+the sequencing. **NINETEEN Success Criteria are LOCKED** in the ROADMAP entry, before
+planning, per `D-GATE-19`'s forward binding. **THE PHASE BUILDS NOTHING** -- no SDK
+mechanism, no fabric change, no new example; it adjudicates the 13 open requirement rows
+and the 27-item human-verification packet and it records. **Phase 24 (Context Production)
+follows immediately on `D-GATE-23.1`**, with its description banked and NO criteria yet,
+deliberately. Two SDK-surface impacts stand UNRULED and gate Phase 24's planning: the
+closed EIGHT-operator vocabulary against the SDK's FOUR categories, and the SIX universal
+validation gates against the SDK's THREE with `D-IMPL-102` limb 3 forbidding a fourth.
+
+**This block is written at the same commit as the frontmatter above, deliberately.** The
+recorded failure mode of this file is exactly the pair going out of step -- it read
+*"NOT APPROVED AND NOT CLOSED"* for a full day while its own frontmatter said closed.
+
+**SUPERSEDED, NAMED RATHER THAN DELETED:**
 
 **PHASE 23 IS CLOSED, GATED, MERGED AND PUSHED.**
   **CORRECTED 2026-08-25 (post-gate). This block read: *"PHASE 23 IS EXECUTED AND
