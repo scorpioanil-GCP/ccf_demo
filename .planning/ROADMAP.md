@@ -51,6 +51,8 @@ and the upgraded examples.
 - [x] **Phase 22: The Adoption Argument — What RAG, Hand-Rolled Assembly and a Semantic Layer Lack** (INSERTED, COMPLETE 2026-08-23, `D-GATE-22`) - Commissioned by Dave 2026-08-23 immediately after `D-GATE-21.1`, taking up the Phase 21 work list in the order `D-IMPL-176` sequenced it: *"DOCS-15 first — cheapest, highest adoption leverage, one page, subject already gated in `s1-01`. Only coupling is that tree's survival under CLNT-17."* One published page naming RAG over a vector store, hand-rolled context assembly, and a semantic layer plus prompt templates, stating what each lacks against **cited shipped mechanism**, with the UBO question as its worked demonstration and the passage-anchor honesty caveat carried. Re-derived against today's surface — Phase 16's `16-08`/`16-13` are unexecuted, abandoned and not resumable. Builds nothing and removes nothing: `src/` and `runtime/` stay diff-empty.
 - [x] **Phase 22.1: The Hygiene Block — The Tool That Could Not Tell "None" From "Could Not Look"** (INSERTED, COMPLETE 2026-08-23, `D-GATE-22.1`) - Three items cleared so the ledger stops lying and the retirement decision rests on a number that cannot be silently wrong: `tools/retirement_sweep.py` fails CLOSED at its three swallow sites, `RECON-10` is re-measured from the tree rather than from its own stale row text, and the 27 `human_needed` items across 11 phase records are assembled into ONE decision packet for Dave. Builds no feature; `src/`, `runtime/` and `examples/` stay diff-empty. Commissioned by Dave 2026-08-23 immediately after `D-GATE-22`. **Performs no part of the archive move** (`D-IMPL-189`), and leaves `DOCS-17` and `CLNT-17` reading `Not built`.
 - [x] **Phase 23: The Archive Move — Retiring the Ten Condemned Example Trees Without Deleting Them** (INSERTED, COMPLETE 2026-08-25, `D-GATE-23`) - Performs `D-IMPL-189`'s archive-with-repoint as the allowed intermediate state for `DOCS-17`: the **ten** trees `DOCS-17` condemns move **INTACT** to `archive/examples/` — **265 files, 58 left under `examples/`, and NOTHING DELETED**, proven a pure rename set in the STRONG form (265 `R100`, 0 D/A/M, 0 insertions, 0 deletions; the weaker `R=265 D=0 M=0` form was REJECTED in-phase because `--diff-filter=M` cannot fire on a renamed path). 111 published references re-pointed across 15 pages, proven a pure prefix substitution by REVERSING it to byte-identical; 14 `make example-*` targets deleted with their `.PHONY` names and the two `live-legs.yml` jobs that invoked them; `make docs-strict` green. `DOCS-17` verdicted **`Partial`** for the first time, in the wording `D-IMPL-191` ruling 4 constrained it to — *out of the `examples:` aggregate*, NOT *out of live CI*. **DELETION REMAINS OWED for every scheduled row** (`D-IMPL-191` ruling 3); `CLNT-17` is EXCLUDED and stays `Not built`. Thirteen plans, thirteen serial waves, 77 commits from `PHASE_BASE` `b87fe58`, merged `--no-ff` at `5a96628`. All **EIGHTEEN** Success Criteria met, locked before Wave 1 per `D-GATE-19` and amended ONLY by ruling. The §3.1 close found **THREE blocking defects, all fixed in-phase and each re-sabotaged** — the headline one being that criterion 10 was never actually discharged: `archive_sweep_problems` ASSERTED a row-count floor while only DOCUMENTING per-tree coverage, so suppressing all 21 rows of one archived tree left 110 rows against a floor of 10 and the predicate returned EMPTY. **Nine of ten trees could have gone dark silently** — the phase's own defect class, a tool that reports clean because it did not look, arriving INSIDE the control written to prevent it. Also ruled at the gate: the chunked-**foreground** form of `make ci` is an allowed satisfaction of criterion 15 on this host under four named conditions, and **criterion 15's TEXT is an owed follow-up, NOT discharged**. *(This bullet was missing from the list until 2026-08-25 — the phase was planned, executed, gated and merged with a `## Phase Details` section and a progress row but no entry here, so `roadmap.analyze` read 27/27 with Phase 23 invisible to it. Identical to the omission recorded against Phase 17, and to the Phase 14.1 note explaining why an absent box is not cosmetic: it is what routed auto-advance into a never-planned phase once before.)*
+- [ ] **Phase 23.1: The v0.2 Close-Out — Every Open Row Gets a Verdict** (INSERTED) - Every row, item and ruling left open at the end of v0.2 gets an explicit verdict, so the milestone is archived against a ledger that says what is TRUE rather than one that is merely quiet. **BUILDS NOTHING** — no SDK mechanism, no fabric change, no new example; it adjudicates and it records. Commissioned by Dave 2026-08-25 on fork ruling **(ii) adjudicate and defer**. Disposes the **13** open requirement rows and the **27**-item human-verification packet, LOGS the `D-27` keep-quarantined ruling Dave gave 2026-08-25 rather than making it, and states whether `complete-milestone` can run. **Runs BEFORE Phase 24** on Dave's sequencing ruling 2026-08-25, which is why it is numbered `23.1` and not `25`.
+- [ ] **Phase 24: Context Production — Assembling Context Products from Simple to Complex** (INSERTED) - Context Product creation, the heart of the CCF SDK, demonstrated through a ladder of examples that grows from single-store deterministic assembly to agentic assembly across an A2A boundary; every example prints its SPECIFICATION and the RESULTING JSON side by side. **DESCRIPTION BANKED, NOT PLANNED** — Dave supplied the requirements 2026-08-25 and confirmed it starts as soon as `23.1` closes; `D-GATE-19` binds Success Criteria to the discuss sitting, so none are written here. **TWO SDK-surface impacts found and raised to Dave, both UNRULED**: the standard's closed eight-operator vocabulary against the SDK's four categories, and its six universal validation gates against the SDK's three with `D-IMPL-102` limb 3 ruling that no fourth joins.
 
 ## Phase Details
 
@@ -2232,6 +2234,163 @@ closed before its report is trusted to say what is safe to move; `D-IMPL-189`
 (the ruling that authorizes the intermediate state); Phase 22 (`D-GATE-22`),
 whose page is the reason `s1-01` is excluded.
 
+### Phase 23.1: The v0.2 Close-Out — Every Open Row Gets a Verdict (INSERTED)
+
+**Goal:** every row, item and ruling left open at the end of v0.2 carries an
+explicit verdict, so the milestone is archived against a ledger that says what
+is TRUE rather than one that is merely quiet. **THIS PHASE BUILDS NOTHING.** No
+SDK mechanism, no fabric change, no new example. It adjudicates and it records.
+
+**Why this phase, and why now.** Commissioned by Dave 2026-08-25, immediately
+after `D-GATE-23` and the push of `main` to `origin`. Dave ruled the fork as
+**(ii) ADJUDICATE AND DEFER**, verbatim: *"Do **not** build Section 3 /
+`DOCS-14` / `EXAM-02` inside v0.2. That surface is about to move under Context
+Product Development; documenting it now repeats the Phase 16 failure mode (docs
+against a surface that does not survive)."* Phase 24 is the phase that replaces
+that surface, and **this phase runs BEFORE it** on Dave's sequencing ruling
+2026-08-25 — v0.2 closes before v0.3 work opens, which is why the close-out is
+numbered `23.1` rather than `25`.
+
+**Anchors, MEASURED from the tree 2026-08-25** (`D-19`, `D-IMPL-174`, and
+criterion 12's own rule): **265** files under `archive/examples/`, **58** under
+`examples/`, **13** open requirement rows, **27** human-verification packet
+items, and the decision log at **`D-IMPL-198`** with every id from `1` to `198`
+taken — so **`199` is the next free id**, verified by set comparison rather
+than by reading the highest number.
+
+**ONE RULING IS ALREADY GIVEN AND IS RECORDED HERE RATHER THAN RE-LITIGATED.**
+The `00`–`08` half of `D-27` is **KEEP-QUARANTINED for v0.2** (Dave,
+2026-08-25). The archive move already performed the honest intermediate state,
+and delete-and-re-cut costs ~102 snippet includes across 15 pages — its own
+phase, not a line item inside a close-out that builds nothing. Ruling it the
+other way would either explode this phase's non-build charter or leave a
+criterion that cannot be discharged. **Criterion 7 exists to LOG that ruling,
+not to make it. DELETION STAYS OWED** (`D-IMPL-191` ruling 3).
+
+**Explicitly NOT in this phase.** Any Section 3 / `DOCS-14` / `EXAM-02` build.
+Any deletion from `archive/examples/`. Any Context Product surface work — that
+is Phase 24. Any new SDK mechanism or fabric change. Any Obsidian vault query.
+And `complete-milestone` itself, which follows `D-GATE-23.1` rather than
+running inside the phase.
+
+**Success Criteria** (what must be TRUE) — **LOCKED 2026-08-25, BEFORE PLANNING
+AND BEFORE WAVE 1**, per `D-GATE-19`'s forward binding and `D-IMPL-174`. Each
+criterion is ONE LINE: a wrapped criterion parses as a single verification
+truth, which is how 15.3 and 15.4 shipped gated against less than they read as.
+
+  1. Every open requirement row — **13** at lock, the set RE-MEASURED at the gate per criterion 12 rather than frozen at 13 — carries exactly one disposition written into the row itself, `Discharged`, `Deferred to v0.3` or `Dropped`; a row with none or with two is RED
+  2. Every `Deferred to v0.3` row names the v0.3 phase or requirement lane that inherits it; a row deferred to nowhere is RED
+  3. Every `Discharged` row cites evidence whose path is proven to EXIST by direct stat at the gate commit — NOT by the citation lint's exit code, which is green-and-false on stale paths via its suffix fallback — or states a named absence; prose-only discharge is RED
+  4. Every `Dropped` row names the ruling that dropped it and the reason; an unsourced drop is RED
+  5. All **27** human-verification packet items carry a disposition — ruled, executed, or read — and the count is RE-MEASURED from the phase records with its instrument's positive control recorded, never quoted from the packet
+  6. Each of the four `[run]` items is executed with its output recorded, or reassigned to Dave BY NAME with the reason it cannot run here — `#1` reserved to Dave by `D-13`/`D-IMPL-70` (the first perf baseline must not be auto-recorded) and `#10` needing GitHub Actions output this session cannot fetch, both NAMED rather than auto-discharged
+  7. The `00`–`08` half of `D-27` is LOGGED as a numbered decision recording Dave's 2026-08-25 ruling — **keep-quarantined for v0.2**, on the reason that delete-and-re-cut costs ~102 includes across 15 pages and belongs to its own phase — and restating that DELETION STAYS OWED; the phase closing with the ruling unlogged is RED
+  8. The two `CLNT-17` framing questions are ruled and logged, or RE-DEFERRED with a named reason AND a named home; carrying them forward unnamed is RED
+  9. Phase 23's ROADMAP criterion 15 carries `D-GATE-23`'s chunked-foreground reading and its four conditions as an EXPLICITLY MARKED amendment (old clause / new clause per `D-GATE-22`'s naming policy, citing `D-GATE-23`'s owed follow-up), so a later phase inherits the reading from the criterion rather than from the gate entry; a SILENT rewrite of a closed phase's locked criterion is RED, because `D-GATE-23` proves all eighteen byte-identical by sha256 and an unmarked edit falsifies that proof
+  10. `22-06-SUMMARY.md` exists, written from the Phase 22 close record with its RETROACTIVE authorship stated in the file — or its absence is ruled acceptable and recorded; a summary written to make a counter agree is RED
+  11. `CCF_SDK_DE_REQUIREMENTS.md`'s ten decision candidates are renumbered to ids unused in `docs/DECISIONS.md`, verified by set intersection returning empty AT THE GATE COMMIT rather than at the edit — because this phase's own criterion 7 consumes an id mid-phase
+  12. The open-row count is RE-MEASURED from the tree at close with its instrument's positive control recorded beside it; a bare count with no control is RED
+  13. The ROADMAP's three phase-set statements and STATE's fourth agree at the gate commit — AFTER this phase's own entry and Phase 24's exist in all four — proven by set comparison in BOTH directions with both deltas empty
+  14. `src/`, `runtime/` and `examples/` are diff-empty against a base pinned before Wave 1, asserted by a **per-member** pathspec diff with each member proven to name tracked files (the `VAC-01` guard, Phase 21.1 criterion 1: a misspelled member diffs empty exactly like a clean one)
+  15. `archive/examples/` still holds **265** files and nothing under it is deleted OR relocated, asserted by count and by `git diff --diff-filter=D` and `--diff-filter=R` each returning empty
+  16. No Section 3 directory, no `DOCS-14`/`EXAM-02` substance and no Context Product surface work is created, asserted as a named non-goal against the pinned base
+  17. `make ci` is green at the gate commit in the chunked-foreground form under `D-GATE-23`'s four conditions, with every constituent command's exit code recorded and `make -n ci` printed as proof the chunk list IS the whole recipe
+  18. `complete-milestone`'s preconditions are stated and met, or the specific reason it still cannot run is named in the `D-GATE-23.1` entry; `complete-milestone` itself does NOT run inside the phase
+
+**Requirements:** disposes the **13** open v0.2 requirement rows. Mints none.
+
+**Depends on:** Phase 23 (`D-GATE-23`) — the archive move is what left
+`DOCS-17` at `Partial` and the deletion owed. **BLOCKS Phase 24**, which does
+not start until `D-GATE-23.1` is logged.
+
+
+### Phase 24: Context Production — Assembling Context Products from Simple to Complex (INSERTED)
+
+**Goal:** demonstrate **Context Product creation — the heart of the CCF SDK** —
+through a ladder of examples that grows from a single-store deterministic
+assembly to agentic assembly across an A2A boundary. Every example prints its
+**specification** and the **resulting JSON dataset** that specification
+produced, so the contract and the artifact it governs are visible side by side.
+
+**STATUS: DESCRIPTION BANKED, NOT PLANNED.** Dave supplied these requirements
+2026-08-25 with the framing *"when we get to Phase 24 this is how I want to do
+it"*, and confirmed the phase **starts as soon as `23.1` closes**. **No Success
+Criteria are written here, and that is deliberate** — `D-GATE-19` binds
+criteria to the discuss sitting immediately before planning, never
+retroactively and never far in advance of the measurements they rest on. This
+entry records WHAT the phase is; criteria are locked when it is discussed,
+after `D-GATE-23.1`.
+
+**Inputs — the three documents tracked under `references/` at `ddf422e`,**
+which Dave named as showing three things:
+
+- `Context_Product_Specification_Standard_v0-3.md` — **how Context Products are specified**: the nine-element contract, the seven-section skeleton, the closed operator vocabulary, the six universal validation gates, the tier and certification model.
+- `CP-SPEC-001_Counterparty_Reference_Snapshot_v2.md` — **a worked example of a Context Product specification**, authored to that standard.
+- `CCF_SDK_DE_REQUIREMENTS.md` — **what is expected of the Data Engineers who develop Context Products**: the seven-station journey (author, validate, bind, build, register, certify, operate) and what the SDK must provide at each station.
+
+**Two external inputs beyond the repo.** The Obsidian vault's
+`context-products` topic — **25 articles on a five-tier build ladder, ordered
+simplest-first**, with the authoring standard and 21-product catalog at vault
+response `Q019`; Dave granted the query 2026-08-25, lifting the standing
+do-not-query constraint. And `/home/parkave/ccf_dataprep`, the sibling project
+that manufactures the data across five partitioned stores (Postgres, Fluree,
+MongoDB, SQLite) with row-level provenance and deliberately ENGINEERED
+conditions — a planted cross-shareholding cycle, an amendment booked after its
+effective date with a drawdown in the gap — without which the flagship temporal
+product cannot be demonstrated at all.
+
+**TWO SDK-SURFACE IMPACTS FOUND AND RAISED TO DAVE 2026-08-25, BOTH UNRULED.**
+Dave's instruction was that these documents *"should not impact the CCF SDK
+surface but if they do it needs to be brought to my attention."* Measured
+against the tree rather than inferred, two do:
+
+1. **Operator vocabulary.** The SDK ships the whitepaper's **FOUR** operator categories — `src/ccf/operators/categories.py::TraversalNeighborhood`, `::TemporalAsOf`, `::PolicyFilter`, `::SimilaritySelect`. The standard commits a **CLOSED EIGHT-OPERATOR VOCABULARY** (Resolve, Policy, Projection, Traversal, Enrich, Similarity, Evaluate, Federate) over seven capability classes, and every spec's assembly recipe is written in those eight names. Reconcilable — the eight read as a naming and authoring layer over the algebra, with Temporal absorbed into Traversal modes — but the mapping must be **RULED**, because composition-preservation tests and `operators_invoked[]` lineage naming both depend on which layer is canonical. **This is visible in the deliverable itself:** an example printing its specification beside its lineage would show the two vocabularies disagreeing.
+2. **Validation gates.** The SDK ships **THREE** and has affirmatively RULED that no fourth joins `ccf.products.gates::run_gates` (`D-IMPL-102` limb 3, stated twice in `src/ccf/products/contract.py`). The standard requires **SIX UNIVERSAL** gates — the SDK's three plus a debt gate, suppression silence, and classification containment. This is not a gap but a contradiction with a logged ruling.
+
+**ONE APPARENT IMPACT THAT IS NOT ONE, CHECKED RATHER THAN ASSUMED.**
+`CCF_SDK_DE_REQUIREMENTS.md` §9 raises nine-versus-eight contract elements as a
+genuine conflict. It is not: the SDK's own **`D-IMPL-30` already resolved it in
+favour of NINE**, and `AssemblyMode` ships at
+`src/ccf/products/contract.py::AssemblyMode`. The document was authored without
+consulting the SDK log — deliberately, per vault `Q019` §9: *"SDK surface
+deliberately not consulted... reconcile at example-writing time."* This phase
+is example-writing time.
+
+**THE EIGHT REMAINING DECISION CANDIDATES IN `CCF_SDK_DE_REQUIREMENTS.md` §9
+ARE NOT VERIFIED AGAINST THE TREE** and must not be quoted as findings until
+they are. Separately, **all ten collide with logged ids** — the document
+proposes `D-IMPL-30`…`D-IMPL-39` and the log is at `D-IMPL-198` with `1`–`198`
+all taken; renumber to `199`+ before anything cites them (Phase 23.1
+criterion 11).
+
+**Scope — the four assembly strategies Dave named, which map onto the
+standard's own Assembly Modes rather than being four ad-hoc examples:**
+
+1. **Simple model first — in-process deterministic operators for context assembly.** Assembly Mode 1; ladder tiers T1–T3.
+2. **Deterministic operators combined with unstructured data (LLM packaging).** Assembly Mode 2; tier T4, where passage-level lineage enters.
+3. **Context Products that build off other Context Products.** Composition, where a composed product inherits the MINIMUM freshness and the MAXIMUM debt of its inputs and its TTL is bounded by the SHORTEST input TTL — averaging either lets a strong component mask a weak one.
+4. **Agentic context assembly, where agents assemble context based on an A2A call.** Assembly Mode 3; tier T5.
+
+**Scope — the examples for developers:**
+
+- **Context assembly.** Each Context Product example demonstrates the product by printing out **the specification** AND **the resultant JSON dataset representing the Context Product**.
+- **End-to-end consumption over MCP.** The three client models already shipped in `examples/hw1-harness-clients` — ADK, Anthropic Agent SDK and LangGraph, Phase 20, `D-GATE-20` — call the backend Context Product over MCP. **This is REUSE of a shipped surface, not new build.**
+- **End-to-end consumption over A2A.** A client agent, constructible under any of the three harnesses, calls a separate context-assembly agent **using A2A**. **THE A2A LEG IS THE NEW WORK**, and vault `Q019` §5 names its cost: the co-lender product requires standing up a SECOND CCF instance, *"the largest infrastructure item, and the reason that product sits last."*
+
+**Open before this phase can be planned.** The two SDK-surface rulings above;
+the renumbering of the ten decision candidates (Phase 23.1 criterion 11); and
+which products from the 25-article ladder the phase actually builds. The
+vault's recommended build order is **#1 → #4 → #8** — Counterparty Reference
+Snapshot, Corporate Family Tree, Covenant-in-Force As-Of — which spans T1→T3
+and requires only Postgres and Fluree.
+
+**Requirements:** to be determined at the discuss sitting. Expected to mint new
+rows under a v0.3 lane.
+
+**Depends on:** Phase 23.1 (`D-GATE-23.1`) — v0.2 closes before this opens, on
+Dave's sequencing ruling 2026-08-25.
+
+
 
 ## Progress
 
@@ -2265,6 +2424,8 @@ whose page is the reason `s1-01` is excluded.
 | 22. The Adoption Argument — What RAG, Hand-Rolled Assembly and a Semantic Layer Lack | 6/6 | **Complete** — **`D-GATE-22` APPROVED by Dave 2026-08-23** at `c786faf`; six plans in six serial waves on `main` (no phase branch, `d7a70eb`), 51 commits from the phase base `951eb4a`. Plan `22-06` is the gate-close plan and its deliverable is `22-CLOSE-REVIEWS.md` plus the `D-GATE-22` entry, so five plans carry a `SUMMARY.md` and six executed. The §3.1 close found **eight blocking defects in the phase's own gate** and all eight were fixed in-phase, each watched RED before green. *Counter corrected in Phase 22.1: this cell read `0/5` and `PLANNED 2026-08-23` with an empty completion date after the phase had closed — the checklist entry above was ticked at `783e791` and this row was not.* Originally planned as five plans in five waves, all sequential (the page, the contrast, the gate, the ledger, the proof); no requirement rows minted. **DISCUSSED 2026-08-23** — `22-CONTEXT.md` + `22-DISCUSSION-LOG.md` at `815f810`. Fifteen decisions across four areas in Dave's order. **The fifteen Success Criteria are LOCKED in the entry above, BEFORE planning and BEFORE Wave 1** (`D-GATE-19`). Two rulings shape the phase: `D-02` — every *what the alternative lacks* claim is RECAST as a checkable fact about the QUESTION, because you can include what CCF does and cannot include what RAG lacks, and an uncited *lacks* sentence is `DCD-02`'s class; and `D-04` — **the wording gate SHIPS with the page** (one module, both obligations, `public/`-scoped), reversing the stretch-goal call on a price change once `test_gate_two_wording.py` was found to be the instrument. Dave: *"if the criterion matters, something can go red when it is violated."* Verified before locking: `s1-01/spine.py` already carries the SAME SEVEN marker regions the adopter's guide includes from `00-quickstart` and **nothing has ever included from it**, so the page is a pure `public/` addition with ZERO changes under `examples/`. | — |
 | 22.1. The Hygiene Block — The Tool That Could Not Tell "None" From "Could Not Look" | 3/3 waves + close | **Complete** — **`D-GATE-22.1` APPROVED by Dave 2026-08-23.** Six commits on `main` from `589763d`; all nine criteria met, LOCKED before Wave 1 (`D-GATE-19`). The sweep FAILS CLOSED: reproduced 267 → 261 rows at exit 0 under system `python3` before, exit 1 naming the module after; the refusal precedes the WRITE. `RECON-10` was ONE COMMIT stale, not owed (`D-IMPL-177` at `014f646`, its row text at `f285ac2`) → `Complete as ruled`; verdicting it DISARMED `CONTROL 6`/`7`, caught by `CONTROL 36b`, subject now derived. 27 items assembled, count reconciled (24 + 1 + 2), **delivered NOT ruled**. **The §3.1 panel found this phase's own defect class inside it** — deleting one line (`unexaminable=unexaminable()`) left all 41 tests GREEN while the tool fully regressed; `D-IMPL-188`'s residual one module over, now held. 13 findings: 9 fixed, 1 accepted, 2 rejected, 1 confirmed correct — **including one rejection that was itself wrong and is recorded as such**. 10 sabotages, every prediction held. Gates: lint 0, typecheck 211, `gate-tools` 406+313, docs-strict 0, examples 0; test **4105/118** unchanged, unrun-by-mechanical-argument per Dave's ruling. `DOCS-17`/`CLNT-17` stay `Not built` (`D-IMPL-189`). | 2026-08-23 (`D-GATE-22.1`) |
 | 23. The Archive Move — Retiring the Ten Condemned Example Trees Without Deleting Them | 13/13 | **Complete — `D-GATE-23` APPROVED** (Dave, 2026-08-25), merged to `main --no-ff` naming the entry. **All EIGHTEEN Success Criteria met.** 76 commits on `phase-23` from `PHASE_BASE` `b87fe58`. **THE SS3.1 CLOSE FOUND THREE BLOCKING DEFECTS AND ALL THREE ARE FIXED IN-PHASE**, each re-sabotaged after the fix. `B1` is a LOCKED CRITERION THAT WAS NEVER ACTUALLY DISCHARGED: criterion 10 says the sweep *"cannot go blind to the archive"*, but `archive_sweep_problems` ASSERTED a row-count floor while only DOCUMENTING per-tree coverage — suppressing every one of the 21 rows for `archive/examples/03-harness-portability` left 110 rows against a floor of 10 and returned EMPTY, so **nine of ten trees could have gone dark silently**. Fixed at `d6cbca7` with per-tree assertion, both clauses proven independently load-bearing, and verified by the orchestrator rather than read off the report. `B2` a ledger cell claiming six deleted `make` commands (zero survive); `B3` three corrections a prior wave ASSIGNED to the close and never made — **nothing gated any of the three, which is how they went two rulings stale without a red**. Panel (codex, cursor, gemini; `claude` excluded) read the SHIPPED tree with source inlined and every cited symbol checked against it: eleven findings — 3 blocking fixed, 3 advisory fixed, 4 advisory carried, **4 REJECTED with refuting evidence, two of them the executor's own payload omission recorded as such**. codex `F-1` and cursor `F-1`/`F-3` converged INDEPENDENTLY on `B1`. **`make ci` was RED from Wave 10 to Wave 12 and two waves reported green over a partial window** — `tests/invariants` and `make ci` were run by neither; fixed by CONVERSION to symbol form per `D-IMPL-114`, never by raising `D-IMPL-123`'s ceiling. **DAVE BLESSED THE CHUNKED FOREGROUND FORM of `make ci` as an allowed satisfaction of criterion 15 on this host**, under four conditions all met here (`make -n ci` proves the chunk list is the whole recipe; every command foreground with its exit code recorded; the deviation named in the gate entry; the existing coverage proof discharged). A follow-up updating criterion 15's TEXT is OWED and not discharged. Six legs exit 0: `test` **4115 passed / 118 skipped**, `gate-tools` **415 + 339**, `docs-strict` 0, full collection **4233**. Criterion 7 discharged as the accounted delta — 4223 → 4233, **LOST-UNRECOVERED ZERO**, ten additions each named; `tests/examples` 515 → 521. Criterion 14: **8 changed lines** across 3 files under `src/`+`runtime/`, `pyproject.toml` diff-empty. Execution record follows. Row updated BY HAND (`D-15`); no `roadmap.*` writer was invoked in any wave of this phase, and **not one Success Criterion line was authored, edited, renumbered or re-wrapped by execution** — the eighteen stand as locked at the discuss sitting, amended only by `D-IMPL-192`, `D-IMPL-194` (both pre-planning) and `D-IMPL-196`/`D-IMPL-197`/`D-IMPL-198` (the mid-phase checkpoint, applied by the orchestrator). **THE MOVE HAPPENED at Wave 4** — 265 files at `archive/examples/`, proven a pure rename set in the strong form (265 `R100`, 0 D/A/M, 0 insertions and 0 deletions), four trees left under `examples/`. **Wave 11 wrote the verdict `D-IMPL-189` point 4 held back until the state existed on the tree**: `DOCS-17` reads **`Partial`** in BOTH channels, done-limb worded as `D-IMPL-191` ruling 4 amended it (*out of the `examples:` aggregate*, NOT *out of live CI*), owed-limb deletion plus the re-cut. Every figure in the cell re-measured at Wave 11 rather than quoted: `tests/examples` 31 files / **521** collected, **19 of 31** naming a condemned tree with the file SET IDENTICAL at both ends (so the superseded 25 reproduced at neither), **14** loading archived source in-process, **2** SPAWNING A PROCESS (`D-IMPL-198` ruling 2), both run at 46 passed / 0 skipped. Criterion 7's `tests/examples` limb discharged as the accounted delta: **442 -> 448 test functions, LOST-SET EMPTY, all six additions named**. Criterion 6 discharged: the `D-08` pin **MOVED 111 -> 122** with includes unchanged at 102 and pages unchanged at 15, stated as moved-by-design, the eleven new references being the `python` invocation lines that replaced the fourteen deleted `make example-*` commands, and the pre-move spelling now **0** under `public/`. Criterion 13 held: `CLNT-17` content-hashed against `efa0044` before and after — EQUAL, still `Not built`, **and no plan, task, cell or commit message in this phase assigns it any verdict, limb or disposition**. **THE PLAN'S OWN TASK-2 VERIFY PINNED 111 AND FAILED ON A CORRECT TREE** — criterion 6's subject arriving inside the task written to close it. **Six sabotages watched, four of them CAUGHT NOTHING and that is recorded rather than smoothed**: the cell's wording, a prose-only edit to the `CLNT-17` row, and BOTH channels carrying different verdicts for the same row all pass 114 green. **THREE ITEMS STILL OPEN FOR DAVE** (the Phase 20 unbounded `src/` assertion is RULED by `D-IMPL-197`; the two `CLNT-17` framing questions are raised and NOT ruled). **WAVE 12 RAN THE FIRST FULL-SUITE PIPELINE SINCE WAVE 4 AND FOUND `make ci` RED.** `tests/invariants/test_citation_coverage.py::test_the_unanchored_python_citation_population_cannot_regrow` had been failing since `d0ed316` (Wave 10), which wrote a `path.py:LINE` citation (`archive/examples/08-e2e-demo/run.py:4`) into `deferred-items.md` against `D-IMPL-123`'s ceiling of ZERO; Waves 10 and 11 each reported green having run neither `tests/invariants` nor `make ci`. FIXED BY CONVERSION, not by raising the ceiling (`8e431eb`), on `21.1-09`'s precedent. **SIX LEGS AT EXIT 0**, every one in the foreground with its exit code read without a pipe: lint 0; typecheck clean over **211** files; test **4115 passed / 118 skipped / 0 failed** as FOUR foreground chunks whose coverage is PROVEN three ways (1007+1056+986+1184 = **4233** = the full `--collect-only` total; both set-equality directions EMPTY; all six pairwise intersections 0); `gate-tools` **415 + 339**; `examples` running EXACTLY ONE target with three harness legs at one content address; `docs-strict` 0 on all four steps recorded separately. **`make ci` was NOT run as one command and that is recorded as a deviation** — the pipeline measures ~870 s against a 600 s foreground cap, and backgrounding it is the move criterion 15 exists to forbid; it is discharged as its own ten commands, proven complete by `make -n ci`. Criterion 7's suite limb: **4223 -> 4233, LOST-UNRECOVERED = ZERO**, 63 lost ids all recovered at their archive re-path and **ten genuine additions each named to its wave** (Wave 3's eight plus `D-IMPL-197`'s two); the superseded **4105** pin was quoted once and compared against nothing. Criterion 14 re-taken at phase end with the `VAC-01` floor per member: `src` 142 tracked -> `bind.py` only, `runtime` 71 -> the two `mcp` modules, `pyproject.toml` 1 -> EMPTY, **8 changed lines = four edits x both sides**, every one a pure prefix substitution; the five `s1-01` citations and `request.py` byte-identical. **TEN INDEPENDENT SABOTAGES of this phase's own verification code, TWO PREDICTIONS WRONG and recorded as corrections, one sabotage itself MIS-AIMED and recorded as mis-aimed.** Two NEW findings carried: criterion 18's control comment names a mutation the shipped alternation makes INERT (the branch is load-bearing, not the lookbehind — proven by three regexes side by side), and `tests/examples/test_surface_audit.py` DOES NOT EXIST while three live source files cite it. **Sixteen criteria byte-identical to `PHASE_BASE`; criteria 7 and 12 AMENDED BY RULING at `a6d7367` and `06786db`, both decision commits, neither authored by execution.** The coupling report is regenerated LAST in the venv after every `.planning/` write. **STILL OPEN AND NOT THIS GATE'S:** the deletion half of `D-27`; the two `CLNT-17` framing questions (raised, expressly NOT ruled; content-hash EQUAL at both ends, still `Not built`); `DOCS-14`/`EXAM-02`'s replacement surface; and deferred items 7-10, item 7 — no witness reads the RENDERED body a `--8<--` include pulls in — now carried by six waves. **Deletion remains OWED for every scheduled row** (`D-IMPL-191` ruling 3). | 2026-08-25 (`D-GATE-23`) |
+| 23.1. The v0.2 Close-Out — Every Open Row Gets a Verdict | 0/? | **Not started** — the **18** Success Criteria are LOCKED in the entry above, written 2026-08-25 BEFORE planning per `D-GATE-19`'s forward binding. Criterion 7 RECORDS Dave's `D-27` keep-quarantined ruling rather than making it; criterion 6 names `#1` as reserved to Dave by `D-13`/`D-IMPL-70` and `#10` as needing GitHub Actions output this session cannot fetch, rather than pretending the phase can auto-discharge either. Builds nothing. | — |
+| 24. Context Production — Assembling Context Products from Simple to Complex | 0/? | **Not started, NOT PLANNED** — description banked from Dave 2026-08-25, to begin as soon as `D-GATE-23.1` is logged. **No Success Criteria yet, deliberately** (`D-GATE-19` locks them at the discuss sitting, never in advance of the measurements they rest on). Two unruled SDK-surface questions gate planning: the operator vocabulary (SDK's 4 categories vs the standard's closed 8) and the validation gates (SDK's 3, with `D-IMPL-102` limb 3 forbidding a fourth, vs the standard's 6 universal). | — |
 
 ## Coverage
 
