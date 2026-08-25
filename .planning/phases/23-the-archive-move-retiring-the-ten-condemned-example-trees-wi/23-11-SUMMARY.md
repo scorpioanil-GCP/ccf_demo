@@ -387,3 +387,32 @@ remaining red at this SUMMARY is
 `test_the_committed_report_is_current`, which is red BY CONSTRUCTION until the
 regeneration that must follow this commit, and which criterion 11 requires to be
 last.
+
+---
+
+## Self-Check: PASSED
+
+Run AFTER the report regeneration, not predicted before it.
+
+**Files claimed, verified present on disk:** `23-11-SUMMARY.md`,
+`.planning/REQUIREMENTS.md`, `.planning/STATE.md`, `.planning/ROADMAP.md`,
+`deferred-items.md`, `docs/surface/examples/RETIREMENT-COUPLINGS.md` — all six
+`FOUND`.
+
+**Commits claimed, verified in `git log`:** `e694374`, `79322fb`, `90f78a0`,
+`88bb315`, plus the report regeneration `cd00032`. All five present on
+`phase-23`.
+
+**`tools/docs_tests` at the regeneration commit: 286 passed, ZERO failures.**
+The wave opened at 285 passed / 1 failed. Both reds are closed — `EXAM-01`'s
+citation by task 1, and `test_the_committed_report_is_current` by the
+regeneration. `tools/docs_tests/test_retirement_sweep.py`: **57 passed**.
+
+**The report is a fixed point, not a lucky snapshot.** A second regeneration
+after the committed one produces NO diff, and `git diff --stat` on the report is
+empty at `HEAD`. The working tree carries no modified files (only the three
+untracked `references/` documents that predate this phase).
+
+**This appendix is itself a `.planning/` write**, so the report goes stale again
+on its commit and is regenerated once more after it — the same two-step Wave 10
+needed, and the reason `23-12` and `23-13` are handed the obligation by name.
