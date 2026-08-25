@@ -71,7 +71,7 @@ Pending **by design** for this reason, not by oversight.
 :func:`~ccf.products.request.refuse_request`: both request-time refusals are
 adopter obligations the SDK states at the seam and does not enforce, and both
 resolver Protocol docstrings now name both. Each has one shipped call site to
-read — ``examples/04-cross-process/producer_child.py::resolve`` for this
+read — ``archive/examples/04-cross-process/producer_child.py::resolve`` for this
 payload bind, and
 ``examples/s1-01-hello-context-product/spine.py::assemble_and_serve`` for the
 request refusal. They are what turns *shipped unwired* into *shipped with a
