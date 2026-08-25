@@ -321,3 +321,75 @@ that reads rendered include bodies.
 **Owed to:** whichever plan re-points `tools/measure_examples.py`'s help text,
 which must also decide what `KNOWN_COUPLED_FILES` should say once the coupling
 is genuinely discharged rather than merely re-spelled.
+
+---
+
+## 9. `.planning/ROADMAP.md`'s Phase 23 GOAL PROSE still carries the clause `D-IMPL-191` ruling 4 amended (found at `23-11`)
+
+**Not a Success Criterion, and not in `23-11`'s authorised subject.** Task 3 of
+`23-11` authorises the Phase 23 *progress row* and the Progress table; it
+forbids authoring, editing, renumbering or re-wrapping a criterion. The goal
+prose is neither, so it is NAMED here with the edit owed rather than widened
+into.
+
+**The defect.** The phase-block goal paragraph reads:
+
+> On completion `DOCS-17` is verdicted **`Partial`** for the first time, on the
+> seam `D-IMPL-189` point 3 names: limb done — **out of live CI**, sources
+> preserved under archive, includes re-pointed, strict build green; limb owed —
+> full retirement and the re-cut against a replacement surface.
+
+`D-IMPL-191` ruling 4 AMENDED exactly that clause — **OLD** *"out of live CI"*,
+**NEW** *"out of the `examples:` aggregate ... and still exercised by the test
+leg"* — for the measured reason that 19 of 31 `tests/examples` files still read
+the archived sources and 2 still spawn a process against them. So `ROADMAP.md`
+today asserts, in prose, the exact claim the ledger cell shipped at `23-11` is
+forbidden to make. Criterion 12 is correct; the goal paragraph above it is not.
+
+**A second, smaller instance in the same file.** `STATE.md`'s `## Current
+Position` block still reads *"SIXTEEN Success Criteria LOCKED"* (there are
+eighteen, per `D-IMPL-194`) and *"25 of 31 `tests/examples` files"* (measured 19
+at both ends; `D-IMPL-195` ruling 3 and `D-IMPL-198` ruling 2). Both are
+pre-planning text preserved as a dated record, which is defensible — but
+neither says it is dated, and a reader arriving at the Position block gets a
+figure two rulings out of date with nothing marking it.
+
+**Owed edits, named:**
+
+| File | What it says | What it should say |
+| --- | --- | --- |
+| `.planning/ROADMAP.md`, Phase 23 goal paragraph | `limb done — out of live CI` | `limb done — out of the `examples:` aggregate, sources preserved under archive and still exercised by the test leg` (`D-IMPL-191` ruling 4) |
+| `.planning/STATE.md`, `## Current Position` Phase 23 entry | `SIXTEEN Success Criteria LOCKED` | `EIGHTEEN` (`D-IMPL-194`), or a date-stamp marking the sixteen as what was true at the sitting |
+| `.planning/STATE.md`, same entry | `25 of 31 tests/examples files` | `19 of 31`, measured identical at `b87fe58` and at `HEAD` (`D-IMPL-195` r3, `D-IMPL-198` r2) |
+
+**Owed to:** `23-13`, the §3.1 close, which is the plan that already owns the
+phase record. **Nothing gates any of the three** — no test reads the goal
+paragraph or the Position block, which is why they went two rulings stale
+without a red.
+
+---
+
+## 10. Nothing gates a ledger cell's WORDING, and the two channels can carry different verdicts for the same row (measured at `23-11`)
+
+Recorded because `23-11` predicted it, ran it, and confirmed it — and because a
+later reader should not have to guess whether `D-06`'s wording constraint was
+machine-enforced. It is not.
+
+| Sabotage | Mutation | Result |
+| --- | --- | --- |
+| S-L2 | the `DOCS-17` cell rewritten to claim *out of live CI*, in BOTH channels | `tools/docs_tests/test_requirement_ledger.py` **114 passed**, `tools.lints --all` exit 0 |
+| S-L3b | one PROSE character in the `CLNT-17` row (`the` -> `teh`) | **114 passed** — caught only by the content-hash anchor criterion 13 mandates |
+| S-L4 | `DOCS-17` left `Not built` in the table channel while the checkbox channel reads `Partial` | **114 passed**, with the two channels openly disagreeing about one row's verdict |
+| S-D8a | the `D-08` figure updated in one channel only | **114 passed**, lints exit 0 |
+| S-D8b | the pin overwritten 111 -> 122 with the movement sentence deleted | **114 passed**, lints exit 0 |
+
+`cell_verdicts` enforces *at most one verdict per cell*; nothing enforces *the
+same verdict across the two cells of one row*. That is `R-alpha`'s neighbourhood
+— a shape wider than what the module's criteria name — and it is the reason
+criterion 6 says *"at both ends"* and criterion 12 names the forbidden wording:
+both are judgement-enforced, by construction, today.
+
+**Owed to:** nobody, until a phase is commissioned for it. A cross-channel
+verdict-equality assertion is cheap and would close S-L4 and S-D8a at once; the
+wording constraints (S-L2, S-D8b) are not mechanisable without a vocabulary
+ruling of the kind `R-alpha` already waits on.

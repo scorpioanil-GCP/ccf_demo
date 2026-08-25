@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-25T04:05:00.000Z"
+last_updated: "2026-08-25T06:40:00.000Z"
 last_activity: >-
   2026-08-23 -- **PHASE 22 IS CLOSED. `D-GATE-22` IS LOGGED AND `DOCS-15` IS DISCHARGED**
   under the ruled coupling to `s1-01`/`CLNT-17`. Six plans in six serial waves on `main`
@@ -1434,6 +1434,91 @@ progress:
   completed_plans: 204
   percent: 100
 stopped_at: >-
+  **PHASE 23 WAVE 11 LANDED. `DOCS-17` READS `Partial` FOR THE FIRST TIME SINCE IT
+  WAS MINTED, AND THE CELL SAYS WHICH LIMB ON WHAT MEASUREMENT.** Three task commits
+  on `phase-23`. 11 of 13 waves done; `23-12` is the full `make ci`, `23-13` the
+  SS3.1 close.
+  **EVERY FIGURE IN THIS BLOCK WAS MEASURED THIS WAVE. None is quoted from the plan
+  text, from a decision entry, or from a prior SUMMARY** — which is what `D-IMPL-196`
+  and `D-IMPL-198` require of Waves 11 and 12, and the discipline `D-19` names.
+  **THE VERDICT.** `Partial` in BOTH channels, with the done-limb worded as
+  `D-IMPL-191` ruling 4 AMENDED it — *out of the `examples:` aggregate*, never *out of
+  live CI*, which would have been false on the day it was written (`RECON-09`). The
+  owed limb is DELETION plus the re-cut, with `D-27`'s `00`-`08` half still Dave's and
+  `D-IMPL-176` point 2 sequencing `DOCS-14`/`EXAM-02` first; nothing is deleted here so
+  neither gate binds and neither is discharged.
+  **WHAT STILL EXERCISES THE ARCHIVE, NAMED IN THE CELL RATHER THAN LEFT TO BE FOUND.**
+  `tests/examples` holds **31** tracked files and collects **521** tests; **19** of the
+  31 name a condemned tree, and the file SET is IDENTICAL at `b87fe58` and at HEAD, so
+  the superseded `25 of 31` reproduced at NEITHER end; **14** of the 19 load archived
+  source in-process through `exec_module`; **2** SPAWN A PROCESS per `D-IMPL-198`
+  ruling 2 -- `test_cross_process_output.py`, whose subject
+  `archive/examples/04-cross-process/run.py` opens a real `subprocess.Popen` peer, and
+  `test_ext00_hardening.py`. Both run this wave: **46 passed, 0 skipped**, so neither
+  is a skip counted as a pass.
+  **CRITERION 7's `tests/examples` LIMB, RE-MEASURED AS THE ACCOUNTED DELTA
+  `D-IMPL-198` ruling 1 requires.** Test-function name sets extracted at both ends and
+  compared: **442 at `b87fe58`, 448 at HEAD, LOST-SET EMPTY, six additions and all six
+  named** -- four in `test_artifact_schema_headers.py` (Wave 3) and two in
+  `test_hw1_harness_clients_readme.py` (`D-IMPL-197`). 515 + 6 = **521**, which is what
+  `--collect-only` reports. No file under `tests/examples` was created or deleted; all
+  twenty changed files are `M`.
+  **THE `D-08` PIN MOVED, AND IT IS RECORDED AS MOVED (criterion 6, `D-19`,
+  `D-IMPL-174`).** Re-measured at both ends: **111 -> 122** total, **102 -> 102**
+  includes, **15 -> 15** pages with the page SET identical, prose paths 9 -> 20, and
+  the pre-move spelling now **0** under `public/`. The eleven new references are direct
+  `python` invocation lines under `PYTHONPATH=src:runtime` that replaced the fourteen
+  deleted `make example-*` commands -- a by-design consequence of criterion 3, not a
+  re-count. `D-IMPL-189`'s own *"99 snippet includes and 108 prose paths"* is NAMED in
+  the cell as never having matched the tree; `docs/DECISIONS.md` is append-only and was
+  not touched.
+  **THE PLAN'S OWN TASK-2 VERIFY PINNED 111 AND FAILED ON A CORRECT TREE.** Run
+  verbatim it reports `measured 122, plan text says 111`. Criterion 6's own subject --
+  a figure quoted forward instead of measured -- arriving inside the task commissioned
+  to close it. Gated against the measurement.
+  **CRITERION 13 HELD, AND THE ANCHOR IS THE ONLY THING HOLDING IT.** `CLNT-17`'s row
+  content-hashed against `efa0044` before and after every edit and every sabotage:
+  `5bcc68ca...` unchanged, still `Not built`, still unticked. **No plan, task, ledger
+  cell or commit message in this wave assigns `CLNT-17` any verdict, limb or
+  disposition.**
+  **SIX SABOTAGES, EACH WATCHED AND RESTORED BYTE-IDENTICALLY, AND FOUR OF THE SIX
+  CAUGHT NOTHING -- WHICH IS THE POINT OF RUNNING THEM.** S-L1 (one channel
+  un-repointed) CAUGHT, but the refusal names the ROW and the PATH and NOT the channel,
+  so the plan's prediction is recorded as CORRECTED rather than confirmed. S-L2 (the
+  cell rewritten *out of live CI*, both channels) NOT caught: 114 passed, lints exit 0
+  -- nothing reads the cell's WORDING and the `D-06` constraint is judgement-enforced.
+  S-L3 (one character in the `CLNT-17` row) caught by the anchor; **S-L3b, a
+  PROSE-ONLY character change, NOT caught by the ledger gate at all (114 passed)** --
+  S-L3's four ledger reds came from breaking the verdict token, not from noticing the
+  row. S-L4 (`Partial` in one channel, `Not built` in the other, for the SAME row) NOT
+  caught: 114 passed with the two channels openly disagreeing. S-D8a and S-D8b, both
+  predicted uncaught, both uncaught.
+  **DECISIONS IN FORCE FOR THIS PHASE, BY OPTION ID (`23-01-SUMMARY.md`, recorded
+  verbatim there and not re-asked here):** ruling 1 `delete-four`; ruling 2 *"Ownership
+  of all FOURTEEN rows moves to Phase 23 (or to a single named archive-quarantine plan
+  id within it), and their paths STILL COUNT as couplings"* -- a FOURTH disposition,
+  none of the three drafted options.
+  **CARRIED, NOT CLOSED, AND HANDED FORWARD BY NAME.** (1) The two `CLNT-17` framing
+  questions RAISED AND EXPRESSLY NOT RULED -- the stated blocker is wrong on the tree
+  (three `.py` call sites, two of them in `s1-00`) and the row may be mis-framed as an
+  example-retirement obligation at all. Dave's, and no plan in this phase may act on
+  either. (2) `D-IMPL-192` and `D-IMPL-194` backlog entries. (3) Deferred items 7 and 8,
+  carried by four waves now and fixed by nobody -- two stale paths inside archived
+  sources that BOTH stale-path witnesses are blind to because neither reads a rendered
+  `--8<--` body, and two `argparse` help strings in `tools/measure_examples.py`.
+  (4) NEW deferred item: the `.planning/ROADMAP.md` Phase 23 GOAL PROSE still reads
+  *"limb done -- out of live CI"*, the clause `D-IMPL-191` ruling 4 amended; the
+  `## Current Position` block still reads *"SIXTEEN Success Criteria"* and *"25 of 31"*.
+  Neither is a Success Criterion and neither is in this plan's authorised subject, so
+  both are NAMED with the edit owed rather than widened into.
+  **THE REPORT IS REGENERATED LAST, IN THE VENV, AFTER THE SUMMARY (criterion 11).**
+  `test_the_committed_report_is_current` cannot tell a stale schedule from a stale
+  snapshot -- it was red for BOTH the true cell and the S-L2 false one -- so its green
+  at the final commit is a currency claim and nothing more. **`23-12` and `23-13`
+  INHERIT THE OBLIGATION EXPLICITLY: the sweep walks `.planning/`, so any further write
+  under `.planning/` or `public/` makes the committed report stale and it must be
+  regenerated again before the phase closes.**
+  PRIOR -- the mid-phase checkpoint, preserved rather than rewritten:
   **PHASE 23 IS MID-EXECUTION. 7 OF 13 WAVES DONE. A FORMAL MID-PHASE CHECKPOINT,
   called by the orchestrator per `D-10`, because the session is being cleared.**
   Branch **`phase-23`**, `PHASE_BASE = b87fe58`, HEAD `94405c9`, 34 commits.
