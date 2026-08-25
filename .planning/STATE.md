@@ -157,10 +157,30 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** **PHASE 19 — The Client-Seam Integrity Checks Must Be Able to
+**Current focus:** **NOTHING IS IN FLIGHT.** Phase 23 is CLOSED, GATED, MERGED and
+PUSHED (`D-GATE-23`, Dave, 2026-08-25; `5a96628` on `origin/main`), and **there is
+no Phase 24** — the ROADMAP defines none. What is open is not a phase but a work
+list, and it is enumerated in `## Current Position` below rather than duplicated
+here: the 13 open requirement rows, the 27-item human-verification packet, the
+DELETION half of `D-27`, the two unruled `CLNT-17` framing questions,
+`DOCS-14`/`EXAM-02`'s replacement surface, criterion 15's owed text, and deferred
+items 7-10. **`complete-milestone` is REFUSED** — v0.2 is not done.
+
+**CORRECTED 2026-08-25. This block read *"Current focus: **PHASE 19 — The
+Client-Seam Integrity Checks Must Be Able to Fail**"* and had done since Phase 19
+— through the gates of 19, 20, 21, 21.1, 22, 22.1 and 23, seven phases in which
+the field naming the current focus named a phase that had already closed. It is
+the same two-places-one-fact defect as the `## Current Position` block corrected
+in the same sitting, and it survived longer because nothing in this repo compares
+this field to the frontmatter. The superseded text is preserved immediately below,
+demoted rather than deleted.**
+
+**Prior focus (Phase 19):** **The Client-Seam Integrity Checks Must Be Able to
 Fail.** Phase 18.1 is COMPLETE and GATED (`D-GATE-18.1`, Dave, 2026-08-19).
 Phase 19 is DISCUSSED (`19-CONTEXT.md`, 14 decisions) but NOT PLANNED. Phase 18 is
-complete; its focus text is preserved below for continuity.
+complete; its focus text is preserved below for continuity. *(Phase 19 has since
+been planned, executed and gated; this paragraph is the record of what was current
+when it was written, not a live statement.)*
 
 **Prior focus (Phase 18):** **MCP Transport: the second door and the
 portability proof.** Opened 2026-08-17 by `D-IMPL-147` (Dave), on branch
