@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The PRODUCER fabric's policy bundle (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #
 # A *version* of this document is resolved from the Control Plane, stamped onto

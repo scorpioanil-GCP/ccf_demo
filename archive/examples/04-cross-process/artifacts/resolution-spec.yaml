@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.resolution-spec.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.resolution-spec.json
 # The PRODUCER deployment's entity- and relationship-resolution rules
 # (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #

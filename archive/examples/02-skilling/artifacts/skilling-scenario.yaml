@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The channel-2 scenario this run drives (CLAUDE.md §6.2; D-IMPL-12/29;
 # clinical-trials-operations domain, D-IMPL-52).
 #

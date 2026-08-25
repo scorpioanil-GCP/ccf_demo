@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.signal-batch.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.signal-batch.json
 # Agent-basics event stream — L1 signal envelopes (field-service domain,
 # D-IMPL-52). A handful of events, but not a flat happy path:
 #

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Store configuration: the file-backed ArtifactStore (CLAUDE.md §7.4).
 #
 # This artifact — not a code branch — is what selects the persistence

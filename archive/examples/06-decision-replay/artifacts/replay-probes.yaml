@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The two negative probes this example runs, and the artifact-class names the
 # forensic replay resolves against (CLAUDE.md §7.4; D-IMPL-26/38;
 # energy/grid-ops domain, D-IMPL-52).

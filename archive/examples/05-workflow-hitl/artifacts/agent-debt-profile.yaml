@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The AGENT's half-life and debt profile — specialization axis 5 (CLAUDE.md §6.2;
 # whitepaper §7.7; banking/lending domain, D-IMPL-52).
 #

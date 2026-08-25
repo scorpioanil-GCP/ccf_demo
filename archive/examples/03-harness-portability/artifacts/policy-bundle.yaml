@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The policy bundle the *fabric* boots under (e-commerce domain, D-IMPL-52).
 #
 # A *version* of this bundle is resolved from the Control Plane, stamped onto

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.temporal.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.temporal.json
 # Temporal category parameters (whitepaper §7.4; banking domain, D-IMPL-52).
 #
 # Read as: reconcile to the boundary on both temporal axes. Which of the

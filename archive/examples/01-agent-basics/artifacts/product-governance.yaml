@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The remaining governance values this deployment puts in force, in one
 # deployment-authored document (field-service domain, D-IMPL-52).
 #

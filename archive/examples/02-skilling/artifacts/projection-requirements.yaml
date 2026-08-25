@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.projection-requirements.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.projection-requirements.json
 # The operator set THIS PROJECTION requires (design E2; D-IMPL-86, Dave,
 # 2026-08-05, and its correction of the same date; clinical-trials-operations
 # domain, D-IMPL-52).

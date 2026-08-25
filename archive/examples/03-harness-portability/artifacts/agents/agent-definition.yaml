@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../docs/schemas/ccf.agent-definition.json
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.agent-definition.json
 # Harness-portability agent definition — THE one agent definition all three
 # harness legs share byte-identically (CLAUDE.md §6.1/§6.5; EXAM-04, D-01).
 # A declared, versioned Control Plane artifact (D-IMPL-28), e-commerce domain

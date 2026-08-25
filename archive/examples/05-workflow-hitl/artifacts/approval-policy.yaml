@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Who may approve at the disbursement gate, and how many of them (CLAUDE.md §8.2;
 # banking/lending domain, D-IMPL-52).
 #

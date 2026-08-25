@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.declared-artifact.json
 # The AGENT's axis-4 policy regime (CLAUDE.md §6.2 channel 1, axis 4).
 #
 # Deliberately a different artifact from `../policy-bundle.yaml`, which is what

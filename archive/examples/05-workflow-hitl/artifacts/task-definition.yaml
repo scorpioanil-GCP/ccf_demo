@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.task-definition.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.task-definition.json
 # Workflow-HITL task definition (CLAUDE.md §6.4/§8.1; D-IMPL-28; SDK-defined).
 # Banking domain per D-09 — approval workflows under regulatory pressure are the
 # canonical HITL case. Authored fresh: tenant, steps, and every identifier are

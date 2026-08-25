@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.similarity.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.similarity.json
 # Similarity category parameters (whitepaper §7.4; banking domain, D-IMPL-52).
 #
 # Read as: rank ledger movements against the memo query at or above 50%.

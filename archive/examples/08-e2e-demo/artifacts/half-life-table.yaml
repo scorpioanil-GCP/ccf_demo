@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.half-life-table.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.half-life-table.json
 # E2E-demo λ_c table (whitepaper §7.7; banking domain, D-IMPL-52).
 #
 # Every half-life lives here. The SDK ships the decay formula, never a

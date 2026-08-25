@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.agent-definition.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.agent-definition.json
 # The assembler agent — a declared, versioned Control Plane artifact
 # (CLAUDE.md §6.1/§6.2; D-IMPL-28). Property-intelligence domain, D-08.
 #

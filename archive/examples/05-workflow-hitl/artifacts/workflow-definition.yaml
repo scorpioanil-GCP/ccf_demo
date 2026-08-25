@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.workflow-definition.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.workflow-definition.json
 # Workflow-HITL workflow definition (CLAUDE.md §8.1; D-IMPL-28; SDK-defined).
 # Wraps the pinned loan-disbursement task and adds ONLY routing: transitions,
 # terminal states, the per-node exception ref that drives the ExceptionEscalation

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The policy bundle in force (logistics domain, D-09).
 #
 # A *version* of this bundle is resolved from the Control Plane, stamped onto

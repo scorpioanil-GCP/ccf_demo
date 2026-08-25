@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.product-class.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.product-class.json
 # The product class the CONSUMER will admit from its peer
 # (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #

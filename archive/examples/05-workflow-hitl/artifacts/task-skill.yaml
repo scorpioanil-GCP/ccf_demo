@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # What the task's first step may invoke (CLAUDE.md §6.2 channel 2;
 # banking/lending domain, D-IMPL-52).
 #

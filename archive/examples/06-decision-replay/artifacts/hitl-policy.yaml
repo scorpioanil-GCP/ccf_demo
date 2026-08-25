@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.hitl-policy.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.hitl-policy.json
 # The D-16 HITL policy in force at the load-shed gate (CLAUDE.md §8.2;
 # D-IMPL-20/21; energy/grid-ops domain, D-IMPL-52).
 #

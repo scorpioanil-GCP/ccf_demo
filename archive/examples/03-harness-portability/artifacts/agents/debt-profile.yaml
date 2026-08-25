@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.declared-artifact.json
 # The AGENT's axis-5 half-life and debt profile (CLAUDE.md §6.2 channel 1,
 # axis 5): what staleness this agent tolerates, and what D_c threshold trips
 # Forced LLM or Fail-Closed for it.

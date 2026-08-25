@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # What the PRODUCER's served product should contain, as declared by the
 # deployment that authored the events (syndicated-lending domain).
 #

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.deployment-manifest.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.deployment-manifest.json
 # The one document naming what this deployment puts in force (D-06, D-08,
 # D-IMPL-80; banking/lending domain, D-IMPL-52).
 #

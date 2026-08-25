@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # What the human dimension of this run does (CLAUDE.md §8.2; D-IMPL-20/21;
 # D-16; energy/grid-ops domain, D-IMPL-52).
 #

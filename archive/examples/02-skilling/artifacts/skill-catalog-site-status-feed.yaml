@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.skill-catalog-entry.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.skill-catalog-entry.json
 # A registered, permitted, never-granted skill (CLAUDE.md §6.2/§7.3 seam 2;
 # clinical-trials-operations domain, D-IMPL-52).
 #

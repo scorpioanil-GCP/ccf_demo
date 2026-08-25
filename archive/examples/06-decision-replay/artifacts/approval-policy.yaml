@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The approval policy the load-shed gate binds (CLAUDE.md §8.2; energy/grid-ops
 # domain, D-IMPL-52).
 #

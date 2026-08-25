@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.traversal.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.traversal.json
 # Declared traversal-operator parameters (D-IMPL-38; syndicated-lending
 # domain). Expand two hops from properties over these typed edges.
 #

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The telemetry-collection skill the task definition's first step pins by
 # versioned-URI ref (CLAUDE.md §8.1; energy/grid-ops domain, D-IMPL-52).
 #

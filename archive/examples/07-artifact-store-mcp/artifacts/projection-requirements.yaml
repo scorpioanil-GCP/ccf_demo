@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.projection-requirements.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.projection-requirements.json
 # The operator set THIS DEPLOYMENT'S PROJECTION requires (design E2;
 # docs/DECISIONS.md D-IMPL-86 and its correction of 2026-08-05; logistics
 # domain, D-09).

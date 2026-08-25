@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.product-class.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.product-class.json
 # The product class this fabric serves (whitepaper §7.6; D-IMPL-31 for the TTL
 # anchor, INV-CH7-55 for the assembly mode, INV-CH7-49 for the per-class schema
 # lane; field-service domain, D-IMPL-52).

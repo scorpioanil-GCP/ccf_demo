@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.signal-batch.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.signal-batch.json
 # The LEAD ARRANGER's event stream — L1 signal envelopes (syndicated-lending
 # domain, whitepaper §8.3 Pattern 4).
 #

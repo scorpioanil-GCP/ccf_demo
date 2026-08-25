@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.workflow-definition.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.workflow-definition.json
 # Decision-replay workflow definition (CLAUDE.md §8.1; D-IMPL-28). Wraps the
 # pinned load-shed task and adds ONLY routing: the operator's decision at the
 # gate authorizes or withholds the shed. Every routing value lives here, never

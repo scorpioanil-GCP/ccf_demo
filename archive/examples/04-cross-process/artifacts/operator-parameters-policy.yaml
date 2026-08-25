@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.policy.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.policy.json
 # Declared policy-operator parameters (D-IMPL-38; syndicated-lending domain).
 #
 # `classification_attribute_by_class` lives here rather than in the resolution

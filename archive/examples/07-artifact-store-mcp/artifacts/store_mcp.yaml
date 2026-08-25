@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Store configuration: the MCP-backed reference ArtifactStore (CLAUDE.md §7.4;
 # whitepaper §8.3 Pattern 3).
 #

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # This decision's inputs (field-service domain, D-IMPL-52).
 #
 # Explicit inputs, never clock reads: the example is replayable precisely

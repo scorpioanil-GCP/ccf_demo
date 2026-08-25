@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The PRODUCER run's decision instants (syndicated-lending domain).
 #
 # Explicit inputs, never clock reads: a fabric that read the wall clock could

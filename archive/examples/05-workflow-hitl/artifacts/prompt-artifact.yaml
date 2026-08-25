@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.prompt-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.prompt-artifact.json
 # Workflow-HITL prompt artifact (CLAUDE.md §6.2 axis 6; D-IMPL-28).
 #
 # The template text and its declared parameters live here, never in code — a

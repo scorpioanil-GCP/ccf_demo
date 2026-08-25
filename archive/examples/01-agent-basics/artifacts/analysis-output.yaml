@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Agent-basics scripted-analyst content (D-12 — keyless and model-free).
 #
 # The deterministic LLM-seam stub in `run.py` is mechanism only: its CLASS

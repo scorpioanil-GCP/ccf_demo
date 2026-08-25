@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # This decision's inputs (logistics domain, D-09).
 #
 # Explicit inputs, never clock reads. Both store-backed runs replay the

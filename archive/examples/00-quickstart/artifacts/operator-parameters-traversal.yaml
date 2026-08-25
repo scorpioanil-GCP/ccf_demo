@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.traversal.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.traversal.json
 # Traversal category parameters (whitepaper §7.4; banking domain, D-IMPL-52).
 #
 # Read as: expand two hops from customers over these typed edges. No field

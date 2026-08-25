@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # How an admitted federated product becomes L1 signal on the CONSUMER's side
 # (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.resolution-spec.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.resolution-spec.json
 # Workflow-HITL entity-resolution spec — the deployment's declared vocabulary
 # (banking/lending domain, D-IMPL-52). Everything here is a *value*: entity
 # classes, match keys, attribute names, relationship types. None of it exists in

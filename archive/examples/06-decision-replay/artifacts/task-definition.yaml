@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.task-definition.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.task-definition.json
 # Decision-replay task definition (CLAUDE.md §6.4/§8.1; D-IMPL-28). The minimal
 # grid-ops decision path: one telemetry skill step, then the load-shed
 # authorization gate. Every step value lives here, never in code (§6.4); refs

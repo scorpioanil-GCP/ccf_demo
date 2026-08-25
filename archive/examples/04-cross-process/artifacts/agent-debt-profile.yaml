@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The AGENT's axis-5 half-life and debt profile (CLAUDE.md §6.2 channel 1;
 # whitepaper §7.7 CAR; syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #

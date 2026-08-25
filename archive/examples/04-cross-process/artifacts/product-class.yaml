@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.product-class.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.product-class.json
 # The PRODUCER's product class — what this fabric serves over MCP egress and
 # emits over A2A (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #

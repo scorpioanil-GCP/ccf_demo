@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Where the documents `run.py` registers itself file in the Control Plane
 # (energy/grid-ops domain, D-IMPL-52).
 #

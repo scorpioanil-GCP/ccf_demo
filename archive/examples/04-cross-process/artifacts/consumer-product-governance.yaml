@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The CONSUMER's product-governance numbers (syndicated-lending domain).
 #
 # The consumer registers its own MAX_TTL ceiling for the class it admits,

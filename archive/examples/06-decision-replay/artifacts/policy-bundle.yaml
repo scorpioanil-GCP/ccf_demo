@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The FABRIC's policy bundle in force (energy/grid-ops domain, D-IMPL-52).
 #
 # A *version* of this bundle is resolved from the Control Plane, stamped onto

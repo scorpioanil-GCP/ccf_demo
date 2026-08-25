@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Where this deployment registers its two author-versioned artifacts
 # (field-service domain, D-IMPL-52).
 #

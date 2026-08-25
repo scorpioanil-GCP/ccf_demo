@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.similarity.json
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.operator-parameters.similarity.json
 # Similarity category parameters (whitepaper §7.4; financial-services domain,
 # D-IMPL-52).
 #

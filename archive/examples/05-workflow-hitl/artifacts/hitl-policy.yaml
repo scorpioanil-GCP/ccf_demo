@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.hitl-policy.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.hitl-policy.json
 # The D-16 Control Plane value governing every human action at the authority path
 # (CLAUDE.md §8.2; D-IMPL-20/21).
 #

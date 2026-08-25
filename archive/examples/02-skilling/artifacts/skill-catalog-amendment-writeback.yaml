@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.skill-catalog-entry.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.skill-catalog-entry.json
 # The skill the governance check must REFUSE (CLAUDE.md §6.2; D-IMPL-29;
 # clinical-trials-operations domain, D-IMPL-52).
 #

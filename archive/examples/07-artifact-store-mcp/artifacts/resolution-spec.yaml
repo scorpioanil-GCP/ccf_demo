@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.resolution-spec.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.resolution-spec.json
 # Example 07 entity-resolution spec — the deployment's declared vocabulary
 # (logistics domain, D-09: the store swap is the point, the domain is scenery).
 # Everything in this file is a *value*: entity classes, relationship types,

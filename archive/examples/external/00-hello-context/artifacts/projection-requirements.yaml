@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../docs/schemas/ccf.projection-requirements.json
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.projection-requirements.json
 # What this deployment's projection depends on (design E2; `docs/DECISIONS.md`
 # D-IMPL-86 and its correction of 2026-08-05; banking domain, D-IMPL-52).
 #

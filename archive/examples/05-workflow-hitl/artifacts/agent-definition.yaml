@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.agent-definition.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.agent-definition.json
 # Workflow-HITL agent definition — a declared, versioned Control Plane artifact
 # (CLAUDE.md §6.1/§6.2; D-IMPL-28). The workflow's agent node invokes this
 # definition by pinned versioned URI; no agent exists in example code (§6.1 —

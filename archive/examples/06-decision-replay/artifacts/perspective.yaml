@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.perspective.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.perspective.json
 # The Π role-conditioning this product is served under (whitepaper §7.5;
 # INV-CH7-43; energy/grid-ops domain, D-IMPL-52).
 #

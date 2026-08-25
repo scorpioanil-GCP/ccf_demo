@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The AGENT's axis-4 policy regime (CLAUDE.md §6.2 channel 1;
 # syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.skill-catalog-entry.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.skill-catalog-entry.json
 # The cycle-detection skill's catalog entry (CLAUDE.md §6.2 channel 2;
 # D-IMPL-12/29; Phase 12 CONTEXT D-10/D-11). Banking domain.
 #

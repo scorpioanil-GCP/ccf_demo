@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.signal-batch.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.signal-batch.json
 # Decision-replay event stream — L1 signal envelopes (energy/grid-ops domain,
 # D-IMPL-52). Not a flat happy path:
 #

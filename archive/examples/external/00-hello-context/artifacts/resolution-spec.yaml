@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../docs/schemas/ccf.resolution-spec.json
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.resolution-spec.json
 # Hello-context entity-resolution spec — the deployment's declared vocabulary
 # (financial-services domain, D-IMPL-52; deliberately small: one borrower, one
 # credit facility, a handful of financial signals — authored 100% fresh,

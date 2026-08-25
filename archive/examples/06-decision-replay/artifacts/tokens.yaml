@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Decision-replay token table (D-26; D-14; T-08-20 accepted).
 #
 # SYNTHETIC tokens for a runnable demonstration — illustrative values, never

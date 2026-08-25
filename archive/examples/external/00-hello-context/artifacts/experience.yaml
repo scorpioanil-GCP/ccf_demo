@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.declared-artifact.json
 # Hello-context Experience-surface deployment values (CLAUDE.md §8.3 — the MCP
 # front door for external agent runtimes; §7.1; financial-services domain,
 # D-IMPL-52).

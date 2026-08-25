@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The PRODUCER's product-governance numbers (syndicated-lending domain).
 #
 # The per-class TTL ceiling and this product's own TTL are two independently

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # How the skill is granted and how it is invoked (CLAUDE.md §6.2 channel 2;
 # D-IMPL-29; Phase 12 CONTEXT D-11). Banking domain.
 #

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The CONSUMER run's decision instant (syndicated-lending domain).
 #
 # Its own document rather than the producer's: the consumer admits at an instant

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.declared-artifact.json
 # The policy bundle in force (financial-services domain, D-IMPL-52).
 #
 # A deployment-authored class: the SDK owns the schema of what it ships and

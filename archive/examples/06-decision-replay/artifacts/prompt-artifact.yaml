@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.prompt-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.prompt-artifact.json
 # Decision-replay prompt artifact (CLAUDE.md §6.2 axis 6; §6.4). Template text
 # and declared parameters live here, never in code — a prompt string literal in
 # `run.py` would be the No-Hardcoding Rule firing, and CINV-01 lints

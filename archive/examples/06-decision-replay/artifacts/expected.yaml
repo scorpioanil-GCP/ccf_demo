@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # What the served product should contain, as declared by the deployment that
 # authored the events (energy/grid-ops domain, D-IMPL-52).
 #

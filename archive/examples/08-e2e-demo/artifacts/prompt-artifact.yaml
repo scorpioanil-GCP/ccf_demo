@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.prompt-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.prompt-artifact.json
 # E2E-demo prompt artifact (CLAUDE.md §6.2 axis 6; §6.4; Phase 12 CONTEXT D-12).
 #
 # The ONLY place prompt text exists in this example — a prompt string literal in

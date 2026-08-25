@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Where the producer registers its two author-versioned artifacts
 # (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #

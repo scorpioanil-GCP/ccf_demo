@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # `--live` provider configuration (Phase 12 CONTEXT D-10/D-12; banking domain,
 # D-IMPL-52).
 #

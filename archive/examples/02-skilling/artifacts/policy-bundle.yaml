@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The policy bundle the FABRIC boots under (clinical-trials-operations domain,
 # D-IMPL-52).
 #

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Workflow-HITL token table (D-26; D-14; T-08-20 accepted).
 #
 # The example's in-driver token source reads this table; no token value, client

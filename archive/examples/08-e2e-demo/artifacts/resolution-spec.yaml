@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.resolution-spec.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.resolution-spec.json
 # E2E-demo entity-resolution spec — the deployment's declared vocabulary
 # (banking domain, D-IMPL-52; Phase 12 CONTEXT D-01/D-02). Everything here is a
 # *value*: entity classes, identity keys, attribute names, relationship types.

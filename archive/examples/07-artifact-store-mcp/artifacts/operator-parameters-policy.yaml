@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.policy.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.policy.json
 # Policy category parameters (whitepaper §7.4; D-IMPL-76; logistics domain,
 # D-09).
 #

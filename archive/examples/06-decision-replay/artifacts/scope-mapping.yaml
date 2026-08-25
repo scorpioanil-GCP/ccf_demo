@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.scope-mapping.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.scope-mapping.json
 # Decision-replay scope mapping (HARD-04; D-IMPL-68; Phase 10 D-16).
 #
 # The deployment's authorization statement: which token scopes reach which

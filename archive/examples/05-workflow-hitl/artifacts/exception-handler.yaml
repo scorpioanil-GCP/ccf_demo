@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Where a failing loan-file verification routes (CLAUDE.md §8.1; D-IMPL-61;
 # banking/lending domain, D-IMPL-52).
 #

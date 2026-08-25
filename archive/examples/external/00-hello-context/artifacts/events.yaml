@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../docs/schemas/ccf.signal-batch.json
+# yaml-language-server: $schema=../../../../../docs/schemas/ccf.signal-batch.json
 # Hello-context event stream — L1 signal envelopes (financial-services domain,
 # D-IMPL-52; authored fresh — nothing here is ported).
 #

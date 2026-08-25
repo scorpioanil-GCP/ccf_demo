@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The AGENT's axis-4 policy regime (CLAUDE.md §6.2 channel 1; field-service
 # domain, D-IMPL-52).
 #

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Values for the decision's replay record (whitepaper §7.10.1; banking/lending
 # domain, D-IMPL-52).
 #

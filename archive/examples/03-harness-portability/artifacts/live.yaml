@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Live-mode provider and runner configuration for the portability drive
 # (plan 08-11; D-03/D-04). Everything here is a *deployment* value — endpoint
 # defaults, model identifiers, auth-token placeholders, timeout and budget

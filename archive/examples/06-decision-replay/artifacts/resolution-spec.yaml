@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.resolution-spec.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.resolution-spec.json
 # Decision-replay entity-resolution spec — the deployment's declared vocabulary
 # (energy/grid-operations domain, D-IMPL-52). Everything here is a *value*:
 # entity classes, relationship types, attribute names. None of it exists in

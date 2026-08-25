@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.similarity.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.similarity.json
 # Declared similarity-operator parameters (D-IMPL-38; syndicated-lending
 # domain). Read as: rank compliance certificates against the leverage-covenant
 # query and keep those at or above 40%.

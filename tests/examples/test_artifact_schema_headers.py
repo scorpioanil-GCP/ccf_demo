@@ -198,18 +198,26 @@ ARTIFACTS_DIRNAME = "artifacts"
 #: its subject is a coupling of exactly the class ``tools/retirement_sweep.py``
 #: exists to find.
 PY_BEARING_NON_EXAMPLES: dict[str, str] = {
-    "examples/03-harness-portability/legs": (
-        "retired with example 03 at wave 8 (plan 16-17)"
+    "archive/examples/03-harness-portability/legs": (
+        "deleted, whenever that is ruled. Plan 16-17 was named here as the"
+        " retiring wave; `D-IMPL-152` retired Phase 16, and phase 23 MOVED this"
+        " directory to the archive (plan 23-04) rather than deleting it, so the"
+        " skip below fires only on a deletion `D-27`'s undecided half has yet"
+        " to authorise"
     ),
-    "examples/external/00-hello-context/fixtures": (
-        "retired with the external example at wave 11 (plan 16-18)"
+    "archive/examples/external/00-hello-context/fixtures": (
+        "deleted, whenever that is ruled. Plan 16-18 was named here as the"
+        " retiring wave; `D-IMPL-152` retired Phase 16, and phase 23 MOVED this"
+        " directory to the archive (plan 23-04) rather than deleting it, so the"
+        " skip below fires only on a deletion `D-27`'s undecided half has yet"
+        " to authorise"
     ),
 }
 
 #: The only documents permitted to carry a deferral marker at the phase close,
 #: with the ruling that permits each. See the module docstring.
 PERMANENTLY_DEFERRED: dict[str, str] = {
-    "examples/08-e2e-demo/artifacts/scenario.yaml": (
+    "archive/examples/08-e2e-demo/artifacts/scenario.yaml": (
         "not a CCF artifact class at all — generator.py's input, and it carries"
         " YAML floats the artifact loader refuses by design (15-16, ruled"
         " permanent rather than debt)"

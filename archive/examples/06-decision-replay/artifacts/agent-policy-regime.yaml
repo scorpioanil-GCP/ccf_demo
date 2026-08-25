@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The AGENT's policy regime — specialization axis 4 (CLAUDE.md §6.2; D-IMPL-29;
 # energy/grid-ops domain, D-IMPL-52).
 #

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # Per-harness deployment values for the portability drive (CLAUDE.md §7.3;
 # D-IMPL-24; D-09 no-model discipline; e-commerce domain, D-IMPL-52).
 #

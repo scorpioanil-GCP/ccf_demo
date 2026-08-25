@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The L1 envelope mapping: how raw source-system rows become `SignalEnvelope`
 # payloads (banking domain, D-IMPL-52).
 #

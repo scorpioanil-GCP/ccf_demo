@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.similarity.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.similarity.json
 # Similarity category parameters (whitepaper §7.4; logistics domain, D-09).
 #
 # Read as: rank routes against the rail-corridor query at or above 40%.

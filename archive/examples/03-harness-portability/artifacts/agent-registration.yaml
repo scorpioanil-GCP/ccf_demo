@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
 # The Control Plane keys the agent's four documents are registered under, and
 # the class each is registered against (CLAUDE.md §6.4; D-IMPL-28).
 #
