@@ -15,8 +15,28 @@ with either, the conflict is logged as a decision candidate (§9 below), never
 silently absorbed. Where it surfaces a gap, the gap becomes a requirement.
 
 Requirement IDs are `DE-RQ-NN`. Decision candidates are proposed as
-`D-IMPL-30` through `D-IMPL-39`, continuing CLAUDE.md's log, which currently
-ends at D-IMPL-29. Nothing here is ruled until Dave rules it.
+`D-IMPL-202` through `D-IMPL-211`. Nothing here is ruled until Dave rules it.
+
+**RENUMBERED 2026-08-25 by Phase 23.1 (plan `23.1-06`, ROADMAP criterion 11), and
+the reason is stated here so a later reader does not take the current numbering for
+the original.** This document was drafted proposing **`D-IMPL-30` through
+`D-IMPL-39`**, on the stated assumption that it was *continuing CLAUDE.md's log,
+which currently ends at D-IMPL-29*. **That assumption was stale and ALL TEN ids
+collided with entries already logged in `docs/DECISIONS.md`.** The block moved to
+`202`-`211`, preserving the candidates' ORDER so the document's internal
+cross-references stay readable. The target was verified free by set comparison over
+**ENTRY-OPENING lines only** — both opening forms, `**D-IMPL-NNN` for ids 30+ and
+`- **D-IMPL-NN` for ids 1-29 — never over mere mentions, and never by reading the
+highest number: 201 ids are defined with no gap in 1..201, and `202`-`211`
+intersects the defined set EMPTY. **This is the THIRD shift of this target**: `199`
+was the anchor when Phase 23.1 was locked, `200` after `23.1-03` took `D-IMPL-199`,
+`201` after `23.1-04` took `D-IMPL-200`, and `202` after `23.1-05` took
+`D-IMPL-201`. Dave ruled the target `202`-`211` on 2026-08-25.
+
+**These stay CANDIDATES.** Nothing in this document is logged into
+`docs/DECISIONS.md` by the renumber; the ids are RESERVED by proposal only, and a
+later phase that logs any of them must re-verify the id is still free at that
+moment. `23.1-07` re-computes the intersection at the gate commit.
 
 ---
 
@@ -116,7 +136,7 @@ omitting `context_debt` is the named common error), Semantic Version
 (vMAJOR.MINOR.PATCH with prior supported version and migration window),
 Discovery (`domain.product.vN`), Addressability (URL pattern with resolvable
 anchor — never an internal surrogate key), and Assembly Mode. *Conflict with
-the whitepaper's eight-element specification → D-IMPL-30.*
+the whitepaper's eight-element specification → D-IMPL-202.*
 
 **DE-RQ-08 — Assembly Mode as registration-time commitment.** Mode 1 (pure
 algorithmic), Mode 2 (algorithmic with LLM packaging), Mode 3 (algorithmic
@@ -236,7 +256,7 @@ vector-index, federated-external, in-memory). Estate binding lives in **one
 platform-owned artifact**; product specs never name a database. Retired
 names (Batch Enrich, Temporal Traversal, Aggregate/Score/Reconcile/Rank,
 Compose) are rejected by validation. *Relationship to the whitepaper's four
-canonical operator categories → D-IMPL-31.*
+canonical operator categories → D-IMPL-203.*
 
 **DE-RQ-21 — Composition invariants as CI-testable rules.** (1) Policy
 before anything that reads graph state — impermissible content is never
@@ -274,7 +294,7 @@ containment** (no element above declared classification in the payload) —
 applying to every product without re-argument. Plus product-specific gates,
 each a testable assertion naming the defect it detects, cross-referenced to
 a fixture ID. *CLAUDE.md commits three gates; the standard commits six →
-D-IMPL-32.*
+D-IMPL-204.*
 
 **DE-RQ-25 — Counterfactual acceptance test.** §A's counterfactual is an
 executable test, not a narrative: the query, the two answers (conventional
@@ -310,7 +330,7 @@ decomposes per claim, never only per product** — four claims with one
 missing input return three evaluated claims and one marked unusable, not a
 product-level failure and never a silently-omitted fourth. The gap is
 captured *before* the decision and shapes it: a decision input, not a log
-line. *Extension to CLAUDE.md's D_c mechanism → D-IMPL-36.*
+line. *Extension to CLAUDE.md's D_c mechanism → D-IMPL-208.*
 
 **DE-RQ-28 — Materialization posture and cache correctness.**
 `materialized · derived-on-demand · split` (with fields and reasons), tested
@@ -326,7 +346,7 @@ the §B consumers list, and invalidation cascades to **every product whose
 `operators_invoked` touched the superseded entity**, not only those named.
 Re-derivation is lazy — invalidate for next request, never re-materialize
 eagerly, or a routine upstream publication becomes a thundering-herd event
-across the catalog. *Cascade engine as SDK mechanism → D-IMPL-37.*
+across the catalog. *Cascade engine as SDK mechanism → D-IMPL-209.*
 
 ---
 
@@ -392,7 +412,7 @@ empty payload); principal not entitled → 403 with no detail on what exists
 source class (silence is not a negative answer — an unretrieved screening
 source is not a clean screen); non-mandatory input unavailable → 200 with
 notices and elevated D_c. §D names which step raises which. *Adoption into
-the Experience Layer HTTP surface → D-IMPL-35.*
+the Experience Layer HTTP surface → D-IMPL-207.*
 
 **DE-RQ-35 — Shared-contract registries.** Six artifacts referenced by every
 spec, of which only ontology/IRI binding exists in the standard's estate
@@ -406,7 +426,7 @@ version registry (versioned envelopes with effective dates, resolvable at
 replay), half-life calibration table (DE-RQ-26), capability binding
 (capability class → estate system, per environment, platform-owned). The SDK
 ships registry primitives for all six as Control Plane artifacts; the
-*values* are the deployment's. *→ D-IMPL-38.*
+*values* are the deployment's. *→ D-IMPL-210.*
 
 **DE-RQ-36 — Naming and addressing conventions.** Registry name
 `domain.product.vN` (kebab-case, N = MAJOR only), address
@@ -434,7 +454,7 @@ formula (baseline × traversal fan-out term × enrich-sources term ×
 mode multiplier [Mode 1 = 1, Mode 2 ≈ 3–5, Mode 3 ≈ 15] × materialization
 factor) with recorded assumptions — **state the p95 fan-out, not the mean**,
 because the commonest cost surprise is a traversal estimated on the median
-entity and paid on the tail. *Mechanism-vs-values boundary → D-IMPL-34: the
+entity and paid on the tail. *Mechanism-vs-values boundary → D-IMPL-206: the
 tier field, review-chain hooks, and estimator are SDK mechanism; CB/CIB's
 specific bands, chains, and multipliers are deployment values.*
 
@@ -455,20 +475,23 @@ lifecycle transition (DE-RQ-06) checks this list mechanically.
 
 ---
 
-## 9. Conflicts and decision candidates (proposed D-IMPL-30 … D-IMPL-39)
+## 9. Conflicts and decision candidates (proposed D-IMPL-202 … D-IMPL-211)
+
+*(Renumbered from the drafted `D-IMPL-30` … `D-IMPL-39`, which collided with
+logged entries — see the numbering note in the preamble. Order preserved.)*
 
 Two genuine conflicts with existing commitments, and eight extensions the
 standard implies that current CLAUDE.md scope does not explicitly cover.
 None is ruled here.
 
-- **D-IMPL-30 — Nine-element vs eight-element contract.** The whitepaper
+- **D-IMPL-202 — Nine-element vs eight-element contract.** The whitepaper
   (§6.3) commits eight elements; the standard adds Assembly Mode as a ninth.
   Recommended resolution: adopt Assembly Mode as a required SDK contract
   extension (it operationalizes the whitepaper's own Assembly Modes and the
   trust-path-purity principle), labeled SDK-defined per CLAUDE.md §1's
   extension discipline. Needs Dave's ruling because it touches the Context
   Product Contract base.
-- **D-IMPL-31 — Closed operator vocabulary vs four canonical categories.**
+- **D-IMPL-203 — Closed operator vocabulary vs four canonical categories.**
   The whitepaper commits four operator categories (Traversal, Temporal,
   Policy, Similarity) with a composition algebra; the standard commits a
   closed eight-operator vocabulary (Resolve, Policy, Projection, Traversal,
@@ -478,29 +501,29 @@ None is ruled here.
   Resolve/Enrich/Evaluate/Federate as category refinements — but the mapping
   must be *ruled*, because composition-preservation tests and lineage naming
   both depend on which layer is canonical.
-- **D-IMPL-32 — Three vs six universal validation gates.** Extend the SDK's
+- **D-IMPL-204 — Three vs six universal validation gates.** Extend the SDK's
   gate set with debt gate, suppression silence, classification containment?
   Recommended yes: all three are mechanism, all three are whitepaper-
   consistent, and suppression silence is load-bearing for information-
   barrier deployments.
-- **D-IMPL-33 — Capability classes and estate binding.** Ship the
+- **D-IMPL-205 — Capability classes and estate binding.** Ship the
   capability-class taxonomy and the platform-owned capability-binding
   artifact as SDK primitives (specs never name a database)?
-- **D-IMPL-34 — Tier/review/cost model boundary.** Which parts are SDK
+- **D-IMPL-206 — Tier/review/cost model boundary.** Which parts are SDK
   mechanism (tier field, review-chain hook, cost estimator with recorded
   assumptions) vs deployment values (band multipliers, chain composition)?
-- **D-IMPL-35 — HTTP error taxonomy adoption** into the Experience Layer
+- **D-IMPL-207 — HTTP error taxonomy adoption** into the Experience Layer
   API skeleton (interacts with D-IMPL-23).
-- **D-IMPL-36 — Per-claim debt decomposition** extension to the D_c
+- **D-IMPL-208 — Per-claim debt decomposition** extension to the D_c
   mechanism, including `NOT_EVALUABLE` claim marking and the per-component
   debt table.
-- **D-IMPL-37 — Supersession cascade engine** (local/cascading triggers,
+- **D-IMPL-209 — Supersession cascade engine** (local/cascading triggers,
   operators_invoked-based cascade resolution, lazy invalidation) — interacts
   with D-IMPL-06/26/27 snapshot and artifact machinery.
-- **D-IMPL-38 — Shared-contract registries** (intent, projection plan,
+- **D-IMPL-210 — Shared-contract registries** (intent, projection plan,
   policy version, capability binding) as Control Plane artifact types with
   SDK registry primitives.
-- **D-IMPL-39 — Spec artifact schema, registration gating, and
+- **D-IMPL-211 — Spec artifact schema, registration gating, and
   certification lifecycle** (`CP-SPEC` as a first-class Control Plane
   artifact with `ccf spec` CLI surface) — the largest single addition, and
   the one that most directly serves the data-engineer journey in §1.
