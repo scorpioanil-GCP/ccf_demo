@@ -394,3 +394,20 @@ both are judgement-enforced, by construction, today.
 verdict-equality assertion is cheap and would close S-L4 and S-D8a at once; the
 wording constraints (S-L2, S-D8b) are not mechanisable without a vocabulary
 ruling of the kind `R-alpha` already waits on.
+
+---
+
+## Added at the §3.1 close (plan `23-13`)
+
+Items 1-4 and 7-12 above stand as written. Items 5 and 6 remain RULED and
+CLOSED. **Item 9 is now DISCHARGED** — all three edits it named were made at
+`a8c3af9`, marked inline rather than silently, and its own closing observation
+("Nothing gates any of them") is carried forward as the reason it went two
+rulings stale.
+
+| # | What | Owed |
+|---|---|---|
+| **13** | **NEW.** `tools/docs_tests/test_retirement_sweep.py::scheduled_path_problems` clause 4 rejects a `former_path` that RESOLVES, but not one swapped to a different spelling that also does not resolve. Measured: replacing every `former_path` with `former_path + "-typo"` costs **270 -> 225 rows and 13 source files**, and `scheduled_path_problems` returns EMPTY. The mutation IS watched — `test_every_known_coupled_file_is_found` goes red because `tools/measure_examples.py` is among the 13 lost — so this is a diagnosis gap, not a blindness | a fifth clause inside the predicate, so the refusal names its own cause instead of relying on a neighbouring floor. Raised by codex at the close and downgraded from BLOCKING by measurement |
+| **14** | **NEW.** Nothing asserts a NON-EMPTY archive-side result on the REAL tree for either the artifact discovery or the lint walk. Both are held by set-equality membership plus synthetic-tree behavioural controls, which is why gemini's and cursor's stronger claims were REJECTED — but the narrow residue is true, and it is the same shape as the already-backlogged `D-IMPL-192` | a design call on standing real-tree non-vacuity floors, not a Phase 23 obligation. Written down here so the shape is not re-found a third time |
+| **15** | **NEW.** The three re-pointed seam docstrings say the archived call sites "run in CI". Verified TRUE — `tests/examples/test_cross_process_output.py` spawns a process and `tests/examples/test_ext00_serve_output.py` exec_modules the archived source, both in the `test` job, with criterion 8's control proving each RUNS. But a reader checking the claim would look at `make examples` first and find nothing | one qualifying clause naming the `test` job, in whichever plan next touches those three docstrings. NOT taken here: criterion 14 fixes the `src`/`runtime` edit budget at FOUR and this would be a fifth |
+| **16** | **NEW, and it is about this record rather than the tree.** The close-time panel payload was hand-assembled and SIX subject classes were left out of it — `tests/examples/`, `tests/lints/`, `tests/products/`, the 265 moved files, all of `public/`, and the phase's own plans. Two of the four false findings (`REJ-2`, `REJ-3`) are directly attributable to omission #1, and `REJ-1` is attributable to a census line in the payload that I measured wrongly | a close-time payload assembled from a derived subject list rather than by hand, for whichever phase closes next. The omissions are named in `23-CLOSE-REVIEWS.md` § 1 rather than left for a reader to infer |
