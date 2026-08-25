@@ -61,7 +61,7 @@ from pathlib import Path
 from typing import Any, cast
 
 _EXAMPLE_ROOT = Path(__file__).resolve().parent
-_REPO_ROOT = _EXAMPLE_ROOT.parents[2]
+_REPO_ROOT = _EXAMPLE_ROOT.parents[3]
 
 # Spawned as a bare `python <file>`; resolve roots from __file__ so the
 # example runs from anywhere. The example dir itself goes on the path so

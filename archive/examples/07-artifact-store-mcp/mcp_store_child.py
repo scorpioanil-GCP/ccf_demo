@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 _EXAMPLE_ROOT = Path(__file__).resolve().parent
-_REPO_ROOT = _EXAMPLE_ROOT.parents[1]
+_REPO_ROOT = _EXAMPLE_ROOT.parents[2]
 
 # The child is spawned as a bare `python <file>`, so it inherits none of the
 # parent's sys.path work. Resolving the roots from __file__ keeps it runnable

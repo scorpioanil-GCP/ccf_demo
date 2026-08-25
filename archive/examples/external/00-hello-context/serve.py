@@ -70,7 +70,7 @@ from pathlib import Path
 from typing import Any, NamedTuple, cast
 
 _EXAMPLE_ROOT = Path(__file__).resolve().parent
-_REPO_ROOT = _EXAMPLE_ROOT.parents[2]
+_REPO_ROOT = _EXAMPLE_ROOT.parents[3]
 
 # Spawned as a bare `python <file>`, so it cannot rely on a relative
 # PYTHONPATH surviving a cwd change. Resolving the roots from __file__ is
