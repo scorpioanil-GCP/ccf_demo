@@ -332,9 +332,9 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/HANDOFF-2026-08-15.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/HANDOFF-2026-08-17.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/PROJECT.md` | 1 | the phase's own planning tree — not shipped, not published |
-| `.planning/REQUIREMENTS.md` | 103 | the phase's own planning tree — not shipped, not published |
+| `.planning/REQUIREMENTS.md` | 90 | the phase's own planning tree — not shipped, not published |
 | `.planning/ROADMAP.md` | 34 | the phase's own planning tree — not shipped, not published |
-| `.planning/STATE.md` | 15 | the phase's own planning tree — not shipped, not published |
+| `.planning/STATE.md` | 16 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/16-config-consolidation.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/2026-08-14-property-not-shape-gating.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/milestones/v0.1-ROADMAP.md` | 6 | the phase's own planning tree — not shipped, not published |
@@ -702,6 +702,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-10-PLAN.md` | 7 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-10-SUMMARY.md` | 17 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-11-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-11-SUMMARY.md` | 8 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-CONTEXT.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-DISCUSSION-LOG.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-RESEARCH.md` | 75 | the phase's own planning tree — not shipped, not published |
