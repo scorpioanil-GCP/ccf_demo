@@ -176,3 +176,53 @@ Pre-existing since plan 15-12. `tools/check_schema_headers.py::ARTIFACT_GLOBS` a
 carries a note that deepening the glob *"would turn the bijection's right side red"*,
 so this is a real decision, not a one-character fix. Already logged above by
 plan `23-03`; repeated here only because this plan measured the exact three.
+
+---
+
+## Logged by plan 23-07
+
+### 5. **BLOCKING FINDING, introduced by plan 23-06 and unreported there** — a Phase-20 fence goes RED on the `D-IMPL-192` permitted edit
+
+`tests/examples/test_hw1_harness_clients_readme.py::test_criterion_seven_no_sdk_mechanism_ships_at_all`
+runs `git diff --stat <phase-20-base>..HEAD -- src/` and asserts the result is
+empty. It is not empty any more:
+
+```bash
+B=$(head -1 .planning/phases/20-client-access-from-three-harnesses-adk-anthropic-agent-sdk-a/20-BASE-COMMIT.txt)
+git diff --stat $B..2256526^ -- src/    # EMPTY
+git diff --stat $B..2256526  -- src/    #  src/ccf/products/bind.py | 2 +-
+git diff --stat $B..HEAD     -- src/    #  src/ccf/products/bind.py | 2 +-
+```
+
+The bisect is exact: empty at `2256526^`, non-empty at `2256526` — plan
+`23-06`'s first `D-07` citation edit. `23-06-SUMMARY.md` does not mention this
+test; the wave verified its four edits against the resolver-seam gate and the
+whole-tree run that would have surfaced it was not part of that plan.
+
+**Why `D-11`'s "the scope fence is SAFE" (23-CONTEXT `code_context`) does not
+cover it:** `D-IMPL-188` bounded the *`test_requirement_ledger.py`* assertions
+to `base..951eb4a`. This assertion is a different one and is still `base..HEAD`,
+unbounded, so every future commit is inside its window.
+
+**Not fixed here, deliberately.** The test's own docstring instructs: *"A
+non-empty result here is a **blocking finding to report**, never a reason to
+narrow this assertion back to the client surface."* `D-IMPL-192` explicitly
+authorised the edit that trips it, so the two documents now contradict each
+other and the reconciliation is a ruling, not an executor's edit — bound the
+window the way `D-IMPL-188` bound its twin, or record the permitted edit as an
+allowance. **Dave's, and owed before the phase closes.**
+
+### 6. Criterion 12's `25 of 31` does not reproduce — the measured figure is **19 of 31**
+
+```bash
+git ls-files tests/examples | wc -l                                      # 31
+git grep -lE 'archive/examples/(00-quickstart|…|external/00-hello-context)|"archive" / "examples"' \
+    -- tests/examples/ | wc -l                                           # 19
+# and at PHASE_BASE, with the pre-move spelling, the same predicate:      19
+```
+
+`23-RESEARCH.md` §14.5 already flagged the figure as unverified by the
+researcher. It is now measured, at `PHASE_BASE` and at `HEAD`, and it is 19.
+`tests/examples` collects **519** (515 at `PHASE_BASE` plus wave 3's four named
+additions). Plan `23-11` must write the measured figures into the `DOCS-17`
+cell, not the carried ones.

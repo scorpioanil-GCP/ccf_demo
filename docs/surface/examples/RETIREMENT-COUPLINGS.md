@@ -245,7 +245,7 @@ Rows by coupling shape:
 | `examples/s1-01-hello-context-product/report.py` | 12 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 | cross-wave: this file retires at wave 12, the path it names at wave 11 |
 | `perf/suites/common.py` | 140 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `perf/suites/crossproc/conftest.py` | 3 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
-| `perf/suites/crossproc/conftest.py` | 52 | `examples/04-cross-process` | `path-construction` | live | - | - | 16-17 | constructed as `examples/04-cross-process` |
+| `perf/suites/crossproc/conftest.py` | 52 | `examples/04-cross-process` | `path-construction` | live | - | - | 16-17 | constructed as `archive/examples/04-cross-process` |
 | `perf/synth/artifacts/controlplane.yaml` | 3 | `examples/04-cross-process` | `comment` | documentary | - | - | 16-17 |  |
 | `public/concepts/answers-no-document-contains.md` | 33 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `public/concepts/answers-no-document-contains.md` | 63 | `tests/examples/test_s1_01_output.py` | `prose` | documentary | - | - | 17-08 |  |
@@ -341,7 +341,7 @@ Rows by coupling shape:
 | `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 365 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 558 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/cli/test_schema_export.py` | 60 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/artifacts` |
+| `tests/cli/test_schema_export.py` | 60 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `archive/examples/00-quickstart/artifacts` |
 | `tests/client/conformance/suite.py` | 380 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 413 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/test_the_suite_fires.py` | 206 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
@@ -370,18 +370,18 @@ Rows by coupling shape:
 | `tests/examples/test_artifact_schema_headers.py` | 572 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 16-02 |  |
 | `tests/examples/test_client_example_purity.py` | 588 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_demo_generator.py` | 4 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_demo_generator.py` | 22 | `examples/08-e2e-demo` | `path-construction` | live | - | - | 16-18 | constructed as `examples/08-e2e-demo` |
-| `tests/examples/test_gate_two_divergence.py` | 96 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/run.py` |
+| `tests/examples/test_demo_generator.py` | 22 | `examples/08-e2e-demo` | `path-construction` | live | - | - | 16-18 | constructed as `archive/examples/08-e2e-demo` |
+| `tests/examples/test_gate_two_divergence.py` | 96 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `archive/examples/00-quickstart/run.py` |
 | `tests/examples/test_hw1_harness_clients_no_model.py` | 12 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 16 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 28 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 30 | `tests/examples/test_ext00_hardening.py` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 47 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 163 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 168 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 497 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 16-18 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 561 | `examples/external/00-hello-context` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
-| `tests/examples/test_hw1_harness_clients_retirement.py` | 582 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 46 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 48 | `tests/examples/test_ext00_hardening.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 65 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 195 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 200 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 542 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 606 | `examples/external/00-hello-context` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
+| `tests/examples/test_hw1_harness_clients_retirement.py` | 627 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_source_estate.py` | 50 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
 | `tests/examples/test_spine_separation.py` | 24 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/halflife/test_debt.py` | 707 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
@@ -820,6 +820,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-06-PLAN.md` | 14 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-06-SUMMARY.md` | 12 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-07-PLAN.md` | 20 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-07-SUMMARY.md` | 72 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-08-PLAN.md` | 10 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-09-PLAN.md` | 20 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-10-PLAN.md` | 7 | the phase's own planning tree — not shipped, not published |
