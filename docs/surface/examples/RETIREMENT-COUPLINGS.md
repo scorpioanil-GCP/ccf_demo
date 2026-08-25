@@ -338,7 +338,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/PROJECT.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/REQUIREMENTS.md` | 90 | the phase's own planning tree — not shipped, not published |
 | `.planning/ROADMAP.md` | 35 | the phase's own planning tree — not shipped, not published |
-| `.planning/STATE.md` | 17 | the phase's own planning tree — not shipped, not published |
+| `.planning/STATE.md` | 18 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/16-config-consolidation.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/2026-08-14-property-not-shape-gating.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/milestones/v0.1-ROADMAP.md` | 6 | the phase's own planning tree — not shipped, not published |
