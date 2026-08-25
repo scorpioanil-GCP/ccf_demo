@@ -459,7 +459,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/HANDOFF-2026-08-17.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/PROJECT.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/REQUIREMENTS.md` | 103 | the phase's own planning tree — not shipped, not published |
-| `.planning/ROADMAP.md` | 32 | the phase's own planning tree — not shipped, not published |
+| `.planning/ROADMAP.md` | 34 | the phase's own planning tree — not shipped, not published |
 | `.planning/STATE.md` | 15 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/16-config-consolidation.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/2026-08-14-property-not-shape-gating.md` | 1 | the phase's own planning tree — not shipped, not published |
@@ -830,7 +830,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/23-RESEARCH.md` | 75 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/deferred-items.md` | 13 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 83 | append-only decision log |
+| `docs/DECISIONS.md` | 85 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |
