@@ -724,6 +724,8 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/23.1-the-v0-2-close-out-every-open-row-gets-a-verdict-inserted/23.1-06-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23.1-the-v0-2-close-out-every-open-row-gets-a-verdict-inserted/23.1-GATE-MEASUREMENTS.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23.1-the-v0-2-close-out-every-open-row-gets-a-verdict-inserted/23.1-PACKET-DISPOSITIONS.md` | 8 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24-context-production-assembling-context-products-from-simple-t/24-CONTEXT.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-RESEARCH.md` | 25 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 88 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |

@@ -42,7 +42,7 @@ the old reading is named rather than quietly deleted.
 - **D-06: Missing capability is added ONE AT A TIME, as the examples pressure test the SDK.** Dave, 2026-08-25: *"If the operators don't exist we need to add them one at a time as the examples pressure test the CCF SDK."*
 - **D-07: NO RETROFITTING. Work already done is NOT brought in line.** Dave: *"There is no reason we must update all of the work that has been done to date. I don't want to spend that money or time. We are adding new capabilities that are getting exercised through these examples."* A gap record must therefore scope itself to the NEW capability the example needs, never to a sweep of existing operators, examples or products.
 - **D-08: THE ACCEPTANCE TEST FOR ANY OPERATOR ADDED TO THE SDK.** It must be **EITHER extensible via Protocol, OR provide functionality that is USE-CASE AGNOSTIC.** Dave: *"Otherwise it is a bespoke implementation designed for a specific use case."* This is `CLAUDE.md`'s *mechanism, not values* and *prefer Protocols over inheritance* sharpened into a PASS/FAIL test on a proposed operator.
-- **D-09: A capability that fails `D-22` is a finding, not a build.** If a missing capability can only be stated in terms of one use case's values, entities or thresholds, it belongs in the EXAMPLE'S DEFINITION ARTIFACTS, not in `/src`. Recording that is a genuine result of the pressure test — it says the SDK is right and the spec's step was domain-specific.
+- **D-09: A capability that fails `D-08` is a finding, not a build.** If a missing capability can only be stated in terms of one use case's values, entities or thresholds, it belongs in the EXAMPLE'S DEFINITION ARTIFACTS, not in `/src`. Recording that is a genuine result of the pressure test — it says the SDK is right and the spec's step was domain-specific.
 - **D-10: Registering a new operator NAME under an existing category is additive; needing a new CATEGORY is not.** `OperatorCategory` is a closed `Literal["policy","similarity","temporal","traversal"]` while `Operator` is a Protocol and `OperatorRegistry` is open. A gap record must state which of the two it needs, because the second reopens the whitepaper's operator algebra and is a different class of decision.
 
 ### 24.1 — the first example
@@ -112,7 +112,7 @@ published-page structure. All must be reported, none needs a ruling.
 ## Existing Code Insights
 
 ### Reusable Assets
-- `DeterministicAssembler` (`src/ccf/agents/assembler.py`) — the Mode 1 assembly path; 24.1 should use it rather than hand-rolling.
+- **`DeterministicAssembler` is NOT the Mode 1 path — CORRECTED 2026-08-25 by `24.1-RESEARCH.md`.** An earlier reading here said *"24.1 should use it rather than hand-rolling"*; **nothing calls it.** Its only references outside its own unit test are a DOCSTRING citation in `ccf.products.resolver` and an EXPORT in `ccf.agents.__init__` — a grep for the name finds those and reads them as uses. It runs no projection and emits no `ContextProductContract`. **The real Mode 1 path is `ProjectionEngine.execute` -> `ContextProductContract` -> `run_gates` -> `build_replay_record` -> `serve`, which is what `examples/s1-00-companies-over-revenue` actually runs.**
 - `examples/hw1-harness-clients` — ADK, Anthropic Agent SDK and LangGraph clients already reach a Context Product over MCP (Phase 20, `D-GATE-20`). **The three-harness consumption leg is REUSE, not new build.** Only the A2A leg is new, and it is not in 24.1.
 - `examples/hw1-companies-over-revenue` — the structural template for 24.1: a thin `consume.py` importing only stdlib, `ccf.client` and the adapter.
 - `runtime/ccf_runtime/peering/lf_a2a.py` — the A2A surface, for a later minor phase.
@@ -163,8 +163,9 @@ later wave re-derives them: `202` nine-vs-eight is a NON-ISSUE (already
 resolved, `AssemblyMode` ships); `203` operator vocabulary and `204` gate count
 are the SUFFICIENCY questions above; `205` capability classes, `208` per-claim
 debt / `NOT_EVALUABLE`, `211` spec artifact + CLI, and the intent-registry half
-of `210` are ABSENT from the tree; `206` tier/cost is HALF present (`tier` on
-the contract, no cost estimator); `207` HTTP error taxonomy has a SURFACE
+of `210` are ABSENT from the tree; `206` tier/cost is **ABSENT, CORRECTED 2026-08-25** -- an earlier reading here said
+`tier` was *"on the contract"*; it is NOT a field, only the phrase *"tier-1 default"*
+in a docstring, and the reading came from counting grep hits instead of fields; `207` HTTP error taxonomy has a SURFACE
 (`runtime/ccf_runtime/http_api/errors.py::refusal_detail`) so the question is
 adopting the Standard's specific taxonomy; `209` supersession is a PRIMITIVE
 without a cascade engine. **None of these is built by this phase — `D-02`.**
