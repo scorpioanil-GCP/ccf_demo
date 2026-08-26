@@ -68,14 +68,20 @@ the old reading is named rather than quietly deleted.
 - **D-23: `cp-*` inherits the SPINE-SEPARATION glob and NOT the AGENT-FREE glob.** There are TWO `s1-*` globs in different files enforcing different things. `tests/examples/test_spine_separation.py::SECTION_ONE_GLOB` enforces seven ordered marker regions, exactly one region-bearing module, that module silent — **criterion 15 names this one, and it is widened to `cp-*`**, because the published page's `--8<--` includes depend on those regions. `tests/examples/test_section_one_is_agent_free.py::SECTION_ONE_GLOB` is an AST walk refusing any import of `ccf.agents` — *"Section 1 declares no agent"* — **no criterion names it and it is NOT widened.**
 - **D-24: The reason `cp-*` stays outside the agent-free glob must be WRITTEN INTO that test file.** `cp-00` implements `ContextAssemblerProtocol`, which lives in `ccf.agents.assembler`, so bringing it under that guard would fail the example on its own core design. *"Section 1 declares no agent"* is a SECTION-1 rule, not a Context-Product rule. **Without a recorded reason the next reader widens the glob for consistency and breaks the example** — which is the same shape as every stale premise this project has had to re-measure.
 
+### CI coverage — RULED 2026-08-25
+
+- **D-25: `cp-00` follows the `s1-00` CI pattern EXACTLY — a marked test against a CI-PROVISIONED service container that the test SEEDS ITSELF.** The example points at `ccf_dataprep`'s real Postgres locally; CI proves the CODE PATH against a `postgres:16` service container seeded with a small 13F fixture, under a `pytest.mark.postgres` marker. Dave chose this over the two alternatives.
+- **D-26: WHY NOT THE OTHER TWO.** *Rejected — the `hw1` precedent* (`examples/hw1-companies-over-revenue` is in NO workflow at all): honest and cheapest, but it leaves the example with zero CI coverage and `make ci` unable to say anything about it. *Rejected — secrets and a real live leg*: most faithful, but CI cannot reach the LAN host and `live-legs.yml` carries no database secrets, so it would mean putting database credentials into Actions. **Neither rejection is a judgement about the data; both are about what CI can honestly assert.**
+- **D-27: The fixture is SEEDED BY THE TEST, never committed as a database.** `s1-00`'s test provisions and seeds; `cp-00`'s does the same. This keeps the example's real substrate real and the CI substrate reproducible, and it is why criterion 3's target can stay out of the always-on aggregate while the code path is still covered.
+
 ### Documentation
 
-- **D-25: BOTH a deep example README and a published page.** Dave chose this explicitly. README carries the MECHANICS; the published page carries the ARGUMENT and includes from the tree (the shape Phase 22 shipped). Dave: *"It's important as we develop this example of constructing and assembling a context product that we have sufficient documentation on what is being done and why."*
+- **D-28: BOTH a deep example README and a published page.** Dave chose this explicitly. README carries the MECHANICS; the published page carries the ARGUMENT and includes from the tree (the shape Phase 22 shipped). Dave: *"It's important as we develop this example of constructing and assembling a context product that we have sufficient documentation on what is being done and why."*
 
 ### Sequencing
 
-- **D-26: `CP-SPEC-001` (Counterparty Reference Snapshot) moves to 24.2.** It is single-STORE but spans **five systems of record** — LEI reference data, internal client master, internal credit, CRM, and the entitlement service. That multi-source complexity is 24.2's POINT, not 24.1's obstacle.
-- **D-27: Multi-store assembly is DESIRABLE later, not avoided.** Dave: *"it's ok to go against multiple data stores to assemble the context product. This resembles the real situation context product engineers will have to deal with. This means we need to point to Fluree, Postgres, SQLite, and whatever else data store is required."* 24.1 defers it only because it is the FIRST example.
+- **D-29: `CP-SPEC-001` (Counterparty Reference Snapshot) moves to 24.2.** It is single-STORE but spans **five systems of record** — LEI reference data, internal client master, internal credit, CRM, and the entitlement service. That multi-source complexity is 24.2's POINT, not 24.1's obstacle.
+- **D-30: Multi-store assembly is DESIRABLE later, not avoided.** Dave: *"it's ok to go against multiple data stores to assemble the context product. This resembles the real situation context product engineers will have to deal with. This means we need to point to Fluree, Postgres, SQLite, and whatever else data store is required."* 24.1 defers it only because it is the FIRST example.
 
 ### Claude's Discretion
 
