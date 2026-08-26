@@ -3,8 +3,38 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-26T21:40:00.000Z"
+last_updated: "2026-08-26T23:55:00.000Z"
 last_activity: >-
+  2026-08-26 -- **PHASE 24.1 WAVE 5 COMPLETE. THE EXAMPLE RUNS END TO END AND THE RED
+  `make ci` GATE IS GREEN.** `deployment.py`, `assembler.py` and `run.py`. The three
+  numbers Wave 4 computed by hand BEFORE this code existed are the three the run
+  produces -- F 0.4729, C 0.9342, D_c 0.5582 -- and the served count at the
+  demonstration threshold is 21, equal to Wave 1's independent SELECT sweep by a
+  different route. `test_artifact_schema_headers.py` **1 failed/29 passed -> 30
+  passed**; `tests/examples` **484+1F -> 485 passed**. `D-51` discharged: the printed
+  entry point is `run.py`, the gate was NOT widened and `artifacts/` NOT renamed.
+  `D-47`/`D-48` discharged: step 1 is an EXAMPLE-SUPPLIED `Operator`, category
+  `traversal`, registered and resolved back out of an `OperatorRegistry`, returning the
+  winner's SUBGRAPH -- no scalar, no new category, nothing in `src/`. The example is the
+  first ever to implement `ccf.agents.assembler::ContextAssemblerProtocol`.
+  **TWO MORE SDK-SIDE FINDINGS, both RECORDED and NOT CLOSED (`D-04`)**, taking the
+  phase's running total to FOUR: (1) `build_operator_registry` dispatches on artifact
+  TYPE and raises for anything it does not recognise, so a deployment's own operator has
+  no path into the registry the projection plan resolves against -- the registry is open,
+  the composition path in front of it is not (use-case agnostic, a remedy would be
+  ADDITIVE); (2) `ContextAssemblerProtocol.assemble` is typed to return `AssemblyOutcome`
+  and nothing else -- 7 fields, `extra=forbid` -- so a conforming assembler receiving a
+  governed `ProductRequestViolation` can only RAISE, in a codebase whose stated posture
+  is that a refusal is DATA (a remedy is NOT additive). **FOUR DEVIATIONS, all reported:**
+  the `run.py` name (`D-51`, and plans 06/07/08/11 still say `consume.py` and are owed the
+  rename); `artifacts/assembly-recipe.yaml` step 1's mechanism column corrected from
+  `none`, which `D-47` does not allow and no later plan owns; the plan's
+  `issuer_match_band` filter clause REJECTED, because the spec, the probe and
+  `expected.yaml` all rule NO band filter and one would have been a silent 6.6%
+  under-count; and two forced arguments on `envelopes`. **FOUR SPEC RESIDUES nobody
+  owns**, including `D-52`'s -- §E.2 still reads `[TBC]` for the bands -- and §F marker
+  13, which this wave MEASURED at C_attributes = 1748/1748 = 1. 40 measurements, each
+  with a control. PRIOR:
   2026-08-26 -- **PHASE 24.1 WAVE 4 COMPLETE.** The fabric half of
   `examples/cp-00-institutional-holders`: `ccf_config.yaml` (the whole Control Plane in
   one document, booting against the real loader with three seeded controls refused),
@@ -420,7 +450,7 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-**PHASE 24.1 IS EXECUTING. WAVES 1-4 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
+**PHASE 24.1 IS EXECUTING. WAVES 1-5 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
 Phase 24 is an UMBRELLA; 24.1 is its first buildable unit -- one Context Product
 example (institutional holders above a caller-chosen threshold, SEC 13F in
 `ccf_dataprep` Postgres, Assembly Mode 1) built to PRESSURE TEST the SDK's surface
@@ -428,8 +458,29 @@ against the Context Product Specification Standard. **The Standard defines what 
 SDK must implement; where the SDK cannot express what a conforming spec orders, that
 gap is RECORDED here and closed in a SEPARATE phase.** Expectation is FEW OR NO gaps,
 because the spec derived from the SDK's own requirements -- so a long gap list is a
-DRIFT signal, not a normal outcome (`D-05`). Through Wave 4: exactly TWO SDK-side
-findings, which is still what that predicts. **Wave 4's is that
+DRIFT signal, not a normal outcome (`D-05`). Through Wave 5: **FOUR** SDK-side
+findings, all recorded and none closed -- still short enough to be a normal outcome
+rather than a drift signal, and all four are seam-ergonomics rather than algebra.
+**Wave 5's two.** (1) `ccf.deployment.operators::build_operator_registry` dispatches
+on the declared parameter artifact's TYPE against four known SDK classes and raises
+for anything else, and the Mode 1 spine hands it the whole mapping -- so a deployment
+that supplies its own `Operator` has no path into the registry `ProjectionEngine`
+resolves the plan against. Measured with four controls: the builder refuses the
+operator AND its parameter set; the same builder registers the two declared artifacts;
+`OperatorRegistry.register` accepts the operator directly and reads `traversal` off it;
+and it refuses a category outside the four. `D-48` says *"registered through the open
+`OperatorRegistry`"* -- the REGISTRY is open, the COMPOSITION PATH in front of it is
+not. Taken rather than worked around: the operator is registered into the deployment's
+OWN registry and applied at L1, where `D-44`/`D-50` place step 1, and the served
+lineage still names exactly the two operators the class declares. (2)
+`ccf.agents.assembler::ContextAssemblerProtocol.assemble` returns `AssemblyOutcome`
+and nothing else -- SEVEN fields, `extra=forbid`, measured, with an eighth named
+`refusal` raising `ValidationError` -- so a conforming assembler that receives a
+governed `ProductRequestViolation` can only RAISE. The SDK's own reference assembler
+never meets this because it HOLDS Pi's already-computed output; an assembler that runs
+the spine is the first thing standing where the violation arrives. Both classified
+use-case agnostic (`D-08`); the first ADDITIVE, the second NOT (`D-10`). **RECORDED,
+NOT CLOSED, NEITHER PROPOSED** (`D-04`). **Wave 4's is that
 `ccf.controlplane.artifacts::ProductClassDeclaration` carries `max_ttl_key` and NO
 field for the ceiling's SECONDS** -- measured, an extra key is refused
 `extra_forbidden` against a control that constructs cleanly -- so `D-43`'s Control
@@ -437,7 +488,17 @@ Plane obligation had to be declared in a deployment-owned artifact
 (`examples/cp-00-institutional-holders/artifacts/ttl.yaml`) rather than in the one
 Control Plane document. **RECORDED, NOT CLOSED** (`D-04`).
 
-**WAVE 4 ALSO FOUND `make ci` RED, AND IT PREDATES WAVE 4.** `git log
+**WAVE 4'S RED `make ci` IS GREEN AT WAVE 5, BY `D-51` AND BY THE FILE NAME ALONE.**
+Dave ruled the resolution Wave 4 recommended: the printed entry point is named
+`run.py`, beside `artifacts/`. Measured unpiped -- `test_artifact_schema_headers.py`
+**1 failed/29 passed -> 30 passed**, and `tests/examples` **484 passed + 1 failed ->
+485 passed, 37 skipped**. The gate was NOT widened, `artifacts/` was NOT renamed, and
+nothing in `src/` or `runtime/` was touched. **Plans 24.1-06, -07, -08 and -11 still
+name `consume.py` and are owed the rename**; nothing else about them changes.
+
+**SUPERSEDED, NAMED RATHER THAN DELETED:**
+
+**WAVE 4 FOUND `make ci` RED, AND IT PREDATED WAVE 4.** `git log
 --diff-filter=A` pins `examples/cp-00-institutional-holders/artifacts/` to
 **`313d1c0`** (Wave 3): the tree has an `artifacts/` directory and no `run.py`
 beside it, which
