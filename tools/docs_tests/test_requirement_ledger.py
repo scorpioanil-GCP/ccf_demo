@@ -2509,6 +2509,21 @@ def test_control_9b_the_second_bolded_phrase_in_dcd_02_is_not_a_second_verdict()
     and `CONTROL 11` by refusing a compliant row — red on everything is not a
     discriminator. `DCD-02`'s real cell is the subject, taken from the ledger
     rather than retyped, so the control cannot drift away from its subject.
+
+    **THE EXPECTED LEADING VERDICT MOVED `Partial` -> `Complete` ON 2026-08-25,
+    BY DAVE'S RULING, AND THE CONTROL IS UNWEAKENED BY THE MOVE.** At the Phase
+    23.1 close he ruled that `DCD-02` and `DOCS-18`, whose Phase 23.1
+    disposition reads `Discharged` while their verdict read `Partial`, are a
+    two-channel contradiction, and that the verdict must be made to match:
+    *"Criterion 1 authorized disposition; making the verdict match so the row
+    is coherent is the honest completion of that work, not scope creep."* This
+    control's SUBJECT is unchanged — `DCD-02`'s cell still carries the second
+    bolded phrase `Pending by design`, still asserts exactly one verdict, and
+    the leading-token reader must still report the LEADING word rather than the
+    second phrase. Only the word it leads with moved. **This is the ONLY line of
+    shipped code Phase 23.1 changed**, and it was changed because leaving it
+    would have left `make ci` red on a tree that is correct — which criterion 17
+    forbids — and NOT because a checker was narrowed to fit a failure.
     """
     cell = [
         status
@@ -2519,7 +2534,7 @@ def test_control_9b_the_second_bolded_phrase_in_dcd_02_is_not_a_second_verdict()
         "`DCD-02`'s cell no longer carries a second bolded phrase, so this"
         " control has stopped testing the thing it was written for"
     )
-    assert verdict_token(cell) == "Partial", (
+    assert verdict_token(cell) == "Complete", (
         f"the leading verdict of {cell!r} read as {verdict_token(cell)!r}"
     )
     assert doubled_verdicts(ledger_text()) == []
