@@ -23,30 +23,38 @@ plan 24.2 from this document — plan **24.1** only.
 <decisions>
 ## Implementation Decisions
 
-### The reference documents are DE-binding, NOT an SDK surface
+### The specification defines what the SDK must implement — CORRECTED 2026-08-25
 
-- **D-01: The Context Product Specification Standard and the DE Requirements are binding on DATA ENGINEERS, not on the SDK.** Dave, verbatim: *"It validates what DEs must do to develop Context Products. It's the specification document that is the binding document that DEs follow when both specifying requirements and implementing them. It is not to be part of the SDK but only to provide a means for DEs to develop against the SDK consistent with the specification."*
-- **D-02: NOTHING from those documents is built into the SDK by this phase.** No `CP-SPEC` artifact type, no `ccf spec` CLI subcommand, no spec schema, no spec-validation machinery. Decision candidate `D-IMPL-211` is explicitly OUT — it proposed exactly that, and `D-01` rules it out of the SDK.
-- **D-03: This converts the two flagged "SDK-surface impacts" from ADOPTION questions into SUFFICIENCY questions.** Not *"should the SDK adopt the closed eight-operator vocabulary / six gates?"* but *"can a DE authoring to the Standard express their recipe and satisfy their gates with the mechanism the SDK provides?"* **The examples answer this by DOING it. A thing that cannot be expressed is a recorded FINDING, not a guess.**
+**This block REPLACES an earlier reading that had the arrow backwards.** The
+superseded text said the Standard was DE-binding and that nothing from it
+entered the SDK, so an inexpressible construct was merely "a recorded
+finding". Dave corrected it, and the correction is load-bearing enough that
+the old reading is named rather than quietly deleted.
+
+- **D-01: The Context Product Specification Standard DEFINES WHAT NEEDS TO BE IMPLEMENTED IN THE SDK.** Dave, verbatim: *"The more important document is the specification document as it defines what needs to be implemented in the SDK. That is really the important item. The DE is responsible for implementing the specification but the spec must be implementable in the SDK (see the Counterparty Reference Snapshot document)."* The specification is a REQUIREMENTS SOURCE for the SDK, not merely an authoring convention DEs work within.
+- **D-02: The DE has responsibilities BOTH OUTSIDE and WITHIN the SDK.** Outside: sourcing, business framing, authoring the spec document, operating the product. Within: building the assembly against SDK mechanism. Neither half is the whole job, and the earlier reading collapsed them into "outside".
+- **D-03: THESE EXAMPLES EXIST TO PRESSURE TEST THE SDK.** Dave: *"That is why these examples were formed because we need a way to pressure test the surface and capabilities of the SDK."* An example is not a demonstration of something already known to work — it is the instrument that finds out.
+- **D-04: WHERE THE SDK CANNOT SUPPORT WHAT THE SPECIFICATION ORDERS, THE SDK IS EXTENDED IN A SEPARATE PHASE.** Dave: *"If the SDK cannot support what the specification is ordering, then we need to extend the SDK using a separate phase."* **A minor phase does NOT close its own gaps.** It builds the example, records the gap precisely enough to be actionable, and the extension is separately scoped and separately gated.
+- **D-05: THE EXPECTATION IS FEW OR NO GAPS, AND THAT EXPECTATION IS ITSELF A TEST.** Dave: *"The spec was originally derived from the requirements specification of the SDK so in theory there should not be many changes if any."* **A long gap list is therefore a SIGNAL OF DRIFT, not a normal outcome** — it means the spec and the SDK requirements diverged after the derivation, and the divergence is the finding. Any gap must be checked for this before it is proposed as SDK work.
 
 ### 24.1 — the first example
 
-- **D-04: 24.1 is a NEW, INVENTED, genuinely simple Context Product** in the shape of the existing client example (`examples/hw1-companies-over-revenue`, *"companies over a revenue threshold you choose"*). Dave: *"I want the first example to be a simple context product that does not span multiple data stores. We may have to make one up like we did in the client example."*
-- **D-05: Subject — institutional holders of a company with a position above a threshold the caller chooses.** One anchor entity, one caller parameter, ONE source. Dave named this shape: *"investors who have a larger than X stake in a company."*
-- **D-06: ONE store, ONE system of record — SEC Form 13F, in `ccf_dataprep`'s Postgres (`ccf_v2`).** Real public data; `ccf_dataprep/sources/13f` and `generators/fetch_13f.py` already exist.
-- **D-07: In-process DETERMINISTIC operator. Assembly Mode 1.** Dave: *"For the first example I want to use an in process deterministic operator to assemble the context product."* No LLM anywhere in the assembly path.
-- **D-08: CI posture — LIVE-LEG, outside the always-on `examples:` aggregate.** Follows the `s1-00` precedent exactly: a networked substrate cannot sit in the always-on job. **This is a deliberate cost, accepted so the example points at a real store rather than a shipped copy.**
-- **D-09: The spec is authored to the FULL Standard** — front matter plus sections A–G — so the phase validates the AUTHORING path and not merely the assembly path. A reduced spec would prove nothing about the Standard.
-- **D-10: The example prints its SPECIFICATION and the RESULTING JSON.** This is Dave's stated requirement for every example in the ladder.
+- **D-06: 24.1 is a NEW, INVENTED, genuinely simple Context Product** in the shape of the existing client example (`examples/hw1-companies-over-revenue`, *"companies over a revenue threshold you choose"*). Dave: *"I want the first example to be a simple context product that does not span multiple data stores. We may have to make one up like we did in the client example."*
+- **D-07: Subject — institutional holders of a company with a position above a threshold the caller chooses.** One anchor entity, one caller parameter, ONE source. Dave named this shape: *"investors who have a larger than X stake in a company."*
+- **D-08: ONE store, ONE system of record — SEC Form 13F, in `ccf_dataprep`'s Postgres (`ccf_v2`).** Real public data; `ccf_dataprep/sources/13f` and `generators/fetch_13f.py` already exist.
+- **D-09: In-process DETERMINISTIC operator. Assembly Mode 1.** Dave: *"For the first example I want to use an in process deterministic operator to assemble the context product."* No LLM anywhere in the assembly path.
+- **D-10: CI posture — LIVE-LEG, outside the always-on `examples:` aggregate.** Follows the `s1-00` precedent exactly: a networked substrate cannot sit in the always-on job. **This is a deliberate cost, accepted so the example points at a real store rather than a shipped copy.**
+- **D-11: The spec is authored to the FULL Standard** — front matter plus sections A–G — so the phase validates the AUTHORING path and not merely the assembly path. A reduced spec would prove nothing about the Standard.
+- **D-12: The example prints its SPECIFICATION and the RESULTING JSON.** This is Dave's stated requirement for every example in the ladder.
 
 ### Documentation
 
-- **D-11: BOTH a deep example README and a published page.** Dave chose this explicitly. README carries the MECHANICS; the published page carries the ARGUMENT and includes from the tree (the shape Phase 22 shipped). Dave: *"It's important as we develop this example of constructing and assembling a context product that we have sufficient documentation on what is being done and why."*
+- **D-13: BOTH a deep example README and a published page.** Dave chose this explicitly. README carries the MECHANICS; the published page carries the ARGUMENT and includes from the tree (the shape Phase 22 shipped). Dave: *"It's important as we develop this example of constructing and assembling a context product that we have sufficient documentation on what is being done and why."*
 
 ### Sequencing
 
-- **D-12: `CP-SPEC-001` (Counterparty Reference Snapshot) moves to 24.2.** It is single-STORE but spans **five systems of record** — LEI reference data, internal client master, internal credit, CRM, and the entitlement service. That multi-source complexity is 24.2's POINT, not 24.1's obstacle.
-- **D-13: Multi-store assembly is DESIRABLE later, not avoided.** Dave: *"it's ok to go against multiple data stores to assemble the context product. This resembles the real situation context product engineers will have to deal with. This means we need to point to Fluree, Postgres, SQLite, and whatever else data store is required."* 24.1 defers it only because it is the FIRST example.
+- **D-14: `CP-SPEC-001` (Counterparty Reference Snapshot) moves to 24.2.** It is single-STORE but spans **five systems of record** — LEI reference data, internal client master, internal credit, CRM, and the entitlement service. That multi-source complexity is 24.2's POINT, not 24.1's obstacle.
+- **D-15: Multi-store assembly is DESIRABLE later, not avoided.** Dave: *"it's ok to go against multiple data stores to assemble the context product. This resembles the real situation context product engineers will have to deal with. This means we need to point to Fluree, Postgres, SQLite, and whatever else data store is required."* 24.1 defers it only because it is the FIRST example.
 
 ### Claude's Discretion
 
@@ -109,8 +117,9 @@ published-page structure. All must be reported, none needs a ruling.
 <specifics>
 ## Specific Ideas
 
-**The operator-mapping finding, measured 2026-08-25 and to be confirmed by
-building rather than argued.** The Standard's closed EIGHT-operator vocabulary
+**THE OPERATOR-MAPPING QUESTION — and a hypothesis that must be tested before
+any of it is called a gap.** Measured 2026-08-25: the Standard's closed EIGHT
+names do not map onto `OperatorCategory`, a closed `Literal` of FOUR. The Standard's closed EIGHT-operator vocabulary
 does not partition cleanly into the SDK's FOUR categories:
 
 | Standard operator | SDK category |
@@ -123,9 +132,16 @@ does not partition cleanly into the SDK's FOUR categories:
 **`CP-SPEC-001`'s recipe is only THREE steps** — Resolve, Policy, contract
 assembly — so 24.2 surfaces exactly ONE mapping question (`Resolve`), and the
 Standard itself says contract assembly is *"not an operator"* (§10.2 retired
-names). 24.1's recipe should be smaller still. **This is why the ladder is
-built one step at a time: each example converts one abstract mapping question
-into a measured answer.**
+names). 24.1's recipe should be smaller still. **THE HYPOTHESIS, under `D-05`: none of the five is a capability gap.** The
+Standard names them as *operators* in its authoring vocabulary; CCF may hold
+every one of them at a DIFFERENT LAYER — `Resolve` as L2 entity resolution,
+`Projection` as L5 (Pi is a layer in CCF, not an L4 operator), `Federate` as
+the peering surface, `Evaluate` as contract assembly, `Enrich` as batched
+traversal. If that holds, what is owed is a documented MAPPING from the
+Standard's eight authoring names to the SDK's layers — which is exactly what a
+DE needs — and **not** an SDK extension. **This hypothesis is the first thing
+24.1 and 24.2 test, and it must be falsified before any operator is proposed
+as SDK work.**
 
 **The ten decision candidates, measured against the tree 2026-08-25** — so no
 later wave re-derives them: `202` nine-vs-eight is a NON-ISSUE (already
@@ -145,7 +161,10 @@ without a cascade engine. **None of these is built by this phase — `D-02`.**
 
 - **`CP-SPEC-001` and multi-source assembly** → 24.2 (`D-12`).
 - **Assembly Mode 2 (LLM packaging), Mode 3 (agent-swarm), products-built-off-products, and the A2A leg** → later minor phases. The A2A product requires standing up a SECOND CCF instance — vault `Q019` §5 calls it *"the largest infrastructure item."*
-- **Everything in `D-IMPL-205`…`211`** → not this phase, and `211` not the SDK at all under `D-01`.
+- **`D-IMPL-205`…`211`** → not this phase. **`211` (the `CP-SPEC` artifact type and `ccf spec` CLI) is
+  NOT RULED OUT — that was the superseded reading. It is OPEN**, and Dave has not ruled it. Under `D-01`
+  the specification is a requirements source for the SDK, so whether the spec DOCUMENT itself becomes a
+  Control Plane artifact is a live question, separate from whether the SDK implements what specs require.
 - **The `channel_disagreements` blind spot** carried from `D-GATE-23.1` — a shipped comparator that cannot see a token-level channel drift. Fixing it is a build; it is owed, not scheduled.
 - **The four Dave-owned reading items** `#2`–`#5` from the v0.2 packet — explicitly NOT dischargeable at `D-GATE-24`.
 
