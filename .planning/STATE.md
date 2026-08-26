@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-26T01:15:00.000Z"
+last_updated: "2026-08-26T17:50:00.000Z"
 last_activity: >-
   2026-08-25 -- **PHASE 23.1 IS CLOSED. `D-GATE-23.1` IS LOGGED AND v0.2 IS DISPOSITIONED.**
   Eight plans in eight serial waves, 31 commits from `PHASE_BASE` `cb6a744`, merged to
@@ -259,6 +259,19 @@ progress:
     bullet is struck through as superseded). The first is the EXACT error recorded against
     a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
+  **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-3 OF 11 ARE COMPLETE.**
+  Base tag `phase-24.1-base` = `d50924c` (= `main`). Nineteen Success Criteria LOCKED
+  before planning (`D-GATE-19`); criterion 3 carries a MARKED amendment. The spec
+  `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` is
+  COMPLETE to the Standard (front matter + SSA-SSG) and `artifacts/assembly-recipe.yaml`
+  carries the SSD table as data with one runtime witness per step. **NEXT: Wave 4.**
+  Waves 4-7 are autonomous; **Wave 8 (docs) and Wave 11 (SS3.1 close) STOP for Dave.**
+  `src/` and `runtime/` are diff-empty against the base and MUST STAY SO -- the phase
+  builds nothing in the SDK; gaps are RECORDED, never closed (`D-04`). Forty-six
+  decisions `D-01`..`D-46` in `24-CONTEXT.md`; **ids are STABLE and never renumbered**
+  (`D-31`), and that file QUOTES ITS OWN SUPERSEDED TEXT inside corrections, so anchor
+  on the operative sentence rather than a grep hit (`D-32`). New decision entries start
+  at `D-IMPL-212` -- `202`-`211` are reserved candidates. PRIOR STATE:
   **PHASE 23.1 IS CLOSED, GATED AND MERGED. NOTHING IS IN FLIGHT.** `D-GATE-23.1` logged
   2026-08-25 (Dave). **NEXT ACTION: discuss and plan Phase 24 (Context Production)** -- it
   starts on this gate, per Dave. Its criteria are NOT written and that is deliberate
@@ -391,6 +404,19 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**PHASE 24.1 IS EXECUTING. WAVES 1-3 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
+Phase 24 is an UMBRELLA; 24.1 is its first buildable unit -- one Context Product
+example (institutional holders above a caller-chosen threshold, SEC 13F in
+`ccf_dataprep` Postgres, Assembly Mode 1) built to PRESSURE TEST the SDK's surface
+against the Context Product Specification Standard. **The Standard defines what the
+SDK must implement; where the SDK cannot express what a conforming spec orders, that
+gap is RECORDED here and closed in a SEPARATE phase.** Expectation is FEW OR NO gaps,
+because the spec derived from the SDK's own requirements -- so a long gap list is a
+DRIFT signal, not a normal outcome (`D-05`). Through Wave 3: exactly ONE SDK-side
+finding, which is what that predicts.
+
+**SUPERSEDED, NAMED RATHER THAN DELETED:**
 
 **PHASE 23.1 IS CLOSED, GATED AND MERGED. PHASE 24 (CONTEXT PRODUCTION) IS NEXT AND IS NOT
 PLANNED.** `D-GATE-23.1` approved by Dave 2026-08-25. v0.2's open surface is DISPOSITIONED

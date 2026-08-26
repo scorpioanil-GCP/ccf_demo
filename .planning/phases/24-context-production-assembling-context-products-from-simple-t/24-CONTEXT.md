@@ -119,6 +119,12 @@ published-page structure. All must be reported, none needs a ruling.
 - **D-42: The citation lint's module-alone invocation is a SHIPPED-TOOL HOLE. Record it; do NOT fix it in 24.1.** Wave 2 measured `python -m tools.lints.citations` exiting **0** on a seeded broken citation AND on a fabricated symbol; `python -m tools.lints --all` exits 1 and names both. Dave: *"`--all` is the real gate; the module-alone exit 0 on a seeded break is a shipped-tool hole. Record only; do not fix in 24.1."* Fixing it would be a build (`D-04`). **Every wave uses `--all`, never the module alone.**
 - **D-43: The example EXPIRES 2027-03-31, and that is correct behaviour. The Control Plane `MAX_TTL` requirement must be DOCUMENTED so a too-short default does not read as an example bug.** The declared TTL is 365 days, `from_entity_freshness` on the reported quarter, so `expires_at` is 2027-03-31; after that validation gate 3 refuses to serve — **the gate working, not a defect**. Dave: *"Document the Control Plane `MAX_TTL` >= 31,536,000s requirement so a default that is too short doesn't look like an example bug."* This obligation belongs in the spec's §E/§G and in the example README, not only in a summary.
 
+### D-39/D-40 clarified — the resolve is TWO steps at TWO layers (2026-08-26)
+
+- **D-44: MARKED CLARIFICATION ON `D-39`/`D-40`. OLD WORDING: *"an L2 Resolve from `(lei, period)` to the dominant CUSIP."* MEASURED TWO-STEP:** step 1, **group-and-rank to the dominant CUSIP, at L1**, in the deployment's own source reader — **not SDK mechanism**; step 2, **canonical entity resolution at L2**, `src/ccf/assembly/worker.py::SpecDrivenEntityResolution`.
+- **D-45: Why the first half cannot be L2, measured not argued.** `EntityResolutionStrategy.resolve(*, envelope)` takes **one envelope** and so **structurally cannot rank a group**. Dave: *"ranking a group is not `resolve(*, envelope)` because that call is per-envelope."* Confirmed against the tree: both `resolve` definitions in `worker.py` are per-envelope.
+- **D-46: `D-39`'s INTENT STANDS UNCHANGED — only the layer of the first half was mis-worded.** Nothing is pinned, no domain value sits in code, the 1-LEI-to-many-CUSIP fan-out is handled, and `Resolve` is placed. **Criterion 11's mapping still gets a real L2 `Resolve`** — which is the whole reason the resolve was chosen over a pin. Dave: *"Do not force the first half into L2."*
+
 <canonical_refs>
 ## Canonical References
 
