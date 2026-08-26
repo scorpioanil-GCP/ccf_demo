@@ -623,12 +623,24 @@ for the served `weak` rows.
 
 ## Section F — Source binding & readiness
 
-*Authored in the next wave.* Every `[TBC]` marker raised above reappears here
-with a named owner, including: the approved domain list; the payload schema
-artifact; the issuer-identity refresh cadence; the policy bundle version; the
-intent registry; the ontology IRI bindings for security, position, period,
-match band and provenance; the absence of a shares-outstanding fact; and the
-two Standard-vs-SDK divergences recorded at §B.4.
+*Authored in the next wave.* **Every `[TBC]` marker raised above reappears
+here with a named owner** — twelve of them, listed so the queue can be checked
+against the document rather than trusted:
+
+| # | Marker | Raised at |
+| --- | --- | --- |
+| 1 | The approved **domain list** the registry name assumes | front matter |
+| 2 | The **accountable-owner triad** (product owner · data steward · policy owner) a real catalog entry carries | front matter |
+| 3 | The **payload schema** key and version | §B.1 element 1 |
+| 4 | The **issuer-identity refresh cadence** | §B.1 element 2 |
+| 5 | The **policy bundle** version id | §B.1 element 4 |
+| 6 | The **intent registry** (Standard §11.1) | §B.4 |
+| 7–12 | The **ontology IRI bindings** for the held security, the reported position, the reported period, the match band, the provenance flag, and the resolved dominant security | §C.1 |
+
+Carried here alongside them, not as `[TBC]` but as recorded findings: the
+absence of a shares-outstanding fact in the estate (§B.4), and the two
+Standard-vs-SDK divergences on `debt_tolerance` and `not_supported_at_tier`
+(§B.4).
 
 ## Section G — Operate & govern
 
