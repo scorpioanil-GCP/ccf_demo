@@ -51,7 +51,7 @@ the old reading is named rather than quietly deleted.
 - **D-12: Subject — institutional holders of a company with a position above a threshold the caller chooses.** One anchor entity, one caller parameter, ONE source. Dave named this shape: *"investors who have a larger than X stake in a company."*
 - **D-13: ONE store, ONE system of record — SEC Form 13F, in `ccf_dataprep`'s Postgres (`ccf_v2`).** Real public data; `ccf_dataprep/sources/13f` and `generators/fetch_13f.py` already exist.
 - **D-14: In-process DETERMINISTIC operator. Assembly Mode 1.** Dave: *"For the first example I want to use an in process deterministic operator to assemble the context product."* No LLM anywhere in the assembly path.
-- **D-15: CI posture — LIVE-LEG, outside the always-on `examples:` aggregate.** Follows the `s1-00` precedent exactly: a networked substrate cannot sit in the always-on job. **This is a deliberate cost, accepted so the example points at a real store rather than a shipped copy.**
+- **D-15: CI posture — the target sits OUTSIDE the always-on `examples:` aggregate.** (The word *"live-leg"* stood here and is SUPERSEDED by the CI ruling below: `s1-00`'s pattern is a marked test against a CI-provisioned service container the test seeds, not a live leg against the LAN host.) Follows the `s1-00` precedent exactly: a networked substrate cannot sit in the always-on job. **This is a deliberate cost, accepted so the example points at a real store rather than a shipped copy.**
 - **D-16: The spec is authored to the FULL Standard** — front matter plus sections A–G — so the phase validates the AUTHORING path and not merely the assembly path. A reduced spec would prove nothing about the Standard.
 - **D-17: The example prints its SPECIFICATION and the RESULTING JSON.** This is Dave's stated requirement for every example in the ladder.
 
@@ -90,6 +90,11 @@ The operator decomposition of 24.1's recipe (likely Resolve → threshold filter
 published-page structure. All must be reported, none needs a ruling.
 
 </decisions>
+
+### A rule about this document itself — added 2026-08-25 after three incidents
+
+- **D-31: DECISION IDS ARE STABLE AND ARE NEVER RENUMBERED. Append only.** Sequential renumbering broke this file THREE separate times: (1) `D-09`'s inline citation to the acceptance test went stale when the ids it named shifted — **the renumber broke the reference it was renumbering**; (2) a subagent brief cited ids from before a renumber and was offset by three against the committed file; (3) a later reader found a superseded phrase QUOTED INSIDE A CORRECTION and reported it as a live claim. **From here, a new decision takes the next unused number and NOTHING is renumbered.** If a gap appears in the sequence, the gap is the record.
+- **D-32: THIS FILE QUOTES ITS OWN SUPERSEDED TEXT ON PURPOSE, AND A READER MUST ANCHOR ON THE OPERATIVE SENTENCE.** Corrections here name what they replace rather than deleting it — that is why the withdrawn readings are still greppable. **Token presence is NOT token force.** A search that finds a phrase inside a correction and reports it as current has read the history, not the answer. This hazard has now caught the orchestrator twice and a planning subagent once; it is a cost the convention creates, not a defect in it.
 
 <canonical_refs>
 ## Canonical References
