@@ -132,6 +132,12 @@ published-page structure. All must be reported, none needs a ruling.
 - **D-49: This does NOT reopen the algebra.** A new operator NAME under an existing category is additive (`D-10`); `OperatorCategory` stays the closed `Literal["policy","similarity","temporal","traversal"]` and is not touched. **No SDK-side gap is recorded for step 1** — the rejected reading (2), that a deterministic rank cannot be a `GraphView` and therefore needs a new category or an `Operator` variant emitting a measure, was NOT taken. If the return type genuinely refuses during Wave 5, that is a finding to STOP and report, not to work around.
 - **D-50: `D-44`/`D-45`/`D-46`'s two-step split STANDS. Only step 1's mechanism column changes**, from *none* to the named example operator. The layer question Dave already ruled — group-and-rank is not L2 because `EntityResolutionStrategy.resolve(*, envelope)` is per-envelope — is untouched.
 
+### Three Wave 4 items, ruled 2026-08-26
+
+- **D-51: Wave 5's printed entry point is named `run.py`, beside `artifacts/`.** That is the fix for the RED `make ci` gate: `tests/examples/test_artifact_schema_headers.py::test_every_covered_artifact_directory_sits_under_an_example_root` requires a directory containing `artifacts/` to DIRECTLY contain `run.py`. `cp-00` had `produce.py` and no `run.py`; `archive/examples/external/00-hello-context` carries `artifacts/` and `run.py` and is the precedent. **The gate is NOT widened and `artifacts/` is NOT renamed** — the docstring calls the `run.py` predicate deliberate and load-bearing.
+- **D-52: Wave 4's debt bands are CONFIRMED and go into the spec/artifacts — §E stops reading `[TBC]`.** Crossing days **168** and **278**; demo `D_c` **0.558**, nominal and stable because `now` is a fixed `asked_at`. Computed by `FreshnessScorer` with the crossing days measured by search, not asserted.
+- **D-53: `integer` wins for this example; the §B.4 `number` divergence is RECORDED, and the SDK is NOT changed.** The threshold parameter is declared `integer` because `Decimal` does not survive the replay round trip. Spec §B.4 says `number`. **Record the divergence at the declaration with the replay reason — do not absorb it silently and do not amend the SDK** (`D-04`).
+
 <canonical_refs>
 ## Canonical References
 
