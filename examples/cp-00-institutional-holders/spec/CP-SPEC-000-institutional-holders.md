@@ -65,27 +65,27 @@ entitled to challenge the admission on exactly this basis.
 ### 0.2 Placeholder discipline
 
 Items marked `[TBC]` require a decision or a measurement and have deliberately
-**not** been guessed. Every marker reappears in §F with a named owner (§F is
-authored in the next wave; the markers are listed at §B and §C where they
-arise). Per the Standard, an unmarked assumption is the more serious defect: a
+**not** been guessed. Every marker reappears in §F with a named owner — **all eighteen of them,
+in §F.2, as a table that can be diffed against the document.** Per the Standard, an unmarked assumption is the more serious defect: a
 marked gap gets closed and an invented one gets built.
 
 ### 0.3 Section skeleton
 
-All seven sections appear, in order. Sections D–G are authored in the wave
-following this one; their headings are not omitted here, they simply are not
-yet written, and a reader meeting this document mid-phase should know which is
-which.
+**All seven sections appear, in order, and all seven are written.** §0.3's
+rule is that an absent section reads as an oversight and a short one reads as a
+decision, so where this product has little to say — §B.3's model-risk
+annotation, §D.3's `Enrich` invariant — it says so in one line under its own
+heading rather than omitting the heading.
 
 | § | Section | In this document | State |
 | --- | --- | --- | --- |
 | A | Decision frame | `## Section A` | written |
 | B | Contract | `## Section B` | written |
 | C | Data catalog | `## Section C` | written |
-| D | Assembly recipe | `## Section D` | next wave |
-| E | Volatility, debt & materialization | `## Section E` | next wave |
-| F | Source binding & readiness | `## Section F` | next wave |
-| G | Operate & govern | `## Section G` | next wave |
+| D | Assembly recipe | `## Section D` | written |
+| E | Volatility, debt & materialization | `## Section E` | written |
+| F | Source binding & readiness | `## Section F` | written |
+| G | Operate & govern | `## Section G` | written |
 
 ### 0.4 Front matter
 
@@ -192,7 +192,7 @@ the reason this is a Context Product rather than a view.**
 **Primitive taught.** Two, and they are the reason this product is first:
 
 1. **Resolution before retrieval.** The security is **resolved** from
-   `(issuer LEI, period)` to the dominant CUSIP — an L2 `Resolve` — not pinned
+   `(issuer LEI, period)` to the dominant CUSIP — a `Resolve`, at the layers §D.3 works out — not pinned
    as a literal (`24-CONTEXT.md` `D-39`, Dave 2026-08-26). Standard §10.3's
    second composition invariant says traversal from an unresolved anchor
    *"answers plausibly about the wrong entity"*, and the five off-security
@@ -223,7 +223,7 @@ where an element's row is empty the emptiness is stated as a decision.)*
 | 1 | **Schema** | Payload type `institutional_holders_over_threshold`. Entities: **Issuer** (one, the anchor) and **InstitutionalManager** (many). Relationship: *manager reports a position in issuer*. Measures per manager: reported position value in USD, reported share count. Per-row signals: the resolved security, the reported period, the issuer-match band and score, the row's provenance class. **Artifact, not prose** — the machine-readable declaration is the `product_class:` and `resolution:` sections of `examples/cp-00-institutional-holders/ccf_config.yaml`, authored in the next wave; the payload schema key and version are `[TBC]` until it exists, and the marker reappears in §F |
 | 2 | **Freshness SLA** | **Per signal class, not one value for the product**, and the SDK's shape is the same: `src/ccf/products/contract.py::FreshnessSLA` carries `max_age_seconds_by_signal`. Two classes. *Reported position* — **137 days** (a calendar quarter plus the 45-day filing deadline the source's own reporting rule sets): a position more than one full filing cycle old is not the current statement of the register. *Issuer identity* (legal name, from the reference table) — cadence **`[TBC]`**: the archive publishes no refresh interval for it and guessing one would be the §0.2 defect. Marker reappears in §F |
 | 3 | **TTL** | **365 days · `ttl_anchor: from_entity_freshness`**, anchored on the **reported quarter end** — `to_date(report_period, 'DD-MON-YYYY')`, which for the pinned period resolves to exactly one date, `2026-03-31` (20,487 of 20,487 rows parse; Wave 1 measured it against a must-match control, not an `is null` control). See the note below: this is the most easily mis-read line in the document |
-| 4 | **Policy Binding** | Regime: **public disclosure** — the source is a public regulatory filing. Version id: the deployment's policy bundle, `[TBC]` until the next wave authors it; its **version** rides the served product's lineage regardless of which bundle it is. **Entitlement scope: none is asserted, deliberately.** Every element in §C measures `provenance = 'public'` (22,476 of 22,476 rows in the holdings table, 156 of 156 in the reference table), so the highest classification of any element is `public` and there is no jurisdictional or entitlement partition to bind. Standard §2.1's named common error is *"asserting 'entitlement scope' with nothing behind it"*; a decorative scope on public-filing data is exactly that error, so this product asserts none and says why. `policy_version` is still emitted, so the ordering is established from the first product rather than retrofitted |
+| 4 | **Policy Binding** | Regime: **public disclosure** — the source is a public regulatory filing. Version id: the deployment's policy bundle, `[TBC]` until the artifact is authored (§F, marker 5); its **version** rides the served product's lineage regardless of which bundle it is. **Entitlement scope: none is asserted, deliberately.** Every element in §C measures `provenance = 'public'` (22,476 of 22,476 rows in the holdings table, 156 of 156 in the reference table), so the highest classification of any element is `public` and there is no jurisdictional or entitlement partition to bind. Standard §2.1's named common error is *"asserting 'entitlement scope' with nothing behind it"*; a decorative scope on public-filing data is exactly that error, so this product asserts none and says why. `policy_version` is still emitted, so the ordering is established from the first product rather than retrofitted |
 | 5 | **Lineage** | Six members, all present. See the mapping table below — including the two the Standard lists that this product deliberately does **not** carry, whose rows are stated rather than dropped |
 | 6 | **Semantic Version** | **v1.0.0.** No prior supported version; migration window **n/a — this is the first version**. Change classes per Standard §12: adding a payload field or a new optional parameter is MINOR; changing `ttl_anchor`, changing the Assembly Mode, retyping or removing a field, or changing the required parameter's default (it has none — see §B.4) is **MAJOR** and requires a migration window with both versions served |
 | 7 | **Discovery** | `holdings.institutional-holders.v1`. SDK surface: `src/ccf/products/contract.py::ProductDiscovery` (domain · intents · capabilities · audiences). **Not registered yet** — §G is unwritten, and Standard §2.1 names registering before §G is complete as the common error |
@@ -389,7 +389,7 @@ One row per element, not per column.
 | Reported period (`report_period`) | SEC Form 13F | public-filing | public | relational | **T** | `[TBC]` — §F |
 | Issuer-match score and band (`issuer_match_score`, `issuer_match_band`) | **Derived upstream** by the source system's issuer-name normalisation, **not** by this assembly | derived (upstream) | public | relational | **L** (a quality signal on the row's provenance) | `[TBC]` — §F |
 | Row provenance flag (`provenance`) | SEC Form 13F loader | public-filing | public | relational | **L** | `[TBC]` — §F |
-| **Resolved dominant security** for `(issuer, period)` | **Derived by this assembly** — the L2 `Resolve` step | derived | public | relational | **E** | `[TBC]` — §F |
+| **Resolved dominant security** for `(issuer, period)` | **Derived by this assembly** — the `Resolve` of §D.2 step 1. Written here as *L2* before §D was authored; measured, that half of the resolve is a group-and-rank at the source read and sits at **L1**, with the canonical-entity half at L2 — §D.3 | derived | public | relational | **E** | `[TBC]` — §F |
 
 **On the `lei` column, because it reads backwards.** In this table `lei` is the
 **ISSUER's** LEI — the company **held** — not the holder's. The holders are
@@ -545,7 +545,7 @@ is measuring in both directions).
 
 | The binding | What it is | What it costs |
 | --- | --- | --- |
-| **RESOLVE the security from `(lei, report_period)` to the dominant CUSIP** — an L2 `Resolve` step. **Not a pinned literal** | `24-CONTEXT.md` `D-39`/`D-40`/`D-41` (Dave, 2026-08-26). Three reasons on the record: the resolve step **is** the `Resolve` this phase's operator-mapping hypothesis must place at a layer, so pinning would skip the pressure test the phase exists to run; a pinned CUSIP is a **domain value** and would have to live in an artifact anyway under the No-Hardcoding Rule (`CLAUDE.md` §6.4); and one LEI fanning out to 52 securities is handled by resolving and hidden by pinning | An extra §D step, **accepted**. And the five off-security managers are not served — which is the point, not the cost |
+| **RESOLVE the security from `(lei, report_period)` to the dominant CUSIP** — a `Resolve` step; §D.3 works out which layer each half of it sits at. **Not a pinned literal** | `24-CONTEXT.md` `D-39`/`D-40`/`D-41` (Dave, 2026-08-26). Three reasons on the record: the resolve step **is** the `Resolve` this phase's operator-mapping hypothesis must place at a layer, so pinning would skip the pressure test the phase exists to run; a pinned CUSIP is a **domain value** and would have to live in an artifact anyway under the No-Hardcoding Rule (`CLAUDE.md` §6.4); and one LEI fanning out to 52 securities is handled by resolving and hidden by pinning | An extra §D step, **accepted**. And the five off-security managers are not served — which is the point, not the cost |
 
 **A framing this spec explicitly does not inherit.** It would be natural to
 read the off-security CUSIPs as admitted by a fuzzy issuer-name match, and the
@@ -1042,31 +1042,485 @@ detects, with a fixture ID:
 
 ## Section E — Volatility, debt & materialization
 
-*Authored in the next wave.* Owed by §C.4 trap 3: the completeness accounting
-for the served `weak` rows.
+*(Standard §5.)*
+
+### E.1 Half-life table
+
+One row per signal class. **These are initial calibration proposals, not
+measurements** — Standard §5.1's own distinction, and stating it plainly is
+what makes them values an engineer can challenge rather than numbers they
+assume were derived from data.
+
+| Signal class | λ_c (half-life) | Calibration basis | Decay driver | Supersession event | Owner |
+| --- | --- | --- | --- | --- | --- |
+| Reported position | **11,836,800 s — 137 days** | **illustrative** | The **quarterly 13F reporting cycle**: one calendar quarter (92 days) plus the 45-day filing deadline the source's own reporting rule sets. Relevance halves by the moment the next filing is due, which is the point at which the register is expected to have moved | **A later filing restating the same manager's position in the same security for the same reported period.** An amendment, not the arrival of the next quarter | CCF SDK examples maintainer |
+| Issuer identity (registered name) | `[TBC]` — the archive publishes no refresh interval and guessing one would be the §0.2 defect (§B.1 element 2) | — | Reference-data maintenance, not the filing cycle | A reference-data update to the registered name | `[TBC]` — §F |
+
+**λ_c is Control Plane configuration per observation type**, not a per-row
+attribute: it lives in the deployment's half-life table artifact, and a
+conflict between two specs resolves centrally rather than in either document.
+Review cadence: annually, or on any change to the supersession pattern.
+
+**The decay anchor is `report_period`, a quarter-end date up to 90 days
+coarse, and the coarseness is a property of 13F rather than a data defect**
+(`24-CONTEXT.md` `D-22`). A position filed for `31-MAR-2026` is dated to that
+quarter end whether the manager took it in January or in March. The
+distinction §B.1 element 3 draws applies here for the second time: *"there
+should be a timestamp and there isn't"* is a data defect, *"the dataset
+reports per period and the spec decays from that period"* is a normal
+declaration, and this product is the second sentence. The cost is real and
+should be read as a cost: **no answer this product gives can be fresher than
+the quarter it reports.**
+
+**An arithmetic illustration, and it is not a prediction of what the SDK will
+compute.** Read on 2026-08-26, the pinned period's positions are 148 days old
+against a 137-day half-life, so the raw decay term is
+`2^(−148/137) ≈ 0.47`. That is arithmetic on the declared λ_c alone.
+`src/ccf/halflife/debt.py::FreshnessScorer` also applies the debt profile's
+`risk_sensitivity`, which this spec has **not** set (§F, marker 16), so the
+scorer's actual output is not this number and nothing here should be read as
+predicting it.
+
+### E.2 Debt model and per-component debt table
+
+`D_c = 1 − (F · C · S)` — **multiplicative**, so a collapsed dimension forces
+escalation rather than being averaged away.
+
+**F — freshness, and it is measured over the rows ASSEMBLED, not the rows
+SELECTED.** This is a decision, not an accident of where the call sits.
+`src/ccf/halflife/debt.py::FreshnessScorer` refuses an empty sequence by
+design, so scoring the survivors would make a threshold that admits nobody
+**raise** instead of answering — a caller who sets an impossibly high number
+would get an exception where the honest answer is *"nobody."* Freshness
+therefore describes what the fabric **read**; completeness describes what
+survived being read. The shape is
+`examples/s1-00-companies-over-revenue/deployment.py::RevenueScenario`'s and
+it is adopted here for its reasons, not by inheritance. It is also only
+coherent because the read is threshold-independent (§D.3): every threshold
+compiles to the same pinned query, so *"the rows assembled"* is one
+well-defined set rather than a per-caller one.
+
+**F is normalized over required signal classes, not over the classes actually
+present** (Standard §5.2), or losing a source improves the freshness score.
+
+**Decay is measured from `valid_from`, not from `observed_at`.** CCF's T axis
+is bitemporal and the two members are different facts:
+`src/ccf/assembly/worker.py::AssemblyWorker._stitch` sets `observed_at` to the
+envelope's **ingestion timestamp** — when the *fabric* learned the claim — and
+`valid_from` to the source's own instant, here the reported quarter end.
+Scoring `observed_at` would measure the age of **this run**: a two-year-old
+filing re-read a moment ago would score as perfectly fresh, which is a source
+outage laundered into a low-debt reading, and it is the precise failure the
+fail-closed posture exists to prevent. This is the same reading §D.4 depends
+on for a different purpose, and getting it wrong breaks both.
+
+**C — completeness, decomposed into two components, because this product has
+two different incompletenesses and multiplying them into one number would hide
+both.**
+
+- **C_attributes** — the fraction of assembled rows carrying every attribute
+  the resolution spec declares. The identity key is not among them: a row
+  missing `manager_cik` produced no entity to count. Measured value at the
+  anchor: **`[TBC]` — §F, marker 13.** Not measured, and not guessed.
+- **C_match** — the fraction of assembled rows whose `issuer_match_band` is
+  `strong`. At the anchor, at threshold 0: **1,633 strong of 1,748 assembled
+  = 0.9342** (Wave 1's figures, with the control recorded beside them in
+  `24.1-DATA-PROBE.md`; not re-derived here).
+
+`C = C_attributes × C_match`, so the model's shape is unchanged.
+
+**Which of the two the weak rows are, because §C.4 trap 3 requires this
+document to pick one and say which.** The 115 weakly-matched rows under the
+anchor are a **completeness shortfall this product declares — not a scope
+boundary it draws.** The reason is that the rows are **served**: a product
+drawing a boundary excludes them and owes the consumer nothing about them,
+whereas this product includes them and therefore owes the consumer a number
+saying how much of the answer rests on a weaker issuer match. Filtering to
+`strong` would cost 115 real holders and $2.77bn of reported position and
+remove zero wrong-security rows (§C.4 trap 3), so the boundary reading is not
+available even if it were preferable.
+
+**S — semantic consistency — is 1, and the reason is stated rather than left
+as a magic constant.** There is exactly one source here and **a single source
+cannot disagree with itself.** This is the honest setup for a later example
+where debt only becomes interesting once assembly spans sources that *do*
+disagree; declaring `1` with no reason is how a constant survives into a
+product where it is false.
+
+**Per-component debt table.** Debt is decomposed **per claim** — each holder
+row is a claim — and never only per product: a row missing a non-mandatory
+attribute is served with that field marked `NOT_EVALUABLE`, not dropped and
+not turned into a product-level failure.
+
+| Component | May be absent? | D_c contribution | Behaviour when absent |
+| --- | --- | --- | --- |
+| Reported position value (`value_usd`) | **no** | drives F and C_attributes | **Fail closed → 503.** The threshold is a comparison against it; without it there is no question to answer |
+| Reported period (`report_period`) | **no** | none — it is the pin, not a factor | **Fail closed → 503**, naming the failed source class. An unpinned read is a different question (§C.4 trap 1) |
+| Resolved dominant security | **no** | none — it is the resolve output | **Fail closed → 404.** An anchor that resolves to no security in the period is never an empty payload |
+| Manager identity (`manager_cik`) | **no** | C_attributes | **Fail closed** for that row: a position with no identified holder is not a holder |
+| Manager name | yes | C_attributes | **Serve with flag** — the row stands on the CIK; the field is marked `NOT_EVALUABLE` |
+| Issuer registered name | yes | C_attributes | **Serve with flag** — `issuer.registered_name` marked `NOT_EVALUABLE`; the LEI still identifies |
+| Share count (`shares`) | yes | C_attributes | **Serve with flag** — the threshold is on `value_usd`, not on `shares` |
+| Issuer match band | yes | **C_match** | **Serve with flag, and C_match is marked `NOT_EVALUABLE` rather than assumed 1.0.** If the band is dropped at the source boundary (§C.2's rare capability property degrading), the completeness this product declares cannot be computed, and assuming it is 1.0 would report a *better* completeness for having lost the signal that measures it |
+
+**The debt gate is a Control Plane posture, not a validation gate** (§D.7).
+`src/ccf/controlplane/artifacts.py::DebtProfile` carries
+`forced_llm_threshold` and `fail_closed_threshold`; the deployment reads the
+posture `src/ccf/halflife/debt.py` produces and declines. **This product's
+bands are `[TBC]` — §F, marker 16**, and they must be set *together with* λ_c:
+with a 137-day half-life and a 148-day-old pinned period, `D_c` sits near or
+above 0.5, so a `fail_closed_threshold` chosen without reference to the
+half-life will refuse this product on its first call. That is not a defect in
+either number; it is what happens when a freshness declaration and a
+tolerance are set by two people who did not talk.
+
+### E.3 Materialization posture
+
+**`derived-on-demand`**, at `v1.0.0`.
+
+**The mechanical test, applied honestly.** Standard §5.3: *"if the
+fastest-moving input's λ_c is shorter than the intended cache window,
+materialization is wrong."* Here the fastest-moving input's λ_c is **137
+days**, and no cache window comes near it — so materialization is **not
+wrong**, it is permitted, and §D.2 names it as the first optimisation the
+budget would reach for. The posture shipped at `v1.0.0` is nonetheless
+on-demand, and the reason is pedagogic rather than technical: this product is
+the ladder's first rung and a cache in front of it would hide the assembly the
+example exists to show. **Recording that the test permits what the spec
+declines is more useful than implying the test forbade it.**
+
+**Cache key, stated explicitly** — because a cache key missing a parameter
+that changes the payload is a correctness defect that presents as an
+intermittent one:
+
+```
+tenant_id · schema_name · schema_version · plan_id
+          · graph_snapshot_at (the as-of boundary)
+          · report_period (the pin)
+          · resolved_security.cusip
+          · minimum_position_usd          ← the caller's number
+          · perspective principal and role
+          · policy bundle version
+```
+
+`minimum_position_usd` is in the key and its presence is load-bearing. Because
+the threshold is applied at Π and never in the query (§D.3), **the assembled
+state is identical across callers and only the payload differs** — which is
+precisely the shape in which a key omitting the threshold serves the first
+caller's answer to the second, intermittently, and only under concurrency.
+
+### E.4 Supersession triggers
+
+| Event | Local or cascading | Note |
+| --- | --- | --- |
+| A later filing restating the same manager's position in the same security for the same period | **local** | The row supersedes. This is the amendment case §D.5's replay test is built on, and it is the normal event for this source, not an exception |
+| A reference-data update to the issuer's registered name | **local** | A payload field changes; nothing about the positions does |
+| A change to the resolution spec (`src/ccf/assembly/worker.py::EntityResolutionSpec` `semver`) | **cascading** | It changes what the graph *means*, so it invalidates every product whose `operators_invoked` touched these entities — **not only the products named as consumers.** Named downstream products today: **none** (§B.5) |
+| A policy-bundle version change | **cascading** | Same reach, same reason. Named downstream products today: **none** |
+| The pinned period passing `expires_at` | **local, and not an invalidation** | An expiry. §E.5 |
+
+**Re-derivation is lazy** — invalidate for next request; do not re-materialize
+eagerly. A quarterly 13F publication touches tens of thousands of rows at
+once, so eager re-derivation would turn a routine upstream publication into a
+thundering-herd event across the catalog.
+
+### E.5 The expiry, and the two refusals it can produce
+
+*(`24-CONTEXT.md` `D-43`, Dave 2026-08-26. This subsection exists so that a
+reader who meets a refusal can tell in one reading which of two very different
+things they are looking at.)*
+
+**The declaration.** TTL **365 days**, `ttl_anchor: from_entity_freshness`,
+anchored on the **reported quarter end** (§B.1 element 3). For the pinned
+period that resolves to `2026-03-31`, so:
+
+> **`expires_at` = 2027-03-31.**
+
+**Refusal one — after 2027-03-31, and it is the gate working.**
+`src/ccf/products/gates.py::_refuse_ttl` requires
+`now < expires_at <= now + MAX_TTL`. Once the pinned period is more than 365
+days old, `now < expires_at` is false and the product is **refused**. That is
+**correct behaviour, not a defect and not an example bug.** The declared
+duration is the amendment window: what makes this answer wrong is a
+restatement of *that* period (§E.4), and after a year the probability that an
+unrestated reading is still the register's current statement is not one this
+spec is willing to assert. **The example has a shelf life and it is written
+down here rather than discovered by a red CI run in 2027.** Whether the
+answer at that point is a longer duration, a moving pin, or an accepted
+end-of-life is a decision for whoever holds the example then — §F, marker 18.
+
+**Refusal two — today, on a deployment whose `MAX_TTL` default is too short,
+and it is a CONFIGURATION mismatch.** The same gate's **upper** bound
+requires `expires_at <= now + MAX_TTL`. This product's TTL is 365 days, so:
+
+> **Control Plane obligation: the class's `MAX_TTL` artifact
+> (`src/ccf/products/contract.py::MaxTTL`) must declare at least
+> 31,536,000 seconds (365 days).**
+
+A deployment whose default is shorter — an hour, a day, a week — refuses this
+product **on its very first call**, before the archive has aged at all. **That
+refusal is a mis-configured deployment, not a broken example**, and the two
+are trivial to confuse because they come out of the same gate.
+
+**How to tell them apart in one reading:**
+
+| What you observe | Which refusal | What to do |
+| --- | --- | --- |
+| The refusal names the **lower** bound — `expires_at` is in the past — and today's date is after 2027-03-31 | **Refusal one.** The gate working | Nothing is broken. Read §F marker 18 and decide the product's future |
+| The refusal names the **upper** bound — `expires_at` exceeds `now + MAX_TTL` — and today's date is before 2027-03-31 | **Refusal two.** A configuration mismatch | Raise the deployment's `MAX_TTL` to ≥ 31,536,000 s. Do not shorten this product's TTL to fit a default nobody chose |
+
+---
 
 ## Section F — Source binding & readiness
 
-*Authored in the next wave.* **Every `[TBC]` marker raised above reappears
-here with a named owner** — twelve of them, listed so the queue can be checked
-against the document rather than trusted:
+*(Standard §6.)*
 
-| # | Marker | Raised at |
+**Schema and table only. No host, no port and no credential appears in this
+document, and none may enter the example tree.** The connection reaches the
+deployment through a **declared environment-variable NAME** and through
+nothing else — the shape
+`examples/s1-00-companies-over-revenue/backends.yaml` uses, whose own comment
+puts the reason exactly: *"a DSN in a content-hashed artifact is a DSN
+persisted into the audit plane forever."*
+
+### F.1 Element readiness
+
+| Element | System of record | Interface & cadence | Available today | Gap owner | Blocker |
+| --- | --- | --- | --- | --- | --- |
+| Issuer identity (`lei`) | SEC Form 13F → `ccf_v2.institutional_holder` | Set-based read; archive, refreshed on load | **yes** | — | — |
+| Issuer registered name | Entity reference → `ccf_v2.legal_entity` | Set-based read; **cadence unpublished** | **partial** — the value is present for 48 of 48 anchors in the pinned period; the *refresh cadence* is not published | CCF SDK examples maintainer | The archive publishes no refresh interval (marker 4) |
+| Manager identity (`manager_cik`, `manager_name`) | SEC Form 13F | Set-based read | **yes** | — | — |
+| Held security (`cusip`) | SEC Form 13F | Set-based read | **yes** | — | — |
+| Reported position value (`value_usd`), share count (`shares`) | SEC Form 13F | Set-based read | **yes** | — | — |
+| Reported period (`report_period`) | SEC Form 13F | Set-based read | **yes** | — | — |
+| Issuer-match score and band | SEC Form 13F loader — **derived upstream, not by this assembly** | Computed at load | **yes** | Source-system owner (the loader) | — |
+| Row provenance flag | SEC Form 13F loader | Computed at load | **yes** | — | — |
+| Resolved dominant security | **This assembly** — §D.2 step 1 | Group-and-rank at the source read | **partial** — the capability §C.2 names as most likely to be absent. Where the estate cannot rank inside a read, §C.2's interim posture takes over and the product ships as `v1.0.0-partial` | CCF SDK examples maintainer | Estate capability, unmeasured against the target estate |
+| **Percent-of-class concentration** | **none** | — | **no** | CCF SDK examples maintainer | **Not derivable from this estate.** `ccf_v2.financial_fact` carries 21 distinct XBRL tags and `tag ilike '%Shares%'` returns `[]`, against a `%Revenue%` control returning four (§B.4). There is no shares-outstanding fact, so there is no denominator |
+
+### F.2 Every `[TBC]` in this document, with an owner
+
+**Eighteen markers. Every one raised anywhere above reappears here** — that is
+Standard §0.2, and it is what makes a spec with honest gaps buildable. *No
+spec passes review with an unowned gap; "does not exist yet" is a valid state,
+unattributed is not.*
+
+| # | Marker | Raised at | Owner | What closes it |
+| --- | --- | --- | --- | --- |
+| 1 | The approved **domain list** the registry name assumes | front matter | Platform / catalog owner | An approved domain taxonomy; `holdings` is proposed against it |
+| 2 | The **accountable-owner triad** — product owner, data steward, policy owner | front matter, §G | Whoever adopts this product outside the examples suite | A real catalog entry. Naming a bank function for a teaching artifact would be inventing an organisation |
+| 3 | The **payload schema** key and version | §B.1 element 1 | The wave that authors `ccf_config.yaml` | The artifact existing. **§D fixes the value it must carry**: `schema_name: holdings.institutional-holders`, `schema_version: 1.0.0`, and therefore `plan_id: holdings.institutional-holders` — the `s1-00` precedent, where `plan_id` is `product_class.schema_name`. The marker is on the *artifact*, not on the value |
+| 4 | The **issuer-identity refresh cadence** | §B.1 element 2, §E.1 | Source-estate owner | The archive publishing one |
+| 5 | The **policy bundle** version id | §B.1 element 4 | The wave that authors the policy bundle | The artifact existing |
+| 6 | The **intent registry** (Standard §11.1) | §B.4 | Platform | An intent registry existing in this deployment. Until then the accepted values are declared on the product class rather than resolved against a governed registry |
+| 7 | Ontology IRI — **held security** | §C.1 | Ontology owner | A bound term for a security identifier in this estate's IRI binding contract |
+| 8 | Ontology IRI — **reported position value and share count** | §C.1 | Ontology owner | As above |
+| 9 | Ontology IRI — **reported period** | §C.1 | Ontology owner | As above |
+| 10 | Ontology IRI — **issuer-match score and band** | §C.1 | Ontology owner | As above |
+| 11 | Ontology IRI — **row provenance flag** | §C.1 | Ontology owner | As above |
+| 12 | Ontology IRI — **resolved dominant security** | §C.1 | Ontology owner | As above |
+| **13** | **`C_attributes` measured value** at the anchor | §E.2 | The wave that runs the assembly | A run. It is a measurement, not a decision, and it is not guessed here |
+| **14** | **A row exactly at a threshold value** in the CI fixture | §F.3 volumetrics | The wave that authors the seeded CI fixture (`24-CONTEXT.md` `D-25`/`D-27`) | The fixture carrying one. Without it gate `IH-G04` has nothing to act on |
+| **15** | **Measured p50 / p95 latency and per-call cost** | §D.2, §G | The wave that runs the assembly | A measured run. §13's certification evidence requires it before this product leaves `draft` |
+| **16** | **`debt_tolerance` bands** — `forced_llm_threshold`, `fail_closed_threshold` — and `risk_sensitivity` | §E.1, §E.2, §G | The wave that authors the debt profile | The artifact existing. **They must be set together with λ_c** (§E.2) |
+| **17** | **Replay-record retention tier** — full-fidelity, compressed or tombstoned — and the severity rule assigning it | §G | Platform / records owner | A retention policy for this deployment |
+| **18** | **What happens to this product after 2027-03-31** — longer duration, moving pin, or accepted end-of-life | §E.5 | Whoever holds the example then | A decision. Flagged now rather than met as a red CI run |
+
+### F.3 Access path, identifiers, history, text and volumetrics
+
+**Access path.** An **existing read-only relational feed** — a set-based query
+against `ccf_v2` in the `parkavedb` estate. Not CDC, not an event stream, not
+a new build. Locally the example points at the real store; in CI the same code
+path runs against a **CI-provisioned service container the test seeds itself**
+from a small 13F fixture (`24-CONTEXT.md` `D-25`/`D-27`), because CI cannot
+reach the host the estate runs on and no database secret belongs in a CI
+configuration.
+
+**Identifier reality.** The correlation keys exist end to end. `(lei,
+report_period)` is the resolution key; `(lei, manager_cik, cusip,
+report_period)` is the source row key and the table's primary key. Measured
+crosswalk coverage from the holdings table to the reference table: **48 of 48**
+distinct issuer LEIs in the pinned period, against a salted-key control
+matching **0 of 48** (§C.3). The crosswalk is owned by the source estate's
+loader, not by this product.
+
+**History depth.** The source reconstructs back to `31-DEC-2014` — 46 distinct
+`report_period` values across a decade (§C.4 trap 1). That bounds any `as_of`
+this contract could advertise; it advertises none, because the period is
+pinned by the spec rather than chosen by the caller. **The archive already
+retains history**, so §6's *"start retaining deltas now"* rule does not bite
+here — which is worth stating, because it does bite for most sources and a
+reader should not generalise this product's comfort.
+
+**Text-source boundary.** **None.** No claim in this payload rests on text,
+nothing is extracted from a document, and no operator reaches into one at
+runtime. The capability class and cost band are unchanged by this row, and
+§B.1 element 5's absent passage anchors follow from it.
+
+**First-build volumetrics** — the population the first build must contain for
+every gate and counterfactual to have something to act on. All figures are
+Wave 1's, cited rather than re-derived:
+
+| Required case | Why it is required | Present? |
 | --- | --- | --- |
-| 1 | The approved **domain list** the registry name assumes | front matter |
-| 2 | The **accountable-owner triad** (product owner · data steward · policy owner) a real catalog entry carries | front matter |
-| 3 | The **payload schema** key and version | §B.1 element 1 |
-| 4 | The **issuer-identity refresh cadence** | §B.1 element 2 |
-| 5 | The **policy bundle** version id | §B.1 element 4 |
-| 6 | The **intent registry** (Standard §11.1) | §B.4 |
-| 7–12 | The **ontology IRI bindings** for the held security, the reported position, the reported period, the match band, the provenance flag, and the resolved dominant security | §C.1 |
+| An issuer whose `(lei, period)` fans out to ≥ 2 CUSIPs | `IH-G01` has nothing to catch without it | **yes** — the anchor fans out to **6** |
+| ≥ 1 manager whose only position is on a non-dominant security | It is what `IH-G01` must exclude | **yes** — **5** |
+| ≥ 1 `weak`-band row on the dominant security | `IH-G03` and C_match are both vacuous without one | **yes** — **115** |
+| ≥ 1 row outside the pinned period | `IH-G02` has nothing to catch without it | **yes** — **1,989** estate-wide |
+| A threshold with a non-empty and a non-full answer | Otherwise the caller's parameter is decorative | **yes** — the sweep runs **1,748 → 21** across $0 → $1bn |
+| ≥ 1 entity class with no classification attribute, in a negative fixture | `IH-G06` must be watched RED | **not yet** — the fixture is authored, so this is a construction obligation rather than a data gap |
+| **A row whose `value_usd` exactly equals a threshold value** | **`IH-G04` cannot fail without one, and a gate that cannot fail proves nothing** | **NOT MEASURED.** §6's rule is *widen the sample until the case occurs*; here the honest response is that the **seeded CI fixture must contain one by construction** — marker 14 |
 
-Carried here alongside them, not as `[TBC]` but as recorded findings: the
-absence of a shares-outstanding fact in the estate (§B.4), and the two
-Standard-vs-SDK divergences on `debt_tolerance` and `not_supported_at_tier`
-(§B.4).
+### F.4 Recorded findings — not `[TBC]`, because none of them needs a decision to build
+
+Each of these is a **Standard-versus-SDK observation** for this phase's gap
+register, recorded under `24-CONTEXT.md` `D-04` and **not closed here**;
+closing any of them would be an SDK extension, which is a separate phase.
+
+1. **`debt_tolerance` is not a request parameter in this SDK.** The bands are
+   Control Plane state (`src/ccf/controlplane/artifacts.py::DebtProfile`),
+   which is the better design on the merits — a caller who can move its own
+   fail-closed band can decide to be served context the deployment ruled too
+   stale to decide on (§B.4).
+2. **An undeclared parameter is refused as `undeclared-parameter`, not under
+   the Standard's `not_supported_at_tier` name** (§B.4, §D.6).
+3. **Percent-of-class is not derivable from this estate** (§B.4, §F.1).
+4. **The empty-operator gate is two different assertions sharing one name.**
+   The SDK's refuses a product that *declares* no operators; the Standard's
+   refuses an operator that *returns* an empty set. Covered here by product
+   gates `IH-G05` and `IH-G07` (§D.7).
+5. **The content address covers the whole vessel, not a deterministic subset.**
+   Two live calls a second apart produce two addresses for one answer; replay
+   is unaffected (§D.4).
+6. **Classification containment and suppression silence are realized
+   structurally at L4, not as post-assembly gates**
+   (`src/ccf/operators/categories.py::PolicyFilter._admits`). Whether the
+   Standard should say so is the finding; neither this product nor this SDK
+   owes a post-assembly form (§D.7).
+7. **The tier ladder charges `bitemporal-ledger` at Tier 3, but every CCF
+   product reads a bitemporal graph by construction.** Unless capability
+   classes are read as **estate** requirements, no CCF product could be Tier 1
+   (§D.3).
+8. **`Resolve` separates across two layers.** The canonical-entity half is at
+   L2 as the mapping predicts; the dominant-security half is a group-and-rank
+   the per-envelope L2 seam structurally cannot perform, and it runs at the
+   source read (§D.3).
+9. **The Standard fixes no numeric latency envelope for any tier**, so §D.2's
+   budget is measured against an envelope this spec declares in §G.
+10. **`python -m tools.lints.citations` exits 0 on a seeded broken citation
+    and on a fabricated symbol; `python -m tools.lints --all` exits 1 and
+    names both.** Recorded per `24-CONTEXT.md` `D-42` and **deliberately not
+    fixed** — fixing a shipped tool is a build.
+
+---
 
 ## Section G — Operate & govern
 
-*Authored in the next wave.* Registration is deliberately deferred until it is
-written (§B.1 element 7).
+*(Standard §7.)*
+
+| Entry | Content |
+| --- | --- |
+| **Accountable owner** | The CCF SDK examples maintainer operates this product. The product-owner / data-steward / policy-owner **triad** a real catalog entry carries is `[TBC]` — §F marker 2. This is a teaching artifact, and naming a bank function for it would be inventing an organisation |
+| **Service objectives** | **p95 assembly latency envelope: 1,000 ms**, declared here because the Standard fixes none per tier (§D.2). **p50 target: 400 ms.** §D.2's step budgets sum to **620 ms — 62% of the envelope**, and every one of them is a **declared budget, not a measurement** — `[TBC]` §F marker 15. Expected volume: **example scale**, single-digit calls per run, no concurrency ceiling asserted because none has been tested. Payload bound: the anchor at threshold 0 serves **1,748 holder rows**; a caller passing 0 gets the whole register, which is a legitimate and deliberately un-capped answer. Absolute per-call cost: `[TBC]` §F marker 15, alongside the relative band (**×1**, Tier-1 baseline) |
+| **Degradation contract** | **Mandatory classes, named explicitly:** reported position value, reported period, and the resolved dominant security. Any of the three unavailable → **fail closed** (503, or 404 where the anchor resolves to no security) — never a partial payload. **Non-mandatory:** manager name, issuer registered name, share count, issuer match band → **partial payload with the field marked `NOT_EVALUABLE`, `notices` populated, and `D_c` elevated** (§E.2). The band is the one to watch: losing it makes `C_match` itself `NOT_EVALUABLE` rather than 1.0 |
+| **Debt model** | `D_c = 1 − (F · C · S)` with `C = C_attributes × C_match`. **F** is driven by the reported position's age from `valid_from` against a 137-day λ_c, over rows **assembled**. **C** is driven by declared-attribute presence and by `issuer_match_band`. **S** is 1 — one source cannot disagree with itself. `debt_tolerance` default and its basis: `[TBC]` — §F marker 16, **and it must be set together with λ_c**, because a 148-day-old pinned period against a 137-day half-life puts `D_c` near 0.5 and a tolerance chosen in ignorance of that will refuse the product on its first call |
+| **Observability** | Per-operator latency (steps 3–5 individually, since step 2 dominates and is the one an optimisation would target) · the `D_c` distribution, not only its mean · gate-failure counts **by gate**, so a TTL refusal is never read as a lineage refusal (§E.5 turns on exactly that distinction) · cache hit rate (currently n/a — `derived-on-demand`) · entitlement denials (expected: **zero**, and a non-zero count is itself the signal) · degradation-branch frequency per non-mandatory input · supersession-triggered invalidations, split local versus cascading. **This is also the evidence base that moves λ_c and `debt_tolerance` from `illustrative` to `measured`** — markers 15 and 16 close from here and nowhere else |
+| **Retention & record of record** | The **record of record is the source estate**, per element and without exception: `ccf_v2.institutional_holder` for every position element, `ccf_v2.legal_entity` for the issuer's registered name. **The fabric references it and does not replace it** — nothing this product runs writes to the store it reads (§C.3), and the CCF graph is a per-run local file. Replay-record retention tier — full-fidelity, compressed or tombstoned — and the severity rule assigning it: `[TBC]` — §F marker 17 |
+| **Test fixtures** | Happy path: the anchor at a threshold inside the sweep. One fixture per product gate, `IH-G01` through `IH-G08` (§D.7), each **watched RED** against a seeded violation before it is trusted — a gate that has never failed has not been tested. One fixture per degradation branch, one per mandatory-input failure. And a **replay hash assertion**: §D.5's four-step test, ending on byte-identical `product_content_address` |
+| **Lifecycle** | **`draft`**, 2026-08-26, reviewer `[TBC]` — §F marker 2. Not registered and not certified: §2.1 names registering before §G is complete as the common error, and §13's certification evidence is not on file (markers 13, 15, 16 are all measurements it requires). **Deprecation, when it comes, requires:** consumer notification from §B.5 — the list is **empty today**, so the obligation is currently vacuous and will stop being vacuous the moment the second rung of the ladder consumes this one; a sunset date at least one migration window out; and a named successor **or an explicit statement that none exists** |
+
+### G.1 The expiry obligation, restated where an operator will look for it
+
+*(`24-CONTEXT.md` `D-43`. The full treatment is §E.5; this row exists so that
+an operator reading §G alone does not miss it.)*
+
+- **This product's `expires_at` is `2027-03-31`.** After that date
+  `src/ccf/products/gates.py::_refuse_ttl` refuses it. **That is the gate
+  working, not a defect** — see §F marker 18 for who decides what happens
+  next.
+- **The deployment's `MAX_TTL` must declare at least 31,536,000 seconds
+  (365 days).** A shorter default refuses this product **on its first call**,
+  today, at the gate's **upper** bound. **That is a configuration mismatch,
+  not an example bug**, and the remedy is to raise `MAX_TTL` — never to
+  shorten this product's declared TTL to fit a default nobody chose.
+- §E.5 carries the two-row table that tells the two refusals apart from the
+  refusal message alone.
+
+### G.2 Acceptance criteria
+
+Each assertion below is **specific to this product**, independently
+verifiable, and **phrased so that it can fail**. The universal definition of
+done is Standard §15; these are what this product must additionally prove.
+
+1. The served payload validates against
+   `src/ccf/products/contract.py::ContextProductContract`, and
+   `src/ccf/products/gates.py::run_gates` returns a
+   `src/ccf/products/gates.py::ServableProduct` rather than a
+   `::GateRefusal` — **with the refusal branch also exercised**, because a
+   `ServableProduct` is evidence only if the alternative is reachable.
+2. Every step in §D.2 has a row in
+   `examples/cp-00-institutional-holders/artifacts/assembly-recipe.yaml`, and
+   every row has a step — **set equality in both directions**, not
+   containment.
+3. Every witness declared in that document is **observed on a completed run**,
+   and **each witness kind is watched RED** against a run in which the fact it
+   names is absent. A witness that cannot fail proves nothing.
+4. `lineage.operators_invoked` equals the engine-resolved set exactly, in both
+   directions, and contains `policy.principal-subgraph` and
+   `temporal.as-of-boundary` and nothing else.
+5. `IH-G01` … `IH-G08` (§D.7) each pass on the happy path **and each fail on a
+   seeded violation.**
+6. A request omitting `minimum_position_usd` is **refused as data** by
+   `src/ccf/products/request.py::refuse_request` — not defaulted, not
+   accepted, and not raised as an exception.
+7. A manager whose `value_usd` **equals** the threshold **is served** (`>=`,
+   §D.3).
+8. §D.5's replay test returns a **byte-identical** `product_content_address`
+   at the recorded snapshot after the underlying state has demonstrably
+   moved — and step 3 of that test confirms the live re-derivation returned
+   the **new** value, so step 4's success is not vacuous.
+9. §D.5's second test shows the two time axes **disagreeing** under an
+   amended filing. Agreement means a filter was dropped.
+10. No module in the example tree imports an LLM client, asserted by a walk
+    over every module and **watched RED on an injected import** (criterion 4).
+11. The example prints its **specification** and its **resulting JSON**, both
+    non-empty, with the JSON validating against the declared contract.
+12. Every domain-specific value — the anchor, the pinned period, the
+    threshold's absence of a default, the policy bundle, the half-life table —
+    lives in a **definition artifact**, and the example's code still fails
+    meaningfully with those artifacts deleted (the No-Hardcoding Rule,
+    `CLAUDE.md` §6.4).
+
+**Open decisions blocking build, named by their §F row.** None of the
+eighteen markers blocks the build. Three shape it and must be settled before
+the assembly can be run end to end rather than merely written:
+
+- **Marker 3** — the payload schema artifact. §D fixes the value it must
+  carry; the artifact must exist before anything runs.
+- **Marker 16** — the debt bands. A band set without reference to λ_c refuses
+  the product on its first call (§E.2).
+- **Marker 14** — a row exactly at a threshold value in the seeded fixture.
+  Without it `IH-G04` cannot fail, and a gate that cannot fail is not a gate.
+
+Markers 13 and 15 are **measurements the build produces**, not decisions that
+gate it. The remaining thirteen are external dependencies — catalog, ontology
+and platform decisions — none of which prevents this product from being
+assembled, served and replayed.
+
+### G.3 Catalog contribution
+
+**What this product proves that no earlier product proved.** It is the first
+Context Product in this repository specified to the **full** Standard before
+the assembly it specifies exists — so it tests the **authoring** path, not
+only the assembly path. It is the first to place `Resolve` at a layer, and the
+first to find that the name does not sit at one layer. It is the first to
+carry a specification's `[TBC]` markers all the way through to an owner table
+rather than into a build.
+
+**What it deliberately does not prove.** Multi-source assembly, and therefore
+`S ≠ 1` and any semantic disagreement at all. `Enrich`, which it has no
+occasion to use because every attribute arrives in the same row as the
+position. Any Assembly Mode above 1. Products built off products. Federation
+across an A2A boundary. Entitlement partitioning with something real behind
+it — this product's `policy` step excludes nobody and says so. **None of these
+is a tier boundary read as an oversight; each is the next rung's point.**
