@@ -3,9 +3,47 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-25T18:45:00.000Z"
+last_updated: "2026-08-26T00:45:00.000Z"
 last_activity: >-
-  2026-08-25 -- **PHASE 23.1 AND PHASE 24 ARE ON THE ROADMAP. NOTHING IS IN FLIGHT.**
+  2026-08-25/26 -- **PHASE 23.1 IS EXECUTED AND STOPPED AT ITS GATE, AWAITING DAVE'S
+  RULING. `D-GATE-23.1` IS NOT WRITTEN, `phase-23.1` IS NOT MERGED AND NOT PUSHED, and
+  `complete-milestone` HAS NOT RUN.** Eight plans in eight serial waves on branch
+  `phase-23.1` from `PHASE_BASE` `cb6a744`. All thirteen open requirement rows carry a
+  disposition; all 27 human-verification packet items carry a final disposition; the
+  `D-27` keep-quarantined ruling is logged as `D-IMPL-201`; ten decision candidates are
+  renumbered to `202`-`211`; Phase 23's criterion 15 carries `D-GATE-23`'s
+  chunked-foreground reading as an explicitly marked amendment.
+  **DAVE'S FOUR RULINGS OF 2026-08-25 ARE APPLIED (plan `23.1-08`).** (1) `DOCS-18` and
+  `DCD-02` -- verdict `Partial` beside disposition `Discharged` -- flipped to `Complete`
+  in BOTH channels with both boxes ticked; **the open-row count MEASURED at 11**, down
+  from 13, with two positive controls returning 12 and naming the injected row.
+  (2) The **14** `audit-open` items are **ACKNOWLEDGED AT CLOSE, BY NAME** -- 4 UAT gaps
+  (Phases 11, 13, 14, 15.3) and 10 verification gaps (11, 13, 14, 15.1, 15.2, 15.3,
+  15.4, 18, 18.1, 19) -- **with the structural reason RECORDED rather than papered
+  over: the tooling and the ledger disagree about what "done" means.** Dispositioned
+  rows still look OPEN to `audit-open` (which reads each record's frontmatter `status:`)
+  and to the requirements check (which counts unticked boxes), while `roadmap.analyze`
+  reads DISK and reports **100 percent**. Three channels, three answers. Phase 23.1
+  **deliberately did not rewrite nine closed phases' frontmatter to satisfy a counter**.
+  `complete-milestone` does NOT run inside this phase (criterion 18's name-the-reason
+  branch) and there is **NO silent force-complete**. (3) `D-IMPL-144` migrate-when-
+  touched: the `:235` and `:356` anchors rode through the `DOCS-17` and `DOCS-18` lines
+  this phase rewrote -- **measured as FOUR occurrences, not two**, because the ledger
+  carries each row in two channels -- all four migrated, **residual RECORDED at 38 ->
+  34 rather than the set claimed done** (Dave's stated 36 assumed one occurrence per
+  anchor; the difference is named, not made to agree). (4) The plan counter re-measured
+  from the tree and hand-corrected, never incremented -- see `progress.measured`.
+  **THE CLOSE-TIME CROSS-AI PANEL RAN AGAINST THE SHIPPED TREE WITH THE SOURCE INLINED**
+  (`23.1-CLOSE-REVIEWS.md`): codex, cursor and gemini, each PROVEN to have read by
+  resolving its own citations against the files on disk against a negative control --
+  7/7, 8/8 and 6/6. **Three blocking findings, all fixed IN-PHASE**; eight advisory; two
+  gemini prose claims REJECTED as fabrications with the refuting commands recorded. The
+  additive single-agent depth pass ran separately and found the verdict/disposition
+  coherence class NOWHERE ELSE in the 149 rows. `make ci` re-run in full, chunked and
+  FOREGROUND, ten legs all exit 0. **ONE LINE OF SHIPPED CODE CHANGED and it is named
+  for Dave**: `CONTROL 9b`'s expected verdict constant in
+  `tools/docs_tests/test_requirement_ledger.py`, which pinned `DCD-02`'s verdict to
+  `Partial` and which ruling 1 moved. PRIOR: 2026-08-25 -- **PHASE 23.1 AND PHASE 24 ARE ON THE ROADMAP. NOTHING IS IN FLIGHT.**
   Dave supplied the Phase 24 requirements (Context Production) and RULED THE SEQUENCING:
   **the v0.2 close-out runs BEFORE Phase 24**, which is why it is numbered `23.1` and not
   `25`. Phase 23.1 carries **NINETEEN** Success Criteria, LOCKED in the ROADMAP entry
@@ -112,9 +150,36 @@ progress:
   total_phases: 30
   completed_phases: 28
   total_plans: 225
-  completed_plans: 222
+  completed_plans: 225
   percent: 93
-  measured: "**OPERATIVE RE-MEASURE, 2026-08-25 by `23.1-06`, stated FIRST and alone
+  measured: "**OPERATIVE RE-MEASURE AT THE PHASE 23.1 GATE, 2026-08-25/26 by
+    plan `23.1-08`, stated FIRST and alone; everything below it is PRESERVED HISTORY.**
+    RE-MEASURED FROM THE TREE, NOT INCREMENTED (Dave, 2026-08-25: *re-measure and
+    hand-correct; do not increment*). **total_plans 225** = `*-PLAN.md` at depth 1 under
+    `.planning/phases/*/`; **completed_plans 225** = those with a matching `*-SUMMARY.md`
+    beside them. Positive controls beside the figures: `*-PLANN.md` returns **0** and
+    `*-SUMMARYY.md` matches **0**, so a match is a match and not a glob that saw nothing;
+    a known-present probe (`23.1-07-PLAN.md`) is matched and a known-absent probe
+    (`23.1-99-PLAN.md`) is not. **UNMATCHED PLANS: NONE.** `23.1-08-SUMMARY.md` closes
+    the last of the three that were in flight. **SUPERSEDED VALUE NAMED rather than
+    overwritten silently (`D-19`, `D-IMPL-174`): completed_plans 222 -> 225.** The 222
+    below was measured by `23.1-06` and was already stale by three then and by one at
+    `23.1-07`, which measured 224; the figure written here is `23.1-08`'s own
+    measurement with its own controls, NOT `23.1-07`'s figure plus one. Summary files
+    re-measured with it: **245** at depth 1, **20** of them with no matching PLAN, which
+    is still why `gsd-sdk query progress.bar` reports an impossible 245/225 -- it counts
+    summaries against plans. Depth-2 plans still EXCLUDED and named: 14 under Phase 16
+    `abandoned/` and 13 under Phase 15.2 `void-plans-pre-D-IMPL-87/`; every depth
+    returns 252. **percent stays 93**: it is 28 of 30 PHASES, not 225 of 225 plans, and
+    Phase 23.1 is NOT gated until Dave rules -- `gsd-sdk query roadmap.analyze` reports
+    `completed_phases 29 / progress_percent 100` because it reads DISK and counts the
+    phase now being closed as already complete, which is a THIRD channel disagreeing
+    with this one and with the ROADMAP checklist's `- [ ] Phase 23.1`. That
+    disagreement is criterion 18's subject and is named in `23.1-GATE-MEASUREMENTS.md`
+    R-7 rather than resolved by moving a number here.
+    **THE PARAGRAPH BELOW IS PRESERVED HISTORY FROM `23.1-06` AND ITS FIGURES ARE
+    SUPERSEDED.**
+    **OPERATIVE RE-MEASURE, 2026-08-25 by `23.1-06`, stated FIRST and alone
     because token presence is not token force -- everything below this paragraph is
     PRESERVED HISTORY and two of its sentences are WITHDRAWN in place.** Re-measured
     from the tree, NOT incremented (Dave, 2026-08-25: *re-measure and hand-correct; do
