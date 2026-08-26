@@ -206,3 +206,149 @@ opposite choice on the TTL axis — its Control Plane document declares
 numeric threshold applied at Π over rows read from a relational store). The two
 read together teach the anchor better than either does alone: one product's
 validity starts when you ask, the other's started when the source reported.
+
+---
+
+## Section B — Contract
+
+*(Standard §2. All nine elements of §2.1 are written; none is omitted, and
+where an element's row is empty the emptiness is stated as a decision.)*
+
+### B.1 The nine elements
+
+| # | Element | Value |
+| --- | --- | --- |
+| 1 | **Schema** | Payload type `institutional_holders_over_threshold`. Entities: **Issuer** (one, the anchor) and **InstitutionalManager** (many). Relationship: *manager reports a position in issuer*. Measures per manager: reported position value in USD, reported share count. Per-row signals: the resolved security, the reported period, the issuer-match band and score, the row's provenance class. **Artifact, not prose** — the machine-readable declaration is the `product_class:` and `resolution:` sections of `examples/cp-00-institutional-holders/ccf_config.yaml`, authored in the next wave; the payload schema key and version are `[TBC]` until it exists, and the marker reappears in §F |
+| 2 | **Freshness SLA** | **Per signal class, not one value for the product**, and the SDK's shape is the same: `src/ccf/products/contract.py::FreshnessSLA` carries `max_age_seconds_by_signal`. Two classes. *Reported position* — **137 days** (a calendar quarter plus the 45-day filing deadline the source's own reporting rule sets): a position more than one full filing cycle old is not the current statement of the register. *Issuer identity* (legal name, from the reference table) — cadence **`[TBC]`**: the archive publishes no refresh interval for it and guessing one would be the §0.2 defect. Marker reappears in §F |
+| 3 | **TTL** | **365 days · `ttl_anchor: from_entity_freshness`**, anchored on the **reported quarter end** — `to_date(report_period, 'DD-MON-YYYY')`, which for the pinned period resolves to exactly one date, `2026-03-31` (20,487 of 20,487 rows parse; Wave 1 measured it against a must-match control, not an `is null` control). See the note below: this is the most easily mis-read line in the document |
+| 4 | **Policy Binding** | Regime: **public disclosure** — the source is a public regulatory filing. Version id: the deployment's policy bundle, `[TBC]` until the next wave authors it; its **version** rides the served product's lineage regardless of which bundle it is. **Entitlement scope: none is asserted, deliberately.** Every element in §C measures `provenance = 'public'` (22,476 of 22,476 rows in the holdings table, 156 of 156 in the reference table), so the highest classification of any element is `public` and there is no jurisdictional or entitlement partition to bind. Standard §2.1's named common error is *"asserting 'entitlement scope' with nothing behind it"*; a decorative scope on public-filing data is exactly that error, so this product asserts none and says why. `policy_version` is still emitted, so the ordering is established from the first product rather than retrofitted |
+| 5 | **Lineage** | Six members, all present. See the mapping table below — including the two the Standard lists that this product deliberately does **not** carry, whose rows are stated rather than dropped |
+| 6 | **Semantic Version** | **v1.0.0.** No prior supported version; migration window **n/a — this is the first version**. Change classes per Standard §12: adding a payload field or a new optional parameter is MINOR; changing `ttl_anchor`, changing the Assembly Mode, retyping or removing a field, or changing the required parameter's default (it has none — see §B.4) is **MAJOR** and requires a migration window with both versions served |
+| 7 | **Discovery** | `holdings.institutional-holders.v1`. SDK surface: `src/ccf/products/contract.py::ProductDiscovery` (domain · intents · capabilities · audiences). **Not registered yet** — §G is unwritten, and Standard §2.1 names registering before §G is complete as the common error |
+| 8 | **Addressability** | `/context-products/holdings/institutional-holders/{issuer-lei}` — anchored on the **issuer LEI**, a publicly resolvable identifier, and **not** on an internal surrogate key, which is §2.1's named error for this element. The anchor resolves: 48 of 48 distinct issuer LEIs in the pinned period join to the reference table, against a salted-join control that matched 0 of 48. SDK surface: `src/ccf/products/contract.py::ProductAddress` |
+| 9 | **Assembly Mode** | **1 — pure algorithmic.** Rationale, one sentence as §2.1 requires: the answer is a filtered, resolved, aggregated set of filed numbers, so a model in the path would add cost and non-determinism and could only paraphrase what the substrate already states exactly. Fixed by `24-CONTEXT.md` `D-14`. **Assembly Mode is a registration-time commitment**, not an emergent runtime property; changing it is a MAJOR change |
+
+**On the TTL, because it is the point most easily mis-read** (`24-CONTEXT.md`
+`D-22`). The SDK takes the anchor the spec **declares**:
+`src/ccf/products/contract.py::TTLAnchor` is
+`Literal["from_decision", "from_entity_freshness"]`, and nothing in it requires
+a row timestamp. *"There should be a timestamp and there isn't"* is a data
+defect; *"the dataset reports per period and the spec anchors on that period"*
+is a normal freshness declaration. **This product is the second sentence.**
+There is no gap here and no defect, and a later reader who finds one has read
+the absent `last_updated` column rather than this declaration.
+
+**Two consequences of that anchor, both structural, both owed to the waves that
+build against this spec:**
+
+1. `expires_at` = reported quarter end + 365 days = **2027-03-31** for the
+   pinned period. The declared duration is the amendment window, not the filing
+   cycle: this source is an amended-filing archive in which a period is
+   restated years later (§C.4 trap 1), so what makes the answer wrong is a
+   restatement of *that* period, not the arrival of the next one.
+2. Because the anchor is the reported quarter and not the request instant,
+   **the product's servability decays with the archive's age.** TTL bounds —
+   `src/ccf/products/gates.py::run_gates` gate 3 — require
+   `now < expires_at <= now + MAX_TTL`. Once the pinned period is more than 365
+   days old, the gate **refuses to serve**, and that refusal is the mechanism
+   working, not a bug to route around. It also fixes a Control Plane
+   obligation: the class's `MAX_TTL` artifact
+   (`src/ccf/products/contract.py::MaxTTL`) must declare at least
+   **31,536,000 seconds**, or the same gate refuses at the upper bound instead.
+
+**Lineage, member by member, against the SDK surface that carries it.**
+
+| Standard member | Where it lands | Note |
+| --- | --- | --- |
+| `operators_invoked[]` | `src/ccf/products/contract.py::ProductLineage` field `operators_invoked` | Compared for **strict equality** against the engine-resolved set by gate 2 |
+| `graph_snapshot_at` | `ProductLineage` field `graph_snapshot_at` | The temporal boundary the graph was read at |
+| `policy_version` | `ProductLineage` field `policy_bundle_versions` | Plural in the SDK: the versions actually bound into the assembled state |
+| `projection_plan_id` | `src/ccf/products/contract.py::ContextProductContract` field `plan_id` | On the vessel, not on the lineage sub-object |
+| **`context_debt`** | `ContextProductContract` fields `debt` and `debt_evidence` | **Not optional.** Standard §2.1 names omitting it as *the* common error for this element, and the SDK produces it on every assembly and carries it **inside** the delivered bytes |
+| `payload_hash` | `src/ccf/contracts/canonical.py::content_hash` over the vessel's canonical bytes; recorded as `product_content_address` by `src/ccf/replay/record.py::build_replay_record` | **A derived address, not a field on the contract.** Stated as it is rather than claimed as a field the type does not have |
+| *passage anchors* | **Absent, by decision** | No claim in this payload rests on text. Nothing is extracted from a document, so there is no passage to anchor to; the row is stated rather than dropped |
+| *`model_record`* | **Absent, by decision** | Mode 1. There is no model in the trust path, so there is no model to record |
+
+### B.2 Classification and residency
+
+| Field | Value |
+| --- | --- |
+| Data classification | **public** — the highest classification of any element in §C, and measured rather than assumed: both source tables are 100% `provenance = 'public'` |
+| Information barrier | **none.** Filed institutional positions are public disclosure. If a future version joined internal coverage, pipeline or order data, it would become MNPI-bearing and move tier — that is a different product, not a bigger version of this one |
+| Residency constraints | **none.** Public filings of a single national regulator |
+| Cross-border serving | **permitted**, unconditionally, on the classification above |
+
+**The suppression rule.** It has nothing to suppress here — no element is
+withheld from any principal — but the product still obeys it structurally: the
+payload carries **no count, marker or placeholder** of anything filtered out.
+That matters for the threshold, which is a caller-chosen filter and not a
+policy exclusion: the answer says what is above the line and is silent about
+what is below it, rather than reporting *"n managers below threshold"*.
+
+### B.3 Model-risk annotation
+
+**Not applicable — no model in the trust path.** The heading is kept rather
+than omitted, per Standard §0.3: *"A product with nothing to say in a section
+writes one line explaining why."* Mode 1 is fixed by `24-CONTEXT.md` `D-14`,
+and §2.3's annotation is required of Modes 2 and 3 only.
+
+### B.4 Request parameter surface
+
+**Exactly one declared class parameter** (`24-CONTEXT.md` `D-12` fixes the
+caller surface at one), alongside the four address fields the SDK's request
+type carries in its own right.
+
+| Parameter | Type | Moves | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `subject` | string, required | **E anchor** | — | The issuer LEI. An address field on `src/ccf/products/request.py::ProductRequest`, not a class-declared parameter |
+| `intent` | string, required | **P envelope** | — | Address field on the same type. The intent **registry** Standard §11.1 requires is `[TBC]` — it does not exist in this deployment, so the accepted values are declared on the product class rather than resolved against a governed registry, and the marker reappears in §F |
+| `freshness` | string, required | **T / P** | — | Address field: the currency the caller requires |
+| `asked_at` | datetime, required | **T** | — | Supplied by the door, not by the caller's hand |
+| **`minimum_position_usd`** | number, **required** | **a measure** | **none, deliberately** | The one caller parameter. Reported position value at or above which a manager appears. **No default:** a request omitting it is refused by `src/ccf/products/request.py::refuse_request` as `missing-required-parameter`, returned as a `src/ccf/products/request.py::ProductRequestViolation` — **data, not an exception** — *before the graph is touched* |
+
+**Why the threshold is a dollar value and not percent-of-class, which is the
+quantity a reader will expect.** Because percent-of-class is **not derivable
+from this estate**, and that is a measurement rather than a preference:
+`ccf_v2.financial_fact` carries 21 distinct XBRL tags, and `tag ilike
+'%Shares%'` returns **[]** — against a positive control of `tag ilike
+'%Revenue%'` returning **four** tags. There is no shares-outstanding fact, so
+there is no denominator. A spec that quietly chose `value_usd` without saying
+the other quantity was unavailable would be hiding a source-binding fact, and
+this one belongs in §F as a source gap rather than in the reader's head as a
+design preference.
+
+**Two Standard requirements this surface does not meet, stated as divergences
+rather than absorbed.** Standard §2.4 requires `intent` and `debt_tolerance` on
+every product, and provides `not_supported_at_tier` for declared-but-inert
+parameters. Measured against the SDK:
+
+| Standard requirement | This SDK | Consequence for this spec |
+| --- | --- | --- |
+| `debt_tolerance` is a request parameter | The bands are **Control Plane state**, not caller state: `src/ccf/controlplane/artifacts.py::DebtProfile` carries `forced_llm_threshold` and `fail_closed_threshold`, version-pinned per class and landing in replay | **Not declared as a parameter, and that is the right call on the merits** — a caller who can move its own fail-closed band at request time can decide to be served context the deployment ruled too stale to decide on. Recorded as a Standard-vs-SDK divergence for the phase's gap register; **not closed here** (`D-04`) |
+| Declared-but-inert parameters fail as `not_supported_at_tier` | An undeclared parameter is refused as `undeclared-parameter` by `refuse_request` | No inert parameter is declared (`D-12` fixes the surface at one), so nothing here silently succeeds. An `as_of` sent anyway **is** refused explicitly — the Standard's requirement — under a different reason name than its taxonomy uses. Recorded, not closed |
+
+### B.5 Prerequisites, consumers and scope boundary
+
+**Prerequisites.** None. `cp-00` is the first rung: it composes over no other
+Context Product, and that is deliberate — a first product that needed a second
+one to exist could not be the first thing a reader builds.
+
+**Consumers.** None today. The later rungs of the Context Production ladder are
+the intended consumers, and a MAJOR version here will need a notification list
+the moment the second one exists. Recorded now so §E's supersession cascade has
+somewhere to read a reverse dependency list from, rather than discovering it is
+missing later.
+
+**Deliberately out of scope**, each with where it goes — *coming next*, not
+gaps:
+
+- **More than one store or more than one system of record.** `cp-00` is one
+  and one, by `24-CONTEXT.md` `D-13`; multi-source assembly is the next
+  example's point rather than this one's obstacle.
+- **Percent-of-class concentration.** Not derivable from the estate (§B.4). A
+  source gap, recorded in §F.
+- **Cross-period trend.** One reported period, pinned. Comparing two periods is
+  a different question with a different temporal shape.
+- **A live feed.** This is an archive. §C.4 trap 1 says what that costs.
+- **Assembly Modes 2 and 3, products built off products, and the A2A leg.**
+  Later rungs.
