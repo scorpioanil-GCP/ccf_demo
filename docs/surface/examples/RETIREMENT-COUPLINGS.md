@@ -724,6 +724,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/23.1-the-v0-2-close-out-every-open-row-gets-a-verdict-inserted/23.1-06-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23.1-the-v0-2-close-out-every-open-row-gets-a-verdict-inserted/23.1-GATE-MEASUREMENTS.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/23.1-the-v0-2-close-out-every-open-row-gets-a-verdict-inserted/23.1-PACKET-DISPOSITIONS.md` | 8 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-01-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-03-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-04-PLAN.md` | 10 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-05-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
@@ -731,6 +732,8 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-07-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-08-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-11-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-BASE.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-DATA-PROBE.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-RESEARCH.md` | 25 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 88 | append-only decision log |
