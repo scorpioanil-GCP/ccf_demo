@@ -77,9 +77,9 @@ Wave 4's own files:
 
 | Seeded citation | `--all` |
 | --- | --- |
-| `src/ccf/products/gates.py::NoSuchSymbolHereAtAll` — real file, fabricated symbol | **rc=1**, named `cite03-node-id` |
-| `src/ccf/nope/nofile.py::Whatever` — file does not exist | **rc=0** |
-| `src/ccf/products/nofile.py::Whatever` — real directory, file does not exist | **rc=0** |
+| `src/ccf/products/gates.py` + `::` + a fabricated symbol name — real file, symbol that does not exist | **rc=1**, named `cite03-node-id` |
+| a path under `src/ccf/` that does not exist, + `::` + any symbol | **rc=0** |
+| a real directory + a filename that does not exist, + `::` + any symbol | **rc=0** |
 
 `tools/lints/citations.py::check_source` bumps an `unresolved_path` coverage
 counter and continues, with the comment *"pointer, so it is unchecked rather
@@ -91,3 +91,8 @@ checked its own six files' paths with a separate instrument (13 `path::symbol`
 citations, 12 resolving, 1 a deliberate forward reference to
 `examples/cp-00-institutional-holders/deployment.py::connection` which `24.1-05`
 creates). **Not proposed as SDK work** (`D-04`).
+
+**A note on how this entry is written.** The three probes above are spelled as
+descriptions rather than as literal citations. Spelling the fabricated one out
+turned `--all` red on this very file — which is the rule working, and is itself
+the positive control for the first row of the table.

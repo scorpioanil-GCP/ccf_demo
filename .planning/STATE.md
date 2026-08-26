@@ -3,8 +3,23 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-26T17:50:00.000Z"
+last_updated: "2026-08-26T21:40:00.000Z"
 last_activity: >-
+  2026-08-26 -- **PHASE 24.1 WAVE 4 COMPLETE.** The fabric half of
+  `examples/cp-00-institutional-holders`: `ccf_config.yaml` (the whole Control Plane in
+  one document, booting against the real loader with three seeded controls refused),
+  `backends.yaml` (a variable NAME plus a remedy, and a per-run path recipe -- no host,
+  port, path or credential, against a seeded sweep control that returns 1),
+  `artifacts/ttl.yaml`, `artifacts/question.yaml`, `artifacts/expected.yaml`, and
+  `produce.py` -- seven ordered marker regions, closed, no eighth, silent, importing
+  clean, naming no table, column, entity, artifact key, substrate, parameter name or
+  number. `python -m tools.lints --all` **rc=0**, against a seeded fabricated symbol
+  that returns rc=1. `src`/`runtime` diff-EMPTY per member vs `phase-24.1-base`,
+  each proven NON-EMPTY under a seeded line. Nineteen criteria, contiguous, zero
+  continuation lines, against a scoped deletion control returning 18 missing=[12].
+  TWO deviations, both reported: a SIXTH artifact (`ttl.yaml`) because the SDK has no
+  slot for the TTL ceiling's value, and a `gated` field on `Assembled` so the
+  assembly-recipe's step-6 witness can reach its subject. PRIOR:
   2026-08-25 -- **PHASE 23.1 IS CLOSED. `D-GATE-23.1` IS LOGGED AND v0.2 IS DISPOSITIONED.**
   Eight plans in eight serial waves, 31 commits from `PHASE_BASE` `cb6a744`, merged to
   `main --no-ff` naming the entry. **All NINETEEN Success Criteria met** and all nineteen
@@ -405,7 +420,7 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-**PHASE 24.1 IS EXECUTING. WAVES 1-3 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
+**PHASE 24.1 IS EXECUTING. WAVES 1-4 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
 Phase 24 is an UMBRELLA; 24.1 is its first buildable unit -- one Context Product
 example (institutional holders above a caller-chosen threshold, SEC 13F in
 `ccf_dataprep` Postgres, Assembly Mode 1) built to PRESSURE TEST the SDK's surface
@@ -413,8 +428,25 @@ against the Context Product Specification Standard. **The Standard defines what 
 SDK must implement; where the SDK cannot express what a conforming spec orders, that
 gap is RECORDED here and closed in a SEPARATE phase.** Expectation is FEW OR NO gaps,
 because the spec derived from the SDK's own requirements -- so a long gap list is a
-DRIFT signal, not a normal outcome (`D-05`). Through Wave 3: exactly ONE SDK-side
-finding, which is what that predicts.
+DRIFT signal, not a normal outcome (`D-05`). Through Wave 4: exactly TWO SDK-side
+findings, which is still what that predicts. **Wave 4's is that
+`ccf.controlplane.artifacts::ProductClassDeclaration` carries `max_ttl_key` and NO
+field for the ceiling's SECONDS** -- measured, an extra key is refused
+`extra_forbidden` against a control that constructs cleanly -- so `D-43`'s Control
+Plane obligation had to be declared in a deployment-owned artifact
+(`examples/cp-00-institutional-holders/artifacts/ttl.yaml`) rather than in the one
+Control Plane document. **RECORDED, NOT CLOSED** (`D-04`).
+
+**WAVE 4 ALSO FOUND `make ci` RED, AND IT PREDATES WAVE 4.** `git log
+--diff-filter=A` pins `examples/cp-00-institutional-holders/artifacts/` to
+**`313d1c0`** (Wave 3): the tree has an `artifacts/` directory and no `run.py`
+beside it, which
+`tests/examples/test_artifact_schema_headers.py::bijection_violations` refuses.
+Measured three ways -- directory absent (29 passed), Wave-3-only (1 failed), Wave-4
+(the SAME single failure). Three resolutions are named in the phase's
+`deferred-items.md`; **none is Wave 4's to pick**, because each reaches into a file
+list Wave 4 does not own. Criterion 19 requires `make ci` green at the GATE commit,
+so this is a phase-close blocker rather than a wave blocker.
 
 **SUPERSEDED, NAMED RATHER THAN DELETED:**
 
