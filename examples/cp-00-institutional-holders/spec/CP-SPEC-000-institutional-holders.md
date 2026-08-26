@@ -608,13 +608,437 @@ what they are holding.
 
 ## Section D — Assembly recipe
 
-*Authored in the next wave.* The operator step table, its per-step runtime
-witnesses, the determinism class, the replay statement, the emitted contract
-and the validation gates land here. Two things this section already owes: the
-`Resolve` step of §C.4 trap 2, and the statement that the Standard's §4.7 debt
-gate exists in this SDK as a **Control Plane posture** rather than as a fourth
-gate inside `src/ccf/products/gates.py::run_gates` — the three shipped gates
-stay at three.
+*(Standard §4.)*
+
+### D.1 Client call
+
+One call, one required class parameter (§B.4), and the forensic case shown
+because it exercises more of the surface than the live one:
+
+```
+GET /context-products/holdings/institutional-holders/549300D3L3G0R4U4VT04
+    ?intent=position-concentration
+    &freshness=reported-quarter
+    &minimum_position_usd=1000000000
+```
+
+`subject`, `intent`, `freshness` and `asked_at` are the address fields
+`src/ccf/products/request.py::ProductRequest` carries in its own right;
+`minimum_position_usd` is the one class-declared parameter and it has **no
+default**. A request that omits it is refused as data —
+`src/ccf/products/request.py::refuse_request` returns a
+`::ProductRequestViolation` — *before the graph is touched*, which is why step
+1 below is not where a missing parameter is discovered.
+
+> **Beside the anchor above:**
+>
+> These examples teach METHOD — how to engineer and construct a Context Product with the CCF SDK — not the figures.
+>
+> The surrounding data estate carries **deliberately engineered names and relationships**; these two tables carry none.
+>
+> **No number here is a fact about any real company.** This is one quarterly archive spanning many periods, and its issuer matching is ~22.5% `weak` by design.
+
+### D.2 Operator step table
+
+Numbered, **one operator per step**, with the Standard's seven columns and an
+**eighth the Standard does not require: the SDK mechanism, named with its
+layer**. The eighth column is this phase's operator-mapping verdict written
+where a reader actually meets it, so a name that differs between the two
+vocabularies reads as a **mapping** rather than as a gap in either direction.
+
+| # | Operator | Capability class | Inputs | Emits (as it appears in lineage) | Failure behavior | p95 budget | **SDK mechanism (layer)** |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | **Resolve** | relational | the anchor `subject` (issuer LEI); the pinned `report_period` | `resolved_security` — the dominant CUSIP for `(lei, report_period)`, with the number of candidates considered | fail closed → **404**. An anchor that resolves to no security in the pinned period is never an empty payload | 120 ms | the **source read's group-and-rank** (§C.2, capability property 3), rendered by this deployment's own reader — **L1**, the source boundary. §D.3 states why this half of the resolve is not at L2 |
+| 2 | **Resolve** | relational | one `SignalEnvelope` per filed position, each already carrying the pinned period and the resolved security | canonical entity URIs for the issuer and for each reporting manager, the typed edge between them, and `graph_snapshot_at` | fail closed → **503**, naming the failed source class | 380 ms | `src/ccf/assembly/worker.py::SpecDrivenEntityResolution` under `src/ccf/assembly/worker.py::AssemblyWorker`, driven by `src/ccf/assembly/worker.py::EntityResolutionSpec` — **L2**, the single writer |
+| 3 | **Policy** | relational | the assembled view; the principal's permitted classifications and permitted policy-bundle versions | `policy_version` — landing in `src/ccf/products/contract.py::ProductLineage` field `policy_bundle_versions` — and the principal-permissible subgraph substituted for the full graph | fail closed → **403**, with no detail on what exists | 15 ms | `src/ccf/operators/categories.py::PolicyFilter`, key `policy.principal-subgraph` — **L4** |
+| 4 | **Traversal (mode: `temporal`)** | bitemporal-ledger *(supplied by the fabric, not required of the estate — §D.3)* | the permissible subgraph; the as-of boundary taken off the request | the as-of-consistent node and edge set; `graph_snapshot_at` | fail closed → **503** on an empty **assembled** set, which is not the same emptiness as an empty **served** set — §D.7 | 60 ms | `src/ccf/operators/categories.py::TemporalAsOf`, key `temporal.as-of-boundary` — **L4**, and a separate SDK *category* that the Standard folds into a Traversal *mode*. The inverse asymmetry: here the SDK has the name the Standard does not |
+| 5 | **Projection** | in-memory *(the Standard's §10.2 row says `relational`; nothing in this step touches a store — §D.3)* | the as-of view; `minimum_position_usd`; the perspective | `projection_plan_id` — landing on `src/ccf/products/contract.py::ContextProductContract` field `plan_id` — and the typed payload of §D.6 | degrade with debt: a row missing a non-mandatory attribute is served with that field `NOT_EVALUABLE` and an elevated `D_c` (§E.2), never dropped silently | 25 ms | `src/ccf/projection/plan.py::ProjectionPlan.invoke`, executed by `src/ccf/projection/engine.py::ProjectionEngine` — **L5**. The Standard's `Evaluate` (modes `rank` and `aggregate`) has **no separate SDK mechanism** and lands here too — §D.3 |
+| 6 | *contract assembly* — **not an operator** (§10.2 retires `Compose`) | in-memory | the projection output, the declared lineage, the declared TTL and its anchor | the served `src/ccf/products/contract.py::ContextProductContract`, held inside a `src/ccf/products/gates.py::ServableProduct` | fail closed → **503** on any gate refusal, returned **as data** (`src/ccf/products/gates.py::GateRefusal`) and never as a 200 with a warning. **409 is reserved for the debt posture** (§9) and is raised by the deployment, not by `run_gates` | 20 ms | `src/ccf/products/gates.py::run_gates` → `src/ccf/products/gates.py::ServableProduct` — **L6** |
+
+**Budget total: 620 ms against a declared p95 envelope of 1,000 ms — 62%.**
+
+Three things about that number, and the third is the one that matters.
+
+1. **These are declared budgets, not measurements.** Nothing has been run:
+   this specification is authored *before* the assembly it specifies
+   (§0), so every cell in the `p95 budget` column is a design target an
+   engineer is invited to challenge, in exactly the sense Standard §5.1
+   means when it says an initial calibration is *"a value an engineer can
+   challenge"* rather than one they assume was measured. §G's observability
+   entry is what moves them to measured, and §13's certification evidence
+   requires that move before this product can leave `draft`.
+2. **The Standard fixes no numeric latency envelope for Tier 1.** §13 gives
+   cost *bands* (×1 baseline) and §7 asks each product to publish its own
+   p50/p95. The 1,000 ms envelope is therefore **declared by this spec**, in
+   §G, and §D is measured against that declaration. Recording that the
+   Standard does not supply one is more useful than quoting a number it does
+   not contain.
+3. **Step 2 dominates, at 61% of the total, and the first optimisation is
+   not to make it faster.** The L2 ingest carries every filed position for
+   the anchor and period through resolution and persistence — 1,748 rows at
+   the pinned period (Wave 1's figure; see `24.1-DATA-PROBE.md` for the
+   control beside it). That work is **identical for every threshold**,
+   because the threshold is applied at Π and never in the graph query
+   (§D.3). So the first optimisation is to **materialize the assembled state
+   per `(issuer, report_period)`** and let every threshold read it —
+   which §E.3's mechanical test permits, since the fastest-moving input's
+   λ_c is a quarter and no sane cache window comes near it. The posture
+   shipped at `v1.0.0` is nonetheless `derived-on-demand`, and §E.3 says
+   why.
+
+### D.3 Step detail
+
+**The two disciplines the Standard says recur, both of which are live here.**
+
+**Policy that appears to do nothing still runs first — and here it does not
+merely appear to do nothing, it can empty the answer.** This product asserts
+no entitlement scope (§B.1 element 4): every element measures
+`provenance = 'public'`, so there is no partition to bind and step 3 excludes
+nobody. It runs first anyway, because that is where the ordering is learned:
+`src/ccf/operators/base.py::CATEGORY_ORDER` is
+`("policy", "similarity", "temporal", "traversal")` and encodes INV-CH7-26,
+and `src/ccf/operators/categories.py::PolicyFilter`'s own docstring says it
+*"runs first in every plan so that no later stage can observe inadmissible
+state."* The load-bearing part for a builder is this:
+`src/ccf/operators/categories.py::PolicyFilter._admits` **excludes any entity
+whose class has no classification attribute declared**, not merely one whose
+classification is impermissible. So both entity classes this product declares
+must carry a classification attribute and both must be named in
+`classification_attribute_by_class`, or step 3 returns an empty view and
+steps 4–6 answer about nothing. §D.7 carries the gate that catches it.
+
+**Two filters on two axes are two filters.** The `report_period` pin and the
+`minimum_position_usd` threshold are two different axes and are separately
+parameterised and separately testable: the pin is fixed by the spec and
+applied at the source read (§C.4 trap 1), the threshold is chosen by the
+caller and applied at Π. Applying one and calling it the other answers a
+different question in silence. A third axis is deliberately **not** filtered:
+`issuer_match_band` travels with the row and is not filtered anywhere
+(§C.4 trap 3), which is a ruling and not an omission.
+
+**Where the threshold is applied, and why it is not in the query.** At Π, in
+`src/ccf/projection/plan.py::ProjectionPlan.invoke`, never in the graph
+query — the same choice
+`examples/s1-00-companies-over-revenue/deployment.py::OverThresholdProjection`
+documents, in its words: *"every threshold compiles to the same pinned query,
+so what the caller's number changes is the payload — and therefore the
+product's content address — rather than what was read."* Two consequences
+follow and both are load-bearing here. Freshness is measured over what the
+fabric **read**, not over what survived the caller's line (§E.2), which is
+only coherent because the read is threshold-independent. And the assembled
+state is identical across callers, which is what makes §D.2's materialization
+optimisation available at all.
+
+**The comparison is `>=`, not `>`.** §B.4 declares the parameter as *"the
+reported position value **at or above** which a manager appears."* A manager
+whose position equals the caller's number is served. `s1-00`'s projection uses
+a strict `>`; this product deliberately does not inherit it, and §D.7's gate
+`IH-G04` exists because copying that line is the obvious way to get this
+wrong.
+
+**Why the resolve is in two steps, and why the first is not at L2.**
+`24-CONTEXT.md` `D-39` (Dave, 2026-08-26) rules the security **resolved and
+not pinned**, and `D-41` accepts the extra step that costs. Measured against
+the mechanism, the resolve separates into two halves that sit at two layers:
+
+- The **canonical-entity** half is at L2 exactly as the mapping predicts.
+  `src/ccf/assembly/worker.py::EntityResolutionStrategy.resolve` takes
+  `(*, envelope)` — **one envelope at a time** — and returns the entities that
+  envelope asserts, in declaration order. That is step 2.
+- The **dominant-security** half is a *group-and-rank over many rows*, and a
+  per-envelope seam structurally cannot compute it: a strategy would have to
+  accumulate state across envelopes and become order-dependent, which is the
+  determinism §D.4 depends on. So it runs where the estate can already do it
+  — as a group-and-rank at the source read, the capability §C.2 lists as its
+  third property and names as the one most likely to be partial. That is
+  step 1, at **L1**.
+
+**Nothing about `D-39`'s substance changes**: no literal CUSIP is pinned, no
+domain value enters code, the fan-out is handled rather than hidden, and the
+`Resolve` name is placed at a layer — which is what criterion 11 asks for.
+**What differs from the ruling's words is the layer of one half**, and it is
+recorded here rather than absorbed. If the estate turns out not to rank inside
+a read, §C.2's interim posture takes over: the security becomes a second
+caller parameter, step 1 drops out of this table, and the product ships as
+`v1.0.0-partial`.
+
+**Where the Standard's `Evaluate` went.** Nowhere separate: it is step 5.
+The Standard lists `Evaluate` (modes `aggregate · score · reconcile · rank`,
+capability class `in-memory`) as its own operator; the SDK has no operator
+that can be it, and the reason is structural rather than an omission.
+`src/ccf/operators/base.py::Operator.apply` returns
+`src/ccf/operators/base.py::OperatorOutput`, which is a `GraphView` plus an
+`OperatorProvenance` — **an operator cannot emit a number.** Deterministic
+computation that produces measures rather than graph state therefore lives at
+Π, which is where this product's ranking and thresholding run. This spec does
+**not** carry `Evaluate` as a separate row in §D.2, because a step whose
+mechanism, layer and runtime witness are all identical to step 5's is a step
+nothing can independently prove ran — and an unprovable step is exactly what
+criterion 2 calls RED. Naming it in this paragraph is the honest form.
+
+**Where the capability classes come from, and the tier consequence.** Two
+cells in §D.2 differ from what a first reading of §10.1 would give, and both
+are deliberate:
+
+- Step 4 requires `bitemporal-ledger`, and §13 puts `bitemporal-ledger` at
+  **Tier 3**. This product remains **Tier 1**. The reason: capability classes
+  describe what the **estate** must supply — §10.1's own rule is that estate
+  binding lives in one platform-owned artifact and *"product specs never name
+  a database."* The bitemporal read here is against **CCF's own L3**, whose
+  valid-time / observed-time axes are fabric mechanism supplied by
+  construction, not something the source estate must have. This product does
+  **not** reconstruct what the *source* knew at a past instant; it reads one
+  archive at one pinned reported period. Read the other way — every step's
+  class taken as an estate requirement — **no CCF product could ever be Tier
+  1**, because every CCF product reads a bitemporal graph and computes at Π.
+  That reductio is why the estate reading is the right one, and the ambiguity
+  is recorded as a finding in §F rather than resolved on this product's
+  authority alone.
+- Step 5 is named `in-memory` where §10.2's `Projection` row says
+  `relational`. Nothing in step 5 touches a store; it computes over already
+  assembled state, which is precisely §10.1's definition of `in-memory`.
+  Recorded rather than silently picked.
+
+**The four composition invariants (§10.3), checked.** (1) Policy runs before
+anything that reads graph state — step 3 precedes steps 4 and 5, enforced by
+`CATEGORY_ORDER` and not merely by this table's ordering. (2) Resolve precedes
+Traversal — steps 1 and 2 precede step 4. (3) Enrich is batched, always —
+**not applicable**: there is no Enrich step, because every attribute of a
+filed position arrives in the same source row as the position. (4) Algorithmic
+substrate before any semantic stage — **vacuously true and asserted anyway**:
+Assembly Mode 1 puts no model in the path at all, and criterion 4 makes the
+absence a walked assertion rather than a claim.
+
+### D.4 Determinism class and payload hash
+
+**Determinism class: `deterministic`** (Standard §4.4, Mode 1). Same anchor +
+as_of + `policy_version` + graph snapshot → byte-identical payload.
+
+**Payload hash.** The Standard requires *a payload hash over the deterministic
+portion, excluding `assembled_at`*. The SDK's realization is
+`src/ccf/contracts/canonical.py::content_hash` over the served vessel's
+canonical bytes, recorded as `product_content_address` by
+`src/ccf/replay/record.py::build_replay_record`. **Replay asserts hash
+EQUALITY, not similarity** — a product that replays to *a similar product* is
+a defect recorded in §G, not a caveat.
+
+**One divergence, stated rather than absorbed.** CCF hashes the **whole
+vessel**, not a deterministic subset of it, and the vessel carries
+`temporal_boundary` — which this deployment takes off the request
+(`request.asked_at`), never off a clock, so that replay can feed it back.
+There is no `assembled_at` field to exclude, and `temporal_boundary` occupies
+its position. The consequences are exact:
+
+- Under **replay** the assertion holds unchanged, because replay resolves the
+  recorded request and therefore the same boundary.
+- Under **two live calls a second apart**, the same answer has two content
+  addresses. A consumer diffing addresses to decide whether an answer changed
+  will see a change that did not happen.
+
+Recorded for the phase's gap register (`D-04` — recorded, not closed). It is
+not a defect in either document: the SDK's value is an address of *the served
+answer*, the Standard's is a hash of *the payload*, and they are different
+useful things that happen to share a name.
+
+**Why the as-of boundary cannot be the reported quarter end**, which is the
+trap a reader of §B.1 element 3 will walk straight into.
+`src/ccf/assembly/worker.py::AssemblyWorker._stitch` sets a claim's
+`observed_at` to the envelope's **ingestion timestamp** — when *the fabric*
+learned the claim — and `src/ccf/operators/categories.py::TemporalAsOf`'s
+first cut drops every claim whose `observed_at` is later than the boundary.
+Set the boundary to `2026-03-31` and **every row is dropped**: the view is
+empty, the three shipped gates all pass (§D.7), and the product serves an
+empty holder list with a clean bill of health. The boundary must therefore be
+at or after the run's ingest instant. The TTL anchor is the reported quarter
+(§B.1 element 3); the **as-of boundary is not**, and conflating them is the
+single most expensive available mistake in this recipe. §D.7's gate `IH-G05`
+is the assertion that catches it.
+
+### D.5 Replay statement and replay test
+
+**Replay statement.** Replay re-executes steps 3 through 6 against the
+**recorded** graph snapshot, resolving from the record: the request (including
+`asked_at`, and therefore the temporal boundary), the perspective and its
+principal, the policy-bundle version bound at ingest, the resolution-spec
+version, the projection `plan_id` and the operator plan. It re-produces the
+identical `ContextProductContract` and therefore the identical
+`product_content_address`. Steps 1 and 2 are **not** re-executed: they are the
+write path, and re-running them would rebuild the graph rather than replay
+against it.
+
+**Falsifiable replay test.** Numbered, runnable, ending in an assertion that
+can fail:
+
+1. Serve the product at the anchor with `minimum_position_usd = 1000000000`.
+   Record `product_content_address`, `graph_snapshot_at` and the request.
+2. Ingest an **amending filing**: the same manager, the same security, the
+   same `report_period`, a materially different `value_usd`.
+3. Re-derive **live**. Assert the served value is the **new** one. *If it is
+   not, the supersession path is not working and step 2 of this test proved
+   nothing.*
+4. Re-derive **at the recorded snapshot**. Assert the served value is the
+   **original** one and `product_content_address` is byte-identical to step
+   1's. **If step 4 returns the new value, `graph_snapshot_at` is decorative
+   and the snapshot is not load-bearing.**
+
+**Second test — the two time axes must disagree.** This product carries
+valid-time (`valid_from`, the reported quarter end) and observed-time
+(`observed_at`, the fabric's ingest instant), and an amended filing is the
+case that separates them: it is *about* `31-MAR-2026` and was *learned*
+months later.
+
+5. With the amendment ingested, read as-of a boundary **before** the
+   amendment's ingest instant and assert the **original** figure returns; read
+   as-of a boundary **after** it and assert the **restated** figure returns.
+   **If the two agree, the observed-time cut was dropped** and the product
+   cannot distinguish what was true from what was known.
+
+### D.6 Emitted contract
+
+The §8 response envelope, populated with this product's payload schema, **with
+types**. Prose describing a payload is not a payload.
+
+`payload`:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `issuer.lei` | string | The anchor, echoed |
+| `issuer.registered_name` | string \| `NOT_EVALUABLE` | From `ccf_v2.legal_entity`; non-mandatory (§E.2) |
+| `report_period` | string | The pinned period, spelled as the source spells it: `31-MAR-2026` |
+| `resolved_security.cusip` | string | Step 1's output |
+| `resolved_security.resolution_basis` | string | `dominant-by-position-count` |
+| `resolved_security.candidates_considered` | integer | How many CUSIPs the anchor fanned out to — 6 at the anchor (Wave 1) |
+| `threshold.minimum_position_usd` | string | Decimal **as a string**. A float in canonical bytes is not canonically serializable |
+| `threshold.comparison` | string | `>=` — declared in the payload so a consumer never has to infer it (§D.3) |
+| `perspective_role` | string | The Π role the answer was conditioned for |
+| `count` | integer | Managers served |
+| `holders[]` | array of object | Sorted by `value_usd` descending, then `manager_cik` ascending, so the order is total and the bytes are stable |
+| `holders[].manager_cik` | string | Identity authority (§C.3) |
+| `holders[].manager_name` | string \| `NOT_EVALUABLE` | Carried so a consumer can see the identity rather than trust it |
+| `holders[].value_usd` | string | Decimal as string |
+| `holders[].shares` | string \| `NOT_EVALUABLE` | Decimal as string |
+| `holders[].issuer_match_band` | string | `strong` \| `weak`. Travels with the row — §C.4 trap 3 |
+| `holders[].issuer_match_score` | string | Decimal as string |
+| `holders[].last_updated` | string | ISO-8601, from the claim's `valid_from` — the source's instant, not this run's |
+
+`contract`, `lineage` and `context_debt` are never omitted: a consumer that
+receives context with no debt signal cannot know what it is trusting. Their
+member-by-member mapping onto the SDK's types is §B.1 element 5 and is not
+repeated here.
+
+**One field this payload deliberately does not carry, and it is the one
+`s1-00` does.** `s1-00`'s payload carries `assembled` — the count of rows the
+fabric read. This product omits it. §B.2 commits this product to being
+**silent about what fell below the caller's line**, and a read count published
+beside a served count *is* that number by subtraction. The assembled count is
+still needed, as F's denominator (§E.2); it lives in the debt block, which is
+a governed disclosure of what the fabric read rather than a description of the
+answer's shape. Nothing here is policy-withheld at all (§B.2), so the
+discipline is being observed structurally rather than because anything is
+hidden — which is the only reason it is cheap to observe now and expensive to
+retrofit later.
+
+**`extra=forbid` is enforced as a build-time CI invariant**, per Standard
+§4.6: a per-product subclass may not silently add a field the base did not
+declare.
+
+**Error taxonomy, mapped to the step that raises it** (Standard §9 requires
+§D to name which step raises which):
+
+| Condition | Response | Raised at |
+| --- | --- | --- |
+| Anchor unresolvable | **404** — never an empty payload | Step 1 |
+| Principal not entitled | **403**, no detail on what exists | Step 3 |
+| Parameter unsupported | **400** | **Before step 1**, at the door, by `src/ccf/products/request.py::refuse_request`. **The SDK names this `undeclared-parameter`, not the Standard's `not_supported_at_tier`** — the §B.4 divergence, restated here because §D is where a builder meets it |
+| Debt gate exceeded | **409** with the debt block | **Not `run_gates`** — the Control Plane posture of §D.7, acted on by the deployment |
+| Mandatory input unavailable | **503**, naming the failed source class | Step 2 (and step 1 for the source read) |
+| Non-mandatory input unavailable | **200** with `notices` and elevated `D_c` | Step 5 |
+
+The HTTP surface these render through is
+`runtime/ccf_runtime/http_api/errors.py::refusal_detail`.
+
+### D.7 Validation gates
+
+**The Standard names six universal gates. This SDK ships THREE inside
+`src/ccf/products/gates.py::run_gates`, and `D-IMPL-102` limb 3 rules that no
+fourth joins them.** What follows is what each of the six actually is here.
+Nothing below claims the SDK runs a gate it does not run — a spec that implied
+otherwise would be the drift criterion 12 exists to catch, arriving from the
+specification side.
+
+**The three that are shipped gates, in `run_gates`' own order:**
+
+| # | Gate | SDK mechanism | What it refuses |
+| --- | --- | --- | --- |
+| 1 | Empty-operator guard | `src/ccf/products/gates.py::_refuse_empty_operators` (INV-CH7-46) | A product whose `lineage.operators_invoked` is **empty** — *a product computed by nothing* |
+| 2 | Lineage strict equality | the `declared != engine_resolved` comparison in `src/ccf/products/gates.py::run_gates`, returning `src/ccf/products/gates.py::LineageMismatchRefusal` (INV-CH7-47) | Any difference, **in either direction**, between the operator set the producer declares and the set the engine resolved |
+| 3 | TTL bounds | `src/ccf/products/gates.py::_refuse_ttl` against the class's pinned `MAX_TTL` | `expires_at` outside `now < expires_at <= now + MAX_TTL` — see §B.1 element 3 for the two ways this product can hit it |
+
+A fourth refusal sits in the same sequence and is **not** a fourth universal
+gate: `refuse_attestation` is conditional and passes unconditionally when
+`source_attestation` is `None`, which is this product's case. Naming it as a
+gate would overstate what runs.
+
+**Holding a `ServableProduct` IS the evidence the three gates ran.**
+`src/ccf/products/gates.py::ServableProduct` is not constructible outside
+`run_gates` — the metaclass refuses with
+`src/ccf/products/gates.py::GateBypassError` (INV-CH7-52). That is what makes
+criterion 6's *"recorded rather than assumed"* structural rather than a
+convention, and it is the witness `assembly-recipe.yaml` declares for step 6.
+
+**Gate 1 is not the Standard's gate 1, and the difference costs this product a
+gate of its own.** The Standard's empty-operator guard is *"no operator returns
+an empty set silently; empty is fail-closed or an explicit debt
+contribution."* The SDK's refuses a product that **declares no operators**.
+These are two different assertions sharing one name, and the gap between them
+is exactly the failure §D.4 describes: a mis-set as-of boundary empties the
+view, all three shipped gates pass, and a 200 with an empty holder list is
+served. **Recorded for the gap register and not closed** (`D-04`); covered
+here by a product-specific gate, which is the mechanism Standard §4.7 provides
+for precisely this.
+
+**The other three, each as it actually stands:**
+
+- **Debt gate.** Present as a **Control Plane posture, not as a gate.**
+  `src/ccf/halflife/debt.py` computes `D_c` and
+  `src/ccf/controlplane/artifacts.py::DebtProfile` carries
+  `forced_llm_threshold` and `fail_closed_threshold`; the deployment reads
+  the resulting posture and declines. The SDK supplies the assessment and the
+  bands; **the refusal is the deployment's own code**, and `run_gates` never
+  sees it. §E.2 sets this product's bands and §G's degradation contract says
+  what it does with them.
+- **Classification containment.** Present, and realized **structurally at L4
+  rather than as a post-assembly gate** —
+  `src/ccf/operators/params.py::PolicyFilterParameters` carries
+  `classification_attribute_by_class` and `permitted_classifications`, and
+  `src/ccf/operators/categories.py::PolicyFilter._admits` excludes any record
+  whose classification is not permitted *and* any record whose class declares
+  no classification attribute at all. An element above the declared
+  classification is therefore **never materialized**, which is stronger than
+  containment checked afterwards. This is composition invariant 1 doing the
+  work a gate would otherwise do.
+- **Suppression silence.** Holds **by construction, and is not exercised by
+  this product.** Because step 3 removes inadmissible records from the view
+  before Π ever sees them, the payload structurally cannot carry a marker of
+  withheld content: Π is not given the thing to mark. Nothing is withheld here
+  in any case (§B.2). The Standard's *post-assembly* form of this gate and of
+  classification containment is therefore owed by neither this product nor
+  this SDK, and whether the Standard should say so is a **finding for the
+  phase's gap register**, recorded in §F — not a `[TBC]` on this build.
+
+**Product-specific gates**, each a testable assertion naming the defect it
+detects, with a fixture ID:
+
+| ID | Assertion | The defect it detects |
+| --- | --- | --- |
+| **IH-G01** | Every served row's `cusip` equals `resolved_security.cusip` | Step 1's output was not applied to the read, and the CUSIP fan-out over-count returned. The anchor has 5 managers whose only position is off the dominant security (Wave 1), so this gate has something to catch |
+| **IH-G02** | Every served row's `report_period` equals the pinned period | The period pin was dropped and a decade of positions merged into one answer. 1,989 rows estate-wide sit outside the pin |
+| **IH-G03** | Every served row carries a non-null `issuer_match_band` | The quality signal was dropped at the source boundary — §C.2's rare capability property degraded — and a consumer can no longer see which rows rest on a weak match |
+| **IH-G04** | A manager whose `value_usd` **equals** `minimum_position_usd` **is served** | The comparison was written `>` instead of `>=`, contradicting §B.4. This is the defect a line copied from `s1-00` produces |
+| **IH-G05** | The as-of boundary is at or after the run's ingest instant, **and** a non-empty assembled set is observed before Π runs | The boundary was set to the reported quarter end, `TemporalAsOf` dropped every claim on `observed_at`, and the three shipped gates passed an empty answer (§D.4) |
+| **IH-G06** | Every entity class this product declares is named in `classification_attribute_by_class` and carries that attribute | `PolicyFilter._admits` silently empties the view for any class with no classification attribute declared (§D.3) |
+| **IH-G07** | An **empty assembled set** fails closed; an **empty served set** (threshold above every position) returns 200 | The two emptinesses were conflated. Only one of them is an answer, and the SDK's gate 1 catches neither |
+| **IH-G08** | The product's `payload` carries no count of rows read | §B.2's suppression discipline was dropped by inheriting `s1-00`'s `assembled` field (§D.6) |
 
 ## Section E — Volatility, debt & materialization
 
