@@ -125,6 +125,13 @@ published-page structure. All must be reported, none needs a ruling.
 - **D-45: Why the first half cannot be L2, measured not argued.** `EntityResolutionStrategy.resolve(*, envelope)` takes **one envelope** and so **structurally cannot rank a group**. Dave: *"ranking a group is not `resolve(*, envelope)` because that call is per-envelope."* Confirmed against the tree: both `resolve` definitions in `worker.py` are per-envelope.
 - **D-46: `D-39`'s INTENT STANDS UNCHANGED — only the layer of the first half was mis-worded.** Nothing is pinned, no domain value sits in code, the 1-LEI-to-many-CUSIP fan-out is handled, and `Resolve` is placed. **Criterion 11's mapping still gets a real L2 `Resolve`** — which is the whole reason the resolve was chosen over a pin. Dave: *"Do not force the first half into L2."*
 
+### Every §D step names an OPERATOR — ruled 2026-08-26
+
+- **D-47: EVERY §D STEP MUST SPECIFY AN OPERATOR. A step whose SDK mechanism reads "none" is not allowed.** Dave: *"You must specify an operator — deterministic, etc. — you cannot not have an operator."* Wave 3's §D step 1 (group-and-rank to the dominant security) was written with mechanism **none** and layer L1, *"the deployment's own source reader"*. **That is corrected: it names an operator.**
+- **D-48: Step 1 is an EXAMPLE-SUPPLIED DETERMINISTIC OPERATOR declaring category `traversal`.** Dave ruled reading (1). The group-and-rank is a bounded expansion over holdings edges and the ranking is expressed as the subgraph it returns, which fits `Operator.apply`'s `GraphView` return. **Example-scoped, registered through the open `OperatorRegistry`, NOT an SDK change** — `Operator` is a Protocol (`src/ccf/operators/base.py::Operator`) and `s1-00`, `s1-01` and `cp-00`'s own `produce.py` already register operators.
+- **D-49: This does NOT reopen the algebra.** A new operator NAME under an existing category is additive (`D-10`); `OperatorCategory` stays the closed `Literal["policy","similarity","temporal","traversal"]` and is not touched. **No SDK-side gap is recorded for step 1** — the rejected reading (2), that a deterministic rank cannot be a `GraphView` and therefore needs a new category or an `Operator` variant emitting a measure, was NOT taken. If the return type genuinely refuses during Wave 5, that is a finding to STOP and report, not to work around.
+- **D-50: `D-44`/`D-45`/`D-46`'s two-step split STANDS. Only step 1's mechanism column changes**, from *none* to the named example operator. The layer question Dave already ruled — group-and-rank is not L2 because `EntityResolutionStrategy.resolve(*, envelope)` is per-envelope — is untouched.
+
 <canonical_refs>
 ## Canonical References
 
