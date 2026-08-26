@@ -14,7 +14,7 @@ front matter and the operator step table, which are the two parts a reader
 returns to.
 
 **The run goes through the assembler seam, deliberately.** It builds the
-request, constructs ``assembler.py::HoldersAssembler`` and calls its
+request, constructs ``examples/cp-00-institutional-holders/assembler.py::HoldersAssembler`` and calls its
 ``assemble`` — it does not call the spine directly. Routing the client through
 ``src/ccf/agents/assembler.py::ContextAssemblerProtocol`` is a substantial part
 of what makes this example a pressure test rather than a demonstration: the
