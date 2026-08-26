@@ -100,13 +100,35 @@ declaration:
       operator: Resolve
       subject: the dominant security for (issuer LEI, reported period)
       capability_class: relational
-      # No SDK symbol, and that is neither a gap nor an omission. This half of
-      # the resolve is a GROUP-AND-RANK over many rows, and the L2 seam
+      # CORRECTED at Wave 5 under `24-CONTEXT.md` `D-47`/`D-48` (Dave,
+      # 2026-08-26): *"You must specify an operator — deterministic, etc. —
+      # you cannot not have an operator."* This row previously read `none`,
+      # which is not allowed. It names an EXAMPLE-SUPPLIED operator.
+      #
+      # The operator declares the canonical category `traversal` and is
+      # registered through the open `src/ccf/operators/registry.py::OperatorRegistry`.
+      # It is NOT an SDK change: `src/ccf/operators/base.py::Operator` is a
+      # Protocol, and a new operator NAME under an existing category is
+      # additive — `src/ccf/operators/base.py::OperatorCategory` stays the
+      # closed four and is not touched (`D-49`).
+      #
+      # The LAYER is unchanged and stays L1 (`D-50`): this half of the resolve
+      # is a GROUP-AND-RANK over many rows, and the L2 seam
       # `src/ccf/assembly/worker.py::EntityResolutionStrategy.resolve` takes
       # ONE ENVELOPE AT A TIME, so it structurally cannot compute a dominant.
-      # It runs at the source read, in the deployment's own reader — which is
-      # where the No-Hardcoding Rule puts a domain-specific read. Spec §D.3.
-      sdk_mechanism: "none — the deployment's own source reader; no SDK symbol (spec §D.3)"
+      # It runs at the source read, in the deployment's own reader. Spec §D.3.
+      #
+      # The ranking is expressed as the SUBGRAPH the operator returns — the
+      # winning security, the edges that reach it and the managers on those
+      # edges — so nothing here emits a scalar, which is the one shape
+      # `Operator.apply` fixes. Determinism was never the constraint: the base
+      # says realization is unconstrained and the algebra is the determinism
+      # surface.
+      sdk_mechanism: "examples/cp-00-institutional-holders/deployment.py::DominantSecurityResolution"
+      sdk_mechanism_context:
+        - "src/ccf/operators/base.py::Operator"
+        - "src/ccf/operators/registry.py::OperatorRegistry"
+        - "examples/cp-00-institutional-holders/deployment.py::source_read"
       sdk_layer: L1
       inputs: [subject, report_period]
       emits: resolved_security
