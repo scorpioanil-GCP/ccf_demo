@@ -670,7 +670,9 @@ def source_read(
             f" {period!r}; an anchor that resolves to nothing is a fail-closed"
             " condition (spec §D.2 step 1), never an empty answer"
         )
-    observed = _instant(rows[0][10])
+    # The parsed period is the LAST column of the select above, and it is
+    # the same value on every row: the read is pinned to one period.
+    observed = _instant(rows[0][-1])
 
     registry = OperatorRegistry()
     registry.register(
