@@ -47,6 +47,13 @@ the old reading is named rather than quietly deleted.
 - **D-11: The spec is authored to the FULL Standard** — front matter plus sections A–G — so the phase validates the AUTHORING path and not merely the assembly path. A reduced spec would prove nothing about the Standard.
 - **D-12: The example prints its SPECIFICATION and the RESULTING JSON.** This is Dave's stated requirement for every example in the ladder.
 
+### Example tree naming — RULED 2026-08-25
+
+- **D-16: Context Production example trees are named `cp-NN-<slug>`.** `examples/cp-00-institutional-holders` is 24.1; `examples/cp-01-counterparty-reference` is 24.2. Make targets parallel the existing shape: `example-cp-00`, `example-cp-01`. Zero-based, matching `s1-00` and the archived trees.
+- **D-17: `NN` is BUILD ORDER — not tier, not spec id.** The spec id lives in the README front matter. Spec-id naming would run backwards from day one, because `CP-SPEC-001` is 24.2 while the new product is 24.1.
+- **D-18: The `sN-` scheme is NOT revived, and the reason is on the record.** `s1-`/`s2-`/`s3-` encode documentation Sections 1/2/3 from **Phase 16's documentation rewrite, RETIRED at `D-IMPL-152`**. Sections 2 and 3 were never built. Adopting a taxonomy from a retired approach is the Phase 16 failure mode Dave named when he deferred `DOCS-14`/`EXAM-02` — *"docs against a surface that does not survive."* The scheme had already drifted before it died: `hw1-harness-clients` is functionally Section-2 content that never took an `s2-` name.
+- **D-19: THREE DEFERRED ROWS MUST BE RE-POINTED, NOT SILENTLY INHERITED.** `EXAM-01`, `EXAM-03` and `DOCS-11` were deferred to Phase 24 by Phase 23.1 naming `s2-`/`s3-` targets that will now never exist. Required re-points, each to be made in the minor phase that first creates a `cp-*` tree: **`EXAM-01`** — the seven-heading README obligation moves from *"every new Section-1/2/3 example"* to every new `cp-*` example; **`EXAM-03`** — the `make example-s*` target surface becomes `example-cp-*`; **`DOCS-11`** — the spine-separation gate's `SECTION_ONE_GLOB` (`s1-*`) is widened to include `cp-*`, or a second glob is added beside it. **Re-pointing makes explicit on the record that `s2-` and `s3-` will never exist. Silently carrying them would leave three rows owing work against directory names nothing will ever create.**
+
 ### Documentation
 
 - **D-13: BOTH a deep example README and a published page.** Dave chose this explicitly. README carries the MECHANICS; the published page carries the ARGUMENT and includes from the tree (the shape Phase 22 shipped). Dave: *"It's important as we develop this example of constructing and assembling a context product that we have sufficient documentation on what is being done and why."*
@@ -168,14 +175,15 @@ without a cascade engine. **None of these is built by this phase — `D-02`.**
 - **The `channel_disagreements` blind spot** carried from `D-GATE-23.1` — a shipped comparator that cannot see a token-level channel drift. Fixing it is a build; it is owed, not scheduled.
 - **The four Dave-owned reading items** `#2`–`#5` from the v0.2 packet — explicitly NOT dischargeable at `D-GATE-24`.
 
-### OPEN — raised, NOT resolved, and it needs a ruling before 24.1 is planned
+### CLOSED 2026-08-25 — was open, now ruled at `D-16`..`D-19`
 
 **Example tree naming, and three rows that assume a scheme that was never
 built.** `EXAM-01`, `EXAM-03` and `DOCS-11` were deferred TO Phase 24 by Phase
 23.1 and they assume an `s2-`/`s3-` section naming scheme; no `s2-` or `s3-`
 tree has ever been tracked. If 24.1's tree adopts a different convention, those
 three rows inherit a name that will never exist and must be RE-POINTED rather
-than silently carried. This was selected for discussion and the sitting closed
-before reaching it.
+than silently carried. **RULED: `cp-NN-<slug>`, and all three rows are re-pointed rather than
+inherited.** See `D-16`..`D-19`. Kept in this section rather than deleted so the
+question and its answer stay together.
 
 </deferred>
