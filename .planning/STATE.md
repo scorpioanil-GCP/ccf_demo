@@ -158,11 +158,11 @@ last_activity: >-
   `DOCS-14`/`EXAM-02`'s replacement surface. **DELETION REMAINS OWED FOR EVERY SCHEDULED ROW**
   (`D-IMPL-191` ruling 3).
 progress:
-  total_phases: 30
+  total_phases: 31
   completed_phases: 29
   total_plans: 225
   completed_plans: 225
-  percent: 97
+  percent: 94
   measured: "**OPERATIVE RE-MEASURE AT THE PHASE 23.1 GATE, 2026-08-25/26 by
     plan `23.1-08`, stated FIRST and alone; everything below it is PRESERVED HISTORY.**
     RE-MEASURED FROM THE TREE, NOT INCREMENTED (Dave, 2026-08-25: *re-measure and
