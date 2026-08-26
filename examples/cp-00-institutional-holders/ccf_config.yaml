@@ -1,0 +1,313 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# `cp-00`'s whole Control Plane configuration — ONE document. `D-IMPL-136`'s
+# AMENDMENT (Dave, 2026-08-15): the section name IS the class, so no file name,
+# manifest key or class id is stated three times over for a section the SDK
+# owns.
+#
+# **Delete this file and `produce.py` and `deployment.py` have nothing left to
+# interpret.** That is criterion 7 — the No-Hardcoding Rule (`CLAUDE.md` §6.4)
+# — being structural rather than aspirational. Every value below comes from
+# `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md`;
+# the section that authored each one is named in the comment above it.
+#
+# `backends.yaml` is deliberately NOT here — a connection value is deployment
+# environment, not Control Plane state, and a DSN written into a
+# content-hashed artifact is a DSN persisted into the audit plane forever.
+
+semver: "1.0.0"
+tenant_id: cp-00-demo
+
+# --------------------------------------------------------------------------
+# THE ONE PLACE THIS EXAMPLE STRUCTURALLY DIFFERS FROM `s1-00`, AND IT IS
+# PEDAGOGY RATHER THAN CONVENIENCE.
+#
+# `examples/s1-00-companies-over-revenue` mints a per-run schema inside the
+# SAME Postgres it reads, so its graph and its system of record are one
+# substrate. Here they are TWO, visibly:
+#
+#   * the CCF graph is a per-run local file — see `backends.yaml`;
+#   * the system of record is a separate relational store, READ-ONLY to this
+#     deployment (spec §C.3: *"nothing this product runs writes to the store it
+#     reads"*).
+#
+# That is the honest shape of a Context Product, and a reader who assumes the
+# two must be the same because `s1-00` made them the same has learned the wrong
+# lesson from the smaller example. `ccf.graph.registry::declared_names` carries
+# seven adapter names; this document names ONE, as a KIND, and never a path.
+# --------------------------------------------------------------------------
+backend: sqlite
+
+# --------------------------------------------------------------------------
+# WHAT THIS PRODUCT IS — spec §B.1's nine elements, in the slots the SDK has
+# for them.
+#
+# `payload_schema_key` is deliberately ABSENT. Spec §B.1 element 1 marks the
+# payload schema key and version `[TBC]` (§F, marker 3), and declaring one here
+# would close a marker by writing a value nobody chose. The SDK's own sentinel
+# stands until the schema artifact exists.
+# --------------------------------------------------------------------------
+product_class:
+  # §B.1 element 7. Fixed by the spec's §D.2 witness for step 5: the projection
+  # plan id must equal this class name, or the recipe's `plan_id_matches`
+  # witness has nothing to match.
+  schema_name: holdings.institutional-holders
+  schema_version: "1.0.0"
+
+  # §B.1 element 3, and `24-CONTEXT.md` `D-22`. The anchor is the REPORTED
+  # QUARTER END, not the request instant and not a row timestamp. "The dataset
+  # reports per period and the spec anchors on that period" is a normal
+  # freshness declaration; "there should be a timestamp and there isn't" would
+  # be a data defect. This product is the first sentence.
+  ttl_anchor: from_entity_freshness
+
+  # §B.1 element 9. Mode 1 — pure algorithmic. No model is in the trust path,
+  # which is criterion 4's subject and a REGISTRATION-TIME commitment: changing
+  # it is a MAJOR version change.
+  assembly_mode: algorithmic
+
+  # The key the class's TTL ceiling registers under. Registering the value is
+  # what MINTS its pin, so the value cannot live in this document — see
+  # `artifacts/ttl.yaml`, and the finding recorded in this wave's summary.
+  max_ttl_key: cp-00/product/institutional-holders/max-ttl
+
+  # §D.2 steps 3 and 4 — the two operator steps this assembly executes. The
+  # spine never counts them (`D-IMPL-132`): a deployment declaring one gets a
+  # one-operator registry, and this one declares two.
+  #
+  # Step 3 (Policy) is NOT decorative. `src/ccf/operators/categories.py::PolicyFilter`
+  # runs first in every plan so no later stage can observe inadmissible state,
+  # and spec §D.3 records that it can EMPTY the answer if the classification
+  # attribute is not declared for a class — which is why both entity classes
+  # appear under `operators:` below.
+  required_operator_keys:
+    - policy.principal-subgraph
+    - temporal.as-of-boundary
+
+# --------------------------------------------------------------------------
+# THE OPERATOR PARAMETER SETS, keyed by the operator id itself — never by a
+# category alias. One entry per declared key above.
+# --------------------------------------------------------------------------
+operators:
+  # §D.3, and product gate `IH-G06`.
+  # `src/ccf/operators/categories.py::PolicyFilter` excludes any entity whose
+  # class has NO classification attribute declared — not merely one whose
+  # classification is impermissible. BOTH entity classes this deployment
+  # resolves must therefore appear here, and both must carry that attribute,
+  # or the view empties and steps 4-6 answer about nothing.
+  #
+  # The permitted policy-bundle version is NOT written here and cannot be: it
+  # is a content hash minted at registration, injected by
+  # `ccf.deployment::build_operator_registry` from the deployment's own pin.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      issuer: provenance_class
+      institutional_manager: provenance_class
+    # §B.2: every element of both source tables measures `public`, so the
+    # highest classification present is `public` and there is no jurisdictional
+    # or entitlement partition to bind. This product asserts NO entitlement
+    # scope, deliberately — a decorative scope on public-filing data is the
+    # named common error, not a safety margin.
+    permitted_classifications:
+      - public
+
+  # §D.2 step 4. Cut 3 of `src/ccf/operators/categories.py::TemporalAsOf` —
+  # a claim whose valid interval does not cover the boundary is absent. Turned
+  # ON because this product answers about a PINNED reported period: a claim
+  # valid only after the boundary is a later filing, and serving it would
+  # answer a different question.
+  temporal.as-of-boundary:
+    require_valid_at_boundary: true
+
+# --------------------------------------------------------------------------
+# WHICH QUESTIONS THIS CLASS ANSWERS — spec §B.4.
+#
+# `class_id`, `role` and `registration` are adopter-owned (`D-IMPL-138`(a)):
+# the SDK has no default it could derive for a class it does not own.
+# --------------------------------------------------------------------------
+request_contract:
+  class_id: cp-00.request-contract
+  role: load
+  registration: typed
+  schema_name: holdings.institutional-holders
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      minimum_position_usd:
+        # DECLARED `integer`, NOT `number`, AND THE REASON IS MEASURED.
+        #
+        # `src/ccf/products/payload.py::_matches` admits both `int` and
+        # `Decimal` for `number`. But a `Decimal` request parameter does NOT
+        # survive the replay-record round trip — it returns as `str`, and
+        # `src/ccf/products/request.py::refuse_request` then refuses the
+        # REPLAYED request with `type-mismatch` against the very contract that
+        # admitted the original. An `int` round-trips exactly.
+        #
+        # This is decided HERE, at declaration time, rather than in the replay
+        # test: a test that chose the type would be the test working around the
+        # artifact instead of asserting it.
+        #
+        # DIVERGENCE FROM THE SPEC, RECORDED RATHER THAN ABSORBED: spec §B.4's
+        # table says `number`. `integer` is the narrower of the two and is what
+        # replay can carry; the spec's row is owed a reconciliation.
+        type: integer
+        description: >-
+          Reported position value in USD at or above which a manager appears.
+          The comparison is `>=`, per spec §B.4 and product gate `IH-G04`.
+    # REQUIRED, WITH NO DEFAULT. A threshold nobody supplied is not a question
+    # this class answers: a request omitting it is refused as
+    # `missing-required-parameter` — returned as DATA, never raised — BEFORE
+    # the graph is touched. The demonstration's fallback lives in
+    # `artifacts/question.yaml`, which is a CLI convenience and not a contract
+    # obligation; conflating the two is a papercut `s1-00` already paid for.
+    required:
+      - minimum_position_usd
+
+# --------------------------------------------------------------------------
+# HOW A SOURCE ROW BECOMES GRAPH STATE — spec §B.1 element 1 and §C.3.
+#
+# `match_key` selects the rule by PRESENCE in the envelope payload
+# (`src/ccf/assembly/worker.py::SpecDrivenEntityResolution`), so one envelope
+# per filed position carrying both keys asserts BOTH entities: the anchor
+# issuer, upserted idempotently on every row, and that row's holder.
+#
+# Every attribute key below is a name `deployment.py` must emit and a name
+# §E.2's `C_attributes` counts. They are written down HERE and nowhere else.
+# --------------------------------------------------------------------------
+resolution:
+  entity_rules:
+    - match_key: issuer_ref
+      entity_class: issuer
+      # §C.3: the identity authority for the anchor is the LEI as carried by
+      # the filing — a publicly resolvable identifier, never an internal
+      # surrogate key.
+      identity_keys:
+        - issuer_lei
+      attribute_keys:
+        - issuer_lei
+        - issuer_registered_name
+        - provenance_class
+
+    - match_key: manager_ref
+      entity_class: institutional_manager
+      # THE COMPOSITE THE SOURCE'S PRIMARY KEY IMPLIES — §C.3's second
+      # correlation key, `(lei, manager_cik, cusip, report_period)`.
+      #
+      # Within one pinned security and one pinned period this reduces to the
+      # CIK, which §C.3 names as the manager's identity authority: Wave 1
+      # measured rows-minus-managers on the dominant CUSIP at 0. The composite
+      # is carried anyway, because it is what keeps the URI one-per-filed-
+      # position if the pin is ever widened — and widening the pin is exactly
+      # what §C.4 trap 1 says a later reader will be tempted to do.
+      identity_keys:
+        - issuer_lei
+        - manager_cik
+        - resolved_cusip
+        - report_period
+      attribute_keys:
+        - manager_cik
+        - manager_name
+        - position_value_usd
+        - position_shares
+        - report_period
+        - resolved_cusip
+        # §C.4 trap 3: the band TRAVELS WITH THE ROW and is filtered nowhere.
+        # It is a completeness signal this product DECLARES (§E.2), not a
+        # defect it silently removes.
+        - issuer_match_band
+        - issuer_match_score
+        - provenance_class
+
+  relationship_rules:
+    # §B.1 element 1's declared relationship. One edge per envelope, because
+    # one envelope asserts exactly one issuer and one holder.
+    - relationship_type: reports_position_in
+      subject_entity_class: institutional_manager
+      object_entity_class: issuer
+
+# --------------------------------------------------------------------------
+# λ_c — spec §E.1. ONE observation type.
+#
+# The second row of §E.1's table (issuer identity) is `[TBC]`: the archive
+# publishes no refresh interval for the registered name and guessing one would
+# be the §0.2 defect. §E.2 normalizes F over the REQUIRED signal classes, so an
+# undeclared, non-required class is an absence rather than a hole.
+#
+# 11,836,800 s = 137 days = one calendar quarter (92 days) plus the 45-day
+# filing deadline the source's own reporting rule sets. CALIBRATION BASIS:
+# ILLUSTRATIVE. §G's observability entry is what moves it to measured.
+# --------------------------------------------------------------------------
+half_life:
+  reported_position:
+    half_life_seconds: 11836800
+    decay_driver: the quarterly 13F reporting cycle plus its 45-day filing deadline
+    supersession_event: >-
+      a later filing restating the same manager's position in the same security
+      for the same reported period — an amendment, not the arrival of the next
+      quarter
+
+# --------------------------------------------------------------------------
+# WHERE THE D_c BANDS SIT — `D_c = 1 - (F . C . S)`.
+#
+# THE SPEC LEAVES THESE `[TBC]` (§E.2 and §G, marker 16) AND THE SDK REQUIRES
+# ALL THREE. They are declared here, with their arithmetic, so they are values
+# an engineer can CHALLENGE rather than numbers a reader must assume were
+# derived. Whoever closes marker 16 reconciles the spec's table against them.
+#
+# §E.2 and §G both warn that the bands MUST be set together with λ_c: a
+# 148-day-old pinned period against a 137-day half-life puts D_c near 0.56, so
+# a tolerance chosen in ignorance of the half-life refuses this product on its
+# first call. The arithmetic, at C = C_attributes x C_match with C_match =
+# 0.9342 (Wave 1) and S = 1 (one source cannot disagree with itself):
+#
+# COMPUTED WITH `src/ccf/halflife/debt.py::FreshnessScorer`, NOT BY HAND, and
+# at C_attributes = 1.0 (the anchor's four read columns measured 0 nulls):
+#
+#   age  137 d (one filing cycle)   F 0.5000   D_c 0.533
+#   age  148 d (the demonstration)  F 0.4729   D_c 0.558   <- serves, nominal
+#   age  168 d                      F 0.4274   D_c 0.601   <- forced-LLM band
+#   age  278 d (two filing cycles)  F 0.2450   D_c 0.771   <- fail-closed band
+#   age  365 d (TTL expiry)         F 0.1578   D_c 0.853
+#
+# `forced_llm_threshold` for a MODE 1 product is a DISCLOSURE band, not a
+# routing instruction: there is no model in the path to route to. Measured
+# crossing: DAY 168 after the reported quarter end — a month after the next
+# quarter's filing deadline has passed with the register not refreshed.
+#
+# `fail_closed_threshold` measured crossing: DAY 278, roughly TWO filing
+# cycles, and deliberately BEFORE the 365-day TTL expiry — so the debt posture
+# is what protects the decision and gate 3 is the backstop rather than the
+# other way round.
+#
+# The debt gate is a Control Plane POSTURE, not a validation gate (§D.7):
+# `src/ccf/products/gates.py::run_gates` never sees it, and the refusal is the
+# deployment's own code.
+# --------------------------------------------------------------------------
+debt_profile:
+  # §E.1's λ_c is already declared as a DECISION-RELEVANCE half-life, so the
+  # budget multiplier is 1. A multiplier other than 1 would silently restate
+  # the half-life in a second document.
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+# --------------------------------------------------------------------------
+# THE REGIME IN FORCE — spec §B.1 element 4. Its VERSION rides the served
+# product's lineage, which is why the ordering is established from the first
+# product rather than retrofitted. Adopter-owned (`D-IMPL-138`(a)).
+# --------------------------------------------------------------------------
+policy:
+  class_id: cp-00.policy-bundle
+  role: register
+  registration: typed
+  regime: public-regulatory-filing-disclosure
+
+# --------------------------------------------------------------------------
+# Pi role-conditioning: whose view of the graph this product is served under.
+# There is no door in this in-process example, so this names it directly
+# (design spec §8.1). It lands in the served payload as `perspective_role`
+# (§D.6) and in replay dimension 4.
+# --------------------------------------------------------------------------
+default_perspective:
+  principal_id: holdings-analysis-desk-1
+  role: analyst

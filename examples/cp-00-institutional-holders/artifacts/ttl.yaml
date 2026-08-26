@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE CLASS'S TTL, AND ITS CEILING — spec §B.1 element 3, §E.5 and §G.1
+# (`24-CONTEXT.md` `D-43`, Dave 2026-08-26).
+#
+# WHY THIS IS A SEPARATE DOCUMENT, AND IT IS A MEASURED FINDING RATHER THAN A
+# PREFERENCE. `ccf.controlplane.artifacts::ProductClassDeclaration` carries
+# `max_ttl_key` — the Control Plane KEY the ceiling registers under — and has
+# no field for the ceiling's VALUE. Measured: constructing it with an extra
+# `max_ttl_seconds` is refused `extra_forbidden`, against a positive control
+# that constructs cleanly without it. Registering the value is what MINTS its
+# pin, so the value cannot be a field of the document whose pin it becomes.
+#
+# The value therefore has to live in a deployment-owned artifact or in code.
+# `examples/s1-00-companies-over-revenue/deployment.py` puts its 600 seconds in
+# code, as a module constant. That is the thing criterion 7 is about, and this
+# product's number is domain-specific in a way `s1-00`'s is not — 365 days is
+# the 13F amendment window, not a demo convenience — so it is declared here.
+#
+# `role: load`. A TTL declaration is a fact about the class, parsed and handed
+# back; it is not something the fabric is PERMITTED to do, so it has no
+# business being registered into Control Plane state under its own class id.
+# The ceiling reaches the registry through
+# `ccf.products.contract::MaxTTL`, registered by the spine under
+# `product_class.max_ttl_key`.
+
+semver: "1.0.0"
+class_id: cp-00.ttl
+
+declaration:
+  # 365 days. The declared duration is the AMENDMENT WINDOW, not the filing
+  # cycle: this source is an amended-filing archive in which a period is
+  # restated years later (spec §C.4 trap 1), so what makes the answer wrong is
+  # a restatement of THAT period, not the arrival of the next one.
+  #
+  # Anchored on the REPORTED QUARTER END, because `ttl_anchor` is
+  # `from_entity_freshness` (§B.1 element 3). For the pinned period that is
+  # 2026-03-31, so `expires_at` is 2027-03-31.
+  declared_ttl_seconds: 31536000
+
+  # `D-43`'S CONTROL PLANE OBLIGATION, DECLARED WHERE THE DEPLOYMENT READS IT.
+  #
+  # `src/ccf/products/gates.py::_refuse_ttl` requires
+  # `now < expires_at <= now + MAX_TTL`. A deployment whose ceiling is shorter
+  # than the declared TTL refuses this product ON ITS FIRST CALL, at the gate's
+  # UPPER bound, before the archive has aged at all — and that refusal is a
+  # CONFIGURATION MISMATCH, not an example bug. The remedy is to raise the
+  # ceiling, never to shorten this product's declared TTL to fit a default
+  # nobody chose. Spec §E.5 carries the two-row table that tells that refusal
+  # apart from the LOWER-bound one after 2027-03-31, which is the gate working.
+  max_ttl_seconds: 31536000
