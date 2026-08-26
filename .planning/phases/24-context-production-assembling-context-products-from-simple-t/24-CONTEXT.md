@@ -138,6 +138,21 @@ published-page structure. All must be reported, none needs a ruling.
 - **D-52: Wave 4's debt bands are CONFIRMED and go into the spec/artifacts — §E stops reading `[TBC]`.** Crossing days **168** and **278**; demo `D_c` **0.558**, nominal and stable because `now` is a fixed `asked_at`. Computed by `FreshnessScorer` with the crossing days measured by search, not asserted.
 - **D-53: `integer` wins for this example; the §B.4 `number` divergence is RECORDED, and the SDK is NOT changed.** The threshold parameter is declared `integer` because `Decimal` does not survive the replay round trip. Spec §B.4 says `number`. **Record the divergence at the declaration with the replay reason — do not absorb it silently and do not amend the SDK** (`D-04`).
 
+### WHEN AN SDK GAP GETS CLOSED — the threshold-and-batch rule, ruled 2026-08-26
+
+- **D-54: Neither "every wave" nor "wait for a pile". The rule is THRESHOLD PLUS BATCH.** Dave, 2026-08-26. This governs every recorded gap from here, not just 24.1's.
+- **D-55: ADDRESS AS YOU GO when the gap is ALL THREE of:** Protocol-shaped or use-case-agnostic; **blocking the next example from being HONEST** (cannot express a refusal as data, cannot register a deployment operator without a side path); and cheap and local (an open registry seam, an extra `AssemblyOutcome` field).
+- **D-56: DEFER TO A DEDICATED SDK WAVE when ANY of:** it needs a new `OperatorCategory` or touches the whitepaper algebra; it would force a RETROFIT of old examples (forbidden by `D-07`); or it is real but the current example already carries a RECORDED WORKAROUND.
+- **D-57: DO NOT wait for "critical mass" if that means shipping more examples on the same lie.** Dave's words: *"raise-instead-of-refuse, hidden L1 registry."* **DO wait to batch RELATED seams** — one small phase for *"assembler refusal as data + deployment operator registration"*, **not two drive-bys inside 24.1**.
+- **D-58: THE PLAN FOR 24.1's TWO PROTOCOL-SHAPED GAPS.** Keep recording classified gaps (Protocol / agnostic / bespoke). **After `cp-00` is green, open a SHORT SDK PHASE for the two Protocol-shaped items — `build_operator_registry` has no deployment-operator seam, and `ContextAssemblerProtocol.assemble` cannot return a governed refusal — BEFORE the next CP example depends on them.** Bespoke stays in artifacts.
+
+### Three Wave 5 items, ruled 2026-08-26
+
+- **D-59: `build_operator_registry`'s missing deployment-operator seam — RECORD ONLY.** It dispatches on artifact type and raises otherwise; the registry is open, the composition path in front of it is not. Wave 5's L1 register-into-its-own-registry is the right LOCAL path. SDK work later, additive, not 24.1 — and it is one of `D-58`'s two.
+- **D-60: `ContextAssemblerProtocol.assemble` cannot return a governed refusal — RECORD ONLY.** Seven fields, `extra=forbid`; a conforming assembler can only RAISE, in a codebase whose posture is that a refusal is DATA. A real Protocol gap. Not 24.1 — and it is `D-58`'s other.
+- **D-61: There is NO `issuer_match_band` filter, and the plan clause asserting one is FALSE.** Plan `24.1-05` Task 1 said the read is *"filtered by the declared `issuer_match_band`"*. No band filter is declared anywhere; the spec, the data probe and `expected.yaml` all rule against one, and implementing it would have been a **silent 6.6% under-count**. Wave 5 did not implement it. **The false clause is corrected here so Wave 6 does not "restore" it.**
+- **D-62: WAVE 6 OWNS THE SPEC RESIDUES. No orphan spec cell survives Wave 6.** Specifically: write `D-52`'s CONFIRMED bands into §E.2 and **drop its `[TBC]`** (crossings 168 and 278 days, demo `D_c` 0.558); correct §D.2 step 1's prose cell, which still reads *"no SDK symbol"* and is now FALSE — Wave 5 fixed the recipe artifact but not the prose; and clear the remaining §F markers Wave 5 measured, including marker 13 at `C_attributes` = 1748/1748 = 1.
+
 <canonical_refs>
 ## Canonical References
 
