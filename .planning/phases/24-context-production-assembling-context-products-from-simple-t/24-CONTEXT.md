@@ -108,6 +108,12 @@ published-page structure. All must be reported, none needs a ruling.
 - **D-37: THE BOUND, as Dave stated it — four clauses, all of which must hold.** (1) ONE artifact in the example tree — e.g. `assembly-recipe.yaml`, the §D table as data with each step naming a runtime witness; (2) ONE test module under `tests/examples/`; (3) **NOTHING in `src/` or `runtime/`**; (4) **NOT REUSABLE across products.** Dave: *"That is the pressure test: the example proves its own recipe, not the SDK growing a validation framework."* Aligns with `D-01` — the SDK is untouched and the example carries its own proof.
 - **D-38: A PROOF THAT DRIFTS OUTSIDE THE FOUR CLAUSES IS THE VIOLATION, not the criteria.** If discharging criterion 2 ever appears to require something reusable, something in `src/`, or a second test module, that is the signal the proof has grown into the machinery criterion 18 forbids — stop and report it, do not widen a criterion to admit it.
 
+### The security is RESOLVED, not pinned — ruled 2026-08-26
+
+- **D-39: `cp-00` RESOLVES the security from `(lei, period)` to the dominant CUSIP. It does NOT pin a literal.** Dave: *"Use an L2 Resolve from (lei, period) to the dominant CUSIP. That is the operator criterion 11 is supposed to place."*
+- **D-40: Three reasons, recorded so this is not re-opened.** (1) The resolve step IS the L2 `Resolve` that criterion 11's mapping hypothesis must place — **pinning would skip the pressure test the phase exists to run**. (2) A pinned CUSIP is a DOMAIN VALUE and would have to live in an artifact anyway under the No-Hardcoding Rule (`CLAUDE.md` §6.4). (3) One issuer LEI fans out to as many as 52 CUSIPs; resolving handles the fan-out, pinning hides it.
+- **D-41: The extra §D step is ACCEPTED.** Dave: *"Accept the extra §D step. Mapping gets answered now instead of deferred."* The §D operator step table therefore carries a Resolve step, and criterion 2 requires it be proven to correspond to code that actually runs.
+
 <canonical_refs>
 ## Canonical References
 
