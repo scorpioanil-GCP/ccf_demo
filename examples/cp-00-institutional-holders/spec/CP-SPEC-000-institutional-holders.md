@@ -8,13 +8,12 @@
 
 > ## READ THIS BEFORE YOU READ A NUMBER
 >
-> **These examples teach METHOD — how to engineer and construct a Context
-> Product with the CCF SDK — not the figures.** Every count, threshold and
-> dollar amount in this document is here to show how a specification binds to
+> **These examples teach METHOD — how to engineer and construct a Context Product with the CCF SDK — not the figures.**
+>
+> Every count, threshold and dollar amount in this document is here to show how a specification binds to
 > a real store, and for no other reason.
 >
-> The surrounding data estate carries **deliberately engineered names and
-> relationships** — measured estate-wide, 30,365 rows marked
+> The surrounding data estate carries **deliberately engineered names and relationships** — measured estate-wide, 30,365 rows marked
 > `synthetic — engineered`, 13,840 `synthetic — internal` and 20 `derived` —
 > even though the two tables this product reads carry none of them
 > (`ccf_v2.institutional_holder` 22,476 of 22,476 rows and `ccf_v2.legal_entity`
@@ -22,9 +21,9 @@
 > carries no `lei` column at all, so no engineered entity can collide with an
 > issuer LEI by construction.
 >
-> **No number here is a fact about any real company.** What the reader is
-> actually looking at is **one quarterly archive spanning many periods** — 46
-> of them — and not a live feed, and issuer matching that is **~22.5% `weak`
+> **No number here is a fact about any real company.**
+>
+> What the reader is actually looking at is **one quarterly archive spanning many periods** — 46 of them — and not a live feed, and issuer matching that is **~22.5% `weak`
 > BY DESIGN** rather than by defect (§C.4 trap 3).
 >
 > The same four statements are repeated beside each figure cluster below,
@@ -153,10 +152,13 @@ they change the answer:
 | Rows vs distinct managers under the anchor, all 6 CUSIPs | **1,763 rows / 1,753 managers** — 10 rows of over-count |
 | Managers whose only position is on a security that is **not** the resolved one | **5** |
 
-> **Beside these figures, and not in a footer:** these examples teach METHOD —
-> how to engineer and construct a Context Product with the CCF SDK — not the
-> figures. **No number here is a fact about any real company.** This is one
-> quarterly archive spanning many periods, not a live feed.
+> **Beside these figures, and not in a footer:**
+>
+> These examples teach METHOD — how to engineer and construct a Context Product with the CCF SDK — not the figures.
+>
+> The surrounding data estate carries **deliberately engineered names and relationships**; the two tables this product reads carry none of them, and every row of both measures `provenance = 'public'`.
+>
+> **No number here is a fact about any real company.** This is one quarterly archive spanning many periods, not a live feed, and its issuer matching is ~22.5% `weak` by design.
 
 Every figure above is a Wave-1 measurement recorded with its positive control
 in `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-DATA-PROBE.md`;
@@ -227,6 +229,14 @@ where an element's row is empty the emptiness is stated as a decision.)*
 | 7 | **Discovery** | `holdings.institutional-holders.v1`. SDK surface: `src/ccf/products/contract.py::ProductDiscovery` (domain · intents · capabilities · audiences). **Not registered yet** — §G is unwritten, and Standard §2.1 names registering before §G is complete as the common error |
 | 8 | **Addressability** | `/context-products/holdings/institutional-holders/{issuer-lei}` — anchored on the **issuer LEI**, a publicly resolvable identifier, and **not** on an internal surrogate key, which is §2.1's named error for this element. The anchor resolves: 48 of 48 distinct issuer LEIs in the pinned period join to the reference table, against a salted-join control that matched 0 of 48. SDK surface: `src/ccf/products/contract.py::ProductAddress` |
 | 9 | **Assembly Mode** | **1 — pure algorithmic.** Rationale, one sentence as §2.1 requires: the answer is a filtered, resolved, aggregated set of filed numbers, so a model in the path would add cost and non-determinism and could only paraphrase what the substrate already states exactly. Fixed by `24-CONTEXT.md` `D-14`. **Assembly Mode is a registration-time commitment**, not an emergent runtime property; changing it is a MAJOR change |
+
+> **Beside the figures in this table** — the provenance counts at element 4, the join coverage at element 8:
+>
+> These examples teach METHOD — how to engineer and construct a Context Product with the CCF SDK — not the figures.
+>
+> The surrounding data estate carries **deliberately engineered names and relationships**; these two tables carry none, which is why the provenance counts read as they do.
+>
+> **No number here is a fact about any real company.** This is one quarterly archive spanning many periods, and its issuer matching is ~22.5% `weak` by design.
 
 **On the TTL, because it is the point most easily mis-read** (`24-CONTEXT.md`
 `D-22`). The SDK takes the anchor the spec **declares**:
@@ -352,3 +362,275 @@ gaps:
 - **A live feed.** This is an archive. §C.4 trap 1 says what that costs.
 - **Assembly Modes 2 and 3, products built off products, and the A2A leg.**
   Later rungs.
+
+---
+
+## Section C — Data catalog
+
+*(Standard §3.)*
+
+**One system of record: SEC Form 13F**, as loaded into
+`ccf_v2.institutional_holder`, with `ccf_v2.legal_entity` supplying the anchor
+company's registered name and nothing else. Schema and table only — no host,
+no port, no credential appears in this document, and none may enter the example
+tree.
+
+### C.1 Element table
+
+One row per element, not per column.
+
+| Element | System of record | Provenance class | Classification | Capability class | G | Ontology IRI |
+| --- | --- | --- | --- | --- | --- | --- |
+| Issuer identity — the anchor company (`lei`) | SEC Form 13F (`ccf_v2.institutional_holder`) | public-filing | public | relational | **E** | `cmns-org:LegalEntity` |
+| Issuer registered name | Entity reference (`ccf_v2.legal_entity`) | public-filing | public | relational | **E** | `cmns-org:LegalEntity` |
+| Institutional manager identity (`manager_cik`, `manager_name`) | SEC Form 13F | public-filing | public | relational | **E** | `cmns-org:LegalEntity` |
+| Held security (`cusip`) | SEC Form 13F | public-filing | public | relational | **E** | `[TBC]` — no bound term for a security identifier exists in this estate's IRI binding contract; §F |
+| Reported position value (`value_usd`) and share count (`shares`) | SEC Form 13F | public-filing | public | relational | **E** (attributes of the reported position) | `[TBC]` — §F |
+| Reported period (`report_period`) | SEC Form 13F | public-filing | public | relational | **T** | `[TBC]` — §F |
+| Issuer-match score and band (`issuer_match_score`, `issuer_match_band`) | **Derived upstream** by the source system's issuer-name normalisation, **not** by this assembly | derived (upstream) | public | relational | **L** (a quality signal on the row's provenance) | `[TBC]` — §F |
+| Row provenance flag (`provenance`) | SEC Form 13F loader | public-filing | public | relational | **L** | `[TBC]` — §F |
+| **Resolved dominant security** for `(issuer, period)` | **Derived by this assembly** — the L2 `Resolve` step | derived | public | relational | **E** | `[TBC]` — §F |
+
+**On the `lei` column, because it reads backwards.** In this table `lei` is the
+**ISSUER's** LEI — the company **held** — not the holder's. The holders are
+identified by SEC CIK. So the product's anchor is the *held* entity, which is
+the opposite of what a column called `lei` on a table called
+`institutional_holder` suggests, and it is worth stating once in prose because
+every query in §D depends on it.
+
+**On two `derived` rows, and the Standard's rule about them.** Standard §3.1
+says *"derived requires the derivation to appear in §D."* Only one of the two
+can honour that: the **resolved dominant security** is derived by this
+assembly's `Resolve` step and appears in §D as a step
+(`24-CONTEXT.md` `D-39`/`D-41`). The **issuer-match score and band** are
+derived by the *source system's* loader before this product ever reads the row,
+so no §D step produces them and none will be invented to satisfy the rule. The
+derivation's owner is the source system; the marker goes to §F. Stating this is
+more useful than a §D step that describes work this assembly does not do.
+
+**Primary key of the source row:**
+`(lei, manager_cik, cusip, report_period)`.
+
+> **Beside this table:**
+>
+> These examples teach METHOD — how to engineer and construct a Context Product with the CCF SDK — not the figures.
+>
+> The surrounding estate carries **deliberately engineered names and relationships**; these two tables do not, and `ccf_v2.engineered_entity` carries no `lei` column at all, so an engineered entity cannot collide with an issuer LEI by construction.
+>
+> **No number here is a fact about any real company.** This is one quarterly archive spanning many periods, and its issuer matching is ~22.5% `weak` by design.
+
+### C.2 Capability decomposition
+
+One capability class is required — `relational` — which is why this is Tier 1.
+The decomposition is written anyway, because §3.2's point is that an estate
+rarely fails a capability wholesale: it satisfies some properties and fails
+others, and *that* is the finding worth having.
+
+| Property | Common estate answer | If absent |
+| --- | --- | --- |
+| Set-based retrieval of one issuer's holder rows in a single round trip | Widely available | Degrades to per-manager fan-out; §D's budget becomes unachievable and the product's cost band is no longer ×1 |
+| A reporting period that can be pinned and ordered deterministically | Widely available | **Blocking.** Without a pinnable period the product cannot answer about one quarter at all, and §C.4 trap 1 is unavoidable rather than handled |
+| Group-and-rank in the source, to resolve the dominant security for an issuer and period | Sometimes — many estates can group but will not rank inside a read | Degrades to a **named partial**: the security moves from a resolved value to a second caller parameter, which restores the fan-out over-count the resolve step exists to remove. Interim posture below |
+| Per-row quality signals (match band, provenance) carried through to the payload rather than dropped at the source boundary | Rare | Degrades to a named partial: the band survives only as an input to §E's debt model and stops travelling with the row, so a consumer can no longer see *which* rows are weakly matched — only how much debt the set carries |
+
+**Interim posture, for the one property likely to be partial.** If the estate
+cannot rank inside a read, the deliverable product is: the same anchor and the
+same threshold, with the security supplied by the caller as a second required
+parameter; the resolve step drops out of §D; the payload declares
+`security_resolution: caller-supplied`; and the version ships as
+**`v1.0.0-partial`** rather than as `v1.0.0`. Shipping a partial as though it
+were complete is the failure §3.2 exists to prevent, and a version string that
+does not say so is how it happens.
+
+### C.3 Correlation key, single-writer discipline, and identity authority
+
+**Correlation key.** Two, at different grains, and it matters which is which:
+
+| Key | Grain | Role |
+| --- | --- | --- |
+| `(lei, report_period)` | issuer + quarter | **The resolution key.** The `Resolve` step reads it and emits the dominant security |
+| `(lei, manager_cik, cusip, report_period)` | one filed position | The source row key — the table's primary key |
+
+**Measured crosswalk coverage**, which §3.3 requires rather than a footnote:
+the issuer-identity crosswalk from the holdings table to the reference table
+matched **48 of 48** distinct issuer LEIs in the pinned period. Positive
+control: the same join with a salted key matched **0 of 48**, so the instrument
+distinguishes rather than always agreeing.
+
+**Single-writer discipline.** Two statements, one about the source estate and
+one about CCF, and they are different claims:
+
+- *In the source estate*, one system is authoritative per element: the 13F
+  loader writes the position elements, the entity reference table writes the
+  issuer's registered name. No element is written by two.
+- *In CCF*, only L2 holds a write handle to L3 (`CLAUDE.md` §10, and it is
+  architectural rather than advisory). Every row this product reads enters the
+  graph **through the assembly worker's ingest and through nothing else**. The
+  product's two substrates are visibly different — the CCF graph is a per-run
+  local file, the system of record is a read-only relational source — so no CCF
+  write path reaches the source estate at all. Nothing this product runs writes
+  to the store it reads.
+
+**Identity authority hierarchy.**
+
+| Entity class | Identity authority | Status source | Freshness ceiling |
+| --- | --- | --- | --- |
+| Issuer (the anchor) | LEI, as carried by the filing | The reference table's registered name | The reported quarter — §B.1 element 3 |
+| Institutional manager | SEC CIK (`manager_cik`) | The filing's own submission record | The reported quarter |
+
+**One caveat on the manager authority, because it is a real property of the
+source and not a hypothetical.** `manager_cik` was once derived from the
+filing-agent prefix of the accession number, which collapsed distinct managers
+onto one identifier — the source's own record reports 63 of 2,450 CIK values
+mapping to more than one manager name, one across 290 managers. It was **found
+and fixed** by joining the submission record for the real manager CIK
+(`ccf_dataprep/docs/known-issues.md` §8.3), and the post-fix reading is 0 CIK
+values mapping to more than one name. The product therefore anchors managers on
+CIK **and** carries `manager_name` in the payload, so a consumer can see the
+identity rather than trust it silently.
+
+### C.4 The three data traps, each with the binding chosen and what it costs
+
+Each trap below was measured at Wave 1 with a positive control recorded beside
+the figure in `24.1-DATA-PROBE.md`. The bindings are **rulings** and are not
+re-opened here.
+
+> **Beside every figure in this section:**
+>
+> These examples teach METHOD — how to engineer and construct a Context Product with the CCF SDK — not the figures.
+>
+> **No number here is a fact about any real company.** This is one quarterly archive spanning many periods, and its issuer matching is ~22.5% `weak` by design — the deliberately engineered names and relationships of the wider estate are not in these two tables.
+
+#### Trap 1 — `report_period` is a spread, not a quarter
+
+`report_period` carries **46 distinct values** spanning `31-DEC-2014` →
+`31-MAR-2026`, because one filing window carries amended filings restating
+historical periods. The distribution is dominated by one quarter —
+`31-MAR-2026` holds **20,487 of 22,476 rows**, 91% — with a long tail behind
+it.
+
+**A query that does not pin the period silently mixes a decade of positions
+into one answer.** Nothing errors; the answer is simply about a different
+question than the one asked.
+
+| The binding | Where it is applied | What it costs |
+| --- | --- | --- |
+| **Pin `report_period` to `31-MAR-2026`** | In the L1 read, at the source boundary — so the out-of-period rows never become signals, are never assembled, and never reach Π | **1,989 rows** estate-wide are outside the pin and are not served. That is the intended cost: they are other quarters' answers, not this one's |
+
+The pinned period is also the TTL anchor (§B.1 element 3): one date,
+`2026-03-31`, and 20,487 of 20,487 rows in the pin parse to it.
+
+#### Trap 2 — one issuer LEI fans out across many CUSIPs
+
+The anchor carries **6 distinct CUSIPs** in the pinned period; estate-wide the
+worst case is **one LEI reaching 52**. The fan-out under the anchor, measured
+(control: the same query on a nonexistent CUSIP returned 0):
+
+| CUSIP | band | rows | `issuer_match_score` |
+| --- | --- | --- | --- |
+| `032095101` | strong | 1,633 | 1.0000 |
+| `032095101` | weak | 115 | 0.8000 – 0.8889 |
+| `032095901` | strong | 7 | 1.0000 |
+| `032095951` | strong | 5 | 1.0000 |
+| `81369Y506` | strong | 1 | 1.0000 |
+| `8033009TT` | strong | 1 | 1.0000 |
+| `002159795` | strong | 1 | 1.0000 |
+
+Aggregating a manager's position across every CUSIP under an LEI **over-counts**:
+1,763 rows over 1,753 distinct managers, 9 managers appearing on more than one
+CUSIP, and **5 managers whose only position is on a security that is not the
+issuer's dominant one** (control: the reciprocal set — managers only on the
+dominant security — returned 1,742, a different number, so the set difference
+is measuring in both directions).
+
+| The binding | What it is | What it costs |
+| --- | --- | --- |
+| **RESOLVE the security from `(lei, report_period)` to the dominant CUSIP** — an L2 `Resolve` step. **Not a pinned literal** | `24-CONTEXT.md` `D-39`/`D-40`/`D-41` (Dave, 2026-08-26). Three reasons on the record: the resolve step **is** the `Resolve` this phase's operator-mapping hypothesis must place at a layer, so pinning would skip the pressure test the phase exists to run; a pinned CUSIP is a **domain value** and would have to live in an artifact anyway under the No-Hardcoding Rule (`CLAUDE.md` §6.4); and one LEI fanning out to 52 securities is handled by resolving and hidden by pinning | An extra §D step, **accepted**. And the five off-security managers are not served — which is the point, not the cost |
+
+**A framing this spec explicitly does not inherit.** It would be natural to
+read the off-security CUSIPs as admitted by a fuzzy issuer-name match, and the
+phase's own research said so. **Measured, it is false:** all five off-security
+CUSIPs are band `strong` at `issuer_match_score = 1.0000`, and the `weak` rows
+sit **entirely on the correct security**. The band and the fan-out are two
+different problems, and the band is the remedy for neither — see trap 3.
+
+#### Trap 3 — `issuer_match_band = 'weak'` is 22.5% of rows, and it is deliberate
+
+Estate-wide: **`strong` 17,410 / `weak` 5,066** of 22,476 rows — **22.5%
+`weak`**. This is a **retained match-quality signal, not a defect left in by
+accident**. The estate's design rule is that some joins are deliberately
+imperfect so that resolution logic is testable at all, and the band column
+exists precisely so the imperfection is **visible** rather than hidden; the one
+issuer-matching defect that genuinely inflated the band — an unstripped state
+suffix that mis-scored ~1,700 rows — was found and fixed
+(`ccf_dataprep/docs/known-issues.md` §8.15), so what remains is the tuned
+residual and not the bug.
+
+**A weak band is a completeness signal, not a defect to filter away silently.**
+
+| The binding | What it is | What the alternative costs |
+| --- | --- | --- |
+| **NO band filter.** Both bands are served, and the band travels with the row as a per-row signal | Ruled at Wave 1 against the measurement, not against the inherited framing | Filtering to `strong` costs **115 managers (6.6%)**, 115 rows and **$2.77bn of reported position (2.4%)** at threshold 0 — and removes **zero** wrong-security rows, because every off-security row is already `strong`. Dropping 115 real holders to remove nothing is a bad trade |
+
+**This is a completeness fact and §E's debt model must account for it.** The
+115 weakly-matched rows under the anchor are served, so the product's C factor
+is not 1.0 merely because every row arrived: a consumer is entitled to know how
+much of the answer rests on a weak issuer match. §E carries the accounting; §C
+carries the figure and the ruling.
+
+### C.5 What this data is — stated once more, because it is the point
+
+`24-CONTEXT.md` `D-33`, in Dave's words: *"it's about how to engineer and
+construct a context product using the CCFSDK."* The source estate's own README
+says the same thing: ***"Use this to learn the assembly patterns, not the
+numbers."***
+
+Four statements, and they are the honest ones for **this** product rather than
+a recital:
+
+1. **These examples teach METHOD — how to engineer and construct a Context Product with the CCF SDK — and not the figures.**
+2. The surrounding data estate carries **deliberately engineered names and relationships** — 30,365 rows `synthetic — engineered`, 13,840
+   `synthetic — internal`, 20 `derived`, measured across the 99 tables in the
+   estate that carry a provenance column — even though **this product's two
+   tables carry none of them**: 22,476 of 22,476 and 156 of 156 rows are
+   `provenance = 'public'`.
+3. **No number here is a fact about any real company.**
+4. What the reader is actually looking at: **one quarterly archive spanning many periods** — 46, one of them pinned — and **not** a live feed; and
+   issuer matching that is **~22.5% `weak` BY DESIGN**, not by defect.
+
+**And what is deliberately not said here.** These rows are public filings, and
+the honest statement is the four above — not a claim that the behaviour in them
+is fabricated. Being inaccurate in the cautious direction is the same class of
+error as being inaccurate in the confident one, and both mislead a reader about
+what they are holding.
+
+---
+
+## Section D — Assembly recipe
+
+*Authored in the next wave.* The operator step table, its per-step runtime
+witnesses, the determinism class, the replay statement, the emitted contract
+and the validation gates land here. Two things this section already owes: the
+`Resolve` step of §C.4 trap 2, and the statement that the Standard's §4.7 debt
+gate exists in this SDK as a **Control Plane posture** rather than as a fourth
+gate inside `src/ccf/products/gates.py::run_gates` — the three shipped gates
+stay at three.
+
+## Section E — Volatility, debt & materialization
+
+*Authored in the next wave.* Owed by §C.4 trap 3: the completeness accounting
+for the served `weak` rows.
+
+## Section F — Source binding & readiness
+
+*Authored in the next wave.* Every `[TBC]` marker raised above reappears here
+with a named owner, including: the approved domain list; the payload schema
+artifact; the issuer-identity refresh cadence; the policy bundle version; the
+intent registry; the ontology IRI bindings for security, position, period,
+match band and provenance; the absence of a shares-outstanding fact; and the
+two Standard-vs-SDK divergences recorded at §B.4.
+
+## Section G — Operate & govern
+
+*Authored in the next wave.* Registration is deliberately deferred until it is
+written (§B.1 element 7).
