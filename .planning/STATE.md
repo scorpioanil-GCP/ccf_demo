@@ -3,9 +3,20 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-26T00:45:00.000Z"
+last_updated: "2026-08-26T01:15:00.000Z"
 last_activity: >-
-  2026-08-25/26 -- **PHASE 23.1 IS EXECUTED AND STOPPED AT ITS GATE, AWAITING DAVE'S
+  2026-08-25 -- **PHASE 23.1 IS CLOSED. `D-GATE-23.1` IS LOGGED AND v0.2 IS DISPOSITIONED.**
+  Eight plans in eight serial waves, 31 commits from `PHASE_BASE` `cb6a744`, merged to
+  `main --no-ff` naming the entry. **All NINETEEN Success Criteria met** and all nineteen
+  byte-identical to the phase base by sha256 -- execution authored, edited, renumbered and
+  re-wrapped NOTHING. **THE PHASE BUILT NOTHING**: `src`/`runtime`/`examples` diff-empty per
+  member, `tests/` byte-identical, `archive/examples/` still 265 with D and R filters empty.
+  **13 open rows -> 11**: 2 Discharged, 10 Deferred to v0.3, 1 Dropped. All 27 packet items
+  dispositioned. `D-IMPL-199`/`200`/`201` logged. **`complete-milestone` IS BLOCKED FOR A
+  STRUCTURAL REASON, NOT A FAILURE** -- tooling and ledger disagree on "done": dispositioned
+  rows still read open to `audit-open` (14) and the requirements check (136/149) while
+  `roadmap.analyze` reports 100%. Dave acknowledged the 14 at close. **DELETION STAYS OWED**
+  with no target date. PRIOR: 2026-08-25/26 -- **PHASE 23.1 IS EXECUTED AND STOPPED AT ITS GATE, AWAITING DAVE'S
   RULING. `D-GATE-23.1` IS NOT WRITTEN, `phase-23.1` IS NOT MERGED AND NOT PUSHED, and
   `complete-milestone` HAS NOT RUN.** Eight plans in eight serial waves on branch
   `phase-23.1` from `PHASE_BASE` `cb6a744`. All thirteen open requirement rows carry a
@@ -148,10 +159,10 @@ last_activity: >-
   (`D-IMPL-191` ruling 3).
 progress:
   total_phases: 30
-  completed_phases: 28
+  completed_phases: 29
   total_plans: 225
   completed_plans: 225
-  percent: 93
+  percent: 97
   measured: "**OPERATIVE RE-MEASURE AT THE PHASE 23.1 GATE, 2026-08-25/26 by
     plan `23.1-08`, stated FIRST and alone; everything below it is PRESERVED HISTORY.**
     RE-MEASURED FROM THE TREE, NOT INCREMENTED (Dave, 2026-08-25: *re-measure and
@@ -248,6 +259,18 @@ progress:
     bullet is struck through as superseded). The first is the EXACT error recorded against
     a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
+  **PHASE 23.1 IS CLOSED, GATED AND MERGED. NOTHING IS IN FLIGHT.** `D-GATE-23.1` logged
+  2026-08-25 (Dave). **NEXT ACTION: discuss and plan Phase 24 (Context Production)** -- it
+  starts on this gate, per Dave. Its criteria are NOT written and that is deliberate
+  (`D-GATE-19` locks them at the discuss sitting). **TWO SDK-SURFACE QUESTIONS GATE ITS
+  PLANNING AND ARE DAVE'S:** the closed EIGHT-operator vocabulary against the SDK's FOUR
+  categories, and the standard's SIX universal validation gates against the SDK's THREE
+  where `D-IMPL-102` limb 3 has already ruled no fourth joins `run_gates`. **DO NOT run
+  `complete-milestone`** -- blocked for the structural reason named in `D-GATE-23.1` -- and
+  **NEVER run `new-milestone` before it**. **OWED, NAMED, NOT FIXED:** the shipped
+  `channel_disagreements` blind spot (four rows, five waves; fixing it is BUILDING), the
+  four Dave-owned reading items `#2`-`#5` (NOT dischargeable at `D-GATE-24`), the
+  `D-IMPL-144` residual at 34, and DELETION for every scheduled row. PRIOR STATE:
   **PHASE 23.1 IS THE NEXT PHASE AND IT IS NOT YET PLANNED. NOTHING IS IN FLIGHT.**
   Its NINETEEN Success Criteria are LOCKED in the ROADMAP entry (`dcd8cad` + the criterion
   19 follow-up) and were written BEFORE planning per `D-GATE-19`. Two of Dave's rulings are
@@ -368,6 +391,16 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**PHASE 23.1 IS CLOSED, GATED AND MERGED. PHASE 24 (CONTEXT PRODUCTION) IS NEXT AND IS NOT
+PLANNED.** `D-GATE-23.1` approved by Dave 2026-08-25. v0.2's open surface is DISPOSITIONED
+rather than completed, and that distinction is the phase's actual finding: 11 rows remain
+open by verdict while every one carries an explicit disposition naming who inherits it.
+`complete-milestone` is blocked because the tooling reads disposition as incompletion.
+**This block is written at the same commit as the frontmatter above, deliberately** -- the
+recorded failure mode of this file is the pair going out of step.
+
+**SUPERSEDED, NAMED RATHER THAN DELETED:**
 
 **PHASE 23.1 (THE v0.2 CLOSE-OUT) IS THE NEXT PHASE. IT IS NOT PLANNED AND NOTHING IS
 IN FLIGHT.** Written 2026-08-25 after Dave supplied the Phase 24 requirements and ruled
