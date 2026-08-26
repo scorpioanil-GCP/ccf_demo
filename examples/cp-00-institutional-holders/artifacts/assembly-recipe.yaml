@@ -1,0 +1,212 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE §D OPERATOR STEP TABLE, AS DATA — so that criterion 2 is discharged by a
+# test rather than by a reading.
+#
+# Criterion 2: *"the spec's §D operator step table names every step the shipped
+# assembly executes, and every named step is proven to correspond to code that
+# actually runs; a step nothing executes is RED."* A prose table cannot be held
+# against a run. This document declares the same steps with, per step, a
+# WITNESS — a fact a completed run either produced or did not — so the proof is
+# mechanical.
+#
+# THE BOUND ON THAT PROOF IS RULED AND HAS FOUR CLAUSES, ALL OF WHICH HOLD
+# (`24-CONTEXT.md` `D-37`):
+#   1. ONE artifact in the example tree — this file;
+#   2. ONE test module under `tests/examples/`;
+#   3. NOTHING in `src/` or `runtime/`;
+#   4. NOT REUSABLE across products.
+#
+# Clause 4 is why the witness vocabulary below is declared HERE and is not
+# extracted anywhere. A later Context Product that wants the same proof authors
+# its OWN recipe document. That is the No-Hardcoding Rule working as designed,
+# not a missing abstraction — and `D-38` is explicit that a proof drifting
+# outside the four clauses is the violation, never the criterion.
+#
+# Criteria 2 and 18 DO NOT CONFLICT (`D-36`, Dave 2026-08-25). Criterion 2 is
+# about THIS example proving THIS recipe, in-tree. Criterion 18 forbids a
+# general-purpose SDK spec-validation surface. This file is the first and not
+# the second.
+#
+# NO CONNECTION VALUE APPEARS HERE — no host, no port, no credential. The
+# estate binding reaches the deployment through a declared environment-variable
+# NAME and through nothing else.
+
+semver: "1.0.0"
+class_id: cp-00.assembly-recipe
+
+declaration:
+  # --- What this document is a companion to. The test asserts step-for-step
+  #     SET EQUALITY against §D.2 in both directions, so the two lists cannot
+  #     drift apart independently.
+  spec_document: examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md
+  spec_section: "D"
+  spec_table: "D.2 Operator step table"
+  product: holdings.institutional-holders.v1
+  assembly_mode: 1
+  determinism_class: deterministic
+
+  # --- The p95 envelope §D.2's budgets are measured against. DECLARED by the
+  #     spec, because the Standard fixes no numeric latency envelope per tier.
+  #     Every budget below is a DESIGN TARGET, not a measurement: nothing has
+  #     been run. §G marker 15 is what moves them to measured.
+  p95_envelope_ms: 1000
+  budgets_are_measured: false
+
+  # --- THE CLOSED WITNESS VOCABULARY. Five kinds, and a step that cannot name
+  #     one of them is a step nothing can prove ran — criterion 2's RED
+  #     condition. The honest response to that is to REMOVE the step from §D,
+  #     never to invent a sixth witness.
+  witness_vocabulary:
+    - kind: operator_in_lineage
+      argument: an operator key
+      proves: >-
+        the key appears in the served product's `lineage.operators_invoked`,
+        which `src/ccf/products/gates.py::run_gates` holds to STRICT EQUALITY
+        against the set the projection engine resolved, in both directions
+        (INV-CH7-47). A declared operator that did not run fails the gate.
+    - kind: entities_assembled
+      argument: none
+      proves: >-
+        the graph view the projection ran over is non-empty, which is what
+        proves the L2 write path executed. An empty view is what a mis-set
+        as-of boundary produces, and the three shipped gates do not catch it
+        (spec §D.4, gate `IH-G05`).
+    - kind: plan_id_matches
+      argument: a projection plan id
+      proves: >-
+        the execution's `plan_id` equals the declared plan id, which is what
+        proves Π ran AND which plan ran. It lands on
+        `src/ccf/products/contract.py::ContextProductContract` field `plan_id`
+        and on `src/ccf/replay/record.py::ContentGenerationPath`.
+    - kind: servable_product_held
+      argument: none
+      proves: >-
+        the run holds a `src/ccf/products/gates.py::ServableProduct`, which is
+        NOT constructible outside `run_gates` — the metaclass refuses with
+        `src/ccf/products/gates.py::GateBypassError` (INV-CH7-52). Holding one
+        IS the evidence that contract assembly and the three shipped gates
+        ran.
+    - kind: payload_key_present
+      argument: a payload key
+      proves: >-
+        the named key exists in the served payload. Used where a step's output
+        is a VALUE the assembly derived rather than an operator invocation —
+        the only witness available to a step that runs outside the operator
+        plan.
+
+  steps:
+    - step: 1
+      operator: Resolve
+      subject: the dominant security for (issuer LEI, reported period)
+      capability_class: relational
+      # No SDK symbol, and that is neither a gap nor an omission. This half of
+      # the resolve is a GROUP-AND-RANK over many rows, and the L2 seam
+      # `src/ccf/assembly/worker.py::EntityResolutionStrategy.resolve` takes
+      # ONE ENVELOPE AT A TIME, so it structurally cannot compute a dominant.
+      # It runs at the source read, in the deployment's own reader — which is
+      # where the No-Hardcoding Rule puts a domain-specific read. Spec §D.3.
+      sdk_mechanism: "none — the deployment's own source reader; no SDK symbol (spec §D.3)"
+      sdk_layer: L1
+      inputs: [subject, report_period]
+      emits: resolved_security
+      failure_behavior: "fail closed -> 404"
+      p95_budget_ms: 120
+      witness: "payload_key_present: resolved_security"
+
+    - step: 2
+      operator: Resolve
+      subject: the anchor issuer and each reporting manager, to canonical entity URIs
+      capability_class: relational
+      sdk_mechanism: "src/ccf/assembly/worker.py::SpecDrivenEntityResolution"
+      sdk_mechanism_context:
+        - "src/ccf/assembly/worker.py::AssemblyWorker"
+        - "src/ccf/assembly/worker.py::EntityResolutionSpec"
+      sdk_layer: L2
+      inputs: [signal_envelopes]
+      emits: graph_snapshot_at
+      failure_behavior: "fail closed -> 503, naming the failed source class"
+      p95_budget_ms: 380
+      witness: entities_assembled
+
+    - step: 3
+      operator: Policy
+      subject: substitute the principal-permissible subgraph for the full graph
+      capability_class: relational
+      sdk_mechanism: "src/ccf/operators/categories.py::PolicyFilter"
+      operator_key: policy.principal-subgraph
+      sdk_layer: L4
+      inputs: [assembled_view, permitted_classifications, permitted_policy_bundle_versions]
+      emits: policy_version
+      failure_behavior: "fail closed -> 403, no detail on what exists"
+      p95_budget_ms: 15
+      witness: "operator_in_lineage: policy.principal-subgraph"
+
+    - step: 4
+      operator: "Traversal (mode: temporal)"
+      subject: the as-of-consistent view at the boundary taken off the request
+      # bitemporal-ledger is supplied by the FABRIC's own L3, not required of
+      # the source estate — which is why the product stays Tier 1. Spec §D.3.
+      capability_class: bitemporal-ledger
+      capability_supplied_by: fabric
+      sdk_mechanism: "src/ccf/operators/categories.py::TemporalAsOf"
+      operator_key: temporal.as-of-boundary
+      sdk_layer: L4
+      standard_sdk_name_divergence: >-
+        the Standard folds this into a Traversal MODE; the SDK holds it as a
+        separate CATEGORY with no name among the Standard's eight. The inverse
+        asymmetry — a mapping, not a gap in either direction.
+      inputs: [permissible_subgraph, temporal_boundary]
+      emits: graph_snapshot_at
+      failure_behavior: "fail closed -> 503 on an empty ASSEMBLED set"
+      p95_budget_ms: 60
+      witness: "operator_in_lineage: temporal.as-of-boundary"
+
+    - step: 5
+      operator: Projection
+      subject: apply the caller's threshold and rank the survivors
+      # in-memory, not the Standard §10.2 row's `relational`: nothing in this
+      # step touches a store. Spec §D.3.
+      capability_class: in-memory
+      sdk_mechanism: "src/ccf/projection/plan.py::ProjectionPlan"
+      sdk_mechanism_context:
+        - "src/ccf/projection/engine.py::ProjectionEngine"
+      sdk_layer: L5
+      subsumes: >-
+        the Standard's `Evaluate` (modes rank and aggregate). It gets no step
+        of its own because its mechanism, its layer and its witness would all
+        be identical to this step's, and a step nothing can independently
+        prove ran is what criterion 2 calls RED.
+      inputs: [as_of_view, minimum_position_usd, perspective]
+      emits: projection_plan_id
+      failure_behavior: "degrade with debt — absent non-mandatory fields marked NOT_EVALUABLE"
+      p95_budget_ms: 25
+      witness: "plan_id_matches: holdings.institutional-holders"
+
+    - step: 6
+      operator: contract assembly
+      subject: the served vessel, gated
+      is_operator: false
+      not_an_operator_because: >-
+        Standard §10.2 retires `Compose` — contract assembly is not an
+        operator. The final step is always this one.
+      capability_class: in-memory
+      sdk_mechanism: "src/ccf/products/gates.py::run_gates"
+      sdk_mechanism_context:
+        - "src/ccf/products/gates.py::ServableProduct"
+        - "src/ccf/products/contract.py::ContextProductContract"
+      sdk_layer: L6
+      inputs: [projection_output, declared_lineage, ttl_anchor]
+      emits: servable_product
+      failure_behavior: "fail closed -> 503; the refusal is returned AS DATA (GateRefusal)"
+      p95_budget_ms: 20
+      witness: servable_product_held
+
+  # --- Sums to 620 against a 1000 ms envelope: 62%. Step 2 dominates at 61%
+  #     of the total, and the first optimisation is NOT to make it faster — it
+  #     is to materialize the assembled state per (issuer, report_period),
+  #     because the threshold is applied at Π and the read is therefore
+  #     identical across callers. Spec §D.2 and §E.3.
+  budget_total_ms: 620
+  dominating_step: 2
+  first_optimisation: materialize the assembled state per (issuer, report_period)
