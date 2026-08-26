@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **275** across **84** files
+- Coupling rows: **276** across **84** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **146** across **52** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **248**
 
@@ -17,7 +17,7 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 10 |
-| 17-08 | 83 |
+| 17-08 | 84 |
 | 23-04 | 170 |
 | 23-10 | 12 |
 
@@ -35,7 +35,7 @@ Rows by coupling shape:
 | `makefile-recipe` | 2 |
 | `markdown-link` | 8 |
 | `path-construction` | 11 |
-| `prose` | 71 |
+| `prose` | 72 |
 | `snippet-include` | 58 |
 | `string-literal` | 16 |
 | `tmp_path-synthetic` | 13 |
@@ -102,6 +102,7 @@ Rows by coupling shape:
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 117 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 213 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 205 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 722 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/external/README.md` | 23 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/external/README.md` | 62 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/external/README.md` | 73 | `archive/examples/03-harness-portability` | `prose` | documentary | - | - | 23-04 |  |

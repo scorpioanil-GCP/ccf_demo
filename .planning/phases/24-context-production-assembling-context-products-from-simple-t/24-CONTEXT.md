@@ -114,6 +114,11 @@ published-page structure. All must be reported, none needs a ruling.
 - **D-40: Three reasons, recorded so this is not re-opened.** (1) The resolve step IS the L2 `Resolve` that criterion 11's mapping hypothesis must place — **pinning would skip the pressure test the phase exists to run**. (2) A pinned CUSIP is a DOMAIN VALUE and would have to live in an artifact anyway under the No-Hardcoding Rule (`CLAUDE.md` §6.4). (3) One issuer LEI fans out to as many as 52 CUSIPs; resolving handles the fan-out, pinning hides it.
 - **D-41: The extra §D step is ACCEPTED.** Dave: *"Accept the extra §D step. Mapping gets answered now instead of deferred."* The §D operator step table therefore carries a Resolve step, and criterion 2 requires it be proven to correspond to code that actually runs.
 
+### Two Wave 2 items, ruled 2026-08-26 — record only
+
+- **D-42: The citation lint's module-alone invocation is a SHIPPED-TOOL HOLE. Record it; do NOT fix it in 24.1.** Wave 2 measured `python -m tools.lints.citations` exiting **0** on a seeded broken citation AND on a fabricated symbol; `python -m tools.lints --all` exits 1 and names both. Dave: *"`--all` is the real gate; the module-alone exit 0 on a seeded break is a shipped-tool hole. Record only; do not fix in 24.1."* Fixing it would be a build (`D-04`). **Every wave uses `--all`, never the module alone.**
+- **D-43: The example EXPIRES 2027-03-31, and that is correct behaviour. The Control Plane `MAX_TTL` requirement must be DOCUMENTED so a too-short default does not read as an example bug.** The declared TTL is 365 days, `from_entity_freshness` on the reported quarter, so `expires_at` is 2027-03-31; after that validation gate 3 refuses to serve — **the gate working, not a defect**. Dave: *"Document the Control Plane `MAX_TTL` >= 31,536,000s requirement so a default that is too short doesn't look like an example bug."* This obligation belongs in the spec's §E/§G and in the example README, not only in a summary.
+
 <canonical_refs>
 ## Canonical References
 
