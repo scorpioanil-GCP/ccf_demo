@@ -270,8 +270,9 @@ disagree with itself.
 
 The half-life is 137 days: one calendar quarter plus the 45-day filing deadline
 the source's own reporting rule sets. The demonstration question is asked 148
-days after the pinned quarter end, which puts `D_c` near 0.56 — above this
-deployment's nominal band and below its forced-LLM band. Those bands were
+days after the pinned quarter end, which puts `D_c` near 0.56 — inside this
+deployment's nominal serving band and below its forced-LLM threshold of 0.60,
+which `ccf_config.yaml` annotates at that exact figure as *serves, nominal*. Those bands were
 computed with `src/ccf/halflife/debt.py::FreshnessScorer` rather than by hand,
 and their arithmetic is written out in `ccf_config.yaml` so an engineer can
 challenge the numbers instead of assuming they were derived. For a Mode 1

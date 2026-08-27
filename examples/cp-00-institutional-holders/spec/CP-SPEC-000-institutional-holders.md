@@ -95,7 +95,7 @@ heading rather than omitting the heading.
 | Tier | **1** — `relational` only (§C.2). Tiers describe assembly complexity, not maturity and not build order |
 | Assembly Mode | **1 — pure algorithmic.** `24-CONTEXT.md` `D-14`: *"an in process deterministic operator to assemble the context product"*. No model anywhere in the assembly path |
 | Cost band | **×1**, the Tier-1 baseline. Standard §10.4's estimate resolves to the baseline here: no traversal (fan-out term 1), one enrich source, on-demand rather than materialized (factor 1), Mode-1 multiplier 1 |
-| Lifecycle state | **draft** — not registered, not certified. Standard §2.1 Discovery: registering before §G is complete is the named common error, and §G is not yet written |
+| Lifecycle state | **draft** — not registered, not certified. Standard §2.1 Discovery: registering before §G is complete is the named common error; §G is now written, and what still holds this product in `draft` is §13's certification evidence — marker 15's cost half (§F.2) |
 | Accountable owner | The CCF SDK examples maintainer. **This is a teaching artifact, not a production catalog entry**, so the product-owner / data-steward / policy-owner triad a real entry carries is `[TBC]` and reappears in §F. Naming a bank function here would be inventing an organisation, which §0.2 rates the worse defect |
 | Last review date | 2026-08-26 |
 | What the product resolves | Resolves one issuer, named by LEI, to the set of institutional managers reporting a position in that issuer above a threshold **the caller chooses**, for one reported filing period. It is the smallest product that still has to pin a period, resolve a security and carry a match-quality signal — which is why it is first |
@@ -522,8 +522,10 @@ The pinned period is also the TTL anchor (§B.1 element 3): one date,
 
 #### Trap 2 — one issuer LEI fans out across many CUSIPs
 
-The anchor carries **6 distinct CUSIPs** in the pinned period; estate-wide the
-worst case is **one LEI reaching 52**. The fan-out under the anchor, measured
+The anchor carries **6 distinct CUSIPs** in the pinned period; the widest
+fan-out the Wave-1 probe measured is **one LEI reaching 51** (`RB GLOBAL INC.`,
+`24.1-DATA-PROBE.md`). No estate-wide maximum across all periods was
+measured, so none is claimed here. The fan-out under the anchor, measured
 (control: the same query on a nonexistent CUSIP returned 0):
 
 | CUSIP | band | rows | `issuer_match_score` |
@@ -545,7 +547,7 @@ is measuring in both directions).
 
 | The binding | What it is | What it costs |
 | --- | --- | --- |
-| **RESOLVE the security from `(lei, report_period)` to the dominant CUSIP** — a `Resolve` step; §D.3 works out which layer each half of it sits at. **Not a pinned literal** | `24-CONTEXT.md` `D-39`/`D-40`/`D-41` (Dave, 2026-08-26). Three reasons on the record: the resolve step **is** the `Resolve` this phase's operator-mapping hypothesis must place at a layer, so pinning would skip the pressure test the phase exists to run; a pinned CUSIP is a **domain value** and would have to live in an artifact anyway under the No-Hardcoding Rule (`CLAUDE.md` §6.4); and one LEI fanning out to 52 securities is handled by resolving and hidden by pinning | An extra §D step, **accepted**. And the five off-security managers are not served — which is the point, not the cost |
+| **RESOLVE the security from `(lei, report_period)` to the dominant CUSIP** — a `Resolve` step; §D.3 works out which layer each half of it sits at. **Not a pinned literal** | `24-CONTEXT.md` `D-39`/`D-40`/`D-41` (Dave, 2026-08-26). Three reasons on the record: the resolve step **is** the `Resolve` this phase's operator-mapping hypothesis must place at a layer, so pinning would skip the pressure test the phase exists to run; a pinned CUSIP is a **domain value** and would have to live in an artifact anyway under the No-Hardcoding Rule (`CLAUDE.md` §6.4); and one LEI fanning out to 51 securities is handled by resolving and hidden by pinning | An extra §D step, **accepted**. And the five off-security managers are not served — which is the point, not the cost |
 
 **A framing this spec explicitly does not inherit.** It would be natural to
 read the off-security CUSIPs as admitted by a fuzzy issuer-name match, and the
@@ -715,7 +717,7 @@ modified to obtain the split:
 | fabric boot (not a step; inside the call) | — | **63 ms** mean | not budgeted, and small |
 | 1 · Resolve at the source read | 120 ms | **101 ms** p50 (mean 125 ms) | **the budget HOLDS** |
 | 2 · Resolve at L2 | 380 ms | **9,896 ms** mean — 1,748 envelopes at **5.66 ms each** | **exceeded ≈26×** |
-| 3–6 · Policy, Temporal, Π, gates | 120 ms | **≈344 ms** by subtraction | over, and immaterial beside step 2 |
+| 3–6 · Policy, Temporal, Π, gates | 120 ms | **258 ms** by subtraction: 10,279 − 125 − 9,896 | over, and immaterial beside step 2 |
 
 **Point 3 above was right in kind and wrong in magnitude, and both halves
 matter.** It said step 2 dominates *"at 61% of the total"*; step 2 is in fact
@@ -1633,15 +1635,18 @@ done is Standard §15; these are what this product must additionally prove.
     `CLAUDE.md` §6.4).
 
 **Open decisions blocking build, named by their §F row.** None of the
-eighteen markers blocks the build. Three shape it and must be settled before
-the assembly can be run end to end rather than merely written:
+eighteen markers blocks the build. Three shaped it and had to be settled before
+the assembly could be run end to end rather than merely written. **All three
+are now CLOSED (§F.2), and the assembly has been run** — so this list is a
+record of what gated the build, not a list of what is still owed:
 
 - **Marker 3** — the payload schema artifact. §D fixes the value it must
-  carry; the artifact must exist before anything runs.
+  carry; the artifact must exist before anything runs. **CLOSED.**
 - **Marker 16** — the debt bands. A band set without reference to λ_c refuses
-  the product on its first call (§E.2).
+  the product on its first call (§E.2). **CLOSED** by `24-CONTEXT.md` `D-52`.
 - **Marker 14** — a row exactly at a threshold value in the seeded fixture.
   Without it `IH-G04` cannot fail, and a gate that cannot fail is not a gate.
+  **CLOSED.**
 
 Markers 13 and 15 are **measurements the build produces**, not decisions that
 gate it. The remaining thirteen are external dependencies — catalog, ontology

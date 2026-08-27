@@ -73,8 +73,8 @@ final step.
 
 **About the `p95_budget_ms` column**, and it is worth being blunt: the artifact
 says `budgets_are_measured: false` beside it, and it means it. Those numbers are
-design targets an engineer is invited to challenge. **Nothing on this page is a
-latency measurement.**
+design targets an engineer is invited to challenge. **No number in that column
+is a latency measurement.**
 
 **The engineer challenged them, and the budget lost.** After this page was
 written the assembly was run forty times against the live estate, and the

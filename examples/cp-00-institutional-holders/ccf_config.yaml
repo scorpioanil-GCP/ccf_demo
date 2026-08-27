@@ -280,8 +280,13 @@ half_life:
 # other way round.
 #
 # The debt gate is a Control Plane POSTURE, not a validation gate (§D.7):
-# `src/ccf/products/gates.py::run_gates` never sees it, and the refusal is the
-# deployment's own code.
+# `src/ccf/products/gates.py::run_gates` never sees it, so the refusal would be
+# the deployment's own code — and THIS example does not write it. The bands are
+# DECLARED and the demonstration reports its D_c; nothing here branches on
+# `fail_closed_threshold`, because the demonstration question never crosses it
+# (0.558 against 0.771). A deployment that serves past day 278 must add that
+# branch itself. Stated rather than implied, so a reader does not take a
+# declared posture for an enforced one.
 # --------------------------------------------------------------------------
 debt_profile:
   # §E.1's λ_c is already declared as a DECISION-RELEVANCE half-life, so the
