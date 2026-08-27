@@ -289,10 +289,24 @@ of the rows carry a `weak` issuer match because the matcher was built to say so.
 
 `spec/CP-SPEC-000-institutional-holders.md` §D.2 publishes a p95 budget per step
 and `artifacts/assembly-recipe.yaml` carries the same numbers as data with
-`budgets_are_measured: false` beside them. **Nothing has been measured.** They are
-design targets an engineer is invited to challenge, and the specification's own
-§F marker for observability is what would move them to measurements. No timing
-claim in this tree is a measurement, and nothing here should be read as one.
+`budgets_are_measured: false` beside them. **That flag is still true and stays
+true:** not one cell in the budget column was derived from a measurement. They
+are design targets an engineer is invited to challenge.
+
+**AMENDED 2026-08-27.** This section used to end *"Nothing has been measured.
+No timing claim in this tree is a measurement."* That is no longer so, and the
+old sentence is kept here rather than deleted because the distinction it was
+protecting is the one that still matters. What changed: the assembly was **run
+40 times against the live estate** and its latency measured end to end — **p50
+10,141 ms, p95 11,786 ms** — with the instrument named beside the numbers in
+§G. What did **not** change: the per-step budget cells are still declarations,
+so a reader must not read the measured total back into the column. And the
+engineer challenged the budget and **lost by an order of magnitude** — the
+measured p95 is **11.8×** the declared 1,000 ms envelope, essentially all of it
+in the L2 ingest of 1,748 envelopes at ~5.7 ms each. §D.2 attributes it step by
+step; the specification's own §F marker 15 records what is closed and what is
+still open, which is the per-call cost in money, because this deployment has no
+meter and a guessed dollar figure would be worse than an honest gap.
 
 ## Artifact-by-artifact
 

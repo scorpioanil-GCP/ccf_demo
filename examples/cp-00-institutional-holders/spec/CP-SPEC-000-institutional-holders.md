@@ -659,14 +659,19 @@ vocabularies reads as a **mapping** rather than as a gap in either direction.
 
 Three things about that number, and the third is the one that matters.
 
-1. **These are declared budgets, not measurements.** Nothing has been run:
-   this specification is authored *before* the assembly it specifies
-   (§0), so every cell in the `p95 budget` column is a design target an
-   engineer is invited to challenge, in exactly the sense Standard §5.1
-   means when it says an initial calibration is *"a value an engineer can
-   challenge"* rather than one they assume was measured. §G's observability
-   entry is what moves them to measured, and §13's certification evidence
-   requires that move before this product can leave `draft`.
+1. **These were declared budgets, not measurements — and they have now been
+   measured, which is how the amendment below arises.** This specification was
+   authored *before* the assembly it specifies (§0), so every cell in the
+   `p95 budget` column began as a design target an engineer is invited to
+   challenge, in exactly the sense Standard §5.1 means when it says an initial
+   calibration is *"a value an engineer can challenge"* rather than one they
+   assume was measured. **AMENDED 2026-08-27** under `24-CONTEXT.md` `D-64`,
+   in the marked form rather than by rewriting the column: **OLD CLAUSE** —
+   *"Nothing has been run"*, which was true when it was written. **NEW
+   CLAUSE** — the assembly has been run 40 times against the live estate and
+   the measured figures are in the amendment below; the `p95 budget` column is
+   left as authored, because a budget an engineer challenged and lost to is
+   more useful beside the measurement than quietly replaced by it.
 2. **The Standard fixes no numeric latency envelope for Tier 1.** §13 gives
    cost *bands* (×1 baseline) and §7 asks each product to publish its own
    p50/p95. The 1,000 ms envelope is therefore **declared by this spec**, in
@@ -685,6 +690,63 @@ Three things about that number, and the third is the one that matters.
    λ_c is a quarter and no sane cache window comes near it. The posture
    shipped at `v1.0.0` is nonetheless `derived-on-demand`, and §E.3 says
    why.
+
+**MEASURED 2026-08-27 — and the declared envelope is contradicted by an order
+of magnitude.** `24-CONTEXT.md` `D-64` put this in the wave that runs the
+assembly rather than leaving it open into certification: *"An honest gap is for
+things you cannot measure; this one you can."* The instrument is named in §G's
+service-objectives entry, because a number without its instrument is a number
+that looks like proof. The reading, against the live estate at the
+demonstration threshold:
+
+| Figure | Declared here | **Measured** | Ratio |
+| --- | --- | --- | --- |
+| p50 | 400 ms (§G target) | **10,141 ms** | **25.4×** |
+| p95 | 1,000 ms (§G envelope) | **11,786 ms** | **11.8×** |
+| step total | 620 ms | **10,279 ms** mean | **16.6×** |
+
+**Where it goes, by step, so the contradiction is attributed rather than merely
+reported.** The same clock, with the deployment's own `read` callable wrapped
+at the seam that already injects it — nothing in this example or in `src/` was
+modified to obtain the split:
+
+| Step | Declared | Measured | Verdict |
+| --- | --- | --- | --- |
+| fabric boot (not a step; inside the call) | — | **63 ms** mean | not budgeted, and small |
+| 1 · Resolve at the source read | 120 ms | **101 ms** p50 (mean 125 ms) | **the budget HOLDS** |
+| 2 · Resolve at L2 | 380 ms | **9,896 ms** mean — 1,748 envelopes at **5.66 ms each** | **exceeded ≈26×** |
+| 3–6 · Policy, Temporal, Π, gates | 120 ms | **≈344 ms** by subtraction | over, and immaterial beside step 2 |
+
+**Point 3 above was right in kind and wrong in magnitude, and both halves
+matter.** It said step 2 dominates *"at 61% of the total"*; step 2 is in fact
+**≈95%** of a total sixteen times larger. Its diagnosis — that the L2 ingest
+carries every filed position for the anchor and period through resolution and
+persistence, identically for every threshold, because the threshold is applied
+at Π and never in the graph query — is exactly what the measurement shows.
+**Its remedy is therefore the right remedy** and is now supported by evidence
+rather than by reasoning: materialize the assembled state per
+`(issuer, report_period)` and let every threshold read it.
+
+**The threshold-independence claim was tested rather than assumed.** Three
+populations, same instrument:
+
+| Threshold | Rows served | N | p50 | p95 |
+| --- | --- | --- | --- | --- |
+| 1,000,000,000 | 21 | 40 | **10,141 ms** | **11,786 ms** |
+| 500,000,000 | 39 | 10 | 10,397 ms | 10,932 ms |
+| 0 | 1,748 | 10 | 10,634 ms | 11,715 ms |
+
+Serving **83× more rows costs about 5% more time**. That is the strongest
+available evidence that the cost is in the ingest and not in the projection,
+and it is a *control* rather than a restatement: had Π been the driver, the
+threshold-0 population would have separated from the others and it did not.
+
+**What this does NOT establish.** These are single-caller, cold-boot,
+same-LAN readings from one machine. No concurrency was tested, no warm-cache
+posture was tested, and the source estate is a shared host with no per-query
+accounting. The envelope in §G is therefore **contradicted, not replaced** —
+choosing a new one is a decision, and §F marker 15's cost half stays open for
+the same reason.
 
 ### D.3 Step detail
 
@@ -1363,10 +1425,23 @@ Standard §0.2, and it is what makes a spec with honest gaps buildable. *No
 spec passes review with an unowned gap; "does not exist yet" is a valid state,
 unattributed is not.*
 
-**Three are now CLOSED — 13, 14 and 16 — and fifteen remain open.** A closed
-marker keeps its row rather than being deleted: the row is where a reader
-learns what the value is and what closed it, and a marker that vanished would
-leave the sentence that raised it pointing at nothing.
+**Stated as a ROSTER rather than as a count, per `24-CONTEXT.md` `D-65`** —
+*"`assert n == 4` tests arithmetic; `assert set(ids) == {E1, E2, E3, E4}` tests
+whether you still know what you counted."* Of the eighteen:
+
+- **CLOSED — `{13, 14, 16}`**, three markers.
+- **HALF-CLOSED — `{15}`**, one marker. Its **latency** half is closed on a
+  measured run (§D.2, §G); its **per-call cost** half stays open, with an
+  owner, because this deployment has no billing meter and `D-64` is explicit
+  that the fallback is a split and not a licence to estimate: *"don't invent
+  dollars."*
+- **OPEN — `{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 17, 18}`**, fourteen
+  markers.
+
+3 + 1 + 14 = 18, and the three sets are disjoint. A closed marker keeps its row
+rather than being deleted: the row is where a reader learns what the value is
+and what closed it, and a marker that vanished would leave the sentence that
+raised it pointing at nothing.
 
 | # | Marker | Raised at | Owner | What closes it |
 | --- | --- | --- | --- | --- |
@@ -1384,7 +1459,7 @@ leave the sentence that raised it pointing at nothing.
 | 12 | Ontology IRI — **resolved dominant security** | §C.1 | Ontology owner | As above |
 | ~~13~~ | **`C_attributes` measured value** at the anchor | §E.2 | The wave that runs the assembly | **CLOSED.** The shipped run measured **1,748 of 1,748 = 1** at the anchor, with two controls recorded at §E.2. It was a measurement and not a decision, exactly as this row said |
 | ~~14~~ | **A row exactly at a threshold value** in the CI fixture | §F.3 volumetrics | The wave that authors the seeded CI fixture (`24-CONTEXT.md` `D-25`/`D-27`) | **CLOSED.** `tests/examples/fixtures/cp_00_13f_rows.sql` designates one by construction, and `tests/examples/test_cp_00_output.py::test_a_row_exactly_at_the_threshold_is_served` asks at exactly that value and requires the inclusive read to return exactly one row more than the strict one. Measured RED against a threshold nudged one unit off every seeded value |
-| **15** | **Measured p50 / p95 latency and per-call cost** | §D.2, §G | The wave that runs the assembly | A measured run. §13's certification evidence requires it before this product leaves `draft` |
+| **15** | **Measured p50 / p95 latency and per-call cost** — **HALF-CLOSED 2026-08-27** | §D.2, §G | **Latency:** the wave that ran the assembly (`24-CONTEXT.md` `D-64`) — DISCHARGED. **Cost, in money:** whoever operates this product on a metered substrate — the same owner class as marker 2, and named that way rather than assigned to a teaching artifact's maintainer who has no meter to read | **LATENCY CLOSED.** 40 calls against the live estate: **p50 10,141 ms, p95 11,786 ms**, instrument named in §G. **COST STILL OPEN, and deliberately not invented.** What *is* measured and is not a dollar figure: **0 model tokens per call** — Assembly Mode 1 is algorithmic end to end and the tree carries no LLM client, gated by `tests/examples/test_cp_00_is_algorithmic.py` and watched RED on an injected import — and **2.93 client CPU-seconds per call**, 28.5% of wall time, against a meter control that reports 300.0 ms for a 300 ms spin and 0.1 ms for a 300 ms sleep. What is NOT measured: the source estate's own compute, which runs on a shared host with no per-query accounting, and any monetary rate at all. §13's certification evidence still wants the cost half before this product leaves `draft` |
 | ~~16~~ | **`debt_tolerance` bands** — `forced_llm_threshold`, `fail_closed_threshold` — and `risk_sensitivity` | §E.1, §E.2, §G | The wave that authors the debt profile | **CLOSED** by `24-CONTEXT.md` `D-52`. `ccf_config.yaml`'s `debt_profile:` declares **1.0 / 0.60 / 0.77**, set together with λ_c as this row required; §E.2 carries the bands, the crossings (days **168** and **278**) and the demonstration `D_c` of **0.558** |
 | **17** | **Replay-record retention tier** — full-fidelity, compressed or tombstoned — and the severity rule assigning it | §G | Platform / records owner | A retention policy for this deployment |
 | **18** | **What happens to this product after 2027-03-31** — longer duration, moving pin, or accepted end-of-life | §E.5 | Whoever holds the example then | A decision. Flagged now rather than met as a red CI run |
@@ -1487,13 +1562,13 @@ closing any of them would be an SDK extension, which is a separate phase.
 | Entry | Content |
 | --- | --- |
 | **Accountable owner** | The CCF SDK examples maintainer operates this product. The product-owner / data-steward / policy-owner **triad** a real catalog entry carries is `[TBC]` — §F marker 2. This is a teaching artifact, and naming a bank function for it would be inventing an organisation |
-| **Service objectives** | **p95 assembly latency envelope: 1,000 ms**, declared here because the Standard fixes none per tier (§D.2). **p50 target: 400 ms.** §D.2's step budgets sum to **620 ms — 62% of the envelope**, and every one of them is a **declared budget, not a measurement** — `[TBC]` §F marker 15. Expected volume: **example scale**, single-digit calls per run, no concurrency ceiling asserted because none has been tested. Payload bound: the anchor at threshold 0 serves **1,748 holder rows**; a caller passing 0 gets the whole register, which is a legitimate and deliberately un-capped answer. Absolute per-call cost: `[TBC]` §F marker 15, alongside the relative band (**×1**, Tier-1 baseline) |
+| **Service objectives** | **DECLARED: p95 assembly latency envelope 1,000 ms**, declared here because the Standard fixes none per tier (§D.2); **p50 target 400 ms**; §D.2's step budgets sum to **620 ms — 62% of the envelope**, and every one of those cells is still a **declared budget, not a measurement**. **MEASURED 2026-08-27 (`24-CONTEXT.md` `D-64`) — and the declaration is contradicted: p50 10,141 ms, p95 11,786 ms**, which is **25.4×** the p50 target and **11.8×** the p95 envelope. The declaration is left standing beside the measurement rather than replaced by it, because choosing a new envelope is a decision and this row is not where it gets made; §D.2 attributes the whole excess to step 2's L2 ingest. **THE INSTRUMENT, named beside the numbers, because a number without its instrument is a number that looks like proof.** **How many calls:** 40 at the demonstration threshold, plus 10 each at two other thresholds as controls. 40 rather than 20 because at 20 the p95 is the maximum and rests on a single observation; at 40 the nearest-rank p95 is the 38th of 40 with **three** observations at or above it. Not 60+, because at ~10 s per call that exceeds the foreground budget this example's phase is bound to and the interval narrows little for the cost. **What clock:** `time.perf_counter_ns()` — MONOTONIC, nanosecond resolution, never a wall clock, so a time step cannot appear as latency; control, the same clock over a 300 ms sleep reported 250.5, 250.1, 250.1 and 250.5 ms across the four populations for its 250 ms probe. **Percentile method:** nearest rank on the sorted sample, `p_k = sorted[ceil(k/100 · N) − 1]`, no interpolation. **What a call is BOUNDED as:** exactly one `examples/cp-00-institutional-holders/assembler.py::HoldersAssembler` `assemble`, which is §D.2 steps **1 through 6** — INCLUDING the psycopg connection to the source estate, which opens inside `examples/cp-00-institutional-holders/deployment.py::read`, and the per-run fabric boot, which happens inside `src/ccf/deployment/config.py::load_config_and_boot` — and EXCLUDING process start, module import, this document being read and printed, temp-directory creation and `examples/cp-00-institutional-holders/deployment.py::connection`. A fresh scratch root per call, created OUTSIDE the timed region, because the fabric boots a fresh per-run graph inside the call and a reused root would accumulate state a served call never sees. **What "cost" MEANS here, and what it does not.** Measured: **0 model tokens per call**, structurally — Assembly Mode 1 acquires no content at decision time and the tree carries no LLM client, gated by `tests/examples/test_cp_00_is_algorithmic.py` and watched RED on an injected import — and **2.93 client CPU-seconds per call** (28.5% of wall), against a meter control reporting 300.0 ms for a 300 ms spin and 0.1 ms for a 300 ms sleep. NOT measured, and not estimated: the source estate's own compute, which runs on a shared host with no per-query accounting, and any monetary rate whatever. **Absolute per-call cost in money therefore stays `[TBC]` — §F marker 15's open half** — alongside the relative band (**×1**, Tier-1 baseline). Expected volume: **example scale**, single-digit calls per run, no concurrency ceiling asserted because none has been tested — and the measurement above is single-caller and cold-boot throughout, so it says nothing about either. Payload bound: the anchor at threshold 0 serves **1,748 holder rows**; a caller passing 0 gets the whole register, which is a legitimate and deliberately un-capped answer — and costs about **5%** more than the 21-row answer, which is the control that puts the cost in the ingest rather than in Π |
 | **Degradation contract** | **Mandatory classes, named explicitly:** reported position value, reported period, and the resolved dominant security. Any of the three unavailable → **fail closed** (503, or 404 where the anchor resolves to no security) — never a partial payload. **Non-mandatory:** manager name, issuer registered name, share count, issuer match band → **partial payload with the field marked `NOT_EVALUABLE`, `notices` populated, and `D_c` elevated** (§E.2). The band is the one to watch: losing it makes `C_match` itself `NOT_EVALUABLE` rather than 1.0 |
 | **Debt model** | `D_c = 1 − (F · C · S)` with `C = C_attributes × C_match`. **F** is driven by the reported position's age from `valid_from` against a 137-day λ_c, over rows **assembled**. **C** is driven by declared-attribute presence and by `issuer_match_band`. **S** is 1 — one source cannot disagree with itself. `debt_tolerance`: **`risk_sensitivity` 1.0, `forced_llm_threshold` 0.60, `fail_closed_threshold` 0.77**, declared in `ccf_config.yaml`'s `debt_profile:` and **set together with λ_c** (`24-CONTEXT.md` `D-52`; §F marker 16 CLOSED). Its basis is the pairing itself: a 148-day-old pinned period against a 137-day half-life delivers `D_c` **0.558**, and the bands are crossed at days **168** and **278** — a tolerance chosen in ignorance of the half-life would have refused the product on its first call |
-| **Observability** | Per-operator latency (steps 3–5 individually, since step 2 dominates and is the one an optimisation would target) · the `D_c` distribution, not only its mean · gate-failure counts **by gate**, so a TTL refusal is never read as a lineage refusal (§E.5 turns on exactly that distinction) · cache hit rate (currently n/a — `derived-on-demand`) · entitlement denials (expected: **zero**, and a non-zero count is itself the signal) · degradation-branch frequency per non-mandatory input · supersession-triggered invalidations, split local versus cascading. **This is also the evidence base that moves λ_c from `illustrative` to `measured`** — marker 15 closes from here and nowhere else. Marker 16's bands are closed already (`D-52`), which is a different thing from λ_c being measured, and the two must not be read as one |
+| **Observability** | Per-operator latency (steps 3–5 individually, since step 2 dominates and is the one an optimisation would target) · the `D_c` distribution, not only its mean · gate-failure counts **by gate**, so a TTL refusal is never read as a lineage refusal (§E.5 turns on exactly that distinction) · cache hit rate (currently n/a — `derived-on-demand`) · entitlement denials (expected: **zero**, and a non-zero count is itself the signal) · degradation-branch frequency per non-mandatory input · supersession-triggered invalidations, split local versus cascading. **This is also the evidence base that moves λ_c from `illustrative` to `measured`.** Marker 16's bands are closed already (`D-52`), which is a different thing from λ_c being measured, and the two must not be read as one. **AMENDED 2026-08-27, marked rather than rewritten. OLD CLAUSE:** *"marker 15 closes from here and nowhere else."* **It was wrong, and it is worth saying why rather than deleting it.** It bound a latency figure to an operational evidence base that does not exist yet, and so made a measurable thing look unmeasurable — which is precisely what `D-64` refuses: *"An honest gap is for things you cannot measure; this one you can."* **NEW CLAUSE:** marker 15's **latency** half closed from a direct measured run of the assembly, recorded in the service-objectives row above and in §D.2, and it did not need this row at all. What this row still owes is the **cost** half in an operated deployment with a meter, and the λ_c move, which are two different obligations and were being read as one |
 | **Retention & record of record** | The **record of record is the source estate**, per element and without exception: `ccf_v2.institutional_holder` for every position element, `ccf_v2.legal_entity` for the issuer's registered name. **The fabric references it and does not replace it** — nothing this product runs writes to the store it reads (§C.3), and the CCF graph is a per-run local file. Replay-record retention tier — full-fidelity, compressed or tombstoned — and the severity rule assigning it: `[TBC]` — §F marker 17 |
 | **Test fixtures** | Happy path: the anchor at a threshold inside the sweep. One fixture per product gate, `IH-G01` through `IH-G08` (§D.7), each **watched RED** against a seeded violation before it is trusted — a gate that has never failed has not been tested. One fixture per degradation branch, one per mandatory-input failure. And a **replay hash assertion**: §D.5's four-step test, ending on byte-identical `product_content_address` |
-| **Lifecycle** | **`draft`**, 2026-08-26, reviewer `[TBC]` — §F marker 2. Not registered and not certified: §2.1 names registering before §G is complete as the common error, and §13's certification evidence is not on file — markers 13 and 16 are now closed, and **marker 15, the measured p50/p95 and per-call cost, is the one still owed**. **Deprecation, when it comes, requires:** consumer notification from §B.5 — the list is **empty today**, so the obligation is currently vacuous and will stop being vacuous the moment the second rung of the ladder consumes this one; a sunset date at least one migration window out; and a named successor **or an explicit statement that none exists** |
+| **Lifecycle** | **`draft`**, 2026-08-26, reviewer `[TBC]` — §F marker 2. Not registered and not certified: §2.1 names registering before §G is complete as the common error, and §13's certification evidence is **partly** on file. **UPDATED 2026-08-27 (`24-CONTEXT.md` `D-64`).** Markers 13 and 16 are closed; **marker 15 is HALF-CLOSED** — its measured **p50 (10,141 ms) and p95 (11,786 ms) are on file with their instrument named**, and its **per-call cost in money is the one certification evidence still owed**, held open with an owner rather than invented. **A second thing is now owed that was not owed before, and it is owed BECAUSE of the measurement:** the measured p95 is **11.8×** this section's declared 1,000 ms envelope, so either the envelope is re-declared against evidence or the ingest is materialized per §D.2's point 3 — and until one of those happens this product would be certified against a service objective it does not meet. That is a decision, and it belongs to whoever adopts this product, so it is named here rather than settled here. **Deprecation, when it comes, requires:** consumer notification from §B.5 — the list is **empty today**, so the obligation is currently vacuous and will stop being vacuous the moment the second rung of the ladder consumes this one; a sunset date at least one migration window out; and a named successor **or an explicit statement that none exists** |
 
 ### G.1 The expiry obligation, restated where an operator will look for it
 

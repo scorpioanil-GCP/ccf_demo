@@ -74,8 +74,19 @@ final step.
 **About the `p95_budget_ms` column**, and it is worth being blunt: the artifact
 says `budgets_are_measured: false` beside it, and it means it. Those numbers are
 design targets an engineer is invited to challenge. **Nothing on this page is a
-latency measurement**, and the specification's own readiness section names
-observability as the work that would turn them into one.
+latency measurement.**
+
+**The engineer challenged them, and the budget lost.** After this page was
+written the assembly was run forty times against the live estate, and the
+measured p95 came back at roughly **twelve times** the envelope the
+specification declares for itself — almost all of it in one step, the write of
+every filed position through the fabric's single writer. The specification
+carries the figures, the instrument that produced them and the step-by-step
+attribution; this page carries none of it, and the column above is still what
+it was: a set of targets, not a set of readings. That distinction is the point.
+A budget that is contradicted by measurement is a specification doing its job —
+it is what a design target is *for* — and it is a very different artifact from a
+column of numbers quietly relabelled as facts.
 
 ## A name mismatch between two vocabularies is a mapping, not a gap
 
