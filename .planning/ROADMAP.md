@@ -2501,7 +2501,7 @@ blocking human checkpoints; the other nine are autonomous.
 - [x] `24.1-07-PLAN.md` — the algorithmic control, the README template gate, the widened spine glob, the written refusal to widen the agent-free glob
 - [x] `24.1-08-PLAN.md` — README, published page, nav, `docs-strict` on four steps (blocking human read)
 - [x] `24.1-09-PLAN.md` — the pressure-test record, the three ledger re-points in both channels, the named non-goals
-- [ ] `24.1-10-PLAN.md` — the vacuity proofs and `make ci` in the chunked foreground form
+- [x] `24.1-10-PLAN.md` — the vacuity proofs and `make ci` in the chunked foreground form
 - [ ] `24.1-11-PLAN.md` — the §3.1 close: cross-AI panel on the shipped tree, depth pass, in-phase fixes, present to Dave (blocking)
 
 **Depends on:** Phase 23.1 (`D-GATE-23.1`) — v0.2 is dispositioned and the

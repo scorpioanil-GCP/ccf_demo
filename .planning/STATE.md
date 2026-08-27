@@ -3,8 +3,70 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-27T06:45:00.000Z"
+last_updated: "2026-08-27T11:55:00.000Z"
 last_activity: >-
+  2026-08-27 -- **PHASE 24.1 WAVE 10'S FOUR TASKS ARE COMPLETE AND THE WAVE IS PARKED ON
+  ONE DAVE DECISION. `make ci` IS RED WITH ONE FAILURE LEFT AND IT IS NOT THIS PHASE'S
+  DOING.** Thirteen foreground commands, every exit code read UNPIPED, criterion 19's four
+  conditions each named and satisfied, and the test chunks proven a PARTITION of all 4,291
+  tests three ways. Result at wave end: **3 failed / 4,170 passed / 118 skipped**; after
+  the orchestrator closed Blocker B, **1 failure class remains (2 assertions)**.
+  **BOTH FAILURES PRE-DATED THIS WAVE AND SURVIVED NINE WAVES FOR ONE REASON: every wave
+  measured `tests/examples` ALONE.** `tests/products` and `tests/invariants` were never run
+  all phase. That is the `D-65` shape at the level of the GATE ITSELF -- a green that was
+  green about a subset nobody restated.
+  **BLOCKER B WAS THE ORCHESTRATOR'S AND IS CLOSED AT `4cb235e`.** The citation ratchet
+  (`D-IMPL-114`: cite `path.py::Symbol`, never a line number) fired on `.planning/STATE.md`
+  line 18, which arrived at `6d32ccd` -- the Wave 9 tracking commit -- inside a sentence
+  ABOUT the danger of a citation that resolves and is wrong. Now cites
+  `tests/examples/test_section_one_is_agent_free.py::SECTION_ONE_GLOB`; symbol resolves at
+  line 120, control a fabricated variant returns 0.
+  `tests/invariants/test_citation_coverage.py` **3 failed -> 5 passed**. Noted beside it:
+  `tools.lints --citations` exits **0** on the same subject the ratchet FAILS on, because
+  one declines to check what the other counts -- **an eighth finding, TOOLING.**
+  **BLOCKER A IS DAVE'S AND IS THE ONE THING WAVE 11 WAITS ON.**
+  `tests/products/test_gate_two_call_shape.py::MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1`, *"no
+  headroom, on purpose ... a second deployment claiming it cannot arrive without an edit
+  here."* `cp-00` is the second claimant, with `s1-00`. **THE ORCHESTRATOR DISPUTES THE
+  EXECUTOR'S FRAMING OF THE PRECEDENT.** The executor cited `D-IMPL-146` (*"do NOT raise the
+  ceiling"*) as if it were a standing prohibition. It is not: in `146` Dave refused to raise
+  because **the DETECTOR was wrong** -- a second deployment had arrived by a code shape the
+  detector did not recognise, and the fix was to teach it and SPLIT the exemptions, which is
+  why `MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS` exists as a separate constant today. **Here the
+  detector is RIGHT**, and the proof is that the second failing assertion is a **ROSTER, not
+  a count** -- it names `['examples/cp-00-institutional-holders',
+  'examples/s1-00-companies-over-revenue']` -- and `cp-00` takes the SAME route as `s1-00`
+  with no SDK-supplied variant anywhere in its tree. No third route to split off, no
+  detector bug. **OPTION 1 (orchestrator's recommendation): raise to 2 and NAME `cp-00` in
+  the commit message**, which is what the constant's own comment instructs; touches `tests/`
+  only so criterion 16 stays intact. **OPTION 2: give `cp-00` a second Control Plane
+  document**, which undoes the *"whole Control Plane in one document"* teaching point `D-51`
+  ruled, and is a BUILD in a phase whose posture is that it builds nothing.
+  **`D-64` IS DISCHARGED IN HALVES, AND THE MEASURED HALF CONTRADICTS THE SPEC'S OWN
+  DECLARED ENVELOPE.** 40 calls against the live estate; instrument NAMED beside the numbers
+  as Dave required -- 40 calls and why not 20 or 60, `perf_counter_ns` (monotonic, with a
+  250 ms control per population), nearest-rank percentiles, and a call bounded as ONE
+  `assemble` INCLUDING the DB connect and the fabric boot, EXCLUDING process start and the
+  spec print. **p50 10.1 s, p95 11.8 s -- 11.8x the 1,000 ms p95 envelope the spec declares
+  for itself.** ATTRIBUTED rather than merely reported: step 1, the database read, is
+  **101 ms against its 120 ms budget -- that budget HOLDS**; step 2, writing 1,748 rows
+  through the fabric's single writer, is **9,896 ms against 380 ms**. The spec already said
+  step 2 dominates and already named the remedy (materialize per issuer-and-quarter); it was
+  right in KIND and wrong by **16x** in SIZE, so its remedy is now evidence-backed rather
+  than asserted. Control: serving **83x** more rows costs **5%** more time, which puts the
+  cost in the WRITE and not in the projection. **COST IS LEFT OPEN WITH AN OWNER AND NO
+  DOLLAR FIGURE WAS INVENTED**, exactly as `D-64` requires. What WAS measured: zero model
+  tokens per call (structural, gated) and 2.93 CPU-seconds, against a meter control reading
+  300.0 ms for a spin and 0.1 ms for a sleep.
+  **`D-65` GAINS A CLAUSE FROM THIS WAVE'S OWN MACHINERY -- ELEVENTH CONSECUTIVE WAVE.** The
+  first criteria check produced a **FALSE STOP** on a block that had not changed by a byte
+  (a detector rebuilt from prose instead of running the bound one, plus a stray newline
+  strip) -- and **the positive control beside it AGREED WITH WAVE 1 EXACTLY**, which read as
+  proof the reader was correct. It was not: that control is built in a way that DISCARDS THE
+  VERY BYTE the measurement turns on, so it returns the same answer whether the reader is
+  right or wrong. **A positive control must be able to SEE the thing the measurement depends
+  on, or its agreement is worth nothing** -- a control that cannot discriminate is not a weak
+  control, it is a second broken instrument agreeing with the first. PRIOR:
   2026-08-27 -- **PHASE 24.1 WAVE 9 COMPLETE. THE PRESSURE TEST HAS ITS RECORD AND THE
   TREE IS FULLY GREEN AGAIN.** `24.1-PRESSURE-TEST.md` written (§§1-6), the three
   inherited ledger rows re-pointed in BOTH channels, the named non-goals probed, and
@@ -479,6 +541,36 @@ progress:
     bullet is struck through as superseded). The first is the EXACT error recorded against
     a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
+  **PHASE 24.1: WAVES 1-10 OF 11 DONE. WAVE 10 IS PARKED ON EXACTLY ONE DAVE DECISION AND
+  WAVE 11 CANNOT START UNTIL IT LANDS.**
+  **THE DECISION -- BLOCKER A.** `tests/products/test_gate_two_call_shape.py`
+  `MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1`, no headroom BY DESIGN so a human rules on each
+  addition. `cp-00` is a genuine second claimant beside `s1-00`. **Option 1 (recommended):
+  raise to 2, NAME `cp-00` in the commit message** -- the constant's own comment instructs
+  exactly this, and it touches `tests/` only so criterion 16 survives. **Option 2: give
+  `cp-00` a second Control Plane document** -- undoes `D-51`'s one-document teaching point
+  and is a BUILD. **DO NOT accept the executor's citation of `D-IMPL-146` as a standing
+  prohibition**: `146` refused a raise because the DETECTOR was wrong; here the detector is
+  right and the failing assertion is a ROSTER that names both claimants. Two assertions in
+  that one module are the ONLY remaining `make ci` failures.
+  **DO NOT RE-DERIVE ANY COUNT FROM THIS BLOCK (`D-65`).** It is a cached measurement.
+  Re-enumerate from the tree: findings from
+  `.planning/phases/24.1-*/deferred-items.md` and `24.1-PRESSURE-TEST.md` §4.1;
+  gate state from `make ci` chunked in the FOREGROUND; criteria from `ROADMAP.md`
+  `### Phase 24.1`. **A roster of ids, never a cardinality.**
+  Gates at `4cb235e`: `tools.lints --all` **rc=0**; `tests/examples` **537 passed / 0 failed
+  / 37 skipped**; `docs-strict` **0/0/0/0**; `tests/products` + `tests/invariants` **2
+  assertions failing, both Blocker A**. `src/` and `runtime/` diff-empty against
+  `phase-24.1-base` (142 and 71 tracked files) -- the phase built NOTHING in the SDK, which
+  is the point. Findings recorded and NONE closed; the SDK-side roster is the ONLY list
+  `D-05` reads for drift and it is **FOUR: empty-operator-gate-two-assertions (Wave 3),
+  `ProductClassDeclaration` MAX_TTL seconds (Wave 4), `build_operator_registry`
+  deployment-operator seam (Wave 5, `D-59`), `ContextAssemblerProtocol.assemble` return type
+  (Wave 5, `D-60`)** -- verify that roster against the tree before quoting it.
+  **AFTER BLOCKER A: re-run `make ci` chunked foreground, re-assert criterion 19, then Wave
+  11 = CLAUDE.md §3.1 close (cross-AI panel `--all` -> single-agent review -> verify EVERY
+  finding -> fix blocking in-phase -> present to Dave), which STOPS FOR DAVE.** `D-58`'s
+  short SDK phase for `D-59`/`D-60` is schedulable AFTER this phase. PRIOR STATE AT WAVE 8:
   **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-8 OF 11 ARE COMPLETE.**
   **Wave 8's BLOCKING human gate is DISCHARGED (`D-63`, Dave, 2026-08-26).** **NEXT:
   Waves 9 and 10, both autonomous; Wave 11 (§3.1 close) STOPS FOR DAVE.** ONE deliberate
@@ -669,7 +761,7 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-**PHASE 24.1 IS EXECUTING. WAVES 1-9 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
+**PHASE 24.1 IS EXECUTING. WAVES 1-10 OF 11 COMPLETE (10 PARKED ON ONE DAVE DECISION), ON BRANCH `phase-24.1`.**
 Phase 24 is an UMBRELLA; 24.1 is its first buildable unit -- one Context Product
 example (institutional holders above a caller-chosen threshold, SEC 13F in
 `ccf_dataprep` Postgres, Assembly Mode 1) built to PRESSURE TEST the SDK's surface
