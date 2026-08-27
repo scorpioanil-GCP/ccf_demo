@@ -15,7 +15,8 @@ last_activity: >-
   `.planning/REQUIREMENTS.md:36` and `:330`, both meant the spine-separation gate's glob,
   and both now cite `tests/examples/test_spine_separation.py::SPINE_GLOBS`. **The
   blind-replace trap was avoided**: `SECTION_ONE_GLOB` still EXISTS, in a different file
-  (`test_section_one_is_agent_free.py:120`), so a mechanical substitution would have
+  (`tests/examples/test_section_one_is_agent_free.py::SECTION_ONE_GLOB`), so a mechanical
+  substitution would have
   produced two citations that RESOLVE and are WRONG. Control: a fabricated symbol seeded
   into a `.planning/` file drove both `--citations` and `--all` to rc=1 naming it, and
   removing it returned rc=0.
