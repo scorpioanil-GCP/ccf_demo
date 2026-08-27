@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE CALLER'S OWN VOCABULARY — read-side, so NOT in `ccf_config.yaml`.
+# A question is not a permission. It has no business in Control Plane state or
+# in Decision Replay dimension 2.
+#
+# `role: load` is what this document would carry if a multi-file manifest named
+# it: parsed, validated, handed back, never registered. This deployment has no
+# manifest — `D-IMPL-136`'s AMENDMENT collapses it into `ccf_config.yaml` — so
+# the posture is stated here rather than declared as a key the artifact schema
+# does not have.
+#
+# ONE DIFFERENCE FROM `examples/s1-00-companies-over-revenue/scenario/question.yaml`,
+# AND IT IS A CORRECTION RATHER THAN A STYLE CHOICE. That file carries its
+# `demonstration:` block at the TOP LEVEL, which makes it fail the very schema
+# its own header names — measured this wave: `Additional properties are not
+# allowed ('demonstration' was unexpected)`, against a control in which the
+# same instrument passed two sibling artifacts. The block is nested under
+# `declaration:` here so the document satisfies its header. The SEPARATION
+# `s1-00` was drawing is preserved by the nesting and the comment, not by
+# putting a key somewhere the schema forbids.
+
+semver: "1.0.0"
+class_id: cp-00.question
+
+declaration:
+  # --- The address tokens. `ccf.products.request::ProductRequest` carries
+  #     these four in its own right; none is a class-declared parameter.
+
+  # THE ANCHOR ISSUER LEI, and it is the `subject` rather than a second field.
+  # Spec §B.1 element 8 makes the address itself the LEI —
+  # `/context-products/holdings/institutional-holders/{issuer-lei}` — because a
+  # publicly resolvable identifier is the right anchor and an internal
+  # surrogate key is the named error for that element. Carrying the LEI twice
+  # would be two places to change one value.
+  subject: "549300D3L3G0R4U4VT04"
+
+  # The decision this product is being assembled FOR. Spec §D.1.
+  # The intent REGISTRY the Standard §11.1 asks for does not exist in this
+  # deployment, so the accepted values are declared on the product class rather
+  # than resolved against a governed registry — spec §B.4, marker in §F.
+  intent: position-concentration
+
+  # The currency the caller requires. Spec §D.1.
+  freshness: reported-quarter
+
+  # THE INSTANT THE CALLER IS ASKING AS OF, and it is DATA rather than a clock
+  # read — which is the entire reason replay can feed the recorded boundary
+  # back through the same code path and get the same answer.
+  #
+  # Quoted, so it stays a string: PyYAML's timestamp resolver would otherwise
+  # hand the deployment a `datetime` where it expects text to parse.
+  #
+  # Three things make this particular instant the right one:
+  #   * it is AT OR AFTER the run's ingest instant, which product gate
+  #     `IH-G05` requires — `src/ccf/assembly/worker.py::AssemblyWorker` stamps
+  #     a claim's `observed_at` with the INGEST time, and cut 1 of
+  #     `src/ccf/operators/categories.py::TemporalAsOf` drops every claim
+  #     observed after the boundary. A boundary set to the reported quarter end
+  #     — the natural mistake after reading the TTL anchor — empties the view
+  #     while all three shipped gates pass;
+  #   * it is 148 days after the pinned reported quarter end, so the freshness
+  #     arithmetic spec §E.2 works through by hand is the arithmetic the run
+  #     actually computes rather than a nearby illustration;
+  #   * it is FIXED, so D_c, the content address and the TTL verdict are
+  #     properties of the declaration rather than of the day CI runs.
+  asked_at: "2026-08-26T00:00:00+00:00"
+
+  # --- Scenario material the source read needs and the caller does not choose.
+
+  # THE PINNED REPORTED PERIOD, spelled as the source spells it. Fixed by the
+  # spec and applied at the source read, never by the caller (spec §C.4 trap 1
+  # and §D.3): the archive carries amended filings restating historical
+  # periods, so a read that does not pin the period silently mixes a decade of
+  # positions into one answer.
+  #
+  # This is the FIRST of the two filter axes and it is not the threshold. Two
+  # filters on two axes are two filters; applying one and calling it the other
+  # answers a different question in silence.
+  report_period: "31-MAR-2026"
+
+  # --- What the DEMONSTRATION caller asks, so the example runs with no
+  #     arguments.
+  #
+  # THE DEFAULT LIVES HERE AND NOWHERE ELSE — not in `ccf_config.yaml`'s
+  # `request_contract:`, and not in the Makefile. A CLI CONVENIENCE AND A
+  # CONTRACT OBLIGATION ARE DIFFERENT THINGS. The parameter stays REQUIRED with
+  # no default in the contract, and a request omitting it is refused as
+  # `missing-required-parameter` by
+  # `src/ccf/products/request.py::refuse_request`, returned as data, before the
+  # graph is touched.
+  #
+  # Nested under `declaration:` rather than beside it — see the header.
+  #
+  # An integer, deliberately: the contract declares `integer` because a
+  # `Decimal` parameter does not survive the replay round trip. The reason is
+  # written at the declaration, in `ccf_config.yaml`.
+  #
+  # $1bn is the threshold spec §D.1's worked client call uses. It is the second
+  # of the two filter axes, chosen by the caller and applied at Pi — never in
+  # the graph query, so every threshold compiles to the same pinned read and
+  # what the caller's number changes is the payload, and therefore the
+  # product's content address.
+  demonstration:
+    minimum_position_usd: 1000000000

@@ -3,8 +3,387 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-26T01:15:00.000Z"
+last_updated: "2026-08-27T21:35:00.000Z"
 last_activity: >-
+  2026-08-27 -- **PHASE 24.1 IS CLOSED AND APPROVED. `D-GATE-24.1` IS LOGGED, THE BRANCH IS
+  MERGED TO `main --no-ff`, AND WAVE 11 RAN CLAUDE.md §3.1 IN ORDER WITHOUT MERGING ITS
+  STEPS.** All NINETEEN criteria met. `src/` and `runtime/` diff-empty against
+  `phase-24.1-base` **re-asserted AFTER the close-time fixes**, because a criterion asserted
+  before a fix was asserted against a different tree. `make ci` GREEN, all ten commands rc=0.
+  **THE PANEL WAS THREE REVIEWERS x THREE INLINED BUNDLES, NINE INVOCATIONS, ALL rc=0.**
+  450 KB inlined rather than pointed at; the close record NAMES every subject that went to no
+  reviewer. Each proven to have read by resolving its own citations against a negative
+  control -- codex **9/10**, cursor **10/10**, gemini **10/10**, every control **0/2**.
+  **SEVEN BLOCKING FINDINGS FIXED IN-PHASE, FIVE REJECTED AND RECORDED AS REJECTED.** Every
+  blocker was one shape: *a claim that was true when written and went false without anything
+  going red, because none of them is gate-shaped.* A specification fan-out of **52** where the
+  Wave-1 probe measured **51** and measured no estate-wide maximum at all -- the 52 traced to
+  `24.1-01-PLAN.md:245`, **written BEFORE the probe that contradicted it**. A step timing of
+  **"~344 ms by subtraction"** occurring **exactly once in the whole phase record**, in that
+  cell, where the table's own numbers give **258**. Front matter calling §G unwritten in a
+  document whose §G is present. A Control Plane artifact asserting *"the refusal is the
+  deployment's own code"* when **no such code exists**.
+  **THE MOST VALUABLE RESULT OVERTURNED A PANEL FINDING RATHER THAN ADDING ONE, AND BY
+  SABOTAGE RATHER THAN BY READING.** cursor said the criterion-2 gate could stay green while
+  every `sdk_mechanism` in the recipe was fiction. Mechanism right -- the test reads that
+  field **zero** times. Conclusion wrong -- `tools/lints/citations.py` scans `.yaml` and gates
+  them: a fabricated symbol moved the lint **rc=0 -> rc=1** naming file, line and symbol,
+  while the test stayed **9 passed**. **Acting on the finding would have added a redundant
+  assertion.** Beside it, the caution the close earned: **a resolved citation is NOT a correct
+  finding** -- gemini resolved 10/10 and still inverted the sense of its cited text twice, and
+  a third reviewer's refutation of that claim was ALSO wrong by an over-narrow grep. Three
+  instruments, one passage, three different misreadings; the passage is compliant.
+  **THE CLASS TURNED UP IN THE CLOSE'S OWN MACHINERY -- TENTH CONSECUTIVE WAVE.** The `make
+  ci` partition proof was WRONG FIRST: it compared the chunks against `ls -d tests/*/` and
+  printed `IDENTICAL` while the sum was **4,250** against a collection of **4,291**. **41
+  tests live in `tests/*.py` and the check never looked at files** -- and they were
+  `test_smoke`, `test_surface_completeness`, `test_surface_drift` and
+  `test_surface_shape_capture`, exactly where a documentation-only phase's regressions land.
+  Corrected against the COLLECTED COUNT, which a directory listing cannot fake: 1699 + 1514 +
+  1078 = **4,291**, run to **4,173 passed / 118 skipped**. A second instrument error caught in
+  flight: the criterion-1 front-matter check searched `head -30` of a front matter running to
+  line **114** and reported the row ABSENT -- **the document was right and the check was
+  wrong**, and the corrected check carries a control proving a fabricated row is not matched.
+  **AND THE REVIEW TOOLING FAILED SILENTLY BEFORE IT SUCCEEDED:** the first nine invocations
+  returned **rc=126 in 0 seconds with 0-byte outputs** -- `Argument list too long`, because
+  Linux caps a single argv string at 128 KB regardless of the 2 MB `ARG_MAX`. **Read through a
+  pipe, or not read at all, that is indistinguishable from three reviewers finding nothing.**
+  Fixed on stdin, each smoke-tested first.
+  **CRITERIA RE-ASSERTED WITH THE MECHANICAL AND DOCUMENTARY CLAIMS SPLIT, NEVER COLLAPSED:**
+  16/17/19 RE-RUN; 1/9/11 RE-READ because a fix touched their subject; 10/12/13/14/18 PROVEN
+  UNTOUCHED by path-scoped diff. *"All nineteen re-asserted"* is deliberately not written.
+  **DAVE'S FOUR RULINGS AT THE GATE:** approve and merge `--no-ff`; **`D-IMPL-213`** confirms
+  the scoped SDK phase for **`D-59`/`D-60` ONLY** -- the other two SDK gaps and the three
+  tooling blinds stay recorded and unclosed; **NO fail-closed refusal in `cp-00`** (24.1's
+  no-build posture stands; refusal-as-data is `D-59`/`D-60` work, not a close-time feature
+  sneak); push. **NEXT:** the `D-58`/`D-IMPL-213` short SDK phase. PRIOR:
+  2026-08-27 -- **BLOCKER A IS CLOSED BY RULING (`D-66`, Dave) AND `make ci` IS GREEN
+  EXCEPT FOR ONE GENERATED REPORT AWAITING ITS REGENERATION. WAVE 10 IS UNPARKED AND
+  WAVE 11 CAN START.** Dave ruled Option 1 -- `cp-00` onto the one-document exemption --
+  **in a sharper form than was offered**: the bound is now a NAMED ROSTER judged by SET
+  EQUALITY, not a ceiling raised to 2. A bare count was refused as the same defect class
+  the phase had just spent two waves on: *"next claimant is silent if someone deletes a
+  name from the list and the count stays 2."*
+  `MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS` and `MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS` are RETIRED
+  as counts, replaced by
+  `tests/products/test_gate_two_call_shape.py::RULED_ONE_DOCUMENT_DEPLOYMENTS` and
+  `tests/products/test_gate_two_call_shape.py::RULED_SDK_SUPPLIED_DEPLOYMENTS`, both
+  `frozenset[str]`, sharing ONE predicate
+  `tests/products/test_gate_two_call_shape.py::_roster_problems`. **THREE FAULTS ARE NOW
+  REPORTABLE WHERE A CEILING SAW ONE**: arrival, departure, and the SWAP that holds the
+  cardinality while moving the membership -- `D-65`'s *right count, wrong member*, which a
+  ceiling cannot see by construction. **EMPTY IS RED**: the predicate reports every ruled
+  member as departed on an empty claim set, so a detector that has stopped matching cannot
+  read as compliance.
+  **EVERY HALF WAS WATCHED FAILING, NOT ASSERTED.** Drop `cp-00` from the roster -> red
+  naming it as an arrival; add a phantom name -> red naming it as a departure; gut the
+  predicate to `return []` -> BOTH controls red. Restored **101 passed**, from 99 passed /
+  2 failed. The premise-detector test keeps a LITERAL roster on purpose and the sabotage
+  PROVED the independence -- dropping `cp-00` from the constant left that test green,
+  which is exactly why the two must not share a source.
+  **THE LEGS NOBODY RAN WERE RUN.** `tests/products` + `tests/invariants` **674 passed /
+  0 failed**. Full `make ci` re-measured chunked FOREGROUND, `make -n ci` printed first as
+  proof the ten commands ARE the recipe, and the test chunks proven a PARTITION: 1699 +
+  1524 + 1068 = **4,291** collected, disjoint paths, run to **4,173 passed / 118 skipped**
+  with every exit code read unpiped. **9 of 10 CI commands rc=0.** The tenth is
+  `docs/surface/examples/RETIREMENT-COUPLINGS.md` stale at 287 -> 288 rows, which is the
+  GENERATED report reacting to this session's own `.planning/` writes -- regenerated LAST,
+  by design.
+  **THE CITATION RATCHET CAUGHT THE RENAME AND CAUGHT EXACTLY IT**: two `cite03-node-id`
+  findings, `.planning/STATE.md` and the handoff, both citing the retired symbol; nothing
+  else in the tree. `docs/DECISIONS.md` and `.planning/phases/*` are EXEMPT as dated
+  records, so the historical `D-IMPL-137`/`139`/`146` entries still say *"ceilinged at
+  one"* -- true when written, and not falsified to suit the rename. Both live citations
+  RE-POINTED with the superseded name kept beside them. `tools.lints --all` rc=1 -> rc=0.
+  **ONE STALE ARITHMETIC CLAIM CORRECTED IN PASSING**: the `MINIMUM_RESOLVED_BINDER_SITES`
+  comment said *thirteen* projecting bodies with `s1-00` the sole abstainer. Measured:
+  **fourteen** bodies, twelve readable sites across ELEVEN files, **three** abstainers
+  (`s1-00` and `cp-00` under `D-IMPL-137`, `hw1` under `D-IMPL-141`). True when written,
+  false once `cp-00` landed. PRIOR:
+  2026-08-27 -- **PHASE 24.1 WAVE 10'S FOUR TASKS ARE COMPLETE AND THE WAVE IS PARKED ON
+  ONE DAVE DECISION. `make ci` IS RED WITH ONE FAILURE LEFT AND IT IS NOT THIS PHASE'S
+  DOING.** Thirteen foreground commands, every exit code read UNPIPED, criterion 19's four
+  conditions each named and satisfied, and the test chunks proven a PARTITION of all 4,291
+  tests three ways. Result at wave end: **3 failed / 4,170 passed / 118 skipped**; after
+  the orchestrator closed Blocker B, **1 failure class remains (2 assertions)**.
+  **BOTH FAILURES PRE-DATED THIS WAVE AND SURVIVED NINE WAVES FOR ONE REASON: every wave
+  measured `tests/examples` ALONE.** `tests/products` and `tests/invariants` were never run
+  all phase. That is the `D-65` shape at the level of the GATE ITSELF -- a green that was
+  green about a subset nobody restated.
+  **BLOCKER B WAS THE ORCHESTRATOR'S AND IS CLOSED AT `4cb235e`.** The citation ratchet
+  (`D-IMPL-114`: cite `path.py::Symbol`, never a line number) fired on `.planning/STATE.md`
+  line 18, which arrived at `6d32ccd` -- the Wave 9 tracking commit -- inside a sentence
+  ABOUT the danger of a citation that resolves and is wrong. Now cites
+  `tests/examples/test_section_one_is_agent_free.py::SECTION_ONE_GLOB`; symbol resolves at
+  line 120, control a fabricated variant returns 0.
+  `tests/invariants/test_citation_coverage.py` **3 failed -> 5 passed**. Noted beside it:
+  `tools.lints --citations` exits **0** on the same subject the ratchet FAILS on, because
+  one declines to check what the other counts -- **an eighth finding, TOOLING.**
+  **BLOCKER A IS DAVE'S AND IS THE ONE THING WAVE 11 WAITS ON.**
+  `tests/products/test_gate_two_call_shape.py::RULED_ONE_DOCUMENT_DEPLOYMENTS` -- which
+  was `MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1` when this paragraph was written, *"no
+  headroom, on purpose ... a second deployment claiming it cannot arrive without an edit
+  here."* The citation is RE-POINTED and the superseded name kept beside it rather than
+  the sentence rewritten. `cp-00` is the second claimant, with `s1-00`. **THE ORCHESTRATOR DISPUTES THE
+  EXECUTOR'S FRAMING OF THE PRECEDENT.** The executor cited `D-IMPL-146` (*"do NOT raise the
+  ceiling"*) as if it were a standing prohibition. It is not: in `146` Dave refused to raise
+  because **the DETECTOR was wrong** -- a second deployment had arrived by a code shape the
+  detector did not recognise, and the fix was to teach it and SPLIT the exemptions, which is
+  why `MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS` exists as a separate constant today. **Here the
+  detector is RIGHT**, and the proof is that the second failing assertion is a **ROSTER, not
+  a count** -- it names `['examples/cp-00-institutional-holders',
+  'examples/s1-00-companies-over-revenue']` -- and `cp-00` takes the SAME route as `s1-00`
+  with no SDK-supplied variant anywhere in its tree. No third route to split off, no
+  detector bug. **OPTION 1 (orchestrator's recommendation): raise to 2 and NAME `cp-00` in
+  the commit message**, which is what the constant's own comment instructs; touches `tests/`
+  only so criterion 16 stays intact. **OPTION 2: give `cp-00` a second Control Plane
+  document**, which undoes the *"whole Control Plane in one document"* teaching point `D-51`
+  ruled, and is a BUILD in a phase whose posture is that it builds nothing.
+  **`D-64` IS DISCHARGED IN HALVES, AND THE MEASURED HALF CONTRADICTS THE SPEC'S OWN
+  DECLARED ENVELOPE.** 40 calls against the live estate; instrument NAMED beside the numbers
+  as Dave required -- 40 calls and why not 20 or 60, `perf_counter_ns` (monotonic, with a
+  250 ms control per population), nearest-rank percentiles, and a call bounded as ONE
+  `assemble` INCLUDING the DB connect and the fabric boot, EXCLUDING process start and the
+  spec print. **p50 10.1 s, p95 11.8 s -- 11.8x the 1,000 ms p95 envelope the spec declares
+  for itself.** ATTRIBUTED rather than merely reported: step 1, the database read, is
+  **101 ms against its 120 ms budget -- that budget HOLDS**; step 2, writing 1,748 rows
+  through the fabric's single writer, is **9,896 ms against 380 ms**. The spec already said
+  step 2 dominates and already named the remedy (materialize per issuer-and-quarter); it was
+  right in KIND and wrong by **16x** in SIZE, so its remedy is now evidence-backed rather
+  than asserted. Control: serving **83x** more rows costs **5%** more time, which puts the
+  cost in the WRITE and not in the projection. **COST IS LEFT OPEN WITH AN OWNER AND NO
+  DOLLAR FIGURE WAS INVENTED**, exactly as `D-64` requires. What WAS measured: zero model
+  tokens per call (structural, gated) and 2.93 CPU-seconds, against a meter control reading
+  300.0 ms for a spin and 0.1 ms for a sleep.
+  **`D-65` GAINS A CLAUSE FROM THIS WAVE'S OWN MACHINERY -- ELEVENTH CONSECUTIVE WAVE.** The
+  first criteria check produced a **FALSE STOP** on a block that had not changed by a byte
+  (a detector rebuilt from prose instead of running the bound one, plus a stray newline
+  strip) -- and **the positive control beside it AGREED WITH WAVE 1 EXACTLY**, which read as
+  proof the reader was correct. It was not: that control is built in a way that DISCARDS THE
+  VERY BYTE the measurement turns on, so it returns the same answer whether the reader is
+  right or wrong. **A positive control must be able to SEE the thing the measurement depends
+  on, or its agreement is worth nothing** -- a control that cannot discriminate is not a weak
+  control, it is a second broken instrument agreeing with the first. PRIOR:
+  2026-08-27 -- **PHASE 24.1 WAVE 9 COMPLETE. THE PRESSURE TEST HAS ITS RECORD AND THE
+  TREE IS FULLY GREEN AGAIN.** `24.1-PRESSURE-TEST.md` written (§§1-6), the three
+  inherited ledger rows re-pointed in BOTH channels, the named non-goals probed, and
+  `D-IMPL-212` appended OPEN. **THE LAST DELIBERATE RED SIGNAL IS CLOSED:**
+  `tools.lints --all` **rc=1 with exactly 2 `cite03-node-id` findings -> rc=0 with none**,
+  measured unpiped at both ends and read by finding NAME rather than exit code; the
+  orchestrator re-ran it independently and got **rc=0**. Both citations sat at
+  `.planning/REQUIREMENTS.md:36` and `:330`, both meant the spine-separation gate's glob,
+  and both now cite `tests/examples/test_spine_separation.py::SPINE_GLOBS`. **The
+  blind-replace trap was avoided**: `SECTION_ONE_GLOB` still EXISTS, in a different file
+  (`tests/examples/test_section_one_is_agent_free.py::SECTION_ONE_GLOB`), so a mechanical
+  substitution would have
+  produced two citations that RESOLVE and are WRONG. Control: a fabricated symbol seeded
+  into a `.planning/` file drove both `--citations` and `--all` to rc=1 naming it, and
+  removing it returned rc=0.
+  **THE VERDICT: THE DERIVATION HELD. NO DRIFT (`D-05`).** Six of the Standard's eight
+  operator names carry SDK mechanism at a named layer; **`Enrich` is genuinely absent** and
+  `Evaluate` exists only as Π -- which AGREES with the published page `D-63` accepted, and
+  the two must not drift apart. **`cp-00` needed ZERO new SDK operators.** `src/` and
+  `runtime/` are diff-empty against `phase-24.1-base` (142 and 71 tracked files), measured
+  after `git rev-parse --verify` returned rc 0 -- with an unresolvable-ref control showing
+  rc 128 AND EMPTY OUTPUT that a `test -z` check would have silently accepted.
+  **THE REGISTER, SPLIT: FOUR SDK-SIDE — all seam ergonomics, none algebra — and THREE
+  TOOLING, which `D-05` does not read.**
+  **WAVE 9 CORRECTED AN ERROR IN THIS FILE THAT WAS THE ORCHESTRATOR'S, NOT AN
+  EXECUTOR'S.** The Session Continuity resume block written at the top of this session
+  named the fourth SDK-side member as *"the CI `run.py` gate finding now discharged by
+  `D-51`"*. That finding was DISCHARGED and was never SDK-surface: the real fourth is
+  Wave 3's **empty-operator gate is two different assertions sharing one name** (spec §F.4
+  item 4). The COUNT of four was right; the MEMBER was wrong, which is the more dangerous
+  shape because the total audits clean. Corrected in place, with the superseded text named
+  rather than deleted.
+  **TENTH CONSECUTIVE WAVE TO FIND A DEFECT INSIDE ITS OWN MACHINERY**, and this one is a
+  counting instrument that CANNOT FIRE: both candidate-gap reproduction commands published
+  in `24.1-RESEARCH.md` return **0 hits**, because they escape `-E` alternation as `\|`,
+  which matches a LITERAL PIPE. Corrected forms return **9** and **4**. A later reader
+  re-running the published form would have read absence as confirmation from an instrument
+  that never fired -- the same shape as Wave 6's rc=0 lint control.
+  **`D-IMPL-212` IS APPENDED AT 212, NOT 203**, against the plan's own `<done>` line: 202-211
+  are RESERVED candidates and 203 is already *"Closed operator vocabulary vs four canonical
+  categories"* -- this record's own subject. PRIOR:
+  2026-08-27 -- **PHASE 24.1 WAVE 8 COMPLETE AND ITS BLOCKING HUMAN GATE IS DISCHARGED
+  (`D-63`, Dave).** Both `D-28` documents shipped: `examples/cp-00-institutional-holders/
+  README.md` (419 lines, the seven template headings, the MECHANICS) and
+  `public/concepts/the-first-context-product.md` (263 lines, six `--8<--` includes and
+  ZERO transcribed code, the ARGUMENT). `docs-strict` **0/0/0/0 on all four steps**, each
+  run as its own foreground command with the exit code read unpiped, and `make -n
+  docs-strict` printed first to prove those four ARE the whole recipe. Wave 7's deliberate
+  README red is CLOSED: `test_cp_readme_template.py` **4 failed -> 10 passed**;
+  `tests/examples` **532/4/38 -> 537 passed / 0 failed / 37 skipped**, collected 574 both
+  times, and 532 + 4 + 1 = 537 reconciles exactly (the skipped empty-parameter case became
+  a real test -- that arithmetic is the control, and the dispatch's expected 536 was wrong).
+  **THE HUMAN HALF WAS CARRIED TO DAVE RATHER THAN DEFERRED.** He was remote and could not
+  run the example, open the files or run `mkdocs serve`. The orchestrator ran
+  `make example-cp-00` against the LIVE estate itself, rendered both documents, pulled the
+  published page out of the STRICT BUILD'S OWN OUTPUT so every excerpt on it arrived by
+  include, and set `produce.py` beside `deployment.py` **UNLABELLED** -- the plan asks
+  whether the boundary is legible *without being told*, so labelling the panes would have
+  destroyed the test. Ruling: *"Love the docs and the html page. Accepted."*
+  **ALL FOUR FLAGGED READINGS STAND**, and one of them is a PUBLISHED POSITIONING CLAIM
+  rather than a style call: the Standard->SDK operator mapping stays **MEASURED** against
+  the plan's wording, so a public page now states that **`Enrich` has no SDK expression** --
+  three map 1:1, three land elsewhere, `Evaluate` exists only as Pi. Surfaced to Dave AS a
+  positioning call before he accepted.
+  **THE FIFTH FLAGGED ITEM WAS SETTLED BY MEASUREMENT, NOT BY RULING.** The README quotes
+  `D_c ~= 0.56 at 148 days` from `ccf_config.yaml`'s written-out arithmetic, because the
+  executor had no DSN and correctly refused to present arithmetic as observation. The
+  orchestrator ran it: **`D_c` = 0.5582**, `F` = 0.4729, at exactly 148 days
+  (`report_period` 2026-03-31 -> 2026-08-26). **21 holders served against 21 from an
+  independent SELECT**, with a control at `MIN_POSITION=500000000` returning **39**. The
+  figure is CONFIRMED rather than accepted.
+  **A SEVENTH FINDING, AND IT IS TOOLING FOR THE THIRD WAVE RUNNING** (`D-04`, recorded,
+  NOT closed, deliberately OUTSIDE `D-05`'s drift list): **nothing that ships gates
+  criterion 9's four dataset statements** -- `grep -rl 'fact about any real company' tools/
+  tests/` returns **0 files**, against controls of **3** files where the statements live and
+  **53** for the No-Hardcoding Rule, so the search works. The executor's guard ran at wave
+  time and was NOT committed; its shape is written into `deferred-items.md` to be rebuilt.
+  **THE SDK-SIDE COUNT IS STILL FOUR** -- Waves 6, 7 and 8 each found a TOOLING defect, and
+  conflating the two lists would manufacture a `D-05` drift verdict out of three lint gaps.
+  **ONE ORCHESTRATOR NEAR-MISS, RECORDED BECAUSE IT WOULD HAVE BROKEN THIS WAVE'S OWN GATE:**
+  the review page was first written to `public/_review/` -- inside the published surface,
+  which is default-deny-by-existence, where an unregistered file fails `mkdocs build
+  --strict` on `validation.nav.omitted_files`. Caught before commit, moved to the session
+  scratchpad, and `docs-strict` steps 1 and 3 re-run to **exit 0** on the moved tree.
+  Nothing under `public/` changed. PRIOR:
+  2026-08-27 -- **PHASE 24.1 WAVE 7 COMPLETE. THREE GATES ARMED, ONE REFUSED IN
+  WRITING, AND A DELIBERATE RED WINDOW IS OPEN.** `tests/examples` **508 -> 532
+  passed**, 4 failed, 38 skipped -- orchestrator re-ran the whole module in the
+  FOREGROUND and got 532 exactly, matching the executor's claim. **THE 4 FAILURES ARE
+  DELIBERATE AND WAVE 8 CLOSES THEM**: `test_cp_readme_template.py` was written with a
+  LIVE subject and no stub, so it is RED until `cp-00` has a README. **`tools.lints
+  --all` IS ALSO DELIBERATELY RED -- rc=1, EXACTLY 2 findings**, both `DOCS-11` ledger
+  channels (`.planning/REQUIREMENTS.md:36` and `:330`) citing the renamed
+  `::SECTION_ONE_GLOB`; the constant is now
+  `tests/examples/test_spine_separation.py::SPINE_GLOBS` and **plan 24.1-09 Task 2
+  closes it** -- verified by the orchestrator against 24.1-09-PLAN.md, which names
+  `DOCS-11` and the stale citation explicitly. **`make ci` IS THEREFORE RED BETWEEN
+  WAVES 7 AND 9 BY DESIGN, WITH BOTH CLOSERS NAMED. THIS IS NOT A BROKEN TREE.**
+  Criterion 19 requires it green at the GATE commit, which is Wave 10's obligation.
+  **CRITERION 15 IS DISCHARGED THE HARD WAY.** The control's first draft went red for
+  the WRONG REASON -- `NameError: SPINE_GLOBS is not defined` -- which is precisely the
+  failure the criterion exists to catch, so it was restaged: rename the glob to
+  `("s1-*",)`, watch the ASSERTION fail naming the tree it does not reach, then add
+  `"cp-*"` as the ONLY edit between red and green. The control rediscovers a
+  marker-stripped copy THROUGH `split_examples` rather than handing it to the
+  predicate, so it proves glob -> discovery -> refusal end to end.
+  **`D-24` IS DISCHARGED WITH TEETH RATHER THAN PROSE.** Beyond a docstring section and
+  a comment on the constant, `test_widening_this_glob_to_cp_would_break_the_example`
+  runs the REAL predicate over the `cp-*` tree and asserts it DOES refuse -- 2 of 4
+  modules on `ccf.agents`, against 0 of 9 for `s1-*`. The glob was actually widened and
+  watched producing 8 failures naming `assembler.py` and `run.py`. If `cp-00` ever
+  stops importing `ccf.agents`, that test fails and tells the reader to RE-DECIDE
+  rather than delete it.
+  **A SIXTH RECORDED FINDING, AND LIKE THE FIFTH IT IS TOOLING, NOT THE SDK'S SURFACE**
+  (`D-04`, recorded in `deferred-items.md`, NOT closed): nothing shipped checks any
+  EXAMPLE for an LLM-client import -- a planted `import anthropic` in `examples/` draws
+  ZERO findings from `tools.lints --all`. It nearly produced a false reading the other
+  way: `--all` is rc=1 right now for the unrelated citation window, so the EXIT CODE
+  proves nothing there and only the finding-NAME count does. 18 modules across four
+  live example trees stay unchecked; reaching them would be a RETROFIT, which `D-07`
+  forbids. Control: the same planted import inside `examples/cp-00-institutional-
+  holders` gives 6 failed / 6 passed, while `examples/s1-01-hello-context-product`
+  leaves the gate at 12 passed -- so the instrument detects coverage where it exists.
+  **`split_examples(...)[0]` REALLY DID DRIFT** from `s1-00` to `cp-00` (alphabetical),
+  breaking a CORRECT control that needs `scenario/provision.py`, which only `s1-00`
+  ships. Repointed BY NAME; the control that the repoint was necessary is that
+  reverting it fails naming the missing file. **15 SABOTAGES, ALL WATCHED RED**, each
+  with a DISTINCT named failure rather than general redness. The executor also
+  self-corrected two of its own instruments: a baseline read from `/tmp` reported 17
+  and 8 because both modules resolve `REPO_ROOT` from `__file__` and the copies sat at
+  the wrong depth (real values 22 and 16, after which the suite delta reconciles
+  exactly), and one sabotage produced a collection error from a syntax slip rather than
+  a measurement. **NINTH CONSECUTIVE WAVE TO FIND ITS OWN DEFECT CLASS INSIDE ITS OWN
+  MACHINERY.** PRIOR:
+  2026-08-27 -- **PHASE 24.1 WAVE 6 COMPLETE. THE EXAMPLE HAS A COMMAND AND CI HAS
+  SOMETHING IT CAN HONESTLY ASSERT.** `make example-cp-00` is `.PHONY`, carries a help
+  line, and is deliberately NOT a prerequisite of the always-on `examples:` aggregate
+  (`D-08` precedent: a networked substrate puts an example outside it). Against the LIVE
+  estate it serves **21** holders at the demonstration threshold and **39** at
+  `MIN_POSITION=500000000` -- two different content addresses, and the 21 equals Wave 1's
+  independent SELECT sweep by a different route. The CI leg is a `pytest.mark.postgres`
+  module that stands up `postgres:16` ITSELF and seeds it from
+  `tests/examples/fixtures/cp_00_13f_schema.sql` + `cp_00_13f_rows.sql` -- **`D-27`: the
+  fixture is SEEDED BY THE TEST, never committed as a database.** `tests/examples`
+  **485 -> 508 passed**, skips unmoved at 37, and 508 - 485 = **23** is exactly the two
+  new modules' collected count (orchestrator re-measured independently: 23 for both
+  modules, **14** for one alone -- the control that makes 23 a measurement rather than a
+  coincidence). **ELEVEN SABOTAGES, ALL WATCHED RED**, two of them unplanned and the more
+  valuable for it: a band filter seeded into the oracle reproduces `D-61`'s under-count
+  signature (14 -> 11), and nudging the exactly-at-threshold value one unit makes §F
+  marker 14's gate untestable in precisely the way that marker warned.
+  **`D-62` IS DISCHARGED** -- §E.2's debt bands stop reading `[TBC]`, §D.2 step 1's
+  prose cell no longer claims "no SDK symbol", and §F markers 13, 14 and 16 are CLOSED,
+  each keeping its row so the sentence that raised it still points somewhere.
+  **A FIFTH RECORDED FINDING, and it is in the TOOLING rather than on the SDK's own
+  surface** (`D-04`, `D-56` -- classified, NOT closed): the plan asserted
+  `tools/lints/no_hardcoding.py` would refuse a threshold-plus-LEI dict in `tests/`, and
+  the executor's FIRST control returned rc=0 -- a passing report from an instrument that
+  never fired. Measured rather than concluded: `RULE_TREE_SCOPE` does include `tests`, so
+  the SCOPE claim is right, but `_is_numeric_table` requires a strict numeric MAJORITY,
+  so a 2-entry dict pairing an int with a string is 1-of-2 and never trips; a 3-entry
+  numeric table returns rc=1. **This is the eighth consecutive wave to find its own
+  defect class inside its own machinery.**
+  **TWO RESIDUES DELIBERATELY LEFT OPEN, NAMED RATHER THAN GUESSED:** §E's surviving
+  `[TBC]` is marker 4, the issuer-identity refresh cadence -- the archive publishes none,
+  its owner is the SOURCE-ESTATE owner and not any wave of this phase, and guessing it is
+  the §0.2 defect the document rates worse than an honest gap; and **§F marker 15, the
+  MEASURED p50/p95 latency and per-call cost**, which §F.2 assigns to *"the wave that
+  runs the assembly"* -- Waves 5 and 6 both ran it and NOBODY HAS MEASURED A LATENCY.
+  §G's Lifecycle row now names marker 15 as the one certification evidence still owed.
+  **`cp-00` IS GREEN, WHICH IS THE CONDITION `D-58` ATTACHES TO THE SHORT SDK PHASE** for
+  `D-59`/`D-60` (assembler-refusal-as-data + deployment operator registration). That
+  phase is now SCHEDULABLE and is still NOT 24.1's to run (`D-04`). One orchestrator
+  correction: the summary's frontmatter claimed a `~4 h` duration; actual dispatch-to-
+  return was 2,224,352 ms = **37.1 min**, corrected at `f83bd0a`. PRIOR:
+  2026-08-26 -- **PHASE 24.1 WAVE 5 COMPLETE. THE EXAMPLE RUNS END TO END AND THE RED
+  `make ci` GATE IS GREEN.** `deployment.py`, `assembler.py` and `run.py`. The three
+  numbers Wave 4 computed by hand BEFORE this code existed are the three the run
+  produces -- F 0.4729, C 0.9342, D_c 0.5582 -- and the served count at the
+  demonstration threshold is 21, equal to Wave 1's independent SELECT sweep by a
+  different route. `test_artifact_schema_headers.py` **1 failed/29 passed -> 30
+  passed**; `tests/examples` **484+1F -> 485 passed**. `D-51` discharged: the printed
+  entry point is `run.py`, the gate was NOT widened and `artifacts/` NOT renamed.
+  `D-47`/`D-48` discharged: step 1 is an EXAMPLE-SUPPLIED `Operator`, category
+  `traversal`, registered and resolved back out of an `OperatorRegistry`, returning the
+  winner's SUBGRAPH -- no scalar, no new category, nothing in `src/`. The example is the
+  first ever to implement `ccf.agents.assembler::ContextAssemblerProtocol`.
+  **TWO MORE SDK-SIDE FINDINGS, both RECORDED and NOT CLOSED (`D-04`)**, taking the
+  phase's running total to FOUR: (1) `build_operator_registry` dispatches on artifact
+  TYPE and raises for anything it does not recognise, so a deployment's own operator has
+  no path into the registry the projection plan resolves against -- the registry is open,
+  the composition path in front of it is not (use-case agnostic, a remedy would be
+  ADDITIVE); (2) `ContextAssemblerProtocol.assemble` is typed to return `AssemblyOutcome`
+  and nothing else -- 7 fields, `extra=forbid` -- so a conforming assembler receiving a
+  governed `ProductRequestViolation` can only RAISE, in a codebase whose stated posture
+  is that a refusal is DATA (a remedy is NOT additive). **FOUR DEVIATIONS, all reported:**
+  the `run.py` name (`D-51`, and plans 06/07/08/11 still say `consume.py` and are owed the
+  rename); `artifacts/assembly-recipe.yaml` step 1's mechanism column corrected from
+  `none`, which `D-47` does not allow and no later plan owns; the plan's
+  `issuer_match_band` filter clause REJECTED, because the spec, the probe and
+  `expected.yaml` all rule NO band filter and one would have been a silent 6.6%
+  under-count; and two forced arguments on `envelopes`. **FOUR SPEC RESIDUES nobody
+  owns**, including `D-52`'s -- §E.2 still reads `[TBC]` for the bands -- and §F marker
+  13, which this wave MEASURED at C_attributes = 1748/1748 = 1. 40 measurements, each
+  with a control. PRIOR:
+  2026-08-26 -- **PHASE 24.1 WAVE 4 COMPLETE.** The fabric half of
+  `examples/cp-00-institutional-holders`: `ccf_config.yaml` (the whole Control Plane in
+  one document, booting against the real loader with three seeded controls refused),
+  `backends.yaml` (a variable NAME plus a remedy, and a per-run path recipe -- no host,
+  port, path or credential, against a seeded sweep control that returns 1),
+  `artifacts/ttl.yaml`, `artifacts/question.yaml`, `artifacts/expected.yaml`, and
+  `produce.py` -- seven ordered marker regions, closed, no eighth, silent, importing
+  clean, naming no table, column, entity, artifact key, substrate, parameter name or
+  number. `python -m tools.lints --all` **rc=0**, against a seeded fabricated symbol
+  that returns rc=1. `src`/`runtime` diff-EMPTY per member vs `phase-24.1-base`,
+  each proven NON-EMPTY under a seeded line. Nineteen criteria, contiguous, zero
+  continuation lines, against a scoped deletion control returning 18 missing=[12].
+  TWO deviations, both reported: a SIXTH artifact (`ttl.yaml`) because the SDK has no
+  slot for the TTL ceiling's value, and a `gated` field on `Assembled` so the
+  assembly-recipe's step-6 witness can reach its subject. PRIOR:
   2026-08-25 -- **PHASE 23.1 IS CLOSED. `D-GATE-23.1` IS LOGGED AND v0.2 IS DISPOSITIONED.**
   Eight plans in eight serial waves, 31 commits from `PHASE_BASE` `cb6a744`, merged to
   `main --no-ff` naming the entry. **All NINETEEN Success Criteria met** and all nineteen
@@ -259,6 +638,93 @@ progress:
     bullet is struck through as superseded). The first is the EXACT error recorded against
     a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
+  **PHASE 24.1: WAVES 1-10 OF 11 DONE. WAVE 10 IS PARKED ON EXACTLY ONE DAVE DECISION AND
+  WAVE 11 CANNOT START UNTIL IT LANDS.**
+  **THE DECISION -- BLOCKER A.** `tests/products/test_gate_two_call_shape.py`
+  `MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1`, no headroom BY DESIGN so a human rules on each
+  addition. `cp-00` is a genuine second claimant beside `s1-00`. **Option 1 (recommended):
+  raise to 2, NAME `cp-00` in the commit message** -- the constant's own comment instructs
+  exactly this, and it touches `tests/` only so criterion 16 survives. **Option 2: give
+  `cp-00` a second Control Plane document** -- undoes `D-51`'s one-document teaching point
+  and is a BUILD. **DO NOT accept the executor's citation of `D-IMPL-146` as a standing
+  prohibition**: `146` refused a raise because the DETECTOR was wrong; here the detector is
+  right and the failing assertion is a ROSTER that names both claimants. Two assertions in
+  that one module are the ONLY remaining `make ci` failures.
+  **DO NOT RE-DERIVE ANY COUNT FROM THIS BLOCK (`D-65`).** It is a cached measurement.
+  Re-enumerate from the tree: findings from
+  `.planning/phases/24.1-*/deferred-items.md` and `24.1-PRESSURE-TEST.md` §4.1;
+  gate state from `make ci` chunked in the FOREGROUND; criteria from `ROADMAP.md`
+  `### Phase 24.1`. **A roster of ids, never a cardinality.**
+  Gates at `4cb235e`: `tools.lints --all` **rc=0**; `tests/examples` **537 passed / 0 failed
+  / 37 skipped**; `docs-strict` **0/0/0/0**; `tests/products` + `tests/invariants` **2
+  assertions failing, both Blocker A**. `src/` and `runtime/` diff-empty against
+  `phase-24.1-base` (142 and 71 tracked files) -- the phase built NOTHING in the SDK, which
+  is the point. Findings recorded and NONE closed; the SDK-side roster is the ONLY list
+  `D-05` reads for drift and it is **FOUR: empty-operator-gate-two-assertions (Wave 3),
+  `ProductClassDeclaration` MAX_TTL seconds (Wave 4), `build_operator_registry`
+  deployment-operator seam (Wave 5, `D-59`), `ContextAssemblerProtocol.assemble` return type
+  (Wave 5, `D-60`)** -- verify that roster against the tree before quoting it.
+  **AFTER BLOCKER A: re-run `make ci` chunked foreground, re-assert criterion 19, then Wave
+  11 = CLAUDE.md §3.1 close (cross-AI panel `--all` -> single-agent review -> verify EVERY
+  finding -> fix blocking in-phase -> present to Dave), which STOPS FOR DAVE.** `D-58`'s
+  short SDK phase for `D-59`/`D-60` is schedulable AFTER this phase. PRIOR STATE AT WAVE 8:
+  **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-8 OF 11 ARE COMPLETE.**
+  **Wave 8's BLOCKING human gate is DISCHARGED (`D-63`, Dave, 2026-08-26).** **NEXT:
+  Waves 9 and 10, both autonomous; Wave 11 (§3.1 close) STOPS FOR DAVE.** ONE deliberate
+  red signal remains and **WAVE 9 TASK 2 OWNS IT**: `tools.lints --all` rc=1 with exactly
+  2 `DOCS-11` findings, `.planning/REQUIREMENTS.md:36` and `:330`, citing the renamed
+  `::SECTION_ONE_GLOB` -- re-point both at
+  `tests/examples/test_spine_separation.py::SPINE_GLOBS`. The README red is CLOSED.
+  `tests/examples` stands at **537 passed / 0 failed / 37 skipped**; `docs-strict`
+  **0/0/0/0**. Criterion 19 wants `make ci` green at the GATE commit = Wave 10.
+  Running total: **SEVEN** recorded findings, none closed -- **FOUR on the SDK surface**
+  (the only number `D-05` reads for drift) and **THREE in TOOLING**, from Waves 6, 7 and 8
+  respectively. `cp-00` is green, so `D-58`'s short SDK phase for `D-59`/`D-60` is
+  SCHEDULABLE after this one. **STILL UNRULED: §F marker 15** -- measured p50/p95 latency
+  and per-call cost, owed by *"the wave that runs the assembly"*. Orchestrator recommends
+  **Wave 10** and needs the ruling BEFORE Wave 10. PRIOR STATE AT WAVE 7:
+  **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-7 OF 11 ARE COMPLETE.**
+  **NEXT: Wave 8, AND IT STOPS FOR DAVE** -- the docs wave (`D-28`: a deep example
+  README **and** a published page, both, because Dave chose both explicitly). **DO NOT
+  BE ALARMED BY A RED TREE AT THIS POINT: `make ci` IS DELIBERATELY RED BETWEEN WAVES
+  7 AND 9 AND BOTH SIGNALS HAVE A NAMED CLOSER** -- 4 `test_cp_readme_template.py`
+  failures that WAVE 8 turns green by writing the README, and `tools.lints --all` rc=1
+  with exactly 2 `DOCS-11` citation findings that **WAVE 9 TASK 2** turns green by
+  re-pointing `.planning/REQUIREMENTS.md:36` and `:330` at
+  `tests/examples/test_spine_separation.py::SPINE_GLOBS`. Criterion 19 wants green at
+  the GATE commit, which is Wave 10. `tests/examples` stands at **532 passed / 4
+  failed / 38 skipped**. Running total: **SIX** recorded findings, none closed --
+  **FOUR on the SDK surface** (the number `D-05` reads for drift) and **TWO in
+  TOOLING**. `cp-00` is green, so `D-58`'s short SDK phase for `D-59`/`D-60` is
+  SCHEDULABLE after this one. **UNRULED AND WAITING: §F marker 15** -- measured p50/p95
+  latency and per-call cost, owed by *"the wave that runs the assembly"*; Waves 5 and 6
+  both were and nobody measured a latency. Orchestrator recommends **Wave 10**; Dave's
+  call. PRIOR STATE AT WAVE 6:
+  **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-6 OF 11 ARE COMPLETE.**
+  **NEXT: Wave 7** (the three structural gates, and the one `cp-*` must deliberately
+  stay OUTSIDE with the reason WRITTEN INTO the test -- `D-23`/`D-24`). Waves 7, 9 and
+  10 are autonomous; **Wave 8 (docs: deep README + published page, `D-28`) and Wave 11
+  (§3.1 close: cross-AI panel -> single-agent review -> Dave) STOP FOR DAVE.** Wave 6's
+  pre-wave key-links check reports both of Wave 7's links unverified -- EXPECTED, both
+  name files Wave 7 itself creates, which step 7b says to skip. Running total: **FIVE**
+  recorded findings, none closed; `cp-00` is green so `D-58`'s short SDK phase for
+  `D-59`/`D-60` is now schedulable, AFTER this phase. **UNRULED AND WAITING: §F marker
+  15** -- measured p50/p95 latency and per-call cost, owed by *"the wave that runs the
+  assembly"*, which Waves 5 and 6 both were. Nobody has measured a latency; whether a
+  remaining wave takes it is Dave's call. PRIOR STATE AT WAVE 3:
+  **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-3 OF 11 ARE COMPLETE.**
+  Base tag `phase-24.1-base` = `d50924c` (= `main`). Nineteen Success Criteria LOCKED
+  before planning (`D-GATE-19`); criterion 3 carries a MARKED amendment. The spec
+  `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` is
+  COMPLETE to the Standard (front matter + SSA-SSG) and `artifacts/assembly-recipe.yaml`
+  carries the SSD table as data with one runtime witness per step. **NEXT: Wave 4.**
+  Waves 4-7 are autonomous; **Wave 8 (docs) and Wave 11 (SS3.1 close) STOP for Dave.**
+  `src/` and `runtime/` are diff-empty against the base and MUST STAY SO -- the phase
+  builds nothing in the SDK; gaps are RECORDED, never closed (`D-04`). Forty-six
+  decisions `D-01`..`D-46` in `24-CONTEXT.md`; **ids are STABLE and never renumbered**
+  (`D-31`), and that file QUOTES ITS OWN SUPERSEDED TEXT inside corrections, so anchor
+  on the operative sentence rather than a grep hit (`D-32`). New decision entries start
+  at `D-IMPL-212` -- `202`-`211` are reserved candidates. PRIOR STATE:
   **PHASE 23.1 IS CLOSED, GATED AND MERGED. NOTHING IS IN FLIGHT.** `D-GATE-23.1` logged
   2026-08-25 (Dave). **NEXT ACTION: discuss and plan Phase 24 (Context Production)** -- it
   starts on this gate, per Dave. Its criteria are NOT written and that is deliberate
@@ -391,6 +857,186 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**PHASE 24.1 IS EXECUTING. WAVES 1-10 OF 11 COMPLETE AND UNPARKED -- `D-66` CLOSED BLOCKER A -- ON BRANCH `phase-24.1`. WAVE 11 (THE CLAUDE.md 3.1 CLOSE) IS THE ONLY THING LEFT.**
+Phase 24 is an UMBRELLA; 24.1 is its first buildable unit -- one Context Product
+example (institutional holders above a caller-chosen threshold, SEC 13F in
+`ccf_dataprep` Postgres, Assembly Mode 1) built to PRESSURE TEST the SDK's surface
+against the Context Product Specification Standard. **The Standard defines what the
+SDK must implement; where the SDK cannot express what a conforming spec orders, that
+gap is RECORDED here and closed in a SEPARATE phase.** Expectation is FEW OR NO gaps,
+because the spec derived from the SDK's own requirements -- so a long gap list is a
+DRIFT signal, not a normal outcome (`D-05`). Through Wave 8: **SEVEN** recorded
+findings, all under `D-04` and NONE CLOSED. **The SDK-side count is still FOUR**,
+all four seam-ergonomics rather than algebra -- which is what `D-05` actually reads
+for drift, and four is a normal outcome. **The fifth, sixth and SEVENTH are all in
+TOOLING, not the SDK** (Wave 6's lint numeric-majority blind spot; Wave 7's
+unchecked LLM-import coverage on examples; Wave 8's ungated dataset statements),
+and that separation is load-bearing: a tooling blind spot is not a gap in what the
+fabric can express, and merging the lists would manufacture a drift verdict out of
+three lint holes.
+**WAVE 8: BOTH `D-28` DOCUMENTS SHIPPED, AND THE BLOCKING HUMAN GATE IS DISCHARGED
+(`D-63`, Dave, 2026-08-26).** `README.md` 419 lines under the seven template headings
+(the MECHANICS) and `public/concepts/the-first-context-product.md` 263 lines with six
+`--8<--` includes and ZERO transcribed code (the ARGUMENT). `docs-strict` **0/0/0/0**,
+each step foreground and unpiped, `make -n docs-strict` printed first to prove the four
+ARE the recipe. Wave 7's deliberate README red CLOSED: `test_cp_readme_template.py`
+**4 failed -> 10 passed**; `tests/examples` **537 passed / 0 failed / 37 skipped**, and
+532 + 4 + 1 = 537 reconciles exactly against a collected-574 control.
+
+**THE HUMAN HALF WAS CARRIED TO DAVE RATHER THAN DEFERRED, AND THAT IS THE REUSABLE
+PART.** He was remote; the checkpoint assumes a terminal. The orchestrator ran
+`make example-cp-00` against the live estate, rendered both documents, took the
+published page from the STRICT BUILD'S OWN OUTPUT so every excerpt on it arrived by
+include, and set `produce.py` beside `deployment.py` **UNLABELLED with a reveal** --
+the plan asks whether the boundary is legible *without being told*, so labelled panes
+would have destroyed the test. **ALL FOUR FLAGGED READINGS STAND.** One is a PUBLISHED
+POSITIONING CLAIM, not a style call, and was surfaced as such before acceptance: the
+operator mapping stays **MEASURED** against the plan's wording, so a public page now
+states **`Enrich` has no SDK expression** -- three of eight map 1:1, three land at
+other layers, `Evaluate` exists only as Pi.
+
+**THE FIFTH FLAGGED ITEM WAS SETTLED BY MEASUREMENT RATHER THAN BY RULING**, which is
+the better outcome. The README's `D_c ~= 0.56 at 148 days` was written-out arithmetic
+from `ccf_config.yaml`; the executor had no DSN and correctly refused to present it as
+observation. The live run returns **`D_c` = 0.5582, `F` = 0.4729 at exactly 148 days**
+(2026-03-31 -> 2026-08-26), **21 holders served against 21 from an independent
+SELECT**, control at a different threshold **39**. CONFIRMED, not trusted.
+
+**WAVE 8'S SEVENTH FINDING IS TOOLING FOR THE THIRD WAVE RUNNING** (`D-04`, NOT
+closed): nothing that ships gates criterion 9's four dataset statements --
+`grep -rl 'fact about any real company' tools/ tests/` returns **0 files** against
+controls of **3** (where they live) and **53** (No-Hardcoding), so the search works.
+The guard ran at wave time and was NOT committed; its shape is in `deferred-items.md`.
+**AND ONE ORCHESTRATOR NEAR-MISS WORTH KEEPING:** the review page was first written to
+`public/_review/`, inside the default-deny-by-existence published surface, where an
+unregistered file fails `mkdocs build --strict` on `validation.nav.omitted_files` --
+it would have broken the very gate just verified green. Caught before commit, moved to
+the scratchpad, `docs-strict` steps 1 and 3 re-run to **exit 0**.
+
+**WAVE 7: THREE GATES ARMED, ONE REFUSED IN WRITING -- AND A DELIBERATE RED WINDOW
+IS OPEN THAT IS NOT A BROKEN TREE.** `tests/examples` **508 -> 532 passed**, 4 failed,
+38 skipped, re-run in the FOREGROUND by the orchestrator and matching the executor's
+claim exactly. **BOTH RED SIGNALS ARE INTENTIONAL AND BOTH HAVE A NAMED CLOSER:**
+(1) `test_cp_readme_template.py` is RED on 4 tests because it was written against a
+LIVE subject with NO STUB -- **Wave 8 writes the README and turns it green**; and
+(2) `tools.lints --all` is rc=1 with **exactly 2** findings, both `DOCS-11` ledger
+channels (`.planning/REQUIREMENTS.md:36` and `:330`) citing the renamed
+`::SECTION_ONE_GLOB` -- the constant is now `test_spine_separation.py::SPINE_GLOBS`,
+and **plan 24.1-09 Task 2 closes it**, verified against that plan rather than taken on
+the executor's word. **`make ci` IS RED BETWEEN WAVES 7 AND 9 BY DESIGN.** Criterion
+19 requires it green at the GATE commit -- Wave 10's obligation, not a regression.
+
+**CRITERION 15 WAS DISCHARGED ONLY AFTER ITS CONTROL FAILED FOR THE WRONG REASON.**
+The first draft went red with `NameError: SPINE_GLOBS is not defined` -- red, but not
+red about coverage, which is exactly the confusion the criterion exists to prevent.
+Restaged: rename the glob to `("s1-*",)`, watch the ASSERTION fail naming the tree it
+does not reach, then add `"cp-*"` as the ONLY edit between red and green. The control
+rediscovers a marker-stripped copy THROUGH `split_examples` rather than handing it
+straight to the predicate, so it proves glob -> discovery -> refusal, not just the
+predicate. **`D-24` HAS TEETH, NOT PROSE:**
+`test_widening_this_glob_to_cp_would_break_the_example` runs the REAL predicate over
+the `cp-*` tree and asserts it DOES refuse -- **2 of 4** modules on `ccf.agents`
+against **0 of 9** for `s1-*` -- and the glob was actually widened and watched
+producing 8 failures naming `assembler.py` and `run.py`. If `cp-00` ever stops
+importing `ccf.agents`, that test fails and tells the reader to RE-DECIDE rather than
+delete the exemption. **15 sabotages, all watched RED, each with a DISTINCT named
+failure rather than general redness.**
+
+**WAVE 7'S SIXTH FINDING IS AGAIN IN THE TOOLING** (`D-04`, in `deferred-items.md`,
+NOT closed): nothing shipped checks any EXAMPLE for an LLM-client import -- a planted
+`import anthropic` under `examples/` draws ZERO findings from `tools.lints --all`. It
+nearly produced a false reading in the other direction, because `--all` is rc=1 right
+now for the unrelated citation window, so the EXIT CODE proves nothing and only the
+finding-NAME count does. Control: the same planted import inside `cp-00` gives 6
+failed / 6 passed while `s1-01` leaves the gate at 12 passed, so the instrument does
+detect coverage where it exists. 18 modules across four live example trees stay
+unchecked; reaching them would be a RETROFIT, forbidden by `D-07`.
+
+**WAVE 6: THE EXAMPLE HAS A COMMAND, AND `D-62` IS DISCHARGED.**
+`make example-cp-00` is `.PHONY`, help-lined, and deliberately OUTSIDE the always-on
+`examples:` aggregate. Against the live estate: **21** holders at the demonstration
+threshold, **39** at `MIN_POSITION=500000000`, two different content addresses, and
+the 21 equals Wave 1's independent SELECT sweep by a different route. The CI leg is a
+`pytest.mark.postgres` module that stands up `postgres:16` ITSELF and seeds it from
+`tests/examples/fixtures/cp_00_13f_{schema,rows}.sql` -- **`D-27`: the fixture is
+SEEDED BY THE TEST, never committed as a database**, so a schema change breaks the
+test loudly instead of drifting. `tests/examples` **485 -> 508 passed**, skips
+unmoved at 37; 508 - 485 = **23** = the two new modules' collected count, re-measured
+independently by the orchestrator against a control (**14** for one module alone).
+**ELEVEN SABOTAGES, ALL WATCHED RED.** `D-62`'s three residues are closed -- §E.2's
+debt bands drop `[TBC]`, §D.2 step 1's prose no longer claims "no SDK symbol", and
+§F markers 13, 14 and 16 are CLOSED, each KEEPING ITS ROW so the sentence that raised
+it still points somewhere. **TWO RESIDUES LEFT OPEN AND NAMED RATHER THAN GUESSED:**
+§E's surviving `[TBC]` is marker 4, the issuer-identity refresh cadence, whose owner
+is the SOURCE-ESTATE owner and not any wave of this phase; and **§F marker 15, the
+MEASURED p50/p95 latency and per-call cost**, which §F.2 assigns to *"the wave that
+runs the assembly"* -- Waves 5 and 6 both ran it and **nobody has measured a
+latency**. §G's Lifecycle row now names marker 15 as the one certification evidence
+still owed. **`cp-00` IS GREEN, which is the condition `D-58` attaches to the short
+SDK phase** for `D-59`/`D-60`; that phase is now SCHEDULABLE and is still NOT 24.1's
+to run (`D-04`).
+
+**WAVE 6'S FIFTH FINDING IS IN THE INSTRUMENT, AND IT WAS CAUGHT BY ITS OWN CONTROL.**
+The plan asserted `tools/lints/no_hardcoding.py` reaches `tests/`, so a threshold-plus-
+LEI dict there is the same violation as one in library code. The executor's FIRST
+control returned **rc=0** -- a passing report from an instrument that never fired.
+Measured rather than concluded: `RULE_TREE_SCOPE["no-hardcoding"]` DOES include
+`tests`, so the scope claim is right; what is narrower than the plan's sentence is
+`_is_numeric_table`, which requires a strict numeric MAJORITY -- a 2-entry dict
+pairing an int with a string is 1-of-2 and never trips, while a 3-entry numeric table
+returns **rc=1**. **RECORDED, CLASSIFIED, NOT CLOSED** (`D-04`; `D-56` says it does
+not qualify for close-as-you-go -- it blocks no example from being honest).
+
+**Wave 5's two.** (1) `ccf.deployment.operators::build_operator_registry` dispatches
+on the declared parameter artifact's TYPE against four known SDK classes and raises
+for anything else, and the Mode 1 spine hands it the whole mapping -- so a deployment
+that supplies its own `Operator` has no path into the registry `ProjectionEngine`
+resolves the plan against. Measured with four controls: the builder refuses the
+operator AND its parameter set; the same builder registers the two declared artifacts;
+`OperatorRegistry.register` accepts the operator directly and reads `traversal` off it;
+and it refuses a category outside the four. `D-48` says *"registered through the open
+`OperatorRegistry`"* -- the REGISTRY is open, the COMPOSITION PATH in front of it is
+not. Taken rather than worked around: the operator is registered into the deployment's
+OWN registry and applied at L1, where `D-44`/`D-50` place step 1, and the served
+lineage still names exactly the two operators the class declares. (2)
+`ccf.agents.assembler::ContextAssemblerProtocol.assemble` returns `AssemblyOutcome`
+and nothing else -- SEVEN fields, `extra=forbid`, measured, with an eighth named
+`refusal` raising `ValidationError` -- so a conforming assembler that receives a
+governed `ProductRequestViolation` can only RAISE. The SDK's own reference assembler
+never meets this because it HOLDS Pi's already-computed output; an assembler that runs
+the spine is the first thing standing where the violation arrives. Both classified
+use-case agnostic (`D-08`); the first ADDITIVE, the second NOT (`D-10`). **RECORDED,
+NOT CLOSED, NEITHER PROPOSED** (`D-04`). **Wave 4's is that
+`ccf.controlplane.artifacts::ProductClassDeclaration` carries `max_ttl_key` and NO
+field for the ceiling's SECONDS** -- measured, an extra key is refused
+`extra_forbidden` against a control that constructs cleanly -- so `D-43`'s Control
+Plane obligation had to be declared in a deployment-owned artifact
+(`examples/cp-00-institutional-holders/artifacts/ttl.yaml`) rather than in the one
+Control Plane document. **RECORDED, NOT CLOSED** (`D-04`).
+
+**WAVE 4'S RED `make ci` IS GREEN AT WAVE 5, BY `D-51` AND BY THE FILE NAME ALONE.**
+Dave ruled the resolution Wave 4 recommended: the printed entry point is named
+`run.py`, beside `artifacts/`. Measured unpiped -- `test_artifact_schema_headers.py`
+**1 failed/29 passed -> 30 passed**, and `tests/examples` **484 passed + 1 failed ->
+485 passed, 37 skipped**. The gate was NOT widened, `artifacts/` was NOT renamed, and
+nothing in `src/` or `runtime/` was touched. **Plans 24.1-06, -07, -08 and -11 still
+name `consume.py` and are owed the rename**; nothing else about them changes.
+
+**SUPERSEDED, NAMED RATHER THAN DELETED:**
+
+**WAVE 4 FOUND `make ci` RED, AND IT PREDATED WAVE 4.** `git log
+--diff-filter=A` pins `examples/cp-00-institutional-holders/artifacts/` to
+**`313d1c0`** (Wave 3): the tree has an `artifacts/` directory and no `run.py`
+beside it, which
+`tests/examples/test_artifact_schema_headers.py::bijection_violations` refuses.
+Measured three ways -- directory absent (29 passed), Wave-3-only (1 failed), Wave-4
+(the SAME single failure). Three resolutions are named in the phase's
+`deferred-items.md`; **none is Wave 4's to pick**, because each reaches into a file
+list Wave 4 does not own. Criterion 19 requires `make ci` green at the GATE commit,
+so this is a phase-close blocker rather than a wave blocker.
+
+**SUPERSEDED, NAMED RATHER THAN DELETED:**
 
 **PHASE 23.1 IS CLOSED, GATED AND MERGED. PHASE 24 (CONTEXT PRODUCTION) IS NEXT AND IS NOT
 PLANNED.** `D-GATE-23.1` approved by Dave 2026-08-25. v0.2's open surface is DISPOSITIONED
@@ -1317,3 +1963,35 @@ Position). Nothing planned, nothing executed; no phase branch. `main` clean and 
 43 commits ahead of `origin/main` (push still unruled).
 
 Resume: `/gsd:plan-phase 18.1`
+
+---
+
+**2026-08-26 session resume.** Phase 24.1 is EXECUTING on branch `phase-24.1`,
+**waves 1-5 of 11 complete**, tree clean at `010b854`, nothing in flight, no
+checkpoint and no `HANDOFF.json`. Waves 6-11 have PLANs and no SUMMARYs — that is
+the expected shape mid-phase, not an interrupted execution. The `consume.py` ->
+`run.py` rename `24.1-05`'s summary left owed against plans 06/07/08/11 was
+DISCHARGED at `010b854` (8 occurrences patched, **0 remain**, verified by grep on
+all four files at resume). Dave's 2026-08-26 rulings `D-54..D-62` are appended to
+`24-CONTEXT.md`: the threshold-and-batch rule for when an SDK gap gets closed
+(`D-54..D-58`), no `issuer_match_band` filter (`D-61`, so Wave 6 does not restore
+one), and **Wave 6 additionally owns the spec residues** (`D-62`) — no orphan
+`[TBC]` cell survives it.
+
+Carried, unclosed by design (`D-04`): **FOUR** SDK-side findings recorded and none
+closed. **CORRECTED 2026-08-27 — plan `24.1-09` caught this block naming the fourth
+member wrongly, and it was the orchestrator's error, not an executor's.** The four are:
+(1) Wave 3's **empty-operator gate is two different assertions sharing one name** — the
+SDK's refuses a product that *declares* no operators, the Standard's refuses an operator
+that *returns* an empty set (spec §F.4 item 4; any SDK-side fix would be a FOURTH gate,
+forbidden by `D-IMPL-102` limb 3); (2) Wave 4's `ProductClassDeclaration` MAX_TTL-seconds
+slot; (3) Wave 5's `build_operator_registry` type-dispatch (`D-59`); (4) Wave 5's
+`ContextAssemblerProtocol.assemble` return type (`D-60`). **SUPERSEDED, NAMED RATHER THAN
+DELETED:** this block previously listed *"the CI `run.py` gate finding now discharged by
+`D-51`"* as the fourth. That finding was DISCHARGED and was never SDK-SURFACE, so counting
+it kept the total right by luck while naming the wrong member. The authority is
+`24.1-PRESSURE-TEST.md` §4.1/§4.3 and `D-IMPL-212`. Per
+`D-54..D-58` the batchable pair (assembler-refusal-as-data + deployment operator
+registration) opens as a SHORT SDK phase AFTER cp-00 is green — not inside 24.1.
+
+Resume: `/gsd:execute-phase 24.1` (wave 6 next)

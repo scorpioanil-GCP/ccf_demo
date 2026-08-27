@@ -31,6 +31,47 @@ The negative control below carries the CR-02 spelling deliberately: remove
 :func:`submodule_import_names` from :func:`reached_modules` and
 ``from ccf import agents`` walks straight through the guard, which is the
 failure mode this module is shaped around.
+
+WHY ``cp-*`` IS NOT IN THIS GLOB — READ THIS BEFORE WIDENING IT
+---------------------------------------------------------------
+
+There are two ``s1-*`` globs in this suite, in different files, enforcing
+different things. The other one —
+``tests/examples/test_spine_separation.py::SPINE_GLOBS`` — **was** widened to
+include ``cp-*`` (`24-CONTEXT.md` `D-21`/`D-23`, criterion 15). **This one was
+deliberately not**, and `D-24` requires the reason live here rather than in a
+summary nobody will find, because without it the next reader widens this glob
+for consistency and breaks the example.
+
+1. **Widening this glob would fail a Context Product example on its own core
+   design.** A ``cp-*`` tree implements
+   ``ccf.agents.assembler::ContextAssemblerProtocol``, which lives in
+   ``ccf.agents`` — the first entry in :data:`DENIED_PACKAGES`. This is
+   measured, not supposed:
+   :func:`test_widening_this_glob_to_cp_would_break_the_example` runs the real
+   :func:`denied_imports` over the ``cp-*`` tree and asserts it DOES find
+   ``ccf.agents``. If that test ever fails, the premise behind this exemption
+   has changed and the exemption should be re-decided rather than kept.
+
+2. **"Section 1 declares no agent" is a SECTION-1 rule, not a general one.**
+   It answers Phase 16 CONTEXT `D-12` and UAT gap G-01: readers arrived at the
+   SDK with an agent-first mental model because the documentation and the
+   examples suite put an agent in front of the fabric, and Section 1 exists to
+   show the fabric *without* one. A Context Product example is the opposite
+   demonstration — an assembler agent producing a typed product — so applying
+   a Section-1 rule to it is applying the wrong rule, not enforcing a shared
+   one.
+
+3. **``cp-*`` is not ungated; it is gated on a different thing.** What a
+   Context Product tree owes for Assembly Mode 1 is that it is ALGORITHMIC end
+   to end, and that is enforced by
+   ``tests/examples/test_cp_00_is_algorithmic.py::test_no_context_product_module_imports_an_llm_client``,
+   which walks the same trees for an LLM-client import using the same two
+   ``tools.lints`` helpers this module uses. A reader who arrives asking *"is
+   anything checking the cp trees?"* has an answer, and it is not "widen this
+   glob".
+
+Ruled by `24-CONTEXT.md` `D-23`/`D-24`, 2026-08-25.
 """
 
 from __future__ import annotations
@@ -60,6 +101,22 @@ EXAMPLES_ROOT = REPO_ROOT / "examples"
 #: second Section-1 example arms this gate by existing. ``**`` matches this
 #: directory and all subdirectories, so a module nested under an example is in
 #: scope too.
+#:
+#: **DO NOT ADD ``cp-*`` HERE.** A Context Product tree implements
+#: ``ccf.agents.assembler::ContextAssemblerProtocol``, so widening this glob
+#: fails that example on its own core design — measured at
+#: :func:`test_widening_this_glob_to_cp_would_break_the_example`, 2 of 4
+#: modules, against 0 of 9 here. The sibling glob
+#: ``tests/examples/test_spine_separation.py::SPINE_GLOBS`` WAS widened and
+#: this one was not; that asymmetry is deliberate. `cp-*` is gated on being
+#: algorithmic instead, by
+#: ``tests/examples/test_cp_00_is_algorithmic.py::test_no_context_product_module_imports_an_llm_client``.
+#: The full reason is in this module's docstring under "WHY ``cp-*`` IS NOT IN
+#: THIS GLOB". `24-CONTEXT.md` `D-23`/`D-24`, 2026-08-25.
+#:
+#: The NAME stays `SECTION_ONE_GLOB`: this gate really is Section-1 scoped, so
+#: the name is accurate rather than merely inherited. The sibling was renamed
+#: precisely because its name had STOPPED being accurate.
 SECTION_ONE_GLOB = "s1-*/**/*.py"
 
 #: What a Section-1 module may not reach. Each entry carries the criterion and
@@ -277,3 +334,67 @@ def test_the_guard_ignores_the_denied_names_in_prose(
     target.write_text(target.read_text(encoding="utf-8") + prose, "utf-8")
 
     assert not offenders(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# `D-24` — the exemption, made executable.
+# ---------------------------------------------------------------------------
+
+
+def test_widening_this_glob_to_cp_would_break_the_example() -> None:
+    """The reason `cp-*` stays outside this glob, as a measurement.
+
+    A comment saying "excluded" decays into folklore; a comment nobody can
+    check gets overruled by the next reader's tidiness. So the premise behind
+    the exemption is asserted rather than described: run the REAL
+    :func:`denied_imports` over the ``cp-*`` tree and confirm it does in fact
+    refuse it, on ``ccf.agents``, which is where
+    ``ccf.agents.assembler::ContextAssemblerProtocol`` lives.
+
+    Both directions, because only the pair is evidence: the ``cp-*`` tree
+    reaches a denied package, and the ``s1-*`` tree this gate actually guards
+    reaches none. Without the second half a broken predicate that flagged
+    everything would satisfy the first.
+
+    **This test does NOT widen the glob.** It builds its own local pattern, and
+    :data:`SECTION_ONE_GLOB` is untouched — asserted below, so a later edit
+    that widens the constant cannot leave this reason standing beside it.
+
+    If this test fails because the ``cp-*`` tree stopped importing
+    ``ccf.agents``, the exemption's premise is gone. Re-decide it; do not
+    delete this test.
+    """
+    assert SECTION_ONE_GLOB == "s1-*/**/*.py", (
+        f"SECTION_ONE_GLOB is {SECTION_ONE_GLOB!r} — if `cp-*` was added, the"
+        " D-24 reason in this module's docstring is now false and the example"
+        " it protects is failing. Revert, or reopen 24-CONTEXT.md D-23/D-24."
+    )
+
+    context_product_modules = sorted(EXAMPLES_ROOT.glob("cp-*/**/*.py"))
+    assert context_product_modules, (
+        f"no Context Product modules under {EXAMPLES_ROOT} — this reason has"
+        " no subject, and the exemption should be re-derived rather than"
+        " assumed"
+    )
+
+    would_fail = {
+        module.relative_to(EXAMPLES_ROOT).as_posix(): denied_imports(module)
+        for module in context_product_modules
+        if denied_imports(module)
+    }
+    assert would_fail, (
+        f"{len(context_product_modules)} Context Product module(s) reach no"
+        " denied package, so widening this glob would NOT break them — the"
+        " premise recorded in this module's docstring (D-24) no longer holds"
+        " and the exemption needs re-deciding"
+    )
+    assert any("ccf.agents" in packages for packages in would_fail.values()), (
+        would_fail
+    )
+
+    # The control that makes the count above a measurement rather than a
+    # predicate that flags everything it is shown.
+    assert not offenders(EXAMPLES_ROOT), (
+        "the same predicate refuses the Section-1 tree too, so it is not"
+        f" telling the two apart: {offenders(EXAMPLES_ROOT)}"
+    )

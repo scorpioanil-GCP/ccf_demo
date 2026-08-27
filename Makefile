@@ -53,7 +53,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 .PHONY: help install lint typecheck test ci-core ci examples gate-tools \
 	conformance \
 	ci-quick-suite ci-harness-conformance ci-coverage \
-	example-s1-01 example-s1-00 \
+	example-s1-01 example-s1-00 example-cp-00 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -289,6 +289,33 @@ example-s1-00: ## Run examples/s1-00-companies-over-revenue (MIN_REVENUE=<n> opt
 	$(ENV) CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN) \
 		$(PYTHON) examples/s1-00-companies-over-revenue/consume.py \
 		$(if $(MIN_REVENUE),--min-revenue $(MIN_REVENUE))
+
+# CP-00 — the first Context Product, and the first example that points at a
+# system of record CI cannot reach. NOT in the `examples:` aggregate above, and
+# the omission is deliberate rather than an oversight: this target reads a real
+# 13F estate through the environment-variable name `backends.yaml` declares, and
+# `24-CONTEXT.md` `D-15` accepts that cost so the example points at a real store
+# rather than at a shipped copy of one. There is no in-tree fixture it could
+# fall back onto and there must not be.
+#
+# ITS CODE PATH IS STILL COVERED IN CI, so do not "fix" the omission by adding
+# it here. `tests/examples/test_cp_00_output.py` is marked `postgres`, seeds a
+# `postgres:16` service container itself from `tests/examples/fixtures/`, and
+# runs this example's own modules against it under `make leg-postgres`
+# (`24-CONTEXT.md` `D-25`/`D-27`). The target runs the program; the leg proves
+# the program.
+#
+# MIN_POSITION is OPTIONAL, for the same reason MIN_REVENUE is above: the
+# threshold is a REQUEST parameter, not deployment configuration, and a build
+# tool is not a request channel. Omitted, `run.py` asks the demonstration
+# question in `artifacts/question.yaml`. The contract still requires the
+# parameter -- a request without one is refused as `missing-required-parameter`
+# below this CLI. SPEC is `full` or `brief` and picks how much of the
+# specification is printed above the JSON.
+example-cp-00: ## Run examples/cp-00-institutional-holders (MIN_POSITION=<n>, SPEC=full|brief optional; needs CCF_CP_00_POSTGRES_DSN)
+	$(ENV) $(PYTHON) examples/cp-00-institutional-holders/run.py \
+		$(if $(MIN_POSITION),--min-position $(MIN_POSITION)) \
+		$(if $(SPEC),--spec $(SPEC))
 
 # HW-1 — the first example a newcomer reads. NOT in the `examples:` aggregate
 # and NOT in any workflow: it needs a populated deployment, the always-on

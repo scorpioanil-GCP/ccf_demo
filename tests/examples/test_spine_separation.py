@@ -17,15 +17,35 @@ human read, it is the plan's blocking checkpoint, and no assertion substitutes
 for it. Stating the boundary here keeps the structural check from being mistaken
 for the whole of criterion 6.
 
-**Scope: ``examples/s1-*``, by glob.** Section 1 is where the fabric is shown
-without an agent in front of it, and the split is Section 1's shape — every
-Section-1 example carries it, so plan 16-08's second example arms these
-assertions by existing rather than by being listed. Section 2 and 3 examples are
-out of scope here; ``archive/examples/00-quickstart/run.py`` carries the same seven
-marker names in a single module, which is the pre-`D-11` shape this one
-replaces. It was never inside the `s1-*` glob these checks scan, so it is not a
-carve-out from a rule this module enforces — the checks below simply never see
-it.
+**Scope: ``examples/s1-*`` AND ``examples/cp-*``, by glob** (`SPINE_GLOBS`).
+Section 1 is where the fabric is shown without an agent in front of it, and the
+split is Section 1's shape — every Section-1 example carries it, so plan
+16-08's second example arms these assertions by existing rather than by being
+listed.
+
+**Why ``cp-*`` joined the scan** (`24-CONTEXT.md` `D-21`/`D-23`, criterion 15).
+The split this module enforces is not really a Section-1 property; it is a
+property of any example whose code is PUBLISHED. The site's ``--8<--``
+includes address the seven canonical regions by name, so a tree that publishes
+snippets must carry the same shape or the page has nothing to include — and a
+region that straddles two modules, or a ``print`` inside one, is snippet
+surface an adopter would never write, whichever section the tree belongs to.
+Context Product examples publish, so they are in.
+
+**Section 2 and 3 examples do not exist and never will** (`24-CONTEXT.md`
+`D-20`: the `sN-` scheme is not revived). ``archive/examples/00-quickstart/run.py``
+carries the same seven marker names in a single module, which is the pre-`D-11`
+shape this one replaces. It was never inside the globs these checks scan, so it
+is not a carve-out from a rule this module enforces — the checks below simply
+never see it.
+
+**What ``cp-*`` does NOT inherit.** There are two ``s1-*`` globs in this suite
+and they enforce different things.
+``tests/examples/test_section_one_is_agent_free.py`` is the other one, and it
+is **deliberately not widened** — a Context Product tree implements
+``ccf.agents.assembler::ContextAssemblerProtocol``, which that gate's deny list
+bans. The reason is written into that file (`D-24`) so a reader arriving here
+and widening for consistency finds it before doing so.
 
 **`D-11` adds no marker vocabulary.** The seven names below are Phase 14's, and
 the closure check is as load-bearing as the ordering one: a suite that grows an
@@ -52,8 +72,28 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 #: controls can repoint it at a copy and exercise the real predicates.
 EXAMPLES_ROOT = REPO_ROOT / "examples"
 
-#: Section 1 by directory-name convention, and a glob rather than a list.
-SECTION_ONE_GLOB = "s1-*"
+#: The trees this gate scans, by directory-name convention, as globs rather
+#: than a list — so a second Section-1 or Context Product example arms these
+#: assertions by existing rather than by being added here.
+#:
+#: **Renamed from `SECTION_ONE_GLOB` when `cp-*` joined it** (`24-CONTEXT.md`
+#: `D-21`/`D-23`, criterion 15). The gate no longer scans Section 1, and a
+#: constant whose name says otherwise is the next reader's wrong premise —
+#: which is the same failure mode `D-24` guards against in
+#: `tests/examples/test_section_one_is_agent_free.py`.
+SPINE_GLOBS: tuple[str, ...] = ("s1-*", "cp-*")
+
+#: The Context Product tree criterion 15's control selects. **By NAME, never by
+#: index.** `split_examples(...)[0]` is a moving target — widening the glob
+#: changed which tree it resolves to — and a control written against `[0]` can
+#: silently drift onto a tree it was not written for while staying green, which
+#: leaves the criterion unproven and looking proven.
+CONTEXT_PRODUCT_EXAMPLE = "cp-00-institutional-holders"
+
+#: The tree that ships a printing module importing no `ccf`
+#: (`scenario/provision.py`). The fabric-facing scope control needs THAT file
+#: and no other, so it too selects by name — the same reason.
+PROVISIONING_EXAMPLE = "s1-00-companies-over-revenue"
 
 #: How a module writes to the terminal, in the two forms this repository uses.
 PRINT_RE = re.compile(r"print\(|sys\.stdout\.write")
@@ -93,8 +133,15 @@ MARKER_RE = re.compile(r"--8<--\s*\[(?P<kind>start|end):(?P<name>[^\]]+)\]")
 
 
 def split_examples(root: pathlib.Path) -> list[pathlib.Path]:
-    """Every Section-1 example directory under `root`."""
-    return sorted(path for path in root.glob(SECTION_ONE_GLOB) if path.is_dir())
+    """Every example directory under `root` that this gate scans.
+
+    The union of `SPINE_GLOBS`, de-duplicated: a tree matching two globs is one
+    tree, and a directory appearing twice would run every parametrized check
+    twice and report a copy of each failure.
+    """
+    return sorted(
+        {path for glob in SPINE_GLOBS for path in root.glob(glob) if path.is_dir()}
+    )
 
 
 def modules_in(directory: pathlib.Path) -> list[pathlib.Path]:
@@ -443,17 +490,33 @@ def test_discovery_is_independent_of_the_working_directory(
 # ---------------------------------------------------------------------------
 
 
-def _copied_example(tmp_path: pathlib.Path) -> pathlib.Path:
-    """The first shipped Section-1 example, copied under a fresh root.
+def _copied_named(tmp_path: pathlib.Path, name: str) -> pathlib.Path:
+    """One shipped example, chosen BY NAME, copied under a fresh root.
 
     Copied rather than synthesized so the controls run against the real spine,
-    the real markers and the real predicate.
+    the real markers and the real predicate. By name rather than by index for
+    the controls that need a specific tree's contents — see
+    `CONTEXT_PRODUCT_EXAMPLE` and `PROVISIONING_EXAMPLE`.
     """
-    source = split_examples(EXAMPLES_ROOT)[0]
+    source = EXAMPLES_ROOT / name
+    assert source.is_dir(), (
+        f"{source} is gone — the control that selected it by name must be"
+        " re-pointed rather than quietly falling back to whichever tree sorts"
+        " first"
+    )
     destination = tmp_path / source.name
     shutil.copytree(source, destination)
     assert not spine_problems(destination), "the unmodified copy must pass"
     return destination
+
+
+def _copied_example(tmp_path: pathlib.Path) -> pathlib.Path:
+    """The first shipped example in the scan, copied under a fresh root.
+
+    For the controls whose subject is any conforming tree. The ones that need a
+    PARTICULAR tree call `_copied_named` instead.
+    """
+    return _copied_named(tmp_path, split_examples(EXAMPLES_ROOT)[0].name)
 
 
 def test_the_gate_refuses_an_example_with_no_region_carrying_module(
@@ -627,7 +690,11 @@ def test_the_fabric_facing_scope_admits_and_excludes_on_the_import(
     the predicate excluded everything, P5 and P6 would pass over an empty set.
     One test asserts both directions against the same file.
     """
-    example = _copied_example(tmp_path)
+    # BY NAME. This control's whole subject is one specific file, and after
+    # the glob widened, `split_examples(...)[0]` is a `cp-` tree that does not
+    # ship it. Selecting by index here would have turned a correct control into
+    # a failure about the wrong tree.
+    example = _copied_named(tmp_path, PROVISIONING_EXAMPLE)
     outsider = example / "scenario" / "provision.py"
     # Asserted, not skipped. A skip here would silently disable the only
     # control of the one convention this rewrite introduces, on the day
@@ -648,3 +715,60 @@ def test_the_fabric_facing_scope_admits_and_excludes_on_the_import(
     )
     problems = print_problems(example)
     assert any("more than one" in problem for problem in problems), problems
+
+
+# ---------------------------------------------------------------------------
+# Criterion 15 — the widened glob, proven to SCAN rather than merely to have
+# been widened.
+# ---------------------------------------------------------------------------
+
+
+def test_the_widened_glob_actually_scans_the_context_product_tree(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Widening a string and re-running a green suite proves nothing.
+
+    That is the whole point of criterion 15. A glob that matched nothing would
+    pass every assertion in this module forever, and "the suite is still green
+    after the widening" is exactly what it would look like. So this control
+    asserts the widened scan REACHES the Context Product tree and then watches
+    the real predicate REFUSE a broken copy of THAT tree, discovered through
+    the real glob rather than handed to the predicate by hand.
+
+    Both directions of the union are asserted. Dropping `cp-*` leaves the first
+    half red; dropping `s1-*` leaves the second half red — so neither glob can
+    be removed on the grounds that the suite still passes.
+
+    The copy subject is `CONTEXT_PRODUCT_EXAMPLE`, selected by NAME. Written
+    against `split_examples(...)[0]` it could silently drift back onto an `s1-`
+    tree and leave the criterion unproven while this test stayed green.
+    """
+    scanned = [path.name for path in split_examples(EXAMPLES_ROOT)]
+
+    assert CONTEXT_PRODUCT_EXAMPLE in scanned, (
+        f"{SPINE_GLOBS} does not reach {CONTEXT_PRODUCT_EXAMPLE}; the scan"
+        f" covers {scanned}. The published page's `--8<--` includes depend on"
+        " the canonical regions, so a Context Product tree that publishes"
+        " snippets must be inside this gate (24-CONTEXT.md D-21/D-23)."
+    )
+    assert any(name.startswith("s1-") for name in scanned), (
+        f"the widening dropped Section 1; the scan covers {scanned}"
+    )
+
+    # A copy of THAT tree, stripped of its canonical markers.
+    example = _copied_named(tmp_path, CONTEXT_PRODUCT_EXAMPLE)
+    spine = region_modules(example)[0]
+    text = spine.read_text(encoding="utf-8")
+    for name in CANONICAL_MARKERS:
+        text = text.replace(f"[start:{name}]", "").replace(f"[end:{name}]", "")
+    spine.write_text(text, "utf-8")
+
+    # Rediscovered through the real glob, so the chain under test is
+    # glob -> discovery -> predicate, not predicate alone.
+    discovered = split_examples(tmp_path)
+    assert [path.name for path in discovered] == [CONTEXT_PRODUCT_EXAMPLE], (
+        f"the glob did not rediscover the mutated copy: {discovered}"
+    )
+
+    problems = spine_problems(discovered[0])
+    assert any("no module opens" in problem for problem in problems), problems

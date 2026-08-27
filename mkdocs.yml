@@ -107,9 +107,19 @@ markdown_extensions:
   - pymdownx.inlinehilite
 
 # Every path enumerated explicitly — no globs. The nav is authoritative: it
-# lists 43 pages, and `charter.md` is the single `not_in_nav` page, for the 44
+# lists 44 pages, and `charter.md` is the single `not_in_nav` page, for the 45
 # markdown files under `public/`. (The eleven `.mmd` diagram sources under
 # `public/diagrams/` are embedded by the Concepts pages, not nav entries.)
+#
+# Both figures are RE-MEASURED whenever a page is added, and were re-measured
+# 43 -> 44 and 44 -> 45 when `concepts/the-first-context-product.md` landed.
+# Measured, too: NO gate reads either number. `tools/docs_tests/` and
+# `tools/publish_scan*` were swept for them and the only hits were the unrelated
+# `CONTROL 43` / `CONTROL 44` docstrings in
+# `tools/docs_tests/test_requirement_ledger.py`. What IS gated is membership,
+# not arithmetic: `validation.nav.omitted_files` under `strict: true` fails the
+# build for a page under `public/` that no nav entry names, and
+# `tools/docs_tests/test_advisory_discharge.py::nav_pages` parses this block.
 nav:
   - Home: index.md
   - Tutorial:
@@ -129,6 +139,7 @@ nav:
       # D-11 placement: the adoption argument leads Concepts because a
       # first-time reader reaches this section without finishing the tutorial.
       - Answers no document contains: concepts/answers-no-document-contains.md
+      - The first Context Product: concepts/the-first-context-product.md
       - Pillars:
           - Data and Context Layer: concepts/pillars/data-context.md
           - Orchestration Layer: concepts/pillars/orchestration.md
