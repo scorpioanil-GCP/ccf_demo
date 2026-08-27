@@ -3,8 +3,60 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-27T15:20:00.000Z"
+last_updated: "2026-08-27T21:35:00.000Z"
 last_activity: >-
+  2026-08-27 -- **PHASE 24.1 IS CLOSED AND APPROVED. `D-GATE-24.1` IS LOGGED, THE BRANCH IS
+  MERGED TO `main --no-ff`, AND WAVE 11 RAN CLAUDE.md §3.1 IN ORDER WITHOUT MERGING ITS
+  STEPS.** All NINETEEN criteria met. `src/` and `runtime/` diff-empty against
+  `phase-24.1-base` **re-asserted AFTER the close-time fixes**, because a criterion asserted
+  before a fix was asserted against a different tree. `make ci` GREEN, all ten commands rc=0.
+  **THE PANEL WAS THREE REVIEWERS x THREE INLINED BUNDLES, NINE INVOCATIONS, ALL rc=0.**
+  450 KB inlined rather than pointed at; the close record NAMES every subject that went to no
+  reviewer. Each proven to have read by resolving its own citations against a negative
+  control -- codex **9/10**, cursor **10/10**, gemini **10/10**, every control **0/2**.
+  **SEVEN BLOCKING FINDINGS FIXED IN-PHASE, FIVE REJECTED AND RECORDED AS REJECTED.** Every
+  blocker was one shape: *a claim that was true when written and went false without anything
+  going red, because none of them is gate-shaped.* A specification fan-out of **52** where the
+  Wave-1 probe measured **51** and measured no estate-wide maximum at all -- the 52 traced to
+  `24.1-01-PLAN.md:245`, **written BEFORE the probe that contradicted it**. A step timing of
+  **"~344 ms by subtraction"** occurring **exactly once in the whole phase record**, in that
+  cell, where the table's own numbers give **258**. Front matter calling §G unwritten in a
+  document whose §G is present. A Control Plane artifact asserting *"the refusal is the
+  deployment's own code"* when **no such code exists**.
+  **THE MOST VALUABLE RESULT OVERTURNED A PANEL FINDING RATHER THAN ADDING ONE, AND BY
+  SABOTAGE RATHER THAN BY READING.** cursor said the criterion-2 gate could stay green while
+  every `sdk_mechanism` in the recipe was fiction. Mechanism right -- the test reads that
+  field **zero** times. Conclusion wrong -- `tools/lints/citations.py` scans `.yaml` and gates
+  them: a fabricated symbol moved the lint **rc=0 -> rc=1** naming file, line and symbol,
+  while the test stayed **9 passed**. **Acting on the finding would have added a redundant
+  assertion.** Beside it, the caution the close earned: **a resolved citation is NOT a correct
+  finding** -- gemini resolved 10/10 and still inverted the sense of its cited text twice, and
+  a third reviewer's refutation of that claim was ALSO wrong by an over-narrow grep. Three
+  instruments, one passage, three different misreadings; the passage is compliant.
+  **THE CLASS TURNED UP IN THE CLOSE'S OWN MACHINERY -- TENTH CONSECUTIVE WAVE.** The `make
+  ci` partition proof was WRONG FIRST: it compared the chunks against `ls -d tests/*/` and
+  printed `IDENTICAL` while the sum was **4,250** against a collection of **4,291**. **41
+  tests live in `tests/*.py` and the check never looked at files** -- and they were
+  `test_smoke`, `test_surface_completeness`, `test_surface_drift` and
+  `test_surface_shape_capture`, exactly where a documentation-only phase's regressions land.
+  Corrected against the COLLECTED COUNT, which a directory listing cannot fake: 1699 + 1514 +
+  1078 = **4,291**, run to **4,173 passed / 118 skipped**. A second instrument error caught in
+  flight: the criterion-1 front-matter check searched `head -30` of a front matter running to
+  line **114** and reported the row ABSENT -- **the document was right and the check was
+  wrong**, and the corrected check carries a control proving a fabricated row is not matched.
+  **AND THE REVIEW TOOLING FAILED SILENTLY BEFORE IT SUCCEEDED:** the first nine invocations
+  returned **rc=126 in 0 seconds with 0-byte outputs** -- `Argument list too long`, because
+  Linux caps a single argv string at 128 KB regardless of the 2 MB `ARG_MAX`. **Read through a
+  pipe, or not read at all, that is indistinguishable from three reviewers finding nothing.**
+  Fixed on stdin, each smoke-tested first.
+  **CRITERIA RE-ASSERTED WITH THE MECHANICAL AND DOCUMENTARY CLAIMS SPLIT, NEVER COLLAPSED:**
+  16/17/19 RE-RUN; 1/9/11 RE-READ because a fix touched their subject; 10/12/13/14/18 PROVEN
+  UNTOUCHED by path-scoped diff. *"All nineteen re-asserted"* is deliberately not written.
+  **DAVE'S FOUR RULINGS AT THE GATE:** approve and merge `--no-ff`; **`D-IMPL-213`** confirms
+  the scoped SDK phase for **`D-59`/`D-60` ONLY** -- the other two SDK gaps and the three
+  tooling blinds stay recorded and unclosed; **NO fail-closed refusal in `cp-00`** (24.1's
+  no-build posture stands; refusal-as-data is `D-59`/`D-60` work, not a close-time feature
+  sneak); push. **NEXT:** the `D-58`/`D-IMPL-213` short SDK phase. PRIOR:
   2026-08-27 -- **BLOCKER A IS CLOSED BY RULING (`D-66`, Dave) AND `make ci` IS GREEN
   EXCEPT FOR ONE GENERATED REPORT AWAITING ITS REGENERATION. WAVE 10 IS UNPARKED AND
   WAVE 11 CAN START.** Dave ruled Option 1 -- `cp-00` onto the one-document exemption --
