@@ -750,6 +750,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-07-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-07-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-08-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-08-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-11-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-BASE.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-DATA-PROBE.md` | 1 | the phase's own planning tree — not shipped, not published |

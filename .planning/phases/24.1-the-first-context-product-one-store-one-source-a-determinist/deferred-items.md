@@ -296,3 +296,64 @@ Re-measured with the base files placed at their real depth inside
 are computed against, and the 17/8 reading is recorded rather than discarded
 because it is the shape this project's counting errors keep taking — an
 instrument that answers without firing.
+
+---
+
+## From plan 24.1-08 (Wave 8) — RECORDED, NOT CLOSED (`D-04`)
+
+### FINDING 7 — criterion 9's dataset statements are gated by NOTHING that ships, and it is TOOLING
+
+**Classification: TOOLING, not the SDK's surface** (`D-04`, `D-56`). It is a
+gate that does not exist, in the repository's documentation-checking machinery.
+It is **not** an SDK capability gap and must not enter the SDK-side list `D-05`
+reads for drift — the same classification the fifth and sixth findings took, and
+for the same reason.
+
+`24-CONTEXT.md` `D-35` requires four statements on the README and on the
+published page, beside the figures they qualify. This wave put them on both
+documents and proved them present with a positive check plus a watched-RED
+control per statement. **Nothing in the repository will notice if they are
+deleted tomorrow.**
+
+Measured, with the instrument shown to work in both directions:
+
+| Probe | Result |
+| --- | --- |
+| `grep -rl 'fact about any real company' tools/ tests/` | **0 files** |
+| `grep -rn 'D-35\|criterion 9\|educational nature' tools/ tests/` | **4 hits, none of them 24.1's criterion 9** — one is `VAC-05` criterion 9 (phase 21.1) in `tools/docs_tests/test_requirement_ledger.py`, three are Phase 20's `H-07` in `tests/examples/test_hw1_harness_clients_readme.py` |
+| **CONTROL** — the same grep over the trees the statements DO live in | **3 files**: the README, the published page, and the specification |
+| **CONTROL** — the same instrument over an unrelated concern that IS gated | **53 files** in `tools/`+`tests/` mention the No-Hardcoding Rule |
+| **CONTROL** — neighbouring criteria of this phase | `criterion 2` **13 hits**, `criterion 5` **2**, `criterion 8` **2** — so this phase's criteria are reachable by that instrument, and criterion 9's zero is a measurement rather than an instrument failure |
+
+**Why it was not closed in this wave.** A shipped gate on prose sentences is a
+design question, not a one-line addition, and it has at least three unresolved
+limbs: which documents it scopes to (every `cp-*` README? every page under
+`public/` that names an `examples/` figure? both?); how it recognises a
+statement without becoming a brittle string match on wording nobody may ever
+improve; and whether the four statements are one obligation or four. `D-37`
+also bounds THIS phase's proof machinery to one recipe artifact and one test
+module, neither of which is this. Recorded so it is a decision somebody makes
+rather than a gap somebody inherits.
+
+**What stands in the meantime, stated so it is not mistaken for a gate.** The
+wave-time guard lives in this session's scratch space and is **not committed**.
+Its shape is written into this wave's SUMMARY so it can be rebuilt: five
+patterns over whitespace-flattened text, an exactly-once assertion per pattern
+(a statement present twice makes its own control unable to fire), and one
+watched-RED control per pattern that deletes the sentence carrying it and
+requires the same predicate to name **that** statement and only that one.
+
+### Not a finding — an example-local coupling, resolved in-wave and named so it is not rediscovered
+
+`examples/cp-00-institutional-holders/backends.yaml`'s remedy string, authored
+before the README existed, tells an operator to *"see the example README's
+'Before you run' section."* The Phase-13 template fixes **seven** `## ` heading
+names and *Before you run* is not one of them; an eighth `## ` fails
+`tests/examples/test_cp_readme_template.py::test_every_context_product_readme_matches_the_template`.
+
+Resolved by writing *Before you run* as a `### ` **sub-heading** under
+`## Run it`. The template predicate reads lines beginning `## ` only — its own
+docstring says *"`### Foo` does not start with `## `, so sub-headings are out of
+scope"* — so the remedy string now points at a section that exists, and the
+template is satisfied rather than relaxed. Neither the artifact nor the gate was
+edited.
