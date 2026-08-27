@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **287** across **89** files
+- Coupling rows: **288** across **90** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **146** across **52** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **248**
 
@@ -17,7 +17,7 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 10 |
-| 17-08 | 90 |
+| 17-08 | 91 |
 | 23-04 | 175 |
 | 23-10 | 12 |
 
@@ -35,7 +35,7 @@ Rows by coupling shape:
 | `makefile-recipe` | 2 |
 | `markdown-link` | 8 |
 | `path-construction` | 12 |
-| `prose` | 74 |
+| `prose` | 75 |
 | `snippet-include` | 58 |
 | `string-literal` | 17 |
 | `tmp_path-synthetic` | 13 |
@@ -101,6 +101,7 @@ Rows by coupling shape:
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 117 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 213 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
+| `examples/cp-00-institutional-holders/README.md` | 38 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/artifacts/expected.yaml` | 5 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/artifacts/question.yaml` | 13 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/artifacts/ttl.yaml` | 15 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
