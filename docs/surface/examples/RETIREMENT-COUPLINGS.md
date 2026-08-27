@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **282** across **88** files
+- Coupling rows: **287** across **89** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **146** across **52** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **248**
 
@@ -18,7 +18,7 @@ Rows by owning plan:
 | --- | --- |
 | 16-02 | 10 |
 | 17-08 | 90 |
-| 23-04 | 170 |
+| 23-04 | 175 |
 | 23-10 | 12 |
 
 Rows by coupling shape:
@@ -29,15 +29,15 @@ Rows by coupling shape:
 | `config-token` | 1 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 71 |
+| `docstring` | 74 |
 | `indirect-execution` | 1 |
 | `literal-set-member` | 4 |
 | `makefile-recipe` | 2 |
 | `markdown-link` | 8 |
-| `path-construction` | 11 |
+| `path-construction` | 12 |
 | `prose` | 74 |
 | `snippet-include` | 58 |
-| `string-literal` | 16 |
+| `string-literal` | 17 |
 | `tmp_path-synthetic` | 13 |
 
 ## Reading the columns
@@ -251,6 +251,11 @@ Rows by coupling shape:
 | `tests/examples/test_artifact_schema_headers.py` | 519 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 572 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 16-02 |  |
 | `tests/examples/test_client_example_purity.py` | 588 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_cp_readme_template.py` | 5 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_cp_readme_template.py` | 21 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_cp_readme_template.py` | 65 | `archive/examples/external/00-hello-context` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/external/00-hello-context/run.py` |
+| `tests/examples/test_cp_readme_template.py` | 207 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_cp_readme_template.py` | 240 | `archive/examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
 | `tests/examples/test_demo_generator.py` | 4 | `archive/examples/08-e2e-demo` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_demo_generator.py` | 22 | `archive/examples/08-e2e-demo` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/08-e2e-demo` |
 | `tests/examples/test_gate_two_divergence.py` | 96 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
@@ -265,7 +270,7 @@ Rows by coupling shape:
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 606 | `examples/external/00-hello-context` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 627 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_source_estate.py` | 50 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
-| `tests/examples/test_spine_separation.py` | 24 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_spine_separation.py` | 36 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/halflife/test_debt.py` | 707 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/integration/test_proto_quickstart.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/invariants/test_citation_coverage.py` | 45 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
@@ -742,12 +747,13 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-05-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-06-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-07-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-07-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-08-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-11-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-BASE.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-DATA-PROBE.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-RESEARCH.md` | 25 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/deferred-items.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/deferred-items.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 88 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |

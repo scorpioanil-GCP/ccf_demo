@@ -215,3 +215,84 @@ at the gate:
    `examples/cp-00-institutional-holders/`: `postgresql://` 0, `PGPASSWORD` 0,
    `password=` 0, `dsn:…@` 0, `CODEX_API_KEY` 0, host octets 0, against a
    `from_env` control returning 1 file.
+
+---
+
+## From plan 24.1-07 (Wave 7) — RECORDED, NOT CLOSED (`D-04`)
+
+### FINDING 6 — nothing shipped checks any EXAMPLE for an LLM-client import, and it is TOOLING
+
+**Classification, stated first because `D-05` reads the two lists differently:**
+this is in the **TOOLING**, not on the SDK's own surface. It is the second
+consecutive tooling finding (Wave 6's fifth was `_is_numeric_table`'s numeric
+majority) and it does **not** add to the SDK-side drift signal `D-05` watches.
+
+**Measured, with the instrument named.** `tools/lints/__main__.py::LINTED_TREES`
+is `('src','runtime','examples','tests','archive')` — `examples` IS walked. But
+`RULE_TREE_SCOPE` scopes each rule, and only `no-hardcoding` names `examples`:
+
+| rule | scope |
+| --- | --- |
+| `no-hardcoding` | `('src','runtime','examples','tests','archive')` |
+| `harness-imports` | `('src','runtime')` |
+| **`algorithmic`** | **`('src','runtime')`** |
+| `orchestration-imports` | `('src','runtime')` |
+| `backend-imports` | `('src','runtime')` |
+| `substrate-names` | `('src',)` |
+
+**The control, because a scope table is a claim and not a reading.** An
+`import anthropic` was appended to
+`examples/cp-00-institutional-holders/produce.py` and `python -m tools.lints
+--all` was run: **zero findings naming `anthropic`.** The file was restored
+(`git status --short examples/` → 0 modified).
+
+**A trap in that control, recorded because it nearly produced a false reading.**
+`--all` is rc=**1** during Waves 7–9 for an unrelated reason — the deliberate
+`DOCS-11` citation window this wave opened. **The exit code therefore proves
+nothing here.** The valid instrument is the count of findings *naming
+`anthropic`*, which is 0. A reader who checked rc alone would have concluded the
+opposite of the truth.
+
+**Why it is not simply a scope edit.** `algorithmic` keys off a module-level
+`__ccf_mode__ = "algorithmic"` dunder that library modules opt into and example
+code does not carry. Adding `examples` to its scope would change nothing until
+examples were also tagged, and tagging them is a decision about what an example
+IS. So the remedy is a design question, not a one-line widening — and editing a
+shipped gate is what `D-04` and criterion 16 both forbid this phase.
+
+**What this wave DID and DID NOT close.** `tests/examples/test_cp_00_is_algorithmic.py`
+closes it for `cp-*` and for nothing else. Measured, both directions:
+
+| tree | modules | the new gate |
+| --- | --- | --- |
+| `examples/cp-00-institutional-holders` | 4 | **COVERED** — a planted `import anthropic` gives **6 failed, 6 passed** |
+| `examples/s1-00-companies-over-revenue` | 4 | not covered |
+| `examples/s1-01-hello-context-product` | 5 | not covered — a planted `import anthropic` there leaves the gate at **12 passed** |
+| `examples/hw1-companies-over-revenue` | 4 | not covered |
+| `examples/hw1-harness-clients` | 5 | not covered |
+
+**18 modules across four live example trees remain unchecked for an LLM-client
+import by anything in the repository.** Widening `CONTEXT_PRODUCT_GLOB` to reach
+them would be a retrofit of existing examples, which `D-07` forbids. Recorded so
+it is a decision somebody makes rather than a gap somebody inherits.
+
+**NOT proposed as SDK work** (`D-04`). Not a `D-55` "address as you go" item
+either: it is not Protocol-shaped, it blocks no example from being honest, and
+`cp-00` — the only tree this phase ships — now carries a recorded compensating
+gate, which is exactly `D-56`'s third clause.
+
+### An instrument error caught in-session, recorded because it produced a wrong number
+
+Establishing the pre-edit baselines for `test_spine_separation.py` and
+`test_section_one_is_agent_free.py`, the first attempt wrote
+`git show 2f57f4f:<path>` into a scratch directory under `/tmp` and collected
+from there. It reported **17** and **8** tests. Both modules resolve
+`REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]`, so from `/tmp` the
+examples tree did not exist, every glob matched nothing, and the parametrized
+tests collected empty — a **smaller** number that looked entirely plausible.
+
+Re-measured with the base files placed at their real depth inside
+`tests/examples/`: **22** and **16**. Those are the numbers this wave's deltas
+are computed against, and the 17/8 reading is recorded rather than discarded
+because it is the shape this project's counting errors keep taking — an
+instrument that answers without firing.
