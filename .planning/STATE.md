@@ -3,8 +3,48 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-27T06:20:00.000Z"
+last_updated: "2026-08-27T06:45:00.000Z"
 last_activity: >-
+  2026-08-27 -- **PHASE 24.1 WAVE 9 COMPLETE. THE PRESSURE TEST HAS ITS RECORD AND THE
+  TREE IS FULLY GREEN AGAIN.** `24.1-PRESSURE-TEST.md` written (§§1-6), the three
+  inherited ledger rows re-pointed in BOTH channels, the named non-goals probed, and
+  `D-IMPL-212` appended OPEN. **THE LAST DELIBERATE RED SIGNAL IS CLOSED:**
+  `tools.lints --all` **rc=1 with exactly 2 `cite03-node-id` findings -> rc=0 with none**,
+  measured unpiped at both ends and read by finding NAME rather than exit code; the
+  orchestrator re-ran it independently and got **rc=0**. Both citations sat at
+  `.planning/REQUIREMENTS.md:36` and `:330`, both meant the spine-separation gate's glob,
+  and both now cite `tests/examples/test_spine_separation.py::SPINE_GLOBS`. **The
+  blind-replace trap was avoided**: `SECTION_ONE_GLOB` still EXISTS, in a different file
+  (`test_section_one_is_agent_free.py:120`), so a mechanical substitution would have
+  produced two citations that RESOLVE and are WRONG. Control: a fabricated symbol seeded
+  into a `.planning/` file drove both `--citations` and `--all` to rc=1 naming it, and
+  removing it returned rc=0.
+  **THE VERDICT: THE DERIVATION HELD. NO DRIFT (`D-05`).** Six of the Standard's eight
+  operator names carry SDK mechanism at a named layer; **`Enrich` is genuinely absent** and
+  `Evaluate` exists only as Π -- which AGREES with the published page `D-63` accepted, and
+  the two must not drift apart. **`cp-00` needed ZERO new SDK operators.** `src/` and
+  `runtime/` are diff-empty against `phase-24.1-base` (142 and 71 tracked files), measured
+  after `git rev-parse --verify` returned rc 0 -- with an unresolvable-ref control showing
+  rc 128 AND EMPTY OUTPUT that a `test -z` check would have silently accepted.
+  **THE REGISTER, SPLIT: FOUR SDK-SIDE — all seam ergonomics, none algebra — and THREE
+  TOOLING, which `D-05` does not read.**
+  **WAVE 9 CORRECTED AN ERROR IN THIS FILE THAT WAS THE ORCHESTRATOR'S, NOT AN
+  EXECUTOR'S.** The Session Continuity resume block written at the top of this session
+  named the fourth SDK-side member as *"the CI `run.py` gate finding now discharged by
+  `D-51`"*. That finding was DISCHARGED and was never SDK-surface: the real fourth is
+  Wave 3's **empty-operator gate is two different assertions sharing one name** (spec §F.4
+  item 4). The COUNT of four was right; the MEMBER was wrong, which is the more dangerous
+  shape because the total audits clean. Corrected in place, with the superseded text named
+  rather than deleted.
+  **TENTH CONSECUTIVE WAVE TO FIND A DEFECT INSIDE ITS OWN MACHINERY**, and this one is a
+  counting instrument that CANNOT FIRE: both candidate-gap reproduction commands published
+  in `24.1-RESEARCH.md` return **0 hits**, because they escape `-E` alternation as `\|`,
+  which matches a LITERAL PIPE. Corrected forms return **9** and **4**. A later reader
+  re-running the published form would have read absence as confirmation from an instrument
+  that never fired -- the same shape as Wave 6's rc=0 lint control.
+  **`D-IMPL-212` IS APPENDED AT 212, NOT 203**, against the plan's own `<done>` line: 202-211
+  are RESERVED candidates and 203 is already *"Closed operator vocabulary vs four canonical
+  categories"* -- this record's own subject. PRIOR:
   2026-08-27 -- **PHASE 24.1 WAVE 8 COMPLETE AND ITS BLOCKING HUMAN GATE IS DISCHARGED
   (`D-63`, Dave).** Both `D-28` documents shipped: `examples/cp-00-institutional-holders/
   README.md` (419 lines, the seven template headings, the MECHANICS) and
@@ -628,7 +668,7 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-**PHASE 24.1 IS EXECUTING. WAVES 1-8 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
+**PHASE 24.1 IS EXECUTING. WAVES 1-9 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
 Phase 24 is an UMBRELLA; 24.1 is its first buildable unit -- one Context Product
 example (institutional holders above a caller-chosen threshold, SEC 13F in
 `ccf_dataprep` Postgres, Assembly Mode 1) built to PRESSURE TEST the SDK's surface
@@ -1749,9 +1789,18 @@ one), and **Wave 6 additionally owns the spec residues** (`D-62`) — no orphan
 `[TBC]` cell survives it.
 
 Carried, unclosed by design (`D-04`): **FOUR** SDK-side findings recorded and none
-closed — Wave 4's `ProductClassDeclaration` MAX_TTL-seconds slot, Wave 5's
-`build_operator_registry` type-dispatch and `ContextAssemblerProtocol.assemble`
-return type, and the CI `run.py` gate finding now discharged by `D-51`. Per
+closed. **CORRECTED 2026-08-27 — plan `24.1-09` caught this block naming the fourth
+member wrongly, and it was the orchestrator's error, not an executor's.** The four are:
+(1) Wave 3's **empty-operator gate is two different assertions sharing one name** — the
+SDK's refuses a product that *declares* no operators, the Standard's refuses an operator
+that *returns* an empty set (spec §F.4 item 4; any SDK-side fix would be a FOURTH gate,
+forbidden by `D-IMPL-102` limb 3); (2) Wave 4's `ProductClassDeclaration` MAX_TTL-seconds
+slot; (3) Wave 5's `build_operator_registry` type-dispatch (`D-59`); (4) Wave 5's
+`ContextAssemblerProtocol.assemble` return type (`D-60`). **SUPERSEDED, NAMED RATHER THAN
+DELETED:** this block previously listed *"the CI `run.py` gate finding now discharged by
+`D-51`"* as the fourth. That finding was DISCHARGED and was never SDK-SURFACE, so counting
+it kept the total right by luck while naming the wrong member. The authority is
+`24.1-PRESSURE-TEST.md` §4.1/§4.3 and `D-IMPL-212`. Per
 `D-54..D-58` the batchable pair (assembler-refusal-as-data + deployment operator
 registration) opens as a SHORT SDK phase AFTER cp-00 is green — not inside 24.1.
 
