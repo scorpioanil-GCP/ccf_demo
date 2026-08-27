@@ -3,8 +3,51 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-27T11:55:00.000Z"
+last_updated: "2026-08-27T15:20:00.000Z"
 last_activity: >-
+  2026-08-27 -- **BLOCKER A IS CLOSED BY RULING (`D-66`, Dave) AND `make ci` IS GREEN
+  EXCEPT FOR ONE GENERATED REPORT AWAITING ITS REGENERATION. WAVE 10 IS UNPARKED AND
+  WAVE 11 CAN START.** Dave ruled Option 1 -- `cp-00` onto the one-document exemption --
+  **in a sharper form than was offered**: the bound is now a NAMED ROSTER judged by SET
+  EQUALITY, not a ceiling raised to 2. A bare count was refused as the same defect class
+  the phase had just spent two waves on: *"next claimant is silent if someone deletes a
+  name from the list and the count stays 2."*
+  `MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS` and `MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS` are RETIRED
+  as counts, replaced by
+  `tests/products/test_gate_two_call_shape.py::RULED_ONE_DOCUMENT_DEPLOYMENTS` and
+  `tests/products/test_gate_two_call_shape.py::RULED_SDK_SUPPLIED_DEPLOYMENTS`, both
+  `frozenset[str]`, sharing ONE predicate
+  `tests/products/test_gate_two_call_shape.py::_roster_problems`. **THREE FAULTS ARE NOW
+  REPORTABLE WHERE A CEILING SAW ONE**: arrival, departure, and the SWAP that holds the
+  cardinality while moving the membership -- `D-65`'s *right count, wrong member*, which a
+  ceiling cannot see by construction. **EMPTY IS RED**: the predicate reports every ruled
+  member as departed on an empty claim set, so a detector that has stopped matching cannot
+  read as compliance.
+  **EVERY HALF WAS WATCHED FAILING, NOT ASSERTED.** Drop `cp-00` from the roster -> red
+  naming it as an arrival; add a phantom name -> red naming it as a departure; gut the
+  predicate to `return []` -> BOTH controls red. Restored **101 passed**, from 99 passed /
+  2 failed. The premise-detector test keeps a LITERAL roster on purpose and the sabotage
+  PROVED the independence -- dropping `cp-00` from the constant left that test green,
+  which is exactly why the two must not share a source.
+  **THE LEGS NOBODY RAN WERE RUN.** `tests/products` + `tests/invariants` **674 passed /
+  0 failed**. Full `make ci` re-measured chunked FOREGROUND, `make -n ci` printed first as
+  proof the ten commands ARE the recipe, and the test chunks proven a PARTITION: 1699 +
+  1524 + 1068 = **4,291** collected, disjoint paths, run to **4,173 passed / 118 skipped**
+  with every exit code read unpiped. **9 of 10 CI commands rc=0.** The tenth is
+  `docs/surface/examples/RETIREMENT-COUPLINGS.md` stale at 287 -> 288 rows, which is the
+  GENERATED report reacting to this session's own `.planning/` writes -- regenerated LAST,
+  by design.
+  **THE CITATION RATCHET CAUGHT THE RENAME AND CAUGHT EXACTLY IT**: two `cite03-node-id`
+  findings, `.planning/STATE.md` and the handoff, both citing the retired symbol; nothing
+  else in the tree. `docs/DECISIONS.md` and `.planning/phases/*` are EXEMPT as dated
+  records, so the historical `D-IMPL-137`/`139`/`146` entries still say *"ceilinged at
+  one"* -- true when written, and not falsified to suit the rename. Both live citations
+  RE-POINTED with the superseded name kept beside them. `tools.lints --all` rc=1 -> rc=0.
+  **ONE STALE ARITHMETIC CLAIM CORRECTED IN PASSING**: the `MINIMUM_RESOLVED_BINDER_SITES`
+  comment said *thirteen* projecting bodies with `s1-00` the sole abstainer. Measured:
+  **fourteen** bodies, twelve readable sites across ELEVEN files, **three** abstainers
+  (`s1-00` and `cp-00` under `D-IMPL-137`, `hw1` under `D-IMPL-141`). True when written,
+  false once `cp-00` landed. PRIOR:
   2026-08-27 -- **PHASE 24.1 WAVE 10'S FOUR TASKS ARE COMPLETE AND THE WAVE IS PARKED ON
   ONE DAVE DECISION. `make ci` IS RED WITH ONE FAILURE LEFT AND IT IS NOT THIS PHASE'S
   DOING.** Thirteen foreground commands, every exit code read UNPIPED, criterion 19's four
@@ -25,9 +68,11 @@ last_activity: >-
   `tools.lints --citations` exits **0** on the same subject the ratchet FAILS on, because
   one declines to check what the other counts -- **an eighth finding, TOOLING.**
   **BLOCKER A IS DAVE'S AND IS THE ONE THING WAVE 11 WAITS ON.**
-  `tests/products/test_gate_two_call_shape.py::MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1`, *"no
+  `tests/products/test_gate_two_call_shape.py::RULED_ONE_DOCUMENT_DEPLOYMENTS` -- which
+  was `MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1` when this paragraph was written, *"no
   headroom, on purpose ... a second deployment claiming it cannot arrive without an edit
-  here."* `cp-00` is the second claimant, with `s1-00`. **THE ORCHESTRATOR DISPUTES THE
+  here."* The citation is RE-POINTED and the superseded name kept beside it rather than
+  the sentence rewritten. `cp-00` is the second claimant, with `s1-00`. **THE ORCHESTRATOR DISPUTES THE
   EXECUTOR'S FRAMING OF THE PRECEDENT.** The executor cited `D-IMPL-146` (*"do NOT raise the
   ceiling"*) as if it were a standing prohibition. It is not: in `146` Dave refused to raise
   because **the DETECTOR was wrong** -- a second deployment had arrived by a code shape the
@@ -761,7 +806,7 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-**PHASE 24.1 IS EXECUTING. WAVES 1-10 OF 11 COMPLETE (10 PARKED ON ONE DAVE DECISION), ON BRANCH `phase-24.1`.**
+**PHASE 24.1 IS EXECUTING. WAVES 1-10 OF 11 COMPLETE AND UNPARKED -- `D-66` CLOSED BLOCKER A -- ON BRANCH `phase-24.1`. WAVE 11 (THE CLAUDE.md 3.1 CLOSE) IS THE ONLY THING LEFT.**
 Phase 24 is an UMBRELLA; 24.1 is its first buildable unit -- one Context Product
 example (institutional holders above a caller-chosen threshold, SEC 13F in
 `ccf_dataprep` Postgres, Assembly Mode 1) built to PRESSURE TEST the SDK's surface
