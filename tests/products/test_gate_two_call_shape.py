@@ -380,10 +380,10 @@ one looking for what is missing from it.
   that deletes its ``ccf.projection-requirements`` registration and repoints its
   plan's ``required=`` at the product class's own claim stops being demanded of,
   and this module reports nothing — it has become the shape the ruling declares
-  correct. What bounds that is **a constant, not a structure**:
-  :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS` is one with no headroom, so the
-  *second* deployment to do it is red at
-  :func:`test_the_one_document_exemption_has_not_spread`, and the first is
+  correct. What bounds that is **a roster, not a structure**:
+  :data:`RULED_ONE_DOCUMENT_DEPLOYMENTS` names its claimants, so a deployment
+  nobody ruled onto it is red at
+  :func:`test_the_one_document_exemption_has_not_spread`, and a ruled one is
   visible in a diff, where the deleted artifact and the changed ``required=``
   are both on the page. **Visible and bounded is not prevented**, and the
   distinction is the one the floors already carry: nothing at the failure site
@@ -547,24 +547,52 @@ REQUIREMENTS_REGISTRATION_RE = re.compile(
     rf"^[ \t]*class_id:[ \t]*{re.escape(REQUIREMENTS_CLASS_ID)}[ \t]*$", re.MULTILINE
 )
 
-#: Deployments claiming the one-document exemption. **No headroom, on purpose**
-#: — the module's floors stop coverage shrinking silently and this stops the
-#: exemption spreading silently, which is the same instrument inverted. A
-#: second deployment claiming it cannot arrive without an edit here.
-MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1
+#: Deployments ruled onto the one-document exemption, **by name and not by
+#: count**. The module's floors stop coverage shrinking silently and this stops
+#: the exemption spreading silently, which is the same instrument inverted.
+#:
+#: **A roster, because a count cannot see a swap.** This was
+#: ``MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1`` until 2026-08-27, when ``cp-00``
+#: arrived as a second claimant and Dave ruled it onto the exemption rather than
+#: onto a raised ceiling: *"Raise the ceiling to 2 with a named roster — not a
+#: bare count ... next claimant is silent if someone deletes a name from the
+#: list and the count stays 2."* A cardinality of two is satisfied by ANY two
+#: deployments, so a ruled member leaving while an unruled one arrives keeps the
+#: number right and the membership wrong — the shape that audits clean forever.
+#: Set equality is red on arrival AND on departure, and the departure half is
+#: not a nuisance: it means the ruled record has stopped describing the tree.
+#:
+#: **``cp-00`` is on it because it is the same collapse the exemption was
+#: written for** — it authors ONE operator-set document where two were
+#: possible, takes the identical route ``s1-00`` takes, and needed no new
+#: detector to be seen. That last part is what separates this from `D-IMPL-146`,
+#: where a raise was REFUSED because the detector was wrong and the fix was to
+#: teach it; here the detector is right and names both claimants itself.
+#:
+#: A THIRD claimant is red until a human rules on it, which is what *"no
+#: headroom"* meant all along: every new name gets a look, not that the number
+#: can never change.
+RULED_ONE_DOCUMENT_DEPLOYMENTS: frozenset[str] = frozenset(
+    {
+        "examples/cp-00-institutional-holders",
+        "examples/s1-00-companies-over-revenue",
+    }
+)
 
 #: Deployments claiming the `D-IMPL-141` **SDK-supplied** exemption — the
 #: deployment authors no operator set at all, because
 #: :func:`~ccf.products.resolver.build_governed_resolver` hands its projection
 #: factory one derived from the registered product class.
 #:
-#: **A separate ceiling from** :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS`, and the
+#: **A separate roster from** :data:`RULED_ONE_DOCUMENT_DEPLOYMENTS`, and the
 #: separation is the point rather than bookkeeping. The two exemptions are
 #: different claims — *one document where two were possible* versus *no document
-#: at all* — and one shared counter would let either population grow into the
-#: other's headroom while both ceilings read green. No headroom here either: the
-#: second claimant is red, and a human rules on it.
-MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS = 1
+#: at all* — and one shared population would let either grow into the other's
+#: room while both read green. Named here for the same reason and judged by the
+#: same predicate: an unruled claimant is red, and a human rules on it.
+RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
+    {"examples/hw1-companies-over-revenue/deployment"}
+)
 
 #: What :class:`ccf.projection.plan.ProjectionPlan` is structural **about**,
 #: quoted from its own docstring: *"Any type exposing ``required_operators()``
@@ -663,22 +691,27 @@ MINIMUM_PROJECTING_BODIES = 14
 #: compare. A tripwire matching bodies it can say nothing about is the CR-03
 #: failure mode restated, so it is asserted rather than assumed.
 #:
-#: **Twelve, counted from the tree**, against thirteen projecting bodies: one
+#: **Twelve, counted from the tree**, against fourteen projecting bodies: one
 #: readable site per binder call, with ``archive/examples/06-decision-replay/run.py``
 #: and ``archive/examples/external/00-hello-context/`` each contributing two (a serving
-#: body and a ``resolve_plan``), and **zero** unreadable. The thirteenth
-#: projecting body, ``examples/s1-00-companies-over-revenue/produce.py``,
-#: makes no binder call at all: it authors ONE operator-set document and is
-#: exempt from the demand under D-IMPL-137. The previous value of 11 was one
+#: body and a ``resolve_plan``), and **zero** unreadable. Twelve sites therefore
+#: sit in ELEVEN files, and the **three** projecting bodies making no binder
+#: call at all are exactly the exempt ones —
+#: ``examples/s1-00-companies-over-revenue/produce.py`` and
+#: ``examples/cp-00-institutional-holders/produce.py`` under D-IMPL-137, and
+#: ``examples/hw1-companies-over-revenue/deployment/projection.py`` under
+#: `D-IMPL-141`. Re-counted 2026-08-27 when ``cp-00`` landed: the prior text
+#: said *thirteen* bodies with ``s1-00`` the only abstainer, which was true when
+#: written and had stopped being true here. The previous value of 11 was one
 #: site short of the tree.
 #:
 #: **This floor now sits on the exemption's path, which it did not before
 #: D-IMPL-137.** A one-document deployment legitimately removes a binder call,
-#: so a *second* deployment claiming the exemption would take the readable
+#: so a *further* deployment claiming the exemption would take the readable
 #: sites 12 -> 11 and leave a floor of 11 green. What actually catches that
-#: case is :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS`, which is one with no
-#: headroom and is red at :func:`test_the_one_document_exemption_has_not_spread`
-#: on the second claimant. This floor is therefore redundant defence there
+#: case is :data:`RULED_ONE_DOCUMENT_DEPLOYMENTS`, which names its claimants
+#: and is red at :func:`test_the_one_document_exemption_has_not_spread`
+#: on an unruled one. This floor is therefore redundant defence there
 #: rather than the primary control — but the adjacency is new, and is stated
 #: rather than left to be rediscovered by whoever next lowers this number.
 MINIMUM_RESOLVED_BINDER_SITES = 12
@@ -1650,9 +1683,9 @@ def _sdk_supplied_operator_set(
     is counted separately on purpose.** Row B is a deployment that authors one
     document where it could have authored two. This is a deployment that authors
     **none** — it has no operator set of its own to author. Folding the two
-    together would let either ceiling absorb the other's growth, and each
-    ceiling exists so that the *next* claimant is red and a human rules on it.
-    :data:`MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS` bounds this one.
+    together would let either roster absorb the other's growth, and each
+    roster exists so that an *unruled* claimant is red and a human rules on it.
+    :data:`RULED_SDK_SUPPLIED_DEPLOYMENTS` bounds this one.
     """
     root = _deployment_root(path)
     if root is None or _registers_requirements(root):
@@ -2621,49 +2654,78 @@ def _sdk_supplied_deployments() -> list[str]:
     return sorted(claimed)
 
 
-def _ceiling_problems(claimed: list[str], *, ceiling: int, label: str) -> list[str]:
-    """Whether ``claimed`` exceeds ``ceiling``, named by ``label``.
+def _roster_problems(
+    claimed: list[str], *, ruled: frozenset[str], label: str
+) -> list[str]:
+    """Whether ``claimed`` is exactly the roster ``ruled``, named by ``label``.
 
-    A predicate rather than an inline comparison, so each ceiling test and its
+    A predicate rather than an inline comparison, so each roster test and its
     control judge by the same code — the same reason :func:`_gate_collapses`
-    and :func:`_binder_collapses` are predicates. Parameterised on the ceiling
+    and :func:`_binder_collapses` are predicates. Parameterised on the roster
     so the second exemption gets the identical instrument rather than a second
     copy of it that drifts.
+
+    **Set equality rather than a ceiling** (Dave, 2026-08-27). A ceiling reads
+    ``len(claimed) <= n`` and is therefore blind to a SWAP: a ruled deployment
+    leaving while an unruled one arrives holds the number and moves the
+    membership, which is the failure mode that audits clean forever. Arrivals
+    and departures are reported as separate problems because they are different
+    faults — an arrival is an unruled claim on the exemption, a departure is a
+    ruled record that has stopped describing the tree — and a caller seeing
+    both at once is looking at exactly the swap a count would have missed.
+
+    **Empty is red, not clean.** ``claimed == []`` reports every ruled member as
+    departed rather than returning ``[]``, so a detector that has stopped
+    matching anything cannot read as compliance. That is the posture
+    ``tools/publish_scan.py::require_populated`` states — *refusing to report
+    clean over an empty tree* — and it is the half a ceiling could never have:
+    ``len([]) <= n`` is true for every ``n``.
     """
-    if len(claimed) <= ceiling:
-        return []
-    return [
-        f"{len(claimed)} deployments claim the {label} exemption,"
-        f" {ceiling} permitted."
-        f" {FLOOR_REMOVAL_INSTRUCTION} Claimed: {claimed}"
-    ]
+    arrived = sorted(set(claimed) - ruled)
+    departed = sorted(ruled - set(claimed))
+    problems: list[str] = []
+    if arrived:
+        problems.append(
+            f"{arrived} claim the {label} exemption and are NOT on its roster."
+            f" A human rules on each addition."
+            f" {FLOOR_REMOVAL_INSTRUCTION} Ruled: {sorted(ruled)}"
+        )
+    if departed:
+        problems.append(
+            f"{departed} are on the {label} roster and no longer claim the"
+            f" exemption — the ruled record has stopped describing the tree."
+            f" {FLOOR_REMOVAL_INSTRUCTION} Claimed: {sorted(claimed)}"
+        )
+    return problems
 
 
 def _exemption_problems(claimed: list[str]) -> list[str]:
-    """Whether this set of D-IMPL-137 claimants exceeds its ceiling."""
-    return _ceiling_problems(
+    """Whether the D-IMPL-137 claimants are exactly the ruled roster."""
+    return _roster_problems(
         claimed,
-        ceiling=MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS,
+        ruled=RULED_ONE_DOCUMENT_DEPLOYMENTS,
         label="D-IMPL-137 one-document",
     )
 
 
 def _sdk_supplied_problems(claimed: list[str]) -> list[str]:
-    """Whether this set of D-IMPL-141 claimants exceeds its ceiling."""
-    return _ceiling_problems(
+    """Whether the D-IMPL-141 claimants are exactly the ruled roster."""
+    return _roster_problems(
         claimed,
-        ceiling=MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS,
+        ruled=RULED_SDK_SUPPLIED_DEPLOYMENTS,
         label="D-IMPL-141 SDK-supplied",
     )
 
 
 def test_the_one_document_exemption_has_not_spread() -> None:
-    """The ceiling, which is the module's floor discipline inverted.
+    """The roster, which is the module's floor discipline inverted.
 
     A floor stops coverage shrinking silently. Nothing stopped the *exemption*
     spreading silently, and an exemption that spreads quietly is how a
-    conditioned demand becomes no demand. ``MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS``
-    has no headroom for the same reason the floors have none.
+    conditioned demand becomes no demand.
+    :data:`RULED_ONE_DOCUMENT_DEPLOYMENTS` names its members for the same
+    reason the floors carry no headroom — and names them rather than counting
+    them so that a swap is red too, not only a growth.
     """
     problems = _exemption_problems(_one_document_deployments())
     assert not problems, "; ".join(problems)
@@ -2732,8 +2794,8 @@ def test_every_projecting_example_body_names_the_binder(
     returns before it runs, and :func:`_binder_collapses`'s properties (2) and
     (3) are switched off for the same body, so nothing reports it. That is
     intended: there is no second document for the binder to compare, so there is
-    no demand. What bounds how many such bodies exist is a **constant** —
-    :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS`, asserted by
+    no demand. What bounds which such bodies exist is a **roster** —
+    :data:`RULED_ONE_DOCUMENT_DEPLOYMENTS`, asserted by
     :func:`test_the_one_document_exemption_has_not_spread` — and not anything
     this assertion reads.
 
@@ -2742,7 +2804,7 @@ def test_every_projecting_example_body_names_the_binder(
     :func:`_sdk_supplied_operator_set`, the `D-IMPL-141` shape where the
     deployment authors no operator set at all because
     :func:`~ccf.products.resolver.build_governed_resolver` hands it one.
-    Its ceiling is :data:`MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS`, asserted by
+    Its roster is :data:`RULED_SDK_SUPPLIED_DEPLOYMENTS`, asserted by
     :func:`test_the_sdk_supplied_exemption_has_not_spread`.
     """
     if _premise_is_false(scope, path, _bindings(scope)):
@@ -2872,7 +2934,10 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         " operator set authored where the Control Plane cannot see it."
         f" unregistered={unregistered} row_b={row_b} sdk_supplied={sdk_supplied}"
     )
-    assert row_b == ["examples/s1-00-companies-over-revenue"], row_b
+    assert row_b == [
+        "examples/cp-00-institutional-holders",
+        "examples/s1-00-companies-over-revenue",
+    ], row_b
     assert sdk_supplied == ["examples/hw1-companies-over-revenue/deployment"], (
         sdk_supplied
     )
@@ -3104,15 +3169,41 @@ def test_the_sdk_supplied_route_refuses_a_deployment_that_registers_requirements
     assert not _sdk_supplied_operator_set(scope, path)
 
 
-def test_each_ceiling_refuses_a_second_claimant() -> None:
-    """Both ceilings, watched failing. Neither has headroom, and both say so."""
-    two = ["examples/first-deployment", "examples/second-deployment"]
-    row_b = _exemption_problems(two)
-    sdk = _sdk_supplied_problems(two)
-    assert row_b and "D-IMPL-137 one-document" in row_b[0], row_b
-    assert sdk and "D-IMPL-141 SDK-supplied" in sdk[0], sdk
-    assert _exemption_problems(two[:1]) == []
-    assert _sdk_supplied_problems(two[:1]) == []
+def test_each_roster_refuses_an_unruled_claimant() -> None:
+    """Both rosters, watched failing on all three faults they can report.
+
+    An **arrival** (a name nobody ruled on), a **departure** (a ruled name that
+    has stopped claiming), and the **swap** that a ceiling could not see — one
+    of each leaves the count unchanged and must still be red. The empty case is
+    asserted last and is the vacuity control: a detector matching nothing must
+    not read as compliance.
+    """
+    intruder = "examples/unruled-deployment"
+
+    for problems_of, ruled, label in (
+        (_exemption_problems, RULED_ONE_DOCUMENT_DEPLOYMENTS, "D-IMPL-137 one-document"),
+        (_sdk_supplied_problems, RULED_SDK_SUPPLIED_DEPLOYMENTS, "D-IMPL-141 SDK-supplied"),
+    ):
+        ruled_list = sorted(ruled)
+
+        arrived = problems_of([*ruled_list, intruder])
+        assert arrived and label in arrived[0], (label, arrived)
+        assert intruder in arrived[0], (label, arrived)
+
+        departed = problems_of(ruled_list[1:])
+        assert departed and ruled_list[0] in departed[0], (label, departed)
+
+        swapped = problems_of([*ruled_list[1:], intruder])
+        assert len(swapped) == 2, (label, swapped)
+        assert len([*ruled_list[1:], intruder]) == len(ruled_list), (
+            "the swap must hold the cardinality, or it is not testing what a"
+            " ceiling would have missed"
+        )
+
+        assert problems_of([]), (
+            f"{label}: an empty claim set must be RED. A roster that tolerates"
+            " absence is a detector that has stopped matching and reads clean."
+        )
 
 
 def test_a_body_with_no_artifact_tree_is_subject_to_the_demand() -> None:
@@ -3296,20 +3387,23 @@ def test_a_second_operator_set_outside_the_control_plane_is_refused() -> None:
     ), problems
 
 
-def test_the_exemption_ceiling_refuses_a_second_claimant() -> None:
-    """The ceiling fires at two, watched rather than assumed.
+def test_the_exemption_roster_refuses_a_third_claimant() -> None:
+    """The roster fires on a THIRD claimant, watched rather than assumed.
 
     A constant nothing has been seen to trip is a constant nobody has tested.
     Exercised through `_exemption_problems`, the same predicate
     `test_the_one_document_exemption_has_not_spread` judges the tree by, against
-    a synthesized second claimant — standing a real one up on disk would mean
+    a synthesized third claimant — standing a real one up on disk would mean
     shipping it.
+
+    Two is what Dave ruled on 2026-08-27, naming ``s1-00`` and ``cp-00``.
+    Three is what nobody has ruled on, and it is red here until somebody does.
     """
-    assert not _exemption_problems(["examples/s1-00-companies-over-revenue"])
+    assert not _exemption_problems(sorted(RULED_ONE_DOCUMENT_DEPLOYMENTS))
     problems = _exemption_problems(
-        ["examples/s1-00-companies-over-revenue", "examples/s1-02-invented"]
+        [*sorted(RULED_ONE_DOCUMENT_DEPLOYMENTS), "examples/cp-01-invented"]
     )
-    assert problems and "s1-02-invented" in problems[0], problems
+    assert problems and "cp-01-invented" in problems[0], problems
 
 
 # --- tripwire (2), the argument half: the binder is doing something -----------
