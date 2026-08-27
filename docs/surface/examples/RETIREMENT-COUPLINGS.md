@@ -107,8 +107,8 @@ Rows by coupling shape:
 | `examples/cp-00-institutional-holders/ccf_config.yaml` | 25 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 205 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 722 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1097 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1282 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1127 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1340 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/external/README.md` | 23 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/external/README.md` | 62 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/external/README.md` | 73 | `archive/examples/03-harness-portability` | `prose` | documentary | - | - | 23-04 |  |
