@@ -648,7 +648,7 @@ vocabularies reads as a **mapping** rather than as a gap in either direction.
 
 | # | Operator | Capability class | Inputs | Emits (as it appears in lineage) | Failure behavior | p95 budget | **SDK mechanism (layer)** |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | **Resolve** | relational | the anchor `subject` (issuer LEI); the pinned `report_period` | `resolved_security` — the dominant CUSIP for `(lei, report_period)`, with the number of candidates considered | fail closed → **404**. An anchor that resolves to no security in the pinned period is never an empty payload | 120 ms | the **source read's group-and-rank** (§C.2, capability property 3), rendered by this deployment's own reader — **L1**, the source boundary. §D.3 states why this half of the resolve is not at L2 |
+| 1 | **Resolve** | relational | the anchor `subject` (issuer LEI); the pinned `report_period` | `resolved_security` — the dominant CUSIP for `(lei, report_period)`, with the number of candidates considered | fail closed → **404**. An anchor that resolves to no security in the pinned period is never an empty payload | 120 ms | `examples/cp-00-institutional-holders/deployment.py::DominantSecurityResolution` — an **example-supplied `src/ccf/operators/base.py::Operator`** declaring the canonical category `traversal`, registered into and resolved back out of this deployment's own `src/ccf/operators/registry.py::OperatorRegistry`, and applied to the source read's group-and-rank (§C.2, capability property 3) — **L1**, the source boundary. `24-CONTEXT.md` `D-47`/`D-48` (Dave, 2026-08-26): a step must name an operator, and this row previously named none. `OperatorCategory` stays the closed four; a new operator NAME under an existing category is additive. §D.3 states why this half of the resolve is not at L2, and why the operator reaches a registry of the deployment's own |
 | 2 | **Resolve** | relational | one `SignalEnvelope` per filed position, each already carrying the pinned period and the resolved security | canonical entity URIs for the issuer and for each reporting manager, the typed edge between them, and `graph_snapshot_at` | fail closed → **503**, naming the failed source class | 380 ms | `src/ccf/assembly/worker.py::SpecDrivenEntityResolution` under `src/ccf/assembly/worker.py::AssemblyWorker`, driven by `src/ccf/assembly/worker.py::EntityResolutionSpec` — **L2**, the single writer |
 | 3 | **Policy** | relational | the assembled view; the principal's permitted classifications and permitted policy-bundle versions | `policy_version` — landing in `src/ccf/products/contract.py::ProductLineage` field `policy_bundle_versions` — and the principal-permissible subgraph substituted for the full graph | fail closed → **403**, with no detail on what exists | 15 ms | `src/ccf/operators/categories.py::PolicyFilter`, key `policy.principal-subgraph` — **L4** |
 | 4 | **Traversal (mode: `temporal`)** | bitemporal-ledger *(supplied by the fabric, not required of the estate — §D.3)* | the permissible subgraph; the as-of boundary taken off the request | the as-of-consistent node and edge set; `graph_snapshot_at` | fail closed → **503** on an empty **assembled** set, which is not the same emptiness as an empty **served** set — §D.7 | 60 ms | `src/ccf/operators/categories.py::TemporalAsOf`, key `temporal.as-of-boundary` — **L4**, and a separate SDK *category* that the Standard folds into a Traversal *mode*. The inverse asymmetry: here the SDK has the name the Standard does not |
@@ -752,6 +752,36 @@ the mechanism, the resolve separates into two halves that sit at two layers:
   — as a group-and-rank at the source read, the capability §C.2 lists as its
   third property and names as the one most likely to be partial. That is
   step 1, at **L1**.
+
+**And it is an operator, named.** `24-CONTEXT.md` `D-47`/`D-48`: *"You must
+specify an operator — deterministic, etc. — you cannot not have an operator."*
+Step 1 is `examples/cp-00-institutional-holders/deployment.py::DominantSecurityResolution`,
+which conforms to `src/ccf/operators/base.py::Operator` structurally, declares
+the canonical category `traversal`, and is registered into an
+`src/ccf/operators/registry.py::OperatorRegistry` and resolved back out of it
+before it is applied — so the registry's duplicate-key and category checks run
+over it rather than being asserted about it. Being deterministic was never an
+obstacle: the base says realization is unconstrained and *"the algebra is the
+determinism surface."* The one shape `apply` fixes is the RESULT's — a view,
+so no scalar — and *which security is dominant* is a **selection**, which is a
+view by construction: the operator returns the winning security, the edges
+reaching it and the managers on those edges.
+
+**Which registry, and the seam that is recorded rather than worked around.**
+The operator is registered into **this deployment's own** registry, not into
+the one the projection plan resolves against.
+`src/ccf/deployment/operators.py::build_operator_registry` — the builder the
+spine calls — dispatches on the *declared artifact type* against the SDK's own
+operator classes and raises for anything it does not recognise, so a
+deployment's own operator has no path into it. **The registry is open; the
+composition path in front of it is not.** Recorded under `24-CONTEXT.md` `D-04`
+and ruled `D-59` **record-only**: the local L1 registration is the right path
+for this product, and closing the seam is additive SDK work for a later phase
+(`D-58`), not for this one. The consequence for this table is nil in both
+directions — the served `lineage.operators_invoked` names exactly the two
+operators the product class declares, so §D.7's gate 2 strict equality is
+untouched, and step 1's runtime witness is the payload's `resolved_security`
+block rather than a lineage key.
 
 **Nothing about `D-39`'s substance changes**: no literal CUSIP is pinned, no
 domain value enters code, the fan-out is handled rather than hidden, and the
@@ -1120,8 +1150,14 @@ both.**
 
 - **C_attributes** — the fraction of assembled rows carrying every attribute
   the resolution spec declares. The identity key is not among them: a row
-  missing `manager_cik` produced no entity to count. Measured value at the
-  anchor: **`[TBC]` — §F, marker 13.** Not measured, and not guessed.
+  missing `manager_cik` produced no entity to count. **Measured at the anchor,
+  from the shipped run: 1,748 of 1,748 assembled rows carry every declared
+  attribute — `C_attributes` = 1.** §F marker 13 is **CLOSED**. Controls
+  recorded beside it: an attribute the resolution spec does not declare is
+  carried by 0 rows, and rows whose band is neither `strong` nor `weak`
+  number 0. A value of exactly 1 is the honest reading of this estate and not
+  a default — the source's own loader makes every column but three NOT NULL,
+  and the three that are nullable are non-null for this anchor.
 - **C_match** — the fraction of assembled rows whose `issuer_match_band` is
   `strong`. At the anchor, at threshold 0: **1,633 strong of 1,748 assembled
   = 0.9342** (Wave 1's figures, with the control recorded beside them in
@@ -1166,13 +1202,35 @@ not turned into a product-level failure.
 **The debt gate is a Control Plane posture, not a validation gate** (§D.7).
 `src/ccf/controlplane/artifacts.py::DebtProfile` carries
 `forced_llm_threshold` and `fail_closed_threshold`; the deployment reads the
-posture `src/ccf/halflife/debt.py` produces and declines. **This product's
-bands are `[TBC]` — §F, marker 16**, and they must be set *together with* λ_c:
-with a 137-day half-life and a 148-day-old pinned period, `D_c` sits near or
-above 0.5, so a `fail_closed_threshold` chosen without reference to the
-half-life will refuse this product on its first call. That is not a defect in
-either number; it is what happens when a freshness declaration and a
-tolerance are set by two people who did not talk.
+posture `src/ccf/halflife/debt.py` produces and declines.
+
+**This product's bands are CONFIRMED and §F marker 16 is CLOSED**
+(`24-CONTEXT.md` `D-52`, Dave, 2026-08-26). They are declared in
+`examples/cp-00-institutional-holders/ccf_config.yaml`'s `debt_profile:`
+section, which is where a band belongs — Control Plane state, never a
+constant in code:
+
+| Band | Value | The demonstration question crosses it at |
+| --- | --- | --- |
+| `risk_sensitivity` | **1.0** | — — λ_c is already declared as a decision-relevance half-life, so a multiplier other than 1 would restate it in a second document |
+| `forced_llm_threshold` | **0.60** | **day 168** after the reported quarter end |
+| `fail_closed_threshold` | **0.77** | **day 278** after the reported quarter end |
+
+**They were set *together with* λ_c, which is the whole point of the pairing.**
+The demonstration question is asked 148 days after the pinned reported quarter
+end against a 137-day λ_c, so `F` = 0.4729 and, with `C` = 0.9342 and `S` = 1,
+the delivered **`D_c` = 0.558** — comfortably below `forced_llm` and nowhere
+near `fail_closed`. Both crossings above were found by search over the same
+arithmetic rather than asserted: at day 167 `D_c` is 0.5987 and at 168 it is
+0.6007; at day 277 it is 0.7700 and at 278 it is 0.7711. A
+`fail_closed_threshold` chosen without reference to the half-life would refuse
+this product on its first call — that is not a defect in either number, it is
+what happens when a freshness declaration and a tolerance are set by two people
+who did not talk, and it is why these two are declared in one document.
+
+The figure is **nominal and stable** rather than a property of the day CI runs,
+because `now` is the fixed `asked_at` the question artifact declares and never
+a clock read.
 
 ### E.3 Materialization posture
 
@@ -1305,6 +1363,11 @@ Standard §0.2, and it is what makes a spec with honest gaps buildable. *No
 spec passes review with an unowned gap; "does not exist yet" is a valid state,
 unattributed is not.*
 
+**Three are now CLOSED — 13, 14 and 16 — and fifteen remain open.** A closed
+marker keeps its row rather than being deleted: the row is where a reader
+learns what the value is and what closed it, and a marker that vanished would
+leave the sentence that raised it pointing at nothing.
+
 | # | Marker | Raised at | Owner | What closes it |
 | --- | --- | --- | --- | --- |
 | 1 | The approved **domain list** the registry name assumes | front matter | Platform / catalog owner | An approved domain taxonomy; `holdings` is proposed against it |
@@ -1319,18 +1382,21 @@ unattributed is not.*
 | 10 | Ontology IRI — **issuer-match score and band** | §C.1 | Ontology owner | As above |
 | 11 | Ontology IRI — **row provenance flag** | §C.1 | Ontology owner | As above |
 | 12 | Ontology IRI — **resolved dominant security** | §C.1 | Ontology owner | As above |
-| **13** | **`C_attributes` measured value** at the anchor | §E.2 | The wave that runs the assembly | A run. It is a measurement, not a decision, and it is not guessed here |
-| **14** | **A row exactly at a threshold value** in the CI fixture | §F.3 volumetrics | The wave that authors the seeded CI fixture (`24-CONTEXT.md` `D-25`/`D-27`) | The fixture carrying one. Without it gate `IH-G04` has nothing to act on |
+| ~~13~~ | **`C_attributes` measured value** at the anchor | §E.2 | The wave that runs the assembly | **CLOSED.** The shipped run measured **1,748 of 1,748 = 1** at the anchor, with two controls recorded at §E.2. It was a measurement and not a decision, exactly as this row said |
+| ~~14~~ | **A row exactly at a threshold value** in the CI fixture | §F.3 volumetrics | The wave that authors the seeded CI fixture (`24-CONTEXT.md` `D-25`/`D-27`) | **CLOSED.** `tests/examples/fixtures/cp_00_13f_rows.sql` designates one by construction, and `tests/examples/test_cp_00_output.py::test_a_row_exactly_at_the_threshold_is_served` asks at exactly that value and requires the inclusive read to return exactly one row more than the strict one. Measured RED against a threshold nudged one unit off every seeded value |
 | **15** | **Measured p50 / p95 latency and per-call cost** | §D.2, §G | The wave that runs the assembly | A measured run. §13's certification evidence requires it before this product leaves `draft` |
-| **16** | **`debt_tolerance` bands** — `forced_llm_threshold`, `fail_closed_threshold` — and `risk_sensitivity` | §E.1, §E.2, §G | The wave that authors the debt profile | The artifact existing. **They must be set together with λ_c** (§E.2) |
+| ~~16~~ | **`debt_tolerance` bands** — `forced_llm_threshold`, `fail_closed_threshold` — and `risk_sensitivity` | §E.1, §E.2, §G | The wave that authors the debt profile | **CLOSED** by `24-CONTEXT.md` `D-52`. `ccf_config.yaml`'s `debt_profile:` declares **1.0 / 0.60 / 0.77**, set together with λ_c as this row required; §E.2 carries the bands, the crossings (days **168** and **278**) and the demonstration `D_c` of **0.558** |
 | **17** | **Replay-record retention tier** — full-fidelity, compressed or tombstoned — and the severity rule assigning it | §G | Platform / records owner | A retention policy for this deployment |
 | **18** | **What happens to this product after 2027-03-31** — longer duration, moving pin, or accepted end-of-life | §E.5 | Whoever holds the example then | A decision. Flagged now rather than met as a red CI run |
 
 ### F.3 Access path, identifiers, history, text and volumetrics
 
 **Access path.** An **existing read-only relational feed** — a set-based query
-against `ccf_v2` in the `parkavedb` estate. Not CDC, not an event stream, not
-a new build. Locally the example points at the real store; in CI the same code
+against the `ccf_v2` schema of the source estate. Not CDC, not an event stream,
+not a new build. (The database's own NAME was here and is removed: Standard
+§10.1's rule is that *"product specs never name a database"*, and §0.4's
+capability-gate note says this document names none. Schema and table stay,
+because §F is where estate binding belongs.) Locally the example points at the real store; in CI the same code
 path runs against a **CI-provisioned service container the test seeds itself**
 from a small 13F fixture (`24-CONTEXT.md` `D-25`/`D-27`), because CI cannot
 reach the host the estate runs on and no database secret belongs in a CI
@@ -1369,7 +1435,7 @@ Wave 1's, cited rather than re-derived:
 | ≥ 1 row outside the pinned period | `IH-G02` has nothing to catch without it | **yes** — **1,989** estate-wide |
 | A threshold with a non-empty and a non-full answer | Otherwise the caller's parameter is decorative | **yes** — the sweep runs **1,748 → 21** across $0 → $1bn |
 | ≥ 1 entity class with no classification attribute, in a negative fixture | `IH-G06` must be watched RED | **not yet** — the fixture is authored, so this is a construction obligation rather than a data gap |
-| **A row whose `value_usd` exactly equals a threshold value** | **`IH-G04` cannot fail without one, and a gate that cannot fail proves nothing** | **NOT MEASURED.** §6's rule is *widen the sample until the case occurs*; here the honest response is that the **seeded CI fixture must contain one by construction** — marker 14 |
+| **A row whose `value_usd` exactly equals a threshold value** | **`IH-G04` cannot fail without one, and a gate that cannot fail proves nothing** | **yes**, by construction — `tests/examples/fixtures/cp_00_13f_rows.sql` designates one, chosen so that seeded rows sit both above and below it, and `tests/examples/test_cp_00_output.py` asks at exactly that value and requires the `>=` read to return exactly one row more than the `>` read. Marker 14 is CLOSED |
 
 ### F.4 Recorded findings — not `[TBC]`, because none of them needs a decision to build
 
@@ -1423,11 +1489,11 @@ closing any of them would be an SDK extension, which is a separate phase.
 | **Accountable owner** | The CCF SDK examples maintainer operates this product. The product-owner / data-steward / policy-owner **triad** a real catalog entry carries is `[TBC]` — §F marker 2. This is a teaching artifact, and naming a bank function for it would be inventing an organisation |
 | **Service objectives** | **p95 assembly latency envelope: 1,000 ms**, declared here because the Standard fixes none per tier (§D.2). **p50 target: 400 ms.** §D.2's step budgets sum to **620 ms — 62% of the envelope**, and every one of them is a **declared budget, not a measurement** — `[TBC]` §F marker 15. Expected volume: **example scale**, single-digit calls per run, no concurrency ceiling asserted because none has been tested. Payload bound: the anchor at threshold 0 serves **1,748 holder rows**; a caller passing 0 gets the whole register, which is a legitimate and deliberately un-capped answer. Absolute per-call cost: `[TBC]` §F marker 15, alongside the relative band (**×1**, Tier-1 baseline) |
 | **Degradation contract** | **Mandatory classes, named explicitly:** reported position value, reported period, and the resolved dominant security. Any of the three unavailable → **fail closed** (503, or 404 where the anchor resolves to no security) — never a partial payload. **Non-mandatory:** manager name, issuer registered name, share count, issuer match band → **partial payload with the field marked `NOT_EVALUABLE`, `notices` populated, and `D_c` elevated** (§E.2). The band is the one to watch: losing it makes `C_match` itself `NOT_EVALUABLE` rather than 1.0 |
-| **Debt model** | `D_c = 1 − (F · C · S)` with `C = C_attributes × C_match`. **F** is driven by the reported position's age from `valid_from` against a 137-day λ_c, over rows **assembled**. **C** is driven by declared-attribute presence and by `issuer_match_band`. **S** is 1 — one source cannot disagree with itself. `debt_tolerance` default and its basis: `[TBC]` — §F marker 16, **and it must be set together with λ_c**, because a 148-day-old pinned period against a 137-day half-life puts `D_c` near 0.5 and a tolerance chosen in ignorance of that will refuse the product on its first call |
-| **Observability** | Per-operator latency (steps 3–5 individually, since step 2 dominates and is the one an optimisation would target) · the `D_c` distribution, not only its mean · gate-failure counts **by gate**, so a TTL refusal is never read as a lineage refusal (§E.5 turns on exactly that distinction) · cache hit rate (currently n/a — `derived-on-demand`) · entitlement denials (expected: **zero**, and a non-zero count is itself the signal) · degradation-branch frequency per non-mandatory input · supersession-triggered invalidations, split local versus cascading. **This is also the evidence base that moves λ_c and `debt_tolerance` from `illustrative` to `measured`** — markers 15 and 16 close from here and nowhere else |
+| **Debt model** | `D_c = 1 − (F · C · S)` with `C = C_attributes × C_match`. **F** is driven by the reported position's age from `valid_from` against a 137-day λ_c, over rows **assembled**. **C** is driven by declared-attribute presence and by `issuer_match_band`. **S** is 1 — one source cannot disagree with itself. `debt_tolerance`: **`risk_sensitivity` 1.0, `forced_llm_threshold` 0.60, `fail_closed_threshold` 0.77**, declared in `ccf_config.yaml`'s `debt_profile:` and **set together with λ_c** (`24-CONTEXT.md` `D-52`; §F marker 16 CLOSED). Its basis is the pairing itself: a 148-day-old pinned period against a 137-day half-life delivers `D_c` **0.558**, and the bands are crossed at days **168** and **278** — a tolerance chosen in ignorance of the half-life would have refused the product on its first call |
+| **Observability** | Per-operator latency (steps 3–5 individually, since step 2 dominates and is the one an optimisation would target) · the `D_c` distribution, not only its mean · gate-failure counts **by gate**, so a TTL refusal is never read as a lineage refusal (§E.5 turns on exactly that distinction) · cache hit rate (currently n/a — `derived-on-demand`) · entitlement denials (expected: **zero**, and a non-zero count is itself the signal) · degradation-branch frequency per non-mandatory input · supersession-triggered invalidations, split local versus cascading. **This is also the evidence base that moves λ_c from `illustrative` to `measured`** — marker 15 closes from here and nowhere else. Marker 16's bands are closed already (`D-52`), which is a different thing from λ_c being measured, and the two must not be read as one |
 | **Retention & record of record** | The **record of record is the source estate**, per element and without exception: `ccf_v2.institutional_holder` for every position element, `ccf_v2.legal_entity` for the issuer's registered name. **The fabric references it and does not replace it** — nothing this product runs writes to the store it reads (§C.3), and the CCF graph is a per-run local file. Replay-record retention tier — full-fidelity, compressed or tombstoned — and the severity rule assigning it: `[TBC]` — §F marker 17 |
 | **Test fixtures** | Happy path: the anchor at a threshold inside the sweep. One fixture per product gate, `IH-G01` through `IH-G08` (§D.7), each **watched RED** against a seeded violation before it is trusted — a gate that has never failed has not been tested. One fixture per degradation branch, one per mandatory-input failure. And a **replay hash assertion**: §D.5's four-step test, ending on byte-identical `product_content_address` |
-| **Lifecycle** | **`draft`**, 2026-08-26, reviewer `[TBC]` — §F marker 2. Not registered and not certified: §2.1 names registering before §G is complete as the common error, and §13's certification evidence is not on file (markers 13, 15, 16 are all measurements it requires). **Deprecation, when it comes, requires:** consumer notification from §B.5 — the list is **empty today**, so the obligation is currently vacuous and will stop being vacuous the moment the second rung of the ladder consumes this one; a sunset date at least one migration window out; and a named successor **or an explicit statement that none exists** |
+| **Lifecycle** | **`draft`**, 2026-08-26, reviewer `[TBC]` — §F marker 2. Not registered and not certified: §2.1 names registering before §G is complete as the common error, and §13's certification evidence is not on file — markers 13 and 16 are now closed, and **marker 15, the measured p50/p95 and per-call cost, is the one still owed**. **Deprecation, when it comes, requires:** consumer notification from §B.5 — the list is **empty today**, so the obligation is currently vacuous and will stop being vacuous the moment the second rung of the ladder consumes this one; a sunset date at least one migration window out; and a named successor **or an explicit statement that none exists** |
 
 ### G.1 The expiry obligation, restated where an operator will look for it
 
