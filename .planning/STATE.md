@@ -3,8 +3,57 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-27T01:19:00.000Z"
+last_updated: "2026-08-27T01:49:00.000Z"
 last_activity: >-
+  2026-08-27 -- **PHASE 24.1 WAVE 7 COMPLETE. THREE GATES ARMED, ONE REFUSED IN
+  WRITING, AND A DELIBERATE RED WINDOW IS OPEN.** `tests/examples` **508 -> 532
+  passed**, 4 failed, 38 skipped -- orchestrator re-ran the whole module in the
+  FOREGROUND and got 532 exactly, matching the executor's claim. **THE 4 FAILURES ARE
+  DELIBERATE AND WAVE 8 CLOSES THEM**: `test_cp_readme_template.py` was written with a
+  LIVE subject and no stub, so it is RED until `cp-00` has a README. **`tools.lints
+  --all` IS ALSO DELIBERATELY RED -- rc=1, EXACTLY 2 findings**, both `DOCS-11` ledger
+  channels (`.planning/REQUIREMENTS.md:36` and `:330`) citing the renamed
+  `::SECTION_ONE_GLOB`; the constant is now
+  `tests/examples/test_spine_separation.py::SPINE_GLOBS` and **plan 24.1-09 Task 2
+  closes it** -- verified by the orchestrator against 24.1-09-PLAN.md, which names
+  `DOCS-11` and the stale citation explicitly. **`make ci` IS THEREFORE RED BETWEEN
+  WAVES 7 AND 9 BY DESIGN, WITH BOTH CLOSERS NAMED. THIS IS NOT A BROKEN TREE.**
+  Criterion 19 requires it green at the GATE commit, which is Wave 10's obligation.
+  **CRITERION 15 IS DISCHARGED THE HARD WAY.** The control's first draft went red for
+  the WRONG REASON -- `NameError: SPINE_GLOBS is not defined` -- which is precisely the
+  failure the criterion exists to catch, so it was restaged: rename the glob to
+  `("s1-*",)`, watch the ASSERTION fail naming the tree it does not reach, then add
+  `"cp-*"` as the ONLY edit between red and green. The control rediscovers a
+  marker-stripped copy THROUGH `split_examples` rather than handing it to the
+  predicate, so it proves glob -> discovery -> refusal end to end.
+  **`D-24` IS DISCHARGED WITH TEETH RATHER THAN PROSE.** Beyond a docstring section and
+  a comment on the constant, `test_widening_this_glob_to_cp_would_break_the_example`
+  runs the REAL predicate over the `cp-*` tree and asserts it DOES refuse -- 2 of 4
+  modules on `ccf.agents`, against 0 of 9 for `s1-*`. The glob was actually widened and
+  watched producing 8 failures naming `assembler.py` and `run.py`. If `cp-00` ever
+  stops importing `ccf.agents`, that test fails and tells the reader to RE-DECIDE
+  rather than delete it.
+  **A SIXTH RECORDED FINDING, AND LIKE THE FIFTH IT IS TOOLING, NOT THE SDK'S SURFACE**
+  (`D-04`, recorded in `deferred-items.md`, NOT closed): nothing shipped checks any
+  EXAMPLE for an LLM-client import -- a planted `import anthropic` in `examples/` draws
+  ZERO findings from `tools.lints --all`. It nearly produced a false reading the other
+  way: `--all` is rc=1 right now for the unrelated citation window, so the EXIT CODE
+  proves nothing there and only the finding-NAME count does. 18 modules across four
+  live example trees stay unchecked; reaching them would be a RETROFIT, which `D-07`
+  forbids. Control: the same planted import inside `examples/cp-00-institutional-
+  holders` gives 6 failed / 6 passed, while `examples/s1-01-hello-context-product`
+  leaves the gate at 12 passed -- so the instrument detects coverage where it exists.
+  **`split_examples(...)[0]` REALLY DID DRIFT** from `s1-00` to `cp-00` (alphabetical),
+  breaking a CORRECT control that needs `scenario/provision.py`, which only `s1-00`
+  ships. Repointed BY NAME; the control that the repoint was necessary is that
+  reverting it fails naming the missing file. **15 SABOTAGES, ALL WATCHED RED**, each
+  with a DISTINCT named failure rather than general redness. The executor also
+  self-corrected two of its own instruments: a baseline read from `/tmp` reported 17
+  and 8 because both modules resolve `REPO_ROOT` from `__file__` and the copies sat at
+  the wrong depth (real values 22 and 16, after which the suite delta reconciles
+  exactly), and one sabotage produced a collection error from a syntax slip rather than
+  a measurement. **NINTH CONSECUTIVE WAVE TO FIND ITS OWN DEFECT CLASS INSIDE ITS OWN
+  MACHINERY.** PRIOR:
   2026-08-27 -- **PHASE 24.1 WAVE 6 COMPLETE. THE EXAMPLE HAS A COMMAND AND CI HAS
   SOMETHING IT CAN HONESTLY ASSERT.** `make example-cp-00` is `.PHONY`, carries a help
   line, and is deliberately NOT a prerequisite of the always-on `examples:` aggregate
@@ -345,6 +394,23 @@ progress:
     bullet is struck through as superseded). The first is the EXACT error recorded against
     a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
+  **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-7 OF 11 ARE COMPLETE.**
+  **NEXT: Wave 8, AND IT STOPS FOR DAVE** -- the docs wave (`D-28`: a deep example
+  README **and** a published page, both, because Dave chose both explicitly). **DO NOT
+  BE ALARMED BY A RED TREE AT THIS POINT: `make ci` IS DELIBERATELY RED BETWEEN WAVES
+  7 AND 9 AND BOTH SIGNALS HAVE A NAMED CLOSER** -- 4 `test_cp_readme_template.py`
+  failures that WAVE 8 turns green by writing the README, and `tools.lints --all` rc=1
+  with exactly 2 `DOCS-11` citation findings that **WAVE 9 TASK 2** turns green by
+  re-pointing `.planning/REQUIREMENTS.md:36` and `:330` at
+  `tests/examples/test_spine_separation.py::SPINE_GLOBS`. Criterion 19 wants green at
+  the GATE commit, which is Wave 10. `tests/examples` stands at **532 passed / 4
+  failed / 38 skipped**. Running total: **SIX** recorded findings, none closed --
+  **FOUR on the SDK surface** (the number `D-05` reads for drift) and **TWO in
+  TOOLING**. `cp-00` is green, so `D-58`'s short SDK phase for `D-59`/`D-60` is
+  SCHEDULABLE after this one. **UNRULED AND WAITING: §F marker 15** -- measured p50/p95
+  latency and per-call cost, owed by *"the wave that runs the assembly"*; Waves 5 and 6
+  both were and nobody measured a latency. Orchestrator recommends **Wave 10**; Dave's
+  call. PRIOR STATE AT WAVE 6:
   **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-6 OF 11 ARE COMPLETE.**
   **NEXT: Wave 7** (the three structural gates, and the one `cp-*` must deliberately
   stay OUTSIDE with the reason WRITTEN INTO the test -- `D-23`/`D-24`). Waves 7, 9 and
@@ -503,7 +569,7 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-**PHASE 24.1 IS EXECUTING. WAVES 1-6 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
+**PHASE 24.1 IS EXECUTING. WAVES 1-7 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
 Phase 24 is an UMBRELLA; 24.1 is its first buildable unit -- one Context Product
 example (institutional holders above a caller-chosen threshold, SEC 13F in
 `ccf_dataprep` Postgres, Assembly Mode 1) built to PRESSURE TEST the SDK's surface
@@ -511,12 +577,52 @@ against the Context Product Specification Standard. **The Standard defines what 
 SDK must implement; where the SDK cannot express what a conforming spec orders, that
 gap is RECORDED here and closed in a SEPARATE phase.** Expectation is FEW OR NO gaps,
 because the spec derived from the SDK's own requirements -- so a long gap list is a
-DRIFT signal, not a normal outcome (`D-05`). Through Wave 6: **FIVE** recorded
-findings, all under `D-04` and NONE CLOSED -- still short enough to be a normal
-outcome rather than a drift signal (`D-05`). **FOUR are on the SDK's own surface**
-and all four are seam-ergonomics rather than algebra; **the fifth is in the LINT
-TOOLING, not the SDK**, and that distinction is load-bearing for `D-05`'s drift
-reading -- a tooling blind spot is not a gap in what the fabric can express.
+DRIFT signal, not a normal outcome (`D-05`). Through Wave 7: **SIX** recorded
+findings, all under `D-04` and NONE CLOSED. **The SDK-side count is still FOUR**,
+all four seam-ergonomics rather than algebra -- which is what `D-05` reads for
+drift, and four is a normal outcome. **The fifth and sixth are BOTH in TOOLING,
+not the SDK** (Wave 6's lint-majority blind spot; Wave 7's unchecked LLM-import
+coverage on examples), and that distinction is load-bearing: a tooling blind spot
+is not a gap in what the fabric can express, and must not inflate the drift read.
+**WAVE 7: THREE GATES ARMED, ONE REFUSED IN WRITING -- AND A DELIBERATE RED WINDOW
+IS OPEN THAT IS NOT A BROKEN TREE.** `tests/examples` **508 -> 532 passed**, 4 failed,
+38 skipped, re-run in the FOREGROUND by the orchestrator and matching the executor's
+claim exactly. **BOTH RED SIGNALS ARE INTENTIONAL AND BOTH HAVE A NAMED CLOSER:**
+(1) `test_cp_readme_template.py` is RED on 4 tests because it was written against a
+LIVE subject with NO STUB -- **Wave 8 writes the README and turns it green**; and
+(2) `tools.lints --all` is rc=1 with **exactly 2** findings, both `DOCS-11` ledger
+channels (`.planning/REQUIREMENTS.md:36` and `:330`) citing the renamed
+`::SECTION_ONE_GLOB` -- the constant is now `test_spine_separation.py::SPINE_GLOBS`,
+and **plan 24.1-09 Task 2 closes it**, verified against that plan rather than taken on
+the executor's word. **`make ci` IS RED BETWEEN WAVES 7 AND 9 BY DESIGN.** Criterion
+19 requires it green at the GATE commit -- Wave 10's obligation, not a regression.
+
+**CRITERION 15 WAS DISCHARGED ONLY AFTER ITS CONTROL FAILED FOR THE WRONG REASON.**
+The first draft went red with `NameError: SPINE_GLOBS is not defined` -- red, but not
+red about coverage, which is exactly the confusion the criterion exists to prevent.
+Restaged: rename the glob to `("s1-*",)`, watch the ASSERTION fail naming the tree it
+does not reach, then add `"cp-*"` as the ONLY edit between red and green. The control
+rediscovers a marker-stripped copy THROUGH `split_examples` rather than handing it
+straight to the predicate, so it proves glob -> discovery -> refusal, not just the
+predicate. **`D-24` HAS TEETH, NOT PROSE:**
+`test_widening_this_glob_to_cp_would_break_the_example` runs the REAL predicate over
+the `cp-*` tree and asserts it DOES refuse -- **2 of 4** modules on `ccf.agents`
+against **0 of 9** for `s1-*` -- and the glob was actually widened and watched
+producing 8 failures naming `assembler.py` and `run.py`. If `cp-00` ever stops
+importing `ccf.agents`, that test fails and tells the reader to RE-DECIDE rather than
+delete the exemption. **15 sabotages, all watched RED, each with a DISTINCT named
+failure rather than general redness.**
+
+**WAVE 7'S SIXTH FINDING IS AGAIN IN THE TOOLING** (`D-04`, in `deferred-items.md`,
+NOT closed): nothing shipped checks any EXAMPLE for an LLM-client import -- a planted
+`import anthropic` under `examples/` draws ZERO findings from `tools.lints --all`. It
+nearly produced a false reading in the other direction, because `--all` is rc=1 right
+now for the unrelated citation window, so the EXIT CODE proves nothing and only the
+finding-NAME count does. Control: the same planted import inside `cp-00` gives 6
+failed / 6 passed while `s1-01` leaves the gate at 12 passed, so the instrument does
+detect coverage where it exists. 18 modules across four live example trees stay
+unchecked; reaching them would be a RETROFIT, forbidden by `D-07`.
+
 **WAVE 6: THE EXAMPLE HAS A COMMAND, AND `D-62` IS DISCHARGED.**
 `make example-cp-00` is `.PHONY`, help-lined, and deliberately OUTSIDE the always-on
 `examples:` aggregate. Against the live estate: **21** holders at the demonstration

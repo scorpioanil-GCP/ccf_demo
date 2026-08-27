@@ -2498,7 +2498,7 @@ blocking human checkpoints; the other nine are autonomous.
 - [x] `24.1-04-PLAN.md` — the example's Control Plane artifacts and the seven-region call spine
 - [x] `24.1-05-PLAN.md` — the deployment half, the `ContextAssemblerProtocol` implementation, and the client
 - [x] `24.1-06-PLAN.md` — `make example-cp-00`, the self-seeding Postgres leg, and criterion 2's witness proof
-- [ ] `24.1-07-PLAN.md` — the algorithmic control, the README template gate, the widened spine glob, the written refusal to widen the agent-free glob
+- [x] `24.1-07-PLAN.md` — the algorithmic control, the README template gate, the widened spine glob, the written refusal to widen the agent-free glob
 - [ ] `24.1-08-PLAN.md` — README, published page, nav, `docs-strict` on four steps (blocking human read)
 - [ ] `24.1-09-PLAN.md` — the pressure-test record, the three ledger re-points in both channels, the named non-goals
 - [ ] `24.1-10-PLAN.md` — the vacuity proofs and `make ci` in the chunked foreground form
