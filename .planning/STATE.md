@@ -3,8 +3,52 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-27T01:49:00.000Z"
+last_updated: "2026-08-27T06:20:00.000Z"
 last_activity: >-
+  2026-08-27 -- **PHASE 24.1 WAVE 8 COMPLETE AND ITS BLOCKING HUMAN GATE IS DISCHARGED
+  (`D-63`, Dave).** Both `D-28` documents shipped: `examples/cp-00-institutional-holders/
+  README.md` (419 lines, the seven template headings, the MECHANICS) and
+  `public/concepts/the-first-context-product.md` (263 lines, six `--8<--` includes and
+  ZERO transcribed code, the ARGUMENT). `docs-strict` **0/0/0/0 on all four steps**, each
+  run as its own foreground command with the exit code read unpiped, and `make -n
+  docs-strict` printed first to prove those four ARE the whole recipe. Wave 7's deliberate
+  README red is CLOSED: `test_cp_readme_template.py` **4 failed -> 10 passed**;
+  `tests/examples` **532/4/38 -> 537 passed / 0 failed / 37 skipped**, collected 574 both
+  times, and 532 + 4 + 1 = 537 reconciles exactly (the skipped empty-parameter case became
+  a real test -- that arithmetic is the control, and the dispatch's expected 536 was wrong).
+  **THE HUMAN HALF WAS CARRIED TO DAVE RATHER THAN DEFERRED.** He was remote and could not
+  run the example, open the files or run `mkdocs serve`. The orchestrator ran
+  `make example-cp-00` against the LIVE estate itself, rendered both documents, pulled the
+  published page out of the STRICT BUILD'S OWN OUTPUT so every excerpt on it arrived by
+  include, and set `produce.py` beside `deployment.py` **UNLABELLED** -- the plan asks
+  whether the boundary is legible *without being told*, so labelling the panes would have
+  destroyed the test. Ruling: *"Love the docs and the html page. Accepted."*
+  **ALL FOUR FLAGGED READINGS STAND**, and one of them is a PUBLISHED POSITIONING CLAIM
+  rather than a style call: the Standard->SDK operator mapping stays **MEASURED** against
+  the plan's wording, so a public page now states that **`Enrich` has no SDK expression** --
+  three map 1:1, three land elsewhere, `Evaluate` exists only as Pi. Surfaced to Dave AS a
+  positioning call before he accepted.
+  **THE FIFTH FLAGGED ITEM WAS SETTLED BY MEASUREMENT, NOT BY RULING.** The README quotes
+  `D_c ~= 0.56 at 148 days` from `ccf_config.yaml`'s written-out arithmetic, because the
+  executor had no DSN and correctly refused to present arithmetic as observation. The
+  orchestrator ran it: **`D_c` = 0.5582**, `F` = 0.4729, at exactly 148 days
+  (`report_period` 2026-03-31 -> 2026-08-26). **21 holders served against 21 from an
+  independent SELECT**, with a control at `MIN_POSITION=500000000` returning **39**. The
+  figure is CONFIRMED rather than accepted.
+  **A SEVENTH FINDING, AND IT IS TOOLING FOR THE THIRD WAVE RUNNING** (`D-04`, recorded,
+  NOT closed, deliberately OUTSIDE `D-05`'s drift list): **nothing that ships gates
+  criterion 9's four dataset statements** -- `grep -rl 'fact about any real company' tools/
+  tests/` returns **0 files**, against controls of **3** files where the statements live and
+  **53** for the No-Hardcoding Rule, so the search works. The executor's guard ran at wave
+  time and was NOT committed; its shape is written into `deferred-items.md` to be rebuilt.
+  **THE SDK-SIDE COUNT IS STILL FOUR** -- Waves 6, 7 and 8 each found a TOOLING defect, and
+  conflating the two lists would manufacture a `D-05` drift verdict out of three lint gaps.
+  **ONE ORCHESTRATOR NEAR-MISS, RECORDED BECAUSE IT WOULD HAVE BROKEN THIS WAVE'S OWN GATE:**
+  the review page was first written to `public/_review/` -- inside the published surface,
+  which is default-deny-by-existence, where an unregistered file fails `mkdocs build
+  --strict` on `validation.nav.omitted_files`. Caught before commit, moved to the session
+  scratchpad, and `docs-strict` steps 1 and 3 re-run to **exit 0** on the moved tree.
+  Nothing under `public/` changed. PRIOR:
   2026-08-27 -- **PHASE 24.1 WAVE 7 COMPLETE. THREE GATES ARMED, ONE REFUSED IN
   WRITING, AND A DELIBERATE RED WINDOW IS OPEN.** `tests/examples` **508 -> 532
   passed**, 4 failed, 38 skipped -- orchestrator re-ran the whole module in the
@@ -394,6 +438,21 @@ progress:
     bullet is struck through as superseded). The first is the EXACT error recorded against
     a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
+  **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-8 OF 11 ARE COMPLETE.**
+  **Wave 8's BLOCKING human gate is DISCHARGED (`D-63`, Dave, 2026-08-26).** **NEXT:
+  Waves 9 and 10, both autonomous; Wave 11 (§3.1 close) STOPS FOR DAVE.** ONE deliberate
+  red signal remains and **WAVE 9 TASK 2 OWNS IT**: `tools.lints --all` rc=1 with exactly
+  2 `DOCS-11` findings, `.planning/REQUIREMENTS.md:36` and `:330`, citing the renamed
+  `::SECTION_ONE_GLOB` -- re-point both at
+  `tests/examples/test_spine_separation.py::SPINE_GLOBS`. The README red is CLOSED.
+  `tests/examples` stands at **537 passed / 0 failed / 37 skipped**; `docs-strict`
+  **0/0/0/0**. Criterion 19 wants `make ci` green at the GATE commit = Wave 10.
+  Running total: **SEVEN** recorded findings, none closed -- **FOUR on the SDK surface**
+  (the only number `D-05` reads for drift) and **THREE in TOOLING**, from Waves 6, 7 and 8
+  respectively. `cp-00` is green, so `D-58`'s short SDK phase for `D-59`/`D-60` is
+  SCHEDULABLE after this one. **STILL UNRULED: §F marker 15** -- measured p50/p95 latency
+  and per-call cost, owed by *"the wave that runs the assembly"*. Orchestrator recommends
+  **Wave 10** and needs the ruling BEFORE Wave 10. PRIOR STATE AT WAVE 7:
   **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-7 OF 11 ARE COMPLETE.**
   **NEXT: Wave 8, AND IT STOPS FOR DAVE** -- the docs wave (`D-28`: a deep example
   README **and** a published page, both, because Dave chose both explicitly). **DO NOT
@@ -569,7 +628,7 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-**PHASE 24.1 IS EXECUTING. WAVES 1-7 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
+**PHASE 24.1 IS EXECUTING. WAVES 1-8 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
 Phase 24 is an UMBRELLA; 24.1 is its first buildable unit -- one Context Product
 example (institutional holders above a caller-chosen threshold, SEC 13F in
 `ccf_dataprep` Postgres, Assembly Mode 1) built to PRESSURE TEST the SDK's surface
@@ -577,13 +636,54 @@ against the Context Product Specification Standard. **The Standard defines what 
 SDK must implement; where the SDK cannot express what a conforming spec orders, that
 gap is RECORDED here and closed in a SEPARATE phase.** Expectation is FEW OR NO gaps,
 because the spec derived from the SDK's own requirements -- so a long gap list is a
-DRIFT signal, not a normal outcome (`D-05`). Through Wave 7: **SIX** recorded
+DRIFT signal, not a normal outcome (`D-05`). Through Wave 8: **SEVEN** recorded
 findings, all under `D-04` and NONE CLOSED. **The SDK-side count is still FOUR**,
-all four seam-ergonomics rather than algebra -- which is what `D-05` reads for
-drift, and four is a normal outcome. **The fifth and sixth are BOTH in TOOLING,
-not the SDK** (Wave 6's lint-majority blind spot; Wave 7's unchecked LLM-import
-coverage on examples), and that distinction is load-bearing: a tooling blind spot
-is not a gap in what the fabric can express, and must not inflate the drift read.
+all four seam-ergonomics rather than algebra -- which is what `D-05` actually reads
+for drift, and four is a normal outcome. **The fifth, sixth and SEVENTH are all in
+TOOLING, not the SDK** (Wave 6's lint numeric-majority blind spot; Wave 7's
+unchecked LLM-import coverage on examples; Wave 8's ungated dataset statements),
+and that separation is load-bearing: a tooling blind spot is not a gap in what the
+fabric can express, and merging the lists would manufacture a drift verdict out of
+three lint holes.
+**WAVE 8: BOTH `D-28` DOCUMENTS SHIPPED, AND THE BLOCKING HUMAN GATE IS DISCHARGED
+(`D-63`, Dave, 2026-08-26).** `README.md` 419 lines under the seven template headings
+(the MECHANICS) and `public/concepts/the-first-context-product.md` 263 lines with six
+`--8<--` includes and ZERO transcribed code (the ARGUMENT). `docs-strict` **0/0/0/0**,
+each step foreground and unpiped, `make -n docs-strict` printed first to prove the four
+ARE the recipe. Wave 7's deliberate README red CLOSED: `test_cp_readme_template.py`
+**4 failed -> 10 passed**; `tests/examples` **537 passed / 0 failed / 37 skipped**, and
+532 + 4 + 1 = 537 reconciles exactly against a collected-574 control.
+
+**THE HUMAN HALF WAS CARRIED TO DAVE RATHER THAN DEFERRED, AND THAT IS THE REUSABLE
+PART.** He was remote; the checkpoint assumes a terminal. The orchestrator ran
+`make example-cp-00` against the live estate, rendered both documents, took the
+published page from the STRICT BUILD'S OWN OUTPUT so every excerpt on it arrived by
+include, and set `produce.py` beside `deployment.py` **UNLABELLED with a reveal** --
+the plan asks whether the boundary is legible *without being told*, so labelled panes
+would have destroyed the test. **ALL FOUR FLAGGED READINGS STAND.** One is a PUBLISHED
+POSITIONING CLAIM, not a style call, and was surfaced as such before acceptance: the
+operator mapping stays **MEASURED** against the plan's wording, so a public page now
+states **`Enrich` has no SDK expression** -- three of eight map 1:1, three land at
+other layers, `Evaluate` exists only as Pi.
+
+**THE FIFTH FLAGGED ITEM WAS SETTLED BY MEASUREMENT RATHER THAN BY RULING**, which is
+the better outcome. The README's `D_c ~= 0.56 at 148 days` was written-out arithmetic
+from `ccf_config.yaml`; the executor had no DSN and correctly refused to present it as
+observation. The live run returns **`D_c` = 0.5582, `F` = 0.4729 at exactly 148 days**
+(2026-03-31 -> 2026-08-26), **21 holders served against 21 from an independent
+SELECT**, control at a different threshold **39**. CONFIRMED, not trusted.
+
+**WAVE 8'S SEVENTH FINDING IS TOOLING FOR THE THIRD WAVE RUNNING** (`D-04`, NOT
+closed): nothing that ships gates criterion 9's four dataset statements --
+`grep -rl 'fact about any real company' tools/ tests/` returns **0 files** against
+controls of **3** (where they live) and **53** (No-Hardcoding), so the search works.
+The guard ran at wave time and was NOT committed; its shape is in `deferred-items.md`.
+**AND ONE ORCHESTRATOR NEAR-MISS WORTH KEEPING:** the review page was first written to
+`public/_review/`, inside the default-deny-by-existence published surface, where an
+unregistered file fails `mkdocs build --strict` on `validation.nav.omitted_files` --
+it would have broken the very gate just verified green. Caught before commit, moved to
+the scratchpad, `docs-strict` steps 1 and 3 re-run to **exit 0**.
+
 **WAVE 7: THREE GATES ARMED, ONE REFUSED IN WRITING -- AND A DELIBERATE RED WINDOW
 IS OPEN THAT IS NOT A BROKEN TREE.** `tests/examples` **508 -> 532 passed**, 4 failed,
 38 skipped, re-run in the FOREGROUND by the orchestrator and matching the executor's
