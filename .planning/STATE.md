@@ -3,8 +3,49 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-26T23:55:00.000Z"
+last_updated: "2026-08-27T01:19:00.000Z"
 last_activity: >-
+  2026-08-27 -- **PHASE 24.1 WAVE 6 COMPLETE. THE EXAMPLE HAS A COMMAND AND CI HAS
+  SOMETHING IT CAN HONESTLY ASSERT.** `make example-cp-00` is `.PHONY`, carries a help
+  line, and is deliberately NOT a prerequisite of the always-on `examples:` aggregate
+  (`D-08` precedent: a networked substrate puts an example outside it). Against the LIVE
+  estate it serves **21** holders at the demonstration threshold and **39** at
+  `MIN_POSITION=500000000` -- two different content addresses, and the 21 equals Wave 1's
+  independent SELECT sweep by a different route. The CI leg is a `pytest.mark.postgres`
+  module that stands up `postgres:16` ITSELF and seeds it from
+  `tests/examples/fixtures/cp_00_13f_schema.sql` + `cp_00_13f_rows.sql` -- **`D-27`: the
+  fixture is SEEDED BY THE TEST, never committed as a database.** `tests/examples`
+  **485 -> 508 passed**, skips unmoved at 37, and 508 - 485 = **23** is exactly the two
+  new modules' collected count (orchestrator re-measured independently: 23 for both
+  modules, **14** for one alone -- the control that makes 23 a measurement rather than a
+  coincidence). **ELEVEN SABOTAGES, ALL WATCHED RED**, two of them unplanned and the more
+  valuable for it: a band filter seeded into the oracle reproduces `D-61`'s under-count
+  signature (14 -> 11), and nudging the exactly-at-threshold value one unit makes §F
+  marker 14's gate untestable in precisely the way that marker warned.
+  **`D-62` IS DISCHARGED** -- §E.2's debt bands stop reading `[TBC]`, §D.2 step 1's
+  prose cell no longer claims "no SDK symbol", and §F markers 13, 14 and 16 are CLOSED,
+  each keeping its row so the sentence that raised it still points somewhere.
+  **A FIFTH RECORDED FINDING, and it is in the TOOLING rather than on the SDK's own
+  surface** (`D-04`, `D-56` -- classified, NOT closed): the plan asserted
+  `tools/lints/no_hardcoding.py` would refuse a threshold-plus-LEI dict in `tests/`, and
+  the executor's FIRST control returned rc=0 -- a passing report from an instrument that
+  never fired. Measured rather than concluded: `RULE_TREE_SCOPE` does include `tests`, so
+  the SCOPE claim is right, but `_is_numeric_table` requires a strict numeric MAJORITY,
+  so a 2-entry dict pairing an int with a string is 1-of-2 and never trips; a 3-entry
+  numeric table returns rc=1. **This is the eighth consecutive wave to find its own
+  defect class inside its own machinery.**
+  **TWO RESIDUES DELIBERATELY LEFT OPEN, NAMED RATHER THAN GUESSED:** §E's surviving
+  `[TBC]` is marker 4, the issuer-identity refresh cadence -- the archive publishes none,
+  its owner is the SOURCE-ESTATE owner and not any wave of this phase, and guessing it is
+  the §0.2 defect the document rates worse than an honest gap; and **§F marker 15, the
+  MEASURED p50/p95 latency and per-call cost**, which §F.2 assigns to *"the wave that
+  runs the assembly"* -- Waves 5 and 6 both ran it and NOBODY HAS MEASURED A LATENCY.
+  §G's Lifecycle row now names marker 15 as the one certification evidence still owed.
+  **`cp-00` IS GREEN, WHICH IS THE CONDITION `D-58` ATTACHES TO THE SHORT SDK PHASE** for
+  `D-59`/`D-60` (assembler-refusal-as-data + deployment operator registration). That
+  phase is now SCHEDULABLE and is still NOT 24.1's to run (`D-04`). One orchestrator
+  correction: the summary's frontmatter claimed a `~4 h` duration; actual dispatch-to-
+  return was 2,224,352 ms = **37.1 min**, corrected at `f83bd0a`. PRIOR:
   2026-08-26 -- **PHASE 24.1 WAVE 5 COMPLETE. THE EXAMPLE RUNS END TO END AND THE RED
   `make ci` GATE IS GREEN.** `deployment.py`, `assembler.py` and `run.py`. The three
   numbers Wave 4 computed by hand BEFORE this code existed are the three the run
@@ -304,6 +345,18 @@ progress:
     bullet is struck through as superseded). The first is the EXACT error recorded against
     a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
+  **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-6 OF 11 ARE COMPLETE.**
+  **NEXT: Wave 7** (the three structural gates, and the one `cp-*` must deliberately
+  stay OUTSIDE with the reason WRITTEN INTO the test -- `D-23`/`D-24`). Waves 7, 9 and
+  10 are autonomous; **Wave 8 (docs: deep README + published page, `D-28`) and Wave 11
+  (§3.1 close: cross-AI panel -> single-agent review -> Dave) STOP FOR DAVE.** Wave 6's
+  pre-wave key-links check reports both of Wave 7's links unverified -- EXPECTED, both
+  name files Wave 7 itself creates, which step 7b says to skip. Running total: **FIVE**
+  recorded findings, none closed; `cp-00` is green so `D-58`'s short SDK phase for
+  `D-59`/`D-60` is now schedulable, AFTER this phase. **UNRULED AND WAITING: §F marker
+  15** -- measured p50/p95 latency and per-call cost, owed by *"the wave that runs the
+  assembly"*, which Waves 5 and 6 both were. Nobody has measured a latency; whether a
+  remaining wave takes it is Dave's call. PRIOR STATE AT WAVE 3:
   **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-3 OF 11 ARE COMPLETE.**
   Base tag `phase-24.1-base` = `d50924c` (= `main`). Nineteen Success Criteria LOCKED
   before planning (`D-GATE-19`); criterion 3 carries a MARKED amendment. The spec
@@ -450,7 +503,7 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-**PHASE 24.1 IS EXECUTING. WAVES 1-5 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
+**PHASE 24.1 IS EXECUTING. WAVES 1-6 OF 11 COMPLETE, ON BRANCH `phase-24.1`.**
 Phase 24 is an UMBRELLA; 24.1 is its first buildable unit -- one Context Product
 example (institutional holders above a caller-chosen threshold, SEC 13F in
 `ccf_dataprep` Postgres, Assembly Mode 1) built to PRESSURE TEST the SDK's surface
@@ -458,9 +511,47 @@ against the Context Product Specification Standard. **The Standard defines what 
 SDK must implement; where the SDK cannot express what a conforming spec orders, that
 gap is RECORDED here and closed in a SEPARATE phase.** Expectation is FEW OR NO gaps,
 because the spec derived from the SDK's own requirements -- so a long gap list is a
-DRIFT signal, not a normal outcome (`D-05`). Through Wave 5: **FOUR** SDK-side
-findings, all recorded and none closed -- still short enough to be a normal outcome
-rather than a drift signal, and all four are seam-ergonomics rather than algebra.
+DRIFT signal, not a normal outcome (`D-05`). Through Wave 6: **FIVE** recorded
+findings, all under `D-04` and NONE CLOSED -- still short enough to be a normal
+outcome rather than a drift signal (`D-05`). **FOUR are on the SDK's own surface**
+and all four are seam-ergonomics rather than algebra; **the fifth is in the LINT
+TOOLING, not the SDK**, and that distinction is load-bearing for `D-05`'s drift
+reading -- a tooling blind spot is not a gap in what the fabric can express.
+**WAVE 6: THE EXAMPLE HAS A COMMAND, AND `D-62` IS DISCHARGED.**
+`make example-cp-00` is `.PHONY`, help-lined, and deliberately OUTSIDE the always-on
+`examples:` aggregate. Against the live estate: **21** holders at the demonstration
+threshold, **39** at `MIN_POSITION=500000000`, two different content addresses, and
+the 21 equals Wave 1's independent SELECT sweep by a different route. The CI leg is a
+`pytest.mark.postgres` module that stands up `postgres:16` ITSELF and seeds it from
+`tests/examples/fixtures/cp_00_13f_{schema,rows}.sql` -- **`D-27`: the fixture is
+SEEDED BY THE TEST, never committed as a database**, so a schema change breaks the
+test loudly instead of drifting. `tests/examples` **485 -> 508 passed**, skips
+unmoved at 37; 508 - 485 = **23** = the two new modules' collected count, re-measured
+independently by the orchestrator against a control (**14** for one module alone).
+**ELEVEN SABOTAGES, ALL WATCHED RED.** `D-62`'s three residues are closed -- §E.2's
+debt bands drop `[TBC]`, §D.2 step 1's prose no longer claims "no SDK symbol", and
+§F markers 13, 14 and 16 are CLOSED, each KEEPING ITS ROW so the sentence that raised
+it still points somewhere. **TWO RESIDUES LEFT OPEN AND NAMED RATHER THAN GUESSED:**
+§E's surviving `[TBC]` is marker 4, the issuer-identity refresh cadence, whose owner
+is the SOURCE-ESTATE owner and not any wave of this phase; and **§F marker 15, the
+MEASURED p50/p95 latency and per-call cost**, which §F.2 assigns to *"the wave that
+runs the assembly"* -- Waves 5 and 6 both ran it and **nobody has measured a
+latency**. §G's Lifecycle row now names marker 15 as the one certification evidence
+still owed. **`cp-00` IS GREEN, which is the condition `D-58` attaches to the short
+SDK phase** for `D-59`/`D-60`; that phase is now SCHEDULABLE and is still NOT 24.1's
+to run (`D-04`).
+
+**WAVE 6'S FIFTH FINDING IS IN THE INSTRUMENT, AND IT WAS CAUGHT BY ITS OWN CONTROL.**
+The plan asserted `tools/lints/no_hardcoding.py` reaches `tests/`, so a threshold-plus-
+LEI dict there is the same violation as one in library code. The executor's FIRST
+control returned **rc=0** -- a passing report from an instrument that never fired.
+Measured rather than concluded: `RULE_TREE_SCOPE["no-hardcoding"]` DOES include
+`tests`, so the scope claim is right; what is narrower than the plan's sentence is
+`_is_numeric_table`, which requires a strict numeric MAJORITY -- a 2-entry dict
+pairing an int with a string is 1-of-2 and never trips, while a 3-entry numeric table
+returns **rc=1**. **RECORDED, CLASSIFIED, NOT CLOSED** (`D-04`; `D-56` says it does
+not qualify for close-as-you-go -- it blocks no example from being honest).
+
 **Wave 5's two.** (1) `ccf.deployment.operators::build_operator_registry` dispatches
 on the declared parameter artifact's TYPE against four known SDK classes and raises
 for anything else, and the Mode 1 spine hands it the whole mapping -- so a deployment
@@ -1436,3 +1527,26 @@ Position). Nothing planned, nothing executed; no phase branch. `main` clean and 
 43 commits ahead of `origin/main` (push still unruled).
 
 Resume: `/gsd:plan-phase 18.1`
+
+---
+
+**2026-08-26 session resume.** Phase 24.1 is EXECUTING on branch `phase-24.1`,
+**waves 1-5 of 11 complete**, tree clean at `010b854`, nothing in flight, no
+checkpoint and no `HANDOFF.json`. Waves 6-11 have PLANs and no SUMMARYs — that is
+the expected shape mid-phase, not an interrupted execution. The `consume.py` ->
+`run.py` rename `24.1-05`'s summary left owed against plans 06/07/08/11 was
+DISCHARGED at `010b854` (8 occurrences patched, **0 remain**, verified by grep on
+all four files at resume). Dave's 2026-08-26 rulings `D-54..D-62` are appended to
+`24-CONTEXT.md`: the threshold-and-batch rule for when an SDK gap gets closed
+(`D-54..D-58`), no `issuer_match_band` filter (`D-61`, so Wave 6 does not restore
+one), and **Wave 6 additionally owns the spec residues** (`D-62`) — no orphan
+`[TBC]` cell survives it.
+
+Carried, unclosed by design (`D-04`): **FOUR** SDK-side findings recorded and none
+closed — Wave 4's `ProductClassDeclaration` MAX_TTL-seconds slot, Wave 5's
+`build_operator_registry` type-dispatch and `ContextAssemblerProtocol.assemble`
+return type, and the CI `run.py` gate finding now discharged by `D-51`. Per
+`D-54..D-58` the batchable pair (assembler-refusal-as-data + deployment operator
+registration) opens as a SHORT SDK phase AFTER cp-00 is green — not inside 24.1.
+
+Resume: `/gsd:execute-phase 24.1` (wave 6 next)

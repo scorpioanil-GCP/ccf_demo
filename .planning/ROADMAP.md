@@ -2492,12 +2492,12 @@ v0.3 lane.
 **Plans:** 11 plans in 11 serial waves (planned 2026-08-25). Waves 8 and 11 carry
 blocking human checkpoints; the other nine are autonomous.
 
-- [ ] `24.1-01-PLAN.md` — pin PHASE_BASE, sabotage the vacuity instruments, probe the live store, rule the graph substrate
-- [ ] `24.1-02-PLAN.md` — the specification: front matter, §A Decision frame, §B Contract, §C Data catalog
-- [ ] `24.1-03-PLAN.md` — the specification: §D–§G, plus the machine-readable assembly recipe with per-step witnesses
-- [ ] `24.1-04-PLAN.md` — the example's Control Plane artifacts and the seven-region call spine
-- [ ] `24.1-05-PLAN.md` — the deployment half, the `ContextAssemblerProtocol` implementation, and the client
-- [ ] `24.1-06-PLAN.md` — `make example-cp-00`, the self-seeding Postgres leg, and criterion 2's witness proof
+- [x] `24.1-01-PLAN.md` — pin PHASE_BASE, sabotage the vacuity instruments, probe the live store, rule the graph substrate
+- [x] `24.1-02-PLAN.md` — the specification: front matter, §A Decision frame, §B Contract, §C Data catalog
+- [x] `24.1-03-PLAN.md` — the specification: §D–§G, plus the machine-readable assembly recipe with per-step witnesses
+- [x] `24.1-04-PLAN.md` — the example's Control Plane artifacts and the seven-region call spine
+- [x] `24.1-05-PLAN.md` — the deployment half, the `ContextAssemblerProtocol` implementation, and the client
+- [x] `24.1-06-PLAN.md` — `make example-cp-00`, the self-seeding Postgres leg, and criterion 2's witness proof
 - [ ] `24.1-07-PLAN.md` — the algorithmic control, the README template gate, the widened spine glob, the written refusal to widen the agent-free glob
 - [ ] `24.1-08-PLAN.md` — README, published page, nav, `docs-strict` on four steps (blocking human read)
 - [ ] `24.1-09-PLAN.md` — the pressure-test record, the three ledger re-points in both channels, the named non-goals
