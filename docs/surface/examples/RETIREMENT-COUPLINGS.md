@@ -758,6 +758,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-RESEARCH.md` | 25 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-VERIFICATION.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/deferred-items.md` | 5 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.1.1-the-two-protocol-shaped-seams-deployment-operators-and-re/24.1.1-02-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1.1-the-two-protocol-shaped-seams-deployment-operators-and-re/24.1.1-RESEARCH.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 88 | append-only decision log |
