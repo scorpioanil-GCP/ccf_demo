@@ -23,15 +23,62 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**748 entries**, of which **510** name a public Python surface.
+**754 entries**, of which **516** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-366 entries — 331 public Python surface, 35 not public Python API.
+369 entries — 334 public Python surface, 35 not public Python API.
 
 ### Public Python surface
+
+#### ccf.replay.record.NO_ASSEMBLY_REFUSAL
+
+- Surface: ccf.replay.record.NO_ASSEMBLY_REFUSAL
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-assembly-refusal"` — dimension 5's positive claim that this decision met no
+  governed refusal at the assembler seam
+- Why: the `NO_HITL_ACTIONS` discipline. A decision that met no refusal and a decision whose
+  caller dropped the block would otherwise be the same artifact, which is the repudiation
+  failure mode every sentinel in that module exists to close
+- Migration: none — it is the default of a new field
+
+*Recorded by `24.1.1-04-a-refusal-has-an-identity-in-the-record.md`.*
+
+#### ccf.replay.record.mint_assembly_refusal
+
+- Surface: ccf.replay.record.mint_assembly_refusal
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(outcome: 'AssemblyOutcome | ProductRequestViolation', *, claimed: 'str | None' =
+  None) -> str` — derives the block from what the assembler returned, or raises when
+  `claimed` contradicts it
+- Why: the block must be DERIVED from the assembler's return value rather than hand-claimed,
+  which is what makes *"a refusal cannot be silently absent"* a property of the mechanism and
+  not of caller discipline. Public because an adopter's own assembler must be able to call it
+- Migration: none — additive
+
+*Recorded by `24.1.1-04-a-refusal-has-an-identity-in-the-record.md`.*
+
+#### ccf.replay.record.FalseAssemblyRefusalClaimError
+
+- Surface: ccf.replay.record.FalseAssemblyRefusalClaimError
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `ValueError` raised when a caller hands the minter a governed refusal while
+  asserting `NO_ASSEMBLY_REFUSAL`, or asserts a refusal over an outcome that is not one
+- Why: `src/ccf/agents/errors.py::FalseGrantClaimError`'s exact reasoning — the caller already
+  knows the claim cannot be true, so recording it would corrupt dimension 5 at write time. It
+  lives in `record.py` rather than `errors.py` because `errors.py` is outside the ruled file
+  roster (`D-IMPL-214`), and the roster is judged by set equality rather than by convenience
+- Migration: none — additive
+
+*Recorded by `24.1.1-04-a-refusal-has-an-identity-in-the-record.md`.*
 
 #### ccf.deployment.classes.resolve_artifact_class
 
@@ -12196,11 +12243,11 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-85 entries — 65 public Python surface, 20 not public Python API.
+88 entries — 68 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
-#### Surface
+#### ccf.deployment.operators.build_operator_registry
 
 - Surface: ccf.deployment.operators.build_operator_registry
 - Public surface: true
@@ -12220,6 +12267,11 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   registry the projection plan never sees. That workaround is exactly why cp-00's recipe
   witness for step 1 is `payload_key_present` rather than `operator_in_lineage`
 - Migration: none — additive and keyword-only with a default
+
+*Recorded by `24.1.1-02-the-deployment-operator-reaches-the-plan.md`.*
+
+#### ccf.deployment.build_operator_registry
+
 - Surface: ccf.deployment.build_operator_registry
 - Public surface: true
 - Change type: behavior
@@ -12232,7 +12284,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `24.1.1-02-the-deployment-operator-reaches-the-plan.md`.*
 
-#### Surface
+#### ccf.agents.assembler.DeterministicAssembler
 
 - Surface: ccf.agents.assembler.DeterministicAssembler
 - Public surface: true
@@ -12252,6 +12304,11 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   ordered AFTER the two identity checks, because a question asked of the wrong agent is not
   a question about a contract's conformity
 - Migration: none — additive and keyword-only with a default
+
+*Recorded by `24.1.1-03-a-refusal-returns-as-data.md`.*
+
+#### ccf.agents.DeterministicAssembler
+
 - Surface: ccf.agents.DeterministicAssembler
 - Public surface: true
 - Change type: behavior
@@ -12265,40 +12322,8 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `24.1.1-03-a-refusal-returns-as-data.md`.*
 
-#### Surface
+#### ccf.replay.record.ContentGenerationPath
 
-- Surface: ccf.replay.record.NO_ASSEMBLY_REFUSAL
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: `"no-assembly-refusal"` — dimension 5's positive claim that this decision met no
-  governed refusal at the assembler seam
-- Why: the `NO_HITL_ACTIONS` discipline. A decision that met no refusal and a decision whose
-  caller dropped the block would otherwise be the same artifact, which is the repudiation
-  failure mode every sentinel in that module exists to close
-- Migration: none — it is the default of a new field
-- Surface: ccf.replay.record.mint_assembly_refusal
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: `(outcome: 'AssemblyOutcome | ProductRequestViolation', *, claimed: 'str | None' =
-  None) -> str` — derives the block from what the assembler returned, or raises when
-  `claimed` contradicts it
-- Why: the block must be DERIVED from the assembler's return value rather than hand-claimed,
-  which is what makes *"a refusal cannot be silently absent"* a property of the mechanism and
-  not of caller discipline. Public because an adopter's own assembler must be able to call it
-- Migration: none — additive
-- Surface: ccf.replay.record.FalseAssemblyRefusalClaimError
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: a `ValueError` raised when a caller hands the minter a governed refusal while
-  asserting `NO_ASSEMBLY_REFUSAL`, or asserts a refusal over an outcome that is not one
-- Why: `src/ccf/agents/errors.py::FalseGrantClaimError`'s exact reasoning — the caller already
-  knows the claim cannot be true, so recording it would corrupt dimension 5 at write time. It
-  lives in `record.py` rather than `errors.py` because `errors.py` is outside the ruled file
-  roster (`D-IMPL-214`), and the roster is judged by set equality rather than by convenience
-- Migration: none — additive
 - Surface: ccf.replay.record.ContentGenerationPath
 - Public surface: true
 - Change type: behavior
@@ -12310,6 +12335,11 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Why: `D-IMPL-214` Reading B — a named sub-structure inside an existing dimension, on the
   `hitl_actions` / `workflow_step_sequence` precedent this module already carries four times
 - Migration: none — sentinel-defaulted
+
+*Recorded by `24.1.1-04-a-refusal-has-an-identity-in-the-record.md`.*
+
+#### ccf.replay.record.build_replay_record
+
 - Surface: ccf.replay.record.build_replay_record
 - Public surface: true
 - Change type: behavior

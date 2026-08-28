@@ -740,6 +740,11 @@ def test_axis_4_bounds_what_an_assembler_may_consult(
         )
         for role, agent in (("narrow", narrow), ("wide", wide))
     }
+    # D-60: the comprehension's values come off the widened seam, so they are
+    # branched here rather than at each element — both regimes CONFORM, and a
+    # governed refusal reaching this test would be a different failure than the
+    # one it is written to catch.
+    assert all(isinstance(o, AssemblyOutcome) for o in outcomes.values()), outcomes
     assert outcomes["wide"].consultations.permitted == requested
     assert outcomes["wide"].consultations.refused == ()
     assert outcomes["narrow"].consultations.permitted == ()
