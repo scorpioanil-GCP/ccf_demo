@@ -238,7 +238,7 @@ Rows by coupling shape:
 | `tests/deployment/test_config_document.py` | 29 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/deployment/test_config_equivalence.py` | 42 | `tests/examples/test_s1_00_config_equivalence.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/deployment/test_manifest.py` | 930 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 23-10 |  |
-| `tests/deployment/test_operator_builder.py` | 479 | `archive/examples/02-skilling` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/deployment/test_operator_builder.py` | 490 | `archive/examples/02-skilling` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/fixtures/s1_00_ccf_config.yaml` | 2 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `tests/examples/fixtures/s1_00_ccf_config.yaml` | 7 | `tests/examples/test_s1_00_config_equivalence.py` | `comment` | documentary | - | - | 17-08 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 16-02 |  |

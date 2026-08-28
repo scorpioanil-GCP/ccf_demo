@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**745 entries**, of which **507** name a public Python surface.
+**746 entries**, of which **508** name a public Python surface.
 
 ## Added
 
@@ -12196,9 +12196,41 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-82 entries — 62 public Python surface, 20 not public Python API.
+83 entries — 63 public Python surface, 20 not public Python API.
 
 ### Public Python surface
+
+#### Surface
+
+- Surface: ccf.deployment.operators.build_operator_registry
+- Public surface: true
+- Change type: behavior
+- Before: `def build_operator_registry(*, parameters, view, pins, policy_bundle_key,
+  similarity_index_version=None) -> OperatorRegistry` — the builder dispatched on artifact
+  TYPE through an `isinstance` chain and raised `ValueError` on anything it did not
+  recognise, so a deployment's own operator had no route into the registry the operator plan
+  reads
+- After: the same signature plus one defaulted, keyword-only parameter,
+  `deployment_operators: Sequence[Operator] = ()`, whose members are registered FIRST and
+  sorted by `operator.key`, through `register(operator)` with **no category argument**
+- Why: `D-59`. The registry beneath the builder was already open —
+  `src/ccf/operators/registry.py::OperatorRegistry.register` reads category and parameter
+  schema off the operator — but the composition path in front of it was not, so
+  `examples/cp-00-institutional-holders/deployment.py` had to register into a private
+  registry the projection plan never sees. That workaround is exactly why cp-00's recipe
+  witness for step 1 is `payload_key_present` rather than `operator_in_lineage`
+- Migration: none — additive and keyword-only with a default
+- Surface: ccf.deployment.build_operator_registry
+- Public surface: true
+- Change type: behavior
+- Before: the package re-export of the same function, carrying the same signature
+- After: the same re-export, carrying the reshaped signature above
+- Why: the same change, visible at the package boundary because `ccf.deployment` re-exports
+  the symbol; recorded as its own entry because the manifest records it as its own entry and
+  a reader who imports from the package should not have to infer it from the module
+- Migration: none — additive and keyword-only with a default
+
+*Recorded by `24.1.1-02-the-deployment-operator-reaches-the-plan.md`.*
 
 #### ccf.controlplane.artifacts.load_artifact
 

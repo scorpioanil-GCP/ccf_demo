@@ -82,7 +82,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from ccf.controlplane.artifacts import (
     OperatorParametersArtifact,
@@ -93,6 +93,7 @@ from ccf.controlplane.artifacts import (
 )
 from ccf.deployment.pins import ResolvedPins
 from ccf.graph.protocols import GraphView
+from ccf.operators.base import Operator
 from ccf.operators.categories import (
     PolicyFilter,
     SimilaritySelect,
@@ -172,6 +173,7 @@ def build_operator_registry(
     pins: ResolvedPins,
     policy_bundle_key: str,
     similarity_index_version: str | None = None,
+    deployment_operators: Sequence[Operator] = (),
 ) -> OperatorRegistry:
     """Build a populated :class:`~ccf.operators.registry.OperatorRegistry`.
 
@@ -226,6 +228,40 @@ def build_operator_registry(
             the parameters artifact's own pin would be identical across two
             different boundaries, which is precisely the corpus identity the
             determinism contract needs to distinguish.
+        deployment_operators: Already-constructed operators the *deployment*
+            owns, registered into this same registry so the operator plan can
+            resolve them (D-59). Defaulted and keyword-only, so every call site
+            that predates this seam is unchanged. **Registered FIRST**, before
+            the manifest's own dispatch, and **sorted by** ``operator.key`` so
+            registration order is a function of the operators rather than of the
+            caller's sequence order — the same discipline the manifest loop
+            below already keeps. Registering first is what makes a collision
+            symmetric: a manifest operator colliding with a deployment operator
+            and a deployment operator colliding with a manifest operator both
+            raise from the manifest loop, so there is one failure site rather
+            than two.
+
+            **The honest weakness of this channel, stated because a limitation
+            that lives only in a plan document is one its next reader does not
+            know.** A deployment operator's parameters do **not** travel as a
+            Control Plane artifact here (D-IMPL-38): the operator *instance*
+            carries them, and it is the caller's job to have built that instance
+            from an artifact. The manifest path above takes artifacts and
+            constructs operators; this path takes operators. That asymmetry is
+            deliberate — the SDK cannot know how to construct an operator it has
+            never seen — but it means this channel carries no pin and the
+            replay-determinism argument for these operators rests on the
+            caller's own artifact discipline, not on this builder's.
+
+            **A known, deliberate limit.**
+            :class:`~ccf.products.resolver.GovernedResolver` and
+            :func:`~ccf.products.resolver.build_governed_resolver` have no
+            channel to pass these through: they build the registry inline and
+            consume it in the same expression chain. Handing this builder's
+            result to :class:`~ccf.projection.engine.ProjectionEngine` directly
+            — what every shipped example spine does — is the supported route.
+            ``ccf/products/resolver.py`` is outside this phase's ruled file
+            roster (D-IMPL-214) and was deliberately not touched.
 
     Returns:
         The populated registry. Nothing is sealed and nothing is frozen — the
@@ -238,12 +274,24 @@ def build_operator_registry(
         SimilarityCorpusAttributeError: the corpus could not be read; see
             :func:`_corpus`.
         ccf.operators.registry.DuplicateOperatorKey: two entries produce the same
-            operator key. Deliberately uncaught.
+            operator key — whether both come from ``parameters``, both from
+            ``deployment_operators``, or one from each. Deliberately uncaught
+            across the new channel as well as the old.
         ccf.deployment.pins.UnpinnedArtifactError: ``policy_bundle_key`` names no
             ``role: register`` manifest entry.
     """
     registry = OperatorRegistry()
     similarity: SimilaritySelectParametersArtifact | None = None
+
+    # Phase zero: the deployment's own operators (D-59). `register` takes NO
+    # category argument — category and parameter schema are read off the
+    # operator, because a caller-declared category would let the planner order
+    # an operator into a position it does not belong in, the
+    # Policy-after-Similarity failure INV-CH7-26 forbids. Sorted by key for the
+    # same reason the manifest loop is sorted, and registered before it so a key
+    # collision raises from one place rather than two.
+    for operator in sorted(deployment_operators, key=lambda candidate: candidate.key):
+        registry.register(operator)
 
     # Phase one: the parameter-only categories. Sorted so registration order is
     # a function of the manifest keys, not of mapping iteration order.

@@ -56,8 +56,19 @@ from ccf.deployment.operators import (
     build_operator_registry,
 )
 from ccf.deployment.pins import ArtifactPin, ResolvedPins
+from ccf.graph.protocols import GraphView
 from ccf.operators import params as operator_params
+from ccf.operators.base import (
+    Operator,
+    OperatorCategory,
+    OperatorOutput,
+    OperatorParameters,
+    OperatorProvenance,
+    mint_provenance,
+)
 from ccf.operators.registry import DuplicateOperatorKey
+from ccf.projection.engine import ProjectionEngine
+from ccf.projection.plan import Perspective, ProjectionOutput
 
 from tests.deployment.conftest import (
     POLICY_BUNDLE_KEY,
@@ -528,5 +539,259 @@ def test_two_entries_producing_one_operator_key_are_refused(
                 pins=booted.pins,
                 policy_bundle_key=POLICY_BUNDLE_KEY,
             )
+    finally:
+        booted.handle.close()
+
+
+# --- D-59: the deployment-operator registration seam -------------------------
+#
+# The operators below are TEST-LOCAL CLASSES, not fixtures. Criterion 16 budgets
+# this phase ONE `tests/` fixture and these spend none of it: they are test code
+# in the shape `tests/operators/test_planner.py::InertOperator` already uses.
+#
+# Each annotates `category` as `OperatorCategory` and needs NO `cast(Any, ...)`.
+# `examples/cp-00-institutional-holders/deployment.py::source_read` casts today
+# only because its operator annotates `category -> str`. **mypy does not read
+# `tests/`** (`files = ["src", "runtime"]`), so the absence of a cast here is
+# asserted BY READING, not by `make typecheck` — said plainly rather than
+# letting a green typecheck imply a coverage it does not have.
+
+
+class _DeploymentParameters(OperatorParameters):
+    """A declared parameter set with one distinguishing field."""
+
+    label: str
+
+
+class _DeploymentOperator:
+    """A conforming operator a deployment owns, not the SDK."""
+
+    def __init__(self, *, key: str, category: OperatorCategory, label: str) -> None:
+        self._key = key
+        self._category = category
+        self._parameters = _DeploymentParameters(label=label)
+
+    @property
+    def key(self) -> str:
+        return self._key
+
+    @property
+    def category(self) -> OperatorCategory:
+        return self._category
+
+    @property
+    def parameters(self) -> _DeploymentParameters:
+        return self._parameters
+
+    def apply(
+        self,
+        *,
+        view: GraphView,
+        tenant_id: str,
+        temporal_boundary: Any,
+        upstream: tuple[OperatorProvenance, ...],
+    ) -> OperatorOutput:
+        return OperatorOutput(
+            view=view, provenance=mint_provenance(self, upstream=upstream)
+        )
+
+
+class _MiscategorisedOperator(_DeploymentOperator):
+    """Reports a category outside the canonical four.
+
+    Typed `Any` on purpose: the whole point is a value the Literal forbids, so
+    a correctly-typed version of this class cannot exist.
+    """
+
+    @property
+    def category(self) -> Any:
+        return "enrich"
+
+
+class _PlanNamingTheDeploymentOperator:
+    """A projection plan that depends on the deployment's own operator key."""
+
+    def __init__(self, *, required: tuple[str, ...]) -> None:
+        self._required = required
+
+    @property
+    def plan_id(self) -> str:
+        return "plan.deployment-operator"
+
+    def required_operators(self) -> tuple[str, ...]:
+        return self._required
+
+    def invoke(
+        self,
+        *,
+        view: GraphView,
+        operator_outputs: Any,
+        perspective: Perspective,
+        temporal_boundary: Any,
+    ) -> ProjectionOutput:
+        return ProjectionOutput(plan_id=self.plan_id, payload={"seen": True})
+
+
+_DEPLOYMENT_OPERATOR_CONFORMANCE: tuple[type[Operator], ...] = (_DeploymentOperator,)
+
+
+def test_a_deployment_operator_reporting_a_non_canonical_category_is_refused(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """INV-CH7-26 through the new channel.
+
+    `OperatorRegistry.register` already refuses a non-canonical category; what
+    was owed is a test that the DEPLOYMENT channel reaches that refusal rather
+    than routing around it.
+    """
+    booted = _boot(deployment, tmp_path, name="miscategorised.sqlite3")
+    try:
+        view = booted.handle.reader.as_of(
+            tenant_id=TENANT,
+            at=booted.artifacts[SIGNAL_BATCH_KEY].envelopes[0].ingestion_timestamp,
+        )
+        with pytest.raises(ValueError) as caught:
+            build_operator_registry(
+                parameters=_parameters(booted, TRAVERSAL_KEY),
+                view=view,
+                pins=booted.pins,
+                policy_bundle_key=POLICY_BUNDLE_KEY,
+                deployment_operators=(
+                    _MiscategorisedOperator(
+                        key="deployment.miscategorised",
+                        category="traversal",
+                        label="x",
+                    ),
+                ),
+            )
+        message = str(caught.value)
+        assert "enrich" in message, message
+        assert "canonical" in message, message
+    finally:
+        booted.handle.close()
+
+
+def test_a_deployment_operator_colliding_with_a_manifest_key_is_fatal(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """INV-CH7-29 across the seam, UNCAUGHT.
+
+    `pytest.raises` wraps the builder call itself, never a helper that could
+    swallow it: two operators answering to one key make every plan naming it
+    ambiguous.
+    """
+    booted = _boot(deployment, tmp_path, name="collision.sqlite3")
+    try:
+        view = booted.handle.reader.as_of(
+            tenant_id=TENANT,
+            at=booted.artifacts[SIGNAL_BATCH_KEY].envelopes[0].ingestion_timestamp,
+        )
+        registry = build_operator_registry(
+            parameters=_parameters(booted, TRAVERSAL_KEY),
+            view=view,
+            pins=booted.pins,
+            policy_bundle_key=POLICY_BUNDLE_KEY,
+        )
+        (sdk_key,) = registry.keys()
+
+        with pytest.raises(DuplicateOperatorKey):
+            build_operator_registry(
+                parameters=_parameters(booted, TRAVERSAL_KEY),
+                view=view,
+                pins=booted.pins,
+                policy_bundle_key=POLICY_BUNDLE_KEY,
+                deployment_operators=(
+                    _DeploymentOperator(
+                        key=sdk_key, category="traversal", label="collide"
+                    ),
+                ),
+            )
+    finally:
+        booted.handle.close()
+
+
+def test_two_deployment_operators_sharing_one_key_are_fatal_in_the_seam(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """INV-CH7-29 raised BY THE SEAM'S OWN `register`, not by the manifest loop.
+
+    This test exists because the manifest-collision test above does NOT cover
+    the seam: deployment operators register FIRST, so a deployment-vs-manifest
+    collision raises from the manifest loop, and a sabotage that swallows
+    `DuplicateOperatorKey` inside the seam's loop leaves that test GREEN. It was
+    watched doing exactly that. Two deployment operators sharing one key is the
+    case only the seam can refuse.
+    """
+    booted = _boot(deployment, tmp_path, name="seam-collision.sqlite3")
+    try:
+        view = booted.handle.reader.as_of(
+            tenant_id=TENANT,
+            at=booted.artifacts[SIGNAL_BATCH_KEY].envelopes[0].ingestion_timestamp,
+        )
+        with pytest.raises(DuplicateOperatorKey):
+            build_operator_registry(
+                parameters=_parameters(booted, TRAVERSAL_KEY),
+                view=view,
+                pins=booted.pins,
+                policy_bundle_key=POLICY_BUNDLE_KEY,
+                deployment_operators=(
+                    _DeploymentOperator(
+                        key="deployment.twice", category="traversal", label="first"
+                    ),
+                    _DeploymentOperator(
+                        key="deployment.twice", category="temporal", label="second"
+                    ),
+                ),
+            )
+    finally:
+        booted.handle.close()
+
+
+def test_a_deployment_operator_reaches_the_plan_and_appears_in_lineage(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """SC-1, and the reason it is worded the way it is.
+
+    A test that registers an operator and reads it back out of the registry
+    proves registration and NOTHING ELSE. This asserts on the EXECUTION's own
+    facts: the engine-resolved operator set, and the provenance chain of the
+    final intermediate.
+    """
+    booted = _boot(deployment, tmp_path, name="lineage.sqlite3")
+    try:
+        boundary = booted.artifacts[SIGNAL_BATCH_KEY].envelopes[0].ingestion_timestamp
+        view = booted.handle.reader.as_of(tenant_id=TENANT, at=boundary)
+        key = "deployment.reaches-the-plan"
+
+        registry = build_operator_registry(
+            parameters=_parameters(booted, TRAVERSAL_KEY),
+            view=view,
+            pins=booted.pins,
+            policy_bundle_key=POLICY_BUNDLE_KEY,
+            deployment_operators=(
+                _DeploymentOperator(key=key, category="traversal", label="reaches"),
+            ),
+        )
+
+        execution = ProjectionEngine(
+            reader=booted.handle.reader, registry=registry
+        ).execute(
+            plan=_PlanNamingTheDeploymentOperator(required=(key,)),
+            perspective=Perspective(principal_id="principal", role="analyst"),
+            tenant_id=TENANT,
+            temporal_boundary=boundary,
+        )
+
+        assert key in execution.operators_invoked, execution.operators_invoked
+
+        chain: list[str] = []
+        frontier = [execution.provenance]
+        while frontier:
+            node = frontier.pop()
+            if node is None:
+                continue
+            chain.append(node.operator_key)
+            frontier.extend(node.upstream)
+        assert key in chain, chain
     finally:
         booted.handle.close()
