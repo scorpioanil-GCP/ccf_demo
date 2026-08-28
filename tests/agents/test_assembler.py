@@ -55,6 +55,11 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
 from ccf.projection.acquisition import AcquiredContent, ContentRequest
 from ccf.projection.plan import Perspective, ProjectionOutput
+from ccf.products.request import (
+    ProductRequestContract,
+    ProductRequestViolation,
+)
+from ccf.skills.catalog import SkillArgumentSchema
 from ccf.products.contract import RegisteredProductClass
 from ccf.products.request import ProductRequest
 from ccf.skills.catalog import (
@@ -870,3 +875,77 @@ def test_channel_2_governs_enlistment_and_the_outcome_records_it(
     assert any("grant" in action for action in actions), actions
     assert any("revoke" in action for action in actions), actions
     assert agent.identity.definition_hash == definition_hash
+
+
+# --- D-60: a governed refusal RETURNS as data ---------------------------------
+
+
+def _contract(agent: Agent) -> ProductRequestContract:
+    """The declared request contract for the class the fixture names."""
+    consumed = agent.definition.context_contract.consumes[0]
+    return ProductRequestContract(
+        schema_name=consumed.product_class,
+        schema_version=consumed.schema_version,
+        semver="1.0.0",
+        arguments=SkillArgumentSchema(properties={}, required=()),
+    )
+
+
+def test_a_reference_assembler_with_no_contract_is_byte_for_byte_unchanged(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The default is the old behaviour, so no existing caller moves."""
+    agent = _assembler_agent(registry)
+    without = DeterministicAssembler(agent=agent, projection=_projection())
+    outcome = without.assemble(
+        request=_request(agent),
+        perspective=_perspective(agent),
+        tenant_id=agent.definition.tenant,
+    )
+    assert isinstance(outcome, AssemblyOutcome)
+    assert outcome.payload == _projection().payload
+
+
+def test_a_non_conforming_request_is_returned_as_data_not_raised(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """SC-4's *as data* clause.
+
+    The assembler holds a governed refusal and RETURNS it. A raised refusal can
+    be swallowed by a bare ``except``; a returned one cannot.
+    """
+    agent = _assembler_agent(registry)
+    assembler = DeterministicAssembler(
+        agent=agent, projection=_projection(), request_contract=_contract(agent)
+    )
+    asked = _request(agent).model_copy(update={"schema_name": "not.the.declared.class"})
+
+    outcome = assembler.assemble(
+        request=asked,
+        perspective=_perspective(agent),
+        tenant_id=agent.definition.tenant,
+    )
+
+    assert isinstance(outcome, ProductRequestViolation), type(outcome)
+    assert outcome.presented_type == "not.the.declared.class"
+
+
+def test_a_conforming_request_still_returns_an_outcome(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The vacuity guard.
+
+    Without this, the refusal leg above passes against an assembler that
+    refuses everything — which would discharge SC-4 while making the reference
+    assembler useless.
+    """
+    agent = _assembler_agent(registry)
+    assembler = DeterministicAssembler(
+        agent=agent, projection=_projection(), request_contract=_contract(agent)
+    )
+    outcome = assembler.assemble(
+        request=_request(agent),
+        perspective=_perspective(agent),
+        tenant_id=agent.definition.tenant,
+    )
+    assert isinstance(outcome, AssemblyOutcome), type(outcome)

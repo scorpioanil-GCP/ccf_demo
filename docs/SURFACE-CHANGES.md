@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**746 entries**, of which **508** name a public Python surface.
+**747 entries**, of which **509** name a public Python surface.
 
 ## Added
 
@@ -12196,7 +12196,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-83 entries — 63 public Python surface, 20 not public Python API.
+84 entries — 64 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -12231,6 +12231,39 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none — additive and keyword-only with a default
 
 *Recorded by `24.1.1-02-the-deployment-operator-reaches-the-plan.md`.*
+
+#### Surface
+
+- Surface: ccf.agents.assembler.DeterministicAssembler
+- Public surface: true
+- Change type: behavior
+- Before: `(agent: 'Agent', projection: 'ProjectionOutput', acquisitions:
+  'tuple[AcquiredContent, ...]' = ()) -> None` — the reference assembler could only succeed
+  or raise, so the SDK's own worked example demonstrated *raise-or-succeed* while the
+  codebase taught refusal-as-data
+- After: the same constructor plus one optional field, `request_contract:
+  'ProductRequestContract | None' = None`. With it absent the assembler is byte-for-byte
+  what it was; with it present, `assemble` makes ONE call into
+  `src/ccf/products/request.py::refuse_request` and RETURNS the resulting
+  `ProductRequestViolation`
+- Why: `D-IMPL-214`, ruling on criterion 6 — *"`DeterministicAssembler` is what deployments
+  diff against. If only a test-local assembler can refuse, the reference impl still
+  demonstrates 'raise or succeed' and criterion 6 becomes theater."* The conformity check is
+  ordered AFTER the two identity checks, because a question asked of the wrong agent is not
+  a question about a contract's conformity
+- Migration: none — additive and keyword-only with a default
+- Surface: ccf.agents.DeterministicAssembler
+- Public surface: true
+- Change type: behavior
+- Before: the package re-export of the same class, carrying the same constructor shape
+- After: the same re-export, carrying the reshaped constructor above
+- Why: the same change, visible at the package boundary because `ccf.agents` re-exports the
+  symbol. Recorded as its own entry because the manifest records it as its own entry — and
+  because the plan predicted ONE reshaped entry where the tree has TWO, which is the reason
+  a fragment claims what was measured rather than what was expected
+- Migration: none — additive and keyword-only with a default
+
+*Recorded by `24.1.1-03-a-refusal-returns-as-data.md`.*
 
 #### ccf.controlplane.artifacts.load_artifact
 
