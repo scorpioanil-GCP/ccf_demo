@@ -355,6 +355,7 @@ def _ask(root: pathlib.Path, parameters: Any, **kwargs: Any) -> tuple[Any, Any]:
         perspective=deployment.perspective(),
         tenant_id=deployment.tenant_id(),
     )
+    assert isinstance(outcome, AssemblyOutcome)
     return outcome, recorder.seen
 
 
@@ -518,15 +519,21 @@ def test_a_missing_threshold_is_refused_not_defaulted(
     assert violation.key == deployment.THRESHOLD_PARAMETER
     assert not hasattr(violation, "product")
 
+    # D-60 CLOSED (24.1.1-03). This leg used to assert `pytest.raises` and then
+    # reach around the exception into the observer for the typed value; its own
+    # docstring said it was written in both shapes "so that closing it later
+    # changes an assertion rather than passing silently." This is that change.
+    # The seam now RETURNS the governed refusal, so the client branches on a
+    # value and the observer reach-around is gone.
     recorder = _Recorder()
-    with pytest.raises(AssemblyRefused):
-        _assembler(tmp_path / "seam", recorder).assemble(
-            request=deployment.request(parameters={}),
-            perspective=deployment.perspective(),
-            tenant_id=deployment.tenant_id(),
-        )
-    assert isinstance(recorder.seen, ProductRequestViolation)
-    assert recorder.seen.key == deployment.THRESHOLD_PARAMETER
+    returned = _assembler(tmp_path / "seam", recorder).assemble(
+        request=deployment.request(parameters={}),
+        perspective=deployment.perspective(),
+        tenant_id=deployment.tenant_id(),
+    )
+    assert isinstance(returned, ProductRequestViolation), type(returned)
+    assert returned.key == deployment.THRESHOLD_PARAMETER
+    assert returned.reason == "missing-required-parameter"
 
 
 # --------------------------------------------------------------------------
@@ -549,6 +556,11 @@ def test_the_assembler_seam_is_the_path(
         perspective=deployment.perspective(),
         tenant_id=deployment.tenant_id(),
     )
+    # D-60: the seam returns a union now. The branch is redundant for the
+    # type-checker here (the receiver's type is concrete) and is written
+    # anyway, because criterion 8 says EVERY call site and a site that does
+    # not branch reads as one written before the widening.
+    assert isinstance(outcome, AssemblyOutcome)
     assembler = _load("assembler")
     assert isinstance(outcome, AssemblyOutcome)
     assert outcome.assembler_id == assembler.ASSEMBLER_ID
@@ -787,6 +799,50 @@ def printed(seeded: str) -> str:
     finally:
         sys.argv = argv
     return buffer.getvalue()
+
+
+def test_the_client_returns_a_non_zero_exit_code_on_a_governed_refusal(
+    seeded: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The client's D-60 branch, gated.
+
+    This test exists because deleting that branch from ``run.py`` was watched
+    to leave the whole cp-00 suite GREEN: both existing ``run.main()``
+    invocations assert ``== 0``, so nothing exercised the refusal path through
+    the client and the branch could have been removed unnoticed. A happy-path
+    assertion is not a gate on the unhappy path.
+
+    The refusal is provoked the way the specification control above provokes an
+    empty spec — by repointing a deployment value — because ``run.py`` always
+    supplies the declared threshold and can never refuse on its own arguments.
+    """
+    run = _load("run")
+    deployment = _load("deployment")
+    original = deployment.request
+
+    def _without_the_threshold(**kwargs: Any) -> Any:
+        # The parameters the client supplies are dropped, so the question
+        # reaching the seam is the one the tripwire above uses: missing the
+        # required threshold. Patching `THRESHOLD_PARAMETER` itself does not
+        # work — the deployment reads that key directly and raises a KeyError
+        # long before the request is built.
+        kwargs["parameters"] = {}
+        return original(**kwargs)
+
+    monkeypatch.setattr(deployment, "request", _without_the_threshold)
+
+    buffer = io.StringIO()
+    argv = sys.argv
+    sys.argv = [str(EXAMPLE / "run.py")]
+    try:
+        with contextlib.redirect_stdout(buffer):
+            code = run.main()
+    finally:
+        sys.argv = argv
+    monkeypatch.undo()
+
+    assert code == 1, code
+    assert "refused:" in buffer.getvalue(), buffer.getvalue()[:200]
 
 
 def test_the_printed_specification_and_json_are_non_empty_and_the_json_validates(

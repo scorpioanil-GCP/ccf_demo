@@ -177,22 +177,15 @@ class HoldersAssembler:
         )
         self.observer(assembled)
 
-        # A GOVERNED REFUSAL HAS NO RETURN CHANNEL ON THIS SEAM, AND THAT IS
-        # RECORDED RATHER THAN WORKED AROUND. `refuse_request` returns a
-        # `ProductRequestViolation` as DATA — the posture this codebase states
-        # everywhere: a bad question is a bad question, not a broken
-        # deployment, and a verdict returned as a value cannot be swallowed by
-        # a bare `except`. `assemble` is typed to return an `AssemblyOutcome`
-        # and nothing else, so the only way a conforming assembler can report
-        # one is to raise. The violation itself is handed to the observer
-        # first, so a client still renders the refusal from the typed value
-        # rather than from this message. Reported in this wave's summary as an
-        # SDK finding; nothing in `src/` was changed for it.
+        # A GOVERNED REFUSAL IS RETURNED, NOT RAISED (D-60, closed in phase
+        # 24.1.1). `refuse_request` produces a `ProductRequestViolation` as
+        # DATA — a bad question is a bad question, not a broken deployment —
+        # and `ContextAssemblerProtocol.assemble` now has the return channel
+        # to carry it, so this assembler hands the caller the value rather
+        # than a message about it. A verdict returned as a value cannot be
+        # swallowed by a bare `except`.
         if isinstance(assembled, ProductRequestViolation):
-            raise AssemblyRefused(
-                f"the request was refused as {assembled.reason!r} at"
-                f" {assembled.key!r}: {assembled.detail}"
-            )
+            return assembled
 
         if assembled.tenant_id != tenant_id:
             raise AssemblyRefused(

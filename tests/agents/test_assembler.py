@@ -248,6 +248,13 @@ def test_the_protocol_carries_a_pinnable_identity(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    # D-60 widened the seam to `AssemblyOutcome | ProductRequestViolation`, so
+    # every call site branches. Here and at most sites below the branch is
+    # REDUNDANT FOR THE TYPE-CHECKER — the receiver is a concrete assembler and
+    # mypy does not read `tests/` at all — and it is written anyway, because
+    # criterion 8 says *every* call site and a site that does not branch reads
+    # as one written before the widening.
+    assert isinstance(outcome, AssemblyOutcome)
     assert outcome.assembler_id == assembler.assembler_id
     assert outcome.assembler_version == assembler.assembler_version
 
@@ -304,6 +311,7 @@ def test_acquired_content_travels_with_its_content_address(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    assert isinstance(outcome, AssemblyOutcome)
     assert outcome.acquisitions == (acquired,)
     assert outcome.acquisitions[0].content_hash == acquired.rehash()
 
@@ -321,6 +329,7 @@ def test_the_reference_assembler_consults_nothing(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    assert isinstance(outcome, AssemblyOutcome)
     assert outcome.consultations == NO_CONSULTATIONS
     assert outcome.consultations.permitted == ()
     assert outcome.consultations.refused == ()
@@ -337,6 +346,7 @@ def test_the_reference_assembler_returns_the_projection_payload_unchanged(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    assert isinstance(outcome, AssemblyOutcome)
     assert outcome.payload == projection.payload
 
 
@@ -772,6 +782,7 @@ def test_axis_5_is_pinned_resolved_at_construction_and_reported(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    assert isinstance(outcome, AssemblyOutcome)
     assert outcome.halflife_debt_profile == ref
 
     # And the factory refuses a definition whose axis-5 pin resolves to
@@ -850,6 +861,7 @@ def test_channel_2_governs_enlistment_and_the_outcome_records_it(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    assert isinstance(granted_outcome, AssemblyOutcome)
     assert grant.skill_name in granted_outcome.skill_set_in_force
     # The agent can enlist it while it is bound.
     assert agent.invoke_skill(grant.skill_name) is not None
@@ -861,6 +873,11 @@ def test_channel_2_governs_enlistment_and_the_outcome_records_it(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    # D-60: the seam returns a union now. The branch is redundant for the
+    # type-checker here (the receiver's type is concrete) and is written
+    # anyway, because criterion 8 says EVERY call site and a site that does
+    # not branch reads as one written before the widening.
+    assert isinstance(revoked_outcome, AssemblyOutcome)
     assert grant.skill_name not in revoked_outcome.skill_set_in_force
     with pytest.raises(SkillNotBound):
         agent.invoke_skill(grant.skill_name)
