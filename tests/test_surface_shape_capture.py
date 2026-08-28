@@ -445,6 +445,43 @@ def test_every_moved_name_is_a_call_protocol_or_a_type_alias(
 #: ``__init__``. The claim is therefore amended in reach rather than withdrawn:
 #: every *unlisted* shape must still read identically.
 _SHAPE_MOVED_BY_FRAGMENT = {
+    # Phase 24.1.1 (D-58, D-IMPL-213, D-IMPL-214). Three additive,
+    # keyword-only, defaulted widenings across the two Protocol-shaped seams —
+    # exactly the case this allowance was written for. Every existing call site
+    # reads identically at the signature, and each fragment claims its name as
+    # `behavior`. Measured rather than asserted: 40 `build_replay_record` call
+    # sites across 30 files and 11 `build_operator_registry` calls in
+    # `tests/deployment/test_operator_builder.py` all compile and pass
+    # unmodified.
+    #
+    # D-59 — `deployment_operators: Sequence[Operator] = ()`, so a deployment's
+    # own operator reaches the registry the operator plan reads. Both entries
+    # are the same function: the module and its package re-export.
+    "ccf.deployment.operators.build_operator_registry": (
+        "24.1.1-02-the-deployment-operator-reaches-the-plan.md"
+    ),
+    "ccf.deployment.build_operator_registry": (
+        "24.1.1-02-the-deployment-operator-reaches-the-plan.md"
+    ),
+    # D-60 — the reference assembler gained `request_contract:
+    # ProductRequestContract | None = None`, so it can RETURN a governed
+    # refusal instead of only raising. With the field absent it is
+    # byte-for-byte what it was. Both entries are the same class.
+    "ccf.agents.assembler.DeterministicAssembler": (
+        "24.1.1-03-a-refusal-returns-as-data.md"
+    ),
+    "ccf.agents.DeterministicAssembler": (
+        "24.1.1-03-a-refusal-returns-as-data.md"
+    ),
+    # D-IMPL-214 Reading B — `assembly_refusal: str | None = None`, threaded
+    # with the `if X is not None else SENTINEL` expression the three
+    # `hitl_actions`-family precedents use, so a refusal gains an identity on
+    # dimension 5 and no existing call site moves. `ContentGenerationPath`'s
+    # own move is invisible here: it is a `contract`-kind export and the loop
+    # below skips every kind that is not `class` or `function`.
+    "ccf.replay.record.build_replay_record": (
+        "24.1.1-04-a-refusal-has-an-identity-in-the-record.md"
+    ),
     "ccf_runtime.http_api.dependencies.ApiDependencies": (
         "16-22-consumption-papercuts.md"
     ),

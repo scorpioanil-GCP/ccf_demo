@@ -55,6 +55,11 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
 from ccf.projection.acquisition import AcquiredContent, ContentRequest
 from ccf.projection.plan import Perspective, ProjectionOutput
+from ccf.products.request import (
+    ProductRequestContract,
+    ProductRequestViolation,
+)
+from ccf.skills.catalog import SkillArgumentSchema
 from ccf.products.contract import RegisteredProductClass
 from ccf.products.request import ProductRequest
 from ccf.skills.catalog import (
@@ -243,6 +248,13 @@ def test_the_protocol_carries_a_pinnable_identity(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    # D-60 widened the seam to `AssemblyOutcome | ProductRequestViolation`, so
+    # every call site branches. Here and at most sites below the branch is
+    # REDUNDANT FOR THE TYPE-CHECKER — the receiver is a concrete assembler and
+    # mypy does not read `tests/` at all — and it is written anyway, because
+    # criterion 8 says *every* call site and a site that does not branch reads
+    # as one written before the widening.
+    assert isinstance(outcome, AssemblyOutcome)
     assert outcome.assembler_id == assembler.assembler_id
     assert outcome.assembler_version == assembler.assembler_version
 
@@ -299,6 +311,7 @@ def test_acquired_content_travels_with_its_content_address(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    assert isinstance(outcome, AssemblyOutcome)
     assert outcome.acquisitions == (acquired,)
     assert outcome.acquisitions[0].content_hash == acquired.rehash()
 
@@ -316,6 +329,7 @@ def test_the_reference_assembler_consults_nothing(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    assert isinstance(outcome, AssemblyOutcome)
     assert outcome.consultations == NO_CONSULTATIONS
     assert outcome.consultations.permitted == ()
     assert outcome.consultations.refused == ()
@@ -332,6 +346,7 @@ def test_the_reference_assembler_returns_the_projection_payload_unchanged(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    assert isinstance(outcome, AssemblyOutcome)
     assert outcome.payload == projection.payload
 
 
@@ -725,6 +740,11 @@ def test_axis_4_bounds_what_an_assembler_may_consult(
         )
         for role, agent in (("narrow", narrow), ("wide", wide))
     }
+    # D-60: the comprehension's values come off the widened seam, so they are
+    # branched here rather than at each element — both regimes CONFORM, and a
+    # governed refusal reaching this test would be a different failure than the
+    # one it is written to catch.
+    assert all(isinstance(o, AssemblyOutcome) for o in outcomes.values()), outcomes
     assert outcomes["wide"].consultations.permitted == requested
     assert outcomes["wide"].consultations.refused == ()
     assert outcomes["narrow"].consultations.permitted == ()
@@ -767,6 +787,7 @@ def test_axis_5_is_pinned_resolved_at_construction_and_reported(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    assert isinstance(outcome, AssemblyOutcome)
     assert outcome.halflife_debt_profile == ref
 
     # And the factory refuses a definition whose axis-5 pin resolves to
@@ -845,6 +866,7 @@ def test_channel_2_governs_enlistment_and_the_outcome_records_it(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    assert isinstance(granted_outcome, AssemblyOutcome)
     assert grant.skill_name in granted_outcome.skill_set_in_force
     # The agent can enlist it while it is bound.
     assert agent.invoke_skill(grant.skill_name) is not None
@@ -856,6 +878,11 @@ def test_channel_2_governs_enlistment_and_the_outcome_records_it(
         perspective=_perspective(agent),
         tenant_id=agent.definition.tenant,
     )
+    # D-60: the seam returns a union now. The branch is redundant for the
+    # type-checker here (the receiver's type is concrete) and is written
+    # anyway, because criterion 8 says EVERY call site and a site that does
+    # not branch reads as one written before the widening.
+    assert isinstance(revoked_outcome, AssemblyOutcome)
     assert grant.skill_name not in revoked_outcome.skill_set_in_force
     with pytest.raises(SkillNotBound):
         agent.invoke_skill(grant.skill_name)
@@ -870,3 +897,127 @@ def test_channel_2_governs_enlistment_and_the_outcome_records_it(
     assert any("grant" in action for action in actions), actions
     assert any("revoke" in action for action in actions), actions
     assert agent.identity.definition_hash == definition_hash
+
+
+# --- D-60: a governed refusal RETURNS as data ---------------------------------
+
+
+def _contract(agent: Agent) -> ProductRequestContract:
+    """The declared request contract for the class the fixture names."""
+    consumed = agent.definition.context_contract.consumes[0]
+    return ProductRequestContract(
+        schema_name=consumed.product_class,
+        schema_version=consumed.schema_version,
+        semver="1.0.0",
+        arguments=SkillArgumentSchema(properties={}, required=()),
+    )
+
+
+def test_a_reference_assembler_with_no_contract_is_byte_for_byte_unchanged(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The default is the old behaviour, so no existing caller moves."""
+    agent = _assembler_agent(registry)
+    without = DeterministicAssembler(agent=agent, projection=_projection())
+    outcome = without.assemble(
+        request=_request(agent),
+        perspective=_perspective(agent),
+        tenant_id=agent.definition.tenant,
+    )
+    assert isinstance(outcome, AssemblyOutcome)
+    assert outcome.payload == _projection().payload
+
+
+def test_a_non_conforming_request_is_returned_as_data_not_raised(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """SC-4's *as data* clause.
+
+    The assembler holds a governed refusal and RETURNS it. A raised refusal can
+    be swallowed by a bare ``except``; a returned one cannot.
+    """
+    agent = _assembler_agent(registry)
+    assembler = DeterministicAssembler(
+        agent=agent, projection=_projection(), request_contract=_contract(agent)
+    )
+    asked = _request(agent).model_copy(update={"schema_name": "not.the.declared.class"})
+
+    outcome = assembler.assemble(
+        request=asked,
+        perspective=_perspective(agent),
+        tenant_id=agent.definition.tenant,
+    )
+
+    assert isinstance(outcome, ProductRequestViolation), type(outcome)
+    assert outcome.presented_type == "not.the.declared.class"
+
+
+def test_a_conforming_request_still_returns_an_outcome(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The vacuity guard.
+
+    Without this, the refusal leg above passes against an assembler that
+    refuses everything — which would discharge SC-4 while making the reference
+    assembler useless.
+    """
+    agent = _assembler_agent(registry)
+    assembler = DeterministicAssembler(
+        agent=agent, projection=_projection(), request_contract=_contract(agent)
+    )
+    outcome = assembler.assemble(
+        request=_request(agent),
+        perspective=_perspective(agent),
+        tenant_id=agent.definition.tenant,
+    )
+    assert isinstance(outcome, AssemblyOutcome), type(outcome)
+
+
+def test_the_protocol_return_type_names_the_governed_refusal(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """D-60's widening, GATED.
+
+    Found by the close panel. Every existing control inspected
+    ``signature.parameters`` — the keyword-only shape — and none inspected
+    ``return_annotation``, so the Protocol half of the widening could be
+    narrowed back to ``AssemblyOutcome`` with the whole suite green. The
+    consequential change was the one thing nothing looked at.
+    """
+    import inspect
+
+    annotation = str(
+        inspect.signature(ContextAssemblerProtocol.assemble).return_annotation
+    )
+    assert "AssemblyOutcome" in annotation, annotation
+    assert "ProductRequestViolation" in annotation, annotation
+
+
+def test_identity_is_judged_before_contract_conformity(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The documented ordering, GATED under ONE call.
+
+    Found by the close panel. The tenant leg carried no ``request_contract``
+    and the conformity leg carried a valid identity, so no input ever crossed
+    the two and the order could be reversed with both green. A question asked
+    of the wrong agent is not a question about a contract's conformity, and
+    answering the conformity question first gives a confident verdict on the
+    wrong one.
+    """
+    agent = _assembler_agent(registry)
+    assembler = DeterministicAssembler(
+        agent=agent, projection=_projection(), request_contract=_contract(agent)
+    )
+    non_conforming = _request(agent).model_copy(
+        update={"schema_name": "not.the.declared.class"}
+    )
+
+    # BOTH wrong at once: a foreign tenant AND a non-conforming question.
+    with pytest.raises(AssemblyRefused) as caught:
+        assembler.assemble(
+            request=non_conforming,
+            perspective=_perspective(agent),
+            tenant_id="not-this-agents-tenant",
+        )
+    assert "tenant" in str(caught.value)

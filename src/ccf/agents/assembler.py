@@ -74,6 +74,11 @@ from pydantic import model_validator
 
 from ccf.agents.agent import Agent
 from ccf.agents.errors import AssemblyRefused
+from ccf.products.request import (
+    ProductRequestContract,
+    ProductRequestViolation,
+    refuse_request,
+)
 from ccf.contracts.base import CCFContract
 from ccf.projection.acquisition import AcquiredContent
 from ccf.projection.plan import Perspective, ProjectionOutput
@@ -86,9 +91,21 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     # imports ``ccf.agents.definitions`` — which initializes this package. A
     # module-level import here would make the success of that graph depend on
     # which module a caller reached first, the non-determinism D-IMPL-37
-    # rejects. ``ProductRequest`` appears only in annotations, which
-    # ``from __future__ import annotations`` leaves unevaluated, so nothing at
-    # runtime needs the name.
+    # rejects.
+    #
+    # **That caution was MEASURED rather than inherited when D-60 landed, and
+    # it did not fire.** Sweeping all 141 ``ccf`` modules, each imported first
+    # in a fresh interpreter: the module-level ``from ccf.products.request
+    # import ...`` above breaks **0**, against a baseline of 0 on the
+    # unmodified tree and a positive control — ``from ccf.products.refusal
+    # import RefusalEnvelope`` in the same position — breaking **15**. The
+    # difference is that ``ccf.products.request`` already defers its own
+    # cycle-closing import to the bottom of its module (D-IMPL-56), while
+    # ``ccf.products.refusal`` does not. The control is what makes the 0 a
+    # measurement rather than a sweep that was not running.
+    #
+    # ``ProductRequest`` stays here because it appears only in annotations,
+    # which ``from __future__ import annotations`` leaves unevaluated.
     from ccf.products.request import ProductRequest
 
 __ccf_mode__ = "algorithmic"
@@ -278,12 +295,32 @@ class ContextAssemblerProtocol(Protocol):
         request: ProductRequest,
         perspective: Perspective,
         tenant_id: str,
-    ) -> AssemblyOutcome:
+    ) -> AssemblyOutcome | ProductRequestViolation:
         """Assemble one answer to ``request`` for ``perspective``.
 
         Reads no clock: the instant is ``request.asked_at``, supplied by the
         caller at serve time and by replay at replay time through the same code
         path — the property :mod:`ccf.products.request` exists to preserve.
+
+        **A governed refusal is RETURNED, never raised** (D-60, D-IMPL-214).
+        :class:`~ccf.products.request.ProductRequestViolation`'s own docstring
+        states the posture this widening finally lets a conforming assembler
+        honour: *a refusal returned as data cannot be swallowed by a bare*
+        ``except``. An implementation that has decided the question does not
+        conform to its declared contract returns the violation; it does not
+        raise one.
+
+        **The boundary between the two channels, in one sentence:** a
+        *governed* refusal — this question does not conform to the contract it
+        addresses — is DATA and returns here, while an *identity* disagreement
+        — this question was asked of the wrong tenant, or under a role this
+        agent was not declared for — stays
+        :class:`~ccf.agents.errors.AssemblyRefused`, because it says the caller
+        reached the wrong agent rather than that the answer is a refusal.
+
+        Return types are covariant, so an implementation that only ever
+        succeeds keeps ``-> AssemblyOutcome`` and stays conforming; nothing in
+        the tree had to widen its own annotation for this change.
         """
         ...
 
@@ -321,11 +358,27 @@ class DeterministicAssembler:
             Π means.
         acquisitions: Content acquired at decision time, in resolution order.
             Empty is the deterministic case.
+        request_contract: The declared request contract this assembler judges a
+            question's conformity against, or ``None`` — the default — to judge
+            none. **Optional on purpose.** With it absent this assembler is
+            byte-for-byte what it was, so no caller that predates D-60 moves.
+            With it present, :meth:`assemble` makes ONE call into
+            :func:`~ccf.products.request.refuse_request` and RETURNS the
+            resulting :class:`~ccf.products.request.ProductRequestViolation`
+            as data.
+
+            **This teaches the reference assembler no domain rule** (D-IMPL-214,
+            CLAUDE.md §11). The contract is a Control Plane artifact the
+            deployment authored and `refuse_request` is the SDK's own door
+            function; nothing here evaluates a threshold, a routing table or a
+            business condition, and this assembler still consults nothing and
+            still returns Π's payload unchanged.
     """
 
     agent: Agent
     projection: ProjectionOutput
     acquisitions: tuple[AcquiredContent, ...] = field(default=())
+    request_contract: ProductRequestContract | None = field(default=None)
 
     @property
     def assembler_id(self) -> str:
@@ -341,7 +394,7 @@ class DeterministicAssembler:
         request: ProductRequest,
         perspective: Perspective,
         tenant_id: str,
-    ) -> AssemblyOutcome:
+    ) -> AssemblyOutcome | ProductRequestViolation:
         """Return the governed outcome for ``request`` under ``perspective``.
 
         Two refusals, both raised rather than repaired and both naming each
@@ -350,10 +403,27 @@ class DeterministicAssembler:
         an assembler does not choose which of two disagreeing statements is
         right, because only the deployment's author knows which was meant.
 
+        **A third refusal, and it RETURNS rather than raises** (D-60): when
+        this assembler was constructed with a ``request_contract`` and the
+        question does not conform to it, the
+        :class:`~ccf.products.request.ProductRequestViolation` is the return
+        value. **Ordered AFTER the two identity checks on purpose** — a
+        question asked of the wrong agent is not a question about a contract's
+        conformity, and answering the conformity question first would give a
+        confident verdict on the wrong one, which is exactly what
+        :func:`~ccf.products.request.refuse_request`'s own address-before-
+        parameters ordering exists to prevent.
+
+        Returns:
+            The :class:`AssemblyOutcome`, or a
+            :class:`~ccf.products.request.ProductRequestViolation` when a
+            declared contract was supplied and the question does not conform.
+
         Raises:
             AssemblyRefused: ``tenant_id`` is not the declared agent's tenant,
                 or ``perspective`` is not the axis-3 role it was declared
-                under.
+                under. Identity, not conformity — see the Protocol's own
+                boundary sentence.
         """
         declared = self.agent.definition
         if tenant_id != declared.tenant:
@@ -372,6 +442,12 @@ class DeterministicAssembler:
                 " identity, so a different perspective is a different agent"
                 " (CLAUDE.md §6.2)"
             )
+        if self.request_contract is not None:
+            violation = refuse_request(
+                request=request, declared=self.request_contract
+            )
+            if violation is not None:
+                return violation
         return AssemblyOutcome(
             payload=self.projection.payload,
             consultations=NO_CONSULTATIONS,

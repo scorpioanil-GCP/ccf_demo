@@ -65,5 +65,8 @@
   "agent_skills": {},
   "features": {},
   "mode": "interactive",
-  "granularity": "standard"
+  "granularity": "standard",
+  "model_overrides": {
+    "gsd-phase-researcher": "claude-fable-5"
+  }
 }

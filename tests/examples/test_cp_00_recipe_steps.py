@@ -57,6 +57,7 @@ import pytest
 import yaml
 
 from ccf.products.gates import ServableProduct
+from ccf.products.request import ProductRequestViolation
 
 pytestmark = pytest.mark.postgres
 
@@ -165,7 +166,7 @@ def run(seeded: str, tmp_path_factory: pytest.TempPathFactory) -> Any:
     assembler = _load("assembler")
     root = tmp_path_factory.mktemp("recipe")
     recorder = _Recorder()
-    assembler.HoldersAssembler(
+    seam_outcome = assembler.HoldersAssembler(
         config=deployment.CONFIG,
         root=root,
         connection=deployment.connection(root=root),
@@ -181,6 +182,10 @@ def run(seeded: str, tmp_path_factory: pytest.TempPathFactory) -> Any:
         perspective=deployment.perspective(),
         tenant_id=deployment.tenant_id(),
     )
+    # D-60: this site used to discard its return. It is branched now — the
+    # witnesses below are facts about a run that SUCCEEDED, and a governed
+    # refusal reaching here would make every one of them a fact about nothing.
+    assert not isinstance(seam_outcome, ProductRequestViolation), seam_outcome
     return recorder.seen
 
 

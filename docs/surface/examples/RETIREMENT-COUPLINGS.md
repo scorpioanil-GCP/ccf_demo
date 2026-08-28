@@ -108,8 +108,8 @@ Rows by coupling shape:
 | `examples/cp-00-institutional-holders/ccf_config.yaml` | 25 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 205 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 786 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1191 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1404 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1195 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1408 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/external/README.md` | 23 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/external/README.md` | 62 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/external/README.md` | 73 | `archive/examples/03-harness-portability` | `prose` | documentary | - | - | 23-04 |  |
@@ -238,7 +238,7 @@ Rows by coupling shape:
 | `tests/deployment/test_config_document.py` | 29 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/deployment/test_config_equivalence.py` | 42 | `tests/examples/test_s1_00_config_equivalence.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/deployment/test_manifest.py` | 930 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 23-10 |  |
-| `tests/deployment/test_operator_builder.py` | 479 | `archive/examples/02-skilling` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/deployment/test_operator_builder.py` | 490 | `archive/examples/02-skilling` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/fixtures/s1_00_ccf_config.yaml` | 2 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `tests/examples/fixtures/s1_00_ccf_config.yaml` | 7 | `tests/examples/test_s1_00_config_equivalence.py` | `comment` | documentary | - | - | 17-08 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 16-02 |  |
@@ -758,8 +758,12 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-RESEARCH.md` | 25 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/24.1-VERIFICATION.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1-the-first-context-product-one-store-one-source-a-determinist/deferred-items.md` | 5 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.1.1-the-two-protocol-shaped-seams-deployment-operators-and-re/24.1.1-02-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.1.1-the-two-protocol-shaped-seams-deployment-operators-and-re/24.1.1-05-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.1.1-the-two-protocol-shaped-seams-deployment-operators-and-re/24.1.1-RESEARCH.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.1.1-the-two-protocol-shaped-seams-deployment-operators-and-re/24.1.1-VERIFICATION.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 88 | append-only decision log |
+| `docs/DECISIONS.md` | 90 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |

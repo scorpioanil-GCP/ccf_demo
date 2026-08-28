@@ -839,9 +839,13 @@ spine calls — dispatches on the *declared artifact type* against the SDK's own
 operator classes and raises for anything it does not recognise, so a
 deployment's own operator has no path into it. **The registry is open; the
 composition path in front of it is not.** Recorded under `24-CONTEXT.md` `D-04`
-and ruled `D-59` **record-only**: the local L1 registration is the right path
-for this product, and closing the seam is additive SDK work for a later phase
-(`D-58`), not for this one. The consequence for this table is nil in both
+and ruled `D-59` **record-only for phase 24.1**: the local L1 registration is
+the right path for this product, and closing the seam was additive SDK work for
+a later phase (`D-58`). **That phase has since run — `D-59` is CLOSED in 24.1.1**,
+and `build_operator_registry` now takes a defaulted `deployment_operators`
+keyword. The record-only ruling is left standing above as what governed THIS
+document's build; the local path remains correct here because this product's
+operator runs at the source boundary, which the projection plan does not reach. The consequence for this table is nil in both
 directions — the served `lineage.operators_invoked` names exactly the two
 operators the product class declares, so §D.7's gate 2 strict equality is
 untouched, and step 1's runtime witness is the payload's `resolved_security`

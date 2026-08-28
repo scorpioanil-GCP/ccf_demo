@@ -3,8 +3,51 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-27T21:35:00.000Z"
+last_updated: "2026-08-28T17:00:00.000Z"
 last_activity: >-
+  2026-08-28 -- **PHASE 24.1.1 IS CLOSED AND APPROVED. `D-GATE-24.1.1` LOGGED, MERGED TO
+  `main --no-ff`, PUSHED.** Seven waves, eleven commits. All SEVENTEEN criteria met, locked
+  before Wave 1 and verified one-per-line by a CONTINUATION-LINE DETECTOR beside the count; the
+  criteria block's sha256 at the close is **BYTE-IDENTICAL** to the pin taken before Wave 1.
+  **`D-59` and `D-60` are CLOSED.** `make ci` green on all ten legs, chunked FOREGROUND,
+  partition proven on COLLECTED counts: 1708 + 1515 + 1086 = **4,309**, run to **4,191 passed /
+  118 skipped**.
+  **THE `src/` FENCE HELD AS A NAMED ROSTER JUDGED BY SET EQUALITY** -- exactly
+  `deployment/operators.py`, `agents/assembler.py`, `replay/record.py`, re-asserted AFTER the
+  close-time fixes. **AND IT MOVED ONCE, ON THE RECORD, BEFORE AN EDIT** (`D-IMPL-214`):
+  criterion 9's amendment required any extra module to be enumerated first, research found the
+  two-module fence could not hold, and the fence was widened by exactly one with Reading A
+  refused by name. **The fence did not quietly move -- it was moved deliberately and in public.**
+  **THE CLOSE PANEL EARNED ITS KEEP THREE TIMES.** 238 KB inlined on stdin, nine invocations
+  rc=0, read-proofs cursor 8/8 and gemini 6/6 against controls 0/2 and 0/1. **THREE REVIEWERS
+  INDEPENDENTLY FOUND ONE ROOT DEFECT**: a refusal block validated as *parsing* and then stored
+  VERBATIM, so one refusal admitted a FAMILY of blocks -- a replay-determinism defect inside
+  criterion 9's own machinery. **THE PHASE'S WHOLE SUBJECT WAS UNGATED**: every control read
+  `signature.parameters` and none read `return_annotation`, so narrowing the Protocol's return
+  type left the ENTIRE SUITE GREEN until the panel said so. And **the phase's own public record
+  cited a green over a set that excludes its subject** -- *"mypy clean over 211 source files"* as
+  evidence about `examples/`, which mypy never reads. **SEVEN BLOCKING FIXED IN-PHASE; FIVE
+  REJECTED AND RECORDED AS REJECTED** -- gemini resolved 6/6 citations and got five claims wrong.
+  **A resolved citation says a reviewer LOOKED, not that it UNDERSTOOD.**
+  **CRITERION 9 IS MET AS RULED, NOT ABSOLUTELY**, the qualifier in its own row: the caller who
+  never calls the minter still writes a well-formed FALSE record. Named in four places.
+  **SEVEN FOR SEVEN** -- the class appeared in the phase's own machinery in every wave, including
+  a criteria extractor that swept all 21 phase blocks and would have compared 210 against 210 at
+  the gate and PASSED, a partition proof anchored on a directory listing, and stale
+  `__pycache__` TWICE making a correct tree look broken.
+  **A STATE.md CORRUPTION WAS CAUGHT AND REVERSED AT THIS GATE.** A GSD state writer rewrote
+  this file at 16:30 -- `status: executing` -> `completed`, the ENTIRE `last_activity` history
+  including the `D-GATE-24.1` record and its PRIOR chain DELETED, and a `progress:` block
+  injected whose own numbers are incoherent (262 completed plans of 243 total). It was swept
+  into `52bab3c` by a `git add -A`. Restored from `phase-24.1.1-base` and re-hand-edited; the
+  twelve-entry PRIOR chain and the `D-GATE-24.1` record are verified present. **`D-15` is not
+  advice: no `state.*` writer, and diff every planning file before committing it.**
+  **DAVE'S GATE RULINGS BEYOND APPROVAL (`D-IMPL-216`):** do NOT restructure `cp-00` at close --
+  the example refuses BEFORE its identity checks where the SDK does identity first, and
+  correcting it is example data-flow that criterion 16 fences; inheritor is the next CP example.
+  And NO hygiene phase now -- the four tooling findings stay recorded and unclosed on the
+  `DOCS-`/tools lane. *"They are real; they are not what 24.1.1 was for."*
+  **NEXT:** nothing scheduled. `D-58`'s obligation is discharged. PRIOR:
   2026-08-27 -- **PHASE 24.1 IS CLOSED AND APPROVED. `D-GATE-24.1` IS LOGGED, THE BRANCH IS
   MERGED TO `main --no-ff`, AND WAVE 11 RAN CLAUDE.md §3.1 IN ORDER WITHOUT MERGING ITS
   STEPS.** All NINETEEN criteria met. `src/` and `runtime/` diff-empty against

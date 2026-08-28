@@ -57,12 +57,12 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from pydantic import field_validator
 
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.graph.protocols import SourceAttestation
 from ccf.graph.registry import AdapterPin
 from ccf.halflife.assessment import (
@@ -85,10 +85,25 @@ from ccf.projection.plan import Perspective
 
 __ccf_mode__ = "algorithmic"
 
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    # Typing-only, and deliberately so. This module is imported by
+    # `ccf.agents.agent` (it reads `NO_GRANTS_SET_HASH` and
+    # `PerspectiveConditioning` from here), so a RUNTIME import of
+    # `ccf.agents.assembler` would close a cycle in one import order and not
+    # the other — the non-determinism D-IMPL-37 rejects. Function annotations
+    # are never evaluated at runtime, so the quoted annotation on
+    # :func:`mint_assembly_refusal` costs nothing. The value this module
+    # actually needs at runtime, `ProductRequestViolation`, joins the existing
+    # bottom import instead (D-IMPL-56).
+    from ccf.agents.assembler import AssemblyOutcome
+
 __all__ = [
     "MODE_1_MODEL_VERSION",
     "NO_ADAPTER",
+    "NO_ASSEMBLY_REFUSAL",
     "NO_AGENT_DEFINITION",
+    "FalseAssemblyRefusalClaimError",
+    "mint_assembly_refusal",
     "NO_GRANTS_SET_HASH",
     "NO_GRAPH_QUERIES",
     "NO_HARNESS",
@@ -143,6 +158,15 @@ NO_HITL_ACTIONS = "no-hitl-actions"
 #: "this decision was not a workflow step" is asserted, never inferred from
 #: silence.
 NO_WORKFLOW_TRACE = "no-workflow-trace"
+
+#: Dimension 5's assembler-seam value when the decision met no governed
+#: refusal (D-60; D-IMPL-214 Reading B). A positive claim in the
+#: :data:`NO_HITL_ACTIONS` voice: "this decision encountered no governed
+#: refusal at the assembler seam" is ASSERTED, never inferred from silence —
+#: a decision that met none and a decision whose caller dropped the block
+#: would otherwise be the same artifact, which is the repudiation failure
+#: mode every sentinel in this module exists to close.
+NO_ASSEMBLY_REFUSAL = "no-assembly-refusal"
 
 #: Dimension 5's query-pin value when no seam query is recorded (15.2-08;
 #: D-11). A positive claim in the :data:`NO_WORKFLOW_TRACE` voice: "this
@@ -433,6 +457,23 @@ class PerspectiveConditioning(CCFContract):
         return value
 
 
+class FalseAssemblyRefusalClaimError(ValueError):
+    """A dimension-5 block would record a false no-refusal claim.
+
+    Raised — never repaired — on
+    :class:`~ccf.agents.errors.FalseGrantClaimError`'s exact reasoning: a
+    caller that hands :func:`mint_assembly_refusal` a governed refusal while
+    asserting :data:`NO_ASSEMBLY_REFUSAL` is recording something it already
+    knows cannot be true, and recording it would corrupt replay dimension 5
+    at write time. The symmetric case is refused too — asserting a refusal
+    over an outcome that is not one.
+
+    **It lives here rather than in** ``ccf/agents/errors.py`` **because that
+    module is outside this phase's ruled file roster** (D-IMPL-214), and the
+    roster is judged by set equality rather than by convenience.
+    """
+
+
 class ContentGenerationPath(CCFContract):
     """Dimension 5 — how the delivered content came to be (INV-CH7-85).
 
@@ -587,9 +628,12 @@ class ContentGenerationPath(CCFContract):
     ``None`` is the positive assertion *this decision recorded no request* — the
     ``debt`` and ``source_attestation`` voice, and the same reason: a record
     written before this seam existed and one whose caller dropped the question
-    would otherwise be the same artifact. Every one of the 32
-    ``build_replay_record`` call sites across 28 files is byte-for-byte
-    unchanged under it.
+    would otherwise be the same artifact. Every one of the **40**
+    ``build_replay_record`` call sites across **30 files** is byte-for-byte
+    unchanged under it — a present-tense claim, so the figure is re-enumerated
+    by AST at each phase that touches this builder rather than carried
+    forward. It read *32 across 28* when plan 15.5-13 wrote it and that was
+    true then; it is corrected here rather than left to rot (D-65).
     """
 
     plan_id: str
@@ -597,6 +641,7 @@ class ContentGenerationPath(CCFContract):
     steps: tuple[ExecutionStep, ...]
     product_content_address: str
     workflow_step_sequence: str = NO_WORKFLOW_TRACE
+    assembly_refusal: str = NO_ASSEMBLY_REFUSAL
     graph_query_sequence: tuple[str, ...] = NO_GRAPH_QUERIES
     debt: DebtAssessment | None = None
     debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
@@ -622,6 +667,86 @@ class DecisionReplayRecord(CCFContract):
     content_generation_path: ContentGenerationPath
 
 
+def mint_assembly_refusal(
+    outcome: "AssemblyOutcome | ProductRequestViolation",
+    *,
+    claimed: str | None = None,
+) -> str:
+    """Derive dimension 5's assembler-seam block from what the assembler returned.
+
+    **The block is DERIVED from the value, never hand-claimed.** An adopter's
+    assembler calls this with whatever
+    :meth:`~ccf.agents.assembler.ContextAssemblerProtocol.assemble` returned
+    and passes the result to :func:`build_replay_record`; the builder records
+    those bytes verbatim rather than reconstructing them, exactly as it does
+    for ``hitl_actions`` and ``workflow_step_sequence``.
+
+    Args:
+        outcome: What the assembler returned — an
+            :class:`~ccf.agents.assembler.AssemblyOutcome`, or a
+            :class:`~ccf.products.request.ProductRequestViolation` when the
+            question did not conform to its declared contract (D-60).
+        claimed: The block the caller intends to record, when it wants that
+            intention checked against ``outcome``. ``None`` — the default —
+            asks for no check and simply derives.
+
+    Returns:
+        The canonical bytes of the refusal, decoded, or
+        :data:`NO_ASSEMBLY_REFUSAL` when the outcome is not a refusal.
+
+    Raises:
+        FalseAssemblyRefusalClaimError: ``claimed`` contradicts ``outcome`` in
+            either direction.
+    """
+    if isinstance(outcome, ProductRequestViolation):
+        if claimed is not None and claimed == NO_ASSEMBLY_REFUSAL:
+            raise FalseAssemblyRefusalClaimError(
+                "the assembler returned a governed refusal"
+                f" ({outcome.reason!r}) while the caller asserted"
+                f" {NO_ASSEMBLY_REFUSAL!r}; a decision that was refused and a"
+                " decision whose caller dropped the refusal would otherwise be"
+                " the same artifact"
+            )
+        return canonical_bytes(outcome).decode("utf-8")
+    if claimed is not None and claimed != NO_ASSEMBLY_REFUSAL:
+        raise FalseAssemblyRefusalClaimError(
+            "the caller asserted a governed refusal while the assembler"
+            " returned an outcome; asserting a refusal that did not happen"
+            " corrupts dimension 5 exactly as dropping one does"
+        )
+    return NO_ASSEMBLY_REFUSAL
+
+
+def _admissible_refusal_block(block: str) -> str:
+    """``block`` if it is the sentinel or a real refusal, else refuse it.
+
+    A hand-written block that merely *looks* like a refusal is the flattening
+    :func:`~ccf.products.refusal.envelope_for` exists to forbid, so the builder
+    admits only the positive sentinel or a value that round-trips as a
+    :class:`~ccf.products.request.ProductRequestViolation` — the one refusal
+    the assembler seam can produce (D-60).
+    """
+    if block == NO_ASSEMBLY_REFUSAL:
+        return block
+    try:
+        violation = ProductRequestViolation.model_validate_json(block)
+    except ValueError as invalid:
+        raise ValueError(
+            "assembly_refusal must be either the positive sentinel"
+            f" {NO_ASSEMBLY_REFUSAL!r} or the canonical serialization of a"
+            " governed refusal the assembler seam produced; the value given is"
+            f" neither ({invalid})"
+        ) from invalid
+    # RE-CANONICALIZED, not returned verbatim. Validating that a block *parses*
+    # and then storing the caller's own bytes would let one refusal land as a
+    # FAMILY of blocks — reorder the keys, change the whitespace, and dimension
+    # 5 differs for an identical refusal. Replay identity is a property of the
+    # VALUE, so the value is what is re-serialized here. The close panel found
+    # this: the refusal message claimed "canonical serialization" while the
+    # check proved only "parses", which is shape-checked and identity-claimed.
+    return canonical_bytes(violation).decode("utf-8")
+
+
 def build_replay_record(
     *,
     execution: ExecutionResult,
@@ -634,6 +759,7 @@ def build_replay_record(
     harness_trace: HarnessTrace | None = None,
     hitl_actions: str | None = None,
     workflow_step_sequence: str | None = None,
+    assembly_refusal: str | None = None,
     adapter: AdapterPin | None = None,
     request: ProductRequest | None = None,
 ) -> DecisionReplayRecord:
@@ -671,6 +797,24 @@ def build_replay_record(
     primitive pre-serialized and it is recorded verbatim — derived from what
     the caller reported, never reconstructed here. When ``None``, dimension 2
     carries the positive :data:`NO_HITL_ACTIONS` claim.
+
+    ``assembly_refusal`` is the D-60 assembler seam (D-IMPL-214 Reading B):
+    the pre-serialized block :func:`mint_assembly_refusal` derived from what
+    the assembler returned, recorded **verbatim** and never reconstructed
+    here, defaulting to :data:`NO_ASSEMBLY_REFUSAL`. Admitted only when it is
+    that sentinel or a value that round-trips as a
+    :class:`~ccf.products.request.ProductRequestViolation`.
+
+    **What this does NOT close, stated rather than implied.** A caller that
+    never calls :func:`mint_assembly_refusal` and hand-passes the sentinel
+    while holding a refusal still produces a well-formed, FALSE record. The
+    shape check above stops a *fabricated* block; it does not stop a
+    *truthful-looking silence*, and
+    :class:`FalseAssemblyRefusalClaimError` reaches only callers that ask for
+    the check. Closing it needs the refusal VALUE to travel in here rather
+    than a pre-serialized block — Reading A's shape, refused for phase 24.1.1
+    because it pulls :mod:`ccf.replay.serve` and :mod:`ccf.products.resolver`
+    in. Criterion 9 is therefore discharged AS RULED and not absolutely.
 
     ``workflow_step_sequence`` is the I.4 workflow seam (CLAUDE.md §8.1),
     threaded into dimension 5 the same way: the workflow engine's
@@ -807,6 +951,9 @@ def build_replay_record(
             workflow_step_sequence=workflow_step_sequence
             if workflow_step_sequence is not None
             else NO_WORKFLOW_TRACE,
+            assembly_refusal=_admissible_refusal_block(assembly_refusal)
+            if assembly_refusal is not None
+            else NO_ASSEMBLY_REFUSAL,
             graph_query_sequence=tuple(
                 content_hash(query) for query in execution.executed_queries
             ),
@@ -848,6 +995,9 @@ def build_replay_record(
 # by the time this line runs the cycle closes safely in either import order.
 # The deferred annotation on `ContentGenerationPath.request` is then resolved
 # explicitly.
-from ccf.products.request import ProductRequest  # noqa: E402
+from ccf.products.request import (  # noqa: E402
+    ProductRequest,
+    ProductRequestViolation,
+)
 
 ContentGenerationPath.model_rebuild()

@@ -55,7 +55,6 @@ sys.path.insert(0, str(HERE))
 import assembler  # noqa: E402
 import deployment  # noqa: E402
 
-from ccf.agents.errors import AssemblyRefused  # noqa: E402
 from ccf.contracts.canonical import content_hash  # noqa: E402
 from ccf.products.request import ProductRequestViolation  # noqa: E402
 
@@ -69,8 +68,9 @@ SEPARATOR = "=" * 78
 class _Recorder:
     """Holds whatever one assembly produced, so the client can print it.
 
-    The assembler's return type is pinned to the governed
-    ``src/ccf/agents/assembler.py::AssemblyOutcome``, which carries the payload
+    The assembler's return type is the governed union
+    ``src/ccf/agents/assembler.py::AssemblyOutcome | ProductRequestViolation``
+    (D-60, closed in 24.1.1). The success arm carries the payload
     and the assembly's governance and — correctly — not the served vessel. The
     content address, the debt figure and the replay reference belong to the
     product, so the client observes the run to reach them rather than asking
@@ -155,27 +155,23 @@ def main() -> int:
             plan_class=deployment.plan_class(),
             observer=recorder,
         )
-        try:
-            outcome = product.assemble(
-                request=deployment.request(
-                    parameters={deployment.THRESHOLD_PARAMETER: minimum},
-                    asked_at=(
-                        datetime.fromisoformat(args.as_of) if args.as_of else None
-                    ),
+        outcome = product.assemble(
+            request=deployment.request(
+                parameters={deployment.THRESHOLD_PARAMETER: minimum},
+                asked_at=(
+                    datetime.fromisoformat(args.as_of) if args.as_of else None
                 ),
-                perspective=deployment.perspective(),
-                tenant_id=deployment.tenant_id(),
-            )
-        except AssemblyRefused as refused:
-            # BRANCHED ON AS DATA. The seam can only report a governed refusal
-            # by raising, but the violation itself is a typed value the
-            # observer already holds, so what is printed comes from the value
-            # rather than from the exception's message.
-            seen = recorder.seen
-            if isinstance(seen, ProductRequestViolation):
-                print(f"refused: {seen.reason} — {seen.key}")
-                return 1
-            raise refused
+            ),
+            perspective=deployment.perspective(),
+            tenant_id=deployment.tenant_id(),
+        )
+        # BRANCHED ON AS DATA (D-60). This used to be an `except AssemblyRefused`
+        # that reached around the exception into the observer to find the typed
+        # value, and then re-raised what it could not render. The seam returns
+        # the violation now, so the branch is the whole of it.
+        if isinstance(outcome, ProductRequestViolation):
+            print(f"refused: {outcome.reason} — {outcome.key}")
+            return 1
 
         print(json.dumps(dict(outcome.payload), indent=2, sort_keys=True))
         report(recorder.seen, outcome, explain=args.explain)
