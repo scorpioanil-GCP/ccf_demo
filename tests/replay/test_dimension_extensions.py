@@ -35,6 +35,9 @@ from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.replay.engine import resolve_artifact
 from ccf.replay.record import (
+    NO_ASSEMBLY_REFUSAL,
+    FalseAssemblyRefusalClaimError,
+    mint_assembly_refusal,
     NO_ADAPTER,
     NO_AGENT_DEFINITION,
     NO_GRAPH_QUERIES,
@@ -153,6 +156,10 @@ def test_the_record_still_has_exactly_five_dimensions() -> None:
     assert "workflow_step_sequence" not in DecisionReplayRecord.model_fields
     assert "hitl_actions" in PolicyBindingsSnapshot.model_fields
     assert "workflow_step_sequence" in ContentGenerationPath.model_fields
+    # 24.1.1-04 (D-60): the third extension lands the same way — inside an
+    # existing dimension, never as a sixth top-level field.
+    assert "assembly_refusal" not in DecisionReplayRecord.model_fields
+    assert "assembly_refusal" in ContentGenerationPath.model_fields
 
 
 def test_no_hitl_and_no_workflow_are_asserted_rather_than_absent() -> None:
@@ -346,3 +353,72 @@ def test_a_record_written_before_the_adapter_pin_still_resolves(
     assert record.content_generation_path.workflow_step_sequence == NO_WORKFLOW_TRACE
     assert record.content_generation_path.graph_query_sequence == NO_GRAPH_QUERIES
     assert record.context_fabric_snapshot.source_attestation is None
+
+
+# --- D-60 / D-IMPL-214 Reading B: a refusal has an identity ------------------
+
+
+def _violation() -> Any:
+    from ccf.products.request import ProductRequestViolation
+
+    return ProductRequestViolation(
+        reason="class-mismatch",
+        key="schema_name",
+        detail="the question addresses a class this agent does not answer",
+        declared_type="declared.class",
+        presented_type="presented.class",
+        declared_keys=frozenset({"schema_name"}),
+        presented_keys=frozenset({"schema_name"}),
+    )
+
+
+def test_a_decision_that_met_no_refusal_asserts_so_rather_than_being_silent() -> None:
+    """The positive sentinel, in the ``NO_HITL_ACTIONS`` voice."""
+    record = _build()
+    assert record.content_generation_path.assembly_refusal == NO_ASSEMBLY_REFUSAL
+    assert b'"assembly_refusal":"no-assembly-refusal"' in canonical_bytes(record)
+
+
+def test_the_block_is_minted_from_the_assemblers_return_value() -> None:
+    """Leg 1: derived, never hand-claimed."""
+    violation = _violation()
+    block = mint_assembly_refusal(violation)
+    assert block == canonical_bytes(violation).decode("utf-8")
+    assert block != NO_ASSEMBLY_REFUSAL
+
+
+def test_a_supplied_refusal_block_lands_on_dimension_5_verbatim() -> None:
+    """Recorded as the caller minted it, not re-serialized by the builder."""
+    block = mint_assembly_refusal(_violation())
+    record = _build(assembly_refusal=block)
+    assert record.content_generation_path.assembly_refusal == block
+
+
+def test_a_false_no_refusal_claim_is_refused_at_write_time() -> None:
+    """Leg 2, on ``FalseGrantClaimError``'s exact reasoning.
+
+    A caller holding a refusal while asserting the no-refusal claim is
+    recording something it already knows cannot be true.
+    """
+    with pytest.raises(FalseAssemblyRefusalClaimError) as caught:
+        mint_assembly_refusal(_violation(), claimed=NO_ASSEMBLY_REFUSAL)
+    assert "no-assembly-refusal" in str(caught.value)
+
+
+def test_claiming_a_refusal_that_did_not_happen_is_refused_too() -> None:
+    """The symmetric case: asserting a refusal over an outcome that is not one."""
+    outcome = object()
+    with pytest.raises(FalseAssemblyRefusalClaimError):
+        mint_assembly_refusal(outcome, claimed="something-that-is-not-the-sentinel")  # type: ignore[arg-type]
+
+
+def test_a_fabricated_refusal_block_is_refused_by_the_builder() -> None:
+    """Leg 3: a block that merely LOOKS like a refusal cannot be recorded."""
+    with pytest.raises(ValueError) as caught:
+        _build(assembly_refusal='{"looks":"like a refusal"}')
+    assert "governed refusal" in str(caught.value)
+
+
+def test_passing_none_is_indistinguishable_from_omitting_the_refusal() -> None:
+    """The sentinel-default discipline: no existing call site moves."""
+    assert canonical_bytes(_build()) == canonical_bytes(_build(assembly_refusal=None))

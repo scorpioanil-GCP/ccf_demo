@@ -204,6 +204,13 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
     # literal is the evidence: a fixture retouched to match the current
     # builder would assert only that the builder agrees with itself.
     assert produced.replace(
+        # 24.1.1-04, D-60 / D-IMPL-214 Reading B: a governed refusal gains an
+        # identity on dimension 5 under the same sentinel-default discipline,
+        # so a record built by a caller whose assembly met no refusal is
+        # byte-identical to a pre-D-60 record once the sentinel key is removed.
+        b'"assembly_refusal":"no-assembly-refusal",',
+        b"",
+    ).replace(
         b'"harness_trace":{"harness_id":"no-harness","input_tokens":0,'
         b'"model_version":"no-harness","output_tokens":0,'
         b'"trace_id":"no-harness","trace_provider":"no-harness"},',
