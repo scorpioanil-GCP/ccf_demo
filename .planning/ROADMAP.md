@@ -2403,7 +2403,15 @@ Snapshot, Corporate Family Tree, Covenant-in-Force As-Of — which spans T1→T3
 and requires only Postgres and Fluree.
 
 **Requirements:** to be determined at the discuss sitting. Expected to mint new
-rows under a v0.3 lane.
+rows under a v0.3 lane. **`EXAM-06` is already minted** (`D-IMPL-217`, Dave,
+2026-08-28): every Context Product example ships a companion HTML documentation
+page whose subject is the example alone — an authored spine of orientation, the
+**build order** naming every file the developer completes in dependency order,
+then **the half the developer writes** — with every reproduction in a
+collapsible and each file they fill in openable inline. `cp-00`'s page is the
+reference realization. Two clauses stay OPEN: reproduce-or-link for the README
+and the published page, and whether the unlabelled *"which file is the SDK's?"*
+reveal is required of every example.
 
 **Depends on:** Phase 23.1 (`D-GATE-23.1`) — v0.2 closes before this opens, on
 Dave's sequencing ruling 2026-08-25.
