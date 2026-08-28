@@ -24,6 +24,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+import json
+
 import pytest
 from pydantic import ValidationError
 
@@ -248,9 +250,23 @@ def test_two_tenants_records_stay_distinct_and_correctly_attributed() -> None:
 
 
 def test_the_extended_blocks_are_closed_world() -> None:
-    """``extra=forbid`` still holds on both extended dimensions."""
+    """``extra=forbid`` still holds on BOTH extended dimensions.
+
+    Found by the close panel, two reviewers independently: the docstring said
+    "both" and the body tested only dimension 2. Dimension 5 — the dimension
+    this phase extended — was never sent an unexpected field, so the claim was
+    green about half of what it named.
+    """
     with pytest.raises(ValidationError):
         PolicyBindingsSnapshot(bindings=(), unexpected="x")  # type: ignore[call-arg]
+    with pytest.raises(ValidationError):
+        ContentGenerationPath(  # type: ignore[call-arg]
+            plan_id="p",
+            operator_plan=(),
+            steps=(),
+            product_content_address="a",
+            unexpected="x",
+        )
 
 
 # --- Task 2: dimension 4 delegation-chain extension (workflow chains) ------
@@ -422,3 +438,33 @@ def test_a_fabricated_refusal_block_is_refused_by_the_builder() -> None:
 def test_passing_none_is_indistinguishable_from_omitting_the_refusal() -> None:
     """The sentinel-default discipline: no existing call site moves."""
     assert canonical_bytes(_build()) == canonical_bytes(_build(assembly_refusal=None))
+
+
+def test_one_refusal_admits_exactly_one_block() -> None:
+    """Replay determinism: a refusal has ONE recorded form, not a family.
+
+    Found by the close panel — two reviewers independently, from different
+    questions. `_admissible_refusal_block` validated that a block PARSED as a
+    `ProductRequestViolation` and then returned the caller's own string, so the
+    same refusal supplied with different key order or whitespace produced
+    different dimension-5 bytes while the refusal message claimed it admitted
+    only the "canonical serialization". Shape-checked, identity-claimed.
+    """
+    violation = _violation()
+    canonical = mint_assembly_refusal(violation)
+
+    # The same refusal, re-serialized with a different key order. It parses,
+    # so the pre-fix check admitted it verbatim.
+    reordered = json.dumps(
+        json.loads(canonical), sort_keys=False, separators=(",", ":")
+    )
+    scrambled = json.dumps(
+        {k: json.loads(canonical)[k] for k in reversed(list(json.loads(canonical)))},
+        separators=(",", ":"),
+    )
+
+    for variant in (reordered, scrambled):
+        record = _build(assembly_refusal=variant)
+        assert record.content_generation_path.assembly_refusal == canonical, (
+            "one refusal must have exactly one recorded form"
+        )

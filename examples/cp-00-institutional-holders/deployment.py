@@ -652,13 +652,23 @@ def source_read(
     **What this deployment measured and recorded rather than worked around.**
     ``src/ccf/deployment/operators.py::build_operator_registry`` — the builder
     the spine calls — maps a *declared parameter artifact* onto an SDK operator
-    class and raises for any artifact type it does not recognise, so there is
-    no path by which a deployment's own operator reaches the registry the
-    projection plan resolves against. The registry itself is open;
-    the composition path in front of it is not. This deployment therefore
-    registers its operator into its own registry, at the layer the
-    specification places step 1 — the source boundary — and the served
-    lineage still names exactly the two operators the product class declares.
+    class and raises for any artifact type it does not recognise. **When this
+    example was written there was no path by which a deployment's own operator
+    reached the registry the projection plan resolves against** — the registry
+    was open and the composition path in front of it was not.
+
+    **That seam is now CLOSED (`D-59`, phase 24.1.1):** `build_operator_registry`
+    takes a defaulted, keyword-only `deployment_operators` and registers its
+    members through `register(operator)` with no category argument. The
+    superseded sentence is kept above rather than erased, because what this
+    example measured is why the seam exists.
+
+    **This deployment still registers into its own registry, deliberately.**
+    Its operator runs at the SOURCE boundary, before L1 ingest, at a layer the
+    projection plan does not reach — so the new seam is not the right path for
+    it, and rewriting the example to use one would change its architecture to
+    fit a seam. The served lineage still names exactly the two operators the
+    product class declares.
     Recorded in this wave's summary as an SDK finding; nothing in ``src/`` was
     changed to accommodate it.
     """

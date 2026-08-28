@@ -146,7 +146,7 @@ class HoldersAssembler:
         request: ProductRequest,
         perspective: Perspective,
         tenant_id: str,
-    ) -> AssemblyOutcome:
+    ) -> AssemblyOutcome | ProductRequestViolation:
         """Assemble one answer to ``request`` for ``perspective``.
 
         Runs the spine, hands the observer what it produced, and returns the
@@ -161,11 +161,17 @@ class HoldersAssembler:
         assembler does not choose which of two disagreeing statements is right,
         because only the deployment's author knows which was meant.
 
+        Returns:
+            The :class:`~ccf.agents.assembler.AssemblyOutcome`, or a
+            :class:`~ccf.products.request.ProductRequestViolation` RETURNED as
+            data when the question does not conform to the declared contract
+            (D-60, closed in phase 24.1.1).
+
         Raises:
             AssemblyRefused: ``tenant_id`` or ``perspective`` disagrees with
-                what the booted deployment declares, or the request is not one
-                this class answers. The third case is recorded rather than
-                liked — see below.
+                what the booted deployment declares. **Identity only.** The
+                third case — a question this class does not answer — is a
+                GOVERNED refusal and is returned, not raised.
         """
         assembled = produce.assemble_and_serve(
             config=self.config,

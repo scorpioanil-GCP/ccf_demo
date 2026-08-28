@@ -971,3 +971,53 @@ def test_a_conforming_request_still_returns_an_outcome(
         tenant_id=agent.definition.tenant,
     )
     assert isinstance(outcome, AssemblyOutcome), type(outcome)
+
+
+def test_the_protocol_return_type_names_the_governed_refusal(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """D-60's widening, GATED.
+
+    Found by the close panel. Every existing control inspected
+    ``signature.parameters`` — the keyword-only shape — and none inspected
+    ``return_annotation``, so the Protocol half of the widening could be
+    narrowed back to ``AssemblyOutcome`` with the whole suite green. The
+    consequential change was the one thing nothing looked at.
+    """
+    import inspect
+
+    annotation = str(
+        inspect.signature(ContextAssemblerProtocol.assemble).return_annotation
+    )
+    assert "AssemblyOutcome" in annotation, annotation
+    assert "ProductRequestViolation" in annotation, annotation
+
+
+def test_identity_is_judged_before_contract_conformity(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The documented ordering, GATED under ONE call.
+
+    Found by the close panel. The tenant leg carried no ``request_contract``
+    and the conformity leg carried a valid identity, so no input ever crossed
+    the two and the order could be reversed with both green. A question asked
+    of the wrong agent is not a question about a contract's conformity, and
+    answering the conformity question first gives a confident verdict on the
+    wrong one.
+    """
+    agent = _assembler_agent(registry)
+    assembler = DeterministicAssembler(
+        agent=agent, projection=_projection(), request_contract=_contract(agent)
+    )
+    non_conforming = _request(agent).model_copy(
+        update={"schema_name": "not.the.declared.class"}
+    )
+
+    # BOTH wrong at once: a foreign tenant AND a non-conforming question.
+    with pytest.raises(AssemblyRefused) as caught:
+        assembler.assemble(
+            request=non_conforming,
+            perspective=_perspective(agent),
+            tenant_id="not-this-agents-tenant",
+        )
+    assert "tenant" in str(caught.value)

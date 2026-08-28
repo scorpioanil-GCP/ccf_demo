@@ -108,8 +108,8 @@ Rows by coupling shape:
 | `examples/cp-00-institutional-holders/ccf_config.yaml` | 25 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 205 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 786 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1191 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1404 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1195 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1408 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/external/README.md` | 23 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/external/README.md` | 62 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/external/README.md` | 73 | `archive/examples/03-harness-portability` | `prose` | documentary | - | - | 23-04 |  |
@@ -351,7 +351,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/PROJECT.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/REQUIREMENTS.md` | 94 | the phase's own planning tree — not shipped, not published |
 | `.planning/ROADMAP.md` | 37 | the phase's own planning tree — not shipped, not published |
-| `.planning/STATE.md` | 8 | the phase's own planning tree — not shipped, not published |
+| `.planning/STATE.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/16-config-consolidation.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/2026-08-14-property-not-shape-gating.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/milestones/v0.1-ROADMAP.md` | 6 | the phase's own planning tree — not shipped, not published |

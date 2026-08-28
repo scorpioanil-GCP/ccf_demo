@@ -729,7 +729,7 @@ def _admissible_refusal_block(block: str) -> str:
     if block == NO_ASSEMBLY_REFUSAL:
         return block
     try:
-        ProductRequestViolation.model_validate_json(block)
+        violation = ProductRequestViolation.model_validate_json(block)
     except ValueError as invalid:
         raise ValueError(
             "assembly_refusal must be either the positive sentinel"
@@ -737,7 +737,14 @@ def _admissible_refusal_block(block: str) -> str:
             " governed refusal the assembler seam produced; the value given is"
             f" neither ({invalid})"
         ) from invalid
-    return block
+    # RE-CANONICALIZED, not returned verbatim. Validating that a block *parses*
+    # and then storing the caller's own bytes would let one refusal land as a
+    # FAMILY of blocks — reorder the keys, change the whitespace, and dimension
+    # 5 differs for an identical refusal. Replay identity is a property of the
+    # VALUE, so the value is what is re-serialized here. The close panel found
+    # this: the refusal message claimed "canonical serialization" while the
+    # check proved only "parses", which is shape-checked and identity-claimed.
+    return canonical_bytes(violation).decode("utf-8")
 
 
 def build_replay_record(

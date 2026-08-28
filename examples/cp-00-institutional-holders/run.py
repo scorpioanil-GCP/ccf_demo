@@ -68,8 +68,9 @@ SEPARATOR = "=" * 78
 class _Recorder:
     """Holds whatever one assembly produced, so the client can print it.
 
-    The assembler's return type is pinned to the governed
-    ``src/ccf/agents/assembler.py::AssemblyOutcome``, which carries the payload
+    The assembler's return type is the governed union
+    ``src/ccf/agents/assembler.py::AssemblyOutcome | ProductRequestViolation``
+    (D-60, closed in 24.1.1). The success arm carries the payload
     and the assembly's governance and — correctly — not the served vessel. The
     content address, the debt figure and the replay reference belong to the
     product, so the client observes the run to reach them rather than asking
