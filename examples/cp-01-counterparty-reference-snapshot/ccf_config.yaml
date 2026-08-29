@@ -1,0 +1,307 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE STATE THIS DEPLOYMENT REGISTERS — spec CP-SPEC-001.
+#
+# Everything domain-specific about this product lives here or in `artifacts/`,
+# and nothing does in the code. The No-Hardcoding Rule (`CLAUDE.md` §6.4) is
+# not a style preference in this tree: `deployment.py` is an INTERPRETER of
+# this document, and an example whose code would still run meaningfully with
+# its artifacts deleted has violated it.
+#
+# WHAT IS NOT HERE, DELIBERATELY: no host, no port, no credential, no DSN.
+# Connection material is deployment ENVIRONMENT and lives in `backends.yaml`
+# as a variable NAME (spec §F.3). The STORE is named in the specification —
+# PostgreSQL, schema `ccf_v2` — because an implementation specification that
+# will not say which of five stores an element lives in cannot be built from.
+
+semver: "1.0.0"
+tenant_id: cp-01-demo
+
+# --------------------------------------------------------------------------
+# THE CCF GRAPH's substrate. Per-run, local, thrown away after — this is the
+# FABRIC's own state, not the system of record. `backends.yaml` composes the
+# settings; this names the kind.
+# --------------------------------------------------------------------------
+backend: sqlite
+
+# --------------------------------------------------------------------------
+# THE PRODUCT CLASS — spec §B.1.
+# --------------------------------------------------------------------------
+product_class:
+  # §B.1 elements 7 and 8. Fixed by §D.2's witness for the projection step:
+  # the projection plan id must equal this class name or the recipe's
+  # `plan_id_matches` witness has nothing to match.
+  schema_name: reference.counterparty
+  schema_version: "1.0.0"
+
+  # §B.1 element 3. The anchor is THE ENTITY'S OWN LAST OBSERVATION, not the
+  # request instant — what makes this answer wrong is the source speaking again
+  # about THIS entity, not time passing since someone asked.
+  #
+  # This is the primitive rung 01 teaches (§A), and the contrast §A draws with
+  # `cp-00` — which anchors on a fixed reported quarter end — is the reason two
+  # products with different anchors teach the anchor better than either alone.
+  ttl_anchor: from_entity_freshness
+
+  # §B.1 element 9. Mode 1 — pure algorithmic. No model is in the trust path.
+  # A REGISTRATION-TIME commitment: changing it is a MAJOR version change.
+  assembly_mode: algorithmic
+
+  # The key the class's TTL ceiling registers under. Registering the value is
+  # what MINTS its pin, so the value cannot live in this document — it is in
+  # `artifacts/ttl.yaml`, with the measurement that constrains it.
+  max_ttl_key: cp-01/product/counterparty-reference/max-ttl
+
+  # §D.2 step 2 — the ONE operator step this assembly executes through the L4
+  # registry. Step 1 (`Resolve`) is L2 entity resolution, driven by the
+  # `resolution:` block below rather than by a registry operator; step 3 is
+  # contract assembly and is not an operator at all (Standard §10.2 retires
+  # `Compose`). The spine never counts these: a deployment declaring one gets a
+  # one-operator registry.
+  #
+  # THE STANDARD NAMES TWO OPERATORS AND THIS DECLARES ONE KEY, and that is a
+  # MAPPING rather than a discrepancy — §D.2's eighth column carries it
+  # per-step, so a reader meets the two vocabularies where they diverge.
+  required_operator_keys:
+    - policy.principal-subgraph
+
+# --------------------------------------------------------------------------
+# THE OPERATOR PARAMETER SETS, keyed by the operator id itself.
+# --------------------------------------------------------------------------
+operators:
+  # §D.2 step 2, §D.3, and product gates `CPR-G02` and `CPR-G04`.
+  #
+  # HOW JURISDICTION ENTITLEMENT IS EXPRESSED WITH A SHIPPED OPERATOR, and the
+  # naming mismatch it exposes. `src/ccf/operators/categories.py::PolicyFilter`
+  # admits a record when `attributes.get(<the attribute named for its class>)`
+  # is a member of `permitted_classifications`. The parameter names are
+  # CLASSIFICATION-flavoured, but the mechanism is a GENERIC ATTRIBUTE
+  # ALLOWLIST — so this product binds it to `legal_jurisdiction` and the
+  # allowlist becomes the calling principal's grant set (§C.1 row 3).
+  #
+  # Recorded as an SDK-surface finding in spec §F.4 rather than worked around
+  # silently: an operator whose parameters are named for one use and whose
+  # mechanism serves several will be read as unsupported by the next product
+  # that needs the second use.
+  #
+  # THE VALUES BELOW ARE THE DEFAULT PERSPECTIVE'S, AND THE RUNTIME OVERRIDES
+  # THEM PER REQUEST. `ccf.deployment::build_operator_registry` takes its
+  # parameters from the scenario, and `deployment.py` builds this allowlist by
+  # reading `ccf_v2.principal_jurisdiction` for the CALLING principal. A static
+  # allowlist here would serve one principal's entities to every principal,
+  # which is the correctness defect §E.3 names as presenting intermittently.
+  #
+  # THE EXPANSION IS THE DEPLOYMENT'S, and it is the second half of the same
+  # finding: the grant is a PREFIX (`US` covers `US-DE`, `US-MD`, `US-NV`) and
+  # `PolicyFilter` tests exact membership, so the deployment expands the prefix
+  # against the jurisdictions the estate actually holds. A prefix left
+  # unexpanded matches nothing and empties the view.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      counterparty: legal_jurisdiction
+    # `PRIN-COV-001`'s grant — `US` — expanded against the estate as measured
+    # 2026-08-29. Overridden per request; declared here so the document is
+    # complete on its own and a reader can see the shape of an expansion.
+    permitted_classifications:
+      - US
+      - US-DE
+      - US-MD
+      - US-NV
+      - US-OH
+      - US-TX
+      - US-CA
+      - US-NJ
+      - US-NY
+      - US-FL
+      - US-MN
+      - US-WA
+
+# --------------------------------------------------------------------------
+# WHICH QUESTIONS THIS CLASS ANSWERS — spec §B.4.
+#
+# `class_id`, `role` and `registration` are adopter-owned (`D-IMPL-138`(a)):
+# the SDK has no default it could derive for a class it does not own.
+# --------------------------------------------------------------------------
+request_contract:
+  class_id: cp-01.request-contract
+  role: load
+  registration: typed
+  schema_name: reference.counterparty
+  schema_version: "1.0.0"
+  arguments:
+    # §B.4. The decision the product is assembled FOR, and the value that
+    # selects the policy envelope. The intent REGISTRY of Standard §11.1 does
+    # not exist in this deployment, so the accepted values are declared on the
+    # class rather than resolved against a governed registry — §F.2 row 5.
+    - name: intent
+      required: true
+      accepted:
+        - kyc-review
+        - counterparty-onboarding
+        - credit-review
+
+    # §B.4. The debt ceiling above which assembly refuses rather than serving
+    # with a warning. REQUIRED on every product by Standard §2.4 — the vault
+    # article omits it, and adding it is recorded at §F.4 finding 2.
+    - name: debt_tolerance
+      required: true
+
+    # §B.4. `false` EXCLUDES a lapsed-registration entity entirely rather than
+    # returning it unflagged. Proven by `CPR-G01`.
+    - name: include_lapsed
+      required: false
+      default: false
+
+    # §B.4 — DECLARED-BUT-INERT, and it must fail loudly.
+    #
+    # This tier reads current state and carries no second time axis (§D.5). The
+    # parameter is part of the uniform surface, so it is DECLARED and returns
+    # `400 not_supported_at_tier` rather than being absent — and it must never
+    # silently succeed against current state. Standard §2.4: "a parameter that
+    # appears to work and does not will be relied on in a dispute." Proven by
+    # `CPR-G05`.
+    - name: as_of
+      required: false
+      supported: false
+      unsupported_reason: not_supported_at_tier
+
+# --------------------------------------------------------------------------
+# L2 ENTITY RESOLUTION — spec §D.2 step 1, the `Resolve` operator of the
+# Standard's closed vocabulary. ONE entity class: this product's scope boundary
+# is "identity only — no exposure, no grade, no relationship" (§B.5), so there
+# is no second class and no relationship rule at all.
+# --------------------------------------------------------------------------
+resolution:
+  entity_rules:
+    - match_key: counterparty_ref
+      entity_class: counterparty
+
+      # §C.3's identity authority hierarchy, expressed as a resolution rule.
+      # The identity key is the ANCHOR AS SUPPLIED — an LEI for a registered
+      # entity, an internal client id for one resolved through the internal
+      # client master. One key, two authorities, which is what lets a single
+      # `anchor` parameter serve both populations (§B.4).
+      identity_keys:
+        - anchor
+
+      attribute_keys:
+        # The seven §B.1 element 1 attributes.
+        - lei
+        - legal_name
+        - legal_jurisdiction
+        - entity_status
+        - registration_status
+        - legal_form
+        # §C.4 trap 1 — TWO addresses, each labelled. The unlabelled triple
+        # this replaces is the defect that section exists to record.
+        - legal_address_country
+        - legal_address_city
+        - legal_address_region
+        - hq_address_country
+        - hq_address_city
+        - hq_address_region
+        # §D.3 — WHICH AUTHORITY ANSWERED. Carried as an attribute because it
+        # is a fact about the answer, not about how the assembly ran, and a
+        # consumer must be able to branch on it without parsing lineage.
+        - identity_authority
+        # §C.3 — the crosswalk. "The crosswalk is the product."
+        - internal_client_id
+        # §B.2 / §D.2 step 2 — the attribute `PolicyFilter` filters on. Present
+        # twice by design: once as a served attribute and once as the policy
+        # discriminator, because a product that filters on a field it does not
+        # return cannot be audited from its own payload.
+        - provenance_class
+
+  # §B.5: "no relationship". Declared empty rather than omitted, because an
+  # absent key reads as an oversight and an empty one reads as a decision.
+  relationship_rules: []
+
+# --------------------------------------------------------------------------
+# λ_c — spec §E.1. TWO observation types, never averaged (§B.1 element 2).
+#
+# CALIBRATION BASIS IS ILLUSTRATIVE FOR THE FIRST AND EXPERT FOR THE SECOND,
+# and saying so is the difference between a value an engineer can challenge and
+# a number they assume was measured. `spec_generation.md` §10.2 records that a
+# vault article set λ_c to a PUBLICATION CADENCE where the half-life was nearer
+# a year, and that an inverted materialization posture followed from it — so
+# the first row below is named for what it actually is.
+# --------------------------------------------------------------------------
+half_life:
+  # 86,400 s = 24 hours. This is the GLEIF publication cadence, NOT a measured
+  # decision-relevance half-life. Marked illustrative in §E.1 for that reason.
+  vendor_identity:
+    half_life_seconds: 86400
+    decay_driver: the daily GLEIF LEI-CDF Level 1 concatenated file
+    supersession_event: >-
+      the next vendor file touching this entity — most consequentially a
+      registration status lapsing, which is the field §A's counterfactual is
+      about
+
+  # 23,328,000 s = 270 days, the MIDDLE of the three KYC cycles the estate
+  # carries (180 / 270 / 365). Basis EXPERT rather than illustrative: the
+  # cycles are a stated business rule, not a guess. The per-entity ceiling is
+  # `freshness_ceiling_days` and travels with the row (§C.3).
+  internal_kyc:
+    half_life_seconds: 23328000
+    decay_driver: the internal KYC refresh cycle for the client
+    supersession_event: >-
+      an internal KYC state change for this client, which resets the ceiling
+      the payload advertises
+
+# --------------------------------------------------------------------------
+# WHERE THE D_c BANDS SIT — `D_c = 1 - (F . C . S)`.
+#
+# THE SPEC LEAVES THESE `[TBC — this build, P8]` (§E.2, §F.2 rows 4 and 17) AND
+# THE SDK REQUIRES ALL THREE. They are declared here so they are values an
+# engineer can CHALLENGE rather than numbers a reader must assume were derived,
+# and whoever closes those markers reconciles §E.2's table against them.
+#
+# The bands MUST be set together with λ_c above. `debt_tolerance` default 0.25
+# (§B.4) is the CALLER's ceiling and is provisional and unbacked until measured
+# against crosswalk match confidence, which is `[TBC — ccf_dataprep]` (§C.3).
+#
+# `forced_llm_threshold` for a MODE 1 product is a DISCLOSURE band, not a
+# routing instruction: there is no model in the path to route to.
+#
+# The debt gate is a Control Plane POSTURE, not a validation gate (§D.7):
+# `src/ccf/products/gates.py::run_gates` never sees it, so the refusal is the
+# deployment's own code. Stated rather than implied, so a reader does not take
+# a declared posture for an enforced one.
+# --------------------------------------------------------------------------
+debt_profile:
+  # §E.1's λ_c values are already decision-relevance half-lives, so the budget
+  # multiplier is 1. A multiplier other than 1 would silently restate the
+  # half-life in a second document.
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+# --------------------------------------------------------------------------
+# THE REGIME IN FORCE — spec §B.1 element 4. Its VERSION rides the served
+# product's lineage. Adopter-owned (`D-IMPL-138`(a)).
+#
+# §B.1 element 4 is "entitlement scope ONLY — no regulatory overlay at this
+# tier", so the regime names what it is rather than borrowing a regulatory one
+# it does not carry.
+# --------------------------------------------------------------------------
+policy:
+  class_id: cp-01.policy-bundle
+  role: register
+  registration: typed
+  regime: counterparty-identity-entitlement
+
+# --------------------------------------------------------------------------
+# Pi role-conditioning: whose view of the graph this product is served under.
+# There is no door in this in-process example, so this names it directly.
+# It lands in the served payload as `perspective_role` (§D.6) and in replay
+# dimension 4.
+#
+# `PRIN-COV-001` — the coverage banker, granted `US`. Chosen as the default
+# because the demonstration anchor is `US-DE` and therefore VISIBLE to it,
+# while being invisible to `PRIN-KYC-004` and `PRIN-TRD-003` (§D.3). The same
+# question asked by four principals is two answers and two refusals, and that
+# asymmetry is the point of the step.
+# --------------------------------------------------------------------------
+default_perspective:
+  principal_id: PRIN-COV-001
+  role: analyst

@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE CALLER'S OWN VOCABULARY — read-side, so NOT in `ccf_config.yaml`.
+# A question is not a permission. It has no business in Control Plane state or
+# in Decision Replay dimension 2.
+#
+# `role: load` is what this document would carry if a multi-file manifest named
+# it: parsed, validated, handed back, never registered.
+
+semver: "1.0.0"
+class_id: cp-01.question
+
+declaration:
+  # THE ANCHOR, and it is the `subject` rather than a second field. Spec §B.1
+  # element 8 makes the address itself the anchor —
+  # `/context-products/reference/counterparty/{anchor}` — because a publicly
+  # resolvable identifier is the right anchor and an internal surrogate key is
+  # the named error for that element (Standard §2.1). Carrying it twice would
+  # be two places to change one value.
+  #
+  # WHY THIS ENTITY. AVIS BUDGET GROUP is the demonstration anchor because it
+  # exercises three of the four things this product exists to show, in one call:
+  #
+  #   * §C.4 trap 1 — its LEGAL address is Wilmington, US-DE and its
+  #     HEADQUARTERS address is Parsippany, US-NJ. The Delaware pattern. Before
+  #     Wave 20 the estate held one unlabelled address triple, and a consumer
+  #     joining on headquarters jurisdiction would have silently received the
+  #     legal domicile instead of an empty result.
+  #   * §D.3 entitlement — `legal_jurisdiction` is `US-DE`, so it is visible to
+  #     `PRIN-COV-001` (grant `US`) and `PRIN-RES-002` (`US CA GB`) and INVISIBLE
+  #     to `PRIN-KYC-004` (EU) and `PRIN-TRD-003` (`GB HK JP SG`). The same
+  #     question asked by four principals is two answers and two refusals.
+  #   * §C.3 crosswalk — it carries `internal_client_id` `CLI-000008`, so the
+  #     LEI-to-internal join is exercised rather than asserted.
+  #
+  # Its `registration_status` is `ISSUED`, so `include_lapsed: false` below does
+  # not exclude it. A LAPSED sibling exists for the gate fixture — `Agilysys NV
+  # LLC`, `2549006FEPBCMW266H93` — and is named in §D.7 rather than served here.
+  subject: "529900E95812SYWMCE44"
+
+  # The decision this product is being assembled FOR. Spec §D.1.
+  # The intent REGISTRY that Standard §11.1 asks for does not exist in this
+  # deployment, so the accepted values are declared on the product class rather
+  # than resolved against a governed registry — spec §B.4, marker in §F.2.
+  intent: kyc-review
+
+  # The currency the caller requires — `ccf.products.request::ProductRequest`
+  # carries this in its own right. `vendor-daily` names the GLEIF publication
+  # cadence this product's identity attributes decay against (§E.1), which is
+  # the currency a KYC reviewer is asking for: today's register, not a
+  # point-in-time reconstruction.
+  freshness: vendor-daily
+
+  # Spec §B.4. Above this, the debt gate refuses with `409` rather than serving
+  # with a warning. Provisional and unbacked until measured against crosswalk
+  # match confidence — §E.2 and §F.2 row 4.
+  debt_tolerance: 0.25
+
+  # Spec §B.4. `false` excludes an entity whose registration has lapsed rather
+  # than returning it unflagged, which is the whole point of the parameter.
+  include_lapsed: false
+
+  # ==========================================================================
+  # THE INSTANT THE CALLER IS ASKING AS OF — DATA, not a clock read.
+  # ==========================================================================
+  #
+  # This is what lets replay feed the recorded boundary back through the same
+  # code path and get the same answer, and it is what `EXAM-06` / `D-IMPL-218`
+  # require of every published run: the printed run reproduces against a NAMED
+  # SNAPSHOT, so a reader whose numbers differ has re-derived rather than
+  # replayed.
+  #
+  # Quoted, so it stays a string: PyYAML's timestamp resolver would otherwise
+  # hand the deployment a `datetime` where it expects text to parse.
+  #
+  # WHY THIS PARTICULAR INSTANT, AND IT IS A MEASUREMENT RATHER THAN A ROUND
+  # NUMBER. Spec §B.1 element 3 declares a 24-hour TTL anchored
+  # `from_entity_freshness`, so `expires_at` is the entity's own last
+  # observation plus a day. `ccf_v2.legal_entity.retrieved_at` is a SNAPSHOT
+  # LOAD DATE, not a live daily feed — measured 2026-08-29 it carries three
+  # values, 2026-08-16 (50 rows), 2026-08-23 (3) and 2026-08-24 (103).
+  #
+  # The anchor above was loaded 2026-08-16, so its `expires_at` is
+  # 2026-08-17T00:00Z and this instant sits half a day inside it. Asking as of
+  # "now" would put every entity in the estate past its expiry and the product
+  # would refuse all 186 — which is the fabric working correctly against a
+  # snapshot that is no longer fresh, and is a fact about the LOAD rather than
+  # about the assembly.
+  #
+  # THE 08-16 LOAD IS ALSO THE ONE THAT CARRIES CROSSWALK ROWS. The 103
+  # subsidiaries loaded 2026-08-24 hold ZERO — the 53 LEI-bearing crosswalk rows
+  # are all against the anchor cast. So 2026-08-24 would have been the wrong
+  # date twice over: the anchor would have resolved, and §C.3's correlation key,
+  # which that section calls "the product", would have had nothing to join.
+  asked_at: "2026-08-16T12:00:00+00:00"

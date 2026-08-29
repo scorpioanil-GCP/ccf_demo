@@ -231,7 +231,7 @@ anchors teach the anchor better than either does alone.
 |---|---|---|
 | 1 | **Schema** | `counterparty_reference` — entity `LegalEntity`; attributes: LEI, legal name, jurisdiction, entity status, registration status, legal form, **headquarters address and legal address**. Machine-readable artifact: `[TBC — this build, phase P6]` at `docs/schemas/counterparty_reference.v1.json` |
 | 2 | **Freshness SLA** | **Per signal class, never averaged.** 24 hours for LEI-registered entities; **KYC refresh cadence — months** for entities resolved through the internal client master. See §C.3 for why one number over a mixed population is the error the rule exists to prevent |
-| 3 | **TTL** | 24 hours · `ttl_anchor: from_entity_freshness` |
+| 3 | **TTL** | **24 hours** · `ttl_anchor: from_entity_freshness`. **One TTL, per product** (Dave, 2026-08-29). A measured consequence for the no-LEI population is recorded below and is a BUILD finding, not a change to this declaration |
 | 4 | **Policy Binding** | **Entitlement scope only** — jurisdiction visibility per calling principal. No regulatory overlay at this tier. Classification and residency at §B.2 |
 | 5 | **Lineage** | `operators_invoked: [Resolve, Policy]` · `graph_snapshot_at` · `policy_version` · `payload_hash` · `context_debt`. `projection_plan_id` is **null** — Π is not exercised at T1. `model_record` is **null** — Mode 1 |
 | 6 | **Semantic Version** | `v1.0.0`. No prior version; no migration window applies. Change classes per Standard §12 |
@@ -248,6 +248,41 @@ strings, which cannot satisfy the **lineage strict equality** gate — that gate
 the declared operator set against what the engine resolved, and a comparison needs
 addresses on both sides. The SDK mechanism each name binds to is the eighth column of
 §D.2.
+
+> ### A MEASURED CONSEQUENCE OF ELEMENT 3, found at P5 before any code was written
+>
+> `from_entity_freshness` computes `expires_at` from **the entity's last observation**.
+> For an entity resolved through the internal client master that observation is
+> `kyc_last_refresh` — **months** old by design (§C.3's freshness ceiling of 180/270/365
+> days). Measured against the live estate on 2026-08-29:
+>
+> ```
+> refreshed 2026-01-07  ->  expires_at @24h = 2026-01-08   already past
+> refreshed 2026-02-07  ->  expires_at @24h = 2026-02-08   already past
+>
+> no-LEI entities whose 24h-from-freshness TTL is already past : 30 of 30
+> ...and how many are live under their OWN declared ceiling    : 27 of 30
+> ```
+>
+> `src/ccf/products/gates.py::_refuse_ttl` requires `now < expires_at`. On these
+> numbers **every one of the 30 no-LEI entities is refused on its first call** — the
+> population §C.4 trap 2 exists to stop being excluded, and the one §G acceptance
+> criterion 3 requires to *resolve and report the lower freshness ceiling*. The data is
+> not at fault: 27 of 30 are live under their own ceiling.
+>
+> **THE DECLARATION IS NOT CHANGED HERE, AND THAT IS DELIBERATE.** TTL is per-product
+> and this product's is 24 hours — Dave, 2026-08-29: *"it's specific to the product…
+> specify the TTL for this product."* An earlier draft of this section invented a
+> two-branch TTL structure in `artifacts/ttl.yaml`, keyed on `identity_authority`, with
+> a per-entity duration read from `freshness_ceiling_days`. **That was withdrawn**: it
+> extended the artifact schema with fields the SDK does not carry, ahead of the run that
+> would have justified them.
+>
+> **How this resolves.** It is a **build finding**, taken back with evidence from an
+> actual run per `spec_generation.md` §2 — *"a Gate-2 value that contradicts an approved
+> Gate-1 decision is a deviation — take it back, do not absorb it"* — rather than
+> pre-empted by machinery written before the evidence. Gate **`CPR-G09`** is what
+> settles it, in whichever direction the run settles it. Registered at §F.4 finding 8.
 
 **Element 3, and the two ways this product can hit its TTL bound.** `from_entity_freshness`
 means `expires_at` is computed from the entity's own last-observed instant, so:
@@ -871,6 +906,7 @@ cross-referenced to a fixture ID.
 | **CPR-G06** Type-chain completeness | all **seven** Commons/FIBO classes of §C.3 are asserted; a partial chain propagates catalog-wide | §C.3 — an entity unreachable by three roles it genuinely holds | `CPR-G06` |
 | **CPR-G07** Authority disclosure | **every** identity attribute names its authoring source via `identity_authority`; an attribute with no authority is a defect, not a default | §D.3 — a payload that cannot say which authority answered | `CPR-G07` |
 | **CPR-G08** Empty served set | a principal whose grant set matches no entity gets a **fail-closed refusal or an explicit debt contribution**, never a `200` with an empty list | the gap between the Standard's gate 1 and the SDK's, named above | `CPR-G08` |
+| **CPR-G09** No-LEI entity is servable | a no-LEI entity **resolves and reports its lower freshness ceiling** (§G criterion 3) rather than being refused by the TTL lower bound. The gate is written to FAIL on the declaration as it stands, and it is expected to — that failure is the evidence the finding is taken back with | §B.1 element 3's measured consequence — a 24h TTL over a months-old KYC observation puts `expires_at` in the past for **30 of 30** internal-client entities | `CPR-G09` |
 
 **Every gate is made to fail deliberately once.** `[TBC — this build, phase P7]` — the
 sabotage result for each of the eight. A gate that has never been observed red is not
@@ -891,6 +927,14 @@ evidence that it runs.
 **`λ_c` values are proposed here and fixed in Control Plane configuration — a spec does
 not set them.** Saying so is the difference between a value an engineer can challenge
 and a number they assume was measured.
+
+> **`λ_c` and TTL are different quantities and this product now shows why.** Half-life
+> describes how fast a signal *decays*; TTL declares how long a served product may be
+> *acted on*. They were briefly conflated in the approved §B.1 — one 24-hour TTL over
+> two signal classes whose half-lives differ by two orders of magnitude — and the
+> amendment there splits the TTL to match the classes named in this table. **A product
+> whose TTL ignores its own half-life table refuses its slowest-moving population on
+> arrival**, which is the measured result: 30 of 30.
 
 > **A caution carried deliberately, because the same class of error is documented in
 > this catalog.** `spec_generation.md` §10.2 records that a vault article set `λ_c` to a
@@ -1161,6 +1205,18 @@ something to act on:**
 6. **The exemplar at `public/reference/specifications/` declares four out-of-scope
    payload fields** (§B.5). It is a control for comparison, not an authority; the
    `409` its debt table implies does not arise under this specification.
+8. **The 24-hour TTL and the months-long freshness ceiling do not compose, and the
+   contradiction is measured rather than argued.** `ttl_anchor: from_entity_freshness`
+   over an internal-client observation that is months old by design puts `expires_at`
+   in the past for **30 of 30** no-LEI entities, so `_refuse_ttl` rejects on first call
+   the whole population the identity authority hierarchy exists to include — while 27 of
+   30 are live under their own declared ceiling. **The declaration stands at 24 hours**
+   (§B.1 element 3); this is registered as a **build finding to be settled by a run**,
+   not by machinery invented ahead of one. `CPR-G09` settles it. **A §11 return becomes
+   owed once the run confirms it** — the vault's §B carries the same single TTL, and a
+   build disproving a declared term is exactly what §11 asks to be sent back. Unlike
+   finding 7 this would be a claim about the world that is wrong, not a rule applied at
+   the wrong level.
 7. **Standard §10.1 is not defective — it was mis-scoped, and the correction is
    recorded because the mis-scoping cost real time.** *"Product specs never name a
    database"* governs the **vault level**: an implementation-independent product

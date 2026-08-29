@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# HOW the declared backend kind's connection settings are COMPOSED, and how the
+# system of record is reached. Not in `ccf_config.yaml`: connection material is
+# deployment ENVIRONMENT, not Control Plane state, and a DSN in a
+# content-hashed artifact is a DSN persisted into the audit plane forever.
+#
+# NO CONNECTION VALUE APPEARS HERE — no host, no port, no path, no credential.
+# This document holds a variable's NAME and a per-run path RECIPE, and nothing
+# else. The standing convention behind that: a sweep of `examples/`, `public/`,
+# `src/` and `runtime/` for the source estate's host address returns nothing,
+# and no credential enters the tree.
+#
+# THIS IS THE FILE SPEC §F.3 POINTS AT. The spec names the STORE — PostgreSQL,
+# schema `ccf_v2` — because an implementation specification that will not say
+# which of five stores an element lives in cannot be built from (Dave,
+# 2026-08-29). It does NOT name the DEPLOYMENT, and that division is what this
+# document completes: the spec says which store, this says how to reach it, and
+# only the environment says where it is.
+#
+# TWO BLOCKS, KEPT VISIBLY APART, because this product's two substrates ARE
+# apart (spec §C.1 versus §D.2 step 3):
+#
+#   `profiles:` — the CCF GRAPH. A per-run local file under the caller's run
+#                 root. Written by exactly one process, thrown away after.
+#   `sources:`  — the SYSTEM OF RECORD. READ-ONLY to this deployment. Nothing
+#                 this product runs writes to the store it reads.
+
+semver: "1.0.0"
+class_id: cp-01.backend-profiles
+
+declaration:
+  profiles:
+    # `ccf.graph.backends.sqlite_write::SqliteConnection` declares exactly one
+    # field, `database_path`, and derives from `ccf.contracts.base::CCFContract`
+    # — so `extra="forbid"` holds and a settings key the adapter does not
+    # declare is REFUSED rather than ignored.
+    sqlite:
+      settings:
+        database_path:
+          # A value SOURCE beside `from_env`, declared explicitly so the
+          # composer branches over SOURCES and never over a substrate name.
+          # Composed under the caller-supplied run root.
+          per_run: path
+          prefix: cp_01
+          suffix: .sqlite3
+
+  sources:
+    # The counterparty reference system of record — spec §C.1, all four element
+    # rows. ONE source block, not four: the four systems of record named in §C.1
+    # (GLEIF reference data, the internal client master, the entitlement service
+    # and the internal mapping) are four AUTHORITIES, and in this estate they
+    # are materialised in one relational schema. The spec keeps them distinct
+    # because single-writer discipline is about authorities; the connection is
+    # one because the store is one. Conflating those two facts in either
+    # direction is how a spec grows four DSNs for one database, or one authority
+    # for four writers.
+    #
+    # AN UNSET VARIABLE RAISES, CARRYING THIS REMEDY STRING. There is no
+    # default, no fallback to another store, and no in-tree DSN to fall back
+    # ONTO — which is the mechanism that keeps the sweep above returning
+    # nothing.
+    counterparty_reference:
+      settings:
+        dsn:
+          from_env: CCF_CP_01_POSTGRES_DSN
+          remedy: >-
+            export CCF_CP_01_POSTGRES_DSN with a READ-ONLY connection string for
+            the counterparty reference estate — schema `ccf_v2`, tables
+            `legal_entity`, `internal_client`, `crosswalk`, `principal` and
+            `principal_jurisdiction`. See the example README's "Before you run"
+            section for what the role needs and what it must not have. The role
+            needs SELECT and nothing else: this deployment never writes to the
+            store it reads, and a role that could write would make that a
+            promise rather than a guarantee.

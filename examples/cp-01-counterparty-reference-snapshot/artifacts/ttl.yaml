@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THIS PRODUCT'S TTL AND ITS CEILING — spec §B.1 element 3, §C.3, §G.1.
+#
+# WHY THIS DOCUMENT EXISTS, and it is a measured constraint rather than a
+# convention copied from cp-00.
+# `ccf.controlplane.artifacts::ProductClassDeclaration` carries `max_ttl_key` —
+# the Control Plane KEY the ceiling registers under — and has no field for the
+# ceiling's VALUE. Registering the value is what MINTS its pin, so the value
+# cannot be a field of the document whose pin it becomes. It lives here, in a
+# deployment-owned artifact, and this product's number is domain-specific in a
+# way a demo constant is not: 24 hours is the GLEIF publication cadence.
+#
+# `role: load`. A TTL declaration is a fact about the class, parsed and handed
+# back. It is not something the fabric is PERMITTED to do, so it has no
+# business being registered into Control Plane state under its own class id.
+# The ceiling reaches the registry through `ccf.products.contract::MaxTTL`,
+# registered by the spine under `product_class.max_ttl_key`.
+
+semver: "1.0.0"
+class_id: cp-01.ttl
+
+declaration:
+  # 24 hours, anchored `from_entity_freshness` (§B.1 element 3).
+  #
+  # The duration is the VENDOR PUBLICATION CADENCE: GLEIF republishes Level 1
+  # daily, so a day-old identity attribute is the oldest that should be acted
+  # on without re-reading. Anchored on the entity's own last observation rather
+  # than on the request, because what makes this answer wrong is the source
+  # speaking again about THIS entity — not time passing since someone asked.
+  declared_ttl_seconds: 86400
+
+  # The ceiling `src/ccf/products/gates.py::_refuse_ttl` enforces as
+  # `now < expires_at <= now + MAX_TTL`. Equal to the declared TTL: this
+  # product has one signal cadence and no reason to carry headroom above it.
+  max_ttl_seconds: 86400
+
+# ============================================================================
+# A MEASURED CONSEQUENCE OF THE ABOVE, RECORDED HERE BECAUSE THE BUILD WILL
+# HIT IT AND A READER SHOULD MEET IT BEFORE THE STACK TRACE DOES.
+# ============================================================================
+#
+# `from_entity_freshness` computes `expires_at` from the entity's last
+# observation. For an entity resolved through the internal client master that
+# observation is `kyc_last_refresh`, which is MONTHS old by design (§C.3's
+# freshness ceiling, 180/270/365 days). Measured against the live estate
+# 2026-08-29:
+#
+#     refreshed 2026-01-07  ->  expires_at @24h = 2026-01-08   already past
+#     refreshed 2026-02-07  ->  expires_at @24h = 2026-02-08   already past
+#
+#     no-LEI entities whose 24h-from-freshness TTL is already past : 30 of 30
+#     ...and how many are live under their OWN declared ceiling    : 27 of 30
+#
+# `_refuse_ttl` requires `now < expires_at`, so on these numbers every no-LEI
+# entity is refused on its first call — the population §C.4 trap 2 exists to
+# stop being excluded, and §G's acceptance criterion 3 requires to RESOLVE.
+#
+# NOTHING IS INVENTED HERE TO PAPER OVER IT. The declared TTL stays 24 hours,
+# which is what the specification says and what the vendor cadence supports.
+# The resolution is a BUILD finding to be taken back with evidence from a run
+# (`spec_generation.md` §2 — a value that contradicts an approved decision is a
+# deviation, taken back, not absorbed), not a branch structure invented in an
+# artifact ahead of the run that would demonstrate the need for it.
+# Tracked at spec §B.1 element 3 and §F.4 finding 8, and proven — in whichever
+# direction the run settles it — by gate `CPR-G09`.
