@@ -173,6 +173,24 @@ disproves an approved term — a λ_c, an operator step, a scope boundary — th
 a **deviation**: stop, state it, and take it back to Dave. Do not edit the
 approved design to match what you built.
 
+### An approved spec IS editable — classify the edit, not the document
+
+**Ruled by Dave, 2026-08-29.** Approval does not freeze the file. It freezes
+**what was approved**, which is not the same thing. Three classes:
+
+| Class | Examples | What to do |
+|---|---|---|
+| **Editorial** | spelling, a heading brought into line with the Standard, formatting, a broken link, a typo | **Just edit it.** No notice, no approval. Name it in the commit message |
+| **Corrective** | a factual error in something approved — a wrong table name, a miscounted row, a stale path | **Edit it, then say what changed and why.** No re-approval; visibility is the obligation |
+| **Substantive** | a contract element value · scope boundary · operator step · λ_c · a gate · a parameter · anything that changes what the approval was *about* | **Still a deviation.** Stop, state it, take it back. Unchanged by this ruling |
+
+The test is not *"is the document approved?"* — it always is. The test is
+**"would Dave's approval have been different if the document had said this
+originally?"** If no, edit. If yes, escalate.
+
+Regenerating a published page after an editorial edit is part of the edit, not a
+separate approval.
+
 ### Why the claims must still be discharged by a run
 
 Approval makes the design binding; it does not make the claims true. That is
@@ -483,7 +501,7 @@ more surface.
 
 **D.2 — operator step table.** One operator per step:
 
-`# · Operator · Capability class · Inputs · Emits · Failure behaviour · p95 budget`
+`# · Operator · Capability class · Inputs · Emits · Failure behavior · p95 budget`
 
 Operators come from the closed vocabulary only: **Resolve · Policy · Projection
 · Traversal · Enrich · Similarity · Evaluate · Federate**. Retired names —
@@ -555,7 +573,7 @@ required signal classes, not over classes present**, or losing a source improves
 the score.
 
 Then the per-component table: `Component · May be absent? · D_c contribution ·
-Behaviour when absent`. **Debt decomposes per claim, never only per product** —
+Behavior when absent`. **Debt decomposes per claim, never only per product** —
 four claims with one input missing returns three evaluated and one
 `NOT_EVALUABLE`, not a product-level failure.
 
@@ -686,7 +704,7 @@ and `mkdocs build --strict` must stay green in the same commit that adds one.
 > So: author at `examples/cp-01-counterparty-reference-snapshot/spec/`. Do not
 > copy from CP-SPEC-001, do not reconcile against it, and do not treat its
 > values as authoritative — it predates the example-based structure, has no
-> `artifacts/`, no witnesses, and the error classes catalogued in §10.2.
+> `artifacts/`, no witnesses, and the error classes cataloged in §10.2.
 
 ### 7.2 · The example layout
 
@@ -708,7 +726,7 @@ examples/cp-NN-<slug>/
 ```
 
 **The `page/` directory and `summary_explanations.md` are not optional**, and
-what goes in them, plus the the `example-cp-NN` target target, the venv discipline and
+what goes in them, plus the `example-cp-NN` target, the venv discipline and
 the validation pass, are governed by
 [How an example is delivered](example_delivery.md) — which is authoritative for
 everything downstream of this section. This diagram is the summary; that
@@ -751,7 +769,7 @@ Both lists must hold before anything is presented to Dave.
 - Correlation key stated with **measured** coverage, or the measurement named as
   an F.2 gap
 - Every §D step names one closed-vocabulary operator with capability class,
-  emits, failure behaviour and budget — **and has a witness in
+  emits, failure behavior and budget — **and has a witness in
   `assembly-recipe.yaml`**
 - The four composition invariants hold: Policy before any graph read · Resolve
   before Traversal · Enrich always batched · algorithmic substrate before any
@@ -861,7 +879,9 @@ pipeline exists to prevent is a correction that stalls at the boundary.
   2026-08-28 consumer signal sat unpublished until it was found by hand. State
   what your document **removes**, not only what it adds.
 - **To ccf_dataprep:** same channel, their box is `ccf-dataprep`.
-- **Note:** `ccf-sdk` has **no exchange box yet.** Create yours before rung 01.
+- **Your box is `ccf-sdk`** — `/home/parkave/.agent-exchange/ccf-sdk/`, with
+  `inbox/`, `outbox/` and `_archive/`. Use that id, not a new one: a duplicate
+  under a different id splits you into two agents.
 
 Send back at minimum: any scope-boundary conflict, any λ_c the build disproves,
 any element the vault names that the estate cannot supply, and any capability

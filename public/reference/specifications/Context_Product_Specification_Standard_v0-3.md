@@ -20,9 +20,9 @@ conversation.
 
 Five rules govern the whole document.
 
-- **A Context Product is not a dataset.** It is a typed, governed,
-  decision-ready unit of meaning, constructed at runtime against a specific
-  intent, perspective, time and policy envelope.
+- **A Context Product is not a dataset.** It is a unit of meaning — typed,
+  governed, and fit to act on — assembled at request time for one intent, one
+  perspective, one moment and one policy envelope.
 - **The contract is nine elements, not eight.** Schema, Freshness SLA, TTL,
   Policy Binding, Lineage, Semantic Version, Discovery, Addressability,
   Assembly Mode.
@@ -149,10 +149,10 @@ alone.
 | Addressability | URL pattern with a resolvable anchor identifier. | Anchoring on an internal surrogate key. |
 | Assembly Mode | 1 pure algorithmic · 2 algorithmic with LLM packaging · 3 algorithmic orchestration with agent-swarm assembly, with a one-sentence cost/quality/determinism rationale. Modes 2 and 3 additionally require the model-risk annotation at §2.3. | Omitted entirely. |
 
-**Assembly Mode is a registration-time commitment.** It is a documented
-decision the product owner makes with a stated rationale when the product
-class is registered — not an emergent runtime property the agent discovers
-at decision time. Changing it is a MAJOR change (§14).
+**Assembly Mode is a registration-time commitment.** The product owner settles
+it, with a stated rationale, when the product class is registered. **It is not
+something the assembling agent works out for itself, and it cannot vary between
+calls.** Changing it is a MAJOR change (§14).
 
 ### 2.2 Classification and residency
 
@@ -354,8 +354,8 @@ The response envelope of §10, populated with this product's payload schema,
 CI validates. Prose describing a payload is not a payload.
 
 `extra=forbid` is enforced as a build-time CI invariant: a per-product
-subclass may not silently add a field the base did not declare, and a pull
-request introducing a drifted contract fails before it reaches a deployment
+subclass cannot quietly introduce a field absent from the base declaration, and
+a pull request carrying a drifted contract fails before it reaches a deployment
 surface.
 
 ### 4.7 Validation gates
@@ -418,7 +418,7 @@ Beyond the model, every spec carries a **per-component debt table**:
 | Component | The input or claim |
 | May be absent? | yes · no |
 | D_c contribution | The weight |
-| Behaviour when absent | Fail closed · serve with flag · mark the affected claim NOT_EVALUABLE |
+| Behavior when absent | Fail closed · serve with flag · mark the affected claim NOT_EVALUABLE |
 
 **Debt is decomposed per claim, never only per product.** A product with
 four claims where one input is missing returns three evaluated claims and
@@ -672,7 +672,7 @@ accepting it · owner · effective date and version · deprecation status.
 
 Each plan carries: plan id · principal(s) · **what is assembled
 differently** (not displayed differently) · entitlement precondition ·
-suppression behaviour confirming the silence rule · owner · version. A plan
+suppression behavior confirming the silence rule · owner · version. A plan
 whose difference is presentational is rejected — that is a consumer concern.
 
 ---
@@ -697,7 +697,7 @@ Change classes:
 
 A λ_c or debt_tolerance change is **MINOR by type and material by effect** —
 it changes outputs without changing shape. Announce these to consumers
-explicitly rather than letting them surface as unexplained behaviour change.
+explicitly rather than letting them surface as unexplained behavior change.
 
 ---
 
@@ -759,7 +759,7 @@ spec; the last three return it with comments.
 - Correlation key stated with measured coverage, or the measurement named
   as a §F gap
 - Every §D step names one operator from the closed vocabulary, its
-  capability class, its emits, its failure behaviour and its budget
+  capability class, its emits, its failure behavior and its budget
 - The four composition invariants hold
 - Determinism class stated and a payload hash defined
 - Replay statement plus a numbered, falsifiable replay test
@@ -767,7 +767,7 @@ spec; the last three return it with comments.
   taxonomy mapped to steps
 - Product-specific gates written as testable assertions with fixture IDs
 - Half-life table carries a calibration basis and an owner per row
-- Per-component debt table present, with behaviour-when-absent per
+- Per-component debt table present, with behavior-when-absent per
   component
 - Every no or partial in §F has a named gap owner; first-build volumetrics
   stated
