@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **287** across **90** files
+- Coupling rows: **293** across **91** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **145** across **52** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **248**
 
@@ -17,7 +17,7 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 10 |
-| 17-08 | 90 |
+| 17-08 | 96 |
 | 23-04 | 175 |
 | 23-10 | 12 |
 
@@ -26,7 +26,7 @@ Rows by coupling shape:
 | Shape | Rows |
 | --- | --- |
 | `comment` | 15 |
-| `config-token` | 1 |
+| `config-token` | 7 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
 | `docstring` | 74 |
@@ -106,6 +106,12 @@ Rows by coupling shape:
 | `examples/cp-00-institutional-holders/artifacts/question.yaml` | 13 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/artifacts/ttl.yaml` | 15 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/ccf_config.yaml` | 25 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/page/template.html` | 652 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/page/template.html` | 1169 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/page/template.html` | 1587 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/page/template.html` | 1800 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/page/template.html` | 2092 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/page/template.html` | 3049 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 205 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 786 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1195 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
@@ -351,7 +357,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/PROJECT.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/REQUIREMENTS.md` | 94 | the phase's own planning tree — not shipped, not published |
 | `.planning/ROADMAP.md` | 37 | the phase's own planning tree — not shipped, not published |
-| `.planning/STATE.md` | 8 | the phase's own planning tree — not shipped, not published |
+| `.planning/STATE.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/16-config-consolidation.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/2026-08-14-property-not-shape-gating.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/milestones/v0.1-ROADMAP.md` | 6 | the phase's own planning tree — not shipped, not published |

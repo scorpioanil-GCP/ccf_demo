@@ -34,3 +34,8 @@ node_modules/
 # Claude Code local state — agent worktrees and machine-local settings.
 # Never a secret in the tree (CLAUDE.md §2.2).
 .claude/
+
+# Rendered documentation pages — the GENERATOR and the TEMPLATE are committed,
+# the output is not. `page/build_page.py` reproduces it from the tree.
+examples/*/page/*.html
+!examples/*/page/template.html

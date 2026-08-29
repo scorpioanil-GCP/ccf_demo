@@ -1,0 +1,47 @@
+{
+  "counterparty": {
+    "anchor": "529900E95812SYWMCE44",
+    "entity_id": "counterparty://24b66aaff16d33690d24ed15cf661d6bb03520bd06386467704b3e163d865b62",
+    "entity_status": "ACTIVE",
+    "headquarters_address": {
+      "city": "Parsippany",
+      "country": "US",
+      "region": "US-NJ"
+    },
+    "identity_authority": "lei-reference-data",
+    "internal_client_id": "CLI-000008",
+    "legal_address": {
+      "city": "WILMINGTON",
+      "country": "US",
+      "region": "US-DE"
+    },
+    "legal_form": "XTIQ",
+    "legal_jurisdiction": "US-DE",
+    "legal_name": "AVIS BUDGET GROUP, INC.",
+    "lei": "529900E95812SYWMCE44",
+    "registration_status": "ISSUED",
+    "type_chain": [
+      "cmns-pts:Agent",
+      "cmns-pts:Party",
+      "cmns-org:Organization",
+      "cmns-org:FormalOrganization",
+      "cmns-org:LegalPerson",
+      "cmns-org:LegalEntity",
+      "fibo-be-le-cb:Corporation"
+    ]
+  },
+  "freshness_ceiling_days": 1,
+  "perspective_role": "analyst",
+  "signal_class": "vendor_identity"
+}
+
+What a plain SELECT would not have told you:
+   asked as of        2026-08-16T12:00:00+00:00
+   expires at         2026-08-17T00:00:00+00:00   (ttl_anchor from_entity_freshness)
+   context debt D_c   0.2929  ->  ok
+   identity authority lei-reference-data
+   freshness ceiling  1 day(s)   (signal class vendor_identity)
+   principal          PRIN-COV-001   sees 10 jurisdiction(s)
+   operators invoked  ['policy.principal-subgraph']
+   content address    ab2e1a62bf0e5b26c86b3dc122bc77ca4c7e8162ef86510f4a0901224723e9e4
+   replay record      5cd4126b9a5eac5009dd1a01e13be27615e60ed75cce086ce2fa16bbf51dd888
