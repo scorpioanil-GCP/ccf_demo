@@ -908,9 +908,33 @@ cross-referenced to a fixture ID.
 | **CPR-G08** Empty served set | a principal whose grant set matches no entity gets a **fail-closed refusal or an explicit debt contribution**, never a `200` with an empty list | the gap between the Standard's gate 1 and the SDK's, named above | `CPR-G08` |
 | **CPR-G09** No-LEI entity is servable | a no-LEI entity **resolves and reports its lower freshness ceiling** (§G criterion 3) rather than being refused by the TTL lower bound. The gate is written to FAIL on the declaration as it stands, and it is expected to — that failure is the evidence the finding is taken back with | §B.1 element 3's measured consequence — a 24h TTL over a months-old KYC observation puts `expires_at` in the past for **30 of 30** internal-client entities | `CPR-G09` |
 
-**Every gate is made to fail deliberately once.** `[TBC — this build, phase P7]` — the
-sabotage result for each of the eight. A gate that has never been observed red is not
-evidence that it runs.
+**Every gate has been made to fail deliberately once — DONE 2026-08-29, P7.** A gate
+that has never been observed red is not evidence that it runs.
+
+| Gate | Sabotage applied | Result |
+|---|---|---|
+| `CPR-G01` | the two addresses made identical in the fixture | RED |
+| `CPR-G02` | the entitlement join made to admit every entity | RED |
+| `CPR-G03` | an internal-client entity made to report the 24-hour vendor ceiling | RED |
+| `CPR-G04` | a `"1 entity hidden"` notice leaked into the suppressed payload | RED |
+| `CPR-G05` | `unsupported_arguments` emptied, so `as_of` is silently honoured | RED |
+| `CPR-G06` | the type chain truncated to six classes | RED |
+| `CPR-G07` | `identity_authority` dropped from the payload | RED |
+| `CPR-G09` | `expires_at` switched to `from_decision`, making the no-LEI entity servable | RED |
+
+**`CPR-G09`'s sabotage is the one worth reading twice.** Its test asserts a
+REFUSAL — the defect §F.4 finding 8 records — so "sabotaging" it means FIXING the
+defect, and the test correctly went red. That is the confirmation it is the
+evidence the deviation is taken back with rather than a test that ratifies a bug:
+**when the TTL declaration is corrected, this test goes red, and that redness is
+the signal to close the finding.**
+
+**`CPR-G08` is NOT in the table, and its absence is the finding.** It has no
+instance in the data — every principal sees at least 21 entities, so the empty
+served set it refuses cannot currently occur. Standard §6: *"a demonstrable
+primitive with no instance in the data reads to reviewers as machinery without a
+purpose."* Registered at §F.2 row 20, owned by `ccf_dataprep`, and it is a
+one-row fixture rather than a data programme.
 
 ---
 
@@ -1063,7 +1087,7 @@ products.
 | 12 | Replay fixture `CPR-R01`, both hashes | §D.5 | this build | P6 |
 | 13 | Schema artifact + `extra=forbid` CI binding | §D.6 | this build | P6 |
 | 14 | Debt-gate `409` behaviour | §D.7 | this build | P7 |
-| 15 | Sabotage result for each of the eight gates | §D.7 | this build | P7 |
+| 15 | ~~Sabotage result for each of the eight gates~~ **CLEARED 2026-08-29** — seven of eight red; `CPR-G08` has no instance (row 20) | §D.7 | this build | **P7 — done** |
 | 16 | `λ_c` measured against read frequency | §E.1 | this build | P8 |
 | 17 | Per-component `D_c` contributions (5 rows) | §E.2 | this build | P8 |
 | 18 | Counterfactual fixture `CPR-F01` | §A | this build | P7 |
