@@ -121,11 +121,28 @@ def _include_stem(target: str) -> str:
     return target.split("::", 1)[0].split(":", 1)[0].strip()
 
 
+#: A path token that is a TEMPLATE, not a claim that a file exists.
+#: `spec_generation.md` writes the authoring home of every future Context Product
+#: as ``examples/cp-NN-<slug>/spec/`` — ``NN`` is the build-order number the
+#: author substitutes and ``<slug>`` the product name. Resolving those literally
+#: asks whether a template exists on disk, which is not the question this gate
+#: was built to ask.
+#:
+#: Deliberately NARROW: only an ``NN`` run, an angle-bracket or a brace
+#: placeholder. A path that is merely wrong still fails, which is the point —
+#: excluding the whole specifications directory would have been the easy fix and
+#: would have let a genuinely stale path through.
+def _is_placeholder(token: str) -> bool:
+    return bool(re.search(r"\bNN\b|<[^>]*>|\{[^}]*\}", token))
+
+
 def prose_path_offenders(pages: list[pathlib.Path]) -> list[str]:
     """`page:line -> missing path` for every unresolvable prose path token."""
     offenders: list[str] = []
     for page, paragraph in _prose.iter_paragraphs(pages, prose_only=False):
         for token in PATH_TOKEN.findall(paragraph.raw):
+            if _is_placeholder(token):
+                continue
             if not _resolves(token):
                 offenders.append(
                     f"{_prose.relative(page)}:{paragraph.lineno} -> {token}"

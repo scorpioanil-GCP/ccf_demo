@@ -145,7 +145,7 @@ def paragraphs_asserting_independence(
 
 def test_the_published_tree_is_populated() -> None:
     assert _prose.PUBLIC_DIR.is_dir(), f"missing published tree: {_prose.PUBLIC_DIR}"
-    pages = _prose.published_pages()
+    pages = _prose.sdk_prose_pages()
     assert pages, f"no markdown pages under {_prose.PUBLIC_DIR}"
     assert any(
         GATE_TWO.search(paragraph.text)
@@ -165,7 +165,7 @@ def test_the_positive_assertion_has_something_to_assert_over() -> None:
     """
     triggered = [
         f"{_prose.relative(page)}:{paragraph.lineno}"
-        for page, paragraph in _prose.iter_paragraphs(_prose.published_pages())
+        for page, paragraph in _prose.iter_paragraphs(_prose.sdk_prose_pages())
         if GATE_TWO.search(paragraph.text) and CHARACTERIZES.search(paragraph.text)
     ]
     assert triggered, (
@@ -179,7 +179,7 @@ def test_the_walk_does_not_depend_on_the_process_cwd(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    assert _prose.published_pages(), "the walk resolved against the CWD, not the repo"
+    assert _prose.sdk_prose_pages(), "the walk resolved against the CWD, not the repo"
 
 
 # --------------------------------------------------------------------------
@@ -188,7 +188,7 @@ def test_the_walk_does_not_depend_on_the_process_cwd(
 
 
 def test_every_characterization_of_gate_two_carries_the_correction() -> None:
-    offenders = paragraphs_missing_the_correction(_prose.published_pages())
+    offenders = paragraphs_missing_the_correction(_prose.sdk_prose_pages())
     assert not offenders, (
         "published paragraphs describe what Gate 2 verifies without saying it "
         "verifies assembly-path integrity — see D-IMPL-86 and its correction "
@@ -198,7 +198,7 @@ def test_every_characterization_of_gate_two_carries_the_correction() -> None:
 
 
 def test_no_published_paragraph_asserts_gate_two_independence() -> None:
-    offenders = paragraphs_asserting_independence(_prose.published_pages())
+    offenders = paragraphs_asserting_independence(_prose.sdk_prose_pages())
     assert not offenders, (
         "published prose frames Gate 2 as a check between independently "
         "authored sets. The engine is a faithful transcriber of the plan, not "

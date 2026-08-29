@@ -268,6 +268,45 @@ def published_pages(root: pathlib.Path | None = None) -> list[pathlib.Path]:
     return sorted(base.rglob("*.md"))
 
 
+#: Context Product SPECIFICATIONS and the standard they are authored to.
+#: Published, but NOT SDK documentation prose — they are authored to an external
+#: format contract and carry ITS vocabulary.
+SPECIFICATION_DIR = PUBLIC_DIR / "reference" / "specifications"
+
+
+def sdk_prose_pages(root: pathlib.Path | None = None) -> list[pathlib.Path]:
+    """`published_pages()` minus the Context Product specifications.
+
+    **Why the exclusion exists, because a narrowed population is exactly how a
+    gate goes quietly blind.** The wording gates in this package police how *the
+    SDK's own documentation* describes *SDK concepts*. Specification documents
+    under `reference/specifications/` legitimately use vocabulary that collides:
+
+    * **"lineage strict equality"** is one of the SIX universal validation gates
+      of Specification Standard v0.3 §4.7. It is a *product contract* gate and
+      has nothing to do with the SDK deployment gate of `D-IMPL-86`, whose
+      wording rule demands the phrase "assembly-path integrity".
+    * **"Gate 1" / "Gate 2"** in `spec_generation.md` are the two *approval*
+      checkpoints of the authoring process — spec approved, then built — not the
+      SDK's deployment gates.
+
+    Applying the SDK rule to those documents asks a question the documents were
+    never answering. It is the defect class this repository keeps recording: **a
+    check whose population is not its question.**
+
+    **What this does NOT excuse.** The exclusion is scoped to *wording* gates.
+    Specifications remain subject to every other published-tree check, and the
+    non-vacuity assertions beside each wording gate run over THIS set, so a
+    narrowing that emptied it would fail rather than pass.
+    """
+    excluded = SPECIFICATION_DIR.resolve()
+    return [
+        page
+        for page in published_pages(root)
+        if excluded not in page.resolve().parents
+    ]
+
+
 def page_paragraphs(path: pathlib.Path) -> list[Paragraph]:
     """Every paragraph of the page at `path`."""
     return paragraphs(path.read_text(encoding="utf-8"))
