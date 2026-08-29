@@ -194,22 +194,59 @@ covers only its **mechanics**.
 
 ## 6 · `summary_explanations.md` — the banker document
 
-**Every Context Product example ships one, beside the README.** Its audience is
-**bankers, not engineers** — Dave presents from it directly.
+**Every Context Product example ships one, beside the README.** Dave presents
+from it directly.
 
-The README explains the example to somebody building one. **This document
-explains the product to somebody deciding whether to fund it.** They are
-different documents for different readers and neither substitutes for the other.
+**Its audience is THREE readers at once — corrected 2026-08-29 by Dave, and the
+correction is worth keeping visible because this document caused the error.**
+An earlier revision of this section said *"bankers, not engineers"*, and both
+`cp-00` and `cp-01`'s summaries were written to it. Dave: *"Technical product
+managers, engineers and banker subject matter experts are the audience... More
+tech than bankers."* A document pitched at one of those three is wrong for the
+other two, and the failure is asymmetric — a subject-matter expert can skip a
+mechanism paragraph, while an engineer given only consequence has no way to
+check whether any of it is true.
+
+**Do not write a third document.** The README explains the example to somebody
+building one; this explains the product to somebody deciding whether to fund it,
+and to somebody who has to believe it. Those are the same document with a
+mechanism layer, not two.
+
+### The shape that serves all three
+
+**One section per run, three parts, in this order:**
+
+1. **The output** — the command, and the program's exact text (§7).
+2. **What you'd have missed** — the business consequence, framed as a
+   consequence rather than a property.
+3. **How it works** — the operator, the artifact and the gate. Name the file. A
+   reader who wants to check a claim should not have to search for where it
+   lives.
+
+**Two more sections carry the technical half**, and both belong near the end
+rather than the front, so the consequence is read first:
+
+- **A vocabulary table with a third column** — what the term means to a reader,
+  AND what it is in the system. `Content address` is *a tamper-evident seal on
+  one answer* and it is *`sha256` over the canonical bytes of the served
+  product*. Both, in one row.
+- **"Where each claim is enforced"** — every claim mapped to its mechanism and
+  the gate that fails if it stops being true. This is the section that answers
+  *"what stops this from regressing?"*, and it is the one a product manager
+  reads to tell a demonstration from a guarantee.
 
 ### What it must carry
 
 - **The argument in one paragraph**, up front. *A report tells you what the data
   says; a Context Product tells you what you may rely on, who may rely on it,
   how long it stays good, how complete it is, and refuses rather than guessing.*
-- **A short glossary** translating the vocabulary on first use: *content
-  address* → a tamper-evident seal on one answer; *context debt* → a
-  completeness score on that answer, not a data-quality score on a table;
-  *principal* → who is asking and what they may see.
+  Follow it with **the one-line version of what is new at this rung**, because a
+  reader who knows the catalog wants the delta, not the pitch.
+- **A vocabulary table, two readings per term** (see above).
+- **The pipeline in three rows** — Resolve, Policy, contract assembly, with what
+  each does and which layer it is. Every difference between the runs comes from
+  one of the three, and naming them once up front stops each run's mechanism
+  block from re-explaining the fabric.
 - **One section per run**, with the command, the real output, and — the part
   that carries the document — **"what you'd have missed."**
 - **The lift, named per run, as a business consequence.** Not that the fabric is

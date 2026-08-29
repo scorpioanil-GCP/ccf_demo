@@ -1,13 +1,22 @@
 # What a Context Product gives you that a report does not
 
 **Seven questions about one counterparty, asked of one database, at one
-instant.** This document records what came back each time, and — the part that
-matters — **what a banker relying on an ordinary query or report would have
-missed.**
+instant.** This document records what came back each time, **what an ordinary
+query or report would have missed**, and **which mechanism produced the
+difference.**
+
+**Written for three readers at once.** A subject-matter expert should be able to
+read the consequence and skip the mechanism; an engineer should be able to read
+the mechanism and find the file; a product manager should be able to read both
+and know what is real, what is declared, and what is still open. Each run
+therefore carries the same three parts, in the same order: **the output**, **what
+you'd have missed**, and **how it works** — the last naming the operator, the
+artifact and the gate, so nothing here is a claim you have to take on trust.
 
 Every figure below came out of a live run against the counterparty estate. None
 is illustrative, none is rounded for the slide. The section *"Why you can trust
-these numbers"* says how to reproduce them.
+these numbers"* says how to reproduce them, and *"Where each claim is enforced"*
+maps every claim to the test that would fail if it stopped being true.
 
 ---
 
@@ -27,14 +36,27 @@ not**.
 
 ## Six words this document uses
 
-| Term | What it means here |
-|---|---|
-| **Context Product** | A governed answer to a specific question, not a table or a feed. It carries the data *and* everything you need to rely on it. |
-| **Content address** | A tamper-evident seal on one answer — a fingerprint computed over the whole thing. Two answers with the same seal are the same answer; a different seal means something changed. |
-| **Context debt (`D_c`)** | A completeness score **on this answer**, from 0.0 to 1.0. Not a data-quality score on a table — a measure of how much this particular question could not be fully answered. |
-| **Principal** | Who is asking, and what they are entitled to see. Every answer is scoped to one. |
-| **Anchor** | The identifier you asked about — here an LEI, or an internal client number. |
-| **Replay record** | The audit trail that lets you reconstruct the answer later: which data, which entitlements, which version of the rules. |
+Each term is given twice: what it means to somebody reading the answer, and what
+it is in the system.
+
+| Term | What it means here | What it is |
+|---|---|---|
+| **Context Product** | A governed answer to a specific question, not a table or a feed. It carries the data *and* everything you need to rely on it. | `ContextProductContract` — payload, contract envelope, lineage and debt, served only via `ServableProduct` |
+| **Content address** | A tamper-evident seal on one answer — a fingerprint over the whole thing. Two answers with the same seal are the same answer. | `sha256` over the canonical bytes of the served product, excluding `assembled_at` |
+| **Context debt (`D_c`)** | A completeness score **on this answer**, 0.0 to 1.0. Not a data-quality score on a table. | `D_c = 1 − (F · C · S)` — multiplicative, so a collapsed dimension forces escalation rather than averaging away |
+| **Principal** | Who is asking, and what they are entitled to see. Every answer is scoped to one. | A row in `ccf_v2.principal` plus its jurisdiction grants; reaches the assembly as `Perspective` |
+| **Anchor** | The identifier you asked about — here an LEI, or an internal client number. | `ProductRequest.subject`; resolved at L2 by `SpecDrivenEntityResolution` |
+| **Replay record** | The audit trail that reconstructs the answer later: which data, which entitlements, which version of the rules. | `DecisionReplayRecord`, written **before** the product is delivered |
+
+**The three layers, in the order the fabric runs them** — worth holding while
+reading the runs below, because every difference between them comes from one of
+these three steps:
+
+| Step | What it does | Where it lives |
+|---|---|---|
+| **Resolve** | turns the anchor into a record, and says which authority answered | L2, the single writer to the graph |
+| **Policy** | substitutes the caller's permissible view *for* the full one | L4, before anything reads graph state |
+| **Contract assembly** | computes the expiry and the debt, runs the gates, seals the answer | L6, and it is not an operator |
 
 ---
 
@@ -130,6 +152,20 @@ Line by line, and what each one prevents:
 - **`content address` and `replay record`** — the answer is addressable and the
   decision is reconstructible. Neither exists for a query result.
 
+### How it works
+
+| The line | What produced it |
+|---|---|
+| `expires at` | `deployment.py::expires_at` — the entity's own `retrieved_at` plus `declared_ttl_seconds` from `artifacts/ttl.yaml`. **The request instant is not in that sum**, which is what `ttl_anchor: from_entity_freshness` means |
+| `context debt D_c` | `FreshnessScorer` over the `half_life:` table in `ccf_config.yaml`, scored from the claim's `valid_from` — when the *source's* fact began to hold, not when the fabric read it. Scoring the latter would make a months-old record re-read a moment ago look perfectly fresh |
+| `identity authority` | emitted by `Resolve` **per resolution**, and carried in the payload rather than the lineage — it is a fact about the answer, so a consumer can branch on it without parsing how the assembly ran |
+| `principal … 10 jurisdictions` | `PolicyFilter` at L4, with `permitted_classifications` built **per request** from `ccf_v2.principal_jurisdiction`. A static allowlist here would serve one principal's entities to another |
+| `content address` | `sha256` over the canonical bytes of the served product |
+
+**Nothing above is written in code.** The TTL is an artifact, the half-lives are
+an artifact, the entitlement is a table. `deployment.py` is an interpreter of
+documents beside it — delete `artifacts/` and this example has nothing to run.
+
 ### The detail that is easy to miss
 
 Two of the fields in the record it returns:
@@ -190,6 +226,26 @@ did not withhold a record it was holding. It never held one.
 > different.** The system is not saying *"nothing matched."* It is saying
 > **"I could not see enough to answer you, and I will not pretend
 > otherwise."**
+
+### How it works
+
+The suppression is **structural, not a filter.** `PolicyFilter` runs as step 2 of
+3, before anything reads graph state, and it substitutes the principal's
+permissible subgraph *for* the full graph. There is no withheld set left over to
+leak a count from — which is why the payload can carry no marker without anyone
+having to remember to remove one.
+
+`D_c` reaching `1.0000` is the same mechanism seen from the other end: with no
+entity in the view, `FreshnessScorer` has an empty sequence and refuses it by
+design, so the assembly returns the maximum debt rather than inventing a score
+for nothing. **Fail-closed is a consequence of the shape, not a branch somebody
+wrote.**
+
+One implementation detail worth naming for anyone extending this: the grant in
+`principal_jurisdiction` is a **prefix** (`US` covers `US-DE`, `US-MD`), and
+`PolicyFilter` tests exact membership — so the deployment expands the prefix
+against the jurisdictions the estate actually holds. A prefix handed over
+unexpanded matches nothing and empties the view for everyone.
 
 ### The silence is complete, and that is deliberate
 
@@ -261,6 +317,15 @@ The answer does not merely say *excluded*. It names **the setting that would
 change it, and its current value.** Nobody has to find the documentation, raise
 a ticket, or ask the vendor.
 
+### How it works
+
+`include_lapsed` is applied **at the projection**, not in the graph query. That
+is deliberate and it is what makes Run 4's comparison meaningful: every value of
+the parameter compiles to the **same pinned read**, so what the caller's choice
+changes is the payload — and therefore the seal — never what was read from the
+store. A parameter applied in the query would have changed both, and the seal
+would no longer isolate the decision.
+
 > ### What you'd have missed
 >
 > A feed that silently drops lapsed registrations, or silently keeps them.
@@ -293,6 +358,16 @@ Five fields, excerpted from the full record it returns:
 
 **Same counterparty, same instant, one setting changed — and the seal moves from
 `d22e96ad…` to `a0d5d11c…`.**
+
+### How it works
+
+The seal is `sha256` over the canonical bytes of the served product, and
+`assembled_at` is deliberately **excluded** — it changes on every call, so
+including it would make every seal unique, which is the same as having no seal.
+What *is* included: the resolved attributes, the policy version, and the calling
+principal. A hash blind to the principal would report drift where there is none
+between two entitled callers, or agreement where there is none between two
+different ones.
 
 ### Two status fields that disagree on purpose
 
@@ -385,6 +460,26 @@ a success either**, and a pipeline should treat it accordingly.
 
 ---
 
+### How runs 5 and 6 work
+
+Two different mechanisms, and the difference is worth having.
+
+**The unknown identifier** is `Resolve` failing closed. `deployment.read()`
+returns `None`, the spine turns that into an `AnchorUnresolvable` **value**, and
+the assembler raises it only at the Protocol boundary. A caller holding the spine
+gets it as data; a caller going through `ContextAssemblerProtocol` gets an
+exception, because that Protocol's return channel carries contract verdicts and
+existence is not one.
+
+**The unsupported `as_of`** never reaches the graph at all. It is declared in
+`ccf_config.yaml`'s `unsupported_arguments:` and refused at the door — a
+parameter this deployment stops supporting, or starts, is a change to that
+document rather than to any module. Standard §2.4 wants both halves: the
+parameter is **discoverable** because the contract declares it, and it **fails
+loudly** rather than succeeding quietly against current state.
+
+---
+
 ## The system never guesses — five ways it says no
 
 | Situation | How it responds | Returned as | Stops? |
@@ -434,6 +529,31 @@ Three consequences, and they are why it is worth computing:
 3. **A setting that changed nothing is detectable.** Run 3 against Run 4 proves
    the override worked: had it been ignored, the two seals would match. **A
    control you cannot see failing is not a control.**
+
+---
+
+## Where each claim is enforced
+
+Every claim in this document is held up by a test that fails if it stops being
+true. This is the table to read if the question is *"what stops this from
+regressing?"* rather than *"what does it do?"*
+
+| The claim | The mechanism | The gate |
+|---|---|---|
+| Both addresses are present and genuinely distinguishable | two typed objects in the payload, compared case- and whitespace-normalized | `CPR-G01` |
+| Entitlement changes **which entities exist**, not how they are shaped | `PolicyFilter` substitutes the permissible subgraph at L4 | `CPR-G02`, comparing **sets** and carrying a negative control |
+| A no-LEI entity reports its own months-long freshness ceiling | `identity_authority` emitted per resolution | `CPR-G03` |
+| Two principals' answers differ in content and are indistinguishable in structure | suppression is structural, not a filter | `CPR-G04` |
+| `as_of` is refused, never silently honored | `unsupported_arguments:` in `ccf_config.yaml` | `CPR-G05` |
+| All seven ontology classes are asserted | the typing chain decided at §C.3 | `CPR-G06` |
+| Every identity attribute names its authoring source | `identity_authority` in the payload | `CPR-G07` |
+| A no-LEI entity is refused by the TTL lower bound | `_refuse_ttl` requires `now < expires_at` | `CPR-G09` — **and it is written to go RED when this is fixed** |
+
+**Every one of these was deliberately broken at least once**, and observed to
+fail, before it was trusted. A gate that has never been seen red is not evidence
+that it runs — and `CPR-G09` is the one to look at twice: it asserts a **shipped
+defect**, so "sabotaging" it means *fixing* the defect, and the test correctly
+went red. That redness is the signal to close the finding, not a regression.
 
 ---
 
@@ -491,8 +611,24 @@ That inversion is deliberate. The test is not ratifying a bug — it is **the
 evidence the deviation gets taken back with.** Nobody can quietly declare the
 problem solved; the suite says when it actually is.
 
+### How it works
+
+`gates.py::_refuse_ttl` requires `now < expires_at <= now + MAX_TTL`, and both
+bounds come from `artifacts/ttl.yaml` rather than from code. `expires_at` for
+this borrower is `kyc_last_refresh + 24h` — the internal client master's own
+observation, months old by design — so it lands in the past and the lower bound
+rejects.
+
+**The declaration was not changed to make this go away**, and that is the part
+worth reading twice. The 24-hour TTL is what the specification says and what the
+vendor cadence supports; a second TTL branch invented in an artifact ahead of a
+run would have been machinery written before the evidence that justified it. So
+the number stands, the run produces the refusal, and `CPR-G09` carries it.
+
 The freshness anchoring this exposes is the entire subject of the next product
-in the catalog.
+in the catalog — `cp-02-facility-terms-snapshot`, where the anchor is a filed
+agreement date rather than a vendor file date, and the same mechanism refuses
+**50 of 60** rather than 30 of 30.
 
 ---
 
@@ -503,6 +639,12 @@ rely on them, plus how long they stay good, plus how complete the answer is,
 plus a seal that proves it reproduces — and it refuses, in five
 distinguishable ways, rather than handing you something that merely looks like
 an answer.**
+
+And the engineering claim underneath it: **none of that is written in code.** The
+expiry is an artifact, the half-lives are an artifact, the entitlements are a
+table, the operator plan is a document with a witness per step. What ships in
+`/src` is the machinery that interprets them — which is why the same fabric
+serves the next product in the catalog without a line of it changing.
 
 ---
 
