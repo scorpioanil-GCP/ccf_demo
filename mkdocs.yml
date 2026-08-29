@@ -181,6 +181,7 @@ nav:
       - Specifications:
           - Authoring standard v0.3: reference/specifications/Context_Product_Specification_Standard_v0-3.md
           - How a spec is generated: reference/specifications/spec_generation.md
+          - How an example is delivered: reference/specifications/example_delivery.md
           - "CP-SPEC-001 — Counterparty Reference Snapshot": reference/specifications/CP-SPEC-001_Counterparty_Reference_Snapshot.md
       - HTTP API: reference/http-api.md
       - Performance: reference/performance.md

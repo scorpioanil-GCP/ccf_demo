@@ -469,7 +469,7 @@ not operators. Final step is always contract assembly.
 
 **State the budget total and the envelope it is measured against.** A total at
 97% of envelope is a design finding: say which step dominates and what the first
-optimisation would be.
+optimization would be.
 
 **Mirror this table into `artifacts/assembly-recipe.yaml` with a WITNESS per
 step.** A step nothing executes is RED.
@@ -667,7 +667,7 @@ and `mkdocs build --strict` must stay green in the same commit that adds one.
 
 ### 7.2 · The example layout
 
-The spec is one file in a runnable example. Match `cp-00`'s layout:
+The spec is one file in a runnable example. Match `cp-01`'s layout:
 
 ```
 examples/cp-NN-<slug>/
@@ -679,8 +679,17 @@ examples/cp-NN-<slug>/
 │   └── ttl.yaml               ← the class TTL and its ceiling
 ├── assembler.py  produce.py  run.py  deployment.py
 ├── backends.yaml  ccf_config.yaml
-└── README.md
+├── page/                      ← build_page.py + template.html committed, render is not
+├── README.md
+└── summary_explanations.md    ← the banker-facing document
 ```
+
+**The `page/` directory and `summary_explanations.md` are not optional**, and
+what goes in them, plus the the `example-cp-NN` target target, the venv discipline and
+the validation pass, are governed by
+[How an example is delivered](example_delivery.md) — which is authoritative for
+everything downstream of this section. This diagram is the summary; that
+document is the recipe.
 
 All `artifacts/*.yaml` validate against
 `docs/schemas/ccf.declared-artifact.json`.
@@ -692,10 +701,16 @@ reviewed artifact rather than a refreshed transcript.
 
 ---
 
-## 8 · Definition of done
+## 8 · Definition of done — the specification
 
 Ship when all of these hold. This is the standard's §15, plus what this pipeline
 adds.
+
+**These are the SPECIFICATION's conditions and they are half the deliverable.**
+The example's conditions — the `make` target, the venv, the README run block,
+the documentation page, the banker summary, the verbatim-output check and the
+validation pass — are [How an example is delivered](example_delivery.md) §11.
+Both lists must hold before anything is presented to Dave.
 
 - **The spec was approved by Dave at Gate 1 before any implementation code was
   written**, and every Gate-2 deviation from the approved design was taken back
