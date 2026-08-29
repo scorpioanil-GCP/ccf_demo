@@ -173,6 +173,15 @@ nav:
           - Control Plane artifacts: reference/artifacts/control-plane-artifacts.md
           - Product registration: reference/artifacts/product-registration.md
           - Deployment manifest: reference/artifacts/deployment-manifest.md
+      # Context Product specifications ship WITH the SDK (Dave, 2026-08-29):
+      # the authoring standard, the generation recipe, and one CP-SPEC per
+      # Context Product. `public/` is the whole published surface and
+      # publication is default-deny by existence (D-01), so a spec that ships
+      # is a spec that lives here and carries a nav entry.
+      - Specifications:
+          - Authoring standard v0.3: reference/specifications/Context_Product_Specification_Standard_v0-3.md
+          - How a spec is generated: reference/specifications/spec_generation.md
+          - "CP-SPEC-001 — Counterparty Reference Snapshot": reference/specifications/CP-SPEC-001_Counterparty_Reference_Snapshot.md
       - HTTP API: reference/http-api.md
       - Performance: reference/performance.md
       # D-17 placement: the surface-record toolchain is maintainer-facing, so it

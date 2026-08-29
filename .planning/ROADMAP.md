@@ -2569,6 +2569,57 @@ with a digit, so a real continuation-line detector is required beside the count.
 **Non-goals**: every OUT item above; a new `OperatorCategory`; any change to the
 composition law or to `OperatorOutput`; a second shipped example tree.
 
+### Phase 24.2: The Second Context Product — Counterparty Reference Snapshot, One Store and Five Systems of Record (INSERTED)
+
+**Goal**: build `counterparty-reference-snapshot` as a Context Product example —
+**rung 1 of the vault's five-tier complexity ladder** and the product every other
+product in that catalog resolves its identity through. Single STORE (Postgres),
+but **five SYSTEMS OF RECORD**, which is the point rather than an obstacle
+(`24-CONTEXT.md` `D-29`).
+
+**Why this product and not a better-supplied one** (`D-IMPL-219`, Dave,
+2026-08-28): Context Products are built in the vault's **complexity order**,
+simplest-first, and readiness is never a reason to reorder. A proposal to take
+`obligor-financial-spread` first BECAUSE ITS DATA WAS RICHER was refused. *Which*
+product is next is fixed by complexity; *when* it can be built is a data question
+answered by loading data. The number `24.2` is not new here — `24-CONTEXT.md`
+`D-29` bound it to this product before `24.1` was planned.
+
+**THE DATA IS NOW LOADED, AND THIS WAS THE BLOCKER.** At the start of 2026-08-28
+this product's `spec_coverage` read **1 PASS / 3 GAP**; it now reads **4 of 4
+accounted for, zero GAP**. `ccf_dataprep` closed all three (`465ba4d`, `39f373d`,
+`5b957af`) and each was **verified independently against the live store**, not
+read off that repo's report — evidence in
+`.planning/CONTEXT-PRODUCT-LADDER-AND-ESTATE.md` §6.1.2. Two of `D-29`'s five
+systems of record materialised in that work: the **internal client master**
+(`internal_client`, 30 rows, `D-IMPL-220`) and the **entitlement service**
+(`principal_jurisdiction`, 17 rows, all six principal pairs proven to
+discriminate).
+
+**Success Criteria: NOT WRITTEN HERE, DELIBERATELY.** `D-GATE-19` binds criteria
+to the discuss sitting immediately before planning — never in advance of the
+measurements they rest on, and never retroactively. This entry records WHAT the
+phase is. Criteria are locked in `24.2-CONTEXT.md`.
+
+**Known gray areas the discuss sitting must settle** (recorded so they are not
+rediscovered, NOT pre-decided here):
+
+1. **Which specification is canonical.** `references/CP-SPEC-001_Counterparty_Reference_Snapshot_v2.md` (the repo copy, five systems of record) versus the vault's `counterparty-reference-snapshot.md` (rewritten to `spec-standard-v0-3`, whose §C collapsed to **four** rows). The collapse is what dropped **SIC code, internal obligor risk grade and coverage RM assignment** — the estate holds them and no spec now asserts them. Unruled.
+2. **Operator vocabulary, 4 versus 8.** Carried from Phase 24's entry and still unruled. This product's §D recipe is written in the standard's names (`Resolve`, `Policy`), and the SDK ships four whitepaper categories.
+3. **Validation gates, 3 versus 6.** Carried from Phase 24's entry and still unruled — a contradiction with `D-IMPL-102` limb 3, not merely a gap. This product's §D names *suppression silence* and *classification containment*, and its entitlement gap was closed against the first of those.
+4. **What the printed run is pinned to.** `cp-00` pins the time axis through `artifacts/question.yaml::asked_at` and leaves the store axis live; `EXAM-06`/`D-IMPL-218` require the page to name its snapshot. `D-IMPL-218`'s stated reason ("its fixtures are fixed") does not describe `cp-00` and should not be inherited unexamined.
+
+**Requirements:** discharges `EXAM-06` for this product's documentation page
+(`D-IMPL-217`, `D-IMPL-218`).
+
+**Non-goals**: closing the SDK-surface questions above by executor judgement — an
+unruled question is raised, never resolved in-phase (`CLAUDE.md` §11); rewriting
+`cp-00`; a second product in this phase.
+
+**PAUSE AFTER THE BUILD.** Dave's standing instruction, 2026-08-28: *"We will
+pause after it's built so I can evaluate."* No close panel, no `D-GATE`, no
+completion mark until he has evaluated it.
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |

@@ -309,13 +309,13 @@ Rows by coupling shape:
 | `tools/docs_tests/test_no_stale_example_paths.py` | 18 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 23-10 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 42 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 45 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 370 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 371 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 374 | `archive/examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 375 | `archive/examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 400 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 | constructed as `archive/examples/04-cross-process/producer_child.py` |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 404 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 | constructed as `examples/04-cross-process/producer_child.py` |
-| `tools/docs_tests/test_no_stale_example_paths.py` | 410 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 387 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 388 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 391 | `archive/examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 392 | `archive/examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 417 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 | constructed as `archive/examples/04-cross-process/producer_child.py` |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 421 | `examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 | constructed as `examples/04-cross-process/producer_child.py` |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 427 | `archive/examples/04-cross-process` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tools/docs_tests/test_resolver_seam_obligations.py` | 218 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/docs_tests/test_resolver_seam_obligations.py` | 372 | `examples/s1-01-hello-context-product` | `string-literal` | live | - | - | 17-08 |  |
 | `tools/docs_tests/test_retirement_sweep.py` | 309 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
