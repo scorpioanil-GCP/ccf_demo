@@ -2266,3 +2266,49 @@ reveal is every example's or `cp-00`'s alone) — the snapshot clause is RULED a
 every figure above came from a read-only query.
 
 Resume: `/gsd:discuss-phase` for rung 1 (`counterparty-reference-snapshot`).
+
+---
+
+**2026-08-29 save-state (09:12) — RESUME HERE. cp-01 IS DONE; THREE ITEMS ARE OPEN.**
+
+**Phase 24.2 / `cp-01-counterparty-reference-snapshot` is BUILT, TESTED,
+DOCUMENTED, PUBLISHED AND PUSHED.** `origin/main` = `467e62f`, tree clean.
+
+- **13 tests** in `tests/examples/test_cp_01_output.py`, all passing against a
+  seeded container.
+- **8 product gates, each observed FAILING once.** `CPR-G01`–`G07` and `CPR-G09`
+  were deliberately sabotaged and watched go red, then restored.
+- **Documentation page** at artifact `6edeeba9-5266-44b0-a76e-b6119a64799d`
+  ("Counterparty Reference Snapshot · cp-01"). cp-00's is
+  `66047673-7537-4d21-addf-51f67b33f132` — note a **duplicate-titled decoy** sits
+  at `c0f12122-aafb-441f-91f5-efc62184889f`.
+- **Page generators committed and proven byte-identical** to the published pages,
+  with the placeholders proven LIVE by planting a sentinel. Rendered HTML is
+  gitignored; `python examples/cp-NN-*/page/build_page.py` reproduces it.
+
+## THREE THINGS OPEN — to be tackled on return
+
+1. **`EXAM-06`'s ledger row still reads "Not built for any example but `cp-00`"**,
+   in BOTH channels — `.planning/REQUIREMENTS.md` line 74 (checkbox) and line 323
+   (traceability table). cp-01's page now exists and the row is stale.
+   **Held deliberately**: Dave wanted to read the page before the row claims it.
+2. **`cp-01` is not wired into `make ci`.** Its 13 tests run nowhere
+   automatically, so nothing catches a regression in the example. Related:
+   `CPR-G08` has **no instance in the data** — every principal sees at least 21
+   entities, so the empty-served-set refusal cannot fire. Registered at spec
+   §F.2 row 20, owned by `ccf_dataprep`, and it is a one-row fixture rather than
+   a data programme.
+3. **`.planning/STATE.md` LOST 835 LINES (against 23 inserted) TO SOMETHING NOT
+   DELIBERATELY RUN**, at ~09:05 on 2026-08-29. No `state.*` writer, no GSD
+   command, no hand edit. Caught only because the diff was read before staging an
+   unrelated commit; restored with `git checkout --` and kept out of that commit.
+   **CAUSE UNKNOWN.** Candidates not ruled out: a SessionStart or other hook, the
+   `remember` skill run minutes earlier, or a background GSD process.
+   **Why it is worse than the known hazard:** the standing mitigation assumed a
+   writer had been INVOKED. This instance had no invocation, so "do not call
+   `state.*` writers" is insufficient. **Run
+   `git diff --stat .planning/STATE.md` before EVERY `git add`**, not only after a
+   GSD command. A 2,268-line file dropping to ~1,400 is the tell.
+
+Resume: read the three items above; item 1 is a two-line ledger edit once Dave has
+read the page, item 2 is a CI wiring change, item 3 is an investigation.
