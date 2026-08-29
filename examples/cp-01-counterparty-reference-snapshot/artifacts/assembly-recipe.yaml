@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# §D.2's OPERATOR STEP TABLE, AS DATA — with a RUNTIME WITNESS per step.
+#
+# WHY THIS DOCUMENT EXISTS. A prose table cannot be held against a run. The
+# specification's §D.2 declares three steps; this declares the same three with,
+# per step, a witness a test can evaluate against what the assembly actually
+# produced. A step that names no witness is a step nothing can prove ran, and
+# the honest response to that is to REMOVE the step from §D rather than to
+# describe it more confidently.
+#
+# `role: load`. A recipe is a description of the assembly, parsed and handed
+# back; it is not something the fabric is PERMITTED to do, so it is not
+# registered into Control Plane state under its own class id.
+
+semver: "1.0.0"
+class_id: cp-01.assembly-recipe
+
+declaration:
+  # --- What this document is a companion to. -------------------------------
+  spec_document: spec/CP-SPEC-001_Counterparty_Reference_Snapshot.md
+  spec_table: "D.2 Operator step table"
+
+  # --- THE CLOSED WITNESS VOCABULARY. Three kinds, and a step that cannot
+  #     name one of them is a step nothing can prove ran.
+  witness_kinds:
+    - kind: operator_in_lineage
+      argument: an operator key
+      proves: >-
+        the key appears in the served product's `lineage.operators_invoked`,
+        which gate 2 holds to strict equality against what the engine resolved
+        (INV-CH7-47). A declared operator that did not run fails the gate.
+
+    - kind: payload_key
+      argument: a dotted path into the served payload
+      proves: >-
+        the named key exists in the served payload. Used where a step's output
+        is a VALUE the assembly derived rather than an operator invocation —
+        the only witness available to a step that runs outside the operator
+        registry.
+
+    - kind: vessel_held
+      argument: none
+      proves: >-
+        a `src/ccf/products/gates.py::ServableProduct` was returned. The type is
+        not constructible outside `run_gates`, so HOLDING one is the evidence
+        the three shipped gates ran rather than a claim that they did
+        (INV-CH7-52).
+
+  steps:
+    - step: 1
+      operator: Resolve
+      capability_class: relational
+      layer: L2
+      # The Standard's `Resolve` has no matching SDK operator CATEGORY — the
+      # SDK ships four (traversal, temporal, policy, similarity) and resolution
+      # happens at L2 through the assembly worker, driven by `resolution:` in
+      # `ccf_config.yaml`. §D.2's eighth column carries the mapping so a name
+      # that differs between the two vocabularies reads as a MAPPING rather
+      # than as a gap in either direction (`24-CONTEXT.md` `D-47`/`D-48`).
+      sdk_mechanism: src/ccf/assembly/worker.py::SpecDrivenEntityResolution
+      emits:
+        - entity_id
+        - identity_authority
+      failure: fail closed → 404; crosswalk collision → 409
+      # NOT `operator_in_lineage`: this step runs outside the L4 registry, so
+      # no operator key would appear for it. Claiming one would be a declared
+      # operator that did not run — the exact thing gate 2 refuses.
+      witness:
+        kind: payload_key
+        argument: counterparty.identity_authority
+
+    - step: 2
+      operator: Policy
+      capability_class: relational
+      layer: L4
+      sdk_mechanism: src/ccf/operators/categories.py::PolicyFilter
+      emits:
+        - policy_version
+        - the principal-permissible subgraph substituted for the full graph
+      failure: fail closed → 403; entitlement source unreachable → 503
+      witness:
+        kind: operator_in_lineage
+        argument: policy.principal-subgraph
+
+    - step: 3
+      operator: null   # contract assembly is NOT an operator — Standard §10.2
+                       # retires `Compose`.
+      capability_class: in-memory
+      layer: L6
+      sdk_mechanism: src/ccf/products/gates.py::run_gates → ::ServableProduct
+      emits:
+        - payload
+        - lineage
+        - payload_hash
+        - context_debt
+      failure: >-
+        fail closed → 503 on any gate refusal, returned AS DATA and never as a
+        200 with a warning. 409 is reserved for the debt posture (§9) and is
+        raised by the deployment, not by `run_gates`.
+      witness:
+        kind: vessel_held
+        argument: null
+
+  # --- WHAT THIS RECIPE DELIBERATELY DOES NOT DECLARE. ----------------------
+  #
+  # The Standard's closed vocabulary has eight operators. This product uses two
+  # and contract assembly. `Traversal`, `Enrich`, `Similarity`, `Evaluate`,
+  # `Federate` and `Projection`-as-role-conditioning are ABSENT, and their
+  # absence is a scope statement rather than an omission:
+  #
+  #   Traversal   §B.5 — "no relationship". `corporate-family-tree` is the
+  #               first product to need it.
+  #   Enrich      one read per source per step, and there is one source.
+  #   Similarity  no ranking; the anchor resolves to one entity or to none.
+  #   Evaluate    no measure is computed. The payload carries facts, not scores.
+  #   Federate    single-institution; no external fabric is reached.
+  #
+  # `Projection` DOES run — the plan id is the class name — but it is not
+  # exercised as ROLE-CONDITIONING at this tier (§A). What differs per principal
+  # is which entities EXIST, settled upstream at step 2, which is why the
+  # suppression rule holds structurally rather than by filtering at Π.
+  not_declared:
+    - Traversal
+    - Enrich
+    - Similarity
+    - Evaluate
+    - Federate

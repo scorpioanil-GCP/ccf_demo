@@ -1,0 +1,171 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# WHAT THE SERVED PRODUCT SHOULD CONTAIN, DECLARED — the strong form of the
+# obligation.
+#
+# **THIS DOCUMENT DERIVES NOTHING FROM A RUN.** There is no regeneration target
+# and none will be added. If the artifacts change, run the example's test suite,
+# review the failure, then deliberately edit this file to match what you
+# reviewed, IN THE SAME COMMIT as the change. That is what makes an
+# expected-output change an edit to a REVIEWED ARTIFACT rather than a refreshed
+# transcript — and it is why the assertions built on it are independent
+# expectations rather than propagation checks.
+#
+# **It also exists so the test module has a source for its domain expectations
+# OTHER THAN ITSELF.** A value the test authored would be the test agreeing with
+# itself about what this deployment's vocabulary says.
+#
+# ============================================================================
+# WHY THERE IS NO CONTENT ADDRESS IN HERE, AND WHY NOBODY SHOULD ADD ONE LATER
+# "FOR COMPLETENESS".
+# ============================================================================
+#
+# A `payload_hash` authored here would be a transcript of a run — which is what
+# this document exists NOT to be — or the suite agreeing with itself. The hash
+# belongs to the test's own comparison: two runs of the same question, compared
+# to each other, which is an independent instrument rather than a remembered
+# number.
+#
+# Everything below is checkable by a reader WITHOUT running anything, because
+# every line of it follows from the specification and from `ccf_config.yaml`.
+#
+# `role: load`. An expectation is not something the fabric is permitted to do.
+
+semver: "1.0.0"
+class_id: cp-01.expected
+
+declaration:
+  # --- The contract envelope. Follows from §B.1 and `ccf_config.yaml`. ------
+  product: reference.counterparty
+  semantic_version: "1.0.0"
+  assembly_mode: 1
+  determinism_class: deterministic
+  ttl_anchor: from_entity_freshness
+
+  # --- The payload's shape — §D.6's emitted contract. ----------------------
+  #
+  # KEYS, not values. What the product is addressed by is its payload, so a
+  # value written here would be a second place to change one fact; what a
+  # reader needs from this document is which keys must be PRESENT and which are
+  # legitimately absent.
+  payload_keys_always_present:
+    - counterparty
+    - perspective_role
+
+  counterparty_keys_always_present:
+    - anchor
+    - entity_id
+    - identity_authority
+    - legal_name
+    - legal_jurisdiction
+    - legal_address
+    - headquarters_address
+    - type_chain
+
+  # NULLABLE, and only for ONE authority — GLEIF publishes these and an
+  # internal client master has no registrar. A non-null default would
+  # manufacture a registration status for an entity that has none, which is
+  # worse than a null because it looks answered.
+  counterparty_keys_nullable:
+    - entity_status
+    - registration_status
+    - legal_form
+
+  # ABSENT, not null, when the entity has none. `lei` is absent for a no-LEI
+  # entity and NO `SYN-` placeholder stands in for it: a placeholder would
+  # resolve like a real anchor and defeat §G's acceptance criterion (§C.4
+  # trap 2). `internal_client_id` is absent for an entity with no crosswalk row.
+  counterparty_keys_conditionally_absent:
+    - lei
+    - internal_client_id
+
+  # --- The two labelled addresses — §C.4 trap 1. ---------------------------
+  #
+  # TWO OBJECTS, never one unlabelled triple. That is the whole finding of trap
+  # 1: a missing address returns nothing and the consumer notices, while an
+  # unlabelled one returns Wilmington, Delaware for a company run from
+  # Whippany, New Jersey.
+  address_object_keys:
+    - country
+    - city
+    - region
+
+  # --- The typing chain — §C.3, decided here and inherited catalog-wide. ----
+  #
+  # ALL SEVEN. Under a no-inference store an entity is reachable only by the
+  # classes it is explicitly typed as, so a partial chain leaves it unreachable
+  # by roles it genuinely holds. A validator asserting that every type IRI
+  # begins with the FIBO namespace will reject correct data.
+  type_chain:
+    - cmns-pts:Agent
+    - cmns-pts:Party
+    - cmns-org:Organization
+    - cmns-org:FormalOrganization
+    - cmns-org:LegalPerson
+    - cmns-org:LegalEntity
+    - fibo-be-le-cb:Corporation
+
+  # --- The two identity authorities and their ceilings — §C.3. -------------
+  #
+  # The asymmetry is IN THE PAYLOAD rather than averaged into one freshness
+  # claim. A single "24 hours" over a mixed population is the exact error the
+  # Standard's per-signal-class rule exists to prevent.
+  identity_authorities:
+    - authority: lei-reference-data
+      signal_class: vendor_identity
+      freshness_ceiling_days: 1
+      anchor_field: retrieved_at
+    - authority: internal-client-master
+      signal_class: internal_kyc
+      # NOT a fixed number: the ceiling is the ENTITY's own
+      # `freshness_ceiling_days`, 180 / 270 / 365 depending on its KYC cycle.
+      # Flattening three cycles into one average is the same error again.
+      freshness_ceiling_days: from_entity
+      anchor_field: kyc_last_refresh
+
+  # --- The refusals this product must be capable of — §9 and §D.7. ---------
+  #
+  # Declared as EXPECTATIONS because a refusal nobody has seen is not a
+  # refusal. Each is asserted by a named test.
+  refusals:
+    - condition: anchor resolves through neither identity authority
+      status: 404
+      reason: anchor-unresolvable
+      never: an empty payload
+    - condition: caller is not entitled to the resolved entity
+      status: 200
+      payload: counterparty is null
+      never: a count, marker or notice of what was withheld
+    - condition: registration lapsed and include_lapsed is false
+      status: 200
+      payload: counterparty is null with an `excluded` reason
+      never: the entity returned unflagged
+    - condition: as_of supplied
+      status: 400
+      reason: not_supported_at_tier
+      never: a silent success against current state
+    - condition: expires_at is outside (now, now + MAX_TTL]
+      status: 503
+      reason: ttl-bounds
+      never: a 200 with a warning
+
+  # --- ONE EXPECTATION THAT CURRENTLY FAILS, DECLARED RATHER THAN OMITTED. --
+  #
+  # §G acceptance criterion 3 requires a no-LEI entity to RESOLVE and report its
+  # lower freshness ceiling. It resolves — the source read proves it — but the
+  # served product does not survive the TTL lower bound, because a 24-hour TTL
+  # anchored on a months-old `kyc_last_refresh` puts `expires_at` in the past.
+  #
+  # Recorded here, in the document that says what the product SHOULD contain,
+  # because that is where an unmet obligation belongs. §F.4 finding 8 carries
+  # it; `CPR-G09` is the test; and that test is written to go RED when the
+  # declaration is corrected.
+  known_unmet:
+    - criterion: "§G.2 acceptance criterion 3"
+      obligation: >-
+        a no-LEI entity resolves AND reports the lower freshness ceiling in the
+        served payload
+      currently: >-
+        resolves at the source read; refused at the TTL gate before it is
+        served. 30 of 30 no-LEI entities are affected.
+      tracked_at: "spec §B.1 element 3, §F.4 finding 8, gate CPR-G09"
