@@ -54,7 +54,14 @@ declaration:
   # Spec §B.4. Above this, the debt gate refuses with `409` rather than serving
   # with a warning. Provisional and unbacked until measured against crosswalk
   # match confidence — §E.2 and §F.2 row 4.
-  debt_tolerance: 0.25
+  #
+  # QUOTED so it parses as text and is validated as a decimal. A bare YAML float
+  # is not bit-stable across platforms, and a Control Plane artifact is content
+  # addressed — the `ccf.declared-artifact` envelope refuses one for that reason.
+  # The value is unchanged, and so is this product's content address: the debt
+  # tolerance decides whether the product is SERVED, never what it CONTAINS
+  # (spec §E.3), so it is not in the payload the address is taken over.
+  debt_tolerance: "0.25"
 
   # Spec §B.4. `false` excludes an entity whose registration has lapsed rather
   # than returning it unflagged, which is the whole point of the parameter.

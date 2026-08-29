@@ -192,6 +192,7 @@ def assemble_and_serve(
     """Answer one question, end to end, against ``root`` as scratch space."""
     registry = ControlPlaneRegistry()
 
+    # --8<-- [start:boot]
     # 1. One call replaces the registration prologue and the boot. The single
     #    `ccf_config.yaml` names every section in force, `load_config_and_boot`
     #    derives and parses all of them, registers the `role: register` ones,
@@ -199,6 +200,7 @@ def assemble_and_serve(
     #    the caller — never from the config, which declares the backend as a
     #    KIND only.
     booted = load_config_and_boot(config, registry=registry, connection=connection)
+    # --8<-- [end:boot]
     try:
         # The one line that crosses the deployment seam: the deployment names
         # its own artifact keys and hands back this question's values.
@@ -227,6 +229,7 @@ def assemble_and_serve(
             if name in request.parameters:
                 return ParameterNotSupported(parameter=name, reason=reason)
 
+        # --8<-- [start:ingest]
         # 2. L1 → L2. `booted.handle.worker` is the ONLY write handle to L3
         #    anywhere in this process (single-writer, CLAUDE.md §10,
         #    INV-CH7-10). The source estate this deployment READ from is not
@@ -234,7 +237,9 @@ def assemble_and_serve(
         #    fabric's own state and nowhere else.
         for envelope in scenario.envelopes:
             booted.handle.worker.ingest(envelope)
+        # --8<-- [end:ingest]
 
+        # --8<-- [start:operators]
         # 3. The graph view at the boundary this deployment named.
         view = booted.handle.reader.as_of(
             tenant_id=booted.tenant_id, at=scenario.temporal_boundary
@@ -252,7 +257,9 @@ def assemble_and_serve(
             pins=booted.pins,
             policy_bundle_key=scenario.policy_bundle_key,
         )
+        # --8<-- [end:operators]
 
+        # --8<-- [start:project]
         # 5. Π at L5. The plan's required set comes from the product class's own
         #    document, so there is no second authored set to diverge from.
         plan = plan_class(
@@ -268,7 +275,9 @@ def assemble_and_serve(
             tenant_id=booted.tenant_id,
             temporal_boundary=scenario.temporal_boundary,
         )
+        # --8<-- [end:project]
 
+        # --8<-- [start:gate]
         # 6. L6. Registering the MaxTTL value is what MINTS `max_ttl_version` —
         #    the pin is a content hash of what was registered, which is why the
         #    class document cannot declare it and why the ceiling reaches this
@@ -339,7 +348,9 @@ def assemble_and_serve(
                 raise RuntimeError(
                     f"the three validation gates refused this product: {refusal}"
                 )
+        # --8<-- [end:gate]
 
+        # --8<-- [start:record]
         # 8. Replay BEFORE delivery. `policy_bindings` is built here, by the
         #    adopter, because dimension 2 assembled by a rule nobody in the
         #    deployment wrote down is not an audit record.
@@ -357,7 +368,9 @@ def assemble_and_serve(
             # the same question rather than a similar one.
             request=scenario.request,
         )
+        # --8<-- [end:record]
 
+        # --8<-- [start:serve]
         # 9. The record is persisted BEFORE the product is delivered, and
         #    delivery is what the successful append returns — no branch reaches
         #    a served product without a recorded decision (INV-CH7-79).
@@ -373,6 +386,7 @@ def assemble_and_serve(
             ),
             executed_queries=execution.executed_queries,
         )
+        # --8<-- [end:serve]
 
         return Assembled(
             tenant_id=booted.tenant_id,
