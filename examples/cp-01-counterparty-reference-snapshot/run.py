@@ -31,8 +31,11 @@ from pathlib import Path
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 
+from ccf.agents.errors import AssemblyRefused  # noqa: E402
 from ccf.contracts.canonical import content_hash  # noqa: E402
+from ccf.products.request import ProductRequestViolation  # noqa: E402
 
+import assembler  # noqa: E402
 import deployment  # noqa: E402
 import produce  # noqa: E402
 
@@ -107,8 +110,20 @@ def main(argv: list[str] | None = None) -> int:
 
     with tempfile.TemporaryDirectory(prefix="cp01-") as tmp:
         root = Path(tmp)
-        outcome = produce.assemble_and_serve(
+        # THE RUN GOES THROUGH THE ASSEMBLER SEAM, DELIBERATELY. It builds the
+        # request, constructs `assembler.py::CounterpartyAssembler` and calls
+        # its `assemble` — it does not call the spine directly. Routing the
+        # client through `src/ccf/agents/assembler.py::ContextAssemblerProtocol`
+        # is what makes this example a pressure test of that seam rather than a
+        # demonstration that reaches past it.
+        #
+        # The observer is how the client sees what the Protocol's return type
+        # does not carry — the served vessel, its content address, its debt and
+        # its replay reference all belong to the PRODUCT, not to the assembly.
+        captured: list[object] = []
+        product = assembler.CounterpartyAssembler(
             config=deployment.CONFIG,
+            root=root,
             connection=deployment.connection(root=root),
             read=(
                 deployment.read
@@ -116,12 +131,26 @@ def main(argv: list[str] | None = None) -> int:
                 else lambda b, q: deployment.read(b, q, principal_id=args.principal)
             ),
             plan_class=deployment.plan_class(),
-            request=asked,
-            root=root,
+            observer=captured.append,
         )
+        try:
+            governed = product.assemble(
+                request=asked,
+                perspective=deployment.perspective(),
+                tenant_id=deployment.tenant_id(),
+            )
+        except AssemblyRefused as refused:
+            print(f"assembly refused: {refused}")
+            return 1
+        outcome = captured[0] if captured else governed
+        if isinstance(governed, ProductRequestViolation):
+            outcome = governed
 
         # BRANCHED ON AS DATA. Both refusals are values, not exceptions —
         # a bad question and a missing entity are not broken deployments.
+        if isinstance(outcome, produce.ParameterNotSupported):
+            print(f"{outcome.status} {outcome.reason}: {outcome.parameter}")
+            return 1
         if isinstance(outcome, produce.AnchorUnresolvable):
             print(f"{outcome.status} {outcome.reason}: {outcome.anchor}")
             return 1

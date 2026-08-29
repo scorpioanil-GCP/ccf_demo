@@ -286,6 +286,17 @@ def demonstration_include_lapsed() -> bool:
     return bool(_declaration(QUESTION)["include_lapsed"])
 
 
+def unsupported_arguments() -> Mapping[str, str]:
+    """Parameters this tier DECLARES and always REFUSES — §B.4, Standard §2.4.
+
+    Read from `ccf_config.yaml`'s `request_contract:` block, never listed here:
+    a parameter this deployment stops supporting, or starts, is a change to that
+    document and not to this module.
+    """
+    declared = _document(CONFIG)[KEY_REQUEST_CONTRACT]
+    return cast(Mapping[str, str], declared.get("unsupported_arguments", {}))
+
+
 def declared_ttl_seconds() -> int:
     """This class's declared TTL, from `artifacts/ttl.yaml` (§B.1 element 3)."""
     return int(_declaration(TTL)["declared_ttl_seconds"])

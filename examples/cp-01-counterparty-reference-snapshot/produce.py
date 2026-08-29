@@ -135,6 +135,24 @@ class AnchorUnresolvable:
 
 
 @dataclass(frozen=True)
+class ParameterNotSupported:
+    """Standard §2.4's declared-but-inert refusal — `400`, returned as data.
+
+    *"A parameter that appears to work and does not will be relied on in a
+    dispute."* The parameter IS part of the uniform surface — it is declared in
+    the request contract, so a caller can discover it — and it fails explicitly
+    rather than succeeding silently against current state. Those are the two
+    halves of §2.4 and neither works without the other: an absent parameter
+    tells a caller nothing, and a silently-ignored one tells them something
+    false.
+    """
+
+    parameter: str
+    reason: str
+    status: int = 400
+
+
+@dataclass(frozen=True)
 class Assembled:
     """What one run produced, for a caller to inspect.
 
@@ -169,7 +187,8 @@ def assemble_and_serve(
     plan_class: Callable[..., ProjectionPlan],
     request: ProductRequest,
     root: Path,
-) -> Assembled | ProductRequestViolation | AnchorUnresolvable:
+    unsupported: Mapping[str, str] | None = None,
+) -> Assembled | ProductRequestViolation | AnchorUnresolvable | ParameterNotSupported:
     """Answer one question, end to end, against ``root`` as scratch space."""
     registry = ControlPlaneRegistry()
 
@@ -200,6 +219,13 @@ def assemble_and_serve(
         )
         if violation is not None:
             return violation
+
+        # DECLARED BUT INERT — Standard §2.4, checked at the door and BEFORE
+        # the graph is touched. The set comes from the deployment's own request
+        # contract, so this branch names no parameter of its own.
+        for name, reason in (unsupported or {}).items():
+            if name in request.parameters:
+                return ParameterNotSupported(parameter=name, reason=reason)
 
         # 2. L1 → L2. `booted.handle.worker` is the ONLY write handle to L3
         #    anywhere in this process (single-writer, CLAUDE.md §10,

@@ -178,6 +178,20 @@ request_contract:
     required:
       - debt_tolerance
 
+  # DECLARED-BUT-INERT ARGUMENTS — Standard §2.4, spec §B.4, gate `CPR-G05`.
+  #
+  # The JSON-Schema `arguments` block above can express a TYPE but not an
+  # unsupported-ness, so the fact that `as_of` must be REFUSED rather than
+  # honoured is declared here and enforced by the spine at the door. It is NOT
+  # a constant in `produce.py`: a parameter this deployment stops supporting,
+  # or starts, is a change to this document.
+  #
+  # Recorded as an SDK-surface finding at spec §F.4 — a request contract that
+  # cannot say "declared and always refused" pushes the one thing Standard §2.4
+  # cares about out of the artifact and into code.
+  unsupported_arguments:
+    as_of: not_supported_at_tier
+
 # --------------------------------------------------------------------------
 # L2 ENTITY RESOLUTION — spec §D.2 step 1, the `Resolve` operator of the
 # Standard's closed vocabulary. ONE entity class: this product's scope boundary
