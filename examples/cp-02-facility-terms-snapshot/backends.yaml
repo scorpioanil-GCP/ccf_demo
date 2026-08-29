@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# HOW the declared backend kind's connection settings are COMPOSED, and how the
+# system of record is reached. Not in `ccf_config.yaml`: connection material is
+# deployment ENVIRONMENT, not Control Plane state, and a DSN in a
+# content-hashed artifact is a DSN persisted into the audit plane forever.
+#
+# NO CONNECTION VALUE APPEARS HERE — no host, no port, no path, no credential.
+# This document holds a variable's NAME and a per-run path RECIPE, and nothing
+# else.
+#
+# THIS IS THE FILE SPEC §F.3 POINTS AT. The spec names the STORE — PostgreSQL,
+# schema `ccf_v2` — because an implementation specification that will not say
+# which of five stores an element lives in cannot be built from. It does NOT
+# name the DEPLOYMENT: the spec says which store, this says how to reach it,
+# and only the environment says where it is.
+#
+# TWO BLOCKS, KEPT VISIBLY APART:
+#
+#   `profiles:` — the CCF GRAPH. A per-run local file under the caller's run
+#                 root. Written by exactly one process, thrown away after.
+#   `sources:`  — the SYSTEM OF RECORD. READ-ONLY to this deployment.
+
+semver: "1.0.0"
+class_id: cp-02.backend-profiles
+
+declaration:
+  profiles:
+    sqlite:
+      settings:
+        database_path:
+          per_run: path
+          prefix: cp_02
+          suffix: .sqlite3
+
+  sources:
+    # The facility terms system of record — spec §C.1, all eleven element rows.
+    # ONE source block, not eleven: §C.1 names several AUTHORITIES (the EX-10
+    # extraction, the internal loan system, the entitlement service) and in this
+    # estate they are materialized in one relational schema. The spec keeps the
+    # authorities distinct because single-writer discipline is about
+    # authorities; the connection is one because the store is one.
+    #
+    # AN UNSET VARIABLE RAISES, CARRYING THIS REMEDY STRING. There is no
+    # default and no in-tree DSN to fall back onto.
+    facility_terms:
+      settings:
+        dsn:
+          from_env: CCF_CP_02_POSTGRES_DSN
+          remedy: >-
+            export CCF_CP_02_POSTGRES_DSN with a READ-ONLY connection string for
+            the facility terms estate — schema `ccf_v2`, tables `facility`,
+            `debt_reconciliation`, `legal_entity`, `principal` and
+            `principal_jurisdiction`. See the example README's "Before you run"
+            section for what the role needs and what it must not have. The role
+            needs SELECT and nothing else: this deployment never writes to the
+            store it reads, and a role that could write would make that a
+            promise rather than a guarantee.

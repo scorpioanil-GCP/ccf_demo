@@ -957,13 +957,24 @@ observed red is not evidence that it runs.
 > signal — not a regression.
 
 > **`FTS-G02` inherits rung 01's shape and then has to depart from it, and the
-> departure is measured.** Rung 01 could assert that **all six** principal pairs
-> discriminate, because all six did. **Here five of six do.** `PRIN-KYC-004` and
-> `PRIN-TRD-003` both see **zero** facilities (§D.3), so their visible sets are
-> **identical — both empty** — and a gate demanding that every pair differ would fail
-> against correct data. The first draft of this row demanded exactly that. **The same
-> assertion is right at one rung and wrong at the next**, which is why a gate is written
-> against the measured population rather than copied from the product before it.
+> departure was measured twice before it was right.** Rung 01 could assert that **all
+> six** principal pairs discriminate, because all six did. A gate demanding that here
+> would fail against correct data, and the first draft of this row demanded exactly that.
+>
+> **The figure is 3 of 6, and the first correction — to 5 of 6 — was also wrong.** That
+> reading came from the **jurisdiction** table at §D.3, where only `PRIN-KYC-004` and
+> `PRIN-TRD-003` see zero. But this gate compares the **served** set, which is after
+> BOTH conditions compose — and only `PRIN-COV-001` carries facility-level need-to-know,
+> so `PRIN-RES-002` collapses to empty as well despite being granted every jurisdiction
+> in the estate. **Three principals see nothing, so all three pairings among them are
+> identical and three pairs discriminate.**
+>
+> **The build's own gate caught it**, reporting `PRIN-KYC-004 and PRIN-RES-002 see the
+> same set` against a declaration naming one pair. Both figures in this document are
+> correct and they are not the same figure — §D.3's table is jurisdiction-only and says
+> so. Reading it as the served set is the specific mistake that produced a wrong gate
+> twice, and it is why a gate is written against the measured population rather than
+> copied from the product before it.
 
 > **`FTS-G03` exists because of a near-miss this specification found in its own
 > design.** The first draft gated only on jurisdiction. Measured against the estate that
@@ -1270,7 +1281,7 @@ something to act on:**
 | Gate / test | Needs | Estate holds | Sufficient? |
 |---|---|---|---|
 | `FTS-G01` expiry does not move | ≥1 facility, asked twice | **60** | yes |
-| `FTS-G02` entitlement discriminates | ≥1 principal **pair** with different sets | **5 of 6 pairs differ**; `PRIN-KYC-004`/`PRIN-TRD-003` are identical (both empty) | yes |
+| `FTS-G02` entitlement discriminates | ≥1 principal **pair** with different sets | **3 of 6 pairs differ** — see the correction at §D.7 | yes |
 | `FTS-G02` negative control | 1 principal to difference against itself | 4 | yes |
 | `FTS-G03` need-to-know load-bearing | ≥1 principal with jurisdiction and **without** need-to-know | **`PRIN-RES-002`** — 60 by jurisdiction, `sees_need_to_know = false` | yes |
 | `FTS-G04` suppression, empty case | ≥1 principal seeing **zero** facilities | **2** — `PRIN-KYC-004`, `PRIN-TRD-003` | yes |
@@ -1338,7 +1349,34 @@ something to act on:**
    gate is over *entities*, not facilities, and the populations differ — but the cheapest
    discharge may now be a cross-reference rather than new data. **For Dave to scope**, not
    for this document to close.
-8. **`CP-SPEC-001` and `CP-SPEC-000` carry British spellings that the vault has now ruled
+8. **The canonical encoder refuses a float, and this is the SECOND document format it
+   has been met from.** `src/ccf/contracts/canonical.py::_normalize` rejects a Python
+   `float` — *"not bit-stable across platforms"* — and the first run of this example
+   died inside `content_hash` while building the replay record, because
+   `ccf_v2.facility.pricing_grid`'s leverage thresholds (`1.0`, `1.5`, `2.0`) arrive as
+   floats from `json.loads`. Rung 01 met the same refusal from a **YAML** artifact
+   carrying a bare `debt_tolerance: 0.25`. **Two formats, one refusal, and the fabric is
+   right both times** — a content-addressed payload cannot carry a value whose bytes
+   depend on the machine that serialized it. Bound with `parse_float=Decimal` and then
+   rendered as text, because a `Decimal` survives the content address but not a client's
+   `json.dumps`. **Recorded because every adopter carrying a JSON structure out of a
+   store into a served payload will meet it on their first run**, and the error message
+   names the fix without naming where to apply it.
+9. **A suppressed facility and a nonexistent one were distinguishable, and the RUN found
+   it — not the specification, which had it right all along.** §B.2 and §D.3 require a
+   principal entitled to nothing to receive a refusal indistinguishable from the one for
+   a facility that does not exist. The first build returned **`200` with
+   `facility: null`** for the suppressed case and **raised `404`** for the missing one —
+   so a caller probing facility ids could learn **which ids exist** by watching which
+   came back null rather than refused. The payload carried no marker of what was
+   withheld and **the status carried it instead**, which is the same disclosure arriving
+   through a channel §B.2 did not name. Both now raise one shared refusal string through
+   a single function, `assembler.py::_not_available`, so there is no second wording to
+   drift. **The distinction is not lost — it moves to the audit plane**: the product is
+   assembled, gated and its replay record written before the refusal, so the record
+   holds which principal asked and that a facility existed and was withheld. The audit
+   knows; the caller does not. Gate `FTS-G04` is the standing proof.
+10. **`CP-SPEC-001` and `CP-SPEC-000` carry British spellings that the vault has now ruled
    against.** The vault's ruling of 2026-08-29 fixes Standard headings as `Failure
    behavior` and `Behavior when absent`. `CP-SPEC-001` diverges on three lines and its
    published page; `CP-SPEC-000` diverges on one. **`D-07` forbids retrofitting completed

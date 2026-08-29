@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THIS PRODUCT'S TTL AND ITS CEILING — spec §B.1 element 3, §E.5, §G.1.
+#
+# `ccf.controlplane.artifacts::ProductClassDeclaration` carries `max_ttl_key` —
+# the Control Plane KEY the ceiling registers under — and has no field for the
+# ceiling's VALUE. Registering the value is what MINTS its pin, so the value
+# cannot be a field of the document whose pin it becomes.
+#
+# `role: load`. A TTL declaration is a fact about the class, parsed and handed
+# back, not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-02.ttl
+
+declaration:
+  # 90 days, anchored `from_entity_freshness` (§B.1 element 3).
+  #
+  # THE ANCHOR IS THE AGREEMENT'S OWN DATE — `ccf_v2.facility.effective_date`,
+  # the EX-10 "dated as of" clause — and NOT the request instant, NOT the
+  # extraction date, and NOT the review window. The vault's §D step 3 fixes it:
+  # "`expires_at` derives from the agreement's effective date plus the 90-day
+  # window — not from request time."
+  declared_ttl_seconds: 7776000
+
+  # The ceiling `src/ccf/products/gates.py::_refuse_ttl` enforces as
+  # `now < expires_at <= now + MAX_TTL`. Equal to the declared TTL.
+  max_ttl_seconds: 7776000
+
+# ============================================================================
+# A MEASURED CONSEQUENCE OF THE ABOVE, RECORDED HERE BECAUSE THE BUILD WILL HIT
+# IT AND A READER SHOULD MEET IT BEFORE THE STACK TRACE DOES.
+# ============================================================================
+#
+# `effective_date` across the 60 facilities spans 2019-07-31 to 2026-08-04.
+# Measured against the live estate 2026-08-29, asking as of 2026-08-29:
+#
+#     effective_date + 90d still in the future  : 10 of 60
+#     ...therefore refused on ttl-bounds        : 50 of 60
+#
+#     age of effective_date, bucketed:
+#       < 90 days     10
+#       90d .. 1 year 16
+#       1 .. 2 years  24
+#       > 2 years     10
+#
+# `_refuse_ttl` requires `now < expires_at`, so 50 of 60 facilities are refused
+# on their first call — INCLUDING ALL 43 THAT CARRY AN AMENDMENT HISTORY, which
+# is the population three later rungs depend on this one to make servable.
+#
+# NOTHING IS INVENTED HERE TO PAPER OVER IT. Both the 90-day window and the
+# anchor are the VAULT's terms under `spec_generation.md` §1's ownership table.
+# Inventing a third basis, or quietly widening the window until the numbers look
+# healthy, would be writing another agent's term.
+#
+# ----------------------------------------------------------------------------
+# THE ALTERNATIVE THAT LOOKS OBVIOUS, AND THE ONE NUMBER THAT DISQUALIFIES IT
+# ----------------------------------------------------------------------------
+#
+# `ccf_v2.facility.retrieved_at` — when the build-time extraction ran — would
+# make every facility serve. It has ONE DISTINCT VALUE ACROSS ALL 60 ROWS:
+# 2026-08-25.
+#
+# So every facility would expire at the same instant. That is a PRODUCT-LEVEL
+# TTL, behaviorally indistinguishable from `from_decision` measured off the
+# load — and the entire content of `from_entity_freshness` is that the expiry
+# moves PER ENTITY. A basis with one value across the population does not
+# express the primitive this rung exists to teach.
+#
+# The number that settles it is 1, not 60. Spec §E.5 carries the full
+# comparison; §F.4 finding 1 is the return that was sent to the vault with the
+# specification, and gate `FTS-G09` is what settles it in whichever direction
+# the ruling goes — written so that it turns RED when the declaration changes.

@@ -1,0 +1,180 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# WHAT THE SERVED PRODUCT SHOULD CONTAIN, DECLARED — the strong form of the
+# obligation.
+#
+# **THIS DOCUMENT DERIVES NOTHING FROM A RUN.** There is no regeneration target
+# and none will be added. If the artifacts change, run the example's test suite,
+# review the failure, then deliberately edit this file to match what you
+# reviewed, IN THE SAME COMMIT as the change. That is what makes an
+# expected-output change an edit to a REVIEWED ARTIFACT rather than a refreshed
+# transcript.
+#
+# **It also exists so the test module has a source for its domain expectations
+# OTHER THAN ITSELF.** A value the test authored would be the test agreeing with
+# itself about what this deployment's vocabulary says.
+#
+# WHY THERE IS NO CONTENT ADDRESS IN HERE. A `payload_hash` authored here would
+# be a transcript of a run — which is what this document exists NOT to be — or
+# the suite agreeing with itself. The hash belongs to the test's own comparison:
+# two runs of the same question, compared to each other.
+#
+# `role: load`. An expectation is not something the fabric is permitted to do.
+
+semver: "1.0.0"
+class_id: cp-02.expected
+
+declaration:
+  # --- The contract envelope. Follows from §B.1 and `ccf_config.yaml`. ------
+  product: reference.facility
+  semantic_version: "1.0.0"
+  assembly_mode: 1
+  determinism_class: deterministic
+  ttl_anchor: from_entity_freshness
+
+  # THE BASIS THE EXPIRY IS MEASURED FROM, declared here because it is the
+  # product's whole subject and a reader must be able to check the arithmetic
+  # without running anything (§D.6 note 1).
+  ttl_basis: effective_date
+  declared_ttl_days: 90
+
+  # --- The payload's shape — §D.6's emitted contract. ----------------------
+  #
+  # KEYS, not values. What the product is addressed by is its payload, so a
+  # value written here would be a second place to change one fact.
+  payload_keys_always_present:
+    - facility
+    - perspective_role
+
+  facility_keys_always_present:
+    - facility_id
+    - borrower_lei
+    - facility_type
+    - currency
+    - effective_date
+    - amendment_count
+    - is_amended_restated
+    - syndicated
+    - borrower_jurisdiction
+
+  # Nullable, and each for its own reason (§E.2's per-component table).
+  facility_keys_nullable:
+    # 7 of 60 carry no maturity date.
+    - maturity_date
+    # NOT_EVALUABLE when the date pair inverts — 4 of 60 (§C.4 trap 1).
+    - tenor_days
+    # 1 of 60.
+    - commitment_amount
+    - outstanding_balance
+    - undrawn_availability
+    - internal_risk_rating
+    - administrative_agent
+
+  # Present only when `include_pricing_grid` is true — THE ONE PARAMETER THAT
+  # CHANGES THE PAYLOAD'S SHAPE (§B.4, §D.4).
+  facility_keys_conditional:
+    - pricing_grid
+
+  # ==========================================================================
+  # KEYS THAT MUST NEVER APPEAR — the tier boundary, as an assertion.
+  # ==========================================================================
+  #
+  # §C.4 trap 3. `ccf_v2.facility` carries `source_accession`, `source_document`
+  # AND `source_offsets`, populated on 60 of 60 rows. The character offsets into
+  # the credit agreement sit in the same row as the terms, so the boundary the
+  # vault draws — "a T1 example that reaches into a document has silently become
+  # a T4 example" — is one the DATA does not enforce and the SPECIFICATION has
+  # to. Gate `FTS-G06` reads this list.
+  payload_keys_never_present:
+    - source_accession
+    - source_document
+    - source_offsets
+    # §C.4 trap 2 — the estate holds the amendment COUNT and no amendment DATE.
+    # The payload states what can be evidenced and is silent on what cannot,
+    # rather than carrying a synthetic date that would look filed.
+    - amendment_effective_date
+    - last_amended_on
+
+  # --- The pricing grid's shape — §C.4 trap 4. -----------------------------
+  #
+  # An OBJECT with a `tiers` ARRAY, never a scalar margin. The obvious read —
+  # `jsonb_array_length(pricing_grid)` — returns 0 facilities because the column
+  # is not an array; read through `pricing_grid->'tiers'` it returns 59, all
+  # with at least 3 tiers. A check whose population is not its question.
+  pricing_grid_keys:
+    - basis
+    - tiers
+  pricing_grid_minimum_tiers: 3
+  pricing_grid_tier_keys:
+    - leverage_le
+    - margin_bps
+
+  # --- What the four principals see, measured 2026-08-29. ------------------
+  #
+  # Facilities visible BY JURISDICTION PREFIX, before the need-to-know condition
+  # is applied. §D.3 carries the table; gate `FTS-G03` asserts that need-to-know
+  # changes the served set, which these numbers are the input to.
+  principals_visible_by_jurisdiction:
+    PRIN-RES-002: 60
+    PRIN-COV-001: 50
+    PRIN-KYC-004: 0
+    PRIN-TRD-003: 0
+
+  # Only ONE of the four carries facility-level need-to-know, so only one sees
+  # any facility at all once both conditions compose.
+  principals_with_need_to_know:
+    - PRIN-COV-001
+
+  # THE PAIRS THAT DO NOT DISCRIMINATE, declared so `FTS-G02` cannot be written
+  # to demand that every pair differ.
+  #
+  # THIS LIST WAS WRONG WHEN FIRST WRITTEN AND THE GATE CAUGHT IT. It named one
+  # pair, derived from the JURISDICTION figures above — where `PRIN-KYC-004` and
+  # `PRIN-TRD-003` are the only two seeing zero. But the SERVED set is what this
+  # gate compares, and the served set is after BOTH conditions compose: only
+  # `PRIN-COV-001` carries facility-level need-to-know, so `PRIN-RES-002`
+  # collapses to empty as well despite being granted every jurisdiction in the
+  # estate.
+  #
+  # So THREE of the six pairs are identical — every pairing among the three
+  # principals that see nothing — and three discriminate. Rung 01 could assert
+  # that all six pairs differ because all six did; here half do, and a gate
+  # copied from rung 01 would have failed correct data.
+  #
+  # The two figures are both right and they are not the same figure. Reading
+  # `principals_visible_by_jurisdiction` as the served set is the specific
+  # mistake this comment exists to stop.
+  principal_pairs_expected_identical:
+    - [PRIN-KYC-004, PRIN-RES-002]
+    - [PRIN-KYC-004, PRIN-TRD-003]
+    - [PRIN-RES-002, PRIN-TRD-003]
+
+  # --- Estate facts the gates need an instance of (§F.3 volumetrics). -------
+  estate:
+    facilities: 60
+    distinct_borrowers: 22
+    orphan_borrower_leis: 0
+    facilities_with_an_amendment: 43
+    maximum_amendment_count: 21
+    syndicated: 54
+    grids_present: 59
+    grids_with_three_or_more_tiers: 59
+    null_maturity: 7
+    maturity_before_effective: 4
+    inverted_pairs_share_one_accession: true
+    live_at_pinned_instant: 10
+    refused_on_ttl_at_pinned_instant: 50
+    distinct_retrieved_at_values: 1
+
+  # --- Named facilities the gates and the README address. ------------------
+  fixtures:
+    # The clean demonstration case — every declared attribute populated, dates
+    # coherent, live under the declared TTL at the pinned instant.
+    clean: FAC-36D0CC
+    # Serves, with `tenor_days` NOT_EVALUABLE — maturity precedes effective by
+    # 196 days. Its borrower is cp-01's demonstration anchor.
+    inverted_tenor: FAC-66B83D
+    # Serves, with no maturity date at all.
+    null_maturity: FAC-517638
+    # REFUSED on ttl-bounds at the pinned instant. Eleven amendments.
+    ttl_refused: FAC-1FF50C

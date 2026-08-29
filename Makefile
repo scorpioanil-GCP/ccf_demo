@@ -53,7 +53,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 .PHONY: help venv install lint typecheck test ci-core ci examples gate-tools \
 	conformance \
 	ci-quick-suite ci-harness-conformance ci-coverage \
-	example-s1-01 example-s1-00 example-cp-00 example-cp-01 \
+	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -356,6 +356,28 @@ example-cp-01: ## Run examples/cp-01-counterparty-reference-snapshot (ANCHOR, PR
 		$(if $(ANCHOR),--anchor $(ANCHOR)) \
 		$(if $(PRINCIPAL),--principal $(PRINCIPAL)) \
 		$(if $(INCLUDE_LAPSED),--include-lapsed) \
+		$(if $(AS_OF),--as-of $(AS_OF)) \
+		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE))
+
+# cp-02 — rung 02 of the vault's ladder. Like cp-01 it reads a NETWORKED estate
+# through an environment variable and is therefore NOT in the `examples:`
+# aggregate: there is no in-tree fixture it can fall back onto, and a red check
+# nobody can make green is worse than no check. Its code path is still covered
+# in CI, by a different mechanism — `tests/examples/test_cp_02_output.py` is
+# marked for the postgres leg, seeds its own service container, and the
+# `leg-postgres` target selects it BY MARKER. The target runs the program; the
+# leg proves it.
+#
+# EVERY REQUEST PARAMETER IS OPTIONAL. A facility, a principal, an asked-at and
+# a debt tolerance are request parameters, not deployment configuration, and a
+# build tool is not a request channel. Omitted, `run.py` asks the demonstration
+# question declared in `artifacts/question.yaml`.
+example-cp-02: ## Run examples/cp-02-facility-terms-snapshot (FACILITY, PRINCIPAL, ASKED_AT, AS_OF, DEBT_TOLERANCE, NO_PRICING_GRID optional; needs CCF_CP_02_POSTGRES_DSN)
+	$(ENV) $(PYTHON) examples/cp-02-facility-terms-snapshot/run.py \
+		$(if $(FACILITY),--facility $(FACILITY)) \
+		$(if $(PRINCIPAL),--principal $(PRINCIPAL)) \
+		$(if $(ASKED_AT),--asked-at $(ASKED_AT)) \
+		$(if $(NO_PRICING_GRID),--no-pricing-grid) \
 		$(if $(AS_OF),--as-of $(AS_OF)) \
 		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE))
 

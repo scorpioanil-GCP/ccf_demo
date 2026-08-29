@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# §D.2's OPERATOR STEP TABLE, AS DATA — with a RUNTIME WITNESS per step.
+#
+# WHY THIS DOCUMENT EXISTS. A prose table cannot be held against a run. The
+# specification's §D.2 declares three steps; this declares the same three with,
+# per step, a witness a test can evaluate against what the assembly actually
+# produced. A step that names no witness is a step nothing can prove ran, and
+# the honest response to that is to REMOVE the step from §D rather than to
+# describe it more confidently.
+#
+# `role: load`. A recipe is a description of the assembly, parsed and handed
+# back; it is not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-02.assembly-recipe
+
+declaration:
+  spec_document: spec/CP-SPEC-002_Facility_Terms_Snapshot.md
+  spec_table: "D.2 Operator step table"
+
+  # --- THE CLOSED WITNESS VOCABULARY. Three kinds, and a step that cannot
+  #     name one of them is a step nothing can prove ran.
+  witness_kinds:
+    - kind: operator_in_lineage
+      argument: an operator key
+      proves: >-
+        the key appears in the served product's `lineage.operators_invoked`,
+        which gate 2 holds to strict equality against what the engine resolved
+        (INV-CH7-47). A declared operator that did not run fails the gate.
+
+    - kind: payload_key
+      argument: a dotted path into the served payload
+      proves: >-
+        the named key exists in the served payload. Used where a step's output
+        is a VALUE the assembly derived rather than an operator invocation.
+
+    - kind: vessel_held
+      argument: none
+      proves: >-
+        a `src/ccf/products/gates.py::ServableProduct` was returned. The type is
+        not constructible outside `run_gates`, so HOLDING one is the evidence
+        the three shipped gates ran rather than a claim that they did
+        (INV-CH7-52).
+
+  steps:
+    - step: 1
+      operator: Resolve
+      capability_class: relational
+      layer: L2
+      sdk_mechanism: src/ccf/assembly/worker.py::SpecDrivenEntityResolution
+      emits:
+        - facility_id
+        - borrower_lei
+        - ttl_basis
+      failure: >-
+        fail closed → 404. A `facility_id` has no external registry (§C.3), so
+        an anchor that resolves to nothing is a 404 and never an empty payload —
+        an empty payload for an instrument identifier reads as "this facility
+        has no terms", which is a claim about the world rather than about the
+        request.
+      # NOT `operator_in_lineage`: this step runs outside the L4 registry, so no
+      # operator key would appear for it.
+      #
+      # AND NOT `facility.facility_id`, WHICH WAS THE FIRST DRAFT OF THIS
+      # WITNESS. The facility id is THE ANCHOR AS SUPPLIED BY THE CALLER, so a
+      # witness on it would be satisfied by a step that echoed its input and
+      # resolved nothing — a green witness over a resolution that never
+      # happened. `borrower_lei` is not in the request: it exists in the payload
+      # only if the step actually read the row and carried the join through, so
+      # it is the cheapest key here that cannot be produced without doing the
+      # work. A witness that the input alone satisfies is not a witness.
+      witness:
+        kind: payload_key
+        argument: facility.borrower_lei
+
+    - step: 2
+      operator: Policy
+      capability_class: relational
+      layer: L4
+      sdk_mechanism: src/ccf/operators/categories.py::PolicyFilter
+      emits:
+        - policy_version
+        - the principal-permissible facility set substituted for the full set
+      failure: >-
+        fail closed → 403, with no detail on what exists; entitlement source
+        unreachable → 503, never a permissive default. A principal entitled to
+        nothing is refused INDISTINGUISHABLY from a request for a facility that
+        does not exist (§D.3, gate `FTS-G04`).
+      witness:
+        kind: operator_in_lineage
+        argument: policy.principal-subgraph
+
+    - step: 3
+      operator: null   # contract assembly is NOT an operator — Standard §10.2
+                       # retires `Compose`.
+      capability_class: in-memory
+      layer: L6
+      sdk_mechanism: src/ccf/products/gates.py::run_gates → ::ServableProduct
+      emits:
+        - payload
+        - lineage
+        - expires_at
+        - payload_hash
+        - context_debt
+      failure: >-
+        fail closed → 503 on any gate refusal, returned AS DATA and never as a
+        200 with a warning. 409 is reserved for the debt posture and is raised
+        by the deployment, not by `run_gates`. THE TTL BOUND IS THE ONE THAT
+        FIRES HERE: 50 of 60 facilities carry an `effective_date` older than the
+        90-day window (§B.1 element 3, `artifacts/ttl.yaml`).
+      witness:
+        kind: vessel_held
+        argument: null
+
+  # --- WHAT THIS RECIPE DELIBERATELY DOES NOT DECLARE. ----------------------
+  #
+  # The Standard's closed vocabulary has eight operators. This product uses two
+  # and contract assembly. Their absence is a scope statement, not an omission:
+  #
+  #   Traversal   §B.5 — "no relationships". `credit-exposure-rollup` (rung 05)
+  #               is the first product to traverse over this anchor.
+  #   Temporal    §B.4 — `as_of` is DECLARED AND INERT. Reconstructing terms as
+  #               they stood on a past date needs ledger time-travel and arrives
+  #               at `covenant-in-force-as-of` (rung 08). This is the absence a
+  #               reader is most likely to mistake for an oversight, because the
+  #               product carries `amendment_count` and visibly HAS a history.
+  #   Enrich      one read per source per step, and there is one source.
+  #   Similarity  no ranking; the anchor resolves to one facility or to none.
+  #   Evaluate    no measure is computed. `tenor_days` is arithmetic over two
+  #               served dates, not a score, and it is NOT_EVALUABLE rather than
+  #               negative when the dates invert (§C.4 trap 1).
+  #   Federate    single-institution; no external fabric is reached.
+  #
+  # `Projection` DOES run — the plan id is the class name — but it is not
+  # exercised as ROLE-CONDITIONING at this tier (§A).
+  not_declared:
+    - Traversal
+    - Temporal
+    - Enrich
+    - Similarity
+    - Evaluate
+    - Federate

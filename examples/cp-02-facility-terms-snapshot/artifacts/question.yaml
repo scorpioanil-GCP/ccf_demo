@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE CALLER'S OWN VOCABULARY — read-side, so NOT in `ccf_config.yaml`.
+# A question is not a permission. It has no business in Control Plane state or
+# in Decision Replay dimension 2.
+
+semver: "1.0.0"
+class_id: cp-02.question
+
+declaration:
+  # THE ANCHOR, and it is the `subject` rather than a second field. Spec §B.1
+  # element 8 makes the address itself the anchor —
+  # `/context-products/reference/facility/{facility-id}`.
+  #
+  # WHY THIS FACILITY. `FAC-36D0CC` is EXTREME NETWORKS INC's revolving credit
+  # facility, and it is the demonstration anchor because it is the CLEAN case:
+  # every declared attribute is populated, the date pair is coherent, and it is
+  # one of the 10 facilities live under the declared TTL at the pinned instant.
+  # A default that refused, or that served with a NOT_EVALUABLE claim, would
+  # show a trap before it showed the product.
+  #
+  # The traps are one flag away rather than a second example, and the README
+  # lists them:
+  #
+  #   * `FAC-66B83D` — AVIS BUDGET GROUP's revolver. Its maturity date
+  #     (2025-12-15) PRECEDES its effective date (2026-06-29) by 196 days, so it
+  #     serves with `tenor_days` NOT_EVALUABLE (§C.4 trap 1, gate `FTS-G08`).
+  #     Its borrower is `529900E95812SYWMCE44` — cp-01's own demonstration
+  #     anchor, which is the ladder showing its joins.
+  #   * `FAC-517638` — Super Micro's revolver, with NO maturity date at all.
+  #   * `FAC-1FF50C` — XPO's revolver, ELEVEN amendments, effective 2026-05-29.
+  #     REFUSED on ttl-bounds at the pinned instant (§B.1 element 3). The
+  #     headline finding, reachable with one flag.
+  subject: "FAC-36D0CC"
+
+  # The decision this product is being assembled FOR. Spec §D.1.
+  intent: drawdown-review
+
+  # The currency the caller requires. `amendment-driven` names what §B.1
+  # element 2 declares: terms are current until an amendment files. It is also
+  # the claim the estate cannot evidence (§C.4 trap 2), which is why the served
+  # contract names its `ttl_basis` rather than leaving a reader to infer it.
+  freshness: amendment-driven
+
+  # Spec §B.4. Above this the debt gate refuses with `409` rather than serving
+  # with a warning. Provisional and unbacked (§E.2).
+  #
+  # QUOTED so it parses as text and is validated as a decimal. A bare YAML float
+  # is not bit-stable across platforms, and a Control Plane artifact is content
+  # addressed — the `ccf.declared-artifact` envelope refuses one for that reason.
+  debt_tolerance: "0.25"
+
+  # Spec §B.4. THE ONE PARAMETER THAT CHANGES THE PAYLOAD'S SHAPE, which is why
+  # §D.4 puts it inside the content address.
+  include_pricing_grid: true
+
+  # ==========================================================================
+  # THE INSTANT THE CALLER IS ASKING AS OF — DATA, not a clock read.
+  # ==========================================================================
+  #
+  # This is what lets replay feed the recorded boundary back through the same
+  # code path and get the same answer.
+  #
+  # Quoted, so it stays a string: PyYAML's timestamp resolver would otherwise
+  # hand the deployment a `datetime` where it expects text to parse.
+  #
+  # WHY THIS PARTICULAR INSTANT. It is THE DATE THE SPECIFICATION'S FIGURES WERE
+  # MEASURED ON. Every count in CP-SPEC-002 — 10 of 60 live, 50 refused, the
+  # four bucketed age bands — was taken against the live estate on 2026-08-29,
+  # so pinning the run to the same instant makes the spec's numbers and the
+  # run's numbers THE SAME NUMBERS. A reader who computes 10 from the spec and
+  # sees a different set serve has found a real disagreement rather than a date
+  # skew.
+  #
+  # NOTE WHAT IT IS NOT ANCHORED ON. It is not `retrieved_at`, and deliberately:
+  # `artifacts/ttl.yaml` records that `retrieved_at` carries ONE value across
+  # all 60 rows, which is exactly why it cannot serve as the TTL basis. Using it
+  # as the ASKING instant too would have quietly tied the demonstration to the
+  # value the spec argues against.
+  asked_at: "2026-08-29T12:00:00+00:00"

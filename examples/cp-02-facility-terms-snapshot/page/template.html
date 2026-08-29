@@ -1,0 +1,320 @@
+<title>Facility Terms Snapshot · cp-02</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --paper:#EFF2F3; --surface:#FFFFFF; --sunk:#E4E9EB;
+  --ink:#16202A; --ink-2:#3A4A55; --muted:#64757F; --rule:#CBD5D9;
+  --verd:#1F7A68; --verd-soft:#DCEBE7;
+  --amber:#A65E17; --amber-soft:#F6E9DA;
+  --crit:#9B2C2C; --crit-soft:#F3E0E0;
+  --tok-c:#6C7C86; --tok-k:#1F7A68; --tok-s:#8A5A2B; --tok-n:#2B4C63;
+  --shadow:0 1px 2px rgba(22,32,42,.06),0 8px 24px -12px rgba(22,32,42,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+    --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+    --verd:#46B39D; --verd-soft:#16302B;
+    --amber:#D9903F; --amber-soft:#2F2417;
+    --crit:#E07A7A; --crit-soft:#2E1B1B;
+    --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+  --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+  --verd:#46B39D; --verd-soft:#16302B;
+  --amber:#D9903F; --amber-soft:#2F2417;
+  --crit:#E07A7A; --crit-soft:#2E1B1B;
+  --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,56px)}
+.col{max-width:74ch}
+
+/* ---------- masthead ---------- */
+.mast{border-bottom:1px solid var(--rule);padding:clamp(48px,8vw,88px) 0 40px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--verd);margin:0 0 18px
+}
+h1{
+  font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weight:400;
+  font-size:clamp(38px,6.2vw,68px);line-height:1.04;letter-spacing:-.015em;
+  margin:0 0 22px;text-wrap:balance
+}
+.standfirst{font-size:clamp(17px,2vw,20px);line-height:1.6;color:var(--ink-2);margin:0;max-width:66ch}
+
+/* the shape strip — what the product IS, in its own terms */
+.shape{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);margin-top:40px
+}
+.shape div{background:var(--surface);padding:14px 16px}
+.shape dt{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0 0 5px
+}
+.shape dd{margin:0;font-size:14px;font-weight:600;line-height:1.35}
+.shape dd .sub{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:3px}
+
+/* ---------- sections ---------- */
+section{padding:clamp(44px,6vw,68px) 0;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+h2{
+  font-family:"Bodoni Moda",Georgia,serif;font-weight:400;
+  font-size:clamp(26px,3.6vw,38px);line-height:1.14;letter-spacing:-.01em;
+  margin:0 0 8px;text-wrap:balance
+}
+h3{font-size:17px;font-weight:700;margin:34px 0 10px;letter-spacing:-.005em}
+.kicker{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:0 0 14px
+}
+p{margin:0 0 16px}
+strong{font-weight:600}
+em{font-style:italic}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.875em;
+  background:var(--sunk);padding:.1em .34em;border-radius:3px;
+}
+a{color:var(--verd);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--verd) 40%,transparent)}
+a:hover{border-bottom-color:var(--verd)}
+a:focus-visible{outline:2px solid var(--verd);outline-offset:3px;border-radius:2px}
+
+/* ---------- the two-authority device ---------- */
+.auth{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin:26px 0 8px}
+.auth article{background:var(--surface);border:1px solid var(--rule);border-top:3px solid var(--verd);padding:20px 22px}
+.auth article.internal{border-top-color:var(--amber)}
+.auth h4{margin:0 0 4px;font-size:15px;font-weight:700}
+.auth .who{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--verd);margin:0 0 12px}
+.auth article.internal .who{color:var(--amber)}
+.auth dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13.5px}
+.auth dt{color:var(--muted)}
+.auth dd{margin:0;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:22px 0}
+th,td{text-align:left;padding:9px 14px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  border-bottom-color:var(--ink-2)
+}
+td code{background:none;padding:0}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* pills carry state, not decoration */
+.pill{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  font-weight:600;letter-spacing:.06em;padding:2px 8px;border-radius:99px;white-space:nowrap
+}
+.pill.yes{background:var(--verd-soft);color:var(--verd)}
+.pill.no{background:var(--crit-soft);color:var(--crit)}
+.pill.warn{background:var(--amber-soft);color:var(--amber)}
+
+/* ---------- build order ---------- */
+ol.build{list-style:none;counter-reset:step;margin:26px 0 0;padding:0}
+ol.build > li{
+  counter-increment:step;position:relative;padding:0 0 26px 54px;
+  border-left:1px solid var(--rule);margin-left:15px
+}
+ol.build > li:last-child{border-left-color:transparent;padding-bottom:0}
+ol.build > li::before{
+  content:counter(step,decimal-leading-zero);position:absolute;left:-15px;top:0;
+  width:30px;height:30px;border-radius:50%;background:var(--surface);
+  border:1px solid var(--rule);color:var(--muted);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  display:flex;align-items:center;justify-content:center
+}
+ol.build h3{margin:2px 0 6px;font-size:16px}
+ol.build p{font-size:14.5px;color:var(--ink-2);margin:0 0 12px}
+
+/* ---------- collapsibles: guidance first, source on demand ---------- */
+details{
+  background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+  margin:12px 0;box-shadow:var(--shadow)
+}
+summary{
+  cursor:pointer;padding:12px 16px;font-family:"IBM Plex Mono",monospace;
+  font-size:12.5px;font-weight:600;color:var(--ink-2);list-style:none;
+  display:flex;align-items:center;gap:10px
+}
+summary::-webkit-details-marker{display:none}
+summary::before{
+  content:"";width:0;height:0;flex:none;
+  border-left:5px solid var(--muted);border-top:4px solid transparent;border-bottom:4px solid transparent;
+  transition:transform .16s ease
+}
+details[open] > summary::before{transform:rotate(90deg)}
+summary:hover{color:var(--verd)}
+summary:focus-visible{outline:2px solid var(--verd);outline-offset:-2px;border-radius:3px}
+details .note{margin:0;padding:0 16px 12px;font-size:13px;color:var(--muted)}
+details pre{margin:0;padding:16px;background:var(--sunk);font-size:12.5px;line-height:1.55}
+details .scroll{border-top:1px solid var(--rule)}
+pre{overflow-x:auto;margin:0}
+pre code{background:none;padding:0;font-size:12.5px}
+
+/* ---------- callouts ---------- */
+.call{border-left:3px solid var(--verd);background:var(--surface);padding:18px 22px;margin:24px 0}
+.call.warn{border-left-color:var(--amber)}
+.call.crit{border-left-color:var(--crit)}
+.call p:last-child{margin-bottom:0}
+.call .lbl{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--verd);display:block;margin-bottom:7px
+}
+.call.warn .lbl{color:var(--amber)}
+.call.crit .lbl{color:var(--crit)}
+
+ul.plain{margin:0 0 16px;padding-left:20px}
+ul.plain li{margin-bottom:7px}
+
+footer{padding:44px 0 72px;color:var(--muted);font-size:13.5px}
+footer p{margin:0 0 8px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Context Product · cp-02</p>
+  <h1>Facility Terms Snapshot</h1>
+  <p class="standfirst">One credit facility's economic terms, anchored on an instrument rather than a company — and an expiry taken from the date on the credit agreement, which does not move when the question does.</p>
+
+  <dl class="shape">
+    <div><dt>Registry name</dt><dd>reference.facility.v1</dd></div>
+    <div><dt>Tier</dt><dd>1<span class="sub">relational only</span></dd></div>
+    <div><dt>Assembly mode</dt><dd>1 — pure algorithmic<span class="sub">no model in the path</span></dd></div>
+    <div><dt>Store</dt><dd>PostgreSQL<span class="sub">schema <code>ccf_v2</code></span></dd></div>
+    <div><dt>Anchor</dt><dd>an instrument<span class="sub">no external registry</span></dd></div>
+    <div><dt>Declared operators</dt><dd>Resolve → Policy<span class="sub">+ contract assembly</span></dd></div>
+  </dl>
+</header>
+
+<section>
+  <div class="col">
+    <p class="kicker">Orientation</p>
+    <h2>The rung where the anchor starts to cost something</h2>
+    <p>Rung 01 <em>introduced</em> <code>ttl_anchor: from_entity_freshness</code> against a vendor file that republishes daily, so the expiry and the load date were never far apart. This product anchors on a <strong>credit agreement</strong>, and those are signed years apart. The choice becomes visible, and getting it wrong becomes expensive.</p>
+    <p>It is also the first product on the ladder that anchors on something that is <strong>not a legal entity</strong>. A facility is an instrument: its identifier is internal, no GLEIF stands behind it, and an anchor that does not resolve cannot be distinguished from one that never existed. That is why a miss here is a <code>404</code> and never an empty payload — an empty payload for an instrument reads as <em>“this facility has no terms.”</em></p>
+
+    <h3>What the failure actually is</h3>
+    <p>A loan-system screen returns every term a credit officer needs. What it cannot return is <strong>a statement of when believing it stops being safe</strong>. Terms do not decay on a clock — they are valid until the agreement is amended — so an expiry measured from the moment somebody asked resets every time anybody asks. <strong>A staleness control that resets on being read is not a control.</strong></p>
+  </div>
+
+  <div class="col">
+    <h3>Three anchors, three products</h3>
+    <p>The catalog now carries three worked examples of the same field, which is what makes it teachable rather than assertable:</p>
+    <table class="grid">
+      <thead><tr><th>Product</th><th>Anchored on</th><th>The expiry moves with</th></tr></thead>
+      <tbody>
+        <tr><td><code>cp-00</code></td><td>a reported quarter end</td><td>the source's calendar</td></tr>
+        <tr><td><code>cp-01</code></td><td>a vendor file date</td><td>each company, daily</td></tr>
+        <tr><td><strong><code>cp-02</code></strong></td><td><strong>a filed agreement date</strong></td><td><strong>each facility, over years</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The run</p>
+    <h2>One question, and what comes back with the answer</h2>
+    <p>The published transcript below was produced against the estate as loaded on <strong>2026-08-25</strong>, asking as of a pinned <code>2026-08-29T12:00:00+00:00</code>, with content address <code>708a4a3f…</code>. A reader whose address differs has re-derived rather than replayed.</p>
+    <div class="scroll"><pre><code>{{run}}</code></pre></div>
+
+    <h3>The two lines that are the product</h3>
+    <p><code>ttl basis</code> names <em>which date</em> the expiry was measured from, so a consumer can check the arithmetic without reading the specification. Without it, two products anchored on different dates are indistinguishable on the wire.</p>
+    <p>And <code>expires at</code> does not move. Ask the same facility seventeen days later and it reads <code>2026-10-27</code> again — because it is the agreement's date plus ninety days, and the question is not an input to that sum.</p>
+
+    <h3>The uncomfortable half</h3>
+    <p>At that instant, <strong>50 of the 60 facilities in this estate refuse</strong> on <code>ttl-bounds</code> — and all 43 that carry an amendment history are among them. The estate holds an amendment <em>count</em> and no amendment <em>date</em>, so nothing can establish that the terms on file are the terms in force.</p>
+    <p>That is recorded as a finding and returned to the vault, not smoothed away. The alternative that would make every facility serve — anchoring on the extraction date instead — turns out to carry <strong>one distinct value across all 60 rows</strong>, which is a product-level TTL wearing a per-entity label. The number that settles it is 1, not 60.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Read in this order</p>
+    <h2>The order to work in</h2>
+
+    <h3>The specification</h3>
+    <p>Written first, approved at Gate 1 before a line of code existed, and everything below derives from it.</p>
+    {{spec}}
+
+    <h3>The Control Plane document</h3>
+    <p>The product class, the operator's parameters, the resolution rules, four half-life classes spanning three orders of magnitude, the debt bands, the policy regime and the default perspective. Delete it and the example has nothing left to run.</p>
+    {{config}}
+
+    <h3>The backend binding</h3>
+    <p>How the graph's settings are composed and how the system of record is reached — a variable <strong>name</strong>, never a value. No host, no port, no credential in this tree.</p>
+    {{backends}}
+
+    <h3>The four declared artifacts</h3>
+    <p>The caller's vocabulary; the TTL and the measurement that constrains it; the operator table as data with a witness per step; and what the served product must contain, deriving nothing from a run.</p>
+    {{question}}
+    {{ttl}}
+    {{recipe}}
+    {{expected}}
+
+    <h3>The interpreter</h3>
+    <p>Reads the documents above and answers what the spine asks. Every value it works with arrives from an artifact.</p>
+    {{deployment}}
+
+    <h3>The spine, the seam and the client</h3>
+    <p>The spine names no facility, no borrower, no table and no threshold. It carries the seven canonical marker regions from its first commit.</p>
+    {{produce}}
+    {{assembler}}
+    {{run_py}}
+
+    <h3>The tests, and the README</h3>
+    <p>Twenty tests, one per product gate plus the acceptance criteria. Eleven of them were deliberately broken one at a time to confirm each fails when its subject is wrong.</p>
+    {{tests}}
+    {{readme}}
+    {{summary}}
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Refusals</p>
+    <h2>Four ways this product declines, and each is correct</h2>
+
+    <h3>Terms older than the window</h3>
+    <p>Eleven amendments, an agreement signed outside the ninety-day window, and the TTL gate refuses. This is 50 of 60 facilities today.</p>
+
+    <h3>A question you may not ask</h3>
+    <p>A principal granted every jurisdiction in the estate and no facility-level need-to-know is refused — <strong>with the same sentence, to the byte</strong>, that a facility which does not exist returns. The natural message, <em>“you are not entitled to see this facility,”</em> is a disclosure: it confirms the facility exists. Someone could walk a list of identifiers and recover the client list one refusal at a time.</p>
+    <p>The distinction is not lost. It moves to the replay record, which holds exactly which principal asked and what was withheld. The audit knows; the caller does not.</p>
+
+    <h3>Arithmetic that cannot be true</h3>
+    <p>Four facilities carry a maturity date 196 days <em>before</em> their effective date — all four extracted from a single filing. The product serves both dates exactly as filed and marks the derived tenor <code>NOT_EVALUABLE</code>. A report would have shown −196 days, or filed the facility into the shortest bucket of a maturity ladder.</p>
+
+    <h3>A parameter this tier declares and always refuses</h3>
+    <p><code>as_of</code> returns <code>400 not_supported_at_tier</code>. It matters more here than at rung 01: a facility carrying twenty-one amendments visibly <em>has</em> a history to ask about, so this is a question a caller will actually ask.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Boundaries</p>
+    <h2>What this example is not</h2>
+    <p>No history — reconstructing terms as they stood on a past date needs ledger time-travel and arrives at <code>covenant-in-force-as-of</code>. No pointer into the source agreement text, although the character offsets are populated on 60 of 60 rows and sit in the same row as the terms; a Tier-1 example that reaches into a document has silently become a Tier-4 one, and a gate asserts that none of them reaches the payload. No covenants, no collateral, no exposure rollup, no syndicate detail.</p>
+    <p>And no calibration. The four decay rates are expert judgment, not measurement, and the specification says so on every row — values an engineer can challenge rather than numbers anyone should assume were derived.</p>
+  </div>
+</section>
+
+</div>

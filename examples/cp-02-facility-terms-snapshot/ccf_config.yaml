@@ -1,0 +1,304 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE STATE THIS DEPLOYMENT REGISTERS — spec CP-SPEC-002.
+#
+# Everything domain-specific about this product lives here or in `artifacts/`,
+# and nothing does in the code. The No-Hardcoding Rule (`CLAUDE.md` §6.4) is
+# not a style preference in this tree: `deployment.py` is an INTERPRETER of
+# this document, and an example whose code would still run meaningfully with
+# its artifacts deleted has violated it.
+#
+# WHAT IS NOT HERE, DELIBERATELY: no host, no port, no credential, no DSN.
+# Connection material is deployment ENVIRONMENT and lives in `backends.yaml`
+# as a variable NAME (spec §F.3). The STORE is named in the specification —
+# PostgreSQL, schema `ccf_v2`.
+
+semver: "1.0.0"
+tenant_id: cp-02-demo
+
+# --------------------------------------------------------------------------
+# THE CCF GRAPH's substrate. Per-run, local, thrown away after.
+# --------------------------------------------------------------------------
+backend: sqlite
+
+# --------------------------------------------------------------------------
+# THE PRODUCT CLASS — spec §B.1.
+# --------------------------------------------------------------------------
+product_class:
+  # §B.1 elements 7 and 8.
+  schema_name: reference.facility
+  schema_version: "1.0.0"
+
+  # §B.1 element 3, AND THE WHOLE POINT OF THIS RUNG.
+  #
+  # `from_entity_freshness` means `expires_at` is a function of THE FACILITY,
+  # not of the request. The entity's own last observation here is the EX-10
+  # credit agreement's "dated as of" clause — `ccf_v2.facility.effective_date`,
+  # a filed public fact — and the expiry is that date plus the declared window.
+  #
+  # `asked_at` appears nowhere in that computation. Two calls for the same
+  # facility at two different instants return the SAME `expires_at`, and gate
+  # `FTS-G01` asserts exactly that. An implementation that recomputed the
+  # expiry from `now` would pass every other check in this example.
+  #
+  # THE CONTRAST THIS RUNG COMPLETES (§A): `cp-00` anchors on a reported
+  # quarter end — the source's calendar. `cp-01` anchors on entity freshness at
+  # a DAILY vendor cadence. This anchors on entity freshness at a cadence
+  # measured in YEARS, which is where the choice starts to cost something.
+  ttl_anchor: from_entity_freshness
+
+  # §B.1 element 9. Mode 1 — pure algorithmic. No model is in the trust path.
+  assembly_mode: algorithmic
+
+  # The key the class's TTL ceiling registers under. Registering the value is
+  # what MINTS its pin, so the value cannot live in this document — it is in
+  # `artifacts/ttl.yaml`, with the measurement that constrains it.
+  max_ttl_key: cp-02/product/facility-terms/max-ttl
+
+  # §D.2 step 2 — the ONE operator step this assembly executes through the L4
+  # registry. Step 1 (`Resolve`) is L2 entity resolution driven by the
+  # `resolution:` block below; step 3 is contract assembly and is not an
+  # operator at all (Standard §10.2 retires `Compose`).
+  required_operator_keys:
+    - policy.principal-subgraph
+
+# --------------------------------------------------------------------------
+# THE OPERATOR PARAMETER SETS, keyed by the operator id itself.
+# --------------------------------------------------------------------------
+operators:
+  # §D.2 step 2, §D.3, and gates `FTS-G02`, `FTS-G03`, `FTS-G04`.
+  #
+  # TWO CONDITIONS COMPOSED INTO ONE SHIPPED OPERATOR, and how that is done is
+  # worth reading before the values.
+  #
+  # `src/ccf/operators/categories.py::PolicyFilter` admits a record when
+  # `attributes.get(<the attribute named for its class>)` is a member of
+  # `permitted_classifications`. That is ONE attribute allowlist. Spec §B.1
+  # element 4 binds TWO conditions: facility-level need-to-know, which is a
+  # property of the PRINCIPAL, and jurisdiction visibility, which is a property
+  # of the BORROWER.
+  #
+  # They compose because they are not the same kind of thing. The deployment
+  # computes the allowlist per request: the borrower jurisdictions this
+  # principal is granted IF the principal carries `sees_need_to_know`, and THE
+  # EMPTY TUPLE IF IT DOES NOT. A principal without need-to-know therefore gets
+  # an allowlist matching nothing and sees no facility at all — the suppression
+  # case, reached through the operator rather than around it.
+  #
+  # `FTS-G03` is what keeps that honest. A policy with two conditions where only
+  # one does any work passes every set-difference check, so the gate asserts
+  # that REMOVING the need-to-know condition CHANGES the served set. Measured
+  # 2026-08-29, it changes it from 0 to 60 for `PRIN-RES-002`.
+  #
+  # THE ATTRIBUTE IS THE BORROWER'S, CARRIED ONTO THE FACILITY RECORD. A
+  # facility has no jurisdiction of its own in this estate; it inherits
+  # visibility from the entity that borrowed. That is a DECISION (§D.3), not a
+  # mechanism, and it is why the attribute below is named `borrower_`.
+  #
+  # THE VALUES BELOW ARE THE DEFAULT PERSPECTIVE'S AND THE RUNTIME OVERRIDES
+  # THEM PER REQUEST. A static allowlist would serve one principal's facilities
+  # to every principal — a correctness defect that presents as an intermittent
+  # one, and on this product a disclosure (§E.3).
+  #
+  # THE EXPANSION IS THE DEPLOYMENT'S. The grant is a PREFIX (`US` covers
+  # `US-DE`, `US-MD`, `US-FL`) and `PolicyFilter` tests exact membership, so the
+  # deployment expands the prefix against the jurisdictions the estate actually
+  # holds. A prefix left unexpanded matches nothing and empties the view.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      facility: borrower_jurisdiction
+    # `PRIN-COV-001`'s grant — `US` — expanded against the estate as measured
+    # 2026-08-29. Overridden per request; declared here so the document is
+    # complete on its own and a reader can see the shape of an expansion.
+    permitted_classifications:
+      - US
+      - US-DE
+      - US-FL
+      - US-MD
+      - US-MN
+      - US-OH
+
+# --------------------------------------------------------------------------
+# WHICH QUESTIONS THIS CLASS ANSWERS — spec §B.4.
+# --------------------------------------------------------------------------
+request_contract:
+  class_id: cp-02.request-contract
+  role: load
+  registration: typed
+  schema_name: reference.facility
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      intent:
+        type: string
+        description: >-
+          The decision this product is assembled FOR, and the value that selects
+          the policy envelope. The intent REGISTRY of Standard §11.1 does not
+          exist in this deployment, so the accepted values are not enumerable
+          here — §B.4.
+      debt_tolerance:
+        type: number
+        description: >-
+          The caller's D_c ceiling. Above it the debt gate refuses with 409
+          rather than serving with a warning — §B.4, §E.2.
+      include_pricing_grid:
+        type: boolean
+        description: >-
+          Whether the tiered pricing grid is returned. THE ONE PARAMETER HERE
+          THAT CHANGES THE PAYLOAD'S SHAPE, which is why §D.4 puts it inside the
+          content address — two genuinely different payloads sharing a hash is a
+          worse failure than two identical ones differing. Gate `FTS-G07`.
+      as_of:
+        # DECLARED BUT INERT — §B.4 and Standard §2.4.
+        #
+        # It matters more here than at rung 01. A facility carrying 21
+        # amendments visibly HAS a history to ask about, and the estate can say
+        # how many amendments there were and not when any of them took effect
+        # (§C.4 trap 2). A silent success against current state would answer a
+        # historical question with today's terms wearing yesterday's label.
+        type: string
+        description: >-
+          The instant to reconstruct as of. NOT SUPPORTED AT THIS TIER — always
+          refused, never honored. Ledger time-travel arrives at
+          `covenant-in-force-as-of`.
+    required:
+      - debt_tolerance
+
+  # DECLARED-BUT-INERT ARGUMENTS — Standard §2.4, spec §B.4, gate `FTS-G05`.
+  # The JSON-Schema block above can express a TYPE but not an unsupported-ness.
+  unsupported_arguments:
+    as_of: not_supported_at_tier
+
+# --------------------------------------------------------------------------
+# L2 ENTITY RESOLUTION — spec §D.2 step 1. ONE entity class: the scope boundary
+# excludes relationships (§B.5), so there is no second class and no
+# relationship rule at all.
+#
+# THE ANCHOR IS AN INSTRUMENT, NOT AN IDENTITY (§C.3). `facility_id` is
+# internal, has no external registry behind it, and cannot be validated against
+# anything outside the bank. There is no GLEIF for facilities — which is why an
+# anchor that does not resolve is a 404 and never an empty payload.
+# --------------------------------------------------------------------------
+resolution:
+  entity_rules:
+    - match_key: facility_ref
+      entity_class: facility
+
+      identity_keys:
+        - facility_id
+
+      attribute_keys:
+        # §B.1 element 1 — the economic and structural terms.
+        - borrower_lei
+        - facility_type
+        - commitment_amount
+        - currency
+        - effective_date
+        - maturity_date
+        - administrative_agent
+        - amendment_count
+        - is_amended_restated
+        - syndicated
+        # §C.4 trap 4 — the grid travels as a JSON structure, never a scalar.
+        - pricing_grid
+        # §E.1 — the 1-day signal, carrying its OWN observation date. Three
+        # dates that mean three different things (§D.6 note 5).
+        - outstanding_balance
+        - undrawn_availability
+        - balance_as_of
+        - internal_risk_rating
+        # §D.2 step 2 — the attribute `PolicyFilter` filters on. The BORROWER's
+        # jurisdiction, carried onto the facility record. Present as a served
+        # attribute as well as the policy discriminator, because a product that
+        # filters on a field it does not return cannot be audited from its own
+        # payload.
+        - borrower_jurisdiction
+        - borrower_legal_name
+        # §E.2's `S` — the borrower's 10-K reported debt, and whether the
+        # reconciliation flagged the attribution as implausible.
+        - reported_debt
+        - debt_reconciliation_plausible
+
+  # §B.5: "no relationships". Declared empty rather than omitted, because an
+  # absent key reads as an oversight and an empty one reads as a decision.
+  relationship_rules: []
+
+# --------------------------------------------------------------------------
+# λ_c — spec §E.1. FOUR observation types spanning THREE ORDERS OF MAGNITUDE,
+# never averaged (§B.1 element 2).
+#
+# This is the table the vault's §E states and the reason §E.3's materialization
+# posture needs a carve-out: a product whose payload mixes a 540-day signal and
+# a 1-day signal without surfacing the asymmetry is what §6.4 Temporal
+# Validation refuses to assemble.
+# --------------------------------------------------------------------------
+half_life:
+  # 46,656,000 s = 540 days. Basis EXPERT: terms are amendment-driven, not
+  # clock-driven — they do not decay, they are superseded.
+  structural_terms:
+    half_life_seconds: 46656000
+    decay_driver: amendment of the credit agreement, not the passage of time
+    supersession_event: >-
+      an 8-K Item 1.01 amendment filing — an event THIS ESTATE CANNOT OBSERVE
+      (§C.4 trap 2), which is recorded at §E.4 as a known gap rather than
+      substituted with a trigger that could be observed and would be wrong
+
+  # 31,536,000 s = 365 days. Basis EXPERT: repriced on amendment or refinancing.
+  pricing_grid:
+    half_life_seconds: 31536000
+    decay_driver: repricing on amendment or refinancing
+    supersession_event: an amendment restating the pricing schedule
+
+  # 86,400 s = 1 day. The fast signal, and the reason §E.3 carves it out of the
+  # materialized payload.
+  loan_balance:
+    half_life_seconds: 86400
+    decay_driver: every drawdown and every repayment
+    supersession_event: an internal drawdown or repayment event
+
+  # 7,776,000 s = 90 days. Basis ILLUSTRATIVE — a credit review cycle is a
+  # plausible cadence and nobody has measured this one. Named for what it is.
+  internal_rating:
+    half_life_seconds: 7776000
+    decay_driver: the internal credit review cycle
+    supersession_event: a rating action on the facility
+
+# --------------------------------------------------------------------------
+# WHERE THE D_c BANDS SIT — `D_c = 1 - (F . C . S)`.
+#
+# THE SPEC LEAVES THESE `[TBC — this build, P8]` (§E.2, §F.2 row 16) AND THE SDK
+# REQUIRES ALL THREE. They are declared here so they are values an engineer can
+# CHALLENGE rather than numbers a reader must assume were derived.
+#
+# `forced_llm_threshold` for a MODE 1 product is a DISCLOSURE band, not a
+# routing instruction: there is no model in the path to route to.
+# --------------------------------------------------------------------------
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+# --------------------------------------------------------------------------
+# THE REGIME IN FORCE — spec §B.1 element 4. Adopter-owned.
+#
+# "Entitlement scope — facility-level need-to-know, plus jurisdiction
+# visibility on the borrower. No regulatory overlay at this tier."
+# --------------------------------------------------------------------------
+policy:
+  class_id: cp-02.policy-bundle
+  role: register
+  registration: typed
+  regime: facility-terms-entitlement
+
+# --------------------------------------------------------------------------
+# Pi role-conditioning — whose view this product is served under.
+#
+# `PRIN-COV-001`, the coverage banker: the ONLY one of the four principals that
+# carries `sees_need_to_know`, and granted `US`. Chosen as the default because
+# it is the only principal that can see any facility at all — which is itself
+# the measurement §D.3 reports, and a demonstration defaulting to a principal
+# entitled to nothing would show the suppression case and nothing else.
+# --------------------------------------------------------------------------
+default_perspective:
+  principal_id: PRIN-COV-001
+  role: analyst

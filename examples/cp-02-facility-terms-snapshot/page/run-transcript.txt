@@ -1,0 +1,66 @@
+{
+  "corroboration": {
+    "reason": "committed amounts are consistent with the borrower's reported debt",
+    "reported_debt": "420750000",
+    "status": "plausible"
+  },
+  "facility": {
+    "administrative_agent": "JPMORGAN CHASE BANK, N.A.",
+    "amendment_count": 1,
+    "balance_as_of": "2026-08-25",
+    "borrower_jurisdiction": "US-DE",
+    "borrower_legal_name": "EXTREME NETWORKS INC",
+    "borrower_lei": "549300WRECW11X94UB57",
+    "commitment_amount": "35000000",
+    "currency": "USD",
+    "effective_date": "2026-07-29",
+    "entity_id": "facility://7bfef9c082a282e691ed7a69fc92a42475837ffb5a450f89c2207d0dce399284",
+    "facility_id": "FAC-36D0CC",
+    "facility_type": "Revolving Credit Facility",
+    "internal_risk_rating": "4B",
+    "is_amended_restated": true,
+    "maturity_date": "2031-07-29",
+    "outstanding_balance": "14732976",
+    "pricing_grid": {
+      "basis": "Consolidated Leverage Ratio",
+      "tiers": [
+        {
+          "leverage_le": "1.0",
+          "margin_bps": 125
+        },
+        {
+          "leverage_le": "2.0",
+          "margin_bps": 150
+        },
+        {
+          "leverage_le": "3.0",
+          "margin_bps": 175
+        },
+        {
+          "leverage_le": "3.75",
+          "margin_bps": 200
+        },
+        {
+          "leverage_le": "4.25",
+          "margin_bps": 225
+        }
+      ]
+    },
+    "syndicated": true,
+    "tenor_days": 1826,
+    "undrawn_availability": "21620875"
+  },
+  "perspective_role": "analyst"
+}
+
+What a plain SELECT would not have told you:
+   asked as of        2026-08-29T12:00:00+00:00
+   ttl basis          2026-07-29   (effective_date, the agreement's own date)
+   expires at         2026-10-27T00:00:00+00:00   (ttl_anchor from_entity_freshness)
+   ...which does NOT move when `asked as of` moves — that is the anchor
+   context debt D_c   0.0396  ->  ok
+   amendments         1   (a COUNT; this estate holds no amendment DATE)
+   principal          PRIN-COV-001   need-to-know True, 10 jurisdiction(s)
+   operators invoked  ['policy.principal-subgraph']
+   content address    708a4a3f1a8486b125fdcbcbb848c3a43ae7cda81066ad3ee832aafe749d8b0c
+   replay record      bb02ebad4a79df8b0e49e1757c5d0f7469076a971c03cbc87e3f5a169641a01b
