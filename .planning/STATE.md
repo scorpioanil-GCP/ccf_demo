@@ -2141,3 +2141,64 @@ as the family-tree probe defect: **a check whose population is not its question.
 evaluate.** Do not close a phase around it.
 
 Resume: read `.planning/CONTEXT-PRODUCT-LADDER-AND-ESTATE.md` §6.1.1 and §7 first.
+
+---
+
+**2026-08-28 save-state (19:06) — RESUME HERE.**
+
+**THE BUILD ORDER IS RULED AND IS NOT REOPENABLE ON READINESS GROUNDS**
+(`D-IMPL-219`, Dave, 2026-08-28). Context Products are built in the vault's
+**complexity order**, simplest-first across the five-tier ladder. **The next
+product is `counterparty-reference-snapshot`** — rung 1. The executing model
+proposed `obligor-financial-spread` instead because its data was richer; Dave
+refused, and the refusal is the point: *which* product is next is fixed by
+complexity, *when* it can be built is a data question answered by loading data,
+never by promoting a better-supplied product over a simpler one.
+
+**BLOCKED ON DATAPREP, BY DESIGN.** Rung 1 has three verified gaps (all confirmed
+by direct query 2026-08-28, all in §6.1.1 of
+`.planning/CONTEXT-PRODUCT-LADDER-AND-ESTATE.md`):
+1. **Jurisdiction entitlement — THE ONE THAT MATTERS.** `ccf_v2.principal` has 4
+   rows and **no jurisdiction column at all**. §B defines T1's whole policy
+   binding as *jurisdiction visibility per calling principal*, so today the Policy
+   Operator would be a **no-op** — in the product every other product inherits its
+   contract machinery from. Building around this would reproduce the exact
+   "aggregate, not assemble" criticism that commissioned Phase 15.5.
+2. **No-LEI entities: ZERO of 156.** The spec's own §D counterfactual realised.
+3. **Second address.** §B requires headquarters AND legal; one triple exists and
+   nothing records which it is. Fetchable from the GLEIF Level 1 file in use.
+
+**Dave confirmed 19:06 that `ccf_dataprep` is addressing all three now.**
+
+## On resume, in this order
+
+1. **Verify the gaps are actually closed — do not take the word for it.** Re-run
+   `cd /home/parkave/ccf_dataprep && .venv/bin/python validators/spec_coverage.py
+   --product counterparty-reference-snapshot`. It must show **4 PASS, 0 GAP**;
+   today it shows 1 PASS, 3 GAP. Then re-derive independently rather than trusting
+   that output: `principal` carries a jurisdiction column with **differing** values
+   across principals (a column of one repeated value satisfies the count and not
+   the condition), `legal_entity` holds rows with a NULL lei, and the two addresses
+   are **distinguishable** rather than merely two columns.
+2. **Then build rung 1.** `D-GATE-19` binds success criteria to the discuss
+   sitting, so criteria are written there and never in advance.
+3. **PAUSE WHEN IT IS BUILT.** Dave's standing instruction, 2026-08-28: *"We will
+   pause after it's built so I can evaluate."* No close panel, no `D-GATE`, no
+   completion mark in `ROADMAP.md` or `STATE.md` until he has evaluated it.
+
+**Still unruled, and smaller than it was:** SIC code, internal obligor risk grade
+and coverage RM assignment are held by the estate and asserted by no spec after the
+vault's §C collapse. **CIK survived** — dataprep deliberately kept it inside the
+crosswalk probe (`lei` + `internal_client_id` + `cik` on one row, 53 rows do)
+because `LEI → CIK → ticker` is a join six other specs depend on. A question to the
+vault custodian about whether the collapse was deliberate was **drafted and NOT
+sent**; `~/.agent-exchange/` is the channel and nothing goes without Dave seeing it.
+
+**Two vault log entries exist for this session**, the second correcting the first:
+the original claimed all three T1 specs were "fully backed" and called the
+`spec_coverage` crash a reworded row. Both were wrong and both are corrected on the
+record (`output/_inbox/2026-08-29T02-01-08-ccf-sdk-a84c0986.md`).
+
+**`ccf_dataprep` IS DAVE'S — read from it, never write to it.**
+
+Resume: verify the three gaps, then `/gsd:discuss-phase` for rung 1.
