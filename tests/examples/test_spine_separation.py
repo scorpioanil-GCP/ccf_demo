@@ -132,15 +132,45 @@ MARKER_RE = re.compile(r"--8<--\s*\[(?P<kind>start|end):(?P<name>[^\]]+)\]")
 # ---------------------------------------------------------------------------
 
 
+def is_pre_build(directory: pathlib.Path) -> bool:
+    """Is this tree an authored specification with no implementation yet?
+
+    `spec_generation.md` §2 makes a Context Product spec **step one of the
+    example project**, authored at `examples/cp-NN-<slug>/spec/` and approved by
+    Dave **before any implementation exists**. So a tree carrying a `spec/` and
+    no Python at all is a legitimate, intended state — Gate 1 — and it has no
+    spine because nothing has been built for a spine to live in.
+
+    **The exclusion is deliberately narrow: `spec/` present AND zero `.py` files
+    at any depth.** One module anywhere puts the tree back in scope. The
+    dangerous direction here is a rule that skips whatever it cannot parse — a
+    shipped example that lost its spine would then leave the scan silently, and
+    this gate would report green over the defect it exists to catch. Requiring
+    *total* absence of code is what keeps the exclusion unable to do that, and
+    `test_the_pre_build_exclusion_releases_a_tree_that_has_any_code` is the
+    control that proves it.
+    """
+    return (directory / "spec").is_dir() and not modules_in(directory)
+
+
 def split_examples(root: pathlib.Path) -> list[pathlib.Path]:
     """Every example directory under `root` that this gate scans.
 
     The union of `SPINE_GLOBS`, de-duplicated: a tree matching two globs is one
     tree, and a directory appearing twice would run every parametrized check
     twice and report a copy of each failure.
+
+    **Pre-build trees are excluded** — see `is_pre_build`. A Gate-1 spec is not
+    an example that publishes snippets, and the seven canonical regions cannot
+    be asserted against code nobody has written.
     """
     return sorted(
-        {path for glob in SPINE_GLOBS for path in root.glob(glob) if path.is_dir()}
+        {
+            path
+            for glob in SPINE_GLOBS
+            for path in root.glob(glob)
+            if path.is_dir() and not is_pre_build(path)
+        }
     )
 
 
@@ -772,3 +802,51 @@ def test_the_widened_glob_actually_scans_the_context_product_tree(
 
     problems = spine_problems(discovered[0])
     assert any("no module opens" in problem for problem in problems), problems
+
+
+def test_the_pre_build_exclusion_releases_a_tree_that_has_any_code(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The narrow half of `is_pre_build`, and the half that can go wrong.
+
+    An exclusion that skipped whatever it could not parse would let a shipped
+    example that lost its spine leave the scan silently — this gate would then
+    report green over exactly the defect it exists to catch. So the control
+    takes a real, conforming tree, gives it a `spec/` directory, and asserts it
+    is **still scanned**: carrying a spec is not what releases a tree, carrying
+    no code at all is.
+    """
+    example = _copied_example(tmp_path)
+    (example / "spec").mkdir(exist_ok=True)
+    (example / "spec" / "CP-SPEC-999_Control.md").write_text("# a spec\n", "utf-8")
+
+    assert not is_pre_build(example), (
+        f"{example.name} has {len(modules_in(example))} modules and was still"
+        " classified pre-build — the exclusion is releasing trees that carry"
+        " code, which is how a spineless shipped example would leave the scan"
+    )
+    assert [path.name for path in split_examples(tmp_path)] == [example.name], (
+        "a tree with code and a spec must stay in the scan"
+    )
+
+
+def test_the_pre_build_exclusion_releases_a_spec_only_tree(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The Gate-1 case: an authored spec, approved, with nothing built yet.
+
+    `spec_generation.md` §2 requires exactly this state to exist — the spec is
+    step one of the example project and Dave approves it *before* any
+    implementation. `cp-02-facility-terms-snapshot` sat in it on 2026-08-29 and
+    took five parametrized failures, because the gate read a directory with no
+    code as an example whose spine had gone missing.
+    """
+    example = tmp_path / "cp-99-gate-one-only"
+    (example / "spec").mkdir(parents=True)
+    (example / "spec" / "CP-SPEC-999_Gate_One.md").write_text("# authored\n", "utf-8")
+
+    assert is_pre_build(example)
+    assert split_examples(tmp_path) == [], (
+        "a spec-only tree must not be scanned for a spine it cannot have;"
+        f" got {split_examples(tmp_path)}"
+    )
