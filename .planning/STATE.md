@@ -2202,3 +2202,67 @@ record (`output/_inbox/2026-08-29T02-01-08-ccf-sdk-a84c0986.md`).
 **`ccf_dataprep` IS DAVE'S — read from it, never write to it.**
 
 Resume: verify the three gaps, then `/gsd:discuss-phase` for rung 1.
+
+---
+
+**2026-08-28 save-state (20:45) — RESUME HERE. RUNG 1 IS NOW BUILD-READY.**
+
+**All three of `counterparty-reference-snapshot`'s gaps are CLOSED and were
+verified here against the live store, not read off `ccf_dataprep`'s report.**
+`validators/spec_coverage.py --product counterparty-reference-snapshot` now
+reports **4 of 4 catalog rows accounted for, zero `GAP`** (it read 1 PASS / 3 GAP
+at the start of this sitting). Full evidence in
+`.planning/CONTEXT-PRODUCT-LADDER-AND-ESTATE.md` **§6.1.2**.
+
+- **Addresses** — `465ba4d`. `legal_address_{country,city,region}` **and**
+  `hq_address_{country,city,region}`; 153 of 156 loaded from GLEIF L1 at
+  city/region; **69 differ** (65 under case normalization — see below). The three
+  without an HQ are **proven by set equality in both directions** to be exactly
+  the ABS trusts `SYN-SDART-2022-6`, `SYN-SDART-2024-1`, `SYN-TAOT-2022-B`.
+- **Entitlement** — `principal_jurisdiction`, 17 rows. **All six principal pairs
+  discriminate**, tested as visible-set inequality with a negative control, not as
+  column presence. RES 102 / COV 74 / KYC 21 / TRD 21 visible of 156. The Policy
+  Operator is **not** a no-op.
+- **No-LEI identity** — `internal_client`, 30 rows, `synthetic — internal` per
+  **`D-IMPL-220`**; `crosswalk.lei` nullable with 30 null rows, zero orphans; KYC
+  ceiling fields present so §G's freshness-asymmetry criterion is testable.
+
+**ONE FINDING OWED TO `ccf_dataprep`, not yet passed on.** Of the 69 differing
+addresses, **four differ only by letter case** — `AMPHENOL CORP /DE/`,
+`HNA ACQUISITION ULC`, `MURPHY OIL COMPANY LTD.`, `VML US FINANCE LLC`
+(`WILMINGTON`/`Wilmington`, `EDMONTON`/`Edmonton`, `CALGARY`/`Calgary`). Under
+`lower(btrim(…))` it is **65 of 153**. The conclusion is untouched at 42%, but the
+distinguishability assertion their remaining validator will carry must normalize,
+or it scores one address typed twice as two addresses.
+
+**A CORRECTION ON MY RECORD, in §6.1.2.** I argued the on-disk HQ data could not
+close the address gap, on a 9-of-140 (6%) measurement taken from
+**`registry_company` at country granularity** — a different table from the one
+dataprep had loaded, which is GLEIF L1 at city/region where the figure is 69 of
+153. A claim about the estate built from the wrong table. I also "corrected" 50
+fetchable anchors to 53 by arithmetic without checking what the three were; they
+are the ABS trusts, and 50 was right. Same class as §6.1.1 and §6.2 — **a check
+whose population is not its question.**
+
+## Next
+
+1. **Build rung 1** — `counterparty-reference-snapshot`. `D-GATE-19` binds success
+   criteria to the discuss sitting, so criteria are written there and **never in
+   advance**. Resume: `/gsd:discuss-phase` for rung 1.
+2. **PAUSE WHEN IT IS BUILT.** Dave's standing instruction, 2026-08-28: *"We will
+   pause after it's built so I can evaluate."* No close panel, no `D-GATE`, no
+   completion mark in `ROADMAP.md` or `STATE.md` until he has evaluated it.
+3. Pass the case-normalization finding to `ccf_dataprep`.
+
+**Still unruled:** SIC code, internal obligor risk grade and coverage RM assignment
+are held by the estate and asserted by no spec after the vault's §C collapse. A
+question to the vault custodian was **drafted and NOT sent**; `~/.agent-exchange/`
+is the channel and nothing goes without Dave seeing it. `EXAM-06` still has exactly
+**two** open clauses (reproduce-or-link; whether the *"which file is the SDK's?"*
+reveal is every example's or `cp-00`'s alone) — the snapshot clause is RULED at
+`D-IMPL-218`, not open.
+
+**`ccf_dataprep` IS DAVE'S — read from it, never write to it.** Held all session;
+every figure above came from a read-only query.
+
+Resume: `/gsd:discuss-phase` for rung 1 (`counterparty-reference-snapshot`).

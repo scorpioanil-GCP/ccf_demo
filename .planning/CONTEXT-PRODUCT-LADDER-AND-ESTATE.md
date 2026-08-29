@@ -380,6 +380,115 @@ values sharing one column, and cannot see a missing column on a *different* tabl
 Same measurement-error class as the one recorded in §6.2 — a check whose population
 is not the question.
 
+### 6.1.2 All three gaps closed and independently verified — 2026-08-28 evening
+
+`ccf_dataprep` closed the address gap the same day it was reported, at
+`465ba4d` *(Wave 20 gap 3: label the addresses and load the headquarters half)*.
+Everything below was re-derived here against the live store rather than read off
+that repo's report.
+
+| What was claimed | What the store says |
+| --- | --- |
+| Schema migrated and the addresses **labelled** | `legal_address_{country,city,region}` **and** `hq_address_{country,city,region}`. The unlabelled triple named in §6.1.1 no longer exists. |
+| 153 headquarters addresses loaded | 153 present, 153 legal present, 3 absent — against a control of 156 rows. |
+| 69 of 153 differ at city/region | 69. |
+| The three absent rows are exactly the synthetic ABS trusts | **Proven as set equality, in both directions** (below). |
+
+**The excluded set is proven, not assumed.** `ccf_dataprep` flagged this as
+outstanding; it is discharged here. The three rows with no headquarters address are
+`SYN-SDART-2022-6`, `SYN-SDART-2024-1` and `SYN-TAOT-2022-B` — Santander Drive Auto
+Receivables 2022-6 and 2024-1, and Toyota Auto Receivables 2022-B Owner Trust. GLEIF
+holds no record of any of them and never will. The test is run **both ways**: no
+`SYN-` row carries a headquarters address, and no non-`SYN-` row lacks one. Both
+difference sets are empty. A count of three matching a count of three would not have
+shown this — see [[verify-rosters-not-counts]]: a right count with a wrong member
+audits clean forever.
+
+**The discriminating power is the Delaware pattern, and it is real.** Registered in
+Wilmington, operated from somewhere else: `Agilysys NV LLC` Wilmington US-DE →
+Alpharetta US-GA; `AVIS BUDGET GROUP` Wilmington US-DE → Parsippany US-NJ; `BGC
+Group` Wilmington US-DE → New York US-NY; `Bausch Health` Vancouver CA-BC → Laval
+CA-QC. This is precisely the divergence a consumer joining on headquarters
+jurisdiction needs, and precisely what §6.1.1 said the single unlabelled address
+would silently answer wrong.
+
+**One finding for the validator that is still owed.** Of the 69 differing rows,
+**four differ only by letter case** — `AMPHENOL CORP /DE/`, `HNA ACQUISITION ULC`,
+`MURPHY OIL COMPANY LTD.` and `VML US FINANCE LLC`, each carrying e.g. `WILMINGTON`
+against `Wilmington` in the same region. Under `lower(btrim(…))` the count is **65 of
+153**, not 69. The conclusion is untouched — 65 of 153 is 42% and the distinction is
+unambiguous — but a distinguishability assertion written on raw `is distinct from`
+scores those four as two addresses when they are one address typed twice, and that
+assertion is what the product's suppression-silence gate leans on.
+
+**A CORRECTION ON THE RECORD, MINE, AND IT IS THE SECOND OF THIS CLASS IN THIS
+DOCUMENT.** Before `465ba4d` landed, this session argued that the on-disk headquarters
+data could not close the gap, on the evidence that `legal_country` and `hq_country`
+**differ in only 9 of 140 rows — 6%** — and therefore offered a distinction with
+almost no discriminating power. That measurement is correct and it is about
+**`registry_company`**, a different table, at **country granularity only**. What
+`ccf_dataprep` had actually loaded was GLEIF Level 1 at **city and region**, where
+the figure is 69 of 153. **A claim about the estate was built from the wrong table
+and generalized to a load that had not been looked at.** The same session also
+corrected "50 fetchable anchors" to 53 by arithmetic (156 − 103) without checking
+what the three were; three of them are the ABS trusts above, and 50 was right.
+
+Both errors are the class this document keeps recording: **a check whose population
+is not its question.** The wrong version runs, returns a number, and fails by
+answering rather than by erroring. §6.1.1 records it against column-presence
+testing; §6.2 records it against the family-tree probe; this section records it
+against a table substitution.
+
+**THE OTHER TWO GAPS CLOSED WHILE THIS SECTION WAS BEING WRITTEN**, at `39f373d`
+and `5b957af`, and both were verified here rather than accepted. The validator now
+reports **4 of 4 catalog rows accounted for, zero `GAP`** — but that is a count, and
+the whole argument of this document is that a count is not the question. What
+follows is the question.
+
+*Entitlement scope by jurisdiction* landed as a `principal_jurisdiction` table — 17
+rows, `(principal_id, jurisdiction_prefix, provenance)` — rather than a column on
+`principal`, which is the right shape for a many-to-many scope. **A jurisdiction
+column would have been necessary and not sufficient.** The bar is §D's
+*suppression silence* gate: the **visible entity set must differ between
+principals**. Tested directly, joining `legal_entity.legal_jurisdiction` against the
+prefix:
+
+| Principal | Scope | Entities visible |
+| --- | --- | --- |
+| `PRIN-RES-002` research analyst | US, CA, GB | 102 |
+| `PRIN-COV-001` coverage banker | US | 74 |
+| `PRIN-KYC-004` EU KYC analyst | AT BE DE ES HU IT LU NL SE | 21 |
+| `PRIN-TRD-003` trader | GB HK JP SG | 21 |
+
+**All six pairs discriminate**, against a control of 156 entities. Two details a
+pass/fail would have hidden: `PRIN-COV-001` is a strict **subset** of
+`PRIN-RES-002` (`|A\B| = 0`, `|B\A| = 28`) — containment, not disjointness, which is
+realistic and still discriminating; and `KYC` and `TRD` both see 21 but see
+*different* 21s (`|A\B| = |B\A| = 21`), so a cardinality check would have called them
+equal. **The test carries a negative control** — a principal differenced against
+itself reports identical — so a `DISCRIMINATES` verdict is known to be capable of
+reading the other way. The Policy Operator is not a no-op.
+
+*Internal client identity for no-LEI entities* landed as an `internal_client` table
+of **30 rows**, exactly the shape §C's single-writer paragraph assigns to the
+internal client master. Verified against `D-IMPL-220` clause by clause: provenance is
+`synthetic — internal` on all 30; the `source` column reads *"internal client master
+(invented: public sources cannot supply a no-LEI entity)"*, which states the
+invention rather than disguising it; `crosswalk.lei` is now nullable with **30 null
+rows**, all 30 joining an `internal_client` and **zero orphaned**; and the table
+carries `kyc_last_refresh`, `kyc_cycle_days`, `kyc_next_due` and
+`freshness_ceiling_days` at 180/270/365 days, which is what makes §G's acceptance
+criterion — *"a no-LEI entity resolves and reports the lower freshness ceiling in the
+payload"* — testable rather than aspirational.
+
+**The `SYN-` prohibition was checked as a roster and it holds.** Three `crosswalk`
+rows do carry a `SYN-` LEI, which is the literal shape `D-IMPL-220` forbids — but
+they are `CLI-000051`–`53` mapping to `SYN-SDART-2022-6`, `SYN-SDART-2024-1` and
+`SYN-TAOT-2022-B`, **exactly and only the three ABS trusts**, a pre-existing
+convention for securitization vehicles that are modelled as legal entities and have
+no GLEIF record. **Zero of the 30 internal clients carries any LEI at all.** Counting
+`SYN-` rows would have reported a violation; enumerating them shows there is none.
+
 ### 6.2 The red ZERO on `corporate-family-tree` — right red, wrong reason
 
 The first reading said the assertion had never been flipped. **It was flipped, and
