@@ -9,6 +9,29 @@ that proves it.
 **Status:** authoring instruction, not a specification. Written 2026-08-29 by
 the vault Claude at Dave's direction.
 
+**Owner: the vault.** Proposed by `ccf-sdk` and sent through the §11 return path
+2026-08-29; reverse it here if the vault rules otherwise. The reason is this
+document's own §1 — most of what follows states **what the vault and
+`ccf_dataprep` owe `ccf_code`**, and an agent that owns the document stating its
+own entitlements is writing another agent's term, which is the failure §0
+records. So: **`ccf_code` proposes changes here through the return path rather
+than editing freely** — with one exception. **§7 describes `ccf_code`'s own
+tree** (where the spec file lives, and the layout around it), so a change there
+that merely records what the tree now is may be made directly and reported back,
+rather than waiting on a ruling. That is what happened to §7.2 on 2026-08-29:
+the diagram predated `page/` and `summary_explanations.md`, and a session
+following it would have built an example missing both.
+
+**The companion document is `ccf_code`'s.**
+[How an example is delivered](example_delivery.md) covers everything after the
+spec is approved — the `make` target, the venv, the README run block, the
+documentation page mechanics, the banker-facing summary, the verbatim-output
+discipline and a delivery definition of done. Nothing in it is another agent's
+term, so it is owned, edited and gated by `ccf_code` without a return path.
+**Where the two documents disagree about `ccf_code`'s tree, the companion
+wins**; where they disagree about what a specification must contain, this one
+does.
+
 ---
 
 ## 0 · What this document is
