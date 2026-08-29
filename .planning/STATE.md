@@ -2312,3 +2312,97 @@ DOCUMENTED, PUBLISHED AND PUSHED.** `origin/main` = `467e62f`, tree clean.
 
 Resume: read the three items above; item 1 is a two-line ledger edit once Dave has
 read the page, item 2 is a CI wiring change, item 3 is an investigation.
+
+---
+
+## Session resume — 2026-08-29 (cp-01 evaluated, process captured)
+
+**HAND-EDITED APPEND. Verified below as insertions-only before staging** — this
+file lost 835 lines earlier the same day to something nobody invoked, and the
+mitigation is to diff before every `git add`, not to trust that no writer ran.
+
+**`origin/main` = `6ef9815`.** Seven commits this session, all pushed and each
+verified against GitHub with `git ls-remote`, never against the local ref.
+
+### DAVE EVALUATED cp-01 AND IT PASSED, ON HIS OWN MACHINE
+
+His stated criterion: *"the success criteria is for me to validate the examples
+run and produce the expected output."* He ran four variations himself and each
+matched the published run **byte-for-byte**, content address `ab2e1a62…` on the
+baseline. **Phase 24.2's product is validated.** What that does NOT settle: the
+phase has no `.planning/phases/24.2-*` directory and no `24.2-CONTEXT.md`, so it
+has **no Success Criteria**, and `D-GATE-19` forbids writing them retroactively.
+How 24.2 gets recorded is unruled and is Dave's.
+
+### HE COULD NOT RUN IT AT FIRST, AND EVERY REASON WAS A REAL DEFECT
+
+Not one was user error, and the fixes are now the process:
+
+1. **Cursor was open on `/home/parkave/ccf` — a DIFFERENT repository**
+   (`drcastillo/ccf`, the whitepaper repo, branch `master`, no `examples/`).
+   Two repos one suffix apart.
+2. **The README said bare `python`.** There is no `python` on `PATH` here.
+3. **`make venv` DID NOT EXIST.** `PYTHON := .venv/bin/python` is a path and
+   nothing in the repository ever created it.
+4. **`make example-cp-01` did not exist.** cp-00 had a target; cp-01 did not.
+5. **A pasted command carried a NON-BREAKING SPACE**, so bash reported
+   `' export'` not found.
+
+**A HANDOFF CLAIM WAS WRONG AND WAS CORRECTED BY MEASUREMENT:** cp-01's 13 tests
+were recorded as running "nowhere automatically." They ran in CI the whole time —
+`leg-postgres` selects `pytest.mark.postgres` **by marker** over the whole `tests`
+tree, and `ci.yml:224` runs it always-on.
+
+### SHIPPED THIS SESSION
+
+- **`make venv`** and **`make example-cp-01`**, `.PHONY`-declared, in `make help`
+- **cp-01 README rewritten** — venv first, make target, `-s`, and the two
+  variations that exit non-zero *on purpose*
+- **`summary_explanations.md`** (511 lines) — **Dave presents from this to
+  BANKERS.** Glossary, seven runs, a *"what you'd have missed"* per run
+- **US English** as a `CLAUDE.md` Working Principle, with identifiers, quoted
+  source and **verbatim program output exempt**
+- **`public/reference/specifications/example_delivery.md`** (403 lines, in nav) —
+  the delivery recipe for every future Context Product
+- **`spec_generation.md`**: §7.2 diagram unstaled, §8 retitled, **ownership seam
+  marked — it stays the VAULT's**, §7 the named exception
+
+### FINDINGS RAISED, NOT RESOLVED
+
+- **`make docs-strict` IS RED ON `main`** — 17 findings, ALL the authoring
+  standard's page tripping `pub01-whitepaper-shingle`. Arrived with `2709a39`.
+  **Attributed by reverting to a clean HEAD and re-running**, where it fails
+  identically. `docs-strict` is in `make ci`. **Unowned.**
+- **`cp-01`'s spec writes `Failure behaviour`** where the Standard and `cp-00`
+  both write `Failure behavior`. **My build diverged**, and the spec was Gate-1
+  approved, so the fix is Dave's to authorize.
+- **`CPR-G08` still has no instance in the data** — needs one principal granted
+  nothing; that row is `ccf_dataprep`'s.
+- **`EXAM-06`'s ledger row is stale in BOTH channels** (L74, L323) and its "two
+  clauses stay OPEN" sentence is now false: cp-01 answered both by DEFAULT —
+  reproduced the README, omitted the reveal. Unruled.
+- **cp-01's published page is STALE** — it reproduces the pre-rewrite README and
+  does not know `summary_explanations.md` exists.
+- **`.planning/STATE.md`'s 835-line deletion is still unexplained.**
+
+### THE VAULT HAS TWO MESSAGES WAITING
+
+`~/.agent-exchange/ccf-sdk/outbox/` — the ownership proposal with the diff
+attached, and **a correction to it**: the first message claimed to have removed
+four lines of §7.2 and had removed two, with its own attached diff disagreeing
+with its prose. Corrected by a second message rather than by editing a published
+one.
+
+### NEXT
+
+**Rung 2 — `facility-terms-snapshot`.** *"How does a product anchor on something
+other than a legal entity? Demonstrates the `from_entity_freshness` TTL anchor."*
+**That anchor is exactly what cp-01 shipped a documented defect in** — `CPR-G09`,
+a 24-hour TTL over a months-old `kyc_last_refresh`, 30 of 30 no-LEI counterparties
+refusing, and the test **goes RED when the defect is fixed**.
+
+Read `example_delivery.md` before building it. That is what it is for.
+
+Resume: nothing is half-done. The tree is clean, everything is pushed, and the
+next action is Dave's choice between ruling on the open items above and starting
+rung 2.
