@@ -2038,3 +2038,106 @@ it kept the total right by luck while naming the wrong member. The authority is
 registration) opens as a SHORT SDK phase AFTER cp-00 is green — not inside 24.1.
 
 Resume: `/gsd:execute-phase 24.1` (wave 6 next)
+
+---
+
+**2026-08-28 session resume (evening).** Phase 24.1.1 is CLOSED, merged to `main`
+`--no-ff` and pushed (`D-GATE-24.1.1`, `2367da0`). Tree clean. **One UNPUSHED
+commit: `633d3ad`** — `EXAM-06`'s third clause, minted as `D-IMPL-218` in both
+ledger channels. Push is UNRULED; it was offered at the end of the prior sitting
+and Dave asked to save state instead. No `HANDOFF.json`, no `.continue-here`, no
+PLAN without a SUMMARY, no interrupted agent, zero pending todos.
+
+**`## Current Position` above is STALE** — it still reads *"PHASE 24.1 IS
+EXECUTING... WAVE 11 IS THE ONLY THING LEFT"* when 24.1 and 24.1.1 are both
+closed. The frontmatter `last_activity` is current; the prose section was not
+rewritten at the 24.1.1 close. Flagged to Dave at resume, not silently rewritten.
+
+Three things owed, carried from the prior sitting:
+1. Rule on pushing `633d3ad`.
+2. **The 2026-08-28 15:27 analysis is on disk NOWHERE** — the tier-1
+   buildability findings and which product is CP #1 exist only as a one-line
+   trace in the session-memory daily file. No candidate-set document exists in
+   `.planning/`. Dave must restate before the next product is built.
+3. **Mint the per-request-assembly rule as a real `D-IMPL`.** *"Context products
+   are assembled per request, never precomputed"* is cited by `D-IMPL-218` but
+   lives only in `.planning/FUTURE-CONTEXT-PRODUCTS.md`, a file whose own header
+   reads NOT SCHEDULED / placeholder. That is why it was miscited as
+   `D-IMPL-137` once.
+
+**Nothing is scheduled after 24.1.1.** Phase 24 is an umbrella whose entry is
+DESCRIPTION BANKED, NOT PLANNED with no success criteria by design (`D-GATE-19`
+binds criteria to the discuss sitting). The next unit is a discuss sitting for
+the next rung of the Context Production ladder.
+
+Resume: `/gsd:discuss-phase 24.2` (after Dave restates the CP candidate analysis)
+
+---
+
+**2026-08-28 save-state (19:00, at Dave's request before clearing).**
+
+**Where we are: the estate was surveyed end to end, and the ladder's first rung is
+NOT build-ready.** Nothing has been built this session; it was all reconnaissance,
+and it changed the answer to "what do we build next."
+
+**What was produced.** `.planning/CONTEXT-PRODUCT-LADDER-AND-ESTATE.md` (~460 lines)
+— the durable copy of the analysis that died with the cleared session on the 28th.
+It carries: the vault's **21 CB/CIB Context Product specs in five-tier
+simplest-first order**; the five-store estate topology (Postgres `ccf_v2`, Fluree
+`fibo-v2`, MongoDB `fibo_v2`, departmental SQLite, optional Neo4j — all on
+`192.168.4.76`); a **live census** of every store; each product's §C store
+assignment; and which products are empirically probed versus merely asserted.
+Two memory files plus a third on the check-scoping lesson.
+
+**THE HEADLINE, and the reason not to start building blind:**
+`counterparty-reference-snapshot` — the rung the vault says to start on — carries
+**THREE VERIFIED GAPS**, all confirmed by direct query, not read off a report:
+1. **Addresses**: §B requires headquarters AND legal; only ONE address triple exists
+   and **nothing records which of the two it is**. Fetchable from the GLEIF Level 1
+   file already in use — not a source limitation.
+2. **No-LEI entities: ZERO** of 156. This is the spec's own §D counterfactual
+   realised — *"an LEI-only anchor silently excludes privately-held middle-market
+   borrowers, and every downstream product inherits the exclusion."* The predecessor
+   manifest marked it `COVERED` against crosswalk floors **every one of which is
+   keyed on LEI**, so they were structurally incapable of seeing the absence.
+3. **Entitlement scope by jurisdiction**: `principal` has 4 rows and **no
+   jurisdiction column at all**, so the T1 Policy Operator has nothing to filter on
+   — in the product every other product inherits its contract machinery from.
+
+**`ccf_dataprep` repaired both defects this survey found** (`96b88ae`
+family-tree population + a second miscount defect; `cf03d28` counterparty manifest
+re-derived, ten mappings to four). **Dave owns that repo — read from it, never write
+to it.** The full `spec_coverage.py` run now completes: **129 of 280 catalog rows
+accounted for**, 151 unchecked, all inside the 12 products that have no manifest.
+`rc=1` is the designed state while a `GAP` stands.
+
+**CIK SURVIVED the vault's §C collapse** — folded into the crosswalk probe, which
+now requires `lei` + `internal_client_id` + `cik` on one row (53 rows do). The
+outstanding ruling shrank to **SIC code, internal obligor risk grade, coverage RM
+assignment**, which the estate holds and no spec now asserts.
+
+**ONE CORRECTION ON THE RECORD, mine.** This document first claimed all three T1
+specs were *"fully backed."* That was reached by checking the named COLUMNS exist —
+a weaker test than element satisfaction, which cannot see a required element with
+zero rows, a missing distinction between two values sharing one column, or a missing
+column on a different table. Corrected in place with the reason stated. Same class
+as the family-tree probe defect: **a check whose population is not its question.**
+
+## Next — Dave's call before anything is built
+
+1. **RULE ON THE FIRST RUNG.** Close counterparty's three gaps (two are
+   `ccf_dataprep` generation tasks, one is a fetch) and build it, **or** start on a
+   different rung. `facility-terms-snapshot` and `obligor-financial-spread` are the
+   alternatives and are **UNPROBED** — nobody has looked, so "clean" is not
+   available as a claim about either.
+2. **Rule on SIC / risk grade / RM assignment** — waive, keep as extra, or ask the
+   vault custodian whether the collapse was deliberate. A draft question to the
+   custodian was offered and not sent; `~/.agent-exchange/` is the channel and
+   nothing goes without Dave seeing it.
+3. **Then** discuss-phase for the chosen product. `D-GATE-19` binds criteria to the
+   discuss sitting — none are written in advance.
+
+**Dave's standing instruction for that build: PAUSE AFTER IT IS BUILT so he can
+evaluate.** Do not close a phase around it.
+
+Resume: read `.planning/CONTEXT-PRODUCT-LADDER-AND-ESTATE.md` §6.1.1 and §7 first.
