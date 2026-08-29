@@ -33,8 +33,22 @@
 -- `on conflict do nothing` throughout, so a repeated leg against a long-lived
 -- server converges rather than failing.
 
-insert into ccf_v2.legal_entity (lei,legal_name,legal_jurisdiction,entity_status,registration_status,legal_form,legal_address_country,legal_address_city,legal_address_region,provenance,retrieved_at,hq_address_country,hq_address_city,hq_address_region) values ('529900E95812SYWMCE44','AVIS BUDGET GROUP, INC.','US-DE','ACTIVE','ISSUED','XTIQ','US','WILMINGTON','US-DE','public','2026-08-16','US','Parsippany','US-NJ') on conflict do nothing;
-insert into ccf_v2.legal_entity (lei,legal_name,legal_jurisdiction,entity_status,registration_status,legal_form,legal_address_country,legal_address_city,legal_address_region,provenance,retrieved_at,hq_address_country,hq_address_city,hq_address_region) values ('549300TRW1LZMDJZAQ78','B&G Foods, Inc.','US-DE','ACTIVE','LAPSED','XTIQ','US','Wilmington','US-DE','public','2026-08-16','US','Parsippany-Troy Hills','US-NJ') on conflict do nothing;
+--
+-- `legal_entity` UPSERTS RATHER THAN SKIPPING, and the direction matters.
+--
+-- Three modules share this table and they carry DIFFERENT WIDTHS of the same
+-- rows: this fixture holds both addresses and the registration status, cp-02
+-- holds only the three columns its borrower join reads. With `do nothing`,
+-- whichever module inserted a LEI first won it — so when cp-02 ran first, this
+-- module's insert became a no-op and its own address test failed against a row
+-- that had no addresses in it.
+--
+-- So the WIDE writer upserts and the NARROW one skips: cp-02 uses
+-- `on conflict (lei) do nothing` and never overwrites what is already here,
+-- while this module writes its full record whether or not a thinner one landed
+-- first. Both orders converge on the wide row.
+insert into ccf_v2.legal_entity (lei,legal_name,legal_jurisdiction,entity_status,registration_status,legal_form,legal_address_country,legal_address_city,legal_address_region,provenance,retrieved_at,hq_address_country,hq_address_city,hq_address_region) values ('529900E95812SYWMCE44','AVIS BUDGET GROUP, INC.','US-DE','ACTIVE','ISSUED','XTIQ','US','WILMINGTON','US-DE','public','2026-08-16','US','Parsippany','US-NJ') on conflict (lei) do update set legal_name=excluded.legal_name, legal_jurisdiction=excluded.legal_jurisdiction, entity_status=excluded.entity_status, registration_status=excluded.registration_status, legal_form=excluded.legal_form, legal_address_country=excluded.legal_address_country, legal_address_city=excluded.legal_address_city, legal_address_region=excluded.legal_address_region, provenance=excluded.provenance, retrieved_at=excluded.retrieved_at, hq_address_country=excluded.hq_address_country, hq_address_city=excluded.hq_address_city, hq_address_region=excluded.hq_address_region;
+insert into ccf_v2.legal_entity (lei,legal_name,legal_jurisdiction,entity_status,registration_status,legal_form,legal_address_country,legal_address_city,legal_address_region,provenance,retrieved_at,hq_address_country,hq_address_city,hq_address_region) values ('549300TRW1LZMDJZAQ78','B&G Foods, Inc.','US-DE','ACTIVE','LAPSED','XTIQ','US','Wilmington','US-DE','public','2026-08-16','US','Parsippany-Troy Hills','US-NJ') on conflict (lei) do update set legal_name=excluded.legal_name, legal_jurisdiction=excluded.legal_jurisdiction, entity_status=excluded.entity_status, registration_status=excluded.registration_status, legal_form=excluded.legal_form, legal_address_country=excluded.legal_address_country, legal_address_city=excluded.legal_address_city, legal_address_region=excluded.legal_address_region, provenance=excluded.provenance, retrieved_at=excluded.retrieved_at, hq_address_country=excluded.hq_address_country, hq_address_city=excluded.hq_address_city, hq_address_region=excluded.hq_address_region;
 
 insert into ccf_v2.internal_client (internal_client_id,legal_name,legal_jurisdiction,legal_form,legal_address_country,legal_address_city,legal_address_region,hq_address_country,hq_address_city,hq_address_region,kyc_last_refresh,kyc_cycle_days,kyc_next_due,freshness_ceiling_days,provenance,source,retrieved_at) values ('CLI-000101','Underhill Medical Devices LLC','US-TX','LLC','US',null,'US-TX','US',null,'US-TX','2026-02-23',270,'2026-11-20',270,'synthetic — internal','internal client master (invented: public sources cannot supply a no-LEI entity)','2026-08-28') on conflict do nothing;
 

@@ -73,3 +73,90 @@ create table if not exists ccf_v2.legal_entity (
     source                 text not null,
     retrieved_at           date not null
 );
+
+-- ---------------------------------------------------------------------------
+-- COLUMNS THIS MODULE NEEDS, ADDED IDEMPOTENTLY.
+--
+-- `ccf_v2.legal_entity` is shared by cp-00, cp-01 and cp-02, and the three
+-- fixtures declare it THREE DIFFERENT WAYS. Every `create table` above is
+-- `if not exists`, so whichever module pytest collects first wins and the
+-- surviving column set depends on collection order — while `make leg-postgres`
+-- runs `pytest tests -m postgres` as ONE session over the whole tree.
+--
+-- That is not hypothetical. On 2026-08-29, `pytest test_cp_00_output.py
+-- test_cp_01_output.py` reported 15 passed and 13 errors:
+-- `column "source" of relation "legal_entity" does not exist`. The leg has been
+-- red for as long as two modules have shared this table.
+--
+-- These statements make each module self-sufficient: it adds what its own
+-- inserts name, whether or not it created the table. `add column if not exists`
+-- is a no-op when the column is already there, so the three converge on the
+-- union in any order. Added NULLABLE deliberately — a `not null` column cannot
+-- be added to a table another module has already populated, and every insert
+-- here supplies its own values anyway.
+-- ---------------------------------------------------------------------------
+alter table ccf_v2.legal_entity add column if not exists gleif_legal_name text;
+alter table ccf_v2.legal_entity add column if not exists legal_jurisdiction text;
+alter table ccf_v2.legal_entity add column if not exists entity_status text;
+alter table ccf_v2.legal_entity add column if not exists registration_status text;
+alter table ccf_v2.legal_entity add column if not exists next_renewal_date date;
+alter table ccf_v2.legal_entity add column if not exists initial_registration date;
+alter table ccf_v2.legal_entity add column if not exists legal_form text;
+alter table ccf_v2.legal_entity add column if not exists address_country text;
+alter table ccf_v2.legal_entity add column if not exists address_city text;
+alter table ccf_v2.legal_entity add column if not exists address_region text;
+alter table ccf_v2.legal_entity add column if not exists sic text;
+alter table ccf_v2.legal_entity add column if not exists sic_description text;
+alter table ccf_v2.legal_entity add column if not exists fiscal_year_end text;
+alter table ccf_v2.legal_entity add column if not exists is_anchor boolean;
+alter table ccf_v2.legal_entity add column if not exists lei_match_band text;
+alter table ccf_v2.legal_entity add column if not exists lei_match_score numeric(4, 3);
+alter table ccf_v2.legal_entity add column if not exists provenance text;
+alter table ccf_v2.legal_entity add column if not exists source text;
+alter table ccf_v2.legal_entity add column if not exists retrieved_at date;
+
+-- AND THE NOT-NULL CONSTRAINTS ARE RELAXED, for the same reason.
+--
+-- Adding a column idempotently is not enough on its own: cp-00's `create table`
+-- declares `source text not null`, so cp-01's insert — which does not carry a
+-- `source` — violates it whenever cp-00 created the table first. A shared table
+-- cannot have its nullability owned by whichever module happened to run first.
+--
+-- `lei` and `legal_name` stay NOT NULL because all three modules supply both.
+-- Everything else is relaxed. THIS WEAKENS NOTHING ANY TEST ASSERTS: no
+-- assertion in any of the three modules is about this table's constraints, and
+-- the real estate's constraints are the real estate's. What it buys is a leg
+-- that passes in any collection order rather than in one.
+do $$
+declare col record;
+begin
+  for col in
+    select column_name from information_schema.columns
+     where table_schema = 'ccf_v2' and table_name = 'legal_entity'
+       and is_nullable = 'NO' and column_name not in ('lei', 'legal_name')
+  loop
+    execute format(
+      'alter table ccf_v2.legal_entity alter column %I drop not null',
+      col.column_name);
+  end loop;
+end $$;
+
+-- AND ONE UNIQUE INDEX ON `lei`, because two of the three modules need one.
+--
+-- cp-00's insert says `on conflict (lei) do update` — which requires a unique
+-- constraint and fails with `there is no unique or exclusion constraint
+-- matching the ON CONFLICT specification` whenever another module created the
+-- table without cp-00's primary key. cp-01's `on conflict do nothing` has the
+-- quieter version of the same problem: with no constraint to conflict ON, it
+-- never conflicts, so a repeated leg against a long-lived container silently
+-- ACCUMULATES duplicate rows — and a duplicated borrower turns cp-02's
+-- facility-to-entity join into a fan-out.
+--
+-- The de-duplication runs first because the index cannot be created over rows a
+-- previous run already doubled. Both statements are idempotent.
+delete from ccf_v2.legal_entity a
+ using ccf_v2.legal_entity b
+ where a.ctid < b.ctid and a.lei = b.lei;
+
+create unique index if not exists legal_entity_lei_key
+    on ccf_v2.legal_entity (lei);

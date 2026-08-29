@@ -55,9 +55,35 @@ def _load(name: str) -> Any:
     leave a SECOND copy of ``produce`` in ``sys.modules``, and an ``isinstance``
     across the two copies would then be false for reasons that have nothing to
     do with the code under test.
+
+    **AND THREE EXAMPLES NOW SHARE THOSE BARE NAMES.** cp-00, cp-01 and cp-02
+    each ship a ``deployment``, a ``produce`` and an ``assembler``, while
+    ``make leg-postgres`` runs ``pytest tests -m postgres`` as ONE session over
+    the whole tree. Whichever module is imported first wins the name, and the
+    second module's tests then read the first one's constants —
+    ``module 'deployment' has no attribute 'EXPECTED'`` being the polite failure
+    and a silently wrong value being the impolite one.
+
+    So the cache is checked against THIS example's directory and evicted when it
+    holds somebody else's. Evicting the whole family together rather than one
+    name at a time matters: leaving cp-01's ``produce`` behind while reloading
+    cp-02's ``assembler`` would rebuild exactly the split-identity problem the
+    bare names exist to avoid.
     """
-    if str(EXAMPLE) not in sys.path:
+    if sys.path[:1] != [str(EXAMPLE)]:
+        while str(EXAMPLE) in sys.path:
+            sys.path.remove(str(EXAMPLE))
         sys.path.insert(0, str(EXAMPLE))
+    family = ("deployment", "produce", "assembler", "run")
+    for cached_name in family:
+        cached = sys.modules.get(cached_name)
+        if cached is None:
+            continue
+        origin = str(getattr(cached, "__file__", ""))
+        if not origin.startswith(str(EXAMPLE)):
+            for sibling in family:
+                sys.modules.pop(sibling, None)
+            break
     return importlib.import_module(name)
 
 
