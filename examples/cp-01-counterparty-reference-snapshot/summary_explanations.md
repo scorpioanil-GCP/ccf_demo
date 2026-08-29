@@ -117,7 +117,7 @@ Line by line, and what each one prevents:
   when the underlying record was last refreshed*, not set by a fixed policy. A
   report has no expiry. **An analyst pastes a counterparty record into a credit
   memo in March and it is still sitting there, unmarked, in September.**
-- **`completeness 0.2929 → ok`** — a *number*, not a green tick. Something is
+- **`context debt D_c 0.2929 -> ok`** — a *number*, not a green check. Something is
   imperfect; the product says how much and then says it is within tolerance.
   **You can set a different tolerance for a $5m facility than for a $500m one.**
 - **`identity authority`** — *which* register of truth vouched for this
@@ -127,14 +127,18 @@ Line by line, and what each one prevents:
   company?", this line is the answer.**
 - **`principal … 10 jurisdictions`** — the answer is scoped to who asked. Run 2
   changes nothing but this.
-- **`seal` and `replay record`** — the answer is addressable and the decision is
-  reconstructible. Neither exists for a query result.
+- **`content address` and `replay record`** — the answer is addressable and the
+  decision is reconstructible. Neither exists for a query result.
 
 ### The detail that is easy to miss
 
-```
-legal address          WILMINGTON,  Delaware
-headquarters address   Parsippany,  New Jersey
+Two of the fields in the record it returns:
+
+```json
+{
+  "headquarters_address": { "city": "Parsippany", "country": "US", "region": "US-NJ" },
+  "legal_address": { "city": "WILMINGTON", "country": "US", "region": "US-DE" }
+}
 ```
 
 Delaware-incorporated, New Jersey-headquartered — an entirely ordinary
@@ -224,6 +228,7 @@ make -s example-cp-01 ANCHOR=549300TRW1LZMDJZAQ78
    context debt D_c   0.2929  ->  ok
    content address    d22e96ad9c0285e92e0a5a1577fdcc79a83afd9ba8762ff264a4a04bf90bdd83
 ```
+*(two lines lifted from the summary block; the rest is as Run 1)*
 
 ### Two silences, and only one of them explains itself
 
@@ -291,10 +296,8 @@ Five fields, excerpted from the full record it returns:
 
 ### Two status fields that disagree on purpose
 
-```
-entity_status:        ACTIVE
-registration_status:  LAPSED
-```
+Two fields, side by side: **`entity_status` is `ACTIVE`** while
+**`registration_status` is `LAPSED`**.
 
 **B&G Foods is a live, trading company whose LEI registration has lapsed.** Those
 are two different facts about two different things: the company, and its
@@ -322,7 +325,7 @@ decline business with a perfectly good client over an administrative lapse.
 
 ## Runs 5 and 6 — the two that stop the process
 
-Both of these **stop rather than return.** That is the correct behaviour, and
+Both of these **stop rather than return.** That is the correct behavior, and
 each replaces a specific quiet failure.
 
 ### An identifier that does not exist
@@ -342,7 +345,7 @@ answers.** A system that returns an empty record for both has destroyed the
 difference — and onboarding is precisely where that difference decides whether
 you open a second file on an existing client.
 
-### A date the product cannot honour
+### A date the product cannot honor
 
 ```bash
 make -s example-cp-01 AS_OF=2026-01-01T00:00:00+00:00
@@ -440,7 +443,7 @@ Stated plainly, because a demonstration that claims everything demonstrates
 nothing.
 
 - **No relationship or ownership traversal.** This is the simplest product in
-  the catalogue — one database, one counterparty, one entitlement check. Group
+  the catalog — one database, one counterparty, one entitlement check. Group
   structure, exposure roll-up and collateral coverage are later products.
 - **No AI in the path.** Every step here is deterministic. Nothing about these
   runs demonstrates model governance, because there is no model.
@@ -465,7 +468,7 @@ make -s example-cp-01 ANCHOR=CLI-000101
 RuntimeError: the three validation gates refused this product: gate='ttl-bounds'
 detail='expires_at 2026-02-24T00:00:00+00:00 is outside (now, now + MAX_TTL] =
 (2026-08-16T12:00:00+00:00, 2026-08-17T12:00:00+00:00] (INV-CH7-48)'
-max_ttl_seconds=86400
+[… two timestamp fields elided …] max_ttl_seconds=86400
 ```
 
 In plain terms: **this counterparty's data was last refreshed in February, and
@@ -489,7 +492,7 @@ evidence the deviation gets taken back with.** Nobody can quietly declare the
 problem solved; the suite says when it actually is.
 
 The freshness anchoring this exposes is the entire subject of the next product
-in the catalogue.
+in the catalog.
 
 ---
 

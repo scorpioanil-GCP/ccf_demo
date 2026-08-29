@@ -1026,6 +1026,16 @@ imports in `/src`, enforced by CI import lint. Harness-specific code lives
 only in `/runtime/adapters/<harness>/` behind `HarnessAdapterProtocol`.
 The agent loop is never absorbed and never shipped.
 
+**US English throughout.** Every artifact this project produces — docstrings,
+documentation pages, READMEs, specifications, example summaries, decision-log
+entries, commit messages — uses **US spelling and usage**: *behavior* not
+behaviour, *catalog* not catalogue, *analyze* not analyse, *-ize* not *-ise*,
+*center* not centre, *artifact* not artefact. Identifiers, quoted source, and
+verbatim reproductions of program output are exempt, because changing them
+would make the document disagree with the code it documents. Where a quoted
+British spelling appears inside reproduced output, it stays as the program
+printed it.
+
 **Typed contracts at every boundary.** Every public surface uses typed
 contracts (Pydantic models with `extra=forbid` in Python, equivalents in
 other languages if scoped). Validation is at the boundary, never deferred.
