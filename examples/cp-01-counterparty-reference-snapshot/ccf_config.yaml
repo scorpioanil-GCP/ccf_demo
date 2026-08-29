@@ -128,42 +128,55 @@ request_contract:
   registration: typed
   schema_name: reference.counterparty
   schema_version: "1.0.0"
+  # JSON-Schema shaped, per `ccf.products.request::SkillArgumentSchema`.
   arguments:
-    # §B.4. The decision the product is assembled FOR, and the value that
-    # selects the policy envelope. The intent REGISTRY of Standard §11.1 does
-    # not exist in this deployment, so the accepted values are declared on the
-    # class rather than resolved against a governed registry — §F.2 row 5.
-    - name: intent
-      required: true
-      accepted:
-        - kyc-review
-        - counterparty-onboarding
-        - credit-review
-
-    # §B.4. The debt ceiling above which assembly refuses rather than serving
-    # with a warning. REQUIRED on every product by Standard §2.4 — the vault
-    # article omits it, and adding it is recorded at §F.4 finding 2.
-    - name: debt_tolerance
-      required: true
-
-    # §B.4. `false` EXCLUDES a lapsed-registration entity entirely rather than
-    # returning it unflagged. Proven by `CPR-G01`.
-    - name: include_lapsed
-      required: false
-      default: false
-
-    # §B.4 — DECLARED-BUT-INERT, and it must fail loudly.
-    #
-    # This tier reads current state and carries no second time axis (§D.5). The
-    # parameter is part of the uniform surface, so it is DECLARED and returns
-    # `400 not_supported_at_tier` rather than being absent — and it must never
-    # silently succeed against current state. Standard §2.4: "a parameter that
-    # appears to work and does not will be relied on in a dispute." Proven by
-    # `CPR-G05`.
-    - name: as_of
-      required: false
-      supported: false
-      unsupported_reason: not_supported_at_tier
+    properties:
+      intent:
+        type: string
+        description: >-
+          The decision this product is assembled FOR, and the value that selects
+          the policy envelope. The intent REGISTRY of Standard §11.1 does not
+          exist in this deployment, so the accepted values are not enumerable
+          here — §B.4, marker at §F.2 row 5.
+      debt_tolerance:
+        # DECLARED `number`. Unlike cp-00's threshold this is genuinely
+        # fractional — a D_c ceiling of 0.25 is not expressible as an integer —
+        # so the replay round-trip hazard cp-00 recorded for `Decimal` applies
+        # here and is NOT dodged by narrowing the type. Recorded rather than
+        # papered over: if the replay test shows `debt_tolerance` returning as
+        # `str` and being refused `type-mismatch`, that is a real finding about
+        # the request surface, not about this product.
+        type: number
+        description: >-
+          The caller's D_c ceiling. Above it the debt gate refuses with 409
+          rather than serving with a warning — §B.4, §E.2.
+      include_lapsed:
+        type: boolean
+        description: >-
+          Whether an entity whose registration has LAPSED is returned. `false`
+          excludes it ENTIRELY rather than returning it unflagged, which is the
+          whole point of the parameter — §B.4, gate `CPR-G01`.
+      as_of:
+        # DECLARED BUT INERT — §B.4 and Standard §2.4.
+        #
+        # It is part of the uniform parameter surface and this tier reads
+        # CURRENT STATE, so it is declared here and REFUSED at the door with
+        # `not_supported_at_tier`. It must never silently succeed against
+        # current state: "a parameter that appears to work and does not will be
+        # relied on in a dispute." The refusal is the spine's, because the
+        # request contract can express a TYPE but not an unsupported-ness —
+        # recorded as an SDK-surface finding at §F.4. Gate `CPR-G05`.
+        type: string
+        description: >-
+          The instant to reconstruct as of. NOT SUPPORTED AT THIS TIER — always
+          refused, never honoured.
+    # REQUIRED, WITH NO DEFAULT. §B.4 and Standard §2.4 make `debt_tolerance`
+    # universal: a request omitting it is refused as `missing-required-parameter`
+    # — returned as DATA, never raised — BEFORE the graph is touched. The
+    # demonstration's fallback lives in `artifacts/question.yaml`, which is a CLI
+    # convenience and not a contract obligation.
+    required:
+      - debt_tolerance
 
 # --------------------------------------------------------------------------
 # L2 ENTITY RESOLUTION — spec §D.2 step 1, the `Resolve` operator of the
