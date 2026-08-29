@@ -110,8 +110,8 @@ Rows by coupling shape:
 | `examples/cp-00-institutional-holders/page/template.html` | 1169 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/page/template.html` | 1587 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/page/template.html` | 1800 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/page/template.html` | 2092 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
-| `examples/cp-00-institutional-holders/page/template.html` | 3049 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/page/template.html` | 2105 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
+| `examples/cp-00-institutional-holders/page/template.html` | 3062 | `examples/s1-00-companies-over-revenue` | `config-token` | live | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 205 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 786 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` | 1195 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |

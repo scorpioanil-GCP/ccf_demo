@@ -61,7 +61,7 @@ from ccf.projection.plan import Perspective
 
 import produce
 
-#: Who assembled this product, and under what version of that behaviour. Both
+#: Who assembled this product, and under what version of that behavior. Both
 #: travel on the outcome because a payload is only reproducible alongside the
 #: computation that produced it — the same reason the freshness scorer pins its
 #: own id. Changing what `assemble` does is a version change here.

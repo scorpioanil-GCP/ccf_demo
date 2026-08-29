@@ -340,7 +340,7 @@ class DominantSecurityParameters(OperatorParameters):
     """What :class:`DominantSecurityResolution` was configured with.
 
     Fields, never defaults, on the base's own discipline: the parameter set's
-    ``content_hash`` is what pins this operator's behaviour into the provenance
+    ``content_hash`` is what pins this operator's behavior into the provenance
     chain, so a value the SDK picked would pin a decision nobody made.
 
     ``resolution_basis`` is declared rather than implied. *Dominant* is

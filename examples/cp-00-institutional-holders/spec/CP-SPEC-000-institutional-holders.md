@@ -601,7 +601,7 @@ a recital:
    issuer matching that is **~22.5% `weak` BY DESIGN**, not by defect.
 
 **And what is deliberately not said here.** These rows are public filings, and
-the honest statement is the four above — not a claim that the behaviour in them
+the honest statement is the four above — not a claim that the behavior in them
 is fabricated. Being inaccurate in the cautious direction is the same class of
 error as being inaccurate in the confident one, and both mislead a reader about
 what they are holding.
@@ -1256,7 +1256,7 @@ row is a claim — and never only per product: a row missing a non-mandatory
 attribute is served with that field marked `NOT_EVALUABLE`, not dropped and
 not turned into a product-level failure.
 
-| Component | May be absent? | D_c contribution | Behaviour when absent |
+| Component | May be absent? | D_c contribution | Behavior when absent |
 | --- | --- | --- | --- |
 | Reported position value (`value_usd`) | **no** | drives F and C_attributes | **Fail closed → 503.** The threshold is a comparison against it; without it there is no question to answer |
 | Reported period (`report_period`) | **no** | none — it is the pin, not a factor | **Fail closed → 503**, naming the failed source class. An unpinned read is a different question (§C.4 trap 1) |
@@ -1366,7 +1366,7 @@ period that resolves to `2026-03-31`, so:
 `src/ccf/products/gates.py::_refuse_ttl` requires
 `now < expires_at <= now + MAX_TTL`. Once the pinned period is more than 365
 days old, `now < expires_at` is false and the product is **refused**. That is
-**correct behaviour, not a defect and not an example bug.** The declared
+**correct behavior, not a defect and not an example bug.** The declared
 duration is the amendment window: what makes this answer wrong is a
 restatement of *that* period (§E.4), and after a year the probability that an
 unrestated reading is still the register's current statement is not one this
@@ -1473,11 +1473,24 @@ raised it pointing at nothing.
 ### F.3 Access path, identifiers, history, text and volumetrics
 
 **Access path.** An **existing read-only relational feed** — a set-based query
-against the `ccf_v2` schema of the source estate. Not CDC, not an event stream,
-not a new build. (The database's own NAME was here and is removed: Standard
-§10.1's rule is that *"product specs never name a database"*, and §0.4's
-capability-gate note says this document names none. Schema and table stay,
-because §F is where estate binding belongs.) Locally the example points at the real store; in CI the same code
+against schema `ccf_v2` of **PostgreSQL**, the source estate's relational store.
+Not CDC, not an event stream, not a new build.
+
+> **The store name was removed here once, and is restored — a correction, with
+> its reason, rather than a silent re-edit.** An earlier revision struck the
+> database's name on the literal reading of Standard §10.1, *"product specs
+> never name a database."* **Dave ruled on 2026-08-29 that §10.1 governs the
+> vault level** — the implementation-independent product specification — and
+> **not** the SDK level, which this document occupies. At this level the rule
+> inverts: *"If the database is unknown how can we even reference the tables?"*
+> In a five-store estate `ccf_v2.institutional_holder` does not say whether that
+> is the relational store, the graph ledger, the document store or the
+> departmental file, and this is the first example a developer reads.
+> `CP-SPEC-001` §0 and `spec_generation.md` §1.1 carry the full frame.
+> **Deployment — host, port, credential, instance — stays out at both levels**,
+> and remains in `backends.yaml` as an environment-variable name.
+
+Locally the example points at the real store; in CI the same code
 path runs against a **CI-provisioned service container the test seeds itself**
 from a small 13F fixture (`24-CONTEXT.md` `D-25`/`D-27`), because CI cannot
 reach the host the estate runs on and no database secret belongs in a CI

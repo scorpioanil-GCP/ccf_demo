@@ -620,7 +620,7 @@ following `CP-SPEC-000`'s precedent, so a name that differs between the Standard
 closed vocabulary and the SDK's four operator categories reads as a **mapping**
 rather than as a gap in either direction.
 
-| # | Operator | Capability class | Inputs | Emits (as it appears in lineage) | Failure behaviour | p95 budget | **SDK mechanism (layer)** |
+| # | Operator | Capability class | Inputs | Emits (as it appears in lineage) | Failure behavior | p95 budget | **SDK mechanism (layer)** |
 |---|---|---|---|---|---|---|---|
 | 1 | **Resolve** | `relational` | `anchor` — an LEI **or** an internal client id | `entity_id`, the canonical attribute set, and **`identity_authority`** naming which of the two authorities resolved it | fail closed → **404**. An anchor resolving to nothing is never an empty payload. Crosswalk collision → **409** | `[TBC — this build, P6]` | `src/ccf/assembly/worker.py::SpecDrivenEntityResolution` under `::AssemblyWorker`, driven by `::EntityResolutionSpec` — **L2**, the single writer |
 | 2 | **Policy** | `relational` | the assembled view; the principal's `principal_jurisdiction` grant set | `policy_version`, and the **principal-permissible subgraph substituted for the full graph** | fail closed → **403**, with no detail on what exists. Entitlement source unreachable → **503**, never a permissive default | `[TBC — this build, P6]` | `src/ccf/operators/categories.py::PolicyFilter` — **L4** |
@@ -982,7 +982,7 @@ escalation** rather than being averaged away.
 
 **Per-component debt table.** Debt is decomposed **per claim, never only per product**.
 
-| Component | May be absent? | `D_c` contribution | Behaviour when absent |
+| Component | May be absent? | `D_c` contribution | Behavior when absent |
 |---|---|---|---|
 | LEI / legal name / jurisdiction | **no** | — | **fail closed → 404.** Without these there is no identity |
 | Entity status · registration status | **yes** — null for internal-client-master resolutions | `[TBC — this build, P8]` | serve with the claim marked `NOT_EVALUABLE`; **not** a product-level failure |
@@ -1086,7 +1086,7 @@ products.
 | 11 | `payload_hash` value | §D.4 | this build | P6 |
 | 12 | Replay fixture `CPR-R01`, both hashes | §D.5 | this build | P6 |
 | 13 | Schema artifact + `extra=forbid` CI binding | §D.6 | this build | P6 |
-| 14 | Debt-gate `409` behaviour | §D.7 | this build | P7 |
+| 14 | Debt-gate `409` behavior | §D.7 | this build | P7 |
 | 15 | ~~Sabotage result for each of the eight gates~~ **CLEARED 2026-08-29** — seven of eight red; `CPR-G08` has no instance (row 20) | §D.7 | this build | **P7 — done** |
 | 16 | `λ_c` measured against read frequency | §E.1 | this build | P8 |
 | 17 | Per-component `D_c` contributions (5 rows) | §E.2 | this build | P8 |
@@ -1252,10 +1252,14 @@ something to act on:**
    That draft treated §10.1 as a defect in a vault artifact. It is not; it is a rule
    about a different artifact class than the one it was being applied to. **None of the
    seven findings in this section is a vault-owned term.**
-   **`CP-SPEC-000` is not retrofitted.** Its §F.3 records removing its store name on the
-   literal reading, which leaves the same gap for its reader. `24-CONTEXT.md` `D-07`
-   forbids bringing completed work into line, so aligning it is a separate,
-   explicitly-scoped change if Dave wants one — recorded here, not performed.
+   **`CP-SPEC-000` was corrected on 2026-08-29 — this paragraph previously said it
+   could not be.** It read that its §F.3 records removing its store name on the literal
+   reading, that `D-07` forbade bringing completed work into line, and that aligning it
+   was *"a separate, explicitly-scoped change if Dave wants one — recorded here, not
+   performed."* **Dave wanted one** (*"fix D-07"*), `D-07` now distinguishes an
+   unbounded **retrofit** from a bounded **correction** (`24-CONTEXT.md` `D-07.1`), and
+   the store name is restored at `CP-SPEC-000` §F.3 with the two-level ruling recorded
+   beside it. **Corrective edit under `D-07.2`, stated rather than made silently.**
 
 ---
 

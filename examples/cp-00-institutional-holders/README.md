@@ -71,7 +71,7 @@ makes "the rows assembled" one well-defined set rather than a per-caller one.
 > silence.
 >
 > What is deliberately **not** said: these rows are public regulatory filings.
-> Calling their behaviour invented would be inaccurate in the cautious
+> Calling their behavior invented would be inaccurate in the cautious
 > direction, which misleads a reader about what they are holding exactly as
 > badly as overclaiming would.
 
@@ -323,7 +323,7 @@ Every file in the tree, what it holds, and which side of the line it sits on.
 | `artifacts/question.yaml` | `[ADAPT]` | **The caller's vocabulary** — the anchor LEI as `subject`, the intent, the freshness requirement, the instant the question is asked as of, the pinned reported period, and the threshold the bundled demonstration asks. `role: load`: a question is not a permission, so it belongs in no Control Plane state and in no replay dimension. |
 | `artifacts/ttl.yaml` | `[ADAPT]` | The class's TTL (365 days — the amendment window, not the filing cycle) and its ceiling. Separate from `ccf_config.yaml` because registering the ceiling's *value* is what mints its pin, so the value cannot be a field of the document whose pin it becomes. |
 | `artifacts/expected.yaml` | `[ADAPT]` | **What the served product should contain, declared** — so the test module has a source for its expectations other than itself. It derives nothing from a run and there is no regeneration target. It deliberately carries **no row count**: a count is a fact about the store's contents at the moment of the read, not about this product's declaration. |
-| `artifacts/assembly-recipe.yaml` | `[ADAPT]` | **The specification's §D operator step table, as data.** Per step: the operator, the SDK mechanism, the layer, the inputs, what it emits, its failure behaviour, its budget — and a **witness**, a fact a completed run either produced or did not. A prose table cannot be held against a run; this one can, and a step nothing executes is red. |
+| `artifacts/assembly-recipe.yaml` | `[ADAPT]` | **The specification's §D operator step table, as data.** Per step: the operator, the SDK mechanism, the layer, the inputs, what it emits, its failure behavior, its budget — and a **witness**, a fact a completed run either produced or did not. A prose table cannot be held against a run; this one can, and a step nothing executes is red. |
 | `produce.py` | `[MECHANISM]` | **The fabric's half, and `[ADAPT]` nothing.** Seven named marker regions and no domain vocabulary at all. Delete `ccf_config.yaml` and this module has nothing left to interpret. It asserts nothing and prints nothing. |
 | `deployment.py` | `[ADAPT]` | **This deployment's own values, and `[MECHANISM]` nothing.** The source vocabulary (schema, two tables, their columns), the attribute names those columns become inside the fabric, the two connection functions, the L1 read, step 1's operator, Π, and the scenario the spine asks for. It makes no fabric call the spine does not. |
 | `assembler.py` | mixed | **The producer seam, implemented.** The seam is the SDK's; the identity and wiring are yours. Conforms to `src/ccf/agents/assembler.py::ContextAssemblerProtocol` by structure, not by inheritance, and says in its own docstring why it is not `src/ccf/agents/assembler.py::DeterministicAssembler`. It prints nothing and opens no marker region. |
