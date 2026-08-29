@@ -50,10 +50,10 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint typecheck test ci-core ci examples gate-tools \
+.PHONY: help venv install lint typecheck test ci-core ci examples gate-tools \
 	conformance \
 	ci-quick-suite ci-harness-conformance ci-coverage \
-	example-s1-01 example-s1-00 example-cp-00 \
+	example-s1-01 example-s1-00 example-cp-00 example-cp-01 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -66,6 +66,21 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 help: ## List targets with one-line descriptions
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  %-28s %s\n", $$1, $$2}'
+
+# THE VENV EVERY OTHER TARGET ASSUMES. `PYTHON := .venv/bin/python` at the top
+# of this file is not a request — it is a path, and until this target existed
+# nothing in the repository created it. A fresh clone's first `make` died on
+# "No such file or directory" naming an interpreter, which tells the reader
+# nothing about what to run. Idempotent: an existing `.venv` is left alone.
+#
+# The version gate is here rather than in `install` because pyproject's
+# `requires-python = ">=3.12"` is enforced by pip at install time with a
+# message about the wheel, not about the venv the developer just made.
+venv: ## Create .venv if missing and install into it — the first command in a fresh clone
+	@test -x .venv/bin/python || python3 -m venv .venv
+	@.venv/bin/python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)' \
+		|| { echo "ccf requires Python >= 3.12; .venv has $$(.venv/bin/python -V 2>&1)"; exit 1; }
+	@$(MAKE) --no-print-directory install
 
 # The second line installs the out-of-tree adapter fixture (plan 15.4-10). It
 # is ALWAYS-ON rather than opt-in, and the ruling is recorded rather than left
@@ -316,6 +331,33 @@ example-cp-00: ## Run examples/cp-00-institutional-holders (MIN_POSITION=<n>, SP
 	$(ENV) $(PYTHON) examples/cp-00-institutional-holders/run.py \
 		$(if $(MIN_POSITION),--min-position $(MIN_POSITION)) \
 		$(if $(SPEC),--spec $(SPEC))
+
+# CP-01 — the second Context Product, and rung 1 of the vault's complexity
+# ladder. Same posture as `example-cp-00` above and for the same reasons: NOT in
+# the `examples:` aggregate, because it reads a real counterparty estate through
+# the environment-variable name `backends.yaml` declares and there is no in-tree
+# fixture it could fall back onto.
+#
+# ITS CODE PATH IS COVERED IN CI ALREADY, so do not "fix" the omission by adding
+# it to `examples:`. `tests/examples/test_cp_01_output.py` sets
+# `pytestmark = pytest.mark.postgres`, seeds a `postgres:16` service container
+# itself from `tests/examples/fixtures/cp_01_*.sql`, and runs this example's own
+# modules against it — so `leg-postgres` selects its 13 tests by MARKER, without
+# this file naming them. The target runs the program; the leg proves the program.
+#
+# EVERY PARAMETER IS OPTIONAL, for the reason MIN_POSITION is optional above:
+# these are REQUEST parameters, not deployment configuration, and a build tool is
+# not a request channel. Omitted, `run.py` asks the demonstration question in
+# `artifacts/question.yaml`. INCLUDE_LAPSED is a flag — set it to any non-empty
+# value. AS_OF is declared by the contract and ALWAYS refused at this tier; it is
+# exposed here so the refusal is one command away rather than a paragraph.
+example-cp-01: ## Run examples/cp-01-counterparty-reference-snapshot (ANCHOR, PRINCIPAL, INCLUDE_LAPSED, AS_OF, DEBT_TOLERANCE optional; needs CCF_CP_01_POSTGRES_DSN)
+	$(ENV) $(PYTHON) examples/cp-01-counterparty-reference-snapshot/run.py \
+		$(if $(ANCHOR),--anchor $(ANCHOR)) \
+		$(if $(PRINCIPAL),--principal $(PRINCIPAL)) \
+		$(if $(INCLUDE_LAPSED),--include-lapsed) \
+		$(if $(AS_OF),--as-of $(AS_OF)) \
+		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE))
 
 # HW-1 — the first example a newcomer reads. NOT in the `examples:` aggregate
 # and NOT in any workflow: it needs a populated deployment, the always-on

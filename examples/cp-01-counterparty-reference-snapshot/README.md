@@ -62,6 +62,14 @@ graph *before* anything reads graph state, rather than filtering afterwards. A
 
 ## Run it
 
+**Everything here runs on the project venv**, never a bare `python` — this
+repository has no `python` on `PATH` and the SDK is installed only into `.venv`.
+In a fresh clone, one command creates it:
+
+```bash
+make venv
+```
+
 **Before you run**, export a **read-only** connection string for the
 counterparty estate. `backends.yaml` holds the variable's NAME and nothing
 else — no host, no port, no credential enters this tree:
@@ -72,10 +80,23 @@ export CCF_CP_01_POSTGRES_DSN='postgresql://<read-only-role>@<host>/<db>'
 
 The role needs `SELECT` and nothing else. **Nothing this example runs writes to
 the store it reads** — a role that could write would make that a promise rather
-than a guarantee.
+than a guarantee. A `host=… user=… password=…` keyword string works equally
+well; both are libpq conninfo and neither is preferred.
 
 ```bash
-python examples/cp-01-counterparty-reference-snapshot/run.py
+make example-cp-01
+```
+
+Use **`make -s example-cp-01`** to suppress make's own echo of the recipe. That
+form is what makes the output byte-comparable with the run published on this
+example's documentation page — the echoed command is the only thing that
+differs otherwise.
+
+Without make, the same thing. The interpreter is the venv's, and spelling it is
+the point rather than clutter:
+
+```bash
+.venv/bin/python examples/cp-01-counterparty-reference-snapshot/run.py
 ```
 
 Then the things worth trying, each of which changes the answer rather than the
@@ -83,23 +104,35 @@ formatting:
 
 ```bash
 # The same question as somebody who cannot see US-DE entities.
-run.py --principal PRIN-KYC-004
+make example-cp-01 PRINCIPAL=PRIN-KYC-004
 
 # The other identity authority — a no-LEI borrower. SEE "What would fail".
-run.py --anchor CLI-000101
+make example-cp-01 ANCHOR=CLI-000101
 
 # A lapsed registration, excluded by default and returned on request.
-run.py --anchor 549300TRW1LZMDJZAQ78
-run.py --anchor 549300TRW1LZMDJZAQ78 --include-lapsed
+make example-cp-01 ANCHOR=549300TRW1LZMDJZAQ78
+make example-cp-01 ANCHOR=549300TRW1LZMDJZAQ78 INCLUDE_LAPSED=1
 
 # A parameter the tier declares and always refuses.
-run.py --as-of 2026-01-01T00:00:00+00:00
+make example-cp-01 AS_OF=2026-01-01T00:00:00+00:00
 ```
+
+Every one of those is OPTIONAL and none of them is deployment configuration:
+they are REQUEST parameters, and omitting them asks the demonstration question
+declared in `artifacts/question.yaml`.
+
+**Two of those five exit NON-ZERO, and that is the correct answer rather than a
+broken target.** `ANCHOR=CLI-000101` refuses at the `ttl-bounds` gate — the
+shipped defect this example documents rather than hides, and the subject of
+*"What would fail"* below. `AS_OF=…` refuses with `not_supported_at_tier`,
+because the contract declares the parameter so a caller can discover it and
+then fails loudly so nobody relies on it in a dispute. **A refusal is not a
+crash**, but it is also not a success, so `make` reports it as `Error 1`.
 
 The tests run against a **seeded container**, never the estate:
 
 ```bash
-pytest tests/examples/test_cp_01_output.py
+.venv/bin/python -m pytest tests/examples/test_cp_01_output.py
 ```
 
 ---
