@@ -17,7 +17,7 @@
 | **Gate 1 status** | **APPROVED — Dave, 2026-08-29.** Authored 2026-08-29; approved on a full read of the specification |
 | **Gate 2 status** | **not started.** Nothing is implemented |
 | **Estate** | probed 2026-08-29 against `parkavedb` schema `ccf_v2` on `192.168.4.76`, read-only. **This product was `unprobed` before this document** |
-| **Stores** | **TWO** (Dave, 2026-08-29). **PostgreSQL `ccf_v2`** supplies every attribute; **Fluree `fibo-v2`** supplies the **policy-version binding** and nothing else — the §7.8 Control/Data-plane split, which Q019 §3 assigns to exactly these two stores. MongoDB, SQLite and Neo4j were each queried and each excluded. Reasoning at §C.2, per-store verdict at §F.3. **A deviation from the vault article's `capability_classes: [relational]` — `[TBC — vault]`, §F.2 row 24. STAGED: Gate 2 builds the Postgres half only; the Fluree binding lands at a later gate — §C.6.1** |
+| **Stores** | **TWO** (Dave, 2026-08-29). **PostgreSQL `ccf_v2`** supplies every attribute; **Fluree `fibo-v2`** supplies the **policy-version binding** and nothing else — the §7.8 Control/Data-plane split, which Q019 §3 assigns to exactly these two stores. MongoDB, SQLite and Neo4j were each queried and each excluded. Reasoning at §C.2, per-store verdict at §F.3. **NOT a deviation — ruled 2026-08-30.** `capability_classes: [relational]` and reading Fluree are statements at different levels: capability says what the store must *do* (a keyed IRI lookup with a validity filter, walking no edge, is a set-based query over structured records — `relational`), while store says where it lives, which is an estate binding belonging to §C. **Tier stays 1.** Build staging is unchanged pending Dave — §C.6.1 |
 
 ---
 
@@ -35,8 +35,8 @@ build discharges it at Gate 2 and clears the `[TBC — this build]` rows then.
 ### 0.1 Do you need a Context Product? — the four-question test
 
 The vault article for this product is on the **older Q019 form**, which has no
-four-question section. The result is therefore `[TBC — vault]` and is **not
-invented here**. What can be said from the article's own text is recorded, and
+four-question section, so this document recorded leanings from its text and
+left the verdict to its owner. **Ruled 2026-08-30 — three yes, one no.** What can be said from the article's own text is recorded, and
 the verdict is left to the owner of the test:
 
 | Question | What the article supports | Verdict |
@@ -45,7 +45,7 @@ the verdict is left to the owner of the test:
 | Does the answer decay? | Yes, and **at different rates per attribute** — annual ~365d, quarterly ~90d, restatement event-driven | leans yes |
 | Is the answer policy-conditioned? | Weakly. Public-filing data carries **no MNPI constraint** — the article says so deliberately | leans **no** |
 | Would a wrong answer cause harm a log would not catch? | Yes — a stale leverage ratio sizes a facility wrongly and the log records a correct query | leans yes |
-| **Result** | | **`[TBC — vault]`** |
+| **Result** | | **RULED 2026-08-30: three yes, one no.** Q1 **no** — entitlement conditions visibility, not content. Q2 **yes**. Q3 **yes** for the served contract; `as_of` is T3. **Q4 `yes`** — a genuine yes where both other T1 products were `partial`: period-end, filing date and restatement chain are three axes no schema author pre-joined, and `basis` selects between two at request time. **This product composes rather than joins — the strongest T1 result in the catalog** |
 
 > One leaning-no is not a failure. `counterparty-reference-snapshot` was admitted
 > to this catalog with *"one no, one partial, admitted on stated basis."* The
@@ -77,16 +77,16 @@ taken or a term nobody has ruled.
 |---|---|
 | Registry name | `credit-risk.spread.v1` |
 | Tier | 1 |
-| **Assembly Mode** | **1 — pure algorithmic.** No LLM is invoked on any path. The article leaves `assembly_mode: null`; Mode 1 is **derived here** from §D having no semantic stage, and is `[TBC — vault]` for confirmation |
+| **Assembly Mode** | **1 — pure algorithmic, DECLARED.** No LLM is invoked on any path. Derived here from §D having no semantic stage and **ruled 2026-08-30**: the article's frontmatter now reads `assembly_mode: 1`, a **registration-time commitment** rather than an inference. The other eighteen stay `null`; that gap is recorded, not backfilled |
 | Cost band | ×1 (the baseline) |
 | Lifecycle state | **approved-not-built** — Gate 1 approved by Dave 2026-08-29; **no code, artifacts or tests exist** |
 | Accountable owner | product: Credit Risk · data steward: credit analysis / spreading · policy: identity and access |
 | Last review | 2026-08-29 (this authoring) |
 | What it resolves | One obligor to a **typed, period-aligned financial spread** in which every figure names the period it describes, the filing that asserted it, and whether a later filing changed it |
-| Four-question build test | `[TBC — vault]` — §0.1 |
+| Four-question build test | **three yes, one no** — ruled 2026-08-30, §0.1 |
 | Build order | **Third on the vault's ladder, and last of Tier 1.** Depends on `counterparty-reference-snapshot` for the LEI→CIK crosswalk; supplies spread figures to `credit-exposure-rollup`, `credit-memo-context` and `rating-and-spread-migration` |
 | Prerequisites | `counterparty-reference-snapshot` (rung 01) — **satisfied**: 50 of 50 obligors resolve through `ccf_v2.crosswalk`, 0 orphans (§C.3) |
-| `out_of_scope` in the article | **`null` — NOT STATED**, which per the vault's frontmatter notice of 2026-08-29 never means *nothing*. The scope boundary at §B.5 is therefore **proposed by this document**, not quoted, and is `[TBC — vault]` |
+| `out_of_scope` in the article | **Was `null` — NOT STATED.** All four exclusions this document proposed were **asserted into the article 2026-08-30**; §B.5 now quotes rather than proposes |
 
 ---
 
@@ -100,7 +100,7 @@ context at comparable periods.
 principals (§C.1 element 8); the perspective axis is present but **near-inert
 here by design**, and §B.2 says why that is the lesson rather than the gap.
 
-### A.1 The counterfactual — Latency Poisoned, in its simplest form
+### A.1 The counterfactual — `temporally-incoherent`, in its simplest form
 
 The article states the failure and this document adopts it verbatim as the
 counterfactual this product exists to prevent:
@@ -128,12 +128,29 @@ this rung is where a single anchor stops being sufficient:
 | 02 `facility-terms-snapshot` | the instrument's own `effective_date` | an expiry that **does not move when the question moves** |
 | **03 this product** | **the filing that asserted each figure** | **one expiry per product is not enough** — the anchor becomes per-attribute |
 
-**Closed-taxonomy mode for the counterfactual.** The Standard's counterfactual
-taxonomy is a closed list. `Latency Poisoned` is the article's own term and is
-adopted. Whether an attribute-level latency failure is a **mode** of
-`Latency Poisoned` or a distinct member is `[TBC — vault]`; a reading is
-proposed — *it is the same mode observed at finer granularity* — and is **not
-asserted**.
+**Closed-taxonomy mode — `temporally-incoherent`, ruled 2026-08-30. The
+question surfaced a vault defect neither side anticipated.**
+
+This document asked whether an attribute-level latency failure is a **mode** of
+`Latency Poisoned` or a distinct member. **The answer was a third thing: the term
+is not in the closed taxonomy at all.** The list is `context-starved ·
+temporally-incoherent · perspective-flat · policy-blind · evidence-free`;
+`Latency Poisoned` is older vault vocabulary predating it, and maps to
+**`temporally-incoherent`**, which is what this product declares.
+
+**It is not one article.** Across the catalog `Latency Poisoned` is named by
+**4** articles and is a non-member in all four, and a further four name things
+that are not modes at all. The root cause: **`spec-standard-v0-3` never published
+the taxonomy** — authors were told to cite a closed list the mirror did not
+carry. It is published now, with the non-conformance stated rather than quietly
+migrated.
+
+**The discipline that surfaced it nearly did not.** Proposing a reading without
+asserting it is what made the mismatch visible; had this document adopted
+`Latency Poisoned` confidently — it is the article's own word — the defect would
+have propagated into a fifth spec instead of being caught. **On later rungs: when
+an article names a non-member, propose and do not assert.** Migration is
+per-article as each product reaches a rung, not a sweep.
 
 ### A.2 Fixture `OFS-F01` — the counterfactual, made falsifiable
 
@@ -165,7 +182,7 @@ The counterfactual is a claim, so it gets a fixture that can fail:
 | 6 | **Semantic Version** | `v1.0.0` |
 | 7 | **Discovery** | `credit-risk.spread.v1` |
 | 8 | **Addressability** | `/context-products/credit-risk/spread/{lei}` |
-| 9 | **Assembly Mode** | **1 — pure algorithmic**, derived at §0.4, `[TBC — vault]` |
+| 9 | **Assembly Mode** | **1 — pure algorithmic**, derived at §0.4 and **declared in the article's frontmatter 2026-08-30** |
 
 #### B.1.1 Element 3, and the one thing this anchor must be tested for
 
@@ -281,9 +298,18 @@ supplies LEI→CIK. **50 of 50 obligors resolve, 0 orphans.**
 **Downstream consumers.** `credit-exposure-rollup` (rung 05),
 `rating-and-spread-migration` (rung 10), `credit-memo-context` (rung 14).
 
-**Scope boundary — PROPOSED, not quoted.** The article's `out_of_scope` is
-`null`, which the vault's own notice says means *not stated*, never *nothing*.
-The following is therefore this document's proposal and is `[TBC — vault]`:
+**Scope boundary — ASSERTED, ruled 2026-08-30.** The article's `out_of_scope`
+was `null`, which the vault's notice says means *not stated*, never *nothing*.
+All four exclusions this document proposed are now in its frontmatter:
+
+```yaml
+out_of_scope: [as_of-reconstruction, exposure-aggregation,
+               rating-and-market-spreads, covenant-compliance]
+```
+
+Each names the product that carries it, and the vault's instruction is to flag
+them to consumers as **coming next, not as gaps** — the tier boundary working
+rather than a shortfall:
 
 | Out of scope | Why | Belongs to |
 |---|---|---|
@@ -1052,6 +1078,28 @@ sentence expressed as a table. A payload mixing a 10-K annual with a current
 10-Q carries two decay rates simultaneously, and a single product-level `λ_c`
 could not express it.
 
+#### E.1.1 The anchor pair — why this rung and rung 02 teach it together
+
+**Recorded at the vault's request, 2026-08-30**, after it confirmed this
+product's anchor and adopted the contrast:
+
+> Rung 02 refuses 50 of 60 **permanently** because `effective_date` never
+> advances; rung 03 refuses 27 of 50 and **those clear as filers file.** Same
+> anchor type, opposite behavior, and the difference is entirely whether the
+> anchored field is re-observed.
+
+Both products declare `ttl_anchor: from_entity_freshness`. Both compute an expiry
+from a date on the entity rather than from the request. **And one of them can
+never be refreshed by re-derivation**, because a credit agreement's origination
+date is fixed for the life of the agreement, while a filing date advances every
+quarter.
+
+**So `from_entity_freshness` is not satisfied by anchoring on an entity's date.
+It requires an OBSERVATION TIMESTAMP THAT MOVES.** That is the vault's test, and
+neither rung teaches it alone: rung 02 shows what a fixed anchor does to a
+population, and this rung shows what a moving one does to the same primitive. A
+reader who sees only one of them learns a rule with no counter-case.
+
 ### E.2 Debt model and per-component debt table
 
 `D_c` combines freshness `F` and completeness `S`.
@@ -1170,10 +1218,10 @@ comparing totals — rung 01's *"a count is not a roster."*
 | # | Marker | Section | Owner | Cleared at |
 |---|---|---|---|---|
 | 1 | **`Enrich` / §10.2 four-versus-eight operator vocabulary** — the article and Standard declare `Enrich`; the SDK has four categories and no `Enrich` | §D.2.1 | **Dave** | a later vocabulary ruling — **not this rung** |
-| 2 | Four-question build-test result — article is on the Q019 form | §0.1, §0.4 | **vault** | — |
-| 3 | Assembly Mode confirmation (Mode 1 derived here) | §0.4, §B.1 | **vault** | — |
-| 4 | Closed-taxonomy mode for the counterfactual | §A.1 | **vault** | — |
-| 5 | Scope boundary — `out_of_scope` is `null` = not stated | §B.5 | **vault** | — |
+| 2 | ~~Four-question build-test result~~ — **CLOSED 2026-08-30**: three yes, one no; Q4 a genuine yes where both other T1 products were `partial` | §0.1, §0.4 | vault | **closed** |
+| 3 | ~~Assembly Mode confirmation~~ — **CLOSED 2026-08-30**: `assembly_mode: 1` is now in the article's frontmatter, a registration-time commitment | §0.4, §B.1 | vault | **closed** |
+| 4 | ~~Closed-taxonomy mode~~ — **CLOSED 2026-08-30 as `temporally-incoherent`**, and the question surfaced a vault defect: `Latency Poisoned` is not a taxonomy member, in 4 articles | §A.1 | vault | **closed** |
+| 5 | ~~Scope boundary~~ — **CLOSED 2026-08-30**: all four proposed exclusions asserted into the article | §B.5 | vault | **closed** |
 | 6 | Residency constraints; derived-figure residency | §B.2 | identity and access | — |
 | 7 | Cross-border serving condition | §B.2 | identity and access | — |
 | 8 | **Restatement threshold** default `0.01` proposed | §E.5 | **product owner** | certification |
@@ -1192,13 +1240,18 @@ comparing totals — rung 01's *"a count is not a roster."*
 | 21 | A coverage manifest in `spec_coverage.py` — currently `[UNMAP]` | §C preamble | `ccf_dataprep` | — |
 | 22 | **Ontology IRI — CLOSED 2026-08-30 by `ccf_dataprep`.** `value` + `unit` bind to `fibo-fnd-acc-cur:MonetaryAmount`; every reporting-shaped column is **`[UNMAP]` permanently**, because FIBO models entities, instruments and relationships and does not model financial reporting. Rows 5 and 9 (SIC/cohort, entitlement) were not in the question and stay open | §C.1, §C.1.1 | `ccf_dataprep` | **rows 5 and 9 only** |
 | 23 | **Catalog currency.** Every §C and §E figure is dated 2026-08-29 against a **live** estate; [[estate-data-catalog]] is stamped 2026-08-30T01:56:48Z at commit `5206155`. Neither is a stability promise | §F.3 | `ccf_dataprep` — regeneration on request | re-confirmed at **Gate 2** |
-| 24 | **Two-store deviation.** The vault article declares `capability_classes: [relational]` and the ladder puts the first multi-store product at rung 04. This product reads **Fluree for the policy binding** on Dave's ruling of 2026-08-29, **staged out of Gate 2** (§C.6.1) so the vault's term is not overtaken by a build. Tier and build order are the **vault's** under the §1 ownership table | §0.4, §C.6.1 | **vault** | — |
+| 24 | ~~Two-store deviation~~ — **CLOSED 2026-08-30: there is no deviation.** Capability and store are different levels; a keyed IRI lookup walking no edge is `relational`, and **tier stays 1**. The vault adds that *"the build should un-stage from Gate 2"* — **that is Dave's, not the vault's**, because his staging also separated *did we measure the census honestly* from *does the policy binding resolve* | §0.4, §C.6.1 | vault → **Dave** | un-stage decision |
 | 25 | **Which `PolicyVersion` family binds this product** — `credit-policy-v*` carries the window but no values; `credit-memo-policy-v*` carries `debtToleranceDefault` and is named for rung 14 | §C.6, §F.4 finding 12 | **product owner** + `ccf_dataprep` | certification |
 
-**Twelve are `this build` and clear at Gate 2. Five are the vault's. Two are
-identity and access's. Three are the product owner's. Three are `ccf_dataprep`'s.
-One is Dave's. Twenty-five in total.** (Row 25 is shared and counted once, to the
-product owner.)
+**Twenty-five rows. As of 2026-08-30, SIX ARE CLOSED** — rows 2, 3, 4, 5 and 24
+by the vault, row 22 by `ccf_dataprep` — leaving **nineteen open**: twelve are
+`this build`'s and clear at Gate 2, two are identity and access's, three are the
+product owner's, two are `ccf_dataprep`'s. **One is Dave's** — the un-stage
+decision on row 24. (Row 25 is shared and counted once, to the product owner.)
+
+> **Five of the six closed the same day they were asked.** The returns went out
+> 2026-08-30 and were answered within the hour, which is why this register
+> should be read with its dates rather than as a standing list.
 
 > **Rows, not markers.** the raw `[TBC]` occurrences map to these 23 rows: row 22
 > alone covers nine markers in the §C.1 table, several rows are cited twice
