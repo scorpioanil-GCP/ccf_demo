@@ -17,7 +17,7 @@
 | **Gate 1 status** | **APPROVED — Dave, 2026-08-29.** Authored 2026-08-29; approved on a full read of the specification |
 | **Gate 2 status** | **not started.** Nothing is implemented |
 | **Estate** | probed 2026-08-29 against `parkavedb` schema `ccf_v2` on `192.168.4.76`, read-only. **This product was `unprobed` before this document** |
-| **Stores** | **TWO** (Dave, 2026-08-29). **PostgreSQL `ccf_v2`** supplies every attribute; **Fluree `fibo-v2`** supplies the **policy-version binding** and nothing else — the §7.8 Control/Data-plane split, which Q019 §3 assigns to exactly these two stores. MongoDB, SQLite and Neo4j were each queried and each excluded. Reasoning at §C.2, per-store verdict at §F.3. **NOT a deviation — ruled 2026-08-30.** `capability_classes: [relational]` and reading Fluree are statements at different levels: capability says what the store must *do* (a keyed IRI lookup with a validity filter, walking no edge, is a set-based query over structured records — `relational`), while store says where it lives, which is an estate binding belonging to §C. **Tier stays 1.** Build staging is unchanged pending Dave — §C.6.1 |
+| **Stores** | **TWO** (Dave, 2026-08-29). **PostgreSQL `ccf_v2`** supplies every attribute; **Fluree `fibo-v2`** supplies the **policy-version binding** and nothing else — the §7.8 Control/Data-plane split, which Q019 §3 assigns to exactly these two stores. MongoDB, SQLite and Neo4j were each queried and each excluded. Reasoning at §C.2, per-store verdict at §F.3. **Not a deviation — closed 2026-08-30.** `capability_classes: [relational]` and reading Fluree are statements at different levels: capability says what the store must *do* (a keyed IRI lookup with a validity filter, walking no edge, is a set-based query over structured records — `relational`); store says where it lives, an **estate binding belonging to §C**. **Tier stays 1.** The Fluree read is held out of Gate 2 on **build sequencing alone**, not on any residual doubt about the store — §C.6.1 |
 
 ---
 
@@ -816,13 +816,28 @@ Control Plane artifact, §D.3 says so explicitly, and no Fluree connection is
 opened — which is why `OFS-G05` at Gate 2 asserts *no store but Postgres*, and
 its Fluree clause activates later with the binding.
 
-**Why staged rather than built now.** Credit spreading is specified Tier 1 with a
-single prerequisite (LEI→CIK). The Fluree binding adds a second store and a second
-failure mode, and Gate 2's subject is whether **the census was measured honestly**
-— 321 not 392, instant included, accession multiplicity not mistaken for
-restatement. Mixing *"did we count restatements correctly"* with *"does the policy
-binding resolve across a supersession"* would let either failure be read as the
-other.
+**Why it is held, and the reason is build sequencing — nothing else.** Gate 2's
+subject is whether **the census was measured honestly** — 321 not 392, instant
+facts included, accession multiplicity not mistaken for restatement. Whether the
+policy binding resolves across a supersession is a **different load**, and mixing
+*"did we count restatements correctly"* with *"does the binding resolve"* would
+let either failure be read as the other.
+
+**It is NOT held because the store is suspect or the tier is in doubt.** Both are
+closed — §C.6, and the ruling of 2026-08-30 that this was never a deviation — and
+neither is reopened here as a reason to hold or to release. **Gate 2 is simply the
+wrong home for it**, and the estate pin stays a §C sentence rather than becoming a
+Gate 2 object.
+
+> **How this was nearly got wrong, because the shape is §A.1's exactly.** The
+> vault closed the deviation and then added *"the build should un-stage from Gate
+> 2"* — collapsing two claims into one action. That follows only if Gate 2 were
+> holding the binding **because of** the deviation, and it was not. **Adopting a
+> source's VERB without checking that its NOUN still names the right object** is
+> what §A.1 caught in the taxonomy; here it would have produced a **gate-home**
+> defect rather than a vocabulary one, and it would have arrived wearing a
+> correct ruling — which is harder to see. **Propose the destination; never
+> assert it because the source used that noun** (Dave, 2026-08-30).
 
 **What defers with it, as one unit:** §C.1 element 11, the Fluree half of §C.2's
 verdict, §F.3's Fluree row, and gate **`OFS-G14`**. **What does NOT defer:** the
@@ -1240,7 +1255,7 @@ comparing totals — rung 01's *"a count is not a roster."*
 | 21 | A coverage manifest in `spec_coverage.py` — currently `[UNMAP]` | §C preamble | `ccf_dataprep` | — |
 | 22 | **Ontology IRI — CLOSED 2026-08-30 by `ccf_dataprep`.** `value` + `unit` bind to `fibo-fnd-acc-cur:MonetaryAmount`; every reporting-shaped column is **`[UNMAP]` permanently**, because FIBO models entities, instruments and relationships and does not model financial reporting. Rows 5 and 9 (SIC/cohort, entitlement) were not in the question and stay open | §C.1, §C.1.1 | `ccf_dataprep` | **rows 5 and 9 only** |
 | 23 | **Catalog currency.** Every §C and §E figure is dated 2026-08-29 against a **live** estate; [[estate-data-catalog]] is stamped 2026-08-30T01:56:48Z at commit `5206155`. Neither is a stability promise | §F.3 | `ccf_dataprep` — regeneration on request | re-confirmed at **Gate 2** |
-| 24 | ~~Two-store deviation~~ — **CLOSED 2026-08-30: there is no deviation.** Capability and store are different levels; a keyed IRI lookup walking no edge is `relational`, and **tier stays 1**. The vault adds that *"the build should un-stage from Gate 2"* — **that is Dave's, not the vault's**, because his staging also separated *did we measure the census honestly* from *does the policy binding resolve* | §0.4, §C.6.1 | vault → **Dave** | un-stage decision |
+| 24 | **Fluree estate binding — held out of Gate 2 on SEQUENCING ALONE.** The deviation question is **closed in both directions** (2026-08-30): capability and store are statements at different levels, a keyed IRI lookup walking no edge is `relational`, tier stays 1 — and that ruling is not reopened as a reason to stage *or* to un-stage. What remains is a build-order fact: **Gate 2's load is census honesty; whether the policy binding resolves across a supersession is a different load.** Held **not because the store is suspect but because Gate 2 is the wrong home for it**; the estate pin stays a §C sentence, never a Gate 2 object | §C.6.1 | **Dave** | when the supersession resolve is a separate, answerable question |
 | 25 | **Which `PolicyVersion` family binds this product** — `credit-policy-v*` carries the window but no values; `credit-memo-policy-v*` carries `debtToleranceDefault` and is named for rung 14 | §C.6, §F.4 finding 12 | **product owner** + `ccf_dataprep` | certification |
 
 **Twenty-five rows. As of 2026-08-30, SIX ARE CLOSED** — rows 2, 3, 4, 5 and 24
