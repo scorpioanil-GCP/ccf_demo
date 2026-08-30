@@ -324,16 +324,16 @@ schema and the table.
 
 | # | Element | System of record | Provenance class | Classification | Capability class | `G` | Ontology IRI | Satisfied? |
 |---|---|---|---|---|---|---|---|---|
-| 1 | Tagged financial facts — revenue, EBITDA components, debt, cash, interest expense | SEC XBRL `companyfacts` → **PostgreSQL** `ccf_v2.financial_fact` | `public-filing` | `public` | `relational` | **E** | **`[TBC — ccf_dataprep]`** — §C.1.1 | **yes** — 15,055 rows, 50 obligors, 21 tags |
-| 2 | `period_end` · `period_start` · `filed_date` · `accession` · `form` · `unit` per fact | XBRL companyfacts → same table, carried natively | `public-filing` | `public` | `relational` | **T** · **L** | **`[TBC — ccf_dataprep]`** — §C.1.1 | **yes** — six columns, non-derived, on every row |
-| 3 | Restatement chain — same fact, multiple accessions, **different value** | XBRL companyfacts ordered by `filed_date` | `public-filing` | `public` | `relational` | **T** | **`[TBC — ccf_dataprep]`** — §C.1.1 | **yes — 321 cells, 37 of 50 obligors.** §C.4 trap 1 |
-| 4 | Peer facts at identical period | SEC XBRL `frames` → **PostgreSQL** `ccf_v2.peer_fact` | `public-filing` | `public` | `relational` | **E** | **`[TBC — ccf_dataprep]`** | **yes** — 22,494 rows; 22,083 match on `(period_end, tag)` |
+| 1 | Tagged financial facts — revenue, EBITDA components, debt, cash, interest expense | SEC XBRL `companyfacts` → **PostgreSQL** `ccf_v2.financial_fact` | `public-filing` | `public` | `relational` | **E** | **`fibo-fnd-acc-cur:MonetaryAmount`** for `value` + `unit`, with `hasCurrency` → `Currency`. The tag, period and filing columns are **`[UNMAP]` permanently** — §C.1.1 | **yes** — 15,055 rows, 50 obligors, 21 tags |
+| 2 | `period_end` · `period_start` · `filed_date` · `accession` · `form` · `unit` per fact | XBRL companyfacts → same table, carried natively | `public-filing` | `public` | `relational` | **T** · **L** | **`[UNMAP]` — permanent, ruled** §C.1.1 | **yes** — six columns, non-derived, on every row |
+| 3 | Restatement chain — same fact, multiple accessions, **different value** | XBRL companyfacts ordered by `filed_date` | `public-filing` | `public` | `relational` | **T** | **`[UNMAP]` — permanent, ruled** §C.1.1 | **yes — 321 cells, 37 of 50 obligors.** §C.4 trap 1 |
+| 4 | Peer facts at identical period | SEC XBRL `frames` → **PostgreSQL** `ccf_v2.peer_fact` | `public-filing` | `public` | `relational` | **E** | **`fibo-fnd-acc-cur:MonetaryAmount`** for `value` + `unit`; reporting columns **`[UNMAP]` permanently** — same shape as row 1 | **yes** — 22,494 rows; 22,083 match on `(period_end, tag)` |
 | 5 | SIC / cohort for peer-set construction | EDGAR submissions → **PostgreSQL** `ccf_v2.peer_entity`, `.peer_cohort` | `public-filing` | `public` | `relational` | **E** | **`[TBC — ccf_dataprep]`** | **yes** — 1,678 entities, 324 cohorts |
 | 6 | **US-GAAP tag → spread-line mapping** | internal spreading convention → **deployment artifact** | `internal-SOR` | `internal` | `relational` | schema | n/a — a mapping, not an entity | **NO in estate — by design.** §C.4 trap 3 |
 | 7 | **Derived ratio definitions** — leverage, coverage, fixed-charge | internal credit policy → **deployment artifact**, Policy-loaded | `internal-SOR` | `internal` | `relational` | schema | n/a | **NO in estate — by design.** §C.4 trap 3 |
-| 8 | **Internal adjustments** — addbacks, pro-forma EBITDA | internal credit analysis → **deployment artifact** | `internal-SOR` | `internal` | `relational` | **E** | **`[TBC — ccf_dataprep]`** | **NO in estate — by design.** §C.4 trap 3 |
+| 8 | **Internal adjustments** — addbacks, pro-forma EBITDA | internal credit analysis → **deployment artifact** | `internal-SOR` | `internal` | `relational` | **E** | n/a while `adjustments: []`; a populated addback is a **`fibo-fnd-acc-cur:MonetaryAmount`** like row 1 | **NO in estate — by design.** §C.4 trap 3 |
 | 9 | Entitlement scope | entitlement service → **PostgreSQL** `ccf_v2.principal`, `.principal_jurisdiction` | `internal-SOR` | `internal` | `relational` | **P** | `[TBC — ccf_dataprep]` | **yes** — 4 principals; **suppresses nothing**, §B.2 |
-| 10 | **Item 4.02 non-reliance filing counts** | EDGAR 8-K item counts → **PostgreSQL** `ccf_v2.filing_profile` | `public-filing` | `public` | `relational` | **T** | **`[TBC — ccf_dataprep]`** — §C.1.1 | **yes — 11 of 50 obligors**, 15 filings. §C.4 trap 2 |
+| 10 | **Item 4.02 non-reliance filing counts** | EDGAR 8-K item counts → **PostgreSQL** `ccf_v2.filing_profile` | `public-filing` | `public` | `relational` | **T** | **`[UNMAP]` — permanent, ruled** §C.1.1 | **yes — 11 of 50 obligors**, 15 filings. §C.4 trap 2 |
 | 11 | **Policy-version binding** — which `PolicyVersion` was in force at `asked_at`, its validity window, and its `supersededBy` link | credit policy → **Fluree `fibo-v2`**, `ex:PolicyVersion` | `internal-SOR` | `internal` | `relational` (a **lookup by IRI, not a traversal** — §C.2) | **P** · **T** | `ex:PolicyVersion` — **bound**, unlike rows 1–10 | **yes — 17 instances**, 2 carrying `supersededBy`, `validFrom` on all 17. **Estate-ready; STAGED out of Gate 2** — §C.6.1 |
 
 > **Element 10 is not in the article.** It was found while probing and is
@@ -362,9 +362,9 @@ trap 3 for the resolution, which is **not** "ask `ccf_dataprep` for tables.
 
 #### C.1.1 The ontology column is empty for this product, and the reason is structural
 
-**Every attribute row above carries `[TBC — ccf_dataprep]`.** That is not this
-document declining to look it up. The binding article
-(`wiki/context-products/content/fibo-iri-binding.md`) was searched on
+**The ontology column was empty for every attribute row when this document was
+authored, and that was not this document declining to look it up.** The binding
+article (`wiki/context-products/content/fibo-iri-binding.md`) was searched on
 2026-08-29:
 
 | Term | Occurrences in the binding article |
@@ -398,18 +398,50 @@ whose payload is almost entirely *attributes and time* rather than entities and
 edges**, so the vocabulary has nothing to say about it. From rung 04 the
 products become edge-shaped, and the semantic layer begins to carry them.
 
-**Two consequences, both recorded rather than resolved here:**
+**RULED 2026-08-30 by `ccf_dataprep`, and the answer splits.** The question
+returned to them was whether an attribute-level product gets ontology bindings at
+all, or whether `[UNMAP]` is correct and permanent for its payload rows.
 
-1. The binding article's own description states that *"coverage is closed
-   against every spec in this catalog as of the Wave 8 binding; the next gap
-   will come from a new spec."* **It is not closed for this spec, and this spec
-   is not new** — it is rung 03 of the original 21. Recorded as §F.4 finding 8
-   and returned to the vault under §11.
-2. **Nothing here blocks the build.** This product does not write to `fibo-v2`
-   and asserts no types (§C.2, gate `OFS-G05`). The binding matters at rung 05,
-   where `credit-exposure-rollup` traverses the family tree and needs these
-   figures attached to entities the graph already types. **The gap should be
-   closed before rung 05, not before Gate 2 here.**"
+**One row binds — the amount, and only the amount.**
+`fibo-fnd-acc-cur:MonetaryAmount` is a `cmns-qtu:ScalarQuantityValue` with a
+**required** `hasCurrency`, and `(value numeric, unit text)` is exactly that
+shape: `unit` carries ISO 4217, USD on 15,051 rows and CAD on 4.
+
+**Everything else is a permanent boundary, not a gap.** Verified against the
+`edmcouncil/fibo` clone at `119fa8c`, 295 `.rdf` files: `FinancialReport`,
+`FinancialStatement`, `Revenue`, `Assets`, `Liabilities`, `NetIncome`,
+`InterestExpense`, `OperatingIncome`, `LongTermDebt`, `Depreciation`,
+`ReportingPeriod`, `Filing` and `RegulatoryFiling` are **declared nowhere**.
+
+> **FIBO models financial ENTITIES, INSTRUMENTS and RELATIONSHIPS. It does not
+> model FINANCIAL REPORTING** — not the reported fact, the line item, the fiscal
+> period, the filing, the accession, or the restatement chain.
+
+So this document's reading is confirmed and `[UNMAP]` is **correct and
+permanent** for the reporting-shaped rows. The `ex:` predicates already carrying
+`tag`, `period_end`, `fiscal_period`, `accession` and `filed_date` are their
+right and final home. The article's *"coverage is closed"* was **true** — no term
+was missing; it read as false because a product with no section looks
+unexamined, and a section saying *"nothing to bind, and here is why"* is being
+added.
+
+#### THREE NEAR-MISSES THAT MUST NOT BE BOUND
+
+`Income`, `Debt` and `Amortization` **are** declared in FIBO, and none of them
+means what a spread line means. **FIBO's `Debt` is an instrument, not a
+balance-sheet line** — its neighbours are `CollateralizedDebtObligation` and
+`BasketOfDebtInstruments`. It models what a debt *is*, never how much debt
+appeared on a balance sheet in a quarter.
+
+**Binding `LongTermDebt` to it would be the invented binding this document
+warned against, and it would have looked plausible in review.** Recorded here
+because the next author to meet an empty ontology column will find these three
+first.
+
+**Nothing here ever blocked the build.** This product writes nothing to
+`fibo-v2` and asserts no types (§C.2, gate `OFS-G05`). The binding mattered at
+rung 05, where `credit-exposure-rollup` needs these figures attached to entities
+the graph types — and it was closed before rung 05, as asked."
 
 ### C.2 Capability decomposition
 
@@ -1158,7 +1190,7 @@ comparing totals — rung 01's *"a count is not a roster."*
 | 19 | `λ_c` measured against read frequency | §E.1 | this build | **P8** |
 | 20 | Per-component `D_c` contributions — 5 rows | §E.2 | this build | **P8** |
 | 21 | A coverage manifest in `spec_coverage.py` — currently `[UNMAP]` | §C preamble | `ccf_dataprep` | — |
-| 22 | **Ontology IRI — the seven attribute rows of §C.1** (1, 2, 3, 4, 5, 8, 9, 10). The binding article has **no vocabulary for this product at all** and claims closed coverage | §C.1, §C.1.1 | `ccf_dataprep` | **before rung 05**, not before Gate 2 |
+| 22 | **Ontology IRI — CLOSED 2026-08-30 by `ccf_dataprep`.** `value` + `unit` bind to `fibo-fnd-acc-cur:MonetaryAmount`; every reporting-shaped column is **`[UNMAP]` permanently**, because FIBO models entities, instruments and relationships and does not model financial reporting. Rows 5 and 9 (SIC/cohort, entitlement) were not in the question and stay open | §C.1, §C.1.1 | `ccf_dataprep` | **rows 5 and 9 only** |
 | 23 | **Catalog currency.** Every §C and §E figure is dated 2026-08-29 against a **live** estate; [[estate-data-catalog]] is stamped 2026-08-30T01:56:48Z at commit `5206155`. Neither is a stability promise | §F.3 | `ccf_dataprep` — regeneration on request | re-confirmed at **Gate 2** |
 | 24 | **Two-store deviation.** The vault article declares `capability_classes: [relational]` and the ladder puts the first multi-store product at rung 04. This product reads **Fluree for the policy binding** on Dave's ruling of 2026-08-29, **staged out of Gate 2** (§C.6.1) so the vault's term is not overtaken by a build. Tier and build order are the **vault's** under the §1 ownership table | §0.4, §C.6.1 | **vault** | — |
 | 25 | **Which `PolicyVersion` family binds this product** — `credit-policy-v*` carries the window but no values; `credit-memo-policy-v*` carries `debtToleranceDefault` and is named for rung 14 | §C.6, §F.4 finding 12 | **product owner** + `ccf_dataprep` | certification |
@@ -1325,13 +1357,30 @@ phantoms which return **zero rows**, one of which (`ex:AdministrativeAgent`) is 
    inherited claim wearing a measurement's clothes.** Fixed; recorded because
    the class recurs.
 
-8. **The FIBO binding has no vocabulary for this product, and claims closed
-   coverage.** Zero occurrences of `obligor-financial-spread`, `XBRL`,
-   `companyfacts`, `FinancialReport`, `Revenue` or `MonetaryAmount`, against
-   product-named sections for eleven other products. The entity is bound and the
-   attributes are not — a **structural boundary** of an entity-relationship
-   ontology, not an oversight (§C.1.1). **Owner `ccf_dataprep`; needed before
-   rung 05, not before Gate 2 here.**
+8. **The FIBO binding has no vocabulary for this product — RAISED AND ANSWERED,
+   and the answer is a boundary rather than a gap.** Reported 2026-08-30 against
+   zero occurrences of `obligor-financial-spread`, `XBRL`, `companyfacts`,
+   `FinancialReport` or `Revenue`, with the reading that the entity is bound and
+   the attributes are not. `ccf_dataprep` ruled the same day: `value` + `unit`
+   bind to `fibo-fnd-acc-cur:MonetaryAmount`, and **everything reporting-shaped
+   is `[UNMAP]` permanently** — *"FIBO models financial ENTITIES, INSTRUMENTS and
+   RELATIONSHIPS. It does not model FINANCIAL REPORTING."* The article's
+   *"coverage is closed"* was **true**; it read as false because a product with
+   no section looks unexamined.
+
+   **The trap this avoided, recorded because the next author will meet it
+   first:** `Income`, `Debt` and `Amortization` **are** declared in FIBO and none
+   means what a spread line means — **FIBO's `Debt` is an instrument, not a
+   balance-sheet line**, neighbored by `CollateralizedDebtObligation`. Binding
+   `LongTermDebt` to it *"would have looked plausible in review."*
+
+   **And the methodology, which is this project's own rule arriving from the
+   other side:** `ccf_dataprep`'s first pass returned zero for **every** term
+   *including one they already bind* — a broken pattern, not an absence, because
+   FIBO writes `rdf:about="&prefix;Name"` in entity-reference form. They caught
+   it with a **positive control on a term known to exist**, one step from
+   publishing eighteen false absences. *"If you ever check FIBO for a term, make
+   the search find something first."*
 
 7. **`spread_observation` is a naming collision waiting to happen** — 47,849
    rows of credit spreads one `ILIKE '%spread%'` away from this product.
@@ -1368,7 +1417,7 @@ to contrast with.
 | **`OFS-G02`** | Resolution goes **through `crosswalk`**; `financial_fact.cik` is never the resolution path | §C.3 · 50 of 50, 0 orphans |
 | **`OFS-G03`** | The restatement key is the estate's declared identity `(lei, tag, unit, period_end, fiscal_period)`; the census is **321** — not 392, not 410, not 3,547 | §C.4 trap 1 |
 | **`OFS-G04`** | Item 4.02 is **corroboration, never the detector** — a restatement without a 4.02 is still detected (28 of 37), and a 4.02 without a value change is not reported as restated (2 of 11) | §C.4 trap 2 |
-| **`OFS-G05`** | `spread_observation` is never read. **At Gate 2: no store but Postgres is opened at all.** After §C.6.1: the only Fluree read is the `ex:PolicyVersion` lookup — never `PriorObservation`, no edge traversal, no payload attribute from the ledger | §C.6.1, §C.4 trap 4 |
+| **`OFS-G05`** | `spread_observation` is never read — asserted **by row count, not by sampling**: the two populations differ by three orders of magnitude (47,849 spread rows against 50 rating nodes), so a count catches a swap and a sample does not (`ccf_dataprep` known-issues §57). **At Gate 2: no store but Postgres is opened at all.** After §C.6.1: the only Fluree read is the `ex:PolicyVersion` lookup — never `PriorObservation`, no edge traversal, no payload attribute from the ledger | §C.6.1, §C.4 trap 4 |
 | **`OFS-G06`** | `as_of` is refused **`400 not_supported_at_tier`**, never silently honored | §B.5 |
 | **`OFS-G07`** | **No LLM client is reachable** from any §D step — Assembly Mode 1 | §B.3 |
 | **`OFS-G08`** | The obligor with no revenue tag serves `NOT_EVALUABLE`, **never `0`** | §C.4 trap 5 · 1 of 50 |
