@@ -56,7 +56,7 @@ and the upgraded examples.
 - [x] **Phase 24.1: The First Context Product — One Store, One Source, a Deterministic Operator** (INSERTED) - The FIRST example on the Context Production ladder, and the instrument that **PRESSURE TESTS the SDK's surface against the Specification Standard**. A new, deliberately simple product — institutional holders above a caller-chosen threshold — one store, one system of record (SEC 13F in `ccf_dataprep` Postgres), Assembly Mode 1 in-process and deterministic, spec authored to the FULL Standard, printing SPECIFICATION beside RESULTING JSON. Live-leg CI on the `s1-00` precedent; README **and** published page. **Records SDK gaps and closes NONE** — extension is a separate phase — and every proposed gap is DRIFT-CHECKED first, because the spec derived from the SDK requirements and a long gap list is a drift signal rather than a normal outcome. Trees are `cp-NN-<slug>`; the retired `sN-` scheme is not revived, and `EXAM-01`/`EXAM-03`/`DOCS-11` are RE-POINTED rather than left owing work against names nothing will create. **Nineteen Success Criteria LOCKED before planning** (`D-GATE-19`).
 - [x] **Phase 24.1.1: The Two Protocol-Shaped Seams — Deployment Operators and Refusal as Data** (INSERTED) - Closes `D-59` and `D-60`, the two Protocol-shaped gaps Phase 24.1 recorded, before the next Context Product example depends on them. Scope FENCED at the gate by `D-IMPL-213`: those two and nothing else.
 - [ ] **Phase 24.2: The Second Context Product — Counterparty Reference Snapshot, One Store and Five Systems of Record** (INSERTED) - `cp-01`, rung 01 of the vault's ladder and the product every other product resolves identity through. Single STORE (Postgres), **five SYSTEMS OF RECORD**, which is the point rather than an obstacle (`24-CONTEXT.md` `D-29`). Built in the vault's COMPLEXITY order, never readiness order — a proposal to take `obligor-financial-spread` first BECAUSE ITS DATA WAS RICHER was refused (`D-IMPL-219`). *(Checklist row added 2026-08-29: the phase had a detail section and no bullet here, so the checklist skipped from 24.1.1 to 24.3 and read as though 24.2 did not exist.)*
-- [ ] **Phase 24.3: Credit Spreading — Obligor Financial Spread (cp-03), Gate 2** (INSERTED) - `cp-03`, rung 03 and the LAST of Tier 1, discharging the Gate-1 specification Dave approved 2026-08-29 at `310225b`. Teaches **attribute-level temporal validity** — one freshness per product stops being enough — and demonstrates `basis`, the catalog's first parameter where both settings are correct and the decision picks. **Forty Success Criteria LOCKED before planning** (`D-GATE-19`), **weighted toward the CENSUS rather than the mechanism**: every serious defect found while specifying this product was a measurement defect, four wrong counts before a line of code existed, so criteria 13–18 require each wrong method to produce its specific wrong number AND fail. The Policy OPERATOR is in the plan (`empty-operator-guard`); the Fluree binding SOURCE is staged out of this gate as one unit with §C.1 element 11 and `OFS-G14`.
+- [ ] **Phase 24.3: Credit Spreading — Obligor Financial Spread (cp-03), Gate 2** (INSERTED) - `cp-03`, rung 03 and the LAST of Tier 1, discharging the Gate-1 specification Dave approved 2026-08-29 at `310225b`. Teaches **attribute-level temporal validity** — one freshness per product stops being enough — and demonstrates `basis`, the catalog's first parameter where both settings are correct and the decision picks. **Forty Success Criteria LOCKED before planning** (`D-GATE-19`), **weighted toward the CENSUS rather than the mechanism**: every serious defect found while specifying this product was a measurement defect, four wrong counts before a line of code existed, so criteria 13–18 require each wrong method to produce its specific wrong number AND fail. The Policy OPERATOR is in the plan (`empty-operator-guard`), reading Postgres entitlement and emitting `policy_version` from the Control Plane artifact. **A Fluree policy-version binding was specified in this product and then REMOVED from it entirely** (Dave, 2026-08-30) — this product reads ONE store.
 
 ## Phase Details
 
@@ -2647,13 +2647,19 @@ question. So the criteria gate the census as heavily as the mechanism, and
 criteria 13–18 exist because a wrong method here produces a *plausible* number
 and no error.
 
-**Staging, ruled by Dave 2026-08-29.** The Policy **operator** is IN the plan —
+**ONE STORE, ruled by Dave 2026-08-30.** The Policy **operator** is in the plan —
 it is the only operator, and an empty plan fails `empty-operator-guard`, so the
-product cannot serve without it. The **binding SOURCE** is staged: Gate 2 reads
-`policy_version` from the Control Plane artifact and the Fluree half waits.
-Deferred as one unit: §C.1 element 11, the Fluree halves of §C.2 and §F.3, and
-gate `OFS-G14`. `OFS-G05` SPLITS rather than weakens — at Gate 2 it asserts no
-store but Postgres is opened at all.
+product cannot serve without it. It reads Postgres entitlement and emits
+`policy_version` from the Control Plane artifact.
+
+A Fluree policy-version binding was specified here, staged out of the build, and
+then **removed from this product entirely**: the spec carried thirteen sections
+about a store the build never opened, which describes an intention rather than a
+product. The design moves to the rung that reads `ex:PolicyVersion`; the
+discovery it produced — `debtToleranceDefault` moving 0.3 → 0.25 across a
+supersession — is retained at spec §F.4 finding 12. `OFS-G14` is retired with it,
+leaving fourteen gates: `OFS-G01`…`OFS-G13` plus `OFS-G15`. `OFS-G05` asserts no
+store but PostgreSQL is opened at all.
 
 **Success Criteria** (what must be TRUE) — **LOCKED 2026-08-29, BEFORE PLANNING
 AND BEFORE WAVE 1**, per `D-GATE-19`'s forward binding. Each criterion is ONE
@@ -2677,7 +2683,7 @@ digit, so a real continuation-line detector is required beside the count.
   14. Grouping on the key this specification itself invented, `(lei, tag, unit, period_start, period_end)`, yields **392** rather than 321 and the criterion FAILS
   15. Counting distinct accessions instead of distinct values yields **3,547** rather than 321 and the criterion FAILS, so accession multiplicity can never be read as restatement
   16. Joining with `JOIN ... USING (period_start)` drops all 8,088 instant facts and yields **280** rather than 321 and the criterion FAILS, so a duration-only census cannot look green
-  17. Reading a Fluree predicate count by `COUNT(DISTINCT ?p)` or `GROUP BY ?p` yields **178** or **198** rather than 171 and the criterion FAILS, so an aggregate can never stand in for enumeration
+  17. WITHDRAWN 2026-08-30 with the Fluree design. It asserted Fluree predicate counts (178/198 against 171); Fluree is not read by this product at all, so the control has no subject here and moves to the rung that reads that store — the methodology it records is kept at spec §F.4 finding 11
   18. Each control in criteria 13–17 is executed as a test asserting BOTH its specific wrong number AND the failure, so a control that stops discriminating is itself detected rather than passing quietly
   19. `OFS-G01` is sabotaged by serving a duration-only payload and observed RED
   20. `OFS-G02` is sabotaged by resolving through `financial_fact.cik` instead of `ccf_v2.crosswalk` and observed RED
@@ -2700,7 +2706,7 @@ digit, so a real continuation-line detector is required beside the count.
   37. The same request at the same pinned `asked_at` produces a byte-identical payload and content address across two runs
   38. `basis=as-reported` and `basis=latest-restated` produce DIFFERENT content addresses for a restated obligor and IDENTICAL ones for an unrestated obligor
   39. The printed run in the README and on the documentation page reproduces byte-for-byte against the named pin, and no `load_*` step appears on the demonstrated path
-  40. The Fluree policy binding at §C.6, §C.1 element 11 and gate `OFS-G14` are SPECIFIED AND NOT BUILT at this gate, `policy_version` is sourced from the Control Plane artifact, and §C.6.1 and §D.3 SAY SO IN WORDS so no reader concludes Fluree was exercised
+  40. No Fluree connection is opened and no Fluree section exists in `ccf_config.yaml` or `backends.yaml` — the policy-version binding was specified in this product and then MOVED OUT of it entirely (Dave, 2026-08-30), because a specification carrying thirteen sections about a store its build never touches describes an intention rather than a product; the discovery it produced is retained at spec §F.4 finding 12
   41. The thirteen `[TBC]` rows owned by the vault, `ccf_dataprep`, identity-and-access and the product owner are NOT closed by this build and are NOT invented by it
 
 

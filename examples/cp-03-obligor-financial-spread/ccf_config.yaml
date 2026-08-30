@@ -1,0 +1,194 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE SINGLE DEPLOYMENT DOCUMENT — every Control Plane section this example puts
+# in force, in one file. `load_config_and_boot` derives and parses each section,
+# registers the `role: register` ones, and boots on the resulting pins.
+#
+# NO CONNECTION VALUE APPEARS HERE. The backend is named as a KIND; how it is
+# reached is `backends.yaml`, and where it is lives only in the environment. A
+# DSN in a content-hashed artifact is a DSN persisted into the audit plane
+# forever.
+
+semver: "1.0.0"
+tenant_id: cp-03-demo
+backend: sqlite
+
+# ---------------------------------------------------------------------------
+# The product class — spec §B.1's nine elements, as Control Plane state.
+# ---------------------------------------------------------------------------
+product_class:
+  schema_name: credit-risk.spread
+  schema_version: "1.0.0"
+
+  # §B.1 element 3, and §B.1.1 is the argument. The expiry is a function of the
+  # FILINGS THE PAYLOAD CONSUMED, never of the request. The vault's test, ruled
+  # 2026-08-30: a freshness anchor must be an OBSERVATION TIMESTAMP THAT MOVES,
+  # and `filed_date` moves because filers file quarterly.
+  ttl_anchor: from_entity_freshness
+
+  # §B.1 element 9, DECLARED in the vault article 2026-08-30 rather than
+  # inferred here. No LLM is reachable from any §D step; `OFS-G07` asserts it.
+  assembly_mode: algorithmic
+
+  max_ttl_key: cp-03/product/obligor-financial-spread/max-ttl
+
+  # ONE operator. Spec §D.2.1: the attribute batch-select is L2 assembly and is
+  # deliberately NOT an `Enrich` operator — `Enrich` is 0 hits in `src/`, and
+  # forcing it into one of the four canonical categories would be a fake
+  # mapping that made the lineage record say something untrue. `OFS-G10` is the
+  # tripwire that turns RED if the §10.2 vocabulary is later adopted.
+  required_operator_keys:
+    - policy.principal-subgraph
+
+# ---------------------------------------------------------------------------
+# The L4 operator parameters. ONE entry, so `build_operator_registry` returns a
+# one-operator registry — §D.2.
+# ---------------------------------------------------------------------------
+operators:
+  policy.principal-subgraph:
+    # The obligor carries the jurisdiction, so the filter reads the attribute
+    # the ENTITY holds. There is no per-fact jurisdiction: a financial fact has
+    # no nationality of its own, it inherits the filer's.
+    classification_attribute_by_class:
+      obligor: obligor_jurisdiction
+
+    # THE DEFAULT PRINCIPAL'S EXPANDED GRANT, and it is a DEFAULT rather than
+    # the rule. `deployment.py` expands the CALLING principal's prefixes against
+    # the jurisdictions the estate actually holds and hands the result to
+    # `build_operator_registry` per request — so this list is what the
+    # deployment falls back to, never what any principal is held to.
+    #
+    # Expansion is `= prefix OR LIKE prefix || '-%'`, NOT `LIKE prefix || '%'`.
+    # A grant of `US` reaches `US` itself and `US-DE`, and must not reach a
+    # jurisdiction that merely starts with those letters.
+    #
+    # MEASURED CONSEQUENCE — entitlement DISCRIMINATES here, §B.2:
+    #     PRIN-RES-002  research-analyst   49 of 50 obligors
+    #     PRIN-COV-001  coverage-banker    47 of 50
+    #     PRIN-KYC-004  kyc-analyst         0 of 50
+    #     PRIN-TRD-003  trader              0 of 50
+    # and one obligor — the sole NZ filer — is visible to no principal at all.
+    # `OFS-G15` holds all four populations AND `49 != 47`, because two
+    # legitimate zeroes are exactly the condition under which a broken check
+    # looks correct.
+    permitted_classifications:
+      - US
+      - US-DE
+      - US-FL
+      - US-MD
+      - US-MN
+      - US-NV
+      - US-NY
+      - US-OH
+      - US-TX
+      - US-WA
+
+# ---------------------------------------------------------------------------
+# The request contract — spec §B.4. Checked at the door, before the graph is
+# touched, so a question this class does not answer costs nothing.
+# ---------------------------------------------------------------------------
+request_contract:
+  class_id: cp-03.request-contract
+  role: register
+  registration: typed
+  schema_name: credit-risk.spread
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      intent:
+        type: string
+        description: selects the policy envelope and the intent-bound ratio definitions
+      periods:
+        type: integer
+        description: how many periods of history to spread
+      basis:
+        type: string
+        description: >-
+          as-reported returns each figure as it was FILED for that period;
+          latest-restated returns it as most recently amended. Different numbers
+          for the same period, and which is correct depends on the decision.
+      include_peers:
+        type: boolean
+        description: peer comparison at identical period_end, never at identical filing date
+      peer_basis:
+        type: string
+        description: sic or sic-and-size
+      debt_tolerance:
+        type: number
+        description: the ceiling above which assembly refuses with 409 and the debt block
+      as_of:
+        type: string
+        description: DECLARED AND INERT — refused, never honored. See unsupported_arguments.
+    required:
+      - intent
+      - debt_tolerance
+
+  # §B.5. Reconstructing a spread as it stood on a past date needs ledger
+  # time-travel, which arrives at Tier 3. Refusing loudly is the tier boundary
+  # doing its job rather than a gap; `OFS-G06` asserts the refusal.
+  unsupported_arguments:
+    as_of: >-
+      reconstructing the spread as it stood on a past date requires ledger
+      time-travel and arrives at Tier 3 with covenant-in-force-as-of. This tier
+      serves the spread as it stands, with every figure naming the filing that
+      asserted it.
+
+# ---------------------------------------------------------------------------
+# L2 entity resolution — one entity class, no relationships. This product has
+# no `R` at all, which is what makes it the last rung before the graph.
+# ---------------------------------------------------------------------------
+resolution:
+  entity_rules:
+    - match_key: obligor_ref
+      entity_class: obligor
+      identity_keys:
+        - lei
+      attribute_keys:
+        - cik
+        - obligor_legal_name
+        - obligor_jurisdiction
+        - fiscal_year_end_month
+        - latest_filed_date
+        - formally_restated
+        - spread_periods
+        - peer_comparison
+  relationship_rules: []
+
+# ---------------------------------------------------------------------------
+# Half-life — spec §E.1. PER SIGNAL CLASS, not per product, which is this
+# rung's whole subject: a payload mixing an annual with a current quarter
+# carries two decay rates at once and a single product-level figure could not
+# express it.
+# ---------------------------------------------------------------------------
+half_life:
+  annual_facts:
+    half_life_seconds: 31536000      # ~365d — superseded by the next annual filing
+    decay_driver: filing-cadence
+    supersession_event: new-10-K-accession
+  quarterly_facts:
+    half_life_seconds: 7776000       # ~90d — superseded by the next quarterly filing
+    decay_driver: filing-cadence
+    supersession_event: new-10-Q-accession
+  restatement:
+    half_life_seconds: 0             # event-driven; rewrites a closed period
+    decay_driver: event
+    supersession_event: value-changed-across-accessions
+  peer_set:
+    half_life_seconds: 15552000      # ~180d — drifts as filers change SIC or exit
+    decay_driver: cohort-drift
+    supersession_event: sic-reclassification
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+policy:
+  class_id: cp-03.policy-bundle
+  role: register
+  registration: typed
+  regime: obligor-financial-spread-entitlement
+
+default_perspective:
+  principal_id: PRIN-COV-001
+  role: analyst
