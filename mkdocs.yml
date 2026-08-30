@@ -174,15 +174,21 @@ nav:
           - Product registration: reference/artifacts/product-registration.md
           - Deployment manifest: reference/artifacts/deployment-manifest.md
       # Context Product specifications ship WITH the SDK (Dave, 2026-08-29):
-      # the authoring standard, the generation recipe, and one CP-SPEC per
-      # Context Product. `public/` is the whole published surface and
-      # publication is default-deny by existence (D-01), so a spec that ships
-      # is a spec that lives here and carries a nav entry.
+      # the authoring standard, the generation recipe and the delivery recipe
+      # — the three GOVERNING documents, and nothing else. `public/` is the
+      # whole published surface and publication is default-deny by existence
+      # (D-01).
+      #
+      # Individual CP-SPECs do NOT live here (Dave, 2026-08-29). A specification
+      # lives in its own example's `spec/` directory, beside the artifacts and
+      # code it governs. `CP-SPEC-001` sat here only to bootstrap the authoring
+      # process and was deleted at `2709a39` once it had served that purpose —
+      # by then it had drifted to 640 lines against a 1,355-line canonical
+      # source, silently dropping every section that recorded an open question.
       - Specifications:
           - Authoring standard v0.3: reference/specifications/Context_Product_Specification_Standard_v0-3.md
           - How a spec is generated: reference/specifications/spec_generation.md
           - How an example is delivered: reference/specifications/example_delivery.md
-          - "CP-SPEC-001 — Counterparty Reference Snapshot": reference/specifications/CP-SPEC-001_Counterparty_Reference_Snapshot.md
       - HTTP API: reference/http-api.md
       - Performance: reference/performance.md
       # D-17 placement: the surface-record toolchain is maintainer-facing, so it

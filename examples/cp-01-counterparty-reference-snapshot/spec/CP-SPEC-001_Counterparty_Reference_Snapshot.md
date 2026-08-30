@@ -373,13 +373,23 @@ vault article: `corporate-family-tree`, `kyc-refresh-beneficial-ownership`.
 | Exposure and limits | excluded by the scope boundary above | `credit-exposure-rollup` |
 
 > **This scope was contested, and the resolution is recorded rather than assumed.**
-> An exemplar of this spec placed at
+> A **bootstrap exemplar** of this spec, formerly at
 > `public/reference/specifications/CP-SPEC-001_Counterparty_Reference_Snapshot.md`
-> declares `internal_risk_grade`, `coverage_rm_id`, `coverage_team` and `coverage_lob`
-> in its payload. **That exemplar is a control for comparison, not an authority**
+> and **deleted 2026-08-29**, declared `internal_risk_grade`, `coverage_rm_id`,
+> `coverage_team` and `coverage_lob` in its payload.
+> **That exemplar was a control for comparison, not an authority**
 > (`spec_generation.md` §7.1, §10.1). Scope boundary is the **vault's** term under the
 > §1 ownership table, and the vault excludes grade. `ccf_dataprep` built to the vault's
 > reading and carries none of those fields.
+>
+> **Why the exemplar no longer exists.** It was scaffolding for bootstrapping the
+> authoring process (Dave, 2026-08-29). `public/reference/specifications/` carries
+> the three **governing** documents only — the authoring standard, the generation
+> recipe and the delivery recipe; **a specification lives in its own example's
+> `spec/` directory**, beside the artifacts and code it governs. The exemplar is
+> retained in git history at **`2709a39`**, which is where this comparison stays
+> reproducible. The four fields it declared are named above, so the argument does
+> not depend on the file surviving.
 >
 > **The arithmetic consequence, stated because it is the interesting half.** Under the
 > exemplar's own per-component debt table the absent overlay contributes **0.30 `D_c`**
