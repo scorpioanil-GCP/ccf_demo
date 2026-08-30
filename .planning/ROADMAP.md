@@ -55,6 +55,8 @@ and the upgraded examples.
 - [ ] **Phase 24: Context Production — Assembling Context Products from Simple to Complex** (INSERTED) - Context Product creation, the heart of the CCF SDK, demonstrated through a ladder of examples that grows from single-store deterministic assembly to agentic assembly across an A2A boundary; every example prints its SPECIFICATION and the RESULTING JSON side by side. **DESCRIPTION BANKED, NOT PLANNED** — Dave supplied the requirements 2026-08-25 and confirmed it starts as soon as `23.1` closes; `D-GATE-19` binds Success Criteria to the discuss sitting, so none are written here. **TWO SDK-surface impacts found and raised to Dave, both UNRULED**: the standard's closed eight-operator vocabulary against the SDK's four categories, and its six universal validation gates against the SDK's three with `D-IMPL-102` limb 3 ruling that no fourth joins.
 - [x] **Phase 24.1: The First Context Product — One Store, One Source, a Deterministic Operator** (INSERTED) - The FIRST example on the Context Production ladder, and the instrument that **PRESSURE TESTS the SDK's surface against the Specification Standard**. A new, deliberately simple product — institutional holders above a caller-chosen threshold — one store, one system of record (SEC 13F in `ccf_dataprep` Postgres), Assembly Mode 1 in-process and deterministic, spec authored to the FULL Standard, printing SPECIFICATION beside RESULTING JSON. Live-leg CI on the `s1-00` precedent; README **and** published page. **Records SDK gaps and closes NONE** — extension is a separate phase — and every proposed gap is DRIFT-CHECKED first, because the spec derived from the SDK requirements and a long gap list is a drift signal rather than a normal outcome. Trees are `cp-NN-<slug>`; the retired `sN-` scheme is not revived, and `EXAM-01`/`EXAM-03`/`DOCS-11` are RE-POINTED rather than left owing work against names nothing will create. **Nineteen Success Criteria LOCKED before planning** (`D-GATE-19`).
 - [x] **Phase 24.1.1: The Two Protocol-Shaped Seams — Deployment Operators and Refusal as Data** (INSERTED) - Closes `D-59` and `D-60`, the two Protocol-shaped gaps Phase 24.1 recorded, before the next Context Product example depends on them. Scope FENCED at the gate by `D-IMPL-213`: those two and nothing else.
+- [ ] **Phase 24.2: The Second Context Product — Counterparty Reference Snapshot, One Store and Five Systems of Record** (INSERTED) - `cp-01`, rung 01 of the vault's ladder and the product every other product resolves identity through. Single STORE (Postgres), **five SYSTEMS OF RECORD**, which is the point rather than an obstacle (`24-CONTEXT.md` `D-29`). Built in the vault's COMPLEXITY order, never readiness order — a proposal to take `obligor-financial-spread` first BECAUSE ITS DATA WAS RICHER was refused (`D-IMPL-219`). *(Checklist row added 2026-08-29: the phase had a detail section and no bullet here, so the checklist skipped from 24.1.1 to 24.3 and read as though 24.2 did not exist.)*
+- [ ] **Phase 24.3: Credit Spreading — Obligor Financial Spread (cp-03), Gate 2** (INSERTED) - `cp-03`, rung 03 and the LAST of Tier 1, discharging the Gate-1 specification Dave approved 2026-08-29 at `310225b`. Teaches **attribute-level temporal validity** — one freshness per product stops being enough — and demonstrates `basis`, the catalog's first parameter where both settings are correct and the decision picks. **Forty Success Criteria LOCKED before planning** (`D-GATE-19`), **weighted toward the CENSUS rather than the mechanism**: every serious defect found while specifying this product was a measurement defect, four wrong counts before a line of code existed, so criteria 13–18 require each wrong method to produce its specific wrong number AND fail. The Policy OPERATOR is in the plan (`empty-operator-guard`); the Fluree binding SOURCE is staged out of this gate as one unit with §C.1 element 11 and `OFS-G14`.
 
 ## Phase Details
 
@@ -2619,6 +2621,87 @@ unruled question is raised, never resolved in-phase (`CLAUDE.md` §11); rewritin
 **PAUSE AFTER THE BUILD.** Dave's standing instruction, 2026-08-28: *"We will
 pause after it's built so I can evaluate."* No close panel, no `D-GATE`, no
 completion mark until he has evaluated it.
+
+### Phase 24.3: Credit Spreading — Obligor Financial Spread (cp-03), Gate 2 (INSERTED)
+
+**Goal**: build `obligor-financial-spread` as a Context Product example — **rung
+03 of the vault's ladder and the last of Tier 1** — discharging the Gate-1
+specification approved by Dave 2026-08-29 at `310225b`.
+
+**Why `24.3` and not `24.1` or `24.2`** (Dave, 2026-08-29): both numbers already
+mean something else — `24.1` is `cp-00-institutional-holders` and `24.2` is
+`cp-01-counterparty-reference-snapshot` — and parking a third product under
+either makes the phase counters report work against a home that did not do it.
+
+**Gate 1 is CLOSED.** `CP-SPEC-003` is authored, approved and committed; the
+example tree holds the specification and nothing else, and `is_pre_build`
+classifies it that way against 0 `.py` files.
+
+**What this rung teaches, and why the criteria are weighted the way they are.**
+The subject is **attribute-level temporal validity** — one freshness per product
+stops being enough. But the risk is not mechanism: the assembly is one operator,
+one lookup, a batch-select and a derivation. **Every serious defect found while
+specifying this product was a MEASUREMENT defect** — four wrong counts before a
+line of code existed, all of one class, a check whose population was not its
+question. So the criteria gate the census as heavily as the mechanism, and
+criteria 13–18 exist because a wrong method here produces a *plausible* number
+and no error.
+
+**Staging, ruled by Dave 2026-08-29.** The Policy **operator** is IN the plan —
+it is the only operator, and an empty plan fails `empty-operator-guard`, so the
+product cannot serve without it. The **binding SOURCE** is staged: Gate 2 reads
+`policy_version` from the Control Plane artifact and the Fluree half waits.
+Deferred as one unit: §C.1 element 11, the Fluree halves of §C.2 and §F.3, and
+gate `OFS-G14`. `OFS-G05` SPLITS rather than weakens — at Gate 2 it asserts no
+store but Postgres is opened at all.
+
+**Success Criteria** (what must be TRUE) — **LOCKED 2026-08-29, BEFORE PLANNING
+AND BEFORE WAVE 1**, per `D-GATE-19`'s forward binding. Each criterion is ONE
+LINE: a wrapped criterion parses as a single verification truth, and the
+criterion COUNT is not a wrap guard — a continuation line does not start with a
+digit, so a real continuation-line detector is required beside the count.
+
+  1. A Context Product specification exists for `obligor-financial-spread`, authored to the FULL Standard — front matter plus sections A–G — and its Gate 1 approval is recorded in the document itself; a spec still reading `reviewer pending` is RED
+  2. The build re-derives the restatement census from `ccf_v2.financial_fact` AT GATE TIME and reports exactly **321** groups; a hard-coded constant, an imported fixture or a figure copied from the spec is RED
+  3. The build re-derives the restated-obligor population and reports exactly **37 of 50** distinct `lei`
+  4. The build re-derives the material band (relative change >= 5%) and reports exactly **175** cells across **32** obligors
+  5. The build re-derives the precision band (relative change < 1%) and reports exactly **100** cells across **23** obligors
+  6. The build re-derives the middle band (1% to 5%) and reports exactly **46** cells across **15** obligors, and the three bands sum to 321 with no cell counted twice
+  7. The build re-derives the instant/duration split from `period_start IS NULL` and reports exactly **8,088** instant and **6,967** duration facts totalling 15,055
+  8. The build re-derives Item 4.02 coverage and reports exactly **11** obligors carrying a filing, **9** of them among the 37 restated, and **28** restated obligors carrying none
+  9. The build re-derives the accession census and reports **11,118** total fact-cells, **3,547** carrying more than one accession, and **3,226** carrying more than one accession at an identical value
+  10. The build re-derives crosswalk coverage and reports **50 of 50** obligors resolving through `ccf_v2.crosswalk` with **0** orphans
+  11. The build re-derives the fiscal-year-end distribution and reports exactly **16 of 50** obligors with a non-December latest fiscal year end, summing to 50
+  12. The build re-derives revenue-tag coverage and reports exactly **1** obligor carrying none of the four revenue tags, served `NOT_EVALUABLE` and never `0`
+  13. Grouping on the short key `(lei, tag, period_end)` yields **410** rather than 321 and the criterion FAILS, so a plausible 410 cannot look green
+  14. Grouping on the key this specification itself invented, `(lei, tag, unit, period_start, period_end)`, yields **392** rather than 321 and the criterion FAILS
+  15. Counting distinct accessions instead of distinct values yields **3,547** rather than 321 and the criterion FAILS, so accession multiplicity can never be read as restatement
+  16. Joining with `JOIN ... USING (period_start)` drops all 8,088 instant facts and yields **280** rather than 321 and the criterion FAILS, so a duration-only census cannot look green
+  17. Reading a Fluree predicate count by `COUNT(DISTINCT ?p)` or `GROUP BY ?p` yields **178** or **198** rather than 171 and the criterion FAILS, so an aggregate can never stand in for enumeration
+  18. Each control in criteria 13–17 is executed as a test asserting BOTH its specific wrong number AND the failure, so a control that stops discriminating is itself detected rather than passing quietly
+  19. `OFS-G01` is sabotaged by serving a duration-only payload and observed RED
+  20. `OFS-G02` is sabotaged by resolving through `financial_fact.cik` instead of `ccf_v2.crosswalk` and observed RED
+  21. `OFS-G03` is sabotaged by relaxing the restatement key and observed RED
+  22. `OFS-G04` is sabotaged by detecting restatement from Item 4.02 instead of value comparison and observed RED
+  23. `OFS-G05` is sabotaged by opening any store other than Postgres and observed RED
+  24. `OFS-G06` is sabotaged by silently honoring `as_of` instead of refusing `400 not_supported_at_tier` and observed RED
+  25. `OFS-G07` is sabotaged by making an LLM client reachable from a §D step and observed RED
+  26. `OFS-G08` is sabotaged by serving `0` for the revenue-less obligor instead of `NOT_EVALUABLE` and observed RED
+  27. `OFS-G09` is sabotaged by anchoring the expiry on `asked_at` instead of the latest `filed_date` and observed RED
+  28. `OFS-G10` is sabotaged by registering a second operator and observed RED
+  29. `OFS-G11` is sabotaged by making `basis` not change the content address for a restated obligor and observed RED
+  30. `OFS-G12` is sabotaged by emitting a derived line with an empty `inputs` and observed RED
+  31. `OFS-G13` is sabotaged by hard-coding the restatement threshold instead of reading `artifacts/restatement.yaml` and observed RED
+  32. No gate is recorded as passing until it has been observed RED at least once, and the sabotage applied to each is recorded with its observed result
+  33. Every derived ratio line carries a non-empty `inputs` naming each fact-cell it consumed, asserted in `tests/examples/` and in the recipe artifact
+  34. Every `inputs` entry resolves to a fact-cell present in the SAME served payload, so the check is closed over the payload and needs no SDK type
+  35. No file under `src/` is added or modified to satisfy criteria 33 or 34, verified by a per-member pathspec diff, and an SDK type appearing there is a new ruling rather than a passing build
+  36. The same request at the same pinned `asked_at` produces a byte-identical payload and content address across two runs
+  37. `basis=as-reported` and `basis=latest-restated` produce DIFFERENT content addresses for a restated obligor and IDENTICAL ones for an unrestated obligor
+  38. The printed run in the README and on the documentation page reproduces byte-for-byte against the named pin, and no `load_*` step appears on the demonstrated path
+  39. The Fluree policy binding at §C.6, §C.1 element 11 and gate `OFS-G14` are SPECIFIED AND NOT BUILT at this gate, `policy_version` is sourced from the Control Plane artifact, and §C.6.1 and §D.3 SAY SO IN WORDS so no reader concludes Fluree was exercised
+  40. The thirteen `[TBC]` rows owned by the vault, `ccf_dataprep`, identity-and-access and the product owner are NOT closed by this build and are NOT invented by it
+
 
 ## Progress
 
