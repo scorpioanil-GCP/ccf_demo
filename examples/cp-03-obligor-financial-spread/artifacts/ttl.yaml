@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THIS PRODUCT'S TTL AND ITS CEILING — spec §B.1 element 3, §B.1.1, gate `OFS-G09`.
+#
+# `ccf.controlplane.artifacts::ProductClassDeclaration` carries `max_ttl_key` —
+# the Control Plane KEY the ceiling registers under — and has no field for the
+# ceiling's VALUE. Registering the value is what MINTS its pin, so the value
+# cannot be a field of the document whose pin it becomes.
+#
+# `role: load`. A TTL declaration is a fact about the class, parsed and handed
+# back, not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-03.ttl
+
+declaration:
+  # 30 days, anchored `from_entity_freshness` (§B.1 element 3), and the vault's
+  # value — not recalibrated here.
+  declared_ttl_seconds: 2592000
+
+  # The ceiling `src/ccf/products/gates.py::_refuse_ttl` enforces as
+  # `now < expires_at <= now + MAX_TTL`. Equal to the declared TTL.
+  max_ttl_seconds: 2592000
+
+  # --------------------------------------------------------------------------
+  # THE ANCHOR — and this rung is where ONE anchor per product stops sufficing
+  # --------------------------------------------------------------------------
+  #
+  # `from_entity_freshness` here means the expiry is a function of THE FILINGS
+  # THE PAYLOAD ACTUALLY CONSUMED, not of the request and not of a wall clock. A
+  # payload assembled from a 10-K filed 2026-08-05 expires 30 days after
+  # 2026-08-05 whichever instant it was asked at. That much is rung 02's lesson
+  # inherited.
+  #
+  # WHAT IS NEW HERE: the anchor is chosen PER PAYLOAD from a SET of
+  # per-attribute filing dates, and choosing it is a real decision.
+  #
+  #   latest   — the payload is as fresh as its FRESHEST claim.  Optimistic:
+  #              a spread carrying one current quarter and four stale annuals
+  #              looks fresh.
+  #   earliest — the payload is as fresh as its STALEST claim.   Pessimistic,
+  #              and refuses far more.
+  #
+  # THIS DECLARATION TAKES `latest`, and `OFS-G09` asserts the shipped behavior
+  # and is written to turn RED if it is changed to `earliest`. That redness is
+  # the signal to reopen spec §F.4 finding 4 — it is not a regression.
+  ttl_anchor_basis: latest_filed_date_in_payload
+
+# ============================================================================
+# A MEASURED CONSEQUENCE OF THE ABOVE, RECORDED HERE BECAUSE THE BUILD WILL HIT
+# IT AND A READER SHOULD MEET IT BEFORE THE STACK TRACE DOES.
+# ============================================================================
+#
+# `filed_date` across 15,055 facts spans 2009-08-17 to 2026-08-13. Per obligor,
+# taking the LATEST filing and asking as of 2026-08-29 (measured 2026-08-29):
+#
+#     latest filing < 30 days old   -> SERVES     23 of 50
+#     30 .. 90 days                 -> refused    15
+#     90 days .. 1 year             -> refused     9
+#     > 1 year                      -> refused     3
+#                                                 -----
+#                                                   50
+#
+# So 23 of 50 obligors serve and 27 are refused on `ttl-bounds` at that instant.
+#
+# THIS IS NOT THE SAME FINDING RUNG 02 CARRIED, and the difference is worth
+# stating so the two are not merged in a reader's memory. Rung 02 refused 50 of
+# 60 because its anchor was a CREDIT AGREEMENT'S effective date, which is years
+# old by nature and does not refresh. This anchor is a FILING date, and filers
+# file quarterly — so the population that serves is the population that has
+# reported recently, which is exactly what a freshness anchor SHOULD mean.
+#
+# A refusal here is therefore the product working, not a finding awaiting a
+# ruling. The demonstration anchor `549300D0WZR1VI2QGB24` last filed 2026-08-05
+# and serves at the pinned instant with 24 days of its window remaining.

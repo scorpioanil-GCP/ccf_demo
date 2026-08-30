@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# HOW A RESTATEMENT IS IDENTIFIED, AND HOW ITS SEVERITY IS CLASSED —
+# spec §C.4 trap 1, §E.5, gates `OFS-G03` and `OFS-G13`.
+#
+# WHY THIS DOCUMENT EXISTS RATHER THAN TWO CONSTANTS IN `produce.py`.
+# Both values below are CREDIT-POLICY JUDGMENTS wearing numeric clothing. The
+# key decides what counts as the same fact; the threshold decides which
+# corrections a credit officer must see. Neither is discoverable in the data —
+# §E.5 measured the distribution and found it CONTINUOUS from rounding to
+# restatement with no natural gap — so a constant in code would be a policy
+# encoded where no reviewer looks for one.
+#
+# `role: load`. A classification rule is a fact about the product, parsed and
+# handed back; it is not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-03.restatement
+
+declaration:
+  # --------------------------------------------------------------------------
+  # 1 · THE KEY — what makes two rows THE SAME FACT
+  # --------------------------------------------------------------------------
+  #
+  # THIS IS THE ESTATE'S OWN PRIMARY KEY, MINUS `accession`. `ccf_v2.financial_fact`
+  # declares:
+  #
+  #     PRIMARY KEY (cik, tag, unit, period_end, fiscal_period, accession)
+  #
+  # Strip `accession` — the filing, which is exactly what a restatement varies —
+  # and what remains is the store's own statement of fact identity. `lei`
+  # substitutes for `cik` because the two are 1:1 across all 50 obligors,
+  # measured 2026-08-29 (50 leis / 50 ciks / 50 distinct pairs).
+  #
+  # A SHORTER KEY INVENTS RESTATEMENTS, MEASURED:
+  #
+  #     (lei, tag, period_end)                          410   <- currency + duration artifacts
+  #     + unit                                          407   <- 3 currency artifacts remain excluded
+  #     + unit, period_start                            392   <- this document's INVENTED key
+  #     + unit, fiscal_period   <- THE ESTATE'S          321   <- correct
+  #     + unit, period_start, fiscal_period              317   <- too strict; see below
+  #
+  # `period_start` was invented by an earlier draft of the specification and
+  # over-counted by 71 cells and 2 obligors. It and `fiscal_period` cut
+  # differently: 125 `(period_end, fiscal_period)` groups span more than one
+  # `period_start`. Adding BOTH drops four further cells, but a filer who
+  # restates a PERIOD BOUNDARY has restated the fact, and treating that as a
+  # different fact hides a real correction.
+  #
+  # `OFS-G03` asserts the census this key produces is 321 and not 392, 410 or
+  # 3,547 — and it is written so that RELAXING the key makes the number go UP
+  # and the gate go RED, because that is the direction a build under time
+  # pressure will move it.
+  fact_identity_key:
+    - lei
+    - tag
+    - unit
+    - period_end
+    - fiscal_period
+
+  # A restatement is a change of VALUE across filings, never a change of
+  # FILING COUNT. Measured on the key above, 2026-08-29:
+  #
+  #     total fact-cells                                     11,118
+  #     with more than one accession                           3,547
+  #     ...of those, IDENTICAL value (prior-period comparative) 3,226
+  #     with more than one distinct VALUE — restatements          321
+  #
+  # 3,226 of 3,547 are the same figure re-reported unchanged: a 10-K reports
+  # FY2021, and the following 10-Qs and next 10-K carry it again. Five
+  # accessions, one number, no restatement. `OFS-G04` asserts both directions.
+  detected_by: distinct_value_across_accessions
+
+  # --------------------------------------------------------------------------
+  # 2 · THE THRESHOLD — which corrections a credit officer must be shown
+  # --------------------------------------------------------------------------
+  #
+  # `restatement_class` is `material` when the relative change between the
+  # FIRST-FILED and LAST-FILED value reaches this fraction, `precision` below it.
+  #
+  #     |last - first| / |first|  >=  material_threshold   ->  material
+  #                               <   material_threshold   ->  precision
+  #
+  # THE VALUE IS A POLICY JUDGMENT AND IS PROVISIONAL — `[TBC — product owner]`,
+  # spec §F.2 row 8. `0.01` is PROPOSED here, not ruled.
+  #
+  # THE MEASURED DISTRIBUTION, WHICH IS WHY IT CANNOT BE DISCOVERED:
+  #
+  #     < 1%     precision   100 cells   23 obligors   ( 38 instant)
+  #     1% - 5%               46 cells   15 obligors   (  6 instant)
+  #     >= 5%    material    175 cells   32 obligors   ( 22 instant)
+  #                          ---------
+  #                          321 cells   37 obligors
+  #
+  # THERE IS NO NATURAL GAP. The distribution runs continuously from rounding to
+  # restatement with a substantial middle band, so no threshold falls out of the
+  # data — which is the whole argument for it living in a reviewed artifact
+  # rather than in a source file.
+  #
+  # BOTH ENDS ARE REAL, from ONE obligor (`549300D0WZR1VI2QGB24`, Digital
+  # Turbine, the demonstration anchor):
+  #
+  #     Revenues                      Q3 2017   38,031,000 -> 22,732,000   -40.2%   material
+  #     OperatingLeaseLiabilityNoncurrent FY 2024  5,747,000 ->  5,746,000  -0.017%  precision
+  #
+  # A credit officer cares enormously about the first and not at all about the
+  # second. A `basis` parameter that surfaced both identically would be
+  # technically correct and practically useless.
+  #
+  # `OFS-G13` asserts this value is READ rather than compiled in: changing the
+  # number here MUST move cells between classes. A build in which it does not
+  # has hard-coded the threshold, and the gate is what catches that.
+  material_threshold: "0.01"
+
+  # `first_v` of zero or NULL yields no defined relative change. The class is
+  # `NOT_EVALUABLE` — never a division, and never a silent default to
+  # `material`, which would inflate the material population with arithmetic
+  # accidents.
+  undefined_ratio_class: NOT_EVALUABLE
+
+  # --------------------------------------------------------------------------
+  # 3 · THE CORROBORATING SIGNAL — present, and NOT the detector
+  # --------------------------------------------------------------------------
+  #
+  # SEC 8-K Item 4.02 is "Non-Reliance on Previously Issued Financial
+  # Statements" — the filer's own declaration that a prior figure should not be
+  # relied on. It is the restatement EVENT, natively sourced in
+  # `ccf_v2.filing_profile.count_8k_item_4_02`.
+  #
+  # IT IS NOT SUFFICIENT, MEASURED 2026-08-29:
+  #
+  #                          has 4.02   no 4.02   total
+  #     value changed              9        28      37
+  #     no value change            2        11      13
+  #                          --------  --------  ------
+  #                               11        39      50
+  #
+  # Only 9 of 37 real restatements carry a formal filing, and 2 filings
+  # correspond to no value change in this estate. A build that DETECTED from
+  # Item 4.02 would miss 28 of 37; one that detected from accession count would
+  # report 3,547. Detection is value comparison; this flag corroborates.
+  corroborated_by: filing_profile.count_8k_item_4_02
+  corroboration_field: formally_restated

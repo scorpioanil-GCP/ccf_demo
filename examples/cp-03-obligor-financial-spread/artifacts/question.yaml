@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE CALLER'S OWN VOCABULARY — read-side, so NOT in `ccf_config.yaml`.
+# A question is not a permission. It has no business in Control Plane state or
+# in Decision Replay dimension 2.
+
+semver: "1.0.0"
+class_id: cp-03.question
+
+declaration:
+  # THE ANCHOR. Spec §B.1 element 8 makes the address itself the anchor —
+  # `/context-products/credit-risk/spread/{lei}`.
+  #
+  # WHY THIS OBLIGOR. `549300D0WZR1VI2QGB24` is Digital Turbine, Inc.
+  # (CIK 317788, ticker APPS, US-DE, ACTIVE, internal client `CLI-000028`), and
+  # it is the demonstration anchor because ONE obligor exercises everything this
+  # rung exists to teach:
+  #
+  #   * BOTH restatement classes, from its own filings —
+  #       Revenues                          Q3 2017  38,031,000 -> 22,732,000  -40.2%  material
+  #       OperatingLeaseLiabilityNoncurrent FY 2024   5,747,000 ->  5,746,000  -0.017% precision
+  #     9 of its cells are material. A single anchor that shows both is what
+  #     makes §E.5's two classes legible in one printed run.
+  #
+  #   * A NON-DECEMBER FISCAL YEAR END — 31 March, one of the 16 measured. This
+  #     is what makes `fiscal_period` visibly load-bearing rather than a
+  #     technicality: its `StockholdersEquity` at period-end 2025-06-30 is
+  #     tagged **Q1**, not Q2, because the year starts in April. An obligor
+  #     whose quarters align with the calendar would hide the distinction the
+  #     restatement key depends on.
+  #
+  #   * AN ITEM 4.02 FILING — so the `formally_restated` corroboration is
+  #     exercised rather than always absent. It is one of only 9 obligors where
+  #     a 4.02 and a real value change coincide.
+  #
+  #   * BOTH FACT KINDS — instant (`Assets`, `StockholdersEquity`, `Cash`,
+  #     `LongTermDebt`) and duration (`Revenues`, `NetIncomeLoss`,
+  #     `OperatingIncomeLoss`, `InterestExpense`), so `OFS-G01` has something to
+  #     assert rather than a vacuous pass.
+  #
+  #   * A LIVE TTL — last filed 2026-08-05, so at the pinned instant below it
+  #     serves with 24 days of its 30-day window remaining. It is one of the 23
+  #     of 50 that serve.
+  #
+  # THE ANCHOR IS SWAPPABLE. Nothing in the code names this LEI; it is read from
+  # here. `make example-cp-03 LEI=<other>` re-asks the same question of another
+  # obligor, and 36 others carry a restatement to look at.
+  subject: "549300D0WZR1VI2QGB24"
+
+  # THE PINNED INSTANT — spec §D.8, `D-IMPL-218`.
+  #
+  # The demonstrated run assembles OVER THIS PIN so that the printed transcript
+  # reproduces byte-for-byte. The bar is SAME QUESTION -> SAME ANSWER, not
+  # correspondence with the live world: a reader whose numbers differ has
+  # RE-DERIVED, not replayed.
+  #
+  # Asking "now" instead is legitimate and is what a deployment does; it is not
+  # the reproduction recipe, and `load_*` never appears on the demonstrated path.
+  asked_at: "2026-08-29T12:00:00+00:00"
+
+  # THE REQUEST SURFACE — spec §B.4. Every one is optional at the CLI and
+  # defaulted here, so the documented command is short and the vocabulary is
+  # still declared in one place.
+  parameters:
+    # Selects the policy envelope and the `intent`-bound ratio definitions.
+    intent: annual-review
+
+    # The `T` window — how many periods of history to spread.
+    periods: 8
+
+    # THE PARAMETER THIS RUNG EXISTS FOR. `as-reported` returns each figure as
+    # it was FILED for that period; `latest-restated` returns it as most
+    # recently amended. These are DIFFERENT NUMBERS FOR THE SAME PERIOD and
+    # which is correct depends entirely on the decision — a covenant test asks
+    # what was reported at the time, a trend analysis asks for the restated
+    # series. One parameter, two legitimate truths.
+    #
+    # `OFS-G11` asserts the two settings produce DIFFERENT content addresses for
+    # this obligor and IDENTICAL ones for an obligor with no restatement.
+    basis: as-reported
+
+    # Peer comparison at IDENTICAL `period_end`, never at identical filing date
+    # — comparing a Q3 figure to a peer's Q2 because they filed the same week is
+    # the classic spreading error, and the join key forecloses it.
+    include_peers: true
+    peer_basis: sic
+
+    # The ceiling above which assembly refuses with `409` and the debt block.
+    # Provisional — `[TBC — product owner]`, spec §F.2 row 8. The estate carries
+    # a versioned candidate (`credit-memo-policy-v2.debtToleranceDefault` = 0.25,
+    # superseding v1's 0.3), recorded at §F.4 finding 12 and NOT bound here,
+    # because that artifact is named for rung 14.
+    debt_tolerance: "0.25"
+
+  # DECLARED AND INERT — spec §B.5. `as_of` is refused `400 not_supported_at_tier`
+  # rather than silently ignored: reconstructing a spread as it stood on a past
+  # date needs ledger time-travel, which arrives at Tier 3. The tier boundary
+  # doing its job, asserted by `OFS-G06`.
+  unsupported_parameters:
+    - as_of

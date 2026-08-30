@@ -1,0 +1,157 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SPREADING CONVENTION — spec §C.1 elements 6, 7 and 8, §C.4 trap 5.
+#
+# WHY THESE THREE ELEMENTS ARE HERE AND NOT IN THE ESTATE. `ccf_v2` holds no
+# tag mapping, no ratio definitions and no adjustment table, and `provenance` on
+# `financial_fact` is `public` for all 15,055 rows — there is no
+# internal-classified fact to carry them. That is CORRECT rather than a gap:
+# all three are CONTROL PLANE artifacts of the deployment. The vault article
+# says the ratio definitions are "versioned policy rather than code" and that
+# the Policy step "load[s] the internal ratio definitions bound to `intent`" —
+# a definition loaded by Policy and emitted as `policy_version` IS a Control
+# Plane artifact by construction. Putting them in the estate would make a
+# DOMAIN VALUE into fabric state, which the No-Hardcoding Rule forbids as
+# firmly as putting them in code.
+#
+# `role: load`.
+
+semver: "1.0.0"
+class_id: cp-03.spread-lines
+
+declaration:
+  # ==========================================================================
+  # ELEMENT 6 · US-GAAP TAG -> SPREAD LINE, with PRECEDENCE
+  # ==========================================================================
+  #
+  # A spread line is not a tag. An obligor commonly carries two or three tags
+  # for one line across its history as US-GAAP tagging changed, so each line
+  # declares an ORDERED list and the first tag present wins.
+  #
+  # PRECEDENCE IS BY MEASURED OBLIGOR COVERAGE (2026-08-29), not by preference:
+  # the tag more filers use is tried first, so the mapping degrades toward the
+  # commonest vocabulary rather than toward the author's preference.
+  #
+  # `kind` is `instant` or `duration` and is NOT decoration — §C.5. Instant
+  # facts carry a NULL `period_start` and are 8,088 of 15,055; a spread built
+  # from duration facts alone cannot compute leverage at all, because debt is
+  # instant and EBITDA is duration. `OFS-G01` asserts both kinds reach the
+  # payload.
+  tag_map:
+    revenue:
+      kind: duration
+      tags: [Revenues, RevenueFromContractWithCustomerExcludingAssessedTax, SalesRevenueNet, RevenueFromContractWithCustomerIncludingAssessedTax]
+      coverage_obligors: [39, 37, 25, 10]
+      # 1 of 50 obligors carries NONE of these four and its revenue line is
+      # served `NOT_EVALUABLE` — NEVER `0`, which reads as a company with no
+      # sales. §C.4 trap 5, gate `OFS-G08`.
+    operating_income:
+      kind: duration
+      tags: [OperatingIncomeLoss]
+      coverage_obligors: [46]
+    net_income:
+      kind: duration
+      tags: [NetIncomeLoss]
+      coverage_obligors: [50]
+    depreciation_amortization:
+      kind: duration
+      tags: [DepreciationDepletionAndAmortization, DepreciationAmortizationAndAccretionNet]
+      coverage_obligors: [40, 5]
+    interest_expense:
+      kind: duration
+      tags: [InterestExpense, InterestExpenseNonoperating, InterestExpenseDebt]
+      coverage_obligors: [44, 20, 14]
+      # `InterestExpenseDebt` is the ONE tag in this estate filed BOTH ways —
+      # as an instant and as a duration. It is mapped as `duration` because an
+      # interest charge is a flow; an instant-filed instance is admitted with
+      # its own `period_start` NULL and marked, never silently reinterpreted.
+      mixed_kind_tags: [InterestExpenseDebt]
+    total_debt_reported:
+      kind: instant
+      tags: [DebtLongtermAndShorttermCombinedAmount]
+      coverage_obligors: [17]
+    long_term_debt:
+      kind: instant
+      tags: [LongTermDebt, LongTermDebtNoncurrent]
+      coverage_obligors: [46, 37]
+    current_debt:
+      kind: instant
+      tags: [LongTermDebtCurrent, DebtCurrent]
+      coverage_obligors: [32, 14]
+    cash:
+      kind: instant
+      tags: [CashAndCashEquivalentsAtCarryingValue]
+      coverage_obligors: [49]
+    assets:
+      kind: instant
+      tags: [Assets]
+      coverage_obligors: [50]
+    liabilities:
+      kind: instant
+      tags: [Liabilities]
+      coverage_obligors: [40]
+    equity:
+      kind: instant
+      tags: [StockholdersEquity]
+      coverage_obligors: [46]
+    operating_lease_noncurrent:
+      kind: instant
+      tags: [OperatingLeaseLiabilityNoncurrent]
+      coverage_obligors: [41]
+
+  # ==========================================================================
+  # ELEMENT 7 · DERIVED RATIO DEFINITIONS — versioned policy, not code
+  # ==========================================================================
+  #
+  # The vault article's warning, adopted verbatim: "a change to the leverage
+  # definition changes every derived figure, which is why the definition is
+  # versioned policy rather than code."
+  #
+  # EVERY DERIVED LINE NAMES ITS INPUTS, and the served payload carries that
+  # naming per attribute — `inputs` in §D.6. `OFS-G12` asserts no derived line
+  # ships with an empty `inputs` and that every entry resolves to a fact-cell in
+  # THE SAME payload. That check is closed over the payload and needs no SDK
+  # type, which is why it is proven example-locally.
+  #
+  # A ratio whose inputs are not all present is `NOT_EVALUABLE` and contributes
+  # its full weight to completeness debt. It is NEVER computed from a partial
+  # numerator, and NEVER defaulted to zero.
+  ratios:
+    ebitda:
+      expression: operating_income + depreciation_amortization
+      inputs: [operating_income, depreciation_amortization]
+      unit: currency
+    total_debt:
+      # Reported-combined first where the filer gives it; otherwise composed.
+      # Composition is a DECLARED fallback, not an inference.
+      expression: total_debt_reported ?? (long_term_debt + current_debt)
+      inputs: [total_debt_reported, long_term_debt, current_debt]
+      unit: currency
+    leverage:
+      expression: total_debt / ebitda
+      inputs: [total_debt, ebitda]
+      unit: turns
+    net_leverage:
+      expression: (total_debt - cash) / ebitda
+      inputs: [total_debt, cash, ebitda]
+      unit: turns
+    interest_coverage:
+      expression: ebitda / interest_expense
+      inputs: [ebitda, interest_expense]
+      unit: turns
+
+  # ==========================================================================
+  # ELEMENT 8 · INTERNAL ADJUSTMENTS — declared EMPTY, and that is a statement
+  # ==========================================================================
+  #
+  # Addbacks and pro-forma EBITDA are bank-internal credit analysis. This estate
+  # holds NONE — `provenance` is `public` on all 15,055 facts — so the list is
+  # empty rather than populated with invented addbacks.
+  #
+  # AN EMPTY LIST HERE IS NOT THE SAME AS NO OPINION. It asserts that this
+  # deployment applies no adjustment, so every figure served is AS FILED. A
+  # reader comparing these numbers to a bank's own spread will find them
+  # different, and this is where that difference is accounted for.
+  #
+  # Populating this list is a deployment's decision and needs no code change.
+  adjustments: []
