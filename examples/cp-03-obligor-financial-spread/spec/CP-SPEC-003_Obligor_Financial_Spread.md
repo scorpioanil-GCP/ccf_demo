@@ -1277,7 +1277,7 @@ comparing totals — rung 01's *"a count is not a roster."*
 | 14 | Policy operator key | §D.2 | this build | **P6** |
 | 15 | Pin values for the demonstrated run | §D.8 | this build | **P6** |
 | 16 | TTL-anchor refusal counts, latest versus earliest | §B.1.1 | this build | **P6** |
-| 17 | Sabotage result for each of the **fourteen** gates | §D.7, §G.2 | this build | **P7** |
+| 17 | Sabotage result for each of the **fifteen** gates | §D.7, §G.2 | this build | **P7** |
 | 18 | Counterfactual fixture `OFS-F01` — the two-`basis` comparison | §A.2 | this build | **P7** |
 | 19 | `λ_c` measured against read frequency | §E.1 | this build | **P8** |
 | 20 | Per-component `D_c` contributions — 5 rows | §E.2 | this build | **P8** |
@@ -1413,11 +1413,12 @@ phantoms which return **zero rows**, one of which (`ex:AdministrativeAgent`) is 
    content"* — and the draft read past it. Corrected in §B.2 and in four other
    places that repeated it.
 
-   **THE GATE SET DOES NOT COVER THIS.** No gate among `OFS-G01`…`OFS-G14`
-   asserts that entitlement discriminates, and rung 02 shipped exactly such a
-   gate with a negative control. A fifteenth gate is **proposed, not added** —
-   the set is locked and criteria 19-32 enumerate fourteen sabotages by name.
-   **Dave's to rule.**
+   **A FIFTEENTH GATE WAS PROPOSED AND RULED IN** (Dave, 2026-08-30). No gate
+   among `OFS-G01`…`OFS-G14` asserted that entitlement discriminates, though
+   rung 02 shipped exactly such a gate. **`OFS-G15` now does**, with the
+   negative control paired to a positive one so an always-empty result cannot
+   satisfy it — two of the four principals legitimately see zero, which is
+   precisely the condition under which a broken check looks correct.
 
 13. **The vault article omits `debt_tolerance` and `as_of`, and this is the
    THIRD of three.** Both are universal under Standard §2.4; this article's
@@ -1512,9 +1513,9 @@ phantoms which return **zero rows**, one of which (`ex:AdministrativeAgent`) is 
 | **Service objectives** | p50 / p95 assembly latency, volume, concurrency ceiling, payload bound, per-call cost: `[TBC — this build, phase P6]` |
 | **Degradation contract** | **Mandatory** (fail closed): `lei` resolution, `cik` crosswalk, entitlement scope → `404` / `503`. **Non-mandatory** (serve with elevated `D_c` + notice): peer set, any individual ratio line, internal adjustments, debt-reconciliation context |
 | **Debt model** | §E.2. `debt_tolerance` default `0.25`, provisional |
-| **Observability** | per-step latency · `D_c` distribution · **gate-failure counts by gate, all fourteen** · **restatement-class split served (`precision` vs `material`)** · `NOT_EVALUABLE` rate by ratio line · **`basis` parameter usage split** · TTL refusal rate |
+| **Observability** | per-step latency · `D_c` distribution · **gate-failure counts by gate, all fifteen** · **restatement-class split served (`precision` vs `material`)** · `NOT_EVALUABLE` rate by ratio line · **`basis` parameter usage split** · TTL refusal rate |
 | **Retention and record of record** | The **filing** is record of record, identified by `accession`. The fabric references it and does not replace it. Replay-record retention tier: `[TBC — this build, phase P8]` |
-| **Test fixtures** | `OFS-F01` counterfactual · `OFS-G01`…`OFS-G14` one per gate · `OFS-D01` degradation branch · `OFS-R01` replay hash assertion |
+| **Test fixtures** | `OFS-F01` counterfactual · `OFS-G01`…`OFS-G15` one per gate · `OFS-D01` degradation branch · `OFS-R01` replay hash assertion |
 | **Lifecycle** | **`approved-not-built`** — Gate 1 authored and **approved by Dave, 2026-08-29**. Certification additionally requires every §F.2 row closed or accepted by a named owner |
 
 **The obligation an operator must not lose.** Every served figure names the
@@ -1540,6 +1541,7 @@ to contrast with.
 | **`OFS-G11`** | `basis` **changes the content address** for a restated obligor and **does not** for an unrestated one | §D.4 |
 | **`OFS-G12`** | Every derived line has a non-empty `inputs`, and every entry resolves to a fact-cell in the **same payload**. Example-local; nothing added to `src/` | §D.7.1 |
 | **`OFS-G13`** | `restatement_class` is read from `artifacts/restatement.yaml` — **changing the artifact's threshold moves cells between classes** | §E.5 |
+| **`OFS-G15`** | **Entitlement discriminates AS SETS, with a negative control.** The four principals resolve to their measured visible populations — `PRIN-RES-002` **49**, `PRIN-COV-001` **47**, `PRIN-KYC-004` **0**, `PRIN-TRD-003` **0** — and `49 != 47` proves the check is not returning a constant. The **negative control**: a principal granted nothing sees nothing, and that assertion is paired with a positive one so an always-empty result cannot pass it. **No served figure differs between principals** — entitlement removes rows, never rewrites them | §B.2, §F.4 finding 14 |
 | **`OFS-G14`** *(DEFERRED — §C.6.1)* | `policy_version` names the **Fluree** binding whose validity window contains `asked_at`. Asking either side of a `supersededBy` boundary yields **different** `policy_version` values; a request whose instant no `PolicyVersion` covers is refused **`503`** and **never falls back to the newest** | §C.6, §D.3 |
 
 **Every gate must be made to fail deliberately once.** `[TBC — this build,

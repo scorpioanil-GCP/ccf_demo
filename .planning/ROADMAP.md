@@ -2692,15 +2692,16 @@ digit, so a real continuation-line detector is required beside the count.
   29. `OFS-G11` is sabotaged by making `basis` not change the content address for a restated obligor and observed RED
   30. `OFS-G12` is sabotaged by emitting a derived line with an empty `inputs` and observed RED
   31. `OFS-G13` is sabotaged by hard-coding the restatement threshold instead of reading `artifacts/restatement.yaml` and observed RED
-  32. No gate is recorded as passing until it has been observed RED at least once, and the sabotage applied to each is recorded with its observed result
-  33. Every derived ratio line carries a non-empty `inputs` naming each fact-cell it consumed, asserted in `tests/examples/` and in the recipe artifact
-  34. Every `inputs` entry resolves to a fact-cell present in the SAME served payload, so the check is closed over the payload and needs no SDK type
-  35. No file under `src/` is added or modified to satisfy criteria 33 or 34, verified by a per-member pathspec diff, and an SDK type appearing there is a new ruling rather than a passing build
-  36. The same request at the same pinned `asked_at` produces a byte-identical payload and content address across two runs
-  37. `basis=as-reported` and `basis=latest-restated` produce DIFFERENT content addresses for a restated obligor and IDENTICAL ones for an unrestated obligor
-  38. The printed run in the README and on the documentation page reproduces byte-for-byte against the named pin, and no `load_*` step appears on the demonstrated path
-  39. The Fluree policy binding at §C.6, §C.1 element 11 and gate `OFS-G14` are SPECIFIED AND NOT BUILT at this gate, `policy_version` is sourced from the Control Plane artifact, and §C.6.1 and §D.3 SAY SO IN WORDS so no reader concludes Fluree was exercised
-  40. The thirteen `[TBC]` rows owned by the vault, `ccf_dataprep`, identity-and-access and the product owner are NOT closed by this build and are NOT invented by it
+  32. `OFS-G15` is sabotaged by returning the same obligor set for every principal — or by returning an empty set for all of them — and observed RED; the negative control (a principal granted nothing sees nothing) is paired with a positive one (`49 != 47`) so an always-empty result cannot satisfy it
+  33. No gate is recorded as passing until it has been observed RED at least once, and the sabotage applied to each is recorded with its observed result
+  34. Every derived ratio line carries a non-empty `inputs` naming each fact-cell it consumed, asserted in `tests/examples/` and in the recipe artifact
+  35. Every `inputs` entry resolves to a fact-cell present in the SAME served payload, so the check is closed over the payload and needs no SDK type
+  36. No file under `src/` is added or modified to satisfy criteria 34 or 35, verified by a per-member pathspec diff, and an SDK type appearing there is a new ruling rather than a passing build
+  37. The same request at the same pinned `asked_at` produces a byte-identical payload and content address across two runs
+  38. `basis=as-reported` and `basis=latest-restated` produce DIFFERENT content addresses for a restated obligor and IDENTICAL ones for an unrestated obligor
+  39. The printed run in the README and on the documentation page reproduces byte-for-byte against the named pin, and no `load_*` step appears on the demonstrated path
+  40. The Fluree policy binding at §C.6, §C.1 element 11 and gate `OFS-G14` are SPECIFIED AND NOT BUILT at this gate, `policy_version` is sourced from the Control Plane artifact, and §C.6.1 and §D.3 SAY SO IN WORDS so no reader concludes Fluree was exercised
+  41. The thirteen `[TBC]` rows owned by the vault, `ccf_dataprep`, identity-and-access and the product owner are NOT closed by this build and are NOT invented by it
 
 
 ## Progress
