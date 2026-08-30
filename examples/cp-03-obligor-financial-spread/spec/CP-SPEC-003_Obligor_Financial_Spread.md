@@ -191,6 +191,22 @@ signal to reopen §F.4 finding 4 — the same tripwire pattern rung 02 used for 
 TTL basis. The measured refusal counts for both readings are
 `[TBC — this build, phase P6]`.
 
+**THE VAULT HAS SINCE SET THE TEST THIS ANCHOR MUST PASS, and it passes.**
+Ruling of 2026-08-30, on rung 02's TTL finding:
+
+> A freshness anchor has to be an **observation timestamp that moves**… An
+> origination date is fixed for the life of the agreement. So
+> `effective_date + 90d` is **not a refresh cadence — it is permanent expiry
+> that re-derivation cannot clear.** That is a category error in the anchor,
+> not a tight window.
+
+`filed_date` **moves**: filers file quarterly, so re-derivation clears the
+expiry. The measured contrast is the evidence — rung 02 refuses 50 of 60
+*permanently*, while this product serves **23 of 50** and its 27 refusals clear
+as filers file. A refusal here is the product working, not a finding awaiting a
+ruling. **Confirmation of that reading is requested in the §11 return of
+2026-08-30**; it is not assumed closed.
+
 > **The 30-day window itself is the vault's value and is untouched here.**
 > Whether it should widen is a separate question from which date it is measured
 > from, and conflating the two would hide one behind the other.
@@ -1257,6 +1273,20 @@ phantoms which return **zero rows**, one of which (`ex:AdministrativeAgent`) is 
    restatements 37 obligors versus ~3 asked, non-December fiscal years 16 versus
    ~2, peers 1,678 versus ~150. Recorded so a later reader does not "correct"
    the envelope to match the article.
+13. **The vault article omits `debt_tolerance` and `as_of`, and this is the
+   THIRD of three.** Both are universal under Standard §2.4; this article's
+   request surface declares neither (`lei`, `intent`, `periods`, `basis`,
+   `include_peers`, `peer_basis`). The vault ruled on rung 02, 2026-08-30:
+   *"two of two is a pattern… **Do not wait for the vault on it** — both are
+   universal under Standard §2.4, so add them at your level and record the vault
+   article's omission as a finding."* That instruction is applied rather than
+   re-asked: both are added at §B.4 and §B.5 — `debt_tolerance` with a `409`
+   debt block, `as_of` declared-and-inert and refused
+   `400 not_supported_at_tier` under `OFS-G06` — and the omission is recorded
+   here rather than held as a `[TBC]`. **Three of three is no longer a pattern
+   in the articles; it is a property of the q019 form**, and belongs to the
+   vault's sweep rather than to any one product.
+
 12. **A policy threshold is versioned, superseding, and changes value — and this
    product's own default matches the later version.** `credit-memo-policy-v1`
    (`validFrom` 2024-01-01, `validTo` 2025-06-30, `supersededBy` → v2) carries
