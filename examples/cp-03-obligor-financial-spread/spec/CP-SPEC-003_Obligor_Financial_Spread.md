@@ -237,19 +237,48 @@ ruling. **Confirmation of that reading is requested in the §11 return of
 | **Residency constraints** | `[TBC — identity and access]` |
 | **Cross-border serving** | `[TBC — identity and access]` |
 
-**The weak policy leg is the lesson.** Rungs 01 and 02 both had entitlement
-doing visible work — jurisdiction grants and need-to-know suppressed rows. Here
-the same machinery runs and **suppresses nothing**, because the data is public.
-That is worth building rather than skipping, for two reasons:
+**The policy leg is ORTHOGONAL, not weak — corrected 2026-08-30 during the
+build, against a measurement.** An earlier draft of this section claimed the
+machinery *"suppresses nothing, because the data is public."* **That was wrong**,
+and it conflated two independent axes:
 
-1. It proves the Policy step is **not conditional on having something to
-   suppress**. `policy_version` is still emitted, still lands in replay, and the
-   operator still runs before anything reads state. A product that skipped
-   Policy when it had no restrictions would be a product whose audit trail
-   silently changed shape with its data.
-2. It is the **negative control** for `mnpi-wall-enforcement` at rung 17. A
-   reader who has seen entitlement do nothing here can see it do everything
-   there, and tell the difference.
+- **MNPI is genuinely absent.** The corpus is filed public data; `sees_mnpi`
+  exists in the estate and does not gate this product. That half stands.
+- **Jurisdiction entitlement is decisive.** Measured against the 50 obligors:
+
+| Principal | Perspective | Obligors visible |
+|---|---|---:|
+| `PRIN-RES-002` | research-analyst | **49** of 50 |
+| `PRIN-COV-001` | coverage-banker | **47** of 50 |
+| `PRIN-KYC-004` | kyc-analyst | **0** of 50 |
+| `PRIN-TRD-003` | trader | **0** of 50 |
+
+**Two of four principals see nothing at all**, and **one obligor — the sole NZ
+filer — is visible to no principal in this estate.**
+
+**The vault's own four-question ruling said this precisely, and the draft read
+past it:** *"Q1 **no** — entitlement conditions **visibility**, not content."*
+That is not *entitlement does nothing*. It means entitlement removes **rows**
+without altering what a served row **says** — which is exactly the distinction
+this product is placed to teach.
+
+So the reasons to build it are stronger than the draft claimed:
+
+1. The Policy step is **not conditional on having something to suppress**, and
+   here it plainly does suppress. `policy_version` is emitted, lands in replay,
+   and the operator runs before anything reads state.
+2. It is the **negative control** for `mnpi-wall-enforcement` at rung 17 on the
+   axis that matters. A reader sees entitlement remove three obligors for one
+   principal and all fifty for another, **while never changing a single served
+   figure** — then sees rung 17, where the entitlement decides what may be
+   *materialized at all*. Visibility versus formation, with a worked example of
+   each.
+
+> **How the draft went wrong, recorded because the shape recurs.** *"Public data
+> carries no MNPI constraint"* is true and was generalized to *"entitlement does
+> nothing"*, which is a different claim about a different axis. **A true
+> statement about one dimension is not a finding about another**, and the
+> distance between them is where an unmeasured assertion hides.
 
 `[TBC — identity and access]` — whether a residency constraint applies to
 *derived* figures computed from public inputs, which is not obviously the same
@@ -358,7 +387,7 @@ schema and the table.
 | 6 | **US-GAAP tag → spread-line mapping** | internal spreading convention → **deployment artifact** | `internal-SOR` | `internal` | `relational` | schema | n/a — a mapping, not an entity | **NO in estate — by design.** §C.4 trap 3 |
 | 7 | **Derived ratio definitions** — leverage, coverage, fixed-charge | internal credit policy → **deployment artifact**, Policy-loaded | `internal-SOR` | `internal` | `relational` | schema | n/a | **NO in estate — by design.** §C.4 trap 3 |
 | 8 | **Internal adjustments** — addbacks, pro-forma EBITDA | internal credit analysis → **deployment artifact** | `internal-SOR` | `internal` | `relational` | **E** | n/a while `adjustments: []`; a populated addback is a **`fibo-fnd-acc-cur:MonetaryAmount`** like row 1 | **NO in estate — by design.** §C.4 trap 3 |
-| 9 | Entitlement scope | entitlement service → **PostgreSQL** `ccf_v2.principal`, `.principal_jurisdiction` | `internal-SOR` | `internal` | `relational` | **P** | `[TBC — ccf_dataprep]` | **yes** — 4 principals; **suppresses nothing**, §B.2 |
+| 9 | Entitlement scope | entitlement service → **PostgreSQL** `ccf_v2.principal`, `.principal_jurisdiction` | `internal-SOR` | `internal` | `relational` | **P** | `[TBC — ccf_dataprep]` | **yes** — 4 principals, and it **discriminates**: 49 / 47 / 0 / 0 obligors visible, §B.2 |
 | 10 | **Item 4.02 non-reliance filing counts** | EDGAR 8-K item counts → **PostgreSQL** `ccf_v2.filing_profile` | `public-filing` | `public` | `relational` | **T** | **`[UNMAP]` — permanent, ruled** §C.1.1 | **yes — 11 of 50 obligors**, 15 filings. §C.4 trap 2 |
 | 11 | **Policy-version binding** — which `PolicyVersion` was in force at `asked_at`, its validity window, and its `supersededBy` link | credit policy → **Fluree `fibo-v2`**, `ex:PolicyVersion` | `internal-SOR` | `internal` | `relational` (a **lookup by IRI, not a traversal** — §C.2) | **P** · **T** | `ex:PolicyVersion` — **bound**, unlike rows 1–10 | **yes — 17 instances**, 2 carrying `supersededBy`, `validFrom` on all 17. **Estate-ready; STAGED out of Gate 2** — §C.6.1 |
 
@@ -939,7 +968,7 @@ step whose source is **staged** — §C.6.1.
   bullet and `OFS-G14` activate together and nothing else in §D moves.
 
 Runs **before** any fact is read, per composition invariant 1, even though it
-suppresses nothing here (§B.2).
+suppresses nothing for MNPI — though its jurisdiction grants suppress a great deal, §B.2.
 
 **Fails closed on its one source.** Entitlement unreachable → **`503`**, never a
 permissive default. When the Fluree binding lands, a second failure mode joins
@@ -1219,7 +1248,7 @@ as a constant.
 | 6 | Tag → spread-line mapping | **satisfied by artifact** | absent from estate **by design**, §C.4 trap 3 |
 | 7 | Ratio definitions | **satisfied by artifact** | as above; Policy-loaded, versioned |
 | 8 | Internal adjustments | **satisfied by artifact** | as above |
-| 9 | Entitlement scope | **yes** | 4 principals; suppresses nothing, §B.2 |
+| 9 | Entitlement scope | **yes** | 4 principals; **discriminates 49 / 47 / 0 / 0**, §B.2 |
 | 10 | Item 4.02 counts | **yes** | 11 of 50 obligors, 15 filings |
 
 **No element is a build blocker.** Three are satisfied by artifact rather than
@@ -1373,6 +1402,23 @@ phantoms which return **zero rows**, one of which (`ex:AdministrativeAgent`) is 
    restatements 37 obligors versus ~3 asked, non-December fiscal years 16 versus
    ~2, peers 1,678 versus ~150. Recorded so a later reader does not "correct"
    the envelope to match the article.
+14. **The specification asserted that entitlement suppresses nothing, and the
+   build measured otherwise.** §B.2 claimed the policy machinery *"suppresses
+   nothing, because the data is public."* Measured 2026-08-30 against the 50
+   obligors: `PRIN-RES-002` sees **49**, `PRIN-COV-001` **47**, `PRIN-KYC-004`
+   **0**, `PRIN-TRD-003` **0**, and one obligor — the sole NZ filer — is visible
+   to **no principal at all**. The error was generalizing a true statement about
+   **MNPI** into a claim about **entitlement**; the vault's own four-question
+   ruling had already drawn the line — *"entitlement conditions visibility, not
+   content"* — and the draft read past it. Corrected in §B.2 and in four other
+   places that repeated it.
+
+   **THE GATE SET DOES NOT COVER THIS.** No gate among `OFS-G01`…`OFS-G14`
+   asserts that entitlement discriminates, and rung 02 shipped exactly such a
+   gate with a negative control. A fifteenth gate is **proposed, not added** —
+   the set is locked and criteria 19-32 enumerate fourteen sabotages by name.
+   **Dave's to rule.**
+
 13. **The vault article omits `debt_tolerance` and `as_of`, and this is the
    THIRD of three.** Both are universal under Standard §2.4; this article's
    request surface declares neither (`lei`, `intent`, `periods`, `basis`,
@@ -1515,7 +1561,7 @@ What this rung adds that rungs 01 and 02 could not:
   makes rung 08's ledger legible when it arrives.
 - **One parameter, two legitimate truths.** `basis` is the catalog's first
   parameter where both settings are correct and the decision picks.
-- **A negative control for entitlement.** Policy runs and suppresses nothing —
+- **A negative control for entitlement, on the axis that matters.** MNPI is absent while jurisdiction removes 3 obligors for one principal and all 50 for another, and **no served figure changes either way** —
   the contrast rung 17 needs.
 - **Two stores, each doing only what it owns.** Postgres every attribute, Fluree
   the policy binding and nothing else — the §7.8 Control/Data-plane split made
