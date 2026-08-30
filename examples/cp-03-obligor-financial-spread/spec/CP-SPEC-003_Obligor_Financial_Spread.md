@@ -2,6 +2,7 @@
 
 **`CP-SPEC-003` · rung 03 of the vault's ladder · Tier 1**
 **PostgreSQL `ccf_v2` for every attribute · Fluree `fibo-v2` for the policy binding**
+**Gate 2 builds the Postgres half; the Fluree binding is staged — §C.6.1**
 **Registry name `credit-risk.spread.v1` · cost band ×1 (baseline)**
 
 > Standardized financial spreads for a single obligor, with peer comparison at
@@ -16,7 +17,7 @@
 | **Gate 1 status** | **APPROVED — Dave, 2026-08-29.** Authored 2026-08-29; approved on a full read of the specification |
 | **Gate 2 status** | **not started.** Nothing is implemented |
 | **Estate** | probed 2026-08-29 against `parkavedb` schema `ccf_v2` on `192.168.4.76`, read-only. **This product was `unprobed` before this document** |
-| **Stores** | **TWO** (Dave, 2026-08-29). **PostgreSQL `ccf_v2`** supplies every attribute; **Fluree `fibo-v2`** supplies the **policy-version binding** and nothing else — the §7.8 Control/Data-plane split, which Q019 §3 assigns to exactly these two stores. MongoDB, SQLite and Neo4j were each queried and each excluded. Reasoning at §C.2, per-store verdict at §F.3. **A deviation from the vault article's `capability_classes: [relational]` — `[TBC — vault]`, §F.2 row 24** |
+| **Stores** | **TWO** (Dave, 2026-08-29). **PostgreSQL `ccf_v2`** supplies every attribute; **Fluree `fibo-v2`** supplies the **policy-version binding** and nothing else — the §7.8 Control/Data-plane split, which Q019 §3 assigns to exactly these two stores. MongoDB, SQLite and Neo4j were each queried and each excluded. Reasoning at §C.2, per-store verdict at §F.3. **A deviation from the vault article's `capability_classes: [relational]` — `[TBC — vault]`, §F.2 row 24. STAGED: Gate 2 builds the Postgres half only; the Fluree binding lands at a later gate — §C.6.1** |
 
 ---
 
@@ -317,7 +318,7 @@ schema and the table.
 | 8 | **Internal adjustments** — addbacks, pro-forma EBITDA | internal credit analysis → **deployment artifact** | `internal-SOR` | `internal` | `relational` | **E** | **`[TBC — ccf_dataprep]`** | **NO in estate — by design.** §C.4 trap 3 |
 | 9 | Entitlement scope | entitlement service → **PostgreSQL** `ccf_v2.principal`, `.principal_jurisdiction` | `internal-SOR` | `internal` | `relational` | **P** | `[TBC — ccf_dataprep]` | **yes** — 4 principals; **suppresses nothing**, §B.2 |
 | 10 | **Item 4.02 non-reliance filing counts** | EDGAR 8-K item counts → **PostgreSQL** `ccf_v2.filing_profile` | `public-filing` | `public` | `relational` | **T** | **`[TBC — ccf_dataprep]`** — §C.1.1 | **yes — 11 of 50 obligors**, 15 filings. §C.4 trap 2 |
-| 11 | **Policy-version binding** — which `PolicyVersion` was in force at `asked_at`, its validity window, and its `supersededBy` link | credit policy → **Fluree `fibo-v2`**, `ex:PolicyVersion` | `internal-SOR` | `internal` | `relational` (a **lookup by IRI, not a traversal** — §C.2) | **P** · **T** | `ex:PolicyVersion` — **bound**, unlike rows 1–10 | **yes — 17 instances**, 2 carrying `supersededBy`, `validFrom` on all 17. §C.6 |
+| 11 | **Policy-version binding** — which `PolicyVersion` was in force at `asked_at`, its validity window, and its `supersededBy` link | credit policy → **Fluree `fibo-v2`**, `ex:PolicyVersion` | `internal-SOR` | `internal` | `relational` (a **lookup by IRI, not a traversal** — §C.2) | **P** · **T** | `ex:PolicyVersion` — **bound**, unlike rows 1–10 | **yes — 17 instances**, 2 carrying `supersededBy`, `validFrom` on all 17. **Estate-ready; STAGED out of Gate 2** — §C.6.1 |
 
 > **Element 10 is not in the article.** It was found while probing and is
 > **added** here: SEC 8-K **Item 4.02 is *Non-Reliance on Previously Issued
@@ -421,7 +422,7 @@ this section argues inside.**
 | Store | Owns | Relevance here |
 |---|---|---|
 | **Postgres `ccf_v2`** | **`E`, policy reference** | **every element of this product** |
-| Fluree `fibo-v2` | `R`, `T`, lineage, **policy binding** | **the policy binding, and only that** — §C.6. Its `R` and its ledger stay untouched |
+| Fluree `fibo-v2` | `R`, `T`, lineage, **policy binding** | **the policy binding, and only that** — §C.6, **staged out of Gate 2** per §C.6.1. Its `R` and its ledger stay untouched either way |
 | MongoDB `fibo_v2` | passage-level lineage | nothing — no document text is read (§C.4 trap 3 of rung 02's kind) |
 | SQLite departmental | departmental | nothing |
 | Neo4j | optional | nothing — v1 hello-world sample, not v2 data |
@@ -731,6 +732,30 @@ validity window is that same question asked about the **rule** instead of the
 
 A replay must pin **both** — §D.5. Neither rung 01 nor rung 02 could ask that.
 
+#### C.6.1 Staged — specified here, built at a later gate
+
+**Ruled by Dave, 2026-08-29.** The two-store design above **stands as the
+specification**. What is staged is the **build**, not the decision.
+
+**Gate 2 builds the Postgres half only.** `policy_version` is emitted from the
+Control Plane artifact, §D.3 says so explicitly, and no Fluree connection is
+opened — which is why `OFS-G05` at Gate 2 asserts *no store but Postgres*, and
+its Fluree clause activates later with the binding.
+
+**Why staged rather than built now.** Credit spreading is specified Tier 1 with a
+single prerequisite (LEI→CIK). The Fluree binding adds a second store and a second
+failure mode, and Gate 2's subject is whether **the census was measured honestly**
+— 321 not 392, instant included, accession multiplicity not mistaken for
+restatement. Mixing *"did we count restatements correctly"* with *"does the policy
+binding resolve across a supersession"* would let either failure be read as the
+other.
+
+**What defers with it, as one unit:** §C.1 element 11, the Fluree half of §C.2's
+verdict, §F.3's Fluree row, and gate **`OFS-G14`**. **What does NOT defer:** the
+Policy **operator** itself, which is the only operator in the plan — an empty
+operator plan fails `empty-operator-guard` and the product cannot serve at all.
+**The operator is mandatory; only its binding source is staged.**
+
 **A finding rather than a binding.** `credit-memo-policy-v1` → `v2` moves
 `debtToleranceDefault` from **`0.3` to `0.25`** across 2025-07-01. The same
 obligor with the same facts can therefore **refuse under one policy and serve
@@ -758,7 +783,7 @@ GET /context-products/credit-risk/spread/5493001KJTIIGC8Y1R12
 | # | Step | Layer | Is it an operator? | Reads | Emits | Fails |
 |---|---|---|---|---|---|---|
 | 1 | **Resolve** | **L2** | **no** | `lei` | obligor row, `cik` via crosswalk | fail closed → **404** |
-| 2 | **Policy** | **L4** | **YES — the only one** | resolved obligor; principal; `intent`; **`asked_at`** | **`policy_version` + validity window (Fluree)**; entitlement set and ratio definitions (Postgres/artifact); permitted set | **403**; either source unreachable → **503**, never a permissive default |
+| 2 | **Policy** | **L4** | **YES — the only one** | resolved obligor; principal; `intent`; **`asked_at`** | `policy_version` (**at Gate 2: the Control Plane artifact** — §C.6.1); entitlement set and ratio definitions (Postgres/artifact); permitted set | **403**; source unreachable → **503**, never a permissive default |
 | 3 | **Attribute batch-select** | **L2** | **no** — see below | permitted obligor, `periods`, `basis` | fact set, instant **and** duration | **404** if the obligor has no facts |
 | 4 | **Peer batch-select** *(conditional)* | **L2** | **no** | period set from step 3, `peer_basis` | peer facts at **identical `period_end`** | degrade, never fail |
 | 5 | **Derivation** | in-memory | **no** | steps 3–4 + step 2's definitions | ratios, each naming its inputs | `NOT_EVALUABLE` per line |
@@ -813,25 +838,25 @@ Through the crosswalk, never the denormalized `financial_fact.cik` (§C.3).
 Witness: the crosswalk row consumed. **The witness is not `lei`** — that is the
 caller's own input, and a witness the input alone satisfies is not a witness.
 
-**Step 2 — Policy (L4, the operator) — the only step that reads both stores.**
+**Step 2 — Policy (L4, the operator).** The only operator in the plan, and the
+step whose source is **staged** — §C.6.1.
 
-- **Fluree `fibo-v2`** — resolve the `ex:PolicyVersion` whose validity window
-  contains `asked_at`; take its IRI, `validFrom`, `validTo` and `supersededBy`.
-  **One IRI lookup with a validity predicate. No traversal.** This is the
-  policy **binding** (Q019 §3).
 - **Postgres `ccf_v2`** — the entitlement envelope from `principal`; the
   `intent`-bound ratio definitions from the deployment artifact. These are the
-  policy **values**.
+  policy **values**, and they are Gate 2's.
+- **`policy_version` — AT GATE 2, from the Control Plane artifact**, and this
+  document says so rather than implying otherwise. The Fluree `ex:PolicyVersion`
+  binding specified at §C.6 is **not built at Gate 2**; when it lands, this
+  bullet and `OFS-G14` activate together and nothing else in §D moves.
 
-Emits `policy_version` naming the Fluree binding, not a Postgres row. Runs
-**before** any fact is read, per composition invariant 1, even though it
+Runs **before** any fact is read, per composition invariant 1, even though it
 suppresses nothing here (§B.2).
 
-**Two sources, two failure modes, both fail closed.** Entitlement unreachable →
-`503`. **Policy binding unresolvable — no `PolicyVersion` covers `asked_at` —
-also `503`**, never a fallback to the newest version, because serving under a
-rule that was not in force is the failure this product exists to make visible.
-Gate `OFS-G14`.
+**Fails closed on its one source.** Entitlement unreachable → **`503`**, never a
+permissive default. When the Fluree binding lands, a second failure mode joins
+it — no `PolicyVersion` covering `asked_at` → **`503`**, never a fallback to the
+newest version, because serving under a rule that was not in force is the failure
+this product exists to make visible. Gate `OFS-G14`, deferred with it.
 
 **Step 3 — Attribute batch-select (L2).** **One query for all periods and all
 tags** — not one per period. §7.4 N+1 avoidance, and the article is explicit
@@ -895,7 +920,7 @@ Per-attribute, **not per product**:
 | `unit` | the CAD/USD case, §C.4 trap 1 |
 | `filed_date`, `accession` | which filing asserted **this** figure |
 | `basis_applied` | which of the two truths this figure is |
-| `policy_version` *(product-level)* | the **Fluree** binding in force at `asked_at`, with its validity window — §C.6 |
+| `policy_version` *(product-level)* | **at Gate 2** the Control Plane artifact's version; **after §C.6.1** the Fluree binding in force at `asked_at`, with its validity window. The field is the same either way — only its source moves |
 | `restated` | the value changed across filings on the full key |
 | `restatement_class` | **`precision` \| `material`**, §E.5 |
 | `formally_restated` | an Item 4.02 exists — corroboration, §C.4 trap 2 |
@@ -1119,7 +1144,7 @@ comparing totals — rung 01's *"a count is not a roster."*
 | 21 | A coverage manifest in `spec_coverage.py` — currently `[UNMAP]` | §C preamble | `ccf_dataprep` | — |
 | 22 | **Ontology IRI — the seven attribute rows of §C.1** (1, 2, 3, 4, 5, 8, 9, 10). The binding article has **no vocabulary for this product at all** and claims closed coverage | §C.1, §C.1.1 | `ccf_dataprep` | **before rung 05**, not before Gate 2 |
 | 23 | **Catalog currency.** Every §C and §E figure is dated 2026-08-29 against a **live** estate; [[estate-data-catalog]] is stamped 2026-08-30T01:56:48Z at commit `5206155`. Neither is a stability promise | §F.3 | `ccf_dataprep` — regeneration on request | re-confirmed at **Gate 2** |
-| 24 | **Two-store deviation.** The vault article declares `capability_classes: [relational]` and the ladder puts the first multi-store product at rung 04. This product reads **Fluree for the policy binding** on Dave's ruling of 2026-08-29. Tier and build order are the **vault's** term under the §1 ownership table | §0.4, §C.6 | **vault** | — |
+| 24 | **Two-store deviation.** The vault article declares `capability_classes: [relational]` and the ladder puts the first multi-store product at rung 04. This product reads **Fluree for the policy binding** on Dave's ruling of 2026-08-29, **staged out of Gate 2** (§C.6.1) so the vault's term is not overtaken by a build. Tier and build order are the **vault's** under the §1 ownership table | §0.4, §C.6.1 | **vault** | — |
 | 25 | **Which `PolicyVersion` family binds this product** — `credit-policy-v*` carries the window but no values; `credit-memo-policy-v*` carries `debtToleranceDefault` and is named for rung 14 | §C.6, §F.4 finding 12 | **product owner** + `ccf_dataprep` | certification |
 
 **Twelve are `this build` and clear at Gate 2. Five are the vault's. Two are
@@ -1150,7 +1175,7 @@ than an answer about the one it uses. Every store was checked on 2026-08-29;
 | Store | Owns (Q019 §3) | Checked | Verdict for this product |
 |---|---|---|---|
 | **PostgreSQL `ccf_v2`** @ `192.168.4.76:5432`, db `parkavedb`, read-only | **`E`, policy reference** | yes | **THE ONLY STORE READ.** All ten §C.1 elements |
-| **Fluree `fibo-v2`** @ `:8090` | `R`, `T`, lineage, **policy binding** | **yes** | **READ — the policy binding only** (`ex:PolicyVersion`, 17 instances), by IRI lookup. **Zero tagged financial facts**; nodes carry LEI and label only, so none of the payload comes from here. §C.6 |
+| **Fluree `fibo-v2`** @ `:8090` | `R`, `T`, lineage, **policy binding** | **yes** | **SPECIFIED, staged out of Gate 2 (§C.6.1)** — then the policy binding only (`ex:PolicyVersion`, 17 instances), by IRI lookup. **Zero tagged financial facts**; nodes carry LEI and label only, so none of the payload comes from here. §C.6 |
 | **MongoDB `fibo_v2`** @ `:27017` | passage-level lineage | yes | **not read.** Filing *text* and passages; this product reads filing *facts*. Passage lineage arrives at rung 13 |
 | **SQLite** `data/departmental.sqlite` | departmental | yes | **not read.** 148 rows total; nothing financial-reporting |
 | **Neo4j** @ `:7687` | optional | yes | **not read.** 14 nodes — the v1 hello-world sample, not v2 data |
@@ -1313,7 +1338,7 @@ to contrast with.
 | **`OFS-G02`** | Resolution goes **through `crosswalk`**; `financial_fact.cik` is never the resolution path | §C.3 · 50 of 50, 0 orphans |
 | **`OFS-G03`** | The restatement key is the estate's declared identity `(lei, tag, unit, period_end, fiscal_period)`; the census is **321** — not 392, not 410, not 3,547 | §C.4 trap 1 |
 | **`OFS-G04`** | Item 4.02 is **corroboration, never the detector** — a restatement without a 4.02 is still detected (28 of 37), and a 4.02 without a value change is not reported as restated (2 of 11) | §C.4 trap 2 |
-| **`OFS-G05`** | Neither `spread_observation` (Postgres) nor `PriorObservation` (Fluree) is read; **MongoDB, SQLite and Neo4j are never opened**; and the **only** Fluree read is the `ex:PolicyVersion` lookup — **no edge traversal, and no payload attribute sourced from the ledger** | §C.6, §C.4 trap 4 |
+| **`OFS-G05`** | `spread_observation` is never read. **At Gate 2: no store but Postgres is opened at all.** After §C.6.1: the only Fluree read is the `ex:PolicyVersion` lookup — never `PriorObservation`, no edge traversal, no payload attribute from the ledger | §C.6.1, §C.4 trap 4 |
 | **`OFS-G06`** | `as_of` is refused **`400 not_supported_at_tier`**, never silently honored | §B.5 |
 | **`OFS-G07`** | **No LLM client is reachable** from any §D step — Assembly Mode 1 | §B.3 |
 | **`OFS-G08`** | The obligor with no revenue tag serves `NOT_EVALUABLE`, **never `0`** | §C.4 trap 5 · 1 of 50 |
@@ -1322,7 +1347,7 @@ to contrast with.
 | **`OFS-G11`** | `basis` **changes the content address** for a restated obligor and **does not** for an unrestated one | §D.4 |
 | **`OFS-G12`** | Every derived line has a non-empty `inputs`, and every entry resolves to a fact-cell in the **same payload**. Example-local; nothing added to `src/` | §D.7.1 |
 | **`OFS-G13`** | `restatement_class` is read from `artifacts/restatement.yaml` — **changing the artifact's threshold moves cells between classes** | §E.5 |
-| **`OFS-G14`** | `policy_version` names the **Fluree** binding whose validity window contains `asked_at`. Asking either side of a `supersededBy` boundary yields **different** `policy_version` values; a request whose instant no `PolicyVersion` covers is refused **`503`** and **never falls back to the newest** | §C.6, §D.3 |
+| **`OFS-G14`** *(DEFERRED — §C.6.1)* | `policy_version` names the **Fluree** binding whose validity window contains `asked_at`. Asking either side of a `supersededBy` boundary yields **different** `policy_version` values; a request whose instant no `PolicyVersion` covers is refused **`503`** and **never falls back to the newest** | §C.6, §D.3 |
 
 **Every gate must be made to fail deliberately once.** `[TBC — this build,
 phase P7]` — the sabotage applied to each and the observed result. **A gate that
