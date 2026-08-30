@@ -429,7 +429,7 @@ added.
 
 `Income`, `Debt` and `Amortization` **are** declared in FIBO, and none of them
 means what a spread line means. **FIBO's `Debt` is an instrument, not a
-balance-sheet line** — its neighbours are `CollateralizedDebtObligation` and
+balance-sheet line** — its neighbors are `CollateralizedDebtObligation` and
 `BasketOfDebtInstruments`. It models what a debt *is*, never how much debt
 appeared on a balance sheet in a quarter.
 
