@@ -73,7 +73,7 @@ examples/cp-NN-<slug>/
 │   ├── template.html          ← committed
 │   └── run-transcript.txt     ← committed; the pinned run the page reproduces
 ├── README.md                  ← seven headings, gated (§4)
-└── summary_explanations.md    ← the banker document (§6)
+└── summary_explanations.md    ← the three-reader document (§6)
 ```
 
 Plus, outside the example directory:
@@ -192,7 +192,7 @@ covers only its **mechanics**.
 
 ---
 
-## 6 · `summary_explanations.md` — the banker document
+## 6 · `summary_explanations.md` — the three-reader document
 
 **Every Context Product example ships one, beside the README.** Dave presents
 from it directly.
@@ -405,7 +405,7 @@ example's, and both must hold.
 - **`page/build_page.py` and `template.html` are committed, the render is not**,
   and the generator's output has been proven to match the published page
 - **The page names its snapshot in one sentence** (`D-IMPL-218`)
-- **`summary_explanations.md` exists**, is written for a banking audience, and
+- **`summary_explanations.md` exists**, is written for all three readers (§6), and
   names the lift per run
 - **Every fenced block in every document is the program's exact text or a
   labeled excerpt**, verified block-then-line against captured output with a
