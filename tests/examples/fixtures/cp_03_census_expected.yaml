@@ -1,0 +1,83 @@
+# The census this build must re-derive, and the wrong numbers it must not report.
+#
+# **WHY THE FIGURES ARE HERE AND NOT IN THE TEST MODULE.** A number the test
+# authored would be the test agreeing with itself about what the estate holds.
+# This file is the module's source for its expectations, reviewed as data.
+#
+# **EVERY FIGURE WAS MEASURED ON THE FIXTURE**, seeded into a throwaway
+# `postgres:16` container, not copied from the live estate — though all of them
+# match it, which is what makes the fixture faithful. Refreshing the fixture
+# means re-measuring these and landing both in one reviewed commit.
+#
+# Phase 24.3 criteria 2-16. Criterion 17 is NOT here: it asserts Fluree predicate
+# counts (178/198 against 171) and there is no Fluree in this fixture, so it
+# defers with the rest of the Fluree unit (§C.1 element 11, `OFS-G14`).
+
+measured_on: fixture
+fixture_generated: 2026-08-30
+generator: tools/dump_cp03_fixture.py
+
+# --------------------------------------------------------------------------
+# The census — criteria 2 to 12
+# --------------------------------------------------------------------------
+census:
+  # The fact-cell key is the estate's own PRIMARY KEY minus `accession`.
+  key: [lei, tag, unit, period_end, fiscal_period]
+
+  total_fact_cells: 11118
+  cells_multi_accession: 3547
+  cells_repeated_identically: 3226
+  restatement_cells: 321
+  restatement_obligors: 37
+
+  # 3226 + 321 must equal 3547. The harness asserts the identity, not just
+  # the three numbers, so a fixture that drifted inconsistently is caught.
+  bands:
+    precision: {threshold: "<0.01", cells: 100, obligors: 23}
+    middle:    {threshold: "0.01..0.05", cells: 46, obligors: 15}
+    material:  {threshold: ">=0.05", cells: 175, obligors: 32}
+
+  facts_instant: 8088
+  facts_duration: 6967
+  facts_total: 15055
+
+  item_402:
+    obligors_with_filing: 11
+    restated_with_filing: 9
+    restated_without_filing: 28
+    unrestated_with_filing: 2
+    obligors_total: 50
+
+  crosswalk_obligors: 50
+  crosswalk_orphans: 0
+
+  non_december_fiscal_year_ends: 16
+  fiscal_year_end_obligors_total: 50
+
+  obligors_without_any_revenue_tag: 1
+
+# --------------------------------------------------------------------------
+# The wrong methods — criteria 13 to 16, each with the number it produces
+# --------------------------------------------------------------------------
+#
+# Criterion 18: each control asserts BOTH its specific number AND that the
+# number differs from the census. Asserting only "this fails" would keep
+# passing after the method stopped producing a wrong answer — and asserting
+# only the number would not prove the control still discriminates.
+wrong_methods:
+  short_key:
+    description: grouping on (lei, tag, period_end) — no unit, no fiscal_period
+    yields: 410
+    hides: currency and duration artifacts counted as restatements
+  invented_period_start_key:
+    description: grouping on (lei, tag, unit, period_start, period_end) — this specification's own earlier invention
+    yields: 392
+    hides: period_start and fiscal_period cut differently; 125 groups span more than one period_start
+  accession_multiplicity:
+    description: counting distinct accessions instead of distinct values
+    yields: 3547
+    hides: 3226 prior-period comparatives re-reported unchanged
+  null_dropping_join:
+    description: JOIN ... USING (period_start), where NULL never equals NULL
+    yields: 280
+    hides: all 8088 instant facts, silently and with no error
