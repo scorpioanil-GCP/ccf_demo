@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import ast
 import os
+import uuid
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -50,10 +51,12 @@ from ccf.controlplane.artifacts import (
     ProductClassDeclaration,
 )
 from ccf.deployment import BootedFabric
+from ccf.graph.protocols import GraphView
 from ccf.halflife.assessment import DebtAssessment, DebtFactors
 from ccf.halflife.debt import FreshnessScorer, assess_debt
 from ccf.halflife.decay import Observation
 from ccf.products.request import ProductRequest, ProductRequestContract
+from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 HERE = Path(__file__).parent
@@ -104,6 +107,18 @@ BASIS_LATEST_RESTATED = "latest-restated"
 
 SOURCE_BINDING = "financial_spread"
 SOURCE_SETTING_DSN = "dsn"
+PER_RUN = "per_run"
+PER_RUN_PATH = "path"
+PREFIX = "prefix"
+SUFFIX = "suffix"
+KEY_BACKEND = "backend"
+KEY_TENANT = "tenant_id"
+
+#: The one entity class this product resolves — `ccf_config.yaml`'s
+#: `resolution:` block. There is no second class and no relationship rule:
+#: this product has no `R` at all, which is what makes it the last rung
+#: before the graph.
+ENTITY_CLASS = "obligor"
 
 SOURCE_SCHEMA = "ccf_v2"
 TABLE_FACT = "financial_fact"
@@ -204,6 +219,67 @@ def source_dsn() -> str:
     if not dsn:
         raise SystemExit(f"{variable} is not set.\n\n{setting[REMEDY]}")
     return dsn
+
+
+def connection(*, root: Path) -> Mapping[str, str]:
+    """Compose the declared backend kind's connection settings.
+
+    The only branch here is over the value SOURCES `backends.yaml` declares,
+    never over a substrate name — a function that switched on `"sqlite"` would
+    put the substrate's name in code, and the point of the document is that the
+    deployment names its backend as a KIND.
+
+    This reaches the `profiles:` block and nothing else. The system of record is
+    :func:`source_dsn`'s business, and the two are deliberately separate: the
+    fabric's own state is per-run scratch that this function invents a path for,
+    while the estate is a durable store this deployment may only read.
+    """
+    kind = config()[KEY_BACKEND]
+    profiles = _load(BACKENDS)[DECLARATION][PROFILES]
+    settings: Mapping[str, Any] = profiles[kind][SETTINGS]
+    composed: dict[str, str] = {}
+    for setting, source in settings.items():
+        if FROM_ENV in source:
+            variable = source[FROM_ENV]
+            value = os.environ.get(variable)
+            if not value:
+                raise SystemExit(f"{variable} is not set.\n\n{source[REMEDY]}")
+            composed[setting] = value
+        elif source.get(PER_RUN) == PER_RUN_PATH:
+            # A FRESH PATH PER RUN, and the uuid is what makes the byte-identity
+            # claim (criterion 37) mean something. Two runs of the same question
+            # build two separate graphs from the same estate and must still
+            # agree byte for byte; reusing one file would let the second run
+            # read the first one's state and agree with itself.
+            name = f"{source[PREFIX]}_{uuid.uuid4().hex}{source[SUFFIX]}"
+            composed[setting] = str(root / name)
+        else:
+            raise SystemExit(
+                f"backends.yaml declares setting {setting!r} for backend"
+                f" {kind!r} in a form this deployment cannot compose:"
+                f" {sorted(source)}"
+            )
+    return composed
+
+
+def tenant_id() -> str:
+    """The tenant this deployment runs as, from its own configuration."""
+    return str(config()[KEY_TENANT])
+
+
+def perspective() -> Perspective:
+    """The Π role-conditioning this product is served under.
+
+    `principal_id` here is the DEFAULT, never the rule. §B.2's entitlement leg
+    discriminates — 49/47/0/0 across the four principals — so which principal
+    asks changes WHICH OBLIGORS EXIST rather than how they are shaped, and
+    `read(..., principal_id=)` is how the demonstration and `OFS-G15` ask as
+    somebody else.
+    """
+    declared = config()[KEY_PERSPECTIVE]
+    return Perspective(
+        principal_id=str(declared["principal_id"]), role=str(declared["role"])
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1373,3 +1449,332 @@ def read(
             f"{KEY_DEBT_PROFILE}@{booted.pins.version_for(KEY_DEBT_PROFILE)}"
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Π — the projection.
+# ---------------------------------------------------------------------------
+
+
+class FinancialSpreadProjection:
+    """Shape the permitted facts into the §D.6 emitted contract.
+
+    **Π IS NOT ROLE-CONDITIONING AT THIS TIER** (§A): every authorized caller
+    gets the same SHAPE. What differs per principal is WHICH OBLIGORS EXIST to
+    be shaped, and that is settled upstream by the Policy operator (§D.2 step
+    2). This is why §B.2's suppression holds structurally rather than by
+    filtering here — the check below is for an entity that is *absent*, not for
+    an attribute that is *forbidden*, and a projection cannot forget to apply a
+    filter it does not implement.
+
+    **PER-ATTRIBUTE, NOT PER PRODUCT — §D.6, and the whole subject of this
+    rung.** Every reported line carries the `filed_date` and `accession` of the
+    filing that asserted THAT figure, its own `basis_applied`, and its own
+    restatement marking. A product-level freshness stamp would say one thing
+    about a spread whose columns are four years apart. *"The lineage record
+    must survive a question about one figure, not just about the product as a
+    whole."*
+
+    **`inputs` IS COLLECTED, NEVER DECLARED — §D.7.1, gate `OFS-G12`.** A
+    derived line names the fact-cell lines its arithmetic actually read, which
+    for a `??` fallback is one branch and not the declared union. `OFS-G12`
+    asserts every entry resolves to a line present in the SAME period of the
+    SAME payload, so the check is closed over the payload and needs no SDK
+    type — the bound Dave set, with nothing reusable added to `src/`.
+
+    **NO FIGURE IS EVER `0` FOR "ABSENT"** — §C.4 trap 5, gate `OFS-G08`. One
+    of this estate's 50 obligors carries none of the four revenue tags, and its
+    revenue line is served `NOT_EVALUABLE`. A zero revenue reads as a company
+    with no sales, which is a different and false statement about the world.
+
+    **DECIMALS ARE SERVED AS TEXT**, on the same rule rung 02 fixed: a float is
+    not bit-stable across platforms so it cannot appear in a content address,
+    and a `Decimal` survives the content address but not a caller's
+    `json.dumps`. Text is the one representation stable in the hash AND
+    renderable by a client, and it keeps ONE rule for numbers across the whole
+    payload rather than two.
+    """
+
+    def __init__(
+        self, *, plan_id: str, required: tuple[str, ...], scenario: Any
+    ) -> None:
+        self._plan_id = plan_id
+        self._required = required
+        self._scenario = scenario
+
+    @property
+    def plan_id(self) -> str:
+        return self._plan_id
+
+    def required_operators(self) -> tuple[str, ...]:
+        """From the product class's own document — the one authored set."""
+        return self._required
+
+    def _amount(self, value: Decimal | None) -> str:
+        """One figure as text, or the word — never `0` for absent."""
+        return NOT_EVALUABLE if value is None else str(value)
+
+    def _reported_line(self, line: SpreadLine) -> dict[str, Any]:
+        """A filed figure, carrying the filing that asserted IT.
+
+        Every field below except `value` is per-attribute lineage. `accession`
+        and `filed_date` come from the cell rather than from the period, so a
+        column stitched from two filings reports two of them — which is what a
+        spread actually is, and what a product-level stamp would erase.
+        """
+        cell = line.cell
+        if cell is None:
+            # The line is declared and this period filed none of its tags.
+            # A real completeness shortfall that `_completeness` counts, served
+            # as the word rather than filled with a default.
+            return {
+                "value": NOT_EVALUABLE,
+                "unit": NOT_EVALUABLE,
+                "kind": line.declared_kind,
+                "derived": False,
+                "reason": "no declared tag for this line was filed in this period",
+            }
+        return {
+            "value": self._amount(cell.value),
+            "unit": cell.unit,
+            # INSTANT VERSUS DURATION IS VISIBLE — §C.5, gate `OFS-G01`.
+            # 8,088 of this estate's 15,055 facts are balance-sheet instants
+            # carrying no `period_start`, and a payload that showed only
+            # durations would be a spread with no balance sheet in it.
+            "kind": KIND_INSTANT if cell.is_instant else "duration",
+            "period_start": (
+                cell.period_start.isoformat()
+                if cell.period_start is not None
+                else None
+            ),
+            "period_end": cell.period_end.isoformat(),
+            # WHICH FILING ASSERTED THIS FIGURE. The two columns that make the
+            # lineage per-attribute rather than per-product.
+            "filed_date": cell.filed_date.isoformat(),
+            "accession": cell.accession,
+            "form": cell.form,
+            # WHICH OF THE TWO TRUTHS THIS FIGURE IS. Carried on the line and
+            # not only at the product, because a caller reading one figure out
+            # of a payload is owed the basis it was read under.
+            "basis_applied": self._scenario.basis,
+            # THE VALUE CHANGED ACROSS FILINGS ON THE FULL KEY — never inferred
+            # from accession multiplicity, which is §C.4 trap 1 and would give
+            # 3,547 where the answer is 321.
+            "restated": cell.restated,
+            "restatement_class": (
+                cell.restatement_class
+                if cell.restatement_class is not None
+                else NOT_EVALUABLE
+            ),
+            # THE FILER FILED THIS LINE THE OTHER WAY ROUND FROM ITS
+            # DECLARATION. Marked, never silently reinterpreted into the shape
+            # the declaration expected.
+            "kind_conflict": line.kind_conflict,
+            "derived": False,
+        }
+
+    def _derived_line(self, line: SpreadLine) -> dict[str, Any]:
+        """A computed figure, naming the lines its arithmetic actually read."""
+        return {
+            "value": self._amount(line.value),
+            "unit": line.unit,
+            "derived": True,
+            # COLLECTED DURING EVALUATION, not copied from the artifact's
+            # declared `inputs:` list — the two differ wherever a `??` fallback
+            # took one branch, and publishing the declared list would name a
+            # fact-cell this payload never read.
+            "inputs": list(line.inputs),
+        }
+
+    def _period(self, period: SpreadPeriod) -> dict[str, Any]:
+        """One column of the spread — every declared line at one fiscal period."""
+        return {
+            # KEYED BY BOTH, never by `period_end` alone. A single period end
+            # carries an `FY` cell and a `Q1` cell for a non-December filer, and
+            # collapsing them would put a full year's revenue in the same
+            # column as a quarter's.
+            "period_end": period.period_end.isoformat(),
+            "fiscal_period": period.fiscal_period,
+            # WHICH λ_c THIS COLUMN DECAYS AGAINST — §E.1. Two columns of one
+            # payload return different values here, which is what "the
+            # half-life is per signal class, not per product" means in a
+            # served payload rather than in a sentence.
+            "signal_class": period.signal_class,
+            "latest_filed": (
+                period.latest_filed.isoformat()
+                if period.latest_filed is not None
+                else NOT_EVALUABLE
+            ),
+            "lines": {
+                name: (
+                    self._derived_line(line)
+                    if line.derived
+                    else self._reported_line(line)
+                )
+                for name, line in sorted(period.lines.items())
+            },
+        }
+
+    def _peer_comparison(self) -> Any:
+        """The cohort at the anchor's OWN period ends — §D.2 step 4.
+
+        **AN AGGREGATE, AND THE REASON IS MEASURED RATHER THAN STYLISTIC.**
+        This estate's largest SIC cohort holds 626 peers and 8,404 peer facts
+        across 40 period ends. Emitting them as rows would not be a payload, it
+        would be a data dump — and a credit officer comparing an obligor to its
+        cohort reads the cohort's shape, not 626 individual filings.
+
+        **THE JOIN KEY IS THE TEACHING POINT AND IT IS UPSTREAM OF HERE.**
+        `_read_peers` matches on `period_end` and never on `filed_date`, so
+        comparing a Q3 figure to a peer's Q2 because the two filed the same
+        week is foreclosed structurally. Nothing this method could do would
+        restore that error and nothing it does demonstrates the avoidance —
+        the query key does both.
+
+        **WHAT THE MEDIAN'S LINEAGE IS, said plainly rather than left
+        implicit.** §D.7.1's `inputs` obligation is on DERIVED RATIO LINES, and
+        this is not one. The cohort statistic names its inputs as a CLOSED
+        DESCRIPTION — every peer in this SIC reporting this tag at this exact
+        `period_end` — which is restatable and re-executable, rather than as an
+        enumerated list of cells. That is a weaker form of provenance than a
+        ratio line carries, it is deliberate, and it is the reason the cohort
+        size and the reporting count are served BESIDE the figure: a median
+        over three peers and a median over three hundred are different claims
+        and a reader must be able to tell them apart.
+
+        **A COHORT OF NOBODY IS A LEGITIMATE ANSWER.** 15 of the 53 obligors
+        this estate resolves through the crosswalk are structurally peerless —
+        `peer_entity` carries no row for their SIC at all. That is a
+        completeness shortfall the debt reading counts, served as the word, and
+        never an exception.
+        """
+        peers = self._scenario.peers
+        if not peers:
+            return NOT_EVALUABLE
+        by_period: dict[date, dict[str, list[Decimal]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        cohort: set[int] = set()
+        sic: str | None = None
+        for peer in peers:
+            cohort.add(peer.cik)
+            sic = sic or peer.sic
+            if peer.value is not None:
+                by_period[peer.period_end][peer.tag].append(peer.value)
+        return {
+            "cohort_basis": self._scenario.request.parameters.get(PARAM_PEER_BASIS),
+            "sic": sic if sic is not None else NOT_EVALUABLE,
+            "cohort_size": len(cohort),
+            "by_period": [
+                {
+                    "period_end": period_end.isoformat(),
+                    "tags": {
+                        tag: {
+                            "peers_reporting": len(values),
+                            "median": str(_median(values)),
+                        }
+                        for tag, values in sorted(tags.items())
+                    },
+                }
+                for period_end, tags in sorted(by_period.items(), reverse=True)
+            ],
+        }
+
+    def invoke(
+        self,
+        *,
+        view: GraphView,
+        operator_outputs: Mapping[str, Any],
+        perspective: Perspective,
+        temporal_boundary: datetime,
+    ) -> ProjectionOutput:
+        record = next(
+            (
+                entity
+                for entity in view.entities
+                if entity.claim.entity_class == ENTITY_CLASS
+            ),
+            None,
+        )
+        if record is None:
+            # THE POLICY OPERATOR REMOVED IT: this principal is not entitled to
+            # see this obligor, because the filer's jurisdiction is outside the
+            # principal's expanded grant.
+            #
+            # §B.2's suppression rule: no count, no marker, no placeholder
+            # saying anything was withheld, and NO WAY TO TELL THIS APART FROM
+            # AN OBLIGOR THAT DOES NOT EXIST. `OFS-G15` measures the four
+            # populations this produces — 49 / 47 / 0 / 0 — and holds
+            # `49 != 47` beside the two zeroes, because two legitimate zeroes
+            # are exactly the condition under which a broken check looks
+            # correct.
+            return ProjectionOutput(
+                plan_id=self._plan_id,
+                payload={"obligor": None, "perspective_role": perspective.role},
+            )
+
+        attributes = record.claim.attributes
+        resolved = self._scenario.resolved
+        payload: dict[str, Any] = {
+            "obligor": {
+                # FROM THE RESOLVED ROW, not from `attributes`: `lei` is an
+                # identity key in the resolution spec, and an identity key is
+                # consumed by the resolver to mint the entity rather than
+                # stored back as an attribute.
+                ATTR_LEI: resolved.lei,
+                # The canonical URI L2 minted — the fabric's own name for this
+                # obligor, which exists only because the write path ran.
+                "entity_id": record.claim.entity_uri,
+                ATTR_CIK: resolved.cik,
+                ATTR_NAME: resolved.legal_name,
+                # The attribute Policy filtered on, RETURNED as well as
+                # filtered on: a product that filters on a field it does not
+                # return cannot be audited from its own payload.
+                ATTR_JURISDICTION: attributes.get(ATTR_JURISDICTION),
+                # NOT A TECHNICALITY — it is what makes `fiscal_period`
+                # load-bearing. A March year end means a June quarter is Q1,
+                # and the restatement key depends on that distinction.
+                ATTR_FY_END_MONTH: resolved.fiscal_year_end_month,
+                ATTR_LATEST_FILED: (
+                    resolved.latest_filed.isoformat()
+                    if resolved.latest_filed is not None
+                    else NOT_EVALUABLE
+                ),
+                # AN ITEM 4.02 EXISTS — CORROBORATION ONLY, §C.4 trap 2. It
+                # covers 11 of 50 obligors while 37 carry values that actually
+                # changed, so a build that detected restatement from this
+                # would miss 28 of them. It is served beside the per-line
+                # `restated` marking, never instead of it.
+                ATTR_FORMALLY_RESTATED: resolved.has_non_reliance_filing,
+            },
+            # WHICH OF THE TWO TRUTHS THIS WHOLE PAYLOAD IS. Both settings are
+            # correct and the decision picks — the catalog's first such
+            # parameter — so the payload states which one it answered under.
+            # `OFS-G11` holds the two to different content addresses for a
+            # restated obligor and to identical ones for an unrestated one.
+            "basis_applied": self._scenario.basis,
+            "periods": [self._period(period) for period in self._scenario.periods],
+            "peer_comparison": self._peer_comparison(),
+            "perspective_role": perspective.role,
+        }
+        return ProjectionOutput(plan_id=self._plan_id, payload=payload)
+
+
+def _median(values: Sequence[Decimal]) -> Decimal:
+    """The middle value, averaging the two middles on an even count.
+
+    `statistics.median` would return a float on an even-length input, and a
+    float cannot be canonically encoded — the same refusal rung 02 met inside
+    `content_hash`. Kept in `Decimal` throughout so the figure survives the
+    content address.
+    """
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[middle]
+    return (ordered[middle - 1] + ordered[middle]) / Decimal(2)
+
+
+def plan_class() -> type[FinancialSpreadProjection]:
+    """Π as a class the fabric constructs, never an object it is handed."""
+    return FinancialSpreadProjection
