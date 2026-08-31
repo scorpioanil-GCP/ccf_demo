@@ -15,10 +15,18 @@
 # name the DEPLOYMENT: the spec says which store, this says how to reach it,
 # and only the environment says where it is.
 #
-# ONE SOURCE, AND THE SECOND STORE IS NOT HERE ON PURPOSE. Spec §C.6 declares a
-# Fluree policy-version binding; §C.6.1 holds it out of Gate 2 on build
-# sequencing, so there is no `fibo-v2` block below. When it lands it arrives as
-# a second `sources:` entry and nothing else in this document moves.
+# ONE SOURCE, AND THE SECOND STORE IS NOT HERE ON PURPOSE. A Fluree
+# policy-version binding was specified for this product and then REMOVED FROM IT
+# ENTIRELY (Dave, 2026-08-30), moving to the rung that actually reads that store
+# — a specification carrying thirteen sections about a store its build never
+# opens describes an intention rather than a product. `policy_version` comes
+# from the Control Plane artifact in force; the discovery the removed work
+# produced is kept at spec §F.4 finding 12. Gate `OFS-G05` asserts at runtime
+# that no store but PostgreSQL is opened.
+#
+# This comment previously cited §C.6 and §C.6.1 and described the binding as
+# merely STAGED OUT of Gate 2. Both sections were deleted with the ruling, so it
+# was a live pointer into a hole and a superseded reading of the decision.
 
 semver: "1.0.0"
 class_id: cp-03.backend-profiles

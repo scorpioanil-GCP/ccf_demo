@@ -810,7 +810,7 @@ GET /context-products/credit-risk/spread/5493001KJTIIGC8Y1R12
 | # | Step | Layer | Is it an operator? | Reads | Emits | Fails |
 |---|---|---|---|---|---|---|
 | 1 | **Resolve** | **L2** | **no** | `lei` | obligor row, `cik` via crosswalk | fail closed → **404** |
-| 2 | **Policy** | **L4** | **YES — the only one** | resolved obligor; principal; `intent`; **`asked_at`** | `policy_version` (**at Gate 2: the Control Plane artifact** — §C.6.1); entitlement set and ratio definitions (Postgres/artifact); permitted set | **403**; source unreachable → **503**, never a permissive default |
+| 2 | **Policy** | **L4** | **YES — the only one** | resolved obligor; principal; `intent`; **`asked_at`** | `policy_version` (**at Gate 2: the Control Plane artifact** — §F.4 finding 12); entitlement set and ratio definitions (Postgres/artifact); permitted set | **403**; source unreachable → **503**, never a permissive default |
 | 3 | **Attribute batch-select** | **L2** | **no** — see below | permitted obligor, `periods`, `basis` | fact set, instant **and** duration | **404** if the obligor has no facts |
 | 4 | **Peer batch-select** *(conditional)* | **L2** | **no** | period set from step 3, `peer_basis` | peer facts at **identical `period_end`** | degrade, never fail |
 | 5 | **Derivation** | in-memory | **no** | steps 3–4 + step 2's definitions | ratios, each naming its inputs | `NOT_EVALUABLE` per line |
