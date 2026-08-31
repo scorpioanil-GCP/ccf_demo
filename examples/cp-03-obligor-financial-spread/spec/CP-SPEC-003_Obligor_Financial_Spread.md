@@ -1500,9 +1500,43 @@ to contrast with.
 | **`OFS-G13`** | `restatement_class` is read from `artifacts/restatement.yaml` — **changing the artifact's threshold moves cells between classes** | §E.5 |
 | **`OFS-G15`** | **Entitlement discriminates AS SETS, with a negative control.** The four principals resolve to their measured visible populations — `PRIN-RES-002` **49**, `PRIN-COV-001` **47**, `PRIN-KYC-004` **0**, `PRIN-TRD-003` **0** — and `49 != 47` proves the check is not returning a constant. The **negative control**: a principal granted nothing sees nothing, and that assertion is paired with a positive one so an always-empty result cannot pass it. **No served figure differs between principals** — entitlement removes rows, never rewrites them | §B.2, §F.4 finding 14 |
 
-**Every gate must be made to fail deliberately once.** `[TBC — this build,
-phase P7]` — the sabotage applied to each and the observed result. **A gate that
-has never been observed red is not evidence that it runs.**
+**Every gate must be made to fail deliberately once.** **A gate that has never
+been observed red is not evidence that it runs.**
+
+**THREE OF FOURTEEN ARE BUILT AND OBSERVED RED**, 2026-08-31, in
+`tests/examples/test_cp_03_output.py`. The other eleven are `[TBC — this build]`
+and are not claimed as passing: before this date NONE of the fourteen ran at
+all — every `OFS-G` in the example's modules was a comment and
+`artifacts/expected.yaml` was read by nothing.
+
+| Gate | Sabotage applied | Observed |
+|---|---|---|
+| **`OFS-G01`** | every reported fact's `kind` forced to `duration` (`deployment.py`, the reported-line branch) | **RED** — `assert 'instant' in {'duration'}` |
+| **`OFS-G09`** | the expiry re-anchored on `asked_at` (`base = self.now`) instead of the payload's latest filing | **RED** — `expires_at is 2026-09-28, but the payload's latest filing is 2026-08-05 and expected.yaml declares a 30-day TTL` |
+| **`OFS-G15`** | the grant query stops reading the principal (`where %s is not null`), so every principal sees the same set | **RED in both halves** — the set comparison and the suppression comparison each fail |
+| **`OFS-G15`** | the grant expansion returns `()`, so every principal sees nothing | **RED** — `PRIN-COV-001 sees 0 obligors and expected.yaml declares 47` |
+
+**`OFS-G01` PASSED ITS FIRST SABOTAGE, AND THAT IS THE MOST USEFUL RESULT HERE.**
+With every reported fact forced to `duration`, the gate stayed green: it was
+flattening all three line shapes a period holds, and the PLACEHOLDER for a line
+the obligor never filed carries the *declared* kind from `spread-lines.yaml`.
+Fifty-four placeholders went on saying `instant` about facts that do not exist,
+so the gate was asserting that the payload MENTIONS the word rather than that it
+CARRIES the fact. Narrowed to lines carrying every key in
+`reported_line_keys_when_filed`, it turns red as it should.
+
+The general form is worth keeping: **a gate that reads a field which appears in
+both the present and the absent case is measuring vocabulary, not content.**
+The same question should be asked of `OFS-G08` and `OFS-G12`, which both read
+fields that absent lines also carry.
+
+Two further defects were found by building these three, both in the
+verification machinery rather than in the product. The test helper inherited
+from rung 02 replaced a seam refusal with the observer's captured value, and for
+a SUPPRESSED obligor that value carries a product — so `OFS-G15` would have
+reported green while entitlement did nothing. And the fixture could answer every
+census question while serving no payload at all, because a census counts rows
+and a gate serves the product.
 
 **Two gates are written to go RED when something is later corrected** —
 `OFS-G09` (TTL basis) and `OFS-G10` (operator vocabulary). Their redness is a

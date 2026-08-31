@@ -193,14 +193,32 @@ def _serve(seeded: str, **kwargs: Any) -> Any:
         return captured[0] if captured else governed
 
 
-def _lines(assembled: Any) -> list[dict[str, Any]]:
-    """Every reported line in the served payload, flattened across periods."""
+def _reported_lines(assembled: Any) -> list[dict[str, Any]]:
+    """Only lines that carry a FILED FACT, flattened across periods.
+
+    **The distinction is load-bearing and it was learned by sabotage.** A period
+    holds three shapes of line: a reported fact, a derived ratio, and a
+    placeholder for a line this deployment declares but the obligor never filed.
+    All three carry a ``kind`` — the placeholder carries the DECLARED kind from
+    ``spread-lines.yaml``, describing the line the estate expected rather than
+    any fact it holds.
+
+    A first version of ``OFS-G01`` flattened all three, and a payload with every
+    reported fact forced to ``duration`` still passed: 54 placeholders went on
+    saying ``instant``. The gate was asserting that the payload MENTIONS the
+    word, not that it CARRIES the fact.
+
+    "Reported" is defined by ``expected.yaml``'s ``reported_line_keys_when_
+    filed`` rather than by a list written here, so a change to the emitted
+    contract moves this filter with it instead of leaving it quietly stale.
+    """
+    required = set(_expected()["reported_line_keys_when_filed"])
     payload = dict(assembled.product.payload)
     return [
         line
         for period in payload["periods"]
         for line in period["lines"].values()
-        if isinstance(line, dict)
+        if isinstance(line, dict) and required.issubset(line.keys())
     ]
 
 
@@ -267,7 +285,7 @@ def test_ofs_g01_the_payload_carries_both_fact_kinds(seeded: str) -> None:
     a window. A spread that carries only flows is not a spread.
     """
     assembled = _serve(seeded)
-    lines = _lines(assembled)
+    lines = _reported_lines(assembled)
     assert lines, "the served payload carries no reported lines at all"
 
     kinds = {line.get("kind") for line in lines}
@@ -316,7 +334,7 @@ def test_ofs_g09_the_expiry_is_anchored_on_the_filing_not_the_question(
     assembled = _serve(seeded)
     product = assembled.product
     filed = sorted(
-        line["filed_date"] for line in _lines(assembled) if line.get("filed_date")
+        line["filed_date"] for line in _reported_lines(assembled) if line.get("filed_date")
     )
     assert filed, "no line in the payload carries a filing date"
 
