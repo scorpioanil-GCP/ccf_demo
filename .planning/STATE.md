@@ -3,8 +3,76 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-28T17:00:00.000Z"
+last_updated: "2026-08-31T22:20:00.000Z"
 last_activity: >-
+  2026-08-31 -- **PHASE 24.3 IS CLOSED; 24.2 AND 24.2.1 ARE GATED RETROSPECTIVELY; TIER 1 OF
+  THE CONTEXT PRODUCT LADDER IS COMPLETE.** `D-GATE-24.3` at `5dfdd8d`; `D-GATE-24.2` and
+  `D-GATE-24.2.1` APPROVED on Dave's inspection -- the success criterion was his inspection,
+  ruled explicitly. All four rungs closed: cp-00 (24.1/24.1.1), cp-01 (24.2), cp-02 (24.2.1),
+  cp-03 (24.3). Tree clean, `origin/main` = `92761e0`.
+  **THE TWO SDK-SURFACE QUESTIONS THAT HAVE GATED PHASE 24 PLANNING SINCE 2026-08-25 ARE NOW
+  RULED.** **`D-IMPL-223` -- FOUR SCHEDULING CLASSES, FOREVER, AS THE SCHEDULER; the Standard's
+  eight names are SPEC VOCABULARY.** `OperatorCategory` (`src/ccf/operators/base.py:60`) is a
+  plan-order class carrying INV-CH7-26/28, not a synonym for a Standard name -- so *"the name
+  Enrich is absent from `src/`"* and *"I cannot schedule this work"* are DIFFERENT FAILURES and
+  only the second is an SDK hole. Measured BEFORE the ruling: `Enrich`, `Similarity`, `Evaluate`
+  and `Federate` have **ZERO** uses across the whole ladder, and cp-01/cp-02/cp-03 each invoke
+  exactly **ONE** L4 operator (`Policy`) -- **no example was ever blocked by a missing operator,
+  so none is rewritten.** `OperatorCategory` stays CLOSED for v0, no user-extensible categories,
+  and it is NOT opened in 24.4; users extend by novel KEY through the `Operator` Protocol and
+  `OperatorRegistry.register`, never by novel CATEGORY. **`D-IMPL-212` STAYS OPEN**, deferred to a
+  product that cannot run in the four slots rather than closed by ruling. A reading was RAISED AND
+  REFUSED BY NAME: registering an attribute batch as `category="traversal"` because its scheduling
+  resembles a walk -- Dave: *"the name still teaches the wrong thing, and cp-03 already chose L2
+  assembly for that work."*
+  **`D-IMPL-224` -- PRODUCT GATES ARE A DECLARED ARTIFACT PLUS A CI COVERAGE CHECK**, not a
+  serve-time type. NO `ProductGate` Protocol in 24.4; the Standard's extra three gates are
+  DECLARED PRODUCT GATES, never new members of `run_gates`. Checker scope is the `cp-*` ladder
+  ONLY -- `hw1-*` and `s1-*` declaring zero product gates stay legal.
+  **THE "3 VERSUS 6 GATES" PREMISE WAS FACTUALLY WRONG AND IS CORRECTED WITH MEASURED
+  IDENTITIES.** `src/ccf/products/gates.py` defines FIVE gate identity tokens across TWO runners:
+  `run_gates` (`:426`) runs empty-operator, lineage STRICT EQUALITY, TTL bounds and
+  `refuse_attestation` (`:213`); `run_federated_gates` (`:507`) runs empty-operator, lineage
+  ATTRIBUTABILITY and TTL bounds. `refuse_attestation` returns `None` when `attestation is None`
+  (`:240`), so its enforcement is CONDITIONAL. `D-IMPL-102` limb 3 is QUOTED IN FULL rather than
+  characterized, because its heading (*"No fourth gate is added to `run_gates`"*) and its
+  explanatory clause (*"not joined by a payload gate"*) DIFFER IN SCOPE; which reading governs is
+  left **OPEN** and is NOT decided by `D-IMPL-224`.
+  **THE GATE SEAM IS THE REAL EXTENSION GAP, AND IT HAD ALREADY FAILED SILENTLY AT SCALE.** FORTY
+  product-level gates across four products carry ZERO SDK expression -- declared in artifacts,
+  referenced in example code only as COMMENTS, executed by hand-written pytest linked by naming
+  convention alone. cp-03's own test docstring records the failure: *"Before this module existed,
+  none of the fourteen ran at all."* Contrast `run_gates`, defended by `_GATE_TOKEN`, the
+  `_ServableProductMeta` metaclass and `GateBypassError`. **The population with the most semantic
+  weight had the least structural support.**
+  **A MEASUREMENT OF MINE WAS WRONG AND WAS CAUGHT BEFORE IT REACHED A DOCUMENT.** A first
+  instrument keyed on FUNCTION NAME reported cp-00 0/8, cp-01 0/9, cp-02 0/9 -- but cp-01 and
+  cp-02 name their tests by BEHAVIOR and cite the gate id in the docstring; only cp-03 puts the id
+  in the function name. Re-measured on id presence: cp-00 **1/8**, cp-01 **8/9**, cp-02 **9/9**,
+  cp-03 **15/15**. **Docstring presence is an UPPER BOUND, not proof of an executing assertion** --
+  neither figure may be quoted as coverage, and the checker must require an EXECUTING test, never
+  `id in file`. THREE PRODUCTS USE THREE DIFFERENT LINKING CONVENTIONS, which is exactly why the
+  link must be DECLARED DATA WITH CLOSED KEYS rather than inferred by grep.
+  **DEBT, NOT A REOPENED GATE** (Dave, verbatim: *"Finding under 24.4. Do not reopen
+  D-GATE-24.1."*): cp-00 carries SEVEN declared gates with no test-file presence (`IH-G01`,
+  `IH-G02`, `IH-G03`, `IH-G05`, `IH-G06`, `IH-G07`, `IH-G08`) and cp-01 carries ONE (`CPR-G08`),
+  inside phases closed by `D-GATE-24.1` and `D-GATE-24.2`. Carried as a finding under 24.4, the
+  same pattern as `D-IMPL-221` and cp-02's missing phase home.
+  **PHASE 24.4 IS ANCHORED, NOT PLANNED** -- `corporate-family-tree` (cp-04): first Tier 2 rung,
+  first MULTI-STORE product, first GRAPH TRAVERSAL, and the LADDER'S FIRST MCP DOOR. All four
+  ontology roles in scope (constrain the walk, served in the product, drive the projection,
+  validate the assembly). Assembler STANDALONE with two thin callers -- `run.py` in-process and
+  `server/serve.py` over `build_egress_server` -- so the standalone property is DEMONSTRATED by
+  two callers sharing one module, not asserted. A2A explicitly deferred to a later example.
+  Fluree `fibo-v2` is build-ready at `ledger_t = 4,560`, the first rung with a real
+  `graph_snapshot_at` anchor (`D-IMPL-218`). **NO SUCCESS CRITERIA ARE WRITTEN** -- `D-GATE-19`
+  locks them at the discuss sitting. **BUILD DOES NOT START UNTIL 24.3 IS PAUSED FOR DAVE'S
+  EVALUATION.**
+  **NOT RE-MEASURED THIS SESSION, AND NAMED AS STALE RATHER THAN INCREMENTED:** the `progress:`
+  block below still reads `total_phases: 31 / completed_phases: 29 / percent: 94` from the Phase
+  23.1 gate. Phases have closed since and 24.4 has been added, but the figures are NOT corrected
+  here because `D-19` and `D-IMPL-174` require a RE-MEASURE FROM THE TREE, not an increment, and
+  no re-measure was run this session. PRIOR:
   2026-08-28 -- **PHASE 24.1.1 IS CLOSED AND APPROVED. `D-GATE-24.1.1` LOGGED, MERGED TO
   `main --no-ff`, PUSHED.** Seven waves, eleven commits. All SEVENTEEN criteria met, locked
   before Wave 1 and verified one-per-line by a CONTINUATION-LINE DETECTOR beside the count; the
@@ -900,6 +968,36 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**PHASE 24.3 IS CLOSED. TIER 1 OF THE CONTEXT PRODUCT LADDER IS COMPLETE. PHASE 24.4 IS
+ANCHORED BUT NOT PLANNED, AND ITS BUILD HAS NOT STARTED.** `origin/main` = `92761e0`, tree
+clean. All four Tier-1 rungs are gated: cp-00 (`D-GATE-24.1`, `D-GATE-24.1.1`), cp-01
+(`D-GATE-24.2`), cp-02 (`D-GATE-24.2.1`), cp-03 (`D-GATE-24.3`).
+
+**WHAT THIS SESSION CHANGED, 2026-08-31.** The two SDK-surface questions that had gated
+Phase 24 planning since 2026-08-25 are RULED -- `D-IMPL-223` (four scheduling classes as the
+scheduler; the Standard's eight names as spec vocabulary; `OperatorCategory` closed for v0;
+`D-IMPL-212` stays OPEN) and `D-IMPL-224` (product gates are a declared artifact plus a CI
+coverage check; no `ProductGate` Protocol in 24.4; the Standard's extra gates are declared
+product gates, never new members of `run_gates`). Phase 24.4 is anchored in `ROADMAP.md`
+WITHOUT Success Criteria, per `D-GATE-19`'s forward binding.
+
+**WHAT IS NEXT, AND WHAT MUST NOT HAPPEN FIRST.** The next step is the DISCUSS SITTING for
+24.4, where its Success Criteria lock. **The cp-04 build and the gate-coverage checker
+implementation do NOT start until 24.3 is paused for Dave's evaluation** (Dave, 2026-08-31).
+Carried into 24.4 as a FINDING, not a reopened gate: cp-00's seven declared gates with no
+test-file presence and cp-01's one (`CPR-G08`).
+
+**THE `progress:` BLOCK IN THE FRONTMATTER IS STALE AND IS NAMED AS SUCH RATHER THAN
+INCREMENTED.** It still reads the Phase 23.1 gate figures; `D-19` and `D-IMPL-174` require a
+re-measure from the tree, and none was run this session.
+
+---
+
+**EVERYTHING BELOW THIS LINE IS PRESERVED HISTORY** from the Phase 24.1 execution window and
+is NOT the current position. It is retained because this file's convention is to name a
+superseded value rather than overwrite it silently (`D-19`, `D-IMPL-174`).
+
 
 **PHASE 24.1 IS EXECUTING. WAVES 1-10 OF 11 COMPLETE AND UNPARKED -- `D-66` CLOSED BLOCKER A -- ON BRANCH `phase-24.1`. WAVE 11 (THE CLAUDE.md 3.1 CLOSE) IS THE ONLY THING LEFT.**
 Phase 24 is an UMBRELLA; 24.1 is its first buildable unit -- one Context Product

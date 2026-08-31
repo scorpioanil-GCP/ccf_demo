@@ -2355,8 +2355,8 @@ Dave's instruction was that these documents *"should not impact the CCF SDK
 surface but if they do it needs to be brought to my attention."* Measured
 against the tree rather than inferred, two do:
 
-1. **Operator vocabulary.** The SDK ships the whitepaper's **FOUR** operator categories — `src/ccf/operators/categories.py::TraversalNeighborhood`, `::TemporalAsOf`, `::PolicyFilter`, `::SimilaritySelect`. The standard commits a **CLOSED EIGHT-OPERATOR VOCABULARY** (Resolve, Policy, Projection, Traversal, Enrich, Similarity, Evaluate, Federate) over seven capability classes, and every spec's assembly recipe is written in those eight names. Reconcilable — the eight read as a naming and authoring layer over the algebra, with Temporal absorbed into Traversal modes — but the mapping must be **RULED**, because composition-preservation tests and `operators_invoked[]` lineage naming both depend on which layer is canonical. **This is visible in the deliverable itself:** an example printing its specification beside its lineage would show the two vocabularies disagreeing.
-2. **Validation gates.** The SDK ships **THREE** and has affirmatively RULED that no fourth joins `ccf.products.gates::run_gates` (`D-IMPL-102` limb 3, stated twice in `src/ccf/products/contract.py`). The standard requires **SIX UNIVERSAL** gates — the SDK's three plus a debt gate, suppression silence, and classification containment. This is not a gap but a contradiction with a logged ruling.
+1. **Operator vocabulary.** The SDK ships the whitepaper's **FOUR** operator categories — `src/ccf/operators/categories.py::TraversalNeighborhood`, `::TemporalAsOf`, `::PolicyFilter`, `::SimilaritySelect`. The standard commits a **CLOSED EIGHT-OPERATOR VOCABULARY** (Resolve, Policy, Projection, Traversal, Enrich, Similarity, Evaluate, Federate) over seven capability classes, and every spec's assembly recipe is written in those eight names. Reconcilable — the eight read as a naming and authoring layer over the algebra, with Temporal absorbed into Traversal modes — but the mapping must be **RULED**, because composition-preservation tests and `operators_invoked[]` lineage naming both depend on which layer is canonical. **This is visible in the deliverable itself:** an example printing its specification beside its lineage would show the two vocabularies disagreeing. **RULED 2026-08-31 (`D-IMPL-223`, Dave).** Not "4 versus 8" — the two are different kinds of thing. `OperatorCategory` (`src/ccf/operators/base.py:60`) is a **plan-order class carrying correctness rules**, not a synonym for a Standard name: `CATEGORY_ORDER` (`:69`) puts Policy first so Similarity ranks only over the principal-permissible subgraph (INV-CH7-26) and Temporal before Traversal so a walk expands over reconciled state (INV-CH7-28). **Four scheduling classes stay, forever, as the scheduler; the Standard's eight are spec vocabulary.** Measured before the ruling: `Enrich`, `Similarity`, `Evaluate` and `Federate` have **ZERO** uses across the whole ladder, and `cp-01`/`cp-02`/`cp-03` each invoke exactly **ONE** L4 operator (`Policy`) — **no example was ever blocked by a missing operator, so none is rewritten.** Users extend by novel **key** through the `Operator` Protocol + `OperatorRegistry.register`, never by novel **category**; `OperatorCategory` is **closed for v0** and is **not opened in 24.4**. A fifth class is earned only by an operator that must run where none of the four describe, never as an alias for `Enrich`. **`D-IMPL-212` stays OPEN.**
+2. **Validation gates.** The SDK ships **THREE** and has affirmatively RULED that no fourth joins `ccf.products.gates::run_gates` (`D-IMPL-102` limb 3, stated twice in `src/ccf/products/contract.py`). The standard requires **SIX UNIVERSAL** gates — the SDK's three plus a debt gate, suppression silence, and classification containment. This is not a gap but a contradiction with a logged ruling. **AMENDED 2026-08-31 (`D-IMPL-224`, Dave).** The premise above is stale and the "contradiction" does not hold as stated. Measured at `92761e0`, `src/ccf/products/gates.py` defines **FIVE** gate identity tokens — `GATE_EMPTY_OPERATOR` (`:119`), `GATE_LINEAGE_EQUALITY` (`:120`), `GATE_LINEAGE_ATTRIBUTABILITY` (`:121`), `GATE_TTL_BOUNDS` (`:122`), `GATE_SOURCE_ATTESTATION` (`:123`) — across **TWO** runners: `run_gates` (`:426`) invokes the empty-operator guard, lineage strict equality, TTL bounds and `refuse_attestation` (`:213`); `run_federated_gates` (`:507`) invokes the empty-operator guard, lineage **attributability** and TTL bounds. `refuse_attestation` returns `None` when `attestation is None` (`:240`), so its enforcement is **conditional**. `D-IMPL-102` limb 3 is quoted in full in `D-IMPL-224` rather than characterized here, because its heading (*"No fourth gate is added to `run_gates`"*) and its explanatory clause (*"not joined by a payload gate"*) differ in scope. **RULED:** the Standard's extra three gates are **declared product gates plus CI tests**, not new members of `run_gates`; whether `run_gates`'s current membership needs its own dated ruling is left **OPEN**.
 
 **ONE APPARENT IMPACT THAT IS NOT ONE, CHECKED RATHER THAN ASSUMED.**
 `CCF_SDK_DE_REQUIREMENTS.md` §9 raises nine-versus-eight contract elements as a
@@ -2608,8 +2608,8 @@ phase is. Criteria are locked in `24.2-CONTEXT.md`.
 rediscovered, NOT pre-decided here):
 
 1. **Which specification is canonical.** `references/CP-SPEC-001_Counterparty_Reference_Snapshot_v2.md` (the repo copy, five systems of record) versus the vault's `counterparty-reference-snapshot.md` (rewritten to `spec-standard-v0-3`, whose §C collapsed to **four** rows). The collapse is what dropped **SIC code, internal obligor risk grade and coverage RM assignment** — the estate holds them and no spec now asserts them. Unruled.
-2. **Operator vocabulary, 4 versus 8.** Carried from Phase 24's entry and still unruled. This product's §D recipe is written in the standard's names (`Resolve`, `Policy`), and the SDK ships four whitepaper categories.
-3. **Validation gates, 3 versus 6.** Carried from Phase 24's entry and still unruled — a contradiction with `D-IMPL-102` limb 3, not merely a gap. This product's §D names *suppression silence* and *classification containment*, and its entitlement gap was closed against the first of those.
+2. **Operator vocabulary, 4 versus 8.** Carried from Phase 24's entry and still unruled. This product's §D recipe is written in the standard's names (`Resolve`, `Policy`), and the SDK ships four whitepaper categories. **RULED 2026-08-31 by `D-IMPL-223` (Dave).** The recipe naming steps `Resolve`/`Policy` while the SDK ships four categories is **correct and stays** — the eight are authoring words, the four are the scheduler. This product's `operator: null` steps and its §D.2.1 choice of L2 assembly over a fake `Enrich` mapping are affirmed, not disturbed; `OFS-G10` remains a valid tripwire.
+3. **Validation gates, 3 versus 6.** Carried from Phase 24's entry and still unruled — a contradiction with `D-IMPL-102` limb 3, not merely a gap. This product's §D names *suppression silence* and *classification containment*, and its entitlement gap was closed against the first of those. **RESOLVED 2026-08-31 by `D-IMPL-224` (Dave).** Not a contradiction as stated — the tree holds five gate identities across two runners, not three. The Standard's extra gates are **declared product gates + CI coverage**, never additions to `run_gates`; **no `ProductGate` Protocol is built in 24.4**, and `cp-04` pressure-tests whether ontology claims must refuse at serve.
 4. **What the printed run is pinned to.** `cp-00` pins the time axis through `artifacts/question.yaml::asked_at` and leaves the store axis live; `EXAM-06`/`D-IMPL-218` require the page to name its snapshot. `D-IMPL-218`'s stated reason ("its fixtures are fixed") does not describe `cp-00` and should not be inherited unexamined.
 
 **Requirements:** discharges `EXAM-06` for this product's documentation page
@@ -2760,6 +2760,91 @@ digit, so a real continuation-line detector is required beside the count.
   40. No Fluree connection is opened and no Fluree section exists in `ccf_config.yaml` or `backends.yaml` — the policy-version binding was specified in this product and then MOVED OUT of it entirely (Dave, 2026-08-30), because a specification carrying thirteen sections about a store its build never touches describes an intention rather than a product; the discovery it produced is retained at spec §F.4 finding 12
   41. The thirteen `[TBC]` rows owned by the vault, `ccf_dataprep`, identity-and-access and the product owner are NOT closed by this build and are NOT invented by it
 
+### Phase 24.4: Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal and Ontology, and the Ladder's First MCP Door (INSERTED)
+
+**Goal:** build `corporate-family-tree` as a Context Product example — **rung 04 of
+the vault's ladder and the FIRST of Tier 2** — as the first product that opens more
+than one store, the first that traverses a graph, and the first on the ladder to be
+reachable over MCP.
+
+**Why this rung, and why now.** Dave, 2026-08-31, naming two new concepts: *"using
+the Fluree graph for graph traversal and ontology along with other backends to form a
+new context product"*, and *"access the code that assembles the context product via an
+MCP. We will do A2A in a later example. Just MCP for this one."*
+
+**STATUS: ANCHORED, NOT PLANNED. NO SUCCESS CRITERIA ARE WRITTEN HERE, AND THAT IS
+DELIBERATE** — `D-GATE-19` binds criteria to the discuss sitting immediately before
+planning, never retroactively and never far in advance of the measurements they rest
+on. This entry records WHAT the phase is; criteria lock when it is discussed.
+
+**The product is build-ready — measured 2026-08-28, re-confirmed 2026-08-31.** Fluree
+`fibo-v2` at `ledger_t = 4,560` carries `owns` 636, `isDirectlyConsolidatedBy` 140,
+`isUltimatelyConsolidatedBy` 140 and `hasGlobalUltimateParent` 103, across 91 classes
+and 171 predicates. The family-tree health probe was **repaired by `ccf_dataprep` at
+`96b88ae`**: the population now derives from the four family predicates — **136
+entities, 0 unresolved** — rather than from every `ex:lei` node, and the floor holding
+the row honest is *"ownership graph edges (all predicates) >= 500"* rather than an
+entity floor. **`ledger_t = 4,560` is the exact replay anchor for `graph_snapshot_at`**
+that `D-IMPL-218` requires — this is the first rung to have one.
+
+**THE FOUR ONTOLOGY ROLES, all four ruled in scope by Dave 2026-08-31.** The ontology
+is load-bearing in four independent places, not decoration:
+
+1. **Types constrain the walk.** Traversal follows ownership edges only between entities whose FIBO class permits it; a walk that would step onto a `Person` or a `Trade` stops.
+2. **Ontology is served in the product.** The payload carries each node's FIBO class and the relevant hierarchy, so a consuming agent knows an SPV is an SPV without a second lookup. This is what makes the product self-describing over MCP.
+3. **Ontology drives the projection.** Perspective conditions on FIBO class, so a credit officer's view and a KYC analyst's view of the same family differ by class rather than by a hand-written role map.
+4. **Ontology validates the assembly.** A declared product gate asserts every returned node carries a known FIBO class and every edge is one of the four declared family predicates, so an untyped or off-ontology node cannot enter silently.
+
+**THE MCP DOOR — the ladder's first, and REUSE rather than new mechanism.** No `cp-*`
+rung has ever touched MCP: a grep over `examples/cp-0*` returns zero MCP references and
+all four run in-process through `run.py`. The seam already exists and is proven —
+`src/ccf/client/` carries `inprocess.py` and `mcp_stdio.py` behind one `CCFClient`, and
+`ccf_runtime.mcp.egress::build_egress_server` serves a product as both an MCP
+**resource** and an MCP **tool**. The only example standing a server up today is
+`hw1-companies-over-revenue/server/serve.py`, reached from three harnesses by
+`hw1-harness-clients` (`D-GATE-20`). **This phase brings the ladder onto that door with
+a far more demanding product behind it.**
+
+**The assembler is standalone, with two thin callers** — Dave's shape, ruled
+2026-08-31. `assembler.py` knows nothing about MCP; `run.py` calls it in-process; a new
+`server/serve.py` wraps it with `build_egress_server`. The "standalone" property is
+**demonstrated by two callers sharing one module**, not asserted. **A2A is explicitly
+NOT in this phase** (*"We will do A2A in a later example"*).
+
+**ALSO IN SCOPE — the product-gate coverage checker (`D-IMPL-224`).** Gates stay
+declared in an artifact with **closed keys**; a checker fails CI when a declared id has
+no **executing** test and when a test names an **undeclared** id; a `cp-*` example
+shipping a gates artifact with **zero ids** is RED. **Scope is the `cp-*` ladder ONLY**
+— `hw1-*` and `s1-*` declaring zero product gates stay legal, and the checker does not
+glob the `examples/` tree. **No `ProductGate` Protocol is built**, no serve path, no
+`_GATE_TOKEN`, no metaclass; the universal gates stay the only serve-time gates.
+
+**CARRIED DEBT, recorded as a finding and NOT a reopened gate.** `D-IMPL-224`, Dave
+2026-08-31: *"Finding under 24.4. Do not reopen D-GATE-24.1. Seven missing test-file
+ids in a gated phase are debt, not a silent amendment of the gate."* `cp-00` carries
+**seven** declared gates with no test-file presence — `IH-G01`, `IH-G02`, `IH-G03`,
+`IH-G05`, `IH-G06`, `IH-G07`, `IH-G08` — and `cp-01` carries **one**, `CPR-G08`, inside
+phases closed by `D-GATE-24.1` and `D-GATE-24.2`. Bringing them conformant is this
+phase's work; amending those gates is not. **Same pattern as `D-IMPL-221`** and cp-02's
+missing phase home. Note the coverage figures behind this are an **upper bound** —
+docstring presence is not proof of an executing assertion — and the checker must
+require an executing test, never `id in file`.
+
+**Rulings carried in, both dated 2026-08-31.** **`D-IMPL-223`** — four scheduling
+classes as the scheduler, the Standard's eight names as spec vocabulary,
+`OperatorCategory` closed for v0, no fifth class minted as an alias for `Enrich`;
+**`OperatorCategory` is NOT opened in this phase**, and **`D-IMPL-212` stays OPEN**.
+**`D-IMPL-224`** — product gates are declared artifacts plus CI coverage; **`cp-04`
+pressure-tests** whether ontology claims must refuse **at serve** rather than only in
+CI, and only such a product writes the case for a `ProductGate` Protocol.
+
+**Depends on:** Phase 24.3 (`D-GATE-24.3`). **Build does not start until `24.3` is
+paused for Dave's evaluation** (Dave, 2026-08-31).
+
+**Requirements:** to be determined at the discuss sitting, under the v0.3 lane.
+`EXAM-06` (`D-IMPL-217`) applies — the example ships a companion HTML documentation
+page whose subject is the example alone.
+
 
 ## Progress
 
@@ -2800,6 +2885,7 @@ digit, so a real continuation-line detector is required beside the count.
 | 24.2. The Second Context Product — Counterparty Reference Snapshot (cp-01) | 15/15 commits | **Complete — `D-GATE-24.2` APPROVED** (Dave, 2026-08-31, on inspection; his inspection ruled to be the criterion). **No close panel ran**, so this is not a §3.1-conforming close and the gate entry says so. Gate 1 approved by Dave 2026-08-29 (`2709a39`, spec authored, nothing implemented). Gate 2 was BUILT and never CLOSED: no close panel, no triage, and the phase's **Success Criteria were never written** — the detail section defers them to a discuss sitting that did not happen. Ships the full example plus a documentation page, and **13 gates proven by sabotage** at the time (`dd88f6e`); 13 tests green on re-run 2026-08-31. Row added retrospectively 2026-08-31: the phase existed and its bookkeeping did not. **No gate is minted, and no criteria are invented** | 2026-08-29 (recorded 2026-08-31) |
 | 24.2.1. Facility Terms Snapshot (cp-02) — built ahead of the close machinery | 3/3 commits | **Complete — `D-GATE-24.2.1` APPROVED** (Dave, 2026-08-31, on inspection; his inspection ruled to be the criterion). **No close panel ran**, so this is not a §3.1-conforming close. Specified `59f36f2`, built `f1086bb`, documented `749d1db`, all 2026-08-29 against no phase, no criteria and no gate. Row added retrospectively 2026-08-31 to discharge `D-IMPL-221`; it is the gating record, per `D-IMPL-171`. Ships the full example and 20 tests. **No criteria were invented after the fact** | 2026-08-29 (recorded 2026-08-31) |
 | 24.3. Credit Spreading — Obligor Financial Spread (cp-03), Gate 2 | 5/5 steps + close-panel fixes | **Complete — `D-GATE-24.3` APPROVED** (Dave). Commits `294cb63`..`e350cde` on `main`. All FOURTEEN gates built and every one observed RED; they did not exist at phase start. Close panel (codex + cursor; gemini absent, no key) found a PRODUCT defect — the restatement key was hard-coded against its own artifact and hid four real corrections. Nine blocking findings fixed in-phase, four advisory carried, one of the executor's own suspicions rejected. `D-IMPL-222` ruled inside the phase. **`cp-02` still has no phase (`D-IMPL-221`), carried** | 2026-08-31 |
+| 24.4. Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal & Ontology, and the Ladder's First MCP Door | 0/? | **Anchored, NOT PLANNED** — entry written 2026-08-31 on Dave's two new concepts (Fluree traversal + ontology across backends; assembly reachable over MCP, A2A deferred). **No Success Criteria yet** — `D-GATE-19` locks them at the discuss sitting. Carries `D-IMPL-223` (four scheduling classes, eight names as spec vocabulary) and `D-IMPL-224` (product gates = declared artifact + CI coverage, no `ProductGate` Protocol). Carries cp-00/cp-01 gate debt as a finding, not a reopened gate. **Build does not start until 24.3 is paused for evaluation.** | — |
 
 ## Coverage
 
