@@ -64,6 +64,10 @@ HERE = Path(__file__).parent
 ARTIFACTS = HERE / "artifacts"
 
 CONFIG = HERE / "ccf_config.yaml"
+#: The declared expectation. It is READ BY THE GATES and by nothing on the
+#: serving path — a deployment that consulted its own expectations would be
+#: agreeing with itself rather than being held to them.
+EXPECTED = ARTIFACTS / "expected.yaml"
 BACKENDS = HERE / "backends.yaml"
 QUESTION = ARTIFACTS / "question.yaml"
 TTL = ARTIFACTS / "ttl.yaml"

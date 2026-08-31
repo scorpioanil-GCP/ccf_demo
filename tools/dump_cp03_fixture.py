@@ -41,14 +41,39 @@ import sys
 
 FIXTURES = pathlib.Path(__file__).resolve().parents[1] / "tests" / "examples" / "fixtures"
 
-#: The tables the census reads, each with the ORDER BY that makes its dump
-#: deterministic. `peer_fact` is deliberately absent: no criterion 2-12 touches
-#: peers, and 22,494 more rows would triple the fixture to gate nothing.
+#: The tables the fixture carries, each with the ORDER BY that makes its dump
+#: deterministic.
+#:
+#: THE FIRST FOUR ARE WHAT THE CENSUS READS. The last four were added for the
+#: GATES (criteria 19-33), and the reason is worth stating rather than assuming:
+#: a census question is answered by counting rows, but a gate is answered by
+#: SERVING THE PRODUCT, and the serve path opens `principal` and
+#: `principal_jurisdiction` for entitlement and `peer_entity`/`peer_fact` for
+#: the peer block. A fixture that could answer every census question could not
+#: serve a single payload, so no gate could be observed either green or red
+#: against it.
+#:
+#: `peer_fact` IS CARRIED, and the reasoning that first left it out is recorded
+#: because it was wrong in an instructive way. The argument was that no gate
+#: reads peer facts, so 3,952 KB would buy nothing. That confused what a gate
+#: ASSERTS with what the serve path OPENS: the peer read is unconditional when
+#: `include_peers` is true, so with the table absent NO payload assembles at all
+#: and every gate errors before reaching its assertion. A fixture is sized by
+#: what the code opens, not by what the tests check.
+#:
+#: It is carried at full population rather than created empty for the same
+#: reason `peer_entity` is: an empty peer table makes all 50 obligors read as
+#: structurally peerless when 20 of them are, and a fixture that misreports the
+#: estate is the defect this project keeps finding in its own measurements.
 TABLES: dict[str, str] = {
     "legal_entity": "lei",
     "crosswalk": "lei, internal_client_id",
     "filing_profile": "lei",
     "financial_fact": "lei, tag, unit, period_end, fiscal_period, accession",
+    "principal": "principal_id",
+    "principal_jurisdiction": "principal_id, jurisdiction_prefix",
+    "peer_entity": "cik",
+    "peer_fact": "cik, tag, unit, period_end, fiscal_period, accession",
 }
 
 
@@ -78,7 +103,17 @@ def _ddl(cur, schema: str, table: str) -> str:
     for name, kind, length, nullable in cur.fetchall():
         rendered = f"character({length})" if kind == "character" and length else kind
         columns.append(f"    {name} {rendered}{'' if nullable == 'YES' else ' NOT NULL'}")
-    return f"CREATE TABLE {schema}.{table} (\n" + ",\n".join(columns) + "\n);"
+    # DROP FIRST, so seeding is IDEMPOTENT and collection order stops mattering.
+    # Two modules now seed this fixture — the census and the gates — into ONE
+    # container per pytest session. Whichever ran first used to leave the tables
+    # behind, and the second died on `relation "legal_entity" already exists`.
+    # Both seed byte-identical content, so re-creating is free; what is not free
+    # is a suite that passes or fails depending on the order pytest collected it
+    # in.
+    return (
+        f"DROP TABLE IF EXISTS {schema}.{table} CASCADE;\n"
+        f"CREATE TABLE {schema}.{table} (\n" + ",\n".join(columns) + "\n);"
+    )
 
 
 def _literal(value: object) -> str:
