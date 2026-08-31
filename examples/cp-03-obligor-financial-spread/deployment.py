@@ -13,10 +13,11 @@ whether a later filing changed it. Spec §A: temporal validity is an
 ATTRIBUTE-level property — a product does not have *a* freshness, each of its
 claims does.
 
-**ONE STORE.** PostgreSQL `ccf_v2`, and nothing else is opened. A Fluree
-policy-version binding was specified for this product and then removed from it
-(Dave, 2026-08-30); `policy_version` comes from the Control Plane artifact in
-force. `OFS-G05` asserts no other store is reached.
+**ONE STORE.** PostgreSQL — schema `ccf_v2` in the operator-supplied database,
+and nothing else is opened. A Fluree policy-version binding was specified for
+this product and then removed from it (Dave, 2026-08-30); `policy_version`
+comes from the Control Plane artifact in force. `OFS-G05` asserts no other
+store is reached.
 
 **THE THREE READS THAT ARE NOT ONE READ.** Resolution goes through rung 01's
 crosswalk (`OFS-G02`); the facts are ONE batched select for all periods and all

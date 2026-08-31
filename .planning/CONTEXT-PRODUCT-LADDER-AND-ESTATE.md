@@ -100,7 +100,7 @@ refuses a peer sharing our database, role, or ledger.
 
 ## 3. Live census — 2026-08-28
 
-### Postgres `ccf_v2` — 113 tables
+### Postgres — `parkavedb`, schema `ccf_v2` — 113 tables
 
 Largest and most load-bearing:
 

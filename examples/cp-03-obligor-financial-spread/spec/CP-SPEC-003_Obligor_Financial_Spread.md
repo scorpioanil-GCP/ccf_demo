@@ -1,7 +1,7 @@
 # Obligor Financial Spread — Context Product Specification
 
 **`CP-SPEC-003` · rung 03 of the vault's ladder · Tier 1**
-**PostgreSQL `ccf_v2` · one store, one operator, and a census**
+**PostgreSQL schema `ccf_v2` · one store, one operator, and a census**
 **Registry name `credit-risk.spread.v1` · cost band ×1 (baseline)**
 
 > Standardized financial spreads for a single obligor, with peer comparison at
@@ -16,7 +16,7 @@
 | **Gate 1 status** | **APPROVED — Dave, 2026-08-29.** Authored 2026-08-29; approved on a full read of the specification |
 | **Gate 2 status** | **not started.** Nothing is implemented |
 | **Estate** | probed 2026-08-29 against `parkavedb` schema `ccf_v2` on `192.168.4.76`, read-only. **This product was `unprobed` before this document** |
-| **Stores** | **ONE — PostgreSQL `ccf_v2`.** The other four were each queried and each excluded; reasoning at §C.2, per-store verdict at §F.3. A policy-version binding in Fluree was specified and then **moved out of this product entirely** (Dave, 2026-08-30) to the rung that reads it — a specification carrying thirteen sections about a store the product never opens describes an intention, not a product. The discovery it produced is kept at §F.4 finding 12 |
+| **Stores** | **ONE — PostgreSQL, schema `ccf_v2`.** The other four were each queried and each excluded; reasoning at §C.2, per-store verdict at §F.3. A policy-version binding in Fluree was specified and then **moved out of this product entirely** (Dave, 2026-08-30) to the rung that reads it — a specification carrying thirteen sections about a store the product never opens describes an intention, not a product. The discovery it produced is kept at §F.4 finding 12 |
 
 ---
 
@@ -522,10 +522,10 @@ this section argues inside.**
 
 | Store | Owns | Relevance here |
 |---|---|---|
-| **Postgres `ccf_v2`** | **`E`, policy reference** | **every element of this product** |
-| Fluree `fibo-v2` | `R`, `T`, lineage, policy binding | **nothing.** Its `R` and its ledger are untouched |
-| MongoDB `fibo_v2` | passage-level lineage | nothing — no document text is read (§C.4 trap 3 of rung 02's kind) |
-| SQLite departmental | departmental | nothing |
+| **Postgres — `parkavedb`, schema `ccf_v2`** | **`E`, policy reference** | **every element of this product** |
+| Fluree — ledger `fibo-v2` | `R`, `T`, lineage, policy binding | **nothing.** Its `R` and its ledger are untouched |
+| MongoDB — database `fibo_v2` | passage-level lineage | nothing — no document text is read (§C.4 trap 3 of rung 02's kind) |
+| SQLite — file `data/departmental.sqlite` | departmental | nothing |
 | Neo4j | optional | nothing — v1 hello-world sample, not v2 data |
 
 > **A tension worth naming rather than smoothing.** Fluree owns `T`, yet three
@@ -867,7 +867,7 @@ caller's own input, and a witness the input alone satisfies is not a witness.
 
 **Step 2 — Policy (L4, the operator).** The only operator in the plan.
 
-- **Postgres `ccf_v2`** — the entitlement envelope from `principal`; the
+- **Postgres, schema `ccf_v2`** — the entitlement envelope from `principal`; the
   `intent`-bound ratio definitions from the deployment artifact. These are the
   policy **values**, and they are Gate 2's.
 - **`policy_version` — from the Control Plane artifact in force**, emitted into
@@ -1263,7 +1263,7 @@ calendars.
 
 | Source | Stamp | Used for |
 |---|---|---|
-| Direct query of `ccf_v2` and `fibo-v2` | **2026-08-29** | every figure in §C and §E |
+| Direct query of `parkavedb` schema `ccf_v2`, and Fluree ledger `fibo-v2` | **2026-08-29** | every figure in §C and §E |
 | [[estate-data-catalog]] — mirror of `ccf_dataprep/docs/store-catalog.md` | **generated 2026-08-30T01:56:48Z**, upstream commit `5206155` | the store partition, the **declared primary key** of §C.4 trap 1, the 171-predicate correction, the closed provenance vocabulary |
 
 **Citing the stamp is the catalog's own requirement**, not a courtesy: it says
@@ -1539,8 +1539,9 @@ is submitted for Gate 1 review.
 
 - **Nothing is implemented.** No code, no artifacts, no tests exist for this
   product. The example directory contains this document and nothing else.
-- **Every figure was measured**, read-only, on 2026-08-29, against `ccf_v2` on
-  `192.168.4.76`. The product was **`unprobed`** before this document.
+- **Every figure was measured**, read-only, on 2026-08-29, against `parkavedb`
+  schema `ccf_v2` on `192.168.4.76`. The product was **`unprobed`** before this
+  document.
 - **Twelve `[TBC — this build]` rows clear at Gate 2.** Nine belong to other
   owners and are named rather than invented.
 - **Two rulings from Dave, 2026-08-29, are recorded rather than re-litigated:**
