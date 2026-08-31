@@ -241,8 +241,14 @@ def _report(assembled: produce.Assembled, *, asked_at: datetime) -> None:
     print(f"   expires at         {product.expires_at.isoformat()}"
           f"   (ttl_anchor {product.ttl_anchor})")
     print(f"   restated lines     {restated or 'none in this window'}")
-    print(f"   formally restated  {scenario.resolved.has_non_reliance_filing}"
-          f"   (an Item 4.02 exists — CORROBORATION, never the detector)")
+    # THE ANNOTATION TRACKS THE VALUE. It used to read "an Item 4.02 exists"
+    # unconditionally, which printed beside `False` for every obligor that had
+    # not filed one — a label contradicting the value it labelled, in the line
+    # whose whole subject is that the filing corroborates rather than detects.
+    filed_402 = scenario.resolved.has_non_reliance_filing
+    print(f"   formally restated  {filed_402}"
+          f"   ({'an Item 4.02 exists' if filed_402 else 'no Item 4.02'}"
+          f" — CORROBORATION, never the detector)")
     # DECOMPOSED, because one number hides which half is speaking. F falls as
     # the history window widens — an eight-period spread averages a current
     # quarter against filings two years old — so this product's debt reading is

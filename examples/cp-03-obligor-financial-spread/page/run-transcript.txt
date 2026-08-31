@@ -1,0 +1,3138 @@
+{
+  "basis_applied": "as-reported",
+  "obligor": {
+    "cik": 317788,
+    "entity_id": "obligor://da64f9014f5ec5485c915a36e5620f3264f49588d3e528122de7cd3d36da22e7",
+    "fiscal_year_end_month": 3,
+    "formally_restated": true,
+    "latest_filed_date": "2026-08-05",
+    "lei": "549300D0WZR1VI2QGB24",
+    "obligor_jurisdiction": "US-DE",
+    "obligor_legal_name": "Digital Turbine, Inc."
+  },
+  "peer_comparison": "NOT_EVALUABLE",
+  "periods": [
+    {
+      "fiscal_period": "Q1",
+      "latest_filed": "2026-08-05",
+      "lines": {
+        "assets": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-06-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "843493000"
+        },
+        "cash": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-06-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "42930000"
+        },
+        "current_debt": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-06-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "9375000"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [
+            "operating_income"
+          ],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-06-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "190592000"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [
+            "interest_expense",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2026-06-30",
+          "period_start": "2026-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "12890000"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-06-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "652901000"
+        },
+        "long_term_debt": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-06-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "352863000"
+        },
+        "net_income": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2026-06-30",
+          "period_start": "2026-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-11329000"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [
+            "cash",
+            "current_debt",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2026-06-30",
+          "period_start": "2026-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "23061000"
+        },
+        "operating_lease_noncurrent": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "revenue": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2026-06-30",
+          "period_start": "2026-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "165983000"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "currency",
+          "value": "362238000"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2026-06-30",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "Q1",
+      "latest_filed": "2026-08-05",
+      "lines": {
+        "assets": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "841654000"
+        },
+        "cash": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "current_debt": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "7031000"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "200334000"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "641320000"
+        },
+        "long_term_debt": {
+          "accession": "0001628280-26-053446",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "360963000"
+        },
+        "net_income": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_lease_noncurrent": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "revenue": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "currency",
+          "value": "367994000"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2026-03-31",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "FY",
+      "latest_filed": "2026-05-26",
+      "lines": {
+        "assets": {
+          "accession": "0001628280-26-038115",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-05-26",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "841654000"
+        },
+        "cash": {
+          "accession": "0001628280-26-038115",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-05-26",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "37719000"
+        },
+        "current_debt": {
+          "accession": "0001628280-26-038115",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-05-26",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "7031000"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [
+            "operating_income"
+          ],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "accession": "0001628280-26-038115",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-05-26",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "192161000"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [
+            "interest_expense",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "accession": "0001628280-26-038115",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-05-26",
+          "form": "10-K",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "58580000"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "accession": "0001628280-26-038115",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-05-26",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "649493000"
+        },
+        "long_term_debt": {
+          "accession": "0001628280-26-038115",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-05-26",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "360963000"
+        },
+        "net_income": {
+          "accession": "0001628280-26-038115",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-05-26",
+          "form": "10-K",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-37732000"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [
+            "cash",
+            "current_debt",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "accession": "0001628280-26-038115",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-05-26",
+          "form": "10-K",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "34042000"
+        },
+        "operating_lease_noncurrent": {
+          "accession": "0001628280-26-038115",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-05-26",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "4779000"
+        },
+        "revenue": {
+          "accession": "0001628280-26-038115",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-05-26",
+          "form": "10-K",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2026-03-31",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "565251000"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "currency",
+          "value": "367994000"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2026-03-31",
+      "signal_class": "annual_facts"
+    },
+    {
+      "fiscal_period": "Q3",
+      "latest_filed": "2026-02-03",
+      "lines": {
+        "assets": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "858175000"
+        },
+        "cash": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "40180000"
+        },
+        "current_debt": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "4688000"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [
+            "operating_income"
+          ],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "194602000"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [
+            "interest_expense",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-12-31",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "13561000"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "663573000"
+        },
+        "long_term_debt": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "354968000"
+        },
+        "net_income": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-12-31",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "5107000"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [
+            "cash",
+            "current_debt",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-12-31",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "21654000"
+        },
+        "operating_lease_noncurrent": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "4451000"
+        },
+        "revenue": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-12-31",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "151399000"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "currency",
+          "value": "359656000"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2025-12-31",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "Q3",
+      "latest_filed": "2026-02-03",
+      "lines": {
+        "assets": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "cash": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "current_debt": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "long_term_debt": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "net_income": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-09-30",
+          "period_start": "2025-07-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-21395000"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_lease_noncurrent": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "revenue": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2025-09-30",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "Q2",
+      "latest_filed": "2025-11-04",
+      "lines": {
+        "assets": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "818665000"
+        },
+        "cash": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "38846000"
+        },
+        "current_debt": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "2688000"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [
+            "operating_income"
+          ],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "148126000"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [
+            "interest_expense",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-09-30",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "11498000"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "670539000"
+        },
+        "long_term_debt": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "396441000"
+        },
+        "net_income": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-09-30",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-21395000"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [
+            "cash",
+            "current_debt",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-09-30",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "6534000"
+        },
+        "operating_lease_noncurrent": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "5019000"
+        },
+        "revenue": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-09-30",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "140377000"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "currency",
+          "value": "399129000"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2025-09-30",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "Q3",
+      "latest_filed": "2026-02-03",
+      "lines": {
+        "assets": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "cash": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "current_debt": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "long_term_debt": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "net_income": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-06-30",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-14104000"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_lease_noncurrent": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "revenue": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2025-06-30",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "Q2",
+      "latest_filed": "2025-11-04",
+      "lines": {
+        "assets": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "cash": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "current_debt": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "long_term_debt": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "net_income": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-06-30",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-14104000"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_lease_noncurrent": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "revenue": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2025-06-30",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "Q1",
+      "latest_filed": "2025-08-05",
+      "lines": {
+        "assets": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-06-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "818356000"
+        },
+        "cash": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-06-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "33427000"
+        },
+        "current_debt": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [
+            "operating_income"
+          ],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-06-30",
+          "period_start": null,
+          "restated": true,
+          "restatement_class": "material",
+          "unit": "USD",
+          "value": "152294000"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [
+            "interest_expense",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-06-30",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "9954000"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-06-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "666062000"
+        },
+        "long_term_debt": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-06-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "400503000"
+        },
+        "net_income": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-06-30",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-14104000"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [
+            "cash",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-06-30",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-4661000"
+        },
+        "operating_lease_noncurrent": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-06-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "5739000"
+        },
+        "revenue": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-06-30",
+          "period_start": "2025-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "130926000"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [
+            "long_term_debt"
+          ],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2025-06-30",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "Q3",
+      "latest_filed": "2026-02-03",
+      "lines": {
+        "assets": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "812854000"
+        },
+        "cash": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "current_debt": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "0"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "153958000"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "658896000"
+        },
+        "long_term_debt": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "408687000"
+        },
+        "net_income": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_lease_noncurrent": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "6111000"
+        },
+        "revenue": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "currency",
+          "value": "408687000"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2025-03-31",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "Q2",
+      "latest_filed": "2025-11-04",
+      "lines": {
+        "assets": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "812854000"
+        },
+        "cash": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "current_debt": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "0"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "153958000"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "658896000"
+        },
+        "long_term_debt": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "408687000"
+        },
+        "net_income": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_lease_noncurrent": {
+          "accession": "0001628280-25-048946",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-11-04",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "6111000"
+        },
+        "revenue": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "currency",
+          "value": "408687000"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2025-03-31",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "Q1",
+      "latest_filed": "2025-08-05",
+      "lines": {
+        "assets": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "812854000"
+        },
+        "cash": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "current_debt": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": true,
+          "restatement_class": "material",
+          "unit": "USD",
+          "value": "153958000"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [
+            "long_term_debt"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "658896000"
+        },
+        "long_term_debt": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "408687000"
+        },
+        "net_income": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [
+            "long_term_debt"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_lease_noncurrent": {
+          "accession": "0001628280-25-037888",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-08-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "6111000"
+        },
+        "revenue": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [
+            "long_term_debt"
+          ],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2025-03-31",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "FY",
+      "latest_filed": "2026-05-26",
+      "lines": {
+        "assets": {
+          "accession": "0001628280-25-031628",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-06-16",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "812854000"
+        },
+        "cash": {
+          "accession": "0001628280-25-031628",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-06-16",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "39393000"
+        },
+        "current_debt": {
+          "accession": "0001628280-26-038115",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-05-26",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "0"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [
+            "operating_income"
+          ],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "accession": "0001628280-25-031628",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-06-16",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "153958000"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [
+            "interest_expense",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "accession": "0001628280-25-031628",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-06-16",
+          "form": "10-K",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": "2024-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "34783000"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "accession": "0001628280-25-031628",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-06-16",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "658896000"
+        },
+        "long_term_debt": {
+          "accession": "0001628280-25-031628",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-06-16",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "408687000"
+        },
+        "net_income": {
+          "accession": "0001628280-25-031628",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-06-16",
+          "form": "10-K",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": "2024-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-92099000"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [
+            "cash",
+            "current_debt",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "accession": "0001628280-25-031628",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-06-16",
+          "form": "10-K",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": "2024-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-54075000"
+        },
+        "operating_lease_noncurrent": {
+          "accession": "0001628280-25-031628",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-06-16",
+          "form": "10-K",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "6111000"
+        },
+        "revenue": {
+          "accession": "0001628280-25-031628",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-06-16",
+          "form": "10-K",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2025-03-31",
+          "period_start": "2024-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "490506000"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [
+            "current_debt",
+            "long_term_debt"
+          ],
+          "unit": "currency",
+          "value": "408687000"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2025-03-31",
+      "signal_class": "annual_facts"
+    },
+    {
+      "fiscal_period": "Q3",
+      "latest_filed": "2025-02-05",
+      "lines": {
+        "assets": {
+          "accession": "0001628280-25-004090",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-02-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2024-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "839710000"
+        },
+        "cash": {
+          "accession": "0001628280-25-004090",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-02-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2024-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "34620000"
+        },
+        "current_debt": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [
+            "operating_income"
+          ],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "accession": "0001628280-25-004090",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-02-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2024-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "163563000"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [
+            "interest_expense",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "accession": "0001628280-25-004090",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-02-05",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2024-12-31",
+          "period_start": "2024-04-01",
+          "restated": true,
+          "restatement_class": "material",
+          "unit": "USD",
+          "value": "8446000"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "accession": "0001628280-25-004090",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-02-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2024-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "676147000"
+        },
+        "long_term_debt": {
+          "accession": "0001628280-25-004090",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-02-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2024-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "408154000"
+        },
+        "net_income": {
+          "accession": "0001628280-25-004090",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-02-05",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2024-12-31",
+          "period_start": "2024-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-23131000"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [
+            "cash",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "accession": "0001628280-25-004090",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-02-05",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2024-12-31",
+          "period_start": "2024-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-12753000"
+        },
+        "operating_lease_noncurrent": {
+          "accession": "0001628280-25-004090",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-02-05",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2024-12-31",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "6785000"
+        },
+        "revenue": {
+          "accession": "0001628280-25-004090",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2025-02-05",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2024-12-31",
+          "period_start": "2024-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "134637000"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [
+            "long_term_debt"
+          ],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2024-12-31",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "Q3",
+      "latest_filed": "2026-02-03",
+      "lines": {
+        "assets": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "cash": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "current_debt": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "long_term_debt": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "net_income": {
+          "accession": "0001628280-26-005047",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2026-02-03",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2024-09-30",
+          "period_start": "2024-07-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-24986000"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_lease_noncurrent": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "revenue": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2024-09-30",
+      "signal_class": "quarterly_facts"
+    },
+    {
+      "fiscal_period": "Q2",
+      "latest_filed": "2024-11-06",
+      "lines": {
+        "assets": {
+          "accession": "0001628280-24-045815",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2024-11-06",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2024-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "844486000"
+        },
+        "cash": {
+          "accession": "0001628280-24-045815",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2024-11-06",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2024-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "32081000"
+        },
+        "current_debt": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "depreciation_amortization": {
+          "derived": false,
+          "kind": "duration",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        },
+        "ebitda": {
+          "derived": true,
+          "inputs": [
+            "operating_income"
+          ],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "equity": {
+          "accession": "0001628280-24-045815",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2024-11-06",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2024-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "182370000"
+        },
+        "interest_coverage": {
+          "derived": true,
+          "inputs": [
+            "interest_expense",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "interest_expense": {
+          "accession": "0001628280-24-045815",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2024-11-06",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2024-09-30",
+          "period_start": "2024-04-01",
+          "restated": true,
+          "restatement_class": "material",
+          "unit": "USD",
+          "value": "9232000"
+        },
+        "leverage": {
+          "derived": true,
+          "inputs": [
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "liabilities": {
+          "accession": "0001628280-24-045815",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2024-11-06",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2024-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "662116000"
+        },
+        "long_term_debt": {
+          "accession": "0001628280-24-045815",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2024-11-06",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2024-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "407620000"
+        },
+        "net_income": {
+          "accession": "0001628280-24-045815",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2024-11-06",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2024-09-30",
+          "period_start": "2024-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-24986000"
+        },
+        "net_leverage": {
+          "derived": true,
+          "inputs": [
+            "cash",
+            "long_term_debt",
+            "operating_income"
+          ],
+          "unit": "turns",
+          "value": "NOT_EVALUABLE"
+        },
+        "operating_income": {
+          "accession": "0001628280-24-045815",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2024-11-06",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2024-09-30",
+          "period_start": "2024-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "-13542000"
+        },
+        "operating_lease_noncurrent": {
+          "accession": "0001628280-24-045815",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2024-11-06",
+          "form": "10-Q",
+          "kind": "instant",
+          "kind_conflict": false,
+          "period_end": "2024-09-30",
+          "period_start": null,
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "7423000"
+        },
+        "revenue": {
+          "accession": "0001628280-24-045815",
+          "basis_applied": "as-reported",
+          "derived": false,
+          "filed_date": "2024-11-06",
+          "form": "10-Q",
+          "kind": "duration",
+          "kind_conflict": false,
+          "period_end": "2024-09-30",
+          "period_start": "2024-04-01",
+          "restated": false,
+          "restatement_class": "NOT_EVALUABLE",
+          "unit": "USD",
+          "value": "118728000"
+        },
+        "total_debt": {
+          "derived": true,
+          "inputs": [
+            "long_term_debt"
+          ],
+          "unit": "currency",
+          "value": "NOT_EVALUABLE"
+        },
+        "total_debt_reported": {
+          "derived": false,
+          "kind": "instant",
+          "reason": "no declared tag for this line was filed in this period",
+          "unit": "NOT_EVALUABLE",
+          "value": "NOT_EVALUABLE"
+        }
+      },
+      "period_end": "2024-09-30",
+      "signal_class": "quarterly_facts"
+    }
+  ],
+  "perspective_role": "analyst"
+}
+
+What a plain SELECT would not have told you:
+   asked as of        2026-08-29T12:00:00+00:00
+   basis applied      as-reported   (both settings are correct; the decision picks)
+   period ends asked  8   -> 8 returned, 16 columns
+   decay rates        ['annual_facts', 'quarterly_facts']   ...ONE product, 2 half-life class(es) — §E.1
+   latest filing      2026-08-05   (the TTL anchor, and it MOVES as the obligor files)
+   expires at         2026-09-04T00:00:00+00:00   (ttl_anchor from_entity_freshness)
+   restated lines     ['equity', 'interest_expense']
+   formally restated  True   (an Item 4.02 exists — CORROBORATION, never the detector)
+   context debt D_c   0.8782  ->  fail_closed
+   ...decomposed      F=0.2972  C=0.4097  S=1   (S cannot move: one store, §E.2)
+   principal          PRIN-COV-001   10 jurisdiction(s) granted
+   operators invoked  ['policy.principal-subgraph']
+   policy version     ['f7d293f3fc01775bb8958dca019fb29709b213deab819e7638e3df24021ce3da']
+   content address    e2a0224fa5c9ecf4cbf7c0e6ef4ae89a4bccb85d85ebf20f7e206f73b1372edc
+   replay record      ad70fa4b511065d7ba436f3d1f9a7ebf20db7951af665fd0a18973853a33b236

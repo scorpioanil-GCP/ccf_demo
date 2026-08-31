@@ -54,6 +54,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	conformance \
 	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
+	example-cp-03 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -378,6 +379,28 @@ example-cp-02: ## Run examples/cp-02-facility-terms-snapshot (FACILITY, PRINCIPA
 		$(if $(PRINCIPAL),--principal $(PRINCIPAL)) \
 		$(if $(ASKED_AT),--asked-at $(ASKED_AT)) \
 		$(if $(NO_PRICING_GRID),--no-pricing-grid) \
+		$(if $(AS_OF),--as-of $(AS_OF)) \
+		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE))
+
+# cp-03 — rung 03 of the vault's ladder and the last of Tier 1. Networked
+# estate through an environment variable, so NOT in the `examples:` aggregate,
+# for the reason given above cp-02. `tests/examples/test_cp_03_output.py` and
+# `test_cp_03_census.py` are both marked for the postgres leg, seed their own
+# container from `tests/examples/fixtures/`, and are selected BY MARKER.
+#
+# EVERY REQUEST PARAMETER IS OPTIONAL. Omitted, `run.py` asks the demonstration
+# question in `artifacts/question.yaml`. BASIS is the one this rung exists for:
+# both settings are correct and the decision picks, so there is no default that
+# is "right" — only one that is declared.
+example-cp-03: ## Run examples/cp-03-obligor-financial-spread (LEI, PERIODS, BASIS, PRINCIPAL, ASKED_AT, AS_OF, DEBT_TOLERANCE, PEER_BASIS, NO_PEERS optional; needs CCF_CP_03_POSTGRES_DSN)
+	$(ENV) $(PYTHON) examples/cp-03-obligor-financial-spread/run.py \
+		$(if $(LEI),--lei $(LEI)) \
+		$(if $(PERIODS),--periods $(PERIODS)) \
+		$(if $(BASIS),--basis $(BASIS)) \
+		$(if $(NO_PEERS),--no-peers) \
+		$(if $(PEER_BASIS),--peer-basis $(PEER_BASIS)) \
+		$(if $(PRINCIPAL),--principal $(PRINCIPAL)) \
+		$(if $(ASKED_AT),--asked-at $(ASKED_AT)) \
 		$(if $(AS_OF),--as-of $(AS_OF)) \
 		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE))
 
