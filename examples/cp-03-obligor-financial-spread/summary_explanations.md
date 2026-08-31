@@ -359,12 +359,14 @@ string as the README describes.
   Tier 3 with a different product.
 - **Multiple stores.** This rung reads one. Ledger-held policy versions and
   document-level lineage arrive at later rungs.
-- **A resolved answer on one open question.** The specification requires
-  identical content addresses for an unrestated obligor read under both bases.
-  It does not hold as built: the payload records which basis it was read under
-  and which filing each figure came from, so the two documents differ in 120
-  lines — every one of them a label or a provenance note, and **not one of them a
-  figure**. Whether the seal is right to differ, or the label wrong to be
-  recorded, is an open decision rather than a defect we have hidden.
+- **Two readings of the same company that are the same answer but not the same
+  document.** For a company with no restated figures, asking both ways moves
+  **no figure at all** — and still produces two different seals. The two
+  readings genuinely consult different filings (20 of 75 figures come from a
+  different document under each) and report the same number from each. The
+  specification originally required the seals to match; that was amended
+  2026-08-31, because making them match would have meant hiding which filing a
+  figure came from whenever the number happened to agree. At a rung whose
+  subject is exactly that, the seal is right to differ.
 - **Anything about the obligors themselves.** This estate is public filing data
   used to exercise mechanism. Nothing here is a credit opinion.

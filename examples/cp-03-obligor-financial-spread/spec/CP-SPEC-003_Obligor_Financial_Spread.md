@@ -912,7 +912,19 @@ peer_basis, asked_at)` over the same estate → byte-identical payload.
 Value for the pinned run: `[TBC — this build, phase P6]`.
 
 **The `basis` parameter must change the content address** for an obligor with a
-restatement, and must **not** change it for one without. Gate `OFS-G11`.
+restatement. For an obligor WITHOUT one it must change **no served figure** —
+the two answers are the same answer. Gate `OFS-G11`.
+
+**It does change the address there too, and that is correct** (`D-IMPL-222`,
+Dave, 2026-08-31). This clause required identical addresses until it was
+measured. Two causes, and only one is cosmetic: the payload stamps
+`basis_applied` on every line, and — the part that decides it — the two bases
+genuinely **read different filings** for 20 of 75 cells, reporting the same
+number from each. Provenance is not decoration at this rung; *which filing
+asserted this figure* is the subject. An address that matched would have
+required suppressing `accession` and `filed_date` wherever the value agreed,
+which deletes a true fact to make a hash match. **The content address seals the
+document, and the documents differ.**
 
 ### D.5 Replay statement and replay test
 
@@ -1495,7 +1507,7 @@ to contrast with.
 | **`OFS-G08`** | The obligor with no revenue tag serves `NOT_EVALUABLE`, **never `0`** | §C.4 trap 5 · 1 of 50 |
 | **`OFS-G09`** | `expires_at` is 30 days from the **latest `filed_date` in the payload**, and does **not** move with `asked_at`. **Turns RED if the basis is changed to earliest** | §B.1.1 |
 | **`OFS-G10`** | `operators_invoked` has **exactly one** entry and **no `Enrich` operator is registered**. **Turns RED if the §10.2 vocabulary is later adopted** — that redness reopens §F.2 row 1 | §D.2.1 |
-| **`OFS-G11`** | `basis` **changes the content address** for a restated obligor and **does not** for an unrestated one | §D.4 |
+| **`OFS-G11`** | `basis` **changes the content address** for a restated obligor, and **changes no figure** for an unrestated one (`D-IMPL-222`) | §D.4 |
 | **`OFS-G12`** | Every derived line has a non-empty `inputs`, and every entry resolves to a fact-cell in the **same payload**. Example-local; nothing added to `src/` | §D.7.1 |
 | **`OFS-G13`** | `restatement_class` is read from `artifacts/restatement.yaml` — **changing the artifact's threshold moves cells between classes** | §E.5 |
 | **`OFS-G15`** | **Entitlement discriminates AS SETS, with a negative control.** The four principals resolve to their measured visible populations — `PRIN-RES-002` **49**, `PRIN-COV-001` **47**, `PRIN-KYC-004` **0**, `PRIN-TRD-003` **0** — and `49 != 47` proves the check is not returning a constant. The **negative control**: a principal granted nothing sees nothing, and that assertion is paired with a positive one so an always-empty result cannot pass it. **No served figure differs between principals** — entitlement removes rows, never rewrites them | §B.2, §F.4 finding 14 |
@@ -1556,17 +1568,29 @@ and both went red. `OFS-G02`'s first sabotage produced a database error rather
 than an assertion, because the crosswalk is the only `lei`↔`cik` mapping in the
 estate; the gate was fixed and re-sabotaged so that the assertion fires first.
 
-**One conflict between this specification and the build is NOT resolved here.**
-§D.4 and criterion 38 require IDENTICAL content addresses for an obligor with no
-restatement in the window. That cannot hold as built: the payload echoes
-`basis_applied` on every line and names a different `accession` under each
-basis, so the two documents differ in 120 lines — every one of them provenance
-or label, NOT ONE of them a figure. Either the address is right to differ
-because the served document differs, and criterion 38 needs amending, or the
-label should not be echoed where it changed nothing, and the product needs
-amending. `OFS-G11` asserts the substance the criterion was reaching for — that
-no figure moves for an unrestated obligor — and the choice is raised rather than
-taken.
+**One conflict between this specification and the build was raised here and is
+now RULED** (`D-IMPL-222`, Dave, 2026-08-31). §D.4 and criterion 38 required
+IDENTICAL content addresses for an obligor with no restatement in the window.
+That could not hold as built, and measuring said why:
+
+| Field | Unrestated obligor | Restated obligor |
+|---|---|---|
+| `basis_applied` — the mode label | **75 of 75** cells differ | 110 of 110 |
+| `accession` — which filing asserted it | **20 of 75** differ | 27 of 110 |
+| `filed_date` | **20 of 75** differ | 27 of 110 |
+| **`value`** — the figure itself | **0 differ** | 4 of 288 |
+
+**The first report of this called it "a label", and that was incomplete.** Two
+independent causes exist and only one is cosmetic. Removing the echoed label
+would NOT have made the addresses match, because the two bases genuinely read
+**different filings** for 20 of 75 cells and report the same number from each.
+
+So the choice was: amend the specification, or normalize the provenance so both
+bases name one filing where the value agreed. The second satisfies the old
+wording by **deleting a true fact** — `as-reported` would stop being able to say
+which filing first reported the figure, which at this rung is the subject rather
+than a detail. **The criterion is amended.** `OFS-G11` asserts what the
+criterion was reaching for: for an unrestated obligor no served FIGURE moves.
 
 Two further defects were found by building these gates, both in the verification
 machinery rather than in the product. The test helper inherited from rung 02

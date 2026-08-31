@@ -1056,20 +1056,22 @@ def test_ofs_g11_basis_changes_the_address_only_where_it_changes_the_answer(
         " would serve one for the other"
     )
 
-    # THE OTHER HALF. §D.4 and criterion 38 also require IDENTICAL content
-    # addresses for an obligor with no restatement in the window. THAT CANNOT
-    # HOLD AS BUILT, and the reason is recorded rather than worked around: the
-    # payload echoes `basis_applied` on every line and names a different
-    # `accession` under each basis, so for an unrestated obligor the two
-    # documents differ in 120 lines — every one of them provenance or label,
-    # NOT ONE of them a figure. The answer is identical; the document is not;
-    # the address follows the document.
+    # THE OTHER HALF, AS AMENDED. §D.4 and criterion 38 once required IDENTICAL
+    # content addresses for an obligor with no restatement in the window. That
+    # could not hold as built, and `D-IMPL-222` (Dave, 2026-08-31) amended the
+    # criterion rather than the product.
     #
-    # Two defensible readings, and neither is this gate's to choose. Either the
-    # address is right to differ because the served document differs and
-    # criterion 38 needs amending, or the echoed label is wrong where it changed
-    # nothing and the product needs amending. Raised for a ruling; what is
-    # asserted here is the substance the criterion was reaching for.
+    # The first report of the conflict said the payload merely echoes
+    # `basis_applied`, which was incomplete. Measured field by field: the label
+    # differs on 75 of 75 cells, but `accession` and `filed_date` differ on 20
+    # of 75 — the two bases genuinely READ DIFFERENT FILINGS and report the same
+    # number from each. No `value` moves. So the answer is identical and the
+    # DOCUMENT is not, and the content address seals the document.
+    #
+    # Making the addresses match would have required suppressing provenance
+    # wherever the value agreed, which deletes a true fact to make a hash match
+    # at the rung whose subject is which filing asserted which figure. What is
+    # asserted here is what the criterion was reaching for.
     assert figures(unrestated, "as-reported") == figures(
         unrestated, "latest-restated"
     ), (

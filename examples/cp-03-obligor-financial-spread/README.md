@@ -210,10 +210,16 @@ default run at `asked_at 2026-08-29T12:00:00+00:00`, serving content address
 reproduces byte-for-byte because the question is pinned; every figure in it came
 from that run.
 
-**One conflict is open rather than resolved.** §D.4 requires identical content
-addresses for an obligor with no restatement, read under both bases. It does not
-hold as built: the payload echoes `basis_applied` on every line and names a
-different `accession` under each basis, so the two documents differ in 120 lines
-— every one of them a label or a provenance note, and **not one of them a
-figure**. Either the address is right to differ because the document differs, or
-the label should not be echoed where it changed nothing. Raised, not taken.
+**One conflict was raised and is now ruled** (`D-IMPL-222`, Dave, 2026-08-31).
+§D.4 required identical content addresses for an obligor with no restatement,
+read under both bases. It does not hold as built — and measuring showed the
+first explanation was incomplete. It is not merely that the payload echoes
+`basis_applied`: the two bases genuinely **read different filings** for 20 of 75
+cells, reporting the same number from each. **Not one served figure moves**, but
+the documents differ in provenance, and the address seals the document.
+
+Making the addresses match would have meant suppressing `accession` and
+`filed_date` wherever the value agreed — deleting a true fact to make a hash
+match, at the rung whose whole subject is which filing asserted which figure.
+The criterion is amended instead: for an unrestated obligor the two bases must
+change no figure, which is what `OFS-G11` asserts.

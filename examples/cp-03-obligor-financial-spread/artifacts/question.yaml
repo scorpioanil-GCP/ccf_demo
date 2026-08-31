@@ -85,7 +85,11 @@ declaration:
     # series. One parameter, two legitimate truths.
     #
     # `OFS-G11` asserts the two settings produce DIFFERENT content addresses for
-    # this obligor and IDENTICAL ones for an obligor with no restatement.
+    # this obligor, and change NO FIGURE for an obligor with no restatement.
+    # It required identical ADDRESSES there until `D-IMPL-222` (Dave,
+    # 2026-08-31): the two bases genuinely read different filings for 20 of 75
+    # cells and report the same number from each, so the documents differ in
+    # provenance rather than only in a label.
     basis: as-reported
 
     # Peer comparison at IDENTICAL `period_end`, never at identical filing date

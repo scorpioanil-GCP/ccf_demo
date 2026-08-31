@@ -261,8 +261,13 @@ declaration:
     - name: basis-discriminates
       statement: >-
         `as-reported` and `latest-restated` produce DIFFERENT content addresses
-        for an obligor carrying a restatement in the window, and IDENTICAL ones
-        for an obligor carrying none (criterion 38, gate `OFS-G11`).
+        for an obligor carrying a restatement in the window, and for an obligor
+        carrying none they change NO SERVED FIGURE (criterion 38 as amended by
+        `D-IMPL-222`, gate `OFS-G11`). The addresses differ there too and that
+        is correct: the two bases read different filings for 20 of 75 cells and
+        report the same number from each, so the sealed documents differ in
+        provenance. A matching address would have required suppressing
+        `accession` and `filed_date` wherever the value agreed.
 
     - name: one-operator
       statement: >-
