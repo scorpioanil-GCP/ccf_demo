@@ -1503,39 +1503,77 @@ to contrast with.
 **Every gate must be made to fail deliberately once.** **A gate that has never
 been observed red is not evidence that it runs.**
 
-**THREE OF FOURTEEN ARE BUILT AND OBSERVED RED**, 2026-08-31, in
-`tests/examples/test_cp_03_output.py`. The other eleven are `[TBC — this build]`
-and are not claimed as passing: before this date NONE of the fourteen ran at
-all — every `OFS-G` in the example's modules was a comment and
+**ALL FOURTEEN ARE BUILT AND EVERY ONE HAS BEEN OBSERVED RED**, 2026-08-31, in
+`tests/examples/test_cp_03_output.py`. Before that date none of the fourteen ran
+at all: every `OFS-G` in the example's modules was a comment and
 `artifacts/expected.yaml` was read by nothing.
 
 | Gate | Sabotage applied | Observed |
 |---|---|---|
-| **`OFS-G01`** | every reported fact's `kind` forced to `duration` (`deployment.py`, the reported-line branch) | **RED** — `assert 'instant' in {'duration'}` |
-| **`OFS-G09`** | the expiry re-anchored on `asked_at` (`base = self.now`) instead of the payload's latest filing | **RED** — `expires_at is 2026-09-28, but the payload's latest filing is 2026-08-05 and expected.yaml declares a 30-day TTL` |
-| **`OFS-G15`** | the grant query stops reading the principal (`where %s is not null`), so every principal sees the same set | **RED in both halves** — the set comparison and the suppression comparison each fail |
-| **`OFS-G15`** | the grant expansion returns `()`, so every principal sees nothing | **RED** — `PRIN-COV-001 sees 0 obligors and expected.yaml declares 47` |
+| **`OFS-G01`** | every reported fact's `kind` forced to `duration` | **RED** — `assert 'instant' in {'duration'}` |
+| **`OFS-G02`** | the resolution query reads `financial_fact` instead of `crosswalk` | **RED** — the resolution code no longer references the crosswalk table |
+| **`OFS-G03`** | `fiscal_period` dropped from the artifact's `fact_identity_key` | **RED** — the artifact's key and the census fixture's key disagree |
+| **`OFS-G04`** | `detected_by` changed to `item_4_02_filing` | **RED** — restatement is no longer declared as detected by value comparison |
+| **`OFS-G05`** | a MongoDB connection string added to executable code | **RED** — a store other than PostgreSQL is reached |
+| **`OFS-G06`** | `as_of` silently dropped from the request rather than refused | **RED** — `as_of was accepted rather than refused; got Assembled` |
+| **`OFS-G07`** | `import anthropic` added to the deployment module | **RED** — a model is reachable, so the declared Assembly Mode 1 is false |
+| **`OFS-G08`** | the absence token changed from `NOT_EVALUABLE` to `0` | **RED** — the revenue-less obligor served `0` |
+| **`OFS-G09`** | the expiry re-anchored on `asked_at` | **RED** — `expires_at 2026-09-28` against a latest filing of `2026-08-05` and a declared 30-day TTL |
+| **`OFS-G10`** | a second operator registered in the plan | **RED** — the plan invoked two operators, not one |
+| **`OFS-G11`** | `basis` stops selecting which filing's value wins | **RED** — a restated obligor's figures did not move between the two bases |
+| **`OFS-G12`** | a derived line emitted with an empty `inputs` | **RED** — `ebitda` carries a value and no inputs |
+| **`OFS-G13`** | the material threshold hard-coded instead of read from the artifact | **RED** — the threshold moved 0.01 → 0.99 and every cell kept its class |
+| **`OFS-G15`** | the grant query stops reading the principal | **RED in both halves** — the set comparison and the suppression comparison |
+| **`OFS-G15`** | the grant expansion returns `()` for everyone | **RED** — `PRIN-COV-001 sees 0 obligors and expected.yaml declares 47` |
 
-**`OFS-G01` PASSED ITS FIRST SABOTAGE, AND THAT IS THE MOST USEFUL RESULT HERE.**
-With every reported fact forced to `duration`, the gate stayed green: it was
-flattening all three line shapes a period holds, and the PLACEHOLDER for a line
-the obligor never filed carries the *declared* kind from `spread-lines.yaml`.
-Fifty-four placeholders went on saying `instant` about facts that do not exist,
-so the gate was asserting that the payload MENTIONS the word rather than that it
-CARRIES the fact. Narrowed to lines carrying every key in
-`reported_line_keys_when_filed`, it turns red as it should.
+**THREE GATES PASSED THEIR FIRST SABOTAGE, ALL THREE FOR THE SAME REASON, AND
+THAT IS THE MOST USEFUL RESULT OF THE EXERCISE.**
 
-The general form is worth keeping: **a gate that reads a field which appears in
-both the present and the absent case is measuring vocabulary, not content.**
-The same question should be asked of `OFS-G08` and `OFS-G12`, which both read
-fields that absent lines also carry.
+- **`OFS-G01`** flattened all three shapes of line a period holds. The
+  PLACEHOLDER for a line the obligor never filed carries the *declared* kind
+  out of `spread-lines.yaml`, so 54 placeholders went on saying `instant` about
+  facts that do not exist.
+- **`OFS-G02`** asserted `"crosswalk" in inspect.getsource(...)`. The
+  function's own docstring opens *"Resolve the anchor THROUGH rung 01's
+  crosswalk"*, so the check passed on the sentence describing the invariant
+  while code violating it went by.
+- **`OFS-G11`** asserted only that the two content addresses differ. The
+  payload echoes `basis_applied` on every line, so the documents differ
+  whatever the figures do — the gate could not tell *"the basis changed the
+  answer"* from *"the basis appeared in the document"*.
 
-Two further defects were found by building these three, both in the
-verification machinery rather than in the product. The test helper inherited
-from rung 02 replaced a seam refusal with the observer's captured value, and for
-a SUPPRESSED obligor that value carries a product — so `OFS-G15` would have
-reported green while entitlement did nothing. And the fixture could answer every
-census question while serving no payload at all, because a census counts rows
+**The general form, which the remaining gates of every later rung should be
+held to: A CHECK THAT READS A TOKEN PRESENT IN BOTH THE COMPLIANT AND THE
+VIOLATING CASE IS MEASURING VOCABULARY, NOT CONTENT.** It was predicted here
+after `OFS-G01` and it still shipped twice more, which is the argument for
+sabotaging every gate rather than reviewing them.
+
+Two sabotages were re-run because the first attempt tripped a PRECONDITION
+rather than the substantive check — `OFS-G03` and `OFS-G06` each assert that
+their declaration is still in force before asserting the behavior, and the first
+sabotage removed the declaration. Both were re-sabotaged against the behavior
+and both went red. `OFS-G02`'s first sabotage produced a database error rather
+than an assertion, because the crosswalk is the only `lei`↔`cik` mapping in the
+estate; the gate was fixed and re-sabotaged so that the assertion fires first.
+
+**One conflict between this specification and the build is NOT resolved here.**
+§D.4 and criterion 38 require IDENTICAL content addresses for an obligor with no
+restatement in the window. That cannot hold as built: the payload echoes
+`basis_applied` on every line and names a different `accession` under each
+basis, so the two documents differ in 120 lines — every one of them provenance
+or label, NOT ONE of them a figure. Either the address is right to differ
+because the served document differs, and criterion 38 needs amending, or the
+label should not be echoed where it changed nothing, and the product needs
+amending. `OFS-G11` asserts the substance the criterion was reaching for — that
+no figure moves for an unrestated obligor — and the choice is raised rather than
+taken.
+
+Two further defects were found by building these gates, both in the verification
+machinery rather than in the product. The test helper inherited from rung 02
+replaced a seam refusal with the observer's captured value, and for a SUPPRESSED
+obligor that value carries a product — so `OFS-G15` would have reported green
+while entitlement did nothing. And the fixture could answer every census
+question while serving no payload at all, because a census counts rows
 and a gate serves the product.
 
 **Two gates are written to go RED when something is later corrected** —

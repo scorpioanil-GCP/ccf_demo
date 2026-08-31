@@ -177,6 +177,43 @@ declaration:
       PRIN-KYC-004: 9
       PRIN-TRD-003: 4
 
+  # --- Witnesses the gates address by name. --------------------------------
+  #
+  # DECLARED HERE RATHER THAN DISCOVERED IN A TEST, for the same reason every
+  # other value in this file is: a gate that picked its own subject would be
+  # choosing the subject that makes it pass. Each of these is chosen because it
+  # is the ONLY kind of obligor that can raise its gate's question, and each
+  # SERVES at the demonstrated pin — an obligor refused on TTL bounds proves
+  # nothing about the content of a payload it never produced.
+  gate_witnesses:
+    # `OFS-G08`. The one obligor of 50 carrying none of the four revenue tags.
+    # Its revenue line must read NOT_EVALUABLE and must never read `0`, because
+    # a zero revenue describes a company with no sales rather than an answer
+    # this estate cannot give.
+    obligor_without_revenue_tag: "549300XN70JLF94XKX80"
+
+    # `OFS-G11`. `basis` must change the content address for an obligor whose
+    # window carries a restatement and must NOT change it for one that does
+    # not. BOTH halves are required: a `basis` wired into the address
+    # unconditionally would satisfy the first alone.
+    restated_in_window: "549300D0WZR1VI2QGB24"
+    unrestated_in_window: "549300F1Y3LN5BX5WN75"
+
+    # `OFS-G12`. The anchor carries NO evaluable derived line — it files no
+    # depreciation, so EBITDA and its three dependents are permanently
+    # NOT_EVALUABLE (see `documented_runs`). A gate checking "every evaluable
+    # derived line names its inputs" against the anchor would therefore check
+    # NOTHING and report green, which is the same vacuity `OFS-G01` was found
+    # to have. The ratio witness is the obligor that HAS the full block.
+    full_ratio_block: "549300FHJQTDPPN41627"
+
+    # `OFS-G04`. This obligor FILED an Item 4.02 non-reliance notice and yet
+    # changed no value in the window. It is the half of the gate that a
+    # detector built on 4.02 would get wrong: such a detector would report it
+    # restated, when nothing it reported actually moved. Two of 50 are like
+    # this; the other, `549300KTTIRAOGXCRV69`, is too stale to serve at the pin.
+    filed_402_without_value_change: "549300JDUUEBN868C776"
+
   # --- The three documented runs. ------------------------------------------
   #
   # ONE DRIVER, ONE CHANGED ARTIFACT VALUE. `question.yaml::subject` is the only

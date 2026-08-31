@@ -149,6 +149,9 @@ def _serve(seeded: str, **kwargs: Any) -> Any:
     anchor = kwargs.pop("anchor", None)
     principal = kwargs.pop("principal", None)
     asked_at = kwargs.pop("asked_at", None)
+    #: Optional: a list the caller owns, so it can inspect the spine's value
+    #: after a refusal. See `OFS-G06` for the only legitimate use.
+    external = kwargs.pop("_observer", None)
 
     declared = deployment.demonstration_parameters()
     parameters: dict[str, object] = {
@@ -176,7 +179,7 @@ def _serve(seeded: str, **kwargs: Any) -> Any:
 
     with tempfile.TemporaryDirectory(prefix="cp03-gate-") as tmp:
         root = pathlib.Path(tmp)
-        captured: list[object] = []
+        captured: list[object] = [] if external is None else external
         seam = assembler.SpreadAssembler(
             config=deployment.CONFIG,
             root=root,
@@ -554,4 +557,631 @@ def test_ofs_g15_suppression_is_indistinguishable_from_absence(
     assert _outcome(seeded, ghost, granted) == "not-available", (
         "a nonexistent obligor did not fail closed for a broadly granted"
         " principal, so the comparison above is not measuring suppression"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Source-level gates. These read the example's CODE, and they read it through
+# `ast` rather than as text — deliberately.
+#
+# Every one of these modules DISCUSSES the stores it does not open and the
+# stages it does not have: `deployment.py`'s own docstring names Fluree in
+# order to say Fluree is not read. A text scan would go red on the sentence
+# explaining the invariant while the code violating it slipped past. That is
+# the same defect `OFS-G01` was found to have — a check reading a token that
+# appears in both the compliant and the violating case — so these gates parse
+# out docstrings and comments and look only at what executes.
+# ---------------------------------------------------------------------------
+
+
+def _module_paths() -> list[pathlib.Path]:
+    return sorted(EXAMPLE.glob("*.py"))
+
+
+def _executable_strings(path: pathlib.Path) -> list[str]:
+    """Every string literal that is NOT a docstring, plus every imported name."""
+    import ast
+
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    docstrings: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            body = getattr(node, "body", [])
+            if (
+                body
+                and isinstance(body[0], ast.Expr)
+                and isinstance(body[0].value, ast.Constant)
+                and isinstance(body[0].value.value, str)
+            ):
+                docstrings.add(id(body[0].value))
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if id(node) not in docstrings:
+                found.append(node.value)
+        elif isinstance(node, ast.Import):
+            found.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            found.append(node.module or "")
+    return found
+
+
+def test_ofs_g02_resolution_goes_through_the_crosswalk(seeded: str) -> None:
+    """`OFS-G02` — identity comes from `crosswalk`, never from `financial_fact.cik`.
+
+    Rung 01 owns identity. This product resolves an obligor by asking the
+    crosswalk, and a build in a hurry would shortcut it: `financial_fact`
+    already carries a `cik`, so joining straight to it "works" and silently
+    makes this product its own system of record for identity.
+
+    Both halves are asserted, because either alone is satisfiable by the wrong
+    code: the resolution query must NAME the crosswalk, and the payload's
+    identity must be derived from the crosswalk's `lei` rather than from the
+    fact table's `cik`.
+    """
+    import ast
+    import inspect
+    import textwrap
+
+    deployment = _load("deployment")
+
+    # THE NAMES THE FUNCTION'S CODE REFERENCES, NOT THE WORDS ITS PROSE USES.
+    # A first version of this gate asserted `"crosswalk" in
+    # inspect.getsource(...)` and was VACUOUS: the function's own docstring
+    # opens "Resolve the anchor THROUGH rung 01's crosswalk", so the check
+    # passed on the sentence describing the invariant while the code violating
+    # it went by. That is the same defect `OFS-G01` was caught having, found
+    # here by sabotage rather than by review.
+    tree = ast.parse(textwrap.dedent(inspect.getsource(deployment._resolve_obligor)))
+    referenced = {
+        node.id for node in ast.walk(tree) if isinstance(node, ast.Name)
+    }
+    assert "TABLE_CROSSWALK" in referenced, (
+        "the resolution query's code does not reference the crosswalk table."
+        " `financial_fact` already carries a cik, so resolving from it 'works'"
+        " and silently makes this product its own system of record for"
+        f" identity. Names referenced: {sorted(referenced)}"
+    )
+
+    assembled = _serve(seeded)
+    obligor = dict(assembled.product.payload)["obligor"]
+    assert obligor["lei"], "the payload carries no lei"
+    assert obligor["entity_id"].startswith("obligor://"), (
+        "the entity id is not the crosswalk-derived address"
+    )
+
+
+def test_ofs_g05_no_store_but_postgres_is_opened(seeded: str) -> None:
+    """`OFS-G05` — one store, and `spread_observation` is never read.
+
+    §F.3 checked all five stores and read one. The other four are DISCUSSED at
+    length in these modules, which is exactly why this gate parses rather than
+    greps: the sentence "no Fluree connection is opened" contains the word
+    Fluree.
+
+    `spread_observation` is called out separately from the other stores because
+    it lives in the SAME Postgres this product does open, so no connection
+    check would catch it. It holds 47,849 rows of pre-computed spreads — the
+    thing this product exists to assemble rather than look up.
+    """
+    forbidden_stores = ("fluree", "mongo", "neo4j", "sqlite", "bolt://", "8090", "27017")
+    for path in _module_paths():
+        for literal in _executable_strings(path):
+            lowered = literal.lower()
+            assert "spread_observation" not in lowered, (
+                f"{path.name} names spread_observation in executable code."
+                " This product ASSEMBLES the spread; reading a pre-computed"
+                " one would make the whole assembly decorative"
+            )
+            for store in forbidden_stores:
+                assert store not in lowered, (
+                    f"{path.name} reaches a store other than PostgreSQL"
+                    f" ({store!r} in {literal[:60]!r})"
+                )
+
+
+def test_ofs_g07_no_llm_client_is_reachable(seeded: str) -> None:
+    """`OFS-G07` — Assembly Mode 1: no semantic stage exists.
+
+    The product declares `assembly_mode: 1`, which is a registration-time
+    commitment that no step calls a model. This gate makes the commitment
+    checkable rather than asserted: an LLM client that became reachable from
+    any step would turn the deployment into Mode 2 without the declaration
+    changing.
+    """
+    expected = _expected()
+    assert int(expected["assembly_mode"]) == 1, (
+        "expected.yaml no longer declares Assembly Mode 1; this gate is"
+        " asserting a commitment the product has stopped making"
+    )
+    clients = ("anthropic", "openai", "llm", "langchain", "transformers", "ollama")
+    for path in _module_paths():
+        for literal in _executable_strings(path):
+            lowered = literal.lower()
+            for client in clients:
+                assert not lowered.startswith(client), (
+                    f"{path.name} imports {literal!r}. A model reachable from"
+                    " any step makes this Assembly Mode 2, and the declared 1"
+                    " becomes false"
+                )
+
+
+def test_ofs_g06_as_of_is_refused_and_never_silently_honored(seeded: str) -> None:
+    """`OFS-G06` — a parameter this tier declares and always refuses.
+
+    `as_of` asks the product to reconstruct the spread as it stood on a past
+    date. That is a Tier 3 capability and this is a Tier 1 product. The
+    dangerous outcome is not the refusal; it is ACCEPTING the parameter and
+    ignoring it, which answers a question about today while the caller believes
+    they asked about last March.
+    """
+    produce = _load("produce")
+    deployment = _load("deployment")
+
+    declared = deployment.unsupported_arguments()
+    assert deployment.PARAM_AS_OF in declared, (
+        "as_of is no longer declared unsupported, so this gate is checking a"
+        " refusal the deployment has stopped promising"
+    )
+
+    from ccf.agents.errors import AssemblyRefused
+
+    # THE SPINE'S VALUE IS READ HERE, ON A REFUSAL, WHICH `_serve` OTHERWISE
+    # REFUSES TO DO. It is safe in this one gate and nowhere else: the
+    # assertion below is that the captured value IS a `ParameterNotSupported`,
+    # a type that cannot be mistaken for a served product. The trap `_serve`
+    # guards against is reading a captured value that CARRIES a product; here
+    # a captured product would fail the very first assertion.
+    captured: list[object] = []
+    try:
+        served = _serve(
+            seeded, _observer=captured, **{deployment.PARAM_AS_OF: "2026-03-31"}
+        )
+    except AssemblyRefused:
+        served = captured[0] if captured else None
+
+    assert isinstance(served, produce.ParameterNotSupported), (
+        "as_of was accepted rather than refused; got"
+        f" {type(served).__name__}. A silently ignored as_of answers a"
+        " question about today while the caller believes they asked about a"
+        " past date, and nothing in the payload would say so"
+    )
+    assert served.status == 400, f"expected status 400, got {served.status}"
+    assert served.parameter == deployment.PARAM_AS_OF, (
+        f"the refusal names {served.parameter!r} rather than as_of"
+    )
+    assert served.reason, "the refusal carries no reason for the caller to read"
+
+    # `not_supported_at_tier` is the SPEC's name for this condition and is not
+    # a value anywhere in the SDK: `ProductRequestViolation.reason` is a closed
+    # Literal with no member for it, which is why the assembler RAISES rather
+    # than returning a violation. Recorded at §F.4; asserted here so that a
+    # future SDK member for it is noticed rather than silently unused.
+    from ccf.products.request import ProductRequestViolation
+
+    members = getattr(
+        ProductRequestViolation.model_fields["reason"].annotation, "__args__", ()
+    )
+    assert "not_supported_at_tier" not in members, (
+        "the SDK now has a not_supported_at_tier refusal member. This product"
+        " should return it rather than raising, and §F.4's finding closes"
+    )
+
+
+def test_ofs_g10_exactly_one_operator_and_no_enrich(seeded: str) -> None:
+    """`OFS-G10` — one operator in the plan, and no `Enrich` registered.
+
+    An empty operator plan fails the SDK's own empty-operator guard, so this
+    product cannot serve without its Policy operator — which is the point: the
+    entitlement filter is not optional decoration, it is the only thing between
+    a principal and rows they may not see.
+
+    **This gate turns RED if the eight-member operator vocabulary is later
+    adopted, and that redness is a signal rather than a regression** — it means
+    §F.2 row 1 needs reopening, not that the build broke.
+    """
+    expected = _expected()
+    declared = [
+        invariant
+        for invariant in expected["invariants"]
+        if invariant["name"] == "one-operator"
+    ]
+    assert declared, "expected.yaml no longer declares the one-operator invariant"
+
+    assembled = _serve(seeded)
+    invoked = sorted(assembled.operators_invoked)
+    assert len(invoked) == 1, (
+        f"the plan invoked {len(invoked)} operators, not one: {invoked}"
+    )
+    assert "enrich" not in invoked[0].lower(), (
+        f"an Enrich operator is in the plan ({invoked[0]}). Enrichment at read"
+        " time is the fabric doing work the assembly should have done"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Data gates. Each addresses a witness DECLARED in `expected.yaml`, never one
+# discovered here — a gate that picked its own subject would pick the subject
+# that makes it pass.
+# ---------------------------------------------------------------------------
+
+
+CENSUS = yaml.safe_load(
+    (FIXTURES / "cp_03_census_expected.yaml").read_text(encoding="utf-8")
+)
+
+
+def _witness(name: str) -> str:
+    return str(_expected()["gate_witnesses"][name])
+
+
+def _restatement_artifact() -> Any:
+    deployment = _load("deployment")
+    document = yaml.safe_load(deployment.RESTATEMENT.read_text(encoding="utf-8"))
+    return document[deployment.DECLARATION]
+
+
+def _restated_cells(seeded: str, key: list[str]) -> int:
+    """The restatement census under an ARBITRARY key, so the key can be varied.
+
+    A cell is restated when the same fact — same key — carries more than one
+    distinct value across the filings that reported it. Varying the key is the
+    whole experiment: the correct key yields 321 and every looser one yields
+    more, because a looser key merges facts that were never the same fact.
+    """
+    columns = ", ".join("f." + column for column in key)
+    with psycopg.connect(seeded) as db, db.cursor() as cur:
+        cur.execute(
+            f"""
+            select count(*) from (
+              select {columns}
+                from ccf_v2.financial_fact f
+                join ccf_v2.crosswalk x on x.cik = f.cik
+               group by {columns}
+              having count(distinct f.value) > 1
+            ) restated
+            """
+        )
+        row = cur.fetchone()
+        assert row is not None
+        return int(row[0])
+
+
+def test_ofs_g03_the_restatement_key_is_the_estates_own(seeded: str) -> None:
+    """`OFS-G03` — the key is declared in an artifact, and it is load-bearing.
+
+    What counts as "the same fact" is a credit-policy judgment wearing numeric
+    clothing, so it lives in `artifacts/restatement.yaml` rather than as a
+    constant in a module where no reviewer would look for a policy.
+
+    **The gate varies the key rather than asserting a number**, because the
+    number alone would keep passing if the key stopped being read. A LOOSER key
+    merges facts that were never the same fact and the census goes UP — which
+    is the direction a build under time pressure moves it, since 410 looks like
+    more findings rather than fewer.
+    """
+    declared = _restatement_artifact()["fact_identity_key"]
+    assert declared == CENSUS["census"]["key"], (
+        "the artifact's key and the census fixture's key disagree, so one of"
+        f" the two documents is stale: {declared} vs {CENSUS['census']['key']}"
+    )
+
+    correct = _restated_cells(seeded, list(declared))
+    assert correct == CENSUS["census"]["restatement_cells"], (
+        f"the declared key yields {correct} restated cells, not"
+        f" {CENSUS['census']['restatement_cells']}"
+    )
+
+    short = _restated_cells(seeded, ["lei", "tag", "period_end"])
+    assert short == CENSUS["wrong_methods"]["short_key"]["yields"], (
+        f"the short key yields {short}, not the"
+        f" {CENSUS['wrong_methods']['short_key']['yields']} it is recorded as"
+        " producing; the control has stopped discriminating"
+    )
+    assert short > correct, (
+        "a looser key did not inflate the census, so the key is not being"
+        " applied at all and the correct number above is a coincidence"
+    )
+
+
+def test_ofs_g04_item_402_corroborates_and_never_detects(seeded: str) -> None:
+    """`OFS-G04` — a non-reliance filing is evidence, not the detector.
+
+    Item 4.02 is an 8-K saying "do not rely on our previously issued
+    statements." It is the obvious place to look for restatements and it is the
+    wrong place to look FROM, for two independent reasons, and this gate
+    asserts both because either alone is satisfiable by a broken detector.
+
+    **Most restatements never file one.** 28 of the 37 restated obligors here
+    have no 4.02 at all. A detector built on 4.02 would miss three quarters of
+    them and report a healthy book.
+
+    **And a 4.02 does not mean a number moved.** Two obligors filed one and
+    changed no value in the window. A detector built on 4.02 would report them
+    restated, and a credit officer would go looking for a change that is not
+    there.
+    """
+    artifact = _restatement_artifact()
+    assert artifact["detected_by"] == "distinct_value_across_accessions", (
+        "restatement is no longer declared as detected by value comparison;"
+        f" the artifact says {artifact['detected_by']!r}"
+    )
+
+    counts = CENSUS["census"]["item_402"]
+    assert counts["restated_without_filing"] > 0, (
+        "no obligor is restated without a 4.02, so this estate cannot"
+        " distinguish a value-comparison detector from a 4.02 detector and the"
+        " gate is vacuous here"
+    )
+
+    # The decisive half, through the served product: a 4.02 with nothing moved.
+    witness = _witness("filed_402_without_value_change")
+    assembled = _serve(seeded, anchor=witness)
+    payload = dict(assembled.product.payload)
+    assert payload["obligor"]["formally_restated"] is True, (
+        f"{witness} is declared to carry an Item 4.02 and the payload says it"
+        " does not; the witness or the estate has moved"
+    )
+    restated = [
+        line for line in _reported_lines(assembled) if line.get("restated") is True
+    ]
+    assert not restated, (
+        f"{witness} filed a 4.02 and changed no value, yet {len(restated)}"
+        " lines are reported restated. That is a detector reading the filing"
+        " rather than the figures"
+    )
+
+
+def test_ofs_g08_absence_is_a_word_and_never_a_zero(seeded: str) -> None:
+    """`OFS-G08` — the revenue-less obligor serves NOT_EVALUABLE, never `0`.
+
+    One obligor of 50 files none of the four revenue tags. Serving `0` would
+    describe a company with no sales; the absence of an answer is not an answer
+    of zero, and every ratio built on it would inherit the lie silently.
+
+    **The vacuity guard matters here specifically.** A line the obligor never
+    filed carries `NOT_EVALUABLE` whatever the code does, so asserting only
+    "revenue reads NOT_EVALUABLE" would pass against a product that served the
+    token for everything. So the gate also requires this payload to carry real
+    reported figures, and requires a DIFFERENT obligor's revenue to be a
+    number — proving the product can tell the two cases apart.
+    """
+    expected = _expected()
+    token = expected["not_evaluable_token"]
+    witness = _witness("obligor_without_revenue_tag")
+
+    assembled = _serve(seeded, anchor=witness)
+    reported = _reported_lines(assembled)
+    assert reported, (
+        f"{witness} served no reported figures at all, so its NOT_EVALUABLE"
+        " revenue proves nothing about the vocabulary of absence"
+    )
+
+    payload = dict(assembled.product.payload)
+    revenue_values = {
+        line.get("value")
+        for period in payload["periods"]
+        for name, line in period["lines"].items()
+        if isinstance(line, dict) and "revenue" in name.lower()
+    }
+    assert revenue_values, f"{witness}'s payload carries no revenue line at all"
+    assert revenue_values == {token}, (
+        f"{witness} files no revenue tag, so every revenue figure must read"
+        f" {token}; got {sorted(str(v) for v in revenue_values)}"
+    )
+    assert "0" not in {str(value) for value in revenue_values}, (
+        "a revenue of 0 describes a company with no sales, which is not what"
+        " this estate knows about this obligor"
+    )
+
+    # THE DISCRIMINATION CHECK: another obligor's revenue is a real number.
+    other = _serve(seeded, anchor=_witness("full_ratio_block"))
+    other_payload = dict(other.product.payload)
+    numbers = {
+        line.get("value")
+        for period in other_payload["periods"]
+        for name, line in period["lines"].items()
+        if isinstance(line, dict) and "revenue" in name.lower()
+    } - {token}
+    assert numbers, (
+        "no obligor in this estate serves a numeric revenue, so the assertion"
+        " above cannot distinguish a working product from one that serves"
+        f" {token} for everything"
+    )
+
+
+def test_ofs_g11_basis_changes_the_address_only_where_it_changes_the_answer(
+    seeded: str,
+) -> None:
+    """`OFS-G11` — `basis` is in the content address, and only when it matters.
+
+    `as-reported` and `latest-restated` are BOTH correct answers to different
+    questions: what the obligor said at the time, and what it says now. The
+    decision picks. So the two must be addressable separately — an identical
+    content address would make a cache serve one for the other.
+
+    **Both halves are required.** A `basis` folded into the hash
+    unconditionally satisfies the first half while telling you nothing: for an
+    obligor with no restatement in the window the two answers are the same
+    document, and a differing address there would mean the address is keyed on
+    the question rather than on the answer.
+    """
+    from ccf.contracts.canonical import content_hash
+
+    deployment = _load("deployment")
+
+    def figures(lei: str, basis: str) -> dict[tuple[str, str], Any]:
+        """Every figure by period and line name — VALUES ONLY, not provenance.
+
+        `accession` is deliberately excluded, and measuring taught the reason.
+        For an unrestated obligor the two bases return the SAME NUMBER from
+        DIFFERENT FILINGS: `as-reported` names the filing that first reported
+        it, `latest-restated` the most recent one to repeat it, and the figure
+        being equal across those filings is precisely what makes the obligor
+        unrestated. Comparing provenance would fail correct data.
+        """
+        assembled = _serve(seeded, anchor=lei, **{deployment.PARAM_BASIS: basis})
+        payload = dict(assembled.product.payload)
+        return {
+            (str(period["period_end"]), str(name)): line.get("value")
+            for period in payload["periods"]
+            for name, line in period["lines"].items()
+            if isinstance(line, dict)
+        }
+
+    def address(lei: str, basis: str) -> str:
+        assembled = _serve(seeded, anchor=lei, **{deployment.PARAM_BASIS: basis})
+        return str(content_hash(assembled.product))
+
+    restated = _witness("restated_in_window")
+    unrestated = _witness("unrestated_in_window")
+
+    # THE FIGURES ARE ASSERTED, NOT ONLY THE ADDRESS, AND SABOTAGE IS WHY.
+    # A first version asserted only that the two content addresses differ for a
+    # restated obligor. It survived a sabotage that stopped `basis` selecting
+    # the filing at all — because the payload ECHOES `basis_applied` on every
+    # line, so the two documents differ whatever the figures do. The address
+    # test could not tell "the basis changed the answer" from "the basis
+    # appeared in the document". It is the third time in this module that a
+    # check read a token present in both the compliant and the violating case.
+    assert figures(restated, "as-reported") != figures(
+        restated, "latest-restated"
+    ), (
+        f"{restated} carries a restatement in the window and NO FIGURE moved"
+        " between the two bases. The basis is not selecting which filing's"
+        " value wins, so the two answers are the same answer under two names"
+    )
+    assert address(restated, "as-reported") != address(restated, "latest-restated"), (
+        f"{restated}'s two answers differ and share a content address; a cache"
+        " would serve one for the other"
+    )
+
+    # THE OTHER HALF. §D.4 and criterion 38 also require IDENTICAL content
+    # addresses for an obligor with no restatement in the window. THAT CANNOT
+    # HOLD AS BUILT, and the reason is recorded rather than worked around: the
+    # payload echoes `basis_applied` on every line and names a different
+    # `accession` under each basis, so for an unrestated obligor the two
+    # documents differ in 120 lines — every one of them provenance or label,
+    # NOT ONE of them a figure. The answer is identical; the document is not;
+    # the address follows the document.
+    #
+    # Two defensible readings, and neither is this gate's to choose. Either the
+    # address is right to differ because the served document differs and
+    # criterion 38 needs amending, or the echoed label is wrong where it changed
+    # nothing and the product needs amending. Raised for a ruling; what is
+    # asserted here is the substance the criterion was reaching for.
+    assert figures(unrestated, "as-reported") == figures(
+        unrestated, "latest-restated"
+    ), (
+        f"{unrestated} carries no restatement, so no figure may move between"
+        " the two bases. A figure that moves here means the basis is being"
+        " applied to facts that were never restated"
+    )
+
+
+def test_ofs_g12_every_derived_line_names_what_it_consumed(seeded: str) -> None:
+    """`OFS-G12` — a ratio names its inputs, and they are in the same payload.
+
+    A derived figure with no lineage is a number a credit officer cannot check.
+    The obligation is closed over the payload: every name in `inputs` resolves
+    to a line present in the SAME period of the SAME served document, so a
+    reader needs nothing but what they were handed.
+
+    **The witness is NOT the demonstration anchor, and that is the whole
+    subtlety.** The anchor files no depreciation, so EBITDA and its three
+    dependents are permanently NOT_EVALUABLE and carry no inputs — a gate run
+    against it would check zero derived lines and report green. That is exactly
+    the vacuity `OFS-G01` was caught having. The witness is the obligor that
+    carries the full ratio block, and the count of lines checked is asserted to
+    be non-zero rather than assumed.
+    """
+    expected = _expected()
+    token = expected["not_evaluable_token"]
+    assembled = _serve(seeded, anchor=_witness("full_ratio_block"))
+    payload = dict(assembled.product.payload)
+
+    checked = 0
+    for period in payload["periods"]:
+        names = set(period["lines"])
+        for name, line in period["lines"].items():
+            if not isinstance(line, dict) or not line.get("derived"):
+                continue
+            if line.get("value") == token:
+                continue  # nothing was computed, so nothing was consumed
+            checked += 1
+            inputs = line.get("inputs")
+            assert inputs, (
+                f"derived line {name!r} in {period['period_end']} carries a"
+                " value and no inputs; the figure cannot be checked"
+            )
+            for consumed in inputs:
+                assert consumed in names, (
+                    f"{name!r} names input {consumed!r}, which is not a line in"
+                    " the same period of this payload. The lineage is not"
+                    " closed over the document the reader was handed"
+                )
+
+    assert checked > 0, (
+        "no evaluable derived line was checked, so this gate asserted nothing."
+        " The witness must be an obligor that actually computes ratios"
+    )
+
+
+def test_ofs_g13_the_severity_threshold_comes_from_the_artifact(
+    seeded: str,
+) -> None:
+    """`OFS-G13` — moving the artifact's threshold moves cells between classes.
+
+    Whether a 0.8% correction is *material* or *precision* is a credit-policy
+    judgment. §E.5 measured the distribution and found it continuous from
+    rounding to restatement with no natural gap, so there is no number the data
+    could have supplied — it has to be declared, and declared where a reviewer
+    looks.
+
+    **The gate rewrites the artifact and re-serves.** Asserting that the served
+    classes merely LOOK right would pass against a hard-coded constant that
+    happens to match the artifact today. Changing the declaration and watching
+    the answer move is the only check that distinguishes reading from
+    coinciding. The artifact is restored in a `finally`.
+    """
+    deployment = _load("deployment")
+    artifact = deployment.RESTATEMENT
+    original = artifact.read_text(encoding="utf-8")
+    declared = _restatement_artifact()["material_threshold"]
+
+    def classes(lei: str) -> set[str]:
+        assembled = _serve(seeded, anchor=lei)
+        return {
+            str(line.get("restatement_class"))
+            for line in _reported_lines(assembled)
+            if line.get("restated") is True
+        }
+
+    anchor = _witness("restated_in_window")
+    before = classes(anchor)
+    assert before, (
+        f"{anchor} serves no restated line, so no cell can change class and"
+        " this gate would pass without asking its question"
+    )
+
+    try:
+        artifact.write_text(
+            original.replace(
+                f'material_threshold: "{declared}"', 'material_threshold: "0.99"'
+            ),
+            encoding="utf-8",
+        )
+        assert _restatement_artifact()["material_threshold"] == "0.99", (
+            "the artifact was not rewritten, so the comparison below would be"
+            " two identical runs"
+        )
+        after = classes(anchor)
+    finally:
+        artifact.write_text(original, encoding="utf-8")
+
+    assert after != before, (
+        f"the material threshold moved from {declared} to 0.99 and every cell"
+        f" kept its class ({sorted(before)}). The classification is not"
+        " reading the artifact — it is a constant that happens to agree with"
+        " it today"
     )
