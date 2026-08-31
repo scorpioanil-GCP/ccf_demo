@@ -169,10 +169,39 @@ half_life:
     half_life_seconds: 7776000       # ~90d — superseded by the next quarterly filing
     decay_driver: filing-cadence
     supersession_event: new-10-Q-accession
-  restatement:
-    half_life_seconds: 0             # event-driven; rewrites a closed period
-    decay_driver: event
-    supersession_event: value-changed-across-accessions
+  # ---------------------------------------------------------------------------
+  # THE FOURTH CLASS IS ABSENT, AND ITS ABSENCE IS THE FINDING.
+  # ---------------------------------------------------------------------------
+  #
+  # Spec §E.1 names FOUR signal classes and gives Restatement a `λ_c` of
+  # **event-driven** — "rewrites a closed period, the earliest supersession case
+  # in the catalog." It commits to no number, because there is no curve: a
+  # restatement does not decay, it SUPERSEDES.
+  #
+  # `src/ccf/controlplane/artifacts.py::HalfLifeEntry` cannot express that.
+  # `half_life_seconds` is validated positive — `0` raises
+  # `half_life_seconds must be positive` at registration — and
+  # `supersession_event` is carried BESIDE a decay curve, never INSTEAD of one.
+  # So the SDK's λ_c table can hold a class that decays and supersedes, and has
+  # no shape for one that only supersedes.
+  #
+  # An earlier draft of this file wrote `half_life_seconds: 0` and this
+  # deployment could not have booted. The two ways to keep the row were to
+  # invent a positive number the spec does not give — a domain value minted by a
+  # build, which the No-Hardcoding Rule forbids as firmly in an artifact as in
+  # code — or to leave the fabric unable to start. Neither is admissible, so the
+  # row is OMITTED and the gap is recorded.
+  #
+  # NOTHING IS SILENTLY LOST. No observation is typed `restatement`: a restated
+  # cell decays against the class of the PERIOD it belongs to (`annual_facts` or
+  # `quarterly_facts`), which is the rate at which that figure actually goes
+  # stale. What restatement contributes to `D_c` is §E.2's "restatement pending"
+  # row — a penalty on `F`, not a λ_c lookup — and that is a separate mechanism.
+  #
+  # RECORDED AS AN SDK-SURFACE FINDING for spec §F.4, owner Dave. It is the
+  # fifth SDK-side finding of Phase 24 and it is ALGEBRA rather than seam
+  # ergonomics — the table cannot say a thing the specification says — which is
+  # what `D-05` reads for drift. It is raised here, NOT resolved here.
   peer_set:
     half_life_seconds: 15552000      # ~180d — drifts as filers change SIC or exit
     decay_driver: cohort-drift
