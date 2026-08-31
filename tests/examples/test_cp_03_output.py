@@ -432,10 +432,25 @@ def test_ofs_g15_entitlement_discriminates_as_sets_with_a_negative_control(
         for principal in sorted(declared)
     }
 
-    # The negative control FIRST: a set compared against itself must match, or
-    # the instrument is broken and every reading below is meaningless.
-    for principal, population in visible.items():
-        assert population == population, "set comparison is unstable"
+    # THE INSTRUMENT IS CHECKED FIRST, AND IT IS CHECKED FOR REAL.
+    # This read `assert population == population` until the close panel named
+    # it: a value compared against itself is true for every value, so it tested
+    # nothing at all. It was written as a "control" and was a tautology — the
+    # same defect class this module was built to catch, in the gate's own
+    # instrument. What actually needs proving is that the measurement is
+    # REPEATABLE and DISCRIMINATING: re-measuring gives the same set, and two
+    # different grants do not collapse to one.
+    for principal in sorted(declared):
+        again = _visible_population(seeded, principal)
+        assert again == visible[principal], (
+            f"{principal} measured twice gives two different sets"
+            f" ({len(visible[principal])} then {len(again)}); the instrument is"
+            " unstable and every reading below is meaningless"
+        )
+    assert len(set(visible.values())) > 1, (
+        "every principal resolves to the SAME set, so the measurement cannot"
+        " discriminate at all and the counts below would be a coincidence"
+    )
 
     for principal, count in sorted(declared.items()):
         assert len(visible[principal]) == count, (
@@ -518,16 +533,25 @@ def test_ofs_g15_suppression_is_indistinguishable_from_absence(
     """
     expected = _expected()
     declared = expected["populations"]["obligors_visible_per_principal"]
-    granted = max(declared, key=lambda p: declared[p] if declared[p] else -1)
-    ungranted = min(declared, key=lambda p: declared[p])
+    # WITNESSES ARE DECLARED, NOT SORTED OUT OF TODAY'S ESTATE.
+    # These were `max()` and `min()` over the population counts, and the ghost
+    # was a string invented here. Both are the gate choosing its own subject —
+    # house rule 2 — and both break quietly if two principals tie or the
+    # estate's shape shifts. Close-panel finding, 2026-08-31.
+    granted = _witness("principal_broadly_granted")
+    ungranted = _witness("principal_granted_nothing")
+    ghost = _witness("obligor_that_does_not_exist")
     assert declared[ungranted] == 0, (
         "this test needs a principal that sees nothing; expected.yaml declares"
         f" {ungranted} sees {declared[ungranted]}"
     )
+    assert declared[granted] > 0, (
+        f"{granted} is declared to see {declared[granted]} obligors, so the"
+        " positive control below would be vacuous"
+    )
 
     deployment = _load("deployment")
     anchor = deployment.demonstration_anchor()
-    ghost = "0" * 16 + "GHOST"
 
     # POSITIVE CONTROL FIRST. If the anchor does not serve for a principal that
     # is entitled to it, every suppression reading below is meaningless — an
@@ -602,7 +626,16 @@ def _executable_strings(path: pathlib.Path) -> list[str]:
         elif isinstance(node, ast.Import):
             found.extend(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
+            # THE MODULE **AND** THE NAMES, AND EVERY DOTTED SEGMENT OF BOTH.
+            # Recording only `node.module` missed `from ccf.integrations import
+            # llm` — the module is `ccf.integrations`, which starts with
+            # neither forbidden token, so an LLM client could be imported past
+            # `OFS-G07` in a spelling nobody would think to look for.
+            # Close-panel finding, 2026-08-31.
             found.append(node.module or "")
+            found.extend(alias.name for alias in node.names)
+    for dotted in list(found):
+        found.extend(dotted.split("."))
     return found
 
 
@@ -665,6 +698,12 @@ def test_ofs_g05_no_store_but_postgres_is_opened(seeded: str) -> None:
     thing this product exists to assemble rather than look up.
     """
     forbidden_stores = ("fluree", "mongo", "neo4j", "sqlite", "bolt://", "8090", "27017")
+
+    # THE LOOP MUST HAVE RUN. A gate whose assertions live inside a loop that
+    # iterates zero times passes without asking its question, and an empty
+    # `EXAMPLE.glob` is exactly how that happens — a moved directory, a renamed
+    # example. Close-panel finding, 2026-08-31.
+    scanned = 0
     for path in _module_paths():
         for literal in _executable_strings(path):
             lowered = literal.lower()
@@ -673,11 +712,20 @@ def test_ofs_g05_no_store_but_postgres_is_opened(seeded: str) -> None:
                 " This product ASSEMBLES the spread; reading a pre-computed"
                 " one would make the whole assembly decorative"
             )
+            scanned += 1
             for store in forbidden_stores:
                 assert store not in lowered, (
                     f"{path.name} reaches a store other than PostgreSQL"
                     f" ({store!r} in {literal[:60]!r})"
                 )
+    assert len(_module_paths()) >= 4, (
+        f"only {len(_module_paths())} modules found at {EXAMPLE}; this gate"
+        " scans the example's code and has just scanned almost none of it"
+    )
+    assert scanned > 0, (
+        "no executable string or import was scanned, so this gate asserted"
+        " nothing about which stores the example reaches"
+    )
 
 
 def test_ofs_g07_no_llm_client_is_reachable(seeded: str) -> None:
@@ -695,15 +743,21 @@ def test_ofs_g07_no_llm_client_is_reachable(seeded: str) -> None:
         " asserting a commitment the product has stopped making"
     )
     clients = ("anthropic", "openai", "llm", "langchain", "transformers", "ollama")
+    scanned = 0
     for path in _module_paths():
         for literal in _executable_strings(path):
             lowered = literal.lower()
+            scanned += 1
             for client in clients:
                 assert not lowered.startswith(client), (
                     f"{path.name} imports {literal!r}. A model reachable from"
                     " any step makes this Assembly Mode 2, and the declared 1"
                     " becomes false"
                 )
+    assert scanned > 0, (
+        "no executable string or import was scanned, so this gate asserted"
+        " nothing about model reachability"
+    )
 
 
 def test_ofs_g06_as_of_is_refused_and_never_silently_honored(seeded: str) -> None:
@@ -733,13 +787,26 @@ def test_ofs_g06_as_of_is_refused_and_never_silently_honored(seeded: str) -> Non
     # guards against is reading a captured value that CARRIES a product; here
     # a captured product would fail the very first assertion.
     captured: list[object] = []
+    raised = False
     try:
         served = _serve(
             seeded, _observer=captured, **{deployment.PARAM_AS_OF: "2026-03-31"}
         )
     except AssemblyRefused:
+        raised = True
         served = captured[0] if captured else None
 
+    # THE REFUSAL MUST HAVE BEEN RAISED, not merely observed. The gate checked
+    # only that the captured value WAS a `ParameterNotSupported`, which a
+    # product could satisfy while completing the assembly normally and handing
+    # the caller a served spread — the parameter noted and then ignored, which
+    # is the precise failure this gate exists to prevent. Close-panel finding,
+    # 2026-08-31.
+    assert raised, (
+        "the assembly completed without refusing. `as_of` was noted and then"
+        " ignored, which answers a question about today while the caller"
+        " believes they asked about a past date"
+    )
     assert isinstance(served, produce.ParameterNotSupported), (
         "as_of was accepted rather than refused; got"
         f" {type(served).__name__}. A silently ignored as_of answers a"
@@ -792,6 +859,16 @@ def test_ofs_g10_exactly_one_operator_and_no_enrich(seeded: str) -> None:
     invoked = sorted(assembled.operators_invoked)
     assert len(invoked) == 1, (
         f"the plan invoked {len(invoked)} operators, not one: {invoked}"
+    )
+    # AND IT MUST BE THE POLICY OPERATOR, NAMED FROM THE ARTIFACT.
+    # The gate asserted only "exactly one, and not an Enrich" until the close
+    # panel observed that a single no-op operator called anything else would
+    # satisfy that while the entitlement filter was absent altogether — the
+    # count is not the invariant, the operator is.
+    assert invoked[0] == _witness("sole_operator"), (
+        f"the plan's one operator is {invoked[0]!r}, not the"
+        f" {_witness('sole_operator')!r} expected.yaml declares. A count of one"
+        " says nothing about whether the entitlement filter ran"
     )
     assert "enrich" not in invoked[0].lower(), (
         f"an Enrich operator is in the plan ({invoked[0]}). Enrichment at read"
@@ -872,6 +949,68 @@ def test_ofs_g03_the_restatement_key_is_the_estates_own(seeded: str) -> None:
         f" {CENSUS['census']['restatement_cells']}"
     )
 
+    # AND THE PRODUCT MUST ACTUALLY READ IT — the half this gate lacked.
+    #
+    # Everything above compares the artifact against a census written in this
+    # module. It never serves the product, so it could not see the product
+    # IGNORING the artifact — which is what it was doing: the assembly query
+    # hard-coded a partition including `period_start`, a key
+    # `artifacts/restatement.yaml` names and rejects, and four real corrections
+    # went unreported. The gate was written to catch exactly that and could
+    # not. Close-panel finding, 2026-08-31.
+    #
+    # So the artifact's key is CHANGED and the product re-served. If the
+    # detection moves, the product read it. If it does not, the key in force is
+    # a constant somewhere in the code.
+    from datetime import datetime
+
+    deployment = _load("deployment")
+    artifact = deployment.RESTATEMENT
+    original = artifact.read_text(encoding="utf-8")
+    witness = _witness("key_sensitive_obligor")
+    window = {
+        "anchor": witness,
+        deployment.PARAM_PERIODS: int(
+            _expected()["gate_witnesses"]["key_sensitive_periods"]
+        ),
+        "asked_at": datetime.fromisoformat(
+            str(_expected()["gate_witnesses"]["key_sensitive_asked_at"])
+        ),
+    }
+
+    def flags() -> dict[tuple[str, str], Any]:
+        payload = dict(_serve(seeded, **window).product.payload)
+        return {
+            (str(period["period_end"]), str(name)): line.get("restated")
+            for period in payload["periods"]
+            for name, line in period["lines"].items()
+            if isinstance(line, dict) and "restated" in line
+        }
+
+    before = flags()
+    assert before, f"{witness} served no cells carrying a restatement flag"
+    try:
+        artifact.write_text(
+            original.replace(
+                "    - period_end\n", "    - period_start\n    - period_end\n"
+            ),
+            encoding="utf-8",
+        )
+        assert "period_start" in _restatement_artifact()["fact_identity_key"], (
+            "the artifact's key was not rewritten, so the comparison below"
+            " would be two identical runs"
+        )
+        after = flags()
+    finally:
+        artifact.write_text(original, encoding="utf-8")
+
+    assert after != before, (
+        "the fact-identity key was lengthened in the artifact and the product"
+        " reported exactly the same restatements. The key in force is not the"
+        " declared one — it is a constant in the code that happens to agree"
+        " with the artifact today"
+    )
+
     short = _restated_cells(seeded, ["lei", "tag", "period_end"])
     assert short == CENSUS["wrong_methods"]["short_key"]["yields"], (
         f"the short key yields {short}, not the"
@@ -922,9 +1061,21 @@ def test_ofs_g04_item_402_corroborates_and_never_detects(seeded: str) -> None:
         f"{witness} is declared to carry an Item 4.02 and the payload says it"
         " does not; the witness or the estate has moved"
     )
-    restated = [
-        line for line in _reported_lines(assembled) if line.get("restated") is True
+    # EVERY LINE SHAPE IS CHECKED HERE, NOT ONLY THE REPORTED ONES, AND THE
+    # REASON IS THE FIX THAT PRECEDED IT. `_reported_lines` exists because
+    # `OFS-G01` was counting placeholders as facts. Used HERE it would do the
+    # opposite harm: a broken detector that marked `restated` on a slim,
+    # placeholder-shaped line would have those lines filtered away and the gate
+    # would pass. A filter that removes noise for one gate removes evidence for
+    # another. Close-panel finding, 2026-08-31.
+    payload_lines = [
+        line
+        for period in payload["periods"]
+        for line in period["lines"].values()
+        if isinstance(line, dict)
     ]
+    assert payload_lines, f"{witness} served no lines at all"
+    restated = [line for line in payload_lines if line.get("restated") is True]
     assert not restated, (
         f"{witness} filed a 4.02 and changed no value, yet {len(restated)}"
         " lines are reported restated. That is a detector reading the filing"

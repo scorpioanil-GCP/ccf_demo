@@ -138,6 +138,9 @@ TABLE_PRINCIPAL_JURISDICTION = "principal_jurisdiction"
 SIGNAL_ANNUAL = "annual_facts"
 SIGNAL_QUARTERLY = "quarterly_facts"
 SIGNAL_RESTATEMENT = "restatement"
+#: The artifact field naming what makes two rows THE SAME FACT.
+#: Read, never assumed — see `_read_cells`.
+KEY_FACT_IDENTITY = "fact_identity_key"
 SIGNAL_PEER = "peer_set"
 
 ATTR_MATCH_KEY = "obligor_ref"
@@ -486,6 +489,25 @@ def _read_cells(
     second definition of "restated" can drift from this one.
     """
     order = "asc" if basis == BASIS_AS_REPORTED else "desc"
+
+    # THE PARTITION IS THE ARTIFACT'S KEY, NOT A CONSTANT IN THIS QUERY.
+    #
+    # It was a constant until the close-time review panel found the two
+    # disagreeing: `artifacts/restatement.yaml` declares
+    # `(lei, tag, unit, period_end, fiscal_period)` and this query partitioned
+    # on that PLUS `period_start`. The artifact names that exact variant and
+    # rejects it — *"too strict... a filer who restates a PERIOD BOUNDARY has
+    # restated the fact, and treating that as a different fact hides a real
+    # correction."* Measured against the estate: the declared key finds 321
+    # restated cells and the hard-coded one found 317, so FOUR REAL
+    # CORRECTIONS WERE HIDDEN, all of them annual revenue whose period
+    # boundary moved — precisely the case the artifact describes.
+    #
+    # `lei` is the WHERE filter rather than a partition column, so it is the
+    # one key member that does not appear here.
+    identity = tuple(restatement_rule()[KEY_FACT_IDENTITY])
+    partition = ", ".join(f"f.{column}" for column in identity if column != "lei")
+
     cur.execute(
         f"""
         with ranked as (
@@ -499,26 +521,16 @@ def _read_cells(
                    -- endpoints, and comparing endpoints would call it unchanged.
                    min(f.value) over w                              as min_value,
                    max(f.value) over w                              as max_value,
-                   first_value(f.value)      over (partition by f.tag, f.unit,
-                                                                f.period_start,
-                                                                f.period_end,
-                                                                f.fiscal_period
+                   first_value(f.value)      over (partition by {partition}
                                                    order by f.filed_date asc)  as first_value,
-                   first_value(f.value)      over (partition by f.tag, f.unit,
-                                                                f.period_start,
-                                                                f.period_end,
-                                                                f.fiscal_period
+                   first_value(f.value)      over (partition by {partition}
                                                    order by f.filed_date desc) as last_value,
-                   row_number()              over (partition by f.tag, f.unit,
-                                                                f.period_start,
-                                                                f.period_end,
-                                                                f.fiscal_period
+                   row_number()              over (partition by {partition}
                                                    order by f.filed_date {order},
                                                             f.accession {order}) as pick
               from {SOURCE_SCHEMA}.{TABLE_FACT} f
              where f.lei = %s
-            window w as (partition by f.tag, f.unit, f.period_start,
-                                      f.period_end, f.fiscal_period)
+            window w as (partition by {partition})
         ),
         recent as (
             select distinct period_end from ranked order by period_end desc limit %s

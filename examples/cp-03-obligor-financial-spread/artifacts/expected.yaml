@@ -207,6 +207,42 @@ declaration:
     # to have. The ratio witness is the obligor that HAS the full block.
     full_ratio_block: "549300FHJQTDPPN41627"
 
+    # `OFS-G03`. The obligor whose restatement detection CHANGES when the
+    # fact-identity key changes, with the window and pin that reach the cells
+    # where it does. It is the only witness that can prove the product READS
+    # the key rather than agreeing with the artifact by coincidence — and that
+    # mattered: the product hard-coded a key including `period_start` and hid
+    # four real corrections, which `OFS-G03` could not see because it never
+    # served the product at all. Close-panel finding, 2026-08-31.
+    #
+    # The two cells are `revenue` at 2021-06-26 and 2021-09-25 — annual revenue
+    # whose PERIOD BOUNDARY moved, which is exactly the case
+    # `artifacts/restatement.yaml` describes when it rejects the longer key.
+    key_sensitive_obligor: "G8NWFN4YP7CR6FOP4886"
+    key_sensitive_periods: 40
+    key_sensitive_asked_at: "2024-03-29T12:00:00+00:00"
+
+    # `OFS-G10`. The ONE operator this product's plan may invoke. The gate
+    # asserted only that there was exactly one and that it was not an Enrich;
+    # a single no-op operator named anything else would have satisfied that
+    # while the entitlement filter was absent altogether. Close-panel finding,
+    # 2026-08-31.
+    sole_operator: policy.principal-subgraph
+
+    # `OFS-G15`. The principals the gate serves as, DECLARED rather than picked
+    # by sorting the population counts — which is how the gate chose them until
+    # the close panel pointed out that it was selecting its own witnesses from
+    # today's estate. `PRIN-KYC-004` is granted NINE jurisdiction prefixes and
+    # reaches nothing in this estate, which is what makes it a real negative
+    # control rather than a vacuous one.
+    principal_broadly_granted: PRIN-RES-002
+    principal_granted_nothing: PRIN-KYC-004
+
+    # `OFS-G15`. An LEI-shaped token that resolves to no obligor. §B.2 requires
+    # a SUPPRESSED obligor to be indistinguishable from this, so the gate needs
+    # a declared absence to compare against rather than one it invented.
+    obligor_that_does_not_exist: "0000000000000000GHOST"
+
     # `OFS-G04`. This obligor FILED an Item 4.02 non-reliance notice and yet
     # changed no value in the window. It is the half of the gate that a
     # detector built on 4.02 would get wrong: such a detector would report it
