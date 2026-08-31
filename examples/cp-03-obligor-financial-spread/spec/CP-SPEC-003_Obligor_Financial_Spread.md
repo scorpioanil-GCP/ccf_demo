@@ -14,7 +14,7 @@
 | **Source article** | `wiki/context-products/content/obligor-financial-spread.md`, vault-owned, **`standard: q019`** |
 | **Authored to** | `Context_Product_Specification_Standard_v0-3.md` — the article is on the older Q019 form and is *raised* to v0.3 here, per `spec_generation.md` §4 |
 | **Gate 1 status** | **APPROVED — Dave, 2026-08-29.** Authored 2026-08-29; approved on a full read of the specification |
-| **Gate 2 status** | **not started.** Nothing is implemented |
+| **Gate 2 status** | **in progress — as of 2026-08-30.** The product assembles and serves end to end: `produce.py`, `deployment.py`, `assembler.py`, `run.py` and the `artifacts/` set. Outstanding — the fourteen gate sabotages, and the delivery set (README, documentation page, `summary_explanations.md`, Makefile target) |
 | **Estate** | probed 2026-08-29 against `parkavedb` schema `ccf_v2` on `192.168.4.76`, read-only. **This product was `unprobed` before this document** |
 | **Stores** | **ONE — PostgreSQL, schema `ccf_v2`.** The other four were each queried and each excluded; reasoning at §C.2, per-store verdict at §F.3. A policy-version binding in Fluree was specified and then **moved out of this product entirely** (Dave, 2026-08-30) to the rung that reads it — a specification carrying thirteen sections about a store the product never opens describes an intention, not a product. The discovery it produced is kept at §F.4 finding 12 |
 
@@ -1534,11 +1534,20 @@ What this rung adds that rungs 01 and 02 could not:
 
 ## Gate 1 — status
 
-**This specification is complete except for its `[TBC]` register at §F.2**, and
-is submitted for Gate 1 review.
+> **SNAPSHOT — the state as of 2026-08-29, when this section was written.**
+> Gate 1 was approved that day; Gate 2 began building on 2026-08-30. This
+> section is **dated rather than rewritten**, because what a reader replaying
+> the approval needs is the state Gate 1 was granted against, not today's.
+> Current state is the front-matter table, which is maintained. A status claim
+> asserted with no stamp silently outlives its truth — the vault's mirrors
+> carry `generated:` for exactly this reason, and this section carried nothing.
 
-- **Nothing is implemented.** No code, no artifacts, no tests exist for this
-  product. The example directory contains this document and nothing else.
+**This specification was complete except for its `[TBC]` register at §F.2**, and
+was submitted for Gate 1 review.
+
+- **Nothing was implemented at this stamp.** No code, no artifacts and no tests
+  existed for this product; the example directory contained this document and
+  nothing else. *(Superseded 2026-08-30 — see the front-matter Gate 2 row.)*
 - **Every figure was measured**, read-only, on 2026-08-29, against `parkavedb`
   schema `ccf_v2` on `192.168.4.76`. The product was **`unprobed`** before this
   document.
