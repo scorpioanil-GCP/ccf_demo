@@ -58,7 +58,7 @@ declaration:
             the financial spread estate — schema `ccf_v2`, tables
             `financial_fact`, `peer_fact`, `peer_entity`, `peer_cohort`,
             `filing_profile`, `crosswalk`, `legal_entity` and `principal`. See
-            the example README's "Before you run" section for what the role
-            needs and what it must not have. The role needs SELECT and nothing
+            the example README's "Run it" section for what the role needs and
+            what it must not have. The role needs SELECT and nothing
             else: this deployment never writes to the store it reads, and a role
             that could write would make that a promise rather than a guarantee.
