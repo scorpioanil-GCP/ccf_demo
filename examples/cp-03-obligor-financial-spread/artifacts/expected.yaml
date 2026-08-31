@@ -1,0 +1,277 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# WHAT THE SERVED PRODUCT SHOULD CONTAIN, DECLARED — the strong form of the
+# obligation.
+#
+# **THIS DOCUMENT DERIVES NOTHING FROM A RUN.** There is no regeneration target
+# and none will be added. If the artifacts change, run the example's test suite,
+# review the failure, then deliberately edit this file to match what you
+# reviewed, IN THE SAME COMMIT as the change. That is what makes an
+# expected-output change an edit to a REVIEWED ARTIFACT rather than a refreshed
+# transcript.
+#
+# **It also exists so the test module has a source for its domain expectations
+# OTHER THAN ITSELF.** A value the test authored would be the test agreeing with
+# itself about what this deployment's vocabulary says.
+#
+# WHY THERE IS NO CONTENT ADDRESS IN HERE. A `payload_hash` authored here would
+# be a transcript of a run — which is what this document exists NOT to be — or
+# the suite agreeing with itself. The hash belongs to the test's own comparison:
+# two runs of the same question, compared to each other.
+#
+# `role: load`. An expectation is not something the fabric is permitted to do.
+
+semver: "1.0.0"
+class_id: cp-03.expected
+
+declaration:
+  # --- The contract envelope. Follows from §B.1 and `ccf_config.yaml`. ------
+  product: credit-risk.spread
+  semantic_version: "1.0.0"
+  assembly_mode: 1
+  determinism_class: deterministic
+  ttl_anchor: from_entity_freshness
+
+  # THE BASIS THE EXPIRY IS MEASURED FROM, declared here because it is half of
+  # this rung's subject and a reader must be able to check the arithmetic
+  # without running anything (§B.1.1).
+  #
+  # AND IT MOVES, which is the contrast with rung 02 rather than a detail.
+  # `filed_date` advances every time the obligor files, so a spread that is
+  # expired today serves again next quarter with nothing in the deployment
+  # changing. Rung 02 anchors on a credit agreement's effective date, which can
+  # never advance, and its refusals are permanent (§E.1.1).
+  ttl_basis: latest_filed_date_in_payload
+  declared_ttl_days: 30
+
+  # --- The payload's shape — §D.6's emitted contract. ----------------------
+  #
+  # KEYS, not values. What the product is addressed by is its payload, so a
+  # value written here would be a second place to change one fact.
+  payload_keys_always_present:
+    - obligor
+    - basis_applied
+    - periods
+    - peer_comparison
+    - perspective_role
+
+  obligor_keys_always_present:
+    - lei
+    - entity_id
+    - cik
+    - obligor_legal_name
+    - obligor_jurisdiction
+    - fiscal_year_end_month
+    - latest_filed_date
+    - formally_restated
+
+  period_keys_always_present:
+    - period_end
+    - fiscal_period
+    - signal_class
+    - latest_filed
+    - lines
+
+  # PER-ATTRIBUTE LINEAGE, and this list is the whole §D.6 obligation as keys.
+  # Every one of these describes THIS figure and not the product: two lines in
+  # one column routinely carry two different `accession` values, because a
+  # spread is stitched from filings rather than taken from one.
+  reported_line_keys_when_filed:
+    - value
+    - unit
+    - kind
+    - period_start
+    - period_end
+    - filed_date
+    - accession
+    - form
+    - basis_applied
+    - restated
+    - restatement_class
+    - kind_conflict
+    - derived
+
+  derived_line_keys:
+    - value
+    - unit
+    - derived
+    - inputs
+
+  # --- The vocabulary of absence. ------------------------------------------
+  #
+  # ONE WORD, NEVER A ZERO AND NEVER A NULL FIGURE. §C.4 trap 5, `OFS-G08`.
+  # A zero revenue reads as a company with no sales; the absence of an answer
+  # is not an answer of zero.
+  not_evaluable_token: NOT_EVALUABLE
+
+  # Every place the token is a legitimate value, each for its own reason. A
+  # reader meeting one of these has met a real shortfall, not a bug.
+  not_evaluable_is_legitimate_at:
+    - path: periods[].lines[].value
+      reason: >-
+        no declared tag for this line was filed in this period. One of the 50
+        obligors carries none of the four revenue tags at all (§C.4 trap 5).
+    - path: periods[].lines[].restatement_class
+      reason: >-
+        the cell's first value is absent or zero, so no relative change is
+        defined. Never a silent default to `material`, which would inflate the
+        material population with arithmetic accidents.
+    - path: peer_comparison
+      reason: >-
+        the obligor is structurally peerless — `peer_entity` carries no row for
+        its SIC. 20 of the 50 measure this way through the shipped read path,
+        INCLUDING THE DEMONSTRATION ANCHOR, and it degrades rather than fails.
+    - path: obligor.latest_filed_date
+      reason: >-
+        no cell in the window carried a filing date. Not reachable for any
+        obligor in this estate; declared because the payload admits it.
+
+  # --- Populations this estate holds. --------------------------------------
+  #
+  # Measured through the SHIPPED read path on 2026-08-30, not through proxy
+  # SQL. That distinction is not pedantry: two proxy queries misled this build
+  # before the code path settled it, one of them counting every obligor as its
+  # own peer for want of a `cik <>` exclusion. A number measured beside the
+  # product is a number about a different question.
+  populations:
+    obligors_with_facts: 50
+    obligors_serving_at_the_pin: 23
+    obligors_refused_on_ttl_bounds: 27
+    obligors_with_a_non_empty_peer_cohort: 30
+    obligors_structurally_peerless: 20
+
+    # §B.2, gate `OFS-G15`. The two zeroes are legitimate, which is precisely
+    # the condition under which a broken check looks correct — so the positive
+    # control (`49 != 47`) is paired with them and neither travels alone.
+    obligors_visible_per_principal:
+      PRIN-RES-002: 49
+      PRIN-COV-001: 47
+      PRIN-KYC-004: 0
+      PRIN-TRD-003: 0
+
+    # THE ROSTER, NOT ONLY THE CARDINALITY. A right count with a wrong member
+    # audits clean forever, so the two obligors that separate the top pair are
+    # NAMED: both are Canadian, and `PRIN-RES-002`'s grant carries `CA` where
+    # `PRIN-COV-001`'s does not. Swap a member and keep the count and this row
+    # goes red where `49` and `47` would not.
+    separating_the_top_two_principals:
+      - lei: "B3BS7ACMDUWISF18KY76"
+        jurisdiction: CA-BC
+      - lei: "5493002H8U24DJXQ4886"
+        jurisdiction: CA
+
+    obligors_visible_to_no_principal: 1
+    visible_to_no_principal:
+      - lei: "254900HM1ABRDJ7T5718"
+        jurisdiction: NZ
+
+    # THE TWO ZEROES ARE "GRANTED ELSEWHERE", NOT "GRANTED NOTHING", and the
+    # distinction is what makes them a real negative control rather than a
+    # vacuous one. `PRIN-KYC-004` carries NINE jurisdiction prefixes and
+    # `PRIN-TRD-003` FOUR — they are simply prefixes no obligor in this estate
+    # files under. A principal with an empty grant would prove far less: it
+    # could not tell a working filter from one that returns nothing.
+    grant_prefix_counts:
+      PRIN-RES-002: 14
+      PRIN-COV-001: 10
+      PRIN-KYC-004: 9
+      PRIN-TRD-003: 4
+
+  # --- The three documented runs. ------------------------------------------
+  #
+  # ONE DRIVER, ONE CHANGED ARTIFACT VALUE. `question.yaml::subject` is the only
+  # thing that differs between these; nothing in any module names an LEI.
+  #
+  # EACH EARNS A DISTINCT LESSON AND NONE IS HERE FOR COMPLETENESS. No obligor
+  # in this estate carries everything — the anchor was chosen for RESTATEMENT,
+  # not for a complete spread block, and the two variations supply what it
+  # cannot.
+  documented_runs:
+    - role: headline
+      subject: "549300D0WZR1VI2QGB24"
+      obligor: Digital Turbine, Inc.
+      demonstrates:
+        - both restatement classes from the obligor's own filings — material and precision
+        - a non-December fiscal year end (31 March), which makes `fiscal_period` visibly load-bearing
+        - an Item 4.02 non-reliance filing, so `formally_restated` is exercised rather than always absent
+        - both fact kinds — instant and duration — so `OFS-G01` has something to assert
+        - a live TTL at the pin, with the expiry anchored on the payload's latest filing
+      does_not_demonstrate:
+        - a complete ratio block; it carries no depreciation rows, so EBITDA and its three dependents are permanently NOT_EVALUABLE
+        - a peer cohort; it is one of the 20 structurally peerless obligors
+
+    - role: variation
+      subject: "549300FHJQTDPPN41627"
+      obligor: Celanese Corp
+      demonstrates:
+        - the full derived ratio block, where the anchor evaluates almost none of it
+        - restatement across five distinct spread lines
+
+    - role: variation
+      subject: "529900VKCYZW8GZ4WW58"
+      obligor: Sabre Corp
+      demonstrates:
+        - a non-empty peer cohort — THE ONLY WAY THE PEER BLOCK IS VISIBLE AT ALL, since neither the anchor nor Celanese has one
+        - restatement alongside peers, so the two are seen to compose
+
+  # --- What every run must be true of, whichever subject it names. ----------
+  invariants:
+    - name: determinism
+      statement: >-
+        the same request at the same pinned `asked_at` produces a byte-identical
+        payload and content address across two runs (criterion 37).
+
+    - name: basis-discriminates
+      statement: >-
+        `as-reported` and `latest-restated` produce DIFFERENT content addresses
+        for an obligor carrying a restatement in the window, and IDENTICAL ones
+        for an obligor carrying none (criterion 38, gate `OFS-G11`).
+
+    - name: one-operator
+      statement: >-
+        `lineage.operators_invoked` holds exactly one entry,
+        `policy.principal-subgraph`, and no operator whose key or category is
+        `Enrich` is registered (gate `OFS-G10`). If the §10.2 eight-member
+        vocabulary is later adopted this turns RED, and the redness is the
+        signal to reopen §F.2 row 1 rather than a regression.
+
+    - name: inert-parameter-refused
+      statement: >-
+        `as_of` is refused `400 not_supported_at_tier` and never silently
+        honored (gate `OFS-G06`).
+
+    - name: suppression-indistinguishable
+      statement: >-
+        a principal whose grant does not reach the subject receives output
+        byte-identical to the refusal for an obligor that does not exist. Only
+        the replay record separates them (§B.2, gate `OFS-G15`).
+
+    - name: per-attribute-lineage
+      statement: >-
+        every EVALUABLE derived line carries a non-empty `inputs`, and every
+        `inputs` entry resolves to a line present in the SAME period of the SAME
+        payload — closed over the payload, needing no SDK type (§D.7.1, gate
+        `OFS-G12`).
+
+  # --- What the served product does NOT do, stated so nobody reads the
+  #     absence as an oversight. --------------------------------------------
+  #
+  # THE DEBT SIGNAL IS A VERDICT, NOT AN ACTION, AND THIS IS WHERE A READER
+  # MEETS IT. The demonstrated run reads `D_c` 0.8782 -> `fail_closed` and
+  # serves the full spread. `debt_tolerance` is declared REQUIRED with no
+  # default, travels into the content address, and is compared against nothing —
+  # here or at either rung below. §D.2 step 6 commits to a 409 that no rung of
+  # this ladder implements, and `DebtSignal.FAIL_CLOSED` is documented in the
+  # SDK as a state that "escalates and never quietly proceeds" while nothing in
+  # `src/` reads it.
+  #
+  # Ruled by Dave 2026-08-30: SERVE IT AND PRINT THE VERDICT. Recorded at §F.4
+  # finding 15, unclosed. The reading is structural rather than anchor-specific
+  # — it is driven by the WIDTH OF THE HISTORY WINDOW, since freshness composes
+  # across every period and a spread exists to carry old ones.
+  debt_posture:
+    signal_is_advisory: true
+    refuses_above_tolerance: false
+    demonstrated_signal: fail_closed
+    carried_on: the vessel, NOT inside `payload`
+    finding: "§F.4 finding 15"

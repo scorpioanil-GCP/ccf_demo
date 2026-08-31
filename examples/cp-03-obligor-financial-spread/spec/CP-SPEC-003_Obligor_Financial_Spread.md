@@ -1319,6 +1319,60 @@ phantoms which return **zero rows**, one of which (`ex:AdministrativeAgent`) is 
    satisfy it — two of the four principals legitimately see zero, which is
    precisely the condition under which a broken check looks correct.
 
+15. **The SDK documents an escalation it does not perform, and this build is
+   the first run in the ladder where that is visible.** `DebtSignal.FAIL_CLOSED`
+   is defined in `src/ccf/halflife/assessment.py` as *"the fabric does not know
+   enough to support the decision"*, and its docstring commits further: this
+   state *"escalates and never quietly proceeds."* **Nothing in `src/` reads
+   it.** The signal is written once, at `src/ccf/halflife/debt.py:313`, and no
+   shipped code branches on the value; debt is not one of the three validation
+   gates, so a `fail_closed` product is constructed, gated, recorded and served
+   exactly like an `ok` one.
+
+   **MEASURED ON THE DEMONSTRATED RUN, 2026-08-30.** The pinned question returns
+   `D_c = 0.8782 -> fail_closed` and serves all 16 columns. `debt_tolerance` —
+   which §B.4 declares REQUIRED with no default, and which travels into the
+   content address — is compared against nothing, here or at either rung below.
+   §D.2 step 6 commits to a **409** on debt; **no rung of this ladder implements
+   one.**
+
+   **IT IS THE HISTORY WINDOW, NOT THE OBLIGOR.** Freshness composes across
+   every observation and each period is dated from its own filing, so the wider
+   the window the staler the payload measures. On the anchor, at one instant:
+
+   | `periods` | columns | F | C | `D_c` | signal |
+   |---|---|---|---|---|---|
+   | 1 | 1 | 0.828 | 0.611 | 0.494 | `ok` |
+   | 2 | 3 | 0.830 | 0.537 | 0.554 | `ok` |
+   | 4 | 6 | 0.499 | 0.500 | 0.750 | `forced_llm` |
+   | **8** | **16** | **0.297** | **0.410** | **0.878** | **`fail_closed`** |
+   | 12 | 25 | 0.212 | 0.387 | 0.918 | `fail_closed` |
+
+   Celanese reads `0.8157` and `fail_closed` on the same question, so the
+   reading is not an artifact of the anchor's thin ratio coverage. **Every
+   mechanism here is correct** — a four-year-old annual *is* four years stale,
+   and §E.1's per-signal-class typing is what makes each column decay at its own
+   rate. What is open is the AGGREGATE: a spread exists to carry history, and a
+   freshness figure that averages a current quarter against filings two years
+   old penalizes the product for its own purpose. A spread's decision-relevant
+   freshness is arguably its newest column, not the mean of sixteen.
+
+   **A THIRD EDGE, RECORDED BECAUSE AN ADOPTER WILL MEET IT.** The debt block
+   rides on the vessel (`ContextProductContract.debt`), **not inside
+   `payload`**. A deployment that serves `payload` over HTTP and forgets the
+   vessel ships a product the fabric called untrustworthy with no trace of that
+   judgment in what the caller receives.
+
+   **RULED BY DAVE, 2026-08-30: SERVE IT AND PRINT THE VERDICT.** No 409 is
+   added at this rung and no behavior diverges from rungs 01 and 02. The
+   demonstrated run prints the full spread AND its `fail_closed` reading, decomposed
+   into `F`, `C` and `S`, side by side. **The gap is more useful demonstrated
+   than patched inside one example** — patching it here would have hidden, in
+   the one product where it is finally visible, a promise the SDK makes to every
+   product. **Recorded and left open**, owner Dave. It is the sixth SDK-side
+   finding of Phase 24 and, like the missing Restatement λ_c row, it is ALGEBRA
+   rather than seam ergonomics.
+
 13. **The vault article omits `debt_tolerance` and `as_of`, and this is the
    THIRD of three.** Both are universal under Standard §2.4; this article's
    request surface declares neither (`lei`, `intent`, `periods`, `basis`,

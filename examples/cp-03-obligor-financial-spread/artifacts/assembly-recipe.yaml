@@ -1,0 +1,281 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# §D.2's STEP TABLE, AS DATA — with a RUNTIME WITNESS per step.
+#
+# WHY THIS DOCUMENT EXISTS. A prose table cannot be held against a run. The
+# specification's §D.2 declares six steps; this declares the same six with, per
+# step, a witness a test can evaluate against what the assembly actually
+# produced. A step that names no witness is a step nothing can prove ran, and
+# the honest response to that is to REMOVE the step from §D rather than to
+# describe it more confidently.
+#
+# SIX STEPS AND ONE OPERATOR. §D.2.1 ruled the attribute batch-select to be L2
+# assembly rather than an `Enrich` operator: `Enrich` appears 0 times in all of
+# `src/`, and registering a batched attribute fan-out under one of the four
+# canonical categories would be a FAKE MAPPING that made the lineage record say
+# something untrue. Gate `OFS-G10` is the tripwire — it turns RED if the
+# eight-member vocabulary is later adopted and an `Enrich` operator appears, and
+# that redness is the signal to reopen §F.2 row 1 rather than a regression.
+#
+# `role: load`. A recipe is a description of the assembly, parsed and handed
+# back; it is not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-03.assembly-recipe
+
+declaration:
+  spec_document: spec/CP-SPEC-003_Obligor_Financial_Spread.md
+  spec_table: "D.2 Step table"
+
+  # --- THE CLOSED WITNESS VOCABULARY. Four kinds, and a step that cannot name
+  #     one of them is a step nothing can prove ran.
+  witness_kinds:
+    - kind: operator_in_lineage
+      argument: an operator key
+      proves: >-
+        the key appears in the served product's `lineage.operators_invoked`,
+        which gate 2 holds to strict equality against what the engine resolved
+        (INV-CH7-47). A declared operator that did not run fails the gate, and
+        so does an operator that ran undeclared.
+
+    - kind: payload_key
+      argument: a dotted path into the served payload
+      proves: >-
+        the named key exists in the served payload. Used where a step's output
+        is a VALUE the assembly derived rather than an operator invocation.
+
+    - kind: payload_predicate
+      argument: a named predicate over the served payload
+      proves: >-
+        a property that no single key can carry — that two kinds of fact are
+        both present, or that every derived line names inputs resolving inside
+        the same payload. Named rather than inlined so the test and this
+        document refer to ONE definition.
+
+    - kind: vessel_held
+      argument: none
+      proves: >-
+        a `src/ccf/products/gates.py::ServableProduct` was returned. The type is
+        not constructible outside `run_gates`, so HOLDING one is the evidence
+        the three shipped gates ran rather than a claim that they did
+        (INV-CH7-52).
+
+  steps:
+    - step: 1
+      operator: Resolve
+      capability_class: relational
+      layer: L2
+      sdk_mechanism: src/ccf/assembly/worker.py::SpecDrivenEntityResolution
+      emits:
+        - lei
+        - cik
+        - obligor_jurisdiction
+        - fiscal_year_end_month
+      failure: >-
+        fail closed → 404, and the SAME 404 when the obligor resolves but this
+        estate holds no facts for it. A spread with no lines would read as "this
+        company reported no financials", which is a claim about the world rather
+        than about the request.
+      # NOT `operator_in_lineage`: this step runs outside the L4 registry, so no
+      # operator key would appear for it.
+      #
+      # AND NOT `obligor.lei`, WHICH A CARELESS DRAFT WOULD REACH FOR. The LEI
+      # is THE ANCHOR AS SUPPLIED BY THE CALLER, so a witness on it would be
+      # satisfied by a step that echoed its input and resolved nothing.
+      # `obligor.cik` is not in the request and cannot be produced without
+      # reading rung 01's crosswalk (`OFS-G02` forbids the denormalized
+      # `financial_fact.cik`), so it is the cheapest key here that cannot be
+      # had without doing the work. A witness the input alone satisfies is not
+      # a witness.
+      witness:
+        kind: payload_key
+        argument: obligor.cik
+
+    - step: 2
+      operator: Policy
+      capability_class: relational
+      layer: L4
+      sdk_mechanism: src/ccf/operators/categories.py::PolicyFilter
+      emits:
+        - policy_version
+        - the principal-permissible obligor set substituted for the full set
+      failure: >-
+        fail closed → 403, with no detail on what exists; entitlement source
+        unreachable → 503, never a permissive default. A principal whose grant
+        does not reach this obligor is refused INDISTINGUISHABLY from a request
+        for an obligor that does not exist (§B.2, gate `OFS-G15`). Measured
+        2026-08-30: PRIN-RES-002 sees 49 of 50, PRIN-COV-001 47, PRIN-KYC-004
+        and PRIN-TRD-003 zero each, and one obligor is visible to nobody.
+      # THE ONLY OPERATOR IN THE PLAN. An empty plan fails
+      # `empty-operator-guard`, so this product cannot serve without it — the
+      # entitlement step is load-bearing by construction rather than by
+      # convention.
+      witness:
+        kind: operator_in_lineage
+        argument: policy.principal-subgraph
+
+    - step: 3
+      operator: null   # the attribute batch-select is L2 assembly — §D.2.1.
+      capability_class: relational
+      layer: L2
+      sdk_mechanism: examples/cp-03-obligor-financial-spread/deployment.py::_read_cells
+      emits:
+        - the fact-cell set under the requested basis
+        - restated
+        - restatement_class
+      failure: >-
+        404 if the obligor carries no facts. ONE query for all periods and all
+        tags — §7.4 N+1 avoidance, mandatory rather than a variant.
+      # BOTH FACT KINDS, and this is the witness §C.5 asks for. 8,088 of this
+      # estate's 15,055 facts are balance-sheet INSTANTS carrying no
+      # `period_start`; a `JOIN ... USING (period_start)` drops every one of
+      # them and returns a clean, smaller, WRONG census (280 rather than 321).
+      # A witness on any single line would be satisfied by a duration-only
+      # payload, so the predicate names both kinds. Gate `OFS-G01`.
+      witness:
+        kind: payload_predicate
+        argument: both_instant_and_duration_lines_present
+
+    - step: 4
+      operator: null   # conditional peer read, L2 — §D.2.1's same reasoning.
+      capability_class: relational
+      layer: L2
+      sdk_mechanism: examples/cp-03-obligor-financial-spread/deployment.py::_read_peers
+      emits:
+        - peer_comparison.sic
+        - peer_comparison.cohort_size
+        - peer_comparison.by_period
+      failure: >-
+        DEGRADE, NEVER FAIL. A cohort of nobody is a legitimate answer — 15 of
+        the 53 obligors this estate resolves through the crosswalk carry no
+        `peer_entity` row for their SIC at all, and the demonstration anchor is
+        one of them. That is a completeness shortfall the debt reading counts,
+        served as `NOT_EVALUABLE`, and never an exception.
+      # THE WITNESS IS ON THE KEY, NOT ON THE COHORT, AND THE FIRST DRAFT OF
+      # THIS FILE GOT IT WRONG. It named `peer_comparison.by_period` — a path
+      # that DOES NOT EXIST ON THE DEMONSTRATED RUN, because the anchor is one
+      # of the peerless obligors. A witness that is red on the very run the
+      # documentation prints is not a witness, it is a broken test waiting to be
+      # explained away.
+      #
+      # `peer_comparison` is present on EVERY served payload; its VALUE is
+      # either the cohort block or `NOT_EVALUABLE`. That is exactly the
+      # degradation contract this step promises, so the key is the honest
+      # witness and the predicate below carries the rest.
+      #
+      # MEASURED 2026-08-30 THROUGH THE SHIPPED READ PATH: 30 of the 50
+      # obligors return a non-empty cohort, 20 return none. The anchor returns
+      # none. `peer_cohort_present_or_explicitly_not_evaluable` is satisfied by
+      # both populations and by NEITHER a missing key nor a silent empty
+      # object — an absent cohort must SAY it is absent.
+      #
+      # THE JOIN KEY IS THE TEACHING POINT AND IT IS UPSTREAM OF THE PAYLOAD.
+      # Peers are matched on `period_end` and NEVER on `filed_date`; comparing a
+      # Q3 figure to a peer's Q2 because the two filed the same week is the
+      # classic spreading error, foreclosed structurally by the query rather
+      # than by a reviewer noticing. No shape in the payload could demonstrate
+      # that — only the query does — so this recipe does not pretend otherwise.
+      witness:
+        kind: payload_predicate
+        argument: peer_cohort_present_or_explicitly_not_evaluable
+
+    - step: 5
+      operator: null   # derivation is in-memory arithmetic, not an operator.
+      capability_class: in-memory
+      layer: n/a
+      sdk_mechanism: examples/cp-03-obligor-financial-spread/deployment.py::_derive_period
+      emits:
+        - the derived ratio lines
+        - inputs, per derived line
+      failure: >-
+        `NOT_EVALUABLE` per line, NEVER `0`. One of this estate's 50 obligors
+        carries none of the four revenue tags, and a zero revenue reads as a
+        company with no sales — a different and false statement (§C.4 trap 5,
+        gate `OFS-G08`). NO LLM IS REACHABLE FROM THIS STEP (`OFS-G07`): the
+        ratios are arithmetic over an interpreted declaration, and
+        `spread-lines.yaml` is read, never a model.
+      # PER-ATTRIBUTE LINEAGE, PROVEN EXAMPLE-LOCALLY. §D.7.1: no such gate
+      # exists in the SDK and none is added — the similarly-named
+      # `lineage-attributability` is A2A peer attestation and does not
+      # discharge it. The predicate is closed over the payload: every `inputs`
+      # entry on a derived line resolves to a line present in the SAME period
+      # of the SAME payload, and every EVALUABLE derived line has a non-empty
+      # `inputs`. Gate `OFS-G12`.
+      #
+      # `inputs` IS COLLECTED DURING EVALUATION, NEVER COPIED FROM THE
+      # ARTIFACT'S DECLARED LIST. `total_debt` declares three inputs and
+      # consumes either one or two depending on which branch of the `??`
+      # fallback was taken; publishing the declared list would name a fact-cell
+      # the payload never read.
+      witness:
+        kind: payload_predicate
+        argument: every_derived_line_names_inputs_resolving_in_this_payload
+
+    - step: 6
+      operator: null   # contract assembly is NOT an operator — Standard §10.2
+                       # retires `Compose`.
+      capability_class: in-memory
+      layer: L6
+      sdk_mechanism: src/ccf/products/gates.py::run_gates → ::ServableProduct
+      emits:
+        - payload
+        - lineage
+        - expires_at
+        - payload_hash
+        - context_debt
+      failure: >-
+        fail closed → 503 on any gate refusal, returned AS DATA and never as a
+        200 with a warning. THE TTL BOUND IS THE ONE THAT FIRES HERE, and this
+        rung is the CONTRAST to rung 02 rather than a repeat of it: the expiry
+        is the latest `filed_date` in the payload plus 30 days, so 27 of 50
+        obligors are refused — and those refusals CLEAR AS FILERS FILE, where
+        rung 02's anchor on a credit agreement's effective date can never
+        advance and refuses 50 of 60 permanently. Same primitive, opposite
+        behavior (§E.1.1, gate `OFS-G09`).
+        409 IS RESERVED FOR THE DEBT POSTURE AND NO RUNG OF THIS LADDER RAISES
+        ONE. The demonstrated run reads `D_c` 0.8782 → `fail_closed` and serves;
+        `debt_tolerance` travels into the content address and is compared
+        against nothing. Ruled by Dave 2026-08-30 — serve it and print the
+        verdict — and recorded at §F.4 finding 15, unclosed.
+      witness:
+        kind: vessel_held
+        argument: null
+
+  # --- WHAT THIS RECIPE DELIBERATELY DOES NOT DECLARE. ----------------------
+  #
+  # The Standard's closed vocabulary has eight operators. This product uses ONE
+  # and contract assembly. Their absence is a scope statement, not an omission:
+  #
+  #   Traversal   §B.5 — this product has NO relationships at all, which is
+  #               what makes it the last rung before the graph. Its resolution
+  #               spec declares `relationship_rules: []`.
+  #   Temporal    §B.5 — `as_of` is DECLARED AND INERT. This is the absence a
+  #               reader is most likely to mistake for an oversight, and the
+  #               pressure is higher here than at either rung below: this
+  #               product's whole subject is that a figure CHANGES across
+  #               filings, so "give me the spread as it stood last March" is the
+  #               first question asked after watching `basis` work. It needs
+  #               ledger time-travel and arrives at Tier 3.
+  #   Enrich      §D.2.1 — the batch-select IS this step and it is L2 assembly.
+  #               `Enrich` is 0 hits in `src/`; `OFS-G10` turns red if one
+  #               appears.
+  #   Similarity  no ranking; the anchor resolves to one obligor or to none.
+  #               The peer cohort is drawn by SIC equality, not by similarity
+  #               scoring.
+  #   Evaluate    no measure is computed. The ratios are arithmetic over served
+  #               fact-cells, each naming what it consumed, and NOT_EVALUABLE
+  #               rather than a default where an input is absent.
+  #   Federate    single-institution; no external fabric is reached, and ONE
+  #               store is opened (`OFS-G05`).
+  #
+  # `Projection` DOES run — the plan id is the schema name — but it is not
+  # exercised as ROLE-CONDITIONING at this tier (§A). Every authorized caller
+  # gets the same SHAPE; what differs per principal is which obligors EXIST to
+  # be shaped, and that is settled upstream at step 2.
+  not_declared:
+    - Traversal
+    - Temporal
+    - Enrich
+    - Similarity
+    - Evaluate
+    - Federate
