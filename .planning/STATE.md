@@ -66,8 +66,8 @@ last_activity: >-
   two callers sharing one module, not asserted. A2A explicitly deferred to a later example.
   Fluree `fibo-v2` is build-ready at `ledger_t = 4,560`, the first rung with a real
   `graph_snapshot_at` anchor (`D-IMPL-218`). **NO SUCCESS CRITERIA ARE WRITTEN** -- `D-GATE-19`
-  locks them at the discuss sitting. **BUILD DOES NOT START UNTIL 24.3 IS PAUSED FOR DAVE'S
-  EVALUATION.**
+  locks them at the discuss sitting -- **24.4 Success Criteria lock at the discuss sitting
+  (`D-GATE-19`)**, and that is the only precondition. `D-GATE-24.3` is APPROVED and closed.
   **NOT RE-MEASURED THIS SESSION, AND NAMED AS STALE RATHER THAN INCREMENTED:** the `progress:`
   block below still reads `total_phases: 31 / completed_phases: 29 / percent: 94` from the Phase
   23.1 gate. Phases have closed since and 24.4 has been added, but the figures are NOT corrected
@@ -982,9 +982,11 @@ coverage check; no `ProductGate` Protocol in 24.4; the Standard's extra gates ar
 product gates, never new members of `run_gates`). Phase 24.4 is anchored in `ROADMAP.md`
 WITHOUT Success Criteria, per `D-GATE-19`'s forward binding.
 
-**WHAT IS NEXT, AND WHAT MUST NOT HAPPEN FIRST.** The next step is the DISCUSS SITTING for
-24.4, where its Success Criteria lock. **The cp-04 build and the gate-coverage checker
-implementation do NOT start until 24.3 is paused for Dave's evaluation** (Dave, 2026-08-31).
+**WHAT IS NEXT.** The next step is the DISCUSS SITTING for 24.4. **24.4 Success Criteria
+lock at the discuss sitting (`D-GATE-19`).** `D-GATE-24.3` is APPROVED and closed; a
+precondition naming it was written here 2026-08-31 and STRUCK the same day (Dave) -- *"a
+precondition whose subject is closed can never fire -- same class as an empty-population
+check."*
 Carried into 24.4 as a FINDING, not a reopened gate: cp-00's seven declared gates with no
 test-file presence and cp-01's one (`CPR-G08`).
 
