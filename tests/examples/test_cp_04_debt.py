@@ -499,6 +499,75 @@ def test_the_two_twenties_are_different_populations(
     )
 
 
+#: The one line `D-IMPL-231` part 2 requires §E.2 to carry, so a reader meeting
+#: `D_c ≈ 0.0909` and the twenty-member roster together cannot read the first as
+#: the second. Compared as a SUBSTRING of the whitespace-collapsed document,
+#: because the source is hard-wrapped and a `grep -F` against wrapped prose
+#: reports a sentence missing while it sits plainly on the page — the measured
+#: defect plan `24.4-08`'s Gate 1 pass recorded against its own check.
+TWO_TWENTIES_DISCLOSURE = (
+    "`D_c ≈ 0.0909` IS NOT \"20 MISSING JURISDICTIONS.\""
+)
+
+#: The overlap the same line must state. Denying the misreading without saying
+#: how far apart the two sets are would leave a reader knowing only that
+#: something is wrong.
+TWO_TWENTIES_OVERLAP = "the two sets overlap in **nineteen**"
+
+#: The document both assertions read.
+SPEC = EXAMPLE / "spec" / "CP-SPEC-004_Corporate_Family_Tree.md"
+
+
+def _unwrapped(path: pathlib.Path) -> str:
+    """One document with its hard wraps collapsed to single spaces."""
+    return " ".join(path.read_text(encoding="utf-8").split())
+
+
+def test_the_spec_denies_the_misreading_the_two_twenties_invite() -> None:
+    """`D-IMPL-231` part 2. §E.2 says the number is not the roster, in one line.
+
+    A prose requirement with no check is a sitting instruction rather than a
+    gate, and this repository has already shipped one. So the sentence Dave
+    asked for is compared against the document, and the comparison is against
+    the UNWRAPPED text because the source is hard-wrapped.
+    """
+    document = _unwrapped(SPEC)
+    assert TWO_TWENTIES_DISCLOSURE in document, (
+        f"{SPEC} no longer denies the misreading in as many words. Expected the"
+        f" line {TWO_TWENTIES_DISCLOSURE!r} — without it a reader meeting"
+        " `D_c ≈ 0.0909` beside a twenty-member roster reads the first as the"
+        " second, which is exactly what `D-IMPL-231` part 2 exists to prevent"
+    )
+    assert TWO_TWENTIES_OVERLAP in document, (
+        f"the disclosure no longer states the overlap ({TWO_TWENTIES_OVERLAP!r})."
+        " Denying that the two twenties are one, without saying how far apart"
+        " they are, leaves a reader knowing only that something is wrong"
+    )
+
+
+def test_the_disclosure_check_refuses_a_document_that_dropped_it(
+    tmp_path: pathlib.Path,
+) -> None:
+    """**Sabotage control.** The line removed must make the check RED.
+
+    Applied to a COPY: a control that edited `examples/` and reverted would
+    leave the repository dirty the moment it failed.
+    """
+    subject = tmp_path / SPEC.name
+    subject.write_text(
+        SPEC.read_text(encoding="utf-8").replace(
+            'IS NOT "20 MISSING JURISDICTIONS."', "is a debt score."
+        ),
+        encoding="utf-8",
+    )
+    assert subject.read_text(encoding="utf-8") != SPEC.read_text(encoding="utf-8"), (
+        "the disclosure control did not change anything"
+    )
+    assert TWO_TWENTIES_DISCLOSURE not in _unwrapped(subject), (
+        "the check still finds the disclosure in a document that dropped it"
+    )
+
+
 def test_d_c_moves_when_the_identity_boundary_moves(
     baseline: tuple[str, str],
     ledger_without_the_dispute: str,
