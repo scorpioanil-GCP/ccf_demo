@@ -49,3 +49,37 @@ order-sensitive.
 is not in plan `24.4-05`'s `files_modified`. The only thing worth changing is
 `_rotate`'s docstring, which presents the rotation as the mechanism that makes
 the roster order true rather than as a belt-and-braces restatement of it.
+
+## 3. `tests/invariants/test_citation_coverage.py` is RED on `main` and was before this plan
+
+**Found during:** plan `24.4-05`, running `tests/invariants` after committing.
+
+**What happens:**
+`test_the_unanchored_python_citation_population_cannot_regrow` fails with
+**41** unanchored `path.py:LINE` citations against `D-IMPL-123`'s ceiling of
+zero. `D-IMPL-114` rules that prose cites `path.py::Symbol`, because a line
+anchor is wrong the moment code moves.
+
+**Measured, not assumed.** A detached worktree at `43a57bb` — the commit this
+plan started from — reports the SAME **41**. The figure is unchanged at HEAD
+after this plan's four commits, and neither
+`tests/examples/test_cp_04_cycles.py` nor this file carries a citation of that
+form (`grep -nE '\.py:[0-9]+'` over both returns nothing).
+
+**A correction made inside this pass, recorded rather than smoothed.** The
+first comparison was taken against `4c90904`, which the session's opening
+snapshot named as HEAD. It is not: the real starting commit was `43a57bb`, and
+`4c90904` predates the whole cp-04 example tree — so the worktree held none of
+the twelve cp-04 files and answered **1** rather than 41. A before-figure read
+against the wrong tree is exactly the source-substitution failure this rung's
+own census guards against, and it is recorded here because the wrong figure was
+plausible and would have survived re-checking.
+
+**Where the 41 live:** thirty-eight in cp-04's own documents (the spec,
+`ccf_config.yaml`, `gates.yaml`, `artifacts/assembly-recipe.yaml`,
+`deployment.py`), one in `tests/examples/cp_04_seed.py`, one in
+`tests/examples/test_cp_04_gates_declaration.py`, one in cp-03's spec.
+
+**Why it is out of scope here:** every site belongs to a document another plan
+owns, and plan `24.4-05` may not edit them. Phase 23's precedent is FIX BY
+CONVERSION to the `path.py::Symbol` form, never by raising the ceiling.
