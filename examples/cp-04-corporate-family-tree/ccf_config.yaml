@@ -80,28 +80,48 @@ operators:
       family_anchor: entity_jurisdiction
       family_member: entity_jurisdiction
 
-    # THE DEFAULT PRINCIPAL'S EXPANDED GRANT, and it is a DEFAULT rather than
-    # the rule — the deployment expands the CALLING principal's prefixes per
-    # request. Expansion is `= prefix OR LIKE prefix || '-%'`.
+    # THE FAMILY'S OBSERVED JURISDICTION SET — CLOSED AT TWO VALUES. Ruled by
+    # Dave 2026-09-01 as `D-IMPL-228`, and it replaces a NINE-VALUE list that
+    # was measured false about itself.
     #
-    # ENTITLEMENT AT THIS RUNG IS NOT YET A MEASURED DISCRIMINATION. Rung 03
-    # measured its four principals over 50 obligors and found 49 / 47 / 0 / 0 —
-    # a real discrimination it could then gate on. NO EQUIVALENT MEASUREMENT
-    # HAS BEEN TAKEN OVER THE FAMILY POPULATION (spec §B.2, §F.2 row 6), and
-    # this list does not assume rung 03's principals discriminate here. It is
-    # the jurisdiction set the family graph's LEI-bearing nodes resolve under,
-    # and a later plan that measures the population may narrow it — that
-    # narrowing is a reviewed edit, not a refresh.
+    # WHAT THE NINE CLAIMED AND WHAT WAS TRUE. The struck list read `US, US-CA,
+    # US-DE, US-NY, NL, LU, DE, SG, KY` and asserted in place that it was *"the
+    # jurisdiction set the family graph's LEI-bearing nodes resolve under."*
+    # Measured over the estate, that set is **33 values**. Measured over the
+    # population this product actually serves — the 22-node SMCI subtree — it is
+    # **TWO**: `US-DE` on the anchor and `NL` on `SuperMicroComputerBV`. SEVEN
+    # of the nine never touched this payload at all. Dave, verbatim:
+    # *"Nine-row 'coverage' is how idle gates look when the extra rows never
+    # fire."* A declared row that cannot fire is the idle-gate defect wearing a
+    # jurisdiction's name.
+    #
+    # THE WALK IS FAMILY-SCOPED — ONE ROOT, 22 NODES — AND THE JURISDICTION LIST
+    # IS NOT. `D-IMPL-228` refuses the inverse by name: *"Do not 'family-scope'
+    # a superset of jurisdictions so the anchor happens to hit the list."*
+    # Family-scoping over nine would have passed every member because the anchor
+    # is `US-DE`, for a reason unrelated to `DE`, `KY`, `LU`, `SG`, `US`,
+    # `US-CA` and `US-NY`.
+    #
+    # CLOSED WORLD, the same discipline `artifacts/gates.yaml` carries: an
+    # unknown key is REFUSED, never ignored. `src/ccf/operators/categories.py`
+    # `::PolicyFilter._admits` already refuses a value outside this list as
+    # firmly as an ABSENT one, and `deployment.py::refuse_open_jurisdiction_world`
+    # closes the other half — a DECLARED value no family member exhibits is
+    # refused too, so the list cannot be quietly re-widened.
+    #
+    # BOTH ROWS FIRE, WHICH IS WHAT MAKES EACH SABOTAGEABLE. Dropping `NL`
+    # refuses `SuperMicroComputerBV`; dropping `US-DE` refuses the anchor and
+    # the 20 members that carry no attribute row; adding `US-NY` declares a row
+    # nothing exhibits. All three go RED — see the plan summary.
+    #
+    # WHICH VALUE A MEMBER CARRIES is declared in
+    # `artifacts/source-vocabulary.yaml::entitlement`, not here and not in code:
+    # its own `legal_jurisdiction` where PostgreSQL holds a row, and the
+    # FAMILY's — the anchor's — where it does not. 20 of the 22 hold no row, and
+    # they are exactly the population `CFT-G09` and criterion 33 protect.
     permitted_classifications:
-      - US
-      - US-CA
-      - US-DE
-      - US-NY
       - NL
-      - LU
-      - DE
-      - SG
-      - KY
+      - US-DE
 
   # --- Step 5. The walk. ----------------------------------------------------
   traversal.typed-neighborhood:
@@ -255,9 +275,10 @@ request_contract:
       BESIDE `graph_snapshot_at` and never inside it.
 
 # ---------------------------------------------------------------------------
-# L2 entity resolution — TWO entity classes and SIX relationship types. Rung 03
-# declared `relationship_rules: []` and said that was what made it the last rung
-# before the graph. This is the first rung past it.
+# L2 entity resolution — TWO entity classes, and `relationship_rules` DELIBERATELY
+# EMPTY. Rung 03 declared `relationship_rules: []` because it had no relationships
+# at all. This rung declares the same value for the OPPOSITE reason: its subject IS
+# the relationships, and the declared rule shape cannot carry one (`D-35`, below).
 # ---------------------------------------------------------------------------
 #
 # WHY TWO ENTITY CLASSES RATHER THAN ONE. `seed_entity_classes` seeds the
@@ -289,49 +310,39 @@ resolution:
         - type_chain
         - entity_jurisdiction
 
-  # THE DIRECTION IS ASSERTED PER PREDICATE AND A COUNT IS BLIND TO AN ARROW
-  # (§C.4 trap 1). Every rule below runs PARENT -> CHILD after normalization —
-  # `owns` and `controls` are read subject->object, the four consolidation and
-  # ultimate-parent predicates object->subject. Reversing any ONE of them moves
-  # the measured root count off 83, which is what makes the arrow assertable
-  # rather than assumed.
-  relationship_rules:
-    - relationship_type: owns
-      subject_entity_class: family_anchor
-      object_entity_class: family_member
-    - relationship_type: owns
-      subject_entity_class: family_member
-      object_entity_class: family_member
-    - relationship_type: controls
-      subject_entity_class: family_anchor
-      object_entity_class: family_member
-    - relationship_type: controls
-      subject_entity_class: family_member
-      object_entity_class: family_member
-    - relationship_type: isDirectlyConsolidatedBy
-      subject_entity_class: family_anchor
-      object_entity_class: family_member
-    - relationship_type: isDirectlyConsolidatedBy
-      subject_entity_class: family_member
-      object_entity_class: family_member
-    - relationship_type: isUltimatelyConsolidatedBy
-      subject_entity_class: family_anchor
-      object_entity_class: family_member
-    - relationship_type: isUltimatelyConsolidatedBy
-      subject_entity_class: family_member
-      object_entity_class: family_member
-    - relationship_type: hasGlobalUltimateParent
-      subject_entity_class: family_anchor
-      object_entity_class: family_member
-    - relationship_type: hasGlobalUltimateParent
-      subject_entity_class: family_member
-      object_entity_class: family_member
-    - relationship_type: hasDomesticUltimateParent
-      subject_entity_class: family_anchor
-      object_entity_class: family_member
-    - relationship_type: hasDomesticUltimateParent
-      subject_entity_class: family_member
-      object_entity_class: family_member
+  # EMPTY, AND THE EMPTINESS IS THE FINDING RATHER THAN A SIMPLIFICATION.
+  # Twelve rules stood here until 2026-09-01. They are removed under `D-35`,
+  # ruled by Dave as the DECISION 2 half of `D-IMPL-226`.
+  #
+  # THE DECLARED RESOLUTION SPEC CANNOT EXPRESS A TYPED EDGE. Read in the
+  # source rather than taken on report: `src/ccf/assembly/worker.py:381`
+  # iterates `for rule in relationship_rules: for subject in
+  # by_class[rule.subject_entity_class]: for obj in
+  # by_class[rule.object_entity_class]:` and mints a claim for EVERY such
+  # combination resolved from ONE envelope. MINTING IS BY CLASS CO-OCCURRENCE
+  # and nothing selects the relationship type from the payload.
+  #
+  # MEASURED LIVE through `booted.handle.worker`, not reasoned about: one
+  # envelope carrying one `entity_uri` minted 2 entities — the same node under
+  # both classes, identical identity hash — and TWELVE relationships, SIX of
+  # them self-loops, spanning all six declared types. A member-to-member edge
+  # cannot be minted at all, because one envelope resolves at most one
+  # `family_member`. Had the twelve rules been kept, the payload's `predicate`
+  # field would have been a lie and lineage strict equality would have been
+  # sealing a false document.
+  #
+  # WHAT CP-04 DOES INSTEAD, and it is the shipped shape rather than a
+  # workaround: ONE ENVELOPE PER NODE, so no relationship rule can fire even
+  # were one declared; and each normalized parent->child edge admitted through
+  # `worker.admit_relationship_claim` (`src/ccf/assembly/worker.py:315`), a real
+  # public method, carrying ITS TRUE PREDICATE. The single-writer invariant is
+  # preserved — admission still runs through L2's worker and no second writer
+  # touches L3 — and no file under `src/` changes, so criterion 49 holds.
+  #
+  # `D-35` IS RECORDED, NOT CLOSED, under `D-04`'s posture beside `D-26`..`D-34`.
+  # It is the fourth mechanism gap this phase has surfaced without touching a
+  # line of `src/` or `runtime/`.
+  relationship_rules: []
 
 # ---------------------------------------------------------------------------
 # Half-life — spec §E.1. PER SIGNAL CLASS, not per product, and this product is
