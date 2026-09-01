@@ -13,7 +13,7 @@
 |---|---|
 | **Source article** | `wiki/context-products/content/corporate-family-tree.md`, vault-owned, **`standard: q019`** |
 | **Authored to** | `Context_Product_Specification_Standard_v0-3.md` — the article is on the older Q019 form and is *raised* to v0.3 here, per `spec_generation.md` §4 |
-| **Gate 1 status** | **SUBMITTED 2026-08-31 — NOT YET RULED.** This row carries the approver, the date and the verdict when Dave rules. Until then nothing under `examples/cp-04-corporate-family-tree/` exists but this document — `example_delivery.md` §1: *"No implementation code before Gate 1."* |
+| **Gate 1 status** | **RULED — APPROVED WITH THREE AMENDMENTS, ON THE AMENDED TEXT.** Approver: **Dave**. Date: **2026-08-31**. Decision: **`D-IMPL-225`**. The three amendments landed in `.planning/ROADMAP.md` (criteria 34, 37, 43, 47 and 49) and in `docs/DECISIONS.md` **BEFORE this row was flipped and before Wave 3**, on the `D-IMPL-222` precedent Dave invoked by name; until they had, nothing under `examples/cp-04-corporate-family-tree/` existed but this document — `example_delivery.md` §1: *"No implementation code before Gate 1."* Each ruling is recorded beside its conflict at §F.4 |
 | **Gate 2 status** | **not started.** No code, no artifacts, no tests |
 | **Estate** | Fluree ledger `fibo-v2` and PostgreSQL schema `ccf_v2` on the `ccf_dataprep` estate, both read-only. **Every figure in §C and §E was measured 2026-08-31 at `ledger_t = 5112`** and is traceable to a row in `24.4-MEASUREMENT.md` |
 | **Stores** | **TWO — Fluree and PostgreSQL.** The split is the vault catalog's and is **not re-derived here** (`D-17`): **Fluree 7 rows, Postgres 4, both 1, twelve rows in total** — §C.1 |
@@ -32,11 +32,15 @@ with. Every figure in it was measured against the estate on 2026-08-31 at a
 
 **This document is the whole of Gate 1.** Nothing below is implemented.
 
-**Three things in this document are conclusions somebody else has to rule on,
-and they are not smoothed into prose.** §F.4 carries three measured conflicts
+**Three things in this document were conclusions somebody else had to rule on,
+and they were not smoothed into prose.** §F.4 carries three measured conflicts
 between the locked Phase 24.4 success criteria and the SDK as it ships, each
-with a proposed reading, an alternative, and no resolution. They are Gate 1
-decision items.
+submitted with a proposed reading, an alternative, and **no resolution asserted
+on Dave's behalf**. **All three were RULED at Gate 1 on 2026-08-31 (Dave,
+`D-IMPL-225`), approved with three amendments**, and each ruling is recorded
+beside its conflict. Two of the three **amended a locked criterion rather than
+bending the product to it**; the amendments landed in `.planning/ROADMAP.md` and
+`docs/DECISIONS.md` **before** this document was brought onto the amended text.
 
 ### 0.1 Do you need a Context Product? — the four-question test
 
@@ -84,7 +88,7 @@ nobody has ruled.
 | Tier | **2** — the first of Tier 2. Capability classes `relational` **and** `graph-traversal` |
 | **Assembly Mode** | **1 — pure algorithmic, DECLARED.** No LLM is invoked on any path in §D, and **`CFT-G12`** asserts that no LLM client is reachable from any step. The article's frontmatter carries `assembly_mode: null`; declaring it is a registration-time commitment and is proposed to the vault at §F.2 row 2 |
 | Cost band | **×1–2** (the vault's, Tier 2) |
-| Lifecycle state | **`draft`** — Gate 1 submitted 2026-08-31, not ruled. **No code, artifacts or tests exist** |
+| Lifecycle state | **`draft`** — **Gate 1 APPROVED 2026-08-31 (Dave, `D-IMPL-225`) on the amended text.** Gate 2 not started: **no code, artifacts or tests exist yet** |
 | Accountable owner | product: Credit Risk · data steward: reference data / entity master · policy owner: identity and access — **roles, not individuals** |
 | Last review | 2026-08-31 (this authoring) |
 | What it resolves | One anchor LEI to **the borrowing group as a typed graph**: every entity reachable from it across six declared family predicates, each node carrying its FIBO class chain, each edge carrying the predicate that produced it. Where that graph contains an ownership cycle, the cycle is returned as a **finding with an ordered roster and a closing edge** rather than silently broken or raised as an error |
@@ -201,7 +205,7 @@ teaches single-writer discipline alone.
 | 5 | **Lineage** | `operators_invoked` · `graph_snapshot_at` · `policy_version` · `projection_plan_id` · `context_debt` · `payload_hash`. **`model_record: null`** — Mode 1. The `ledger_t` the Fluree leg read at is recorded **beside** `graph_snapshot_at` and is not the same field — §B.1.1 |
 | 6 | **Semantic Version** | `v1.0.0` |
 | 7 | **Discovery** | `reference.corporate-family.v1` |
-| 8 | **Addressability** | `/context-products/reference/corporate-family/{lei}` — and see §B.4.2, because at this rung the address is **not the door**: the served surface is `ProductClient` in-process and an MCP **tool**, never a `GET` on that path |
+| 8 | **Addressability** | `/context-products/reference/corporate-family/{lei}` — and see §B.4.2, because at this rung the address is **not the door**: the served surface is `ProductClient` in-process and an MCP **tool**, never a `GET` on that path. The MCP product **resource** is registered and enumerable, and **refuses** — it never serves this product (§D.1, `CFT-G13`, `D-34`) |
 | 9 | **Assembly Mode** | **1 — pure algorithmic.** No LLM on any path; `CFT-G12` asserts it. Rationale: the whole product is a walk, a normalization, a batched join and a circuit enumeration — every one deterministic, and a narrative layer over them would put a model between the officer and the edge that matters |
 
 #### B.1.1 `graph_snapshot_at` and `ledger_t` are two fields, and conflating them was struck
@@ -756,7 +760,9 @@ assembler (`D-21`), and neither reaches the product through
 `/tenant/class/version`:
 
 ```python
-# run.py — in-process
+# run.py — in-process, through the DOCUMENTED DIRECT-ADAPTER CONSTRUCTOR
+# (src/ccf/client/client.py:100). The binding stays SINGLE-STORE and is not
+# widened; the two-store assembly happens INSIDE the product.
 client = ProductClient(product_id="reference.corporate-family.v1", adapter=...)
 result = client.ask({
     "lei":       "54930022CZO1N2UGVW07",
@@ -766,20 +772,50 @@ result = client.ask({
 ```
 
 ```
-# server/serve.py — the MCP door, TOOL-ONLY
-tool  request_context_product
-args  tenant=…, product_class=reference.corporate-family, version=v1,
-      subject=54930022CZO1N2UGVW07, intent=concentration-review,
-      freshness=…, asked_at=…, parameters={"max_depth": 3}
+# server/serve.py — the MCP door. The TOOL is the only path that SERVES;
+#                   the product RESOURCE is registered, enumerable, and REFUSES.
+tool      request_context_product
+args      tenant=…, product_class=reference.corporate-family, version=v1,
+          subject=54930022CZO1N2UGVW07, intent=concentration-review,
+          freshness=…, asked_at=…, parameters={"max_depth": 3}
+
+resource  ccf://…/reference.corporate-family/v1
+          → appears in resources/list, and a read returns ProductNotServable.
+            NEVER a tree.
 ```
 
-**Why the door is a tool and not a resource** (`D-18`). The request needs an
-anchor LEI **and** a `max_depth`. The MCP resource URI is three path segments —
-`tenant`, `class`, `version` — with **no query surface**, so there is nowhere to
-put either. A resource would help only if a standing, parameter-free answer
-existed for this product, and there is none: **every answer is a walk from an
-anchor.** Gate **`CFT-G13`** asserts the door is tool-only. **The SDK's egress
-builder cannot express that today — Conflict 1, §F.4, a Gate 1 decision item.**
+**Why the tool serves and the resource refuses** (`D-18`, and `D-IMPL-225`
+amendment 1). The request needs an anchor LEI **and** a `max_depth`. The MCP
+resource URI is three path segments — `tenant`, `class`, `version` — with **no
+query surface**, so there is nowhere to put either. A resource would help only
+if a standing, parameter-free answer existed for this product, and there is
+none: **every answer is a walk from an anchor.**
+
+**And the SDK registers the resource whether or not this product wants it.**
+`runtime/ccf_runtime/mcp/egress.py:475` registers
+`@server.resource(PRODUCT_URI_TEMPLATE, …)` **unconditionally**; only the tool
+at `:529` sits behind `expose_product_tool`. `build_egress_server` can be
+resource-only or resource-plus-tool; **it cannot be tool-only.** `runtime/` is
+**not** touched by this phase (`D-04`), so the door this rung ships is a
+**REGISTERED RESOURCE THAT REFUSES**. Gate **`CFT-G13`** (§G.2) asserts the
+three parts together: the resource **is** registered and enumerable in
+`resources/list`; a resolve or read of it returns `ProductNotServable`
+(`egress.py:221`) or the existing refusal type and **never a tree**; and the
+**tool is the only path that serves**. That is strictly weaker than *"no
+resource is exposed"* — the weakness is stated plainly at §F.4 Conflict 1 rather
+than smoothed, criterion 37 was **amended** on 2026-08-31 to say what is true,
+and the residual gap is **RECORDED as `D-34`** (§F.4 finding 9).
+
+**And the consume path is the direct-adapter constructor, not a binding
+document** (`D-IMPL-225` amendment 2). `src/ccf/client/adapters/binding_document.py:177`
+refuses a `resolver:` key **BY NAME**, so the `binding.yaml` path **structurally
+cannot** express a two-store product. **The binding stays SINGLE-STORE and is
+not widened.** cp-04 supplies an adapter of its own that conforms to
+`ccf.client.wire.TransportAdapter` structurally and calls `assembler.py`, and
+the two stores are opened **inside the assembly** — never by a fixture that
+pre-opens both and hands the product a populated graph. `CFT-G10` asserts **the
+ASSEMBLY opened both stores, not that the RUNNER did**. Nothing under `src/`
+changes; no HTTP path exists anywhere in this example. §F.4 Conflict 2.
 
 ### D.2 Step table
 
@@ -1107,7 +1143,13 @@ check** (`D-22`): CI must not depend on parsing prose out of Markdown, which is
 the fragility the artifact exists to escape. *A prose table cannot be held
 against a run.*
 
-> **Where the closed schema lands is a Gate 1 decision item — Conflict 3, §F.4.**
+> **RULED at Gate 1 — `D-IMPL-225` amendment 3.** The closed schema is
+> **`docs/schemas/product-gates/cp.product-gates.json`**: **inside**
+> `docs/schemas/` as criterion 43 requires, and **deliberately OFF** the
+> top-level `docs/schemas/*.json` glob that `tools/dump_schemas.py:335` walks
+> and `:399` `unlink()`s, so a hand-authored file is never destroyed as an
+> orphan. **Enforcement is Phase 24.5's checker, not this phase** (`D-24`).
+> §F.4 Conflict 3.
 
 **`artifacts/expected.yaml` stays about expected VALUES** and is not widened to
 carry gate rosters. Every expected figure in §C.5 is read from it and **never
@@ -1295,11 +1337,14 @@ comparing totals — *a count is not a roster*.
 | 17 | `λ_c` measured against read frequency | §E.1 | this build | Gate 2 |
 | 18 | Counterfactual fixture `CFT-F01` — the two-answer comparison | §A.2 | this build | Gate 2 |
 | 19 | **Sabotage result for each of the SIXTEEN gates** | §D.7, §G.2 | this build | Gate 2 |
-| 20 | **The three Gate 1 conflicts of §F.4** | §F.4 | **Dave** | **Gate 1 — this document** |
+| 20 | **The three Gate 1 conflicts of §F.4** — **CLEARED 2026-08-31 (Dave, `D-IMPL-225`)**: all three ruled, two by amending a locked criterion | §F.4 | **Dave** | **Gate 1 — CLEARED** |
 
 **Twenty rows. Four belong to the vault, one to identity and access, one to
-`ccf_dataprep`, thirteen to this build, and ONE to Dave — and that one is
-blocking**, because rows 8, 9 and 19 cannot be built until it is ruled.
+`ccf_dataprep`, thirteen to this build, and ONE to Dave. Dave's — row 20 — was
+the only blocking row, and it is CLEARED at Gate 1** (`D-IMPL-225`), which
+unblocks rows 8, 9 and 19. **Nineteen rows remain open, and NONE of them
+blocks**: thirteen clear at Gate 2, six belong to the vault, identity-and-access
+and `ccf_dataprep` and are named rather than invented.
 
 ### F.3 Access path, identifiers, history, volumetrics
 
@@ -1362,16 +1407,23 @@ something to act on, and every one of them has it:**
 **No spec passes review with an unowned gap.** Every `no` and `partial` in §F.1
 carries a named owner.
 
-### F.4 Recorded findings and Gate 1 decision items
+### F.4 Recorded findings, and the three Gate 1 conflicts AS RULED
 
-**Findings 1 to 6 are RECORDED SDK gaps and NONE is closed here.** `D-04` of
-`24-CONTEXT.md` governs: **a minor phase RECORDS gaps; a separate phase closes
-them.** No file under `src/` is modified by this phase.
+**Findings 1 to 6, and finding 9, are RECORDED SDK gaps and NONE is closed
+here.** `D-04` of `24-CONTEXT.md` governs: **a minor phase RECORDS gaps; a
+separate phase closes them.** No file under `src/` or `runtime/` is modified by
+this phase.
 
-**Findings 7 and 8 are measurement notes.** **Conflicts 1, 2 and 3 are Gate 1
-decision items and are Dave's to rule on** — each carries its measurement, the
-reading this document proposes, and the alternative. **None is presented as
-decided.**
+**Findings 7 and 8 are measurement notes.**
+
+**Conflicts 1, 2 and 3 were the Gate 1 decision items, and ALL THREE ARE NOW
+RULED** — **2026-08-31, Dave, `D-IMPL-225`: approved with three amendments.**
+Each conflict below keeps its measurement and its alternative exactly as
+submitted, and carries Dave's ruling beside it, **quoted rather than
+paraphrased**. Two of the three amended a locked criterion rather than bending
+the product to it, on the `D-IMPL-222` precedent; the amendments landed in
+`.planning/ROADMAP.md` and `docs/DECISIONS.md` **before** the `Gate 1 status`
+row was flipped and **before Wave 3**.
 
 #### Finding 1 — `D-26` · the Fluree adapter floors but cannot pin
 
@@ -1406,7 +1458,9 @@ findings 1 to 3** — those are mechanism; this is a description of mechanism.
 **RECORDED, not closed.** `PRODUCT_URI_TEMPLATE` is three path segments with no
 query surface. **Every Tier 2+ product will hit this**, because every one of
 them takes an anchor plus at least one scope parameter. This is the finding
-Conflict 1 is the mechanism face of.
+Conflict 1 is the mechanism face of, and **`D-34`** (finding 9) is its sibling:
+`D-30` is *the resource cannot carry the parameters*, `D-34` is *the resource
+cannot be withheld*. Both are recorded; neither is closed.
 
 #### Finding 6 — `D-31` · declared product gates have NO SDK or CI expression
 
@@ -1439,6 +1493,22 @@ this specification so the shipped detector inherits it; a correct detector using
 a different rotation would fail a correct assertion, and the failure would look
 like a product defect.
 
+#### Finding 9 — `D-34` · `build_egress_server` cannot withhold the product resource
+
+**RECORDED, not closed.** *`build_egress_server` cannot omit a product resource
+from MCP `resources/list` without `runtime/` work, so a genuinely tool-only door
+is not expressible today.* Same `D-04` posture and **the same class as `D-30`
+and `D-33`**: a capability the specification wants, for which the shipped
+surface has no expression, recorded rather than engineered around.
+
+**It is numbered ninth because it was RULED at Gate 1, after findings 1 to 8
+were written — but it belongs with findings 1 to 6 as an SDK gap, not with
+findings 7 and 8 as a measurement note.** It arose from Conflict 1 below, it is
+the reason criterion 37 was amended, and **criterion 49 is extended to it**: it
+is recorded in `docs/DECISIONS.md`, it is closed by neither this phase nor any
+other in this wave, and **no file under `src/` or `runtime/` is modified to
+close it.**
+
 ---
 
 #### **Conflict 1 — criterion 37 (`CFT-G13`, tool-only) against `build_egress_server`**
@@ -1459,16 +1529,16 @@ caller reaching this handler has supplied a `ProductRequest`."*
 `build_egress_server`. **Both cannot be literally satisfied by the shipped
 builder.**
 
-**Proposed reading.** The resource stays registered — because the SDK registers
-it — and **the deployment's resolver REFUSES BY NAME when `request is None`**,
-raising the SDK's own `ProductNotServable`
+**Proposed reading, as submitted.** The resource stays registered — because the
+SDK registers it — and **the deployment's resolver REFUSES BY NAME when
+`request is None`**, raising the SDK's own `ProductNotServable`
 (`runtime/ccf_runtime/mcp/egress.py:221`) stating that this product class is
-parameterized and must be asked through the tool. `CFT-G13` then asserts **both
-halves**: the resource read refuses by name, and the tool ask succeeds.
-Sabotage: make the resolver serve a default-anchored standing answer, and the
-gate goes RED.
+parameterized and must be asked through the tool.
 
-> **THE WEAKNESS IN THAT READING, STATED PLAINLY RATHER THAN SMOOTHED.**
+> **THE WEAKNESS IN THAT READING, STATED PLAINLY RATHER THAN SMOOTHED —
+> reproduced here VERBATIM as submitted, because it is the record that the
+> weakness was stated BEFORE the ruling and not discovered after it:**
+>
 > **A registered-but-refusing resource still appears in MCP `resources/list`.**
 > A client enumerating the server's surface sees a product resource advertised.
 > So the proposed reading satisfies *"the resource cannot be used to obtain this
@@ -1477,12 +1547,49 @@ gate goes RED.
 > means *not enumerable*, this reading does not satisfy it and the criterion
 > needs amending or the builder needs widening.
 
-**Alternative.** Widen `build_egress_server` so resource registration is
-conditional. **That touches `runtime/` and runs against `D-04` of
-`24-CONTEXT.md`** — a minor phase records gaps and does not close them.
+**Alternative, as submitted.** Widen `build_egress_server` so resource
+registration is conditional. **That touches `runtime/` and runs against `D-04`
+of `24-CONTEXT.md`** — a minor phase records gaps and does not close them.
 
-**Downstream effect of the ruling.** Plan `24.4-09` (the MCP door) and plan
-`24.4-12` (the `CFT-G13` sabotage) build to whichever reading is chosen.
+**RULED AT GATE 1 — 2026-08-31, Dave, `D-IMPL-225` amendment 1. THE CRITERION
+WAS FALSE AGAINST THIS TREE AND WAS AMENDED RATHER THAN ENGINEERED AROUND.**
+
+Dave, verbatim:
+
+> *"`build_egress_server` cannot be tool-only. A listing that includes the
+> resource is the SDK. Criterion 37 as written ('no resource is exposed') is
+> false against this tree."*
+
+**What ships.** `runtime/` is **NOT** touched (`D-04`). The door is a
+**REGISTERED RESOURCE THAT REFUSES**, and `CFT-G13` (§G.2) asserts three things
+**together**, never one of them alone:
+
+1. the resource **IS** registered and **enumerable in `resources/list`**;
+2. a resolve or read of it returns `ProductNotServable`
+   (`runtime/ccf_runtime/mcp/egress.py:221`) or the existing refusal type, and
+   **NEVER a tree**;
+3. the **TOOL is the only path that SERVES**, taking a client-supplied `lei` and
+   `max_depth`.
+
+**Sabotage, stated here so the build inherits it: THE RESOLVER RETURNS A
+PAYLOAD → `CFT-G13` MUST GO RED.**
+
+**The weakness was ruled on, not smoothed.** What ships satisfies *"the resource
+cannot be used to obtain this product"* and **NOT** the literal *"no resource is
+exposed"* — a registered-but-refusing resource is **strictly weaker** than
+absence, and it still appears in `resources/list`. **Criterion 37 was amended to
+say what is true rather than left asserting something false.**
+
+**The gap that leaves is RECORDED as `D-34`** — finding 9 above, same `D-04`
+posture and the same class as `D-30` and `D-33`. **Criterion 49 is extended to
+it. It is not closed here.**
+
+**The alternative was declined**, for the reason stated when it was submitted:
+it touches `runtime/`.
+
+**Downstream.** Plan `24.4-09` (the MCP door) and plan `24.4-12` (the `CFT-G13`
+sabotage) build to the ruled reading above — the three-part assertion, and the
+resolver-returns-a-payload sabotage.
 
 ---
 
@@ -1505,25 +1612,65 @@ the assembly**. The `binding.yaml` path cannot express that — it has no key fo
 a second store's read, and the one key that could carry a custom composition is
 the one refused by name.
 
-**Proposed reading.** Use **`ProductClient(product_id=…, adapter=…)`** — the
-constructor's **documented direct-adapter form**
-(`src/ccf/client/client.py:100-102`: *"adapter: The transport that carries the
-question. Supplied directly by an adapter author or a test"*) — over an adapter
-cp-04 supplies that conforms to `ccf.client.wire.TransportAdapter`
-**structurally** and calls `assembler.py`. **The consume path is `ProductClient`
-exactly as `D-20` requires, and no `GET /tenant/class/version` path exists
-anywhere in the example.** Nothing in `src/` changes; `for_product` remains the
-ordinary path for deployments that fit the binding document.
+**Proposed reading, as submitted.** Use
+**`ProductClient(product_id=…, adapter=…)`** — the constructor's **documented
+direct-adapter form** (`src/ccf/client/client.py:100-102`: *"adapter: The
+transport that carries the question. Supplied directly by an adapter author or a
+test"*) — over an adapter cp-04 supplies that conforms to
+`ccf.client.wire.TransportAdapter` **structurally** and calls `assembler.py`.
 
-**Alternative.** Pre-populate the graph producer-side, on `hw1`'s shape, and let
-`binding.yaml` resolve against it. **That moves "both stores are opened" out of
-the assembly and into a load step** — which would make `CFT-G10` an assertion
-about a fixture loader rather than about the product, and criterion 34 says
-*during the assembly*.
+**Alternative, as submitted.** Pre-populate the graph producer-side, on `hw1`'s
+shape, and let `binding.yaml` resolve against it. **That moves "both stores are
+opened" out of the assembly and into a load step** — which would make `CFT-G10`
+an assertion about a fixture loader rather than about the product, and
+criterion 34 says *during the assembly*.
 
-**Downstream effect of the ruling.** Plan `24.4-08` (`run.py` through
-`ProductClient`) and plan `24.4-10` (the `CFT-G10` sabotage) build to whichever
-reading is chosen.
+**RULED AT GATE 1 — 2026-08-31, Dave, `D-IMPL-225` amendment 2. THE PROPOSED
+READING IS ADOPTED, AND THE BINDING IS NOT WIDENED.**
+
+Dave, verbatim:
+
+> *"Binding stays single-store. Two-store assembly happens inside the product,
+> not via a forbidden `resolver:` key and not via a fixture that pre-opens both
+> stores."*
+
+**What ships.** `ProductClient(product_id=…, adapter=…)`, the documented public
+constructor at `src/ccf/client/client.py:100`, over an adapter cp-04 supplies
+that conforms to `ccf.client.wire.TransportAdapter` structurally and calls
+`assembler.py`. **The binding stays SINGLE-STORE and is not widened** — the
+two-store assembly happens **INSIDE the product**, by neither a forbidden
+`resolver:` key nor a fixture that pre-opens both stores. **The consume path is
+`ProductClient` exactly as `D-20` requires; no `GET /tenant/class/version` path
+exists anywhere in the example; nothing under `src/` changes**, and
+`for_product` remains the ordinary path for deployments that fit the binding
+document.
+
+**`CFT-G10` therefore asserts THE ASSEMBLY opened both stores, not that the
+RUNNER did** — criterion 34 was **clarified** at Gate 1 to say exactly that,
+because a fixture that pre-opens both and hands the product a populated graph
+would turn the gate into an assertion about a fixture loader.
+
+> **A CONSISTENCY FINDING WITH THE CLIENT WORK, RECORDED BECAUSE IT IS EASY TO
+> MISREAD LATER.**
+>
+> **cp-04 is the FIRST `cp-*` rung to consume through the client seam at all.**
+> `cp-00` through `cp-03` never import `ProductClient` — they go straight
+> through `ContextAssemblerProtocol`.
+>
+> The client work of **Phases 17, 18 and 20** lives in the **`hw1-*`** trees and
+> proves a **DIFFERENT** property, stated in that seam's own docstring as
+> *"same `consume.py`, different `CCF_BINDING`, identical `Result`"* — a
+> transport swap as an ops action, with no code change.
+>
+> **cp-04 supplies its adapter IN CODE and therefore does NOT re-prove that.**
+> Its portability claim is **`D-21`'s**: one standalone assembler, two thin
+> callers — `run.py` in-process and `server/serve.py` over MCP. **Both claims
+> are legitimate and they are not the same claim.** No sentence in this
+> specification, in the README, in the documentation page, in any artifact or in
+> any test name may imply cp-04 re-proves hw1's.
+
+**Downstream.** Plan `24.4-08` (`run.py` through `ProductClient`) and plan
+`24.4-10` (the `CFT-G10` sabotage) build to the ruled reading above.
 
 ---
 
@@ -1547,7 +1694,7 @@ criterion 49 forbids modifying any file under `src/`. **A hand-written
 top-level `docs/schemas/*.json` is therefore CI-red on commit and deleted by the
 next `make schemas`.**
 
-**Proposed reading.** The closed schema lands at
+**Proposed reading, as submitted.** The closed schema lands at
 **`docs/schemas/product-gates/cp.product-gates.json`** — **inside**
 `docs/schemas/` as criterion 43 requires, and **outside** the top-level glob, so
 it is neither an orphan nor a deletion target. Verified: `docs/schemas/` today
@@ -1559,13 +1706,38 @@ product's namespace, not the fabric's.** `gates.yaml`'s own header points at the
 open `ccf.declared-artifact.json` envelope like every other example artifact,
 and **cp-04's own test validates the document against the closed schema**.
 
-**Alternative.** Add an SDK artifact class so `dump_schemas` generates the
-schema. **That modifies `src/` and breaks criterion 49**, and it would make a
-per-product gate roster an SDK-owned concept — which `D-IMPL-224` declined when
-it ruled out a `ProductGate` Protocol.
+**Alternative, as submitted.** Add an SDK artifact class so `dump_schemas`
+generates the schema. **That modifies `src/` and breaks criterion 49**, and it
+would make a per-product gate roster an SDK-owned concept — which `D-IMPL-224`
+declined when it ruled out a `ProductGate` Protocol.
 
-**Downstream effect of the ruling.** Plan `24.4-03` (`gates.yaml` and its closed
-schema) builds to whichever reading is chosen.
+**RULED AT GATE 1 — 2026-08-31, Dave, `D-IMPL-225` amendment 3. THE PROPOSED
+READING IS ADOPTED, AND THE SUBDIRECTORY IS DELIBERATE.**
+
+**What ships.** **`docs/schemas/product-gates/cp.product-gates.json`**, with
+**CLOSED keys**, validated against by
+`examples/cp-04-corporate-family-tree/artifacts/gates.yaml`. It is **inside**
+`docs/schemas/` as criterion 43 requires and **deliberately OFF** the top-level
+`docs/schemas/*.json` glob that `tools/dump_schemas.py:335` walks and `:399`
+`unlink()`s, **so a hand-authored file is never destroyed as an orphan**.
+Verified before the ruling: `docs/schemas/` holds **27** files and **ZERO**
+subdirectories, so the namespace is new and uncontested. It is correctly **NOT
+SDK-owned** — a per-product gate roster is the product's namespace, not the
+fabric's, and making it an SDK artifact class is the surface `D-IMPL-224`
+declined. **The subdirectory is what keeps criterion 43 and criterion 49 from
+contradicting each other.**
+
+**ENFORCEMENT IS PHASE 24.5's CHECKER, NOT THIS PHASE** (`D-24`). This phase
+declares the roster as data under a closed schema and validates the document
+against it; **the checker that binds a declared gate id to an executing test is
+24.5's**, and until it exists the link remains naming convention — `D-31`,
+finding 6.
+
+**The alternative was declined**, for the reason stated when it was submitted:
+it modifies `src/`.
+
+**Downstream.** Plan `24.4-03` (`gates.yaml` and its closed schema) builds to
+the ruled reading above.
 
 ---
 
@@ -1582,7 +1754,7 @@ schema) builds to whichever reading is chosen.
 | **Observability** | per-operator latency · **`D_c` distribution** · **gate-failure counts by gate, all sixteen** · **`max_depth` usage distribution** and **over-cap refusal rate** · **the ratio of returned nodes with `attributes: null` to those without** · cycle-finding rate · entitlement denials · TTL refusal rate · **the `ledger_t` each run read at**. This is also the evidence base for moving every `λ_c` in §E.1 off `illustrative` |
 | **Retention and record of record** | **GLEIF is record of record for relationships and for Level 1 attributes; EDGAR for Exhibit 21; the estate itself for the engineered cycle.** The fabric references them and does not replace them. Replay-record retention tier: `[TBC — this build]` |
 | **Test fixtures** | `CFT-F01` counterfactual (§A.2) · **`CFT-G01`…`CFT-G16` — sixteen product gates** (§G.2) · `CFT-R01` replay assertion (§D.5) · the five negative controls of §G.3 |
-| **Lifecycle** | **`draft`** — Gate 1 submitted 2026-08-31 and **not yet ruled**. Certification additionally requires every §F.2 row closed or accepted by a named owner |
+| **Lifecycle** | **`draft`** — **Gate 1 APPROVED 2026-08-31 (Dave, `D-IMPL-225`) on the amended text**, with three amendments landed in `.planning/ROADMAP.md` and `docs/DECISIONS.md` before this row was written. Gate 2 not started: no code, artifacts or tests exist yet. Certification additionally requires every §F.2 row closed or accepted by a named owner |
 
 **The obligation an operator must not lose.** **A member with no attribute row
 is a member.** 606 of 748 family nodes have no row, and a build that quietly
@@ -1610,10 +1782,10 @@ it detects and the sabotage that must turn it RED.
 | **`CFT-G07`** | **A cycle reaches the consumer carrying `type`, ORDERED `members` AND the `closing_edge`** — asserted as the exact roster, never as `len(findings) > 0` | **drop the closing edge** | §D.2.2 · `D-11`, `D-13` |
 | **`CFT-G08`** | **Findings are ORTHOGONAL to the tree.** No node carries a cycle flag | flag cycle membership **on the nodes** instead | §D.2.2 · `D-12` |
 | **`CFT-G09`** | **A node carrying no LEI stays in the tree AND in the roster.** A failed join is a null resolution or a finding | **drop members whose Postgres join fails** | §C.3 · `D-16` · 606 of 748 |
-| **`CFT-G10`** | **Both stores are opened — Fluree for edges and ontology, PostgreSQL for attributes** | **serve attributes from Fluree** | §C.3 · §F.3 |
+| **`CFT-G10`** | **THE ASSEMBLY opened both stores — Fluree for edges and ontology, PostgreSQL for attributes.** The subject is the assembly, **NOT the runner**: a fixture that pre-opens both stores and hands the product a populated graph does **NOT** satisfy this gate | **serve attributes from Fluree** — and equally, **move the opening into a fixture loader** | §C.3 · §F.3 · criterion 34 **as clarified**, `D-IMPL-225` amendment 2 |
 | **`CFT-G11`** | **The returned node set resolves to attributes in ONE batched PostgreSQL query** | **fire one query per node** | §D.2.3 |
 | **`CFT-G12`** | **No LLM client is reachable from any §D step** — Assembly Mode 1 | make one reachable | §B.3 |
-| **`CFT-G13`** | **The MCP door is TOOL-ONLY** | **expose a product resource** | §D.1 · `D-18` · **and Conflict 1, §F.4, which governs how this gate is written** |
+| **`CFT-G13`** | **The MCP door SERVES THROUGH THE TOOL ONLY, and the registered product resource REFUSES.** Three parts, asserted **together**: (a) the resource **IS** registered and **enumerable in `resources/list`**; (b) a resolve or read of it returns `ProductNotServable` (`runtime/ccf_runtime/mcp/egress.py:221`) or the existing refusal type and **NEVER a tree**; (c) the **TOOL is the only path that serves**, taking a client-supplied `lei` and `max_depth` | **the resolver returns a payload** — a resource read that yields a tree instead of refusing | §D.1 · `D-18` · `D-34` · criterion 37 **as amended**, `D-IMPL-225` amendment 1, and §F.4 Conflict 1 |
 | **`CFT-G14`** | **One standalone assembler serves both callers.** `assembler.py` knows nothing about MCP | give `server/serve.py` its **own** assembly path | `D-21` — the standalone property is DEMONSTRATED by two callers sharing one module, not asserted |
 | **`CFT-G15`** | **Each served node carries its FIBO class chain** | serve the tree without type information | §D.2.1 role 2 |
 | **`CFT-G16`** | **Perspective conditions on FIBO class**, not on a hand-written role map | substitute a hand-written role map | §D.2.1 role 3 |
@@ -1637,10 +1809,13 @@ must be held to:**
 
 Three of rung 03's gates passed their first sabotage for exactly that reason —
 one asserted a substring that its own docstring supplied. **The gates most
-exposed to it here are `CFT-G13`** (a docstring saying *tool-only* is not the
-door being tool-only), **`CFT-G10`** (an import of a Postgres driver is not the
-attribute leg reading Postgres) and **`CFT-G16`** (the word *class* appears in
-both a class-conditioned projection and a role map keyed by class name).
+exposed to it here are `CFT-G13`** (a resolver docstring saying it *refuses* is
+not the resolver refusing, and a refusal type merely *imported* is not a refusal
+*raised* — the gate must drive a real resource read and a real tool ask),
+**`CFT-G10`** (an import of a Postgres driver is not the attribute leg reading
+Postgres, and a **fixture** that opened both stores is not **the assembly**
+opening them) and **`CFT-G16`** (the word *class* appears in both a
+class-conditioned projection and a role map keyed by class name).
 
 `[TBC — this build]` — the sabotage applied to each of the sixteen and the
 observed result.
@@ -1687,8 +1862,9 @@ failure**, so a control that stops discriminating is itself detected:
 | `hasGlobalUltimateParent` read subject→object | **59** roots, not 83 | an inverted arrow is caught by something other than a count |
 | `len(findings) > 0` against a **wrong three-member roster** | passes the weak assertion | **roster-blindness is itself detected** |
 
-**Open decisions blocking build:** §F.2 row 20 — **Conflicts 1, 2 and 3 of
-§F.4.** No other row blocks.
+**Open decisions blocking build: NONE.** §F.2 row 20 — **Conflicts 1, 2 and 3 of
+§F.4** — was the only blocking row, and all three were **RULED at Gate 1 on
+2026-08-31 (Dave, `D-IMPL-225`)**. No other row blocks.
 
 ### G.4 Reproducibility — the claim, in exactly these words
 
@@ -1746,7 +1922,13 @@ moved 14 and 9 figures respectively while leaving the rest exactly right.**
   assembly.
 - **The ladder's first MCP door**, and the first demonstration that one
   standalone assembler serves two callers — proven by the two callers sharing
-  the module, not asserted.
+  the module, not asserted. The door **serves through the tool only**; the
+  product resource is registered and **refuses** (`D-IMPL-225` amendment 1),
+  and the gap that leaves is recorded as `D-34`.
+- **The first `cp-*` rung to consume through the client seam at all.** Rungs 00
+  to 03 never import `ProductClient`; this one does, through the documented
+  direct-adapter constructor, over a binding that **stays single-store** while
+  the assembly opens two.
 - **A partial capability shipped as a partial.** Cycle enumeration is not in the
   store, so it runs application-side and the recipe **says so with a `null`**
   rather than borrowing a category to look complete.
@@ -1764,21 +1946,58 @@ as an oversight:**
   would go green having proven nothing.
 - **Not a full corporate family.** Exhibit 21 is filer-truncated by rule
   (§F.1), and the payload must never be described to a consumer as complete.
+- **Not a transport swap.** cp-04 supplies its adapter **in code**, so it does
+  **NOT** re-prove the `hw1-*` seam's *"same `consume.py`, different
+  `CCF_BINDING`, identical `Result`"*. That property belongs to Phases 17, 18
+  and 20 and to the `hw1-*` trees. **cp-04's portability claim is `D-21`'s** —
+  one standalone assembler, two thin callers. **Both are legitimate; they are
+  not the same claim**, and nothing this rung ships may imply otherwise. §F.4
+  Conflict 2.
+- **Not a tool-only MCP door in the literal sense.** The product resource is
+  **registered and enumerable**; it refuses rather than being absent, because
+  `build_egress_server` cannot withhold it without `runtime/` work. `D-34`,
+  §F.4 finding 9 — recorded, not closed.
 
 ---
 
 ## Gate 1 — status
 
-**SNAPSHOT — the state as of 2026-08-31, when this section was written.**
+**SNAPSHOT — the state as of 2026-08-31, when Gate 1 was ruled.**
 
-**Gate 1 is SUBMITTED and NOT YET RULED.** Approval authority is Dave's alone;
-this document does not record a verdict on his behalf, and the front-matter
-`Gate 1 status` row carries the approver, the date and the verdict when he
-rules.
+**GATE 1 IS RULED: APPROVED WITH THREE AMENDMENTS, ON THE AMENDED TEXT.**
+**Approver: Dave. Date: 2026-08-31. Decision: `D-IMPL-225`.**
+
+**The amendments landed BEFORE this verdict was recorded and BEFORE Wave 3**, on
+the `D-IMPL-222` precedent Dave invoked by name: criteria **34, 37, 43, 47 and
+49** were amended or clarified in `.planning/ROADMAP.md`, and `D-IMPL-225` was
+written to `docs/DECISIONS.md`, **and only then** was this document brought onto
+the amended text and the `Gate 1 status` row flipped. Two of the three
+amendments **changed a locked criterion rather than bending the product to it**;
+one clarified a criterion's subject.
+
+- **Amendment 1 — the MCP door.** Criterion 37's *"no resource is exposed"* was
+  **FALSE against this tree** and was amended rather than engineered around.
+  `build_egress_server` **cannot be tool-only**. What ships is a **REGISTERED
+  RESOURCE THAT REFUSES**, and `CFT-G13` asserts all three parts together;
+  sabotage is **the resolver returning a payload**. `runtime/` is not touched.
+  The residual gap is **`D-34`** — §F.4 finding 9, **RECORDED, not closed**, and
+  criterion 49 is extended to it. §F.4 Conflict 1.
+- **Amendment 2 — the consume path.** `ProductClient(product_id=…, adapter=…)`,
+  the documented constructor at `src/ccf/client/client.py:100`. **The binding
+  stays SINGLE-STORE and is not widened**; the two-store assembly happens
+  **inside the product**. Criterion 34 is clarified: **`CFT-G10` asserts THE
+  ASSEMBLY opened both stores, not that the RUNNER did.** Nothing under `src/`
+  changes. §F.4 Conflict 2.
+- **Amendment 3 — the gates schema.**
+  `docs/schemas/product-gates/cp.product-gates.json`, **closed keys**, kept
+  **off** the top-level glob `tools/dump_schemas.py` walks and `unlink()`s.
+  **Enforcement is Phase 24.5's checker, not this phase.** §F.4 Conflict 3.
 
 - **Nothing is implemented at this stamp.** No code, no artifacts, no tests. The
   example directory contains this document and nothing else, per
-  `example_delivery.md` §1: **"No implementation code before Gate 1."**
+  `example_delivery.md` §1: **"No implementation code before Gate 1."** Dave's
+  instruction was explicit — *the spec stays the only file under cp-04 until
+  Gate 1 is green on the amended text* — and it held through the amendment pass.
 - **Every figure was measured** on 2026-08-31 against `fibo-v2` at a `ledger_t`
   read **once** at the start of the pass — **`ledger_t = 5112`** — and against
   PostgreSQL schema `ccf_v2`, both read-only. Every §C and §E figure traces to a
@@ -1806,21 +2025,32 @@ rules.
   `operators_invoked` carries **two** entries, with `Enrich` declared as **spec
   vocabulary against a non-operator mechanism** — §D.2.3). A third — the three
   request parameters this rung does not carry — is at §B.4.2.
-- **Six SDK gaps are RECORDED and NONE is closed.** `D-26` through `D-31`, at
-  §F.4 findings 1 to 6, under `D-04` of `24-CONTEXT.md`. **No file under `src/`
-  is modified by this phase.**
+- **SEVEN SDK gaps are RECORDED and NONE is closed.** `D-26` through `D-31` at
+  §F.4 findings 1 to 6, and **`D-34`** at §F.4 finding 9, under `D-04` of
+  `24-CONTEXT.md`. **No file under `src/` or `runtime/` is modified by this
+  phase.**
+- **A consistency finding with the client work is recorded rather than left to
+  be misread.** cp-04 is the **first `cp-*` rung to consume through the client
+  seam at all**, and it proves **`D-21`'s** property — one standalone assembler,
+  two thin callers — **not** the `hw1-*` trees' *"same `consume.py`, different
+  `CCF_BINDING`, identical `Result`"*. §F.4 Conflict 2, §G.5.
 
-**THREE CONFLICTS BETWEEN THE LOCKED SUCCESS CRITERIA AND THE SHIPPED SDK ARE
-GATE 1 DECISION ITEMS.** Each is measured against the tree, each carries a
-proposed reading and an alternative, and **none is resolved by this document.**
-They are at §F.4 as **Conflict 1** (criterion 37 against
-`build_egress_server`'s unconditional resource registration), **Conflict 2**
-(criterion 47 against the in-process transport's `binding.yaml` path), and
-**Conflict 3** (criterion 43 against the `docs/schemas/` orphan check).
+**THE THREE CONFLICTS BETWEEN THE LOCKED SUCCESS CRITERIA AND THE SHIPPED SDK
+WERE THE GATE 1 DECISION ITEMS, AND ALL THREE ARE NOW RULED.** Each was measured
+against the tree and submitted with a proposed reading and an alternative, and
+**none was resolved by this document on Dave's behalf.** They are at §F.4 as
+**Conflict 1** (criterion 37 against `build_egress_server`'s unconditional
+resource registration — **criterion AMENDED**), **Conflict 2** (criterion 47
+against the in-process transport's `binding.yaml` path — **proposed reading
+adopted, criterion 34 CLARIFIED**), and **Conflict 3** (criterion 43 against the
+`docs/schemas/` orphan check — **proposed reading adopted**). Each carries
+Dave's ruling beside it, quoted rather than paraphrased.
 
-**Plans `24.4-03` through `24.4-14` do not start until Gate 1 clears.**
+**Gate 1 has cleared. Plans `24.4-03` through `24.4-14` build to the ruled
+readings above.**
 
 ---
 
-*`CP-SPEC-004` · authored 2026-08-31 · Phase 24.4 plan `24.4-02` · Gate 1
-submitted, not ruled.*
+*`CP-SPEC-004` · authored 2026-08-31 · Phase 24.4 plan `24.4-02` · **Gate 1
+APPROVED 2026-08-31 (Dave, `D-IMPL-225`) with three amendments, on the amended
+text.***
