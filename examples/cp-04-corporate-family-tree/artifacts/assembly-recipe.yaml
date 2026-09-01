@@ -1,0 +1,491 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# §D.2's STEP TABLE, AS DATA — with a RUNTIME WITNESS per step.
+#
+# WHY THIS DOCUMENT EXISTS. **A prose table cannot be held against a run.** The
+# specification's §D.2 declares ten steps; this declares the same ten with, per
+# step, a witness a test can evaluate against what the assembly actually
+# produced. A step that names no witness is a step nothing can prove ran, and
+# the honest response to that is to REMOVE the step from §D rather than to
+# describe it more confidently.
+#
+# ============================================================================
+# TWO VOCABULARIES, AND THEY LOOK INTERCHANGEABLE WITHOUT BEING SO
+# ============================================================================
+#
+# `operator:` takes a name from **the Standard's CLOSED EIGHT** (§10.2), or
+# `null`. `sdk_mechanism:` takes **whatever actually executes** — an SDK class,
+# a graph adapter, an example-local function.
+#
+# **`TraversalNeighborhood` IS AN SDK CATEGORY CLASS NAME**
+# (`src/ccf/operators/categories.py:357`), **NOT one of the Standard's eight.**
+# A step declaring `operator: TraversalNeighborhood` is exactly the vocabulary
+# drift `D-IMPL-223` was minted to prevent: the SDK's FOUR categories are the
+# SCHEDULER — `OperatorCategory` is a plan-order class carrying correctness
+# rules, closed for v0 — and the Standard's EIGHT are SPEC vocabulary. The SDK
+# class name belongs in `sdk_mechanism:`; the Standard name belongs in
+# `operator:`. Step 5 below carries `Traversal` in one and
+# `TraversalNeighborhood` in the other, and that is the shape rather than a
+# redundancy.
+#
+# **THE PERMITTED NAMES ARE DECLARED HERE, AS DATA** — `operator_vocabulary:`
+# below — so the check that holds this file honest reads them FROM THE ARTIFACT
+# rather than from a list written into a test. A vocabulary hard-coded in the
+# checker is a second copy of a closed set, and the two would eventually
+# disagree about what "closed" means.
+#
+# ============================================================================
+# TEN STEPS, TWO OPERATORS IN LINEAGE
+# ============================================================================
+#
+# `operators_invoked` carries EXACTLY TWO entries — `policy.principal-subgraph`
+# and `traversal.typed-neighborhood` — and lineage strict equality is why that
+# number is assertable rather than approximate. **A step declaring a Standard
+# name against a mechanism that is not a registered operator does NOT enter
+# `operators_invoked`.** Step 6 declares `Enrich`; nothing named `Enrich`
+# executes, so nothing named `Enrich` appears in lineage.
+#
+# `role: load`. A recipe is a description of the assembly, parsed and handed
+# back; it is not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-04.assembly-recipe
+
+declaration:
+  spec_document: spec/CP-SPEC-004_Corporate_Family_Tree.md
+  spec_table: "D.2 Step table"
+
+  # --- THE STANDARD'S CLOSED OPERATOR VOCABULARY, AS DATA. -----------------
+  #
+  # Eight names, from
+  # `public/reference/specifications/Context_Product_Specification_Standard_v0-3.md`
+  # §10.2. Every non-null `operator:` on every step below is a member of this
+  # list, asserted against THIS list.
+  #
+  # The Standard also records what it RETIRED, and two of the retirements are
+  # load-bearing here: **`Batch Enrich`** (batch is mandatory, not a variant —
+  # which is why `CFT-G11` asserts ONE query rather than a preference) and
+  # **`Compose`** (contract assembly is not an operator — which is why step 10
+  # declares `null`).
+  operator_vocabulary:
+    - Resolve
+    - Policy
+    - Projection
+    - Traversal
+    - Enrich
+    - Similarity
+    - Evaluate
+    - Federate
+
+  # --- THE CLOSED WITNESS VOCABULARY. Four kinds, inherited from rung 03's
+  #     recipe unchanged, and a step that cannot name one of them is a step
+  #     nothing can prove ran.
+  witness_kinds:
+    - kind: operator_in_lineage
+      argument: an operator key
+      proves: >-
+        the key appears in the served product's `lineage.operators_invoked`,
+        which gate 2 holds to strict equality against what the engine resolved
+        (INV-CH7-47). A declared operator that did not run fails the gate, and
+        so does an operator that ran undeclared.
+
+    - kind: payload_key
+      argument: a dotted path into the served payload
+      proves: >-
+        the named key exists in the served payload. Used where a step's output
+        is a VALUE the assembly derived rather than an operator invocation.
+
+    - kind: payload_predicate
+      argument: a named predicate over the served payload
+      proves: >-
+        a property that no single key can carry — that every edge is distinct
+        as a pair, or that a finding carries its closing edge. Named rather
+        than inlined so the test and this document refer to ONE definition.
+
+    - kind: vessel_held
+      argument: none
+      proves: >-
+        a `src/ccf/products/gates.py::ServableProduct` was returned. The type is
+        not constructible outside `run_gates`, so HOLDING one is the evidence
+        the shipped gates ran rather than a claim that they did (INV-CH7-52).
+
+  # ==========================================================================
+  # HOW EACH WITNESS WAS CHOSEN, AND THE RULE IT WAS CHOSEN UNDER
+  # ==========================================================================
+  #
+  # **NO WITNESS IS SATISFIABLE BY ITS OWN STEP'S INPUT.** Rung 03's recipe
+  # records why: a witness on the caller-supplied anchor would be satisfied by
+  # a step that echoed its input and resolved nothing. Each step below states,
+  # in place, what its input is and why the input alone fails the witness.
+  #
+  # Two of the ten are worth meeting before the table, because they are the
+  # ones where the temptation was strongest:
+  #
+  #   * **STEP 4's witness is a NEGATIVE property of the edge set**, and the
+  #     step's own INPUT FAILS IT BY CONSTRUCTION. The 1,058 raw triples
+  #     contain 336 duplicated parent-child pairs; the 722 normalized edges
+  #     contain none. So "no two edges share a parent-child pair" is FALSE of
+  #     the input and TRUE of the output, which is the strongest form this
+  #     rule takes.
+  #
+  #   * **STEP 1's witness is `anchor.uri`, NOT `anchor.lei`.** The LEI is the
+  #     anchor AS SUPPLIED BY THE CALLER, so a witness on it would be satisfied
+  #     by a step that echoed its input and resolved nothing. The canonical
+  #     entity URI is keyed by name, not by LEI, and cannot be produced without
+  #     the resolution actually running.
+
+  steps:
+    - step: 1
+      name: Resolve the anchor
+      operator: Resolve
+      capability_class: relational
+      layer: L2
+      sdk_mechanism: src/ccf/assembly/worker.py::SpecDrivenEntityResolution
+      emits:
+        - the canonical entity URI for the anchor LEI
+      failure: >-
+        fail closed → 404, never an empty payload. An empty family is a claim
+        about the world — "this company has no subsidiaries" — rather than an
+        answer about the request.
+      # NOT `operator_in_lineage`: L2 entity resolution runs outside the L4
+      # registry, so no operator key would appear for it. `Resolve` is the
+      # Standard's name for what the step DOES; it is not a registered operator
+      # here, and it does not enter `operators_invoked`.
+      #
+      # AND NOT `anchor.lei`, WHICH A CARELESS DRAFT WOULD REACH FOR — see the
+      # note above the table.
+      witness:
+        kind: payload_key
+        argument: anchor.uri
+
+    - step: 2
+      name: Load the policy envelope
+      operator: Policy
+      capability_class: relational
+      layer: L4
+      sdk_mechanism: src/ccf/operators/categories.py::PolicyFilter
+      emits:
+        - policy_version
+        - the principal-permissible node set substituted for the full set
+      failure: >-
+        403 on refusal; entitlement source unreachable → 503, NEVER a
+        permissive default.
+      # COMPOSITION INVARIANT 1, AND ON A GRAPH IT STOPS BEING DECORATION. The
+      # envelope shapes WHAT IS WALKED, not what is returned: a node the
+      # principal may not see is never materialized, so no edge to it is ever
+      # built and §B.2's suppression-silence rule holds STRUCTURALLY rather
+      # than by filtering afterwards. A suppressed node must not leave a hole
+      # its neighbors' edges point into.
+      witness:
+        kind: operator_in_lineage
+        argument: policy.principal-subgraph
+
+    - step: 3
+      name: Read the family from Fluree
+      operator: null   # the graph read is an adapter call, not an operator.
+      capability_class: graph-traversal
+      layer: L1/L2
+      sdk_mechanism: src/ccf/graph/backends/fluree.py — the shipped Fluree graph adapter
+      emits:
+        - the raw family triples over the six declared predicates
+        - the `rdf:type` chains, `rdfs:label` and `ex:lei` for every node reached
+        - the `ledger_t` the read was taken at
+      failure: >-
+        source unreachable → 503 WITH THE SOURCE CLASS NAMED. Silence is not a
+        negative answer: an unreachable graph store is not an entity with no
+        family.
+      # THE ONTOLOGY WITNESS, AND ONLY THIS LEG SUPPLIES IT. Nothing in the
+      # request, nothing in PostgreSQL and nothing the assembler computes
+      # carries a FIBO class chain — it comes from this read or it does not
+      # come. So the predicate is simultaneously the honest witness for the
+      # step and the material `CFT-G01` and `CFT-G15` need.
+      #
+      # `type_chain` IS NOT NULLABLE while `lei`, `label` and `attributes` are
+      # (§D.6) — an untyped node is not admitted at all, which is what makes a
+      # predicate over EVERY node non-vacuous rather than a check that passes
+      # on an empty set.
+      witness:
+        kind: payload_predicate
+        argument: every_returned_node_carries_a_non_empty_fibo_type_chain
+
+    - step: 4
+      name: Normalize to parent→child
+      operator: null   # per-predicate direction and set semantics — L2 assembly.
+      capability_class: in-memory
+      layer: L2
+      sdk_mechanism: examples/cp-04-corporate-family-tree/assembler.py::_normalize_edges
+      emits:
+        - the distinct parent→child edge set — 1,058 raw triples to 722 edges
+        - the 336-triple collapse, reported rather than hidden
+      failure: >-
+        a predicate with no declared direction → fail closed. A direction
+        guessed at is an arrow nobody chose, and §C.4 trap 1 is that a COUNT IS
+        BLIND TO AN ARROW: reversing any one of the six moves the root count
+        off 83, so the direction is asserted per predicate rather than inferred
+        from a total that would look right either way.
+      # THE STEP'S OWN INPUT FAILS THIS WITNESS BY CONSTRUCTION — see the note
+      # above the table. It is also the property a build most plausibly gets
+      # wrong in the safe-looking direction: reporting 1,058 edges is reporting
+      # ASSERTIONS and calling them RELATIONSHIPS, and the number looks larger
+      # and more complete rather than smaller and more suspicious.
+      witness:
+        kind: payload_predicate
+        argument: no_two_edges_share_a_parent_child_pair
+
+    - step: 5
+      name: Bound the walk at the caller's max_depth
+      operator: Traversal
+      capability_class: graph-traversal
+      layer: L4
+      sdk_mechanism: src/ccf/operators/categories.py::TraversalNeighborhood
+      emits:
+        - the node set and edge set within `max_depth`
+        - max_depth_applied
+      failure: >-
+        over the declared ceiling of 6 → REFUSED BY NAME, NEVER CLAMPED. A
+        silent clamp is the failure this rung is most exposed to: the request
+        says 8, the walk does 6, the payload looks fine and the content address
+        greens. `CFT-G03` is sabotaged by replacing the refusal with a clamp,
+        which is precisely the sabotage a count-based check would not see.
+      # THE OPERATOR KEY IN LINEAGE, and it is the second of exactly two. This
+      # is also the step the p95 budget is dominated by: the Standard's cost
+      # driver for `Traversal` is `fan-out × depth`, and the measurement says
+      # the same thing about this estate — from the anchor depth is cheap
+      # (22 nodes at depth 3) and FAN-OUT is what would drag in the 748-node
+      # graph.
+      #
+      # `TraversalNeighborhood` ABOVE IS THE SDK CLASS AND `Traversal` IS THE
+      # STANDARD NAME. The two are not interchangeable; see the header.
+      witness:
+        kind: operator_in_lineage
+        argument: traversal.typed-neighborhood
+
+    - step: 6
+      name: Resolve attributes from PostgreSQL
+      # DECLARED WITH A STANDARD NAME AGAINST A MECHANISM THAT IS NOT AN
+      # OPERATOR, and that is stated rather than hidden. This is the vault
+      # article's `Batch Enrich Operator`; the Standard retired the `Batch`
+      # qualifier because BATCH IS MANDATORY RATHER THAN A VARIANT.
+      #
+      # `D-IMPL-223` rules the shape: a recipe step MAY declare a Standard name
+      # against a mechanism that is not a registered operator — the same
+      # permission steps 3, 4, 7, 8 and 10 use when they declare `null`. What
+      # the declaration does NOT do is enter lineage: `operators_invoked` is
+      # held to strict equality against what the registry executed, and only
+      # two operators were.
+      #
+      # `D-IMPL-212` — THAT `Enrich` HAS NO SDK EXPRESSION — IS OPEN AND IS NOT
+      # CLOSED BY `D-IMPL-223`. Recorded, not resolved. Rung 03 met the same
+      # question and answered it differently, declaring `operator: null` for
+      # its batched select on the ground that `Enrich` was 0 hits in `src/`;
+      # this rung declares the Standard name because `D-IMPL-223` has since
+      # ruled the two vocabularies separable. THE MECHANISM IS THE SAME AT BOTH
+      # RUNGS and neither registers an operator — what changed is the ruling
+      # about what a recipe may SAY, not what either build DOES.
+      operator: Enrich
+      capability_class: relational
+      layer: L2
+      sdk_mechanism: examples/cp-04-corporate-family-tree/assembler.py::_resolve_attributes
+      emits:
+        - attribute rows for the collected LEIs that resolve
+        - a NULL RESOLUTION for those that do not
+      failure: >-
+        degrade with elevated debt; NEVER A DROPPED MEMBER. 606 of 748 family
+        nodes have no attribute row, and a build that quietly serves only the
+        142 that do returns a smaller, tidier, WRONG family — with no error, and
+        with a concentration denominator wrong in the safe-looking direction.
+        `CFT-G09` is sabotaged by dropping members whose join fails.
+      # ONE BATCHED SELECT FOR THE WHOLE NODE SET. `CFT-G11` is sabotaged by
+      # firing one query per node — a fan-out that works at depth 2 and
+      # collapses at depth 4.
+      #
+      # THE WITNESS IS ON THE KEY'S PRESENCE, NOT ON A RESOLVED VALUE, AND THAT
+      # IS DELIBERATE. On the demonstrated anchor 20 of 22 subtree nodes
+      # resolve to NO row, so a witness requiring a populated `attributes` on
+      # every node would be RED ON THE VERY RUN THE DOCUMENTATION PRINTS —
+      # which is not a witness, it is a broken test waiting to be explained
+      # away. Rung 03 made exactly that mistake in its own first draft and
+      # recorded it. `attributes: null` IS A SERVED FACT AND NOT AN OMISSION.
+      #
+      # The step's INPUT is the walked node set, which carries no `attributes`
+      # key at all, so the input alone fails the predicate.
+      witness:
+        kind: payload_predicate
+        argument: every_node_carries_an_attributes_key_whether_null_or_resolved
+
+    - step: 7
+      name: Detect cycles
+      # =====================================================================
+      # `operator: null`, DELIBERATELY — and this is the entry `D-IMPL-223`
+      # was minted for.
+      # =====================================================================
+      #
+      # DETECTION EXECUTES IN THE L2 ASSEMBLER (`D-10`), and this step says so
+      # with a `null` rather than borrowing a category to look tidy. Three
+      # reasons, and the third is the binding one:
+      #
+      #   1. **THE STORE CANNOT DO IT.** Fluree has no graph-algorithm library;
+      #      the caller maintains the visited set. `ccf_dataprep` reached the
+      #      same conclusion independently after Neo4j was DROPPED FROM THE v2
+      #      ESTATE on 2026-08-16.
+      #
+      #   2. **NONE OF THE FOUR SCHEDULING CLASSES DESCRIBES IT.**
+      #      `OperatorCategory` is a PLAN-ORDER class carrying correctness
+      #      rules, not a synonym for a Standard name: `CATEGORY_ORDER` puts
+      #      Policy first so Similarity ranks only over the principal-
+      #      permissible subgraph (INV-CH7-26), and Temporal before Traversal
+      #      so a walk expands over reconciled state (INV-CH7-28). Circuit
+      #      enumeration over an already-collected edge set is none of those
+      #      things.
+      #
+      #   3. **`D-IMPL-223` FORBIDS REGISTERING IT UNDER TRAVERSAL TO MAKE A
+      #      CATEGORY FIT.** Four scheduling classes stay, forever, as the
+      #      scheduler; `OperatorCategory` is closed for v0 and is not opened
+      #      here. Registering circuit enumeration as a Traversal operator
+      #      would MAKE THE LINEAGE RECORD SAY SOMETHING UNTRUE — the same
+      #      defect rung 03 refused when it declined to register a batched
+      #      select as `Enrich`.
+      operator: null
+      capability_class: in-memory
+      layer: L2
+      sdk_mechanism: examples/cp-04-corporate-family-tree/assembler.py::_detect_cycles
+      emits:
+        - findings[] entries, each with type, predicate, ordered members and closing_edge
+      failure: >-
+        a detector that cannot terminate → fail closed. A detector that did not
+        run is not a graph with no cycles.
+      # =====================================================================
+      # THE ROSTER ORDER IS A CONVENTION AND IT SHIPS WITH THE DETECTOR
+      # =====================================================================
+      #
+      # Circuits are canonicalized by ROTATING EACH TO START AT ITS
+      # LEXICOGRAPHICALLY SMALLEST MEMBER, so the same circuit entered from
+      # three different nodes is reported ONCE rather than three times, and in
+      # ONE order rather than three.
+      #
+      # THIS IS LOAD-BEARING, NOT COSMETIC. Criteria 15 and 16 assert EXACT
+      # ORDERED rosters, and the same cycle entered from a different node is
+      # the same SET in a different ORDER — so **a correct detector using a
+      # different rotation would fail a correct assertion.** Stated at spec
+      # §C.4 trap 5 and §D.2.2 and carried here so the shipped detector
+      # INHERITS the convention rather than rediscovering it.
+      canonicalization: rotate_each_circuit_to_its_lexicographically_smallest_member
+      # THE WITNESS ASSERTS THE SHAPE, AND THE GATE ASSERTS THE ROSTER. A cycle
+      # is A SET PLUS THE EDGE THAT CLOSES IT, never a bit on a node, and the
+      # closing edge is precisely the part a flattened representation loses —
+      # which is why `CFT-G07` is sabotaged by dropping it. The step's input is
+      # the edge set, which carries no findings at all.
+      witness:
+        kind: payload_predicate
+        argument: every_finding_carries_type_ordered_members_and_closing_edge
+
+    - step: 8
+      name: Surface the duplicate pair
+      operator: null   # label-and-identity comparison over the returned node set — L2.
+      capability_class: in-memory
+      layer: L2
+      sdk_mechanism: examples/cp-04-corporate-family-tree/assembler.py::_surface_duplicate_pair
+      emits:
+        - a findings[] entry for the same company entered twice — §C.4 trap 3
+      failure: >-
+        degrade with elevated debt. The pair not being found is a completeness
+        shortfall the debt reading counts, not an exception.
+      # FINDINGS ARE ORTHOGONAL TO THE TREE (`D-12`). The tree stays the tree;
+      # the findings sit beside it, and NEITHER member of the pair is dropped
+      # or merged. `SuperMicroComputerBV` (LEI `549300F16C4PEFXU0S92`) and
+      # `SubSuperMicroComputerBV` (no LEI) are one hop from the anchor and are
+      # SURFACED rather than silently served as two distinct subsidiaries.
+      #
+      # The step's input is the walked node set, on which nothing is a finding.
+      witness:
+        kind: payload_predicate
+        argument: the_duplicate_pair_is_a_finding_and_neither_member_is_dropped
+
+    - step: 9
+      name: Project
+      operator: Projection
+      capability_class: relational
+      layer: L5
+      sdk_mechanism: examples/cp-04-corporate-family-tree/projection.py
+      emits:
+        - projection_plan_id
+        - the projected shape
+      failure: >-
+        plan unresolvable → 503.
+      # NOT `operator_in_lineage`: `operators_invoked` carries exactly two
+      # entries and neither is a projection. `Projection` is the Standard's
+      # name for what this step DOES; the plan id is the evidence it ran.
+      #
+      # THE PERSPECTIVE CONDITIONS ON FIBO CLASS AND NOT ON A HAND-WRITTEN ROLE
+      # MAP (§D.2.1 role 3). A credit officer's view and a KYC analyst's view of
+      # the same family differ BY CLASS, which is why the Tier 5 Π split is a
+      # different class PREDICATE rather than a different code path.
+      #
+      # THIS IS ONE OF THE THREE PLACES THE VOCABULARY TRAP BITES HARDEST: THE
+      # WORD "CLASS" APPEARS IN BOTH A CLASS-CONDITIONED PROJECTION AND A ROLE
+      # MAP KEYED BY CLASS NAME. A check reading for the token `class` would be
+      # green against both, which is measuring vocabulary rather than content —
+      # so the predicate is over what the projection DID to the served nodes,
+      # never over what it is called. `CFT-G16` is sabotaged by substituting a
+      # hand-written role map, and the step's input — the unprojected node set —
+      # does not satisfy the predicate.
+      witness:
+        kind: payload_predicate
+        argument: the_served_shape_differs_by_fibo_class_not_by_a_named_role_map
+
+    - step: 10
+      name: Contract assembly
+      # NOT AN OPERATOR: the Standard RETIRES `Compose` explicitly — "contract
+      # assembly, not an operator" (§10.2, retired names). `null` rather than a
+      # borrowed category, on the same reasoning as step 7.
+      operator: null
+      capability_class: in-memory
+      layer: L6
+      sdk_mechanism: src/ccf/products/gates.py::run_gates → ::ServableProduct
+      emits:
+        - ServableProduct
+        - expires_at
+        - payload_hash
+        - context_debt
+      failure: >-
+        503 on gate refusal, returned AS DATA and never as a 200 with a
+        warning; 409 on a debt breach, with the debt block. The SDK's shipped
+        gates run UNCHANGED and NO GATE IS ADDED TO THE SDK — `D-IMPL-224`
+        makes the sixteen `CFT-G` assertions a DECLARED ARTIFACT plus CI
+        coverage, with no `ProductGate` Protocol and no serve path.
+      witness:
+        kind: vessel_held
+        argument: null
+
+  # --- WHAT THIS RECIPE DELIBERATELY DOES NOT DECLARE. ----------------------
+  #
+  # The Standard's closed vocabulary has eight names. This product declares
+  # FIVE of them across ten steps — `Resolve`, `Policy`, `Traversal`, `Enrich`,
+  # `Projection` — and the three absences are a SCOPE STATEMENT, not an
+  # omission:
+  #
+  #   Similarity  no ranking. The anchor resolves to one entity or to none, and
+  #               the family is a REACHABILITY answer rather than a relevance
+  #               one. There is no candidate set to rank and no vector index in
+  #               this product's path.
+  #   Evaluate    no measure is computed. The product serves a tree, its edges
+  #               and its findings; the ROLLUP that would compute exposure
+  #               across the family is a different product — `credit-exposure-
+  #               rollup`, rung 05 — and its denominator is what this one
+  #               supplies.
+  #   Federate    single-institution; no external fabric is reached. A2A
+  #               federation of the family across a trust boundary is ruled OUT
+  #               OF THIS PHASE explicitly — *"We will do A2A in a later
+  #               example"* — and §B.5 names it as out of scope rather than
+  #               unimplemented.
+  #
+  # `Temporal` IS NOT IN THE STANDARD'S EIGHT — it is one of the SDK's four
+  # scheduling categories — and the temporal QUESTION is answered at §B.4.3
+  # rather than here: `as_of` is DECLARED AND INERT, refused
+  # `400 not_supported_at_tier`. That absence is the one a reader is most likely
+  # to mistake for an oversight at this rung, because this is the first product
+  # whose store carries a time axis of its own.
+  not_declared:
+    - Similarity
+    - Evaluate
+    - Federate
