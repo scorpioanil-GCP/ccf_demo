@@ -632,3 +632,109 @@ declaration:
           exist in the graph at all — `CycHarborstoneKy` has zero external
           in-edges and is unreachable from this anchor. A roster-blind assertion
           accepts it; the exact-roster assertion of `CFT-G07` does not.
+
+  # ========================================================================
+  # APPENDED IN WAVE 5 BY PLAN `24.4-07`. NOTHING ABOVE THIS LINE IS TOUCHED.
+  # ========================================================================
+  #
+  # **WHY THESE TWO VALUES ARE HERE AND NOT IN A TEST MODULE.** Plan `24.4-03`
+  # authored this document in wave 3 and could only know the criteria 3 through
+  # 18 figures and the `wrong_methods` block — both values below fall out of the
+  # ASSEMBLY, which wave 5 is the first to run. No other plan reopens this file.
+  # Without the append, plan `24.4-11`'s executor would author them inside the
+  # test module that asserts them, and `CFT-G09` and `CFT-G16` would each be a
+  # test agreeing with itself.
+  #
+  # **BOTH WERE ENUMERATED FROM A RUN, NOT TRANSCRIBED FROM A SUMMARY.** The run
+  # was the shipped `assembler.py` against the committed fixture pair seeded into
+  # a local `fluree/server:4.1.4` and a local `postgres:16`, at the DECLARED
+  # DEFAULT depth of 3 and under the DECLARED default role.
+  #
+  # **THE APPEND IS ADDITIVE.** `git diff` over this file shows added lines only:
+  # no key plan 03 authored is rewritten, reordered or re-keyed.
+  #
+  # **NO `CFT-G` TOKEN APPEARS AS A KEY**, and criterion 44 is why: this document
+  # carries expected VALUES and is not widened to carry gate rosters. The sixteen
+  # ids live as DATA in `artifacts/gates.yaml` under a closed schema.
+
+  # ---- The roster `CFT-G09` asserts (criteria 12 and 33) -----------------
+  #
+  # **THE ROSTER, NEVER THE COUNT.** Criterion 12 declares the figures 2, 20 and
+  # 22 and declares NO roster — so an assertion on the count alone passes against
+  # twenty entirely different nodes, which is the defect `D-13` fixed for cycles
+  # and which `D-IMPL-229` applies to this finding by name.
+  #
+  # These twenty are the SMCI-subtree members that resolve to NO
+  # `ccf_v2.legal_entity` row. The product serves each of them with
+  # `attributes: null` and surfaces all twenty together as one
+  # `unresolved_jurisdiction` finding, ORTHOGONAL to the tree exactly as the
+  # cycle findings are. **Not one is dropped** — that is the sabotage `CFT-G09`
+  # names, and it returns a smaller, tidier, WRONG family with no error at all.
+  #
+  # **THE SABOTAGE THIS ROSTER CATCHES AND THE JURISDICTION SET DOES NOT.**
+  # `D-IMPL-229` strikes the rule that filled a missing jurisdiction from the
+  # ANCHOR. Measured: with that fill restored, the served jurisdiction set below
+  # is UNCHANGED at `{NL, US-DE}` and the closed-world check stays green, while
+  # this roster collapses from 20 to 0. A check reading the SET measures
+  # vocabulary; only the roster measures content.
+  #
+  # LOCAL NAMES, on the census convention (`census.anchor_direct_children`).
+  # The full IRIs are derived from the store's own answers; a prefix written here
+  # would be a domain value in an artifact AND a second place for the estate's
+  # namespace to be wrong.
+  unresolved_subtree_members:
+      - CycCalderIndustrialNv
+      - CycMeridianHoldingsSa
+      - CycThornburyCapitalLtd
+      - SubSuperMicroAsiaScienceAndTechnologyParkInc
+      - SubSuperMicroComputerArabiaLtd
+      - SubSuperMicroComputerBV
+      - SubSuperMicroComputerGmbh
+      - SubSuperMicroComputerHoldingsBV
+      - SubSuperMicroComputerIncTaiwan
+      - SubSuperMicroComputerInternationalInc
+      - SubSuperMicroComputerKoreaYh
+      - SubSuperMicroComputerLimited
+      - SubSuperMicroComputerMalaysiaSdnBhd
+      - SubSuperMicroComputerSRL
+      - SubSuperMicroComputerSarl
+      - SubSuperMicroComputerSingaporePteLtd
+      - SubSuperMicroComputerSpainSL
+      - SubSuperMicroComputerUsLlc
+      - SubSupermicroKk
+      - SubSupermicroTechnologyBeijingCoLtd
+
+  # ---- The class `CFT-G16` must NAME (criterion 40) -----------------------
+  #
+  # **THE ONE FIBO CLASS BOTH DECLARED PERSPECTIVES CONDITION ON**, declared by
+  # IRI at `artifacts/source-vocabulary.yaml::perspective_conditioning
+  # .class_axis_iri` and named here by its local name, the census vocabulary.
+  #
+  # **ONE CLASS, TWO SIDES — not two independent predicates**, and that is what
+  # lets the gate fail. The credit officer's view details the members that CARRY
+  # it; the KYC analyst's details the members that do NOT. Measured over the
+  # 22-node subtree: **22 detailed for `credit-officer` and 0 for
+  # `kyc-analyst`**, from one class read off the `type_chain` the graph carries.
+  # So ONE mutation to ONE node's chain moves that node in BOTH views, in
+  # opposite directions — which a hand-written role map keyed by entity name
+  # cannot reproduce, and which is the substitution `CFT-G16` is sabotaged with.
+  #
+  # **THE POPULATION IS CLASS-HOMOGENEOUS AND THAT IS MEASURED.** All 22 nodes
+  # carry the IDENTICAL 7-class chain, so no class discriminates BETWEEN
+  # members — the same measured property that withdrew ontology role 1 and the
+  # seventeenth gate with it (criterion 41). What the two roles differ by is
+  # therefore the class's presence on ALL of them, which is a difference between
+  # VIEWS and not a difference between members. Recorded plainly rather than
+  # implied.
+  #
+  # THE WITHDRAWN ID IS DELIBERATELY NOT WRITTEN HERE.
+  # `tests/examples/test_cp_04_gates_declaration.py` collects every `CFT-G`
+  # token found on a COMMENT LINE across this tree and requires each one to be
+  # DECLARED; naming the withdrawn id in a comment would demand its declaration,
+  # which is precisely what the withdrawal forbids. Wave 3 recorded that trap in
+  # `census.cycle_2` above and this append walked straight into it — caught by
+  # running the gate rather than by reading it.
+  perspective_discriminating_class: Corporation
+  perspective_detailed_members:
+    credit-officer: 22
+    kyc-analyst: 0
