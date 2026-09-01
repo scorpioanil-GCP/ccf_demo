@@ -245,6 +245,14 @@ ruled criterion, not a change to what the door does, and nothing in this plan
 proceeds on a reading of its own — the shipped check asserts the measured
 behavior and the divergence is surfaced rather than absorbed.
 
+**RULED 2026-09-01 — `D-IMPL-233` ruling 1. NO LONGER OPEN.** Dave: *"Amend. The
+tree is: `resources/list` -> `[]`; `resources/templates/list` -> URI template;
+read still `ProductNotServable`. Strike 'enumerable in `resources/list`.'
+Shipped check that asserts both listings stays. `D-34` unchanged."* Criterion 37
+is amended a second time in `.planning/ROADMAP.md` in the marked form. This item
+is kept as the record of the measurement that produced the amendment; it is not
+work owed.
+
 ## 8. `refuse_bound_payload` is not called on either of cp-04's two callers
 
 **Found during:** plan `24.4-09`, task 1, reading
@@ -319,3 +327,58 @@ naming `cp_04_seed.py::schema_for` already provides.
 **What it does NOT affect.** Every cp-04 module is green in two collection orders
 (202 and 168 passed), and the fourteen failures are identical with and without
 this plan's work.
+
+## 11. The cp-04 documentation page cannot carry an `mkdocs.yml` nav entry — the measurement, moved here from `mkdocs.yml` by ruling
+
+**Found during:** plan `24.4-13`, task 3, attempting the nav entry that plan's
+own action text instructed. **MOVED HERE 2026-09-01** from a comment block in
+`mkdocs.yml` by Dave's ruling 2 at `docs/DECISIONS.md::D-IMPL-233`.
+
+**Why it moved.** Dave: *"Delete the comment. A `grep -q cp-04` that passes on a
+comment is an idle gate. cp-00-03 have no nav; `docs_dir` is `public/`; the page
+is gitignored. Plan 13 verify must not require `mkdocs.yml` to mention cp-04.
+README + `build_page.py` are the surface."* **The measurement is not disputed
+and is not lost — only its home changed.** What was refused is keeping a record
+in a place where it also SATISFIES a check: the token `cp-04` was present in
+`mkdocs.yml` in both the compliant case (a real nav entry) and the violating
+case (a comment saying why there is none), which is this phase's own named
+defect class. `deferred-items.md` is read by a human and gates nothing, so the
+same sentence here cannot pass anything.
+
+**What was measured, on 2026-09-01, while delivering cp-04.** Adding
+
+```
+- Corporate Family Tree (cp-04): ../examples/…/page/cp-04.html
+```
+
+to the `Reference` nav makes `make docs-strict` ABORT:
+
+```
+WARNING - A reference to '../examples/…/page/cp-04.html' is included in the
+'nav' configuration, which is not found in the documentation files.
+Aborted with 1 warnings in strict mode!
+```
+
+**Why, mechanically.** `example_delivery.md` §10 says *"a new page under
+`public/` must be added to the `mkdocs.yml` nav"* — the rule is **conditioned on
+`public/`**, and `docs_dir: public` is the whole of what mkdocs reads (`D-01`,
+publication is default-deny by existence). An example's companion page is
+generated into `examples/cp-NN-<slug>/page/` and its render is **git-ignored**
+(`.gitignore` excludes `examples/*/page/*.html`), so it sits outside the
+documentation tree twice over. cp-00 through cp-03 carry no nav entry either,
+and **no locked criterion ever asked for one.**
+
+**Do not "fix" this by adding an entry.** It turns a green gate red and
+publishes a link to a file a fresh clone does not have.
+
+**Verified after the move, 2026-09-01:** `grep -c 'cp-04' mkdocs.yml` returns
+**0** against a positive control of **1** for `docs_dir`, so the zero comes from
+an instrument that fires; `make docs-strict` exits **0**; and `mkdocs.yml` is
+**diff-empty** against the phase base `92761e0` — byte-identical to what it was
+before this phase began — against a positive control showing `examples/` moved
+**24** files in the same window.
+
+**Whether the companion pages should ever be publishable is out of scope here.**
+It would mean either rendering into `public/` or teaching `docs_dir` about a
+second tree, and both are surface decisions for whoever owns
+`example_delivery.md` §10.
