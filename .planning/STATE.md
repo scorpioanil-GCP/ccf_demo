@@ -3,9 +3,53 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-01T21:40:00.000Z"
+last_updated: "2026-09-01T23:55:00.000Z"
 last_activity: >-
-  2026-09-01 -- **PHASE 24.4's BUILD IS DONE AND THE PHASE IS PAUSED FOR DAVE. 14 of 14 plans
+  2026-09-01 -- **PHASE 24.4 IS BUILT, NOT GATED. All 14 plans complete, the build was EVALUATED
+  by Dave against his own five-check gate and ALL FIVE HELD, and his FIVE RULINGS are logged at
+  `D-IMPL-233` and now APPLIED through the phase record.** **NOTHING IS CLOSED.** There is no
+  `D-GATE-24.4`, nothing is marked complete, `ROADMAP.md` carries no phase tick, and the CLAUDE.md
+  SS3.1 close panel has NOT run. Dave: *"Do not treat 14/14 plans as a close. No `D-GATE` until that
+  run plus SS3.1."* The run is done; the panel is next, and it reviews the **SHIPPED TREE** rather
+  than the plans -- write it to `24.4-CLOSE-REVIEWS.md`, inline the source over stdin (codex can exit
+  0 having read nothing, and a single argv string caps at 128KB), brief it on the known findings, and
+  verify every finding against the tree before recording it.
+  **THE FIVE RULINGS, AND WHAT EACH ONE MOVED.** (1) **Criterion 37 amended a SECOND time** --
+  `resources/list` -> `[]`, `resources/templates/list` -> the URI template, a read still refuses
+  `ProductNotServable`; *"enumerable in `resources/list`"* STRUCK; the shipped check asserting BOTH
+  listings stays; `24.4-D-34` unchanged. (2) **The `mkdocs.yml` cp-04 comment DELETED** -- `grep -c
+  'cp-04' mkdocs.yml` is now **0** against a positive control of **1** for `docs_dir`, and the file is
+  diff-EMPTY against the phase base. Plan 13's verify line no longer requires it; the measurement
+  moved to `deferred-items.md` item 11, a document a human reads and no check consults. Dave: *"A
+  `grep -q cp-04` that passes on a comment is an idle gate."* (3) **Cycle 2 RECORDED, not served** --
+  `24.4-D-37`, an ESTATE gap of `24.4-D-32`'s class; `CFT-G15` asserting the unreachability is correct
+  and stays; **no seventeenth gate**, the roster stays SIXTEEN. (4) **The three first-sabotage passes
+  are ADVISORY**, with the lesson recorded as a CLOSE NOTE and no new mechanism: *criterion-shaped
+  sabotage can still miss; a sabotage counts only when the gate goes RED naming its OWN id and the
+  tree is restored.* (5) **The gap roster is ELEVEN under RENAMED ids**, `24.4-D-26`..`24.4-D-36`.
+  **THE IDS ARE `24.4-D-NN` NOW, AND THE MAPPING IS STATED ONCE.** Dave: *"Stop using bare `D-26` in
+  this phase's record - those ids already mean Phase 17."* Measured, roster not count: a bare
+  `D-26` grep over `docs/DECISIONS.md` matches SIX entry lines -- `D-IMPL-145`, `D-IMPL-176`,
+  `D-IMPL-199` (Phase 17) and `D-IMPL-226`, `D-IMPL-232`, `D-IMPL-233` (24.4). The LIVE records were
+  normalized; the completed SUMMARYs and other dated snapshots were deliberately NOT rewritten, and
+  `D-IMPL-232` AMENDMENT 1 carries the mapping a reader resolves them against.
+  **ONE QUESTION IS OPEN AND IT IS DAVE'S: does criterion 49's roster extend from ELEVEN to TWELVE?**
+  Ruling 3 folds cycle 2 into the 24.4 gap list; ruling 5, in the same message, enumerates that list
+  as exactly eleven. Both cannot be mechanical without a twelfth id. `24.4-D-37` is recorded OUTSIDE
+  the roster; criterion 49 is NOT extended and nobody wrote that he approved twelve (`D-IMPL-227`).
+  **MEASURED AT THIS SITTING, each against a control shown to move:** `tests/examples` **787 passed /
+  113 skipped** rc=0; `tests/invariants/test_citation_coverage.py` **5 passed** rc=0 with the ratchet
+  watched go **0 -> 1 -> 0** under a planted line-anchored citation and the tree restored;
+  `tools.lints --all` rc=0, with a planted harness import in `src/` driving it to rc=1 naming
+  `cinv02-harness` and back to rc=0 on removal; `make docs-strict` rc=0; **16** gate ids enumerated
+  `CFT-G01`..`CFT-G16` with **0** `observed_red` null and **0** `CFT-G17`; `src/` and `runtime/`
+  diff-EMPTY across `92761e0..HEAD` against a positive control showing `examples/` moved **24** files
+  in the same window -- and it is recorded that a misspelled `srcc/` pathspec diffs empty EXACTLY like
+  a clean one, which is why that control exists. **`.planning/ROADMAP.md` was NOT touched by this
+  session** -- the orchestrator owns it and had already amended criteria 37 and 49 and both plan
+  checklist rows. **`src/` and `runtime/` were NOT touched.** STATE.md was hand-edited only, backed up
+  before every stage; no `gsd-sdk query state.*` or `roadmap.*` writer was invoked.
+  PRIOR: 2026-09-01 -- **PHASE 24.4's BUILD IS DONE AND THE PHASE IS PAUSED FOR DAVE. 14 of 14 plans
   complete.** `example_delivery.md` sections 1 and 11: Dave evaluates the built product HIMSELF
   before any close panel, `D-GATE` or completion mark. **NOTHING IS CLOSED** -- no `D-GATE-24.4`
   exists, `ROADMAP.md` is untouched, no milestone is marked complete, and no close panel has run.
@@ -1035,22 +1079,62 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-**PHASE 24.4's BUILD IS COMPLETE AND THE PHASE IS PAUSED, AWAITING DAVE'S EVALUATION OF THE
-BUILT PRODUCT.** 14 of 14 plans have SUMMARYs. `main` is ahead of `origin/main`; the tree is
-clean. **Nothing is closed:** `docs/DECISIONS.md` holds no `D-GATE-24.4`, `.planning/ROADMAP.md`
-is not ticked for this phase, no milestone is marked complete, and no close panel has run.
-`public/reference/specifications/example_delivery.md` sections 1 and 11 govern -- the pause
-comes after the build and before any of that, and Dave validates that the example RUNS from a
-cold shell without an agent in the loop.
+**PHASE 24.4 IS BUILT, NOT GATED. THE BUILD WAS EVALUATED AND DAVE'S FIVE-CHECK GATE HELD ON
+LIVE FIXTURES. HIS FIVE RULINGS ARE LOGGED AT `D-IMPL-233` AND APPLIED.** 14 of 14 plans have
+SUMMARYs. `main` is ahead of `origin/main`; the tree is clean. **Nothing is closed:**
+`docs/DECISIONS.md` holds no `D-GATE-24.4`, `.planning/ROADMAP.md` is not ticked for this phase,
+no milestone is marked complete, and **no close panel has run.**
 
-**WHAT TO RUN, in order:** `make venv`; export the two connection variables the README's Run-it
+**THE EVALUATION IS DONE.** All five of Dave's checks held, run against the live fixtures rather
+than reproduced from a document: 22 nodes at `205ae065...`; `MAX_DEPTH=2` and `MAX_DEPTH=4`
+sealing to DIFFERENT addresses; `MAX_DEPTH=8` refused BY NAME at the ceiling of 6 and never
+clamped; `AS_OF` refused `not_supported_at_tier`; and 22 subtree nodes of which 2 resolve in the
+attribute store and 20 resolve to NO row and STAY IN THE TREE. Dave: *"If those five hold on your
+machine, the build is the product you asked for."*
+
+**WHAT COMES NEXT IS THE CLAUDE.md SS3.1 CLOSE PANEL, AGAINST THE SHIPPED TREE.** Dave: *"Do not
+treat 14/14 plans as a close. No `D-GATE` until that run plus SS3.1."* The run is done; the panel
+is not. It reviews the **shipped code**, not the plans -- those are already executed. Write it to
+`24.4-CLOSE-REVIEWS.md` so any pre-execution plan review survives. **Inline the source over
+stdin:** on this host `codex` can exit 0 having read nothing (its `bwrap` sandbox fails silently)
+and a single argv string caps at 128KB, where an over-long payload dies rc=126 with 0 bytes and
+reads exactly like a clean empty review. Brief the panel on the findings already known and point
+it at what is ADJACENT to each. **Verify every finding against the tree before recording or acting
+on it, and record the rejected ones as rejected.** Then triage blocking vs advisory, fix blocking
+in-phase, present to Dave, and only then `D-GATE-24.4`.
+
+**THE ONE OPEN QUESTION, AND IT IS DAVE'S: does criterion 49's roster extend from ELEVEN to
+TWELVE?** Ruling 3 folds *cycle 2 is not askable* into the 24.4 gap list; ruling 5, in the same
+message, enumerates that list as exactly eleven, `24.4-D-26` through `24.4-D-36`. Both cannot be
+mechanical without a twelfth id. It is recorded as **`24.4-D-37`, OUTSIDE the roster**, at
+`D-IMPL-232` AMENDMENT 2. Criterion 49 is NOT extended, nothing is renumbered, and nobody wrote
+that he approved twelve (`D-IMPL-227`, silence is not assent).
+
+**RULING 4's CLOSE NOTE, to be read before the panel runs:** *criterion-shaped sabotage can still
+miss; a sabotage counts only when the gate goes RED naming its OWN id and the tree is restored.*
+`CFT-G05`, `CFT-G16` and `CFT-G10` each passed the sabotage their own criterion worded, from three
+unrelated causes with one shape -- each was reading a RECORD OF THE INTENT rather than the EFFECT.
+All three were rewritten before shipping, so the shipped count is ZERO. **A note, not a mechanism:
+no new test, no new lint, no new gate. Dave said so in terms.**
+
+**WHAT TO RUN, if the product is to be exercised again, in order:** `make venv`; export the two connection variables the README's Run-it
 section names; `make -s example-cp-04`; then `MAX_DEPTH=2` and `MAX_DEPTH=4` (the content
 addresses must DIFFER); then `MAX_DEPTH=8` (must be REFUSED BY NAME at the ceiling of 6, never
 clamped); then `AS_OF=2026-01-01` (must be refused `not_supported_at_tier`); then read
 `examples/cp-04-corporate-family-tree/summary_explanations.md`; then build and open the page with
 `.venv/bin/python examples/cp-04-corporate-family-tree/page/build_page.py`.
 
-**FIVE ITEMS ARE WAITING ON DAVE and none was decided by the executor.** (1) **Criterion 37's
+**THE FIVE ITEMS THAT WERE WAITING ON DAVE ARE ALL RULED, at `D-IMPL-233`, and applied. The
+paragraph below is kept as the record of what was carried to him and what each item actually was.
+(1) RULED -- criterion 37 amended a second time; `resources/list` -> `[]` and the
+`resources/templates/list` wording stands; the shipped both-listings check stays. (2) RULED -- the
+`mkdocs.yml` comment is DELETED and plan 13's verify line freed; the measurement moved to
+`deferred-items.md` item 11. (3) RULED -- cycle 2 is RECORDED, not served: `24.4-D-37`, outside
+criterion 49's roster, with the roster question left OPEN to Dave. (4) RULED -- advisory, with a
+close note and no new mechanism. (5) RULED -- the roster is ELEVEN under RENAMED `24.4-D-NN` ids.
+The original text, preserved:**
+
+**FIVE ITEMS WERE WAITING ON DAVE and none was decided by the executor.** (1) **Criterion 37's
 amended wording is wrong against the tree** -- it says the product resource is *"enumerable in
 `resources/list`"*, and measured at an MCP client `resources/list` returns `[]` while
 `resources/templates/list` returns the URI template, because a placeholder URI registers as a
@@ -1073,8 +1157,19 @@ names eight gaps and its ROADMAP checklist bullet names six; criterion 49 as ame
 ELEVEN, `24.4-D-26`..`24.4-D-36`. All eleven are recorded at `D-IMPL-232`; the lag is written down rather
 than reconciled away, and criterion 49 was NOT amended.
 
-**MEASURED AT THE PAUSE, each with a positive control** (`D-IMPL-232`, `24.4-14-SUMMARY.md`):
-`tests/examples` **769 passed / 113 skipped** rc=0; `tools.lints --all` rc=0; unanchored Python
+**MEASURED AFTER THE RULINGS WERE APPLIED, 2026-09-01, each against a control shown to move:**
+`tests/examples` **787 passed / 113 skipped** rc=0; `tests/invariants/test_citation_coverage.py`
+**5 passed** rc=0, with the ratchet watched go **0 -> 1 -> 0** under a planted line-anchored
+citation and the tree restored; `tools.lints --all` rc=0, driven to rc=1 naming `cinv02-harness`
+by a planted harness import in `src/` and back to rc=0 on removal; `make docs-strict` rc=0;
+`grep -c 'cp-04' mkdocs.yml` **0** against a positive control of **1** for `docs_dir`; **16** gate
+ids enumerated `CFT-G01`..`CFT-G16` with **0** `observed_red` null and **0** `CFT-G17`; `src/` and
+`runtime/` diff-EMPTY across `92761e0..HEAD` against a positive control showing `examples/` moved
+**24** files in the same window, and it is recorded that a misspelled `srcc/` pathspec diffs empty
+EXACTLY like a clean one, which is why that control exists.
+
+**MEASURED AT THE PAUSE, before the rulings, each with a positive control** (`D-IMPL-232`,
+`24.4-14-SUMMARY.md`): `tests/examples` **769 passed / 113 skipped** rc=0; `tools.lints --all` rc=0; unanchored Python
 citations **0** against a ceiling of 0, with the ratchet watched go 0 -> 1 -> 0 under a planted
 citation; **16** declared gate ids with **0** still `null` and `CFT-G17` absent; `src/` and
 `runtime/` both diff-EMPTY across `92761e0..83953e8`, against a positive control showing
