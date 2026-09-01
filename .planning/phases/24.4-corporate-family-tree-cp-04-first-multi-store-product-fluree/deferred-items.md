@@ -25,3 +25,27 @@ immune by construction (it seeds a per-module schema from
 **What it would take:** lead the two fixtures' SQL with
 `DROP SCHEMA IF EXISTS ... CASCADE` or move them to per-module schemas, the way
 `tests/examples/cp_04_seed.py` does. A decision for whoever owns those modules.
+
+## 2. `deployment._rotate` cannot change its input under the walk that calls it
+
+**Found during:** plan `24.4-05`, while sabotaging the shipped rotation
+convention. Replacing `_rotate`'s body with `return tuple(circuit)` — the whole
+convention removed — left both roster assertions GREEN.
+
+**What is true:** `detect_cycles`'s depth-first walk explores a neighbour only
+when `neighbour > start`, so every circuit it closes is already entered at its
+lexicographically smallest member. Measured on the committed fixture by spying
+on `_rotate`: it is handed **two** circuits and **both** already start at their
+minimum. It is a no-op on this estate, and on any estate that walk produces.
+
+**Why this is not a defect:** the convention is a property of the OUTPUT, and
+the output has it. `_rotate` is defensive: it makes the ordering true of the
+function rather than true only as a consequence of the caller's pruning. Aimed
+at something it can change — rotating to the LARGEST member instead — the
+sabotage went RED on both roster assertions, so the rosters are genuinely
+order-sensitive.
+
+**Why it is out of scope here:** `deployment.py` belongs to plan `24.4-06` and
+is not in plan `24.4-05`'s `files_modified`. The only thing worth changing is
+`_rotate`'s docstring, which presents the rotation as the mechanism that makes
+the roster order true rather than as a belt-and-braces restatement of it.
