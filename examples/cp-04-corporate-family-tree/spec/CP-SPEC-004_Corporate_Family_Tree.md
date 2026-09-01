@@ -13,8 +13,8 @@
 |---|---|
 | **Source article** | `wiki/context-products/content/corporate-family-tree.md`, vault-owned, **`standard: q019`** |
 | **Authored to** | `Context_Product_Specification_Standard_v0-3.md` — the article is on the older Q019 form and is *raised* to v0.3 here, per `spec_generation.md` §4 |
-| **Gate 1 status** | **RULED — APPROVED WITH THREE AMENDMENTS, ON THE AMENDED TEXT.** **FORM AMENDMENT 2026-09-01 (Dave): twenty-two `path.py:LINE` citations converted to the `path.py::Symbol` form `D-IMPL-114` ruled. CITATION FORM ONLY — the sixteen gates, the MCP refusal and the consume path are untouched, and this is NOT a re-open of substance.** Approver: **Dave**. Date: **2026-08-31**. Decision: **`D-IMPL-225`**. The three amendments landed in `.planning/ROADMAP.md` (criteria 34, 37, 43, 47 and 49) and in `docs/DECISIONS.md` **BEFORE this row was flipped and before Wave 3**, on the `D-IMPL-222` precedent Dave invoked by name; until they had, nothing under `examples/cp-04-corporate-family-tree/` existed but this document — `example_delivery.md` §1: *"No implementation code before Gate 1."* Each ruling is recorded beside its conflict at §F.4 |
-| **Gate 2 status** | **not started.** No code, no artifacts, no tests |
+| **Gate 1 status** | **RULED — APPROVED WITH THREE AMENDMENTS, ON THE AMENDED TEXT.** **FORM AMENDMENT 2026-09-01 (Dave): twenty-two `path.py:LINE` citations converted to the `path.py::Symbol` form `D-IMPL-114` ruled. CITATION FORM ONLY — the sixteen gates, the MCP refusal and the consume path are untouched, and this is NOT a re-open of substance.** **SUBSTANCE AMENDMENT 2026-09-01 (Dave, `D-IMPL-230`), recorded SEPARATELY from the form amendment above because it is a different kind of change: §E.2's two `[TBC — this build]` markers become MEASURED VALUES — the factor table `F=1`, `C=1`, `S=20/22`, `D_c=0.090909…`, signal `ok`, and `debt_tolerance: "0.25"` (§E.2.1, §F.2 rows 15 and 16). NO WEIGHT WAS INVENTED: the declared model is multiplicative and has no weight term. `debt_tolerance` was NOT moved to rescue a number. The SIXTEEN gates, the MCP refusal, the consume path, the census, the 22-node subtree, the ceiling of 6 and the default of 3 are ALL UNTOUCHED, and NO NEW GATE ID IS MINTED — the roster's home is `CFT-G09` and the `D_c` MOVEMENT assertion is a test.** Approver: **Dave**. Date: **2026-08-31**. Decision: **`D-IMPL-225`**. The three amendments landed in `.planning/ROADMAP.md` (criteria 34, 37, 43, 47 and 49) and in `docs/DECISIONS.md` **BEFORE this row was flipped and before Wave 3**, on the `D-IMPL-222` precedent Dave invoked by name; until they had, nothing under `examples/cp-04-corporate-family-tree/` existed but this document — `example_delivery.md` §1: *"No implementation code before Gate 1."* Each ruling is recorded beside its conflict at §F.4 |
+| **Gate 2 status** | **in progress.** Artifacts, deployment, spine, projection, assembler, the in-process caller and the `example-cp-04` target are built; the MCP door, the sixteen gate modules and the documentation page are not. §F.2 rows 15 and 16 are CLEARED (`D-IMPL-230`); eleven `[TBC — this build]` rows remain |
 | **Estate** | Fluree ledger `fibo-v2` and PostgreSQL schema `ccf_v2` on the `ccf_dataprep` estate, both read-only. **Every figure in §C and §E was measured 2026-08-31 at `ledger_t = 5112`** and is traceable to a row in `24.4-MEASUREMENT.md` |
 | **Stores** | **TWO — Fluree and PostgreSQL.** The split is the vault catalog's and is **not re-derived here** (`D-17`): **Fluree 7 rows, Postgres 4, both 1, twelve rows in total** — §C.1 |
 | **Sixteen product gates** | `CFT-G01`…`CFT-G16`. **`CFT-G17` is WITHDRAWN** with ontology role 1, 2026-08-31 (Dave, `853ccc9`) — §D.2.1 and §G.2 |
@@ -502,6 +502,7 @@ The estate's `graph-traversal` answer is not wholesale. Decomposed:
 | **In-store cycle enumeration** | rare | **NO.** Fluree has no graph-algorithm library equivalent to Neo4j GDS | **Degrades to a named partial: detection runs application-side, in the L2 assembler.** `ccf_dataprep` reached the same conclusion independently — *"depth-bounded traversal uses unioned fixed-length SPARQL patterns; cycle detection runs application-side"* — and Neo4j was dropped from the v2 estate on 2026-08-16 |
 | **Transaction-snapshot pinning of the read** | sometimes | **NO** — the adapter floors, §B.1.1 and `D-26` | Degrades to a reproducibility claim bounded by quiescence. §G.4 states exactly that claim and nothing wider |
 | **Node-class admission during the walk** | sometimes | **NO SDK EXPRESSION.** `GQ-10` types the walk on **edges only**; `seed_entity_classes` seeds the frontier and is never re-applied per hop | **This is why ontology role 1 was struck** — §D.2.1 and `D-33` |
+| **A DIRECTED parent→child descendant walk** | assumed | **NO. The L4 walk is an UNDIRECTED NEIGHBORHOOD.** `src/ccf/operators/categories.py::TraversalNeighborhood` adds **both** `subject→object` and `object→subject` for every traversable edge, so depth is hops through adjacency and not generations of ownership | **`D-36`, RECORDED and not closed.** Measured over the demonstration anchor the operator serves **20 / 22 / 22** at depths 1 / 2 / 3 where the directed family tree gives **20 / 21 / 22**; the one divergent node, `CycThornburyCapitalLtd`, arrives at depth 2 through **cycle 1's closing edge** rather than as a child three generations down. **No declared figure moves** — every demonstration in this document sits at the declared default of 3, where both shapes give 22 |
 
 **The interim posture.** Every trigger this product serves is deliverable. The
 unsupported parameter (`as_of`) returns `400 not_supported_at_tier`. The partial
@@ -830,7 +831,7 @@ artifact carries beside it, with a witness per step. **An L4 step's witness is
 | 2 | **Load the policy envelope** | `Policy` | **L4** | `policy.<key>` — the shipped `PolicyFilter` | `policy_version`, permitted set | **403** on refusal; source unreachable → **503**, never a permissive default |
 | 3 | **Read the family from Fluree** | **`null`** | **L1/L2** | the Fluree graph adapter — six predicates, unioned fixed-length SPARQL patterns to the **declared ceiling** | raw triples, `rdf:type` chains, `rdfs:label`, `ex:lei`, and the **`ledger_t` read at** | source unreachable → **503** with the source class named |
 | 4 | **Normalize to parent→child** | **`null`** | **L2** | per-predicate direction from the declaration; set semantics | the edge set — **1,058 raw → 722 distinct** | a predicate with no declared direction → fail closed |
-| 5 | **Bound the walk at the caller's `max_depth`** | `Traversal` | **L4** | `traversal.typed-neighborhood` — the shipped `TraversalNeighborhood` | node set, edge set within `max_depth` | over-cap → **REFUSED BY NAME**; never clamped |
+| 5 | **Bound the NEIGHBORHOOD at the caller's `max_depth`** | `Traversal` | **L4** | `traversal.typed-neighborhood` — the shipped `TraversalNeighborhood`, which expands **ADJACENCY** and not `owns` parent→child; see `D-36` and §C.2 | node set, edge set within `max_depth` **hops of undirected adjacency** | over-cap → **REFUSED BY NAME**; never clamped |
 | 6 | **Resolve attributes from PostgreSQL** | `Enrich` | **L2** | **ONE batched select** over the collected LEIs against `ccf_v2.legal_entity` — §D.2.3 | attribute rows for the LEIs that resolve; **null resolution for those that do not** | degrade with debt; **never a dropped member** |
 | 7 | **Detect cycles** | **`null`** | **L2** | application-side elementary-circuit enumeration, canonicalized by rotation to the lexicographically smallest member — §D.2.2 | `findings[]` entries, each with `type`, `predicate`, ordered `members`, `closing_edge` | a detector that cannot terminate → fail closed |
 | 8 | **Surface the duplicate pair** | **`null`** | **L2** | label-and-identity comparison over the returned node set | a `findings[]` entry — §C.4 trap 3 | degrade with debt |
@@ -843,6 +844,18 @@ artifact carries beside it, with a witness per step. **An L4 step's witness is
 declared as operators to the registry**; a step declaring a Standard name against
 a non-operator mechanism (step 6) does **not** enter `operators_invoked`, and
 that distinction is the subject of §D.2.3.
+
+**STEP 5 IS A NEIGHBORHOOD AND NOT A DIRECTED TREE, AND THE DIFFERENCE IS
+MEASURED RATHER THAN CONCEDED** (`D-36`, ruled 2026-09-01, Dave, `D-IMPL-230`).
+`TraversalNeighborhood` symmetrizes its adjacency, so *depth 2* means *two hops
+of adjacency* and not *two generations of ownership*. **The lie is at depth 2 and
+only there:** 20 / 22 / 22 served at depths 1 / 2 / 3 against the directed tree's
+20 / 21 / 22. **NOT FIXED IN `src/`** — the same `D-04` posture as `D-33`, its
+sibling in the same operator — and **no declared figure moves**, because every
+demonstration sits at the declared default of 3 where both shapes give 22. What
+changes is what this document is allowed to call it: a directed descendant walk
+is not what this SDK walk is, and no §C, §D or example-facing string in this
+build says otherwise.
 
 **p95 budget:** per step and total `[TBC — this build]`, against a declared Tier
 2 envelope of `[TBC — this build]`. **Step 5 dominates by construction** — the
@@ -1220,7 +1233,7 @@ required signal classes, not over the classes actually present.**
 | The anchor's own resolution | **no** | — | **Fail closed → `404`.** Never an empty payload |
 | The policy envelope | **no** | — | **Fail closed → `403` / `503`.** Never a permissive default |
 | The Fluree family read | **no** | `F` | **Fail closed → `503`** with the source class named. **Silence is not a negative answer** — an unreachable graph store is not an entity with no family |
-| **Attribute resolution for a given node** | **yes, and usually** | `S` | **Serve with a null resolution and elevated `D_c`.** 606 of 748 family nodes have no row. **Never a dropped member** (`D-16`, gate `CFT-G09`) |
+| **Attribute resolution for a given node** | **yes, and usually** | `S` in principle; **NOT folded into `S` in this build** — §E.2.1 and `D-IMPL-230` | **Serve with a null resolution.** 606 of 748 family nodes have no row, and 20 of the demonstrated subtree's 22. The shortfall is served as the `unresolved_jurisdiction` **roster** finding (`D-IMPL-229`) rather than compressed into a scalar. **Never a dropped member** (`D-16`, gate `CFT-G09`) |
 | Class chain on a returned node | **no** | `C` | **Fail closed.** An untyped node is not admitted (gate `CFT-G01`) |
 | Cycle detection | **no** | `C` | **Fail closed.** A detector that did not run is not a graph with no cycles |
 | The duplicate-pair check | **yes** | `S` | Serve with a notice and elevated `D_c` |
@@ -1228,16 +1241,77 @@ required signal classes, not over the classes actually present.**
 | Valid-time interval on an edge | **yes, always** | `S` | `NOT_EVALUABLE`. Not fetched at source (§C.1.2 item 2) |
 
 **Debt is decomposed per claim, never only per product.** A family whose tree is
-complete and whose attributes are 20-of-22 absent returns **a served tree with
-an elevated `S`**, not a product-level failure and never a silently-shortened
-roster. The gap is captured **before** the concentration decision is taken and
-shapes it directly: *the group is these 22 entities, and we hold reference data
-on two of them* is a decision input. **`606 of 748` is not a defect report; it
-is the answer.**
+complete and whose attributes are 20-of-22 absent returns **a served tree and a
+roster naming those twenty**, not a product-level failure and never a
+silently-shortened roster. The gap is captured **before** the concentration
+decision is taken and shapes it directly: *the group is these 22 entities, and we
+hold reference data on two of them* is a decision input. **`606 of 748` is not a
+defect report; it is the answer.**
 
-Per-component weights: `[TBC — this build]`.
-`debt_tolerance` default: `[TBC — this build]`, provisional. Breach → **`409`
-with the debt block**, not a `200` with a warning.
+#### E.2.1 The measured factor table — RULED 2026-09-01 (Dave, `D-IMPL-230`)
+
+**Every value below is MEASURED against the committed fixture pair through the
+shipped scorer, or is a definition this document already states. NO WEIGHT WAS
+CHOSEN.** The two `[TBC — this build]` markers this section carried — §F.2 rows
+15 and 16 — are cleared here, and the clearing is a **substance** amendment to a
+ruled Gate 1 document rather than a form correction, which is why the front
+matter's `Gate 1 status` row records it as one.
+
+| Factor | Value | Where the value comes from |
+|---|---|---|
+| **`F`** — freshness, normalized over the **required** signal classes | **`1`** | **Measured, and it is a finding rather than a convenience.** No family node and no family edge in the ledger carries an assertion date of any kind — the store holds the six predicates, `ex:lei`, `rdfs:label` and `rdf:type`, and no timestamp — so every envelope carries `observed_time=None`, which `SignalEnvelope`'s own contract defines as *unknown*. Fluree's `t` is TRANSACTION time and `D-IMPL-88` rules it must not stand in for an observation, so the store offers no second candidate. Every observation is therefore dated at the read instant and the decay factor is 1 at every read. `produce.py::measure_debt` |
+| **`C`** — completeness over the elements this table declares **required** | **`1`** | **Structural, not a measurement that could have come out otherwise.** The four elements this table marks *may be absent: no* — the anchor's own resolution, the policy envelope, the Fluree family read, and the class chain on every returned node — are fail-closed conditions reached long before the scorer, and cycle detection runs unconditionally. A product holding a gate-admitted vessel has all five |
+| **`S`** — semantic consistency | **`20 / 22` = `0.909090…`** | **Measured.** The whitepaper defines `S` as the fraction of assembled sources whose structured assertions agree on the entities the decision cares about. This is the first rung that reads two stores and can therefore have one, and its graph leg carries a measured self-disagreement: the duplicate-identity finding, **`SuperMicroComputerBV` and `SubSuperMicroComputerBV`** — the same company entered twice, one hop from the anchor. Two of the twenty-two served members have an identity a finding disputes. `produce.py::_agreement` |
+| **`D_c = 1 − (F · C · S)`** | **`0.090909…`** | Arithmetic over the three rows above. Multiplicative, so a collapsed dimension forces escalation rather than being averaged away |
+| **signal** | **`ok`** | `0.090909…` is below `forced_llm_threshold` and below `fail_closed_threshold` |
+| `risk_sensitivity` | **`1.0`** | `ccf_config.yaml::debt_profile` — declared, versioned Control Plane state |
+| `forced_llm_threshold` | **`0.60`** | idem |
+| `fail_closed_threshold` | **`0.77`** | idem |
+
+`debt_tolerance` default: **`0.25`**, declared at
+`artifacts/question.yaml::parameters.debt_tolerance` and quoted as text because
+the canonical encoder refuses a float. Breach → **`409` with the debt block**,
+not a `200` with a warning. **`0.090909…` against `0.25` SERVES**, and the
+tolerance was **not moved to make it do so**: Dave, verbatim — *"Do not calibrate
+`debt_tolerance` to rescue a 0.909… Don't raise tolerance to 0.95 and don't
+pretend 0.909 is the whitepaper number."*
+
+**THERE ARE NO PER-COMPONENT WEIGHTS, AND THAT IS THE ANSWER TO §F.2 ROW 15
+RATHER THAN A VALUE WITHHELD.** The model this section declares is
+`D_c = 1 − (F · C · S)` — **multiplicative**, with no weight term anywhere in it,
+and `ccf.halflife.debt::assess_debt` takes exactly `(factors, profile)` and
+applies none. A weights row would have had to be invented to be filled, and
+inventing one would have been choosing the number that decides whether this
+product's headline demonstration exists at all.
+
+**THE TWO TWENTIES ARE DIFFERENT POPULATIONS AND MUST NOT BE READ AS ONE.** `S`'s
+numerator counts the **twenty members whose identity no finding disputes** — the
+twenty-two served less the duplicate pair. The `unresolved_jurisdiction` roster
+counts the **twenty members carrying no `ccf_v2.legal_entity` row** — the
+twenty-two less the anchor and `SuperMicroComputerBV`. **Measured, the two sets
+overlap in NINETEEN members and are not the same set:**
+`SubSuperMicroComputerBV` is in the roster and not in `S`'s numerator, the anchor
+`SuperMicroComputerInc` is in `S`'s numerator and not in the roster, and
+`SuperMicroComputerBV` is in neither. **They agree on a number and disagree on a
+membership**, which is exactly the coincidence a reader will otherwise resolve
+the wrong way — and it is why the roster is asserted as a **roster** and never as
+its cardinality (`D-13`).
+
+**THE ARITHMETIC THAT LOOKED LIKE A CONTRADICTION, RECORDED SO IT IS NOT
+RE-DERIVED.** Reading *"20 of 22 members lack a PostgreSQL row"* as a single lump
+of context debt gives `S = 2/22` and `D_c ≈ 0.909`; against a `debt_tolerance` of
+`0.25` that **`409`s and never serves the tree criteria 12 and 33 and gate
+`CFT-G09` exist to protect**. That is the **lump** reading, not the factor path
+the scorer runs, and it is not the whitepaper's number. This table is the factor
+path.
+
+**HOW `D_c` IS GATED — MOVEMENT, NEVER A FROZEN SCALAR.** The assertion is that
+**`D_c` moves when its inputs move**, together with the twenty-member roster —
+**never `D_c == 0.090909…` forever**. A frozen scalar is a constant agreeing with
+itself, and a debt score that does not move when its inputs move is the
+idle-gate class arriving through a float. **No new gate id is minted**: the
+roster's home is `CFT-G09` and the movement assertion is a test. The roster stays
+**sixteen**, `CFT-G01`…`CFT-G16`.
 
 ### E.3 Materialization posture
 
@@ -1332,8 +1406,8 @@ comparing totals — *a count is not a roster*.
 | 12 | The two L4 operator keys | §D.2 | this build | Gate 2 |
 | 13 | Pin values for the demonstrated run, **including the `ledger_t`** | §D.8 | this build | Gate 2 |
 | 14 | TTL expiry and refusal count for the pinned run | §B.1.2 | this build | Gate 2 |
-| 15 | Per-component `D_c` weights — 9 rows | §E.2 | this build | Gate 2 |
-| 16 | `debt_tolerance` calibration | §B.4, §E.2 | this build | Gate 2 |
+| 15 | Per-component `D_c` weights — 9 rows — **CLEARED 2026-09-01 (Dave, `D-IMPL-230`): THERE ARE NONE.** The declared model is multiplicative and carries no weight term; the answer to this row is that the marker had no referent, not a value withheld — §E.2.1 | §E.2 | this build | **CLEARED** |
+| 16 | `debt_tolerance` calibration — **CLEARED 2026-09-01 (Dave, `D-IMPL-230`): `0.25`, NOT moved.** The measured `D_c` is `0.090909…` and it SERVES against `0.25`; the tolerance was not calibrated to rescue a number — §E.2.1 | §B.4, §E.2 | this build | **CLEARED** |
 | 17 | `λ_c` measured against read frequency | §E.1 | this build | Gate 2 |
 | 18 | Counterfactual fixture `CFT-F01` — the two-answer comparison | §A.2 | this build | Gate 2 |
 | 19 | **Sabotage result for each of the SIXTEEN gates** | §D.7, §G.2 | this build | Gate 2 |
@@ -1342,9 +1416,12 @@ comparing totals — *a count is not a roster*.
 **Twenty rows. Four belong to the vault, one to identity and access, one to
 `ccf_dataprep`, thirteen to this build, and ONE to Dave. Dave's — row 20 — was
 the only blocking row, and it is CLEARED at Gate 1** (`D-IMPL-225`), which
-unblocks rows 8, 9 and 19. **Nineteen rows remain open, and NONE of them
-blocks**: thirteen clear at Gate 2, six belong to the vault, identity-and-access
-and `ccf_dataprep` and are named rather than invented.
+unblocks rows 8, 9 and 19. **Rows 15 and 16 are CLEARED 2026-09-01**
+(`D-IMPL-230`), which is the §E.2 substance amendment recorded in the front
+matter's `Gate 1 status` row. **SEVENTEEN rows remain open, and NONE of them
+blocks**: eleven clear at Gate 2, six belong to the vault, identity-and-access
+and `ccf_dataprep` and are named rather than invented. The count is taken by
+enumerating the rows and not by subtracting from a remembered total.
 
 ### F.3 Access path, identifiers, history, volumetrics
 
