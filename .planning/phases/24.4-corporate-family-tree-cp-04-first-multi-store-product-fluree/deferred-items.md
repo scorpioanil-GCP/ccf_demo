@@ -290,3 +290,32 @@ criterion 49 forbids it in this phase. Recorded under the same `D-04` posture as
 Nothing is papered over — `server/compose.py`'s docstring states that the
 refusal propagates and why, and the two-caller module asserts the refusals by
 their declared text rather than by the fact that something raised.
+
+## 10. `test_cp_01_output.py` and `test_cp_02_output.py` are RED on this host, pre-existing
+
+**Found during:** plan `24.4-12`, running the whole `tests/examples/` tree once
+to check that the new module does not disturb its siblings.
+
+**Measured.** 14 failures — 6 in `tests/examples/test_cp_01_output.py` and 8 in
+`tests/examples/test_cp_02_output.py`. **They are not this plan's**, and that is
+measured rather than assumed: with `tests/examples/test_cp_04_seams.py` moved
+out of the tree entirely, the same 14 fail in the same way.
+
+The failure is a **shared-fixture collision**, the class this repository already
+knows: `test_the_seeder_seeded` reports *"the fixture seeded 840 facilities,
+expected 60"*, so the local `postgres:16` container is carrying accumulated rows
+from earlier runs of a fixture whose schema is not per-module. It is the same
+shape `tests/examples/cp_04_seed.py`'s docstring records at length — *"the schema
+DDL leads with `DROP TABLE IF EXISTS ... CASCADE`, so the second seed does not
+raise; it quietly rebuilds the first module's table underneath it"* — and it is
+exactly why cp-04 names its ledger and schema per module.
+
+**Why it is out of scope here.** It is in cp-01's and cp-02's fixtures, not in
+anything this phase touches, and the SCOPE BOUNDARY rule for an executor is that
+only defects DIRECTLY caused by the current task's changes are auto-fixed.
+Whoever owns cp-01 and cp-02 should give those two the per-module schema
+naming `cp_04_seed.py::schema_for` already provides.
+
+**What it does NOT affect.** Every cp-04 module is green in two collection orders
+(202 and 168 passed), and the fourteen failures are identical with and without
+this plan's work.
