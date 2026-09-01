@@ -83,3 +83,89 @@ plausible and would have survived re-checking.
 **Why it is out of scope here:** every site belongs to a document another plan
 owns, and plan `24.4-05` may not edit them. Phase 23's precedent is FIX BY
 CONVERSION to the `path.py::Symbol` form, never by raising the ceiling.
+
+## 5. `D-36` — the Traversal category expresses an undirected NEIGHBORHOOD, so a directed descendant walk has no SDK expression
+
+**Found during:** plan `24.4-07`, while measuring what the L4 operator actually
+serves at each depth rather than assuming it matched the deployment's own walk.
+
+**What is true, read in the source and confirmed by running it.**
+`src/ccf/operators/categories.py::TraversalNeighborhood.apply` builds its
+adjacency from BOTH endpoints of every edge:
+
+```
+adjacency.setdefault(edge.claim.subject_uri, set()).add(edge.claim.object_uri)
+adjacency.setdefault(edge.claim.object_uri, set()).add(edge.claim.subject_uri)
+```
+
+So the walk is an undirected typed *neighborhood* — exactly what its key
+`traversal.typed-neighborhood` says — while a corporate family TREE is a
+directed parent-to-child descendant walk. `GQ-10` types the walk on edges only
+and says nothing about direction, so this is by design rather than a defect.
+
+**Measured over the committed fixture.** From `SuperMicroComputerInc` the L4
+operator serves **20 / 22 / 22** nodes at `max_depth` 1 / 2 / 3, where the
+directed parent-to-child reach is **20 / 21 / 22**. The single divergent node is
+`CycThornburyCapitalLtd`: cycle 1's closing edge `Thornbury -> Meridian` puts it
+one UNDIRECTED hop from `CycMeridianHoldingsSa`, which the anchor reaches
+directly, so the operator serves at depth 2 what the tree places at depth 3.
+
+**No declared figure moves.** Criterion 11's `nodes_reached_by_depth`
+(`20 / 21 / 22`) is a census figure over the 722 normalized edges and
+re-derives exactly. Criteria 11 and 12 and the bundled demonstration are all
+taken at the declared default of **3**, where the two agree at **22**. Nothing
+in `24.4-MEASUREMENT.md` or `artifacts/expected.yaml` is contradicted.
+
+**What plan `24.4-07` did about it.** Recorded, not absorbed. `projection.py`
+serves the node set the OPERATOR returned — never re-walked and never
+re-filtered, because a projection that reapplied the depth bound would make the
+operator decorative and hide this — and carries each member's TRUE directed
+generation, read at the declared ceiling so the map is total.
+`FamilyScenario.depth_by_node` carried a claim that the two were "a second
+computation of the same number"; that claim was FALSE when measured and is
+corrected in place.
+
+**Why it is out of scope here:** criterion 49 forbids modifying `src/`, and this
+is the same class as `D-33` — a property the SDK's operator vocabulary cannot
+express — which plan `24.4-14` records rather than closes.
+
+**What it would take:** a direction-aware traverse family, or a deployment
+operator registered through `build_operator_registry(deployment_operators=...)`.
+Both are `src/` or design decisions, and neither belongs to this phase.
+
+## 6. §E.2's `S` routing for absent attribute rows cannot be implemented at the declared numbers
+
+**Found during:** plan `24.4-07`, computing `D_c` for the first time on this rung.
+
+**The conflict, arithmetically.** Spec §E.2's per-component table routes
+*"attribute resolution for a given node"* to **`S`** with the behavior
+*"serve with a null resolution and elevated `D_c`"*. Twenty of the SMCI
+subtree's twenty-two members hold no `ccf_v2.legal_entity` row, so folding
+attribute coverage into `S` multiplicatively gives `S = 2/22` and
+`D_c = 1 - (1 x 1 x 0.0909) ~= 0.909` against `question.yaml`'s declared
+`debt_tolerance` of `0.25`. The product would refuse **409** and never serve the
+tree that criteria 12 and 33 and gate `CFT-G09` exist to protect — the same
+population the struck nine-jurisdiction envelope deleted, reached by a different
+road. The table's own instruction is SERVE.
+
+**Why no weight was invented.** §E.2 states *"Per-component weights:
+`[TBC — this build]`"* and `question.yaml` marks `debt_tolerance` itself
+`[TBC — product owner]`. There is no declared value to apply, and choosing one
+would be choosing the number that decides whether this product's headline
+demonstration exists.
+
+**What was shipped instead.** Every factor is measured against the whitepaper's
+own definitions with no invented constant — `F` over the REQUIRED signal classes,
+`C = 1` over §E.2's fail-closed elements (the whitepaper defines `C` as *"the
+fraction of REQUIRED fields actually populated"*, and §E.2 declares the attribute
+row *"may be absent: yes, and usually"*), and `S` from the duplicate-identity
+finding, which is a real two-node disagreement about one company. Measured:
+`D_c = 0.0909`, signal `ok`. The 20-of-22 shortfall is served AS DATA — the
+`unresolved_jurisdiction` finding with its roster, and `attributes: null` on each
+member — rather than folded into a scalar nobody chose. **`606 of 748` is not a
+defect report; it is the answer.**
+
+**What it would take:** a ruling. Either §E.2's `S` routing for attribute
+absence is amended, or `debt_tolerance` moves off `0.25`, or the per-component
+weights are declared. `produce.py::measure_debt`'s docstring carries the same
+account beside the code.
