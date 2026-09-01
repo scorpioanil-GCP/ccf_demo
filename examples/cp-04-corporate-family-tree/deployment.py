@@ -93,40 +93,56 @@ is unreadable without it:
    typed edge for admission through ``worker.admit_relationship_claim``
    (``:315``), **carrying its true predicate**. Still one writer, still L2, and
    no file under ``src/`` changes.
-2. **The policy classification — the family's OBSERVED jurisdiction set, closed
-   at two values.** ``PolicyFilter._admits`` refuses an ABSENT classification
+2. **The policy axis — OBSERVED FAMILY MEMBERSHIP, and jurisdiction is a
+   SERVED FIELD.** ``PolicyFilter._admits`` refuses an ABSENT classification
    attribute exactly as firmly as an out-of-grant one, and 20 of the SMCI
-   subtree's 22 members hold no PostgreSQL row — so under the struck nine-value
-   envelope the Policy step deleted 20 of the 22 members, which is precisely the
-   population ``CFT-G09`` and criterion 33 exist to protect. Ruled 2026-09-01 as
-   ``D-IMPL-228``: the declared set is ``{NL, US-DE}``, the set this family
-   actually exhibits, **closed, with an unknown key refused**; a member carries
-   its own ``legal_jurisdiction`` where a row exists and **the family's — the
-   anchor's — where none does**. :func:`classify_family` applies it and
-   :func:`refuse_open_jurisdiction_world` closes the world in **both**
-   directions, so neither a dropped row nor a quietly added one can ship.
+   subtree's 22 members hold no PostgreSQL row — so ANY jurisdiction-keyed
+   envelope deletes 20 of the 22 members, which is precisely the population
+   ``CFT-G09`` and criterion 33 exist to protect. ``D-IMPL-228`` narrowed the
+   declared set to ``{NL, US-DE}`` and kept a second classification source that
+   filled a missing value from the ANCHOR. **``D-IMPL-229`` STRUCK that second
+   source and moved the axis.** Dave: *"A missing Postgres row is not
+   `US-DE`."* Policy now admits on ``family_id`` — the anchor's LEI, **minted
+   when a node is admitted to the walk**, so the value is OBSERVED and there is
+   nothing to be absent. :func:`mint_family_membership` mints it,
+   :func:`refuse_unminted_membership` asserts the no-``None`` property rather
+   than leaving it to a comment, and :func:`policy_parameters` binds the one
+   family the request named.
 
-**THE WALK IS FAMILY-SCOPED; THE JURISDICTION LIST IS NOT.** ``D-IMPL-228``
-refuses the inverse by name — *"Do not 'family-scope' a superset of
-jurisdictions so the anchor happens to hit the list."* Family-scoping over the
-struck nine would have admitted every member because the anchor is ``US-DE``,
-for a reason unrelated to the other seven. Dave, verbatim: *"Nine-row
-'coverage' is how idle gates look when the extra rows never fire."*
+   ``{NL, US-DE}`` did not disappear — it MOVED to the served-and-asserted set.
+   :func:`served_jurisdictions` reads each member's STORED value or ``None``,
+   never the anchor's, and :func:`refuse_open_jurisdiction_world` closes that
+   world in **both** directions, so neither a dropped row nor a quietly added
+   one can ship. The 20 members carrying no row surface as an
+   ``unresolved_jurisdiction`` finding carrying their ROSTER — never as a count
+   and never as ``len(findings) > 0``, which is the discipline ``D-13`` fixed
+   for cycles.
+
+**WHY INHERITANCE WAS REFUSED, and it is this phase's recurring defect for the
+third time.** Dave: *"Inheritance is the same class as the nine-row fiction: a
+value that was never observed, applied so a gate looks populated."* The struck
+nine-jurisdiction list carried seven rows that could never fire;
+anchor-inheritance would have put a value on 20 nodes no source ever asserted
+it about. Both make a check look populated while measuring nothing. **Family
+membership is admissible precisely because the walk DID observe it** — that is
+the whole distinction.
 
 **WHAT IS EXERCISED HERE:** both connection seams, the bounded walk, the
 whole-ledger enumeration, the normalization with its per-predicate arrow, the
 cycle detector with its rotation convention, the duplicate-identity finding,
-the ONE batched attribute read, the classification, the L1 envelopes, the typed
-edge claims, the scenario the spine reads, and every refusal.
+the ONE batched attribute read, the membership minting, the served
+jurisdictions, the L1 envelopes, the typed edge claims, the scenario the spine
+reads, and every refusal.
 
 **WHAT THIS MODULE STILL DOES NOT COMPUTE, NAMED RATHER THAN LEFT TO A STACK
 TRACE.** ``D_c``. ``ccf_config.yaml`` declares a ``debt_profile`` and
 ``question.yaml`` a ``debt_tolerance``, and :class:`FamilyScenario` carries both
-**as data**; what ``F``, ``C`` and ``S`` are measured over for a graph payload
-is spec section E.2's question and belongs with the spine that refuses on it,
-which is plan ``24.4-07``. Declaring the inputs and computing nothing is the
-honest boundary; inventing a formula here would put a domain decision in the
-file least likely to be read for one.
+**as data**. The measurement itself lives in ``produce.py``, beside the branch
+that refuses on it, on the same reasoning rungs 00 through 03 followed —
+declaring the inputs here and computing nothing keeps a domain decision out of
+the file least likely to be read for one. See ``produce.py``'s ``debt`` region
+for the ONE part of section E.2 that could not be implemented without a ruling,
+recorded there rather than resolved.
 """
 
 from __future__ import annotations
@@ -139,6 +155,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
 
@@ -242,22 +259,43 @@ VOCAB_SERVED_COLUMNS = "served_columns"
 VOCAB_JURISDICTION_COLUMN = "jurisdiction_column"
 VOCAB_REFUSE_EMPTY_FOLD = "refuse_empty_fold"
 
-#: `artifacts/source-vocabulary.yaml::entitlement` — the block `D-IMPL-228`
-#: ruled on 2026-09-01, and the home of WHICH classification value a family
-#: member carries. The declared SET lives in `ccf_config.yaml`; the value's
-#: PROVENANCE is a source fact and lives here.
+#: `artifacts/source-vocabulary.yaml::entitlement` — ruled `D-IMPL-228` and
+#: AMENDED the same day by `D-IMPL-229`. It now carries two separate things:
+#: the POLICY axis (observed family membership) and the SERVED jurisdiction set.
+#: The two were one field until `D-IMPL-229`, and separating them is the whole
+#: correction.
 VOCAB_ENTITLEMENT = "entitlement"
-VOCAB_CLASSIFICATION_ATTRIBUTE = "classification_attribute"
-VOCAB_CLASSIFICATION_SOURCES = "classification_sources"
+VOCAB_MEMBERSHIP_ATTRIBUTE = "membership_attribute"
+VOCAB_MEMBERSHIP_SOURCE = "membership_source"
+VOCAB_MEMBERSHIP_VALUE_KIND = "membership_value_kind"
+VOCAB_SERVED_JURISDICTIONS = "served_jurisdictions"
 
-#: The two declared classification sources, in the order the artifact lists
-#: them. `own_attribute_row` reads the member's own `jurisdiction_column`;
-#: `family_anchor` reads the value the ANCHOR resolved to. A source this module
-#: does not implement is a refusal, never a silent skip — otherwise a document
-#: could declare a provenance nobody honored and the payload would still look
-#: right.
-CLASSIFICATION_OWN_ROW = "own_attribute_row"
-CLASSIFICATION_FAMILY_ANCHOR = "family_anchor"
+#: The ONE declared provenance of the membership value, and it is not a store.
+#: A node carries the value because THE WALK REACHED IT, which is why
+#: `PolicyFilter._admits` can never see `None` on this axis — there is no
+#: lookup to come back empty. `D-IMPL-229`: *"minted when the node is admitted
+#: to the walk, so it is observed, not inferred from PostgreSQL."*
+MEMBERSHIP_SOURCE_WALK = "walk_admission"
+
+#: The membership value's vocabulary — the ANCHOR's LEI, the same token the
+#: request asks in. Declared as a KIND in the artifact; the value itself is per
+#: request and appears in no document.
+MEMBERSHIP_VALUE_ANCHOR_LEI = "anchor_lei"
+
+#: `artifacts/source-vocabulary.yaml::perspective_conditioning` — §D.2.1 role
+#: 3, the block `CFT-G16` reads. It cannot live in `ccf_config.yaml`:
+#: `src/ccf/controlplane/artifacts.py::DeploymentConfig` rules unknown
+#: top-level keys an error and `default_perspective` holds exactly ONE
+#: perspective, while role 3's claim is about TWO.
+VOCAB_PERSPECTIVE = "perspective_conditioning"
+VOCAB_CLASS_AXIS_IRI = "class_axis_iri"
+VOCAB_ROLES = "roles"
+
+#: The only two sides of the class axis a declared role may take. A third value
+#: is refused rather than defaulted: a role whose side nobody chose would
+#: condition on nothing while looking configured.
+AXIS_CARRIES = "carries"
+AXIS_LACKS = "lacks"
 
 NODE_PREDICATE_LEI = "lei"
 NODE_PREDICATE_LABEL = "label"
@@ -282,6 +320,19 @@ FINDING_DUPLICATE_ENTITY = "duplicate_entity_pair"
 
 PARAM_INTENT = "intent"
 PARAM_MAX_DEPTH = "max_depth"
+
+#: The debt ceiling, quoted as TEXT in `question.yaml` and presented to the
+#: request contract as a `Decimal`. The artifact quotes it because a float is
+#: not bit-stable across platforms and therefore cannot enter a content address
+#: — `ccf.contracts.canonical::content_hash` refuses one outright — and the
+#: contract declares `type: number` because that is what the value IS. Rung 03
+#: converts at the same seam for the same reason.
+PARAM_DEBT_TOLERANCE = "debt_tolerance"
+
+#: The anchor, as the request contract's REQUIRED argument. The value is
+#: composed from `question.yaml`'s `subject:` rather than written a second time
+#: under `parameters:` — see :func:`demonstration_request`.
+PARAM_LEI = "lei"
 
 KEY_ARGUMENT_DEFAULTS = "argument_defaults"
 KEY_ARGUMENT_BOUNDS = "argument_bounds"
@@ -378,7 +429,7 @@ def tenant_id() -> str:
     return str(config()[KEY_TENANT])
 
 
-def perspective() -> Perspective:
+def perspective(role: str | None = None) -> Perspective:
     """The role-conditioning this product is served under.
 
     ``principal_id`` here is the DEFAULT and not the rule. Whether the calling
@@ -386,11 +437,32 @@ def perspective() -> Perspective:
     ``[TBC — identity and access]``: no equivalent of rung 03's measured
     49/47/0/0 discrimination has been taken over the family population, and
     this module does not assume one.
+
+    **``role`` SELECTS AMONG THE DECLARED ROLES AND INVENTS NONE.** This is the
+    first rung on the ladder that answers for more than one — §D.2.1 role 3's
+    claim is that two roles see the same family differently, and a product that
+    could only be asked as one of them could not exhibit it. The roster is
+    ``artifacts/source-vocabulary.yaml::perspective_conditioning.roles``; an
+    undeclared role raises here rather than being served a default view, which
+    is the shape a silently-widened perspective takes.
     """
     declared = config()[KEY_PERSPECTIVE]
-    return Perspective(
-        principal_id=str(declared["principal_id"]), role=str(declared["role"])
-    )
+    roles = declared_roles()
+    default = str(declared["role"])
+    if default not in roles:
+        raise SystemExit(
+            f"ccf_config.yaml's default_perspective role {default!r} is not one"
+            f" of the roles artifacts/source-vocabulary.yaml conditions on"
+            f" ({list(roles)}); the default view would condition on nothing"
+        )
+    chosen = default if role is None else role
+    if chosen not in roles:
+        raise SystemExit(
+            f"role {chosen!r} is not declared by this deployment; the declared"
+            f" roles are {list(roles)}. An undeclared role served a default"
+            f" view is a perspective widened by omission"
+        )
+    return Perspective(principal_id=str(declared["principal_id"]), role=chosen)
 
 
 # ---------------------------------------------------------------------------
@@ -474,6 +546,18 @@ def unsupported_arguments() -> Mapping[str, str]:
     """
     declared = config()[KEY_REQUEST_CONTRACT]
     return cast(Mapping[str, str], declared.get(KEY_UNSUPPORTED, {}))
+
+
+def required_signal_classes() -> tuple[str, ...]:
+    """The signal classes `F` must be normalized over, from the declared table.
+
+    **REQUIRED, not present** — §E.1's own rule, and the reason it is a rule:
+    normalizing over the classes a payload happens to carry would let a missing
+    source IMPROVE the score. The set is the half-life table's own keys, so a
+    class this product stops requiring is an edit to `ccf_config.yaml` and never
+    to code.
+    """
+    return tuple(sorted(str(name) for name in config()[KEY_HALF_LIFE_TABLE]))
 
 
 def declared_ttl_seconds() -> int:
@@ -1478,180 +1562,431 @@ def resolve_attributes(
 
 
 # ---------------------------------------------------------------------------
-# Entitlement — `D-IMPL-228`. THE FAMILY'S OBSERVED SET, CLOSED AT TWO VALUES.
+# Entitlement — `D-IMPL-229`. THE POLICY AXIS IS OBSERVED FAMILY MEMBERSHIP;
+# JURISDICTION IS A SERVED FIELD AND NEVER THE ADMISSION KEY.
 # ---------------------------------------------------------------------------
+#
+# WHAT WAS STRUCK HERE, NAMED RATHER THAN QUIETLY REPLACED. Until 2026-09-01
+# this section held `classify_family`, whose rule read: *"a member carries its
+# own jurisdiction where PostgreSQL holds a row, and the family's — the
+# anchor's — where it does not."* `D-IMPL-229` STRIKES that rule. Dave: *"A
+# missing Postgres row is not `US-DE`."* And: *"Cycle members already have no
+# LEI; they must not pick up SMCI's Delaware because the walk started there."*
+#
+# WHY IT HAD TO GO, and it is the phase's recurring defect for the third time.
+# Inheritance would have put a jurisdiction on 20 nodes that no source ever
+# asserted about them, so that a policy row would fire. That is the same class
+# as the struck nine-value list whose seven extra rows could never fire: both
+# make a check look populated while measuring nothing. Dave: *"Inheritance is
+# the same class as the nine-row fiction: a value that was never observed,
+# applied so a gate looks populated."*
+#
+# WHAT REPLACED IT. Policy admits on FAMILY MEMBERSHIP — the anchor's LEI,
+# minted when a node is admitted to the walk. That value is admissible
+# precisely because THE WALK OBSERVED IT: nothing is looked up, so nothing can
+# be absent, so `PolicyFilter._admits` never sees `None` on this axis. The
+# jurisdiction list did not disappear; it MOVED to the SERVED-AND-ASSERTED set
+# below, still closed and still refused in both directions.
 
 
-def declared_classifications() -> tuple[str, ...]:
-    """The jurisdictions this deployment declares — ``{NL, US-DE}``.
+def declared_membership_scope() -> tuple[str, ...]:
+    """What `ccf_config.yaml` declares as the admitted family set — EMPTY.
 
-    From ``ccf_config.yaml``'s policy operator parameters, because that is the
-    set ``src/ccf/operators/categories.py::PolicyFilter._admits`` actually
-    tests membership against. Reading it from anywhere else would let the
-    declaration and the enforcement drift.
+    Read from the policy operator's parameters because that is the set
+    ``src/ccf/operators/categories.py::PolicyFilter._admits`` actually tests
+    membership against; reading it from anywhere else would let the declaration
+    and the enforcement drift.
+
+    **It is empty, and the emptiness is the honest value rather than a
+    placeholder.** The family a request names is not knowable when the document
+    is written, and a config naming one family's id would answer about one
+    company, refuse every other, and duplicate ``artifacts/question.yaml``'s
+    ``subject``. :func:`policy_parameters` binds the request's family, exactly
+    as :func:`traversal_parameters` binds the caller's depth — and because the
+    declaration admits nothing, a caller who bypassed the substitution gets an
+    empty payload rather than a permissive one.
     """
     declared = config()[KEY_OPERATORS][KEY_POLICY_OPERATOR]
     return tuple(str(value) for value in declared[KEY_PERMITTED_CLASSIFICATIONS])
 
 
-def classification_attribute() -> str:
-    """The attribute key both entity classes are classified on."""
-    return str(source_vocabulary()[VOCAB_ENTITLEMENT][VOCAB_CLASSIFICATION_ATTRIBUTE])
+def membership_attribute() -> str:
+    """The claim attribute both entity classes are admitted on — ``family_id``."""
+    return str(source_vocabulary()[VOCAB_ENTITLEMENT][VOCAB_MEMBERSHIP_ATTRIBUTE])
 
 
-def classification_sources() -> tuple[str, ...]:
-    """Where a member's classification value comes from, in declared order."""
-    declared = source_vocabulary()[VOCAB_ENTITLEMENT][VOCAB_CLASSIFICATION_SOURCES]
-    return tuple(str(name) for name in declared)
+def membership_source() -> str:
+    """Where the membership value comes from. One value, and it is not a store.
+
+    A declared source this module does not implement raises rather than being
+    skipped: a document declaring a provenance nobody honored would leave the
+    payload looking right and the declaration meaning nothing.
+    """
+    declared = str(source_vocabulary()[VOCAB_ENTITLEMENT][VOCAB_MEMBERSHIP_SOURCE])
+    if declared != MEMBERSHIP_SOURCE_WALK:
+        raise SystemExit(
+            f"artifacts/source-vocabulary.yaml declares membership source"
+            f" {declared!r}, which this deployment does not implement. The only"
+            f" admissible provenance is {MEMBERSHIP_SOURCE_WALK!r} — a value"
+            f" read out of a STORE could be absent, and `PolicyFilter._admits`"
+            f" refuses an absent value as firmly as an out-of-grant one"
+            f" (`D-IMPL-229`)"
+        )
+    return declared
 
 
-def classify_family(
+def membership_value_kind() -> str:
+    """The membership value's vocabulary, declared as a KIND not as a value."""
+    declared = str(
+        source_vocabulary()[VOCAB_ENTITLEMENT][VOCAB_MEMBERSHIP_VALUE_KIND]
+    )
+    if declared != MEMBERSHIP_VALUE_ANCHOR_LEI:
+        raise SystemExit(
+            f"artifacts/source-vocabulary.yaml declares membership value kind"
+            f" {declared!r}; this deployment mints the ANCHOR's LEI"
+            f" ({MEMBERSHIP_VALUE_ANCHOR_LEI!r}) and nothing else"
+        )
+    return declared
+
+
+def family_id(anchor_lei: str) -> str:
+    """This request's family identity — the anchor's LEI, and nothing derived.
+
+    **Nothing here composes an identity out of a string.** The value is the
+    token the request asked in and the token the graph leg resolved the anchor
+    from, so the policy parameter set, the payload and the replay record all
+    name the family in one vocabulary.
+    """
+    membership_value_kind()
+    return anchor_lei
+
+
+def mint_family_membership(
+    *, nodes: Sequence[str], anchor_lei: str
+) -> Mapping[str, str]:
+    """One membership value per node the walk admitted — ``D-IMPL-229``.
+
+    **MINTED AT WALK ADMISSION, WHICH IS WHY IT IS OBSERVED.** Every node in
+    ``nodes`` is here because the anchor-bounded walk reached it; this function
+    records that fact as a claim attribute so the L4 Policy operator can admit
+    on it. There is no lookup, no default and no second source — and therefore
+    no branch on which a node could end up with no value.
+
+    **THAT PROPERTY IS THE ENTIRE REASON THE AXIS MOVED.**
+    ``src/ccf/operators/categories.py::PolicyFilter._admits`` ends
+    ``return record.claim.attributes.get(attribute) in
+    params.permitted_classifications``, so ``.get()`` returning ``None`` is
+    refused exactly as firmly as an out-of-grant value. On the struck
+    jurisdiction axis 20 of the SMCI subtree's 22 members had no value to
+    supply, and the Policy step deleted the population ``CFT-G09`` and
+    criterion 33 exist to protect. On this axis there is nothing to be absent.
+
+    Returns the map in the same shape the struck :func:`classify_family`
+    returned, so its one caller is unchanged in structure and the difference is
+    visible as a difference in WHAT is minted rather than in HOW.
+    """
+    membership_source()
+    return {uri: family_id(anchor_lei) for uri in nodes}
+
+
+def refuse_unminted_membership(
+    minted: Mapping[str, str], *, nodes: Sequence[str]
+) -> None:
+    """Every admitted node carries a membership value — asserted, not assumed.
+
+    **The claim this function exists to stop being an assumption** is that
+    ``PolicyFilter._admits`` never sees ``None`` on the policy axis. That is the
+    property the whole of ``D-IMPL-229`` turns on, and *"observed by
+    construction"* is exactly the kind of sentence that stays in a docstring
+    after the construction has changed underneath it. So it is checked against
+    the node set the walk produced, on every run.
+
+    Refuses an empty node set for the same reason
+    :func:`refuse_open_jurisdiction_world` does: over no nodes this would pass
+    by having nothing to compare, and a check that cannot fail is not a check.
+    """
+    if not nodes:
+        raise SystemExit(
+            "the walk admitted no node at all, so the membership minting has"
+            " nothing to be held against; refusing a check that cannot fail"
+        )
+    missing = sorted(uri for uri in nodes if not minted.get(uri))
+    if missing:
+        raise SystemExit(
+            f"{len(missing)} node(s) the walk admitted carry no"
+            f" {membership_attribute()!r}: {missing[:5]}. `PolicyFilter._admits`"
+            f" refuses an ABSENT attribute exactly as firmly as an out-of-grant"
+            f" one, so these would be deleted from the payload rather than"
+            f" reported (`D-IMPL-229`)"
+        )
+
+
+def refuse_declared_family_scope() -> None:
+    """``ccf_config.yaml`` may not NAME a family. It must declare none.
+
+    **THE SECOND HALF OF A CHECK WHOSE FIRST HALF CANNOT FAIL ALONE, and the
+    asymmetry is the point.** :func:`policy_parameters` builds the bound set
+    with ``model_copy(update=...)``, which OVERWRITES whatever was declared — so
+    a check on the BOUND set alone is green against a config that names a
+    family, because the binding silently replaces it. Written that way and
+    sabotaged, it did not fire. This is the direction the bound-set check
+    structurally cannot see, and it is separated so both can.
+
+    Why a declared family is a defect rather than a harmless value: it would be
+    a domain value in the deployment document, a second place for
+    ``artifacts/question.yaml``'s ``subject:`` to be wrong, and — because the
+    binding overwrites it — a value that looks operative and is not. That last
+    property is the worst of the three: a reader would take the config's family
+    for the one in force.
+    """
+    declared = declared_membership_scope()
+    if declared:
+        raise SystemExit(
+            f"ccf_config.yaml declares permitted_classifications"
+            f" {list(declared)} on the policy operator. This deployment admits"
+            f" on FAMILY MEMBERSHIP and the family is named by the REQUEST"
+            f" (`D-IMPL-229`), so a declared value is a domain value in the"
+            f" deployment document AND is silently overwritten by"
+            f" `policy_parameters` — it would read as operative and be inert"
+        )
+
+
+def refuse_unbound_family_scope(bound: Sequence[str], *, expected: str) -> None:
+    """The BOUND policy set names exactly the one family this request asked.
+
+    Two failures, and each is silent without this refusal. An EMPTY bound set
+    admits nothing and serves an empty payload, which reads as *this company has
+    no family* — a claim about the world. A bound set naming some OTHER family
+    admits nothing for the same reason while looking configured.
+
+    This is what makes :func:`policy_parameters`' substitution mandatory rather
+    than conventional: ``ccf_config.yaml`` declares the permitted set EMPTY on
+    purpose, so a path that skipped the binding would otherwise surface as an
+    empty payload rather than by name.
+
+    **IT CANNOT SEE A CONFIG THAT NAMES A FAMILY**, because the binding
+    overwrites the declaration before this function ever sees it. That direction
+    is :func:`refuse_declared_family_scope`'s, and the split exists because this
+    check was written alone, sabotaged, and observed GREEN.
+    """
+    if not bound:
+        raise SystemExit(
+            "the policy envelope was left as declared, which admits NOTHING."
+            " ccf_config.yaml declares an empty permitted set deliberately —"
+            " the family a request names is not knowable at declaration time —"
+            " and `policy_parameters` is what binds it (`D-IMPL-229`)"
+        )
+    if tuple(bound) != (expected,):
+        raise SystemExit(
+            f"the policy envelope admits {list(bound)} where this request names"
+            f" family {expected!r}. A walk scoped to one family and an envelope"
+            f" admitting another serves an empty payload with no error"
+        )
+
+
+# ---------------------------------------------------------------------------
+# The SERVED jurisdiction — read from the row, never filled from the anchor.
+# ---------------------------------------------------------------------------
+
+
+def jurisdiction_column() -> str:
+    """The `legal_entity` column a resolved member's jurisdiction is read from."""
+    return str(source_vocabulary()[VOCAB_ATTRIBUTES][VOCAB_JURISDICTION_COLUMN])
+
+
+def declared_served_jurisdictions() -> tuple[str, ...]:
+    """The jurisdiction set this family is declared to exhibit — ``{NL, US-DE}``.
+
+    **It moved here from ``ccf_config.yaml``'s ``permitted_classifications`` and
+    it is no longer an admission key** (`D-IMPL-229`). It remains the family's
+    OBSERVED set, it remains CLOSED, and it remains sabotaged in both
+    directions — now against what the payload SERVES rather than against what
+    Policy admits.
+    """
+    declared = source_vocabulary()[VOCAB_ENTITLEMENT][VOCAB_SERVED_JURISDICTIONS]
+    return tuple(str(value) for value in declared)
+
+
+def served_jurisdictions(
     *,
-    anchor_uri: str,
     nodes: Sequence[str],
     node_leis: Mapping[str, str],
     rows: Mapping[str, Mapping[str, Any]],
-) -> Mapping[str, str]:
-    """One classification value per family member — ``D-IMPL-228``.
+) -> Mapping[str, str | None]:
+    """Each member's STORED jurisdiction, or ``None`` — ``D-IMPL-229``.
 
-    **A MEMBER CARRIES ITS OWN JURISDICTION WHERE POSTGRESQL HOLDS A ROW, AND
-    THE FAMILY'S — THE ANCHOR'S — WHERE IT DOES NOT.** The order comes from
-    ``artifacts/source-vocabulary.yaml``'s ``classification_sources``, not from
-    this function, and a declared source this module cannot honor raises rather
-    than being skipped: a document declaring a provenance nobody implemented
-    would leave the payload looking right and the declaration meaning nothing.
+    **A MEMBER WITH A ``ccf_v2.legal_entity`` ROW CARRIES ITS STORED VALUE; A
+    MEMBER WITH NO ROW CARRIES ``None``.** There is no second source, no
+    fallback and no ``or`` anywhere below, and the absence is the correction
+    rather than an omission: the struck rule filled a missing value from the
+    anchor, which put `US-DE` on 20 nodes no source asserted it about.
 
-    **WHY THE SECOND SOURCE EXISTS, and it is the whole reason this product has
-    a Policy step it can keep.** ``PolicyFilter._admits`` refuses a record whose
-    classification attribute is ABSENT exactly as firmly as one whose value is
-    out of grant. 20 of the SMCI subtree's 22 members hold no
-    ``ccf_v2.legal_entity`` row, so under a per-node-only rule the Policy step
-    deleted 20 of 22 — precisely the population ``CFT-G09`` and criterion 33
-    exist to protect. It is not a leniency: a corporate family is the anchor's
-    group, and a borrowing group is entitled as a group. Spec section B.2 draws
-    the line this rests on — *"whether an edge to an entity in a restricted
-    jurisdiction may be returned to a principal outside it is not the same
-    question as whether that entity's attributes may be."* The TREE inherits;
-    the ATTRIBUTES do not, and a member with no row is served with a null
-    attribute resolution rather than with the anchor's figures.
+    **THE FILL-FROM-ANCHOR SABOTAGE LIVES EXACTLY HERE**, which is why the
+    function is small enough to read whole. Adding the anchor's value as a
+    fallback makes the 20 row-less members show `US-DE`, leaves the observed
+    set unchanged at ``{NL, US-DE}`` — so the closed-world check below stays
+    GREEN — and is caught only by the roster assertion over which members carry
+    a null resolution. That is the same shape as every other defect this phase
+    has found: a check reading a token present in both the compliant and the
+    violating case measures vocabulary, not content.
 
-    **THE THIRD ROUTE WAS MEASURED AND IS UNAVAILABLE, not argued away.**
-    Deriving a missing value from the graph leg's own ``jurisdictionCode`` fails
-    twice: the vocabularies differ (ISO 3166-1 alpha-3 against
-    ``legal_jurisdiction``'s 3166-2-style values), and over the committed
-    fixture **0 of the 22 subtree nodes carry a ``jurisdictionCode`` at all**. A
-    mapping table nobody measured would have been mapping an empty set.
-
-    **AN ANCHOR THAT RESOLVES TO NO JURISDICTION REFUSES.** There is no literal
-    fallback below and no ``or "US"``. If the family's own head carries no
-    classification, inheriting it would classify 22 members on a value nobody
-    has — which is the shape a default is always mistaken for.
+    Returns a total map over ``nodes``, so a caller cannot tell *"absent"* from
+    *"this function forgot about that node"*.
     """
-    declared_sources = classification_sources()
-    unknown = [
-        name
-        for name in declared_sources
-        if name not in (CLASSIFICATION_OWN_ROW, CLASSIFICATION_FAMILY_ANCHOR)
-    ]
-    if unknown:
-        raise SystemExit(
-            f"artifacts/source-vocabulary.yaml declares classification"
-            f" source(s) {unknown} that this deployment does not implement;"
-            f" refusing to classify against a provenance nobody honors"
-        )
-    column = str(
-        source_vocabulary()[VOCAB_ATTRIBUTES][VOCAB_JURISDICTION_COLUMN]
-    )
-
-    def own(uri: str) -> str | None:
-        lei = node_leis.get(uri)
-        if lei is None:
-            return None
-        value = rows.get(lei, {}).get(column)
-        return str(value) if value else None
-
-    anchor_value = own(anchor_uri) if CLASSIFICATION_OWN_ROW in declared_sources else None
-    if CLASSIFICATION_FAMILY_ANCHOR in declared_sources and anchor_value is None:
-        raise SystemExit(
-            f"the anchor {anchor_uri!r} resolves to no {column!r}, so there is"
-            f" no family classification for the {len(nodes)} members that carry"
-            f" none of their own; refusing rather than inventing one"
-        )
-
-    classified: dict[str, str] = {}
+    column = jurisdiction_column()
+    resolved: dict[str, str | None] = {}
     for uri in nodes:
-        for name in declared_sources:
-            value = own(uri) if name == CLASSIFICATION_OWN_ROW else anchor_value
-            if value is not None:
-                classified[uri] = value
-                break
-    return classified
+        lei = node_leis.get(uri)
+        row = rows.get(lei, {}) if lei is not None else {}
+        value = row.get(column)
+        resolved[uri] = str(value) if value else None
+    return resolved
 
 
-def refuse_open_jurisdiction_world(classified: Mapping[str, str]) -> tuple[str, ...]:
-    """Hold the declared set to the family's OBSERVED set, in both directions.
+def unresolved_members(served: Mapping[str, str | None]) -> tuple[str, ...]:
+    """The members this payload resolved no attribute row for, as a ROSTER.
+
+    **A ROSTER AND NEVER A COUNT** (`D-13`, and `D-IMPL-229` applies the same
+    discipline to this finding that `D-13` fixed for cycles). A right count with
+    a wrong member audits clean forever, and `len(findings) > 0` passes against
+    a detector that named twenty entirely different nodes.
+    """
+    return tuple(sorted(uri for uri, value in served.items() if value is None))
+
+
+def refuse_open_jurisdiction_world(
+    served: Mapping[str, str | None]
+) -> tuple[str, ...]:
+    """Hold the declared SERVED set to what the payload exhibits, both ways.
 
     **CLOSED WORLD, the same discipline ``artifacts/gates.yaml`` carries.**
-    ``D-IMPL-228``: *"Declared jurisdictions = the family's observed set,
-    closed."* ``PolicyFilter`` already refuses a member whose value is outside
-    the declaration — that is the first direction, and it is the SDK's. This
-    function adds the second, which the SDK has no reason to hold: **a DECLARED
-    value that no family member exhibits is refused too.**
+    `D-IMPL-228` ruled the set closed and `D-IMPL-229` moved it off the
+    admission key without loosening it: *"stays the family's observed set,
+    stays closed, stays sabotaged in both directions."*
 
-    The second direction is the one that matters, and Dave named why. The list
-    this replaced carried nine values where the family exhibits two, and
+    Two directions, and the SDK holds neither of them now that jurisdiction is
+    not an admission key — so both are this function's:
+
+    * a member SERVING a jurisdiction the declaration does not carry; and
+    * a DECLARED jurisdiction no member serves.
+
+    The second is the one that matters, and Dave named why. The list this
+    replaced carried nine values where the family exhibits two, and
     family-scoping over the nine would have admitted every member because the
-    anchor is ``US-DE`` — for a reason unrelated to the other seven. *"Nine-row
-    'coverage' is how idle gates look when the extra rows never fire."* A
-    declared row that cannot fire is the idle-gate defect wearing a
-    jurisdiction's name, and without this check the closed world is a
-    convention rather than a gate: nothing else in the tree notices a list
-    quietly re-widened.
+    anchor is `US-DE` — for a reason unrelated to the other seven. *"Nine-row
+    'coverage' is how idle gates look when the extra rows never fire."*
+
+    **NULL IS NOT A VALUE AND IS NOT COMPARED.** The 20 row-less members carry
+    no jurisdiction, and reading their `None` into the observed set would put a
+    null token inside a closed world — which `D-IMPL-229` refuses by name.
 
     Returns the observed set, so a caller can see what the check ran against
     rather than taking a bare pass.
 
     The three named sabotages, and each is REFUSED here:
 
-    * drop ``NL`` — ``SuperMicroComputerBV`` carries a value nobody declared;
-    * drop ``US-DE`` — the anchor and the 20 members inheriting from it do;
-    * add ``US-NY`` **as if it were in-family** — a declared row firing on
-      nothing.
-
-    An empty declaration is refused for the same reason the vacuity guard in
-    :func:`refuse_stale_vocabulary_pointer` exists: over an empty family this
-    would otherwise pass by having nothing to compare.
+    * drop `NL` — `SuperMicroComputerBV` serves a value nobody declared;
+    * drop `US-DE` — the anchor does;
+    * add `US-NY` **as if it were in-family** — a declared row serving nothing.
     """
-    declared = set(declared_classifications())
-    observed = set(classified.values())
+    declared = set(declared_served_jurisdictions())
+    observed = {value for value in served.values() if value is not None}
     if not declared:
         raise SystemExit(
-            "ccf_config.yaml declares an EMPTY permitted_classifications set;"
-            " a policy envelope that admits nothing is not a narrower grant,"
-            " it is an absent one"
+            "artifacts/source-vocabulary.yaml declares an EMPTY served"
+            " jurisdiction set; a closed world over nothing is not a narrower"
+            " claim, it is an absent one"
         )
-    if not classified:
+    if not served:
         raise SystemExit(
-            "no family member was classified, so the declared jurisdiction set"
-            " has nothing to be held against; refusing a check that cannot fail"
+            "no family member was resolved at all, so the declared jurisdiction"
+            " set has nothing to be held against; refusing a check that cannot"
+            " fail"
+        )
+    if not observed:
+        raise SystemExit(
+            f"{len(served)} member(s) were served and NONE carries a"
+            f" jurisdiction, so the declared set {sorted(declared)} is held"
+            f" against an empty observation. That is the vacuous pass this"
+            f" check exists to refuse, not evidence the world is closed"
         )
     undeclared = sorted(observed - declared)
     if undeclared:
         raise SystemExit(
-            f"family members carry classification(s) {undeclared} that"
-            f" ccf_config.yaml does not declare. The declared set is the"
-            f" FAMILY'S OBSERVED SET and it is CLOSED (`D-IMPL-228`): an"
-            f" unknown key is refused, never admitted."
+            f"family members serve jurisdiction(s) {undeclared} that"
+            f" artifacts/source-vocabulary.yaml does not declare. The declared"
+            f" set is the FAMILY'S OBSERVED SET and it is CLOSED"
+            f" (`D-IMPL-228`, carried by `D-IMPL-229`): an unknown key is"
+            f" refused, never admitted."
         )
     idle = sorted(declared - observed)
     if idle:
         raise SystemExit(
-            f"ccf_config.yaml declares jurisdiction(s) {idle} that no member of"
-            f" this family exhibits. The declared set is the family's OBSERVED"
-            f" set (`D-IMPL-228`); a row that never fires is how an idle gate"
-            f" looks, and the observed set is {sorted(observed)}."
+            f"artifacts/source-vocabulary.yaml declares jurisdiction(s) {idle}"
+            f" that no member of this family serves. The declared set is the"
+            f" family's OBSERVED set; a row that never fires is how an idle"
+            f" gate looks, and the observed set is {sorted(observed)}."
         )
     return tuple(sorted(observed))
+
+
+# ---------------------------------------------------------------------------
+# Perspective conditioning — §D.2.1 role 3, the block `CFT-G16` reads.
+# ---------------------------------------------------------------------------
+
+
+def class_axis_iri() -> str:
+    """The FIBO class the two declared roles condition on, by full IRI.
+
+    By IRI because that is what `read_node_facts` collects into `type_chain`;
+    the local name is derived from it rather than written a second time.
+    """
+    return str(source_vocabulary()[VOCAB_PERSPECTIVE][VOCAB_CLASS_AXIS_IRI])
+
+
+def class_axis_local_name() -> str:
+    """The class axis's local name — DERIVED from the IRI, never authored."""
+    return class_axis_iri().rsplit("/", 1)[-1]
+
+
+def conditioned_roles() -> Mapping[str, str]:
+    """Each declared role and WHICH SIDE of the class axis it details.
+
+    **ONE CLASS, TWO SIDES — not two independent predicates**, and that is what
+    lets `CFT-G16` fail. Both roles read the same class off the same
+    `type_chain` the graph carries, so ONE mutation to one node's chain moves
+    that node in BOTH views, in opposite directions. A hand-written role map
+    keyed by entity name cannot reproduce that, which is the sabotage the gate
+    names.
+
+    A role declaring a side this deployment does not implement raises rather
+    than defaulting to either: a role whose side nobody chose would condition
+    on nothing while looking configured.
+    """
+    declared = source_vocabulary()[VOCAB_PERSPECTIVE][VOCAB_ROLES]
+    roles = {str(role): str(side) for role, side in declared.items()}
+    unknown = sorted(
+        role for role, side in roles.items() if side not in (AXIS_CARRIES, AXIS_LACKS)
+    )
+    if unknown:
+        raise SystemExit(
+            f"artifacts/source-vocabulary.yaml declares role(s) {unknown} on a"
+            f" side of the class axis that is neither {AXIS_CARRIES!r} nor"
+            f" {AXIS_LACKS!r}; refusing a conditioning nobody chose"
+        )
+    if set(roles.values()) != {AXIS_CARRIES, AXIS_LACKS}:
+        raise SystemExit(
+            f"the declared roles {sorted(roles)} all sit on the same side of the"
+            f" class axis, so no two of them can see this family differently."
+            f" §D.2.1 role 3's claim is that they do, and `CFT-G16` would go"
+            f" green having proven nothing"
+        )
+    return roles
+
+
+def declared_roles() -> tuple[str, ...]:
+    """The roles this deployment answers for, in sorted order."""
+    return tuple(sorted(conditioned_roles()))
 
 
 # ---------------------------------------------------------------------------
@@ -1734,6 +2069,38 @@ def traversal_parameters(
     )
 
 
+def policy_parameters(
+    declared: OperatorParametersArtifact, *, family: str
+) -> OperatorParametersArtifact:
+    """Bind THIS REQUEST's family onto the declared policy parameter set.
+
+    **The exact shape :func:`traversal_parameters` has, for the exact same
+    reason** (`D-IMPL-229`). ``ccf_config.yaml`` declares
+    ``permitted_classifications`` EMPTY — the family a request names is not
+    knowable when the document is written — and this function substitutes the
+    one family the request asked about. Two families are two parameter-set
+    hashes and therefore two content addresses, and the replay record can be
+    read to say WHICH family a decision admitted rather than having it inferred
+    from the payload.
+
+    **The declared emptiness makes this substitution mandatory rather than
+    conventional.** A path that skipped it gets an envelope admitting nothing —
+    the fail-closed direction — and
+    :func:`refuse_unbound_family_scope` names the failure instead of leaving it
+    to surface as an empty tree.
+
+    Nothing about a JURISDICTION passes through here. That axis was struck as
+    an admission key by `D-IMPL-229` and is served from the resolved row
+    instead; see :func:`served_jurisdictions`.
+    """
+    return cast(
+        OperatorParametersArtifact,
+        declared.model_copy(
+            update={KEY_PERMITTED_CLASSIFICATIONS: frozenset({family})}
+        ),
+    )
+
+
 def request(
     *, parameters: Mapping[str, object], asked_at: datetime | None = None
 ) -> ProductRequest:
@@ -1761,6 +2128,44 @@ def request(
 def demonstration_parameters() -> Mapping[str, Any]:
     """The bundled demonstration's request parameters — all defaulted."""
     return cast(Mapping[str, Any], question()["parameters"])
+
+
+def demonstration_request(
+    *, max_depth: int | None = None, asked_at: datetime | None = None
+) -> ProductRequest:
+    """The bundled demonstration's question, composed once for BOTH callers.
+
+    **`lei` IS COMPOSED FROM THE SUBJECT RATHER THAN WRITTEN TWICE.**
+    ``ccf_config.yaml``'s request contract makes `lei` a REQUIRED argument and
+    ``artifacts/question.yaml`` carries the anchor once, as ``subject:``. Writing
+    it again under ``parameters:`` would be a second place for one fact to be
+    wrong, and the closed declared world (`D-IMPL-98`) would then refuse a
+    request whose two copies disagreed — with a message about a parameter rather
+    than about the duplication.
+
+    **It lives here so the two thin callers stay thin and stay IDENTICAL.**
+    `D-21`'s claim is one standalone assembler with two callers; a `run.py` and a
+    `server/serve.py` that each composed the question their own way could differ
+    in the composition rather than in the transport, which is the difference
+    `CFT-G14`'s equivalence proof is supposed to rule out.
+
+    ``max_depth`` overrides the declared demonstration value for a caller that
+    needs a second depth — two depths are two answers and two content addresses
+    (`CFT-G05`). Passing ``None`` leaves the artifact's own value in place.
+    """
+    parameters: dict[str, Any] = dict(demonstration_parameters())
+    parameters[PARAM_LEI] = demonstration_anchor()
+    # THE QUOTED DECIMAL IS CONVERTED HERE AND NOWHERE EARLIER, on rung 03's
+    # precedent. `question.yaml` quotes it so the artifact can be canonically
+    # encoded — the encoder refuses a float outright — and the request contract
+    # declares `type: number` because that is what the value is. `Decimal` is
+    # the one representation that satisfies both.
+    parameters[PARAM_DEBT_TOLERANCE] = Decimal(
+        str(parameters[PARAM_DEBT_TOLERANCE])
+    )
+    if max_depth is not None:
+        parameters[PARAM_MAX_DEPTH] = max_depth
+    return request(parameters=parameters, asked_at=asked_at)
 
 
 def demonstration_anchor() -> str:
@@ -1860,7 +2265,7 @@ def build_envelopes(
     at: datetime,
     anchor_uri: str,
     facts: Mapping[str, NodeFacts],
-    classified: Mapping[str, str],
+    membership: Mapping[str, str],
 ) -> tuple[tuple[SignalEnvelope, ...], Mapping[str, str]]:
     """ONE ENVELOPE PER NODE — ``D-35``, ruled 2026-09-01.
 
@@ -1906,7 +2311,12 @@ def build_envelopes(
             NODE_PREDICATE_LEI: node.lei,
             NODE_PREDICATE_LABEL: node.label,
             NODE_PREDICATE_TYPE_CHAIN: _TYPE_CHAIN_SEPARATOR.join(node.type_chain),
-            classification_attribute(): classified.get(uri),
+            # THE POLICY AXIS, MINTED AT WALK ADMISSION (`D-IMPL-229`). It is
+            # present on every node because the walk reached every node, which
+            # is the property that lets `PolicyFilter._admits` never see
+            # `None` here. `refuse_unminted_membership` asserts it rather than
+            # leaving it to this comment.
+            membership_attribute(): membership.get(uri),
         }
         payload: dict[str, Any] = {rule.match_key: uri}
         for key in (*rule.identity_keys, *rule.attribute_keys):
@@ -2025,8 +2435,10 @@ class FamilySourceRead:
     edges: FamilyEdges
     findings: tuple[Finding, ...]
     attributes: AttributeResolution
-    classifications: Mapping[str, str]
-    observed_classifications: tuple[str, ...]
+    membership: Mapping[str, str]
+    jurisdictions: Mapping[str, str | None]
+    unresolved: tuple[str, ...]
+    observed_jurisdictions: tuple[str, ...]
     envelopes: tuple[SignalEnvelope, ...]
     envelopes_by_node: Mapping[str, str]
     collapsed: int
@@ -2052,10 +2464,11 @@ def source_read(
     proof and is not consulted for it: ``D-IMPL-228`` says so in terms.
 
     The order is: resolve the anchor, walk to the DECLARED CEILING, read the
-    node facts, batch-resolve the attributes, classify, then close the
-    jurisdiction world. The classification runs before any envelope is built,
-    because a member's classification is part of the claim L2 will admit, and
-    the closed-world refusal runs before anything is served.
+    node facts, batch-resolve the attributes, mint the membership, read the
+    served jurisdictions, then close the jurisdiction world. The minting runs
+    before any envelope is built, because a member's membership is part of the
+    claim L2 will admit, and the closed-world refusal runs before anything is
+    served.
     """
     resolved_graph = graph or graph_source()
     refuse_stale_vocabulary_pointer()
@@ -2068,8 +2481,10 @@ def source_read(
             edges=FamilyEdges(by_pair={}),
             findings=(),
             attributes=empty,
-            classifications={},
-            observed_classifications=(),
+            membership={},
+            jurisdictions={},
+            unresolved=(),
+            observed_jurisdictions=(),
             envelopes=(),
             envelopes_by_node={},
             collapsed=0,
@@ -2090,20 +2505,24 @@ def source_read(
         tuple(sorted(set(node_leis.values()))), source=resolved_attributes
     )
 
-    classified = classify_family(
-        anchor_uri=anchor_uri,
-        nodes=tuple(sorted(facts)),
-        node_leis=node_leis,
-        rows=attribute_rows.rows,
+    # THE POLICY AXIS AND THE SERVED FIELD ARE TWO SEPARATE READS NOW, and the
+    # separation IS `D-IMPL-229`. Membership is minted from the walk; the
+    # jurisdiction is read from the row or is absent. Neither derives from the
+    # other, and nothing fills one from the anchor.
+    admitted = tuple(sorted(facts))
+    membership = mint_family_membership(nodes=admitted, anchor_lei=subject)
+    refuse_unminted_membership(membership, nodes=admitted)
+    jurisdictions = served_jurisdictions(
+        nodes=admitted, node_leis=node_leis, rows=attribute_rows.rows
     )
-    observed = refuse_open_jurisdiction_world(classified)
+    observed = refuse_open_jurisdiction_world(jurisdictions)
 
     envelopes, by_envelope = build_envelopes(
         tenant=tenant,
         at=at,
         anchor_uri=anchor_uri,
         facts=facts,
-        classified=classified,
+        membership=membership,
     )
     findings = (
         *detect_cycles(edges),
@@ -2117,8 +2536,10 @@ def source_read(
         edges=edges,
         findings=findings,
         attributes=attribute_rows,
-        classifications=classified,
-        observed_classifications=observed,
+        membership=membership,
+        jurisdictions=jurisdictions,
+        unresolved=unresolved_members(jurisdictions),
+        observed_jurisdictions=observed,
         envelopes=envelopes,
         envelopes_by_node={uri: eid for eid, uri in by_envelope.items()},
         collapsed=collapse(triples, edges),
@@ -2148,13 +2569,19 @@ class FamilyScenario:
     half_life_table: HalfLifeTable
     debt_profile: DebtProfile
     anchor_uri: str
+    #: The value the L4 Policy operator admitted on, carried so the payload can
+    #: RETURN the attribute it was filtered on. A product that filters on a
+    #: field it does not return cannot be audited from its own payload.
+    family: str
     max_depth: int
     facts: Mapping[str, NodeFacts]
     edges: FamilyEdges
     findings: tuple[Finding, ...]
     attributes: AttributeResolution
-    classifications: Mapping[str, str]
-    observed_classifications: tuple[str, ...]
+    membership: Mapping[str, str]
+    jurisdictions: Mapping[str, str | None]
+    unresolved: tuple[str, ...]
+    observed_jurisdictions: tuple[str, ...]
     collapsed: int
     ledger_t: int | None
     stores_opened: tuple[str, ...]
@@ -2162,6 +2589,17 @@ class FamilyScenario:
     max_ttl_seconds: int
     halflife_debt_profile: str
     debt_tolerance: str
+
+    #: The required signal classes `F` is normalized over — §E.1's own rule:
+    #: normalizing over the classes actually PRESENT would let a missing source
+    #: improve the score. Read from the declared half-life table, so a class
+    #: this product stops requiring is an edit to `ccf_config.yaml`.
+    required_signal_classes: tuple[str, ...] = ()
+
+    #: Which finding type disputes a member's IDENTITY, for the `S` reading in
+    #: `produce.py`. Named here rather than matched on a literal in the spine:
+    #: the spine names no domain word.
+    duplicate_finding_type: str = FINDING_DUPLICATE_ENTITY
 
     request_contract_key: str = KEY_REQUEST_CONTRACT
     policy_bundle_key: str = KEY_POLICY_BUNDLE
@@ -2189,13 +2627,58 @@ class FamilyScenario:
         **This is the deployment's own reading and not what the payload is
         built from.** The served member set comes out of the L4 traversal
         operator, whose ``depth_limit`` :func:`traversal_parameters` binds to
-        this same value — which is what puts depth into the parameter set's
-        content hash. This property exists so a caller can render the depth
-        beside each member, and it is a second computation of the same number,
-        deliberately: if the two ever disagree, the walk is not doing what the
-        operator parameters say it is.
+        this same value.
+
+        **THE TWO ARE NOT THE SAME COMPUTATION, AND AN EARLIER REVISION OF THIS
+        DOCSTRING SAID THEY WERE.** It read: *"a second computation of the same
+        number, deliberately: if the two ever disagree, the walk is not doing
+        what the operator parameters say it is."* **Measured, they disagree at
+        depth 2**, and the cause is the SDK rather than this deployment:
+        ``src/ccf/operators/categories.py::TraversalNeighborhood.apply`` builds
+        its adjacency from BOTH endpoints of every edge —
+
+            adjacency.setdefault(subject_uri, set()).add(object_uri)
+            adjacency.setdefault(object_uri, set()).add(subject_uri)
+
+        — so the L4 walk is an UNDIRECTED typed *neighborhood*, exactly as its
+        key says, while this property is the DIRECTED parent-to-child reach a
+        family TREE means. Cycle 1's closing edge
+        ``CycThornburyCapitalLtd -> CycMeridianHoldingsSa`` therefore puts
+        Thornbury one undirected hop from Meridian: the operator serves it at
+        depth 2 where the directed tree places it at depth 3. Measured against
+        the committed fixture, the operator serves **20 / 22 / 22** at depths
+        1 / 2 / 3 where this property gives **20 / 21 / 22**.
+
+        **AT THE DECLARED DEFAULT OF 3 THEY AGREE AT 22**, which is the depth
+        the census (criterion 11), the store split (criterion 12) and the
+        bundled demonstration are all taken at — so no declared figure moves.
+        The disagreement is recorded as ``D-36``, the phase's FIFTH mechanism
+        gap and the same class as ``D-33``: *the Traversal category expresses an
+        undirected typed neighborhood, so a directed descendant walk has no SDK
+        expression.* Criterion 49 forbids touching ``src/``, so this rung works
+        within the gap and records it, exactly as ``D-35`` did.
+
+        **WHAT THE PAYLOAD DOES WITH IT.** ``projection.py`` serves the node set
+        the OPERATOR returned — the fabric's answer, never re-filtered
+        afterwards — and carries each member's TRUE directed generation beside
+        it, read at the declared CEILING so every served node has one. A member
+        whose generation exceeds ``max_depth_applied`` is the gap made visible
+        rather than hidden.
         """
         return self.edges.reach(self.anchor_uri, depth_limit=self.max_depth)
+
+    @property
+    def generation_by_node(self) -> Mapping[str, int]:
+        """Directed parent-to-child generation from the anchor, at the CEILING.
+
+        **Bounded by the DECLARED CEILING and not by the caller's depth**, so
+        the map is total over everything the ingest admitted — including a node
+        the undirected L4 walk serves earlier than the directed tree places it
+        (see :attr:`depth_by_node`). A projection reading a depth-bounded map
+        would meet a ``KeyError`` on exactly that node, at exactly the depth the
+        gap appears.
+        """
+        return self.edges.reach(self.anchor_uri, depth_limit=declared_depth_ceiling())
 
     @property
     def expires_at(self) -> datetime:
@@ -2228,6 +2711,7 @@ def read(
     asked: ProductRequest,
     *,
     max_depth: int,
+    role: str | None = None,
 ) -> FamilyScenario | None:
     """Name this deployment's artifact keys and read this question's values.
 
@@ -2249,15 +2733,29 @@ def read(
     if read_source.anchor_uri is None:
         return None
 
-    # THE POLICY PARAMETERS PASS THROUGH DECLARED, and rung 03's shape is
-    # deliberately NOT copied here. Rung 03 built them per request from the
-    # calling principal's grant read out of the estate, because it had measured
-    # a real discrimination — 49 / 47 / 0 / 0 across four principals. NO
-    # EQUIVALENT MEASUREMENT HAS BEEN TAKEN OVER THE FAMILY POPULATION (spec
-    # section F.4 row 6, still open), so this rung declares a CLOSED set and
-    # reads it as declared. Inventing a per-principal expansion here would be
-    # asserting a discrimination nobody measured.
+    # THE POLICY PARAMETERS ARE BOUND PER REQUEST, TO THE FAMILY THE REQUEST
+    # NAMED — `D-IMPL-229`. `ccf_config.yaml` declares the permitted set EMPTY
+    # because the family is not knowable at declaration time, and
+    # `policy_parameters` substitutes the anchor's LEI. Two families are two
+    # parameter-set hashes and two content addresses.
+    #
+    # THE PER-PRINCIPAL EXPANSION RUNG 03 BUILT IS STILL NOT COPIED HERE, and
+    # that is a separate point. Rung 03 built its envelope from the calling
+    # principal's grant because it had MEASURED a real discrimination —
+    # 49 / 47 / 0 / 0 across four principals. NO EQUIVALENT MEASUREMENT HAS BEEN
+    # TAKEN OVER THE FAMILY POPULATION (spec section F.4 row 6, still open), so
+    # the axis here is family membership and not entitlement. Inventing a
+    # per-principal expansion would be asserting a discrimination nobody
+    # measured.
     declared_policy = cast(OperatorParametersArtifact, artifacts[KEY_POLICY_OPERATOR])
+    refuse_declared_family_scope()
+    bound_policy = policy_parameters(
+        declared_policy, family=family_id(asked.subject)
+    )
+    refuse_unbound_family_scope(
+        tuple(sorted(cast(Any, bound_policy).permitted_classifications)),
+        expected=family_id(asked.subject),
+    )
     declared_traversal = cast(
         OperatorParametersArtifact, artifacts[KEY_TRAVERSAL_OPERATOR]
     )
@@ -2269,12 +2767,20 @@ def read(
             cast(Any, artifacts[KEY_REQUEST_CONTRACT])
         ),
         product_class=cast(ProductClassDeclaration, artifacts[KEY_PRODUCT_CLASS]),
-        perspective=cast(PerspectiveArtifact, artifacts[KEY_PERSPECTIVE]),
+        # The DECLARED artifact carries the version lane; the ROLE this
+        # request asked is substituted onto it, so §D.2.1 role 3's two roles
+        # travel through one versioned document rather than two.
+        perspective=cast(
+            PerspectiveArtifact,
+            cast(Any, artifacts[KEY_PERSPECTIVE]).model_copy(
+                update={"role": perspective(role).role}
+            ),
+        ),
         # TWO entries, so a two-operator registry — this is the rung where the
         # count moves off one. The traversal set carries the CALLER's depth;
         # the policy set carries the declared closed jurisdiction world.
         operator_parameters={
-            KEY_POLICY_OPERATOR: declared_policy,
+            KEY_POLICY_OPERATOR: bound_policy,
             KEY_TRAVERSAL_OPERATOR: traversal_parameters(
                 declared_traversal, max_depth=max_depth
             ),
@@ -2283,18 +2789,22 @@ def read(
         half_life_table=cast(HalfLifeTable, artifacts[KEY_HALF_LIFE_TABLE]),
         debt_profile=cast(DebtProfile, artifacts[KEY_DEBT_PROFILE]),
         anchor_uri=read_source.anchor_uri,
+        family=family_id(asked.subject),
         max_depth=max_depth,
         facts=read_source.facts,
         edges=read_source.edges,
         findings=read_source.findings,
         attributes=read_source.attributes,
-        classifications=read_source.classifications,
-        observed_classifications=read_source.observed_classifications,
+        membership=read_source.membership,
+        jurisdictions=read_source.jurisdictions,
+        unresolved=read_source.unresolved,
+        observed_jurisdictions=read_source.observed_jurisdictions,
         collapsed=read_source.collapsed,
         ledger_t=read_source.ledger_t,
         stores_opened=read_source.stores_opened,
         ttl_seconds=declared_ttl_seconds(),
         max_ttl_seconds=max_ttl_seconds(),
+        required_signal_classes=required_signal_classes(),
         # A PINNED REFERENCE, never the resolved artifact: the profile has its
         # own version lane, and inlining it would give one record two version
         # identities.

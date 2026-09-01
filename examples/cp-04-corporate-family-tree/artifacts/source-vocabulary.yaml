@@ -203,80 +203,163 @@ declaration:
     refuse_empty_fold: true
 
   # ==========================================================================
-  # ENTITLEMENT — RULED 2026-09-01 (`D-IMPL-228`, Dave)
+  # ENTITLEMENT — RULED 2026-09-01 (`D-IMPL-228`), AMENDED THE SAME DAY BY
+  # `D-IMPL-229`. THE POLICY AXIS IS OBSERVED FAMILY MEMBERSHIP; JURISDICTION IS
+  # A SERVED FIELD.
   # ==========================================================================
   #
-  # THE QUESTION THIS BLOCK CARRIED, AND IT WAS A REAL ONE. Which classification
-  # value a family MEMBER carries for `policy.principal-subgraph`, given that
-  # `src/ccf/operators/categories.py::PolicyFilter._admits` refuses an ABSENT
-  # classification attribute exactly as firmly as an out-of-grant one, and that
-  # 606 of 748 family nodes hold no `ccf_v2.legal_entity` row at all. Under the
-  # struck nine-value envelope the SMCI subtree lost 20 of its 22 members —
-  # precisely the population `CFT-G09` and criterion 33 exist to protect. The
-  # Policy step as configured was deleting the thing the product is for.
+  # WHAT THIS BLOCK SAID UNTIL `D-IMPL-229` AND WHY IT COULD NOT STAND. It
+  # declared `classification_attribute: entity_jurisdiction` and two
+  # `classification_sources` — a member's own `legal_entity.legal_jurisdiction`
+  # where PostgreSQL holds a row, and **the family's, the ANCHOR's, where it does
+  # not**. That second source is STRUCK. Dave: *"A missing Postgres row is not
+  # `US-DE`."* And: *"Cycle members already have no LEI; they must not pick up
+  # SMCI's Delaware because the walk started there."*
   #
-  # THE RULING, in two halves. `ccf_config.yaml` carries the first: the declared
-  # set IS the family's observed set, `{NL, US-DE}`, closed, unknown key refused.
-  # This block carries the second: WHICH VALUE EACH MEMBER CARRIES.
+  # THE FOUR THINGS THAT COULD NOT ALL HOLD. `src/ccf/operators/categories.py`
+  # `::PolicyFilter._admits` ends `return record.claim.attributes.get(attribute)
+  # in params.permitted_classifications`, so an ABSENT value is refused exactly
+  # as firmly as an out-of-grant one. Given that: (1) `{NL, US-DE}` as
+  # `permitted_classifications` on a jurisdiction attribute; (2) the 20 row-less
+  # SMCI-subtree members carrying a null jurisdiction and never a default;
+  # (3) all 22 served, per criteria 12 and 33 and `CFT-G09`; and (4) `_admits`
+  # refusing null. Holding 1, 2 and 4 serves 2 OF 22.
   #
-  #   * a member PostgreSQL holds a row for carries its OWN
-  #     `legal_entity.legal_jurisdiction`; and
-  #   * a member PostgreSQL holds no row for carries THE FAMILY'S — the
-  #     anchor's — because a corporate family is the anchor's group and a
-  #     borrowing group is entitled as a group.
+  # THE RULING: THE AXIS MOVED, AND THE JURISDICTION LIST MOVED WITH IT RATHER
+  # THAN DISAPPEARING.
   #
-  # It implements spec §B.2's own sentence rather than inventing a reading:
-  # *"whether an edge to an entity in a restricted jurisdiction may be returned
-  # to a principal outside it is not the same question as whether that entity's
-  # attributes may be."* The tree is the first question; this block answers it.
-  # The attributes question is untouched — a member with no row is served with a
-  # NULL attribute resolution, never with the anchor's attributes.
+  #   * POLICY admits on FAMILY MEMBERSHIP — the anchor's LEI, minted when a
+  #     node is admitted to the walk, so it is OBSERVED and not inferred from a
+  #     store that holds no row for it. Declared below as
+  #     `membership_attribute`.
+  #   * JURISDICTION is a SERVED FIELD. A member with a `ccf_v2.legal_entity`
+  #     row carries its STORED `legal_jurisdiction`; a member with no row carries
+  #     no jurisdiction at all — `attributes` is `null` and the field is absent.
+  #     Never the anchor's, and never a null token inside a permitted set.
+  #   * `{NL, US-DE}` stays CLOSED and stays sabotaged in BOTH directions, now
+  #     against what the payload SERVES rather than against what Policy admits.
+  #     `deployment.py::refuse_open_jurisdiction_world` holds it.
   #
-  # WHY NOT THE THIRD ROUTE, MEASURED RATHER THAN ARGUED AWAY. Deriving the
-  # missing value from the graph leg's own `jurisdiction_code` was the obvious
-  # alternative and it is unavailable twice over: the vocabularies differ (ISO
-  # 3166-1 alpha-3 against `legal_jurisdiction`'s 3166-2-style values), and
-  # measured over the CI fixture `tests/examples/fixtures/cp_04_family_fluree.json`
-  # **0 of the 22 subtree nodes carry a `jurisdictionCode` at all**. A mapping
-  # table nobody measured would have been mapping an empty set.
+  # WHY INHERITANCE WAS REFUSED, and it is the phase's recurring defect for the
+  # third time. Dave: *"Inheritance is the same class as the nine-row fiction: a
+  # value that was never observed, applied so a gate looks populated."* The
+  # struck nine-jurisdiction list carried seven rows that could never fire;
+  # anchor-inheritance would have put a value on 20 nodes no source ever
+  # asserted it about. Both make a check look populated while measuring nothing.
+  # **Family membership is admissible precisely because the walk DID observe
+  # it** — that is the distinction between the two.
   #
-  # BOTH DECLARED ROWS FIRE, WHICH IS THE WHOLE POINT. `NL` is carried by
-  # `SuperMicroComputerBV` alone and `US-DE` by the anchor and the 20 members
-  # that inherit it. Drop either and members are refused; add a third and it
-  # fires on nothing. `deployment.py::refuse_open_jurisdiction_world` refuses
-  # both directions, so the closed world is a gate rather than a convention.
+  # WHY NOT THE THIRD ROUTE FOR JURISDICTION, MEASURED RATHER THAN ARGUED AWAY.
+  # Deriving a missing value from the graph leg's own `jurisdiction_code` is
+  # unavailable twice over: the vocabularies differ (ISO 3166-1 alpha-3 against
+  # `legal_jurisdiction`'s 3166-2-style values), and measured over the CI fixture
+  # `tests/examples/fixtures/cp_04_family_fluree.json` **0 of the 22 subtree
+  # nodes carry a `jurisdictionCode` at all**. A mapping table nobody measured
+  # would have been mapping an empty set.
   #
-  # WHAT IS STILL OPEN, AND `D-IMPL-228` DOES NOT CLOSE IT. Spec §F.4 row 5 —
+  # WHAT IS STILL OPEN, AND NEITHER RULING CLOSES IT. Spec §F.4 row 5 —
   # residency constraints and cross-border serving as an identity-and-access
-  # CERTIFICATION — stays `[TBC]`. This block rules what THIS BUILD declares,
+  # CERTIFICATION — stays `[TBC]`. These blocks rule what THIS BUILD declares,
   # not what a certifying function will require of a deployment.
   entitlement:
     status: ruled
-    ruling: D-IMPL-228
+    ruling: D-IMPL-229
+    amends: D-IMPL-228
     ruled_on: "2026-09-01"
 
-    # The classification attribute both entity classes are read on, matching
+    # ---- The POLICY axis: observed family membership -----------------------
+    #
+    # The attribute both entity classes are classified on, matching
     # `ccf_config.yaml::operators.policy.principal-subgraph`
-    # `.classification_attribute_by_class`. Named here because the VALUE's
-    # provenance is a source fact and this is the source vocabulary.
-    classification_attribute: entity_jurisdiction
+    # `.classification_attribute_by_class`. The value is minted at walk
+    # admission, so its provenance is THE WALK and not either store — which is
+    # why it is named here, in the document that says where values come from,
+    # and why `membership_source` reads `walk_admission` and nothing else.
+    membership_attribute: family_id
 
-    # Where a member's value comes from, in order. `own_attribute_row` reads
-    # the `jurisdiction_column` declared above; `family_anchor` reads the value
-    # the ANCHOR resolved to. There is no third source and no literal default —
-    # a family whose anchor itself resolves to no row refuses rather than
-    # inventing a jurisdiction for 22 members.
-    classification_sources:
-      - own_attribute_row
-      - family_anchor
+    # WHERE THE VALUE COMES FROM. One source, and it is not a store. A node
+    # carries this value because the anchor-bounded walk reached it; nothing is
+    # looked up, so nothing can be absent, so `_admits` never sees `None` on
+    # this axis. THAT PROPERTY IS THE WHOLE POINT OF THE MOVE and it is
+    # asserted at runtime rather than assumed —
+    # `deployment.py::refuse_unminted_membership` refuses a node the walk
+    # admitted that carries no membership value.
+    membership_source: walk_admission
 
-    # The set the 22-node SMCI subtree exhibits, re-derived against the
-    # committed fixture rather than carried over from a prior summary:
-    # `SuperMicroComputerInc` -> `US-DE`, `SuperMicroComputerBV` -> `NL`, and 20
-    # members with no row inheriting `US-DE`. `ccf_config.yaml`'s
-    # `permitted_classifications` MUST equal this set, in both directions.
-    observed_family_classifications:
+    # The membership value's own vocabulary: the anchor's LEI, the same token
+    # `artifacts/question.yaml::subject` asks in. Named as a KIND rather than as
+    # a value — the value is per request and lives nowhere in any document.
+    membership_value_kind: anchor_lei
+
+    # ---- The SERVED jurisdiction set: closed, in both directions -----------
+    #
+    # The column a resolved member's jurisdiction is read from is
+    # `attributes.jurisdiction_column` above. This is the SET the 22-node SMCI
+    # subtree exhibits, re-derived against the committed fixture:
+    # `SuperMicroComputerInc` -> `US-DE` and `SuperMicroComputerBV` -> `NL`. The
+    # other 20 carry NO jurisdiction — they hold no row, and a row-less member
+    # is served with `attributes: null` rather than with a filled-in value.
+    #
+    # BOTH DECLARED ROWS FIRE AND NEITHER IS IDLE, which is what makes each
+    # sabotageable. Drop `NL` and `SuperMicroComputerBV` serves a value nobody
+    # declared; drop `US-DE` and the anchor does; add `US-NY` as if it were
+    # in-family and a declared row fires on nothing.
+    # `deployment.py::refuse_open_jurisdiction_world` refuses all three, so the
+    # closed world is a gate rather than a convention.
+    served_jurisdictions:
       - NL
       - US-DE
 
     spec_reference: "spec section B.2, classification and residency"
+
+  # ==========================================================================
+  # PERSPECTIVE CONDITIONING — §D.2.1 ONTOLOGY ROLE 3, WHICH `CFT-G16` GATES
+  # ==========================================================================
+  #
+  # THE ROLES AND THE CLASS AXIS ARE DECLARED HERE BECAUSE THEY CANNOT BE
+  # DECLARED IN `ccf_config.yaml`. `src/ccf/controlplane/artifacts.py`
+  # `::DeploymentConfig` rules that *"unknown top-level keys are an error"* and
+  # reserves exactly eight section names, of which `default_perspective` holds
+  # ONE perspective. A product whose §D.2.1 role 3 claim is that TWO roles see
+  # the same family differently needs a roster, and the roster has to live in a
+  # declared artifact. It lives beside the FIBO vocabulary because the thing it
+  # names IS a FIBO class.
+  #
+  # ONE CLASS, TWO SIDES OF IT — NOT TWO INDEPENDENT PREDICATES, and the
+  # difference is what makes `CFT-G16` able to fail. Both roles read the SAME
+  # class off the SAME `type_chain` the graph carries; the credit officer's view
+  # details the members that CARRY it and the KYC analyst's view details the
+  # members that DO NOT. So ONE mutation moves a node in BOTH views, in opposite
+  # directions — which a hand-written role map keyed by entity name could not
+  # reproduce, and which is the sabotage `CFT-G16` names.
+  #
+  # THE POPULATION IS CLASS-HOMOGENEOUS AND THAT IS MEASURED, NOT ASSUMED. All
+  # 22 SMCI-subtree nodes carry the IDENTICAL 7-class chain, so no class
+  # discriminates BETWEEN members — the same measured property that withdrew
+  # ontology role 1 (`D-32`). What the two roles' views differ by is therefore
+  # the class's presence on ALL of them: the credit officer details 22 and the
+  # KYC analyst details 0, each stating the class it read. A KYC analyst's
+  # subject in a corporate family is the NON-corporate party — a natural person,
+  # a beneficial owner — and this family contains none, which is a true
+  # statement about it rather than an empty view.
+  perspective_conditioning:
+    # The FIBO class the conditioning reads, by its full IRI, because that is
+    # what `read_node_facts` collects into `type_chain`. The local name is the
+    # census vocabulary (`expected.yaml::census.anchor.type_chain`) and is
+    # derived from this IRI rather than written twice.
+    class_axis_iri: https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation
+
+    # THE TWO ROLES, AND WHICH SIDE OF THE AXIS EACH DETAILS. `carries` and
+    # `lacks` are the only two admitted values and `deployment.py` refuses a
+    # third rather than defaulting one — a role whose side nobody chose would
+    # condition on nothing while looking configured.
+    #
+    # NO ENTITY NAME APPEARS HERE OR ANYWHERE IN THIS EXAMPLE. A dictionary of
+    # role to entity names is precisely the substitution `CFT-G16` is sabotaged
+    # with, and it would be invisible to a check that only read for the word
+    # "class".
+    roles:
+      credit-officer: carries
+      kyc-analyst: lacks
+
+    spec_reference: "spec section D.2.1 role 3"
