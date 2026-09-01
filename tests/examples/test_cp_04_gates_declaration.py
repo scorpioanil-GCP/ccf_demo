@@ -152,16 +152,24 @@ WITHDRAWN_ID = "CFT-G17"
 #: The gates that have been SABOTAGED AND WATCHED FAILING, as a roster.
 #:
 #: Plan `24.4-10` filled the first five — the traversal set and the depth
-#: identity set — and plans `24.4-11` and `24.4-12` owe the other eleven. Held
-#: here rather than derived from the artifact, because a check that read the
-#: artifact for both the expectation and the subject would agree with whatever
-#: it found and could never notice a record that went missing.
+#: identity set. Plan `24.4-11` filled six more — the refusal, findings and
+#: ontology-serving set — and plan `24.4-12` owes the remaining five, which are
+#: the seams set `CFT-G10` through `CFT-G14`. Held here rather than derived from
+#: the artifact, because a check that read the artifact for both the expectation
+#: and the subject would agree with whatever it found and could never notice a
+#: record that went missing.
 OBSERVED_RED_IDS: tuple[str, ...] = (
     "CFT-G01",
     "CFT-G02",
     "CFT-G03",
     "CFT-G04",
     "CFT-G05",
+    "CFT-G06",
+    "CFT-G07",
+    "CFT-G08",
+    "CFT-G09",
+    "CFT-G15",
+    "CFT-G16",
 )
 
 #: The locked ROADMAP criteria the sixteen gates discharge, one-for-one.

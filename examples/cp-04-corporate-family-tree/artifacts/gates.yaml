@@ -246,7 +246,29 @@ declaration:
         as_of is refused 400 not_supported_at_tier.
       test: tests/examples/test_cp_04_payload.py::test_cft_g06_as_of_is_refused_not_supported_at_tier
       sabotage: silently honor it
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id, on BOTH limbs. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/produce.py::assemble_and_serve`
+          — the declared-but-inert branch neutralized so the parameter is
+          noted and then ignored. Observed — "CFT-G06: 'as_of' was ANSWERED
+          rather than refused — a tree came back over 22 members" and "the
+          assembly SERVED ['Assembled'] while 'as_of' was on the wire." THE
+          SECOND LIMB IS THE ONE A REASON-STRING CHECK CANNOT MAKE, and it
+          exists because cp-03's close panel found exactly that shape in its
+          own `OFS-G06`: a product can note the parameter, emit the declared
+          reason and serve the tree anyway. The parameter name and the
+          refusal reason are read from
+          `examples/cp-04-corporate-family-tree/ccf_config.yaml::request_contract.unsupported_arguments`
+          through the deployment's accessor; the status 400 is AUTHORED in
+          the gate from locked criterion 30 rather than read from
+          `examples/cp-04-corporate-family-tree/produce.py`, because that is
+          the file this sabotage mutates and an expectation resolving from
+          the mutated file is how a gate comes to pass its own sabotage. A
+          precondition asserts the shipped verdict type still carries 400,
+          so a drift is reported rather than absorbed. Two different files.
+        date: "2026-09-01"
+        commit: "8ecd22f"
 
     # ---- Findings (§D.2.2) -----------------------------------------------
     - id: CFT-G07
@@ -258,7 +280,24 @@ declaration:
       sabotage: >-
         drop the closing edge, which is precisely the part a flattened
         representation loses.
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection._finding`
+          — `closing_edge` emitted as `None` for every finding. Observed —
+          "CFT-G07: the cycle reached the consumer with NO closing edge."
+          The members survived, every count stayed right, and the arrow that
+          makes it a circuit was gone: that is why all four fields are
+          asserted rather than the roster alone. The members are compared as
+          an ORDERED sequence and never as a set, because the same circuit
+          entered from a different node is the same set naming a DIFFERENT
+          closing edge — `test_the_cycle_check_refuses_a_rotated_roster`
+          feeds the shipped check exactly that and watches it refuse. The
+          expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.cycle_1`,
+          which the sabotage does not touch. Two different files.
+        date: "2026-09-01"
+        commit: "8ecd22f"
 
     - id: CFT-G08
       criterion: 32
@@ -268,7 +307,38 @@ declaration:
       sabotage: >-
         flag cycle membership on the nodes instead, which destroys the closing
         edge while every node count stays right.
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id, and RUN IN TWO VARIANTS because the
+          declared sabotage trips one limb before the other is reached.
+          VARIANT A is the sabotage as declared — the cycle moved OUT of
+          `findings[]` and ONTO the nodes, applied to
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection.invoke`
+          and
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection._node`.
+          Observed — "CFT-G08: no finding of type 'ownership_cycle' is in
+          findings[]." That is the POSITIVE limb and the gate returns on it,
+          so the content limb was never reached. VARIANT B keeps the finding
+          and adds the node flag alone. Observed — "CFT-G08: the served node
+          field 'in_cycle' takes the value True on EXACTLY the cycle members
+          ['CycCalderIndustrialNv', 'CycMeridianHoldingsSa',
+          'CycThornburyCapitalLtd'] and on no other member." THE CONTENT
+          LIMB READS A PARTITION AND NEVER A NAME: a check scanning the node
+          keys for the token "cycle" is green against a flag called
+          `flagged`, which
+          `test_the_orthogonality_check_refuses_a_flag_named_anything`
+          demonstrates. Measured against the shipped product BEFORE the
+          sabotage was written: no field of a served node partitions the 22
+          members into the cycle's three — `lei` and `attributes` are null
+          on twenty, `depth` takes three different values across the three,
+          and `type_chain` and `conditioning` are identical across all 22.
+          The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.cycle_1`;
+          the sabotage edits
+          `examples/cp-04-corporate-family-tree/projection.py`. Two
+          different files.
+        date: "2026-09-01"
+        commit: "8ecd22f"
 
     # ---- The unresolved member (§C.3, D-16) ------------------------------
     - id: CFT-G09
@@ -281,7 +351,32 @@ declaration:
         drop members whose PostgreSQL join fails. 606 of 748 family nodes have
         no attribute row, so the sabotage returns a smaller, tidier, wrong
         family with no error at all.
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id, on all three limbs. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection.invoke`
+          — the served member set filtered to those whose PostgreSQL join
+          resolved. Observed — "CFT-G09: 2 members were served where
+          expected.yaml::census.anchor_subtree declares 22. Served
+          ['SuperMicroComputerBV', 'SuperMicroComputerInc']", then the
+          twenty NAMED as dropped, then "the unresolved roster reached the
+          consumer as [] where expected.yaml declares [...]". The sabotage
+          returns a smaller, tidier, WRONG family with no error at all, and
+          only the ROSTER catches it: a count alone passes on twenty
+          entirely different nodes (`D-13`, applied to this finding by name
+          in `D-IMPL-229`). The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::unresolved_subtree_members`
+          and
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor_subtree`,
+          which the sabotage does not touch. RECORDED OVERLAP RATHER THAN
+          GLOSSED: the unresolved finding's TYPE TOKEN is read from
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection`'s
+          module constant, which lives in the mutated file. The sabotage
+          does not touch that constant, and what the gate COMPARES is the
+          declared roster and the served member set — neither moves with a
+          renamed constant.
+        date: "2026-09-01"
+        commit: "8ecd22f"
 
     # ---- The two stores (§C.3, §F.3) -------------------------------------
     - id: CFT-G10
@@ -363,7 +458,36 @@ declaration:
         Each served node carries its FIBO class chain.
       test: tests/examples/test_cp_04_payload.py::test_cft_g15_each_served_node_carries_its_fibo_class_chain
       sabotage: serve the tree without type information
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id, on all four limbs. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection._node`
+          and
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection.invoke`
+          — `type_chain` served as an empty list on every node and on the
+          anchor. Observed — all 22 members "were served with an EMPTY class
+          chain", the anchor's chain "reached the consumer as [] where
+          expected.yaml declares ['Agent', 'Corporation',
+          'FormalOrganization', 'LegalEntity', 'LegalPerson',
+          'Organization', 'Party']", and 'CycCalderIndustrialNv' "carries 0
+          classes where expected.yaml::census.cycle_member_typing declares
+          7". PRESENCE AND CONTENT ARE SEPARATE LIMBS because a check that
+          only looks for the key is green against a chain served as an empty
+          list. THE SECOND CYCLE IS NOT ASSERTABLE FROM A SERVED PAYLOAD,
+          and the reason is asserted rather than omitted:
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.cycle_2`
+          declares zero external in-edges and `::census.cycle_member_typing`
+          declares that no cycle member carries an LEI, so cycle 2 can be
+          reached neither as a subtree nor asked for as an anchor. It is
+          asserted in the direction this estate can carry by
+          `tests/examples/test_cp_04_payload.py::test_no_cycle_two_member_reaches_a_served_payload`,
+          and the 7-versus-5 fact itself is asserted against the store by
+          `tests/examples/test_cp_04_cycles.py::test_the_two_circuits_class_chains_differ_and_no_member_carries_an_lei`.
+          The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor`
+          and `::census.cycle_member_typing`. Two different files.
+        date: "2026-09-01"
+        commit: "8ecd22f"
 
     - id: CFT-G16
       criterion: 40
@@ -375,4 +499,40 @@ declaration:
         class-conditioned projection and a role map keyed by class name, so a
         check reading for that token would be green against both — the gate must
         read what the projection DID, never what it is called.
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id — on the MUTATION limb ONLY, exactly as this
+          gate's declared sabotage predicts, and that is the finding worth
+          carrying out of this plan. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/projection.py`: a
+          module-level role map keyed by ENTITY NAME substituted for
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection._detailed_for`
+          at both call sites. THE SERVED OUTCOME WAS IDENTICAL — 22 detailed
+          for `credit-officer`, 0 for `kyc-analyst`, the class axis still
+          named `Corporation`, and every node's `carries_class_axis` still
+          agreeing with its own served chain — so the two OUTCOME limbs
+          PASSED under the sabotage, which is the Phase 24.3 defect class
+          exactly. What failed is the limb that strips the class axis from
+          ONE member's chain, through the SHIPPED projection, and requires
+          that member to move in BOTH views in OPPOSITE directions. Observed
+          — "with the class axis stripped from 'CycCalderIndustrialNv', role
+          'credit-officer' detailed [all 22] where the class chain implies
+          [the other 21]" and "role 'kyc-analyst' detailed [] where the
+          class chain implies exactly ['CycCalderIndustrialNv']". A SECOND
+          check went red beside it:
+          `tests/examples/test_cp_04_payload.py::test_no_role_to_entity_mapping_exists_anywhere_in_the_example`
+          named 24 collection literals in the sabotaged file naming a
+          declared role or a served entity. That limb is STRUCTURAL and
+          deliberately not a token scan, because the word "class" appears in
+          BOTH a class-conditioned projection and a role map keyed by class
+          name. The expectations were read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::perspective_detailed_members`
+          and
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::perspective_discriminating_class`,
+          and the two roles' sides from
+          `examples/cp-04-corporate-family-tree/artifacts/source-vocabulary.yaml::perspective_conditioning`;
+          the sabotage edits
+          `examples/cp-04-corporate-family-tree/projection.py`. Two
+          different files.
+        date: "2026-09-01"
+        commit: "8ecd22f"
