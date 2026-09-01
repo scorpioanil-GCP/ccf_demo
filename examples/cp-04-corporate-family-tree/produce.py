@@ -414,7 +414,7 @@ def _project(
     operators: Any,
     plan_class: Callable[..., ProjectionPlan],
     minted: Mapping[str, str],
-) -> Any:
+) -> tuple[Any, tuple[str, ...]]:
     """Π at L5, over the state the operators composed.
 
     9. **Project** — the perspective conditioned on FIBO CLASS, not on a role
@@ -431,6 +431,15 @@ def _project(
     served record: L2 consumes the identity keys to mint
     `<entity-class>://<identity-hash>` rather than storing them back as
     attributes.
+
+    **RETURNS THE EXECUTION AND THE SERVED ROSTER, and the second is the reason
+    this function's signature changed.** `measure_debt` takes `S` over the
+    members this product SERVED, and the only thing that knows which those are
+    is the projection that emitted them. Returning it here is threading a value
+    that already exists; deriving it a second time downstream — off the
+    scenario, off the view, off a re-walk — would be two places computing "the
+    served members", which is the defect one level up from the wrong denominator
+    the 2026-09-01 close panel found.
     """
     plan = plan_class(
         plan_id=scenario.plan_id,
@@ -438,12 +447,15 @@ def _project(
         scenario=scenario,
         minted=minted,
     )
-    return ProjectionEngine(reader=booted.handle.reader, registry=operators).execute(
+    execution = ProjectionEngine(
+        reader=booted.handle.reader, registry=operators
+    ).execute(
         plan=plan,
         perspective=scenario.perspective,
         tenant_id=booted.tenant_id,
         temporal_boundary=scenario.temporal_boundary,
     )
+    return execution, plan.served_members
 # --8<-- [end:project]
 
 
@@ -613,8 +625,18 @@ def _serve(
 # --8<-- [end:serve]
 
 
-def measure_debt(scenario: Scenario) -> DebtAssessment:
+def measure_debt(scenario: Scenario, *, served: Sequence[str]) -> DebtAssessment:
     """`D_c` over what this question assembled — whitepaper §7.7, spec §E.2.
+
+    **`served` IS THE ROSTER THIS PAYLOAD EMITTED, AND IT IS AN ARGUMENT RATHER
+    THAN A LOOKUP.** `S` below is taken over it. Taking `S` over the
+    deployment's SOURCE-READ population instead is the defect the 2026-09-01
+    close panel found (Dave: *"a wrong denominator"*): the source read is bounded
+    by the DECLARED CEILING and the caller's `max_depth` is applied downstream of
+    it by the L4 traversal, so a `max_depth=1` request that served 20 members
+    still reported `20/22`, and `D_c` read `0.0909` at depth 1, 2 and 3 alike —
+    a scalar that cannot move with what was actually served, which is the
+    idle-gate class arriving through a float.
 
     **F — FRESHNESS, NORMALIZED OVER THE REQUIRED SIGNAL CLASSES AND NOT OVER
     THE CLASSES PRESENT.** §E.1 states the rule and says why: normalizing over
@@ -654,8 +676,15 @@ def measure_debt(scenario: Scenario) -> DebtAssessment:
     and its graph leg contains a measured self-disagreement: the
     duplicate-identity finding, the same company entered twice one hop from the
     anchor. S is therefore the fraction of served members whose identity no
-    finding disputes, which for the demonstration anchor is 20 of 22 — two nodes
-    naming one company.
+    finding disputes, which for the demonstration anchor AT THE DECLARED DEFAULT
+    DEPTH OF 3 is 20 of 22 — two nodes naming one company.
+
+    **DEPTH IS A REAL BOUNDARY FOR THIS SCALAR AND THE FIGURE IS NOT A
+    CONSTANT.** Both disputed members sit one hop from the anchor, so they
+    survive every depth the product accepts while the denominator shrinks with
+    it: at `max_depth=1` the payload carries 20 members and `S` is `18/20 = 0.9`,
+    giving `D_c = 0.1`. Measured, both of them, and pinned as data in
+    `artifacts/expected.yaml::debt_by_depth`.
 
     **ONE PART OF §E.2 IS NOT IMPLEMENTED HERE AND IT IS RECORDED RATHER THAN
     RESOLVED.** The table routes *"attribute resolution for a given node"* to
@@ -710,13 +739,13 @@ def measure_debt(scenario: Scenario) -> DebtAssessment:
         DebtFactors(
             freshness=scorer.score(observations, now=scenario.now),
             completeness=Decimal(1),
-            semantic_consistency=_agreement(scenario),
+            semantic_consistency=_agreement(scenario, served),
         ),
         profile=scenario.debt_profile,
     )
 
 
-def _agreement(scenario: Scenario) -> Decimal:
+def _agreement(scenario: Scenario, served: Sequence[str]) -> Decimal:
     """S — the fraction of served members whose identity no finding disputes.
 
     Measured rather than declared. The duplicate-identity finding is a real
@@ -726,10 +755,19 @@ def _agreement(scenario: Scenario) -> Decimal:
     beside them. A family that double-counts a subsidiary is a concentration
     denominator wrong in the safe-looking direction.
 
+    **THE DENOMINATOR IS `served` AND NOT `scenario.facts`.** The two are the
+    same set at the declared default depth and differ at every other one, which
+    is exactly why the substitution went unnoticed until the 2026-09-01 close
+    panel: `scenario.facts` is the SOURCE READ, bounded by the declared ceiling,
+    and the caller's `max_depth` is applied after it by the L4 traversal. Taking
+    `S` over the source read makes this scalar a function of the estate alone,
+    unable to move with the question — the docstring above said *served* while
+    the code said *read*, and the code was the wrong one.
+
     An empty family scores 0 rather than 1: perfect agreement among no members
     is the vacuous pass, not the clean one.
     """
-    members = tuple(sorted(scenario.facts))
+    members = tuple(sorted(set(served)))
     if not members:
         return Decimal(0)
     disputed = {
@@ -806,14 +844,19 @@ def assemble_and_serve(
             tenant_id=booted.tenant_id, at=scenario.temporal_boundary
         )
         operators = _operators(booted, scenario=scenario, view=view)
-        execution = _project(
+        execution, served = _project(
             booted,
             scenario=scenario,
             operators=operators,
             plan_class=plan_class,
             minted=minted,
         )
-        debt = measure_debt(scenario)
+        # `S` IS TAKEN OVER WHAT WAS SERVED, which is why this call is HERE and
+        # not before the projection: the served roster does not exist until Π
+        # has emitted it. Measuring over `scenario.facts` instead would let this
+        # line run earlier and would make `D_c` blind to the caller's depth —
+        # the wrong denominator the 2026-09-01 close panel found.
+        debt = measure_debt(scenario, served=served)
         gated, product_class, policy_version = _gate(
             scenario=scenario,
             execution=execution,

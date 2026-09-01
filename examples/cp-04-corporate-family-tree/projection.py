@@ -121,10 +121,47 @@ class FamilyTreeProjection:
         # L2's identity rule.
         self._minted = dict(minted)
         self._source_of = {minted_uri: uri for uri, minted_uri in minted.items()}
+        # WHAT THIS PROJECTION SERVED, once it has served it. `None` until
+        # `invoke` runs, and read back off the emitted node blocks rather than
+        # stored ahead of them — see `served_members` for why the distinction is
+        # the whole point.
+        self._served_members: tuple[str, ...] | None = None
 
     @property
     def plan_id(self) -> str:
         return self._plan_id
+
+    @property
+    def served_members(self) -> tuple[str, ...]:
+        """The members this projection PUT IN THE PAYLOAD, in emitted order.
+
+        **THE ONE PLACE THE SERVED ROSTER IS KNOWN, AND IT IS PUBLISHED RATHER
+        THAN RECOMPUTED.** `produce.py::measure_debt` needs the served population
+        to take `S` over — and `S` over the deployment's SOURCE-READ population
+        instead is the wrong denominator the 2026-09-01 close panel found: at
+        `max_depth=1` the product served 20 members and still reported `20/22`,
+        and `D_c` read `0.0909` at every depth, a scalar that could not move with
+        what was actually served. A second computation of "the served members"
+        somewhere downstream would rebuild exactly that defect one level up.
+
+        **READ OFF `payload["nodes"]`, NOT OFF THE `served` LOCAL.** The two are
+        the same set today and the distinction is what makes the reading
+        defect-resistant: a build that filtered members OUT of the emitted node
+        blocks — the `CFT-G09` sabotage, dropping the members whose PostgreSQL
+        join failed — moves this roster, and therefore moves `S`. A roster
+        recorded before the payload was shaped would not notice.
+
+        Raises rather than returning an empty tuple when `invoke` has not run:
+        an empty roster is `S = 0` by `_agreement`'s vacuity rule, so a silent
+        empty here would present *never projected* as *total disagreement*.
+        """
+        if self._served_members is None:
+            raise RuntimeError(
+                "the served roster was read before this projection ran. It is"
+                " what `invoke` emitted, so there is nothing to report until it"
+                " has emitted something"
+            )
+        return self._served_members
 
     def required_operators(self) -> tuple[str, ...]:
         """From the product class's own document — the one authored set."""
@@ -356,6 +393,9 @@ class FamilyTreeProjection:
             ),
             "minted_uris": {uri: self._minted[uri] for uri in served},
         }
+        # RECORDED FROM THE EMITTED BLOCKS, so what `S` is taken over is what
+        # the consumer receives. See `served_members`.
+        self._served_members = tuple(node["uri"] for node in payload["nodes"])
         return ProjectionOutput(plan_id=self._plan_id, payload=payload)
 
 

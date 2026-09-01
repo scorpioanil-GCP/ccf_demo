@@ -705,9 +705,13 @@ def test_pinning_the_debt_to_a_constant_breaks_the_movement_assertion(
     real = produce.measure_debt
     frozen: list[Any] = []
 
-    def pinned(scenario: Any) -> Any:
+    def pinned(scenario: Any, **kwargs: Any) -> Any:
+        # `**kwargs` rather than a named `served`: the pin stands in for the
+        # shipped function and must keep standing in for it if its keyword
+        # arguments change, or this control quietly stops being applied and
+        # reports a TypeError as a failure of the thing it is measuring.
         if not frozen:
-            frozen.append(real(scenario))
+            frozen.append(real(scenario, **kwargs))
         return frozen[0]
 
     monkeypatch.setattr(produce, "measure_debt", pinned)
