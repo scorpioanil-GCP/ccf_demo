@@ -109,14 +109,38 @@ EXPECTED = EXAMPLE / "artifacts" / "expected.yaml"
 #: so a doubly-marked module is selected twice and runs whole both times.
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres]
 
-#: The finding type a cycle is reported under, and the one the twenty
-#: row-less members are reported under. Read from the shipped modules rather
-#: than spelled here, so a product that renamed either is a failure in the
-#: gate's subject rather than a silent miss.
+#: The status a declared-but-inert parameter is refused with, from locked
+#: ROADMAP criterion 30 and Standard section 9's *"400 not_supported_at_tier"*.
+#:
+#: **AUTHORED HERE, DELIBERATELY, AND IT IS THE ONE FIGURE THAT IS.** The
+#: shipped verdict type carries this number as its own default, and
+#: ``examples/cp-04-corporate-family-tree/produce.py`` is the file `CFT-G06`'s
+#: sabotage MUTATES — so reading the status from there would put the gate's
+#: expectation and the product's behavior in one file, which is the shape that
+#: lets a gate pass its own sabotage. Criterion 45 scopes the
+#: read-it-from-`expected.yaml` rule to the criteria 3–18 census figures, and a
+#: status code is not one of them: it comes from the Standard rather than from
+#: the estate. :func:`test_the_seed_carries_what_these_six_gates_need` asserts
+#: the shipped type still agrees with it, so a drift is a failure rather than a
+#: divergence nobody looks at.
+DECLARED_REFUSAL_STATUS = 400
+
+#: The finding type the duplicate pair is reported under, and the one the
+#: twenty row-less members are reported under. Read from the shipped modules
+#: rather than spelled here, so a product that renamed either is a failure in
+#: the gate's subject rather than a silent miss.
+#:
+#: **The CYCLE type is read from `expected.yaml::census.cycle_1.type` instead**,
+#: because ``projection.py`` is the file `CFT-G07`'s and `CFT-G08`'s sabotages
+#: mutate. **`FINDING_UNRESOLVED_JURISDICTION` lives in that same file and the
+#: overlap is recorded rather than glossed:** what `CFT-G09` compares is the
+#: declared ROSTER from `expected.yaml`, and its size limb reads the served
+#: member set — neither moves with a renamed constant, and no sabotage in this
+#: plan touches the constant. Said out loud because an unstated overlap is how a
+#: gate comes to pass its own sabotage.
 #:
 #: Resolved lazily in :func:`finding_types` because the example's modules are
 #: loaded through :func:`_load`, which is import-order sensitive.
-CYCLE_FINDING_ATTR = "FINDING_OWNERSHIP_CYCLE"
 DUPLICATE_FINDING_ATTR = "FINDING_DUPLICATE_ENTITY"
 UNRESOLVED_FINDING_ATTR = "FINDING_UNRESOLVED_JURISDICTION"
 
@@ -175,11 +199,20 @@ def local_name(iri: str) -> str:
 
 
 def finding_types() -> Mapping[str, str]:
-    """The three finding type tokens, read from the shipped modules."""
+    """The three finding type tokens, and the file each is read from.
+
+    ``cycle`` comes from `artifacts/expected.yaml`, which no sabotage in this
+    plan touches; ``duplicate`` from
+    ``examples/cp-04-corporate-family-tree/deployment.py``, which no sabotage in
+    this plan touches either; ``unresolved`` from
+    ``examples/cp-04-corporate-family-tree/projection.py``, which two of them
+    do — see :data:`UNRESOLVED_FINDING_ATTR` for why that overlap does not let
+    `CFT-G09` pass its own sabotage.
+    """
     deployment = _load("deployment")
     projection = _load("projection")
     return {
-        "cycle": str(getattr(deployment, CYCLE_FINDING_ATTR)),
+        "cycle": str(census("cycle_1")["type"]),
         "duplicate": str(getattr(deployment, DUPLICATE_FINDING_ATTR)),
         "unresolved": str(getattr(projection, UNRESOLVED_FINDING_ATTR)),
     }
@@ -487,6 +520,15 @@ def test_the_seed_carries_what_these_six_gates_need(served: Asked) -> None:
         " reads the single declared name; a second one would leave the gate"
         " asserting a refusal for one parameter while another went unwatched"
     )
+    shipped_status = int(
+        _load("produce").ParameterNotSupported(parameter="x", reason="y").status
+    )
+    assert shipped_status == DECLARED_REFUSAL_STATUS, (
+        f"the shipped verdict refuses with status {shipped_status} where"
+        f" criterion 30 and Standard section 9 declare {DECLARED_REFUSAL_STATUS}."
+        " The gate asserts the DECLARED number rather than the shipped one, so"
+        " a drift is reported here rather than absorbed"
+    )
 
     axis = deployment.class_axis_iri()
     carrying = [
@@ -624,10 +666,7 @@ def test_cft_g06_as_of_is_refused_not_supported_at_tier(
         asked_with_as_of,
         parameter=parameter,
         reason=str(inert[parameter]).strip(),
-        # The status the shipped verdict carries, read off the shipped type
-        # rather than spelled here — a product that moved 400 to 409 should
-        # move this gate's subject with it.
-        status=int(_load("produce").ParameterNotSupported("x", "y").status),
+        status=DECLARED_REFUSAL_STATUS,
     )
     assert not violations, (
         f"CFT-G06 failed against {asked_with_as_of.asked_as}:\n"
