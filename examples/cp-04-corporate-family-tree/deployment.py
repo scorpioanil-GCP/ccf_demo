@@ -71,50 +71,74 @@ parameter set, and therefore the content address. See that function for why
 pushing the caller's depth into the SPARQL instead would be a defect rather
 than an optimization.
 
-**WHAT THIS MODULE DOES NOT YET CARRY, AND WHY — READ THIS BEFORE USING IT.**
+**THE TWO THINGS THAT ONCE STOOD OPEN HERE, AND HOW EACH WAS RULED.** An
+earlier revision of this docstring named the L1 envelopes and the policy
+classification as deliberately absent, because building either would have
+required deciding a question the Control Plane document left open. Both are
+now ruled and both are built. The reasoning is kept, because the shape below
+is unreadable without it:
 
-Two things the plan for this file asked for are **deliberately absent**, because
-building either would have required deciding a question that is open in this
-product's own Control Plane document. Both are named here rather than left as a
-gap somebody discovers by reading a stack trace:
+1. **The L1 envelopes — ONE PER NODE, and no relationship rule fires.**
+   ``src/ccf/assembly/worker.py:381`` mints a relationship claim by **class
+   co-occurrence**: every declared rule whose subject and object classes BOTH
+   resolve from one envelope fires, and nothing selects the relationship type
+   from the payload. Measured live through ``booted.handle.worker``, one
+   envelope carrying one ``entity_uri`` minted 2 entities — the same node under
+   both classes — and **twelve relationships, six of them self-loops**, across
+   all six declared types. A member-to-member edge cannot be minted at all,
+   because one envelope resolves at most one ``family_member``. Had the twelve
+   rules been kept, this product's ``predicate`` field would have been a lie.
+   ``D-35`` records the gap; ``ccf_config.yaml`` now declares
+   ``relationship_rules: []``; and :func:`relationship_claims` builds each
+   typed edge for admission through ``worker.admit_relationship_claim``
+   (``:315``), **carrying its true predicate**. Still one writer, still L2, and
+   no file under ``src/`` changes.
+2. **The policy classification — the family's OBSERVED jurisdiction set, closed
+   at two values.** ``PolicyFilter._admits`` refuses an ABSENT classification
+   attribute exactly as firmly as an out-of-grant one, and 20 of the SMCI
+   subtree's 22 members hold no PostgreSQL row — so under the struck nine-value
+   envelope the Policy step deleted 20 of the 22 members, which is precisely the
+   population ``CFT-G09`` and criterion 33 exist to protect. Ruled 2026-09-01 as
+   ``D-IMPL-228``: the declared set is ``{NL, US-DE}``, the set this family
+   actually exhibits, **closed, with an unknown key refused**; a member carries
+   its own ``legal_jurisdiction`` where a row exists and **the family's — the
+   anchor's — where none does**. :func:`classify_family` applies it and
+   :func:`refuse_open_jurisdiction_world` closes the world in **both**
+   directions, so neither a dropped row nor a quietly added one can ship.
 
-1. **The L1 envelopes.** ``ccf_config.yaml``'s ``resolution`` block declares two
-   entity rules whose ``identity_keys`` are both ``[entity_uri]``, plus twelve
-   relationship rules. ``src/ccf/assembly/worker.py::AssemblyWorker`` mints a
-   relationship claim by **co-occurrence** — every declared rule whose subject
-   and object classes BOTH resolve from one envelope fires — so one envelope
-   carrying one ``entity_uri`` mints the same node under both classes and then
-   emits six edges between those two, one per declared type. There is no
-   payload-selected relationship type, and a member-to-member edge cannot be
-   minted at all, because one envelope resolves at most one ``family_member``.
-   The declared spec therefore cannot express a typed parent-to-child edge.
-   Measured, not reasoned: see this plan's summary.
-2. **The policy classification.** ``policy.principal-subgraph`` classifies both
-   entity classes on ``entity_jurisdiction`` and
-   ``src/ccf/operators/categories.py::PolicyFilter`` refuses a record whose
-   classification attribute is ABSENT as firmly as one whose value is outside
-   the grant. Measured against the estate, the declared
-   ``permitted_classifications`` admits **78 of 748** family nodes and **2 of
-   the SMCI subtree's 22**. The other 20 carry no PostgreSQL row and therefore
-   no ``entity_jurisdiction``, and they are precisely the population
-   ``CFT-G09`` and criterion 33 protect.
+**THE WALK IS FAMILY-SCOPED; THE JURISDICTION LIST IS NOT.** ``D-IMPL-228``
+refuses the inverse by name — *"Do not 'family-scope' a superset of
+jurisdictions so the anchor happens to hit the list."* Family-scoping over the
+struck nine would have admitted every member because the anchor is ``US-DE``,
+for a reason unrelated to the other seven. Dave, verbatim: *"Nine-row
+'coverage' is how idle gates look when the extra rows never fire."*
 
-Everything else this module was asked for is here and is exercised against the
-live estate: both connection seams, the bounded walk, the whole-ledger
-enumeration, the normalization with its per-predicate arrow, the cycle detector
-with its rotation convention, the duplicate-identity finding, the ONE batched
-attribute read, and every refusal.
+**WHAT IS EXERCISED HERE:** both connection seams, the bounded walk, the
+whole-ledger enumeration, the normalization with its per-predicate arrow, the
+cycle detector with its rotation convention, the duplicate-identity finding,
+the ONE batched attribute read, the classification, the L1 envelopes, the typed
+edge claims, the scenario the spine reads, and every refusal.
+
+**WHAT THIS MODULE STILL DOES NOT COMPUTE, NAMED RATHER THAN LEFT TO A STACK
+TRACE.** ``D_c``. ``ccf_config.yaml`` declares a ``debt_profile`` and
+``question.yaml`` a ``debt_tolerance``, and :class:`FamilyScenario` carries both
+**as data**; what ``F``, ``C`` and ``S`` are measured over for a graph payload
+is spec section E.2's question and belongs with the spine that refuses on it,
+which is plan ``24.4-07``. Declaring the inputs and computing nothing is the
+honest boundary; inventing a formula here would put a domain decision in the
+file least likely to be read for one.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import uuid
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -122,9 +146,19 @@ import httpx
 import psycopg
 import yaml
 
-from ccf.controlplane.artifacts import OperatorParametersArtifact
-from ccf.products.request import ProductRequest
+from ccf.assembly.worker import EntityResolutionSpec
+from ccf.contracts.claims import LineageEntry, RelationshipClaim
+from ccf.controlplane.artifacts import (
+    DebtProfile,
+    HalfLifeTable,
+    OperatorParametersArtifact,
+    PerspectiveArtifact,
+    ProductClassDeclaration,
+)
+from ccf.deployment import BootedFabric
+from ccf.products.request import ProductRequest, ProductRequestContract
 from ccf.projection.plan import Perspective
+from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 HERE = Path(__file__).parent
 ARTIFACTS = HERE / "artifacts"
@@ -159,6 +193,29 @@ KEY_PRODUCT_CLASS = "product_class"
 KEY_REQUEST_CONTRACT = "request_contract"
 KEY_OPERATORS = "operators"
 KEY_TRAVERSAL_OPERATOR = "traversal.typed-neighborhood"
+KEY_POLICY_OPERATOR = "policy.principal-subgraph"
+KEY_RESOLUTION = "resolution"
+KEY_ENTITY_RULES = "entity_rules"
+KEY_MATCH_KEY = "match_key"
+KEY_ENTITY_CLASS = "entity_class"
+KEY_IDENTITY_KEYS = "identity_keys"
+KEY_ATTRIBUTE_KEYS = "attribute_keys"
+KEY_HALF_LIFE_TABLE = "half_life"
+KEY_DEBT_PROFILE = "debt_profile"
+KEY_POLICY_BUNDLE = "policy"
+KEY_PERMITTED_CLASSIFICATIONS = "permitted_classifications"
+
+REPLAY_RECORD_CLASS = "cp-04.replay-record"
+QUERY_PIN_CLASS = "cp-04.graph-query"
+ARTIFACT_STORE_DIRNAME = "artifacts-store"
+
+#: The payload key carrying a node's SOURCE identity, and the one
+#: `ccf_config.yaml`'s two entity rules both name under `identity_keys`. The
+#: MINTED `entity_uri` is not this value — `worker.py:220` hashes the identity
+#: map and mints `<entity-class>://<hash>` — which is exactly why
+#: :func:`relationship_claims` takes the minted URIs from the ingest results
+#: rather than recomputing them here.
+ATTR_ENTITY_URI = "entity_uri"
 
 #: The two source bindings `backends.yaml` declares, each for its own thing.
 #: `CFT-G10` asserts the split; serving an attribute out of the graph leg is
@@ -182,7 +239,25 @@ VOCAB_SIGNAL_CLASS = "signal_class"
 VOCAB_TABLE = "table"
 VOCAB_KEY_COLUMN = "key_column"
 VOCAB_SERVED_COLUMNS = "served_columns"
+VOCAB_JURISDICTION_COLUMN = "jurisdiction_column"
 VOCAB_REFUSE_EMPTY_FOLD = "refuse_empty_fold"
+
+#: `artifacts/source-vocabulary.yaml::entitlement` — the block `D-IMPL-228`
+#: ruled on 2026-09-01, and the home of WHICH classification value a family
+#: member carries. The declared SET lives in `ccf_config.yaml`; the value's
+#: PROVENANCE is a source fact and lives here.
+VOCAB_ENTITLEMENT = "entitlement"
+VOCAB_CLASSIFICATION_ATTRIBUTE = "classification_attribute"
+VOCAB_CLASSIFICATION_SOURCES = "classification_sources"
+
+#: The two declared classification sources, in the order the artifact lists
+#: them. `own_attribute_row` reads the member's own `jurisdiction_column`;
+#: `family_anchor` reads the value the ANCHOR resolved to. A source this module
+#: does not implement is a refusal, never a silent skip — otherwise a document
+#: could declare a provenance nobody honored and the payload would still look
+#: right.
+CLASSIFICATION_OWN_ROW = "own_attribute_row"
+CLASSIFICATION_FAMILY_ANCHOR = "family_anchor"
 
 NODE_PREDICATE_LEI = "lei"
 NODE_PREDICATE_LABEL = "label"
@@ -239,6 +314,24 @@ _HTTP_TIMEOUT_SECONDS = 180.0
 #: are exactly what the pair differs by — `SUPER MICRO COMPUTER B.V.` against
 #: `Super Micro Computer B.V` — so both are folded away and nothing else is.
 _NON_ALPHANUMERIC = re.compile(r"[^a-z0-9]+")
+
+#: A reference from `ccf_config.yaml` to one of this deployment's own artifacts.
+_ARTIFACT_REFERENCE = re.compile(r"artifacts/([A-Za-z0-9._-]+\.yaml)")
+
+#: The word a `ccf_config.yaml` comment uses when it says where the six source
+#: predicates' full IRIs live. :func:`refuse_stale_vocabulary_pointer` scans
+#: whole COMMENT BLOCKS rather than lines for this, deliberately: the pointer
+#: sentence is line-wrapped, and a line-scoped check would be defeated by a
+#: re-wrap that moved the path onto its own line — which is a formatting change
+#: nobody would think to re-verify.
+_IRI_CLAIM = re.compile(r"\bIRIs?\b")
+
+#: How a node's FIBO class chain is rendered into `EntityClaim.attributes`,
+#: which is typed `Mapping[str, str]`. A serialization detail and not a domain
+#: value: the chain's MEMBERS come from the ledger, and this only fixes how a
+#: tuple of them becomes one string. A space cannot occur inside an IRI, so the
+#: join is reversible.
+_TYPE_CHAIN_SEPARATOR = " "
 
 
 # ---------------------------------------------------------------------------
@@ -449,6 +542,100 @@ def node_predicate_iris() -> Mapping[str, str]:
     return cast(
         Mapping[str, str], source_vocabulary()[VOCAB_GRAPH][VOCAB_NODE_PREDICATES]
     )
+
+
+def _comment_blocks(text: str) -> tuple[str, ...]:
+    """Consecutive ``#`` lines, joined — one block per prose paragraph."""
+    blocks: list[str] = []
+    current: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            current.append(stripped.lstrip("#").strip())
+        elif current:
+            blocks.append(" ".join(current))
+            current = []
+    if current:
+        blocks.append(" ".join(current))
+    return tuple(blocks)
+
+
+def refuse_stale_vocabulary_pointer() -> tuple[str, ...]:
+    """Refuse a ``ccf_config.yaml`` pointer that names the wrong document.
+
+    **A POINTER TO THE WRONG FILE AND A POINTER TO THE WRONG RULING ARE THE
+    SAME DEFECT: A READER STOPS LOOKING.** Dave, 2026-09-01, naming both at
+    once. This function is the first half made checkable.
+
+    The defect it exists for is not hypothetical and was not caught by any
+    schema. ``ccf_config.yaml`` said, in place, that the six family predicates'
+    full IRIs were in ``artifacts/assembly-recipe.yaml``. They were not:
+    ``grep -rn 'edmcouncil'`` over that file returns **zero**. The recipe
+    carries ten steps, a witness per step and a closed operator vocabulary, and
+    no IRI anywhere. A reader following that sentence found a document that
+    looked authoritative and did not contain the subject.
+
+    **THE POINTER LIVES IN A COMMENT, so a YAML-shaped check cannot see it** —
+    which is exactly why it went unverified for a wave. This scans the config's
+    comment BLOCKS for any block that both claims to name an IRI home and names
+    an artifact, and holds every named document to actually carrying all six.
+
+    Returns the artifact filenames the config points at, so a caller can see
+    the check had a non-empty subject.
+
+    Three ways to fail, and the third is the one that makes this a gate rather
+    than a formality:
+
+    * a named document does not exist;
+    * a named document is missing one or more of the six IRIs — **the shipped
+      defect, reproducible by repointing the sentence at
+      ``assembly-recipe.yaml``**; and
+    * **NO block claims an IRI home at all.** Deleting the pointer would
+      otherwise make this check pass over an empty set, so a vacuous subject is
+      a refusal. A check that cannot fail is the same defect as the pointer it
+      is checking.
+
+    A fourth condition holds the CODE to the same document: the file this
+    module actually reads its IRIs from — :data:`SOURCE_VOCABULARY` — must be
+    among the ones the config names. A config and an interpreter pointing at
+    two different documents is the same reader-stops-looking failure with one
+    more step in it.
+    """
+    named: list[str] = []
+    for block in _comment_blocks(CONFIG.read_text(encoding="utf-8")):
+        if not _IRI_CLAIM.search(block):
+            continue
+        named.extend(_ARTIFACT_REFERENCE.findall(block))
+    if not named:
+        raise SystemExit(
+            "ccf_config.yaml names NO document as the home of the six family"
+            " predicates' IRIs. The pointer is not optional: a reader who"
+            " cannot find the source vocabulary from the deployment document"
+            " has the same problem as one sent to the wrong file."
+        )
+    wanted = set(family_predicate_iris().values())
+    for filename in sorted(set(named)):
+        target = ARTIFACTS / filename
+        if not target.is_file():
+            raise SystemExit(
+                f"ccf_config.yaml points at artifacts/{filename} for the six"
+                f" predicate IRIs and no such file exists."
+            )
+        held = target.read_text(encoding="utf-8")
+        missing = sorted(iri for iri in wanted if iri not in held)
+        if missing:
+            raise SystemExit(
+                f"ccf_config.yaml points at artifacts/{filename} for the six"
+                f" predicate IRIs and it carries none of"
+                f" {len(missing)} of them:\n  " + "\n  ".join(missing)
+            )
+    if SOURCE_VOCABULARY.name not in set(named):
+        raise SystemExit(
+            f"this module reads its predicate IRIs from"
+            f" artifacts/{SOURCE_VOCABULARY.name}, and ccf_config.yaml points a"
+            f" reader at {sorted(set(named))} instead."
+        )
+    return tuple(sorted(set(named)))
 
 
 # ---------------------------------------------------------------------------
@@ -784,6 +971,35 @@ def walk_from_anchor(
                             discovered.append(child)
             frontier = discovered
     return tuple(collected[key] for key in sorted(collected))
+
+
+def resolve_anchor(lei: str, *, source: GraphSource | None = None) -> str | None:
+    """The graph node the request's LEI names, or ``None``.
+
+    **The request's ``subject`` is an LEI and the walk's anchor is an IRI**, and
+    the step between them is a read rather than a formatting rule — nothing in
+    this module can construct ``.../SuperMicroComputerInc`` from
+    ``54930022CZO1N2UGVW07``, and a build that could would be minting node
+    identity out of a string.
+
+    ``None`` is a **404** and never an empty payload (spec section B.4). An
+    empty family reads as *this company has no subsidiaries*, which is a claim
+    about the world; an unresolvable anchor is a fact about the request.
+    """
+    resolved = source or graph_source()
+    predicate = node_predicate_iris()[NODE_PREDICATE_LEI]
+    with httpx.Client(timeout=_HTTP_TIMEOUT_SECONDS) as client:
+        rows = _sparql(
+            client,
+            resolved,
+            f"SELECT ?s {_from_clause(resolved)} WHERE {{"
+            f" ?s <{predicate}> {json.dumps(lei)} }}",
+        )
+    for row in rows:
+        found = _binding(row, "s")
+        if found is not None:
+            return found
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -1262,6 +1478,183 @@ def resolve_attributes(
 
 
 # ---------------------------------------------------------------------------
+# Entitlement — `D-IMPL-228`. THE FAMILY'S OBSERVED SET, CLOSED AT TWO VALUES.
+# ---------------------------------------------------------------------------
+
+
+def declared_classifications() -> tuple[str, ...]:
+    """The jurisdictions this deployment declares — ``{NL, US-DE}``.
+
+    From ``ccf_config.yaml``'s policy operator parameters, because that is the
+    set ``src/ccf/operators/categories.py::PolicyFilter._admits`` actually
+    tests membership against. Reading it from anywhere else would let the
+    declaration and the enforcement drift.
+    """
+    declared = config()[KEY_OPERATORS][KEY_POLICY_OPERATOR]
+    return tuple(str(value) for value in declared[KEY_PERMITTED_CLASSIFICATIONS])
+
+
+def classification_attribute() -> str:
+    """The attribute key both entity classes are classified on."""
+    return str(source_vocabulary()[VOCAB_ENTITLEMENT][VOCAB_CLASSIFICATION_ATTRIBUTE])
+
+
+def classification_sources() -> tuple[str, ...]:
+    """Where a member's classification value comes from, in declared order."""
+    declared = source_vocabulary()[VOCAB_ENTITLEMENT][VOCAB_CLASSIFICATION_SOURCES]
+    return tuple(str(name) for name in declared)
+
+
+def classify_family(
+    *,
+    anchor_uri: str,
+    nodes: Sequence[str],
+    node_leis: Mapping[str, str],
+    rows: Mapping[str, Mapping[str, Any]],
+) -> Mapping[str, str]:
+    """One classification value per family member — ``D-IMPL-228``.
+
+    **A MEMBER CARRIES ITS OWN JURISDICTION WHERE POSTGRESQL HOLDS A ROW, AND
+    THE FAMILY'S — THE ANCHOR'S — WHERE IT DOES NOT.** The order comes from
+    ``artifacts/source-vocabulary.yaml``'s ``classification_sources``, not from
+    this function, and a declared source this module cannot honor raises rather
+    than being skipped: a document declaring a provenance nobody implemented
+    would leave the payload looking right and the declaration meaning nothing.
+
+    **WHY THE SECOND SOURCE EXISTS, and it is the whole reason this product has
+    a Policy step it can keep.** ``PolicyFilter._admits`` refuses a record whose
+    classification attribute is ABSENT exactly as firmly as one whose value is
+    out of grant. 20 of the SMCI subtree's 22 members hold no
+    ``ccf_v2.legal_entity`` row, so under a per-node-only rule the Policy step
+    deleted 20 of 22 — precisely the population ``CFT-G09`` and criterion 33
+    exist to protect. It is not a leniency: a corporate family is the anchor's
+    group, and a borrowing group is entitled as a group. Spec section B.2 draws
+    the line this rests on — *"whether an edge to an entity in a restricted
+    jurisdiction may be returned to a principal outside it is not the same
+    question as whether that entity's attributes may be."* The TREE inherits;
+    the ATTRIBUTES do not, and a member with no row is served with a null
+    attribute resolution rather than with the anchor's figures.
+
+    **THE THIRD ROUTE WAS MEASURED AND IS UNAVAILABLE, not argued away.**
+    Deriving a missing value from the graph leg's own ``jurisdictionCode`` fails
+    twice: the vocabularies differ (ISO 3166-1 alpha-3 against
+    ``legal_jurisdiction``'s 3166-2-style values), and over the committed
+    fixture **0 of the 22 subtree nodes carry a ``jurisdictionCode`` at all**. A
+    mapping table nobody measured would have been mapping an empty set.
+
+    **AN ANCHOR THAT RESOLVES TO NO JURISDICTION REFUSES.** There is no literal
+    fallback below and no ``or "US"``. If the family's own head carries no
+    classification, inheriting it would classify 22 members on a value nobody
+    has — which is the shape a default is always mistaken for.
+    """
+    declared_sources = classification_sources()
+    unknown = [
+        name
+        for name in declared_sources
+        if name not in (CLASSIFICATION_OWN_ROW, CLASSIFICATION_FAMILY_ANCHOR)
+    ]
+    if unknown:
+        raise SystemExit(
+            f"artifacts/source-vocabulary.yaml declares classification"
+            f" source(s) {unknown} that this deployment does not implement;"
+            f" refusing to classify against a provenance nobody honors"
+        )
+    column = str(
+        source_vocabulary()[VOCAB_ATTRIBUTES][VOCAB_JURISDICTION_COLUMN]
+    )
+
+    def own(uri: str) -> str | None:
+        lei = node_leis.get(uri)
+        if lei is None:
+            return None
+        value = rows.get(lei, {}).get(column)
+        return str(value) if value else None
+
+    anchor_value = own(anchor_uri) if CLASSIFICATION_OWN_ROW in declared_sources else None
+    if CLASSIFICATION_FAMILY_ANCHOR in declared_sources and anchor_value is None:
+        raise SystemExit(
+            f"the anchor {anchor_uri!r} resolves to no {column!r}, so there is"
+            f" no family classification for the {len(nodes)} members that carry"
+            f" none of their own; refusing rather than inventing one"
+        )
+
+    classified: dict[str, str] = {}
+    for uri in nodes:
+        for name in declared_sources:
+            value = own(uri) if name == CLASSIFICATION_OWN_ROW else anchor_value
+            if value is not None:
+                classified[uri] = value
+                break
+    return classified
+
+
+def refuse_open_jurisdiction_world(classified: Mapping[str, str]) -> tuple[str, ...]:
+    """Hold the declared set to the family's OBSERVED set, in both directions.
+
+    **CLOSED WORLD, the same discipline ``artifacts/gates.yaml`` carries.**
+    ``D-IMPL-228``: *"Declared jurisdictions = the family's observed set,
+    closed."* ``PolicyFilter`` already refuses a member whose value is outside
+    the declaration — that is the first direction, and it is the SDK's. This
+    function adds the second, which the SDK has no reason to hold: **a DECLARED
+    value that no family member exhibits is refused too.**
+
+    The second direction is the one that matters, and Dave named why. The list
+    this replaced carried nine values where the family exhibits two, and
+    family-scoping over the nine would have admitted every member because the
+    anchor is ``US-DE`` — for a reason unrelated to the other seven. *"Nine-row
+    'coverage' is how idle gates look when the extra rows never fire."* A
+    declared row that cannot fire is the idle-gate defect wearing a
+    jurisdiction's name, and without this check the closed world is a
+    convention rather than a gate: nothing else in the tree notices a list
+    quietly re-widened.
+
+    Returns the observed set, so a caller can see what the check ran against
+    rather than taking a bare pass.
+
+    The three named sabotages, and each is REFUSED here:
+
+    * drop ``NL`` — ``SuperMicroComputerBV`` carries a value nobody declared;
+    * drop ``US-DE`` — the anchor and the 20 members inheriting from it do;
+    * add ``US-NY`` **as if it were in-family** — a declared row firing on
+      nothing.
+
+    An empty declaration is refused for the same reason the vacuity guard in
+    :func:`refuse_stale_vocabulary_pointer` exists: over an empty family this
+    would otherwise pass by having nothing to compare.
+    """
+    declared = set(declared_classifications())
+    observed = set(classified.values())
+    if not declared:
+        raise SystemExit(
+            "ccf_config.yaml declares an EMPTY permitted_classifications set;"
+            " a policy envelope that admits nothing is not a narrower grant,"
+            " it is an absent one"
+        )
+    if not classified:
+        raise SystemExit(
+            "no family member was classified, so the declared jurisdiction set"
+            " has nothing to be held against; refusing a check that cannot fail"
+        )
+    undeclared = sorted(observed - declared)
+    if undeclared:
+        raise SystemExit(
+            f"family members carry classification(s) {undeclared} that"
+            f" ccf_config.yaml does not declare. The declared set is the"
+            f" FAMILY'S OBSERVED SET and it is CLOSED (`D-IMPL-228`): an"
+            f" unknown key is refused, never admitted."
+        )
+    idle = sorted(declared - observed)
+    if idle:
+        raise SystemExit(
+            f"ccf_config.yaml declares jurisdiction(s) {idle} that no member of"
+            f" this family exhibits. The declared set is the family's OBSERVED"
+            f" set (`D-IMPL-228`); a row that never fires is how an idle gate"
+            f" looks, and the observed set is {sorted(observed)}."
+        )
+    return tuple(sorted(observed))
+
+
+# ---------------------------------------------------------------------------
 # The request surface, and the refusals. Checked at the door.
 # ---------------------------------------------------------------------------
 
@@ -1378,3 +1771,538 @@ def demonstration_anchor() -> str:
     lives in an artifact rather than here.
     """
     return str(question()["subject"])
+
+
+# ---------------------------------------------------------------------------
+# L1 — one envelope PER NODE, and the typed edges admitted beside them.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class EntityRule:
+    """One ``ccf_config.yaml`` entity rule, read rather than assumed.
+
+    The rule's ``match_key`` is what selects it: `worker.py:211` skips a rule
+    whose ``match_key`` is absent from the payload. That is the whole mechanism
+    by which one envelope resolves to exactly ONE entity here — the anchor's
+    envelope carries the anchor rule's key and no other, and a member's carries
+    the member rule's.
+    """
+
+    match_key: str
+    entity_class: str
+    identity_keys: tuple[str, ...]
+    attribute_keys: tuple[str, ...]
+
+
+def entity_rules() -> tuple[EntityRule, ...]:
+    """The declared entity rules, in declaration order."""
+    declared = config()[KEY_RESOLUTION][KEY_ENTITY_RULES]
+    return tuple(
+        EntityRule(
+            match_key=str(rule[KEY_MATCH_KEY]),
+            entity_class=str(rule[KEY_ENTITY_CLASS]),
+            identity_keys=tuple(str(key) for key in rule[KEY_IDENTITY_KEYS]),
+            attribute_keys=tuple(
+                str(key) for key in rule.get(KEY_ATTRIBUTE_KEYS, ())
+            ),
+        )
+        for rule in declared
+    )
+
+
+def _rule_for(entity_class: str) -> EntityRule:
+    for rule in entity_rules():
+        if rule.entity_class == entity_class:
+            return rule
+    raise SystemExit(
+        f"ccf_config.yaml declares no entity rule for {entity_class!r}; the"
+        f" seed class and the resolution vocabulary have to agree or the walk"
+        f" seeds an empty frontier"
+    )
+
+
+def anchor_entity_class() -> str:
+    """Which declared class the ANCHOR is minted under.
+
+    Read from the traversal operator's ``seed_entity_classes``, because that is
+    the set `src/ccf/operators/categories.py` seeds the frontier from. Declaring
+    an anchor class here that the walk does not seed on would produce a bounded
+    walk that returned nothing and read as an empty family.
+    """
+    seeds = seed_entity_classes()
+    if len(seeds) != 1:
+        raise SystemExit(
+            f"this deployment mints ONE anchor per request and"
+            f" ccf_config.yaml seeds the walk from {list(seeds)}; a family with"
+            f" two anchors is a different question than the one this product"
+            f" answers"
+        )
+    return seeds[0]
+
+
+def member_entity_class() -> str:
+    """The other declared class. Every non-anchor family node is minted here."""
+    anchor = anchor_entity_class()
+    others = [rule.entity_class for rule in entity_rules() if rule.entity_class != anchor]
+    if len(others) != 1:
+        raise SystemExit(
+            f"ccf_config.yaml declares entity classes"
+            f" {[rule.entity_class for rule in entity_rules()]}; this"
+            f" deployment mints exactly two — one anchor and one member class"
+        )
+    return others[0]
+
+
+def build_envelopes(
+    *,
+    tenant: str,
+    at: datetime,
+    anchor_uri: str,
+    facts: Mapping[str, NodeFacts],
+    classified: Mapping[str, str],
+) -> tuple[tuple[SignalEnvelope, ...], Mapping[str, str]]:
+    """ONE ENVELOPE PER NODE — ``D-35``, ruled 2026-09-01.
+
+    **The shape is forced by a measured property of the SDK, not chosen for
+    tidiness.** ``src/ccf/assembly/worker.py:381`` mints relationship claims by
+    CLASS CO-OCCURRENCE: every declared rule whose subject and object classes
+    both resolve from one envelope fires, and nothing selects the relationship
+    type from the payload. Measured live, one envelope carrying one
+    ``entity_uri`` and matching both rules minted 2 entities — the same node
+    under both classes, identical identity hash — and **twelve relationships,
+    six of them self-loops**, spanning all six declared types.
+
+    So each envelope carries the match key of exactly ONE rule and resolves to
+    exactly ONE entity. With ``relationship_rules: []`` beside it, no
+    relationship rule can fire at all — and the typed edges arrive instead
+    through :func:`relationship_claims` and
+    ``worker.admit_relationship_claim``, each carrying its TRUE predicate.
+    **Still one writer, still L2, and no file under ``src/`` changes.**
+
+    Returns the envelopes and a map from ``envelope_id`` back to the SOURCE
+    node IRI. The spine needs that map because the graph mints its own
+    ``entity_uri`` — ``<entity-class>://<identity-hash>`` (`worker.py:220`) —
+    so the URI an edge must be built from is knowable only after ingest, from
+    each ``IngestResult``'s own ``node_key``. Recomputing the hash here would
+    be this module reimplementing L2's identity rule, which is exactly the
+    duplication that goes stale in silence.
+
+    **Every payload key comes from the declared rule**, and a rule declaring a
+    key this module cannot supply raises. That refusal is what keeps
+    ``attribute_keys`` a real declaration: without it, adding a key to the
+    document would change nothing and look like it had.
+    """
+    envelopes: list[SignalEnvelope] = []
+    by_envelope: dict[str, str] = {}
+    anchor_rule = _rule_for(anchor_entity_class())
+    member_rule = _rule_for(member_entity_class())
+    system = SourceIdentity(system_id=SOURCE_GRAPH)
+    for uri in sorted(facts):
+        node = facts[uri]
+        rule = anchor_rule if uri == anchor_uri else member_rule
+        supplied: dict[str, Any] = {
+            ATTR_ENTITY_URI: uri,
+            NODE_PREDICATE_LEI: node.lei,
+            NODE_PREDICATE_LABEL: node.label,
+            NODE_PREDICATE_TYPE_CHAIN: _TYPE_CHAIN_SEPARATOR.join(node.type_chain),
+            classification_attribute(): classified.get(uri),
+        }
+        payload: dict[str, Any] = {rule.match_key: uri}
+        for key in (*rule.identity_keys, *rule.attribute_keys):
+            if key not in supplied:
+                raise SystemExit(
+                    f"ccf_config.yaml's {rule.entity_class!r} rule declares"
+                    f" payload key {key!r} and this deployment reads no such"
+                    f" value out of either system of record"
+                )
+            value = supplied[key]
+            # An ABSENT attribute is absent, never an empty string: `lei` and
+            # `label` are nullable by section D.6, and a node with no LEI that
+            # carried `""` would resolve in PostgreSQL against nothing while
+            # LOOKING resolved.
+            if value is not None:
+                payload[key] = value
+        envelope_id = f"family:{rule.entity_class}:{uri}"
+        by_envelope[envelope_id] = uri
+        envelopes.append(
+            SignalEnvelope(
+                tenant_id=tenant,
+                envelope_id=envelope_id,
+                source=system,
+                ingestion_timestamp=at,
+                # NO `observed_time`, AND THE ABSENCE IS DELIBERATE RATHER THAN
+                # AN OVERSIGHT. `SignalEnvelope`'s own contract reads: "``None``
+                # means unknown — L2 reconciles against the bitemporal T axis
+                # rather than guessing a value here." Measured over the
+                # committed fixture, **no family node and no family edge carries
+                # an assertion date of any kind** — the ledger holds the six
+                # predicates, `ex:lei`, `rdfs:label` and `rdf:type`, and no
+                # timestamp. Fluree's own `t` is TRANSACTION time and
+                # `D-IMPL-88` rules it must not stand in for an observation, so
+                # the honest value is unknown. See `FamilyScenario.expires_at`
+                # for what that costs the declared TTL anchor.
+                raw_payload=payload,
+            )
+        )
+    return tuple(envelopes), by_envelope
+
+
+def relationship_claims(
+    *,
+    tenant: str,
+    at: datetime,
+    edges: FamilyEdges,
+    nodes: Sequence[str],
+    minted: Mapping[str, str],
+    envelopes_by_node: Mapping[str, str],
+) -> tuple[RelationshipClaim, ...]:
+    """The typed parent-to-child edges, ready for L2's admission path.
+
+    **EACH CLAIM CARRIES ITS TRUE PREDICATE** — the ruled half of ``D-35``. One
+    claim per (pair, predicate), so a pair the source asserts under both
+    ``owns`` and ``hasGlobalUltimateParent`` becomes two typed edges rather than
+    one edge under a predicate somebody picked. That is not a duplication: the
+    source really does say both things, and collapsing them would decide which
+    assertion to discard.
+
+    The subject and object are the **MINTED** URIs, taken from what
+    ``worker.ingest`` reported for each node's envelope. Nothing here mints a
+    URI, so L2's identity rule stays L2's.
+
+    **LINEAGE NAMES BOTH ENDPOINTS' ENVELOPES.** An edge was observed in the
+    same graph read that produced the node facts on both ends of it, so both
+    envelopes are genuine evidence for it and ``LineageEntry`` is a frozenset
+    precisely so multi-source evidence accumulates by set-union (INV-CH7-17).
+    Naming only one end would be choosing an arbitrary half of the provenance
+    and would make the L axis quietly incomplete.
+
+    Edges are restricted to the node set passed in, so an edge whose far end was
+    dropped upstream — an untyped node, per section D.6 — is not admitted
+    pointing into nothing.
+    """
+    admissible = set(nodes)
+    system = SourceIdentity(system_id=SOURCE_GRAPH)
+    claims: list[RelationshipClaim] = []
+    for parent, child in sorted(edges.by_pair):
+        if parent not in admissible or child not in admissible:
+            continue
+        if parent not in minted or child not in minted:
+            continue
+        lineage = frozenset(
+            LineageEntry(source=system, envelope_id=envelope_id, observed_at=at)
+            for envelope_id in (
+                envelopes_by_node[parent],
+                envelopes_by_node[child],
+            )
+        )
+        for predicate in sorted(edges.predicates_for((parent, child))):
+            claims.append(
+                RelationshipClaim(
+                    tenant_id=tenant,
+                    relationship_type=predicate,
+                    subject_uri=minted[parent],
+                    object_uri=minted[child],
+                    observed_at=at,
+                    valid_from=at,
+                    lineage=lineage,
+                )
+            )
+    return tuple(claims)
+
+
+# ---------------------------------------------------------------------------
+# The two source reads, composed — and what one run needs.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FamilySourceRead:
+    """Everything the two systems of record answered for one question."""
+
+    anchor_uri: str | None
+    facts: Mapping[str, NodeFacts]
+    edges: FamilyEdges
+    findings: tuple[Finding, ...]
+    attributes: AttributeResolution
+    classifications: Mapping[str, str]
+    observed_classifications: tuple[str, ...]
+    envelopes: tuple[SignalEnvelope, ...]
+    envelopes_by_node: Mapping[str, str]
+    collapsed: int
+    ledger_t: int | None
+    stores_opened: tuple[str, ...]
+
+
+def source_read(
+    tenant: str,
+    *,
+    at: datetime,
+    subject: str,
+    graph: GraphSource | None = None,
+    attributes: AttributeSource | None = None,
+) -> FamilySourceRead:
+    """Open BOTH systems of record, each for its declared role.
+
+    **``CFT-G10`` READS THIS FUNCTION.** The gate asserts that THE ASSEMBLY
+    opened Fluree and PostgreSQL — not that the runner did (criterion 34, as
+    clarified by Dave at Gate 1). ``stores_opened`` is the evidence, recorded
+    where the connections are actually made rather than asserted by a caller
+    that could have been handed a pre-populated graph. Policy is **not** that
+    proof and is not consulted for it: ``D-IMPL-228`` says so in terms.
+
+    The order is: resolve the anchor, walk to the DECLARED CEILING, read the
+    node facts, batch-resolve the attributes, classify, then close the
+    jurisdiction world. The classification runs before any envelope is built,
+    because a member's classification is part of the claim L2 will admit, and
+    the closed-world refusal runs before anything is served.
+    """
+    resolved_graph = graph or graph_source()
+    refuse_stale_vocabulary_pointer()
+    anchor_uri = resolve_anchor(subject, source=resolved_graph)
+    empty = AttributeResolution(rows={}, statements=(), requested=())
+    if anchor_uri is None:
+        return FamilySourceRead(
+            anchor_uri=None,
+            facts={},
+            edges=FamilyEdges(by_pair={}),
+            findings=(),
+            attributes=empty,
+            classifications={},
+            observed_classifications=(),
+            envelopes=(),
+            envelopes_by_node={},
+            collapsed=0,
+            ledger_t=ledger_t(resolved_graph),
+            stores_opened=(SOURCE_GRAPH,),
+        )
+
+    triples = walk_from_anchor(anchor_uri, source=resolved_graph)
+    edges = normalize_edges(triples)
+    # The anchor is a family of one where the ledger holds no family edge for
+    # it, and it is still a member of its own tree.
+    reached = sorted(edges.nodes | {anchor_uri})
+    facts = read_node_facts(reached, source=resolved_graph)
+
+    resolved_attributes = attributes or attribute_source()
+    node_leis = {uri: node.lei for uri, node in facts.items() if node.lei}
+    attribute_rows = resolve_attributes(
+        tuple(sorted(set(node_leis.values()))), source=resolved_attributes
+    )
+
+    classified = classify_family(
+        anchor_uri=anchor_uri,
+        nodes=tuple(sorted(facts)),
+        node_leis=node_leis,
+        rows=attribute_rows.rows,
+    )
+    observed = refuse_open_jurisdiction_world(classified)
+
+    envelopes, by_envelope = build_envelopes(
+        tenant=tenant,
+        at=at,
+        anchor_uri=anchor_uri,
+        facts=facts,
+        classified=classified,
+    )
+    findings = (
+        *detect_cycles(edges),
+        *surface_duplicate_pairs(
+            {uri: node.label for uri, node in facts.items() if node.label}
+        ),
+    )
+    return FamilySourceRead(
+        anchor_uri=anchor_uri,
+        facts=facts,
+        edges=edges,
+        findings=findings,
+        attributes=attribute_rows,
+        classifications=classified,
+        observed_classifications=observed,
+        envelopes=envelopes,
+        envelopes_by_node={uri: eid for eid, uri in by_envelope.items()},
+        collapsed=collapse(triples, edges),
+        ledger_t=ledger_t(resolved_graph),
+        stores_opened=(SOURCE_GRAPH, SOURCE_ATTRIBUTES),
+    )
+
+
+@dataclass(frozen=True)
+class FamilyScenario:
+    """This deployment's answers to what the spine asks for.
+
+    Satisfied STRUCTURALLY by the spine's ``Scenario`` Protocol, exactly as
+    rungs 02 and 03 do it — this class imports nothing from ``produce.py`` and
+    ``produce.py`` will name no member of this one. Plan ``24.4-07`` writes that
+    Protocol against this shape; the dependency points one way.
+    """
+
+    envelopes: tuple[SignalEnvelope, ...]
+    envelopes_by_node: Mapping[str, str]
+    request: ProductRequest
+    request_contract: ProductRequestContract
+    product_class: ProductClassDeclaration
+    perspective: PerspectiveArtifact
+    operator_parameters: Mapping[str, OperatorParametersArtifact]
+    resolution: EntityResolutionSpec
+    half_life_table: HalfLifeTable
+    debt_profile: DebtProfile
+    anchor_uri: str
+    max_depth: int
+    facts: Mapping[str, NodeFacts]
+    edges: FamilyEdges
+    findings: tuple[Finding, ...]
+    attributes: AttributeResolution
+    classifications: Mapping[str, str]
+    observed_classifications: tuple[str, ...]
+    collapsed: int
+    ledger_t: int | None
+    stores_opened: tuple[str, ...]
+    ttl_seconds: int
+    max_ttl_seconds: int
+    halflife_debt_profile: str
+    debt_tolerance: str
+
+    request_contract_key: str = KEY_REQUEST_CONTRACT
+    policy_bundle_key: str = KEY_POLICY_BUNDLE
+    replay_record_class: str = REPLAY_RECORD_CLASS
+    query_pin_class: str = QUERY_PIN_CLASS
+    artifact_store_dirname: str = ARTIFACT_STORE_DIRNAME
+
+    @property
+    def plan_id(self) -> str:
+        return self.product_class.schema_name
+
+    @property
+    def temporal_boundary(self) -> datetime:
+        """Off the request, never off a clock — so replay feeds it back."""
+        return self.request.asked_at
+
+    @property
+    def now(self) -> datetime:
+        return self.request.asked_at
+
+    @property
+    def depth_by_node(self) -> Mapping[str, int]:
+        """Breadth-first depth from the anchor at the CALLER's ``max_depth``.
+
+        **This is the deployment's own reading and not what the payload is
+        built from.** The served member set comes out of the L4 traversal
+        operator, whose ``depth_limit`` :func:`traversal_parameters` binds to
+        this same value — which is what puts depth into the parameter set's
+        content hash. This property exists so a caller can render the depth
+        beside each member, and it is a second computation of the same number,
+        deliberately: if the two ever disagree, the walk is not doing what the
+        operator parameters say it is.
+        """
+        return self.edges.reach(self.anchor_uri, depth_limit=self.max_depth)
+
+    @property
+    def expires_at(self) -> datetime:
+        """The declared TTL applied to the anchor ``ttl.yaml`` names.
+
+        **AND THE ANCHOR DEGENERATES AT THIS RUNG, WHICH IS RECORDED RATHER
+        THAN HIDDEN.** ``ttl.yaml`` declares
+        ``ttl_anchor_basis: latest_family_edge_assertion_time_in_payload`` and
+        ``product_class.ttl_anchor: from_entity_freshness``. Measured over the
+        committed fixture, **no family edge and no family node carries an
+        assertion date of any kind** — the ledger holds the six predicates,
+        ``ex:lei``, ``rdfs:label`` and ``rdf:type``, and no timestamp. So the
+        latest assertion time the payload can honestly report is the instant the
+        payload was read, and every envelope carries ``observed_time=None`` to
+        say the source could not tell us.
+
+        The consequence is that this expiry is the request instant plus the
+        declared window, which is what a read-time anchor gives. **It is not
+        equivalent to rung 03's**, whose anchor moved with a filing date. This
+        is a finding for the TTL artifact and for the spine that refuses on it,
+        not something to fix by picking a date: Fluree's ``t`` is TRANSACTION
+        time and ``D-IMPL-88`` rules it must not back an observation axis, so
+        there is no second candidate in the store either.
+        """
+        return self.request.asked_at + timedelta(seconds=self.ttl_seconds)
+
+
+def read(
+    booted: BootedFabric,
+    asked: ProductRequest,
+    *,
+    max_depth: int,
+) -> FamilyScenario | None:
+    """Name this deployment's artifact keys and read this question's values.
+
+    ``max_depth`` is resolved by :func:`resolve_max_depth` **before** this
+    function, and that is a deliberate split rather than an awkward signature:
+    an over-ceiling depth is a **400** carried as a
+    :class:`DepthOutOfBounds` and an unresolvable anchor is a **404** carried as
+    ``None``, and one return type cannot hold both without the caller having to
+    tell them apart by inspection. The refusals stay distinguishable.
+
+    Returns ``None`` when the anchor resolves to nothing. *An anchor that
+    resolves to no entity is never an empty payload* — an empty family reads as
+    a claim about the world.
+    """
+    artifacts = booted.artifacts
+    read_source = source_read(
+        booted.tenant_id, at=asked.asked_at, subject=asked.subject
+    )
+    if read_source.anchor_uri is None:
+        return None
+
+    # THE POLICY PARAMETERS PASS THROUGH DECLARED, and rung 03's shape is
+    # deliberately NOT copied here. Rung 03 built them per request from the
+    # calling principal's grant read out of the estate, because it had measured
+    # a real discrimination — 49 / 47 / 0 / 0 across four principals. NO
+    # EQUIVALENT MEASUREMENT HAS BEEN TAKEN OVER THE FAMILY POPULATION (spec
+    # section F.4 row 6, still open), so this rung declares a CLOSED set and
+    # reads it as declared. Inventing a per-principal expansion here would be
+    # asserting a discrimination nobody measured.
+    declared_policy = cast(OperatorParametersArtifact, artifacts[KEY_POLICY_OPERATOR])
+    declared_traversal = cast(
+        OperatorParametersArtifact, artifacts[KEY_TRAVERSAL_OPERATOR]
+    )
+    return FamilyScenario(
+        envelopes=read_source.envelopes,
+        envelopes_by_node=read_source.envelopes_by_node,
+        request=asked,
+        request_contract=ProductRequestContract.from_declared(
+            cast(Any, artifacts[KEY_REQUEST_CONTRACT])
+        ),
+        product_class=cast(ProductClassDeclaration, artifacts[KEY_PRODUCT_CLASS]),
+        perspective=cast(PerspectiveArtifact, artifacts[KEY_PERSPECTIVE]),
+        # TWO entries, so a two-operator registry — this is the rung where the
+        # count moves off one. The traversal set carries the CALLER's depth;
+        # the policy set carries the declared closed jurisdiction world.
+        operator_parameters={
+            KEY_POLICY_OPERATOR: declared_policy,
+            KEY_TRAVERSAL_OPERATOR: traversal_parameters(
+                declared_traversal, max_depth=max_depth
+            ),
+        },
+        resolution=cast(EntityResolutionSpec, artifacts[KEY_RESOLUTION]),
+        half_life_table=cast(HalfLifeTable, artifacts[KEY_HALF_LIFE_TABLE]),
+        debt_profile=cast(DebtProfile, artifacts[KEY_DEBT_PROFILE]),
+        anchor_uri=read_source.anchor_uri,
+        max_depth=max_depth,
+        facts=read_source.facts,
+        edges=read_source.edges,
+        findings=read_source.findings,
+        attributes=read_source.attributes,
+        classifications=read_source.classifications,
+        observed_classifications=read_source.observed_classifications,
+        collapsed=read_source.collapsed,
+        ledger_t=read_source.ledger_t,
+        stores_opened=read_source.stores_opened,
+        ttl_seconds=declared_ttl_seconds(),
+        max_ttl_seconds=max_ttl_seconds(),
+        # A PINNED REFERENCE, never the resolved artifact: the profile has its
+        # own version lane, and inlining it would give one record two version
+        # identities.
+        halflife_debt_profile=(
+            f"ccf-artifact://{booted.tenant_id}/ccf.debt-profile/"
+            f"{KEY_DEBT_PROFILE}@{booted.pins.version_for(KEY_DEBT_PROFILE)}"
+        ),
+        # Carried AS DATA and computed nowhere in this module — see the module
+        # docstring for why `D_c` belongs with the spine that refuses on it.
+        debt_tolerance=str(demonstration_parameters()["debt_tolerance"]),
+    )
