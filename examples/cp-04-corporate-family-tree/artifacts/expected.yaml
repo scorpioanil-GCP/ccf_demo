@@ -814,3 +814,73 @@ declaration:
   perspective_content_addresses:
     credit-officer: "205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498"
     kyc-analyst: "838afbb037a8ca820a2854b1ac7eedd296262508ce00d747369bf48ee6077ea8"
+
+  # ---- `D_c` at two depths — the close-panel Finding 1 pin ----------------
+  #
+  # source: re-derived 2026-09-01 from TWO INDEPENDENT RUNS of the shipped
+  #   caller, never copied from a summary, a README or a brief —
+  #   (1) `ccf.client.client.ProductClient` over
+  #       `examples/cp-04-corporate-family-tree/transport.py::FamilyTreeInProcessAdapter`
+  #       against the LIVE estate (Fluree ledger `fibo-v2`, PostgreSQL schema
+  #       `ccf_v2`), asked twice — `max_depth` absent, and at the declared
+  #       floor;
+  #   (2) the same two asks through
+  #       `tests/examples/test_cp_04_traversal.py::ask` against the COMMITTED
+  #       FIXTURE seeded into a local `fluree/server:4.1.4` and a local
+  #       `postgres:16`, under per-module ledger and schema names.
+  #   Both runs returned the same two pairs. That agreement is what makes the
+  #   pin assertable in CI at all: a figure true only of the live estate would
+  #   be a figure no test leg could ever read.
+  #
+  # **WHY THIS PIN EXISTS.** The 2026-09-01 close panel found that
+  # `examples/cp-04-corporate-family-tree/produce.py::_agreement` opened with
+  # *"S — the fraction of SERVED members whose identity no finding disputes"*
+  # and then took its denominator from `scenario.facts` — the deployment's
+  # SOURCE-READ population, bounded by the declared CEILING, with the caller's
+  # `max_depth` applied downstream of it by the L4 traversal. So `max_depth=1`
+  # served 20 members and still reported `20/22`, and `D_c` read `0.0909` at
+  # depth 1, depth 2 and depth 3 alike. Dave: *"a scalar that cannot fail
+  # through the door. That is not the §E.2 weight TBC. It is a wrong
+  # denominator."* Depth is now a real boundary for this scalar, and this is
+  # where that claim is held.
+  #
+  # **THE ARITHMETIC, SO A READER CAN CHECK IT RATHER THAN TRUST IT.** `D_c =
+  # 1 − (F · C · S)`; on this estate `F` is 1 and `C` is 1 (§E.2.1), so `S` is
+  # the whole of the variation. Both disputed members — `SuperMicroComputerBV`
+  # and `SubSuperMicroComputerBV`, the duplicate-identity finding — sit ONE HOP
+  # from the anchor, so they survive every depth this product accepts while the
+  # denominator shrinks with it. At the declared default the payload carries 22
+  # members and `S` is `20/22`; at the declared floor it carries 20 and `S` is
+  # `18/20`. The two served rosters themselves are not re-declared here — the
+  # subtree roster lives at `census.anchor_subtree` above and the floor roster
+  # is compared between two runs rather than against a document, which is the
+  # `CFT-G05` roster limb's own design.
+  #
+  # **THIS PIN IS NOT THE TWENTY MISSING JURISDICTIONS AND NEVER BECOMES
+  # THEM.** `D-IMPL-230` ruled SERVE: the attribute shortfall reaches the
+  # consumer as the `unresolved_jurisdiction` roster finding and as
+  # `attributes: null` on each member, and is deliberately NOT folded into `S`.
+  # Folding it in gives `S = 2/22` and `D_c ≈ 0.909`, which against the
+  # declared `debt_tolerance` of `0.25` would refuse `409` and never serve the
+  # tree. Nothing in this fix moved §E.2's routing, its weights or the
+  # tolerance; only the SET `S` is taken over changed.
+  #
+  # **STRINGS AND NOT YAML FLOATS.** `0.1` parsed as a float is not the
+  # `Decimal` the fabric computed, and an equality between the two would either
+  # be false or be true by rounding. The gate compares `Decimal(str)`.
+  #
+  # **EDITED THE WAY THIS WHOLE DOCUMENT IS EDITED** (the header): nothing
+  # regenerates it. A legitimate change to the debt profile or to the estate
+  # moves these figures, the suite goes red naming `CFT-G05`, and the values
+  # below are replaced deliberately, in the same commit as the change, after
+  # the failure has been read.
+  debt_by_depth:
+    criterion: 29
+    at_the_declared_default:
+      max_depth_applied: 3
+      semantic_consistency: "0.9090909090909090909090909091"
+      context_debt: "0.0909090909090909090909090909"
+    at_the_declared_floor:
+      max_depth_applied: 1
+      semantic_consistency: "0.9"
+      context_debt: "0.1"

@@ -95,12 +95,14 @@ import re
 import sys
 import tempfile
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Iterator, Mapping, Sequence
 
 import pytest
 import yaml
 
 from ccf.agents.errors import AssemblyRefused
+from ccf.halflife.assessment import DebtAssessment, DebtFactors, DebtSignal
 
 from .cp_04_seed import ledger_for, schema_for, seed
 
@@ -181,6 +183,35 @@ def declared_class_vocabulary() -> frozenset[str]:
     return frozenset(str(name) for name in declared()["census"]["anchor"]["type_chain"])
 
 
+def declared_debt_by_depth() -> Mapping[str, Mapping[str, Any]]:
+    """`declaration.debt_by_depth` — the two `D_c` pins, from the artifact.
+
+    **READ FROM THE DOCUMENT AND NEVER AUTHORED HERE**, and on this limb that
+    discipline is load-bearing rather than habitual: the sabotage this limb
+    exists to catch is an edit to
+    ``examples/cp-04-corporate-family-tree/produce.py::_agreement``, and a pin
+    living in this module would sit in a file the same author edits in the same
+    breath. Two files, and the pin's file is not the mutated one.
+
+    The metadata key every declared block carries is stripped by the same
+    convention :data:`CENSUS_METADATA_KEYS` names, and its presence is asserted
+    rather than assumed — a document that stopped carrying it would otherwise
+    contribute ``criterion`` to the roster of depths.
+    """
+    block = dict(declared()["debt_by_depth"])
+    if "criterion" not in block:
+        raise AssertionError(
+            "`debt_by_depth` carries no `criterion` key, so the declared depths"
+            " cannot be separated from the block's metadata by this document's"
+            " own convention"
+        )
+    return {
+        str(name): dict(values)
+        for name, values in block.items()
+        if name not in CENSUS_METADATA_KEYS
+    }
+
+
 def declared_family_predicates() -> frozenset[str]:
     """The six family predicates, from the census block that counts them.
 
@@ -241,6 +272,17 @@ class Asked:
     content_address: str | None
     #: The refusal text, or ``None`` when the ask was answered.
     refusal: str | None
+
+    #: The measured `D_c` this ask served, off
+    #: ``ccf.client.result.Result.debt`` — the same seam a consuming agent
+    #: reads it through, never recomputed here.
+    #:
+    #: Sentinel-defaulted to ``None`` so the hand-built ``Asked`` values the
+    #: positive controls below construct stay constructible. A control asserting
+    #: a limb FIRES has no business supplying a real debt, and a required field
+    #: would force each of them to author one — which is the shape that makes a
+    #: control agree with the thing it is controlling.
+    debt: DebtAssessment | None = None
 
     @property
     def nodes(self) -> tuple[Mapping[str, Any], ...]:
@@ -331,6 +373,11 @@ def ask(
         payload=dict(result.payload),
         content_address=str(result.content_address),
         refusal=None,
+        # OFF THE CLIENT RESULT, which is the seam a consuming agent reads
+        # `D_c` through. Recomputing it here would be this module reimplementing
+        # `examples/cp-04-corporate-family-tree/produce.py::measure_debt` and
+        # then asserting the two agree.
+        debt=result.debt,
     )
 
 
@@ -1017,6 +1064,112 @@ def identity_violations(*, shallow: Asked, deep: Asked, repeat: Asked) -> list[s
     return violations
 
 
+def debt_movement_violations(
+    *, asks: Mapping[str, Asked], pinned: Mapping[str, Mapping[str, Any]]
+) -> list[str]:
+    """Every way `D_c` fails to be a function of the depth asked — `CFT-G05`.
+
+    **THE LIMB THE 2026-09-01 CLOSE PANEL'S FINDING 1 BOUGHT.** Depth was
+    already part of product identity by roster and by seal; it was NOT part of
+    the measured debt, because
+    ``examples/cp-04-corporate-family-tree/produce.py::_agreement`` took `S`
+    over ``scenario.facts`` — the deployment's SOURCE READ, bounded by the
+    declared ceiling — while its own docstring said *served*. So `D_c` read
+    `0.0909` at depth 1, depth 2 and depth 3 alike. Dave: *"a scalar that cannot
+    fail through the door… a wrong denominator."*
+
+    **NO NEW GATE ID.** The roster stays sixteen. This is a third limb of
+    `CFT-G05`, whose statement — *depth is part of product identity* — is
+    exactly what it holds; the two limbs beside it read the seal and the served
+    roster, and this one reads the measured debt. All three fail under the same
+    id.
+
+    **THE PINS ARE COMPARED EXACTLY, AND THEIR DISTINCTNESS IS ASSERTED RATHER
+    THAN ASSUMED.** An equality-only reading is satisfiable by a frozen scalar
+    if the document happens to carry one value twice — which is the defect
+    wearing the check's own clothes. So the declared pair must differ in the
+    DOCUMENT and the observed pair must differ in the RUN, and either collapse
+    is a violation. This is the same trap `perspective_content_addresses`
+    records for `CFT-G16`, met from the other side.
+
+    Compared as ``Decimal`` over the declared STRING: the fabric computes a
+    28-digit `Decimal`, and a YAML float would make the comparison either false
+    or true-by-rounding.
+    """
+    violations: list[str] = []
+
+    missing = sorted(set(pinned) - set(asks))
+    unpinned = sorted(set(asks) - set(pinned))
+    if missing or unpinned:
+        return [
+            "CFT-G05: the declared depth pins and the asks do not correspond —"
+            f" pinned-with-no-ask {missing}, asked-with-no-pin {unpinned}. A"
+            " pin nothing asks is a pin nothing can fail, and an ask no pin"
+            " covers is a depth this limb is silent about"
+        ]
+
+    observed: dict[str, Decimal] = {}
+    for name in sorted(pinned):
+        asked = asks[name]
+        expectation = pinned[name]
+        if asked.payload is None or asked.debt is None:
+            violations.append(
+                f"CFT-G05: `{asked.asked_as}` served no measured debt —"
+                f" {asked.refusal!r}. `D_c` cannot be held against a depth that"
+                " produced no product"
+            )
+            continue
+        if asked.depth_applied != expectation["max_depth_applied"]:
+            violations.append(
+                f"CFT-G05: `{asked.asked_as}` applied depth"
+                f" {asked.depth_applied!r} where `debt_by_depth.{name}` pins"
+                f" {expectation['max_depth_applied']!r}, so the pin and the ask"
+                " are about two different questions and the debt comparison"
+                " below would be meaningless"
+            )
+            continue
+        debt = Decimal(str(asked.debt.debt))
+        agreement = Decimal(str(asked.debt.factors.semantic_consistency))
+        observed[name] = debt
+        if debt != Decimal(expectation["context_debt"]):
+            violations.append(
+                f"CFT-G05: `{asked.asked_as}` served D_c {debt} where"
+                f" `debt_by_depth.{name}.context_debt` declares"
+                f" {expectation['context_debt']}. On this estate F and C are"
+                " both 1, so S is the whole of the variation and S is taken"
+                " over the members this payload SERVED — if the denominator"
+                " moved back to the deployment's source read, this is where it"
+                " shows"
+            )
+        if agreement != Decimal(expectation["semantic_consistency"]):
+            violations.append(
+                f"CFT-G05: `{asked.asked_as}` served S {agreement} where"
+                f" `debt_by_depth.{name}.semantic_consistency` declares"
+                f" {expectation['semantic_consistency']}. S and D_c are pinned"
+                " separately so a change to the debt profile's weights is not"
+                " read as a change to the denominator, or the reverse"
+            )
+
+    declared_values = {
+        name: Decimal(values["context_debt"]) for name, values in pinned.items()
+    }
+    if len(set(declared_values.values())) < len(declared_values):
+        violations.append(
+            "CFT-G05: `debt_by_depth` declares the SAME D_c for two different"
+            f" depths ({dict((k, str(v)) for k, v in declared_values.items())}),"
+            " so the equality limbs above would be satisfied by exactly the"
+            " frozen scalar this limb exists to refuse"
+        )
+    if len(observed) == len(pinned) and len(set(observed.values())) < len(observed):
+        violations.append(
+            "CFT-G05: two different depths served the SAME D_c"
+            f" ({dict((k, str(v)) for k, v in observed.items())}). Depth reached"
+            " the payload and not the measured debt — the wrong-denominator"
+            " defect the 2026-09-01 close panel found, arriving again"
+        )
+    return violations
+
+
 def test_cft_g05_depth_is_part_of_product_identity(
     at_the_declared_floor: Asked,
     at_the_declared_default: Asked,
@@ -1024,16 +1177,25 @@ def test_cft_g05_depth_is_part_of_product_identity(
 ) -> None:
     """`CFT-G05` (criterion 29). Depth is part of product identity.
 
-    Two depths are two content addresses AND two member rosters; one depth twice
-    is one address and one roster. The roster limbs are what make the gate read
-    content rather than the echoed parameter.
+    Two depths are two content addresses AND two member rosters AND two measured
+    debts; one depth twice is one address and one roster. The roster limb and
+    the debt limb are what make the gate read content rather than the echoed
+    parameter.
 
-    Sabotaged by making `max_depth` not change the content address.
+    Sabotaged by making `max_depth` not change the content address — and, for
+    the debt limb added 2026-09-01, by restoring the source-read denominator in
+    ``examples/cp-04-corporate-family-tree/produce.py::_agreement``.
     """
     violations = identity_violations(
         shallow=at_the_declared_floor,
         deep=at_the_declared_default,
         repeat=at_the_declared_default_again,
+    ) + debt_movement_violations(
+        asks={
+            "at_the_declared_floor": at_the_declared_floor,
+            "at_the_declared_default": at_the_declared_default,
+        },
+        pinned=declared_debt_by_depth(),
     )
     assert not violations, "CFT-G05 failed:\n" + "\n".join(violations)
 
@@ -1094,3 +1256,162 @@ def test_the_identity_check_refuses_an_address_that_never_repeats() -> None:
     violations = identity_violations(shallow=one, deep=three, repeat=again)
     assert violations, "an address that never repeats was accepted as identity"
     assert any("sealed to two addresses" in entry for entry in violations), violations
+
+
+# ---------------------------------------------------------------------------
+# CFT-G05's debt limb — controls. Every one hands the SHIPPED check a subject
+# it must refuse; none of them reimplements the check.
+# ---------------------------------------------------------------------------
+
+
+def _asked_with_debt(*, asked_as: str, depth: int, debt: str, agreement: str) -> Asked:
+    """One hand-built ask carrying a measured debt, for the controls only.
+
+    Built through the shipped :class:`~ccf.halflife.assessment.DebtAssessment`
+    rather than a stand-in with the same attribute names, so a control cannot go
+    on passing against a type the product stopped serving. `Decimal` from a
+    string: the contract refuses a ``float`` at construction.
+    """
+    return Asked(
+        asked_as=asked_as,
+        payload={"nodes": [{"uri": "x://a"}], "edges": [], "max_depth_applied": depth},
+        content_address=f"addr-{depth}",
+        refusal=None,
+        debt=DebtAssessment(
+            debt=Decimal(debt),
+            signal=DebtSignal.OK,
+            factors=DebtFactors(
+                freshness=Decimal(1),
+                completeness=Decimal(1),
+                semantic_consistency=Decimal(agreement),
+            ),
+        ),
+    )
+
+
+#: The two pins, as the shipped document carries them, for the controls to
+#: perturb one at a time. Read from `expected.yaml` rather than authored, so a
+#: control cannot drift into asserting against a shape the artifact abandoned.
+def _control_pins() -> dict[str, dict[str, Any]]:
+    return {name: dict(values) for name, values in declared_debt_by_depth().items()}
+
+
+def test_the_debt_limb_refuses_a_scalar_that_never_moves() -> None:
+    """**Positive control, and the one that mirrors the shipped defect.**
+
+    Both depths serving the SAME `D_c` is precisely what
+    ``examples/cp-04-corporate-family-tree/produce.py::_agreement`` produced
+    while its denominator was ``scenario.facts``: the roster moved, the seal
+    moved, and the debt did not.
+    """
+    pins = _control_pins()
+    frozen = pins["at_the_declared_default"]["context_debt"]
+    asks = {
+        name: _asked_with_debt(
+            asked_as=name,
+            depth=int(values["max_depth_applied"]),
+            debt=frozen,
+            agreement=pins["at_the_declared_default"]["semantic_consistency"],
+        )
+        for name, values in pins.items()
+    }
+    violations = debt_movement_violations(asks=asks, pinned=pins)
+    assert violations, "a D_c identical at two depths was accepted as movement"
+    assert any("served the SAME D_c" in entry for entry in violations), violations
+
+
+def test_the_debt_limb_refuses_a_document_that_pins_one_value_twice() -> None:
+    """**Vacuity control.** Equality against a collapsed pin proves nothing.
+
+    A document carrying one figure under both depths would make the equality
+    limbs green for a product whose debt never moves — the defect wearing the
+    check's own clothes. Perturbing the DOCUMENT rather than the run is the
+    point: this is the half a run-only control cannot reach.
+    """
+    pins = _control_pins()
+    collapsed = {
+        name: dict(values, **{
+            "context_debt": pins["at_the_declared_default"]["context_debt"],
+            "semantic_consistency": (
+                pins["at_the_declared_default"]["semantic_consistency"]
+            ),
+        })
+        for name, values in pins.items()
+    }
+    asks = {
+        name: _asked_with_debt(
+            asked_as=name,
+            depth=int(values["max_depth_applied"]),
+            debt=str(values["context_debt"]),
+            agreement=str(values["semantic_consistency"]),
+        )
+        for name, values in collapsed.items()
+    }
+    violations = debt_movement_violations(asks=asks, pinned=collapsed)
+    assert violations, "a document pinning one D_c to two depths was accepted"
+    assert any("declares the SAME D_c" in entry for entry in violations), violations
+
+
+def test_the_debt_limb_refuses_a_value_off_its_pin() -> None:
+    """**Positive control.** The equality itself fires, and names the depth."""
+    pins = _control_pins()
+    asks = {
+        name: _asked_with_debt(
+            asked_as=name,
+            depth=int(values["max_depth_applied"]),
+            debt=str(values["context_debt"]),
+            agreement=str(values["semantic_consistency"]),
+        )
+        for name, values in pins.items()
+    }
+    moved = pins["at_the_declared_floor"]
+    asks["at_the_declared_floor"] = _asked_with_debt(
+        asked_as="at_the_declared_floor",
+        depth=int(moved["max_depth_applied"]),
+        debt=str(Decimal(moved["context_debt"]) / 2),
+        agreement=str(moved["semantic_consistency"]),
+    )
+    violations = debt_movement_violations(asks=asks, pinned=pins)
+    assert violations, "a D_c off its declared pin was accepted"
+    assert any("context_debt` declares" in entry for entry in violations), violations
+
+
+def test_the_debt_limb_refuses_a_pin_held_against_the_wrong_depth() -> None:
+    """**Positive control.** A pin and an ask about two different questions.
+
+    Without this limb the two equalities could be satisfied by asking the SAME
+    depth twice and comparing each answer to a different pin — which would make
+    the whole check a statement about one question.
+    """
+    pins = _control_pins()
+    depth = int(pins["at_the_declared_default"]["max_depth_applied"])
+    asks = {
+        name: _asked_with_debt(
+            asked_as=name,
+            depth=depth,
+            debt=str(values["context_debt"]),
+            agreement=str(values["semantic_consistency"]),
+        )
+        for name, values in pins.items()
+    }
+    violations = debt_movement_violations(asks=asks, pinned=pins)
+    assert violations, "a pin held against the wrong depth was accepted"
+    assert any("are about two different questions" in entry for entry in violations), (
+        violations
+    )
+
+
+def test_the_debt_limb_refuses_a_pin_nothing_asks() -> None:
+    """**Coverage control.** A declared depth with no ask is silence, not a pass."""
+    pins = _control_pins()
+    asks = {
+        "at_the_declared_default": _asked_with_debt(
+            asked_as="at_the_declared_default",
+            depth=int(pins["at_the_declared_default"]["max_depth_applied"]),
+            debt=str(pins["at_the_declared_default"]["context_debt"]),
+            agreement=str(pins["at_the_declared_default"]["semantic_consistency"]),
+        )
+    }
+    violations = debt_movement_violations(asks=asks, pinned=pins)
+    assert violations, "a declared depth nothing asked was accepted as covered"
+    assert any("do not correspond" in entry for entry in violations), violations
