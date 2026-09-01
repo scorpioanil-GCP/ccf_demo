@@ -54,7 +54,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	conformance \
 	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
-	example-cp-03 \
+	example-cp-03 example-cp-04 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -403,6 +403,42 @@ example-cp-03: ## Run examples/cp-03-obligor-financial-spread (LEI, PERIODS, BAS
 		$(if $(ASKED_AT),--asked-at $(ASKED_AT)) \
 		$(if $(AS_OF),--as-of $(AS_OF)) \
 		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE))
+
+# cp-04 — rung 04 of the vault's ladder and the FIRST of Tier 2: the first
+# product that opens more than one store. NOT in the `examples:` aggregate, and
+# for a stronger version of the reason cp-01 through cp-03 are not: this example
+# declares TWO networked substrates — a Fluree ledger for edges, ontology,
+# labels and LEIs, and a PostgreSQL schema for attributes — and there is no
+# in-tree fixture it can fall back onto for either. A red check nobody can make
+# green is worse than no check.
+#
+# ITS CODE PATH IS STILL COVERED IN CI, by the MARKER legs rather than by this
+# target. `tests/examples/test_cp_04_*.py` carry `pytest.mark.fluree` and
+# `pytest.mark.postgres`, seed their own containers from
+# `tests/examples/fixtures/` through `tests/examples/cp_04_seed.py`, and
+# `leg-fluree` and `leg-postgres` select them BY MARKER over the whole `tests`
+# tree without this file naming one of them. The target runs the program; the
+# legs prove the program.
+#
+# EVERY REQUEST PARAMETER IS OPTIONAL. An anchor, a depth, a role, an asked-at
+# and an as-of are request parameters, not deployment configuration, and a build
+# tool is not a request channel. Omitted, `run.py` asks the demonstration
+# question in `artifacts/question.yaml`. MAX_DEPTH is the one this rung exists
+# for — above the declared ceiling it is REFUSED BY NAME and never clamped, and
+# two depths are two content addresses. AS_OF is declared by the contract and
+# ALWAYS refused at this tier; it is exposed so the refusal is one command away
+# rather than a paragraph.
+#
+# FOUR CONNECTION VARIABLES, TWO PER LEG, AND THE TARGET NAMES ONLY THEIR NAMES.
+# `examples/cp-04-corporate-family-tree/backends.yaml` holds each name and its
+# remedy string; no host, port, path or credential appears here or there.
+example-cp-04: ## Run examples/cp-04-corporate-family-tree (LEI, MAX_DEPTH, ROLE, ASKED_AT, AS_OF optional; needs CCF_CP_04_FLUREE_URL, CCF_CP_04_FLUREE_LEDGER, CCF_CP_04_POSTGRES_DSN, CCF_CP_04_POSTGRES_SCHEMA)
+	$(ENV) $(PYTHON) examples/cp-04-corporate-family-tree/run.py \
+		$(if $(LEI),--lei $(LEI)) \
+		$(if $(MAX_DEPTH),--max-depth $(MAX_DEPTH)) \
+		$(if $(ROLE),--role $(ROLE)) \
+		$(if $(ASKED_AT),--asked-at $(ASKED_AT)) \
+		$(if $(AS_OF),--as-of $(AS_OF))
 
 # HW-1 — the first example a newcomer reads. NOT in the `examples:` aggregate
 # and NOT in any workflow: it needs a populated deployment, the always-on
