@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import importlib
 import pathlib
+import re
 import sys
 from collections import Counter
 from dataclasses import dataclass
@@ -501,4 +502,490 @@ def test_the_attribute_table_is_the_declared_one_and_not_the_decoy() -> None:
     assert ATTRIBUTE_TABLE == expected["correct_table"], (
         "the seeder and the deployment disagree about which table the fixture"
         " loads, so the census would be measured against a table nobody seeded"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Criterion 8 — the anchor.
+# ---------------------------------------------------------------------------
+
+
+def test_the_anchor(estate: Estate) -> None:
+    """Criterion 8, by MEMBERS and by length.
+
+    A chain LENGTH alone would pass on a wrong chain — any other class list of
+    the same size satisfies it — so the members are asserted beside it. The
+    chain is the one fact on this product that comes from nowhere else: nothing
+    in the request, nothing in the attribute store and nothing the assembler
+    computes carries a FIBO class chain.
+
+    The anchor is REACHED rather than composed: the request's subject is an LEI
+    and the walk's anchor is an IRI, and the step between them is a read. A test
+    that built the IRI out of the LEI would be minting node identity from a
+    string, and would keep passing after the store stopped holding the node.
+    """
+    deployment = _load("deployment")
+    expected = declared()["anchor"]
+    asked = deployment.demonstration_anchor()
+    assert asked == expected["lei"], (
+        f"the bundled demonstration asks about {asked!r}; the declared anchor"
+        f" carries {expected['lei']!r}, so the census below would be measured"
+        " against a company nobody declared"
+    )
+    uri = deployment.resolve_anchor(asked, source=estate.graph)
+    assert uri == expected["uri"], (
+        f"the LEI {asked!r} resolves to {uri!r}, declared {expected['uri']!r}"
+    )
+    facts = estate.facts[uri]
+    assert facts.lei == expected["lei"], f"anchor LEI {facts.lei!r}"
+    assert facts.label == expected["label"], f"anchor label {facts.label!r}"
+    assert len(facts.type_chain) == expected["type_chain_length"], (
+        f"the anchor's class chain is {len(facts.type_chain)} long, declared"
+        f" {expected['type_chain_length']}"
+    )
+    assert sorted(short(entry) for entry in facts.type_chain) == sorted(
+        expected["type_chain"]
+    ), (
+        f"the anchor's class chain is"
+        f" {sorted(short(entry) for entry in facts.type_chain)}, declared"
+        f" {sorted(expected['type_chain'])}. The LENGTH agreeing is not the"
+        " claim; a different chain of the same size would satisfy it."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Criterion 9 — the direct children, as a ROSTER.
+# ---------------------------------------------------------------------------
+
+
+def test_the_anchors_direct_children_as_a_roster(estate: Estate) -> None:
+    """Criterion 9. A right count with a wrong member audits clean forever.
+
+    **THE DISCUSS SITTING RECORDED A DIFFERENT SPLIT** — one more Exhibit-21
+    stub and one fewer non-stub child than the estate holds. The split asserted
+    here is the MEASURED correction the ROADMAP carries, and the total was right
+    in both readings, which is precisely why a total cannot stand for a roster.
+
+    **THE CLASSIFIER IS ROSTER MEMBERSHIP AND NOT A PREFIX RULE.** The artifact
+    records why: two of the stubs carry a lower-case `micro`, so a rule matching
+    the longer capitalized prefix finds fewer than the roster and reports a
+    clean-looking count. Membership in a declared roster cannot go wrong that
+    way, and it is also what catches a stub renamed into the other group.
+    """
+    expected = declared()["anchor_direct_children"]
+    anchor = declared()["anchor"]["uri"]
+    children = {short(child) for child in estate.edges.children[anchor]}
+    stubs = set(expected["exhibit_21_stubs"])
+    others = set(expected["non_stub_children"])
+    assert children == stubs | others, (
+        f"the anchor's direct children are {sorted(children)}; the declared"
+        f" roster is {sorted(stubs | others)}."
+        f" Missing: {sorted(stubs | others - children)}."
+        f" Unexpected: {sorted(children - (stubs | others))}."
+    )
+    assert len(children) == expected["total"], (
+        f"{len(children)} direct children, declared {expected['total']}"
+    )
+    assert stubs & others == set(), (
+        f"{sorted(stubs & others)} is declared in BOTH groups, so the split is"
+        " not a partition and the two counts below cannot both be checks"
+    )
+    assert len(children & stubs) == expected["exhibit_21_stub_count"], (
+        f"{len(children & stubs)} of the children are declared Exhibit-21"
+        f" stubs, declared {expected['exhibit_21_stub_count']}"
+    )
+    assert len(children & others) == expected["total"] - expected[
+        "exhibit_21_stub_count"
+    ], (
+        f"{len(children & others)} of the children are declared non-stubs; the"
+        " declared total and stub count leave"
+        f" {expected['total'] - expected['exhibit_21_stub_count']}"
+    )
+
+
+def test_the_anchors_children_by_predicate(estate: Estate) -> None:
+    """Criterion 9's per-predicate attribution, and the correction inside it.
+
+    Filed under criterion 9 in the artifact because one of these figures is the
+    whole reason a later control is a real control: the anchor has a NON-ZERO
+    consolidation edge, where an earlier draft asserted none — written from the
+    shape of the argument rather than from a query. Had that stood, the control
+    built on it would have been an empty walk asserting no cycle, which is a
+    control that cannot fail.
+    """
+    expected = declared()["anchor_children_by_predicate"]
+    anchor = declared()["anchor"]["uri"]
+    wanted = {
+        name: count
+        for name, count in expected.items()
+        if name not in ("criterion", "source")
+    }
+    found = {
+        name: sum(
+            1
+            for child in estate.edges.children[anchor]
+            if name in estate.edges.predicates_for((anchor, child))
+        )
+        for name in wanted
+    }
+    assert found == wanted, (
+        f"the anchor's per-predicate child counts are {found}, declared"
+        f" {wanted}. A predicate dropping to zero here is a walk that would"
+        " traverse nothing and assert cleanly about it."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Criterion 10, census half — the same company entered twice.
+# ---------------------------------------------------------------------------
+
+
+def test_the_same_company_is_entered_twice_one_hop_from_the_anchor(
+    estate: Estate,
+) -> None:
+    """Criterion 10's CENSUS half: the estate CONTAINS the pair.
+
+    **THE PRODUCT HALF IS PLAN 11's** — that the served product SURFACES the
+    pair as a finding rather than silently serving both as distinct
+    subsidiaries. Stated so the split is deliberate rather than an omission: a
+    family that double-counts a subsidiary is a concentration denominator wrong
+    in the safe-looking direction, and that is a claim about what is SERVED,
+    which this module does not assemble.
+
+    What is asserted here is what the estate holds: both nodes exist, both are
+    DIRECT children of the anchor, their LEI presence DIFFERS — so an LEI-keyed
+    comparison finds nothing — and their labels differ only by punctuation and
+    case, so an equality comparison finds nothing either. Those two facts
+    together are why the shipped comparison folds the label.
+    """
+    expected = declared()["duplicate_entity_pair"]["members"]
+    anchor = declared()["anchor"]["uri"]
+    children = {short(child) for child in estate.edges.children[anchor]}
+    by_short = {short(uri): uri for uri in estate.edges.nodes}
+    labels: list[str] = []
+    for member in expected:
+        name = member["uri"]
+        assert name in by_short, f"{name!r} is not a node of the family graph"
+        assert name in children, (
+            f"{name!r} is not a DIRECT child of the anchor, so the pair is not"
+            " one hop away and the duplicate is not the one declared"
+        )
+        facts = estate.facts[by_short[name]]
+        assert facts.lei == member["lei"], (
+            f"{name!r} carries LEI {facts.lei!r}, declared {member['lei']!r}"
+        )
+        assert facts.label == member["label"], (
+            f"{name!r} carries label {facts.label!r}, declared"
+            f" {member['label']!r}"
+        )
+        assert len(facts.type_chain) == member["type_chain_length"], (
+            f"{name!r} carries a class chain of {len(facts.type_chain)},"
+            f" declared {member['type_chain_length']}"
+        )
+        labels.append(str(facts.label))
+    carried = [member["lei"] for member in expected]
+    assert len([lei for lei in carried if lei]) == 1, (
+        f"the declared pair carries {carried}; the point of the pair is that"
+        " EXACTLY ONE member has an LEI, so an LEI-keyed comparison of the two"
+        " finds nothing. A pair where both carry one, or neither does, is a"
+        " different pair and would be caught by a comparison this product does"
+        " not make."
+    )
+    assert labels[0] != labels[1], (
+        f"the two labels are identical ({labels[0]!r}), so an equality"
+        " comparison would already find the pair and the fold would be"
+        " unnecessary"
+    )
+
+    def folded(label: str) -> str:
+        return " ".join(re.sub(r"[^a-z0-9]+", " ", label.casefold()).split())
+
+    assert folded(labels[0]) == folded(labels[1]), (
+        f"{labels[0]!r} and {labels[1]!r} do not agree once case and"
+        " punctuation are folded away, so they differ by more than the"
+        " declaration says and the pair is not the declared one"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Criterion 11 — the anchor's subtree.
+# ---------------------------------------------------------------------------
+
+
+def test_the_anchor_subtree(estate: Estate) -> None:
+    """Criterion 11: the subtree's size, its maximum depth, and named depths.
+
+    **THE WALK IS UNBOUNDED HERE, DELIBERATELY.** Bounding it at the declared
+    maximum and then asserting the maximum came out at the bound would be the
+    test agreeing with itself. The bound used is the node count of the whole
+    family graph, which no simple path can exceed; the walk is cycle-safe by
+    construction — a node already assigned a depth is never re-queued — so it
+    terminates inside the cycle it reaches rather than running forever.
+
+    The three named per-node depths are asserted individually rather than only
+    the maximum, because the maximum is attained by exactly one of them and the
+    other two would be invisible to it.
+    """
+    expected = declared()["anchor_subtree"]
+    anchor = declared()["anchor"]["uri"]
+    reached = estate.edges.reach(anchor, depth_limit=len(estate.edges.nodes))
+    assert len(reached) == expected["reachable_nodes"], (
+        f"the anchor's subtree reaches {len(reached)} nodes (the anchor"
+        f" included), declared {expected['reachable_nodes']}"
+    )
+    assert max(reached.values()) == expected["maximum_depth"], (
+        f"the subtree's maximum depth is {max(reached.values())}, declared"
+        f" {expected['maximum_depth']}"
+    )
+    by_short = {short(uri): depth for uri, depth in reached.items()}
+    for name, depth in expected["depth_to"].items():
+        assert name in by_short, (
+            f"{name!r} is not reachable from the anchor at all, so its declared"
+            " depth is a claim about a node this walk never visits"
+        )
+        assert by_short[name] == depth, (
+            f"{name!r} sits at depth {by_short[name]}, declared {depth}"
+        )
+    cumulative = {
+        depth: sum(1 for value in reached.values() if value <= depth)
+        for depth in set(value for value in reached.values())
+    }
+    for entry in expected["nodes_reached_by_depth"]:
+        assert cumulative[entry["depth"]] == entry["nodes"], (
+            f"depth {entry['depth']} reaches {cumulative[entry['depth']]}"
+            f" nodes, declared {entry['nodes']}. Each depth is a DIFFERENT"
+            " answer, which is what makes a depth-varying content address"
+            " material rather than decorative."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Criterion 12 — the subtree's store split.
+# ---------------------------------------------------------------------------
+
+
+def test_the_anchor_subtree_store_split(estate: Estate) -> None:
+    """Criterion 12: the multi-store split made visible on one small subtree.
+
+    The tree is the graph store's and the attributes are the attribute store's,
+    and most of this subtree has no attribute row at all. **A member with no row
+    is a member** — a build that quietly served only the resolvable ones would
+    return a smaller, tidier, WRONG family, with no error.
+
+    All three figures are asserted, plus the arithmetic relating them, so a
+    drifted pair cannot agree with each other.
+    """
+    deployment = _load("deployment")
+    expected = declared()["anchor_subtree_store_split"]
+    anchor = declared()["anchor"]["uri"]
+    reached = estate.edges.reach(anchor, depth_limit=len(estate.edges.nodes))
+    assert len(reached) == expected["subtree_nodes"], (
+        f"the subtree holds {len(reached)} nodes, declared"
+        f" {expected['subtree_nodes']}"
+    )
+    carrying = {
+        short(uri): estate.facts[uri].lei
+        for uri in reached
+        if estate.facts[uri].lei
+    }
+    assert len(carrying) == expected["nodes_carrying_lei"], (
+        f"{len(carrying)} of the subtree's nodes carry an LEI, declared"
+        f" {expected['nodes_carrying_lei']}"
+    )
+    assert carrying == {
+        entry["uri"]: entry["lei"] for entry in expected["the_two_resolving"]
+    }, (
+        f"the LEI-carrying members are {carrying}; the declared roster is"
+        f" {{{', '.join(repr(entry['uri']) for entry in expected['the_two_resolving'])}}}."
+        " A right count with a wrong member audits clean forever."
+    )
+    resolution = deployment.resolve_attributes(
+        sorted(carrying.values()), source=estate.attributes
+    )
+    assert len(resolution.rows) == expected["of_those_resolving_in_legal_entity"], (
+        f"{len(resolution.rows)} of the subtree's LEIs resolve in"
+        f' "{estate.attributes.schema}".{ATTRIBUTE_TABLE}, declared'
+        f" {expected['of_those_resolving_in_legal_entity']}"
+    )
+    without = len(reached) - len(resolution.rows)
+    assert without == expected["nodes_with_no_postgres_row"], (
+        f"{without} of the subtree's members resolve to no attribute row,"
+        f" declared {expected['nodes_with_no_postgres_row']}"
+    )
+    assert len(resolution.rows) + without == expected["subtree_nodes"], (
+        f"{len(resolution.rows)} resolved plus {without} unresolved is"
+        f" {len(resolution.rows) + without}, not the"
+        f" {expected['subtree_nodes']} the subtree holds. These are not"
+        " independent counts, and a fixture where they fail to reconcile has"
+        " drifted inconsistently."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Criterion 13 — the deepest tree anywhere in the estate.
+# ---------------------------------------------------------------------------
+
+
+def test_the_deepest_tree_in_the_estate(estate: Estate) -> None:
+    """Criterion 13, phrased as *the depth, WHICH this root attains*.
+
+    **NEVER AS "THE DEEPEST ROOT IS ..."** — that asserts a uniqueness this
+    estate does not carry. Several roots attain the maximum, nothing
+    distinguishes the named one among them, and it is not even the largest tree
+    of the set. So the roster of every root attaining the maximum is asserted,
+    the named root is asserted to be A MEMBER of it, and the non-uniqueness is
+    asserted in as many words — an assertion that the named root is the ONLY one
+    would be RED against the estate, which is the point.
+
+    This is the measurement the declared ceiling rests on, so the whole root
+    depth distribution is asserted beside the maximum: a distribution that moved
+    while its maximum stayed put would leave the ceiling resting on a different
+    estate.
+    """
+    expected = declared()["deepest_tree"]
+    bound = len(estate.edges.nodes)
+    deepest = {
+        root: max(estate.edges.reach(root, depth_limit=bound).values())
+        for root in estate.edges.roots
+    }
+    maximum = max(deepest.values())
+    assert maximum == expected["maximum_depth_anywhere"], (
+        f"the deepest tree anywhere in the estate runs to depth {maximum},"
+        f" declared {expected['maximum_depth_anywhere']}"
+    )
+    attaining = sorted(short(root) for root, depth in deepest.items() if depth == maximum)
+    assert attaining == sorted(expected["roots_attaining_it_roster"]), (
+        f"the roots attaining that depth are {attaining}; the declared roster"
+        f" is {sorted(expected['roots_attaining_it_roster'])}"
+    )
+    assert len(attaining) == expected["roots_attaining_it"], (
+        f"{len(attaining)} roots attain it, declared"
+        f" {expected['roots_attaining_it']}"
+    )
+    # WHICH root the criterion names is read out of the ARTIFACT'S OWN KEY —
+    # `<root>_attains_it` — and matched back to the roster case-insensitively.
+    # A root name authored here would be a domain value in code AND a second
+    # place for the criterion's subject to be wrong.
+    attains_key = next(key for key in expected if key.endswith("_attains_it"))
+    stem = attains_key[: -len("_attains_it")]
+    unique_key = f"{stem}_is_unique"
+    named = next(
+        root
+        for root in expected["roots_attaining_it_roster"]
+        if re.sub(r"[^a-z0-9]+", "_", root.casefold()) == stem
+    )
+    assert expected[attains_key] is True, (
+        f"the artifact no longer declares that {named} attains the maximum, so"
+        " this test is asserting something nobody declared"
+    )
+    assert named in attaining, (
+        f"{named} does not attain the maximum depth; the roots that do are"
+        f" {attaining}"
+    )
+    assert expected[unique_key] is False, (
+        f"the artifact now declares {named} UNIQUE among the attaining roots."
+        " The estate does not carry that uniqueness, and this criterion must"
+        f" never be phrased as *the deepest root IS* {named} — only as *the"
+        f" maximum depth, which {named} attains*."
+    )
+    assert len(attaining) > 1, (
+        f"only {attaining} attains the maximum depth. The declaration says the"
+        " maximum is attained by more than one root, and a phrasing that named"
+        " a single deepest root would be asserting a uniqueness the estate does"
+        " not have."
+    )
+    distribution = Counter(deepest.values())
+    for entry in expected["root_depth_distribution"]:
+        assert distribution[entry["depth"]] == entry["roots"], (
+            f"depth {entry['depth']} is attained by"
+            f" {distribution[entry['depth']]} roots, declared {entry['roots']}"
+        )
+    assert sum(distribution.values()) == declared()["graph"]["roots"], (
+        f"the distribution covers {sum(distribution.values())} roots where the"
+        f" graph holds {declared()['graph']['roots']}, so some root was not"
+        " measured and the maximum could sit outside the population"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Criteria 17 and 18 — the census halves.
+# ---------------------------------------------------------------------------
+
+
+def test_exactly_one_external_edge_into_any_cycle(estate: Estate) -> None:
+    """Criterion 17's census half: EXACTLY one, not one of several.
+
+    **THIS IS A CENSUS CLAIM OVER THE WHOLE GRAPH, NOT A PAYLOAD CLAIM.** The
+    detector runs over every normalized edge in the estate, which is the only
+    population in which *the only such path* is a statement that can be made.
+    One of the two circuits has NO external in-edge at all and is unreachable
+    from any LEI-bearing anchor, so its absence from any anchor's subtree is the
+    measured shape of this estate rather than a defect.
+
+    The edge itself is asserted beside the count. A count of one with a
+    different edge would be the same defect class as a right cycle count with a
+    wrong roster.
+    """
+    deployment = _load("deployment")
+    expected = declared()["external_edges_into_any_cycle"]
+    findings = deployment.detect_cycles(estate.edges)
+    members = {member for finding in findings for member in finding.members}
+    assert members, (
+        "the detector found no cycle members at all, so the count below would"
+        " be zero external edges into an empty set — a check that cannot fail"
+    )
+    external = sorted(
+        (short(parent), short(child))
+        for parent, child in estate.edges.pairs
+        if child in members and parent not in members
+    )
+    assert len(external) == expected["count"], (
+        f"there are {len(external)} external edges into a cycle — {external} —"
+        f" declared {expected['count']}"
+    )
+    assert external == [(expected["edge"]["parent"], expected["edge"]["child"])], (
+        f"the external edge into a cycle is {external}, declared"
+        f" {[(expected['edge']['parent'], expected['edge']['child'])]}"
+    )
+
+
+def test_no_cycle_member_carries_an_lei(estate: Estate) -> None:
+    """Criterion 18's anchor-side half: every cycle member is unresolvable.
+
+    **THE TYPE-CHAIN-LENGTH HALF OF CRITERION 18 BELONGS WITH THE CYCLE WORK IN
+    PLAN 05**, where the two circuits' class chains are compared. Said here so
+    the split is deliberate rather than an omission.
+
+    The criterion's own trailing clause — about a type-constrained walk behaving
+    differently on each circuit — was STRUCK on 2026-08-31 along with the
+    ontology role it belonged to, and is asserted nowhere.
+
+    The roster of members is asserted before the LEI predicate, because *all of
+    them carry no LEI* is trivially true of a set the detector failed to
+    populate.
+    """
+    deployment = _load("deployment")
+    expected = declared()["cycle_member_typing"]
+    findings = deployment.detect_cycles(estate.edges)
+    members = sorted(
+        {short(member) for finding in findings for member in finding.members}
+    )
+    assert members == sorted(expected["per_member"]), (
+        f"the cycle members are {members}; the declared roster is"
+        f" {sorted(expected['per_member'])}"
+    )
+    by_short = {short(uri): uri for uri in estate.edges.nodes}
+    carrying = {
+        name: estate.facts[by_short[name]].lei
+        for name in members
+        if estate.facts[by_short[name]].lei
+    }
+    assert carrying == {}, (
+        f"{carrying} carries an LEI, and the declaration is that no cycle"
+        " member does — so every one of them resolves to no attribute row and"
+        " the cycle is invisible to an LEI-keyed view of the estate"
+    )
+    assert expected["all_members_carry_no_lei"] is True, (
+        "the artifact no longer declares that no cycle member carries an LEI,"
+        " so this test is asserting something nobody declared"
     )
