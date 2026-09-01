@@ -371,10 +371,18 @@ declaration:
       # + Thornbury = 22 at depth 3. THREE DEPTHS, THREE DIFFERENT ANSWERS,
       # and therefore three content addresses — which is the material
       # `CFT-G05` needs to be non-vacuous.
+      # A LIST OF PAIRS RATHER THAN A DEPTH-KEYED MAPPING, AND THE REASON IS
+      # MECHANICAL. `ccf.contracts.canonical::content_hash` raises
+      # `mapping keys must be str, got int` — an artifact whose keys are
+      # integers cannot be canonically encoded, so it cannot travel into a
+      # content address or a replay pin. `run.py` puts every artifact through
+      # that encoder and caught this on its first run, exactly as rung 03's
+      # driver caught an unquoted float. Quoting the keys would also have
+      # worked; pairs say what each number IS.
       nodes_reached_by_depth:
-        1: 20
-        2: 21
-        3: 22
+        - {depth: 1, nodes: 20}
+        - {depth: 2, nodes: 21}
+        - {depth: 3, nodes: 22}
       # THE WALK IS CYCLE-SAFE. A node already assigned a depth is never
       # re-queued, so the walk TERMINATES INSIDE CYCLE 1 rather than running
       # forever. A detector that cannot terminate fails closed.
@@ -421,13 +429,15 @@ declaration:
         - PSC-0153
       psc_0124_attains_it: true
       psc_0124_is_unique: false
+      # Pairs rather than a depth-keyed mapping, for the canonical-encoding
+      # reason recorded at `anchor_subtree.nodes_reached_by_depth` above.
       root_depth_distribution:
-        1: 33
-        2: 18
-        3: 13
-        4: 11
-        5: 1
-        6: 7
+        - {depth: 1, roots: 33}
+        - {depth: 2, roots: 18}
+        - {depth: 3, roots: 13}
+        - {depth: 4, roots: 11}
+        - {depth: 5, roots: 1}
+        - {depth: 6, roots: 7}
 
     # --- Criterion 14 ----------------------------------------------------
     cycles:
