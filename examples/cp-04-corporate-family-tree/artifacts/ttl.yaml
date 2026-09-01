@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THIS PRODUCT'S TTL AND ITS CEILING — spec §B.1 element 3, §B.1.2.
+#
+# `ccf.controlplane.artifacts::ProductClassDeclaration` carries `max_ttl_key` —
+# the Control Plane KEY the ceiling registers under — and has no field for the
+# ceiling's VALUE. Registering the value is what MINTS its pin, so the value
+# cannot be a field of the document whose pin it becomes.
+#
+# `role: load`. A TTL declaration is a fact about the class, parsed and handed
+# back, not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-04.ttl
+
+declaration:
+  # 24 hours, anchored `from_entity_freshness` (§B.1 element 3), and the vault's
+  # value — NOT recalibrated here. Whether the window should widen is a separate
+  # question from which observation it is measured against, and conflating the
+  # two would hide one behind the other.
+  #
+  # WHY 24 HOURS AND NOT THE 30 DAYS RUNG 03 CARRIES. GLEIF RR-CDF publishes
+  # DAILY, and the ownership edge is the fastest-moving signal this product
+  # carries. Rung 03's anchor was a quarterly filing; a daily-published
+  # relationship record cannot borrow a quarterly window.
+  declared_ttl_seconds: 86400
+
+  # The ceiling `src/ccf/products/gates.py::_refuse_ttl` enforces as
+  # `now < expires_at <= now + MAX_TTL`.
+  #
+  # TWO FIELDS, NOT ONE, AND THAT IS THE POINT RATHER THAN A DUPLICATION. The
+  # declared TTL is what this class CLAIMS; the ceiling is what the gate REFUSES
+  # above. One figure serving as both would have the gate compare a ceiling
+  # against itself and pass by construction — it would be checking arithmetic it
+  # had already agreed with. Two fields make the ceiling a separately reviewable
+  # decision, and a later widening of the claim is then visible as a claim that
+  # crossed a ceiling rather than as a number that moved.
+  #
+  # THE VALUES ARE EQUAL TODAY BECAUSE THE SPECIFICATION GIVES ONE NUMBER
+  # (§B.1 element 3). Inventing a second, wider ceiling here would be minting a
+  # domain value a build had chosen — which the No-Hardcoding Rule forbids as
+  # firmly in an artifact as in code.
+  max_ttl_seconds: 86400
+
+  # --------------------------------------------------------------------------
+  # THE ANCHOR
+  # --------------------------------------------------------------------------
+  #
+  # `from_entity_freshness` here means the expiry is a function of THE LATEST
+  # ASSERTION TIME AMONG THE FAMILY EDGES ADMITTED TO THE PAYLOAD — not of the
+  # request, and not of a wall clock.
+  #
+  # IT PASSES RUNG 03's TEST, which is the test that matters: a freshness anchor
+  # has to be an OBSERVATION TIMESTAMP THAT MOVES. An origination date fixed for
+  # the life of an agreement is a CATEGORY ERROR IN THE ANCHOR, not a tight
+  # window — that was rung 02's finding. This anchor moves: GLEIF RR-CDF
+  # publishes daily, a new relationship record advances it, and re-derivation
+  # clears the expiry.
+  #
+  # THE BASIS IS `latest`, ON THE SAME REASONING RUNG 03 RECORDED. The payload
+  # is as fresh as its FRESHEST admitted edge. `earliest` would make it as fresh
+  # as its stalest and would refuse far more; the choice is a real decision
+  # rather than a default, and a build that changed it would be changing what
+  # the product claims about itself.
+  ttl_anchor_basis: latest_family_edge_assertion_time_in_payload
+
+# ============================================================================
+# WHAT IS NOT DECLARED HERE, STATED SO THE ABSENCE IS NOT READ AS AN OVERSIGHT
+# ============================================================================
+#
+# NO MEASURED REFUSAL POPULATION. Rung 03's TTL artifact carried one — 23 of 50
+# obligors serving and 27 refused on `ttl-bounds` at its pin — because the
+# refusal was the finding. NO EQUIVALENT MEASUREMENT HAS BEEN TAKEN OVER THE
+# FAMILY POPULATION. `24.4-MEASUREMENT.md` measured the graph, not the
+# assertion times, and a number authored here from the shape of the argument
+# rather than from a query is exactly the error that pass caught in itself and
+# recorded (its criterion-19 row, corrected mid-pass rather than smoothed).
+#
+# The Fluree ledger IS append-only and carries assertion time from load, so the
+# anchor is readable; it simply has not been read yet. Spec §B.1.2 carries the
+# `[TBC — this build]` for the measured expiry and the refusal count under this
+# window, and it stays TBC until something measures it.
+#
+# AND THE LEDGER'S OWN TIME AXIS IS NOT THIS ONE. `ledger_t` is TRANSACTION
+# time, recorded BESIDE `graph_snapshot_at` and never inside it (§B.1.1), and
+# `D-IMPL-88` rules it must not back `as_of`. Nothing in this document reads it.

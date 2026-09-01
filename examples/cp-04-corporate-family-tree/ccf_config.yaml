@@ -1,0 +1,404 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE SINGLE DEPLOYMENT DOCUMENT — every Control Plane section this example puts
+# in force, in one file. Rung 03's shape, inherited deliberately: the vocabulary
+# is `product_class`, `operators`, `request_contract`, `resolution`, `half_life`,
+# `debt_profile`, `policy`, `default_perspective`, and a reader who has read one
+# rung's deployment document can read the next one.
+#
+# NO CONNECTION VALUE APPEARS HERE. The backend is named as a KIND; how the two
+# SOURCE stores are reached is `backends.yaml`, and where they are lives only in
+# the environment. A DSN in a content-hashed artifact is a DSN persisted into the
+# audit plane forever.
+#
+# `backend: sqlite` IS THE FABRIC'S OWN L3, NOT A SOURCE. This is the first rung
+# that opens two source stores (Fluree for edges and ontology, PostgreSQL for
+# attributes) and the distinction has to be legible: the fabric's own graph state
+# is per-run SQLite exactly as at rungs 00 through 03, and neither source store
+# is ever written to. `CFT-G10` asserts the ASSEMBLY opens both sources — not the
+# runner, and not a fixture loader that pre-opens them and hands the product a
+# populated graph.
+
+semver: "1.0.0"
+tenant_id: cp-04-demo
+backend: sqlite
+
+# ---------------------------------------------------------------------------
+# The product class — spec §B.1's nine elements, as Control Plane state.
+# ---------------------------------------------------------------------------
+product_class:
+  schema_name: reference.corporate-family
+  schema_version: "1.0.0"
+
+  # §B.1 element 3, and §B.1.2 is the argument. The expiry is a function of the
+  # LATEST ASSERTION TIME AMONG THE FAMILY EDGES the payload admitted, never of
+  # the request. Rung 03 fixed the test a `from_entity_freshness` anchor must
+  # pass — the anchored value has to be an OBSERVATION TIMESTAMP THAT MOVES —
+  # and this one passes: GLEIF RR-CDF publishes daily, so a new relationship
+  # record advances it and re-derivation clears the expiry.
+  ttl_anchor: from_entity_freshness
+
+  # §B.1 element 9. No LLM is reachable from any §D step; `CFT-G12` asserts it.
+  # The whole product is a walk, a normalization, a batched join and a circuit
+  # enumeration — every one deterministic.
+  assembly_mode: algorithmic
+
+  max_ttl_key: cp-04/product/corporate-family-tree/max-ttl
+
+  # TWO OPERATORS, and this is the rung where the count moves off one. Rung 03
+  # declared `policy.principal-subgraph` alone because it had no relationships
+  # at all; this product's subject IS the relationships, so the walk is a
+  # registered L4 operator and `operators_invoked` carries exactly two entries.
+  #
+  # SIX §D STEPS DECLARE NEITHER. Steps 3, 4, 7 and 8 declare `operator: null`
+  # and step 6 declares the Standard name `Enrich` against an L2 mechanism —
+  # `artifacts/assembly-recipe.yaml` carries the split and §D.2.3 argues it.
+  # Lineage strict equality is why the distinction is load-bearing rather than
+  # tidy: a step that declares a Standard name but is not a registered operator
+  # does NOT enter `operators_invoked`, and a declared operator that did not run
+  # fails the gate.
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+# ---------------------------------------------------------------------------
+# The L4 operator parameters. TWO entries, so `build_operator_registry` returns
+# a two-operator registry — §D.2 steps 2 and 5.
+# ---------------------------------------------------------------------------
+operators:
+  # --- Step 2. Policy runs BEFORE anything reads graph state (§D.3). --------
+  #
+  # On a graph that ordering stops being decoration. The envelope shapes WHAT
+  # IS WALKED, not what is returned: a node the principal may not see is never
+  # materialized, so no edge to it is ever built and §B.2's suppression-silence
+  # rule holds structurally rather than by filtering afterwards.
+  policy.principal-subgraph:
+    # Every node in this product's graph is resolved into the two classes the
+    # `resolution` section below declares, and both carry their jurisdiction in
+    # the same key — a family node has no vocabulary of its own for it.
+    classification_attribute_by_class:
+      family_anchor: entity_jurisdiction
+      family_member: entity_jurisdiction
+
+    # THE DEFAULT PRINCIPAL'S EXPANDED GRANT, and it is a DEFAULT rather than
+    # the rule — the deployment expands the CALLING principal's prefixes per
+    # request. Expansion is `= prefix OR LIKE prefix || '-%'`.
+    #
+    # ENTITLEMENT AT THIS RUNG IS NOT YET A MEASURED DISCRIMINATION. Rung 03
+    # measured its four principals over 50 obligors and found 49 / 47 / 0 / 0 —
+    # a real discrimination it could then gate on. NO EQUIVALENT MEASUREMENT
+    # HAS BEEN TAKEN OVER THE FAMILY POPULATION (spec §B.2, §F.2 row 6), and
+    # this list does not assume rung 03's principals discriminate here. It is
+    # the jurisdiction set the family graph's LEI-bearing nodes resolve under,
+    # and a later plan that measures the population may narrow it — that
+    # narrowing is a reviewed edit, not a refresh.
+    permitted_classifications:
+      - US
+      - US-CA
+      - US-DE
+      - US-NY
+      - NL
+      - LU
+      - DE
+      - SG
+      - KY
+
+  # --- Step 5. The walk. ----------------------------------------------------
+  traversal.typed-neighborhood:
+    # `seed_entity_classes` IS REQUIRED BY THE SDK SCHEMA AND IT SELECTS WALK
+    # STARTING POINTS. It is not a per-hop admitted-class filter, and declaring
+    # it reinstates nothing.
+    #
+    # The mechanism, so nobody has to take that on trust:
+    # `src/ccf/operators/categories.py:426` seeds the frontier with every entity
+    # whose `entity_class` is in this set and then hops over the adjacency for
+    # `depth_limit` rounds — NO PER-HOP CLASS FILTER FOLLOWS. It is documented
+    # as "walk starting points" at `src/ccf/graph/protocols.py:220`, and
+    # `GQ-10` types the walk on EDGES only.
+    #
+    # ONTOLOGY ROLE 1 — *the walk stops when the neighbor's class is outside the
+    # admitted set* — WAS STRUCK FROM THIS RUNG 2026-08-31 (Dave), for two
+    # independently measured reasons: the estate cannot exhibit the stop (`D-32`)
+    # and the SDK has no expression for it (`D-33`). This declaration does not
+    # bring it back under another name, and no positive-property restatement of
+    # it appears anywhere in this example — that was refused BY NAME as a
+    # tautology over a class-homogeneous population.
+    #
+    # THE VALUE IS THE ANCHOR'S RESOLUTION CLASS, NOT A FIBO CLASS NAME, and
+    # that is a correctness point rather than a stylistic one. `entity_class` is
+    # the vocabulary the `resolution` section below mints; a FIBO class name here
+    # would match no entity record and seed an EMPTY frontier, which reads as a
+    # bounded walk that returned nothing. The FIBO chain is SERVED, on every
+    # node, as `type_chain` (§D.2.1 role 2, `CFT-G15`) — it is payload, not an
+    # admission filter.
+    #
+    # AND THE SEED IS THE ANCHOR ALONE, WHICH IS WHY THERE ARE TWO CLASSES. If
+    # every family node shared one class the frontier would be all 748 of them
+    # and `depth_limit` would bound nothing. `family_anchor` is minted for the
+    # one node the request names.
+    seed_entity_classes:
+      - family_anchor
+
+    # THE SIX DECLARED FAMILY PREDICATES (§C.5), in the short-name vocabulary
+    # the normalization step emits. Seven other relationship predicates exist in
+    # this ledger — `hasSubsidiary`, `hasBeneficialOwner`, `isBeneficialOwnerOf`,
+    # `ownershipIn`, `hasOwnershipPercentage`, `isDirectorOf`, `isOfficerOf` —
+    # and are deliberately excluded. `CFT-G02` asserts every returned edge is one
+    # of the six and is sabotaged by admitting a seventh.
+    #
+    # THE FULL IRI FOR EACH IS IN `artifacts/assembly-recipe.yaml`. Short names
+    # here because this is the relationship-type vocabulary of the fabric's own
+    # graph, which the normalization step (§D.2 step 4) mints; the IRIs are the
+    # source vocabulary and belong beside the read that uses them.
+    relationship_types:
+      - owns
+      - controls
+      - isDirectlyConsolidatedBy
+      - isUltimatelyConsolidatedBy
+      - hasGlobalUltimateParent
+      - hasDomesticUltimateParent
+
+    # REQUIRED WITH NO DEFAULT IN THE SDK SCHEMA — "a default bound is one
+    # nobody chose" (INV-CH7-24). The value here is the DECLARED CEILING, and
+    # the deployment supplies the CALLER's `max_depth` at request time, which is
+    # what puts depth into the operator parameter set's content hash and
+    # therefore into the product's identity (`CFT-G05`, `D-09`).
+    #
+    # THE CEILING IS 6 AND IT WAS MEASURED, NOT PICKED: walking all 83 roots,
+    # the deepest tree anywhere in this estate is depth 6, which `PSC-0124`
+    # attains. A ceiling of 6 truncates no tree in this estate.
+    #
+    # `PSC-0124` IS NOT THE UNIQUE DEEPEST ROOT and nothing in this deployment
+    # says it is. SEVEN roots attain depth 6 — `PSC-0018`, `PSC-0037`,
+    # `PSC-0053`, `PSC-0089`, `PSC-0124`, `PSC-0140`, `PSC-0153` — and
+    # `PSC-0037` spans 11 nodes to `PSC-0124`'s 7, so it is not even the
+    # largest.
+    depth_limit: 6
+
+# ---------------------------------------------------------------------------
+# The request contract — spec §B.4. Checked at the door, before either store is
+# opened, so a question this class does not answer costs nothing.
+# ---------------------------------------------------------------------------
+request_contract:
+  class_id: cp-04.request-contract
+  role: register
+  registration: typed
+  schema_name: reference.corporate-family
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      lei:
+        type: string
+        description: >-
+          the anchor. Unresolvable is a 404 and never an empty payload — an
+          empty family is a claim about the world, not about the request.
+      intent:
+        type: string
+        description: selects the policy envelope; an unknown intent is a 400
+      max_depth:
+        type: integer
+        description: >-
+          how many hops from the anchor. 1 to 6. ABOVE THE CEILING IS REFUSED BY
+          NAME AND NEVER CLAMPED — a silent clamp is the failure this rung is
+          most exposed to, because the request says 8, the walk does 6, the
+          payload looks fine and the content address greens. ABSENT TAKES THE
+          DECLARED DEFAULT of 3, read from the declaration below and never
+          invented at serve time.
+      debt_tolerance:
+        type: number
+        description: the ceiling above which assembly refuses with 409 and the debt block
+      as_of:
+        type: string
+        description: DECLARED AND INERT — refused, never honored. See unsupported_arguments.
+    required:
+      - lei
+      - intent
+
+  # THE DECLARED DEFAULT — `CFT-G04`'s whole subject. It lives here, in Control
+  # Plane state, because the gate is sabotaged by DEFAULTING AT SERVE TIME
+  # instead of reading the declaration, and a default that lived in the request
+  # handler would make that sabotage indistinguishable from the shipped code.
+  #
+  # THE VALUE IS MEASURED. From the anchor the SMCI subtree is 22 nodes at
+  # maximum depth 3, with depth 1 to `CycMeridianHoldingsSa`, 2 to
+  # `CycCalderIndustrialNv` and 3 to `CycThornburyCapitalLtd` — so the WHOLE OF
+  # CYCLE 1 is visible at depth 3, and 3 is the smallest depth at which this
+  # product's headline finding exists.
+  argument_defaults:
+    max_depth: 3
+
+  # THE CEILING, DECLARED — `CFT-G03`. Measured at §B.4.1 against the 83-root
+  # walk. The article this specification was authored from says `int 1-5`; Dave
+  # ruled 6 on 2026-08-31 against that walk, precisely so no tree in this estate
+  # is silently truncated at the cap. The disagreement is named rather than left
+  # to read as a transcription error.
+  argument_bounds:
+    max_depth:
+      minimum: 1
+      maximum: 6
+
+  # §B.4.3. Reconstructing the family as it stood on a past date needs ledger
+  # time-travel, which arrives at Tier 3. Refusing loudly is the tier boundary
+  # doing its job rather than a gap; `CFT-G06` asserts the refusal.
+  #
+  # AND THE TEMPTATION HERE IS SPECIFIC, SO IT IS REFUSED BY NAME. This is the
+  # first rung whose store carries a time axis of its own. Fluree's `t` is
+  # TRANSACTION time and `D-IMPL-88` rules it must not implement `as_of`;
+  # Fluree's `@iso:` searches EVENT time, nearest-at-or-before, and is
+  # BACKDATABLE. Neither is what `as_of` asks.
+  unsupported_arguments:
+    as_of: >-
+      not_supported_at_tier. Reconstructing the corporate family as it stood on
+      a past date requires ledger time-travel on the CCF temporal axis, which
+      arrives at Tier 3 with covenant-in-force-as-of. This tier serves the
+      family as it stands, recording the `ledger_t` the Fluree leg read at
+      BESIDE `graph_snapshot_at` and never inside it.
+
+# ---------------------------------------------------------------------------
+# L2 entity resolution — TWO entity classes and SIX relationship types. Rung 03
+# declared `relationship_rules: []` and said that was what made it the last rung
+# before the graph. This is the first rung past it.
+# ---------------------------------------------------------------------------
+#
+# WHY TWO ENTITY CLASSES RATHER THAN ONE. `seed_entity_classes` seeds the
+# frontier with every entity of the named class. One class over all 748 family
+# nodes would seed the walk from all of them at once and `depth_limit` would
+# bound nothing. `family_anchor` is minted for the single node the request
+# names; every other node is a `family_member`. The two carry the SAME attribute
+# keys, because a member is not a lesser kind of node — it is the same kind of
+# node, reached rather than asked for.
+resolution:
+  entity_rules:
+    - match_key: anchor_ref
+      entity_class: family_anchor
+      identity_keys:
+        - entity_uri
+      attribute_keys:
+        - lei
+        - label
+        - type_chain
+        - entity_jurisdiction
+
+    - match_key: member_ref
+      entity_class: family_member
+      identity_keys:
+        - entity_uri
+      attribute_keys:
+        - lei
+        - label
+        - type_chain
+        - entity_jurisdiction
+
+  # THE DIRECTION IS ASSERTED PER PREDICATE AND A COUNT IS BLIND TO AN ARROW
+  # (§C.4 trap 1). Every rule below runs PARENT -> CHILD after normalization —
+  # `owns` and `controls` are read subject->object, the four consolidation and
+  # ultimate-parent predicates object->subject. Reversing any ONE of them moves
+  # the measured root count off 83, which is what makes the arrow assertable
+  # rather than assumed.
+  relationship_rules:
+    - relationship_type: owns
+      subject_entity_class: family_anchor
+      object_entity_class: family_member
+    - relationship_type: owns
+      subject_entity_class: family_member
+      object_entity_class: family_member
+    - relationship_type: controls
+      subject_entity_class: family_anchor
+      object_entity_class: family_member
+    - relationship_type: controls
+      subject_entity_class: family_member
+      object_entity_class: family_member
+    - relationship_type: isDirectlyConsolidatedBy
+      subject_entity_class: family_anchor
+      object_entity_class: family_member
+    - relationship_type: isDirectlyConsolidatedBy
+      subject_entity_class: family_member
+      object_entity_class: family_member
+    - relationship_type: isUltimatelyConsolidatedBy
+      subject_entity_class: family_anchor
+      object_entity_class: family_member
+    - relationship_type: isUltimatelyConsolidatedBy
+      subject_entity_class: family_member
+      object_entity_class: family_member
+    - relationship_type: hasGlobalUltimateParent
+      subject_entity_class: family_anchor
+      object_entity_class: family_member
+    - relationship_type: hasGlobalUltimateParent
+      subject_entity_class: family_member
+      object_entity_class: family_member
+    - relationship_type: hasDomesticUltimateParent
+      subject_entity_class: family_anchor
+      object_entity_class: family_member
+    - relationship_type: hasDomesticUltimateParent
+      subject_entity_class: family_member
+      object_entity_class: family_member
+
+# ---------------------------------------------------------------------------
+# Half-life — spec §E.1. PER SIGNAL CLASS, not per product, and this product is
+# the clearest case on the ladder so far: ONE payload carries an ownership edge
+# decaying at ~180 days beside an Exhibit 21 subsidiary decaying at ~365 and an
+# attribute row decaying at ~30. A single product-level λ_c could not express it.
+# ---------------------------------------------------------------------------
+#
+# EVERY ROW'S CALIBRATION BASIS IS `illustrative`, WHICH MEANS THIS PRODUCT IS
+# NOT CALIBRATED. Saying so plainly is more useful than implying otherwise.
+# These are the vault's values raised to the Standard's table shape and they are
+# NOT recalibrated here; §G.1's observability list is the evidence base for
+# moving them off `illustrative`.
+half_life:
+  ownership_edges:
+    half_life_seconds: 15552000      # ~180d — `owns`, `controls`
+    decay_driver: acquisition-disposal-restructuring
+    supersession_event: gleif-rr-cdf-delta-touching-either-endpoint
+
+  ultimate_parent_designation:
+    half_life_seconds: 31536000      # ~365d — the two ultimate-parent predicates
+    decay_driver: group-reorganization
+    supersession_event: rr-cdf-delta-on-the-designation
+
+  consolidation_relationships:
+    half_life_seconds: 31536000      # ~365d — the two consolidation predicates
+    decay_driver: change-of-consolidating-parent
+    supersession_event: rr-cdf-delta
+
+  exhibit_21_subsidiary_list:
+    half_life_seconds: 31536000      # ~365d — annual filing cadence
+    decay_driver: annual-filing-cadence
+    supersession_event: new-10-K-exhibit-21-for-the-filer
+
+  entity_attributes:
+    half_life_seconds: 2592000       # ~30d — GLEIF Level 1, the PostgreSQL leg
+    decay_driver: gleif-level-1-refresh
+    supersession_event: level-1-record-update
+
+  fibo_t_box:
+    half_life_seconds: 31536000      # ~365d — the ontology itself
+    decay_driver: edm-council-release
+    supersession_event: new-fibo-version-loaded
+
+# `D_c = 1 - (F · C · S)`, multiplicative, so a collapsed dimension forces
+# escalation rather than being averaged away — §E.2. `F` is normalized over the
+# REQUIRED signal classes, not over the classes actually present: normalizing
+# over what is present would let a missing source improve the score.
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+policy:
+  class_id: cp-04.policy-bundle
+  role: register
+  registration: typed
+  regime: corporate-family-tree-entitlement
+
+# THE ROLE Π CONDITIONS. §D.2.1 role 3: the perspective conditions on FIBO
+# CLASS and not on a hand-written role map — a credit officer's view and a KYC
+# analyst's view of the same family differ BY CLASS, which is why the Tier 5 Π
+# split is a different class predicate rather than a different code path.
+# `CFT-G16` is sabotaged by substituting a hand-written role map, and it is one
+# of the three gates most exposed to the vocabulary trap: the word "class"
+# appears in BOTH a class-conditioned projection and a role map keyed by class
+# name, so the gate must read what the projection DID, never what it is called.
+default_perspective:
+  principal_id: PRIN-COV-001
+  role: credit-officer
