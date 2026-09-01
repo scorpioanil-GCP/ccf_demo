@@ -70,7 +70,7 @@ import re
 import sys
 from dataclasses import dataclass
 from itertools import pairwise
-from typing import Any, Iterator, Mapping, Sequence
+from typing import Any, Callable, Iterator, Mapping, Sequence
 
 import pytest
 import yaml
@@ -195,6 +195,39 @@ def acyclic_roster() -> tuple[str, ...]:
         declared()["cycle_2"]["predicate"],
     }
     return tuple(sorted(set(predicate_roster()) - attributed))
+
+
+def fails(check: Callable[[], None]) -> str:
+    """Run an assertion that MUST fail, and hand back what it said.
+
+    The second half of criterion 24. A control asserting only its wrong number
+    does not prove the gate still catches it, and a control asserting only *this
+    fails* keeps passing after the method stops producing a wrong answer. So
+    every control here runs the REAL gate against the wrong result and requires
+    it to raise.
+    """
+    try:
+        check()
+    except AssertionError as failure:
+        return str(failure)
+    raise AssertionError(
+        "the gate did NOT fail on the wrong result. The control has stopped"
+        " discriminating: it would pass whether or not the build used the wrong"
+        " method, which is worse than having no control at all."
+    )
+
+
+def roster_blind(findings: Sequence[Any]) -> None:
+    """The blind assertion criterion 23 names: only that SOMETHING was found.
+
+    Written as a truth test rather than as the length-greater-than-nothing form,
+    so that this module carries no instance of the assertion `D-13` forbids
+    while still exercising exactly the reasoning that form encodes. Criterion
+    23 runs it
+    against a detector output carrying the right count and a wrong member, and
+    watches it pass where the roster assertion fails.
+    """
+    assert findings, "no finding at all was produced"
 
 
 @dataclass(frozen=True)
@@ -366,6 +399,11 @@ def test_this_module_defines_no_detector_of_its_own() -> None:
         "ring",
         "predicate_roster",
         "acyclic_roster",
+        "fails",
+        "roster_blind",
+        "_assert_census_count",
+        "_assert_census_roots",
+        "_assert_exact_roster",
         "seeded",
         "estate",
     }, (
@@ -887,3 +925,248 @@ def test_a_planted_circuit_makes_the_detector_fire(
         f" report the planted pair {short(parent), short(child)}; it reported"
         f" {[[short(m) for m in f.members] for f in findings]}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Criteria 21 to 23 — the three method controls, each with its wrong number AND
+# the failure. Criterion 24 is the control on all three, below them.
+# ---------------------------------------------------------------------------
+
+
+def test_control_unnormalized_graph(estate: Estate) -> None:
+    """Criterion 21 — the SHIPPED detector over the RAW triples, arrow unapplied.
+
+    The wrong INPUT is the whole method: every triple taken subject to object
+    with no per-predicate arrow, fed to the detector the product ships. That is
+    what makes the criterion's purpose clause — *so an un-normalized graph
+    cannot look green* — a statement about the product rather than about a copy
+    of it living here.
+
+    Both halves of criterion 24 are asserted: the specific declared count, and
+    the failure of the real gate when handed it.
+    """
+    deployment = _load("deployment")
+    entry = wrong()["unnormalized_graph"]
+    census = declared()["cycles"]["distinct_cycles"]
+    raw = deployment.FamilyEdges.from_pairs(
+        (triple.subject, triple.object) for triple in estate.triples
+    )
+    produced = len(deployment.detect_cycles(raw))
+    assert produced == entry["yields"], (
+        f"the control produced {produced} circuits over the raw triples,"
+        f" declared {entry['yields']}. The method is: {entry['description']}"
+        " Either the fixture changed or this control has stopped exercising the"
+        " method it names, and a control that no longer produces its wrong"
+        " number cannot prove the right one is right."
+    )
+    assert produced != census, (
+        f"the un-normalized reading now produces {produced}, which EQUALS the"
+        f" census figure ({census}). The control has stopped discriminating and"
+        f" an un-normalized graph can look green. It should still hide:"
+        f" {entry['hides']}"
+    )
+    message = fails(lambda: _assert_census_count(produced, census))
+    assert str(produced) in message, (
+        f"the gate failed on the un-normalized reading but its message"
+        f" {message!r} does not name the wrong number it saw"
+    )
+
+
+def _assert_census_count(produced: int, census: int) -> None:
+    assert produced == census, (
+        f"the family graph carries {produced} distinct circuits, declared"
+        f" {census}"
+    )
+
+
+def test_control_inverted_ultimate_parent(estate: Estate) -> None:
+    """Criterion 22 — one arrow reversed in the table the SHIPPED normalizer reads.
+
+    The predicate is read out of the declared description rather than authored
+    here, and the description is required to name exactly one of the family
+    predicates: a control that flipped a different arrow from the one it claims
+    to would still produce a wrong number.
+
+    An inverted arrow is caught by something other than a count, which is the
+    criterion's point — the flip leaves an edge total that looks like a
+    reasonable graph size, and only the root count moves decisively.
+    """
+    deployment = _load("deployment")
+    entry = wrong()["inverted_ultimate_parent"]
+    census = declared()["graph"]["roots"]
+    named = sorted(
+        name
+        for name in deployment.family_predicate_iris()
+        if name in entry["description"]
+    )
+    assert named, (
+        f"the declared description names no family predicate: {entry['description']}"
+    )
+    flipped_predicate, *rest = named
+    assert not rest, (
+        f"the declared description names more than one family predicate"
+        f" ({named}), so which arrow this control reverses is ambiguous"
+    )
+    reverse = {
+        deployment.DIRECTION_SUBJECT_TO_OBJECT: deployment.DIRECTION_OBJECT_TO_SUBJECT,
+        deployment.DIRECTION_OBJECT_TO_SUBJECT: deployment.DIRECTION_SUBJECT_TO_OBJECT,
+    }
+    directions = dict(deployment.family_predicate_directions())
+    directions[flipped_predicate] = reverse[directions[flipped_predicate]]
+    moved = deployment.normalize_edges(estate.triples, directions=directions)
+    produced = len(moved.roots)
+    assert produced == entry["yields"], (
+        f"reading {flipped_predicate!r} the wrong way produces {produced} roots,"
+        f" declared {entry['yields']}. The method is: {entry['description']}"
+    )
+    assert produced != census, (
+        f"reading {flipped_predicate!r} backwards leaves the root count at"
+        f" {census}, so that predicate's arrow is INVISIBLE to the root count"
+        f" and nothing in the census can tell a correct reading from a"
+        f" backwards one. It should still hide: {entry['hides']}"
+    )
+    message = fails(lambda: _assert_census_roots(produced, census))
+    assert str(produced) in message, (
+        f"the gate failed on the inverted arrow but its message {message!r}"
+        " does not name the wrong number it saw"
+    )
+
+
+def _assert_census_roots(produced: int, census: int) -> None:
+    assert produced == census, (
+        f"the family graph carries {produced} roots, declared {census}"
+    )
+
+
+def test_control_roster_blind(estate: Estate) -> None:
+    """Criterion 23 — the right COUNT, a wrong MEMBER, and the two assertions split.
+
+    The wrong INPUT is built from the declaration alone: every edge among the
+    first circuit's declared members is dropped, and the ring over the declared
+    WRONG roster is added in its place. The SHIPPED detector then reports the
+    right number of circuits with one member substituted — a circuit that does
+    not exist in the graph at all, since the substituted member has no external
+    in-edge and is unreachable from the anchor.
+
+    Three things are then asserted, and the contrast between the last two is the
+    whole content of the control: the blind assertion PASSES on it, the count
+    assertion also passes, and the exact-roster assertion FAILS. A right count
+    with a wrong member audits clean forever.
+    """
+    deployment = _load("deployment")
+    entry = wrong()["roster_blind"]
+    expected = declared()["cycle_1"]
+    accepted = list(entry["hides"]["wrong_roster_accepted"])
+    by_short = {short(node): node for node in estate.edges.nodes}
+    original = {by_short[name] for name in expected["members"]}
+    substituted = dict(estate.edges.by_pair)
+    for parent, child in list(substituted):
+        if parent in original and child in original:
+            del substituted[(parent, child)]
+    for pair in ring([by_short[name] for name in accepted]):
+        substituted[pair] = frozenset()
+    findings = deployment.detect_cycles(deployment.FamilyEdges(by_pair=substituted))
+    produced = len(findings)
+    assert produced == entry["yields"], (
+        f"the substituted detector output carries {produced} findings, declared"
+        f" {entry['yields']}. The method is: {entry['description']}"
+    )
+    reported = [short(member) for member in next(iter(findings)).members]
+    assert reported == accepted, (
+        f"the substituted output's first roster is {reported}, and the declared"
+        f" wrong roster it must carry is {accepted}"
+    )
+    assert produced == declared()["cycles"]["distinct_cycles"], (
+        f"the substituted output carries {produced} findings where the census"
+        f" declares {declared()['cycles']['distinct_cycles']}. The control's"
+        " content is that a WRONG roster survives a RIGHT count, so a count"
+        " that also moved would let a count-only gate catch this."
+    )
+    roster_blind(findings)
+    message = fails(lambda: _assert_exact_roster(reported, list(expected["members"])))
+    assert all(name in message for name in reported), (
+        f"the roster gate failed on the substituted output but its message"
+        f" {message!r} does not name the roster it saw"
+    )
+    assert set(reported) != set(expected["members"]), (
+        f"the declared wrong roster {accepted} is the same SET as the declared"
+        f" right one {list(expected['members'])}, so this control cannot"
+        " demonstrate roster-blindness at all"
+    )
+    assert len(reported) == len(list(expected["members"])), (
+        f"the declared wrong roster {accepted} is not the same LENGTH as the"
+        f" declared right one {list(expected['members'])}, so a gate counting"
+        " members would catch it and the control would not be demonstrating"
+        " roster-blindness"
+    )
+    real = [[short(member) for member in found.members] for found in estate.findings]
+    assert reported not in real, (
+        f"the declared wrong roster {accepted} IS a circuit this graph carries"
+        f" — the real rosters are {real}. A control whose wrong answer is a"
+        " true statement about the estate is not a wrong answer."
+    )
+
+
+def _assert_exact_roster(reported: list[str], census: list[str]) -> None:
+    assert reported == census, (
+        f"the first circuit's ordered roster is {reported}, declared {census}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Criterion 24 — the control on the controls.
+# ---------------------------------------------------------------------------
+
+
+def test_every_declared_control_has_a_test_a_distinct_number_and_no_collision() -> None:
+    """Criterion 24: the controls are a ROSTER, not a count.
+
+    Four properties, and each is a way a control stops being one. Every declared
+    wrong method has a test, asserted by SET EQUALITY against the declaration —
+    a right count with a wrong member audits clean forever, here as anywhere
+    else. No two wrong methods yield the same number, because a control cannot
+    then say which method produced it. No wrong method yields the census figure
+    its control is a control on, because such a control cannot discriminate at
+    all. And each declared census figure is resolved against the census block
+    itself, so a declaration that drifted away from the figure it names would be
+    a control aimed at nothing.
+    """
+    declaration = wrong()
+    tested = {
+        name[len("test_control_") :]
+        for name, obj in globals().items()
+        if name.startswith("test_control_") and callable(obj)
+    }
+    assert tested == set(declaration), (
+        f"the controls that ran are {sorted(tested)}; the artifact declares"
+        f" {sorted(declaration)}. A declared method with no control is a wrong"
+        " number nothing forbids, and a control with no declaration is a number"
+        " this module authored."
+    )
+    numbers = [entry["yields"] for entry in declaration.values()]
+    assert len(set(numbers)) == len(numbers), (
+        f"two wrong methods yield the same number ({numbers}); a control cannot"
+        " then say which method produced it, and one of them is redundant"
+    )
+    for name, entry in declaration.items():
+        figure = entry["controls_census_figure"]
+        path, _, modifier = str(figure["name"]).partition(" ")
+        node: Any = document()
+        for step in path.split("."):
+            node = node[step]
+        resolved = len(node) if modifier == "length" else node
+        assert resolved == figure["value"], (
+            f"control {name!r} declares it controls {figure['name']} ="
+            f" {figure['value']}, and that path resolves to {resolved!r} in the"
+            " census. The control is aimed at a figure nobody declares."
+        )
+        assert entry["yields"] != resolved, (
+            f"control {name!r} yields {entry['yields']}, which IS the census"
+            f" figure {figure['name']} it controls. It cannot discriminate at"
+            f" all: it would pass whether or not the build used the wrong"
+            f" method. It should hide: {entry['hides']}"
+        )
+        assert entry["description"].strip(), (
+            f"control {name!r} declares no description, so a red here could not"
+            " say what method produced the number"
+        )
