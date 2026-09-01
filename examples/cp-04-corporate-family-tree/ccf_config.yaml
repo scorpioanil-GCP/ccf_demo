@@ -146,7 +146,7 @@ operators:
     # and are deliberately excluded. `CFT-G02` asserts every returned edge is one
     # of the six and is sabotaged by admitting a seventh.
     #
-    # THE FULL IRI FOR EACH IS IN `artifacts/assembly-recipe.yaml`. Short names
+    # THE FULL IRI FOR EACH IS IN `artifacts/source-vocabulary.yaml`. Short names
     # here because this is the relationship-type vocabulary of the fabric's own
     # graph, which the normalization step (§D.2 step 4) mints; the IRIs are the
     # source vocabulary and belong beside the read that uses them.
