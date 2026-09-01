@@ -5,7 +5,22 @@ milestone_name: Performance, Documentation & Demonstration
 status: executing
 last_updated: "2026-09-01T03:35:00.000Z"
 last_activity: >-
-  2026-09-01 -- **PHASE 24.4 IS EXECUTING.** Criteria LOCKED before planning at `a80c81e`
+  2026-09-01 -- **PHASE 24.4 IS EXECUTING -- 8 of 14 plans complete, `24.4-09` IN FLIGHT at a
+  `/clear` boundary.** `main` = `7fc1bb4`. **READ
+  `.planning/phases/24.4-corporate-family-tree-cp-04-first-multi-store-product-fluree/.continue-here.md`
+  FIRST** -- it carries the in-flight state, the one OPEN question, wave 8's constraints and the
+  anti-patterns. **SIXTEEN gates** `CFT-G01`..`CFT-G16` (`CFT-G17` withdrawn), **THREE** ontology
+  roles, gaps **`D-26`..`D-36`** recorded and none closed, **zero** files under `src/` or `runtime/`
+  across the whole phase. Baseline to print as NUMBERS: forbidden files 0, unanchored citations 0,
+  gate ids 16. **Dave rulings this session: `D-IMPL-225` through `D-IMPL-231`** -- Gate 1 approved
+  with three amendments; one envelope per node with `relationship_rules: []`; a **retraction**
+  (`227`) of a ruling never made, with wave 4's work reverted; jurisdictions `{NL, US-DE}` closed;
+  policy admitting on **observed family membership** with jurisdiction served and never inherited;
+  `D-36` plus **SERVE** on context debt; and `D_c` gated on **identity dispute**, not on a missing
+  Postgres row. **OPEN, needs Dave:** whether `--role` survives -- keep only if two roles yield a
+  different `content_address`, else drop it and say so in the README. **The unanchored-citation
+  ratchet went 1 -> 41 during this phase and is now 0**; it can only be read as a number.
+  PRIOR: 2026-09-01 -- **PHASE 24.4 IS EXECUTING.** Criteria LOCKED before planning at `a80c81e`
   (forty-nine, D-GATE-19). Fourteen plans in twelve waves at `6b752e4`, revised at `f734668`
   (six plan-check blockers + seven warnings) and `e1c2e47` (role-1 strike folded through).
   **Ontology role 1 STRUCK and `CFT-G17` WITHDRAWN** (Dave, ruling A, `853ccc9`): the product
