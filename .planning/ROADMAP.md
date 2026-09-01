@@ -2886,8 +2886,8 @@ Plans:
 - [ ] 24.4-10-PLAN.md — gates `CFT-G01`..`G05`, each observed RED (serial)
 - [ ] 24.4-11-PLAN.md — gates `CFT-G06`..`G09`, `G15`, `G16`, each observed RED (serial)
 - [ ] 24.4-12-PLAN.md — gates `CFT-G10`..`G14`, each observed RED, and the 16-of-16 roster check (serial)
-- [ ] 24.4-13-PLAN.md — README, `summary_explanations.md`, the documentation page, the mkdocs nav
-- [ ] 24.4-14-PLAN.md — `D-26`..`D-31` recorded, `src/` proven untouched, and the PAUSE for Dave
+- [ ] 24.4-13-PLAN.md — README, `summary_explanations.md`, the documentation page. **AMENDED 2026-09-01 (Dave): the `mkdocs nav` clause is STRICKEN** — `docs_dir` is `public/`, the page renders into a git-ignored `examples/*/page/`, so a nav entry aborts `make docs-strict`; cp-00..cp-03 carry none either. The README and `page/build_page.py` are the surface
+- [ ] 24.4-14-PLAN.md — the ELEVEN gaps `24.4-D-26`..`24.4-D-36` recorded, `src/` proven untouched, and the PAUSE for Dave. **AMENDED 2026-09-01 (Dave): this row read `D-26`..`D-31`, six, written before the `D-34`/`D-35`/`D-36` rulings.** `D-IMPL-232` is the source of truth; plan prose is not
 
 **Success Criteria** (what must be TRUE) — **LOCKED 2026-08-31, BEFORE PLANNING AND
 BEFORE WAVE 1**, per `D-GATE-19`'s forward binding. Each criterion is ONE LINE: a
