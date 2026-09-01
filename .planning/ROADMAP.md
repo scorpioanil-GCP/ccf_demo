@@ -2772,20 +2772,29 @@ the Fluree graph for graph traversal and ontology along with other backends to f
 new context product"*, and *"access the code that assembles the context product via an
 MCP. We will do A2A in a later example. Just MCP for this one."*
 
-**STATUS: ANCHORED, NOT PLANNED. NO SUCCESS CRITERIA ARE WRITTEN HERE, AND THAT IS
-DELIBERATE** — `D-GATE-19` binds criteria to the discuss sitting immediately before
-planning, never retroactively and never far in advance of the measurements they rest
-on. This entry records WHAT the phase is; criteria lock when it is discussed.
+**STATUS: DISCUSSED AND LOCKED 2026-08-31, NOT YET PLANNED.** The discuss sitting
+happened 2026-08-31 (`24.4-CONTEXT.md`, `24.4-DISCUSSION-LOG.md`) and its FORTY-NINE
+Success Criteria are locked below, BEFORE planning and BEFORE Wave 1, per `D-GATE-19`.
+Every Fluree figure in them was re-measured against `fibo-v2` at `ledger_t = 5112` on
+the day of locking; **three figures carried out of the sitting were WRONG and were
+corrected rather than inherited** — see criteria 4, 9 and the `D-31` note.
 
-**The product is build-ready — measured 2026-08-28, re-confirmed 2026-08-31.** Fluree
-`fibo-v2` at `ledger_t = 4,560` carries `owns` 636, `isDirectlyConsolidatedBy` 140,
-`isUltimatelyConsolidatedBy` 140 and `hasGlobalUltimateParent` 103, across 91 classes
-and 171 predicates. The family-tree health probe was **repaired by `ccf_dataprep` at
+**The product is build-ready — measured 2026-08-28, re-measured 2026-08-31.** Fluree
+`fibo-v2` at `ledger_t = 5112` carries **SIX** family predicates, not the four the
+2026-08-28 survey reported: `owns` 636, `isDirectlyConsolidatedBy` 140,
+`isUltimatelyConsolidatedBy` 140, `hasGlobalUltimateParent` 103,
+**`hasDomesticUltimateParent` 36** and **`controls` 3** — 1,058 raw triples
+normalizing to **722** distinct parent→child edges over **748** nodes and **83**
+roots, across 91 classes and 171 predicates. The family-tree health probe was **repaired by `ccf_dataprep` at
 `96b88ae`**: the population now derives from the four family predicates — **136
 entities, 0 unresolved** — rather than from every `ex:lei` node, and the floor holding
 the row honest is *"ownership graph edges (all predicates) >= 500"* rather than an
-entity floor. **`ledger_t = 4,560` is the exact replay anchor for `graph_snapshot_at`**
-that `D-IMPL-218` requires — this is the first rung to have one.
+entity floor. **The claim that `ledger_t` is "the exact replay anchor for `graph_snapshot_at`" was
+STRUCK 2026-08-31 (`D-03`)** — `graph_snapshot_at` is a `datetime` and `t` is an `int`,
+the adapter FLOORS rather than pins (`D-26`), and `t` must not back `as_of`
+(`D-IMPL-88`). `ledger_t` moved 4,560 → 5,112 between two sittings six days apart,
+which is why the reproducibility claim is *"byte-identical against a quiescent ledger
+for that run"* and nothing stronger (`D-02`).
 
 **THE FOUR ONTOLOGY ROLES, all four ruled in scope by Dave 2026-08-31.** The ontology
 is load-bearing in four independent places, not decoration:
@@ -2793,7 +2802,7 @@ is load-bearing in four independent places, not decoration:
 1. **Types constrain the walk.** Traversal follows ownership edges only between entities whose FIBO class permits it; a walk that would step onto a `Person` or a `Trade` stops.
 2. **Ontology is served in the product.** The payload carries each node's FIBO class and the relevant hierarchy, so a consuming agent knows an SPV is an SPV without a second lookup. This is what makes the product self-describing over MCP.
 3. **Ontology drives the projection.** Perspective conditions on FIBO class, so a credit officer's view and a KYC analyst's view of the same family differ by class rather than by a hand-written role map.
-4. **Ontology validates the assembly.** A declared product gate asserts every returned node carries a known FIBO class and every edge is one of the four declared family predicates, so an untyped or off-ontology node cannot enter silently.
+4. **Ontology validates the assembly.** A declared product gate asserts every returned node carries a known FIBO class and every edge is one of the six declared family predicates, so an untyped or off-ontology node cannot enter silently.
 
 **THE MCP DOOR — the ladder's first, and REUSE rather than new mechanism.** No `cp-*`
 rung has ever touched MCP: a grep over `examples/cp-0*` returns zero MCP references and
@@ -2839,13 +2848,76 @@ pressure-tests** whether ontology claims must refuse **at serve** rather than on
 CI, and only such a product writes the case for a `ProductGate` Protocol.
 
 **Depends on:** Phase 24.3 (`D-GATE-24.3`, APPROVED and closed). **24.4 Success Criteria
-lock at the discuss sitting (`D-GATE-19`)** -- that is the only precondition. A gate on
+lock at the discuss sitting (`D-GATE-19`)** -- that is the only precondition, and it is
+**SATISFIED**: the sitting ran 2026-08-31 and the forty-nine criteria below were locked
+the same day, before planning. A gate on
 *"24.3 paused for evaluation"* was written here 2026-08-31 and STRUCK the same day (Dave):
 it named an already-closed subject and could never fire.
 
-**Requirements:** to be determined at the discuss sitting, under the v0.3 lane.
-`EXAM-06` (`D-IMPL-217`) applies — the example ships a companion HTML documentation
-page whose subject is the example alone.
+**Success Criteria** (what must be TRUE) — **LOCKED 2026-08-31, BEFORE PLANNING AND
+BEFORE WAVE 1**, per `D-GATE-19`'s forward binding. Each criterion is ONE LINE: a
+wrapped criterion parses as a single verification truth, and the criterion COUNT is
+not a wrap guard — a continuation line does not start with a digit, so a real
+continuation-line detector is required beside the count. **Every Fluree figure below
+was re-measured 2026-08-31 against `fibo-v2` at `ledger_t = 5112` before locking;
+three figures carried in from the discuss sitting were WRONG and are corrected here
+rather than inherited.**
+
+  1. A Context Product specification exists for `corporate-family-tree` at `examples/cp-04-corporate-family-tree/spec/CP-SPEC-004_Corporate_Family_Tree.md`, authored to the FULL Standard — front matter plus sections A–G — and its Gate 1 approval is recorded in the document itself; a spec still reading `reviewer pending` is RED
+  2. Spec §G states the reproducibility claim in exactly the words *"byte-identical against a quiescent ledger for that run"*, and no stronger claim appears in the README, the spec, the documentation page or any test name
+  3. The build re-derives the six family predicates from `fibo-v2` AT GATE TIME and reports exactly `owns` **636**, `isDirectlyConsolidatedBy` **140**, `isUltimatelyConsolidatedBy` **140**, `hasGlobalUltimateParent` **103**, `hasDomesticUltimateParent` **36** and `controls` **3**; a hard-coded constant, an imported fixture or a figure copied from the spec is RED
+  4. The build re-derives the raw family-triple total and reports exactly **1,058**, re-derives the NORMALIZED parent→child edge set and reports exactly **722** distinct edges, and reports the **336**-triple collapse between them, so the difference is visible rather than hidden
+  5. The build re-derives the family-graph node set and reports exactly **748** distinct nodes and exactly **83** roots
+  6. Normalization direction is asserted per predicate — `owns` and `controls` read subject→object, the four consolidation and ultimate-parent predicates read object→subject — and reversing any one of them changes the reported root count, so a bare count cannot stand in for the arrow
+  7. The build re-derives LEI coverage over the family graph and reports exactly **181 of 748** nodes carrying `ex:lei`, of which exactly **142** resolve in `ccf_v2.legal_entity`
+  8. The build re-derives the anchor and reports `SuperMicroComputerInc` carrying LEI `54930022CZO1N2UGVW07`, label `SUPER MICRO COMPUTER, INC.` and a **7**-class FIBO type chain
+  9. The build re-derives SMCI's direct children and reports exactly **19** — exactly **17** `Sub*` Exhibit-21 stubs, plus `SuperMicroComputerBV` and `CycMeridianHoldingsSa`
+  10. The build reports that `SuperMicroComputerBV` (LEI `549300F16C4PEFXU0S92`, label `SUPER MICRO COMPUTER B.V.`) and `SubSuperMicroComputerBV` (no LEI, label `Super Micro Computer B.V`) are the SAME company entered twice one hop from the anchor, and the product surfaces the pair rather than silently serving both as distinct subsidiaries
+  11. The build re-derives the SMCI subtree and reports exactly **22** reachable nodes at maximum depth **3**, with depth **1** to `CycMeridianHoldingsSa`, **2** to `CycCalderIndustrialNv` and **3** to `CycThornburyCapitalLtd`
+  12. The build re-derives the SMCI subtree's store split and reports exactly **2 of 22** nodes carrying an LEI — both resolving in `ccf_v2.legal_entity` — and exactly **20 of 22** resolving to no Postgres row
+  13. The build re-derives the deepest tree anywhere in the estate and reports depth **6** rooted at `PSC-0124`, which is the measurement the declared ceiling of 6 rests on
+  14. The build re-derives the cycle set over the whole family graph and reports exactly **2** distinct cycles, both wholly inside `owns`
+  15. Cycle 1 is served as a `findings[]` entry with `type: ownership_cycle`, `predicate: owns`, ordered `members: [CycCalderIndustrialNv, CycThornburyCapitalLtd, CycMeridianHoldingsSa]` and `closing_edge: [CycMeridianHoldingsSa, CycCalderIndustrialNv]`, asserted as that EXACT roster and never as `len(findings) > 0`
+  16. Cycle 2's roster is `[CycHarborstoneKy, CycLindenfeldGmbh, CycPahangPteLtd]` with closing edge `[CycPahangPteLtd, CycHarborstoneKy]`, and the build reports it carries **zero** external in-edges — unreachable from any LEI-bearing anchor, which is the measured reason it is not the headline
+  17. The build reports exactly **one** external edge into any cycle in the whole graph — `SuperMicroComputerInc → CycMeridianHoldingsSa` — so the anchor's reach into cycle 1 is the only such path and not one of several
+  18. All six cycle members are re-derived to carry NO LEI, and cycle 1's three members carry **7** FIBO classes each while cycle 2's carry **5**, so a type-constrained walk demonstrably behaves differently on each
+  19. The same anchor walked over `isDirectlyConsolidatedBy` alone yields NO `ownership_cycle` finding, and the negative control is production data rather than a synthetic DAG
+  20. Each of the five acyclic predicates is executed as its own negative control and yields zero cycles, so a detector that fires on everything is detected rather than passing quietly
+  21. Running the detector over the raw 1,058 triples instead of the 722 normalized edges is executed as a control, yields a cycle count other than 2, and FAILS, so an un-normalized graph cannot look green
+  22. Reading `hasGlobalUltimateParent` subject→object instead of object→subject is executed as a control, yields a root count other than 83, and FAILS, so an inverted arrow is caught by something other than a count
+  23. Asserting `len(findings) > 0` against a detector returning a WRONG three-member roster is executed as a control and FAILS, so roster-blindness is itself detected
+  24. Each control in criteria 19–23 asserts BOTH its specific wrong result AND the failure, so a control that stops discriminating is detected rather than passing quietly
+  25. `CFT-G01` — every returned node carries a known FIBO class — is sabotaged by admitting an untyped node and observed RED
+  26. `CFT-G02` — every returned edge is one of the six declared family predicates — is sabotaged by admitting a seventh predicate and observed RED
+  27. `CFT-G03` — `max_depth` above the declared ceiling of 6 is REFUSED BY NAME — is sabotaged by replacing the refusal with a silent clamp to 6 and observed RED
+  28. `CFT-G04` — a missing `max_depth` takes the DECLARED default of 3 — is sabotaged by defaulting at serve time instead of reading the declaration and observed RED
+  29. `CFT-G05` — depth is part of product identity — is sabotaged by making `max_depth` not change the content address and observed RED
+  30. `CFT-G06` — `as_of` is refused `400 not_supported_at_tier` — is sabotaged by silently honoring it and observed RED
+  31. `CFT-G07` — a cycle reaches the consumer carrying type, ordered members AND the closing edge — is sabotaged by dropping the closing edge and observed RED
+  32. `CFT-G08` — findings are orthogonal to the tree — is sabotaged by flagging cycle membership on the nodes instead and observed RED
+  33. `CFT-G09` — a node carrying no LEI stays in the tree and in the roster — is sabotaged by dropping members whose Postgres join fails and observed RED
+  34. `CFT-G10` — both stores are opened, Fluree for edges and ontology and Postgres for attributes — is sabotaged by serving attributes from Fluree and observed RED
+  35. `CFT-G11` — the returned node set resolves to attributes in ONE batched Postgres query — is sabotaged by firing one query per node and observed RED
+  36. `CFT-G12` — no LLM client is reachable from any §D step — is sabotaged by making one reachable and observed RED
+  37. `CFT-G13` — the MCP door is TOOL-ONLY — is sabotaged by exposing a product resource and observed RED
+  38. `CFT-G14` — one standalone assembler serves both callers — is sabotaged by giving `server/serve.py` its own assembly path and observed RED
+  39. `CFT-G15` — each served node carries its FIBO class chain — is sabotaged by serving the tree without type information and observed RED
+  40. `CFT-G16` — perspective conditions on FIBO class — is sabotaged by substituting a hand-written role map and observed RED
+  41. `CFT-G17` — the walk is type-constrained and stops rather than stepping onto an entity whose FIBO class does not permit it — is sabotaged by removing the constraint and observed RED
+  42. No gate is recorded as passing until it has been observed RED at least once, and the sabotage applied to each is recorded with its observed result
+  43. `examples/cp-04-corporate-family-tree/artifacts/gates.yaml` declares every `CFT-G**` id as DATA under a CLOSED schema committed under `docs/schemas/`, and no gate id appears anywhere as a YAML comment only
+  44. `artifacts/expected.yaml` carries expected VALUES only and is NOT widened to carry gate rosters, and the spec's §G table is NOT the machine source for any check
+  45. Every expected figure in criteria 3–18 is read from `artifacts/expected.yaml` and never authored in a test file
+  46. The recipe artifact declares each step's `operator:` as a Standard name or `null`, its `layer:` and its `sdk_mechanism:` with a witness, and cycle detection declares `operator: null` because it executes in the L2 assembler
+  47. `run.py` consumes in-process through `ProductClient` and the MCP tool ask returns an equivalent payload for the same request, with no `GET /tenant/class/version` path anywhere in the example
+  48. The example ships a companion HTML documentation page whose subject is this example alone per `EXAM-06` (`D-IMPL-217`), and its printed run is reproduced against the named `ledger_t` it was read at per `D-IMPL-218`
+  49. `D-26` through `D-31` are RECORDED in `docs/DECISIONS.md` as SDK gaps, NONE of them is closed in this phase, and no file under `src/` is modified by it
+
+**Requirements:** discharges none. `EXAM-06` (`D-IMPL-217` / `D-IMPL-218`) applies —
+the example ships a companion documentation page whose subject is the example alone,
+with its printed run reproduced against the `ledger_t` it was read at. The phase
+RECORDS `D-26`…`D-31` as SDK gaps under `D-04` of `24-CONTEXT.md` and closes none of
+them; `D-31`'s closure is Phase 24.5.
 
 
 ## Progress
