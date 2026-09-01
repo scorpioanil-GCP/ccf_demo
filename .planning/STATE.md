@@ -3,9 +3,32 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-01T03:35:00.000Z"
+last_updated: "2026-09-01T21:40:00.000Z"
 last_activity: >-
-  2026-09-01 -- **PHASE 24.4 IS EXECUTING -- 8 of 14 plans complete, `24.4-09` IN FLIGHT at a
+  2026-09-01 -- **PHASE 24.4's BUILD IS DONE AND THE PHASE IS PAUSED FOR DAVE. 14 of 14 plans
+  complete.** `example_delivery.md` sections 1 and 11: Dave evaluates the built product HIMSELF
+  before any close panel, `D-GATE` or completion mark. **NOTHING IS CLOSED** -- no `D-GATE-24.4`
+  exists, `ROADMAP.md` is untouched, no milestone is marked complete, and no close panel has run.
+  **The product:** `examples/cp-04-corporate-family-tree`, rung 04 and the first of Tier 2 -- the
+  ladder's first two-store product, first graph traversal, first over MCP, three ontology roles.
+  **SIXTEEN gates** `CFT-G01`..`CFT-G16`, every one observed RED under its own id, declared as DATA
+  under a closed schema; `CFT-G17` stays WITHDRAWN and must never be minted. **`D-IMPL-232` records
+  all ELEVEN gaps `D-26`..`D-36` and closes NONE of them** -- note the plan text said eight and the
+  ROADMAP bullet said six; criterion 49 says eleven, and the lag is recorded rather than reconciled.
+  **`src/` and `runtime/` are diff-EMPTY across `92761e0..83953e8`**, asserted by
+  `tests/examples/test_cp_04_phase_record.py` against pinned base and ceiling files, with the
+  instrument proven able to report a change and `srcc/` refused by name. Measured at the pause:
+  `tests/examples` **769 passed / 113 skipped** rc=0, `tools.lints --all` rc=0, unanchored Python
+  citations **0** against a ceiling of 0, gate ids **16** with **0** still null.
+  **FIVE THINGS NEED DAVE and none was decided here** -- (1) criterion 37's amended wording names
+  `resources/list` where the shipped door lists the URI only under `resources/templates/list`; a
+  wording amendment to a ruled criterion, the THIRD criterion in this phase found wrong against the
+  tree; (2) whether the `mkdocs.yml` cp-04 COMMENT stays, given that plan 13's `grep -q 'cp-04'`
+  now passes on it rather than on a nav entry; (3) cycle 2 is unservable -- zero external in-edges
+  and no member carries an LEI -- a plan-versus-estate discrepancy of `D-32`'s shape; (4) three
+  gates passed their own sabotage as their criteria worded them (`CFT-G05`, `CFT-G16`, `CFT-G10`),
+  all three rewritten BEFORE shipping so the shipped count is zero; (5) the plan-text lag above.
+  PRIOR: 2026-09-01 -- **PHASE 24.4 IS EXECUTING -- 8 of 14 plans complete, `24.4-09` IN FLIGHT at a
   `/clear` boundary.** `main` = `7fc1bb4`. **READ
   `.planning/phases/24.4-corporate-family-tree-cp-04-first-multi-store-product-fluree/.continue-here.md`
   FIRST** -- it carries the in-flight state, the one OPEN question, wave 8's constraints and the
@@ -780,7 +803,19 @@ progress:
     bullet is struck through as superseded). The first is the EXACT error recorded against
     a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
-  **PHASE 24.1: WAVES 1-10 OF 11 DONE. WAVE 10 IS PARKED ON EXACTLY ONE DAVE DECISION AND
+  **PHASE 24.4 IS PAUSED AFTER ITS BUILD, AWAITING DAVE'S EVALUATION OF THE PRODUCT.** 14 of 14
+  plans complete. The stop is the DELIVERABLE, not a blocker: `example_delivery.md` sections 1 and
+  11 put the pause after the build and before any close panel, `D-GATE` or completion mark, and
+  Dave validates that `examples/cp-04-corporate-family-tree` runs from a cold shell himself.
+  **Nothing is closed** -- `docs/DECISIONS.md` has no `D-GATE-24.4` entry (0 entry-opening lines,
+  against a control of 1 for `D-GATE-24.3`), `ROADMAP.md` is untouched, no milestone is marked
+  complete. **The next event is Dave's evaluation.** He resumes with "approved" for the close
+  protocol, or with what to fix. **Five items need his ruling and none was decided by the
+  executor:** criterion 37's wording versus the measured `resources/list`; whether the
+  `mkdocs.yml` cp-04 comment stays; cycle 2's unservability; the three gates that passed their own
+  sabotage as worded (all rewritten before shipping); and the plan text that named eight gaps
+  where criterion 49 names eleven. See `## Current Position` above and `24.4-14-SUMMARY.md`.
+  PRIOR: **PHASE 24.1: WAVES 1-10 OF 11 DONE. WAVE 10 IS PARKED ON EXACTLY ONE DAVE DECISION AND
   WAVE 11 CANNOT START UNTIL IT LANDS.**
   **THE DECISION -- BLOCKER A.** `tests/products/test_gate_two_call_shape.py`
   `MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1`, no headroom BY DESIGN so a human rules on each
@@ -999,6 +1034,55 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**PHASE 24.4's BUILD IS COMPLETE AND THE PHASE IS PAUSED, AWAITING DAVE'S EVALUATION OF THE
+BUILT PRODUCT.** 14 of 14 plans have SUMMARYs. `main` is ahead of `origin/main`; the tree is
+clean. **Nothing is closed:** `docs/DECISIONS.md` holds no `D-GATE-24.4`, `.planning/ROADMAP.md`
+is not ticked for this phase, no milestone is marked complete, and no close panel has run.
+`public/reference/specifications/example_delivery.md` sections 1 and 11 govern -- the pause
+comes after the build and before any of that, and Dave validates that the example RUNS from a
+cold shell without an agent in the loop.
+
+**WHAT TO RUN, in order:** `make venv`; export the two connection variables the README's Run-it
+section names; `make -s example-cp-04`; then `MAX_DEPTH=2` and `MAX_DEPTH=4` (the content
+addresses must DIFFER); then `MAX_DEPTH=8` (must be REFUSED BY NAME at the ceiling of 6, never
+clamped); then `AS_OF=2026-01-01` (must be refused `not_supported_at_tier`); then read
+`examples/cp-04-corporate-family-tree/summary_explanations.md`; then build and open the page with
+`.venv/bin/python examples/cp-04-corporate-family-tree/page/build_page.py`.
+
+**FIVE ITEMS ARE WAITING ON DAVE and none was decided by the executor.** (1) **Criterion 37's
+amended wording is wrong against the tree** -- it says the product resource is *"enumerable in
+`resources/list`"*, and measured at an MCP client `resources/list` returns `[]` while
+`resources/templates/list` returns the URI template, because a placeholder URI registers as a
+TEMPLATE. Substance and `D-34` are unchanged and the shipped check asserts BOTH listings. This is
+the THIRD criterion in this phase found wrong against the tree, and amending a ruled criterion is
+Dave's (`D-IMPL-222`). (2) **The `mkdocs.yml` cp-04 nav entry could not be made** -- `docs_dir` is
+`public/` and the render is git-ignored, so a nav entry aborts `make docs-strict`; cp-00..cp-03
+carry none either and no locked criterion requires one. The measurement was recorded as a COMMENT
+in `mkdocs.yml`, so plan 13's `grep -q 'cp-04' mkdocs.yml` now passes on the comment rather than
+on a nav entry -- a token present in both the compliant and the violating case. Whether the
+comment stays is Dave's. (3) **Cycle 2 is unservable** -- `expected.yaml` gives
+`cycle_2.external_in_edges: 0`, `into_cycle_2: 0`, and all six members carry `lei: null`, so it can
+be reached neither as a subtree nor asked for as an anchor; plan 11 asserted the unreachability
+instead. Criterion 39 speaks of SERVED nodes so it is discharged, but it is a plan-versus-estate
+discrepancy of `D-32`'s shape. (4) **Three gates passed their own sabotage when written as their
+criterion worded it** -- `CFT-G05`, `CFT-G16` and `CFT-G10`, from three unrelated causes, each
+caught and rewritten BEFORE shipping, so the shipped count of gates that passed their first
+sabotage is ZERO. (5) **The plan text lagged its own criterion** -- plan `24.4-14`'s objective
+names eight gaps and its ROADMAP checklist bullet names six; criterion 49 as amended names
+ELEVEN, `D-26`..`D-36`. All eleven are recorded at `D-IMPL-232`; the lag is written down rather
+than reconciled away, and criterion 49 was NOT amended.
+
+**MEASURED AT THE PAUSE, each with a positive control** (`D-IMPL-232`, `24.4-14-SUMMARY.md`):
+`tests/examples` **769 passed / 113 skipped** rc=0; `tools.lints --all` rc=0; unanchored Python
+citations **0** against a ceiling of 0, with the ratchet watched go 0 -> 1 -> 0 under a planted
+citation; **16** declared gate ids with **0** still `null` and `CFT-G17` absent; `src/` and
+`runtime/` both diff-EMPTY across `92761e0..83953e8`, against a positive control showing
+`examples/` moved 24 files in the same window and a `srcc/` pathspec refused by name.
+
+---
+
+**WHAT IS BELOW HERE IS SUPERSEDED and is kept rather than overwritten** (`D-19`, `D-IMPL-174`).
 
 **PHASE 24.3 IS CLOSED. TIER 1 OF THE CONTEXT PRODUCT LADDER IS COMPLETE. PHASE 24.4 IS
 ANCHORED BUT NOT PLANNED, AND ITS BUILD HAS NOT STARTED.** `origin/main` = `92761e0`, tree
