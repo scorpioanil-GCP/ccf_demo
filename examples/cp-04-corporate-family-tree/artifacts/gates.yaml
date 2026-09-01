@@ -1,0 +1,289 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SIXTEEN DECLARED PRODUCT GATES, AS DATA — `CFT-G01` through `CFT-G16`.
+#
+# The `$schema` header above names the OPEN ENVELOPE, because that is what the
+# tree-wide header gate reads (`tools/check_schema_headers.py`) and this is a
+# deployment-authored class the SDK does not own. THE CLOSED SCHEMA THAT
+# ACTUALLY CONSTRAINS THIS DOCUMENT is
+# `docs/schemas/product-gates/cp.product-gates.json`, and
+# `tests/examples/test_cp_04_gates_declaration.py` validates against it with a
+# negative control proving the closure can fail. Two schemas, two jobs: the
+# envelope says this is a versioned artifact, the closed schema says what a gate
+# roster is.
+#
+# ============================================================================
+# WHY THIS FILE EXISTS AND WHY THE SPECIFICATION'S TABLE DOES NOT REPLACE IT
+# ============================================================================
+#
+# `D-IMPL-224`: product gates are a DECLARED ARTIFACT plus CI coverage. There is
+# no `ProductGate` Protocol, no serve path, and the SDK's universal gates stay
+# the only serve-time gates — nothing here is added to the fabric.
+#
+# **THE SPECIFICATION'S §G.2 TABLE IS THE MACHINE SOURCE FOR NOTHING** (`D-22`).
+# CI must not depend on parsing prose out of Markdown; a prose table cannot be
+# held against a run. The statements below are the same statements, and this
+# document is where a checker reads them.
+#
+# **ENFORCEMENT IS PHASE 24.5's, NOT THIS PHASE's** (`D-24`). The checker that
+# asserts each declared id has an EXECUTING test — never an `id in file`
+# substring match — is scheduled and is deliberately not built here. Measured
+# across this ladder, 40 product-level gate ids exist across four products and
+# `grep -rnE "OFS-G|FTS-G|[A-Z]{2,4}-G[0-9]{2}" --include=*.py src/ runtime/`
+# returns 0. That is `D-31`, recorded and open.
+#
+# **NO GATE IS RECORDED AS PASSING UNTIL IT HAS BEEN OBSERVED RED AT LEAST
+# ONCE.** All sixteen `observed_red` values are `null` at the end of plan
+# `24.4-03` — required as KEYS so an unsabotaged gate is VISIBLY unsabotaged
+# rather than absent. Plans `24.4-10`, `24.4-11` and `24.4-12` build the tests,
+# apply the sabotage, watch the failure and fill them in. A gate that has never
+# been seen red is not evidence that it runs; fourteen declared gates once sat
+# idle on this ladder behind exactly that assumption.
+#
+# ============================================================================
+# THE ROSTER IS SIXTEEN, AND THAT IS A RULING RATHER THAN A COUNT
+# ============================================================================
+#
+# `CFT-G01` through `CFT-G16`, discharging locked ROADMAP criteria 25 through
+# 40, one-for-one in both directions. **Criterion 41 is WITHDRAWN IN PLACE**
+# (Dave, 2026-08-31) together with ontology role 1 — *the walk stops when the
+# neighbor's class is outside the admitted set* — and NO GATE CLAIMS IT.
+#
+# Two independently measured reasons, either sufficient on its own:
+#
+#   * **THE ESTATE CANNOT EXHIBIT THE STOP.** Over all 748 family nodes, no
+#     LEI-bearing anchor reaches a node outside the 7-class profile within depth
+#     3. The class-diverse populations are real — `Person` 46,
+#     `SpecialPurposeVehicle` 50, 5-class 123 — and every one sits in a
+#     component no LEI-bearing anchor reaches downward. A gate over this would
+#     go green having proven nothing and its sabotage would change no output.
+#     Recorded as the estate gap `D-32`.
+#
+#   * **THE SDK CANNOT EXPRESS THE STOP.** The Traversal family types the walk
+#     on EDGES ONLY (`GQ-10`); `seed_entity_classes` seeds the frontier and is
+#     never re-applied per hop (`src/ccf/operators/categories.py:426`). A
+#     node-class admission filter has NO SDK EXPRESSION. Recorded as the
+#     mechanism gap `D-33`. Had the estate carried the data, the walk still
+#     could not have stopped without work under `src/` that criterion 49 forbids.
+#
+# **IT IS NOT REPLACED BY A POSITIVE-PROPERTY RESTATEMENT.** *"Every admitted
+# node's class is in the declared set"* was refused BY NAME: it is a tautology
+# over a class-homogeneous population, and it would read as coverage while
+# measuring nothing. **A seventeenth id is declared here under no name at all**,
+# and the absence is asserted BY NAME on a CODE line in
+# `tests/examples/test_cp_04_gates_declaration.py` — never in a comment, because
+# that module's own comment-only check would then demand the very id the
+# withdrawal forbids.
+#
+# `role: load`. A gate roster is a declaration of obligations, parsed and handed
+# back; it is not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-04.product-gates
+
+declaration:
+  product: reference.corporate-family
+
+  # HOW A GATE ID MAPS ONTO THE FUNCTION THAT EXECUTES IT, DECLARED RATHER THAN
+  # INFERRED. Measured across this ladder, three products used three conventions
+  # and a coverage instrument keyed on function names reported 0 of 8, 0 of 9 and
+  # 0 of 9 falsely — three products, three conventions, one instrument that could
+  # not read any of them. Plans 24.4-10, 11 and 12 hit the convention below, and
+  # each may CORRECT the `test:` reference it finds here in the same edit that
+  # records its `observed_red`.
+  test_naming_convention: >-
+    the gate id lower-cased with its hyphen dropped, prefixed `test_`, followed
+    by a slug of the statement — `CFT-G01` becomes
+    `test_cft_g01_every_returned_node_carries_a_known_fibo_class`.
+
+  gates:
+    # ---- Ontology validates the assembly (§D.2.1 role 4) -----------------
+    - id: CFT-G01
+      criterion: 25
+      statement: >-
+        Every returned node carries a known FIBO class. An untyped or
+        off-ontology node cannot enter silently.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g01_every_returned_node_carries_a_known_fibo_class
+      sabotage: admit an untyped node into the returned set
+      observed_red: null
+
+    - id: CFT-G02
+      criterion: 26
+      statement: >-
+        Every returned edge is one of the six declared family predicates —
+        owns, controls, isDirectlyConsolidatedBy, isUltimatelyConsolidatedBy,
+        hasGlobalUltimateParent, hasDomesticUltimateParent.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g02_every_returned_edge_is_one_of_the_six_declared_predicates
+      sabotage: >-
+        admit a seventh predicate into the edge set. Seven others exist in this
+        ledger and are deliberately excluded, so the sabotage draws on real data
+        rather than an invented predicate.
+      observed_red: null
+
+    # ---- The depth parameter (§B.4.1) ------------------------------------
+    - id: CFT-G03
+      criterion: 27
+      statement: >-
+        max_depth above the declared ceiling of 6 is REFUSED BY NAME. Never
+        clamped.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g03_max_depth_above_the_ceiling_is_refused_by_name
+      sabotage: >-
+        replace the refusal with a silent clamp to 6. This is the sabotage a
+        count-based check cannot see — the request says 8, the walk does 6, the
+        payload looks fine and the content address greens.
+      observed_red: null
+
+    - id: CFT-G04
+      criterion: 28
+      statement: >-
+        A missing max_depth takes the DECLARED default of 3 — read from the
+        declaration, never invented at serve time.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g04_a_missing_max_depth_takes_the_declared_default
+      sabotage: default at serve time instead of reading the declaration
+      observed_red: null
+
+    - id: CFT-G05
+      criterion: 29
+      statement: >-
+        Depth is part of product identity. Two depths are two content addresses.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g05_depth_is_part_of_product_identity
+      sabotage: make max_depth not change the content address
+      observed_red: null
+
+    # ---- The inert parameter (§B.4.3) ------------------------------------
+    - id: CFT-G06
+      criterion: 30
+      statement: >-
+        as_of is refused 400 not_supported_at_tier.
+      test: tests/examples/test_cp_04_payload.py::test_cft_g06_as_of_is_refused_not_supported_at_tier
+      sabotage: silently honor it
+      observed_red: null
+
+    # ---- Findings (§D.2.2) -----------------------------------------------
+    - id: CFT-G07
+      criterion: 31
+      statement: >-
+        A cycle reaches the consumer carrying type, ORDERED members AND the
+        closing_edge — asserted as the exact roster, never as len(findings) > 0.
+      test: tests/examples/test_cp_04_payload.py::test_cft_g07_a_cycle_carries_type_ordered_members_and_closing_edge
+      sabotage: >-
+        drop the closing edge, which is precisely the part a flattened
+        representation loses.
+      observed_red: null
+
+    - id: CFT-G08
+      criterion: 32
+      statement: >-
+        Findings are ORTHOGONAL to the tree. No node carries a cycle flag.
+      test: tests/examples/test_cp_04_payload.py::test_cft_g08_findings_are_orthogonal_to_the_tree
+      sabotage: >-
+        flag cycle membership on the nodes instead, which destroys the closing
+        edge while every node count stays right.
+      observed_red: null
+
+    # ---- The unresolved member (§C.3, D-16) ------------------------------
+    - id: CFT-G09
+      criterion: 33
+      statement: >-
+        A node carrying no LEI stays in the tree AND in the roster. A failed
+        join is a null resolution or a finding.
+      test: tests/examples/test_cp_04_payload.py::test_cft_g09_a_node_with_no_lei_stays_in_the_tree_and_the_roster
+      sabotage: >-
+        drop members whose PostgreSQL join fails. 606 of 748 family nodes have
+        no attribute row, so the sabotage returns a smaller, tidier, wrong
+        family with no error at all.
+      observed_red: null
+
+    # ---- The two stores (§C.3, §F.3) -------------------------------------
+    - id: CFT-G10
+      criterion: 34
+      statement: >-
+        THE ASSEMBLY opened both stores — Fluree for edges and ontology,
+        PostgreSQL for attributes. The subject is the assembly, NOT the runner:
+        a fixture that pre-opens both stores and hands the product a populated
+        graph does NOT satisfy this gate.
+      test: tests/examples/test_cp_04_seams.py::test_cft_g10_the_assembly_opened_both_stores
+      sabotage: >-
+        serve attributes from Fluree — and equally, move the opening into a
+        fixture loader. An import of a PostgreSQL driver is not the attribute
+        leg reading PostgreSQL.
+      observed_red: null
+
+    - id: CFT-G11
+      criterion: 35
+      statement: >-
+        The returned node set resolves to attributes in ONE batched PostgreSQL
+        query.
+      test: tests/examples/test_cp_04_seams.py::test_cft_g11_attributes_resolve_in_one_batched_query
+      sabotage: >-
+        fire one query per node — a fan-out that works at depth 2 and collapses
+        at depth 4.
+      observed_red: null
+
+    # ---- Assembly Mode 1 (§B.3) ------------------------------------------
+    - id: CFT-G12
+      criterion: 36
+      statement: >-
+        No LLM client is reachable from any §D step.
+      test: tests/examples/test_cp_04_seams.py::test_cft_g12_no_llm_client_is_reachable_from_any_step
+      sabotage: make one reachable from a §D step
+      observed_red: null
+
+    # ---- The MCP door (§D.1, D-18, D-34) ---------------------------------
+    #
+    # THIS GATE IS THREE ASSERTIONS HELD TOGETHER, NOT "TOOL-ONLY". Criterion 37
+    # was AMENDED at Gate 1 (2026-08-31, Dave, `D-IMPL-225` amendment 1) because
+    # its original wording was FALSE against this tree:
+    # `runtime/ccf_runtime/mcp/egress.py:475` registers `@server.resource`
+    # UNCONDITIONALLY and only the tool at `:529` sits behind
+    # `expose_product_tool`, so `build_egress_server` can be resource-only or
+    # resource-plus-tool and CANNOT be tool-only. `runtime/` is not touched
+    # (`D-04`), so the door this rung ships is a REGISTERED RESOURCE THAT
+    # REFUSES, and the residual gap is recorded as `D-34`.
+    - id: CFT-G13
+      criterion: 37
+      statement: >-
+        The MCP door SERVES THROUGH THE TOOL ONLY, and the registered product
+        resource REFUSES. Three parts, asserted together — (a) the resource IS
+        registered and enumerable in resources/list; (b) a resolve or read of it
+        returns ProductNotServable, or the existing refusal type, and NEVER a
+        tree; (c) the TOOL is the only path that serves, taking a
+        client-supplied lei and max_depth.
+      test: tests/examples/test_cp_04_seams.py::test_cft_g13_the_tool_serves_and_the_registered_resource_refuses
+      sabotage: >-
+        make the resolver return a payload — a resource read that yields a tree
+        instead of refusing. A resolver docstring saying it refuses is not the
+        resolver refusing, and a refusal type merely imported is not a refusal
+        raised, so the gate must drive a real resource read and a real tool ask.
+      observed_red: null
+
+    # ---- One assembler, two callers (D-21) -------------------------------
+    - id: CFT-G14
+      criterion: 38
+      statement: >-
+        One standalone assembler serves both callers. assembler.py knows nothing
+        about MCP.
+      test: tests/examples/test_cp_04_seams.py::test_cft_g14_one_standalone_assembler_serves_both_callers
+      sabotage: give server/serve.py its own assembly path
+      observed_red: null
+
+    # ---- Ontology is served, and it drives the projection (§D.2.1) -------
+    - id: CFT-G15
+      criterion: 39
+      statement: >-
+        Each served node carries its FIBO class chain.
+      test: tests/examples/test_cp_04_payload.py::test_cft_g15_each_served_node_carries_its_fibo_class_chain
+      sabotage: serve the tree without type information
+      observed_red: null
+
+    - id: CFT-G16
+      criterion: 40
+      statement: >-
+        Perspective conditions on FIBO class, not on a hand-written role map.
+      test: tests/examples/test_cp_04_payload.py::test_cft_g16_perspective_conditions_on_fibo_class
+      sabotage: >-
+        substitute a hand-written role map. The word "class" appears in BOTH a
+        class-conditioned projection and a role map keyed by class name, so a
+        check reading for that token would be green against both — the gate must
+        read what the projection DID, never what it is called.
+      observed_red: null

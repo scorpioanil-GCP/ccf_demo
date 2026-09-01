@@ -478,8 +478,14 @@ declaration:
     #
     # CYCLE 2 IS NOT THE HEADLINE AND THE REASON IS MEASURED RATHER THAN
     # EDITORIAL: it has ZERO external in-edges, so no walk from any LEI-bearing
-    # anchor can reach it. That same measurement is why the withdrawn
-    # `CFT-G17` could never have fired on it.
+    # anchor can reach it. That same measurement is why the seventeenth gate
+    # withdrawn with ontology role 1 could never have fired on it — and the
+    # withdrawn id is deliberately NOT written here, because
+    # `tests/examples/test_cp_04_gates_declaration.py` collects every `CFT-G`
+    # token found on a COMMENT LINE across this tree and requires each one to be
+    # DECLARED. Naming it in a comment would demand its declaration, which is
+    # precisely what the withdrawal forbids. It is named on a CODE line in that
+    # module and nowhere else.
     cycle_2:
       criterion: 16
       source: "24.4-MEASUREMENT.md :: Criterion 16 — cycle 2's roster, closing edge, and zero external in-edges"
