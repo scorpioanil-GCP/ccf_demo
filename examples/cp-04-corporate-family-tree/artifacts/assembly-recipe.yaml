@@ -213,7 +213,7 @@ declaration:
       operator: null   # per-predicate direction and set semantics — L2 assembly.
       capability_class: in-memory
       layer: L2
-      sdk_mechanism: examples/cp-04-corporate-family-tree/assembler.py::_normalize_edges
+      sdk_mechanism: examples/cp-04-corporate-family-tree/deployment.py::normalize_edges
       emits:
         - the distinct parent→child edge set — 1,058 raw triples to 722 edges
         - the 336-triple collapse, reported rather than hidden
@@ -285,7 +285,7 @@ declaration:
       operator: Enrich
       capability_class: relational
       layer: L2
-      sdk_mechanism: examples/cp-04-corporate-family-tree/assembler.py::_resolve_attributes
+      sdk_mechanism: examples/cp-04-corporate-family-tree/deployment.py::resolve_attributes
       emits:
         - attribute rows for the collected LEIs that resolve
         - a NULL RESOLUTION for those that do not
@@ -348,7 +348,7 @@ declaration:
       operator: null
       capability_class: in-memory
       layer: L2
-      sdk_mechanism: examples/cp-04-corporate-family-tree/assembler.py::_detect_cycles
+      sdk_mechanism: examples/cp-04-corporate-family-tree/deployment.py::detect_cycles
       emits:
         - findings[] entries, each with type, predicate, ordered members and closing_edge
       failure: >-
@@ -384,7 +384,7 @@ declaration:
       operator: null   # label-and-identity comparison over the returned node set — L2.
       capability_class: in-memory
       layer: L2
-      sdk_mechanism: examples/cp-04-corporate-family-tree/assembler.py::_surface_duplicate_pair
+      sdk_mechanism: examples/cp-04-corporate-family-tree/deployment.py::surface_duplicate_pairs
       emits:
         - a findings[] entry for the same company entered twice — §C.4 trap 3
       failure: >-
