@@ -105,7 +105,25 @@ declaration:
         off-ontology node cannot enter silently.
       test: tests/examples/test_cp_04_traversal.py::test_cft_g01_every_returned_node_carries_a_known_fibo_class
       sabotage: admit an untyped node into the returned set
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::read_node_facts` — the drop guard
+          `if chains.get(uri)` removed so an untyped node is admitted rather
+          than dropped, AND the first walked node's type read forced empty. The
+          second half is necessary and is recorded rather than glossed: the
+          committed fixture carries `@type` on all 748 documents and no
+          family-predicate object lacks a document, so removing the guard ALONE
+          changes no output and would have been a sabotage this gate could not
+          have failed. Observed — "CFT-G01: node
+          'http://example.org/fibo/CycCalderIndustrialNv' was served UNTYPED —
+          an empty type_chain." The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor.type_chain`, which the
+          sabotage does not touch; the product's behavior comes from
+          `examples/cp-04-corporate-family-tree/deployment.py`. Two different files, so the gate cannot pass its
+          own sabotage by moving both sides together.
+        date: "2026-09-01"
+        commit: "6213b86"
 
     - id: CFT-G02
       criterion: 26
@@ -118,7 +136,25 @@ declaration:
         admit a seventh predicate into the edge set. Seven others exist in this
         ledger and are deliberately excluded, so the sabotage draws on real data
         rather than an invented predicate.
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::normalize_edges` — every normalized
+          parent-to-child edge admitted carrying a seventh predicate beside the
+          ones the source asserted. Observed — "CFT-G02: the served edge set
+          carries ['hasSubsidiary'], which are not among the six declared family
+          predicates." The name is drawn from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.predicates_deliberately_excluded`,
+          a real predicate of this estate that this product excludes. THE
+          COMMITTED FIXTURE CARRIES ONLY THE SIX, measured, so the seventh is
+          injected by name rather than read out of the fixture — recorded rather
+          than implied, because the declared sabotage says the seventh is drawn
+          from real data and against this fixture it cannot be. The expectation
+          was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.family_predicate_triples`, which
+          the sabotage does not touch. Two different files.
+        date: "2026-09-01"
+        commit: "6213b86"
 
     # ---- The depth parameter (§B.4.1) ------------------------------------
     - id: CFT-G03
@@ -131,7 +167,24 @@ declaration:
         replace the refusal with a silent clamp to 6. This is the sabotage a
         count-based check cannot see — the request says 8, the walk does 6, the
         payload looks fine and the content address greens.
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id, on BOTH limbs. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::resolve_max_depth` — the `DepthOutOfBounds`
+          return replaced by `min(max(requested, minimum), maximum)`. Observed —
+          "CFT-G03: max_depth=7 was ANSWERED rather than refused — a tree came
+          back, walked at max_depth_applied=6 over 22 members" and "and the
+          answer was CLAMPED to the declared ceiling 6." This is the
+          fourteen-idle-gates class stated concretely: the request said 7, the
+          walk did 6, the payload was well formed and the content address
+          greened. A gate inspecting only the returned tree could not have told
+          the clamp from the refusal, which is why this one asserts that NO tree
+          came back. The bounds the refusal is checked against are read from
+          `examples/cp-04-corporate-family-tree/ccf_config.yaml` through the deployment's accessors; the
+          sabotage edits `examples/cp-04-corporate-family-tree/deployment.py` and never the declaration, so the
+          two sides cannot move together.
+        date: "2026-09-01"
+        commit: "6213b86"
 
     - id: CFT-G04
       criterion: 28
@@ -140,7 +193,24 @@ declaration:
         declaration, never invented at serve time.
       test: tests/examples/test_cp_04_traversal.py::test_cft_g04_a_missing_max_depth_takes_the_declared_default
       sabotage: default at serve time instead of reading the declaration
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id — and RED ONLY on the control limb, which is the
+          whole reason the control lives inside the gate. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::resolve_max_depth` — `declared_depth_default()`
+          replaced by the literal `3`, a serve-time default equal to the shipped
+          declaration. THE PLAIN LIMB PASSED UNDER THE SABOTAGE: a missing
+          max_depth still walked at 3, exactly as a number-only check would have
+          reported. Observed — "CFT-G04: with the declared default moved to 1, a
+          missing max_depth still walked at 3. The default did not FOLLOW the
+          declaration" and "moving the declared default served the IDENTICAL
+          member roster (22 members)." The control moves the declaration in a
+          SCRATCH TEXT COPY of `examples/cp-04-corporate-family-tree/ccf_config.yaml` — a text rewrite, because
+          `examples/cp-04-corporate-family-tree/deployment.py::refuse_stale_vocabulary_pointer` reads that
+          document's comments and a YAML round trip would lose them — while the
+          sabotage edits `examples/cp-04-corporate-family-tree/deployment.py`. Two different files.
+        date: "2026-09-01"
+        commit: "6213b86"
 
     - id: CFT-G05
       criterion: 29
@@ -148,7 +218,26 @@ declaration:
         Depth is part of product identity. Two depths are two content addresses.
       test: tests/examples/test_cp_04_traversal.py::test_cft_g05_depth_is_part_of_product_identity
       sabotage: make max_depth not change the content address
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id — on the ROSTER limb ONLY, and that is the
+          finding worth carrying out of this plan. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::traversal_parameters`, made to return the
+          declared operator parameters unchanged so the caller's depth never
+          reaches the walk. Observed — "CFT-G05: `max_depth=1 (the declared
+          floor)` and `max_depth absent (the declared default)` served the
+          IDENTICAL member roster (22 members), so max_depth reached the
+          payload's label but not the walk." THE TWO CONTENT ADDRESSES STILL
+          DIFFERED UNDER THE SABOTAGE, because `max_depth_applied` is echoed
+          into the sealed payload — so a gate asserting only that two depths
+          give two addresses would have PASSED its own sabotage, which is the
+          Phase 24.3 defect class exactly. The roster limb was written before
+          the sabotage was run, from that same reasoning, and is what made this
+          gate able to fail. The comparison is between two runs of this product
+          rather than against a document, so there is no shared declaration for
+          a sabotage to move.
+        date: "2026-09-01"
+        commit: "6213b86"
 
     # ---- The inert parameter (§B.4.3) ------------------------------------
     - id: CFT-G06

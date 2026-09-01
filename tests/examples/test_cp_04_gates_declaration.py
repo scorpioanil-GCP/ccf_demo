@@ -149,6 +149,21 @@ EXPECTED_IDS: frozenset[str] = frozenset(
 #: constant, never a comment — see this module's docstring.
 WITHDRAWN_ID = "CFT-G17"
 
+#: The gates that have been SABOTAGED AND WATCHED FAILING, as a roster.
+#:
+#: Plan `24.4-10` filled the first five — the traversal set and the depth
+#: identity set — and plans `24.4-11` and `24.4-12` owe the other eleven. Held
+#: here rather than derived from the artifact, because a check that read the
+#: artifact for both the expectation and the subject would agree with whatever
+#: it found and could never notice a record that went missing.
+OBSERVED_RED_IDS: tuple[str, ...] = (
+    "CFT-G01",
+    "CFT-G02",
+    "CFT-G03",
+    "CFT-G04",
+    "CFT-G05",
+)
+
 #: The locked ROADMAP criteria the sixteen gates discharge, one-for-one.
 #: Criterion 41 is WITHDRAWN IN PLACE and is claimed by no gate.
 EXPECTED_CRITERIA: frozenset[int] = frozenset(range(25, 41))
@@ -432,21 +447,47 @@ def test_every_gate_carries_a_statement_and_a_sabotage() -> None:
         assert gate["sabotage"].strip(), gate["id"]
 
 
-def test_no_gate_is_yet_recorded_as_observed_red() -> None:
-    """The state plan `24.4-03` leaves the roster in, asserted rather than assumed.
+def test_exactly_the_sabotaged_gates_are_recorded_observed_red() -> None:
+    """Which gates have been watched failing, as a ROSTER on both sides.
 
-    Plans `24.4-10`, `24.4-11` and `24.4-12` fill these in as they apply each
-    sabotage and watch the failure. **This assertion is expected to be EDITED by
-    those plans, not deleted** — it is the wave-3 boundary written down, so a
-    later reader can tell an unsabotaged roster from a roster whose records were
-    lost.
+    **EDITED by plan `24.4-10`, not deleted**, exactly as the wave-3 version of
+    this assertion said it would be: it read *"no gate is yet recorded"* and
+    held all sixteen `observed_red` values to `null`, which was the wave-3
+    boundary written down. Plan `24.4-10` moved that boundary by five, and the
+    assertion moves with it rather than being weakened — so a later reader can
+    still tell an unsabotaged roster from a roster whose records were LOST.
+
+    Both directions, and both as rosters (`D-13`): a right count with a wrong
+    member audits clean forever. A gate recorded without having been sabotaged
+    and a gate sabotaged without being recorded are two different defects and
+    this refuses each by name.
     """
-    unfilled = [
-        gate["id"]
-        for gate in load_roster()["declaration"]["gates"]
-        if gate["observed_red"] is None
-    ]
-    assert sorted(unfilled) == sorted(EXPECTED_IDS)
+    gates = load_roster()["declaration"]["gates"]
+    recorded = {gate["id"] for gate in gates if gate["observed_red"] is not None}
+    unfilled = {gate["id"] for gate in gates if gate["observed_red"] is None}
+    assert recorded == set(OBSERVED_RED_IDS), (
+        f"recorded but not owed: {sorted(recorded - set(OBSERVED_RED_IDS))};"
+        f" owed but not recorded: {sorted(set(OBSERVED_RED_IDS) - recorded)}"
+    )
+    assert unfilled == EXPECTED_IDS - set(OBSERVED_RED_IDS), (
+        f"unexpectedly still null: {sorted(unfilled - (EXPECTED_IDS - set(OBSERVED_RED_IDS)))};"
+        f" no longer null and unaccounted for:"
+        f" {sorted((EXPECTED_IDS - set(OBSERVED_RED_IDS)) - unfilled)}"
+    )
+
+
+def test_every_observed_red_record_names_a_result_a_date_and_a_commit() -> None:
+    """A record with no result is a gate nobody watched fail.
+
+    The closed schema already requires the three keys; this asserts they carry
+    something, because `result: ""` would validate and say nothing.
+    """
+    for gate in load_roster()["declaration"]["gates"]:
+        record = gate["observed_red"]
+        if record is None:
+            continue
+        for key in ("result", "date", "commit"):
+            assert str(record[key]).strip(), f"{gate['id']} records an empty {key!r}"
 
 
 # ---------------------------------------------------------------------------
