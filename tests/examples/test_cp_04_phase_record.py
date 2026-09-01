@@ -244,6 +244,23 @@ REVIEWED_DENIALS: tuple[Denial, ...] = (
     ),
 )
 
+#: **This module's own file, excluded from the DOCUMENT half of the sweep BY NAME**
+#: — the same move `tests/invariants/test_citation_coverage.py::CHECKER_OWN_FILES`
+#: makes, and for the same reason: a file whose subject is the forbidden form
+#: necessarily contains the forbidden form. Measured the moment this module became
+#: tracked and began sweeping itself: **NINE** findings, and all nine sit in
+#: :data:`FORBIDDEN_CLAIMS`' declared patterns, in :data:`REVIEWED_DENIALS`'
+#: anchors, or in the prose explaining one of those. None is a claim about the
+#: product.
+#:
+#: **THE HOLE THIS LEAVES, NAMED RATHER THAN LEFT IMPLICIT.** An over-claim written
+#: into THIS file would not be caught by the document half. It would still be
+#: caught by the TEST-NAME half and by the HTTP sweep, both of which continue to
+#: read this file — asserted by
+#: :func:`test_the_sweeps_own_module_is_excluded_from_exactly_one_half`, which also
+#: refuses the exclusion growing past one path.
+SWEEP_OWN_FILE = "tests/examples/test_cp_04_phase_record.py"
+
 #: `D-20`'s forbidden consume paths, as CALL FORMS. A call form carries its
 #: opening parenthesis, which is what separates *using* an HTTP client from
 #: *naming* one in a sentence that refuses it — and this tree contains two such
@@ -497,6 +514,8 @@ def over_claims() -> list[Finding]:
     findings: list[Finding] = []
     for path in swept_files():
         rel = path.relative_to(REPO_ROOT).as_posix()
+        if rel == SWEEP_OWN_FILE:
+            continue
         text = path.read_text(encoding="utf-8", errors="replace")
         for start, block in blocks(text):
             lowered = block.lower()
@@ -837,3 +856,31 @@ def test_the_code_text_stripper_distinguishes_a_use_from_a_refusal() -> None:
             f"{rel}'s refusal survived the prose stripper, so the sweep cannot"
             " tell a refusal from a use."
         )
+
+
+def test_the_sweeps_own_module_is_excluded_from_exactly_one_half() -> None:
+    """The exclusion in :data:`SWEEP_OWN_FILE` is one file and one half.
+
+    A checker excluding its own file is a standing hole. This asserts the hole
+    is exactly the size it is documented to be: one path, dropped from the
+    DOCUMENT half only, with the TEST-NAME half and the HTTP sweep still
+    reading the same file.
+    """
+    swept = {p.relative_to(REPO_ROOT).as_posix() for p in swept_files()}
+    assert SWEEP_OWN_FILE in swept, (
+        "the sweep no longer collects its own module at all, so the two halves"
+        " that are supposed to keep reading it are not reading it either."
+    )
+    hosts_with_names = {host for host, _, _ in collected_test_names()}
+    assert SWEEP_OWN_FILE in hosts_with_names, (
+        "the TEST-NAME half must still read this module — it is the half the"
+        " document exclusion does NOT cover."
+    )
+    assert SWEEP_OWN_FILE not in {f.host for f in over_claims()}, (
+        "the document half is supposed to skip this module."
+    )
+    # And the exclusion is a single literal, not a pattern that could grow.
+    assert isinstance(SWEEP_OWN_FILE, str) and SWEEP_OWN_FILE.endswith(".py"), (
+        "SWEEP_OWN_FILE must stay one concrete path. A glob here would let the"
+        " document half go quiet over a whole tree."
+    )
