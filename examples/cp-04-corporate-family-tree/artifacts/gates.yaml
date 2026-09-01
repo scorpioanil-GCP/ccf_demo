@@ -236,8 +236,58 @@ declaration:
           gate able to fail. The comparison is between two runs of this product
           rather than against a document, so there is no shared declaration for
           a sabotage to move.
+
+          THIRD LIMB ADDED 2026-09-01 AFTER THE CLOSE PANEL'S FINDING 1, and
+          watched red twice. Dave ruled that `S` — and therefore `D_c` — are
+          taken over the SERVED ROSTER rather than over the deployment's
+          source read: *"Computing over the source-read 22 is why
+          `MAX_DEPTH=1` still prints `20/22` and why `D_c` is the same at
+          every depth — a scalar that cannot fail through the door. That is
+          not the §E.2 weight TBC. It is a wrong denominator."* NO NEW GATE ID
+          WAS MINTED; the pair lands here because *depth is part of product
+          identity* is exactly the statement it holds.
+
+          SABOTAGE A — THE OLD DENOMINATOR, RESTORED. Applied to
+          `examples/cp-04-corporate-family-tree/produce.py::_agreement`, whose
+          member set was put back to `tuple(sorted(scenario.facts))`. RED,
+          under its own id, on THREE of the new limb's assertions at once —
+          "CFT-G05: `max_depth=1 (the declared floor)` served D_c
+          0.0909090909090909090909090909 where
+          `debt_by_depth.at_the_declared_floor.context_debt` declares 0.1",
+          the matching S mismatch, and "CFT-G05: two different depths served
+          the SAME D_c" naming both values. The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::debt_by_depth`,
+          which the sabotage does not touch. Two different files.
+
+          AND THE SABOTAGE'S REACH WAS MEASURED RATHER THAN ASSUMED. Under
+          sabotage A, EXACTLY ONE test in the 216-test cp-04 suite went red
+          and it was this gate. In particular the pre-existing `D_c` movement
+          gate — `tests/examples/test_cp_04_debt.py`, built by plan `24.4-08`
+          — passed WHOLE, all six tests green: it moves the IDENTITY boundary
+          at a FIXED depth, where the served roster and the source read
+          coincide on all 22, so the wrong denominator is invisible to it.
+          That is the finding worth carrying: a movement gate over one
+          boundary says nothing about a second.
+
+          SABOTAGE B — THE INVERSE CONTROL, proving the gate READS the
+          artifact rather than ignoring it. The shipped code was left
+          untouched and one pinned value was corrupted in
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml`
+          (`debt_by_depth.at_the_declared_floor.context_debt`, 0.1 -> 0.125).
+          RED, under its own id — "served D_c 0.1 where … declares 0.125". A
+          gate that had hard-coded its own figure would have stayed green
+          through this.
+
+          FIVE POSITIVE CONTROLS SIT BESIDE THE LIMB, each handing the shipped
+          check a subject it must refuse, and the first of them mirrors the
+          shipped defect exactly: one `D_c` at two depths. The pin's
+          DISTINCTNESS is asserted from the document as well, because an
+          equality-only reading is satisfiable by a frozen scalar if the
+          document happens to carry one value twice — the trap
+          `expected.yaml::perspective_content_addresses` records for `CFT-G16`,
+          met here from the other side.
         date: "2026-09-01"
-        commit: "6213b86"
+        commit: "6213b86, third limb fa73839"
 
     # ---- The inert parameter (§B.4.3) ------------------------------------
     - id: CFT-G06
