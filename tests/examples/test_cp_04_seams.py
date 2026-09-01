@@ -1142,19 +1142,27 @@ def llm_violations(
             "CFT-G12: no import statement was parsed out of the example, so the"
             " deferred-import half of this gate asserted nothing"
         )
-    for name in sorted(set(reached)):
-        if matches_module(name, LLM_MODULES):
-            violations.append(
-                f"CFT-G12: {name!r} is REACHABLE from the §D steps"
-                f" {list(roots)}. A model reachable from any step makes this"
-                " Assembly Mode 2, and the declared 1 becomes false"
-            )
-    for filename, name in sites:
-        if matches_module(name, LLM_MODULES):
-            violations.append(
-                f"CFT-G12: {filename} imports {name!r}. A lazily-imported client"
-                " is still a model call in the algorithmic path"
-            )
+    # Reported as ONE violation naming the whole roster rather than one per
+    # module: a single `import anthropic` pulls forty of its own submodules into
+    # the closure, and forty repetitions of one finding is not forty findings.
+    llm_reached = sorted(
+        {name for name in reached if matches_module(name, LLM_MODULES)}
+    )
+    if llm_reached:
+        violations.append(
+            f"CFT-G12: {llm_reached} is/are REACHABLE from the §D steps"
+            f" {list(roots)}. A model reachable from any step makes this"
+            " Assembly Mode 2, and the declared 1 becomes false"
+        )
+    llm_imported = sorted(
+        {(filename, name) for filename, name in sites if matches_module(name, LLM_MODULES)}
+    )
+    if llm_imported:
+        violations.append(
+            f"CFT-G12: {llm_imported} — a lazily-imported client is still a"
+            " model call in the algorithmic path, which the closure limb cannot"
+            " see until the function runs"
+        )
     return violations
 
 
