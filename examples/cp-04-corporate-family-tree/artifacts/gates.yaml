@@ -391,7 +391,71 @@ declaration:
         serve attributes from Fluree — and equally, move the opening into a
         fixture loader. An import of a PostgreSQL driver is not the attribute
         leg reading PostgreSQL.
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id, in THREE VARIANTS — and the first is recorded
+          rather than glossed because it never reached this gate at all.
+
+          THE DECLARED SABOTAGE DOES NOT MOVE THE OPENED-STORE SET, MEASURED.
+          With the attribute leg reading the graph store,
+          `examples/cp-04-corporate-family-tree/assembler.py::stores_opened`
+          still reported ('corporate_family_graph',
+          'corporate_family_attributes') while the relational leg issued 0
+          statements — probed directly, not inferred. A gate asserting only
+          "both stores were opened" therefore PASSES its own declared sabotage,
+          exactly as `CFT-G05` and `CFT-G16` did on this ladder. The role limb
+          and the provenance limb exist because of that, and both were written
+          before the sabotage was run.
+
+          VARIANT A — the sabotage as declared, the whole attribute leg reading
+          Fluree. It does NOT reach this gate: the graph store carries no
+          jurisdiction at all, so
+          `examples/cp-04-corporate-family-tree/deployment.py::refuse_open_jurisdiction_world`
+          refuses the assembly upstream — "22 member(s) were served and NONE
+          carries a jurisdiction, so the declared set ['NL', 'US-DE'] is held
+          against an empty observation." That is evidence the two stores hold
+          different things, and it is NOT this gate speaking, so it was
+          recorded and a second variant was run. Same shape as `CFT-G08`'s
+          split in plan 24.4-11.
+
+          VARIANT B — the whole attribute leg reading Fluree, with a
+          jurisdiction assigned from the declared observed set so the assembly
+          completes. Observed on TWO limbs: "CFT-G10: the relational leg
+          'corporate_family_attributes' issued NO statement, so the attributes
+          on the served payload came from somewhere other than the store
+          declared to hold them", and, per member, "was served [...
+          ('legal_jurisdiction', 'NL'), ('legal_name', 'SUPER MICRO COMPUTER,
+          INC.') ...] where a DIRECT read of 'legal_entity' holds [...
+          ('legal_jurisdiction', 'US-DE'), ('legal_name', 'Super Micro
+          Computer, Inc.') ...]". The opened-store limb reported NOTHING.
+
+          VARIANT C — the PostgreSQL leg left running and ONE column served
+          from the graph. Limbs (a) and (b) both PASS — both stores open, one
+          statement against the declared table, `CFT-G11` green — and ONLY the
+          provenance limb fires: "member
+          'http://example.org/fibo/SuperMicroComputerInc' was served
+          [('legal_name', 'SUPER MICRO COMPUTER, INC.')] where a DIRECT read of
+          'legal_entity' holds [('legal_name', 'Super Micro Computer, Inc.')]".
+          This is the variant that names which limb discriminates.
+
+          VARIANT C ALSO VINDICATES THE ROSTER DISCIPLINE, MEASURED. Only ONE
+          of the two declared resolving members fired: `SuperMicroComputerBV`'s
+          PostgreSQL `legal_name` is byte-identical to its `rdfs:label`, so the
+          two stores agree about that member and disagree about the other. A
+          gate that had sampled one member instead of asserting the declared
+          roster would have had a 50% chance of reporting clean.
+
+          The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor_subtree_store_split`
+          for the roster, `examples/cp-04-corporate-family-tree/backends.yaml`
+          for the declared source legs, and A DIRECT `SELECT` and a DIRECT
+          SPARQL read issued by the test itself for the values. The product's
+          behavior comes from
+          `examples/cp-04-corporate-family-tree/deployment.py`, which is what
+          every variant mutated. Different files, so the gate cannot pass its
+          own sabotage by moving both sides together.
+        date: "2026-09-01"
+        commit: "2fd3ae0"
 
     - id: CFT-G11
       criterion: 35
@@ -402,7 +466,48 @@ declaration:
       sabotage: >-
         fire one query per node — a fan-out that works at depth 2 and collapses
         at depth 4.
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id, at BOTH scales. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::resolve_attributes`
+          — the batched `WHERE lei = ANY(%s)` replaced by one `WHERE lei = %s`
+          per key, on the same connection, against the same table, returning
+          the same rows.
+
+          Observed — "CFT-G11: the demonstration subtree (22 members) resolved
+          2 key(s) in 2 statement(s), not 1" and "CFT-G11: the whole
+          LEI-bearing population resolved 181 key(s) in 181 statement(s), not
+          1".
+
+          THE SECOND LIMB IS WHY THIS GATE IS WORTH ANYTHING, and the reason is
+          a measured property of the estate rather than a preference. Only TWO
+          of the demonstration subtree's TWENTY-TWO members carry an LEI, so a
+          per-node fan-out over the subtree issues 2 statements — not the
+          hundreds the declared sabotage describes, and a difference of one
+          that a reader could dismiss. The gate therefore ALSO drives the
+          shipped resolver over every LEI the graph leg carries — 181, which
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.lei_coverage`
+          declares and the precondition test asserts the seed reproduces —
+          where the fan-out issues 181. That is the shape "works at depth 2 and
+          collapses at depth 4" actually takes.
+
+          The count is taken at the CONNECTION by
+          `examples/cp-04-corporate-family-tree/deployment.py::AttributeResolution`'s
+          cursor factory, so a statement fired anywhere on that connection is
+          counted even if it does not go through `resolve_attributes`' own call
+          site.
+
+          The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.lei_coverage`
+          and `::census.anchor_subtree`; the behavior comes from
+          `examples/cp-04-corporate-family-tree/deployment.py`. Two different
+          files.
+
+          `CFT-G10` stayed GREEN under this sabotage — the leg still ran
+          against the declared table and served the right values — so the two
+          gates are measurably disjoint rather than two names for one check.
+        date: "2026-09-01"
+        commit: "65f4a91"
 
     # ---- Assembly Mode 1 (§B.3) ------------------------------------------
     - id: CFT-G12
@@ -411,7 +516,51 @@ declaration:
         No LLM client is reachable from any §D step.
       test: tests/examples/test_cp_04_seams.py::test_cft_g12_no_llm_client_is_reachable_from_any_step
       sabotage: make one reachable from a §D step
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id, in TWO VARIANTS, one per limb.
+
+          VARIANT A — `import anthropic` at module scope in
+          `examples/cp-04-corporate-family-tree/projection.py`, which the
+          recipe declares as §D step 9. Observed on BOTH limbs: "CFT-G12: the
+          declared client 'anthropic' is REACHABLE from the §D steps
+          ['assembler', 'ccf.assembly.worker', 'ccf.graph.backends.fluree',
+          'ccf.operators.categories', 'ccf.products.gates', 'deployment',
+          'produce', 'projection'] — 1070 module(s) in the closure", alongside
+          the import-site limb.
+
+          VARIANT B — `from openai import OpenAI` DEFERRED inside a new method
+          of the same class, called nowhere. Observed on the import-site limb
+          ALONE: "CFT-G12: [('projection.py', 'openai'), ('projection.py',
+          'openai.OpenAI')] — a lazily-imported client is still a model call in
+          the algorithmic path, which the closure limb cannot see until the
+          function runs." THE CLOSURE LIMB REPORTED NOTHING, which is the whole
+          reason the second limb exists and is recorded here rather than
+          asserted in a docstring.
+
+          The 1,070 figure was verified independently of the gate before it was
+          recorded: importing `anthropic` alone adds 1,438 modules to
+          `sys.modules`, of which 1,070 are `anthropic.*`. It is a real
+          property of that SDK and not an instrument artifact.
+
+          THE ROOTS ARE READ FROM THE DECLARATION, not authored in the test.
+          `examples/cp-04-corporate-family-tree/artifacts/assembly-recipe.yaml`'s
+          `steps[].sdk_mechanism` names them, and a sibling check asserts that
+          both kinds resolve — at least one `src/ccf` module and at least three
+          of the example's own — so a parser that silently found nothing cannot
+          leave this gate walking a smaller closure than it reports. THE CLIENT
+          ROSTER IS THE SDK'S OWN, `tools/lints/algorithmic.py::LLM_MODULES`,
+          matched with `tools/lints/__init__.py::matches_module`; a roster
+          authored in the test would be the test agreeing with itself about
+          what a model client is.
+
+          The expectation resolves from `tools/lints/algorithmic.py` and
+          `examples/cp-04-corporate-family-tree/artifacts/assembly-recipe.yaml`;
+          the behavior comes from
+          `examples/cp-04-corporate-family-tree/projection.py`, which is the
+          file both variants mutated. Different files.
+        date: "2026-09-01"
+        commit: "0b02099"
 
     # ---- The MCP door (§D.1, D-18, D-34) ---------------------------------
     #
@@ -439,7 +588,47 @@ declaration:
         instead of refusing. A resolver docstring saying it refuses is not the
         resolver refusing, and a refusal type merely imported is not a refusal
         raised, so the gate must drive a real resource read and a real tool ask.
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id, SIX WAYS AT ONCE. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/server/compose.py::build_resolver`
+          — the `request is None` refusal replaced by the deployment's own
+          demonstration question, so a parameter-free resource read serves a
+          standing answer. This is the sabotage `D-IMPL-225` names in terms:
+          *"make the resolver return a payload and the gate must go RED."*
+
+          Observed, all on limb (b) and all against a REAL MCP client reading a
+          REAL resource: "the product RESOURCE served"; "the resource read did
+          not refuse for THIS deployment's stated reason" (followed by the
+          served vessel); and one entry each for `"nodes"`, `"anchor"`,
+          `"findings"` and `type_chain` — "that is a TREE, and the one thing
+          this surface must never produce".
+
+          LIMBS (a) AND (c) STAYED GREEN, correctly: the door still enumerated
+          its template and the tool still served at the caller's depth. That is
+          why the three limbs are asserted TOGETHER — a gate asserting only the
+          refusal passes on a door where nothing works at all, and a gate
+          asserting only the tool passes on a door that also serves a standing
+          answer.
+
+          CRITERION 37'S WORDING IS NOT TOUCHED HERE. It says the resource is
+          *"enumerable in `resources/list`"*; measured at an MCP client the
+          product enumerates in `resources/templates/list` and `resources/list`
+          returns `[]`, because a URI carrying placeholders registers as a
+          resource TEMPLATE. That is an open wording question for Dave (plan
+          24.4-09's deferred item 7) and this gate does not resolve it: BOTH
+          listings are asserted as shipped, so neither the template vanishing
+          nor a concrete entry appearing goes unseen, whichever way the wording
+          lands. Substance and `D-34` are unchanged.
+
+          The expectation resolves from
+          `runtime/ccf_runtime/mcp/egress.py::PRODUCT_URI_TEMPLATE`, from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor`
+          and from the declared depth default; the behavior comes from
+          `examples/cp-04-corporate-family-tree/server/compose.py`, which the
+          sabotage mutated. Different files.
+        date: "2026-09-01"
+        commit: "0b02099"
 
     # ---- One assembler, two callers (D-21) -------------------------------
     - id: CFT-G14
@@ -449,7 +638,47 @@ declaration:
         about MCP.
       test: tests/examples/test_cp_04_seams.py::test_cft_g14_one_standalone_assembler_serves_both_callers
       sabotage: give server/serve.py its own assembly path
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id, in TWO VARIANTS — one visible in the tree, one
+          visible only from the payload.
+
+          VARIANT A — the sabotage as declared: a second construction of
+          `assembler.py::FamilyTreeAssembler` added to
+          `examples/cp-04-corporate-family-tree/server/serve.py`. Observed —
+          "CFT-G14: `server/` holds ['compose.py', 'serve.py'] as its assembly
+          entry point(s). `D-21` gives it exactly one, in `compose.py`". Read
+          from the AST rather than by grepping, because both modules name that
+          class in PROSE and a text search would find the claim and read it as
+          the violation.
+
+          VARIANT B — the door's assembly path made to DIVERGE, by substituting
+          the declared floor for the caller's depth in
+          `examples/cp-04-corporate-family-tree/server/compose.py::_typed`.
+          Observed on the ROSTER limb — "CFT-G14: the two callers served
+          DIFFERENT families for one question — in-process only
+          ['http://example.org/fibo/CycCalderIndustrialNv',
+          'http://example.org/fibo/CycThornburyCapitalLtd'], MCP only []" —
+          while the entry-point limb and the module-identity limb BOTH stayed
+          green.
+
+          VARIANT B IS WHY THIS GATE EXERCISES BOTH CALLERS RATHER THAN
+          INSPECTING IMPORTS. `D-21`'s property is that one assembler serves
+          two callers, and a second assembly path that is not in the tree — a
+          substitution inside the one resolver — is invisible to every
+          structural limb. The only thing that catches it is driving both paths
+          on one question and comparing the served rosters, as rosters and
+          never as counts (`D-13`): the two families here differ by two named
+          members.
+
+          The expectation is a comparison between two runs of this product,
+          plus `examples/cp-04-corporate-family-tree/artifacts/expected.yaml`
+          for what the demonstration ask must reproduce; the behavior comes
+          from `examples/cp-04-corporate-family-tree/server/serve.py` and
+          `::server/compose.py`, which the two variants mutated. Different
+          files.
+        date: "2026-09-01"
+        commit: "0b02099"
 
     # ---- Ontology is served, and it drives the projection (§D.2.1) -------
     - id: CFT-G15

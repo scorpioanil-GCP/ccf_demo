@@ -153,11 +153,15 @@ WITHDRAWN_ID = "CFT-G17"
 #:
 #: Plan `24.4-10` filled the first five — the traversal set and the depth
 #: identity set. Plan `24.4-11` filled six more — the refusal, findings and
-#: ontology-serving set — and plan `24.4-12` owes the remaining five, which are
-#: the seams set `CFT-G10` through `CFT-G14`. Held here rather than derived from
-#: the artifact, because a check that read the artifact for both the expectation
-#: and the subject would agree with whatever it found and could never notice a
-#: record that went missing.
+#: ontology-serving set. Plan `24.4-12` filled the last five, the seams set
+#: `CFT-G10` through `CFT-G14`, and the roster is now COMPLETE at sixteen. Held
+#: here rather than derived from the artifact, because a check that read the
+#: artifact for both the expectation and the subject would agree with whatever
+#: it found and could never notice a record that went missing.
+#:
+#: It is EDITED rather than weakened, on the terms waves 8 and 9 recorded: both
+#: directions are still rosters, and recorded-but-not-owed and owed-but-not-
+#: recorded are still two different defects refused by name.
 OBSERVED_RED_IDS: tuple[str, ...] = (
     "CFT-G01",
     "CFT-G02",
@@ -168,6 +172,11 @@ OBSERVED_RED_IDS: tuple[str, ...] = (
     "CFT-G07",
     "CFT-G08",
     "CFT-G09",
+    "CFT-G10",
+    "CFT-G11",
+    "CFT-G12",
+    "CFT-G13",
+    "CFT-G14",
     "CFT-G15",
     "CFT-G16",
 )

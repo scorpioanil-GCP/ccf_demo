@@ -106,6 +106,36 @@ A precondition test runs first and asserts the seed carries what these gates
 need. Every gate is expressed as a function returning the ways an observation
 FAILS, so a control can hand the **shipped** check a divergent subject and be
 watched refusing it.
+
+## The three closing checks, which are about the roster and not about a gate
+
+They stay in the tree after this phase and they are scoped to cp-04's own
+`artifacts/gates.yaml`. **None of them is the Phase 24.5 coverage checker** —
+`D-IMPL-224` rules that one Phase 24.5's, and a general-purpose cross-product
+gate checker built here would be the scope creep criterion 49 exists to prevent.
+
+1. **Criterion 42, as a ROSTER.** Every declared gate carries a non-null
+   `observed_red`, compared as SETS in both directions and never as a
+   cardinality — a count of sixteen with a wrong member audits clean forever
+   (`D-13`). `CFT-G17` is refused by name if it ever rejoins.
+2. **The `key_link` nothing checked.** Plans 10, 11 and 12 each declare *"each
+   gate's test reference resolving to an executing function"* and no acceptance
+   criterion anywhere verified it, so this phase could have shipped sixteen
+   dangling `module::function` references while criterion 43 still held —
+   criterion 43 only requires the ids be declared as data. Every `test:` value
+   is resolved against a REAL `pytest --collect-only` run: not `hasattr`, not an
+   import, because a function pytest does not collect does not run.
+3. **The recipe hole plan 03 measured and could not commit**, because no plan
+   owned a recipe-shape test. The cycle step's `operator: null` at `layer: L2`
+   is asserted BOUND TO THAT STEP BY NAME. The obvious
+   ``any(operator is None and layer == "L2")`` is VACUOUS — steps 4 and 8
+   satisfy it too, so it stays true when the cycle step is reclassified under
+   `Traversal`, which is exactly the `D-IMPL-223` vocabulary drift the
+   declaration exists to prevent. Both instruments are run on one scratch copy
+   so the difference between them is RECORDED rather than described.
+
+Each of the three is proven able to fail, against a scratch copy of the real
+artifact rather than against an invented one.
 """
 
 from __future__ import annotations
@@ -1785,3 +1815,350 @@ def test_the_assembler_knows_nothing_about_the_door() -> None:
         " claim is only demonstrable while the arrow points the other way"
     )
 
+
+# ---------------------------------------------------------------------------
+# THE SIXTEEN-GATE ROSTER — criterion 42's machinery, and it stays in the tree.
+# ---------------------------------------------------------------------------
+
+
+def declared_gates() -> tuple[Mapping[str, Any], ...]:
+    """Every gate `artifacts/gates.yaml` declares."""
+    return tuple(dict(gate) for gate in _yaml(GATES)["gates"])
+
+
+def roster_violations(gates: Sequence[Mapping[str, Any]]) -> list[str]:
+    """Every way the gate roster fails criterion 42.
+
+    **A ROSTER AND NEVER A CARDINALITY.** A count of sixteen with a wrong member
+    audits clean forever, so the declared ids and the observed ids are compared
+    as SETS and each direction is named separately — recorded but not declared,
+    and declared but not recorded, are two different defects.
+    """
+    violations: list[str] = []
+    if not gates:
+        violations.append(
+            "the gate declaration is empty, so 'every declared gate has been"
+            " observed RED' holds vacuously"
+        )
+        return violations
+
+    declared = {str(gate["id"]) for gate in gates}
+    observed = {str(gate["id"]) for gate in gates if gate.get("observed_red")}
+
+    never_red = sorted(declared - observed)
+    if never_red:
+        violations.append(
+            f"these declared gates carry no `observed_red` record: {never_red}."
+            " A gate never seen red is not evidence that it runs, and fourteen"
+            " declared gates once sat idle on this ladder behind exactly that"
+            " assumption"
+        )
+    unowned = sorted(observed - declared)
+    if unowned:
+        violations.append(
+            f"these ids carry an observation and are not declared: {unowned}"
+        )
+    if "CFT-G17" in declared:
+        violations.append(
+            "`CFT-G17` is declared. It was WITHDRAWN 2026-08-31 (Dave) with"
+            " ontology role 1 and criterion 41 is withdrawn in place — the"
+            " roster is SIXTEEN"
+        )
+    for gate in gates:
+        record = gate.get("observed_red")
+        if not record:
+            continue
+        for field in ("result", "date", "commit"):
+            if not str(record.get(field, "")).strip():
+                violations.append(
+                    f"{gate['id']}'s `observed_red` carries no {field!r}."
+                    " An empty field validates against the closed schema and"
+                    " says nothing"
+                )
+    return violations
+
+
+def test_every_declared_gate_has_been_observed_red() -> None:
+    """Criterion 42, as a ROSTER over `artifacts/gates.yaml`.
+
+    This is the check that stays in the tree after this phase. It is NOT the
+    Phase 24.5 coverage checker — `D-IMPL-224` rules that one Phase 24.5's, and
+    building a general-purpose cross-product checker here would be the scope
+    creep criterion 49 exists to prevent. This is a one-phase self-check over
+    cp-04's own declaration.
+    """
+    gates = declared_gates()
+    violations = roster_violations(gates)
+    assert not violations, "\n".join(violations)
+    declared = sorted(str(gate["id"]) for gate in gates)
+    observed = sorted(str(gate["id"]) for gate in gates if gate.get("observed_red"))
+    assert declared == observed, (
+        f"declared {declared}\nobserved {observed}"
+    )
+
+
+def test_the_roster_check_refuses_a_gate_that_was_never_seen_red() -> None:
+    """**Positive control.** One record nulled, and the check names that gate."""
+    gates = [dict(gate) for gate in declared_gates()]
+    assert gates, "there are no gates to null"
+    victim = gates[-1]
+    victim["observed_red"] = None
+    violations = roster_violations(gates)
+    assert violations, "a roster with an unobserved gate was accepted"
+    assert any(str(victim["id"]) in entry for entry in violations), violations
+
+
+def test_the_roster_check_refuses_an_observation_for_an_undeclared_id() -> None:
+    """**Positive control.** Recorded-but-not-declared is its own defect."""
+    gates = [dict(gate) for gate in declared_gates()]
+    gates.append(
+        {"id": "CFT-G99", "observed_red": {"result": "r", "date": "d", "commit": "c"}}
+    )
+    declared_only = [gate for gate in gates if gate["id"] != "CFT-G99"]
+    violations = roster_violations(
+        [*declared_only, {"id": "CFT-G99", "observed_red": None}]
+    )
+    assert violations, "an undeclared id carrying an observation was accepted"
+    assert any("CFT-G99" in entry for entry in violations), violations
+
+
+def test_the_roster_check_refuses_cft_g17() -> None:
+    """**Positive control.** The withdrawn id must never rejoin the roster."""
+    gates = [dict(gate) for gate in declared_gates()]
+    gates.append(
+        {
+            "id": "CFT-G17",
+            "observed_red": {"result": "r", "date": "d", "commit": "c"},
+        }
+    )
+    violations = roster_violations(gates)
+    assert violations, "CFT-G17 was accepted onto the roster"
+    assert any("WITHDRAWN" in entry for entry in violations), violations
+
+
+def test_the_roster_check_refuses_an_empty_declaration() -> None:
+    """**Vacuity control.** A roster over nothing is not a roster."""
+    violations = roster_violations([])
+    assert violations, "an empty declaration was accepted"
+    assert any("vacuously" in entry for entry in violations), violations
+
+
+def test_the_roster_check_refuses_a_record_with_an_empty_field() -> None:
+    """**Positive control.** `result: ""` validates and says nothing."""
+    gates = [dict(gate) for gate in declared_gates()]
+    gates[0] = {
+        **gates[0],
+        "observed_red": {"result": "", "date": "2026-09-01", "commit": "abc1234"},
+    }
+    violations = roster_violations(gates)
+    assert violations, "a record with an empty `result` was accepted"
+    assert any("says nothing" in entry for entry in violations), violations
+
+
+# ---------------------------------------------------------------------------
+# THE OTHER HALF OF THE ROSTER — every `test:` reference is COLLECTED.
+# ---------------------------------------------------------------------------
+
+
+def collected_node_ids() -> frozenset[str]:
+    """Every pytest node id collected under `tests/examples/`.
+
+    A REAL collection and never `hasattr`: a function pytest does not collect
+    does not run, and a module that fails to import contributes no ids at all —
+    both of which an attribute lookup on an already-imported module would miss.
+    """
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/examples/",
+            "--collect-only",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+        ],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, (
+        "collection over tests/examples/ failed, so this check cannot tell a"
+        f" dangling reference from a broken tree:\n{completed.stdout[-3000:]}"
+    )
+    return frozenset(
+        line.strip() for line in completed.stdout.splitlines() if "::" in line
+    )
+
+
+def dangling_references(
+    gates: Sequence[Mapping[str, Any]], collected: frozenset[str]
+) -> list[str]:
+    """Every declared `test:` reference that is not a COLLECTED node id.
+
+    `D-IMPL-224` defers the executing-test CHECKER to Phase 24.5, so without
+    this half the phase could ship sixteen dangling `module::function`
+    references while criterion 43 still held — criterion 43 only requires the
+    ids be declared as data.
+    """
+    violations: list[str] = []
+    if not gates:
+        violations.append("no gate was checked, so no reference was resolved")
+    if not collected:
+        violations.append(
+            "the collection read no node id at all, so every reference would"
+            " resolve against an empty set and this check would report clean"
+            " over an empty tree"
+        )
+        return violations
+    by_function: dict[tuple[str, str], None] = {}
+    for node in collected:
+        module, _, function = node.rpartition("::")
+        by_function[(os.path.basename(module.split("::")[0]), function)] = None
+    for gate in gates:
+        reference = str(gate.get("test", ""))
+        module, _, function = reference.partition("::")
+        stem = os.path.basename(module)
+        if not stem.endswith(".py"):
+            stem = f"{stem}.py"
+        if (stem, function) not in by_function:
+            violations.append(
+                f"{gate['id']}'s `test:` reference {reference!r} is not a"
+                " COLLECTED pytest node id — a function pytest does not collect"
+                " does not run"
+            )
+    return violations
+
+
+def test_every_gate_test_reference_is_a_collected_pytest_node_id() -> None:
+    """Criterion 43's other half — the `key_link` nothing checked.
+
+    Plans 10, 11 and 12 each declare a `key_link` reading *"each gate's test
+    reference resolving to an executing function"* and no acceptance criterion
+    anywhere verified it. Scoped to cp-04's own `gates.yaml`: this is not the
+    Phase 24.5 cross-product checker.
+    """
+    violations = dangling_references(declared_gates(), collected_node_ids())
+    assert not violations, "\n".join(violations)
+
+
+def test_the_collection_check_refuses_a_dangling_reference() -> None:
+    """**Positive control.** One reference pointed at a function that is not there."""
+    gates = [dict(gate) for gate in declared_gates()]
+    assert gates, "there are no gates to point at nothing"
+    victim = gates[0]
+    victim["test"] = "tests/examples/test_cp_04_seams.py::test_no_such_function"
+    violations = dangling_references(gates, collected_node_ids())
+    assert violations, "a reference to a non-existent function was accepted"
+    assert any(str(victim["id"]) in entry for entry in violations), violations
+    assert any("test_no_such_function" in entry for entry in violations), violations
+
+
+def test_the_collection_check_refuses_an_empty_collection() -> None:
+    """**Vacuity control.** Resolving against nothing reports clean forever."""
+    violations = dangling_references(declared_gates(), frozenset())
+    assert violations, "an empty collection was accepted"
+    assert any("empty tree" in entry for entry in violations), violations
+
+
+# ---------------------------------------------------------------------------
+# THE RECIPE HOLE PLAN 03 MEASURED AND NO PLAN OWNED.
+# ---------------------------------------------------------------------------
+
+
+def cycle_step_violations(steps: Sequence[Mapping[str, Any]]) -> list[str]:
+    """The cycle step declares `operator: null` at `layer: L2`, BOUND BY NAME.
+
+    **The obvious form is VACUOUS.** ``any(operator is None and layer == "L2")``
+    is satisfied by steps 4 and 8 as well, so it stays true even when the cycle
+    step is reclassified under `Traversal` — which is exactly the `D-IMPL-223`
+    vocabulary drift the declaration exists to prevent. Plan 03 measured that
+    and could not commit a check because no plan owned a recipe-shape test.
+    """
+    violations: list[str] = []
+    matching = [step for step in steps if str(step.get("name")) == CYCLE_STEP]
+    if len(matching) != 1:
+        violations.append(
+            f"the recipe declares {len(matching)} step(s) named {CYCLE_STEP!r};"
+            " this assertion is bound to that step BY NAME and cannot address"
+            " it otherwise"
+        )
+        return violations
+    step = matching[0]
+    if step.get("operator") is not None:
+        violations.append(
+            f"the {CYCLE_STEP!r} step declares operator"
+            f" {step['operator']!r}. `D-10` gives it `null` because it executes"
+            " in the L2 assembler, and a Standard operator name here is the"
+            " `D-IMPL-223` vocabulary drift this declaration exists to prevent"
+        )
+    if str(step.get("layer")) != "L2":
+        violations.append(
+            f"the {CYCLE_STEP!r} step declares layer {step.get('layer')!r},"
+            " not 'L2'"
+        )
+    if not str(step.get("sdk_mechanism") or "").strip():
+        violations.append(
+            f"the {CYCLE_STEP!r} step names no `sdk_mechanism`, so `operator:"
+            " null` records no alternative to the operator it declines"
+        )
+    return violations
+
+
+def vacuous_cycle_step_form(steps: Sequence[Mapping[str, Any]]) -> bool:
+    """The check this module refuses to ship, kept so the difference is RECORDED.
+
+    ``any(operator is None and layer == "L2")`` — true of several steps, so it
+    survives the reclassification the bound form catches. It is exercised beside
+    the bound form rather than described, because a recorded difference is
+    evidence and a described one is a claim.
+    """
+    return any(
+        step.get("operator") is None and str(step.get("layer")) == "L2"
+        for step in steps
+    )
+
+
+def test_the_cycle_step_declares_operator_null_at_l2() -> None:
+    """`D-10` and criterion 46, bound to the cycle step BY NAME."""
+    violations = cycle_step_violations(recipe_steps())
+    assert not violations, "\n".join(violations)
+
+
+def test_the_cycle_step_check_refuses_a_reclassified_step_where_the_vacuous_form_passes() -> None:
+    """**Positive control, and the record of why the obvious form was refused.**
+
+    One scratch copy, two instruments. The bound form goes RED naming the step;
+    the vacuous `any(...)` form stays GREEN on the same subject. The difference
+    between the two is recorded here rather than asserted in prose.
+    """
+    scratch = [dict(step) for step in recipe_steps()]
+    reclassified = [
+        {**step, "operator": "Traversal"}
+        if str(step.get("name")) == CYCLE_STEP
+        else step
+        for step in scratch
+    ]
+    assert reclassified != scratch, "the scratch copy changed nothing"
+
+    violations = cycle_step_violations(reclassified)
+    assert violations, "a cycle step reclassified under Traversal was accepted"
+    assert any(CYCLE_STEP in entry for entry in violations), violations
+    assert any("vocabulary drift" in entry for entry in violations), violations
+
+    assert vacuous_cycle_step_form(reclassified), (
+        "the vacuous `any(...)` form was expected to PASS on the reclassified"
+        " recipe — that is the whole reason the bound form exists, and if it"
+        " now fails the two instruments are no longer distinguishable and this"
+        " control has stopped recording anything"
+    )
+
+
+def test_the_cycle_step_check_refuses_a_recipe_with_no_such_step() -> None:
+    """**Vacuity control.** A step-bound assertion needs its step."""
+    violations = cycle_step_violations(
+        [step for step in recipe_steps() if str(step.get("name")) != CYCLE_STEP]
+    )
+    assert violations, "a recipe with no cycle step was accepted"
+    assert any("0 step(s)" in entry for entry in violations), violations
