@@ -41,6 +41,36 @@
 # — or the suite agreeing with itself. The hash belongs to the test's own
 # comparison: two runs of the same question, compared to each other.
 #
+# **AMENDED 2026-09-01 (Dave), IN PART AND NARROWLY. The paragraph above is
+# STRICKEN FOR THE TWO `--role` ADDRESSES AND STANDS FOR EVERYTHING ELSE.** It
+# is preserved rather than rewritten, because it is the record of what this
+# document asserted about itself and the reason the amendment is narrow is only
+# legible beside it.
+#
+# What is amended: `perspective_content_addresses` at the foot of this document
+# pins the content address each of the two declared roles seals to. Dave, at the
+# build evaluation: *"Keep both addresses and the 22→0 detailed count in the
+# expected block / README so a later 'role is cosmetic' regression cannot hide
+# behind a still-green tree of 22."*
+#
+# **WHY THE ORIGINAL RULE DOES NOT REACH THIS CASE.** The rule refuses a
+# transcript — a hash of THE run, standing in for the content the run produced,
+# which the census blocks above already declare properly. These two are not that.
+# The served MEMBER ROSTER is the same 22 under both roles, by design and by
+# `CFT-G16`'s own first limb, so **no roster in this document can tell the two
+# roles apart and none of them moves when the role stops being read.** The seal
+# and the detailed count are the only declared figures that can. A pin nobody
+# writes down here is a pin the test would have to author, and a test that
+# authors the figure it asserts is the suite agreeing with itself — which is the
+# same failure the original rule was written against, arriving from the other
+# side.
+#
+# **THE ADDRESSES ARE NOT A SUBSTITUTE FOR CONTENT AND NOTHING ELSE READS THEM.**
+# `CFT-G16`'s roster, class-axis and one-mutation limbs are unchanged and remain
+# the gate's content. The pin is an ADDITIONAL limb over the one fact those limbs
+# cannot reach: what the whole served vessel is, under each role, as a single
+# value a cosmetic role cannot leave undisturbed.
+#
 # **EVERY CENSUS FIGURE NAMES THE SECTION OF `24.4-MEASUREMENT.md` IT WAS
 # TRANSCRIBED FROM.** Not one is authored from memory and not one is copied out
 # of the specification — the specification was itself authored from that
@@ -738,3 +768,49 @@ declaration:
   perspective_detailed_members:
     credit-officer: 22
     kyc-analyst: 0
+
+  # ---- The two addresses `--role` seals to (`D-IMPL-233`, Dave) -----------
+  #
+  # source: re-derived 2026-09-01 from TWO INDEPENDENT RUNS of the shipped
+  #   caller, never copied from a summary, a README or a brief —
+  #   (1) `examples/cp-04-corporate-family-tree/run.py` with `--role <role>`
+  #       against the live estate (Fluree ledger `fibo-v2`, PostgreSQL schema
+  #       `ccf_v2`), at the declared default depth;
+  #   (2) the same two asks through
+  #       `tests/examples/test_cp_04_payload.py::views` against the COMMITTED
+  #       FIXTURE seeded into a local `fluree/server:4.1.4` and a local
+  #       `postgres:16`, under per-module ledger and schema names.
+  #   Both runs returned the same two addresses. That agreement is what makes
+  #   the pin assertable in CI at all: a figure true only of the live estate
+  #   would be a figure no test leg could ever read.
+  #
+  # **WHAT THIS PIN IS FOR, SAID PLAINLY.** The served member roster is the
+  # SAME 22 under both declared roles — that is the product's own claim, and
+  # `CFT-G16`'s first limb asserts it. So **the roster cannot detect a role
+  # that has stopped conditioning anything.** A regression that made `--role`
+  # cosmetic would leave every member-set assertion in this suite green, the
+  # family intact, the tree of 22 unchanged, and nothing but these two figures
+  # moved. The seal and the detailed count are the whole of what can fail.
+  #
+  # **TWO FIGURES AND NOT ONE, BECAUSE EITHER ALONE IS REACHABLE BY ACCIDENT.**
+  # `perspective_role` is echoed into the sealed payload, so a projection that
+  # ignored the role entirely would STILL produce two different addresses —
+  # exactly the shape that let `CFT-G05` pass its own first sabotage on
+  # `max_depth_applied`. **An "the two addresses differ" check is therefore
+  # vacuous here and is deliberately not what is declared.** What is declared is
+  # each address EXACTLY, so a role read for its name and not for its meaning
+  # moves one of them off the value below and is caught.
+  #
+  # **A DIFFERENT VALUE ON EACH SIDE, ASSERTED RATHER THAN ASSUMED.** The two
+  # entries below are distinct, and the check reads that distinctness from this
+  # document rather than trusting it: one address written twice would satisfy an
+  # equality pin against a product serving one view under two names.
+  #
+  # **THIS PIN IS EDITED THE WAY THIS WHOLE DOCUMENT IS EDITED** (the header):
+  # nothing regenerates it. A legitimate change to the served payload moves both
+  # addresses, the suite goes red naming `CFT-G16`, and the values below are
+  # replaced deliberately, in the same commit as the change, after the failure
+  # has been read.
+  perspective_content_addresses:
+    credit-officer: "205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498"
+    kyc-analyst: "838afbb037a8ca820a2854b1ac7eedd296262508ce00d747369bf48ee6077ea8"
