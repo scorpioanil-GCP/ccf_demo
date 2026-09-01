@@ -26,6 +26,17 @@ immune by construction (it seeds a per-module schema from
 `DROP SCHEMA IF EXISTS ... CASCADE` or move them to per-module schemas, the way
 `tests/examples/cp_04_seed.py` does. A decision for whoever owns those modules.
 
+**RE-OBSERVED at plan `24.4-08`, and STILL OUT OF SCOPE.** Running the whole of
+`tests/examples` against the same long-lived container gives **14 failed, 749
+passed, 1 skipped** — nine in `test_cp_01_output.py` and five in
+`test_cp_02_output.py`, all `psycopg.errors.CardinalityViolation: more than one
+row returned by a subquery`. **Checked against the pre-phase tree rather than
+assumed:** `git checkout 4c90904 -- .` reproduces the same failures in the same
+database, so they are not this plan's. The container now holds **516** leftover
+schemas from months of local runs. Nothing in plan `24.4-08` touches either
+module, and every cp-04 module is immune by construction — per-module schemas
+from `cp_04_seed.schema_for`.
+
 ## 2. `deployment._rotate` cannot change its input under the walk that calls it
 
 **Found during:** plan `24.4-05`, while sabotaging the shipped rotation
@@ -83,6 +94,16 @@ plausible and would have survived re-checking.
 **Why it is out of scope here:** every site belongs to a document another plan
 owns, and plan `24.4-05` may not edit them. Phase 23's precedent is FIX BY
 CONVERSION to the `path.py::Symbol` form, never by raising the ceiling.
+
+**CLOSED, and the closure is MEASURED rather than reported.** The forty-one were
+converted to the `path.py::Symbol` form by the Gate 1 FORM amendment and the
+count is now **0** against the ceiling of 0. Re-measured at plan `24.4-08` by
+calling `tests/invariants/test_citation_coverage.py::sweepable_citation_sites`
+directly — the COUNT, not a pass — and **sabotaged**: planting one
+`src/ccf/client/client.py:100` in `examples/cp-04-corporate-family-tree/run.py`
+took it to **1** and turned the test RED, and removing it returned it to **0**.
+A ratchet at zero that has never been watched leave zero is not evidence that it
+runs.
 
 ## 5. `D-36` — the Traversal category expresses an undirected NEIGHBORHOOD, so a directed descendant walk has no SDK expression
 
@@ -169,3 +190,20 @@ defect report; it is the answer.**
 absence is amended, or `debt_tolerance` moves off `0.25`, or the per-component
 weights are declared. `produce.py::measure_debt`'s docstring carries the same
 account beside the code.
+
+**RULED AND CLOSED 2026-09-01 (Dave, `D-IMPL-230`) — SERVE.** §E.2 is filled
+with the measured factor table at §E.2.1 and `debt_tolerance` stays `"0.25"`.
+**No weight was invented, and §F.2 row 15 is answered by there being none:** the
+declared model is multiplicative and `ccf.halflife.debt::assess_debt` takes
+`(factors, profile)` and applies no weight term. Dave named both wrong answers —
+*"Don't raise tolerance to 0.95 and don't pretend 0.909 is the whitepaper
+number."* The §E.2 table row for attribute resolution now says what the build
+does: `S` in principle, **not folded into `S` here**, served as the
+`unresolved_jurisdiction` roster instead.
+
+**And the gate is MOVEMENT, not the number.** `tests/examples/test_cp_04_debt.py`
+asserts that `D_c` moves in the direction each estate change implies, beside the
+twenty-member roster, and that the ATTRIBUTE boundary moves the roster and NOT
+the debt — which is the assertion that would go red if anyone quietly folded
+attribute coverage back into `S`. Five sabotages were applied and each observed
+RED. **No new gate id was minted:** the roster's home is `CFT-G09`.
