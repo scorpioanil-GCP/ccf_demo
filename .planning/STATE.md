@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-31T22:20:00.000Z"
+last_updated: "2026-08-31T23:35:00.000Z"
 last_activity: >-
   2026-08-31 -- **PHASE 24.3 IS CLOSED; 24.2 AND 24.2.1 ARE GATED RETROSPECTIVELY; TIER 1 OF
   THE CONTEXT PRODUCT LADDER IS COMPLETE.** `D-GATE-24.3` at `5dfdd8d`; `D-GATE-24.2` and
@@ -982,8 +982,17 @@ coverage check; no `ProductGate` Protocol in 24.4; the Standard's extra gates ar
 product gates, never new members of `run_gates`). Phase 24.4 is anchored in `ROADMAP.md`
 WITHOUT Success Criteria, per `D-GATE-19`'s forward binding.
 
-**WHAT IS NEXT.** The next step is the DISCUSS SITTING for 24.4. **24.4 Success Criteria
-lock at the discuss sitting (`D-GATE-19`).** `D-GATE-24.3` is APPROVED and closed; a
+**WHAT IS NEXT.** The 24.4 DISCUSS SITTING IS DONE (2026-08-31, commit `3a54af0`) --
+`24.4-CONTEXT.md` and `24.4-DISCUSSION-LOG.md` are written and committed. Four areas
+were ruled: temporal posture, traversal shape and cycles, the MCP door, and the gates
+artifact plus its timing. **Next is `/gsd:plan-phase 24.4`**, where the Success
+Criteria lock (`D-GATE-19`). **Phase 24.5 is NAMED but NOT scoped** -- the gate-coverage
+checker plus the cp-00/cp-01 backfill; its criteria lock at its own sitting.
+**FIVE SDK GAPS were recorded and NOT closed** (`D-26`..`D-30` in `24.4-CONTEXT.md`),
+per `D-04`: the Fluree adapter floors but cannot pin, `graph_snapshot_at: datetime` vs
+an int `t`, `@iso:` searching backdatable event time, the adapter docstring collapsing
+three time axes into two, and the MCP resource URI being unable to address a
+parameterized product. `D-GATE-24.3` is APPROVED and closed; a
 precondition naming it was written here 2026-08-31 and STRUCK the same day (Dave) -- *"a
 precondition whose subject is closed can never fire -- same class as an empty-population
 check."*
