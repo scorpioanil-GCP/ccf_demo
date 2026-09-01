@@ -2797,10 +2797,11 @@ the adapter FLOORS rather than pins (`D-26`), and `t` must not back `as_of`
 which is why the reproducibility claim is *"byte-identical against a quiescent ledger
 for that run"* and nothing stronger (`D-02`).
 
-**THE FOUR ONTOLOGY ROLES, all four ruled in scope by Dave 2026-08-31.** The ontology
-is load-bearing in four independent places, not decoration:
+**THE ONTOLOGY ROLES — FOUR RULED IN SCOPE 2026-08-31, REDUCED TO THREE THE SAME DAY
+(Dave).** Role 1 is STRUCK from this rung; see the marked amendment on it below and the
+`D-04` gap it became. The ontology is load-bearing in three independent places here:
 
-1. **Types constrain the walk.** Traversal follows ownership edges only between entities whose FIBO class permits it; a walk that would step onto a `Person` or a `Trade` stops.
+1. **Types constrain the walk — STRUCK FROM THIS RUNG 2026-08-31 (Dave), NOT built and NOT gated here.** The claim, restated correctly for whenever a rung can carry it: *the walk stops when the neighbor's class is outside the admitted set.* The original wording — *"a walk that would step onto a `Person` or a `Trade` stops"* — is withdrawn: **measured over all 748 family nodes, no LEI-bearing anchor reaches a node outside the 7-class `LegalPerson` `Corporation` profile within depth 3.** The class-diverse populations are real (`Person` 46, `SpecialPurposeVehicle` 50, 5-class 123, 4-class 68, 3-class 29) and every one of them sits in a component no LEI-bearing anchor reaches downward. A second anchor was measured and refused: Extreme Networks (22 nodes) and Celanese (53 nodes) carry no SPV and no Bank, and their only class variation is `Guarantor` **added to the root** — an additive class, not an exclusion, and a guarantor belongs inside a credit family anyway. Recorded as a `D-04` gap, not manufactured.
 2. **Ontology is served in the product.** The payload carries each node's FIBO class and the relevant hierarchy, so a consuming agent knows an SPV is an SPV without a second lookup. This is what makes the product self-describing over MCP.
 3. **Ontology drives the projection.** Perspective conditions on FIBO class, so a credit officer's view and a KYC analyst's view of the same family differ by class rather than by a hand-written role map.
 4. **Ontology validates the assembly.** A declared product gate asserts every returned node carries a known FIBO class and every edge is one of the six declared family predicates, so an untyped or off-ontology node cannot enter silently.
@@ -2914,7 +2915,7 @@ rather than inherited.**
   15. Cycle 1 is served as a `findings[]` entry with `type: ownership_cycle`, `predicate: owns`, ordered `members: [CycCalderIndustrialNv, CycThornburyCapitalLtd, CycMeridianHoldingsSa]` and `closing_edge: [CycMeridianHoldingsSa, CycCalderIndustrialNv]`, asserted as that EXACT roster and never as `len(findings) > 0`
   16. Cycle 2's roster is `[CycHarborstoneKy, CycLindenfeldGmbh, CycPahangPteLtd]` with closing edge `[CycPahangPteLtd, CycHarborstoneKy]`, and the build reports it carries **zero** external in-edges — unreachable from any LEI-bearing anchor, which is the measured reason it is not the headline
   17. The build reports exactly **one** external edge into any cycle in the whole graph — `SuperMicroComputerInc → CycMeridianHoldingsSa` — so the anchor's reach into cycle 1 is the only such path and not one of several
-  18. All six cycle members are re-derived to carry NO LEI, and cycle 1's three members carry **7** FIBO classes each while cycle 2's carry **5**, so a type-constrained walk demonstrably behaves differently on each
+  18. All six cycle members are re-derived to carry NO LEI, and cycle 1's three members carry **7** FIBO classes each while cycle 2's carry **5** — AMENDED 2026-08-31 (Dave): the trailing clause *"so a type-constrained walk demonstrably behaves differently on each"* is STRUCK with role 1, because cycle 2 has zero external in-edges and no walk from an LEI-bearing anchor reaches it; the measured 7-versus-5 fact stands and is still asserted
   19. The same anchor walked over `isDirectlyConsolidatedBy` alone yields NO `ownership_cycle` finding, and the negative control is production data rather than a synthetic DAG
   20. Each of the five acyclic predicates is executed as its own negative control and yields zero cycles, so a detector that fires on everything is detected rather than passing quietly
   21. Running the detector over the raw 1,058 triples instead of the 722 normalized edges is executed as a control, yields a cycle count other than 2, and FAILS, so an un-normalized graph cannot look green
@@ -2937,7 +2938,7 @@ rather than inherited.**
   38. `CFT-G14` — one standalone assembler serves both callers — is sabotaged by giving `server/serve.py` its own assembly path and observed RED
   39. `CFT-G15` — each served node carries its FIBO class chain — is sabotaged by serving the tree without type information and observed RED
   40. `CFT-G16` — perspective conditions on FIBO class — is sabotaged by substituting a hand-written role map and observed RED
-  41. `CFT-G17` — the walk is type-constrained and stops rather than stepping onto an entity whose FIBO class does not permit it — is sabotaged by removing the constraint and observed RED
+  41. WITHDRAWN 2026-08-31 (Dave), with ontology role 1. It asserted `CFT-G17` — a type-constrained walk that STOPS at a neighbor of an inadmissible class. **The estate cannot exhibit the stop:** no LEI-bearing anchor reaches a node outside the 7-class profile within depth 3, so the gate would go green having proven nothing and its sabotage would change no output — the fourteen-idle-gates class exactly. **Deliberately NOT replaced by a positive-property restatement** (*"every admitted node's class is in the declared set"*), which is a tautology over a class-homogeneous population and would read as coverage while measuring nothing. The roster is **SIXTEEN** gates, `CFT-G01`..`CFT-G16`. The `hasTenPercentOwner` fixture that would carry this claim is a **KYC/UBO** concern and is explicitly NOT run for cp-04
   42. No gate is recorded as passing until it has been observed RED at least once, and the sabotage applied to each is recorded with its observed result
   43. `examples/cp-04-corporate-family-tree/artifacts/gates.yaml` declares every `CFT-G**` id as DATA under a CLOSED schema committed under `docs/schemas/`, and no gate id appears anywhere as a YAML comment only
   44. `artifacts/expected.yaml` carries expected VALUES only and is NOT widened to carry gate rosters, and the spec's §G table is NOT the machine source for any check
@@ -2945,7 +2946,7 @@ rather than inherited.**
   46. The recipe artifact declares each step's `operator:` as a Standard name or `null`, its `layer:` and its `sdk_mechanism:` with a witness, and cycle detection declares `operator: null` because it executes in the L2 assembler
   47. `run.py` consumes in-process through `ProductClient` and the MCP tool ask returns an equivalent payload for the same request, with no `GET /tenant/class/version` path anywhere in the example
   48. The example ships a companion HTML documentation page whose subject is this example alone per `EXAM-06` (`D-IMPL-217`), and its printed run is reproduced against the named `ledger_t` it was read at per `D-IMPL-218`
-  49. `D-26` through `D-31` are RECORDED in `docs/DECISIONS.md` as SDK gaps, NONE of them is closed in this phase, and no file under `src/` is modified by it
+  49. `D-26` through `D-31` are RECORDED in `docs/DECISIONS.md` as SDK gaps, NONE of them is closed in this phase, and no file under `src/` is modified by it — EXTENDED 2026-08-31 (Dave) to `D-32`, the ESTATE gap role 1 became: *class-diverse populations (`Person` 46, `SpecialPurposeVehicle` 50, 5-class 123) sit in components no LEI-bearing anchor reaches downward*, recorded under the same `D-04` posture and closed by neither this phase nor `ccf_dataprep` this sitting
 
 **Requirements:** discharges none. `EXAM-06` (`D-IMPL-217` / `D-IMPL-218`) applies —
 the example ships a companion documentation page whose subject is the example alone,
