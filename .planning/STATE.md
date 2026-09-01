@@ -13,7 +13,7 @@ last_activity: >-
   ladder's first two-store product, first graph traversal, first over MCP, three ontology roles.
   **SIXTEEN gates** `CFT-G01`..`CFT-G16`, every one observed RED under its own id, declared as DATA
   under a closed schema; `CFT-G17` stays WITHDRAWN and must never be minted. **`D-IMPL-232` records
-  all ELEVEN gaps `D-26`..`D-36` and closes NONE of them** -- note the plan text said eight and the
+  all ELEVEN gaps `24.4-D-26`..`24.4-D-36` and closes NONE of them** -- note the plan text said eight and the
   ROADMAP bullet said six; criterion 49 says eleven, and the lag is recorded rather than reconciled.
   **`src/` and `runtime/` are diff-EMPTY across `92761e0..83953e8`**, asserted by
   `tests/examples/test_cp_04_phase_record.py` against pinned base and ceiling files, with the
@@ -25,7 +25,7 @@ last_activity: >-
   wording amendment to a ruled criterion, the THIRD criterion in this phase found wrong against the
   tree; (2) whether the `mkdocs.yml` cp-04 COMMENT stays, given that plan 13's `grep -q 'cp-04'`
   now passes on it rather than on a nav entry; (3) cycle 2 is unservable -- zero external in-edges
-  and no member carries an LEI -- a plan-versus-estate discrepancy of `D-32`'s shape; (4) three
+  and no member carries an LEI -- a plan-versus-estate discrepancy of `24.4-D-32`'s shape; (4) three
   gates passed their own sabotage as their criteria worded them (`CFT-G05`, `CFT-G16`, `CFT-G10`),
   all three rewritten BEFORE shipping so the shipped count is zero; (5) the plan-text lag above.
   PRIOR: 2026-09-01 -- **PHASE 24.4 IS EXECUTING -- 8 of 14 plans complete, `24.4-09` IN FLIGHT at a
@@ -1054,7 +1054,7 @@ clamped); then `AS_OF=2026-01-01` (must be refused `not_supported_at_tier`); the
 amended wording is wrong against the tree** -- it says the product resource is *"enumerable in
 `resources/list`"*, and measured at an MCP client `resources/list` returns `[]` while
 `resources/templates/list` returns the URI template, because a placeholder URI registers as a
-TEMPLATE. Substance and `D-34` are unchanged and the shipped check asserts BOTH listings. This is
+TEMPLATE. Substance and `24.4-D-34` are unchanged and the shipped check asserts BOTH listings. This is
 the THIRD criterion in this phase found wrong against the tree, and amending a ruled criterion is
 Dave's (`D-IMPL-222`). (2) **The `mkdocs.yml` cp-04 nav entry could not be made** -- `docs_dir` is
 `public/` and the render is git-ignored, so a nav entry aborts `make docs-strict`; cp-00..cp-03
@@ -1065,12 +1065,12 @@ comment stays is Dave's. (3) **Cycle 2 is unservable** -- `expected.yaml` gives
 `cycle_2.external_in_edges: 0`, `into_cycle_2: 0`, and all six members carry `lei: null`, so it can
 be reached neither as a subtree nor asked for as an anchor; plan 11 asserted the unreachability
 instead. Criterion 39 speaks of SERVED nodes so it is discharged, but it is a plan-versus-estate
-discrepancy of `D-32`'s shape. (4) **Three gates passed their own sabotage when written as their
+discrepancy of `24.4-D-32`'s shape. (4) **Three gates passed their own sabotage when written as their
 criterion worded it** -- `CFT-G05`, `CFT-G16` and `CFT-G10`, from three unrelated causes, each
 caught and rewritten BEFORE shipping, so the shipped count of gates that passed their first
 sabotage is ZERO. (5) **The plan text lagged its own criterion** -- plan `24.4-14`'s objective
 names eight gaps and its ROADMAP checklist bullet names six; criterion 49 as amended names
-ELEVEN, `D-26`..`D-36`. All eleven are recorded at `D-IMPL-232`; the lag is written down rather
+ELEVEN, `24.4-D-26`..`24.4-D-36`. All eleven are recorded at `D-IMPL-232`; the lag is written down rather
 than reconciled away, and criterion 49 was NOT amended.
 
 **MEASURED AT THE PAUSE, each with a positive control** (`D-IMPL-232`, `24.4-14-SUMMARY.md`):
