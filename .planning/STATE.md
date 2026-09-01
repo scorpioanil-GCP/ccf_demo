@@ -988,7 +988,7 @@ were ruled: temporal posture, traversal shape and cycles, the MCP door, and the 
 artifact plus its timing. **Next is `/gsd:plan-phase 24.4`**, where the Success
 Criteria lock (`D-GATE-19`). **Phase 24.5 is NAMED but NOT scoped** -- the gate-coverage
 checker plus the cp-00/cp-01 backfill; its criteria lock at its own sitting.
-**FIVE SDK GAPS were recorded and NOT closed** (`D-26`..`D-30` in `24.4-CONTEXT.md`),
+**SIX SDK GAPS were recorded and NOT closed** (`D-26`..`D-31` in `24.4-CONTEXT.md`),
 per `D-04`: the Fluree adapter floors but cannot pin, `graph_snapshot_at: datetime` vs
 an int `t`, `@iso:` searching backdatable event time, the adapter docstring collapsing
 three time axes into two, and the MCP resource URI being unable to address a
