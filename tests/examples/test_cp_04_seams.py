@@ -1142,18 +1142,23 @@ def llm_violations(
             "CFT-G12: no import statement was parsed out of the example, so the"
             " deferred-import half of this gate asserted nothing"
         )
-    # Reported as ONE violation naming the whole roster rather than one per
-    # module: a single `import anthropic` pulls forty of its own submodules into
-    # the closure, and forty repetitions of one finding is not forty findings.
-    llm_reached = sorted(
-        {name for name in reached if matches_module(name, LLM_MODULES)}
-    )
-    if llm_reached:
-        violations.append(
-            f"CFT-G12: {llm_reached} is/are REACHABLE from the §D steps"
-            f" {list(roots)}. A model reachable from any step makes this"
-            " Assembly Mode 2, and the declared 1 becomes false"
+    # Reported PER DECLARED CLIENT with a count and three examples, rather than
+    # one violation per reached module: a single `import anthropic` pulls over a
+    # hundred of its own submodules into the closure, and a hundred repetitions
+    # of one finding is not a hundred findings.
+    for client in sorted(LLM_MODULES):
+        hits = sorted(
+            name
+            for name in set(reached)
+            if matches_module(name, frozenset({client}))
         )
+        if hits:
+            violations.append(
+                f"CFT-G12: the declared client {client!r} is REACHABLE from the"
+                f" §D steps {list(roots)} — {len(hits)} module(s) in the"
+                f" closure, e.g. {hits[:3]}. A model reachable from any step"
+                " makes this Assembly Mode 2, and the declared 1 becomes false"
+            )
     llm_imported = sorted(
         {(filename, name) for filename, name in sites if matches_module(name, LLM_MODULES)}
     )
@@ -1200,6 +1205,7 @@ def test_the_llm_check_refuses_a_reachable_client() -> None:
     )
     assert violations, "a reachable vendor client was accepted"
     assert any("REACHABLE" in entry for entry in violations), violations
+    assert any("'anthropic'" in entry for entry in violations), violations
 
 
 def test_the_llm_check_refuses_a_deferred_import() -> None:
