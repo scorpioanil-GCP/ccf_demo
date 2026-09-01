@@ -115,7 +115,7 @@ GATES_PATH = EXAMPLE_ROOT / "artifacts" / "gates.yaml"
 #: **It sits in a SUBDIRECTORY on purpose.** ``tools/dump_schemas.py`` walks the
 #: top-level ``docs/schemas/*.json`` glob (`:335`) against the SDK's artifact
 #: classes and ``unlink()``s anything that population does not emit (`:399`);
-#: ``tests/cli/test_schema_export.py:145`` asserts that behavior. The glob is
+#: ``tests/cli/test_schema_export.py::test_an_orphan_schema_is_drift`` asserts that behavior. The glob is
 #: not recursive, so a hand-authored file one level down is outside it and is
 #: never destroyed as an orphan. Ruled at Gate 1 (`D-IMPL-225` amendment 3),
 #: and it is what stops criterion 43 and criterion 49 contradicting each other.

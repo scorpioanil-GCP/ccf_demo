@@ -130,10 +130,10 @@ operators:
     # it reinstates nothing.
     #
     # The mechanism, so nobody has to take that on trust:
-    # `src/ccf/operators/categories.py:426` seeds the frontier with every entity
+    # `src/ccf/operators/categories.py::TraversalNeighborhood` seeds the frontier with every entity
     # whose `entity_class` is in this set and then hops over the adjacency for
     # `depth_limit` rounds — NO PER-HOP CLASS FILTER FOLLOWS. It is documented
-    # as "walk starting points" at `src/ccf/graph/protocols.py:220`, and
+    # as "walk starting points" at `src/ccf/graph/protocols.py::TraversalSpec`, and
     # `GQ-10` types the walk on EDGES only.
     #
     # ONTOLOGY ROLE 1 — *the walk stops when the neighbor's class is outside the
@@ -315,7 +315,7 @@ resolution:
   # ruled by Dave as the DECISION 2 half of `D-IMPL-226`.
   #
   # THE DECLARED RESOLUTION SPEC CANNOT EXPRESS A TYPED EDGE. Read in the
-  # source rather than taken on report: `src/ccf/assembly/worker.py:381`
+  # source rather than taken on report: `src/ccf/assembly/worker.py::AssemblyWorker.ingest`
   # iterates `for rule in relationship_rules: for subject in
   # by_class[rule.subject_entity_class]: for obj in
   # by_class[rule.object_entity_class]:` and mints a claim for EVERY such

@@ -61,7 +61,7 @@
 #
 #   * **THE SDK CANNOT EXPRESS THE STOP.** The Traversal family types the walk
 #     on EDGES ONLY (`GQ-10`); `seed_entity_classes` seeds the frontier and is
-#     never re-applied per hop (`src/ccf/operators/categories.py:426`). A
+#     never re-applied per hop (`src/ccf/operators/categories.py::TraversalNeighborhood`). A
 #     node-class admission filter has NO SDK EXPRESSION. Recorded as the
 #     mechanism gap `D-33`. Had the estate carried the data, the walk still
 #     could not have stopped without work under `src/` that criterion 49 forbids.
@@ -234,7 +234,7 @@ declaration:
     # THIS GATE IS THREE ASSERTIONS HELD TOGETHER, NOT "TOOL-ONLY". Criterion 37
     # was AMENDED at Gate 1 (2026-08-31, Dave, `D-IMPL-225` amendment 1) because
     # its original wording was FALSE against this tree:
-    # `runtime/ccf_runtime/mcp/egress.py:475` registers `@server.resource`
+    # `runtime/ccf_runtime/mcp/egress.py::build_egress_server` registers `@server.resource`
     # UNCONDITIONALLY and only the tool at `:529` sits behind
     # `expose_product_tool`, so `build_egress_server` can be resource-only or
     # resource-plus-tool and CANNOT be tool-only. `runtime/` is not touched

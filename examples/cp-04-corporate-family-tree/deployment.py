@@ -79,7 +79,7 @@ now ruled and both are built. The reasoning is kept, because the shape below
 is unreadable without it:
 
 1. **The L1 envelopes — ONE PER NODE, and no relationship rule fires.**
-   ``src/ccf/assembly/worker.py:381`` mints a relationship claim by **class
+   ``src/ccf/assembly/worker.py::AssemblyWorker.ingest`` mints a relationship claim by **class
    co-occurrence**: every declared rule whose subject and object classes BOTH
    resolve from one envelope fires, and nothing selects the relationship type
    from the payload. Measured live through ``booted.handle.worker``, one
@@ -211,7 +211,7 @@ ARTIFACT_STORE_DIRNAME = "artifacts-store"
 
 #: The payload key carrying a node's SOURCE identity, and the one
 #: `ccf_config.yaml`'s two entity rules both name under `identity_keys`. The
-#: MINTED `entity_uri` is not this value — `worker.py:220` hashes the identity
+#: MINTED `entity_uri` is not this value — `worker.py::SpecDrivenEntityResolution.identity` hashes the identity
 #: map and mints `<entity-class>://<hash>` — which is exactly why
 #: :func:`relationship_claims` takes the minted URIs from the ingest results
 #: rather than recomputing them here.
@@ -1782,7 +1782,7 @@ def demonstration_anchor() -> str:
 class EntityRule:
     """One ``ccf_config.yaml`` entity rule, read rather than assumed.
 
-    The rule's ``match_key`` is what selects it: `worker.py:211` skips a rule
+    The rule's ``match_key`` is what selects it: `worker.py::SpecDrivenEntityResolution.resolve` skips a rule
     whose ``match_key`` is absent from the payload. That is the whole mechanism
     by which one envelope resolves to exactly ONE entity here — the anchor's
     envelope carries the anchor rule's key and no other, and a member's carries
@@ -1865,7 +1865,7 @@ def build_envelopes(
     """ONE ENVELOPE PER NODE — ``D-35``, ruled 2026-09-01.
 
     **The shape is forced by a measured property of the SDK, not chosen for
-    tidiness.** ``src/ccf/assembly/worker.py:381`` mints relationship claims by
+    tidiness.** ``src/ccf/assembly/worker.py::AssemblyWorker.ingest`` mints relationship claims by
     CLASS CO-OCCURRENCE: every declared rule whose subject and object classes
     both resolve from one envelope fires, and nothing selects the relationship
     type from the payload. Measured live, one envelope carrying one
@@ -1882,7 +1882,7 @@ def build_envelopes(
 
     Returns the envelopes and a map from ``envelope_id`` back to the SOURCE
     node IRI. The spine needs that map because the graph mints its own
-    ``entity_uri`` — ``<entity-class>://<identity-hash>`` (`worker.py:220`) —
+    ``entity_uri`` — ``<entity-class>://<identity-hash>`` (`worker.py::SpecDrivenEntityResolution.identity`) —
     so the URI an edge must be built from is knowable only after ingest, from
     each ``IngestResult``'s own ``node_key``. Recomputing the hash here would
     be this module reimplementing L2's identity rule, which is exactly the

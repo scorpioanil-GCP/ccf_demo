@@ -13,7 +13,7 @@
 |---|---|
 | **Source article** | `wiki/context-products/content/corporate-family-tree.md`, vault-owned, **`standard: q019`** |
 | **Authored to** | `Context_Product_Specification_Standard_v0-3.md` — the article is on the older Q019 form and is *raised* to v0.3 here, per `spec_generation.md` §4 |
-| **Gate 1 status** | **RULED — APPROVED WITH THREE AMENDMENTS, ON THE AMENDED TEXT.** Approver: **Dave**. Date: **2026-08-31**. Decision: **`D-IMPL-225`**. The three amendments landed in `.planning/ROADMAP.md` (criteria 34, 37, 43, 47 and 49) and in `docs/DECISIONS.md` **BEFORE this row was flipped and before Wave 3**, on the `D-IMPL-222` precedent Dave invoked by name; until they had, nothing under `examples/cp-04-corporate-family-tree/` existed but this document — `example_delivery.md` §1: *"No implementation code before Gate 1."* Each ruling is recorded beside its conflict at §F.4 |
+| **Gate 1 status** | **RULED — APPROVED WITH THREE AMENDMENTS, ON THE AMENDED TEXT.** **FORM AMENDMENT 2026-09-01 (Dave): twenty-two `path.py:LINE` citations converted to the `path.py::Symbol` form `D-IMPL-114` ruled. CITATION FORM ONLY — the sixteen gates, the MCP refusal and the consume path are untouched, and this is NOT a re-open of substance.** Approver: **Dave**. Date: **2026-08-31**. Decision: **`D-IMPL-225`**. The three amendments landed in `.planning/ROADMAP.md` (criteria 34, 37, 43, 47 and 49) and in `docs/DECISIONS.md` **BEFORE this row was flipped and before Wave 3**, on the `D-IMPL-222` precedent Dave invoked by name; until they had, nothing under `examples/cp-04-corporate-family-tree/` existed but this document — `example_delivery.md` §1: *"No implementation code before Gate 1."* Each ruling is recorded beside its conflict at §F.4 |
 | **Gate 2 status** | **not started.** No code, no artifacts, no tests |
 | **Estate** | Fluree ledger `fibo-v2` and PostgreSQL schema `ccf_v2` on the `ccf_dataprep` estate, both read-only. **Every figure in §C and §E was measured 2026-08-31 at `ledger_t = 5112`** and is traceable to a row in `24.4-MEASUREMENT.md` |
 | **Stores** | **TWO — Fluree and PostgreSQL.** The split is the vault catalog's and is **not re-derived here** (`D-17`): **Fluree 7 rows, Postgres 4, both 1, twelve rows in total** — §C.1 |
@@ -215,7 +215,7 @@ value.** That is not implementable against the shipped contract and the claim
 is **struck** (`D-03`, 2026-08-31):
 
 - `graph_snapshot_at` is a **`datetime`** on the shipped contract
-  (`src/ccf/products/contract.py:617`). `ledger_t` is an **`int`**. They are
+  (`src/ccf/products/contract.py::ProductLineage.graph_snapshot_at`). `ledger_t` is an **`int`**. They are
   different types describing different axes, and one cannot carry the other.
 - The shipped Fluree adapter **floors** the read with `Fluree-Min-T` — *"do not
   answer older than this `t`"* — and leaves the upper bound open. **No `@t:` or
@@ -761,7 +761,7 @@ assembler (`D-21`), and neither reaches the product through
 
 ```python
 # run.py — in-process, through the DOCUMENTED DIRECT-ADAPTER CONSTRUCTOR
-# (src/ccf/client/client.py:100). The binding stays SINGLE-STORE and is not
+# (src/ccf/client/client.py::ProductClient.__init__). The binding stays SINGLE-STORE and is not
 # widened; the two-store assembly happens INSIDE the product.
 client = ProductClient(product_id="reference.corporate-family.v1", adapter=...)
 result = client.ask({
@@ -792,7 +792,7 @@ if a standing, parameter-free answer existed for this product, and there is
 none: **every answer is a walk from an anchor.**
 
 **And the SDK registers the resource whether or not this product wants it.**
-`runtime/ccf_runtime/mcp/egress.py:475` registers
+`runtime/ccf_runtime/mcp/egress.py::build_egress_server` registers
 `@server.resource(PRODUCT_URI_TEMPLATE, …)` **unconditionally**; only the tool
 at `:529` sits behind `expose_product_tool`. `build_egress_server` can be
 resource-only or resource-plus-tool; **it cannot be tool-only.** `runtime/` is
@@ -800,14 +800,14 @@ resource-only or resource-plus-tool; **it cannot be tool-only.** `runtime/` is
 **REGISTERED RESOURCE THAT REFUSES**. Gate **`CFT-G13`** (§G.2) asserts the
 three parts together: the resource **is** registered and enumerable in
 `resources/list`; a resolve or read of it returns `ProductNotServable`
-(`egress.py:221`) or the existing refusal type and **never a tree**; and the
+(`egress.py::ProductNotServable`) or the existing refusal type and **never a tree**; and the
 **tool is the only path that serves**. That is strictly weaker than *"no
 resource is exposed"* — the weakness is stated plainly at §F.4 Conflict 1 rather
 than smoothed, criterion 37 was **amended** on 2026-08-31 to say what is true,
 and the residual gap is **RECORDED as `D-34`** (§F.4 finding 9).
 
 **And the consume path is the direct-adapter constructor, not a binding
-document** (`D-IMPL-225` amendment 2). `src/ccf/client/adapters/binding_document.py:177`
+document** (`D-IMPL-225` amendment 2). `src/ccf/client/adapters/binding_document.py::RULED_OUT_KEYS`
 refuses a `resolver:` key **BY NAME**, so the `binding.yaml` path **structurally
 cannot** express a two-store product. **The binding stays SINGLE-STORE and is
 not widened.** cp-04 supplies an adapter of its own that conforms to
@@ -880,8 +880,8 @@ sufficient:
   **EDGES ONLY** — `GQ-10`: *"the walk crosses only edges whose
   `relationship_type` is a member of `relationship_types`."* `seed_entity_classes`
   **seeds the frontier and is never re-applied per hop**
-  (`src/ccf/operators/categories.py:426`), and is documented as **"walk starting
-  points"** (`src/ccf/graph/protocols.py:220`). **A node-class admission filter
+  (`src/ccf/operators/categories.py::TraversalNeighborhood`), and is documented as **"walk starting
+  points"** (`src/ccf/graph/protocols.py::TraversalSpec`). **A node-class admission filter
   has no SDK expression.** Recorded as the mechanism gap **`D-33`**. Had the
   estate carried the data, the walk still could not have stopped without work
   under `src/` that this phase forbids.
@@ -1146,7 +1146,7 @@ against a run.*
 > **RULED at Gate 1 — `D-IMPL-225` amendment 3.** The closed schema is
 > **`docs/schemas/product-gates/cp.product-gates.json`**: **inside**
 > `docs/schemas/` as criterion 43 requires, and **deliberately OFF** the
-> top-level `docs/schemas/*.json` glob that `tools/dump_schemas.py:335` walks
+> top-level `docs/schemas/*.json` glob that `tools/dump_schemas.py::committed` walks
 > and `:399` `unlink()`s, so a hand-authored file is never destroyed as an
 > orphan. **Enforcement is Phase 24.5's checker, not this phase** (`D-24`).
 > §F.4 Conflict 3.
@@ -1437,7 +1437,7 @@ reach a failing step 4 rather than to omit it.
 #### Finding 2 — `D-27` · `graph_snapshot_at` is a `datetime` and store `t` is an `int`
 
 **RECORDED, not closed.** A type mismatch for transaction-snapshot pinning.
-`src/ccf/products/contract.py:617`. The product records `ledger_t` **beside**
+`src/ccf/products/contract.py::ProductLineage.graph_snapshot_at`. The product records `ledger_t` **beside**
 the snapshot field rather than inside it (§D.6).
 
 #### Finding 3 — `D-28` · Fluree `@iso:` searches EVENT time and is backdatable
@@ -1514,7 +1514,7 @@ close it.**
 #### **Conflict 1 — criterion 37 (`CFT-G13`, tool-only) against `build_egress_server`**
 
 **Measured, and the citation resolves.**
-`runtime/ccf_runtime/mcp/egress.py:475` registers
+`runtime/ccf_runtime/mcp/egress.py::build_egress_server` registers
 `@server.resource(PRODUCT_URI_TEMPLATE, mime_type=PRODUCT_MIME_TYPE)`
 **unconditionally**. Only the tool, at `:529` — `if expose_product_tool:` —
 is behind a flag. `expose_product_tool` defaults to `False`, so the builder can
@@ -1532,7 +1532,7 @@ builder.**
 **Proposed reading, as submitted.** The resource stays registered — because the
 SDK registers it — and **the deployment's resolver REFUSES BY NAME when
 `request is None`**, raising the SDK's own `ProductNotServable`
-(`runtime/ccf_runtime/mcp/egress.py:221`) stating that this product class is
+(`runtime/ccf_runtime/mcp/egress.py::ProductNotServable`) stating that this product class is
 parameterized and must be asked through the tool.
 
 > **THE WEAKNESS IN THAT READING, STATED PLAINLY RATHER THAN SMOOTHED —
@@ -1566,7 +1566,7 @@ Dave, verbatim:
 
 1. the resource **IS** registered and **enumerable in `resources/list`**;
 2. a resolve or read of it returns `ProductNotServable`
-   (`runtime/ccf_runtime/mcp/egress.py:221`) or the existing refusal type, and
+   (`runtime/ccf_runtime/mcp/egress.py::ProductNotServable`) or the existing refusal type, and
    **NEVER a tree**;
 3. the **TOOL is the only path that SERVES**, taking a client-supplied `lei` and
    `max_depth`.
@@ -1597,13 +1597,13 @@ resolver-returns-a-payload sabotage.
 
 **Measured, and both citations resolve.**
 
-- `src/ccf/client/adapters/binding_document.py:176-180` defines
+- `src/ccf/client/adapters/binding_document.py::RULED_OUT_KEYS` defines
   `RULED_OUT_KEYS`, whose **first entry refuses `resolver:` BY NAME**: *"the SDK
   builds the resolver itself from the data keys below — a deployment supplies
   the projection through `plan:` and nothing else."* Refused **separately from
   an unknown key**, deliberately, so a rejected shape cannot return under a
   re-spelling.
-- `src/ccf/client/adapters/inprocess.py:243` — `_boot` builds the resolver
+- `src/ccf/client/adapters/inprocess.py::_boot` — `_boot` builds the resolver
   through `build_governed_resolver` from the `binding.yaml` data keys, against
   an **already-populated** graph. It performs no L1 ingest.
 
@@ -1614,7 +1614,7 @@ the one refused by name.
 
 **Proposed reading, as submitted.** Use
 **`ProductClient(product_id=…, adapter=…)`** — the constructor's **documented
-direct-adapter form** (`src/ccf/client/client.py:100-102`: *"adapter: The
+direct-adapter form** (`src/ccf/client/client.py::ProductClient.__init__`: *"adapter: The
 transport that carries the question. Supplied directly by an adapter author or a
 test"*) — over an adapter cp-04 supplies that conforms to
 `ccf.client.wire.TransportAdapter` **structurally** and calls `assembler.py`.
@@ -1635,7 +1635,7 @@ Dave, verbatim:
 > stores."*
 
 **What ships.** `ProductClient(product_id=…, adapter=…)`, the documented public
-constructor at `src/ccf/client/client.py:100`, over an adapter cp-04 supplies
+constructor at `src/ccf/client/client.py::ProductClient.__init__`, over an adapter cp-04 supplies
 that conforms to `ccf.client.wire.TransportAdapter` structurally and calls
 `assembler.py`. **The binding stays SINGLE-STORE and is not widened** — the
 two-store assembly happens **INSIDE the product**, by neither a forbidden
@@ -1678,14 +1678,14 @@ would turn the gate into an assertion about a fixture loader.
 
 **Measured, and the citations resolve.**
 
-- `tools/dump_schemas.py:335` — `committed()` reads
+- `tools/dump_schemas.py::committed` — `committed()` reads
   `sorted(SCHEMAS_DIR.glob("*.json"))`, **top-level only**, where
   `SCHEMAS_DIR = REPO_ROOT / "docs" / "schemas"` (`:82`).
 - `differences()` reports any committed file **not** produced by
   `SDK_ARTIFACT_CLASSES` as `orphan: … (no such artifact class in
   SDK_ARTIFACT_CLASSES)`, which is **CI red**.
-- `tools/dump_schemas.py:399` — `make schemas` **`unlink()`s** every orphan.
-- `tests/cli/test_schema_export.py:145` — `test_an_orphan_schema_is_drift`
+- `tools/dump_schemas.py::main` — `make schemas` **`unlink()`s** every orphan.
+- `tests/cli/test_schema_export.py::test_an_orphan_schema_is_drift` — `test_an_orphan_schema_is_drift`
   asserts exactly that behavior.
 
 **The bind:** criterion 43 requires a **closed schema for `gates.yaml`,
@@ -1718,7 +1718,7 @@ READING IS ADOPTED, AND THE SUBDIRECTORY IS DELIBERATE.**
 **CLOSED keys**, validated against by
 `examples/cp-04-corporate-family-tree/artifacts/gates.yaml`. It is **inside**
 `docs/schemas/` as criterion 43 requires and **deliberately OFF** the top-level
-`docs/schemas/*.json` glob that `tools/dump_schemas.py:335` walks and `:399`
+`docs/schemas/*.json` glob that `tools/dump_schemas.py::committed` walks and `:399`
 `unlink()`s, **so a hand-authored file is never destroyed as an orphan**.
 Verified before the ruling: `docs/schemas/` holds **27** files and **ZERO**
 subdirectories, so the namespace is new and uncontested. It is correctly **NOT
@@ -1785,7 +1785,7 @@ it detects and the sabotage that must turn it RED.
 | **`CFT-G10`** | **THE ASSEMBLY opened both stores — Fluree for edges and ontology, PostgreSQL for attributes.** The subject is the assembly, **NOT the runner**: a fixture that pre-opens both stores and hands the product a populated graph does **NOT** satisfy this gate | **serve attributes from Fluree** — and equally, **move the opening into a fixture loader** | §C.3 · §F.3 · criterion 34 **as clarified**, `D-IMPL-225` amendment 2 |
 | **`CFT-G11`** | **The returned node set resolves to attributes in ONE batched PostgreSQL query** | **fire one query per node** | §D.2.3 |
 | **`CFT-G12`** | **No LLM client is reachable from any §D step** — Assembly Mode 1 | make one reachable | §B.3 |
-| **`CFT-G13`** | **The MCP door SERVES THROUGH THE TOOL ONLY, and the registered product resource REFUSES.** Three parts, asserted **together**: (a) the resource **IS** registered and **enumerable in `resources/list`**; (b) a resolve or read of it returns `ProductNotServable` (`runtime/ccf_runtime/mcp/egress.py:221`) or the existing refusal type and **NEVER a tree**; (c) the **TOOL is the only path that serves**, taking a client-supplied `lei` and `max_depth` | **the resolver returns a payload** — a resource read that yields a tree instead of refusing | §D.1 · `D-18` · `D-34` · criterion 37 **as amended**, `D-IMPL-225` amendment 1, and §F.4 Conflict 1 |
+| **`CFT-G13`** | **The MCP door SERVES THROUGH THE TOOL ONLY, and the registered product resource REFUSES.** Three parts, asserted **together**: (a) the resource **IS** registered and **enumerable in `resources/list`**; (b) a resolve or read of it returns `ProductNotServable` (`runtime/ccf_runtime/mcp/egress.py::ProductNotServable`) or the existing refusal type and **NEVER a tree**; (c) the **TOOL is the only path that serves**, taking a client-supplied `lei` and `max_depth` | **the resolver returns a payload** — a resource read that yields a tree instead of refusing | §D.1 · `D-18` · `D-34` · criterion 37 **as amended**, `D-IMPL-225` amendment 1, and §F.4 Conflict 1 |
 | **`CFT-G14`** | **One standalone assembler serves both callers.** `assembler.py` knows nothing about MCP | give `server/serve.py` its **own** assembly path | `D-21` — the standalone property is DEMONSTRATED by two callers sharing one module, not asserted |
 | **`CFT-G15`** | **Each served node carries its FIBO class chain** | serve the tree without type information | §D.2.1 role 2 |
 | **`CFT-G16`** | **Perspective conditions on FIBO class**, not on a hand-written role map | substitute a hand-written role map | §D.2.1 role 3 |
@@ -1983,7 +1983,7 @@ one clarified a criterion's subject.
   The residual gap is **`D-34`** — §F.4 finding 9, **RECORDED, not closed**, and
   criterion 49 is extended to it. §F.4 Conflict 1.
 - **Amendment 2 — the consume path.** `ProductClient(product_id=…, adapter=…)`,
-  the documented constructor at `src/ccf/client/client.py:100`. **The binding
+  the documented constructor at `src/ccf/client/client.py::ProductClient.__init__`. **The binding
   stays SINGLE-STORE and is not widened**; the two-store assembly happens
   **inside the product**. Criterion 34 is clarified: **`CFT-G10` asserts THE
   ASSEMBLY opened both stores, not that the RUNNER did.** Nothing under `src/`

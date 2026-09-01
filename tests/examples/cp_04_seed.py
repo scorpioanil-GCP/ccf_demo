@@ -7,7 +7,7 @@ and pytest collects nothing from it.
 
 ## The collision this exists to prevent
 
-`tests/conftest.py:237-238` makes ``fluree_url`` ``scope="session"`` and
+`tests/conftest.py::fluree_url` makes ``fluree_url`` ``scope="session"`` and
 env-driven: **one server for the whole run**, no per-module container, and no
 analog of the fresh-schema isolation ``postgres_dsn``'s own docstring
 describes. ``postgres_dsn`` is session-scoped too, and says in as many words

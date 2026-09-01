@@ -18,7 +18,7 @@
 # a graph adapter, an example-local function.
 #
 # **`TraversalNeighborhood` IS AN SDK CATEGORY CLASS NAME**
-# (`src/ccf/operators/categories.py:357`), **NOT one of the Standard's eight.**
+# (`src/ccf/operators/categories.py::TraversalNeighborhood`), **NOT one of the Standard's eight.**
 # A step declaring `operator: TraversalNeighborhood` is exactly the vocabulary
 # drift `D-IMPL-223` was minted to prevent: the SDK's FOUR categories are the
 # SCHEDULER — `OperatorCategory` is a plan-order class carrying correctness
