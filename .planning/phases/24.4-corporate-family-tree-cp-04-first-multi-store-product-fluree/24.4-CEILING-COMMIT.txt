@@ -1,0 +1,30 @@
+83953e8dc55d3ef222dc668c2e3f44d6b7a89086
+
+Phase 24.4's pinned diff CEILING — the tip of plan `24.4-13`, and the last
+commit of this phase that built anything.
+
+WHY THERE IS A CEILING AT ALL. `D-IMPL-188` named the defect a ceiling of
+`HEAD` produces: `git diff <base>..HEAD -- src/` required to be empty says two
+things at once — *this phase did not write here*, which is what criterion 49
+commissioned, and *no later phase may ever write here*, which nobody ruled on
+and which no phase boundary could lift. The second claim comes due the moment
+a later SDK phase legitimately edits `src/`. Bounding the window at a pinned
+commit says only the first.
+
+WHY THIS COMMIT. `83953e8` is
+`docs(24.4-13): complete the delivery plan — nine commands run, a snapshot
+that refuses to lie, and a measured mkdocs finding`. Plans 01 through 13 are
+the whole of the phase's construction: the specification, the fixtures, the
+Control Plane documents, the deployment, the projection, the assembler, both
+callers, the MCP door, all sixteen gates, and the delivery. Plan 14 — the
+plan that writes this file — RECORDS and STOPS; it adds a decision entry, this
+test module, a SUMMARY and a STATE line, and touches no source tree at all.
+
+WHAT THIS CEILING THEREFORE DOES NOT COVER, STATED RATHER THAN LEFT TO
+INFERENCE. Plan 14's own commits sit above it. They are enumerated in
+`24.4-14-SUMMARY.md` with their `git diff --name-only` output shown per commit,
+because a window that cannot include its own closing commit has to account for
+the residue somewhere, and the honest place is the phase record rather than a
+test that quietly widens.
+
+READ BY `tests/examples/test_cp_04_phase_record.py::phase_ceiling_commit`.
