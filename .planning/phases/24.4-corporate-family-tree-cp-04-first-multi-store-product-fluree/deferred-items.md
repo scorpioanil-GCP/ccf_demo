@@ -100,8 +100,10 @@ converted to the `path.py::Symbol` form by the Gate 1 FORM amendment and the
 count is now **0** against the ceiling of 0. Re-measured at plan `24.4-08` by
 calling `tests/invariants/test_citation_coverage.py::sweepable_citation_sites`
 directly — the COUNT, not a pass — and **sabotaged**: planting one
-`src/ccf/client/client.py:100` in `examples/cp-04-corporate-family-tree/run.py`
-took it to **1** and turned the test RED, and removing it returned it to **0**.
+line-anchored citation of `src/ccf/client/client.py::ProductClient.__init__` —
+written in the forbidden `path.py` + line-number form — into
+`examples/cp-04-corporate-family-tree/run.py` took the count to **1** and turned
+the test RED, and removing it returned it to **0**.
 A ratchet at zero that has never been watched leave zero is not evidence that it
 runs.
 
