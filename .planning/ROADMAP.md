@@ -58,6 +58,7 @@ and the upgraded examples.
 - [x] **Phase 24.2: The Second Context Product — Counterparty Reference Snapshot, One Store and Five Systems of Record** (INSERTED) - `cp-01`, rung 01 of the vault's ladder and the product every other product resolves identity through. Single STORE (Postgres), **five SYSTEMS OF RECORD**, which is the point rather than an obstacle (`24-CONTEXT.md` `D-29`). Built in the vault's COMPLEXITY order, never readiness order — a proposal to take `obligor-financial-spread` first BECAUSE ITS DATA WAS RICHER was refused (`D-IMPL-219`). *(Checklist row added 2026-08-29: the phase had a detail section and no bullet here, so the checklist skipped from 24.1.1 to 24.3 and read as though 24.2 did not exist.)* *(Ticked 2026-08-31, and **`D-GATE-24.2` APPROVED the same day** — Dave ruled that his inspection and approval IS this phase's success criterion. No close panel ran; the gate says so itself.)*
 - [x] **Phase 24.2.1: Facility Terms Snapshot (cp-02) — built ahead of the close machinery** (INSERTED RETROSPECTIVELY 2026-08-31) - `cp-02`, rung 02 of the vault's ladder. **This phase is a bookkeeping record, not a re-run.** The work was specified, built and documented on 2026-08-29 against NO ROADMAP phase, no success criteria and no gate entry — the only Context Product on the ladder built entirely outside the phase machinery (`D-IMPL-221`). It is numbered here so the phase counters stop reporting a ladder with a hole in it. **`D-GATE-24.2.1` APPROVED** (Dave, 2026-08-31, on inspection of the shipped work, his inspection ruled to be this phase's success criterion). The bullet read *"no `D-GATE` is minted"* for the few hours between the phase being created and that ruling — correct then, because a gate records an approval that happened and none had. **No close panel ran**, so this is not a §3.1-conforming close and the gate entry says so.
 - [x] **Phase 24.3: Credit Spreading — Obligor Financial Spread (cp-03), Gate 2** (INSERTED) - `cp-03`, rung 03 and the LAST of Tier 1, discharging the Gate-1 specification Dave approved 2026-08-29 at `310225b`. Teaches **attribute-level temporal validity** — one freshness per product stops being enough — and demonstrates `basis`, the catalog's first parameter where both settings are correct and the decision picks. **Forty Success Criteria LOCKED before planning** (`D-GATE-19`), **weighted toward the CENSUS rather than the mechanism**: every serious defect found while specifying this product was a measurement defect, four wrong counts before a line of code existed, so criteria 13–18 require each wrong method to produce its specific wrong number AND fail. The Policy OPERATOR is in the plan (`empty-operator-guard`), reading Postgres entitlement and emitting `policy_version` from the Control Plane artifact. **A Fluree policy-version binding was specified in this product and then REMOVED from it entirely** (Dave, 2026-08-30) — this product reads ONE store.
+- [ ] **Phase 24.4: Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal and Ontology, and the Ladder's First MCP Door** (INSERTED) - `cp-04`, rung 04 and the FIRST of Tier 2. The first product that opens more than one store (Fluree for edges and ontology, Postgres for attributes), the first that traverses a graph, the first exercising all four ontology roles, and the first on the ladder reachable over MCP. **Forty-nine Success Criteria LOCKED 2026-08-31 before planning** (`D-GATE-19`), of which seventeen require a named product gate to be **observed RED under a named sabotage** — a gate never seen red is not evidence that it runs. `artifacts/gates.yaml` is the ladder's **first machine-readable gate declaration** (`D-IMPL-224`); the coverage CHECKER and the cp-00/cp-01 backfill are **Phase 24.5**, not this phase. **`D-26`..`D-31` are RECORDED as SDK gaps and NONE is closed** — no file under `src/` is modified (`D-04` of `24-CONTEXT.md`). *(Checklist bullet added 2026-08-31 at planning; the phase had a detail section and no bullet here.)*
 
 ## Phase Details
 
@@ -2853,6 +2854,35 @@ lock at the discuss sitting (`D-GATE-19`)** -- that is the only precondition, an
 the same day, before planning. A gate on
 *"24.3 paused for evaluation"* was written here 2026-08-31 and STRUCK the same day (Dave):
 it named an already-closed subject and could never fire.
+
+**Plans:** 14 plans in 12 waves (planned 2026-08-31). **Wave 2 is Gate 1 and it is a
+BLOCKING HUMAN GATE** — `example_delivery.md` §1's *"No implementation code before Gate 1"*
+is absolute, and plan `24.4-02` does not complete until Dave's approval is recorded in the
+specification itself. **Waves 8, 9 and 10 are serial by construction**: each carries a
+sabotage pass over the shipped product, and parallel sabotage-verifying agents observe each
+other's mutations and read them as tampering. **Wave 12 ends in a PAUSE, not a close** —
+Dave evaluates the built product before any close panel, `D-GATE` or completion mark.
+**Three measured conflicts between the locked criteria and the shipped SDK are Gate 1
+decision items** (criterion 37 against `build_egress_server`'s unconditional resource
+registration; criterion 47 against the in-process transport's `build_governed_resolver`
+path; criterion 43 against the `docs/schemas/` orphan check) — each stated in spec §F.4
+with a proposed reading and an alternative, none resolved by the planner.
+
+Plans:
+- [ ] 24.4-01-PLAN.md — the measurement pass and the committed Fluree + Postgres fixture pair
+- [ ] 24.4-02-PLAN.md — **GATE 1**: CP-SPEC-004 authored to the full Standard, and Dave's approval
+- [ ] 24.4-03-PLAN.md — the Control Plane documents, the five artifacts, and `gates.yaml` under a closed schema
+- [ ] 24.4-04-PLAN.md — the census: criteria 3-13 re-derived at gate time
+- [ ] 24.4-05-PLAN.md — the cycles and all eleven controls: criteria 14-24
+- [ ] 24.4-06-PLAN.md — `deployment.py`: two source reads, normalization, findings, the refusals
+- [ ] 24.4-07-PLAN.md — `produce.py`, `projection.py`, `assembler.py`: the spine and the governed seam
+- [ ] 24.4-08-PLAN.md — `run.py` through `ProductClient`, and the `example-cp-04` target
+- [ ] 24.4-09-PLAN.md — the ladder's first MCP door, and the two-caller equivalence proof
+- [ ] 24.4-10-PLAN.md — gates `CFT-G01`..`G05` and `G17`, each observed RED (serial)
+- [ ] 24.4-11-PLAN.md — gates `CFT-G06`..`G09`, `G15`, `G16`, each observed RED (serial)
+- [ ] 24.4-12-PLAN.md — gates `CFT-G10`..`G14`, each observed RED, and the 17-of-17 roster check (serial)
+- [ ] 24.4-13-PLAN.md — README, `summary_explanations.md`, the documentation page, the mkdocs nav
+- [ ] 24.4-14-PLAN.md — `D-26`..`D-31` recorded, `src/` proven untouched, and the PAUSE for Dave
 
 **Success Criteria** (what must be TRUE) — **LOCKED 2026-08-31, BEFORE PLANNING AND
 BEFORE WAVE 1**, per `D-GATE-19`'s forward binding. Each criterion is ONE LINE: a
