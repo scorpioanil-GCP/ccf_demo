@@ -3,9 +3,25 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-31T23:35:00.000Z"
+last_updated: "2026-09-01T03:35:00.000Z"
 last_activity: >-
-  2026-08-31 -- **PHASE 24.3 IS CLOSED; 24.2 AND 24.2.1 ARE GATED RETROSPECTIVELY; TIER 1 OF
+  2026-09-01 -- **PHASE 24.4 IS EXECUTING.** Criteria LOCKED before planning at `a80c81e`
+  (forty-nine, D-GATE-19). Fourteen plans in twelve waves at `6b752e4`, revised at `f734668`
+  (six plan-check blockers + seven warnings) and `e1c2e47` (role-1 strike folded through).
+  **Ontology role 1 STRUCK and `CFT-G17` WITHDRAWN** (Dave, ruling A, `853ccc9`): the product
+  carries THREE ontology roles and SIXTEEN gates. Two independent blockers, both measured --
+  `D-32` the ESTATE gap (no LEI-bearing anchor reaches a node outside the 7-class profile
+  within depth 3) and `D-33` the MECHANISM gap (`GQ-10` types traversal on EDGES only; no
+  node-class admission filter exists), recorded at `e8cb3c7`. Refused by name: a second anchor
+  whose only class variation is `Guarantor` on the root, a positive-property restatement
+  (tautology over a class-homogeneous population), and projecting `person_role`'s 44
+  `ten_percent_owner` rows onto `owns` -- Dave: *"changing the fixture so a sentence stays
+  true."* SMCI headline untouched: 22 nodes, both cycles, depth 3, ceiling 6, 722 edges.
+  **Wave 2 is Gate 1 and BLOCKS for Dave** (CP-SPEC-004). Wave 12 pauses again.
+  **`state.begin-phase` CORRUPTED STATE.md this session** -- 2517 lines to 1653, 864 lost, while
+  reporting success. Restored byte-identical from a pre-call backup and hand-edited since.
+  Do not call a `state.*` writer on this file without backing it up first.
+  PRIOR: 2026-08-31 -- **PHASE 24.3 IS CLOSED; 24.2 AND 24.2.1 ARE GATED RETROSPECTIVELY; TIER 1 OF
   THE CONTEXT PRODUCT LADDER IS COMPLETE.** `D-GATE-24.3` at `5dfdd8d`; `D-GATE-24.2` and
   `D-GATE-24.2.1` APPROVED on Dave's inspection -- the success criterion was his inspection,
   ruled explicitly. All four rungs closed: cp-00 (24.1/24.1.1), cp-01 (24.2), cp-02 (24.2.1),
