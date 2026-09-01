@@ -932,7 +932,7 @@ def batching_violations(
             f" {len(statements)} statement(s), not 1. A per-node fan-out works"
             " at depth 2 and collapses at depth 4, which is the failure the"
             " whitepaper's DataLoader-style resolution exists to prevent."
-            f" Statements: {[text[:120] for text in statements]}"
+            f" First statements: {[text[:120] for text in statements[:3]]}"
         )
     return violations
 
