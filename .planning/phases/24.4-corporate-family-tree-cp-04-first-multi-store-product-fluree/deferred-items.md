@@ -209,3 +209,84 @@ twenty-member roster, and that the ATTRIBUTE boundary moves the roster and NOT
 the debt — which is the assertion that would go red if anyone quietly folded
 attribute coverage back into `S`. Five sabotages were applied and each observed
 RED. **No new gate id was minted:** the roster's home is `CFT-G09`.
+
+## 7. Criterion 37's amended wording names the wrong LISTING — measured, and it needs Dave
+
+**Found during:** plan `24.4-09`, task 1, driving the shipped door's enumeration
+at an MCP client rather than reading it off the registration call.
+
+**What was measured.** Against the shipped door, `resources/list` returns an
+**EMPTY** list and `resources/templates/list` returns exactly
+`ccf-product://{tenant}/{product_class}/{version}`. The reason is mechanical:
+`runtime/ccf_runtime/mcp/egress.py::PRODUCT_URI_TEMPLATE` carries `{tenant}`,
+`{product_class}` and `{version}` placeholders, so `FastMCP` registers it as a
+resource **TEMPLATE** rather than as a concrete resource.
+
+**Why this matters.** Criterion 37, as amended at Gate 1 (`D-IMPL-225`
+amendment 1), asserts that the resource *"IS registered and enumerable in
+`resources/list`"*. That names the listing the product does not appear in. The
+SDK's own `tests/crossproc/test_mcp_egress.py` drives `read_resource` and
+`call_tool` and **never enumerates either listing**, so the criterion's wording
+was inferred from the `@server.resource` decorator rather than measured at a
+client — the same class of thing the criterion was amended for the first time.
+
+**What does NOT move.** The substance holds in full and `D-34` is unchanged: the
+door advertises the resource's address shape to every client that enumerates,
+cp-04 cannot omit it, `build_egress_server` still cannot be tool-only, and a read
+still refuses with `ProductNotServable` and never a tree.
+`tests/examples/test_cp_04_two_callers.py::listing_violations` asserts **both**
+listings — the template must be there, `resources/list` must stay empty — so
+neither the template disappearing nor a concrete entry appearing goes unseen,
+whichever way the wording is eventually settled.
+
+**Why it is out of scope here:** amending a criterion is Dave's, on the
+`D-IMPL-222` amend-before-execute discipline. It is a **wording** correction to a
+ruled criterion, not a change to what the door does, and nothing in this plan
+proceeds on a reading of its own — the shipped check asserts the measured
+behavior and the divergence is surfaced rather than absorbed.
+
+## 8. `refuse_bound_payload` is not called on either of cp-04's two callers
+
+**Found during:** plan `24.4-09`, task 1, reading
+`runtime/ccf_runtime/mcp/egress.py::ProductResolverProtocol`'s own statement of
+what a resolver must do.
+
+**What it says.** *"A resolver that does not call `refuse_bound_payload` serves
+an unvalidated payload against a schema its own class declared"* — the SDK ships
+the comparison complete and no shipped door invokes it (`D-IMPL-113`,
+`D-IMPL-121`), so it falls to the deployment's resolver.
+
+**Measured:** `examples/cp-04-corporate-family-tree/produce.py` calls
+`refuse_request` and never `refuse_bound_payload`. **Both callers are on
+identical footing** — the in-process caller and the MCP door reach the same
+`assemble_and_serve`, so the door is not the weaker path and this is not a
+door-specific gap.
+
+**Why it is out of scope here:** it would be a change to `produce.py`, which is
+plan `24.4-07`'s file, and it moves what runs on the serving path for **both**
+callers rather than only the one this plan adds. Whether cp-04's three validation
+gates (`run_gates`) already discharge the intent, or whether the declared payload
+schema wants its own comparison, is a question for whoever owns §D.7.
+
+## 9. Through the MCP door, `AssemblyRefused` reaches a client as a server's PROSE
+
+**Found during:** plan `24.4-09`, task 2, exercising the over-ceiling depth and
+the declared-but-inert `as_of` against the shipped door.
+
+**What happens.** `AssemblyRefused` is not in
+`ccf.products.refusal.py::REFUSAL_KINDS`, so there is no envelope for it — the
+gap §F.4 already records for `400 not_supported_at_tier`, met by four rungs in a
+row. At the MCP surface the consequence sharpens: `FastMCP` wraps a raised tool
+exception as `ToolError: Error executing tool <name>: <message>` and delivers it
+`isError=True` with that prose prefix, so a client wanting the governed reason
+has to **string-parse a server's wording**. Measured, the refusals arrive intact
+and readable — `400 not_supported_at_tier …` and `400 max_depth=7 is outside the
+declared bounds 1..6 … never clamped` — but as text rather than as a typed
+verdict.
+
+**Why it is out of scope here:** widening `REFUSAL_KINDS` is `src/` work and
+criterion 49 forbids it in this phase. Recorded under the same `D-04` posture as
+`D-26`..`D-36`: this phase pressure-tests the SDK and records the pressure.
+Nothing is papered over — `server/compose.py`'s docstring states that the
+refusal propagates and why, and the two-caller module asserts the refusals by
+their declared text rather than by the fact that something raised.
