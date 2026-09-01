@@ -1,0 +1,68 @@
+# cp-04's egress door — the values `serve.py` interprets and never spells.
+#
+# `build_egress_server` requires four governance seams and has no inert
+# configuration: a bearer-token verifier, its auth settings, a per-principal
+# entitlement source, and a perspective resolver. Every VALUE those seams need
+# is here rather than in `serve.py`, which is the No-Hardcoding Rule
+# (CLAUDE.md §6.4) applied to a security surface. `hw1-companies-over-revenue`
+# declares the same four in its own `server/egress-door.yaml`; this is that
+# pattern, one example over, and the first time any `cp-*` rung has needed it.
+#
+# **This is deployment-environment material, not a Control Plane artifact** —
+# the same posture `../backends.yaml` carries and for the same reason
+# (`D-IMPL-141`): endpoints and a scope are wiring, they are not registered,
+# not content-hashed, and they never reach Decision Replay dimension 2. So this
+# file has no `semver:` and no `class_id:`, and it does NOT live under
+# `../artifacts/` — a document that carried either would be claiming an
+# audit-plane identity it does not have.
+#
+# **What is deliberately NOT declared here.**
+#
+# * The *tenant*, the *principal* and the *role*. All three are already in
+#   `../ccf_config.yaml` — `tenant_id:` and `default_perspective:` — the
+#   documents that say who this fabric assembles as and in what capacity.
+#   Restating any of them here would be two declarations of one fact, and the
+#   copy that drifted would be the one nobody was watching.
+# * The *product class* and its version lane. Both come off the class this
+#   deployment actually registered, so an entitlement cannot name a class this
+#   deployment does not serve.
+# * The *anchor* and the *depth*. Those are the CALLER's, supplied per ask on
+#   the tool (`D-19`). A door that declared either would be answering a
+#   question of its own.
+# * Any token VALUE. `serve.py` mints a throwaway credential per boot into a
+#   temporary directory that is deleted on exit. A token in a repository is a
+#   token in every clone of it.
+#
+# Every URL below is OBVIOUSLY SYNTHETIC — `.invalid` is reserved by RFC 2606
+# and resolves nowhere. Over stdio they are inert (see `serve.py`'s docstring);
+# they are stated because the builder requires them together (`D-03`) and
+# because the same deployment is reachable over HTTP with them in force.
+
+# The prose this deployment's product tool advertises to a client that lists
+# it. A domain value the SDK holds no default for.
+#
+# It names the two arguments the CALLER supplies, because a tool whose
+# description did not would leave a consumer to discover the request surface by
+# failing against it — and because `CFT-G13`'s third limb is precisely that the
+# tool takes a client-supplied anchor and depth while the resource takes
+# neither.
+tool_description: >-
+  Walk one corporate family from an anchor LEI and return the tree, every
+  node's FIBO class chain, and the cycles it contains as findings — as a
+  governed, content-addressed Context Product. The caller supplies the anchor
+  (`lei`) and how many hops of the family NEIGHBORHOOD to walk (`max_depth`,
+  within the declared bounds; above the ceiling is refused by name and never
+  clamped). The product RESOURCE beside this tool is registered and enumerable
+  and REFUSES: this class is parameterized and there is no standing,
+  parameter-free answer for a resource read to serve.
+
+# The scope this door requires of a presented token. FastMCP intersects it with
+# the scopes the token grant carries, so both halves of the coarse
+# authorization decision stay with the deployment.
+required_scope: ccf:egress
+
+# The resource-server identity this door advertises, and the issuer it names as
+# the authority for tokens. Deployment values in their entirety — the SDK ships
+# no issuer and would be picking an identity provider if it did.
+issuer_url: https://issuer.cp-04.invalid
+resource_server_url: https://egress.cp-04.invalid/mcp
