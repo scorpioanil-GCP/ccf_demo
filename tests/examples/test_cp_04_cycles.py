@@ -680,3 +680,210 @@ def test_the_two_circuits_class_chains_differ_and_no_member_carries_an_lei(
         f"the second circuit's shared chain holds {len(second)} classes,"
         f" declared {expected['cycle_2_type_chain_length']}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Criterion 19 — the headline negative, on production data.
+# ---------------------------------------------------------------------------
+
+
+def test_the_anchor_over_the_consolidation_predicate_alone_yields_no_finding(
+    estate: Estate,
+) -> None:
+    """Criterion 19, from the SHIPPED detector over a walk that finds something.
+
+    **THE CONTROL IS PRODUCTION DATA, NOT A SYNTHETIC DAG** — `D-14` requires
+    it, and the point is lost if the walk is empty. The measurement pass
+    recorded a correction here rather than smoothing it: an earlier draft
+    asserted the anchor had NO edge under this predicate, which would have made
+    this an empty walk asserting no circuit — a control that cannot fail. So the
+    walk's reach is asserted against the artifact's declared per-predicate child
+    count FIRST, and the silence is only meaningful afterwards.
+
+    The predicate named at the top of this module is pinned here as well: it
+    must be one the deployment declares, it must be one of the acyclic five, and
+    the anchor's walk over it must reach what the artifact declares for THAT
+    key. A misnamed predicate fails all three.
+    """
+    deployment = _load("deployment")
+    expected = declared()
+    predicates = deployment.family_predicate_iris()
+    assert CONSOLIDATION_PREDICATE in predicates, (
+        f"{CONSOLIDATION_PREDICATE!r} is not one of the predicates the"
+        f" deployment declares: {sorted(predicates)}"
+    )
+    assert CONSOLIDATION_PREDICATE in acyclic_roster(), (
+        f"{CONSOLIDATION_PREDICATE!r} is not among the acyclic predicates"
+        f" {acyclic_roster()}, so a silence over it would prove nothing"
+    )
+    anchor = deployment.resolve_anchor(
+        deployment.demonstration_anchor(), source=estate.graph
+    )
+    assert anchor == expected["anchor"]["uri"], (
+        f"the declared anchor LEI resolves to {anchor!r}, declared"
+        f" {expected['anchor']['uri']!r}"
+    )
+    alone = deployment.normalize_edges(
+        [
+            triple
+            for triple in estate.triples
+            if triple.predicate == CONSOLIDATION_PREDICATE
+        ]
+    )
+    reached = alone.reach(anchor, depth_limit=len(alone.nodes))
+    beyond = sorted(short(node) for node in reached if node != anchor)
+    assert len(beyond) == expected["anchor_children_by_predicate"][
+        CONSOLIDATION_PREDICATE
+    ], (
+        f"the anchor's walk over {CONSOLIDATION_PREDICATE!r} alone reaches"
+        f" {beyond} beyond itself, declared"
+        f" {expected['anchor_children_by_predicate'][CONSOLIDATION_PREDICATE]}"
+        " children. An empty walk here would assert no circuit over no edges,"
+        " which is a control that cannot fail."
+    )
+    walked = deployment.FamilyEdges(
+        by_pair={
+            (parent, child): names
+            for (parent, child), names in alone.by_pair.items()
+            if parent in reached and child in reached
+        }
+    )
+    findings = deployment.detect_cycles(walked)
+    assert findings == (), (
+        f"the shipped detector reports {[[short(m) for m in f.members] for f in findings]}"
+        f" from the anchor over {CONSOLIDATION_PREDICATE!r} alone, and the"
+        " criterion is that it yields none"
+    )
+    assert [
+        finding
+        for finding in findings
+        if finding.type == deployment.FINDING_OWNERSHIP_CYCLE
+    ] == [], (
+        f"an {deployment.FINDING_OWNERSHIP_CYCLE} finding reached the consumer"
+        " from a walk the criterion declares free of them"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Criterion 20 — five predicates, five separate controls, and a planted circuit.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("predicate", acyclic_roster())
+def test_each_acyclic_predicate_is_its_own_negative_control(
+    estate: Estate, predicate: str
+) -> None:
+    """Criterion 20, one test per predicate and never one summing five.
+
+    A sum can hide which predicate misbehaved, and a detector that fires on
+    everything must be DETECTED rather than pass quietly. Each control names its
+    predicate in its own failure message and runs over the SHIPPED
+    normalization of that predicate's own triples.
+
+    Each control also asserts the population it ran over is non-empty. A
+    predicate contributing no edge would yield no circuit for a reason that has
+    nothing to do with the predicate being acyclic.
+    """
+    deployment = _load("deployment")
+    expected = declared()["family_predicate_triples"]
+    alone = deployment.normalize_edges(
+        [triple for triple in estate.triples if triple.predicate == predicate]
+    )
+    assert len(alone.by_pair) == expected[predicate], (
+        f"{predicate!r} normalizes to {len(alone.by_pair)} edges, and the"
+        f" artifact declares {expected[predicate]} triples for it. A control"
+        " over an empty edge set is a control that cannot fail."
+    )
+    findings = deployment.detect_cycles(alone)
+    assert findings == (), (
+        f"{predicate!r} alone yields"
+        f" {[[short(m) for m in f.members] for f in findings]}, and the"
+        " criterion is that each of the acyclic predicates yields none"
+    )
+
+
+def test_the_acyclic_controls_are_the_declared_roster() -> None:
+    """The five are a ROSTER derived from the declaration, never a count.
+
+    A right count with a wrong member audits clean forever. The roster is the
+    declared family predicates less the one both circuits attribute to, and it
+    is compared against the parametrization this module actually ran — so a
+    predicate that quietly stopped being controlled is visible.
+    """
+    deployment = _load("deployment")
+    attributed = declared()["cycle_1"]["predicate"]
+    assert set(predicate_roster()) == set(deployment.family_predicate_iris()), (
+        f"the artifact's census names {sorted(predicate_roster())} and the"
+        f" deployment reads {sorted(deployment.family_predicate_iris())}; the"
+        " acyclic roster below would be derived from the wrong population"
+    )
+    assert set(acyclic_roster()) == set(predicate_roster()) - {attributed}, (
+        f"the acyclic roster is {acyclic_roster()}, which is not the declared"
+        f" family predicates less {attributed!r}"
+    )
+    assert attributed not in acyclic_roster(), (
+        f"{attributed!r} is being run as an acyclic negative control, and both"
+        " circuits attribute to it"
+    )
+
+
+def test_the_predicate_the_circuits_attribute_to_is_not_silent(
+    estate: Estate,
+) -> None:
+    """The positive control the five silences need to be worth anything.
+
+    Five predicates yielding nothing is evidence only if the same machinery,
+    over the same estate, still yields something where something exists. So the
+    predicate both circuits attribute to is run ALONE through the identical
+    path, and is required to reproduce both rosters exactly.
+    """
+    deployment = _load("deployment")
+    attributed = declared()["cycle_1"]["predicate"]
+    alone = deployment.normalize_edges(
+        [triple for triple in estate.triples if triple.predicate == attributed]
+    )
+    findings = deployment.detect_cycles(alone)
+    rosters = [[short(member) for member in finding.members] for finding in findings]
+    assert rosters == [
+        list(declared()["cycle_1"]["members"]),
+        list(declared()["cycle_2"]["members"]),
+    ], (
+        f"{attributed!r} alone yields {rosters}, and the declaration is both"
+        " circuits. If this is empty while the five acyclic controls are also"
+        " empty, the detector is inert rather than discriminating."
+    )
+
+
+@pytest.mark.parametrize("predicate", acyclic_roster())
+def test_a_planted_circuit_makes_the_detector_fire(
+    estate: Estate, predicate: str
+) -> None:
+    """The discrimination proof for criterion 20's five silences.
+
+    A detector silent on five predicates AND silent on a planted circuit has
+    proven nothing. So each acyclic predicate's edge set is copied, its
+    lexicographically smallest edge is REVERSED into it, and the SHIPPED
+    detector is required to fire on the result and to report the planted circuit
+    by roster. The plant is derived from the estate's own edges rather than
+    authored, so no node name enters this module.
+    """
+    deployment = _load("deployment")
+    alone = deployment.normalize_edges(
+        [triple for triple in estate.triples if triple.predicate == predicate]
+    )
+    parent, child = min(alone.by_pair)
+    planted = dict(alone.by_pair)
+    planted[(child, parent)] = frozenset()
+    findings = deployment.detect_cycles(deployment.FamilyEdges(by_pair=planted))
+    assert findings, (
+        f"a circuit planted into {predicate!r} by reversing"
+        f" {short(parent)} -> {short(child)} produced NO finding. The silence"
+        " this predicate's negative control reports is therefore inertness"
+        " rather than discrimination, and proves nothing."
+    )
+    rosters = [tuple(sorted(finding.members)) for finding in findings]
+    assert tuple(sorted((parent, child))) in rosters, (
+        f"the detector fired on the planted {predicate!r} edge set but did not"
+        f" report the planted pair {short(parent), short(child)}; it reported"
+        f" {[[short(m) for m in f.members] for f in findings]}"
+    )
