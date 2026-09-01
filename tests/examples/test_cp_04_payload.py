@@ -20,6 +20,22 @@ evidence that the thing you sabotaged is what produced the difference.** Every
 gate below therefore asserts CONTENT — a roster, a member set, a served value —
 and never an address, a length or a word the product uses about itself.
 
+**AMENDED 2026-09-01 (Dave), FOR ONE LIMB OF ONE GATE.** The sentence above is
+preserved because it is the reason the exception is narrow, and it is stricken
+only for `CFT-G16`'s pinned-address limb. Dave, at the build evaluation: *"Keep
+both addresses and the 22→0 detailed count in the expected block / README so a
+later 'role is cosmetic' regression cannot hide behind a still-green tree of
+22."* **The reason a content assertion cannot reach this one:** the two declared
+roles are served the SAME 22 members by design, so every roster in this module —
+`CFT-G09`'s twenty, criterion 10's pair, `CFT-G15`'s chains, and `CFT-G16`'s own
+first limb — is UNMOVED when the role stops conditioning anything. The seal and
+the detailed count are the only declared figures that move. **What keeps the limb
+an assertion about content rather than about an address:** the addresses are
+pinned EXACTLY, one per role, in `artifacts/expected.yaml`. A *"the two addresses
+differ"* check would be the `CFT-G05` defect again — ``perspective_role`` is
+echoed into the sealed payload, so two addresses appear even when the role is
+read for its name and never for its meaning.
+
 ## Rosters, never counts
 
 `D-13`: a right count with a wrong member audits clean forever. Criterion 23's
@@ -41,7 +57,14 @@ payload, with the measured reason), `census.anchor` (the seven-class chain),
 `census.duplicate_entity_pair` (both names and which one carries the LEI),
 `unresolved_subtree_members` (the twenty with no PostgreSQL row) and
 `perspective_detailed_members` with `perspective_discriminating_class` (the two
-roles' views and the class that explains the difference).
+roles' views and the class that explains the difference) and
+`perspective_content_addresses` (the address each role's whole served vessel
+seals to). The declared 22-member family roster is not a key of its own: it is
+DERIVED from `unresolved_subtree_members` and
+`census.anchor_subtree_store_split.the_two_resolving`, and
+:func:`declared_family_roster` asserts that the derivation still totals the
+`census.anchor_subtree.reachable_nodes` the same document declares, so a
+shrunken declaration is a failure rather than a smaller expectation.
 
 **The one figure NOT read from that document is the refused parameter's name and
 its declared reason** — `as_of` and `not_supported_at_tier`. Those are
@@ -228,6 +251,52 @@ def declared_unresolved_members() -> tuple[str, ...]:
     fill-from-anchor rule — while this roster collapses from twenty to nothing.
     """
     return tuple(str(name) for name in declared()["unresolved_subtree_members"])
+
+
+def declared_addresses() -> Mapping[str, str]:
+    """The content address `artifacts/expected.yaml` pins for each declared role.
+
+    Appended to that document on 2026-09-01 under `D-IMPL-233` precisely so
+    `CFT-G16`'s pinned-address limb has a source OTHER THAN THIS FILE. **A hash
+    written into a test module can be "corrected" in one edit beside the change
+    that moved it** — a regression and its own repair arriving in one commit,
+    reviewed as a refreshed transcript. A hash in the reviewed artifact cannot
+    be: that document derives nothing from a run and says so in its own header,
+    so moving it is an edit to a reviewed expectation.
+    """
+    return {
+        str(role): str(address)
+        for role, address in declared()["perspective_content_addresses"].items()
+    }
+
+
+def declared_family_roster() -> tuple[str, ...]:
+    """The members this family serves, as a ROSTER, derived from two blocks.
+
+    `D-13`: a right count with a wrong member audits clean forever, so what the
+    two views are compared against is NAMES. `expected.yaml` declares the family
+    in two halves rather than as one list — the members that resolve to no
+    `legal_entity` row, and the ones that do — and the union is taken here
+    rather than authored, because a third place for the same names would be a
+    third place for them to be wrong.
+
+    The union is checked against `census.anchor_subtree.reachable_nodes` from
+    that same document, so a declaration that lost a member fails here rather
+    than quietly shrinking what `CFT-G16` compares against.
+    """
+    roster = set(declared_unresolved_members())
+    roster |= {
+        str(row["uri"])
+        for row in census("anchor_subtree_store_split")["the_two_resolving"]
+    }
+    reachable = int(census("anchor_subtree")["reachable_nodes"])
+    assert len(roster) == reachable, (
+        f"expected.yaml's two halves of the served family total {len(roster)}"
+        f" distinct members where census.anchor_subtree declares {reachable}"
+        " reachable. The roster CFT-G16 compares against is derived from those"
+        " halves, so a disagreement would silently shrink the comparison"
+    )
+    return tuple(sorted(roster))
 
 
 # ---------------------------------------------------------------------------
@@ -1662,6 +1731,110 @@ def mutation_violations(
     return violations
 
 
+def pinned_perspective_violations(
+    *,
+    views: Mapping[str, Asked],
+    pinned_addresses: Mapping[str, str],
+    declared_detailed: Mapping[str, int],
+    declared_roles: Sequence[str],
+    declared_roster: Sequence[str],
+) -> list[str]:
+    """Every way the two roles fail their PINNED figures — `CFT-G16` limb 4.
+
+    **The limb exists because no roster in this suite can see a cosmetic role.**
+    Both declared roles are served the SAME family — the product's own claim,
+    asserted by limb one — so a projection that stopped conditioning on anything
+    leaves `CFT-G09`'s twenty intact, criterion 10's pair intact, every served
+    chain intact and the tree at twenty-two. Dave named the consequence at the
+    build evaluation: a later *"role is cosmetic"* regression *"cannot hide
+    behind a still-green tree of 22"*, so the two things that DO move are pinned
+    and read from `artifacts/expected.yaml`.
+
+    **Four limbs, and the first two are about the DECLARATION rather than about
+    the product.** A check that reads its expectation from a file is only as
+    strong as the file: a pin that named one role, or named both roles with one
+    address, would be satisfiable by a product serving a single view under two
+    names. So the pinned roster is required to be exactly the roles the
+    deployment declares, and the two pinned addresses are required to DIFFER —
+    both read from the artifact, neither authored here.
+
+    **Limb three is the seal, pinned EXACTLY and never compared role-to-role.**
+    ``perspective_role`` is echoed into the sealed payload, so two roles produce
+    two addresses whether or not either address means anything — the same shape
+    that let `CFT-G05` pass its own first sabotage on ``max_depth_applied``. An
+    exact pin has no such hiding place: a role read for its name and not for its
+    meaning moves one of the two values off what the artifact declares.
+
+    **Limb four is the detailed COUNT beside the roster, deliberately.** The
+    roster comparison lives in :func:`conditioning_violations`, where the served
+    detail is checked member by member; what is added here is the figure Dave
+    named — twenty-two and zero — because it is the number a reader of the
+    README and the artifact holds, and a count that silently disagreed with the
+    document those two are read from would leave three records of one fact with
+    no check between them. The count is asserted BESIDE the roster and never
+    instead of it (`D-13`).
+    """
+    violations: list[str] = []
+
+    pinned_roles = set(pinned_addresses)
+    want_roles = {str(role) for role in declared_roles}
+    if pinned_roles != want_roles:
+        violations.append(
+            f"CFT-G16: expected.yaml pins addresses for {sorted(pinned_roles)}"
+            f" where the deployment declares the roles {sorted(want_roles)}. A"
+            " role with no pin is a role this limb cannot fail on, and a pin"
+            " for a role nobody declares is an expectation nothing produces"
+        )
+    if len(set(pinned_addresses.values())) != len(pinned_addresses):
+        violations.append(
+            f"CFT-G16: expected.yaml pins {sorted(set(pinned_addresses.values()))}"
+            f" across {len(pinned_addresses)} declared roles — one address"
+            " written more than once. Two roles pinned to one seal are"
+            " satisfied by a product serving one view under two names, which is"
+            " the regression this limb exists to catch"
+        )
+
+    want_roster = tuple(sorted(str(name) for name in declared_roster))
+    for role, view in sorted(views.items()):
+        if view.payload is None:
+            violations.append(
+                f"CFT-G16: the ask under role {role!r} was refused —"
+                f" {view.refusal!r}, so it has no seal to compare"
+            )
+            continue
+
+        if view.roster != want_roster:
+            violations.append(
+                f"CFT-G16: role {role!r} was served"
+                f" {sorted(set(view.roster) ^ set(want_roster))} in symmetric"
+                " difference with the family expected.yaml declares. The seal"
+                " below is pinned against THAT family, so a moved roster would"
+                " make a moved address say nothing about the role"
+            )
+
+        pinned = pinned_addresses.get(role)
+        if pinned is not None and view.content_address != pinned:
+            violations.append(
+                f"CFT-G16: role {role!r} sealed to {view.content_address!r}"
+                f" where expected.yaml pins {pinned!r}. The two roles are served"
+                " the same family, so no member roster in this suite moves when"
+                " a role stops conditioning anything — this seal and the"
+                " detailed count beside it are the only declared figures that"
+                " can, which is why they are pinned"
+            )
+
+        detailed = detailed_roster(view)
+        want_count = int(declared_detailed[role])
+        if len(detailed) != want_count:
+            violations.append(
+                f"CFT-G16: role {role!r} was shown detail for {len(detailed)}"
+                f" members where expected.yaml declares {want_count}. The count"
+                " is asserted beside the roster and never instead of it, but it"
+                " is the figure the README and the artifact both carry"
+            )
+    return violations
+
+
 @pytest.fixture(scope="module")
 def views(estate: tuple[str, str]) -> Mapping[str, Asked]:
     """One ask per declared role, over the SAME family at the same depth."""
@@ -1702,14 +1875,18 @@ def test_cft_g16_perspective_conditions_on_fibo_class(
 ) -> None:
     """`CFT-G16` (criterion 40). The perspective conditions on FIBO class.
 
-    Three limbs. Two declared perspectives over the SAME family serve the same
+    Four limbs. Two declared perspectives over the SAME family serve the same
     members and DIFFERENT detail; the class that explains the difference is
-    NAMED and is the one `expected.yaml` declares; and — the limb a role map
-    cannot survive — stripping that class from ONE member's chain moves that
-    member in BOTH views, in opposite directions.
+    NAMED and is the one `expected.yaml` declares; stripping that class from ONE
+    member's chain moves that member in BOTH views, in opposite directions — the
+    limb a role map cannot survive; and each role's whole served vessel seals to
+    the address `expected.yaml` PINS for it, with the detailed count beside it.
 
-    Sabotaged by substituting a hand-written role map, which produces the SAME
-    served outcome and fails the third limb.
+    Sabotaged two ways. A hand-written role map produces the SAME served outcome
+    and fails the third limb. A projection that ignores the requested role
+    altogether — the *"role is cosmetic"* regression — leaves the served family
+    at twenty-two under both roles and every member roster in this suite green,
+    and fails the fourth.
     """
     deployment = _load("deployment")
     declared_detailed = {
@@ -1735,6 +1912,13 @@ def test_cft_g16_perspective_conditions_on_fibo_class(
         target=target,
         detailing_role=detailing,
         other_role=other,
+    )
+    violations += pinned_perspective_violations(
+        views=views,
+        pinned_addresses=declared_addresses(),
+        declared_detailed=declared_detailed,
+        declared_roles=deployment.declared_roles(),
+        declared_roster=declared_family_roster(),
     )
     assert not violations, "CFT-G16 failed:\n" + "\n".join(violations)
 
@@ -1884,6 +2068,209 @@ def test_the_mutation_check_refuses_a_member_that_moved_in_only_one_view() -> No
     )
     assert violations, "a member that left one view and entered neither was accepted"
     assert any("in opposite directions" in entry for entry in violations), violations
+
+
+def _pinned_subject(
+    *, roles: Sequence[str], addresses: Mapping[str, str], detailed: Mapping[str, int]
+) -> Mapping[str, Asked]:
+    """Two views over the declared family, seals and detail supplied by a caller.
+
+    Built from `expected.yaml`'s own roster so a control cannot pass by asking
+    about a family the product does not serve. The controls below hand this to
+    the SHIPPED :func:`pinned_perspective_violations` and watch it refuse.
+    """
+    roster = declared_family_roster()
+    return {
+        str(role): Asked(
+            asked_as=str(role),
+            payload={
+                "nodes": [
+                    {"uri": f"http://example.org/fibo/{name}"} for name in roster
+                ],
+                "detailed_members": [
+                    f"http://example.org/fibo/{name}"
+                    for name in roster[: int(detailed[str(role)])]
+                ],
+            },
+            content_address=addresses[str(role)],
+            refusal=None,
+            observed=("Assembled",),
+            served_vessels=("Assembled",),
+        )
+        for role in roles
+    }
+
+
+def test_the_pinned_check_refuses_a_seal_that_moved() -> None:
+    """**Positive control.** The regression Dave named, at the seal.
+
+    The family is the declared twenty-two under both roles, every member roster
+    is intact, and one role's seal is not the pinned one. Nothing else moved,
+    which is the whole reason this limb exists.
+    """
+    pinned = declared_addresses()
+    roles = sorted(pinned)
+    detailed = {
+        str(role): int(value)
+        for role, value in declared()["perspective_detailed_members"].items()
+    }
+    moved = dict(pinned)
+    moved[roles[0]] = "0" * len(pinned[roles[0]])
+    violations = pinned_perspective_violations(
+        views=_pinned_subject(roles=roles, addresses=moved, detailed=detailed),
+        pinned_addresses=pinned,
+        declared_detailed=detailed,
+        declared_roles=roles,
+        declared_roster=declared_family_roster(),
+    )
+    assert violations, "a seal that moved off its pin was reported as pinned"
+    assert any("where expected.yaml pins" in entry for entry in violations), violations
+    assert not any("symmetric difference" in entry for entry in violations), (
+        "the served family moved too, so this control is not isolating the seal:"
+        f" {violations}"
+    )
+
+
+def test_the_pinned_check_refuses_two_roles_pinned_to_one_address() -> None:
+    """**Positive control, on the DECLARATION.** One seal written twice.
+
+    A pin is only as strong as the document it is read from. Two roles pinned to
+    one address is satisfied by a product serving a single view under two names,
+    which is precisely the regression the limb is for — so the collision is
+    refused rather than trusted.
+    """
+    pinned = declared_addresses()
+    roles = sorted(pinned)
+    detailed = {
+        str(role): int(value)
+        for role, value in declared()["perspective_detailed_members"].items()
+    }
+    collided = {role: pinned[roles[0]] for role in roles}
+    violations = pinned_perspective_violations(
+        views=_pinned_subject(roles=roles, addresses=collided, detailed=detailed),
+        pinned_addresses=collided,
+        declared_detailed=detailed,
+        declared_roles=roles,
+        declared_roster=declared_family_roster(),
+    )
+    assert violations, "one address written twice was accepted as two pins"
+    assert any("written more than once" in entry for entry in violations), violations
+
+
+def test_the_pinned_check_refuses_a_pin_that_misses_a_declared_role() -> None:
+    """**Positive control, on the DECLARATION.** A role with no pin cannot fail."""
+    pinned = declared_addresses()
+    roles = sorted(pinned)
+    detailed = {
+        str(role): int(value)
+        for role, value in declared()["perspective_detailed_members"].items()
+    }
+    short = {roles[0]: pinned[roles[0]]}
+    violations = pinned_perspective_violations(
+        views=_pinned_subject(roles=roles, addresses=pinned, detailed=detailed),
+        pinned_addresses=short,
+        declared_detailed=detailed,
+        declared_roles=roles,
+        declared_roster=declared_family_roster(),
+    )
+    assert violations, "a pin covering one of two declared roles was accepted"
+    assert any("where the deployment declares" in entry for entry in violations), (
+        violations
+    )
+
+
+def test_the_pinned_check_refuses_a_detailed_count_that_left_the_document() -> None:
+    """**Positive control.** Both seals pinned, the detailed count moved.
+
+    The count and the seal are separate limbs because they fail separately: a
+    product can serve the pinned bytes under one role while the other role's
+    detail has drifted off what the README and the artifact both publish.
+    """
+    pinned = declared_addresses()
+    roles = sorted(pinned)
+    detailed = {
+        str(role): int(value)
+        for role, value in declared()["perspective_detailed_members"].items()
+    }
+    served_detail = dict(detailed)
+    detailing = max(detailed, key=lambda role: detailed[role])
+    served_detail[detailing] = detailed[detailing] - 1
+    violations = pinned_perspective_violations(
+        views=_pinned_subject(roles=roles, addresses=pinned, detailed=served_detail),
+        pinned_addresses=pinned,
+        declared_detailed=detailed,
+        declared_roles=roles,
+        declared_roster=declared_family_roster(),
+    )
+    assert violations, "a detailed count that left the document was accepted"
+    assert any("was shown detail for" in entry for entry in violations), violations
+    assert not any("where expected.yaml pins" in entry for entry in violations), (
+        "the seal moved too, so this control is not isolating the count:"
+        f" {violations}"
+    )
+
+
+def test_the_pinned_check_refuses_a_family_that_is_not_the_declared_one() -> None:
+    """**Positive control.** A moved seal over a moved family says nothing.
+
+    The seal is pinned against the family `expected.yaml` declares. If the served
+    roster is not that family, a difference in the address is not evidence about
+    the role — so the roster is checked first and named in its own violation.
+    """
+    pinned = declared_addresses()
+    roles = sorted(pinned)
+    detailed = {
+        str(role): int(value)
+        for role, value in declared()["perspective_detailed_members"].items()
+    }
+    subject = _pinned_subject(roles=roles, addresses=pinned, detailed=detailed)
+    thinned = {
+        role: Asked(
+            asked_as=view.asked_as,
+            payload={
+                "nodes": list(view.nodes)[:-1],
+                "detailed_members": list(view.payload["detailed_members"]),
+            },
+            content_address=view.content_address,
+            refusal=None,
+            observed=view.observed,
+            served_vessels=view.served_vessels,
+        )
+        for role, view in subject.items()
+        if view.payload is not None
+    }
+    violations = pinned_perspective_violations(
+        views=thinned,
+        pinned_addresses=pinned,
+        declared_detailed=detailed,
+        declared_roles=roles,
+        declared_roster=declared_family_roster(),
+    )
+    assert violations, "a family missing a member was compared as the declared one"
+    assert any("symmetric difference" in entry for entry in violations), violations
+
+
+def test_the_pinned_check_accepts_the_declared_figures() -> None:
+    """**Negative control.** The check is not one that refuses everything.
+
+    Handed the declared roles, the declared family, the pinned seals and the
+    declared detail, it must find nothing — otherwise the five controls above
+    would be watching a check that cannot pass rather than a check that can fail.
+    """
+    pinned = declared_addresses()
+    roles = sorted(pinned)
+    detailed = {
+        str(role): int(value)
+        for role, value in declared()["perspective_detailed_members"].items()
+    }
+    violations = pinned_perspective_violations(
+        views=_pinned_subject(roles=roles, addresses=pinned, detailed=detailed),
+        pinned_addresses=pinned,
+        declared_detailed=detailed,
+        declared_roles=roles,
+        declared_roster=declared_family_roster(),
+    )
+    assert not violations, violations
 
 
 def test_no_role_to_entity_mapping_exists_anywhere_in_the_example() -> None:
