@@ -46,6 +46,23 @@ parent→child tree gives 20 / 21 / 22 — the one divergent node arrives at dep
 through cycle 1's closing edge. Everything demonstrated sits at the declared
 default, where the two agree.
 
+**`--role` SHIPS BECAUSE IT WAS MEASURED TO CHANGE WHAT IS SEALED, AND THAT IS
+THE ONLY REASON IT SHIPS** (`D-IMPL-231` part 3). Dave: *"A flag that changes
+nothing is `D-IMPL-228` again"* — the nine-row fiction in argv form — and *"don't
+leave a switch that cannot fail."* So the test was the **content address**, not
+a field or an ordering: two roles that sealed identically would have changed
+nothing that survives. Measured against the estate at the demonstration anchor
+and the declared default depth, `credit-officer` seals to
+`205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498` with 22
+members detailed and `kyc-analyst` to
+`838afbb037a8ca820a2854b1ac7eedd296262508ce00d747369bf48ee6077ea8` with 0. The
+measurement is a standing check —
+`tests/examples/test_cp_04_two_callers.py::test_the_two_declared_roles_seal_to_different_content_addresses`
+— rather than a figure in this docstring, so a build in which the two roles
+converge goes red rather than leaving this paragraph lying. **`--principal` is
+still NOT shipped**, on exactly the same rule and for want of exactly the same
+measurement (§B.2's `[TBC — identity and access]`).
+
 **`--asked-at` PINS THE TRANSCRIPT.** The demonstrated run assembles over the
 instant `artifacts/question.yaml` names, so the printed output reproduces against
 a quiescent ledger for that run. A reader whose numbers differ has RE-DERIVED,
