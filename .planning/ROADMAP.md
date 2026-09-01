@@ -2855,7 +2855,11 @@ the same day, before planning. A gate on
 *"24.3 paused for evaluation"* was written here 2026-08-31 and STRUCK the same day (Dave):
 it named an already-closed subject and could never fire.
 
-**Plans:** 14 plans in 12 waves (planned 2026-08-31). **Wave 2 is Gate 1 and it is a
+**Plans:** 14 plans in 12 waves (planned 2026-08-31; re-waved 2026-08-31 at plan-check —
+`24.4-05` moved from wave 4 to wave 5 and now depends on `24.4-06`, because plan `24.4-06`
+task 2 is where the shipped cycle detector and the shipped normalization are built and
+criteria 19 and 21 are statements about the SHIPPED artifact, not about a test-local copy;
+the wave COUNT is unchanged). **Wave 2 is Gate 1 and it is a
 BLOCKING HUMAN GATE** — `example_delivery.md` §1's *"No implementation code before Gate 1"*
 is absolute, and plan `24.4-02` does not complete until Dave's approval is recorded in the
 specification itself. **Waves 8, 9 and 10 are serial by construction**: each carries a
