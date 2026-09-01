@@ -727,7 +727,13 @@ declaration:
         substitute a hand-written role map. The word "class" appears in BOTH a
         class-conditioned projection and a role map keyed by class name, so a
         check reading for that token would be green against both — the gate must
-        read what the projection DID, never what it is called.
+        read what the projection DID, never what it is called. AND, DECLARED
+        2026-09-01 under `D-IMPL-233`, a second sabotage against the fourth
+        limb: make the role COSMETIC. Two shapes, both watched — the projection
+        ignores the requested role, and the role's SUPPRESSION stops applying
+        while its detailed roster stays exactly right. Both leave the served
+        family at the declared twenty-two under both roles, so every member
+        roster in this suite stays green; what moves is the pinned seal.
       observed_red:
         result: >-
           RED, under its own id — on the MUTATION limb ONLY, exactly as this
@@ -763,5 +769,47 @@ declaration:
           the sabotage edits
           `examples/cp-04-corporate-family-tree/projection.py`. Two
           different files.
+
+          APPENDED 2026-09-01 at `751606f`, FOR THE FOURTH LIMB — the two
+          `--role` seals pinned in
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::perspective_content_addresses`
+          under `D-IMPL-233`. Dave: *"Keep both addresses and the 22→0
+          detailed count in the expected block / README so a later 'role is
+          cosmetic' regression cannot hide behind a still-green tree of
+          22."* TWO COSMETIC-ROLE SABOTAGES WERE APPLIED TO
+          `examples/cp-04-corporate-family-tree/projection.py` AND BOTH WERE
+          WATCHED RED UNDER THIS ID, with the tree restored and re-verified
+          green after each. **Sabotage A — the projection ignores the
+          requested role**:
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection._detailed_for`
+          returns the class test without reading the role's declared side.
+          Observed — "role 'kyc-analyst' sealed to '2ea513a5…' where
+          expected.yaml pins '838afbb0…'" and "role 'kyc-analyst' was shown
+          detail for 22 members where expected.yaml declares 0", beside the
+          pre-existing identical-views and one-mutation limbs. **Sabotage B —
+          the role's SUPPRESSION becomes cosmetic**: the attribute block is
+          served regardless of whether the role details the member, so
+          `kyc-analyst` is shown detail for NOBODY and is served two non-null
+          attribute blocks anyway. **B IS THE OBSERVATION THAT MAKES THE PIN
+          LOAD-BEARING RATHER THAN REDUNDANT.** Under it the served roster is
+          the declared twenty-two, the detailed rosters are exactly right, the
+          detailed counts are exactly 22 and 0, the class axis is named
+          correctly and the one-mutation limb still moves the target in both
+          views — so **every other limb of this gate, and all 156 other cp-04
+          gate tests, stayed GREEN**, and the ONLY violation reported was
+          "role 'kyc-analyst' sealed to '745b2543…' where expected.yaml pins
+          '838afbb0…'". Under both sabotages 36 of the 37 tests in
+          `tests/examples/test_cp_04_payload.py` passed, including
+          `tests/examples/test_cp_04_payload.py::test_cft_g09_a_node_with_no_lei_stays_in_the_tree_and_the_roster`,
+          which is Dave's still-green tree of 22 observed rather than
+          asserted. AND THE INVERSE CONTROL, because a limb that read no file
+          would be green under both: ONE character of the `credit-officer`
+          pin was corrupted in `expected.yaml` and this gate went RED under
+          its own id naming only that role, with the tree restored after. The
+          expectations are read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml`; the
+          sabotages edit
+          `examples/cp-04-corporate-family-tree/projection.py`. Two different
+          files.
         date: "2026-09-01"
         commit: "8ecd22f"
