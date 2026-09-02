@@ -52,12 +52,14 @@ from ccf.operators.categories import (
     PolicyFilter,
     SimilaritySelect,
     TemporalAsOf,
+    TraversalDescendants,
     TraversalNeighborhood,
 )
 from ccf.operators.params import (
     PolicyFilterParameters,
     SimilaritySelectParameters,
     TemporalAsOfParameters,
+    TraversalDescendantsParameters,
     TraversalNeighborhoodParameters,
 )
 from ccf.operators.registry import OperatorRegistry
@@ -162,7 +164,10 @@ def shipped_operators() -> OperatorRegistry:
 
     This is what makes the composition property's parametrization ``n²``
     *automatically*: the pairs are enumerated from this registry, so an
-    operator that ships without a composition test is not reachable.
+    operator that ships without a composition test is not reachable. Two
+    shapes share the ``traversal`` category (ledger row ``24.5-L-06``): the
+    undirected neighborhood and its directed sibling, parameterized from the
+    same fixture values — the direction is the operator's, never a value.
     """
     params = CONTROL["operator_parameters"]
     registry = OperatorRegistry()
@@ -206,6 +211,18 @@ def shipped_operators() -> OperatorRegistry:
     registry.register(
         TraversalNeighborhood(
             parameters=TraversalNeighborhoodParameters(
+                seed_entity_classes=frozenset(
+                    params["traversal"]["seed_entity_classes"]
+                ),
+                relationship_types=frozenset(params["traversal"]["relationship_types"]),
+                depth_limit=params["traversal"]["depth_limit"],
+            )
+        ),
+        version=CONTROL["product_class"]["schema_version"],
+    )
+    registry.register(
+        TraversalDescendants(
+            parameters=TraversalDescendantsParameters(
                 seed_entity_classes=frozenset(
                     params["traversal"]["seed_entity_classes"]
                 ),

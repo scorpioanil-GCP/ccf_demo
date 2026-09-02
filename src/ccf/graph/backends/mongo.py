@@ -766,9 +766,13 @@ class MongoGraphReader(BaseGraphReader):
         against the live server with a start-exempt admission set; a decline
         is conformant today and native admission is a promotion the
         differential suite can earn later (`GQ-34`). ``direction`` other
-        than ``"undirected"`` is DECLINED the same way (`GQ-32`; ledger row
-        ``24.5-L-06``) — plan 24.5-18 replaces this with HONOR on
-        sqlite/postgres/neo4j and keeps the decline on mongo/fluree.
+        than ``"undirected"`` (`GQ-10`, 1.2.0; ledger row ``24.5-L-06``) is
+        DECLINED the same way (`GQ-32`): ``TRAVERSAL_EDGES`` is written
+        doubled — one document per orientation, each carrying a
+        ``direction`` field — and restricting ``$graphLookup`` to the
+        forward documents has not been measured against the live server
+        (24.5-RESEARCH.md assumption A1), so the fallback answers,
+        byte-identical, and native direction is a `GQ-34` promotion to earn.
         """
         if q.allowed_entities is not None and not q.allowed_entities:
             # The empty survivor set IS the answer (`GQ-04`): the empty view,

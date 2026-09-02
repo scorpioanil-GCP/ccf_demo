@@ -30,6 +30,15 @@ The deliberately generated shapes, and the defects they exist to catch:
   combined with the policy family and with ``allowed_entities``, and an
   explicit start of an unadmitted class — so a backend that honors the
   field natively, in Python, or declines it is held to the same bytes.
+* **The directed walk** (ledger row ``24.5-L-06``, `GQ-10` at
+  docs/GRAPH_QUERY_SEMANTICS.md:201, semantics version 1.2.0): the chain
+  walked with ``direction="forward"`` at depths 0 / 1 / N beside its
+  undirected control; the same chain started from its LAST forward node,
+  which must reach nothing beyond the start; an explicit start against the
+  stored orientation; and forward combined with the policy family, with
+  ``allowed_entities`` and with admission — so a backend that honors the
+  direction natively or declines it is held to the same bytes, and a
+  pushdown that walked undirected under ``"forward"`` cannot pass.
 * **Orphaned nodes** — entities with no relationships — and the DANGLING
   first-class edge (both endpoints entity-claim-less), which the degenerate
   everything-question must keep (`GQ-05` at
@@ -66,7 +75,7 @@ from datetime import datetime, timedelta, timezone
 from hypothesis import strategies as st
 
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
-from ccf.graph.protocols import GraphQuery, TraversalSpec
+from ccf.graph.protocols import GraphQuery, TraversalDirection, TraversalSpec
 from ccf.signal.envelope import SourceIdentity
 
 from tests.conformance.test_substrate_properties import (
@@ -356,7 +365,11 @@ def build_queries(
 
 
 def _traverse(
-    depth: int, *, admitted: frozenset[str] | None = None
+    depth: int,
+    *,
+    admitted: frozenset[str] | None = None,
+    direction: TraversalDirection = "undirected",
+    seed_classes: frozenset[str] = SEED_CLASSES,
 ) -> TraversalSpec:
     """The fixture-declared traverse family at ``depth`` hops.
 
@@ -364,12 +377,18 @@ def _traverse(
     1.1.0): ``None`` — the default here exactly as on the contract — admits
     every class, so every case written before the field existed asks the
     same question it always asked (D-10, additive over breaking).
+    ``direction`` is `GQ-10`'s walk direction (1.2.0; ledger row
+    ``24.5-L-06``), defaulted to the contract's own default for the same
+    reason. ``seed_classes`` lets one family start the walk from a chain
+    class other than the fixture's declared seed classes — a
+    fixture-discovered class, never one written here.
     """
     return TraversalSpec(
-        seed_entity_classes=SEED_CLASSES,
+        seed_entity_classes=seed_classes,
         relationship_types=RELATIONSHIP_TYPES,
         depth_limit=depth,
         admitted_entity_classes=admitted,
+        direction=direction,
     )
 
 
@@ -519,6 +538,88 @@ def admission_cases(draw: st.DrawFn) -> CorpusCase:
     )
     return CorpusCase(
         name="admission-at-the-class-boundary",
+        entities=entities,
+        relationships=relationships,
+        query_specs=specs,
+    )
+
+
+@st.composite
+def direction_cases(draw: st.DrawFn) -> CorpusCase:
+    """The directed walk (`GQ-10`, semantics version 1.2.0).
+
+    Ledger row ``24.5-L-06``. The chain of :func:`chain_claims` is stored
+    ``seed -> mid <- target``: its second edge points target-to-mid, so a
+    forward walk from the seed reaches the mid and never the target, while
+    the undirected walk reaches all three. The questions:
+
+    * forward at depth 0 (the starts only — the direction of an edge nobody
+      crosses is nothing), at depth 1, and at a drawn depth N beside the
+      undirected control at N;
+    * the chain started from its LAST forward node — the mid class as the
+      only seed class — walked forward, which must reach nothing beyond the
+      start (the assertion that direction is real), beside its undirected
+      twin, which reaches both neighbors;
+    * an explicit start AGAINST the stored orientation (the target), which
+      reaches the mid forward and nothing else;
+    * forward combined with the policy family, with ``allowed_entities``
+      and with admission, so a backend cannot pass by never reaching the
+      direction under another predicate.
+
+    Every backend is held byte-identical to the fallback on each, whether it
+    honors the direction natively or declines it (`GQ-32`, D-04). Content is
+    observed at or before the boundary on EVERY draw, and ``depth >= 1``
+    wherever a hop is the question, for the reason :func:`admission_cases`
+    states: a vacuous draw proves nothing about the field.
+    """
+    observed_at = draw(st.sampled_from((EARLY, ON_BOUNDARY)))
+    entities, relationships = chain_claims(
+        mid_classification=PERMITTED_CLASSIFICATION, observed_at=observed_at
+    )
+    _, _, target_uri = chain_uris()
+    depth = draw(st.integers(min_value=2, max_value=3))
+    last_node = frozenset({MID_CLASS})
+    specs = (
+        # Forward at depths 0 / 1 / N.
+        QuerySpec(as_of=ON_BOUNDARY, traverse=_traverse(0, direction="forward")),
+        QuerySpec(as_of=ON_BOUNDARY, traverse=_traverse(1, direction="forward")),
+        QuerySpec(
+            as_of=ON_BOUNDARY, traverse=_traverse(depth, direction="forward")
+        ),
+        # The undirected control on the same content and depth.
+        QuerySpec(as_of=ON_BOUNDARY, traverse=_traverse(depth)),
+        # From the chain's last forward node: nothing beyond the start.
+        QuerySpec(
+            as_of=ON_BOUNDARY,
+            traverse=_traverse(depth, direction="forward", seed_classes=last_node),
+        ),
+        QuerySpec(
+            as_of=ON_BOUNDARY, traverse=_traverse(depth, seed_classes=last_node)
+        ),
+        # An explicit start against the stored orientation.
+        QuerySpec(
+            as_of=ON_BOUNDARY,
+            traverse=_traverse(depth, direction="forward"),
+            seeds=frozenset({target_uri}),
+        ),
+        # Forward x the policy family, x the uniform rule, x admission.
+        QuerySpec(
+            as_of=ON_BOUNDARY,
+            policy=True,
+            traverse=_traverse(depth, direction="forward"),
+        ),
+        QuerySpec(
+            as_of=ON_BOUNDARY,
+            traverse=_traverse(depth, direction="forward"),
+            allowed=ALLOWED_UNIVERSE,
+        ),
+        QuerySpec(
+            as_of=ON_BOUNDARY,
+            traverse=_traverse(depth, admitted=last_node, direction="forward"),
+        ),
+    )
+    return CorpusCase(
+        name="directed-walk",
         entities=entities,
         relationships=relationships,
         query_specs=specs,
@@ -819,6 +920,7 @@ def corpus_cases() -> st.SearchStrategy[CorpusCase]:
         mixed_admissibility_path_cases(),
         depth_cases(),
         admission_cases(),
+        direction_cases(),
         orphan_cases(),
         self_loop_cases(),
         allowed_entities_cases(),

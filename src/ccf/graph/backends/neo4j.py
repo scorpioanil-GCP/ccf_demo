@@ -456,9 +456,25 @@ _WALK_RETURN = "RETURN DISTINCT x.entity_uri AS entity_uri"
 #: to the walk text between ``_WALK_NODES_ALLOWED`` and ``_WALK_EDGES_ALL``.
 _WALK_NODES_ADMITTED = " AND n.entity_uri IN $admissible"
 
+#: The reach pattern's tail — the walk's direction (`GQ-10` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:201, semantics version 1.2.0; ledger row
+#: 24.5-L-06). Relationships are directed at write — ``neo4j_write.py``
+#: merges ``(a)-[e:CCF_EDGE …]->(b)`` from the stored subject to the stored
+#: object — so the forward walk is the undirected pattern with its arrow.
+#: ``direction`` chooses between these two constants in Python and is never
+#: rendered into query text (threat T-24.5-12). Declared after
+#: ``_WALK_NODES_ADMITTED`` for the same line-anchor reason it gives.
+_REACH_TAIL_UNDIRECTED = "]-"
+_REACH_TAIL_FORWARD = "]->"
 
-def _reach_pattern(depth: int) -> str:
+
+def _reach_pattern(depth: int, *, forward: bool = False) -> str:
     """The variable-length reach pattern — the ONE string-formatting site.
+
+    ``forward`` (`GQ-10`, semantics version 1.2.0; ledger row ``24.5-L-06``)
+    selects the pattern's tail between :data:`_REACH_TAIL_FORWARD` and
+    :data:`_REACH_TAIL_UNDIRECTED` — a choice between two constants, so the
+    direction is never formatted into the text; only the depth is.
 
     Cypher variable-length bounds cannot be driver parameters (research
     assumption A2, re-verified against the live server at plan 15.2-12
@@ -490,7 +506,8 @@ def _reach_pattern(depth: int) -> str:
             "the over-ceiling decline before rendering (15.2-RESEARCH.md "
             "Pitfall 7)"
         )
-    return f"-[:CCF_EDGE*1..{depth}]-"
+    tail = _REACH_TAIL_FORWARD if forward else _REACH_TAIL_UNDIRECTED
+    return f"-[:CCF_EDGE*1..{depth}" + tail
 
 
 class Neo4jGraphReader(BaseGraphReader):
@@ -636,9 +653,12 @@ class Neo4jGraphReader(BaseGraphReader):
         docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0) is HONORED in Python:
         the path predicate gains ``$admissible`` — admitted-class survivors
         plus the starts — as a separate parameter (:data:`_WALK_NODES_ADMITTED`).
-        ``direction`` other than ``"undirected"`` is DECLINED (`GQ-32`;
-        ledger row ``24.5-L-06``) — plan 24.5-18 replaces this with HONOR on
-        sqlite/postgres/neo4j and keeps the decline on mongo/fluree.
+        ``direction`` (`GQ-10`, 1.2.0; ledger row ``24.5-L-06``) is HONORED
+        natively: relationships are directed at write, so the forward walk
+        is the reach pattern with its arrow — :func:`_reach_pattern` picks
+        the tail between two constants; the direction is never rendered —
+        and the differential suite holds the answer to the fallback over
+        ``tests/conformance/query_corpus.py::direction_cases``.
         """
         if q.allowed_entities is not None and not q.allowed_entities:
             # The empty survivor set IS the answer (`GQ-04`): the empty
@@ -646,12 +666,6 @@ class Neo4jGraphReader(BaseGraphReader):
             # answer is an answer, never an error (`GQ-23` at
             # docs/GRAPH_QUERY_SEMANTICS.md:474).
             return (), ()
-        if q.traverse is not None and q.traverse.direction != "undirected":
-            # Decline → the fallback answers (D-04; ledger row 24.5-L-06). A
-            # pure function of the query value, before any translation: a
-            # pushdown that ignored `direction` would walk undirected while
-            # the oracle walks directed, a divergence nothing would observe.
-            return None
         if (
             q.traverse is not None
             and q.traverse.depth_limit > MAX_DEPTH_CEILING
@@ -739,7 +753,10 @@ class Neo4jGraphReader(BaseGraphReader):
                 # docs/GRAPH_QUERY_SEMANTICS.md:201).
                 walk_text = [
                     _WALK_MATCH_PREFIX,
-                    _reach_pattern(q.traverse.depth_limit),
+                    _reach_pattern(
+                        q.traverse.depth_limit,
+                        forward=q.traverse.direction == "forward",
+                    ),
                     _WALK_MATCH_SUFFIX,
                     _WALK_NODES_ALL,
                 ]
