@@ -854,6 +854,9 @@ class GovernedResolver:
             constituent_validity_floors=declaration.constituent_validity_floors,
             request_contract_key=self.request_contract_key,
             request_contract_version=request_contract_version,
+            # 24.5-L-14 / L-26: the declared obligations reach the gate off
+            # the registered value, exactly as the accepted modes do.
+            serve_obligations=declaration.serve_obligations,
         )
 
 
