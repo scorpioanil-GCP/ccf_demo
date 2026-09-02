@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**761 entries**, of which **523** name a public Python surface.
+**758 entries**, of which **520** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-372 entries — 337 public Python surface, 35 not public Python API.
+370 entries — 335 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -6892,52 +6892,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
 
-#### ccf.controlplane.artifacts.DecayMode
+#### ccf.assembly.worker.NO_RESOLVING_RULE
 
-- Surface: ccf.controlplane.artifacts.DecayMode
+- Surface: ccf.assembly.worker.NO_RESOLVING_RULE
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: `Literal["curve", "supersede-only"]` — the type of `HalfLifeEntry.decay` and the return
-  type of `ccf.halflife.decay.decay_mode_of`
-- Why: a named module-level alias in the `ArtifactRole` / `RegistrationMode` shape, so that
-  `tests/invariants/test_no_obligation_vocabulary.py` sees one bound declaration it can exempt
-  by name (the members name two SDK code paths, not deployment values) rather than an unbound
-  `Literal` in a return annotation it cannot
-- Migration: none — additive
+- After: the module constant `"no-resolving-rule"`, the `resolved_by` value of an entity no rule
+  claims. Exported so a custom strategy can name the sentinel rather than guess the string
+- Why: `24.5-L-21`, `D-IMPL-38` (a stated sentinel, not a silent default)
+- Migration: none
 
-*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
-
-#### ccf.halflife.decay.NoDecayCurve
-
-- Surface: ccf.halflife.decay.NoDecayCurve
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: a `LookupError` sibling of `MissingHalfLife` (not a subclass), raised by `half_life_of`
-  for a supersede-only class
-- Why: a caller that wants a curve for an event-driven class is asking the wrong question, and
-  handing back any `timedelta` would express a decay nobody declared (INV-CH7-58). A sibling
-  rather than a subclass because an undeclared type and a declared-supersede-only type are
-  different authoring states with different fixes
-- Migration: none — additive. Callers of `half_life_of` over a table that may hold a
-  supersede-only class should read `decay_mode_of` first
-
-*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
-
-#### ccf.halflife.decay.decay_mode_of
-
-- Surface: ccf.halflife.decay.decay_mode_of
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: `(table: HalfLifeTable, observation_type: str) -> Literal["curve", "supersede-only"]`;
-  raises `MissingHalfLife` for an undeclared type, as `half_life_of` does
-- Why: the one read `freshness` makes before it touches a curve, so the branch happens before any
-  rate is looked up
-- Migration: none — additive
-
-*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+*Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
 
 ### Not public Python API
 
@@ -7513,7 +7479,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-294 entries — 111 public Python surface, 183 not public Python API.
+295 entries — 112 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -9946,31 +9912,41 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `19-02-the-adapter-seam-carries-bytes.md`.*
 
-#### ccf.controlplane.artifacts.HalfLifeEntry
+#### ccf.assembly.worker.RelationshipResolutionRule
 
-- Surface: ccf.controlplane.artifacts.HalfLifeEntry
+- Surface: ccf.assembly.worker.RelationshipResolutionRule
 - Public surface: true
 - Change type: reshaped
-- Before: `half_life_seconds: int` (required, positive), `decay_driver: str`,
-  `supersession_event: str`; `supersession_event` could only ride BESIDE a curve
-- After: `decay: Literal["curve", "supersede-only"] = "curve"` added;
-  `half_life_seconds: int | None = None`, required and positive under `curve`, refused under
-  `supersede-only`; `decay_driver` and `supersession_event` unchanged and required in both modes.
-  The unconditional `_rate_is_positive` field validator became the conditional
-  `_shape_matches_mode` model validator, keeping the `half_life_seconds must be positive`
-  message verbatim. The same class is re-exported unchanged as
-  `ccf.halflife.decay.HalfLifeEntry`, which the surface report lists as reshaped for the same
-  reason
-- Why: `24.5-L-22` — cp-03 §E.1 gives Restatement an event-driven λ_c with no number, and the
-  entry could not say so; cp-03 omitted the row rather than invent one. Whitepaper §7.7.1–§7.7.2:
-  supersession collapses the curve rather than continuing it. Additive under `D-10`: every
-  existing four-key entry validates unchanged (`tests/controlplane/test_artifact_roundtrip.py`
-  carries both a curve-only and a mixed case). No product value lands in `src/`
-- Migration: none for existing documents. A deployment with an event-driven class writes
-  `decay: supersede-only` and omits `half_life_seconds`. The regenerated
-  `docs/schemas/ccf.half-life-table.json` carries the new shape
+- Before: `(relationship_type: str, subject_entity_class: str, object_entity_class: str)` — fires on
+  class co-occurrence in one envelope, every subject × object pair, self-loops included
+- After: the same three required fields plus three sentinel-defaulted selectors —
+  `predicate_key: str | None = None` (the rule fires only when the payload value under that key
+  equals the rule's own `relationship_type`), `subject_rule: str | None = None` and
+  `object_rule: str | None = None` (the `match_key` of the entity rule that resolved each endpoint;
+  a `model_validator` refuses one without the other). `predicate_key` may stand alone
+- Why: `24.5-L-21`, `24.4-D-35`. The single writer decides what a rule mints; the rule must be able
+  to say. The comparison under `predicate_key` is against the rule's own type, so a payload cannot
+  name a type no rule declares (T-24.5-26)
+- Migration: none — every existing rule constructs and behaves as before, except that a self-loop
+  from one envelope is no longer minted under any rule
 
-*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+*Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
+
+#### ccf.assembly.worker.ResolvedEntity
+
+- Surface: ccf.assembly.worker.ResolvedEntity
+- Public surface: true
+- Change type: reshaped
+- Before: `(entity_uri: str, entity_class: str, attributes: dict[str, str])`
+- After: the same plus `resolved_by: str = NO_RESOLVING_RULE` — the `match_key` of the entity rule
+  that produced the entity, filled by `SpecDrivenEntityResolution.resolve`
+- Why: `24.5-L-21`. Endpoint selection chooses an endpoint by the rule that produced it, not by its
+  class; the resolved entity has to carry which rule that was
+- Migration: none for callers. A custom `EntityResolutionStrategy` that does not fill the field
+  leaves the sentinel, and its entities are then reachable by class only — a selector rule over
+  them mints nothing, because an endpoint no rule claims is not selectable
+
+*Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
 
 ### Not public Python API
 
@@ -12316,7 +12292,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-91 entries — 71 public Python surface, 20 not public Python API.
+89 entries — 69 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -14074,58 +14050,27 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
 
-#### ccf.halflife.decay.half_life_of
+#### ccf.assembly.worker.AssemblyWorker
 
-- Surface: ccf.halflife.decay.half_life_of
+- Surface: ccf.assembly.worker.AssemblyWorker
 - Public surface: true
 - Change type: behavior
-- Before: returned `timedelta(seconds=entry.half_life_seconds)` for any declared type
-- After: the same for a `curve` type; raises `NoDecayCurve` naming the type for a
-  `supersede-only` type
-- Why: no curve exists and none is fabricated (`24.5-L-22`; INV-CH7-58, D-IMPL-38)
-- Migration: none for tables with only curve classes (every table on the tree today)
+- Before: `ingest` minted `by_class[subject_class] × by_class[object_class]` for every declared
+  rule, self-loops included; one cp-04 node envelope under twelve rules → 12 relationships, 6
+  self-loops
+- After: `ingest` skips a rule whose `predicate_key` the envelope does not select; chooses endpoints
+  by `by_rule[subject_rule] × by_rule[object_rule]` when both selectors are set, else by class as
+  before; and never mints a pair with `subject_uri == object_uri`. The same twelve co-occurrence
+  rules → 6 relationships (the anchor→member pairs, which join two URIs), 0 self-loops; the same
+  twelve rules carrying `predicate_key="predicate"` on a node envelope → 0 and 0. Constructor and
+  method signatures are unchanged, so the manifest records no reshape
+- Why: `24.5-L-21`, `24.4-D-35`, `D-10`. Criterion 16: mints only what the envelope selects, never
+  a self-loop, member-to-member expressible from one envelope, single-writer preserved
+- Migration: none — a deployment relying on a self-loop minted from one envelope would have to
+  admit it through `admit_relationship_claim` deliberately; no shipped fixture or example does
+  (measured: no fixture declares a rule whose subject and object classes coincide)
 
-*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
-
-#### ccf.halflife.decay.freshness
-
-- Surface: ccf.halflife.decay.freshness
-- Public surface: true
-- Change type: behavior
-- Before: naive-instant refusal, then budget from `half_life_of`, then the curve ratio (which
-  made the future-observation and non-positive-sensitivity refusals inside the curve path)
-- After: the naive-instant, future-observation and non-positive-sensitivity refusals are made
-  first and in both modes; then `decay_mode_of` branches — `supersede-only` returns
-  `Decimal(1)`, `curve` takes the unchanged budget/ratio path. `FreshnessScorer` and
-  `assess_debt` needed no edit; they call `freshness`
-- Why: retained relevance is whole until the supersession event, and a superseded observation is
-  excluded from the as-of view (INV-CH7-14) before freshness is read, so the value never sees a
-  stale one. The refusals moving ahead of the branch is what keeps a supersede-only declaration
-  from laundering a clock fault into a perfect freshness figure
-- Migration: none — identical figures and identical refusals for every curve class; the
-  refusal *order* is unchanged for curve classes (naive, then future, then sensitivity, as before)
-
-*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
-
-#### `24.5-L-23` — no surface change
-
-- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
-- Public surface: true
-- Change type: behavior
-- Before: `max_ttl_key: str` and no seconds field; the ceiling's number is `MaxTTL.seconds`,
-  registered by the deployment under that key; `run_gates` refuses over-cap as `ttl-bounds`
-- After: **unchanged — 0 diff lines in `ProductClassDeclaration` and `RegisteredProductClass`.**
-  The precedence is stated in one sentence, enforced by
-  `tests/products/test_max_ttl_precedence.py` (the REGISTERED number decides, by name; a
-  re-registration at a new version moves the cap without touching the class; a set-comprehension
-  field-absence assertion goes RED on any future second copy), and cut by a dated note
-- Why: criterion 18's cut branch, Dave's conditional verbatim on ledger row `24.5-L-23`:
-  *"If Wave 1 cannot state that precedence in one sentence, cut L-23 then — don't ship two
-  unused fields."* Wave 1 stated it and measured it true; a seconds field on the declaration
-  would be the second copy that conditional forbids
-- Migration: none. A future ceiling-in-seconds proposal is a `D-IMPL`, not a field
-
-*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+*Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
 
 ### Not public Python API
 
