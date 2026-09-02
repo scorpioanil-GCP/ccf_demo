@@ -101,6 +101,22 @@ no ``role`` parameter, so it is narrower than the resource beside it rather
 than wider; and it addresses its request from its own path arguments, so a
 request aimed at another class is unrepresentable rather than merely refused.
 
+**Three surfaces since Phase 24.5, and which ones a door has is stated, never
+inferred** (ledger rows ``24.5-L-08`` and ``24.5-L-09``; ``24.4-D-30``,
+``D-34``). The **product resource** (:data:`PRODUCT_URI_TEMPLATE`) is now
+*optional* — :paramref:`build_egress_server.expose_product_resource` defaults
+to ``True`` so every existing deployment is byte-identical, and ``False`` is
+the TOOL-ONLY door a parameterized class wants, because its resource has no
+parameter-free answer (cp-04's ``CFT-G13`` limb (b) measured the resource
+refusing every read). The **product tool** (:data:`PRODUCT_REQUEST_TOOL`) is
+optional as before. The **product address template**
+(:data:`PRODUCT_ADDRESS_TEMPLATE`) is registered exactly when the tool is: a
+parameterized product is TOOL-served, and the address is the tool's own
+question rendered as a URI a client can cite, answered through the tool's own
+path. A door with neither the resource nor the tool is refused at
+construction, because a builder that silently built an empty server would
+make *is this door open?* unanswerable.
+
 Server name, bind address, tenant identifiers, product-class names, principal
 identifiers, role names, tool prose, and token values are all deployment
 values supplied by the caller or carried on the wire. This module holds none
@@ -111,16 +127,23 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import base64
+import binascii
+import re
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
+from pydantic import ValidationError, field_validator
 
+from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import (
     PRODUCT_REQUEST_TOOL,
+    WireRequest,
     door_answer,
     door_question,
 )
@@ -137,13 +160,18 @@ from ccf_runtime.authz.product_entitlement import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "MAX_ADDRESS_QUESTION_BYTES",
+    "PRODUCT_ADDRESS_TEMPLATE",
     "PRODUCT_REQUEST_TOOL",
     "PRODUCT_URI_SCHEME",
     "PRODUCT_URI_TEMPLATE",
+    "AddressedQuestion",
     "NaiveAskedAtRefused",
     "ProductNotServable",
     "ProductResolverProtocol",
     "build_egress_server",
+    "parse_product_address",
+    "product_address",
     "product_uri",
 ]
 
@@ -161,6 +189,58 @@ PRODUCT_URI_TEMPLATE = (
 #: Media type of the served body. The product is canonical JSON, and saying so
 #: is what lets a consumer parse it without sniffing.
 PRODUCT_MIME_TYPE = "application/json"
+
+#: The address of a PARAMETERIZED product — the tool's question, as a URI a
+#: client can cite (``24.5-L-08``). Five path segments: the three the product
+#: template carries, then the literal ``q``, then one segment holding the
+#: unpadded urlsafe-base64 of the canonical :class:`AddressedQuestion`.
+#:
+#: **A path-segment form, deliberately not a query string, and the reason is
+#: measured rather than stylistic.** The installed FastMCP
+#: (``mcp==1.28.1``, ``ResourceTemplate.matches``) matches a template by
+#: rewriting every ``{x}`` to ``(?P<x>[^/]+)`` — one non-slash run — anchored
+#: ``^…$``, and ``ResourceManager.get_resource`` answers the FIRST registered
+#: template that matches, in registration order; the product resource is
+#: registered before the tool block. So an address spelled
+#: ``ccf-product://t/c/1.0.0?q=…`` MATCHES :data:`PRODUCT_URI_TEMPLATE` with
+#: ``version = "1.0.0?q=…"`` and is answered by the product-resource handler
+#: whenever the resource is exposed — the address never reaches its own
+#: handler — and a ``{version}?q={q}`` template would capture
+#: ``version = "1.0.0?"``. A literal ``q`` segment cannot be produced by the
+#: three-segment template, because a placeholder cannot cross a slash, and a
+#: plain three-segment product URI has no ``/q/`` segment to satisfy this
+#: five-segment one. The two templates are therefore disjoint in BOTH
+#: directions, and registration order stops mattering.
+#: ``tests/mcp/test_egress_listing.py`` proves both directions against the
+#: real ``ResourceTemplate.matches`` and shows the rejected ``?q=`` form being
+#: captured, so the property is seen rather than asserted.
+PRODUCT_ADDRESS_TEMPLATE = f"{PRODUCT_URI_TEMPLATE}/q/{{q}}"
+
+#: The most base64 an address's ``q`` segment may carry, in characters
+#: (``T-24.5-19``, in the voice of the Fluree backend's
+#: ``MAX_QUERY_BODY_BYTES`` — that module is deliberately not named here by
+#: its dotted path, because ``tests/crossproc/test_mcp_egress.py`` greps this
+#: source for the graph package and must keep finding nothing). The segment
+#: is measured against this before it is decoded, so an oversized address is
+#: refused by name rather than decoded, parsed and then validated. A question
+#: is four short axes and a declared parameter mapping; this ceiling is
+#: generous for that and hopeless as a payload.
+MAX_ADDRESS_QUESTION_BYTES = 8_192
+
+#: The one alphabet an address's ``q`` segment is drawn from — urlsafe base64
+#: with the ``=`` padding STRIPPED: ``A–Z a–z 0–9 - _``. No ``=``, no ``/``,
+#: no ``+``, no ``?``, no ``%``, so the segment holds nothing a client would
+#: percent-encode and nothing that could read as a path separator.
+_ADDRESS_Q_ALPHABET = re.compile(r"^[A-Za-z0-9_-]+$")
+
+#: The five-segment shape :func:`parse_product_address` matches for itself.
+#: The parser is the single authority on every segment: the address handler
+#: never trusts FastMCP's split parameters beyond the fact of the match.
+_ADDRESS_SHAPE = re.compile(
+    rf"^{re.escape(PRODUCT_URI_SCHEME)}://"
+    r"(?P<tenant>[^/]+)/(?P<product_class>[^/]+)/(?P<version>[^/]+)"
+    r"/q/(?P<q>[^/]+)$"
+)
 
 #: The one parameterised Tool this server can expose, named once rather than at
 #: each use site for the reason :func:`product_uri` exists: the server, the
@@ -228,6 +308,72 @@ class ProductNotServable(LookupError):
     the artifact server's contract (06-RESEARCH.md Pitfall 2) and not something
     an egress read of a live product needs today.
     """
+
+
+class AddressedQuestion(CCFContract):
+    """The whole question a product ADDRESS carries — the tool's arguments minus its path.
+
+    **SDK-defined, not whitepaper-derived** (CLAUDE.md §7.1 egress; ledger row
+    ``24.5-L-08``). :data:`PRODUCT_ADDRESS_TEMPLATE`'s fifth segment encodes
+    the canonical bytes of one of these, so that reading the address and
+    calling :data:`PRODUCT_REQUEST_TOOL` with the same question are the same
+    call through the same body.
+
+    **Why this is more than a** :class:`~ccf.products.door.WireRequest`, **and
+    why it could not be less.** The tool answers a question made of the
+    caller's encoded :class:`~ccf.products.door.WireRequest` *and* whitepaper
+    §6.3's four axes — ``subject``, ``intent``, ``freshness``, ``asked_at`` —
+    and all four are required at the tool because a partial address is
+    unrepresentable rather than refused. A ``WireRequest`` carries none of the
+    four. So an address that encoded only the ``WireRequest`` would reach a
+    door holding no subject, no intent, no freshness figure and no instant,
+    and the door would have to *invent* the three strings (CINV-01 values the
+    SDK must never hold; the resource handler's own docstring names this) and
+    *read a clock* for the fourth — the literal-instead-of-argument defect
+    ``D-IMPL-98`` exists to remove, and the client-side clock ``C-15`` keeps
+    client-side. Carrying the axes in the address is the only shape under
+    which the address answers **the same question** the tool answers, which
+    is the property ``L-08`` asks for. The client that mints an address holds
+    every one of these already — they are exactly what
+    :mod:`ccf.client.adapters.mcp_stdio` sends the tool.
+
+    Attributes:
+        request: The caller's :class:`~ccf.products.door.WireRequest` as the
+            UTF-8 **text** of its canonical bytes — the identical spelling the
+            tool's ``request`` argument carries, so the door parses it with
+            :func:`~ccf.products.door.door_question` and echoes what it
+            parsed (``C-01``), never an object it was handed.
+        subject: Whitepaper §6.3's entity anchor.
+        intent: The decision the product is being assembled for.
+        freshness: The currency the caller requires.
+        asked_at: The instant the question is asked as of, **timezone-aware**;
+            a naive instant is refused at construction on the
+            :class:`NaiveAskedAtRefused` reasoning, so an unanswerable address
+            is never minted.
+    """
+
+    request: str
+    subject: str
+    intent: str
+    freshness: str
+    asked_at: datetime
+
+    @field_validator("asked_at")
+    @classmethod
+    def _asked_at_carries_an_offset(cls, value: datetime) -> datetime:
+        """Refuse a naive instant where the message can name the spelling.
+
+        The same refusal the tool makes first, made at mint time instead:
+        an address is a citation, and a citation whose instant is ambiguous
+        replays differently on every host that resolves it (``D-IMPL-38``).
+        """
+        if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
+            raise ValueError(
+                f"asked_at {value.isoformat()!r} carries no UTC offset; the"
+                " instant a question was asked as-of is the boundary a replay"
+                " resolves against and cannot be ambiguous (D-IMPL-38)"
+            )
+        return value
 
 
 @runtime_checkable
@@ -370,6 +516,171 @@ def product_uri(*, tenant: str, product_class: str, version: str) -> str:
     return f"{PRODUCT_URI_SCHEME}://{tenant}/{product_class}/{version}"
 
 
+def _refuse_a_slash(value: str, *, segment: str) -> None:
+    """A path segment holding a slash would parse back as two segments."""
+    if "/" in value:
+        raise ValueError(
+            f"segment `{segment}` {value!r} contains '/', which a path"
+            " template reads as a segment boundary; an address minted from it"
+            " would parse back as a different address than the one asked for"
+        )
+
+
+def product_address(
+    *,
+    tenant: str,
+    product_class: str,
+    version: str,
+    question: WireRequest,
+    subject: str,
+    intent: str,
+    freshness: str,
+    asked_at: datetime,
+) -> str:
+    """Render the address of a PARAMETERIZED product — the tool's question as a URI.
+
+    ``24.5-L-08``. The one place the fifth segment is spelled, so the server,
+    the client and the tests agree what an address *is* (the
+    :func:`product_uri` argument). The segment is
+    ``base64.urlsafe_b64encode`` over the canonical bytes of the
+    :class:`AddressedQuestion` with the trailing ``=`` padding **stripped**,
+    so it is drawn from ``A–Z a–z 0–9 - _`` only — nothing a client would
+    percent-encode, nothing that reads as a path separator — and, being the
+    canonical form, two equal questions render one address.
+
+    Args:
+        tenant: The tenant segment. Established by the door from the URI on
+            the way back, never claimed by the body.
+        product_class: The class segment; the encoded ``question`` must
+            address the same class, and the door refuses the crossing by name
+            (``C-01``) exactly as the tool does.
+        version: The class's own semver lane.
+        question: The caller's :class:`~ccf.products.door.WireRequest`,
+            canonically encoded into the address here — the same text the
+            tool's ``request`` argument carries.
+        subject: Whitepaper §6.3's entity anchor.
+        intent: The decision the product is being assembled for.
+        freshness: The currency the caller requires.
+        asked_at: The instant asked as of; timezone-aware, or refused.
+
+    Returns:
+        The ``ccf-product://{tenant}/{product_class}/{version}/q/{q}`` URI.
+
+    Raises:
+        ValueError: ``asked_at`` is naive, or a path segment holds a slash.
+    """
+    for name, value in (
+        ("tenant", tenant),
+        ("product_class", product_class),
+        ("version", version),
+    ):
+        _refuse_a_slash(value, segment=name)
+    addressed = AddressedQuestion(
+        request=canonical_bytes(question).decode("utf-8"),
+        subject=subject,
+        intent=intent,
+        freshness=freshness,
+        asked_at=asked_at,
+    )
+    q = (
+        base64.urlsafe_b64encode(canonical_bytes(addressed))
+        .decode("ascii")
+        .rstrip("=")
+    )
+    return PRODUCT_ADDRESS_TEMPLATE.format(
+        tenant=tenant, product_class=product_class, version=version, q=q
+    )
+
+
+def parse_product_address(uri: str) -> tuple[str, str, str, AddressedQuestion]:
+    """The inverse of :func:`product_address`, and the single authority on every segment.
+
+    Matches the five-segment shape itself — scheme, three segments, the
+    literal ``q``, one segment — rather than trusting anything that split the
+    URI before it; re-pads the fifth segment to a multiple of four, decodes
+    it, validates the body as an :class:`AddressedQuestion`, and proves the
+    body's ``request`` text parses through
+    :func:`~ccf.products.door.door_question`. Every refusal is a
+    ``ValueError`` naming the segment, so a tampered address is refused
+    rather than answered as a different question (``T-24.5-17``).
+
+    Args:
+        uri: The address as a client cited it.
+
+    Returns:
+        ``(tenant, product_class, version, addressed)``. ``addressed.request``
+        is still the caller's canonical text: the door parses it again with
+        :func:`~ccf.products.door.door_question` on the way to answering,
+        which is what keeps the echo the door's own parse (``C-01``).
+
+    Raises:
+        ValueError: the URI is not five segments with the literal ``q``
+            fourth; ``q`` holds a character outside the unpadded urlsafe
+            alphabet (a ``=`` included); ``q`` exceeds
+            :data:`MAX_ADDRESS_QUESTION_BYTES`; ``q`` does not decode; or the
+            decoded body is not an :class:`AddressedQuestion` whose
+            ``request`` is a :class:`~ccf.products.door.WireRequest`.
+    """
+    shape = _ADDRESS_SHAPE.match(uri)
+    if shape is None:
+        raise ValueError(
+            f"{uri!r} is not a product address: the shape is"
+            f" {PRODUCT_ADDRESS_TEMPLATE!r} — five path segments with the"
+            " literal `q` fourth. A three-segment product URI is the class's"
+            " standing answer and is read at the product resource, not here"
+        )
+    tenant = shape.group("tenant")
+    product_class = shape.group("product_class")
+    version = shape.group("version")
+    q = shape.group("q")
+    if len(q) > MAX_ADDRESS_QUESTION_BYTES:
+        raise ValueError(
+            f"segment `q` is {len(q)} characters, over the"
+            f" {MAX_ADDRESS_QUESTION_BYTES}-character ceiling an address may"
+            " carry; it is refused before it is decoded (T-24.5-19)"
+        )
+    if _ADDRESS_Q_ALPHABET.match(q) is None:
+        raise ValueError(
+            "segment `q` holds a character outside the unpadded urlsafe"
+            " base64 alphabet `A-Z a-z 0-9 - _`; an address is minted with"
+            " its `=` padding stripped, so a padded, percent-encoded or"
+            " standard-alphabet segment is not one this door minted"
+        )
+    try:
+        body = base64.urlsafe_b64decode(q + "=" * (-len(q) % 4))
+    except (binascii.Error, ValueError) as failed:
+        raise ValueError(
+            f"segment `q` does not decode as urlsafe base64: {failed}"
+        ) from failed
+    try:
+        addressed = AddressedQuestion.model_validate_json(body)
+    except (ValidationError, ValueError) as failed:
+        raise ValueError(
+            "segment `q` decoded, but its body is not an AddressedQuestion —"
+            " the canonical JSON of the encoded request text and whitepaper"
+            f" §6.3's four axes: {failed}"
+        ) from failed
+    try:
+        door_question(addressed.request)
+    except ValidationError as failed:
+        raise ValueError(
+            "segment `q` carries a `request` that is not a WireRequest:"
+            f" {failed}"
+        ) from failed
+    return tenant, product_class, version, addressed
+
+
+def _refuse_naive(asked_at: datetime) -> None:
+    """The tool's first refusal, shared with the address path unchanged."""
+    if asked_at.tzinfo is None or asked_at.tzinfo.utcoffset(asked_at) is None:
+        raise NaiveAskedAtRefused(
+            f"asked_at {asked_at.isoformat()!r} carries no UTC"
+            " offset; the instant a question was asked as-of is the"
+            " boundary a replay resolves against and cannot be"
+            " ambiguous (D-IMPL-38)"
+        )
+
+
 def build_egress_server(
     *,
     server_name: str,
@@ -378,6 +689,7 @@ def build_egress_server(
     auth_settings: AuthSettings,
     entitlement_source: ProductEntitlementSourceProtocol,
     perspective_resolver: PerspectiveResolverProtocol,
+    expose_product_resource: bool = True,
     expose_product_tool: bool = False,
     product_tool_description: str | None = None,
 ) -> FastMCP:
@@ -435,17 +747,32 @@ def build_egress_server(
             against the principal's grant before anything is served. The
             tool is on the identical footing: it carries no ``role``
             parameter either, so it is never wider than the resource.
+        expose_product_resource: Whether to register the product resource
+            under :data:`PRODUCT_URI_TEMPLATE`. ``True`` by default, which
+            keeps every existing deployment byte-identical — a builder call
+            that names no resource flag gets the door it always got.
+            ``False`` is the TOOL-ONLY door a parameterized class wants,
+            because its resource has no parameter-free answer
+            (``24.5-L-09``; cp-04's ``CFT-G13`` limb (b) measured the
+            resource refusing every read). Withholding the resource changes
+            nothing on the tool's path: the tool runs the identical
+            authenticate-then-entitle sequence whether or not a resource sits
+            beside it.
         expose_product_tool: Whether to register
-            :data:`PRODUCT_REQUEST_TOOL`. ``False`` by default, so an
-            existing deployment that upgrades and changes nothing gains no
-            new door.
+            :data:`PRODUCT_REQUEST_TOOL` — and, with it, the product ADDRESS
+            template :data:`PRODUCT_ADDRESS_TEMPLATE` (``24.5-L-08``), which
+            is the tool's own question as a URI and is present exactly when
+            the tool is. ``False`` by default, so an existing deployment that
+            upgrades and changes nothing gains no new door.
         product_tool_description: The prose that tool advertises. A
             deployment value (CINV-01); required exactly when
             ``expose_product_tool`` is ``True``.
 
     Raises:
-        ValueError: ``expose_product_tool`` and ``product_tool_description``
-            were not supplied together (D-03).
+        ValueError: ``expose_product_resource`` and ``expose_product_tool``
+            are both ``False`` — a door with neither surface answers nothing
+            (D-03); or ``expose_product_tool`` and
+            ``product_tool_description`` were not supplied together (D-03).
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
@@ -453,6 +780,14 @@ def build_egress_server(
         library that picked an interface would be picking an exposure surface
         (T-06-14).
     """
+    if not expose_product_resource and not expose_product_tool:
+        raise ValueError(
+            "expose_product_resource=False together with"
+            " expose_product_tool=False is refused: a door with neither"
+            " surface answers nothing; requiredness is conditional on"
+            " exposure (D-03), and a builder that silently built an empty"
+            " server would make 'is this door open?' unanswerable"
+        )
     if expose_product_tool != (product_tool_description is not None):
         raise ValueError(
             "expose_product_tool and product_tool_description are supplied"
@@ -472,43 +807,113 @@ def build_egress_server(
         auth=auth_settings,
     )
 
-    @server.resource(PRODUCT_URI_TEMPLATE, mime_type=PRODUCT_MIME_TYPE)
-    def context_product(tenant: str, product_class: str, version: str) -> str:
-        """Serve one gate-admitted Context Product as canonical JSON.
+    # 24.5-L-09: the resource is optional. Nothing inside the guard moved;
+    # a deployment naming no flag registers exactly what it always did.
+    if expose_product_resource:
+        @server.resource(PRODUCT_URI_TEMPLATE, mime_type=PRODUCT_MIME_TYPE)
+        def context_product(tenant: str, product_class: str, version: str) -> str:
+            """Serve one gate-admitted Context Product as canonical JSON.
 
-        Authenticate, then entitle, then resolve — and never the other way
-        round. The auth middleware rejects an unverified caller before this
-        body runs at all; :func:`~ccf_runtime.authz.product_entitlement
-        .verified_grant` refuses if it somehow did not; and the entitlement
-        decides on the resolved role before ``resolver`` is reached, so a
-        refused caller moves no fabric.
+            Authenticate, then entitle, then resolve — and never the other way
+            round. The auth middleware rejects an unverified caller before this
+            body runs at all; :func:`~ccf_runtime.authz.product_entitlement
+            .verified_grant` refuses if it somehow did not; and the entitlement
+            decides on the resolved role before ``resolver`` is reached, so a
+            refused caller moves no fabric.
 
-        Canonical bytes, not ``model_dump_json``: the same serialization the
-        content address and the A2A signature are computed over, so a consumer
-        that hashes what it received gets the address the producer would.
+            Canonical bytes, not ``model_dump_json``: the same serialization the
+            content address and the A2A signature are computed over, so a consumer
+            that hashes what it received gets the address the producer would.
 
-        **Where the resolved perspective goes** (``DI-15.5-03``, closed by
-        ``D-IMPL-108``). It is forwarded. The perspective this door's
-        entitlement authorized is the perspective the deployment's
-        assemble-and-gate path is handed — bound to a local name and passed,
-        never re-derived and never discarded. Until plan ``15.5-15`` this
-        handler called :func:`~ccf_runtime.authz.product_entitlement
-        .entitled_perspective` for its refusal alone and threw the return
-        value away, so the door proved that an unentitled caller was refused
-        while leaving entirely unproven that the product it *did* serve was
-        shaped under the perspective it had authorized. Those are different
-        guarantees and only one of them was held.
+            **Where the resolved perspective goes** (``DI-15.5-03``, closed by
+            ``D-IMPL-108``). It is forwarded. The perspective this door's
+            entitlement authorized is the perspective the deployment's
+            assemble-and-gate path is handed — bound to a local name and passed,
+            never re-derived and never discarded. Until plan ``15.5-15`` this
+            handler called :func:`~ccf_runtime.authz.product_entitlement
+            .entitled_perspective` for its refusal alone and threw the return
+            value away, so the door proved that an unentitled caller was refused
+            while leaving entirely unproven that the product it *did* serve was
+            shaped under the perspective it had authorized. Those are different
+            guarantees and only one of them was held.
 
-        **What this door passes as the request, and why it is ``None``.**
-        ``PRODUCT_URI_TEMPLATE`` is three path segments with no query surface,
-        so no caller reaching this handler has supplied a
-        :class:`~ccf.products.request.ProductRequest`. ``None`` is that fact
-        stated positively. Manufacturing one here would mean the SDK choosing
-        a subject, an intent and a freshness figure (CINV-01 values it must
-        never hold) and reading a clock for ``asked_at`` — which is precisely
-        the literal-instead-of-argument defect ``D-IMPL-98`` exists to remove,
-        reintroduced one layer up.
+            **What this door passes as the request, and why it is ``None``.**
+            ``PRODUCT_URI_TEMPLATE`` is three path segments with no query surface,
+            so no caller reaching this handler has supplied a
+            :class:`~ccf.products.request.ProductRequest`. ``None`` is that fact
+            stated positively. Manufacturing one here would mean the SDK choosing
+            a subject, an intent and a freshness figure (CINV-01 values it must
+            never hold) and reading a clock for ``asked_at`` — which is precisely
+            the literal-instead-of-argument defect ``D-IMPL-98`` exists to remove,
+            reintroduced one layer up.
+            """
+            perspective = entitled_perspective(
+                grant=verified_grant(),
+                tenant=tenant,
+                product_class=product_class,
+                requested_role=None,
+                entitlement_source=entitlement_source,
+                perspective_resolver=perspective_resolver,
+            )
+            servable = resolver(
+                tenant=tenant,
+                product_class=product_class,
+                version=version,
+                perspective=perspective,
+                request=None,
+            )
+            return canonical_bytes(servable.product).decode("utf-8")
+
+    def _answer_question(
+        question: WireRequest,
+        *,
+        tenant: str,
+        product_class: str,
+        version: str,
+        subject: str,
+        intent: str,
+        freshness: str,
+        asked_at: datetime,
+    ) -> bytes:
+        """The one body both the tool and the address answer through.
+
+        Factored out of the tool so the two surfaces **cannot drift**
+        (``24.5-L-08``; the ``test_both_callers_…`` discipline cp-04 already
+        holds its two callers to): entitlement, the cross-checks the question
+        admits, the :class:`~ccf.products.request.ProductRequest` the resolver
+        is handed, and :func:`~ccf.products.door.door_answer` all happen here
+        and nowhere else. The tool's docstring is the specification of every
+        step; nothing below is new, it is the tool's body with its two
+        second-copy checks left at the tool, where the second copy is.
+
+        ``question`` is what the calling surface parsed off its own wire with
+        :func:`~ccf.products.door.door_question` — the text the tool's
+        ``request`` argument carried, or the text the address's decoded body
+        carried — so the echo is the door's parse on both surfaces (``C-01``).
         """
+        _refuse_naive(asked_at)
+        if question.product_id != product_class:
+            raise ValueError(
+                "the encoded request addresses"
+                f" {question.product_id!r} and the `product_class`"
+                f" argument addresses {product_class!r}; a call that"
+                " encodes one question and addresses another would have"
+                " one question echoed and a different one answered, which"
+                " is the crossing the echo exists to detect (C-01)"
+            )
+        if (
+            question.temporal_boundary is not None
+            and question.temporal_boundary != asked_at
+        ):
+            raise ValueError(
+                "the encoded request is asked as of"
+                f" {question.temporal_boundary.isoformat()!r} and the"
+                f" `asked_at` argument is {asked_at.isoformat()!r}; an"
+                " answer computed at one instant cannot be echoed as a"
+                " question asked as-of another, and a concrete boundary"
+                " crosses this pipe twice precisely so the two can be"
+                " compared (C-18)"
+            )
         perspective = entitled_perspective(
             grant=verified_grant(),
             tenant=tenant,
@@ -517,14 +922,47 @@ def build_egress_server(
             entitlement_source=entitlement_source,
             perspective_resolver=perspective_resolver,
         )
-        servable = resolver(
+        asked = ProductRequest(
+            schema_name=product_class,
+            schema_version=version,
+            subject=subject,
+            intent=intent,
+            freshness=freshness,
+            asked_at=asked_at,
+            # Verbatim: no coercion, no defaulting, no inspection. The
+            # declared world is closed at the resolver (D-IMPL-121), and a
+            # door that touched these values would be rendering a verdict
+            # it is not the one holding the class to compare against.
+            #
+            # This read `dict(parameters or {})` until D-IMPL-151 finding
+            # B2. The `or {}` was a default the docstring above says this
+            # handler does not apply, and it turned a supplied JSON `null`
+            # into the empty mapping — which the HTTP route refuses with
+            # `400 ERROR_PRODUCT_PARAMETERS_MALFORMED`. The copy stays: the
+            # argument model hands over a fresh dict per call, and copying
+            # keeps that true if it ever stops being.
+            #
+            # Resolved from the DECODED request rather than from the
+            # `parameters` argument (C-01): one source for what is
+            # answered, and the echo comes from that same source. The two
+            # are cross-checked at the tool, so this is not a choice between
+            # them — it is a refusal to hold two.
+            parameters=dict(question.parameters),
+        )
+        resolved = resolver(
             tenant=tenant,
             product_class=product_class,
             version=version,
             perspective=perspective,
-            request=None,
+            request=asked,
         )
-        return canonical_bytes(servable.product).decode("utf-8")
+        return door_answer(
+            resolved,
+            echo=question,
+            resolved_request=asked,
+            product_class=product_class,
+            version=version,
+        )
 
     if expose_product_tool:
 
@@ -820,26 +1258,8 @@ def build_egress_server(
                     a refusal this envelope translates — a wiring defect, and
                     never reported to a caller as a governed "no".
             """
-            if (
-                asked_at.tzinfo is None
-                or asked_at.tzinfo.utcoffset(asked_at) is None
-            ):
-                raise NaiveAskedAtRefused(
-                    f"asked_at {asked_at.isoformat()!r} carries no UTC"
-                    " offset; the instant a question was asked as-of is the"
-                    " boundary a replay resolves against and cannot be"
-                    " ambiguous (D-IMPL-38)"
-                )
+            _refuse_naive(asked_at)
             asked_wire = door_question(request)
-            if asked_wire.product_id != product_class:
-                raise ValueError(
-                    "the encoded request addresses"
-                    f" {asked_wire.product_id!r} and the `product_class`"
-                    f" argument addresses {product_class!r}; a call that"
-                    " encodes one question and addresses another would have"
-                    " one question echoed and a different one answered, which"
-                    " is the crossing the echo exists to detect (C-01)"
-                )
             if dict(asked_wire.parameters) != dict(parameters):
                 raise ValueError(
                     "the encoded request declares parameters"
@@ -849,67 +1269,71 @@ def build_egress_server(
                     " would have one question echoed and a different one"
                     " answered (C-01)"
                 )
-            if (
-                asked_wire.temporal_boundary is not None
-                and asked_wire.temporal_boundary != asked_at
-            ):
-                raise ValueError(
-                    "the encoded request is asked as of"
-                    f" {asked_wire.temporal_boundary.isoformat()!r} and the"
-                    f" `asked_at` argument is {asked_at.isoformat()!r}; an"
-                    " answer computed at one instant cannot be echoed as a"
-                    " question asked as-of another, and a concrete boundary"
-                    " crosses this pipe twice precisely so the two can be"
-                    " compared (C-18)"
-                )
-            perspective = entitled_perspective(
-                grant=verified_grant(),
+            return _answer_question(
+                asked_wire,
                 tenant=tenant,
                 product_class=product_class,
-                requested_role=None,
-                entitlement_source=entitlement_source,
-                perspective_resolver=perspective_resolver,
-            )
-            asked = ProductRequest(
-                schema_name=product_class,
-                schema_version=version,
+                version=version,
                 subject=subject,
                 intent=intent,
                 freshness=freshness,
                 asked_at=asked_at,
-                # Verbatim: no coercion, no defaulting, no inspection. The
-                # declared world is closed at the resolver (D-IMPL-121), and a
-                # door that touched these values would be rendering a verdict
-                # it is not the one holding the class to compare against.
-                #
-                # This read `dict(parameters or {})` until D-IMPL-151 finding
-                # B2. The `or {}` was a default the docstring above says this
-                # handler does not apply, and it turned a supplied JSON `null`
-                # into the empty mapping — which the HTTP route refuses with
-                # `400 ERROR_PRODUCT_PARAMETERS_MALFORMED`. The copy stays: the
-                # argument model hands over a fresh dict per call, and copying
-                # keeps that true if it ever stops being.
-                #
-                # Resolved from the DECODED request rather than from the
-                # `parameters` argument (C-01): one source for what is
-                # answered, and the echo comes from that same source. The two
-                # are cross-checked above, so this is not a choice between
-                # them — it is a refusal to hold two.
-                parameters=dict(asked_wire.parameters),
+            ).decode("utf-8")
+
+        @server.resource(PRODUCT_ADDRESS_TEMPLATE, mime_type=PRODUCT_MIME_TYPE)
+        def addressed_context_product(
+            tenant: str, product_class: str, version: str, q: str
+        ) -> str:
+            """Answer a PARAMETERIZED product at its address, through the tool's own path.
+
+            ``24.5-L-08``. The third surface, registered exactly when the
+            tool is, because a parameterized product is TOOL-served and this
+            template is the tool's address form: reading
+            :func:`product_address` of a question returns the identical
+            canonical bytes :data:`PRODUCT_REQUEST_TOOL` returns for that
+            question, because both end in :func:`_answer_question` and
+            nothing else.
+
+            **FastMCP's split parameters are trusted for the fact of the
+            match and nothing more.** The installed ``mcp==1.28.1`` hands a
+            resource handler only its placeholders — its ``Context`` carries
+            the HTTP request and the session, not the resource URI — so the
+            handler rebuilds the URI from the four matched segments with the
+            template's own ``format`` and re-parses the whole thing through
+            :func:`parse_product_address`, which is the single authority on
+            every segment: shape, alphabet, ceiling, decode, body. A refusal
+            there raises, and reaches the client as FastMCP's resource error
+            naming the segment — this surface has no envelope channel of its
+            own, exactly as the product resource has none.
+
+            The two ``C-01`` cross-checks the tool runs on a second copy
+            (``parameters`` against the encoded request) do not run here,
+            because the address carries **one** copy of the question: there
+            is no second source to disagree with. The checks the address CAN
+            run — the encoded class against the path's class, and a concrete
+            temporal boundary against ``asked_at`` — run inside
+            :func:`_answer_question`, identically for both surfaces.
+            """
+            parsed_tenant, parsed_class, parsed_version, addressed = (
+                parse_product_address(
+                    PRODUCT_ADDRESS_TEMPLATE.format(
+                        tenant=tenant,
+                        product_class=product_class,
+                        version=version,
+                        q=q,
+                    )
+                )
             )
-            resolved = resolver(
-                tenant=tenant,
-                product_class=product_class,
-                version=version,
-                perspective=perspective,
-                request=asked,
-            )
-            return door_answer(
-                resolved,
-                echo=asked_wire,
-                resolved_request=asked,
-                product_class=product_class,
-                version=version,
+            asked_wire = door_question(addressed.request)
+            return _answer_question(
+                asked_wire,
+                tenant=parsed_tenant,
+                product_class=parsed_class,
+                version=parsed_version,
+                subject=addressed.subject,
+                intent=addressed.intent,
+                freshness=addressed.freshness,
+                asked_at=addressed.asked_at,
             ).decode("utf-8")
 
     return server
