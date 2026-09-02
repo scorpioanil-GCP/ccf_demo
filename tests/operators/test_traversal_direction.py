@@ -5,8 +5,10 @@
 reached node was reached whichever way the edge was stored. The sibling key
 ``traversal.typed-descendants`` (``TraversalDescendants``) walks a stored
 edge only from ``subject_uri`` to ``object_uri``; ``TraversalSpec.direction``
-carries the choice to the oracle, and every backend hands a directed walk to
-the oracle until plan `24.5-18` proves one can honor it (D-04). This module
+carries the choice to the oracle, and every backend either honors it
+natively or hands the directed walk to the oracle (D-04; the postures were
+plan `24.5-05`'s decline-everywhere, then plan `24.5-18`'s HONOR on sqlite,
+postgres and neo4j with the decline kept on mongo and fluree). This module
 proves each sentence in process, network-free, on ONE view whose one edge
 stored INTO the seed is the whole difference:
 
@@ -16,11 +18,24 @@ stored INTO the seed is the whole difference:
   with BOTH operators at every depth, so the two walks and the oracle are
   three spellings of one `GQ-10`;
 * the direction is fixed by the operator, never by a parameter;
-* all five ``_translate_query`` hooks DECLINE a directed walk before touching
-  any store — asserted with no store and no server, in the
+* the two DECLINING ``_translate_query`` hooks return ``None`` on a directed
+  walk before touching any store — asserted with no store and no server, in
+  the
   ``tests/graph/test_neo4j_backend.py::test_over_ceiling_depth_declines_to_the_fallback``
   voice — and the same reader on the same query with the default direction
-  goes on toward its substrate, so the decline is attributable to the field.
+  goes on toward its substrate, so the decline is attributable to the field;
+  the three HONORING hooks go on toward the store under either direction,
+  and what they render is a Python choice between two constants — the
+  direction is never text and never a parameter (threat T-24.5-12);
+* the sibling is registered in ``tests/properties/strategies.py::shipped_operators``
+  (5 keys, 25 ordered pairs), and ``docs/GRAPH_QUERY_SEMANTICS.md`` records
+  the direction at 1.2.0.
+
+**Criterion 9, measured** (the second half of this module): the committed
+cp-04 fixture ``tests/examples/fixtures/cp_04_family_fluree.json`` parsed
+into a view and walked from its anchor — the directed walk reaches
+20 / 21 / 22 members at depths 1 / 2 / 3 where the undirected neighborhood
+reaches 20 / 22 / 22, and the one divergent node is asserted by id.
 
 **The sabotage control.** ``src/ccf/operators/categories.py`` is copied to a
 scratch module with the ``forward`` branch of the shared ``_bounded_walk``
@@ -278,16 +293,28 @@ def test_the_sibling_is_a_second_shape_under_the_same_category() -> None:
     )
 
 
-# --- every backend declines the directed walk to the oracle (D-04) -----------
+# --- every backend honors the directed walk or declines it to the oracle (D-04)
 
 
-READERS: tuple[type[BaseGraphReader], ...] = (
-    SqliteGraphReader,
-    PostgresGraphReader,
-    Neo4jGraphReader,
+#: The five readers, partitioned by posture (plan 24.5-18). The two that
+#: DECLINE a directed walk to the oracle (`GQ-32`): mongo, whose doubled
+#: forward/reverse edge documents have not been measured under a
+#: restricted ``$graphLookup`` (24.5-RESEARCH.md assumption A1), and fluree,
+#: whose interposed ``CCF_LINK`` carries no edge direction (Pitfall 5). The
+#: three that HONOR it natively: the SQL dialects choose the crossable set
+#: or the recursive join between two constant renderings, and neo4j puts
+#: the arrow on its reach pattern — so their translation goes on toward the
+#: store under either direction.
+DECLINING: tuple[type[BaseGraphReader], ...] = (
     MongoGraphReader,
     FlureeGraphReader,
 )
+HONORING: tuple[type[BaseGraphReader], ...] = (
+    SqliteGraphReader,
+    PostgresGraphReader,
+    Neo4jGraphReader,
+)
+READERS: tuple[type[BaseGraphReader], ...] = HONORING + DECLINING
 
 
 def _query(direction: str) -> GraphQuery:
@@ -303,8 +330,20 @@ def _query(direction: str) -> GraphQuery:
     )
 
 
-@pytest.mark.parametrize("reader_class", READERS, ids=lambda c: c.__name__)
-def test_every_backend_declines_a_directed_walk_before_touching_its_store(
+def test_the_posture_roster_partitions_the_five_readers() -> None:
+    """Set equality, never a count: every reader has exactly one posture."""
+    assert set(DECLINING).isdisjoint(HONORING)
+    assert set(READERS) == {
+        SqliteGraphReader,
+        PostgresGraphReader,
+        Neo4jGraphReader,
+        MongoGraphReader,
+        FlureeGraphReader,
+    }
+
+
+@pytest.mark.parametrize("reader_class", DECLINING, ids=lambda c: c.__name__)
+def test_every_declining_backend_declines_a_directed_walk_before_touching_its_store(
     reader_class: type[BaseGraphReader],
 ) -> None:
     """`_translate_query` returns `None` on `direction="forward"` (`GQ-32`, D-04).
@@ -313,9 +352,10 @@ def test_every_backend_declines_a_directed_walk_before_touching_its_store(
     path that reached the substrate would raise `AttributeError` — and the
     control below shows that the SAME reader on the SAME query with the
     default direction does exactly that. The decline is therefore a pure
-    function of the direction field, before any statement, session, pipeline
-    or request is built. Plan `24.5-18` flips sqlite/postgres/neo4j to HONOR
-    and re-points this test at the two that keep the decline.
+    function of the direction field, before any pipeline or request is
+    built. Plan `24.5-05` asserted this of all five readers; plan `24.5-18`
+    flipped sqlite/postgres/neo4j to HONOR (the test below) and re-pointed
+    this one at the two that keep the decline.
     """
     reader = reader_class.__new__(reader_class)
     assert reader._translate_query(_query("forward")) is None, (
@@ -328,6 +368,116 @@ def test_every_backend_declines_a_directed_walk_before_touching_its_store(
     # decline above proves nothing about the field.
     with pytest.raises(AttributeError):
         reader._translate_query(_query("undirected"))
+
+
+@pytest.mark.parametrize("reader_class", HONORING, ids=lambda c: c.__name__)
+def test_every_honoring_backend_translates_a_directed_walk_toward_its_store(
+    reader_class: type[BaseGraphReader],
+) -> None:
+    """The guard is gone: a directed walk heads for the store like the undirected one.
+
+    Same allocation trick, inverted: under BOTH directions the reader goes
+    on toward the substrate it does not have and raises `AttributeError` —
+    never `None`. What it renders on the way is asserted by the statement
+    tests below; that the rendering answers what the oracle answers is the
+    differential suite's job, on every leg
+    (``tests/conformance/test_substrate_differential.py::test_every_backend_answers_byte_identical_to_the_fallback_under_direction``).
+    """
+    reader = reader_class.__new__(reader_class)
+    for direction in ("forward", "undirected"):
+        with pytest.raises(AttributeError):
+            reader._translate_query(_query(direction))
+
+
+# --- the direction is a branch between constants, never text (T-24.5-12) ----
+
+
+def test_sqlite_renders_the_crossable_set_once_per_direction() -> None:
+    """Forward: the edges as stored; undirected: both renderings — same params."""
+    from ccf.graph.backends.sqlite import _translated_statements
+
+    forward = _translated_statements(_query("forward"))
+    undirected = _translated_statements(_query("undirected"))
+    assert forward is not None and undirected is not None
+    reversed_rendering = "SELECT c.object_uri, c.subject_uri FROM edges c"
+    for sql in forward[:2]:
+        assert "hops(subject_uri, object_uri)" in sql
+        assert reversed_rendering not in sql, "the forward walk rendered the reverse edge"
+        assert "forward" not in sql and "direction" not in sql
+    for sql in undirected[:2]:
+        assert reversed_rendering in sql
+        assert "undirected" not in sql and "direction" not in sql
+    # The direction is not a bound parameter either: it chose text.
+    assert list(forward[2]) == list(undirected[2])
+    assert forward[0] != undirected[0]
+
+
+def test_postgres_renders_the_recursive_join_once_per_direction() -> None:
+    """Forward: joined on the stored subject only; undirected: either endpoint."""
+    from ccf.graph.backends.postgres import _translated_statements
+
+    forward = _translated_statements(_query("forward"))
+    undirected = _translated_statements(_query("undirected"))
+    either_endpoint = "ON (c.subject_uri = w.uri OR c.object_uri = w.uri)"
+    for sql in forward[:2]:
+        assert "ON c.subject_uri = w.uri\n" in sql
+        assert either_endpoint not in sql, "the forward walk joined either endpoint"
+        assert "forward" not in sql and "direction" not in sql
+    for sql in undirected[:2]:
+        assert either_endpoint in sql
+    assert list(forward[2]) == list(undirected[2])
+    assert forward[0] != undirected[0]
+
+
+def test_neo4j_puts_the_arrow_on_the_reach_pattern() -> None:
+    """The ONE formatting site formats the depth; the tail is a chosen constant."""
+    from ccf.graph.backends.neo4j import _reach_pattern
+
+    assert _reach_pattern(2, forward=True) == "-[:CCF_EDGE*1..2]->"
+    assert _reach_pattern(2, forward=False) == "-[:CCF_EDGE*1..2]-"
+    assert _reach_pattern(2) == _reach_pattern(2, forward=False)
+
+
+# --- the sibling is in the n² composition suite ------------------------------
+
+
+def test_the_sibling_is_registered_beside_the_neighborhood() -> None:
+    """`shipped_operators` carries both shapes: 5 keys, 25 ordered pairs.
+
+    ``tests/properties/test_composition.py::test_the_parametrization_covers_every_ordered_pair``
+    asserts ``len(OPERATOR_KEYS) ** 2`` over the same registry, so the pair
+    law needs no edit to cover the sibling; this test pins the roster the
+    law is enumerated from.
+    """
+    import itertools
+
+    from tests.properties.strategies import shipped_operators
+
+    registry = shipped_operators()
+    assert "traversal.typed-descendants" in registry.keys()
+    assert "traversal.typed-neighborhood" in registry.keys()
+    assert len(registry.keys()) == 5
+    assert len(tuple(itertools.product(registry.keys(), registry.keys()))) == 25
+    assert registry.registration("traversal.typed-descendants").category == (
+        registry.registration("traversal.typed-neighborhood").category
+    )
+
+
+# --- the vocabulary records the direction at 1.2.0 ---------------------------
+
+
+def test_the_semantics_document_records_the_direction_at_1_2_0() -> None:
+    """`GQ-10` names both directions and `GQ-35` carries the 1.2.0 entry."""
+    document = (REPO_ROOT / "docs" / "GRAPH_QUERY_SEMANTICS.md").read_text(
+        encoding="utf-8"
+    )
+    assert "**Semantics version: 1.2.0**" in document
+    clause = document.split("### `GQ-10`")[1].split("### `GQ-11`")[0]
+    assert 'direction="undirected"' in clause and 'direction="forward"' in clause
+    amendments = document.split("### `GQ-35`")[1]
+    entry = amendments.split("- **1.2.0**")[1].split("- **1.1.0**")[0]
+    assert "`24.5-L-06`" in entry
+    assert "20 / 21 / 22" in entry and "20 / 22 / 22" in entry
 
 
 # --- the sabotage control: the copy without the forward branch fails ---------

@@ -1826,10 +1826,12 @@ class FlureeGraphReader(BaseGraphReader):
         docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0) is HONORED in Python: the
         ``$admissible`` entity keys narrow to admitted-class survivors plus
         the starts before the walk statement is built. ``direction`` other
-        than ``"undirected"`` is DECLINED (`GQ-32`; ledger row ``24.5-L-06``)
-        — plan 24.5-18 replaces this with HONOR on sqlite/postgres/neo4j and
-        keeps the decline on mongo/fluree, whose interposed layout carries no
-        edge direction.
+        than ``"undirected"`` (`GQ-10`, 1.2.0; ledger row ``24.5-L-06``) is
+        DECLINED (`GQ-32`): the interposed layout writes both ``CCF_LINK``s
+        FROM the edge node, so the link carries no edge direction and a
+        directed variable-length pattern is not expressible over it
+        (24.5-RESEARCH.md Pitfall 5) — the fallback answers, byte-identical,
+        rather than an approximation.
 
         Two further declines are measured rather than computed: the rendered
         request body is checked against :data:`MAX_QUERY_BODY_BYTES` before

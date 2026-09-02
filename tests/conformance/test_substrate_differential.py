@@ -88,6 +88,7 @@ from tests.conformance.query_corpus import (
     chain_claims,
     chain_uris,
     corpus_cases,
+    direction_cases,
     entity_claim,
 )
 from tests.conformance.test_substrate_properties import (
@@ -414,6 +415,46 @@ def test_every_backend_answers_byte_identical_to_the_fallback_under_admission(
         expected = _expected(handle, q)
         assert canonical_bytes(answered) == canonical_bytes(expected), (
             f"{backend_name} diverged from the fallback on admission case"
+            f" {case.name!r}"
+        )
+        # The determinism twin: same question, same bytes.
+        assert canonical_bytes(handle.reader.query(q)) == canonical_bytes(
+            answered
+        )
+
+
+@given(case=direction_cases())
+@settings(
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+    max_examples=25,
+)
+def test_every_backend_answers_byte_identical_to_the_fallback_under_direction(
+    backend_name: str,
+    fabric_boot: Callable[..., "FabricHandle"],
+    case: CorpusCase,
+) -> None:
+    """The D-05 bar over `GQ-10`'s direction family ALONE (ledger row ``24.5-L-06``).
+
+    The per-backend twin of the admission twin above, for the same reason:
+    ``corpus_cases()`` draws :func:`direction_cases` as one of nine families
+    and the derandomized ``ci`` profile hands any one family a handful of
+    the 25 draws per backend — zero on some. "Every backend honors
+    ``direction="forward"`` natively or declines it to the fallback" is a
+    per-backend claim (`GQ-32`, D-04), so every ``backend_name`` param
+    answers 25 direction cases byte-identical to the fallback here — and a
+    pushdown that walked undirected under ``"forward"`` diverges on the
+    chain's target, which the oracle never reaches.
+    """
+    handle = fabric_boot(backend=backend_name)
+    _write_case(handle, case)
+    for q in build_queries(
+        case, policy_bundle_version=handle.worker.policy_bundle_version
+    ):
+        assert q.traverse is not None  # every direction question walks
+        answered = handle.reader.query(q)
+        expected = _expected(handle, q)
+        assert canonical_bytes(answered) == canonical_bytes(expected), (
+            f"{backend_name} diverged from the fallback on direction case"
             f" {case.name!r}"
         )
         # The determinism twin: same question, same bytes.
