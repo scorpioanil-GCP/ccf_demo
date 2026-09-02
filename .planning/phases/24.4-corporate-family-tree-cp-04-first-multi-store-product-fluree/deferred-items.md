@@ -441,3 +441,37 @@ refuses by name. Picking either without a ruling is choosing for him.
 
 **Not this plan's to close, and deliberately not worked around.** Nothing in
 `24.4-FIX-01` touches the binder, the exemption rosters or `required=`.
+
+## 13. `CFT-G09` takes the subtree SIZE as an integer, so a swap of either resolving member is invisible to it
+
+**Found during:** plan `24.4-FIX-02`, while measuring the reach of finding 5's
+count-preserving member swap.
+
+**What happens:** the swap replaced ONE served member's URI with another valid
+node of this estate — the count unchanged at twenty-two — and **2 of 229 cp-04
+tests went red**: the seams precondition this plan had just rewritten, and
+`CFT-G16` through its pinned seal.
+`tests/examples/test_cp_04_payload.py::test_cft_g09_a_node_with_no_lei_stays_in_the_tree_and_the_roster`
+**stayed GREEN**, and the reason is structural rather than accidental. It passes
+`subtree_size=int(census("anchor_subtree")["reachable_nodes"])` and a
+`declared_roster` naming only the **twenty** members with no attribute row. The
+member swapped was `SuperMicroComputerInc` — one of the **two** that resolve —
+so all twenty declared names were still in the tree, the size was still
+twenty-two, and the gate reported clean.
+
+**Why it is out of scope here:** the close panel's four findings are all in
+`tests/examples/test_cp_04_seams.py` and this is in
+`tests/examples/test_cp_04_payload.py`. It is a pre-existing shape, not
+something this plan's edits caused, and `CFT-G09`'s own declared claim — *"a
+node carrying no LEI stays in the tree AND in the roster"* — is about the
+twenty and is discharged as written. Widening it is a change to what the gate
+claims, which is a decision rather than a repair.
+
+**What it would take:** hand `unresolved_violations` the WHOLE subtree roster —
+the union `examples/cp-04-corporate-family-tree/artifacts/expected.yaml`
+already carries, which
+`tests/examples/test_cp_04_seams.py::declared_subtree_roster` now assembles —
+and compare it both ways instead of taking `subtree_size` as an integer. The
+same edit that fixed finding 5, applied one gate over.
+
+**Nothing was worked around.** `CFT-G09` is untouched by this plan.
