@@ -77,6 +77,7 @@ from ccf.graph.protocols import (
 from ccf.peering.admission import AdmittedProduct
 
 from tests.conformance.query_corpus import (
+    admission_cases,
     AUTHORING_OFFSETS,
     EARLY,
     LATE,
@@ -374,6 +375,45 @@ def test_every_backend_answers_byte_identical_to_the_fallback(
         expected = _expected(handle, q)
         assert canonical_bytes(answered) == canonical_bytes(expected), (
             f"{backend_name} diverged from the fallback on corpus case"
+            f" {case.name!r}"
+        )
+        # The determinism twin: same question, same bytes.
+        assert canonical_bytes(handle.reader.query(q)) == canonical_bytes(
+            answered
+        )
+
+
+@given(case=admission_cases())
+@settings(
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+    max_examples=25,
+)
+def test_every_backend_answers_byte_identical_to_the_fallback_under_admission(
+    backend_name: str,
+    fabric_boot: Callable[..., "FabricHandle"],
+    case: CorpusCase,
+) -> None:
+    """The D-05 bar over `GQ-10`'s admission family ALONE (ledger row ``24.5-L-05``).
+
+    ``corpus_cases()`` draws :func:`admission_cases` as one of eight
+    families, and the derandomized ``ci`` profile was measured at plan
+    24.5-04 to hand it 1 / 3 / 0 of 25 draws on sqlite / memory / demo —
+    zero on one always-on backend. "Every backend is held to the fallback
+    on a case that carries the parameter" is a per-backend claim, so this
+    twin draws the family by itself: every ``backend_name`` param answers
+    25 admission cases byte-identical to the fallback, whether it honors
+    the field natively, in Python, or declines it (`GQ-32`, D-04).
+    """
+    handle = fabric_boot(backend=backend_name)
+    _write_case(handle, case)
+    for q in build_queries(
+        case, policy_bundle_version=handle.worker.policy_bundle_version
+    ):
+        assert q.traverse is not None  # every admission question walks
+        answered = handle.reader.query(q)
+        expected = _expected(handle, q)
+        assert canonical_bytes(answered) == canonical_bytes(expected), (
+            f"{backend_name} diverged from the fallback on admission case"
             f" {case.name!r}"
         )
         # The determinism twin: same question, same bytes.

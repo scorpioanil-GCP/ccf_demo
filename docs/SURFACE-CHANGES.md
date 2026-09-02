@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**796 entries**, of which **558** name a public Python surface.
+**794 entries**, of which **556** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-388 entries — 353 public Python surface, 35 not public Python API.
+387 entries — 352 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -7012,24 +7012,6 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
 
-#### ccf.replay.snapshots.SnapshotPinUnresolvable
-
-- Surface: ccf.replay.snapshots.SnapshotPinUnresolvable
-- Public surface: true
-- Change type: added
-- Before: absent — a recorded store pin had no refusal path, because nothing
-  recorded one
-- After: `class SnapshotPinUnresolvable(LookupError)` — raised when dimension
-  1 pins the store at a transaction the live reader cannot resolve; the
-  message names the pin and the reader type. A `LookupError` because it is
-  the same class of failure as `ReplayUnresolvable`: something the record
-  names cannot be resolved as recorded
-- Why: `24.5-L-02` — the refusal must be a caller-catchable, named condition,
-  not a silent read of the current head
-- Migration: none — additive
-
-*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
-
 #### ccf_runtime.mcp.egress.PRODUCT_ADDRESS_TEMPLATE
 
 - Surface: ccf_runtime.mcp.egress.PRODUCT_ADDRESS_TEMPLATE
@@ -10252,72 +10234,84 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
 
-#### ccf.products.contract.ProductLineage
+#### ccf.graph.protocols.TraversalSpec
 
-- Surface: ccf.products.contract.ProductLineage
+- Surface: ccf.graph.protocols.TraversalSpec
 - Public surface: true
 - Change type: reshaped
-- Before: three fields — `operators_invoked`, `policy_bundle_versions`,
-  `graph_snapshot_at: datetime`; no way to record which state of the store
-  the product was assembled from
-- After: a fourth, last field `store_snapshot_pin: StoreSnapshotPin =
-  NO_STORE_SNAPSHOT_PIN` — the substrate's transaction-time head at the read
-  that assembled the product, recorded beside `graph_snapshot_at` and never
-  inside it (`D-IMPL-88`). Inside `canonical_bytes` by construction, so two
-  products differing only in pin have different content addresses: "served
-  at pin N is not reproducible from pin N+1" is a property of the contract
-- Why: `24.5-L-02`, `D-IMPL-240` (1) — criterion 6 asks the vessel to carry
-  a store-native pin
-- Migration: none — additive; a lineage built without the keyword carries
-  the sentinel and hashes exactly as a lineage built with it. Deployments
-  that seal whole-vessel content addresses re-seal them once (the cp-04
-  precedent above)
+- Before: three required fields — `seed_entity_classes`, `relationship_types`,
+  `depth_limit` — "all three required with no defaults"
+- After: a fourth, additive, sentinel-defaulted field
+  `admitted_entity_classes: frozenset[str] | None = None` — the spec's first
+  sentinel field, on the `GraphQuery.allowed_entities` precedent. `None` admits
+  every class (today's behavior); a set admits a hop only onto an entity whose
+  `entity_class` is a member. Admission filters REACHED nodes and never walk
+  STARTS (`GQ-11` selects starts; `GQ-10`'s "seeds are included" stands), and
+  an entity absent from in-scope state is not a hop. The empty set admits no
+  hop and answers the starts.
+- Why: `24.5-L-05`; `GQ-10` at semantics version 1.1.0; `D-10` additive over
+  breaking
+- Migration: none — additive. A pushed answerer that cannot express the field
+  declines to the fallback (`GQ-32`, D-04)
 
-*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
 
-#### ccf.projection.engine.ExecutionResult
+#### ccf.operators.params.TraversalNeighborhoodParameters
 
-- Surface: ccf.projection.engine.ExecutionResult
+- Surface: ccf.operators.params.TraversalNeighborhoodParameters
 - Public surface: true
 - Change type: reshaped
-- Before: the execution facts carried the source attestation but not the
-  store state the queries ran against
-- After: a last field `store_snapshot_pin: StoreSnapshotPin =
-  NO_STORE_SNAPSHOT_PIN`, threaded unconditionally by
-  `ProjectionEngine.execute`, which reads the reader's `snapshot_pin()`
-  **once, before the first `reader.query()`** of the execution — a fact about
-  the read, taken before anything is read — through
-  `ProjectionEngine._reader_snapshot_pin` (the `_reader_attestation` shape:
-  `isinstance(reader, SnapshotPinnable)`, sentinel otherwise). The governed
-  resolver copies it onto the lineage; `build_replay_record` pins it into
-  dimension 1
-- Why: `24.5-L-02` — the pin must travel with the execution facts, as the
-  attestation does, so a caller that skipped every check still leaves it
-- Migration: none — additive; a result built by hand without the field
-  carries the sentinel
+- Before: `seed_entity_classes`, `relationship_types`, `depth_limit`, no
+  defaults; the module docstring said "no field in this module carries a
+  default"
+- After: `admitted_entity_classes: frozenset[str] | None = None` mirrored
+  field-for-field onto `TraversalSpec`. The module docstring now says no field
+  carries a NUMERIC default and names this one `None` as a positive sentinel:
+  `D-IMPL-38`'s concern is a silently chosen number, and none is chosen. The
+  `CINV-01b` lint (numeric default on a declared parameter field) was measured
+  silent on it — no allowlist entry and no `NO_ADMISSION_FILTER` routing were
+  needed. The committed schema
+  `docs/schemas/ccf.operator-parameters.traversal.json` gains the optional
+  array property.
+- Why: `24.5-L-05`; the operator-tier contract the artifact class inherits
+- Migration: none — every artifact written before the field parses as it did
 
-*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
 
-#### ccf.replay.record.ContextFabricSnapshot
+#### ccf.operators.categories.TraversalNeighborhoodParameters
 
-- Surface: ccf.replay.record.ContextFabricSnapshot
+- Surface: ccf.operators.categories.TraversalNeighborhoodParameters
 - Public surface: true
 - Change type: reshaped
-- Before: seven fields ending in `source_attestation`; `build(...)` took the
-  four D-IMPL-06 constituents and `source_attestation`
-- After: an eighth, last field `store_snapshot_pin: StoreSnapshotPin =
-  NO_STORE_SNAPSHOT_PIN` and the matching `build(..., store_snapshot_pin=)`
-  keyword, passed through verbatim and deliberately **not** an id
-  constituent (the `source_attestation` sentence: the id identifies graph
-  STATE, and this keeps re-derived ids comparable across records written
-  before and after the field). `build_replay_record` and
-  `snapshot_of_execution` both thread `execution.store_snapshot_pin`
-- Why: `24.5-L-02` — dimension 1 is *what state the decision drew from*, and
-  which committed state of the store that was is a dimension-1 fact
-- Migration: none — additive; records written before the field deserialize
-  with the sentinel
+- Before: the re-export of `ccf.operators.params.TraversalNeighborhoodParameters`
+  from the categories module, three fields
+- After: the same re-export, now carrying `admitted_entity_classes`. Not a
+  second class — the manifest lists the name under both modules, so both are
+  claimed
+- Why: `24.5-L-05`; one contract, two import paths
+- Migration: none — additive
 
-*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
+
+#### ccf.controlplane.artifacts.TraversalNeighborhoodParametersArtifact
+
+- Surface: ccf.controlplane.artifacts.TraversalNeighborhoodParametersArtifact
+- Public surface: true
+- Change type: reshaped
+- Before: inherited the three-field parameter class verbatim plus `semver`
+- After: inherits the four-field class — `admitted_entity_classes` arrives by
+  inheritance with **no edit to `src/ccf/controlplane/artifacts.py`** (the
+  artifact adds a semver lane and nothing else; there is no second vocabulary
+  to drift). The committed schema
+  `docs/schemas/ccf.operator-parameters.traversal.json` gains the optional
+  `admitted_entity_classes` array property (`anyOf` array-of-string / null,
+  default null) and its `required` list is unchanged
+- Why: `24.5-L-05`; the artifact IS the parameter set
+  (`tests/controlplane/test_artifact_roundtrip.py::test_a_parsed_traversal_artifact_is_accepted_by_the_traversal_operator`)
+- Migration: none — every artifact document written before the field parses
+  as it did; an author may now set `admitted_entity_classes`
+
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
 
 #### ccf_runtime.mcp.egress.build_egress_server
 
@@ -10432,22 +10426,6 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none for existing documents. A deployment with an event-driven class writes
   `decay: supersede-only` and omits `half_life_seconds`. The regenerated
   `docs/schemas/ccf.half-life-table.json` carries the new shape
-
-*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
-
-#### ccf.halflife.decay.HalfLifeEntry
-
-- Surface: ccf.halflife.decay.HalfLifeEntry
-- Public surface: true
-- Change type: reshaped
-- Before: the re-export of `ccf.controlplane.artifacts.HalfLifeEntry` with the four-key shape
-- After: the same re-export, carrying the `decay` field and the conditional
-  `half_life_seconds` described under `ccf.controlplane.artifacts.HalfLifeEntry` above; the
-  manifest lists the name as reshaped under both module paths because `ccf.halflife.decay`
-  re-exports the class unchanged
-- Why: `24.5-L-22` — one class, two public paths; the entry above is the change, this entry
-  claims the second path so the completeness gate reads one fragment for both
-- Migration: none — identical to the entry above
 
 *Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
 
@@ -12795,7 +12773,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-98 entries — 78 public Python surface, 20 not public Python API.
+97 entries — 77 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -14553,53 +14531,29 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
 
-#### ccf.replay.snapshots.SnapshotReader
+#### ccf.operators.categories.TraversalNeighborhood
 
-- Surface: ccf.replay.snapshots.SnapshotReader
+- Surface: ccf.operators.categories.TraversalNeighborhood
 - Public surface: true
 - Change type: behavior
-- Before: pinned `(tenant, temporal_boundary)` and delegated every read to
-  the live reader's `as_of`/`query` — the live reader's current head, always
-- After: two members added, constructor unchanged (so the manifest shows no
-  diff line — the constructor-only blind spot `24.1.1-03` recorded — which is
-  why this is `behavior` and not `reshaped`). The reader is itself
-  `SnapshotPinnable`: `snapshot_pin()` reports the **recorded** pin, so an
-  execution driven through it carries the recorded pin and
-  `snapshot_of_execution` re-derives dimension 1 with it; `query_pinned(q,
-  *, pin)` admits only the recorded pin (`SnapshotScopeViolation` otherwise).
-  When the snapshot records a pin other than the sentinel, `as_of` (the
-  degenerate query, `GQ-21`) and `query` are answered through the live
-  reader's `query_pinned` at that pin; a live reader that is not
-  `SnapshotPinnable` raises `SnapshotPinUnresolvable` before any delegation.
-  When the sentinel is recorded, both reads behave exactly as before
-- Why: `24.5-L-02`, `D-IMPL-240` (1), CLAUDE.md §7.4 — replay resolves the
-  exact recorded state or refuses; the head is never a fallback
-- Migration: none for sentinel records. A deployment whose records carry a
-  real pin must hand `replay` a `SnapshotPinnable` reader for that substrate;
-  any other reader is refused rather than silently answering the head
+- Before: `read_intent()` projected three fields onto `TraversalSpec`;
+  `apply()` BFS-expanded from seed-class entities over the undirected typed
+  adjacency and nothing filtered the reached node by class
+- After: `read_intent()` mirrors `admitted_entity_classes`; `apply()` builds
+  the view's class map once and admits a hop onto `n` only when
+  `admitted_entity_classes is None or class_of.get(n) in admitted_entity_classes`.
+  Constructor and key unchanged (the manifest records constructors only — the
+  `24.1.1-03` dumper blind spot — so the behavior change is claimed here).
+  `src/ccf/graph/fallback.py::_walk` — private, the differential oracle —
+  applies the identical predicate, built from its `entities` argument's class
+  map, which is what holds every pushed answer to this operator.
+- Why: `24.5-L-05`, criterion 8 — an excluded neighbor shown against an
+  all-admitted control (`tests/operators/test_traversal_admission.py`), the
+  oracle agreeing, composition preserved under the parameter
+  (`tests/properties/test_composition.py::test_composition_is_preserved_under_admission`)
+- Migration: none — additive
 
-*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
-
-#### ccf.replay.engine.replay
-
-- Surface: ccf.replay.engine.replay
-- Public surface: true
-- Change type: behavior
-- Before: compared the re-derived `graph_snapshot_id` with the recorded one;
-  a re-execution that read under another store state than the record names
-  was invisible when the substate happened to agree
-- After: beside that comparison, the reproduced dimension-1
-  `store_snapshot_pin` is compared with the recorded pin and a mismatch is
-  `ReplayDivergence` naming both pins — a pin that moved between record and
-  rehydration is a different decision, in the
-  `test_a_rehydration_that_drops_the_debt_is_divergence` voice. A record
-  whose pin the handed reader cannot resolve surfaces
-  `SnapshotPinUnresolvable` from the first read
-- Why: `24.5-L-02` — the pin is outside the id derivation, so it must be
-  compared on its own or a moved pin would replay green
-- Migration: none for sentinel records; see `SnapshotReader` for pinned ones
-
-*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
 
 #### ccf.products.request.refuse_request
 

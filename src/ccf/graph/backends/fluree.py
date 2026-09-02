@@ -1822,6 +1822,11 @@ class FlureeGraphReader(BaseGraphReader):
         * a query whose policy family cannot be encoded injectively declines
           (:func:`policy_key`).
 
+        ``admitted_entity_classes`` (`GQ-10` at
+        docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0) is HONORED in Python: the
+        ``$admissible`` entity keys narrow to admitted-class survivors plus
+        the starts before the walk statement is built.
+
         Two further declines are measured rather than computed: the rendered
         request body is checked against :data:`MAX_QUERY_BODY_BYTES` before
         each statement is sent, and a walk refused by the server's
@@ -1958,6 +1963,23 @@ class FlureeGraphReader(BaseGraphReader):
                 # term that could reopen it
                 # (``src/ccf/graph/backends/neo4j.py::_WALK_NODES_ALLOWED``).
                 reachable = survivor_uris & q.allowed_entities
+            if q.traverse.admitted_entity_classes is not None:
+                # Node-class admission, HONORED in Python (`GQ-10` at
+                # docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0; ledger row
+                # 24.5-L-05): the `e:`-prefixed admissible keys narrow to
+                # survivors of an admitted class PLUS the starts — the seed
+                # is in `nodes(p)` and `GQ-11` starts are never filtered by
+                # admission. Survivor rows carry `entity_class` (the same
+                # column the start selection reads), so no extra round trip.
+                admitted = q.traverse.admitted_entity_classes
+                class_of = {
+                    row["entity_uri"]: row["entity_class"] for row in entity_rows
+                }
+                reachable = {
+                    uri
+                    for uri in reachable
+                    if uri in starts or class_of.get(uri) in admitted
+                }
             admissible = {ENTITY_ADMIT_PREFIX + uri for uri in reachable} | {
                 RELATIONSHIP_ADMIT_PREFIX + row["relationship_key"]
                 for row in relationship_rows

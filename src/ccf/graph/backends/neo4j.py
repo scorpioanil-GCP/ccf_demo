@@ -447,6 +447,15 @@ _WALK_EDGES_ALL = (
 
 _WALK_RETURN = "RETURN DISTINCT x.entity_uri AS entity_uri"
 
+#: Node-class admission (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0):
+#: every node of the path must be in ``$admissible`` — the survivors of an
+#: admitted class PLUS the walk starts, computed in Python before the walk,
+#: because ``nodes(p)`` includes the seed and starts are never filtered.
+#: Declared AFTER ``_WALK_RETURN`` so the line-anchored citations of
+#: ``_WALK_EDGES_ALL`` elsewhere in the tree keep resolving; it is appended
+#: to the walk text between ``_WALK_NODES_ALLOWED`` and ``_WALK_EDGES_ALL``.
+_WALK_NODES_ADMITTED = " AND n.entity_uri IN $admissible"
+
 
 def _reach_pattern(depth: int) -> str:
     """The variable-length reach pattern — the ONE string-formatting site.
@@ -623,7 +632,10 @@ class Neo4jGraphReader(BaseGraphReader):
         docs/GRAPH_QUERY_SEMANTICS.md:98), and an over-ceiling
         ``depth_limit`` declines to the fallback — still answered, per
         D-04 (`GQ-29`): the ceiling bounds Cypher text, never the
-        vocabulary.
+        vocabulary. ``admitted_entity_classes`` (`GQ-10` at
+        docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0) is HONORED in Python:
+        the path predicate gains ``$admissible`` — admitted-class survivors
+        plus the starts — as a separate parameter (:data:`_WALK_NODES_ADMITTED`).
         """
         if q.allowed_entities is not None and not q.allowed_entities:
             # The empty survivor set IS the answer (`GQ-04`): the empty
@@ -724,6 +736,23 @@ class Neo4jGraphReader(BaseGraphReader):
                 ]
                 if q.allowed_entities is not None:
                     walk_text.append(_WALK_NODES_ALLOWED)
+                if q.traverse.admitted_entity_classes is not None:
+                    # HONORED in Python: the admissible node list is the
+                    # survivors of an admitted class plus the starts (the
+                    # seed is in `nodes(p)`, and `GQ-11` starts are never
+                    # filtered by admission), passed as its own parameter
+                    # beside `$survivors` — never a narrowed survivor list,
+                    # which `_EDGE_CLOSURE` already consumed.
+                    admitted = q.traverse.admitted_entity_classes
+                    walk_text.append(_WALK_NODES_ADMITTED)
+                    params["admissible"] = sorted(
+                        starts
+                        | {
+                            row["entity_uri"]
+                            for row in entity_rows
+                            if row["entity_class"] in admitted
+                        }
+                    )
                 walk_text.append(_WALK_EDGES_ALL)
                 walk_text.append(_WALK_RETURN)
                 params["starts"] = sorted(starts)
