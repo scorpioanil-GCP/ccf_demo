@@ -2693,7 +2693,6 @@ class FamilyScenario:
     ttl_seconds: int
     max_ttl_seconds: int
     halflife_debt_profile: str
-    debt_tolerance: str
 
     #: The required signal classes `F` is normalized over — §E.1's own rule:
     #: normalizing over the classes actually PRESENT would let a missing source
@@ -2917,7 +2916,11 @@ def read(
             f"ccf-artifact://{booted.tenant_id}/ccf.debt-profile/"
             f"{KEY_DEBT_PROFILE}@{booted.pins.version_for(KEY_DEBT_PROFILE)}"
         ),
-        # Carried AS DATA and computed nowhere in this module — see the module
-        # docstring for why `D_c` belongs with the spine that refuses on it.
-        debt_tolerance=str(demonstration_parameters()["debt_tolerance"]),
+        # `debt_tolerance` is NOT carried on the scenario. It was a write-once,
+        # read-nowhere field pinned to the ARTIFACT's copy rather than the
+        # caller's — a live-looking value that fed no comparison (CR-02,
+        # 2026-09-01). `debt_tolerance` travels into the content address through
+        # the request's own `parameters`; the assessed `D_c` is served in the
+        # payload's debt block. Nothing at this tier compares the two, and
+        # `ccf_config.yaml` now says so.
     )

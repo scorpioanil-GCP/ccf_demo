@@ -236,7 +236,17 @@ request_contract:
           invented at serve time.
       debt_tolerance:
         type: number
-        description: the ceiling above which assembly refuses with 409 and the debt block
+        description: >-
+          DECLARED AND ADVISORY at this tier — a demonstration pin, NOT an
+          enforced ceiling. No `D_c` vs `debt_tolerance` comparison runs
+          anywhere in this product and nothing refuses on it; the assessed
+          context debt is SERVED in the payload's debt block as a decision
+          input. Wiring a real breach refusal is a `src/` obligation (a
+          `D_c`-versus-tolerance comparison, CP-SPEC-004 §E.2, criterion 49),
+          not a value this example enforces — and a live-looking ceiling that
+          cannot fire would be worse than an honestly advisory one. Same shape
+          as `as_of`: the surface is declared so a caller can discover it, and
+          the text says what it actually does.
       as_of:
         type: string
         description: DECLARED AND INERT — refused, never honored. See unsupported_arguments.

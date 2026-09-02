@@ -753,3 +753,59 @@ def test_pinning_the_debt_to_a_constant_breaks_the_movement_assertion(
         "the movement assertion still held with D_c pinned to a constant, so it"
         " is not measuring movement"
     )
+
+
+# ---------------------------------------------------------------------------
+# CR-02 — the request contract claims no `409` that nothing fires.
+# ---------------------------------------------------------------------------
+
+
+def test_the_debt_tolerance_contract_claims_no_unenforced_409() -> None:
+    """**CR-02 (2026-09-01).** `debt_tolerance` is advisory, not a live 409.
+
+    Dave: *"There is no `D_c` vs `debt_tolerance` comparison in this tree, and
+    wiring a real 409 is almost certainly `src/`. Do not leave the lie in
+    `ccf_config.yaml`."* Route (a): the parameter is marked ADVISORY / a
+    demonstration pin in the same voice `as_of` uses — the surface stays
+    discoverable and the text says what it actually does. It is NOT refused,
+    because the demonstration sends it and must be served.
+
+    Sabotage: restoring the `refuses with 409` sentence turns the first
+    assertion RED; moving the key into `unsupported_arguments` turns the third.
+    """
+    import dataclasses
+
+    import yaml
+
+    config = yaml.safe_load((EXAMPLE / "ccf_config.yaml").read_text(encoding="utf-8"))
+    props = config["request_contract"]["arguments"]["properties"]
+    description = props["debt_tolerance"]["description"]
+
+    assert "409" not in description, (
+        "ccf_config.yaml's debt_tolerance description still promises a `409`"
+        " refusal that no code fires — a live-looking ceiling that cannot fire:"
+        f" {description!r}"
+    )
+    assert "advisory" in description.lower(), (
+        "debt_tolerance must be marked advisory / a demonstration pin so a"
+        f" caller reads what it actually does: {description!r}"
+    )
+
+    # Route (a), NOT the `as_of` refusal path: a caller sending debt_tolerance is
+    # SERVED (the demonstration sends it), so it is not an unsupported argument.
+    unsupported = config["request_contract"].get("unsupported_arguments", {}) or {}
+    assert "debt_tolerance" not in unsupported, (
+        "debt_tolerance was moved to unsupported_arguments — but the"
+        " demonstration sends it and must be SERVED, so route (a) keeps it an"
+        " advisory served pin, not a refused parameter"
+    )
+
+    # The write-once, read-nowhere FamilyScenario field is gone (CR-02 point 2/3):
+    # it was pinned to the ARTIFACT's copy rather than the caller's and fed no
+    # comparison.
+    deployment = _load("deployment")
+    fields = {f.name for f in dataclasses.fields(deployment.FamilyScenario)}
+    assert "debt_tolerance" not in fields, (
+        "FamilyScenario still carries the dead debt_tolerance field pinned to"
+        " the artifact's copy"
+    )
