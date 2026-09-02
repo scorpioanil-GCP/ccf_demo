@@ -168,7 +168,7 @@ from ccf_runtime.mcp.egress import PRODUCT_URI_TEMPLATE, product_uri
 from tools.lints import matches_module
 from tools.lints.algorithmic import LLM_MODULES
 
-from .cp_04_seed import ledger_for, schema_for, seed
+from .cp_04_seed import FLUREE_FIXTURE, ledger_for, schema_for, seed
 from .test_cp_04_two_callers import (
     Refused,
     drive,
@@ -276,6 +276,73 @@ def census() -> Mapping[str, Any]:
 def attribute_vocabulary() -> Mapping[str, Any]:
     """The declared attribute table, its key column and what it serves."""
     return dict(_yaml(VOCABULARY)["attributes"])
+
+
+def declared_subtree_roster() -> frozenset[str]:
+    """The anchor subtree's TWENTY-TWO members BY NAME, from `expected.yaml`.
+
+    Assembled from the two rosters that document already carries, and neither
+    is a count: `unresolved_subtree_members` names the twenty with no attribute
+    row, and `census.anchor_subtree_store_split.the_two_resolving` names the two
+    that resolve. Their union is the subtree, in the LOCAL NAMES the census
+    convention uses.
+
+    **This replaces a cardinality that stood where a roster was required**
+    (close panel finding 5). `len(served) == census.anchor_subtree
+    .reachable_nodes` is satisfied by twenty-two entirely different nodes, and
+    the precondition guarding five headline gates is the last place that should
+    be true — this module's own `roster_violations` says so about gate ids.
+    """
+    declaration = _yaml(EXPECTED)
+    unresolved = {str(name) for name in declaration["unresolved_subtree_members"]}
+    resolving = {
+        str(member["uri"])
+        for member in declaration["census"]["anchor_subtree_store_split"][
+            "the_two_resolving"
+        ]
+    }
+    return frozenset(unresolved | resolving)
+
+
+def declared_subtree_leis() -> frozenset[str]:
+    """The LEIs the subtree's members carry, BY VALUE, from `expected.yaml`."""
+    return frozenset(
+        str(member["lei"])
+        for member in census()["anchor_subtree_store_split"]["the_two_resolving"]
+    )
+
+
+def fixture_lei_roster() -> frozenset[str]:
+    """Every LEI the COMMITTED fixture carries, under the DECLARED predicate.
+
+    **Why the fixture and not `expected.yaml`.** The LEI precondition guards
+    `CFT-G11`'s scale limb, which drives the shipped resolver over the whole
+    LEI-bearing population — and `expected.yaml` declares that population's SIZE
+    (`census.lei_coverage.nodes_carrying_lei`) and never its members. A
+    cardinality is what the close panel's finding 5 objected to, so the roster
+    is read where the roster exists: `tests/examples/fixtures/cp_04_family_fluree.json`,
+    the committed document `tests/examples/cp_04_seed.py::seed` loads. The
+    predicate is not authored here either — it comes from
+    `artifacts/source-vocabulary.yaml::graph.node_predicates.lei`.
+
+    **The chain, and both edges are asserted.** The DECLARATION is held against
+    the FIXTURE (the declared size must be this roster's), and the FIXTURE is
+    held against what the graph leg SERVES (by name, both directions). So the
+    figure `expected.yaml` declares still governs, and no member can be
+    substituted for another underneath it.
+    """
+    document = json.loads(FLUREE_FIXTURE.read_text(encoding="utf-8"))
+    predicate = lei_predicate()
+    values: set[str] = set()
+    for node in document["insert"]:
+        carried = node.get(predicate)
+        if carried is None:
+            continue
+        if isinstance(carried, (list, tuple)):
+            values.update(str(value) for value in carried)
+        else:
+            values.add(str(carried))
+    return frozenset(values)
 
 
 def declared_member_depths() -> Mapping[str, int]:
@@ -594,12 +661,29 @@ def test_the_seed_carries_what_these_five_gates_need(
 ) -> None:
     """Without this, a green gate below could be a true statement about nothing.
 
-    Six ways that could happen: an empty node set, a subtree whose declared size
-    the seed does not reproduce, no member resolving in the attribute store at
-    all (which would make `CFT-G10`'s provenance limb vacuous), a single-member
-    LEI roster (which would make `CFT-G11`'s batching claim untestable), a
-    declared source roster that is not two legs, and an empty attribute column
-    roster.
+    Six ways that could happen: an empty node set, a subtree the seed does not
+    reproduce, no member resolving in the attribute store at all (which would
+    make `CFT-G10`'s provenance limb vacuous), a single-member LEI roster (which
+    would make `CFT-G11`'s batching claim untestable), a declared source roster
+    that is not two legs, and an empty attribute column roster.
+
+    **EVERY POPULATION HERE IS ASSERTED AS A ROSTER, and that is the close
+    panel's finding 5.** This test used to read
+
+        assert len(observed.roster) == …["anchor_subtree"]["reachable_nodes"]
+        assert len(roster) == …["lei_coverage"]["nodes_carrying_lei"]
+
+    — two cardinalities, in the precondition that says what a green gate below
+    is allowed to mean, in the same module whose `roster_violations` docstring
+    says a count with a wrong member audits clean forever (`D-13`). A member of
+    the subtree swapped for another valid node of this estate satisfies both
+    lines exactly.
+
+    The expectations are read from documents and never authored here: the
+    subtree roster from `artifacts/expected.yaml`'s own two rosters, the LEI
+    roster from the committed fixture under the DECLARED predicate, with the
+    declared size held against that fixture so the figure `expected.yaml`
+    carries still governs — see :func:`fixture_lei_roster`.
     """
     ledger, schema = estate
     declared = census()
@@ -610,15 +694,45 @@ def test_the_seed_carries_what_these_five_gates_need(
         "the demonstration ask served no nodes at all, so every per-node claim"
         " below would hold over the empty set"
     )
-    assert len(observed.roster) == int(declared["anchor_subtree"]["reachable_nodes"]), (
-        f"the seed served {len(observed.roster)} members where"
-        f" expected.yaml::census.anchor_subtree declares"
-        f" {declared['anchor_subtree']['reachable_nodes']}"
+
+    declared_roster = declared_subtree_roster()
+    served_roster = frozenset(local_name(uri) for uri in observed.roster)
+    assert len(declared_roster) == int(
+        declared["anchor_subtree"]["reachable_nodes"]
+    ), (
+        "expected.yaml disagrees with ITSELF: its subtree rosters name"
+        f" {len(declared_roster)} members where census.anchor_subtree declares"
+        f" {declared['anchor_subtree']['reachable_nodes']} reachable. One half"
+        " of the document was edited without the other, so neither can be held"
+        " against a run"
     )
+    assert not declared_roster - served_roster, (
+        "the seed did not serve"
+        f" {sorted(declared_roster - served_roster)}, which expected.yaml"
+        " declares in the anchor subtree. NOTE THE SIZES BESIDE THE ROSTERS —"
+        f" served {len(served_roster)}, declared {len(declared_roster)}: a"
+        " count-based precondition is satisfied whenever these agree, however"
+        " the members differ"
+    )
+    assert not served_roster - declared_roster, (
+        f"the seed served {sorted(served_roster - declared_roster)}, which"
+        " expected.yaml does not declare in the anchor subtree. NOTE THE SIZES"
+        f" — served {len(served_roster)}, declared {len(declared_roster)}"
+    )
+
     split = declared["anchor_subtree_store_split"]
     assert split["the_two_resolving"], (
         "expected.yaml declares no subtree member resolving in the attribute"
         " store, so CFT-G10's provenance limb would have nothing to compare"
+    )
+    served_subtree_leis = frozenset(
+        str(node["lei"]) for node in observed.nodes if node.get("lei")
+    )
+    assert served_subtree_leis == declared_subtree_leis(), (
+        f"the subtree served the LEIs {sorted(served_subtree_leis)} where"
+        " expected.yaml::census.anchor_subtree_store_split declares"
+        f" {sorted(declared_subtree_leis())}. This roster is declared WHOLE, so"
+        " it is compared whole"
     )
     assert len(legs.all_sources) == 2, (
         f"backends.yaml declares {sorted(legs.all_sources)}; criterion 34 is"
@@ -630,11 +744,30 @@ def test_the_seed_carries_what_these_five_gates_need(
         " provenance comparison would compare two empty mappings"
     )
 
-    roster = fluree_lei_roster(*_url_and_ledger(estate))
-    assert len(roster) == int(declared["lei_coverage"]["nodes_carrying_lei"]), (
-        f"the graph leg carries {len(roster)} LEIs where"
-        f" expected.yaml::census.lei_coverage declares"
-        f" {declared['lei_coverage']['nodes_carrying_lei']}"
+    roster = frozenset(fluree_lei_roster(*_url_and_ledger(estate)))
+    fixture = fixture_lei_roster()
+    assert len(fixture) == int(declared["lei_coverage"]["nodes_carrying_lei"]), (
+        f"the committed fixture carries {len(fixture)} LEIs under the declared"
+        " predicate where expected.yaml::census.lei_coverage declares"
+        f" {declared['lei_coverage']['nodes_carrying_lei']}. The DECLARATION and"
+        " the ESTATE disagree, so neither can be held against the graph leg"
+    )
+    assert not fixture - roster, (
+        f"the graph leg does not carry {sorted(fixture - roster)[:5]} —"
+        f" {len(fixture - roster)} LEI(s) the committed fixture holds. The seed"
+        " did not reproduce the estate"
+    )
+    assert not roster - fixture, (
+        f"the graph leg carries {sorted(roster - fixture)[:5]} —"
+        f" {len(roster - fixture)} LEI(s) the committed fixture does not hold."
+        " A sibling module's ledger has leaked into this one, or the seed added"
+        " something the fixture does not declare"
+    )
+    named = {str(declared["anchor"]["lei"])} | set(declared_subtree_leis())
+    assert not named - roster, (
+        f"the graph leg does not carry {sorted(named - roster)}, which"
+        " expected.yaml names BY VALUE. The roster comparison above would be"
+        " satisfied by a fixture and a store that agreed on the wrong estate"
     )
     assert len(roster) > 1, (
         "the graph leg carries at most one LEI, so ONE statement for the whole"
