@@ -683,16 +683,28 @@ def test_every_kind_has_its_own_test_function() -> None:
     would pass with three kinds untested. This reads ``REFUSAL_KINDS``, derives
     the token each kind's test must name, and collects the actual function
     names out of this file's own AST.
+
+    **The per-kind test is matched by its exact name,
+    ``test_envelope_for_<token>``, not by substring** (``24.5-07``, found by
+    sabotage). The substring rule this replaced was satisfied for the
+    ``assembly-refusal`` kind by :func:`test_pre_assembly_refusal_rejects_a_lineage`
+    — a test about a *different* property that happens to carry
+    ``assembly_refusal`` inside its name — so a copy of this module with the
+    real per-kind test renamed stayed GREEN. The token-vs-token substring
+    guard below never looked at the other test names. Every per-kind test in
+    this module already followed the exact pattern, so requiring it costs
+    nothing and closes the hole structurally.
     """
     tokens = {kind.replace("-", "_") for kind in REFUSAL_KINDS.values()}
-    # No token may be a substring of another, or one test could silently
-    # "cover" two kinds. Asserted rather than assumed, because a kind added
-    # later could break it.
+    # No token may be a substring of another. With exact-name matching this no
+    # longer risks one test covering two kinds; it is kept because it is a
+    # property of the wire vocabulary worth holding — two tokens where one
+    # contains the other are a consumer's prefix-match bug waiting to happen.
     for token in tokens:
         others = tokens - {token}
         assert not any(token in other for other in others), (
             f"kind token {token!r} is a substring of another token; "
-            "the coverage rule below would conflate them"
+            "a consumer matching on a prefix would conflate them"
         )
 
     defined = {
@@ -701,11 +713,11 @@ def test_every_kind_has_its_own_test_function() -> None:
         if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
     }
     uncovered = sorted(
-        token
-        for token in tokens
-        if not any(token in name for name in defined)
+        token for token in tokens if f"test_envelope_for_{token}" not in defined
     )
-    assert not uncovered, f"kinds with no test function naming them: {uncovered}"
+    assert not uncovered, (
+        f"kinds with no `test_envelope_for_<token>` function: {uncovered}"
+    )
 
 
 def test_no_aggregate_assertion_stands_in_for_a_per_kind_one() -> None:
