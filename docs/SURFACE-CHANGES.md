@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**823 entries**, of which **584** name a public Python surface.
+**824 entries**, of which **585** name a public Python surface.
 
 ## Added
 
@@ -13162,7 +13162,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-102 entries — 82 public Python surface, 20 not public Python API.
+103 entries — 83 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -15173,6 +15173,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none. A consumer enumerating `kind` sees a nineteenth
 
 *Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf_runtime.http_api.routes.product.build_router
+
+- Surface: ccf_runtime.http_api.routes.product.build_router
+- Public surface: true
+- Change type: behavior
+- Before: the door had no refusal channel (DIV-4). A resolver answering with any `RefusalEnvelope` reached `served_answer`, which raised `TypeError` naming the shape — an opaque 500 for every kind alike; the module docstring said rendering a fabric refusal over HTTP was a status and body decision nobody had ruled
+- After: `retrieve` routes the resolver's answer through `door_refusal(resolved, asked=asked, product_class=..., version=...)` before `served_answer`. An envelope whose `kind == REFUSAL_KINDS[DeclaredObligationRefusal]` (`declared-obligation-refusal`) returns `JSONResponse(status_code=409, content={"kind": <kind>, "refusal_type": "DeclaredObligationRefusal", "refusal": <the whole envelope, canonically rendered>})` — the `routes/skill.py` body shape, so the gate's `declared`/`observed` pair, the request identity and the pre-assembly lineage all travel. A bare `DeclaredObligationRefusal` on a call that posed a question is translated by the door and answered the same way (lineage honestly `None`); a bare refusal on a call with no question is `door_refusal`'s documented `ValueError` — no response, as before, now naming why. Every other envelope falls through to `served_answer` exactly as before. The module docstring names the one mapped kind and DIV-4 for the rest in place of the sentence that said the door had no refusal channel
+- Why: `24.5-L-14`; `D-IMPL-237` (the one structural mechanism, whose refusal the Standard §9 says the door answers as "409 with the debt block"); ROADMAP Phase 24.5 criterion 21. Additive: a status is added and none is moved (`D-10`). Sabotage: `tests/http_api/test_product_declared_obligation_409.py::test_the_status_check_refuses_a_200_for_a_declared_obligation` (the predicate over a fake 200, a 409 of another kind, and no response — each RED naming the kind) and `::test_a_door_with_the_409_branch_removed_is_red_by_name` (a scratch copy of the route with the decision line made `False`, loaded under another name and bound into `create_app` for one build — RED by name; its control leg answers 409; the shipped module byte-compared before and after)
+- Migration: none for a served product or for any existing refusal status. A client of this door that reached an opaque 500 for an over-ceiling product (a class declaring `serve_obligations.debt_ceiling`, plan `24.5-13`) now receives `409` with the envelope; a client should branch on `body["kind"]` and read `body["refusal"]["fields"]` (each value in the SDK's canonical form — a string arrives quoted), never parse `detail`
+
+*Recorded by `24.5-14-the-product-door-answers-409-for-a-declared-obligation.md`.*
 
 ### Not public Python API
 
