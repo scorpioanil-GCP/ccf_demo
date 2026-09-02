@@ -3,8 +3,26 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-02T07:40:00.000Z"
+last_updated: "2026-09-02T08:20:00.000Z"
 last_activity: >-
+  PHASE 24.5 IS DISCUSSED AND ITS CRITERIA ARE LOCKED (2026-09-02, Dave, at /gsd-discuss-phase 24.5). The
+  ledger `24.5-LEDGER.md` holds 49 rows by id (`24.5-L-01`..`L-49`), collected from every source and re-measured
+  at `13bd250`; Dave ruled the RULE (`D-IMPL-236`: SDK -> fix in 24.5; estate / tier / tooling / 223-new-class ->
+  not 24.5) and the roster is the fence: WAVE 1 = 18 ids {L-01..04, L-05, L-06, L-08..13, L-16, L-21, L-22, L-23
+  (conditional), L-27, L-28}; WAVE 2 = 3 ids {L-14, L-24, L-26}, unlocked by `D-IMPL-237` (224 AMENDED for Wave 2
+  only, Dave's words verbatim) and `D-IMPL-238` (run_gates membership as shipped = FIVE tokens / TWO runners by
+  name; 102 limb 3 = no PAYLOAD gate). `D-IMPL-239` rules cp-01/02/03 onto the one-document roster (criterion 4,
+  before Wave 1's first SDK edit). L-29 DROPPED to D-09; L-46 WITHDRAWN (false premise reached Dave -- 24.2 already
+  has its row and D-GATE-24.2 -- his answer NOT applied); L-47 corrected by appended entry: cp-01 is 24.2, not 24.1.
+  `CFT-G15` will NOT flip (estate) -- the brief's example was wrong; criterion 24 names it GREEN. Return trip
+  RULED: re-run cp-01..04 UNCHANGED, flip roster by id, rewrite ONLY flipped test assertions; no version / README /
+  seal / page change in 24.5; `24.5.1` is the one rebuild follow-on iff the roster is non-empty. ROADMAP: 28
+  criteria LOCKED one per line (continuation-line detector proven on a planted wrap), block sha256
+  cfa493afedfa8c1a1a22b3fbaa8eee0f2fd964a76202e0ae4e9196a6f5ec45b5; two marked amendments (cp-01 label; Phase 24
+  gate count -> five by name). Branch `phase-24.5` from tag `phase-24.5-base` = `13bd250`. Examples CLOSED except
+  criteria 12, 13, 25. **Next free id `D-IMPL-240`.** **Next:** `/gsd:plan-phase 24.5` against `24.5-CONTEXT.md`
+  and `24.5-LEDGER.md`; two waves; Wave 2 cannot start before 237/238 (already in the log). Hand-edited; no
+  `state.*` or `roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   PHASE 24.5 IS COMMISSIONED AND BANKED (D-IMPL-235, Dave, 2026-09-02): the comprehensive SDK gap catch-up for
   cp-00 through cp-04. Direction only -- NOT discussed, NOT planned, no criteria (D-GATE-19). Next action is
   /gsd-discuss-phase 24.5, whose FIRST deliverable is a ledger sitting with no code. src/ and runtime/ are OPEN
