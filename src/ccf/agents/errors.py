@@ -6,16 +6,24 @@ risk if softened. A definition that almost satisfies its schema, or a prompt
 whose parameters almost match its template, is exactly the artifact that
 produces an unreplayable decision later.
 
+One member here is a **value**, not an exception: :class:`AssemblyRefusal`
+(``24.5-L-11``) is the returned-as-data form of an assembly-time refusal,
+housed beside the exception it is the sibling of so the two channels are read
+together.
+
 Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
+
+from ccf.contracts.base import CCFContract
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "AgentConstructionError",
     "AgentDefinitionError",
+    "AssemblyRefusal",
     "AssemblyRefused",
     "ConsumptionRefused",
     "FalseGrantClaimError",
@@ -130,7 +138,68 @@ class AssemblyRefused(ValueError):
     The sibling of :class:`ConsumptionRefused` on the other face of the fabric:
     that one refuses a product an agent may not read, this one refuses an
     assembly an agent may not perform (CLAUDE.md §6.2; §6.1).
+
+    **Kept as a raise, and not retyped** (``24.5-L-11``; the reasoning is
+    ``docs/surface-changes/24.1.1-03-a-refusal-returns-as-data.md``). The
+    value form is :class:`AssemblyRefusal`, a *second channel* beside this
+    one: an assembler that wants its refusal to reach a client as a typed
+    verdict **returns** that value, and an assembler that has caught its own
+    raise can convert it with :meth:`as_refusal`. **No door converts between
+    the two.** The MCP tool handler does not catch this exception; a raised
+    ``AssemblyRefused`` still reaches a client as the protocol-native error,
+    exactly as a governance refusal does — governance and identity stay
+    raises, and the decision is recorded here so it is not re-derived.
     """
+
+    def as_refusal(self) -> AssemblyRefusal:
+        """This raise, as the value the D-60 channel carries.
+
+        ``reason`` is the fixed token ``"assembly-refused"`` — the exception's
+        own name in the vocabulary's spelling — and ``detail`` is
+        ``str(self)``, unchanged. A conversion and nothing more: it invents no
+        prose and reads no state, so an assembler that catches its own raise
+        and returns this envelopes identically to one that returned the value
+        to begin with.
+        """
+        return AssemblyRefusal(reason="assembly-refused", detail=str(self))
+
+
+class AssemblyRefusal(CCFContract):
+    """An assembly-time refusal, returned as data (``24.5-L-11``).
+
+    SDK-defined (CLAUDE.md §6, §11: *refusal is data*). The whitepaper
+    specifies the three validation gates that refuse a candidate product
+    (§7.6); it specifies no shape for an *assembler's own* refusal, so this
+    one is the SDK's, on the posture :mod:`ccf.products.gates` states at its
+    head — a refusal returned as data cannot be swallowed by a bare
+    ``except`` — and on the D-60 channel :class:`~ccf.agents.assembler.ContextAssemblerProtocol`
+    already opened for :class:`~ccf.products.request.ProductRequestViolation`.
+
+    **Why a value beside the kept exception.** :class:`AssemblyRefused` is
+    raised for channel-1 identity disagreements and stays so. But the ladder
+    met assembly-time refusals that are *answers*, not mis-deliveries — a tier
+    the class does not serve, a capability it does not have — and an
+    exception is the wrong shape for those: measured against ``mcp==1.28.1``
+    (``24.4`` deferred item 9), a raise escaping the MCP tool body reaches the
+    client as ``ToolError`` prose with ``isError=True``, which a consumer would
+    have to string-parse. Returning this value instead lets
+    :func:`~ccf.products.door.door_refusal` translate it through
+    :data:`~ccf.products.refusal.REFUSAL_KINDS` (token ``assembly-refusal``)
+    into the one canonical envelope, so the verdict arrives typed.
+
+    A deployment chooses per refusal: raise for identity, return this for an
+    answer. The SDK ships the kind and converts nothing on the deployment's
+    behalf.
+
+    Attributes:
+        reason: The assembler's own token for why. A closed vocabulary is the
+            deployment's to declare (CINV-01); the SDK fixes only the one
+            token :meth:`AssemblyRefused.as_refusal` mints.
+        detail: The human-readable statement, for an operator reading a log.
+    """
+
+    reason: str
+    detail: str
 
 
 class ConsumptionRefused(ValueError):
