@@ -163,6 +163,7 @@ import httpx
 import psycopg
 import yaml
 
+from ccf.agents.errors import AssemblyRefused
 from ccf.assembly.worker import EntityResolutionSpec
 from ccf.contracts.claims import LineageEntry, RelationshipClaim
 from ccf.controlplane.artifacts import (
@@ -457,7 +458,13 @@ def perspective(role: str | None = None) -> Perspective:
         )
     chosen = default if role is None else role
     if chosen not in roles:
-        raise SystemExit(
+        # SERVE-PATH REFUSAL — the subject is the CALLER's `role`, reached per
+        # request. `AssemblyRefused` (a `ValueError`) rather than `SystemExit`,
+        # so `FastMCP` envelopes it as a governed `isError` instead of the
+        # process-lifetime `BaseException` that tears the door down (CR-01,
+        # 2026-09-01; `assembler.py::FamilyTreeAssembler.assemble` already
+        # refuses this same undeclared-role condition with `AssemblyRefused`).
+        raise AssemblyRefused(
             f"role {chosen!r} is not declared by this deployment; the declared"
             f" roles are {list(roles)}. An undeclared role served a default"
             f" view is a perspective widened by omission"
@@ -1791,13 +1798,17 @@ def refuse_unminted_membership(
     by having nothing to compare, and a check that cannot fail is not a check.
     """
     if not nodes:
-        raise SystemExit(
+        # SERVE-PATH REFUSAL — the subject is the served family's walk, reached
+        # per request. `AssemblyRefused` (a `ValueError`) rather than
+        # `SystemExit` so the MCP door envelopes it as a governed `isError`
+        # rather than tearing down on a `BaseException` (CR-01, 2026-09-01).
+        raise AssemblyRefused(
             "the walk admitted no node at all, so the membership minting has"
             " nothing to be held against; refusing a check that cannot fail"
         )
     missing = sorted(uri for uri in nodes if not minted.get(uri))
     if missing:
-        raise SystemExit(
+        raise AssemblyRefused(
             f"{len(missing)} node(s) the walk admitted carry no"
             f" {membership_attribute()!r}: {missing[:5]}. `PolicyFilter._admits`"
             f" refuses an ABSENT attribute exactly as firmly as an out-of-grant"
@@ -1982,14 +1993,21 @@ def refuse_open_jurisdiction_world(
             " jurisdiction set; a closed world over nothing is not a narrower"
             " claim, it is an absent one"
         )
+    # THE FOUR BRANCHES BELOW ARE SERVE-PATH REFUSALS — their subject is the
+    # SERVED FAMILY (the caller's anchor's observed jurisdictions), reached per
+    # request. `AssemblyRefused` (a `ValueError`) rather than `SystemExit`, so
+    # the MCP door envelopes them as a governed `isError` instead of tearing
+    # down on a `BaseException` (CR-01, 2026-09-01). The `not declared` branch
+    # above stays `SystemExit`: its subject is `artifacts/source-vocabulary.yaml`
+    # declaring an EMPTY set — a deployment-authoring error no request triggers.
     if not served:
-        raise SystemExit(
+        raise AssemblyRefused(
             "no family member was resolved at all, so the declared jurisdiction"
             " set has nothing to be held against; refusing a check that cannot"
             " fail"
         )
     if not observed:
-        raise SystemExit(
+        raise AssemblyRefused(
             f"{len(served)} member(s) were served and NONE carries a"
             f" jurisdiction, so the declared set {sorted(declared)} is held"
             f" against an empty observation. That is the vacuous pass this"
@@ -1997,7 +2015,7 @@ def refuse_open_jurisdiction_world(
         )
     undeclared = sorted(observed - declared)
     if undeclared:
-        raise SystemExit(
+        raise AssemblyRefused(
             f"family members serve jurisdiction(s) {undeclared} that"
             f" artifacts/source-vocabulary.yaml does not declare. The declared"
             f" set is the FAMILY'S OBSERVED SET and it is CLOSED"
@@ -2006,7 +2024,7 @@ def refuse_open_jurisdiction_world(
         )
     idle = sorted(declared - observed)
     if idle:
-        raise SystemExit(
+        raise AssemblyRefused(
             f"artifacts/source-vocabulary.yaml declares jurisdiction(s) {idle}"
             f" that no member of this family serves. The declared set is the"
             f" family's OBSERVED set; a row that never fires is how an idle"

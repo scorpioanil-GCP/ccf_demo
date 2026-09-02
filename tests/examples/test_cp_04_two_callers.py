@@ -1002,6 +1002,104 @@ def test_the_tool_refuses_an_over_ceiling_depth_rather_than_clamping_it(
 
 
 # ---------------------------------------------------------------------------
+# CR-01 — a serve-path refusal is a GOVERNED error, and the door survives it.
+# ---------------------------------------------------------------------------
+
+#: A real estate anchor whose family serves a jurisdiction OUTSIDE the declared
+#: closed set `{NL, US-DE}` (`AgilysysInc`, US-OH). Asking about it trips
+#: `deployment.py::refuse_open_jurisdiction_world` on the serve path — the exact
+#: per-request refusal CR-01 is about. Read as an ADDRESS into the estate, not
+#: as a figure: what matters is that its observed set is not the declared one.
+REFUSING_ANCHOR = "5299001XWB5V3B5IPN93"
+REFUSING_ASK = "mcp-tool(a refusing anchor)"
+POST_REFUSAL_ASK = "mcp-tool(a valid ask after a refusal)"
+
+
+def _refusing_request(deployment: Any, lei: str) -> Any:
+    """The demonstration question re-aimed at a non-demonstration anchor.
+
+    The anchor travels as the declared `lei` argument AND as the subject, kept
+    equal so the door does not refuse for a subject/argument disagreement before
+    the serve-path guard it is meant to reach ever runs.
+    """
+    typed = deployment.demonstration_request()
+    parameters = dict(typed.parameters)
+    parameters[deployment.PARAM_LEI] = lei
+    return typed.model_copy(update={"subject": lei, "parameters": parameters})
+
+
+def test_a_serve_path_refusal_is_a_governed_error_and_the_door_survives(
+    estate: tuple[str, str],
+) -> None:
+    """**CR-01 (2026-09-01).** A per-request refusal returns `isError=True`, and
+    the door answers the next call.
+
+    Dave: *"Per-request refusals on the serve path must not raise `SystemExit`.
+    That is a process-lifetime signal. FastMCP only turns `Exception` into
+    `isError`."* `SystemExit` is a `BaseException`, so before the fix a refusing
+    anchor escaped the FastMCP tool wrapper and tore the session/server down
+    rather than answering the caller — and the very next call in the same
+    lifespan then found an unreachable server.
+
+    So both observations are driven in ONE lifespan: the refusing anchor, then a
+    valid demonstration ask AFTER it. The refusal must arrive as a governed tool
+    error (`isError=True`, NOT a torn-down door), and the door must still serve
+    the subsequent call. The sabotage this asserts against is the shipped defect
+    itself: reverting `refuse_open_jurisdiction_world` to `raise SystemExit`
+    turns the first assertion RED (the refusing anchor takes the door down, so
+    the ask is a `Refused` rather than an `isError` answer) and the second RED
+    too (the door does not survive to answer the post-refusal ask).
+    """
+    deployment = _load("deployment")
+    serve = _load("serve")
+    tenant = deployment.tenant_id()
+    refusing = _refusing_request(deployment, REFUSING_ANCHOR)
+    demonstration = deployment.demonstration_request()
+
+    with tempfile.TemporaryDirectory(prefix="cp04-serve-refusal-") as scratch:
+        with serve.door(root=pathlib.Path(scratch)) as opened:
+            results = drive(
+                opened,
+                {
+                    REFUSING_ASK: tool_call(
+                        tool_arguments(tenant=tenant, typed=refusing)
+                    ),
+                    POST_REFUSAL_ASK: tool_call(
+                        tool_arguments(tenant=tenant, typed=demonstration)
+                    ),
+                },
+            )
+
+    refused = results[REFUSING_ASK]
+    # A GOVERNED tool error, not a torn-down door. `Refused` here means the call
+    # raised out of the session — which is exactly the SystemExit-escapes-FastMCP
+    # symptom CR-01 fixes.
+    assert not isinstance(refused, Refused), (
+        "the refusing anchor took the door DOWN instead of returning a governed"
+        " error — a serve-path `SystemExit` escapes the FastMCP tool wrapper as a"
+        f" `BaseException` (CR-01): {refused.reason[:1000]}"
+    )
+    is_error, text = refused
+    assert is_error, (
+        "a family serving a jurisdiction outside the declared closed set was"
+        f" SERVED rather than refused: {text[:1000]}"
+    )
+
+    # THE DOOR STAYED UP. The next call, in the SAME lifespan, serves — which it
+    # cannot do if the prior refusal had torn the session/server down.
+    after = results[POST_REFUSAL_ASK]
+    assert not isinstance(after, Refused), (
+        "the door did not answer a valid demonstration ask AFTER a refusal — it"
+        f" did not stay up: {after.reason[:1000]}"
+    )
+    is_error_after, text_after = after
+    assert not is_error_after, (
+        "the door refused a valid demonstration ask after a prior refusal:"
+        f" {text_after[:1000]}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # The door's own threat register — `T-24.4-27` and `T-24.4-28`.
 # ---------------------------------------------------------------------------
 
