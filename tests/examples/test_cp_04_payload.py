@@ -1313,13 +1313,35 @@ def class_chain_violations(
 ) -> list[str]:
     """Every way the served tree fails `CFT-G15`.
 
-    **Three limbs, and the first two are separate because presence is not
+    **Four limbs, and the first two are separate because presence is not
     content.** A presence check alone passes against a chain served as an empty
     list — the key is there, the payload validates, and a consuming agent
     learns nothing. So the chain is asserted NON-EMPTY on every served node AND
     asserted by CONTENT on the anchor and on a cycle member, against
     `expected.yaml::census.anchor.type_chain` and
     `census.cycle_member_typing`.
+
+    **AND BY CONTENT ON EVERY OTHER MEMBER — the close panel's finding.** As
+    shipped, content was compared for the anchor and for ONE cycle-1 member;
+    the other twenty were checked NON-EMPTY only. This estate is
+    class-homogeneous, so twenty wrong-but-non-empty chains were invisible: a
+    member served `["Corporation"]`, or served another member's five-class
+    chain, satisfied every limb. Limb four therefore compares EVERY served
+    member's chain against the anchor's DECLARED chain, as a roster of the
+    members that diverge.
+
+    **The scope claim needs no new declared figure, and that is deliberate.**
+    The VALUES come from `expected.yaml::census.anchor.type_chain`, the one
+    place they are declared; the SCOPE — that every subtree member carries the
+    identical chain — is asserted as an observation about the run rather than
+    read from a document, because `expected.yaml` records the homogeneity in a
+    COMMENT (*"All 22 nodes carry the IDENTICAL 7-class chain"*, beside
+    `perspective_discriminating_class`) and a comment is not something a check
+    can read. Writing the seven names a second time would be the second place
+    to change one fact that document refuses by name. If this estate ever stops
+    being class-homogeneous this limb goes red, which is the correct outcome:
+    the withdrawal of ontology role 1 and of the seventeenth gate both rest on
+    that property, and it should not be able to change in silence.
 
     Ontology role 2 is what makes the product self-describing over MCP: a
     consuming agent knows what an entity IS without a second lookup. A tree
@@ -1362,6 +1384,24 @@ def class_chain_violations(
             " tree, so its chain cannot be read and this limb asserts nothing"
         )
         return violations
+    diverging = sorted(
+        local_name(node["uri"])
+        for node in asked.nodes
+        if node["type_chain"]
+        and tuple(sorted(local_name(iri) for iri in node["type_chain"])) != want_anchor
+    )
+    if diverging:
+        violations.append(
+            f"CFT-G15: {diverging} carry a class chain that is not the declared"
+            f" profile {list(want_anchor)}. expected.yaml records this subtree"
+            " as class-homogeneous — all 22 members carry the IDENTICAL chain —"
+            " so a member with a different NON-EMPTY chain is either a"
+            " mis-served chain or a measurement that has moved. Content was"
+            " compared for the anchor and one cycle member only until"
+            " 2026-09-01; the other twenty were checked non-empty, which a"
+            " wrong-but-non-empty chain satisfies"
+        )
+
     served_member = tuple(sorted(local_name(iri) for iri in member["type_chain"]))
     if len(served_member) != cycle_chain_length:
         violations.append(
@@ -1424,6 +1464,46 @@ def test_the_chain_check_refuses_a_chain_served_as_an_empty_list() -> None:
     )
     assert violations, "a tree with empty class chains was reported as typed"
     assert any("EMPTY class chain" in entry for entry in violations), violations
+
+
+def test_the_chain_check_refuses_a_wrong_chain_on_a_member_that_is_not_the_anchor() -> None:
+    """**Positive control** for the close panel's finding, in its own shape.
+
+    The anchor is right, the cycle member is right, and a THIRD member carries a
+    plausible five-class chain. Every limb the gate shipped with is satisfied by
+    this subject — the chain is non-empty, the anchor matches, the cycle member
+    matches and is the declared length — so the check that shipped reported it
+    clean. The roster limb names the member.
+    """
+    anchor_chain = census("anchor")["type_chain"]
+    full = [f"http://example.org/fibo/{name}" for name in anchor_chain]
+    partial = full[:5]
+    subject = Asked(
+        asked_as="one member carrying a wrong but non-empty chain",
+        payload={
+            "anchor": {"uri": "x://anchor", "type_chain": full},
+            "nodes": [
+                {"uri": "x://a", "type_chain": full},
+                {"uri": "http://example.org/fibo/SubSupermicroKk", "type_chain": partial},
+            ],
+            "edges": [],
+            "findings": [],
+        },
+        content_address="deadbeef",
+        refusal=None,
+        observed=("Assembled",),
+        served_vessels=("Assembled",),
+    )
+    violations = class_chain_violations(
+        subject, anchor_chain=anchor_chain, cycle_member="a", cycle_chain_length=7
+    )
+    assert violations, "a wrong but non-empty chain on a non-anchor member was accepted"
+    assert any("SubSupermicroKk" in entry for entry in violations), violations
+    assert any("class-homogeneous" in entry for entry in violations), violations
+    assert not any("EMPTY class chain" in entry for entry in violations), (
+        "the empty-chain limb fired; this subject carries a NON-empty chain and"
+        " the point of the control is that only the roster limb can see it"
+    )
 
 
 def test_the_chain_check_refuses_a_wrong_chain_that_is_not_empty() -> None:
