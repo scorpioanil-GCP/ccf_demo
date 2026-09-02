@@ -62,3 +62,21 @@ and not fixed inside that row's fence.
 - **Owner:** the return trip, or whichever plan next edits that docstring —
   one sentence in the `params.py` voice ("no NUMERIC default; the `None` is a
   positive sentinel").
+
+## 3. hw1's `consume.py` prints `— None` for a gate refusal's key (found by plan 24.5-15)
+
+- **Found during:** plan `24.5-15` Task 1, measuring the ladder flip on
+  `tests/examples/test_hw1_two_transports.py::test_both_documented_transports_return_the_same_answer`.
+- **What:** `examples/hw1-companies-over-revenue/consume.py` prints
+  `f"refused: {result.refusal.reason} — {result.refusal.key}"` on any refusal.
+  A gate refusal names no parameter, so `key` is `None` and the line reads
+  `refused: empty-operator-result — None`. Cosmetic; the typed refusal is
+  correct. Before `24.5-L-24` no gate refusal reached this line on a clean
+  checkout (the empty fabric served "0 of 0 assembled"), so the shape was
+  never printed.
+- **Not mine to fix:** `examples/` is closed in 24.5 (`.continue-here.md`);
+  a README/consume change is `24.5.1`. The flip itself is recorded in
+  `24.5-15-SUMMARY.md` for plan `24.5-16`'s re-measure.
+- **Owner:** `24.5.1`, alongside whatever ruling plan `24.5-16` reaches on
+  the hw1 flip (a clean checkout's hello-world is now refused by name rather
+  than served empty).
