@@ -2587,9 +2587,14 @@ def test_the_duplicate_check_refuses_a_merged_pair() -> None:
 # The anchor block is held to the SAME admission as the edges beside it.
 #
 # NOT A GATE, and no id is minted for it. The roster is SIXTEEN,
-# `CFT-G01`..`CFT-G16`, and `CFT-G17` is WITHDRAWN. This is the close panel's
-# first finding of the 2026-09-01 second bundle, and its home is here because
-# the anchor block is payload shape.
+# `CFT-G01`..`CFT-G16`, and the seventeenth id stays withdrawn — deliberately
+# NOT written here, because
+# `tests/examples/test_cp_04_gates_declaration.py::test_no_gate_id_appears_only_as_a_comment`
+# collects every gate token on a comment line and requires each to be DECLARED,
+# which is exactly what the withdrawal forbids. Caught by running that gate
+# rather than by reading it. This is the close panel's first finding of the
+# 2026-09-01 second bundle, and its home is here because the anchor block is
+# payload shape.
 # ---------------------------------------------------------------------------
 
 
