@@ -516,6 +516,20 @@ def replay(
             f"snapshot {snapshot.graph_snapshot_id!r}; the state the decision "
             "was made against is not the state the graph now re-renders"
         )
+    if reproduced_snapshot.store_snapshot_pin != snapshot.store_snapshot_pin:
+        # 24.5-L-02 (D-IMPL-240): the pin is outside the id derivation, so
+        # it is compared on its own. A re-execution that read under any
+        # other store state than the recorded one — the head, or a pin that
+        # moved between record and rehydration — is a different decision.
+        recorded_pin = snapshot.store_snapshot_pin
+        replayed_pin = reproduced_snapshot.store_snapshot_pin
+        raise ReplayDivergence(
+            "the re-execution read under store pin "
+            f"{replayed_pin.substrate}:{replayed_pin.pin!r}; the record pins "
+            f"{recorded_pin.substrate}:{recorded_pin.pin!r} — the state the "
+            "decision was made against is not the state it was replayed "
+            "against (24.5-L-02, CLAUDE.md §7.4)"
+        )
 
     product = environment.rehydrate_product(
         record=record, projection=execution.projection

@@ -36,12 +36,15 @@ from __future__ import annotations
 from datetime import datetime
 
 from ccf.graph.protocols import (
+    NO_STORE_SNAPSHOT_PIN,
     EntityRecord,
     GraphQuery,
     GraphReader,
     GraphView,
     RelationshipRecord,
+    SnapshotPinnable,
     SourceAttestation,
+    StoreSnapshotPin,
 )
 from ccf.projection.engine import ExecutionResult
 from ccf.replay.record import ContextFabricSnapshot
@@ -49,6 +52,7 @@ from ccf.replay.record import ContextFabricSnapshot
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "SnapshotPinUnresolvable",
     "SnapshotReader",
     "SnapshotScopeViolation",
     "snapshot_of_execution",
@@ -65,6 +69,25 @@ class SnapshotScopeViolation(LookupError):
     """
 
 
+class SnapshotPinUnresolvable(LookupError):
+    """A record pins the store at a transaction the live reader cannot resolve.
+
+    SDK-defined per CLAUDE.md §11, beside the whitepaper's replay commitment
+    (§7.10) and the exact-version rule of CLAUDE.md §7.4 (ledger row
+    24.5-L-02, D-IMPL-240). Raised when dimension 1 carries a
+    :class:`~ccf.graph.protocols.StoreSnapshotPin` other than the sentinel
+    and the reader handed to replay is not
+    :class:`~ccf.graph.protocols.SnapshotPinnable` — a reader that can only
+    answer the head. Replay **refuses** rather than reading the head: the
+    head is the store's state *now*, and a decision replayed against it
+    would be a new decision wearing the recorded one's identifier. A
+    ``LookupError`` because it is the same class of failure as
+    :class:`~ccf.replay.engine.ReplayUnresolvable` — something the record
+    names cannot be resolved as recorded — and the engine reports it that
+    way.
+    """
+
+
 class SnapshotReader:
     """A :class:`~ccf.graph.protocols.GraphReader` pinned to one logical snapshot.
 
@@ -73,6 +96,29 @@ class SnapshotReader:
     graph is append-only with logical supersession (INV-CH7-04) and reads are
     bitemporal (INV-CH7-14), that delegated read returns the state of the
     decision's instant however much has been written since.
+
+    **The recorded store pin is resolved exactly, and the head is never a
+    fallback** (ledger row 24.5-L-02; D-IMPL-240 (1); CLAUDE.md §7.4 replay
+    determinism). When the snapshot carries a
+    :class:`~ccf.graph.protocols.StoreSnapshotPin` other than
+    :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN`, every read —
+    :meth:`as_of`, which is the degenerate query (`GQ-21`), and
+    :meth:`query` alike — is answered through the live reader's
+    ``query_pinned`` at that pin, so a substrate whose head has advanced
+    since the decision still re-renders the state the decision read. A
+    live reader that is not :class:`~ccf.graph.protocols.SnapshotPinnable`
+    cannot honor such a pin, and the reader raises
+    :class:`SnapshotPinUnresolvable` rather than answering the head: an
+    answer from the current head would be a confident re-computation
+    wearing the record's identifier. When the sentinel is recorded, the
+    reads behave exactly as they did before the pin existed — the
+    compatibility promise every pre-phase record relies on.
+
+    The reader is itself :class:`~ccf.graph.protocols.SnapshotPinnable`:
+    :meth:`snapshot_pin` reports the *recorded* pin, so an execution driven
+    through it carries the recorded pin on its result and
+    :func:`snapshot_of_execution` re-derives dimension 1 with the pin the
+    record names, and :meth:`query_pinned` admits only that pin.
 
     Args:
         reader: The live graph reader. Read-only by type; the replay path has
@@ -114,15 +160,48 @@ class SnapshotReader:
                 f"{at.isoformat()} would be a different decision"
             )
 
+    def _pinned_reader(self) -> SnapshotPinnable:
+        """The live reader, proven able to honor the recorded pin — or refuse.
+
+        Raises:
+            SnapshotPinUnresolvable: the snapshot records a store pin and the
+                live reader is not :class:`~ccf.graph.protocols.SnapshotPinnable`.
+                Never answers the head instead (CLAUDE.md §7.4).
+        """
+        if isinstance(self._reader, SnapshotPinnable):
+            return self._reader
+        pin = self._snapshot.store_snapshot_pin
+        raise SnapshotPinUnresolvable(
+            f"the record pins the store at {pin.substrate}:{pin.pin!r} and the "
+            f"live reader ({type(self._reader).__name__}) cannot resolve a "
+            "store pin; replay refuses to read the current head in its place "
+            "(24.5-L-02, CLAUDE.md §7.4)"
+        )
+
+    def _routed(self, q: GraphQuery) -> GraphView:
+        """Answer ``q`` at the recorded pin when one is recorded; as before otherwise."""
+        pin = self._snapshot.store_snapshot_pin
+        if pin == NO_STORE_SNAPSHOT_PIN:
+            return self._reader.query(q)
+        return self._pinned_reader().query_pinned(q, pin=pin)
+
     def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
         """Re-render the recorded state; refuse anything else.
+
+        With a store pin recorded, this is the degenerate query (`GQ-21`)
+        answered at that pin; with the sentinel recorded, the live reader's
+        own ``as_of`` exactly as before.
 
         Raises:
             SnapshotScopeViolation: ``tenant_id`` or ``at`` is outside the
                 snapshot.
+            SnapshotPinUnresolvable: a store pin is recorded and the live
+                reader cannot resolve one.
         """
         self._check(tenant_id=tenant_id, at=at)
-        return self._reader.as_of(tenant_id=tenant_id, at=at)
+        if self._snapshot.store_snapshot_pin == NO_STORE_SNAPSHOT_PIN:
+            return self._reader.as_of(tenant_id=tenant_id, at=at)
+        return self._routed(GraphQuery(tenant_id=tenant_id, as_of=at))
 
     def query(self, q: GraphQuery) -> GraphView:
         """Answer ``q`` within the pinned snapshot scope; refuse anything else.
@@ -135,12 +214,48 @@ class SnapshotReader:
         deliberate and both behaviors are normative (`GQ-27` at
         docs/GRAPH_QUERY_SEMANTICS.md:529 — see :meth:`_check`).
 
+        With a store pin recorded the delegation is ``query_pinned`` at that
+        pin (24.5-L-02); with the sentinel recorded it is ``query`` exactly
+        as before.
+
         Raises:
             SnapshotScopeViolation: ``q.tenant_id`` or ``q.as_of`` is
                 outside the snapshot.
+            SnapshotPinUnresolvable: a store pin is recorded and the live
+                reader cannot resolve one.
         """
         self._check(tenant_id=q.tenant_id, at=q.as_of)
-        return self._reader.query(q)
+        return self._routed(q)
+
+    def snapshot_pin(self) -> StoreSnapshotPin:
+        """The *recorded* pin — never the live reader's head.
+
+        This is what makes the reader :class:`~ccf.graph.protocols.SnapshotPinnable`
+        and what makes replay's re-derived dimension 1 carry the pin the
+        record names: :meth:`ProjectionEngine.execute
+        <ccf.projection.engine.ProjectionEngine.execute>` reads it once
+        before its first query, exactly as it does on a live reader.
+        """
+        return self._snapshot.store_snapshot_pin
+
+    def query_pinned(self, q: GraphQuery, *, pin: StoreSnapshotPin) -> GraphView:
+        """Answer ``q`` at ``pin`` — admitted only when ``pin`` is the recorded one.
+
+        Raises:
+            SnapshotScopeViolation: ``pin`` is not the recorded pin (a
+                replay asking for another state of the store is not
+                replaying this record), or ``q`` is outside the snapshot.
+            SnapshotPinUnresolvable: the live reader cannot resolve a pin.
+        """
+        recorded = self._snapshot.store_snapshot_pin
+        if pin != recorded:
+            raise SnapshotScopeViolation(
+                f"replay is pinned to store state {recorded.substrate}:"
+                f"{recorded.pin!r}; a read at {pin.substrate}:{pin.pin!r} "
+                "would be a different decision"
+            )
+        self._check(tenant_id=q.tenant_id, at=q.as_of)
+        return self._pinned_reader().query_pinned(q, pin=pin)
 
     @property
     def attestation(self) -> SourceAttestation:
@@ -192,4 +307,8 @@ def snapshot_of_execution(
         store_watermark=execution.state_watermark(),
         touched_entities=execution.touched_entities(),
         touched_relationships=execution.touched_relationships(),
+        # 24.5-L-02: re-derived from the execution exactly as the id
+        # constituents are, so replay compares the pin it read under with
+        # the pin the record names.
+        store_snapshot_pin=execution.store_snapshot_pin,
     )
