@@ -3,9 +3,28 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-01T23:55:00.000Z"
+last_updated: "2026-09-02T05:15:00.000Z"
 last_activity: >-
-  2026-09-01 -- **PHASE 24.4 IS BUILT, NOT GATED. All 14 plans complete, the build was EVALUATED
+  2026-09-01 -- **PHASE 24.4 IS CLOSED. `D-GATE-24.4` APPROVED BY DAVE, 2026-09-01, ENTERED IN
+  `docs/DECISIONS.md` AFTER `D-IMPL-234`.** Everything SS3.1 orders ran in order on the SHIPPED
+  TREE: cross-AI panel (`24.4-CLOSE-REVIEWS.md` SS1-SS10; findings 1-5 fixed under sabotage naming
+  their own gate id and restored; six rejected with evidence) -> single-agent review
+  (`24.4-REVIEW.md`, 16 findings) -> Dave's disposition -> `24.4-FIX-05` (CR-01 serve-path
+  `SystemExit` -> `AssemblyRefused`; WR-05; WR-01; CR-02's 409 claim removed from ALL THREE artifacts
+  that carried it, one test reads all three) -> SS12 of the close record -> the gate. **RULED at the
+  gate:** family-scope guards STAY `SystemExit` -- *"deployment/binding, not caller data; same
+  discriminator as unset env / mis-authored config."* **THE SUITE SENTENCE, PER THE CARVE:** nine of
+  ten `make ci` legs rc=0; pytest **4664 passed / 45 skipped / 1 failed = 4710** collected, three
+  foreground chunks proven a partition; the 1 is
+  `test_the_one_document_exemption_has_not_spread`, carved by `D-IMPL-234` and NOT suite-green --
+  cp-01/02/03's exemption claims remain UNRULED. Ratchets: unanchored citations 0; gates 16;
+  `observed_red` null 0; `src/`+`runtime/` changed files 0 (control: `examples/` 24). Gaps
+  `24.4-D-26`..`24.4-D-37` recorded, none closed. 17 deferred rows. **Next free id `D-IMPL-235`.**
+  ROADMAP ticked and progress row rewritten BY HAND; this file edited BY HAND; no `state.*` or
+  `roadmap.*` writer ran. Merged to `main` with `--no-ff` citing `D-GATE-24.4`. **Next:** the ladder's
+  next rung is Dave's to name; cp-01/02/03's exemption claims (`D-IMPL-234`) and `D-IMPL-221`'s
+  cp-02 history are the open items that predate this phase.
+  PRIOR: 2026-09-01 -- **PHASE 24.4 IS BUILT, NOT GATED. All 14 plans complete, the build was EVALUATED
   by Dave against his own five-check gate and ALL FIVE HELD, and his FIVE RULINGS are logged at
   `D-IMPL-233` and now APPLIED through the phase record.** **NOTHING IS CLOSED.** There is no
   `D-GATE-24.4`, nothing is marked complete, `ROADMAP.md` carries no phase tick, and the CLAUDE.md
@@ -746,12 +765,18 @@ last_activity: >-
   `DOCS-14`/`EXAM-02`'s replacement surface. **DELETION REMAINS OWED FOR EVERY SCHEDULED ROW**
   (`D-IMPL-191` ruling 3).
 progress:
-  total_phases: 31
-  completed_phases: 29
-  total_plans: 225
-  completed_plans: 225
+  total_phases: 36
+  completed_phases: 34
+  total_plans: 257
+  completed_plans: 257
   percent: 94
-  measured: "**OPERATIVE RE-MEASURE AT THE PHASE 23.1 GATE, 2026-08-25/26 by
+  measured: "**RE-MEASURED AT THE PHASE 24.4 GATE, 2026-09-01, by hand, stated FIRST;
+    everything below is PRESERVED HISTORY.** total_plans 257 = `*-PLAN.md` at depth 1 under
+    `.planning/phases/*/` (control `*-PLANN.md` = 0); completed_plans 257 = those with a
+    `*-SUMMARY.md` beside them. total_phases 36 = `### Phase` sections in ROADMAP.md;
+    completed_phases 34 = `- [x] **Phase` checklist ticks, with 1 unticked and the checklist
+    one entry SHORT of the sections (the four-places drift, known). percent left at 94 because
+    the milestone's DOCS debt (`D-IMPL-176`) is unchanged, not because it was computed. **OPERATIVE RE-MEASURE AT THE PHASE 23.1 GATE, 2026-08-25/26 by
     plan `23.1-08`, stated FIRST and alone; everything below it is PRESERVED HISTORY.**
     RE-MEASURED FROM THE TREE, NOT INCREMENTED (Dave, 2026-08-25: *re-measure and
     hand-correct; do not increment*). **total_plans 225** = `*-PLAN.md` at depth 1 under
@@ -847,6 +872,12 @@ progress:
     bullet is struck through as superseded). The first is the EXACT error recorded against
     a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
+  **PHASE 24.4 IS CLOSED -- `D-GATE-24.4` APPROVED (Dave, 2026-09-01) and merged to `main`
+  `--no-ff`.** Nothing is in flight. The next rung of the Context Product ladder is Dave's to name.
+  Open items that PREDATE this phase and are not its debt: cp-01/02/03's one-document exemption claims
+  are unruled (`D-IMPL-234` carves the one red test to them); `D-IMPL-221`'s cp-02 history. The
+  phase's own 17 deferred rows live in `deferred-items.md`. Next free decision id `D-IMPL-235`.
+  PRIOR:
   **PHASE 24.4 IS PAUSED AFTER ITS BUILD, AWAITING DAVE'S EVALUATION OF THE PRODUCT.** 14 of 14
   plans complete. The stop is the DELIVERABLE, not a blocker: `example_delivery.md` sections 1 and
   11 put the pause after the build and before any close panel, `D-GATE` or completion mark, and
@@ -1078,6 +1109,13 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**PHASE 24.4 IS CLOSED. `D-GATE-24.4` APPROVED (Dave, 2026-09-01).** Built, evaluated (five-check
+gate held on live fixtures), paneled on the shipped tree, reviewed, fixed, gated, merged `--no-ff`.
+`src/` + `runtime/` 0 files changed; gaps `24.4-D-26`..`24.4-D-37` recorded and none closed. Pytest
+4664 / 45 / 1 -- the 1 is the `D-IMPL-234` carve and is NOT suite-green. Family-scope guards stay
+`SystemExit` by ruling. Next id `D-IMPL-235`. Nothing is in flight; the next rung is Dave's call.
+Everything below this paragraph is the record as it stood before the gate.
 
 **PHASE 24.4 IS BUILT, NOT GATED. THE BUILD WAS EVALUATED AND DAVE'S FIVE-CHECK GATE HELD ON
 LIVE FIXTURES. HIS FIVE RULINGS ARE LOGGED AT `D-IMPL-233` AND APPLIED.** 14 of 14 plans have
