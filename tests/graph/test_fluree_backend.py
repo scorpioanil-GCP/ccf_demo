@@ -3373,3 +3373,367 @@ def test_the_traverse_posture_is_recorded_in_telemetry(
     )
     assert handle.reader.fallback_answers == 0
     assert handle.reader.translated_answers == 1
+
+
+# --- the pinned read (plan 24.5-02; ledger rows 24.5-L-01, L-03, L-04) -------
+#
+# Criterion 5: a Fluree read can be PINNED to a transaction `t` as an upper
+# bound, distinct from the `Fluree-Min-T` FLOOR — proven by advancing a fresh
+# ledger between two reads and watching the two answer DIFFERENTLY. Research
+# measured (24.5-RESEARCH.md §A.1) that the Cypher route ignores every pin
+# form silently, which is why the pin rides JSON-LD `from: <ledger>@t:N`
+# (D-IMPL-240 (2)) and why the probe below is the criterion-5 test itself: a
+# future server change that starts honoring a header, or stops honoring the
+# JSON-LD pin, is caught here rather than inferred (Pitfall 2).
+
+#: The JSON-LD pinned-select envelope, captured VERBATIM on
+#: ``fluree/server:4.1.4`` (2026-09-02) — the F-A1 discipline applied to the
+#: second read dialect, because this envelope is documented nowhere in the
+#: tree (24.5-PATTERNS.md "No Analog Found" row 1) and ``_pinned_row`` is
+#: written against these bytes. Two facts it fixes: the answer is a BARE
+#: array of node objects keyed by predicate name, and a predicate a node does
+#: not carry is ABSENT rather than ``null`` — the second node was written
+#: superseded, the first was not. Values are probe values, not vocabulary.
+PINNED_SELECT_ENVELOPE_AT_T2: list[dict[str, Any]] = [
+    {
+        "ccf_claim_id": "c1",
+        "ccf_claim_json": '{"a":1}',
+        "ccf_entity_uri": "e://1",
+        "ccf_policy_bundle_version": "v1",
+    },
+    {
+        "ccf_claim_id": "c2",
+        "ccf_claim_json": '{"a":2}',
+        "ccf_entity_uri": "e://2",
+        "ccf_policy_bundle_version": "v1",
+        "ccf_superseded_at": "2026-02-01T00:00:00Z",
+        "ccf_superseded_by": "c9",
+    },
+]
+
+#: The three phrases criterion 7 requires the adapter's module docstring to
+#: name — the ``TEMPORAL_AXES`` vocabulary in prose, one phrase per axis.
+TEMPORAL_AXIS_PHRASES: tuple[str, ...] = ("event time", "transaction time", "as_of")
+
+
+def _axes_named(docstring: str) -> list[str]:
+    """The axis phrases ``docstring`` does NOT name — empty when all three are.
+
+    Shared by the test and its in-test control so the two cannot drift: the
+    control proves this predicate can be made to fail, which is what makes
+    the test's green worth anything.
+    """
+    return [phrase for phrase in TEMPORAL_AXIS_PHRASES if phrase not in docstring]
+
+
+def _claim_nodes(
+    claim: "EntityClaim", *, partition: str, policy_bundle_version: str
+) -> list[dict[str, Any]]:
+    """One entity claim as ``fluree_write.py`` writes it — a claim node and its lineage node.
+
+    The same predicates, the same canonical renderings: ``claim_json`` is
+    the claim minus lineage through ``canonical_bytes`` (the
+    ``ccf.graph._writer._claim_payload`` rule), ``observed_at`` is canonical
+    UTC text, the lineage entry rides in its own ``CcfLineage`` node keyed
+    the way ``SELECT_LINEAGE`` binds. Written here, outside the adapter, so
+    the pinned read is measured against rows the adapter did not author.
+    """
+    from ccf.contracts.canonical import canonical_timestamp, content_hash
+    from ccf.contracts.claims import EntityClaim
+    from ccf.graph.backends.fluree import (
+        L_ENTITY_CLAIM,
+        L_LINEAGE,
+        P_CLAIM_ID,
+        P_CLAIM_JSON,
+        P_CLAIM_KIND,
+        P_ENTITY_CLASS,
+        P_ENTITY_URI,
+        P_ENTRY_JSON,
+        P_LINEAGE_ID,
+        P_NODE_KEY,
+        P_OBSERVED_AT,
+        P_PARTITION,
+        P_POLICY_VERSION,
+        P_SEQ,
+        P_TENANT,
+    )
+    from ccf.graph.reader import ENTITY_KIND
+
+    payload = canonical_bytes(
+        {
+            name: getattr(claim, name)
+            for name in EntityClaim.model_fields
+            if name != "lineage"
+        }
+    ).decode("utf-8")
+    claim_id = content_hash(payload)
+    entry = next(iter(claim.lineage))
+    return [
+        {
+            "@id": f"ccf_ec_{content_hash([claim.entity_uri, claim_id])}",
+            "@type": L_ENTITY_CLAIM,
+            P_PARTITION: partition,
+            P_TENANT: claim.tenant_id,
+            P_ENTITY_URI: claim.entity_uri,
+            P_CLAIM_ID: claim_id,
+            P_CLAIM_JSON: payload,
+            P_OBSERVED_AT: canonical_timestamp(claim.observed_at),
+            P_POLICY_VERSION: policy_bundle_version,
+            P_SEQ: 0,
+            P_ENTITY_CLASS: claim.entity_class,
+        },
+        {
+            "@id": f"ccf_l_{content_hash([claim.entity_uri, claim_id])}",
+            "@type": L_LINEAGE,
+            P_PARTITION: partition,
+            P_TENANT: claim.tenant_id,
+            P_CLAIM_KIND: ENTITY_KIND,
+            P_NODE_KEY: claim.entity_uri,
+            P_CLAIM_ID: claim_id,
+            P_LINEAGE_ID: content_hash([entry.envelope_id]),
+            P_ENTRY_JSON: canonical_bytes(entry).decode("utf-8"),
+        },
+    ]
+
+
+@pytest.mark.fluree
+def test_fa7_a_pinned_read_answers_the_pinned_state_and_the_floor_answers_the_head(
+    fluree_url: str,
+) -> None:
+    """Criterion 5, `24.5-L-01`: floor and pin answer DIFFERENTLY on an advanced ledger.
+
+    A fresh ledger takes one claim at ``t=1`` and a second at ``t=2``. Then,
+    against the same ledger and the same ``as_of``:
+
+    (a) the reader's ``snapshot_pin()`` reports the head, ``t=2``;
+    (b) ``query_pinned`` at ``t=1`` answers ONE entity — with its lineage,
+        because the L axis is pinned with the claims;
+    (c) the unpinned ``as_of`` — which threads only the ``Fluree-Min-T``
+        FLOOR on the Cypher route — answers TWO, and is byte-identical to
+        ``query_pinned`` at the head, the D-04 oracle equality;
+    (d) a raw Cypher read with ``Fluree-Min-T: 1`` — the floor stated
+        explicitly, at exactly the value the pin used — ALSO answers two.
+        That is `L-01`'s finding restated as an assertion: a floor is a
+        lower bound and cannot express what the pin expresses;
+    (e) the as-of cut still applies UNDER the pin: an ``as_of`` before either
+        ``observed_at`` answers nothing at ``t=2``. Two axes, never one.
+
+    The raw envelope of one pinned select is asserted against the verbatim
+    capture ``PINNED_SELECT_ENVELOPE_AT_T2`` records the SHAPE of, and
+    ``_pinned_row`` is shown mapping that capture to the six Cypher column
+    names with ``None`` where a predicate is absent.
+    """
+    from datetime import UTC, datetime
+
+    from ccf.graph.backends.fluree import (
+        _PINNED_ENTITY_COLUMNS,
+        FlureeGraphStore,
+        _pinned_row,
+        _pinned_select,
+    )
+    from ccf.graph.protocols import GraphQuery, StoreSnapshotPin
+
+    partition = "ccf"
+    tenant = f"tenant-{uuid.uuid4().hex[:8]}"
+    observed = datetime(2026, 3, 1, tzinfo=UTC)
+    after_both = datetime(2026, 4, 1, tzinfo=UTC)
+    before_both = datetime(2026, 1, 1, tzinfo=UTC)
+    ledger = _fresh_ledger()
+    first, second = (
+        entity_claim(
+            entity_uri=uri,
+            entity_class=SEED_CLASS,
+            classification=PERMITTED_CLASSIFICATION,
+            observed_at=observed,
+            tenant_id=tenant,
+        )
+        for uri in (chain_uris(0)[0], chain_uris(1)[0])
+    )
+
+    with FlureeGraphStore(url=fluree_url, partition=partition, ledger=ledger) as store:
+        with httpx.Client(timeout=TIMEOUT) as client:
+            base, _ = _api_base(client, fluree_url)
+            for claim in (first, second):
+                receipt = _insert(
+                    client,
+                    base,
+                    ledger,
+                    _claim_nodes(claim, partition=partition, policy_bundle_version="pb-1"),
+                )
+                assert receipt.status_code == 200, receipt.text
+            assert receipt.json()["t"] == 2, receipt.text
+
+            # (d) the FLOOR, stated at the pin's own value, answers the head.
+            floored = _cypher(
+                client,
+                base,
+                ledger,
+                "MATCH (c:CcfEntityClaim {ccf_partition: $partition,"
+                " ccf_tenant_id: $tenant}) RETURN c.ccf_entity_uri AS entity_uri",
+                {"partition": partition, "tenant": tenant},
+                min_t=1,
+            )
+            assert floored.status_code == 200, floored.text
+            assert len(_rows(floored)) == 2, _rows(floored)
+
+        reader = store.reader
+        # (a)
+        assert reader.snapshot_pin() == StoreSnapshotPin(substrate="fluree", pin="2")
+
+        # The envelope, measured against the live server: bare array, keyed by
+        # predicate, absent predicates absent — the shape the capture records.
+        envelope = store.post_query_pinned(
+            _pinned_select(
+                "CcfEntityClaim",
+                partition=partition,
+                tenant=tenant,
+                columns=_PINNED_ENTITY_COLUMNS,
+            ),
+            pin_t=1,
+        )
+        assert isinstance(envelope, list) and len(envelope) == 1, envelope
+        assert set(envelope[0]) == {
+            "ccf_claim_id",
+            "ccf_claim_json",
+            "ccf_entity_uri",
+            "ccf_policy_bundle_version",
+        }, envelope
+        assert envelope[0]["ccf_entity_uri"] == first.entity_uri
+        # The verbatim capture maps to the six Cypher columns, None for absent.
+        mapped = [
+            _pinned_row(node, columns=_PINNED_ENTITY_COLUMNS)
+            for node in PINNED_SELECT_ENVELOPE_AT_T2
+        ]
+        assert [sorted(row) for row in mapped] == [
+            sorted(_PINNED_ENTITY_COLUMNS)
+        ] * 2
+        assert mapped[0]["superseded_by"] is None
+        assert mapped[0]["superseded_at"] is None
+        assert mapped[1]["superseded_by"] == "c9"
+        assert mapped[1]["superseded_at"] == "2026-02-01T00:00:00Z"
+
+        # (b) pinned at t=1: ONE, with lineage.
+        q = GraphQuery(tenant_id=tenant, as_of=after_both)
+        pinned = reader.query_pinned(q, pin=StoreSnapshotPin(substrate="fluree", pin="1"))
+        assert [e.claim.entity_uri for e in pinned.entities] == [first.entity_uri]
+        assert len(pinned.entities[0].claim.lineage) == 1
+
+        # (c) unpinned — floor only — TWO; byte-identical to the pin at head.
+        head = reader.as_of(tenant_id=tenant, at=after_both)
+        assert sorted(e.claim.entity_uri for e in head.entities) == sorted(
+            (first.entity_uri, second.entity_uri)
+        )
+        at_head = reader.query_pinned(q, pin=StoreSnapshotPin(substrate="fluree", pin="2"))
+        assert canonical_bytes(at_head) == canonical_bytes(head)
+
+        # (e) the as-of cut still applies under the pin.
+        early = GraphQuery(tenant_id=tenant, as_of=before_both)
+        assert (
+            reader.query_pinned(early, pin=StoreSnapshotPin(substrate="fluree", pin="2")).entities
+            == ()
+        )
+
+
+@pytest.mark.fluree
+def test_fa7_a_pin_past_the_head_is_refused_identifiably(fluree_url: str) -> None:
+    """A pin the ledger has not reached is `FlureePinAhead`, naming both `t`s.
+
+    The measured ``408 err:db/ReadAfterWriteTimeout`` — the same server
+    condition a floor past the head raises on the Cypher route — surfaces as
+    the `LookupError` subclass `SnapshotPinnable.query_pinned` declares, with
+    the asked pin and the server's ``current t`` in the message and nothing
+    from the URL (threat T-24.5-04).
+    """
+    from datetime import UTC, datetime
+
+    from ccf.graph.backends.fluree import FlureeGraphStore, FlureePinAhead
+    from ccf.graph.protocols import GraphQuery, StoreSnapshotPin
+
+    ledger = _fresh_ledger()
+    tenant = f"tenant-{uuid.uuid4().hex[:8]}"
+    claim = entity_claim(
+        entity_uri=chain_uris(0)[0],
+        entity_class=SEED_CLASS,
+        classification=PERMITTED_CLASSIFICATION,
+        observed_at=datetime(2026, 3, 1, tzinfo=UTC),
+        tenant_id=tenant,
+    )
+    with FlureeGraphStore(url=fluree_url, partition="ccf", ledger=ledger) as store:
+        with httpx.Client(timeout=TIMEOUT) as client:
+            base, _ = _api_base(client, fluree_url)
+            for _ in range(2):
+                receipt = _insert(
+                    client,
+                    base,
+                    ledger,
+                    _claim_nodes(claim, partition="ccf", policy_bundle_version="pb-1"),
+                )
+                assert receipt.status_code == 200, receipt.text
+        assert store.head_t() == 2
+        q = GraphQuery(tenant_id=tenant, as_of=datetime(2026, 4, 1, tzinfo=UTC))
+        with pytest.raises(FlureePinAhead) as ahead:
+            store.reader.query_pinned(q, pin=StoreSnapshotPin(substrate="fluree", pin="3"))
+        assert isinstance(ahead.value, LookupError)
+        assert "t=3" in str(ahead.value)
+        assert "current t=2" in str(ahead.value)
+        assert fluree_url not in str(ahead.value)
+
+
+def test_a_t_offered_as_an_as_of_is_refused(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """Criterion 5's `D-IMPL-88` guard: three plants, each refused, before any I/O.
+
+    * a `StoreSnapshotPin` where `GraphQuery.as_of` is typed — pydantic
+      refuses the model at the seam (the type-level guard);
+    * a `datetime` offered as a pin — `TypeError` naming `D-IMPL-88`;
+    * a bare `int` offered as a pin — the same `TypeError`.
+
+    The reader is constructed without a store and never reaches the wire:
+    `_require_fluree_pin` runs first. And the Protocol is structural — the
+    Fluree reader IS `SnapshotPinnable`; a SQLite reader, which has no
+    native pin, is NOT, with no stub anywhere (D-10).
+    """
+    from datetime import UTC, datetime
+
+    import pydantic
+
+    from ccf.graph.backends.fluree import FlureeGraphReader
+    from ccf.graph.protocols import GraphQuery, SnapshotPinnable, StoreSnapshotPin
+
+    at = datetime(2026, 9, 2, tzinfo=UTC)
+    with pytest.raises(pydantic.ValidationError):
+        GraphQuery(tenant_id="t", as_of=StoreSnapshotPin(substrate="fluree", pin="2"))  # type: ignore[arg-type]
+
+    reader = FlureeGraphReader.__new__(FlureeGraphReader)
+    q = GraphQuery(tenant_id="t", as_of=at)
+    with pytest.raises(TypeError, match="D-IMPL-88"):
+        reader.query_pinned(q, pin=at)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="D-IMPL-88"):
+        reader.query_pinned(q, pin=2)  # type: ignore[arg-type]
+
+    assert isinstance(reader, SnapshotPinnable)
+    sqlite_reader = fabric_boot(backend="sqlite").reader
+    assert not isinstance(sqlite_reader, SnapshotPinnable)
+
+
+def test_the_module_docstring_names_the_three_temporal_axes() -> None:
+    """Criterion 7, `24.5-L-03`/`L-04`: the adapter's docstring names all three axes.
+
+    ``event time``, ``transaction time`` and ``as_of`` — the
+    ``TEMPORAL_AXES`` vocabulary in prose — plus the ruling that keeps them
+    apart, ``D-IMPL-88``. Then the control, in the
+    ``tests/products/test_refusal_envelope.py::test_control_1_…`` voice: for
+    each phrase, the docstring with that phrase removed must FAIL the same
+    predicate, naming exactly that phrase. A predicate that cannot be made
+    to fail proves nothing.
+    """
+    import ccf.graph.backends.fluree as module
+
+    docstring = module.__doc__ or ""
+    assert _axes_named(docstring) == [], _axes_named(docstring)
+    assert "D-IMPL-88" in docstring
+
+    for phrase in TEMPORAL_AXIS_PHRASES:
+        mutated = docstring.replace(phrase, "")
+        assert _axes_named(mutated) == [phrase], (phrase, _axes_named(mutated))

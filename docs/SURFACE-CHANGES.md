@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**754 entries**, of which **516** name a public Python surface.
+**763 entries**, of which **525** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-369 entries — 334 public Python surface, 35 not public Python API.
+376 entries — 341 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -6892,6 +6892,126 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
 
+#### ccf.graph.protocols.TemporalAxis
+
+- Surface: ccf.graph.protocols.TemporalAxis
+- Public surface: true
+- Change type: added
+- Before: absent — event time, transaction time and CCF `as_of` were three
+  facts stated in prose across two adapters' docstrings and `D-IMPL-88`, with no
+  typed home
+- After: `Literal["event-time", "transaction-time", "as-of"]`, with each axis
+  stated in one sentence beside the definition: event time is when the world
+  changed (`observed_at`, the validity window; Fluree's backdatable `@iso:`),
+  transaction time is when the store recorded it (Fluree's monotonic `t`; a fact
+  about a read, never a temporal cut), `as_of` is CCF's cut over observations
+  (`GQ-07`; `D-IMPL-88`: `t` never implements it)
+- Why: `24.5-L-03` — the three axes become named SDK vocabulary so a pin, a
+  docstring and a replay record spell them from one definition
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.TEMPORAL_AXES
+
+- Surface: ccf.graph.protocols.TEMPORAL_AXES
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `("event-time", "transaction-time", "as-of")` — the closed roster of
+  `TemporalAxis`, in the `ccf.operators.base.CATEGORY_ORDER` form, so a consumer
+  iterates the vocabulary rather than re-listing it
+- Why: `24.5-L-03`; the docstring test in `tests/graph/test_fluree_backend.py`
+  greps the adapter for the three phrases this roster names
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.StoreSnapshotPin
+
+- Surface: ccf.graph.protocols.StoreSnapshotPin
+- Public surface: true
+- Change type: added
+- Before: absent — a store-native pin had no type, so nothing stopped a
+  transaction counter from being handed to a seam typed for an as-of instant
+- After: `StoreSnapshotPin(substrate: str, pin: str)`, a frozen `CCFContract` on
+  the `"transaction-time"` axis. Deliberately a model rather than a `datetime`
+  and text rather than an `int`: `GraphQuery.as_of` refuses it by type (pydantic
+  refuses a model where a `datetime` is typed — the `D-IMPL-88` guard at the
+  type level), a pin is substrate-shaped and no arithmetic is ever done on it
+- Why: `24.5-L-01`, `D-IMPL-240` (2) — the pin must be a value `as_of` cannot
+  accept; also the type `24.5-L-02` (plan 03) records on `ProductLineage`
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN
+
+- Surface: ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `StoreSnapshotPin(substrate="none", pin="no-store-snapshot-pin")` — the
+  positive sentinel "this read carried no store-native pin", in the
+  `ccf.replay.record` `NO_*` voice, so a SQLite or Postgres deployment asserts
+  the absence rather than carrying a fake `t`
+- Why: `24.5-L-01` / `L-02` — "no pin" and "a pin" are distinguished by equality
+  against one value, never by `None`
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.SnapshotPinnable
+
+- Surface: ccf.graph.protocols.SnapshotPinnable
+- Public surface: true
+- Change type: added
+- Before: absent — no seam existed by which a consumer could ask a reader for
+  the state it read at, or for the same answer at an earlier state
+- After: a `@runtime_checkable` Protocol with two members —
+  `snapshot_pin() -> StoreSnapshotPin` (the substrate's current head, a fact
+  about the read) and `query_pinned(q, *, pin) -> GraphView` (the same answer
+  `query` would give with the store rolled back to `pin`; every as-of predicate
+  of `q` still applies — the pin bounds the STORE, `q.as_of` bounds the
+  OBSERVATIONS). Structural: a reader that cannot pin does not implement it and
+  needs no stub; consumers test `isinstance(reader, SnapshotPinnable)`
+- Why: `24.5-L-01`, `D-IMPL-240` (2); `D-10` — the graph Protocol gains, never
+  changes, signatures
+- Migration: none — additive. `FlureeGraphReader` is the only conforming reader
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.backends.fluree.FlureePinAhead
+
+- Surface: ccf.graph.backends.fluree.FlureePinAhead
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `class FlureePinAhead(LookupError)` — raised when a pin names a
+  transaction the ledger has not reached; its message carries the asked pin,
+  the ledger name and the server's own `current t=N`, and nothing from the URL
+  (`T-24.5-04`). A `LookupError` because that is what `SnapshotPinnable`
+  declares for a state the store cannot resolve
+- Why: `24.5-L-01` — a pin ahead of the head is a caller-catchable condition,
+  not a bare `httpx.HTTPStatusError`
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.backends.fluree.FLUREE_SUBSTRATE
+
+- Surface: ccf.graph.backends.fluree.FLUREE_SUBSTRATE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"fluree"` — the `substrate` a pin minted by this adapter carries and
+  the only one `query_pinned` accepts. A name, not a tuning value (CINV-01)
+- Why: `24.5-L-01` — a `StoreSnapshotPin` is substrate-shaped and only the
+  substrate that minted it can resolve it
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -7466,7 +7586,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-293 entries — 110 public Python surface, 183 not public Python API.
+295 entries — 112 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -9898,6 +10018,57 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   in-tree call site is updated in this plan
 
 *Recorded by `19-02-the-adapter-seam-carries-bytes.md`.*
+
+#### ccf.graph.backends.fluree.FlureeGraphStore
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphStore
+- Public surface: true
+- Change type: reshaped
+- Before: transport for the Cypher read (`post_query`, threading the
+  `Fluree-Min-T` floor) and the JSON-LD write (`post_update`); the ledger head
+  was readable only off a commit receipt
+- After: two methods added, constructor unchanged. `head_t() -> int` reads the
+  head off `GET …/ledgers`, matching `name` AND `branch` (the listing carries
+  every branch of every ledger on the server; the cp-04 example's name-only
+  match would answer whichever branch was listed first).
+  `post_query_pinned(body, *, pin_t) -> list[dict]` sends one JSON-LD read with
+  `from: <ledger>@t:N` as a dict value to `POST {base}/query` (no ledger in the
+  path — the path form is a measured `500`), refuses an over-budget body
+  loudly (there is no fallback to decline to), and raises `FlureePinAhead` on
+  the measured `408 err:db/ReadAfterWriteTimeout`. *(The manifest records a
+  class by its constructor, so these two methods leave no diff line — the
+  dumper blind spot `24.1.1-03` recorded. The name is post-baseline, so this is
+  the reconciled `reshaped`-over-`added` case of
+  `tests/test_surface_completeness.py`.)*
+- Why: `24.5-L-01` — the pin needs a transport the Cypher route cannot provide
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.backends.fluree.FlureeGraphReader
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphReader
+- Public surface: true
+- Change type: reshaped
+- Before: `GraphReader` over a Fluree ledger, every read on the Cypher route,
+  no way to ask for an earlier state of the store
+- After: two methods added, constructor unchanged; the reader now satisfies
+  `SnapshotPinnable` structurally. `snapshot_pin()` mints
+  `StoreSnapshotPin(substrate="fluree", pin=str(head_t))`.
+  `query_pinned(q, *, pin)` runs the `D-IMPL-88` guard first — a `datetime`, an
+  `int`, a `str` or a pin from another substrate is a `TypeError` naming the
+  ruling, before any I/O — then three pinned selects (entity claims,
+  relationship claims, the tenant's whole L axis) mapped by `_pinned_row` onto
+  the Cypher column names, then `materialize_view`, `fallback.answer` and the
+  interface's ordering: byte-identical to the unpinned route on a ledger frozen
+  at that `t` (proven live: `canonical_bytes(query_pinned(q, pin=head)) ==
+  canonical_bytes(as_of(...))`). Telemetry counters are untouched. *(Same
+  constructor-only manifest note as the store.)*
+- Why: `24.5-L-01`, `D-IMPL-240` (2): "Pinned JSON-LD claim read, fed to the
+  fallback"
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
 
 ### Not public Python API
 
