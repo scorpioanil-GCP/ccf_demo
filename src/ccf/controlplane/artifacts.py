@@ -197,36 +197,83 @@ def declared_artifact_class(class_id: str) -> ArtifactClass:
 
 
 class HalfLifeEntry(CCFContract):
-    """One row of a λ_c table (whitepaper §7.7; INV-CH7-59).
+    """One row of a λ_c table (whitepaper §7.7.1–§7.7.2; INV-CH7-59).
 
     The whitepaper's illustrative table is four columns wide — observation
     type, λ_c band, dominant decay driver, supersession event — and the *row
-    shape is the commitment*, so all four are required. The driver and the
-    supersession event are not documentation: supersession is a Policy event
-    that collapses the decay curve rather than continuing it (INV-CH7-60), and
-    an entry that never names its supersession event cannot participate in that
-    mechanism later.
+    shape is the commitment*. The driver and the supersession event are not
+    documentation: supersession is a Policy event that collapses the decay
+    curve rather than continuing it (INV-CH7-60), and an entry that never
+    names its supersession event cannot participate in that mechanism later.
+
+    **Two decay modes** (ledger row ``24.5-L-22``, an additive reshaping under
+    ``D-10``). Whitepaper §7.7.2 gives one class of observation an
+    *event-driven* λ_c rather than a band: a restatement rewrites a closed
+    period, so its relevance is whole until the superseding event arrives and
+    zero for current-value queries afterward — it supersedes; it does not
+    decay. Before this row the table could not say that. ``half_life_seconds``
+    was required and positive, and ``supersession_event`` rode *beside* a
+    curve, never *instead of* one, so a deployment holding such a class had to
+    invent a positive number the specification never gave (a domain value
+    minted by a build) or omit the row and record the gap. It chose the gap.
+    ``decay`` closes it:
+
+    * ``"curve"`` (the default, so every existing document validates
+      unchanged): the row is the four-column row it always was, and
+      ``half_life_seconds`` is **required and positive** — a missing rate is
+      still refused, because no default rate exists (INV-CH7-58, D-IMPL-38).
+    * ``"supersede-only"``: the row declares its driver and its supersession
+      event and **no rate**. A number beside ``supersede-only`` is refused
+      outright rather than ignored: a field the reader never consults is a
+      second, unused copy of a calibration, and an unused field is exactly the
+      shape ``24.5-L-23`` was cut to avoid.
+
+    The mode is read by :func:`ccf.halflife.decay.decay_mode_of`; the curve
+    reader :func:`ccf.halflife.decay.half_life_of` refuses to hand a curve for
+    a supersede-only class rather than fabricate one. No value lives here in
+    either mode — which classes supersede is the deployment's to say, as much
+    as which classes decay at what rate (CLAUDE.md §11).
 
     Attributes:
-        half_life_seconds: λ_c as whole seconds. Integer rather than a
-            fractional quantity because seconds are exact and floats are not;
-            sub-second half-lives are outside the bands the whitepaper's
-            operational story contemplates.
+        decay: ``"curve"`` or ``"supersede-only"``, as above.
+        half_life_seconds: λ_c as whole seconds under ``curve``. Integer
+            rather than a fractional quantity because seconds are exact and
+            floats are not; sub-second half-lives are outside the bands the
+            whitepaper's operational story contemplates. Absent under
+            ``supersede-only``.
         decay_driver: What actually makes this observation type go stale.
         supersession_event: The event that ends this observation's validity for
-            current-value queries.
+            current-value queries. Required in both modes — under
+            ``supersede-only`` it is the *only* thing that ends it.
     """
 
-    half_life_seconds: int
+    decay: Literal["curve", "supersede-only"] = "curve"
+    half_life_seconds: int | None = None
     decay_driver: str
     supersession_event: str
 
-    @field_validator("half_life_seconds")
-    @classmethod
-    def _rate_is_positive(cls, value: int) -> int:
-        if value <= 0:
-            raise ValueError("half_life_seconds must be positive")
-        return value
+    @model_validator(mode="after")
+    def _shape_matches_mode(self) -> "HalfLifeEntry":
+        """The rate is present exactly when the mode reads one.
+
+        Replaces the unconditional ``_rate_is_positive`` field validator; the
+        two ``curve`` refusals keep that validator's meaning, and the second
+        keeps its message verbatim, so every test that pinned it still pins it.
+        """
+        if self.decay == "curve":
+            if self.half_life_seconds is None:
+                raise ValueError(
+                    "a curve class declares its rate; no default rate exists"
+                    " (INV-CH7-58, D-IMPL-38)"
+                )
+            if self.half_life_seconds <= 0:
+                raise ValueError("half_life_seconds must be positive")
+        elif self.half_life_seconds is not None:
+            raise ValueError(
+                "a supersede-only class carries no curve; a number beside it"
+                " is a second, unused field (24.5-L-22)"
+            )
+        return self
 
 
 class HalfLifeTable(VersionedArtifact):

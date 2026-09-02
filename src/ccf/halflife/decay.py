@@ -36,6 +36,25 @@ returns a float.
 The clock is always injected. Decay reads ``now`` as an argument, never from
 the wall clock, so a decision's freshness re-computes identically years later.
 
+The supersede-only mode
+-----------------------
+Whitepaper §7.7.1–§7.7.2 binds λ_c to the observation type and gives one class
+an *event-driven* λ_c rather than a band: an observation that a later event
+rewrites outright — the whitepaper's restatement case — does not lose relevance
+along a curve, it loses all of it at once when the superseding event arrives.
+:class:`~ccf.controlplane.artifacts.HalfLifeEntry` can now declare that shape
+(``decay: "supersede-only"``, ledger row ``24.5-L-22``), and this module reads
+it: :func:`decay_mode_of` reports the mode, :func:`half_life_of` raises
+:class:`NoDecayCurve` rather than hand a curve for a class that has none, and
+:func:`freshness` returns retained relevance **1** for such an observation at
+any age. That figure is not a claim that the observation is current — it is
+the statement that *nothing but the supersession event* ends its relevance,
+and a superseded observation is excluded from the as-of view by logical
+supersession (INV-CH7-14) before freshness is ever read, so the value never
+scores a stale one. Both refusals this function makes for a curve class (a
+naive instant, an observation from the future) are made first and in both
+modes; the mode decides only what happens to an observation that passed them.
+
 Algorithmic module (CINV-03): pure functions over typed inputs, no I/O, no
 clock, no LLM dependency ever.
 """
@@ -44,7 +63,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal, localcontext
-from typing import Final
+from typing import Final, Literal
 
 from pydantic import field_validator
 
@@ -64,8 +83,10 @@ __all__ = [
     "HalfLifeEntry",
     "HalfLifeTable",
     "MissingHalfLife",
+    "NoDecayCurve",
     "Observation",
     "TemporalOrderError",
+    "decay_mode_of",
     "effective_half_life",
     "freshness",
     "half_life_of",
@@ -91,6 +112,23 @@ class MissingHalfLife(LookupError):
 
     Raised instead of substituting a rate. See the module docstring
     (INV-CH7-58, D-IMPL-38).
+    """
+
+
+class NoDecayCurve(LookupError):
+    """The requested observation type is declared supersede-only: it has no curve.
+
+    Raised by :func:`half_life_of` instead of fabricating a rate. A caller that
+    wants a curve for an event-driven class is asking the wrong question — the
+    class's relevance is ended by its supersession event, not read off a
+    half-life — and handing back any ``timedelta`` at all would express a decay
+    nobody declared, which is the same silent default :class:`MissingHalfLife`
+    exists to refuse (whitepaper §7.7.2; INV-CH7-58; ``24.5-L-22``).
+
+    A ``LookupError`` sibling of :class:`MissingHalfLife` rather than a subclass
+    of it: an undeclared type and a declared-supersede-only type are different
+    authoring states, and a handler that catches the first to prompt for a
+    calibration must not swallow the second, whose fix is to stop asking.
     """
 
 
@@ -302,20 +340,52 @@ class Observation(CCFContract):
         )
 
 
+def _entry_of(table: HalfLifeTable, observation_type: str) -> HalfLifeEntry:
+    """The declared row for ``observation_type``, or :class:`MissingHalfLife`."""
+    try:
+        return table.entries[observation_type]
+    except KeyError:
+        raise MissingHalfLife(
+            f"no half-life declared for observation type {observation_type!r};"
+            " declare one in the Control Plane λ_c table (no default rate exists)"
+        ) from None
+
+
+def decay_mode_of(
+    table: HalfLifeTable, observation_type: str
+) -> Literal["curve", "supersede-only"]:
+    """Return the declared decay mode for ``observation_type``.
+
+    The one read :func:`freshness` makes before it touches a curve, so that a
+    supersede-only class is branched on *before* any rate is looked up
+    (``24.5-L-22``; whitepaper §7.7.2).
+
+    Raises:
+        MissingHalfLife: the table declares no entry for that type — the same
+            refusal, for the same reason, as :func:`half_life_of` (INV-CH7-58,
+            D-IMPL-38).
+    """
+    return _entry_of(table, observation_type).decay
+
+
 def half_life_of(table: HalfLifeTable, observation_type: str) -> timedelta:
     """Return the declared λ_c for ``observation_type``.
 
     Raises:
         MissingHalfLife: the table declares no entry for that type. There is no
             fallback rate (INV-CH7-58, D-IMPL-38).
+        NoDecayCurve: the entry is declared ``supersede-only``. There is no
+            curve to hand back and none is fabricated; read
+            :func:`decay_mode_of` first if the class may be event-driven.
     """
-    try:
-        entry = table.entries[observation_type]
-    except KeyError:
-        raise MissingHalfLife(
-            f"no half-life declared for observation type {observation_type!r};"
-            " declare one in the Control Plane λ_c table (no default rate exists)"
-        ) from None
+    entry = _entry_of(table, observation_type)
+    if entry.half_life_seconds is None:
+        raise NoDecayCurve(
+            f"observation type {observation_type!r} is declared supersede-only:"
+            " its relevance is ended by its supersession event"
+            f" ({entry.supersession_event!r}), not read off a curve, and no"
+            " curve exists to return (whitepaper §7.7.2; 24.5-L-22)"
+        )
     return timedelta(seconds=entry.half_life_seconds)
 
 
@@ -391,11 +461,20 @@ def freshness(
 ) -> Decimal:
     """Return the retained decision-relevance of ``observation`` at ``now``.
 
-    Composes the two configured inputs — the type's declared λ_c and the
-    decision class's risk sensitivity — into the Freshness Budget, then reads
-    the decay curve at the observation's age. This is the per-observation input
-    the F factor of ``D_c = 1 − (F · C · S)`` aggregates
-    (:mod:`ccf.halflife.debt`).
+    Under a ``curve`` class, composes the two configured inputs — the type's
+    declared λ_c and the decision class's risk sensitivity — into the Freshness
+    Budget, then reads the decay curve at the observation's age. Under a
+    ``supersede-only`` class (``24.5-L-22``; the module docstring), returns
+    exactly ``1``: retained relevance is whole until the supersession event,
+    and an observation that event has already superseded is not in the as-of
+    view this function is called over (INV-CH7-14), so no stale observation
+    ever reaches the value. Either way this is the per-observation input the F
+    factor of ``D_c = 1 − (F · C · S)`` aggregates (:mod:`ccf.halflife.debt`).
+
+    The refusals come **first and hold in both modes**: a naive instant, an
+    observation from the future, and a non-positive sensitivity are refused
+    before the mode is read, so declaring a class supersede-only cannot make a
+    clock fault or an undeclared calibration score as perfectly fresh.
 
     Args:
         observation: The dated, typed observation.
@@ -405,7 +484,7 @@ def freshness(
         risk_sensitivity: The decision class's budget multiplier.
 
     Raises:
-        MissingHalfLife: the type has no declared λ_c.
+        MissingHalfLife: the type has no declared entry.
         TemporalOrderError: the observation post-dates ``now``.
         ValueError: ``now`` or ``observed_at`` is naive, or the sensitivity is
             not positive.
@@ -415,7 +494,17 @@ def freshness(
             "decay requires timezone-aware instants; a naive datetime carries"
             " an implicit timezone, which is a silent default (D-IMPL-38)"
         )
+    elapsed = now - observation.observed_at
+    if elapsed < timedelta(0):
+        raise TemporalOrderError(
+            "elapsed time is negative: the observation is dated after the"
+            " instant it is evaluated at"
+        )
+    if risk_sensitivity <= Decimal(0):
+        raise ValueError("risk sensitivity must be positive")
+    if decay_mode_of(table, observation.observation_type) == "supersede-only":
+        return Decimal(1)
     budget = effective_half_life(
         half_life_of(table, observation.observation_type), risk_sensitivity
     )
-    return relevance_ratio(elapsed=now - observation.observed_at, half_life=budget)
+    return relevance_ratio(elapsed=elapsed, half_life=budget)

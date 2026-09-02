@@ -2,15 +2,32 @@
   "$defs": {
     "HalfLifeEntry": {
       "additionalProperties": false,
-      "description": "One row of a \u03bb_c table (whitepaper \u00a77.7; INV-CH7-59).\n\nThe whitepaper's illustrative table is four columns wide \u2014 observation\ntype, \u03bb_c band, dominant decay driver, supersession event \u2014 and the *row\nshape is the commitment*, so all four are required. The driver and the\nsupersession event are not documentation: supersession is a Policy event\nthat collapses the decay curve rather than continuing it (INV-CH7-60), and\nan entry that never names its supersession event cannot participate in that\nmechanism later.\n\nAttributes:\n    half_life_seconds: \u03bb_c as whole seconds. Integer rather than a\n        fractional quantity because seconds are exact and floats are not;\n        sub-second half-lives are outside the bands the whitepaper's\n        operational story contemplates.\n    decay_driver: What actually makes this observation type go stale.\n    supersession_event: The event that ends this observation's validity for\n        current-value queries.",
+      "description": "One row of a \u03bb_c table (whitepaper \u00a77.7.1\u2013\u00a77.7.2; INV-CH7-59).\n\nThe whitepaper's illustrative table is four columns wide \u2014 observation\ntype, \u03bb_c band, dominant decay driver, supersession event \u2014 and the *row\nshape is the commitment*. The driver and the supersession event are not\ndocumentation: supersession is a Policy event that collapses the decay\ncurve rather than continuing it (INV-CH7-60), and an entry that never\nnames its supersession event cannot participate in that mechanism later.\n\n**Two decay modes** (ledger row ``24.5-L-22``, an additive reshaping under\n``D-10``). Whitepaper \u00a77.7.2 gives one class of observation an\n*event-driven* \u03bb_c rather than a band: a restatement rewrites a closed\nperiod, so its relevance is whole until the superseding event arrives and\nzero for current-value queries afterward \u2014 it supersedes; it does not\ndecay. Before this row the table could not say that. ``half_life_seconds``\nwas required and positive, and ``supersession_event`` rode *beside* a\ncurve, never *instead of* one, so a deployment holding such a class had to\ninvent a positive number the specification never gave (a domain value\nminted by a build) or omit the row and record the gap. It chose the gap.\n``decay`` closes it:\n\n* ``\"curve\"`` (the default, so every existing document validates\n  unchanged): the row is the four-column row it always was, and\n  ``half_life_seconds`` is **required and positive** \u2014 a missing rate is\n  still refused, because no default rate exists (INV-CH7-58, D-IMPL-38).\n* ``\"supersede-only\"``: the row declares its driver and its supersession\n  event and **no rate**. A number beside ``supersede-only`` is refused\n  outright rather than ignored: a field the reader never consults is a\n  second, unused copy of a calibration, and an unused field is exactly the\n  shape ``24.5-L-23`` was cut to avoid.\n\nThe mode is read by :func:`ccf.halflife.decay.decay_mode_of`; the curve\nreader :func:`ccf.halflife.decay.half_life_of` refuses to hand a curve for\na supersede-only class rather than fabricate one. No value lives here in\neither mode \u2014 which classes supersede is the deployment's to say, as much\nas which classes decay at what rate (CLAUDE.md \u00a711).\n\nAttributes:\n    decay: ``\"curve\"`` or ``\"supersede-only\"``, as above.\n    half_life_seconds: \u03bb_c as whole seconds under ``curve``. Integer\n        rather than a fractional quantity because seconds are exact and\n        floats are not; sub-second half-lives are outside the bands the\n        whitepaper's operational story contemplates. Absent under\n        ``supersede-only``.\n    decay_driver: What actually makes this observation type go stale.\n    supersession_event: The event that ends this observation's validity for\n        current-value queries. Required in both modes \u2014 under\n        ``supersede-only`` it is the *only* thing that ends it.",
       "properties": {
+        "decay": {
+          "default": "curve",
+          "enum": [
+            "curve",
+            "supersede-only"
+          ],
+          "title": "Decay",
+          "type": "string"
+        },
         "decay_driver": {
           "title": "Decay Driver",
           "type": "string"
         },
         "half_life_seconds": {
-          "title": "Half Life Seconds",
-          "type": "integer"
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Half Life Seconds"
         },
         "supersession_event": {
           "title": "Supersession Event",
@@ -18,7 +35,6 @@
         }
       },
       "required": [
-        "half_life_seconds",
         "decay_driver",
         "supersession_event"
       ],
