@@ -92,14 +92,35 @@ a ``float`` (or ``Decimal``, or ``set``) inside ``parameters``, and a naive
 temporal guard states that *"both product doors refuse a naive ``asked_at`` by
 name"*, and until this change that sentence was false of this door.
 
-**What is still deferred here, stated so it is found rather than rediscovered:
-this door has no refusal channel** (DIV-4). A resolver that answers with a
-:class:`~ccf.products.refusal.RefusalEnvelope` reaches
+**This door has a refusal channel for exactly ONE kind, and the scope is the
+ruling** (ledger row ``24.5-L-14``; ``D-IMPL-237``; ROADMAP Phase 24.5
+criterion 21; the Standard §9's *"Debt gate exceeded → 409 with the debt
+block"*). The resolver's answer is routed through
+:func:`~ccf.products.door.door_refusal` — the same translation the two MCP
+doors already run, so the three doors cannot disagree about what a refusal
+is — and an envelope whose ``kind`` is
+``REFUSAL_KINDS[DeclaredObligationRefusal]`` (``declared-obligation-refusal``,
+the one refusal the declared-obligations gate returns) is answered as ``409``
+carrying the whole envelope in the ``routes/skill.py`` body shape:
+``{"kind", "refusal_type", "refusal"}``. The whole envelope, not the debt block
+alone, so the gate's ``declared`` and ``observed`` numbers, the request
+identity and the pre-assembly lineage all travel; the kind is compared by the
+mapping's value and never by a string literal, so the token has one spelling
+in the tree. The door MAPS a refusal it already receives to a status; it
+decides nothing, inspects no payload, and adds no second mechanism
+(``D-IMPL-237``, ``D-IMPL-238``).
+
+**Every other refusal kind keeps today's behavior, explicitly** (DIV-4,
+preserved and scoped). A resolver answering with any other
+:class:`~ccf.products.refusal.RefusalEnvelope` still reaches
 :func:`~ccf.products.door.served_answer`, which raises ``TypeError`` naming the
-shape — an opaque 500, exactly as the pre-existing ``AttributeError`` produced,
-but now saying what went wrong. Rendering a fabric refusal over HTTP is a
-status-code and body-shape decision nobody has ruled, and inventing one here
-would put an unruled contract on a shipped door.
+shape — an opaque 500, exactly as before this plan, because the status code
+and body shape for the remaining kinds is a ruling nobody has made, and
+inventing one here would put an unruled contract on a shipped door. The one
+mapped kind is the ruling that arrived; the rest wait for theirs. A *bare*
+refusal value on a call that posed no question is the ``ValueError``
+:func:`~ccf.products.door.door_refusal` documents — the same opaque 500 the
+``TypeError`` produced, now naming why the door could not envelope it.
 
 Algorithmic module (CINV-03).
 """
@@ -112,12 +133,15 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from starlette.requests import Request
 
 from pydantic import ValidationError
 
-from ccf.products.door import WireRequest, served_answer
+from ccf.contracts.canonical import canonical_bytes
+from ccf.products.door import WireRequest, door_refusal, served_answer
+from ccf.products.gates import DeclaredObligationRefusal
+from ccf.products.refusal import REFUSAL_KINDS
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective
 from ccf_runtime.authz.product_entitlement import (
@@ -220,6 +244,29 @@ def build_router(
             )
         except ProductNotServable as absent:
             raise HTTPException(status_code=404, detail=str(absent)) from absent
+        # `24.5-L-14`: one kind, one status. The envelope is the door's own
+        # translation (the MCP doors run the same function); the comparison
+        # is against the mapping's value, never a literal (T-24.5-38); the
+        # body is the whole envelope in the `routes/skill.py` shape, so the
+        # debt block's `declared`/`observed` and the request identity travel
+        # (T-24.5-37: entitlement-neutral by D-IMPL-105). Any other envelope
+        # falls through to `served_answer` exactly as before — DIV-4 stands
+        # for the kinds nobody has ruled a status for.
+        envelope = door_refusal(
+            resolved, asked=asked, product_class=product_class, version=version
+        )
+        if (
+            envelope is not None
+            and envelope.kind == REFUSAL_KINDS[DeclaredObligationRefusal]
+        ):
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "kind": envelope.kind,
+                    "refusal_type": DeclaredObligationRefusal.__name__,
+                    "refusal": json.loads(canonical_bytes(envelope)),
+                },
+            )
         # `D-IMPL-148` Addendum A: the reference the resolver produced reaches
         # the consumer, on the sibling channel this transport has. `None` is the
         # honest report that this deployment's resolver returned the narrower
