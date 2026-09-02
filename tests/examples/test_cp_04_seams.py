@@ -117,7 +117,15 @@ gate checker built here would be the scope creep criterion 49 exists to prevent.
 1. **Criterion 42, as a ROSTER.** Every declared gate carries a non-null
    `observed_red`, compared as SETS in both directions and never as a
    cardinality — a count of sixteen with a wrong member audits clean forever
-   (`D-13`). `CFT-G17` is refused by name if it ever rejoins.
+   (`D-13`). `CFT-G17` is refused by name if it ever rejoins, in EITHER set.
+   **The two sets come from two places, and that is the close panel's finding
+   2.** The first draft built the observed set by filtering the declared one, so
+   `observed - declared` was empty by construction and one of the two directions
+   the docstring promised could not fire. The observations are now read from the
+   DOCUMENT by `tests/examples/test_cp_04_seams.py::observations_in` — every
+   mapping anywhere in it carrying an `observed_red` — so an observation
+   recorded beside the roster, or under the withdrawn id, is expressible as
+   input and the limb is reachable.
 2. **The `key_link` nothing checked.** Plans 10, 11 and 12 each declare *"each
    gate's test reference resolving to an executing function"* and no acceptance
    criterion anywhere verified it, so this phase could have shipped sixteen
@@ -1826,13 +1834,86 @@ def declared_gates() -> tuple[Mapping[str, Any], ...]:
     return tuple(dict(gate) for gate in _yaml(GATES)["gates"])
 
 
-def roster_violations(gates: Sequence[Mapping[str, Any]]) -> list[str]:
+def gates_document() -> Any:
+    """The WHOLE `artifacts/gates.yaml`, not just `declaration.gates`.
+
+    :func:`observations_in` reads this rather than the parsed roster, and the
+    difference is the whole content of the close panel's finding 2 — see there.
+    """
+    return yaml.safe_load(GATES.read_text(encoding="utf-8"))
+
+
+#: What an observation recorded under no id at all is named as. It cannot be
+#: attributed to a gate, so it is neither declared nor observable — it is its
+#: own defect, and naming it keeps `observations_in` total.
+UNATTRIBUTED_OBSERVATION = "<an observation carrying no id>"
+
+
+def observations_in(document: Any) -> tuple[str, ...]:
+    """Every id ANYWHERE in ``document`` that carries an `observed_red` record.
+
+    **THIS IS THE INPUT CHANNEL THE CLOSE PANEL'S FINDING 2 FOUND MISSING**, and
+    it is worth stating why it has to exist rather than being derived.
+
+    The first draft built the observed set by FILTERING the declared one —
+    ``{gate["id"] for gate in gates if gate.get("observed_red")}`` — so
+    ``observed - declared`` was empty BY CONSTRUCTION and the limb beneath it
+    was unreachable. The function's own docstring promised that *"recorded but
+    not declared, and declared but not recorded, are two different defects"*,
+    and one of the two could not fire. Dave: *"assert set difference both ways;
+    print is not an assertion."*
+
+    So the observations are read from the DOCUMENT and never from the roster.
+    Every mapping anywhere in it that carries a truthy `observed_red` contributes
+    its `id`, whether or not that mapping is a member of `declaration.gates` —
+    which makes an observation recorded in a side block, under a withdrawn id, or
+    beside the roster rather than in it, EXPRESSIBLE as input. In the shipped
+    document the two sets coincide, and that coincidence is now an assertion
+    rather than an identity.
+
+    `docs/schemas/product-gates/cp.product-gates.json` closes this document, so a
+    side block is also refused by
+    `tests/examples/test_cp_04_gates_declaration.py`. Two independent defenses,
+    and this one does not stand down because the other exists: a reader running
+    this check alone is entitled to an answer, and the schema says nothing about
+    which ids were observed.
+    """
+    found: list[str] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, Mapping):
+            if node.get("observed_red"):
+                identifier = node.get("id")
+                found.append(
+                    UNATTRIBUTED_OBSERVATION
+                    if identifier is None
+                    else str(identifier)
+                )
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, (list, tuple)):
+            for value in node:
+                walk(value)
+
+    walk(document)
+    return tuple(sorted(found))
+
+
+def roster_violations(
+    gates: Sequence[Mapping[str, Any]], *, observed: Sequence[str]
+) -> list[str]:
     """Every way the gate roster fails criterion 42.
 
     **A ROSTER AND NEVER A CARDINALITY.** A count of sixteen with a wrong member
     audits clean forever, so the declared ids and the observed ids are compared
     as SETS and each direction is named separately — recorded but not declared,
     and declared but not recorded, are two different defects.
+
+    ``observed`` is a SEPARATE INPUT rather than something derived from
+    ``gates``, and it is required rather than defaulted. A default reconstructing
+    it from the roster would rebuild the dead limb the close panel found: a set
+    filtered out of ``declared`` cannot contain anything ``declared`` does not.
+    Callers read it from the document with :func:`observations_in`.
     """
     violations: list[str] = []
     if not gates:
@@ -1843,9 +1924,9 @@ def roster_violations(gates: Sequence[Mapping[str, Any]]) -> list[str]:
         return violations
 
     declared = {str(gate["id"]) for gate in gates}
-    observed = {str(gate["id"]) for gate in gates if gate.get("observed_red")}
+    recorded = {str(identifier) for identifier in observed}
 
-    never_red = sorted(declared - observed)
+    never_red = sorted(declared - recorded)
     if never_red:
         violations.append(
             f"these declared gates carry no `observed_red` record: {never_red}."
@@ -1853,16 +1934,21 @@ def roster_violations(gates: Sequence[Mapping[str, Any]]) -> list[str]:
             " declared gates once sat idle on this ladder behind exactly that"
             " assumption"
         )
-    unowned = sorted(observed - declared)
+    unowned = sorted(recorded - declared)
     if unowned:
         violations.append(
-            f"these ids carry an observation and are not declared: {unowned}"
+            f"these ids carry an observation and are not declared: {unowned}."
+            " An observation nothing declares is a gate nobody owes, recorded"
+            " as evidence for an obligation the roster does not carry"
         )
-    if "CFT-G17" in declared:
+    withdrawn = sorted({"CFT-G17"} & (declared | recorded))
+    if withdrawn:
         violations.append(
-            "`CFT-G17` is declared. It was WITHDRAWN 2026-08-31 (Dave) with"
-            " ontology role 1 and criterion 41 is withdrawn in place — the"
-            " roster is SIXTEEN"
+            f"`CFT-G17` is {'declared' if 'CFT-G17' in declared else 'observed'}."
+            " It was WITHDRAWN 2026-08-31 (Dave) with ontology role 1 and"
+            " criterion 41 is withdrawn in place — the roster is SIXTEEN. Read"
+            " from the DECLARED ids and the RECORDED ones alike, because an"
+            " observation for it beside the roster is the same rejoining"
         )
     for gate in gates:
         record = gate.get("observed_red")
@@ -1888,12 +1974,23 @@ def test_every_declared_gate_has_been_observed_red() -> None:
     cp-04's own declaration.
     """
     gates = declared_gates()
-    violations = roster_violations(gates)
+    recorded = observations_in(gates_document())
+    violations = roster_violations(gates, observed=recorded)
     assert not violations, "\n".join(violations)
-    declared = sorted(str(gate["id"]) for gate in gates)
-    observed = sorted(str(gate["id"]) for gate in gates if gate.get("observed_red"))
-    assert declared == observed, (
-        f"declared {declared}\nobserved {observed}"
+
+    # BOTH DIFFERENCES, ASSERTED SEPARATELY. `assert declared == observed` on two
+    # sorted lists names neither direction when it fails, and the close panel's
+    # finding 2 was precisely that one of the two directions could not arise at
+    # all. Dave: *"assert set difference both ways; print is not an assertion."*
+    declared = {str(gate["id"]) for gate in gates}
+    observed = set(recorded)
+    assert not declared - observed, (
+        "declared and NEVER recorded anywhere in the document:"
+        f" {sorted(declared - observed)}"
+    )
+    assert not observed - declared, (
+        "recorded in the document and NEVER declared:"
+        f" {sorted(observed - declared)}"
     )
 
 
@@ -1903,23 +2000,96 @@ def test_the_roster_check_refuses_a_gate_that_was_never_seen_red() -> None:
     assert gates, "there are no gates to null"
     victim = gates[-1]
     victim["observed_red"] = None
-    violations = roster_violations(gates)
+    violations = roster_violations(gates, observed=observations_in(gates))
     assert violations, "a roster with an unobserved gate was accepted"
     assert any(str(victim["id"]) in entry for entry in violations), violations
 
 
+def _document_with_a_side_observation(identifier: str) -> Any:
+    """A SCRATCH copy of the shipped document, plus one observation beside it.
+
+    The declared roster is untouched; the observation is appended OUTSIDE
+    `declaration.gates`, which is the shape `observations_in` exists to see and
+    the shape the first draft of this check could not represent at all.
+    """
+    scratch = gates_document()
+    scratch["observations_recorded_beside_the_roster"] = [
+        {
+            "id": identifier,
+            "observed_red": {
+                "result": "r",
+                "date": "2026-09-01",
+                "commit": "abc1234",
+            },
+        }
+    ]
+    return scratch
+
+
 def test_the_roster_check_refuses_an_observation_for_an_undeclared_id() -> None:
-    """**Positive control.** Recorded-but-not-declared is its own defect."""
-    gates = [dict(gate) for gate in declared_gates()]
-    gates.append(
-        {"id": "CFT-G99", "observed_red": {"result": "r", "date": "d", "commit": "c"}}
+    """**Positive control.** Recorded-but-not-declared is its own defect.
+
+    **THIS CONTROL PREVIOUSLY PASSED FOR THE WRONG REASON**, which the close
+    panel found: it appended `CFT-G99` carrying ``observed_red: None`` and then
+    read the violation off the `never_red` limb. That is *declared but never
+    red* — the OTHER defect — so the direction it claimed to control was still
+    untested. It now feeds a document carrying an observation for an id the
+    roster does not declare, and requires the `unowned` limb by its own words.
+    """
+    recorded = observations_in(_document_with_a_side_observation("CFT-G99"))
+    assert "CFT-G99" in recorded, (
+        "the observation channel did not see an observation recorded beside the"
+        f" roster; it read {list(recorded)}. Without that this control tests"
+        " nothing"
     )
-    declared_only = [gate for gate in gates if gate["id"] != "CFT-G99"]
-    violations = roster_violations(
-        [*declared_only, {"id": "CFT-G99", "observed_red": None}]
-    )
+    violations = roster_violations(declared_gates(), observed=recorded)
     assert violations, "an undeclared id carrying an observation was accepted"
     assert any("CFT-G99" in entry for entry in violations), violations
+    assert any("not declared" in entry for entry in violations), violations
+
+
+def test_the_roster_check_refuses_an_observation_for_the_withdrawn_id() -> None:
+    """**Positive control.** The withdrawal reaches the OBSERVATIONS too.
+
+    An `observed_red` recorded for `CFT-G17` beside the roster is the withdrawn
+    id rejoining by the back door. Until finding 2 was fixed the withdrawal limb
+    read the DECLARED ids alone, so this shape was invisible to it and to the
+    `unowned` limb — which could not fire at all.
+    """
+    recorded = observations_in(_document_with_a_side_observation("CFT-G17"))
+    violations = roster_violations(declared_gates(), observed=recorded)
+    assert violations, "an observation for the withdrawn id was accepted"
+    assert any("WITHDRAWN" in entry for entry in violations), violations
+    assert any("not declared" in entry for entry in violations), violations
+
+
+def test_the_roster_check_refuses_an_observation_carrying_no_id() -> None:
+    """**Positive control.** An observation nothing can be attributed to."""
+    scratch = gates_document()
+    scratch["observations_recorded_beside_the_roster"] = [
+        {"observed_red": {"result": "r", "date": "d", "commit": "c"}}
+    ]
+    recorded = observations_in(scratch)
+    assert UNATTRIBUTED_OBSERVATION in recorded, list(recorded)
+    violations = roster_violations(declared_gates(), observed=recorded)
+    assert violations, "an observation attributable to no gate was accepted"
+    assert any(UNATTRIBUTED_OBSERVATION in entry for entry in violations), violations
+
+
+def test_the_observation_channel_reads_the_shipped_document_and_is_not_vacuous() -> None:
+    """The channel READ the document, so a coincidence is evidence of agreement.
+
+    Without this, `observations_in` could return `()` — a parser that silently
+    found nothing — and the `unowned` limb would be green forever while
+    `never_red` named all sixteen. The shipped document must yield exactly the
+    declared roster, and the sentinel must be absent.
+    """
+    recorded = observations_in(gates_document())
+    declared = sorted(str(gate["id"]) for gate in declared_gates())
+    assert sorted(recorded) == declared, (
+        f"observations {sorted(recorded)}\ndeclared     {declared}"
+    )
+    assert UNATTRIBUTED_OBSERVATION not in recorded, recorded
 
 
 def test_the_roster_check_refuses_cft_g17() -> None:
@@ -1931,14 +2101,14 @@ def test_the_roster_check_refuses_cft_g17() -> None:
             "observed_red": {"result": "r", "date": "d", "commit": "c"},
         }
     )
-    violations = roster_violations(gates)
+    violations = roster_violations(gates, observed=observations_in(gates))
     assert violations, "CFT-G17 was accepted onto the roster"
     assert any("WITHDRAWN" in entry for entry in violations), violations
 
 
 def test_the_roster_check_refuses_an_empty_declaration() -> None:
     """**Vacuity control.** A roster over nothing is not a roster."""
-    violations = roster_violations([])
+    violations = roster_violations([], observed=())
     assert violations, "an empty declaration was accepted"
     assert any("vacuously" in entry for entry in violations), violations
 
@@ -1950,7 +2120,7 @@ def test_the_roster_check_refuses_a_record_with_an_empty_field() -> None:
         **gates[0],
         "observed_red": {"result": "", "date": "2026-09-01", "commit": "abc1234"},
     }
-    violations = roster_violations(gates)
+    violations = roster_violations(gates, observed=observations_in(gates))
     assert violations, "a record with an empty `result` was accepted"
     assert any("says nothing" in entry for entry in violations), violations
 
