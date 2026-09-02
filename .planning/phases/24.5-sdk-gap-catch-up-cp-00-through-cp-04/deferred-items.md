@@ -43,3 +43,22 @@ and not fixed inside that row's fence.
   `TraversalNeighborhoodParameters` paths, the artifact class, and
   `TraversalNeighborhood` as `behavior`) pass
   `test_every_public_log_entry_has_a_matching_diff_line`.
+
+## 2. `OperatorParametersArtifact`'s "no default in this hierarchy" sentence is stale (found by plan 24.5-05)
+
+- **Found during:** plan `24.5-05` Task 2, reading
+  `src/ccf/controlplane/artifacts.py::OperatorParametersArtifact` to mirror the
+  neighborhood artifact's shape for the descendants sibling.
+- **What:** the marker base's docstring says "**No field in this hierarchy
+  carries a default.**" Since ledger row `24.5-L-05` (plan `24.5-04`) both
+  `TraversalNeighborhoodParametersArtifact` and now
+  `TraversalDescendantsParametersArtifact` inherit
+  `admitted_entity_classes: frozenset[str] | None = None` — a named positive
+  sentinel, not a chosen number (the `ccf.operators.params` module docstring
+  already says so). Doc-only; no behavior is wrong.
+- **Not mine to fix:** the sentence is `L-05`'s (the field that made it stale);
+  plan `24.5-05`'s fence is `24.5-L-06` only (criterion 1). Plan `24.5-04`'s
+  out-of-scope item 3 logged the sibling sentence on the neighborhood artifact.
+- **Owner:** the return trip, or whichever plan next edits that docstring —
+  one sentence in the `params.py` voice ("no NUMERIC default; the `None` is a
+  positive sentinel").
