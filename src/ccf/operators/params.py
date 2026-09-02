@@ -17,12 +17,19 @@ plan time and must arrive from a Control Plane artifact or from the caller.
 A default is a value nobody chose, and a value nobody chose cannot be
 audited, cannot be versioned, and silently changes the meaning of a replay
 when the SDK revises it (D-IMPL-38; CINV-01b enforces this mechanically for
-modules named like this one). The one ``None`` in this module —
-``TraversalNeighborhoodParameters.admitted_entity_classes`` — is a named
-positive sentinel, not a chosen number: it asserts "every class is
+modules named like this one). The ``None`` defaults in this module —
+``admitted_entity_classes`` on the two traversal parameter classes — are a
+named positive sentinel, not a chosen number: each asserts "every class is
 admissible on a hop", which is exactly the behavior every artifact written
 before it carried (additive over breaking, ledger row ``24.5-L-05``).
 D-IMPL-38's concern is a silently chosen number, and none is chosen here.
+
+The Traversal category has TWO parameter classes and they differ in no field:
+:class:`TraversalNeighborhoodParameters` parameterizes the undirected walk and
+:class:`TraversalDescendantsParameters` the directed one (ledger row
+``24.5-L-06``). Direction is not a field — it is fixed by which operator key
+the artifact class selects, so no artifact value can flip it — and the
+category stays one of four (D-IMPL-223).
 
 Algorithmic module (CINV-03).
 """
@@ -39,6 +46,7 @@ __all__ = [
     "PolicyFilterParameters",
     "SimilaritySelectParameters",
     "TemporalAsOfParameters",
+    "TraversalDescendantsParameters",
     "TraversalNeighborhoodParameters",
 ]
 
@@ -136,6 +144,37 @@ class TraversalNeighborhoodParameters(OperatorParameters):
             docs/GRAPH_QUERY_SEMANTICS.md:221 selects starts; "seeds are
             included" stands), and an entity absent from the view's class
             map is not admitted. Mirrored field-for-field onto
+            ``src/ccf/graph/protocols.py::TraversalSpec``.
+    """
+
+    seed_entity_classes: frozenset[str]
+    relationship_types: frozenset[str]
+    depth_limit: int
+    admitted_entity_classes: frozenset[str] | None = None
+
+
+class TraversalDescendantsParameters(OperatorParameters):
+    """Declared parameters of the Traversal category's DIRECTED walk.
+
+    The sibling of :class:`TraversalNeighborhoodParameters` (ledger row
+    ``24.5-L-06``; `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201): the same
+    four fields, read by ``src/ccf/operators/categories.py::TraversalDescendants``,
+    whose walk crosses an edge only from ``subject_uri`` to ``object_uri`` as
+    stored — "descendants" in the graph's own orientation. A deployment that
+    wants parent→child normalizes at ingest; the fabric does not reorient.
+    Direction is fixed by the operator, never carried here: an artifact of
+    this class can select the directed walk and cannot turn it around.
+
+    Attributes:
+        seed_entity_classes: Where the walk starts, in ontology vocabulary.
+        relationship_types: Which typed edges the walk may cross, forward
+            only. Typed, per INV-CH7-20.
+        depth_limit: Maximum forward hops from a seed. Required, no default:
+            the bound is the operator's entire correctness claim (INV-CH7-24).
+        admitted_entity_classes: Node-class ADMISSION on the walk, exactly as
+            on the undirected sibling — ``None`` admits every class; a set
+            admits a hop only onto an entity whose class is a member; starts
+            are never filtered. Mirrored field-for-field onto
             ``src/ccf/graph/protocols.py::TraversalSpec``.
     """
 

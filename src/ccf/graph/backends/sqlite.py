@@ -709,7 +709,10 @@ class SqliteGraphReader(BaseGraphReader):
         charset (:func:`_json_attribute_path`). ``admitted_entity_classes``
         (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0) is HONORED
         natively — a class predicate on the reached survivor inside the
-        recursive walk term, the classes bound as parameters.
+        recursive walk term, the classes bound as parameters. ``direction``
+        other than ``"undirected"`` is DECLINED (`GQ-32`; ledger row
+        ``24.5-L-06``) — plan 24.5-18 replaces this with HONOR on
+        sqlite/postgres/neo4j and keeps the decline on mongo/fluree.
         """
         if q.allowed_entities is not None and not q.allowed_entities:
             # The empty survivor set IS the answer (`GQ-04` at
@@ -718,6 +721,12 @@ class SqliteGraphReader(BaseGraphReader):
             # answer, never an error (`GQ-23` at
             # docs/GRAPH_QUERY_SEMANTICS.md:474).
             return (), ()
+        if q.traverse is not None and q.traverse.direction != "undirected":
+            # Decline → the fallback answers (D-04; ledger row 24.5-L-06). A
+            # pure function of the query value, before any translation: a
+            # pushdown that ignored `direction` would walk undirected while
+            # the oracle walks directed, a divergence nothing would observe.
+            return None
         statements = _translated_statements(q)
         if statements is None:
             return None

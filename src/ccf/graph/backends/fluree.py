@@ -1825,7 +1825,11 @@ class FlureeGraphReader(BaseGraphReader):
         ``admitted_entity_classes`` (`GQ-10` at
         docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0) is HONORED in Python: the
         ``$admissible`` entity keys narrow to admitted-class survivors plus
-        the starts before the walk statement is built.
+        the starts before the walk statement is built. ``direction`` other
+        than ``"undirected"`` is DECLINED (`GQ-32`; ledger row ``24.5-L-06``)
+        — plan 24.5-18 replaces this with HONOR on sqlite/postgres/neo4j and
+        keeps the decline on mongo/fluree, whose interposed layout carries no
+        edge direction.
 
         Two further declines are measured rather than computed: the rendered
         request body is checked against :data:`MAX_QUERY_BODY_BYTES` before
@@ -1839,6 +1843,12 @@ class FlureeGraphReader(BaseGraphReader):
             # answer, never an error (`GQ-23` at
             # docs/GRAPH_QUERY_SEMANTICS.md:474).
             return (), ()
+        if q.traverse is not None and q.traverse.direction != "undirected":
+            # Decline → the fallback answers (D-04; ledger row 24.5-L-06). A
+            # pure function of the query value, before any translation: a
+            # pushdown that ignored `direction` would walk undirected while
+            # the oracle walks directed, a divergence nothing would observe.
+            return None
         if (
             q.traverse is not None
             and q.traverse.depth_limit > MAX_DEPTH_CEILING

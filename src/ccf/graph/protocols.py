@@ -78,6 +78,7 @@ __all__ = [
     "SourceAttestation",
     "StoreSnapshotPin",
     "TemporalAxis",
+    "TraversalDirection",
     "TraversalSpec",
     "UpsertResult",
 ]
@@ -124,6 +125,18 @@ PolicyBindingMode = Literal["assembly-stamped", "admission-verified", "none"]
 #: SDK-defined per CLAUDE.md §11. One definition for every referencing
 #: surface, exactly as :data:`PolicyBindingMode`.
 LineageMode = Literal["graph-supplied", "product-carried", "none"]
+
+#: The closed direction vocabulary of :class:`TraversalSpec` (ledger row
+#: ``24.5-L-06``; `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201) — SDK-defined
+#: per CLAUDE.md §11, one definition exactly as :data:`PolicyBindingMode`.
+#: ``"undirected"`` crosses an edge from either endpoint — the 1.0.x walk, a
+#: NEIGHBORHOOD. ``"forward"`` crosses an edge only from ``subject_uri`` to
+#: ``object_uri`` AS STORED — the graph's own orientation, so the walk reaches
+#: DESCENDANTS in whatever sense the deployment normalized at ingest (a
+#: deployment that wants parent→child stores parent→child; the fabric does
+#: not reorient). No ``"backward"``: a reverse walk is the same edge stored the
+#: other way, and a third value nobody has needed is a value nobody chose.
+TraversalDirection = Literal["undirected", "forward"]
 
 
 def _policy_family_is_partial(
@@ -251,9 +264,10 @@ class TraversalSpec(CCFContract):
 
     Whitepaper §7.4 (Traversal as a canonical operator category, INV-CH7-24);
     ``GQ-02`` at docs/GRAPH_QUERY_SEMANTICS.md:64. Mirrors
-    ``src/ccf/operators/params.py::TraversalNeighborhoodParameters``
+    ``src/ccf/operators/params.py::TraversalNeighborhoodParameters`` (and its
+    directed sibling ``src/ccf/operators/params.py::TraversalDescendantsParameters``)
     field-for-field, so a pushed traversal and an in-process traversal are
-    parameterized by the same three facts. A mirror rather than a reuse,
+    parameterized by the same facts. A mirror rather than a reuse,
     deliberately: the operator-parameter contracts live in the operator tier
     and ``ccf.operators`` imports *this* module — the mirror keeps the
     dependency pointing one way.
@@ -283,12 +297,24 @@ class TraversalSpec(CCFContract):
             unadmitted class is in the answer and still expands. An entity
             absent from the view's class map is not admitted. ``None``
             admits every class (the 1.0.x behavior).
+        direction: Which way an edge may be crossed
+            (:data:`TraversalDirection`; ledger row ``24.5-L-06``).
+            ``"undirected"`` — the default and the 1.0.x behavior — crosses
+            an edge from either endpoint; ``"forward"`` crosses it only from
+            ``subject_uri`` to ``object_uri`` as stored. The direction is
+            fixed by which operator emitted the spec
+            (``src/ccf/operators/categories.py::TraversalNeighborhood`` is
+            undirected, ``src/ccf/operators/categories.py::TraversalDescendants``
+            is forward), never by an artifact value. A pushed answerer that
+            cannot express the direction declines the whole query to the
+            fallback (`GQ-32` at docs/GRAPH_QUERY_SEMANTICS.md:583; D-04).
     """
 
     seed_entity_classes: frozenset[str]
     relationship_types: frozenset[str]
     depth_limit: int
     admitted_entity_classes: frozenset[str] | None = None
+    direction: TraversalDirection = "undirected"
 
 
 class GraphQuery(CCFContract):

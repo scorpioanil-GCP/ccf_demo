@@ -765,7 +765,10 @@ class MongoGraphReader(BaseGraphReader):
         the ``restrictSearchWithMatch`` survivor clause has not been measured
         against the live server with a start-exempt admission set; a decline
         is conformant today and native admission is a promotion the
-        differential suite can earn later (`GQ-34`).
+        differential suite can earn later (`GQ-34`). ``direction`` other
+        than ``"undirected"`` is DECLINED the same way (`GQ-32`; ledger row
+        ``24.5-L-06``) — plan 24.5-18 replaces this with HONOR on
+        sqlite/postgres/neo4j and keeps the decline on mongo/fluree.
         """
         if q.allowed_entities is not None and not q.allowed_entities:
             # The empty survivor set IS the answer (`GQ-04`): the empty view,
@@ -773,6 +776,12 @@ class MongoGraphReader(BaseGraphReader):
             # answer, never an error (`GQ-23` at
             # docs/GRAPH_QUERY_SEMANTICS.md:474).
             return (), ()
+        if q.traverse is not None and q.traverse.direction != "undirected":
+            # Decline → the fallback answers (D-04; ledger row 24.5-L-06). A
+            # pure function of the query value, before any translation: a
+            # pushdown that ignored `direction` would walk undirected while
+            # the oracle walks directed, a divergence nothing would observe.
+            return None
         if (
             q.traverse is not None
             and q.traverse.admitted_entity_classes is not None

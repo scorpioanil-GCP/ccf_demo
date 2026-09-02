@@ -207,10 +207,14 @@ def _walk(
     traverse: TraversalSpec,
     seeds: frozenset[str] | None,
 ) -> tuple[tuple[EntityRecord, ...], tuple[RelationshipRecord, ...]]:
-    """The bounded typed undirected walk — `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201.
+    """The bounded typed walk — `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201.
 
     Semantics, matching ``src/ccf/operators/categories.py::TraversalNeighborhood``
-    (INV-CH7-24): undirected — an edge is crossable in either direction;
+    and its directed sibling ``src/ccf/operators/categories.py::TraversalDescendants``
+    (INV-CH7-24): directed by ``traverse.direction`` (ledger row
+    ``24.5-L-06``) — under ``"undirected"`` an edge is crossable from either
+    endpoint, under ``"forward"`` only from ``subject_uri`` to ``object_uri``
+    as stored, and the reverse adjacency is simply never built;
     typed — only edges whose type is permitted are crossable, and edges of
     other types are absent from the answer even between reached endpoints;
     seeds are included; ``depth_limit=0`` yields the walk starting points
@@ -237,13 +241,15 @@ def _walk(
         if edge.claim.relationship_type in traverse.relationship_types
     )
     adjacency: dict[str, set[str]] = {}
+    undirected = traverse.direction == "undirected"
     for edge in typed:
         adjacency.setdefault(edge.claim.subject_uri, set()).add(
             edge.claim.object_uri
         )
-        adjacency.setdefault(edge.claim.object_uri, set()).add(
-            edge.claim.subject_uri
-        )
+        if undirected:
+            adjacency.setdefault(edge.claim.object_uri, set()).add(
+                edge.claim.subject_uri
+            )
 
     in_scope = {record.claim.entity_uri for record in entities}
     class_of = {

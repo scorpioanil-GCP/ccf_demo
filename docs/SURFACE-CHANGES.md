@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**801 entries**, of which **563** name a public Python surface.
+**807 entries**, of which **569** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-388 entries — 353 public Python surface, 35 not public Python API.
+392 entries — 357 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -7030,6 +7030,81 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
 
+#### ccf.graph.protocols.TraversalDirection
+
+- Surface: ccf.graph.protocols.TraversalDirection
+- Public surface: true
+- Change type: added
+- Before: absent — the walk's direction was a property of the one operator's
+  two `adjacency.setdefault(...)` lines, stated nowhere in a type
+- After: `Literal["undirected", "forward"]`, the closed direction vocabulary
+  of `TraversalSpec`, in the `PolicyBindingMode` form. `"undirected"` crosses
+  an edge from either endpoint; `"forward"` crosses it only from
+  `subject_uri` to `object_uri` AS STORED — the graph's own orientation, so
+  a deployment that wants parent→child normalizes at ingest (cp-04 does).
+  No `"backward"`: a reverse walk is the same edge stored the other way
+- Why: `24.5-L-06`; `D-IMPL-223` — the direction is a spec field, not a
+  category
+- Migration: none — additive
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
+#### ccf.operators.params.TraversalDescendantsParameters
+
+- Surface: ccf.operators.params.TraversalDescendantsParameters
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the directed sibling of `TraversalNeighborhoodParameters` — the same
+  four fields (`seed_entity_classes`, `relationship_types`, `depth_limit`,
+  `admitted_entity_classes=None`), read by `TraversalDescendants`. Direction
+  is deliberately NOT a field: it is fixed by the operator the artifact class
+  selects. The module docstring now says the Traversal category has two
+  parameter classes that differ in no field and why
+- Why: `24.5-L-06`; a sibling key needs its own parameter schema so the
+  registry's `parameters_schema` and the artifact class can name it
+- Migration: none — additive
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
+#### ccf.operators.categories.TraversalDescendantsParameters
+
+- Surface: ccf.operators.categories.TraversalDescendantsParameters
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the re-export of `ccf.operators.params.TraversalDescendantsParameters`
+  from the categories module, exactly as `TraversalNeighborhoodParameters` is
+  re-exported. Not a second class — one contract, two import paths
+- Why: `24.5-L-06`; symmetry with the sibling's re-export
+- Migration: none — additive
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
+#### ccf.operators.categories.TraversalDescendants
+
+- Surface: ccf.operators.categories.TraversalDescendants
+- Public surface: true
+- Change type: added
+- Before: absent — no SDK operator could walk a stored orientation
+- After: `key = "traversal.typed-descendants"`, `category = "traversal"`,
+  constructed from `parameters: TraversalDescendantsParameters`.
+  `read_intent()` projects the four fields onto `TraversalSpec` with
+  `direction="forward"` fixed by the operator; `apply()` runs the shared
+  `_bounded_walk(..., forward=True)`, whose adjacency adds only
+  `subject → object` — the one line on which the two walks differ. Joins
+  `_CONFORMANCE` (Protocol conformance asserted at import) and `__all__`.
+  Registers under its own key, so `DuplicateOperatorKey` never fires beside
+  the neighborhood
+- Why: `24.5-L-06`, criterion 9; `D-IMPL-223` (a sibling shape, the category
+  count untouched); `24.5-RESEARCH.md` Pitfall 3 (a sibling key enters the
+  n² suite for free once registered)
+- Migration: none — additive. A deployment that wants the directed walk
+  authors an artifact of the new class (`24.5-05` Task 2) and requires the
+  new key in its product class
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
 #### ccf_runtime.mcp.egress.PRODUCT_ADDRESS_TEMPLATE
 
 - Surface: ccf_runtime.mcp.egress.PRODUCT_ADDRESS_TEMPLATE
@@ -7768,7 +7843,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-310 entries — 127 public Python surface, 183 not public Python API.
+311 entries — 128 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -10398,6 +10473,27 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
 
+#### ccf.graph.protocols.TraversalSpec
+
+- Surface: ccf.graph.protocols.TraversalSpec
+- Public surface: true
+- Change type: reshaped
+- Before: four fields after `24.5-04` — `seed_entity_classes`,
+  `relationship_types`, `depth_limit`, `admitted_entity_classes=None`
+- After: a fifth, last, sentinel-defaulted field
+  `direction: TraversalDirection = "undirected"`. The default is the 1.0.x
+  behavior; `"forward"` is emitted only by `TraversalDescendants.read_intent`.
+  A pushed answerer that cannot express the direction declines the whole
+  query to the fallback (`GQ-32`, D-04) — which every backend does at this
+  plan's tip
+- Why: `24.5-L-06`; pushdown and the fallback read the spec, not the
+  operator, so the direction has to travel on the spec
+- Migration: none — additive. `TraversalSpec(seed_entity_classes=…,
+  relationship_types=…, depth_limit=…)` still constructs and still means the
+  undirected walk
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
 #### ccf_runtime.mcp.egress.build_egress_server
 
 - Surface: ccf_runtime.mcp.egress.build_egress_server
@@ -12874,7 +12970,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-99 entries — 79 public Python surface, 20 not public Python API.
+100 entries — 80 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -14703,6 +14799,27 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none — additive
 
 *Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
+
+#### ccf.operators.categories.TraversalNeighborhood
+
+- Surface: ccf.operators.categories.TraversalNeighborhood
+- Public surface: true
+- Change type: behavior
+- Before: `apply()` held its own BFS with the two undirected
+  `adjacency.setdefault(...)` lines inline; `read_intent()` left
+  `TraversalSpec.direction` to its default
+- After: `apply()` calls the shared `_bounded_walk(..., forward=False)` —
+  the same BFS, the same admission predicate, now in one place for both
+  walks; `read_intent()` emits `direction="undirected"` explicitly. Constructor
+  and key unchanged (the manifest records constructors only, so the
+  behavior-neutral refactor is claimed here). Answers are byte-identical:
+  `tests/operators/test_traversal_admission.py` and the quick conformance
+  suite pass with no edit
+- Why: `24.5-L-06`; one walk function so the two shapes cannot drift
+  (threat `T-24.5-13`)
+- Migration: none
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
 
 #### ccf.products.request.refuse_request
 

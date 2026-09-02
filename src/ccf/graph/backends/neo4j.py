@@ -636,6 +636,9 @@ class Neo4jGraphReader(BaseGraphReader):
         docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0) is HONORED in Python:
         the path predicate gains ``$admissible`` — admitted-class survivors
         plus the starts — as a separate parameter (:data:`_WALK_NODES_ADMITTED`).
+        ``direction`` other than ``"undirected"`` is DECLINED (`GQ-32`;
+        ledger row ``24.5-L-06``) — plan 24.5-18 replaces this with HONOR on
+        sqlite/postgres/neo4j and keeps the decline on mongo/fluree.
         """
         if q.allowed_entities is not None and not q.allowed_entities:
             # The empty survivor set IS the answer (`GQ-04`): the empty
@@ -643,6 +646,12 @@ class Neo4jGraphReader(BaseGraphReader):
             # answer is an answer, never an error (`GQ-23` at
             # docs/GRAPH_QUERY_SEMANTICS.md:474).
             return (), ()
+        if q.traverse is not None and q.traverse.direction != "undirected":
+            # Decline → the fallback answers (D-04; ledger row 24.5-L-06). A
+            # pure function of the query value, before any translation: a
+            # pushdown that ignored `direction` would walk undirected while
+            # the oracle walks directed, a divergence nothing would observe.
+            return None
         if (
             q.traverse is not None
             and q.traverse.depth_limit > MAX_DEPTH_CEILING
