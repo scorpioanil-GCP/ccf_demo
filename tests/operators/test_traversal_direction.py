@@ -52,8 +52,11 @@ written in this file (CLAUDE.md §6.4).
 
 from __future__ import annotations
 
+import functools
 import importlib.util
+import json
 import pathlib
+import subprocess
 import sys
 from types import ModuleType
 
@@ -528,3 +531,230 @@ def test_control_the_strictly_less_assertion_fails_on_a_copy_that_ignores_direct
     # the direction and nothing else.
     assert reached_by_copy == _reached(_neighborhood(1))
     assert reached_by_copy - _reached(_descendants(1)) == {P_URI}
+
+
+# --- criterion 9: the committed cp-04 fixture, MEASURED ----------------------
+#
+# The fixture is parsed here and walked; nothing is read from
+# `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census`
+# (that block is the product's own census and would be source substitution —
+# threat T-24.5-47). If the walk and the locked criterion ever disagree, this
+# module goes RED and the criterion is not retuned here.
+
+FIXTURE = REPO_ROOT / "tests" / "examples" / "fixtures" / "cp_04_family_fluree.json"
+
+#: THE ORIENTATION WALKED. The six family predicates of the fixture do not
+#: all run parent to child: ``owns`` and ``controls`` read subject→object,
+#: while the two consolidation predicates and the two ultimate-parent
+#: predicates read object→subject. That is the cp-04 deployment's own
+#: normalization (``examples/cp-04-corporate-family-tree/deployment.py``,
+#: READ and restated — never imported, the examples being closed), so the
+#: view below stores ONE ``parent -> child`` edge per distinct pair with the
+#: parent as ``subject_uri`` and the child as ``object_uri``; "forward" is
+#: therefore parent to child, and "descendant" means what the tree means.
+PARENT_TO_CHILD: tuple[str, ...] = ("owns", "controls")
+CHILD_TO_PARENT: tuple[str, ...] = (
+    "isDirectlyConsolidatedBy",
+    "isUltimatelyConsolidatedBy",
+    "hasGlobalUltimateParent",
+    "hasDomesticUltimateParent",
+)
+#: The anchor the criterion names, by fixture ``@id``; the one node the
+#: undirected walk reaches at depth 2 and the directed walk only at depth 3
+#: (a cycle's closing edge crossed against its orientation — 24.4-D-36).
+ANCHOR = "http://example.org/fibo/SuperMicroComputerInc"
+DIVERGENT_AT_DEPTH_2 = "http://example.org/fibo/CycThornburyCapitalLtd"
+
+
+
+def _criterion_9() -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    """The locked figures (ROADMAP criterion 9): directed, then undirected.
+
+    Counted INCLUDING the anchor: `GQ-10` includes the walk starts in the
+    answer, and the census counts the subtree — anchor plus descendants —
+    the same way. Without the anchor the two triples read 19 / 20 / 21 and
+    19 / 21 / 21. A function rather than a module-level table because the
+    numeric-table lint (CINV-01b) reads a module-level tuple of numbers as a
+    Control Plane value; these are measured figures a test asserts, and the
+    assertion is the only reader.
+    """
+    return (20, 21, 22), (20, 22, 22)
+
+
+DIRECTED_BY_DEPTH, UNDIRECTED_BY_DEPTH = _criterion_9()
+
+
+def _normalized_family_edges(document: dict[str, object]) -> frozenset[tuple[str, str]]:
+    """The distinct parent→child pairs of the fixture under the orientation above."""
+    pairs: set[tuple[str, str]] = set()
+    nodes = document["insert"]
+    assert isinstance(nodes, list)
+    for node in nodes:
+        assert isinstance(node, dict)
+        subject = node["@id"]
+        for predicate_iri, objects in node.items():
+            name = predicate_iri.rsplit("/", 1)[-1]
+            if name in PARENT_TO_CHILD:
+                pairs.update((subject, target["@id"]) for target in objects)
+            elif name in CHILD_TO_PARENT:
+                pairs.update((target["@id"], subject) for target in objects)
+    return frozenset(pairs)
+
+
+@functools.cache
+def family_view() -> GraphView:
+    """The fixture as a view: one entity per node, one typed edge per pair.
+
+    The anchor alone carries the seed class so a seed-class walk starts
+    there and nowhere else; every other member carries one other class —
+    the walk is typed on EDGES, not nodes, so the member class is a role
+    name and nothing more. Both classes and the edge type are the ontology
+    fixture's, named by role above (CLAUDE.md §6.4).
+    """
+    document = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    generated = document["_generated"]
+    nodes = document["insert"]
+    uris = [node["@id"] for node in nodes]
+    assert len(uris) == len(set(uris)) == generated["nodes"], "the fixture's node roster moved"
+    assert ANCHOR in uris
+    pairs = _normalized_family_edges(document)
+    members = set(uris)
+    assert all(parent in members and child in members for parent, child in pairs)
+    entities = tuple(
+        _entity(uri, SEED_CLASS if uri == ANCHOR else CHILD_CLASS) for uri in uris
+    )
+    relationships = tuple(
+        _edge(parent, child) for parent, child in sorted(pairs)
+    )
+    return _view(entities, relationships)
+
+
+def _family(build: object, depth: int) -> frozenset[str]:
+    return _reached(build(depth), family_view())  # type: ignore[operator]
+
+
+def test_the_fixture_normalizes_to_the_seven_hundred_and_twenty_two_edges() -> None:
+    """The measurement's premise: 748 nodes, 722 distinct parent→child pairs."""
+    view = family_view()
+    assert len(view.entities) == 748
+    assert len(view.relationships) == 722
+    assert sum(1 for r in view.entities if r.claim.entity_class == SEED_CLASS) == 1
+
+
+def test_the_directed_walk_reaches_20_21_22() -> None:
+    """Criterion 9, the directed triple: 20 / 21 / 22 at depths 1 / 2 / 3.
+
+    Counted INCLUDING the anchor (see ``DIRECTED_BY_DEPTH``). The walk is
+    ``traversal.typed-descendants`` — parent to child under the orientation
+    stated at the top of this section — from the anchor as the only start.
+    """
+    measured = tuple(len(_family(_descendants, depth)) for depth in (1, 2, 3))
+    assert measured == DIRECTED_BY_DEPTH, (
+        f"traversal.typed-descendants reached {measured} from the anchor;"
+        f" criterion 9 locks {DIRECTED_BY_DEPTH}"
+    )
+    for depth in (1, 2, 3):
+        assert ANCHOR in _family(_descendants, depth)
+    assert tuple(len(_family(_descendants, d)) - 1 for d in (1, 2, 3)) == (19, 20, 21)
+
+
+def test_the_undirected_neighborhood_reaches_20_22_22() -> None:
+    """Criterion 9, the undirected triple: 20 / 22 / 22 on the same view.
+
+    ``traversal.typed-neighborhood`` from the same anchor, same depths, same
+    edges — the 1.1.0 walk, unchanged (D-10), which is why the two triples
+    differ at exactly one depth.
+    """
+    measured = tuple(len(_family(_neighborhood, depth)) for depth in (1, 2, 3))
+    assert measured == UNDIRECTED_BY_DEPTH, (
+        f"traversal.typed-neighborhood reached {measured} from the anchor;"
+        f" criterion 9 locks {UNDIRECTED_BY_DEPTH}"
+    )
+    assert tuple(len(_family(_neighborhood, d)) - 1 for d in (1, 2, 3)) == (19, 21, 21)
+
+
+def test_the_depth_2_divergent_node_is_the_cycle_closer_by_id() -> None:
+    """The one node the neighborhood serves at depth 2 that the tree places at 3.
+
+    24.4-D-36's measured cause: a cycle's closing edge is stored INTO a node
+    the anchor reaches at depth 1, so one undirected hop reaches the closer
+    at depth 2 while the directed walk reaches it only through the cycle,
+    at depth 3. Asserted by id, and asserted to be the WHOLE difference —
+    at depths 1 and 3 the two walks agree exactly.
+    """
+    assert _family(_neighborhood, 1) == _family(_descendants, 1)
+    assert _family(_neighborhood, 2) - _family(_descendants, 2) == {DIVERGENT_AT_DEPTH_2}
+    assert _family(_descendants, 2) < _family(_neighborhood, 2)
+    assert DIVERGENT_AT_DEPTH_2 not in _family(_descendants, 2)
+    assert DIVERGENT_AT_DEPTH_2 in _family(_descendants, 3)
+    assert _family(_neighborhood, 3) == _family(_descendants, 3)
+
+
+@pytest.mark.parametrize("depth", [1, 2, 3])
+@pytest.mark.parametrize(
+    "build",
+    [_neighborhood, _descendants],
+    ids=["typed-neighborhood", "typed-descendants"],
+)
+def test_the_fallback_agrees_on_both_walks(build: object, depth: int) -> None:
+    """`_walk` under each operator's own intent answers the fixture identically.
+
+    The oracle every backend is held to, held here to the operator on the
+    criterion's own graph — entities AND edges — so the 20/21/22 and
+    20/22/22 figures are the fallback's figures too.
+    """
+    view = family_view()
+    operator = build(depth)  # type: ignore[operator]
+    fragment = operator.read_intent()
+    assert fragment.traverse is not None
+    entities, edges = _walk(
+        view.entities, view.relationships, traverse=fragment.traverse, seeds=None
+    )
+    output = operator.apply(
+        view=view, tenant_id=TENANT, temporal_boundary=BOUNDARY, upstream=()
+    )
+    assert entities == output.view.entities
+    assert edges == output.view.relationships
+
+
+def test_control_the_fixture_measurement_fails_on_a_copy_that_ignores_direction(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Sabotage in a scratch copy: the forward-only adjacency made undirected.
+
+    On the copy, ``traversal.typed-descendants`` reaches the neighborhood's
+    20 / 22 / 22 and the 20 / 21 / 22 predicate FAILS naming the key; the
+    real tree is untouched — asserted through ``git`` on the one file the
+    copy is made from, in plan 24.5-04's shape.
+    """
+    real = CATEGORIES_SOURCE.read_text(encoding="utf-8")
+    assert real.count(FORWARD_BRANCH) == 1, "the forward branch moved; re-anchor"
+    sabotaged = real.replace(FORWARD_BRANCH, "        if True:\n", 1)
+    module = _import_scratch_copy(
+        sabotaged, "_ccf_categories_no_direction_fixture", tmp_path
+    )
+
+    def copy(depth: int) -> object:
+        return module.TraversalDescendants(
+            parameters=TraversalDescendantsParameters(
+                seed_entity_classes=frozenset({SEED_CLASS}),
+                relationship_types=frozenset({EDGE_TYPE}),
+                depth_limit=depth,
+            )
+        )
+
+    measured = tuple(len(_family(copy, depth)) for depth in (1, 2, 3))
+    with pytest.raises(AssertionError, match="traversal.typed-descendants"):
+        assert measured == DIRECTED_BY_DEPTH, (
+            f"traversal.typed-descendants reached {measured} from the anchor;"
+            f" criterion 9 locks {DIRECTED_BY_DEPTH}"
+        )
+    assert measured == UNDIRECTED_BY_DEPTH
+    status = subprocess.run(
+        ["git", "status", "--short", "--", str(CATEGORIES_SOURCE)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert status == "", f"the control edited the real tree: {status!r}"
