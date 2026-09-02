@@ -566,11 +566,28 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     # lineage obligation. A required positional, not a defaulted widening —
     # the fragment records it under `reshaped` and names every call site the
     # resolver threads it through; the two runners are the same move.
+    # Plan 15 (D-IMPL-238 second sentence, ledger row 24.5-L-24) widened the
+    # same two runners AGAIN — `empty_results: frozenset[str] | None = None`,
+    # a defaulted, keyword-only widening — and its fragment
+    # `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md` claims both
+    # names as `reshaped` too. One name maps to one fragment here; plan 13's
+    # stays as the citation because it records the required positional, and
+    # the allowance's contract (the fragment exists and claims the name) holds
+    # under either.
     "ccf.products.gates.run_gates": (
         "24.5-13-one-structural-gate-for-declared-obligations.md"
     ),
     "ccf.products.gates.run_federated_gates": (
         "24.5-13-one-structural-gate-for-declared-obligations.md"
+    ),
+    # Phase 24.5 plan 15 (ledger row 24.5-L-24). `ExecutionResult` gained
+    # `empty_results: frozenset[str] = frozenset()` as its last field — the
+    # engine's own record of which operators returned an empty set, computed
+    # always, so the returned-empty half of the empty-operator gate has an
+    # observation to read that is not the payload. A defaulted widening: every
+    # hand-built result carries the empty set and reads as it did.
+    "ccf.projection.engine.ExecutionResult": (
+        "24.5-15-the-empty-operator-gate-s-two-halves-by-name.md"
     ),
 }
 
