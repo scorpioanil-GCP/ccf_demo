@@ -3076,7 +3076,27 @@ SDK surface. `D-IMPL-221` (cp-02 has no phase) is adjacent and may be ruled in t
 27. **The §3.1 close protocol runs on the SHIPPED tree:** panel inlined over stdin, single-agent review, every finding verified against the tree and rejected ones recorded as rejected; `make ci` in chunked foreground with the chunks proven a partition of the collected count; unanchored `path.py:LINE` citations **0**; `docs/surface/examples/RETIREMENT-COUPLINGS.md` regenerated last.
 28. **The criteria block's sha256 is pinned at this lock and is byte-identical at close;** the two ROADMAP amendments this sitting made (`D-IMPL-236` on the cp-01 label above; `D-IMPL-238` on the Phase 24 entry's gate count) are the marked form, superseded text preserved.
 
-**Plans:** none yet — `/gsd:plan-phase 24.5` next, against `24.5-CONTEXT.md` and `24.5-LEDGER.md`.
+**Plans:** 18 plans in 8 execution waves — planned 2026-09-02 (`/gsd:plan-phase 24.5`), revised the same day at the plan-checker revision (plan 05 split into 05 + 18 for context budget); ledger Wave 1 = plans 02–12 and 18, ledger Wave 2 = plans 13–15; the return trip 16; close prep 17.
+
+Plans:
+- [ ] 24.5-01-PLAN.md — criterion 4: `D-IMPL-239` roster edit, first commit, `tests/` only
+- [ ] 24.5-02-PLAN.md — L-01/L-03/L-04: Fluree pin (JSON-LD claim read → fallback), three temporal axes
+- [ ] 24.5-03-PLAN.md — L-02: `ProductLineage.store_snapshot_pin`, replay resolves the exact pin, cp-04 re-seal (`D-IMPL-240` (1))
+- [ ] 24.5-04-PLAN.md — L-05: node-class admission on the walk, `GQ-10` 1.1.0
+- [ ] 24.5-05-PLAN.md — L-06: directed descendant walk (`traversal.typed-descendants`) — operator, params, artifact class, dispatch, schema, round-trip case, fragment
+- [ ] 24.5-06-PLAN.md — L-08/L-09: tool-only door, parameterized product address, both listings at a real client
+- [ ] 24.5-07-PLAN.md — L-11/L-12/L-13/L-16: refusal vocabulary (assembly, tier, ambiguous anchor), declared-and-always-refused
+- [ ] 24.5-08-PLAN.md — L-10 (+L-18): the product-gate coverage checker and its three sabotages
+- [ ] 24.5-09-PLAN.md — L-10/L-49: four `gates.yaml`, cp-00's seven tests + `CPR-G08`, Makefile/ci.yml wiring
+- [ ] 24.5-10-PLAN.md — L-21: ingest mints only what the envelope selects; no self-loops
+- [ ] 24.5-11-PLAN.md — L-22: supersede-only half-life class; L-23 CUT with the precedence test
+- [ ] 24.5-12-PLAN.md — L-27/L-28: docstrings only, manifest diff-empty
+- [ ] 24.5-13-PLAN.md — L-14/L-26 (Wave 2): ONE structural gate — declared obligations (debt ceiling, lineage inputs)
+- [ ] 24.5-14-PLAN.md — L-14 (Wave 2): HTTP 409 for the declared-obligation kind; DIV-4 scoped
+- [ ] 24.5-15-PLAN.md — L-24 (Wave 2): the empty-operator gate's two halves by name
+- [ ] 24.5-16-PLAN.md — the return trip: unchanged re-run, `24.5-FLIP-ROSTER.md`, only flipped assertions rewritten
+- [ ] 24.5-17-PLAN.md — close prep: instruments for criteria 1/2/3/19/20/21/27/28, chunked `make ci`, `D-GATE-24.5` draft
+- [ ] 24.5-18-PLAN.md — L-06 (split from 05): backends honor/decline direction, corpus `direction_cases`, `GQ-10` 1.2.0, the n² suite at 25 pairs, 20/21/22 vs 20/22/22 on the committed fixture
 
 ## Progress
 

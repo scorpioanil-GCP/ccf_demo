@@ -3,8 +3,24 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-02T08:20:00.000Z"
+last_updated: "2026-09-02T15:50:00.000Z"
 last_activity: >-
+  PHASE 24.5 IS PLANNED (2026-09-02, /gsd-plan-phase 24.5): 18 plans in 8 execution waves, 43 tasks, in
+  `.planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04/24.5-01..18-PLAN.md`. Ledger-id union across the
+  plans = the 23-id set exactly (18 Wave-1 + 3 Wave-2 + L-18, L-49; arrivals none, departures none). Research
+  measured the tree and put three rulings to Dave, recorded at `D-IMPL-240` BEFORE any edit: (1) criterion 25 has
+  ONE named exception -- cp-04's two `perspective_content_addresses` re-sealed in the same commit as the L-02
+  lineage-pin edit, `CFT-G16` on the flip roster by id (every `ProductLineage` field moves every content address;
+  `canonical.py::_normalize` renders all fields); (2) L-01's pin is a JSON-LD claim read at `ledger@t:N` fed to the
+  fallback (the Cypher route ignores every pin form, measured live); (3) L-14's ceiling is class-declared and a
+  request may only tighten it. L-23 is CUT under criterion 18's own branch (precedence already true of the tree).
+  Plan checker ran 3 iterations + 1 scoped re-check: 15 -> 9 -> 3 -> 0 issues; every finding verified against the
+  tree before acting; one planner finding REJECTED (an unscoped digest instrument -- the scoped awk over the
+  `### Phase 24.5:` section reproduces the pinned cfa493af... on the working tree and at 13bd250). Ordering:
+  plan 01 (criterion 4, names D-IMPL-239 in its commit subject) first; Wave 2 = plans 13/14/15; return trip 16;
+  close prep 17. `24.5-VALIDATION.md` nyquist_compliant. **Next free id `D-IMPL-241`.** **Next:**
+  `/gsd:execute-phase 24.5` -- plan 01 must be the first commit. Hand-edited; no `state.*` or `roadmap.*`
+  writer ran. PRIOR HEAD FOLLOWS.
   PHASE 24.5 IS DISCUSSED AND ITS CRITERIA ARE LOCKED (2026-09-02, Dave, at /gsd-discuss-phase 24.5). The
   ledger `24.5-LEDGER.md` holds 49 rows by id (`24.5-L-01`..`L-49`), collected from every source and re-measured
   at `13bd250`; Dave ruled the RULE (`D-IMPL-236`: SDK -> fix in 24.5; estate / tier / tooling / 223-new-class ->
