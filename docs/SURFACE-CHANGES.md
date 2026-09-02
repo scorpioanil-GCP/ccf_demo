@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**760 entries**, of which **522** name a public Python surface.
+**761 entries**, of which **523** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-371 entries — 336 public Python surface, 35 not public Python API.
+372 entries — 337 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -6891,6 +6891,22 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none — a new name, and a new header a consumer may ignore
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
+
+#### ccf.controlplane.artifacts.DecayMode
+
+- Surface: ccf.controlplane.artifacts.DecayMode
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["curve", "supersede-only"]` — the type of `HalfLifeEntry.decay` and the return
+  type of `ccf.halflife.decay.decay_mode_of`
+- Why: a named module-level alias in the `ArtifactRole` / `RegistrationMode` shape, so that
+  `tests/invariants/test_no_obligation_vocabulary.py` sees one bound declaration it can exempt
+  by name (the members name two SDK code paths, not deployment values) rather than an unbound
+  `Literal` in a return annotation it cannot
+- Migration: none — additive
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
 
 #### ccf.halflife.decay.NoDecayCurve
 

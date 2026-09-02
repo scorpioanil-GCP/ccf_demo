@@ -63,11 +63,11 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal, localcontext
-from typing import Final, Literal
+from typing import Final
 
 from pydantic import field_validator
 
-from ccf.controlplane.artifacts import HalfLifeEntry, HalfLifeTable
+from ccf.controlplane.artifacts import DecayMode, HalfLifeEntry, HalfLifeTable
 from ccf.contracts.base import CCFContract
 from ccf.halflife.assessment import (
     _SDK_NAMESPACE,
@@ -351,9 +351,7 @@ def _entry_of(table: HalfLifeTable, observation_type: str) -> HalfLifeEntry:
         ) from None
 
 
-def decay_mode_of(
-    table: HalfLifeTable, observation_type: str
-) -> Literal["curve", "supersede-only"]:
+def decay_mode_of(table: HalfLifeTable, observation_type: str) -> DecayMode:
     """Return the declared decay mode for ``observation_type``.
 
     The one read :func:`freshness` makes before it touches a curve, so that a

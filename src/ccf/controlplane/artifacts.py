@@ -121,6 +121,7 @@ __all__ = [
     "ArtifactLoadError",
     "ArtifactRole",
     "DebtProfile",
+    "DecayMode",
     "DeclaredArtifact",
     "DeploymentConfig",
     "DeploymentManifest",
@@ -196,6 +197,20 @@ def declared_artifact_class(class_id: str) -> ArtifactClass:
     return ArtifactClass(class_id=class_id, contract=DeclaredArtifact)
 
 
+#: Which of the two decay paths a λ_c row takes in
+#: :func:`ccf.halflife.decay.freshness` (ledger row ``24.5-L-22``; whitepaper
+#: §7.7.1–§7.7.2).
+#:
+#: ``curve`` reads the declared rate off the whitepaper's decay formula.
+#: ``supersede-only`` holds retained relevance whole until the row's
+#: supersession event, because the class has no curve to read. The two members
+#: name two SDK code paths — the :data:`ArtifactRole` / :data:`RegistrationMode`
+#: shape, and their reason — and no deployment can add a third. Which of its
+#: observation types takes which path is the deployment's to declare, in its
+#: table, beside every rate.
+DecayMode = Literal["curve", "supersede-only"]
+
+
 class HalfLifeEntry(CCFContract):
     """One row of a λ_c table (whitepaper §7.7.1–§7.7.2; INV-CH7-59).
 
@@ -247,7 +262,7 @@ class HalfLifeEntry(CCFContract):
             ``supersede-only`` it is the *only* thing that ends it.
     """
 
-    decay: Literal["curve", "supersede-only"] = "curve"
+    decay: DecayMode = "curve"
     half_life_seconds: int | None = None
     decay_driver: str
     supersession_event: str
