@@ -345,6 +345,88 @@ def fixture_lei_roster() -> frozenset[str]:
     return frozenset(values)
 
 
+def fixture_lei_bearing_nodes(document: Mapping[str, Any] | None = None) -> list[list[str]]:
+    """Every LEI-bearing node of a fixture, as its list of carried LEI values.
+
+    **The population `resolve_anchor` silently depends on.**
+    ``examples/cp-04-corporate-family-tree/deployment.py::resolve_anchor``
+    returns the FIRST binding a `SELECT ?s WHERE { ?s <lei> "…" }` yields, with
+    no `ORDER BY` and no uniqueness check, so two nodes carrying one LEI would
+    make family selection nondeterministic — the anchor, and therefore the whole
+    served tree, would depend on the store's row order. What makes that
+    unreachable on this estate is a property `expected.yaml` states in a
+    COMMENT: *"1:1 — no node carries two, no LEI is shared"*.
+
+    :func:`fixture_lei_roster` holds `census.lei_coverage.nodes_carrying_lei`
+    against the distinct VALUES, which catches a duplicate that leaves the node
+    population fixed and NOT one that adds a node — 182 nodes over 181 distinct
+    values satisfies it exactly. So the nodes are counted too, and both halves
+    of the declared 1:1 are asserted.
+
+    Takes a document so a control can hand the shipped reading a divergent
+    subject rather than mutating the committed fixture, which a sibling module's
+    append-only ledger would then carry forever.
+    """
+    if document is None:
+        document = json.loads(FLUREE_FIXTURE.read_text(encoding="utf-8"))
+    predicate = lei_predicate()
+    carried: list[list[str]] = []
+    for node in document["insert"]:
+        value = node.get(predicate)
+        if value is None:
+            continue
+        if isinstance(value, (list, tuple)):
+            carried.append([str(entry) for entry in value])
+        else:
+            carried.append([str(value)])
+    return carried
+
+
+def lei_identity_violations(
+    carried: Sequence[Sequence[str]],
+    *,
+    declared_nodes: int,
+    declared_values: int,
+) -> list[str]:
+    """Every way an estate fails the declared 1:1 between nodes and LEIs."""
+    violations: list[str] = []
+    if not carried:
+        return [
+            "no node carries an LEI at all, so the declared 1:1 holds over the"
+            " empty set and proves nothing"
+        ]
+    if len(carried) != declared_nodes:
+        violations.append(
+            f"{len(carried)} node(s) carry an LEI where"
+            f" expected.yaml::census.lei_coverage declares {declared_nodes}"
+        )
+    values = [value for node in carried for value in node]
+    if len(set(values)) != declared_values:
+        violations.append(
+            f"{len(set(values))} distinct LEI value(s) where"
+            f" expected.yaml::census.lei_coverage declares {declared_values}"
+        )
+    multiple = sorted(node[0] for node in carried if len(node) > 1)
+    if multiple:
+        violations.append(
+            f"{len(multiple)} node(s) carry MORE THAN ONE LEI, beginning"
+            f" {multiple[:3]}. expected.yaml declares the mapping 1:1"
+        )
+    seen: dict[str, int] = {}
+    for node in carried:
+        for value in node:
+            seen[value] = seen.get(value, 0) + 1
+    shared = sorted(value for value, count in seen.items() if count > 1)
+    if shared:
+        violations.append(
+            f"LEI(s) {shared[:3]} are carried by more than one node"
+            f" ({len(shared)} in all). `resolve_anchor` returns the FIRST"
+            " binding of an unordered SELECT, so a shared LEI makes the anchor —"
+            " and the whole served family — depend on the store's row order"
+        )
+    return violations
+
+
 def declared_member_depths() -> Mapping[str, int]:
     """Which subtree member enters the walk at which depth, DECLARED.
 
@@ -773,6 +855,12 @@ def test_the_seed_carries_what_these_five_gates_need(
         "the graph leg carries at most one LEI, so ONE statement for the whole"
         " roster would not be a batching claim at all"
     )
+    identity = lei_identity_violations(
+        fixture_lei_bearing_nodes(),
+        declared_nodes=int(declared["lei_coverage"]["nodes_carrying_lei"]),
+        declared_values=int(declared["lei_coverage"]["distinct_lei_values"]),
+    )
+    assert not identity, "\n".join(identity)
     assert schema and ledger, "the estate fixture named no schema or no ledger"
 
 
@@ -2959,3 +3047,48 @@ def test_the_cycle_step_check_refuses_a_recipe_with_no_such_step() -> None:
     )
     assert violations, "a recipe with no cycle step was accepted"
     assert any("0 step(s)" in entry for entry in violations), violations
+
+
+def test_the_lei_identity_check_refuses_a_shared_lei() -> None:
+    """**Positive control.** Two nodes, one LEI — the anchor becomes a coin flip.
+
+    ``examples/cp-04-corporate-family-tree/deployment.py::resolve_anchor``
+    returns the first binding of an unordered SELECT. What keeps that
+    deterministic is an estate property, and the 2026-09-01 close panel found
+    that nothing asserted it: the precondition compared distinct VALUES against
+    the declared node count, which a duplicate ACCOMPANIED BY AN EXTRA NODE
+    satisfies exactly.
+    """
+    carried = [["A"], ["B"], ["B"]]
+    violations = lei_identity_violations(
+        carried, declared_nodes=3, declared_values=2
+    )
+    assert violations, "a shared LEI was accepted"
+    assert any("more than one node" in entry for entry in violations), violations
+    assert not any("node(s) carry an LEI where" in entry for entry in violations), (
+        "the node-count limb fired; the point of this control is that the counts"
+        " AGREE with the declaration and the identity still does not hold"
+    )
+
+
+def test_the_lei_identity_check_refuses_a_node_carrying_two() -> None:
+    """**Positive control.** One node, two LEIs — the other half of the 1:1."""
+    violations = lei_identity_violations(
+        [["A", "B"], ["C"]], declared_nodes=2, declared_values=3
+    )
+    assert violations, "a node carrying two LEIs was accepted"
+    assert any("MORE THAN ONE LEI" in entry for entry in violations), violations
+
+
+def test_the_lei_identity_check_refuses_an_estate_with_no_leis() -> None:
+    """**Vacuity control.** A 1:1 over nothing is not a narrower claim."""
+    violations = lei_identity_violations([], declared_nodes=0, declared_values=0)
+    assert violations, "an estate carrying no LEI at all was accepted"
+    assert any("proves nothing" in entry for entry in violations), violations
+
+
+def test_the_lei_identity_check_accepts_the_compliant_shape() -> None:
+    """**Compliance control.** A later limb cannot quietly forbid the real case."""
+    assert not lei_identity_violations(
+        [["A"], ["B"], ["C"]], declared_nodes=3, declared_values=3
+    )
