@@ -402,7 +402,10 @@ test_the_premise_detector_reads_the_shipped_tree_correctly
 test_no_projecting_body_names_the_binder_without_binding_it[examples/cp-04-corporate-family-tree/produce.py-]
 ```
 
-The message names the subject exactly:
+The message names the subject exactly. The tool prints a line anchor and
+this record keeps it verbatim; the symbol it locates is
+`examples/cp-04-corporate-family-tree/produce.py::_project`, and the anchor
+below is reproduced as it stood at `7c2d6dd`:
 
 > `examples/cp-04-corporate-family-tree/produce.py:410: _project() constructs or
 > runs a projection plan without naming `refuse_operator_set_divergence`.`
