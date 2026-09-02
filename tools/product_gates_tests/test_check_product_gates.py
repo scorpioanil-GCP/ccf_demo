@@ -496,6 +496,37 @@ def test_collection_failure_is_undecidable_not_clean(tmp_path: pathlib.Path) -> 
     assert "no roster can be judged" in problems[0]
 
 
+def test_main_collects_exactly_once_and_reports_the_count(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """One ``pytest --collect-only`` per invocation; the verdict and the count read the same set.
+
+    A REAL collection over the scratch root (two functions), with
+    ``subprocess.run`` counted rather than replaced, so a second collection
+    on the success path — which is where one crept in during this plan —
+    would be a second call here.
+    """
+    import subprocess as real_subprocess
+
+    import tools.check_product_gates as checker
+
+    roster, module, _collected = _clean_case("name")
+    root = _scratch_tree(tmp_path, roster=roster, tests={"test_cp_04_scratch.py": module})
+    calls: list[list[str]] = []
+    real_run = real_subprocess.run
+
+    def counting_run(argv, *args, **kwargs):  # type: ignore[no-untyped-def]
+        calls.append(list(argv))
+        return real_run(argv, *args, **kwargs)
+
+    monkeypatch.setattr(checker.subprocess, "run", counting_run)
+    rc = checker.main(["--root", str(root)])
+    assert rc == 0, capsys.readouterr().err
+    assert len(calls) == 1, calls
+    assert "--collect-only" in calls[0]
+    assert capsys.readouterr().out.strip() == "checked 1 product trees, 2 declared gates, 2 executing"
+
+
 def test_a_root_with_no_product_tree_is_not_clean(tmp_path: pathlib.Path) -> None:
     """A wrong ``--root`` must not read as a passing run."""
     (tmp_path / "tests" / "examples").mkdir(parents=True)

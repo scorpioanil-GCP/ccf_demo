@@ -474,19 +474,15 @@ def check_tree(
     return problems
 
 
-def check(root: pathlib.Path, *, python: str = sys.executable) -> list[str]:
-    """Every problem across every ``examples/cp-*`` tree under ``root``.
+def _collection_problem(tail: str) -> str:
+    return (
+        f"collection over {COLLECTION_TARGET} failed, so no roster can be"
+        f" judged:\n{tail}"
+    )
 
-    Collection runs ONCE. A failed collection is the single problem "cannot
-    be judged"; a root with no ``cp-*`` tree at all is a problem too, so a
-    wrong ``--root`` cannot read clean.
-    """
-    collected, tail = _collection(root, python=python)
-    if collected is None:
-        return [
-            f"collection over {COLLECTION_TARGET} failed, so no roster can be"
-            f" judged:\n{tail}"
-        ]
+
+def _check_trees(root: pathlib.Path, *, collected: frozenset[str]) -> list[str]:
+    """Every tree under ``root`` judged against one already-run collection."""
     trees = product_trees(root)
     if not trees:
         return [f"{root}: no examples/cp-* tree found — nothing was checked"]
@@ -497,13 +493,26 @@ def check(root: pathlib.Path, *, python: str = sys.executable) -> list[str]:
     return problems
 
 
-def _summary(root: pathlib.Path, *, python: str) -> tuple[int, int, int]:
+def check(root: pathlib.Path, *, python: str = sys.executable) -> list[str]:
+    """Every problem across every ``examples/cp-*`` tree under ``root``.
+
+    Collection runs ONCE. A failed collection is the single problem "cannot
+    be judged"; a root with no ``cp-*`` tree at all is a problem too, so a
+    wrong ``--root`` cannot read clean.
+    """
+    collected, tail = _collection(root, python=python)
+    if collected is None:
+        return [_collection_problem(tail)]
+    return _check_trees(root, collected=collected)
+
+
+def _summary(root: pathlib.Path, *, collected: frozenset[str]) -> tuple[int, int, int]:
     """``(trees, declared gates, executing)`` for the success line.
 
-    Only meaningful after :func:`check` returned no problems; read from the
-    tree rather than restated from a count, so the line reports what is there.
+    Only meaningful after the trees were judged clean against this same
+    ``collected`` set; read from the tree rather than restated from a count,
+    so the line reports what is there.
     """
-    collected = collect_node_ids(root, python=python) or frozenset()
     resolvable = _resolvable(collected)
     trees = product_trees(root)
     declared_total = 0
@@ -540,7 +549,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root = args.root.resolve()
 
-    problems = check(root, python=args.python)
+    # ONE collection per invocation; the verdict and the count read the same set.
+    collected, tail = _collection(root, python=args.python)
+    if collected is None:
+        problems = [_collection_problem(tail)]
+    else:
+        problems = _check_trees(root, collected=collected)
     if problems:
         for problem in problems:
             print(problem, file=sys.stderr)
@@ -550,7 +564,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    trees, declared, executing = _summary(root, python=args.python)
+    assert collected is not None
+    trees, declared, executing = _summary(root, collected=collected)
     print(f"checked {trees} product trees, {declared} declared gates, {executing} executing")
     return 0
 
