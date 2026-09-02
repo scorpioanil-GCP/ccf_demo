@@ -1100,6 +1100,76 @@ def test_a_serve_path_refusal_is_a_governed_error_and_the_door_survives(
 
 
 # ---------------------------------------------------------------------------
+# WR-01 — a non-integer max_depth from a caller is refused BY NAME, not coerced.
+# ---------------------------------------------------------------------------
+
+NON_INTEGER_ASK = "mcp-tool(max_depth=a non-integer)"
+
+
+def _non_integer_depth_request(deployment: Any, value: Any) -> Any:
+    """The demonstration question with a non-integer `max_depth` on the wire."""
+    typed = deployment.demonstration_request()
+    parameters = dict(typed.parameters)
+    parameters[deployment.PARAM_MAX_DEPTH] = value
+    return typed.model_copy(update={"parameters": parameters})
+
+
+def test_a_non_integer_max_depth_is_refused_by_name_and_the_door_survives(
+    estate: tuple[str, str],
+) -> None:
+    """**WR-01 (2026-09-01).** A non-integer `max_depth` is refused by name.
+
+    `deployment.py::resolve_max_depth` did `int(parameters[PARAM_MAX_DEPTH])`,
+    which raised an uncaught `ValueError` on `"six"` for a non-CLI caller and
+    silently coerced `6.9 -> 6` / `True -> 1`. run.py's argparse types
+    `--max-depth` as int, so the CLI is shielded; the MCP door's JSON arguments
+    are not. The depth is now refused BY NAME with a governed `isError`, and the
+    door answers the next call.
+
+    Sabotage: restoring `int(...)` without the type guard makes the door return
+    interpreter prose (or coerce), which this asserts against by requiring the
+    refusal to name the parameter and the integer requirement.
+    """
+    deployment = _load("deployment")
+    serve = _load("serve")
+    tenant = deployment.tenant_id()
+    non_integer = _non_integer_depth_request(deployment, "six")
+    demonstration = deployment.demonstration_request()
+
+    with tempfile.TemporaryDirectory(prefix="cp04-non-int-depth-") as scratch:
+        with serve.door(root=pathlib.Path(scratch)) as opened:
+            results = drive(
+                opened,
+                {
+                    NON_INTEGER_ASK: tool_call(
+                        tool_arguments(tenant=tenant, typed=non_integer)
+                    ),
+                    POST_REFUSAL_ASK: tool_call(
+                        tool_arguments(tenant=tenant, typed=demonstration)
+                    ),
+                },
+            )
+
+    refused = results[NON_INTEGER_ASK]
+    assert not isinstance(refused, Refused), (
+        "a non-integer max_depth took the door DOWN instead of returning a"
+        f" governed error (WR-01): {refused.reason[:1000]}"
+    )
+    is_error, text = refused
+    assert is_error, f"a non-integer max_depth was SERVED rather than refused: {text[:1000]}"
+    assert "max_depth must be an integer" in text, (
+        "the door refused a non-integer max_depth for some other reason than its"
+        f" type — WR-01 asks for a refusal that names the parameter: {text[:1000]}"
+    )
+
+    after = results[POST_REFUSAL_ASK]
+    assert not isinstance(after, Refused), (
+        f"the door did not stay up after a non-integer max_depth: {after.reason[:1000]}"
+    )
+    assert not after[0], f"the door refused a valid ask after a non-integer depth: {after[1][:1000]}"
+
+
+# ---------------------------------------------------------------------------
 # The door's own threat register — `T-24.4-27` and `T-24.4-28`.
 # ---------------------------------------------------------------------------
 

@@ -2137,7 +2137,24 @@ def resolve_max_depth(
     maximum = declared_depth_ceiling()
     if PARAM_MAX_DEPTH not in parameters or parameters[PARAM_MAX_DEPTH] is None:
         return declared_depth_default()
-    requested = int(cast(Any, parameters[PARAM_MAX_DEPTH]))
+    # REFUSE A NON-INTEGER BY NAME, NEVER COERCE (WR-01, 2026-09-01). `int(...)`
+    # raised an uncaught `ValueError` on `"six"` and silently coerced `6.9 -> 6`
+    # and `True -> 1` for a non-CLI caller (run.py's argparse types --max-depth
+    # as int, so the CLI is shielded; the MCP door's JSON arguments are not).
+    # `AssemblyRefused` (a `ValueError`) so the door envelopes it as a governed
+    # `isError` rather than surfacing interpreter prose — a clamp or a truncation
+    # answers a question nobody asked, with no error, which this rung's own
+    # `max_depth` docstrings forbid. `bool` is excluded before `int` because
+    # `bool` is an `int` subclass and `True` must not read as depth 1.
+    requested_raw = parameters[PARAM_MAX_DEPTH]
+    if isinstance(requested_raw, bool) or not isinstance(requested_raw, int):
+        raise AssemblyRefused(
+            f"400 {PARAM_MAX_DEPTH} must be an integer; got {requested_raw!r}"
+            f" ({type(requested_raw).__name__}). REFUSED BY NAME, never"
+            f" coerced — a float truncated or a bool read as 1 answers a"
+            f" question nobody asked, with no error."
+        )
+    requested = requested_raw
     if requested < minimum or requested > maximum:
         return DepthOutOfBounds(
             parameter=PARAM_MAX_DEPTH,
