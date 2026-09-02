@@ -112,7 +112,7 @@ the run asks the question declared in `artifacts/question.yaml`.
 
 | Command | What changes |
 |---|---|
-| `make -s example-cp-04 MAX_DEPTH=1` | one hop instead of the declared three. **20 members instead of 22**, and the seal moves from `205ae065…` to `4a859218…`. Two depths are two answers |
+| `make -s example-cp-04 MAX_DEPTH=1` | one hop instead of the declared three. **20 members instead of 22**, the seal moves from `205ae065…` to `56c1d54d…`, and **`D_c` moves from `0.0909` to `0.1`** because `S` is taken over what was served — `18/20` here against `20/22` at the default. Two depths are two answers |
 | `make -s example-cp-04 MAX_DEPTH=2` | the same **22** members as the default — and still a different seal, `70df088f…`. The only payload difference is the echoed `max_depth_applied`, so this pair shows that the depth asked travels into the answer's identity; it is `MAX_DEPTH=1` that shows the walk itself moving |
 | `make -s example-cp-04 ROLE=kyc-analyst` | the other declared perspective. The same 22 members, **0 detailed instead of 22**, sealing to `838afbb0…`. The two roles sit on opposite sides of one FIBO class axis, which is why this flag can fail rather than decorate |
 | `make -s example-cp-04 ROLE=credit-officer` | the default perspective, named explicitly. Identical to the default run, `205ae065…` |
@@ -202,12 +202,22 @@ and refuse a seventh predicate, so nothing off-vocabulary enters quietly. A
 fourth role, types constraining the walk, is **struck from this rung** and is not
 claimed anywhere in this example.
 
-**Context debt reads `0.0909` → `ok`, and the twenty are not what drives it.**
-The signal is advisory at every rung of this ladder. The figure decomposes as
-`F=1  C=1  S=0.9090…`, and the movement is on the semantic-consistency axis, not
-on completeness — the twenty members with no reference row are reported as a
-finding, not as missing data. Two twenties appear in this run and they are
-different populations; the specification says so on a gated line.
+**Context debt reads `0.0909` → `ok` at the declared default depth, and the
+twenty are not what drives it.** The signal is advisory at every rung of this
+ladder. The figure decomposes as `F=1  C=1  S=0.9090…`, and the movement is on
+the semantic-consistency axis, not on completeness — the twenty members with no
+reference row are reported as a finding, not as missing data. Two twenties appear
+in this run and they are different populations; the specification says so on a
+gated line.
+
+**And the figure is not a constant — it is a function of the question.** `S` is
+the fraction of the members THIS PAYLOAD SERVED whose identity no finding
+disputes, so a shallower ask moves it: `MAX_DEPTH=1` serves 20 and reads
+`S = 18/20 = 0.9`, `D_c = 0.1`. The depth qualifier above is therefore
+load-bearing rather than pedantic. Both figures are pinned in
+`artifacts/expected.yaml::debt_by_depth` and held by gate `CFT-G05`, which was
+watched going red under a restored source-read denominator and under a corrupted
+pin.
 
 **The product reproduces byte-identical against a quiescent ledger for that run.**
 That sentence is the whole of the claim and no stronger one appears here. The

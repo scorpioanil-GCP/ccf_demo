@@ -160,7 +160,9 @@ Excerpt — the lines that differ from Run 1.
    nodes returned     20
    ...resolved to NO row                 18   — STILL IN THE TREE. A member with no LEI is a member
    perspective role   credit-officer   (class axis Corporation, 20 member(s) detailed)
-   content address    4a859218f41930c19d7aee63850d120a0b6ca2dcf370fd005b29d48c2de19cdf
+   context debt D_c   0.1000  ->  ok
+   ...decomposed      F=1  C=1  S=0.9
+   content address    56c1d54d180b696259dbaa5ee8f7cc6ebee935ae4579e110e644925d1ae47e60
 ```
 
 ### What you'd have missed
@@ -175,8 +177,18 @@ acquisition.
 **The consequence is a cache, and it is the reason the depth is inside the
 seal.** A system that stored answers under the company's identifier alone could
 hand a one-hop answer back to a caller who asked for three. Here it cannot: the
-two answers seal to `4a859218…` and `205ae065…`, so they are different objects
+two answers seal to `56c1d54d…` and `205ae065…`, so they are different objects
 in any store that addresses by content.
+
+**AND THE DEBT MOVES WITH THE DEPTH, which it did not until 2026-09-01.** `D_c`
+reads `0.1` here and `0.0909` at the default, because `S` is the fraction of the
+members THIS PAYLOAD SERVED whose identity no finding disputes — `18/20` at one
+hop, `20/22` at three. The two disputed members sit one hop out, so they survive
+every depth this product accepts while the denominator shrinks with it. Until the
+close panel found it, `S` was taken over the deployment's *source read* instead,
+and this line printed `0.0909` at every depth — a debt score that could not move
+with the question. That is what gate **`CFT-G05`**'s third limb now holds, against
+two figures pinned in `artifacts/expected.yaml`.
 
 **The dangerous version of this is not a wrong depth — it is a silent one.** Ask
 for eight and the run refuses (Run 5). A build that quietly clamped eight to the
@@ -189,9 +201,12 @@ The default of `3` and the bounds `1..6` are Control Plane values in
 **`ccf_config.yaml`**, read by **`run.py`** and interpolated into its own help
 text — so a config edit moves the walk *and* the documentation together, and
 neither number is typed into any module. Gate **`CFT-G05`** asserts that two
-depths produce two answers, and asserts it **on the member roster** rather than
-on the seal alone, because the seal moves on its own: the applied depth is
-echoed into the payload, so a seal-only check passes its own sabotage.
+depths produce two answers, and asserts it **on the member roster** and **on the
+measured debt** rather than on the seal alone, because the seal moves on its own:
+the applied depth is echoed into the payload, so a seal-only check passes its own
+sabotage. The debt limb reads its two expected figures from
+**`artifacts/expected.yaml`** rather than carrying them in the test, so the edit
+that would break the code cannot also fix the literal.
 
 ---
 

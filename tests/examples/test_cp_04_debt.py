@@ -21,14 +21,30 @@ movement assertion is a test. The roster stays **sixteen**, `CFT-G01`…`CFT-G16
 an assertion date of any kind, so every observation is dated at the read instant)
 and `C` is 1 (the elements §E.2 marks *required* are fail-closed conditions
 reached before the scorer). **`S` is the whole of the variation**, and `S` is the
-fraction of served members whose IDENTITY no finding disputes.
+fraction of the members THE PAYLOAD SERVED whose IDENTITY no finding disputes —
+served, and not source-read, since the 2026-09-01 close panel.
 
 | Boundary moved | What moves with it | `D_c` |
 |---|---|---|
-| **identity** — how many members a duplicate finding disputes | `S` | **MOVES**, and in the direction the change implies |
+| **identity** — how many members a duplicate finding disputes | `S`'s numerator | **MOVES**, and in the direction the change implies |
+| **depth** — how many members the payload serves | `S`'s DENOMINATOR | **MOVES** — held by `CFT-G05`, not here |
 | **attribute resolution** — how many members hold a `ccf_v2.legal_entity` row | the `unresolved_jurisdiction` **roster** | **does NOT move** |
 
-**THE SECOND ROW IS A GATE, NOT A GAP.** `D-IMPL-230` ruled **SERVE**: the
+**THE DEPTH ROW IS NOT THIS MODULE'S, AND THE REASON IS A FINDING RATHER THAN A
+DIVISION OF LABOR.** Every perturbation below moves the identity boundary at a
+FIXED depth — the declared default, where the payload's served roster and the
+deployment's source read coincide on all 22. So when
+``examples/cp-04-corporate-family-tree/produce.py::_agreement`` took its
+denominator from ``scenario.facts`` instead of from what was served, **nothing in
+this module could see it**: `D_c` still moved with every identity perturbation,
+in the right direction, by the right amount. Measured on 2026-09-01 with that
+denominator restored as a sabotage, all six tests here passed and exactly one
+test in the 216-test cp-04 suite went red — `CFT-G05`, whose subject is depth.
+**A movement gate over one boundary says nothing about a second**, and the depth
+pair lives where depth is the subject, pinned as data at
+``examples/cp-04-corporate-family-tree/artifacts/expected.yaml::debt_by_depth``.
+
+**THE ATTRIBUTE ROW IS A GATE, NOT A GAP.** `D-IMPL-230` ruled **SERVE**: the
 attribute shortfall reaches the consumer as the roster finding and as
 `attributes: null` on each member, and is deliberately **not** folded into `S`.
 Folding it in gives `S = 2/22` and `D_c ≈ 0.909`, which against the declared

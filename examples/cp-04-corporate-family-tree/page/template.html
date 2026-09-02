@@ -219,13 +219,13 @@ footer p{margin:0 0 8px}
 
   <div class="col">
     <h3>A walk, and the depth inside the seal</h3>
-    <p><code>max_depth</code> is the parameter this rung exists for, and three properties ride on it. Above the declared ceiling it is <strong>refused by name and never clamped</strong>; absent, it takes the <strong>declared default</strong> read from the Control Plane rather than invented at serve time; and <strong>two depths are two content addresses</strong>.</p>
+    <p><code>max_depth</code> is the parameter this rung exists for, and three properties ride on it. Above the declared ceiling it is <strong>refused by name and never clamped</strong>; absent, it takes the <strong>declared default</strong> read from the Control Plane rather than invented at serve time; and <strong>two depths are two content addresses</strong> &mdash; and, since 2026-09-01, two <strong>measured debts</strong>, because <code>S</code> is taken over the members the payload actually served.</p>
     <table class="grid">
-      <thead><tr><th>Asked</th><th>Members served</th><th>Content address</th></tr></thead>
+      <thead><tr><th>Asked</th><th>Members served</th><th>Content address</th><th><code>D_c</code></th></tr></thead>
       <tbody>
-        <tr><td><code>--max-depth 1</code></td><td class="num">20</td><td><code>4a859218…</code></td></tr>
-        <tr><td><strong>absent → declared default 3</strong></td><td class="num"><strong>22</strong></td><td><code><strong>205ae065…</strong></code></td></tr>
-        <tr><td><code>--max-depth 8</code></td><td colspan="2"><span class="pill no">refused</span> above the ceiling of 6, by name</td></tr>
+        <tr><td><code>--max-depth 1</code></td><td class="num">20</td><td><code>56c1d54d…</code></td><td class="num">0.1</td></tr>
+        <tr><td><strong>absent → declared default 3</strong></td><td class="num"><strong>22</strong></td><td><code><strong>205ae065…</strong></code></td><td class="num"><strong>0.0909</strong></td></tr>
+        <tr><td><code>--max-depth 8</code></td><td colspan="3"><span class="pill no">refused</span> above the ceiling of 6, by name</td></tr>
       </tbody>
     </table>
     <p class="note">The dangerous version is not a wrong depth — it is a silent one. A build that clamped 8 to 6 would return a payload that looks entirely healthy, seals cleanly, and answers a question nobody asked.</p>
