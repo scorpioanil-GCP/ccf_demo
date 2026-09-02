@@ -134,6 +134,17 @@ class PolicyFilter:
         )
 
     def _admits(self, record: EntityRecord) -> bool:
+        """Admit a record whose bundle version is permitted and whose per-class
+        attribute value is on the allowlist.
+
+        The last test is a generic attribute-value allowlist (ledger row
+        ``24.5-L-28``): ``classification_attribute_by_class`` names the
+        attribute per entity class and ``permitted_classifications`` is the
+        set of values admitted for it, by exact membership — "classification"
+        is the name's origin, not a constraint on what the attribute holds
+        (cp-01 binds it to jurisdiction). See
+        :class:`~ccf.operators.params.PolicyFilterParameters`.
+        """
         params = self._parameters
         if record.policy_bundle_version not in params.permitted_policy_bundle_versions:
             return False

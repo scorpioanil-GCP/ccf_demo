@@ -54,6 +54,22 @@ class PolicyFilterParameters(OperatorParameters):
             see. Everything else — *including an entity carrying no
             classification at all* — is excluded: the fabric does not admit
             state it cannot prove is admissible.
+
+            Read the mechanism, not the name (ledger row ``24.5-L-28``). This
+            is a **generic attribute-value allowlist**: the set of values
+            admitted for whichever attribute ``classification_attribute_by_class``
+            names for the record's entity class, tested by exact membership in
+            :meth:`~ccf.operators.categories.PolicyFilter._admits`. The name
+            comes from the Policy operator's sensitivity use — data
+            classification such as MNPI is the whitepaper's headline example
+            (§7.4) — but the mechanism admits any per-class attribute value,
+            and §7.4 itself names entitlement, jurisdiction and regulatory
+            constraint as the operator's scope. cp-01 binds it to
+            ``legal_jurisdiction`` so the allowlist is the calling principal's
+            jurisdiction grant set; that binding is a deployment value
+            (``D-09``), not a second mechanism. The name is not changed —
+            a bounded correction (``D-07.1``): it is whitepaper vocabulary,
+            and the surface manifest records signatures, not prose.
     """
 
     permitted_policy_bundle_versions: frozenset[str]

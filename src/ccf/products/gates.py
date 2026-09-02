@@ -46,6 +46,21 @@ INV-CH7-46 and one pinned MAX_TTL, not two — and the local sequence above is
 unchanged in behaviour, order and refusal types. See that function for what
 attributability does and does not establish.
 
+**What ``lineage-attributability`` is, and is not (ledger row ``24.5-L-27``).**
+:data:`GATE_LINEAGE_ATTRIBUTABILITY` names the A2A attestation gate and
+nothing else: a product admitted through a Peering is attributable when
+``content_hash(candidate) == attested_address`` — the gated bytes are the
+bytes whose signature verified — and the operator plan it declares is
+therefore the one the peer attested (``D-IMPL-57``). It is **not** a
+per-attribute lineage obligation; it says nothing about whether each derived
+line of a product names the inputs it was computed from. ``CP-SPEC-003``
+§F.4 #3 read the name that way and recorded a naming finding. The
+per-derived-line ``inputs`` that cp-03 carries is a *product* gate today
+(``OFS-G12``), and the SDK's own declared form of that obligation is ledger
+row ``24.5-L-26`` — owned there, not by this token. This paragraph is a
+bounded correction (``D-07.1``): the token string, the refusal class and the
+runner's signature are unchanged.
+
 **Refusal is a value, not an exception.** ``run_gates`` returns either a
 :class:`ServableProduct` or a :class:`GateRefusal` subclass carrying the
 failing detail. A refusal returned as data cannot be swallowed by a bare
@@ -164,6 +179,14 @@ class LineageAttributionRefusal(GateRefusal):
     signature covered, and the content address of the candidate as gated. A
     caller reading this refusal never re-hashes anything to learn what the gap
     was (D-IMPL-57).
+
+    What this refusal is, and is not (ledger row ``24.5-L-27``): it is the
+    A2A attestation gate's refusal — ``content_hash(candidate)`` did not equal
+    ``attested_address``, so the declared operator plan is not attributable
+    to the peer (``D-IMPL-57``). It is *not* a per-attribute lineage refusal.
+    This module carries no per-attribute lineage obligation; the one the SDK
+    declares is ledger row ``24.5-L-26``. Bounded correction (``D-07.1``): no
+    field, name or gate token moves.
     """
 
     declared: frozenset[str]
@@ -559,6 +582,18 @@ def run_federated_gates(
     verified — something reshaped or re-serialized the product between
     verification and gating, at which point the declared lineage is no longer
     covered by anything the peer signed, and attribution is nil.
+
+    **The name, read plainly (ledger row ``24.5-L-27``).**
+    ``lineage-attributability`` IS that comparison —
+    ``content_hash(candidate) == attested_address``, the A2A attestation gate
+    of ``D-IMPL-57`` — and nothing more. It is NOT a per-attribute lineage
+    obligation: it does not ask whether each derived line of a product names
+    the inputs it was computed from. ``CP-SPEC-003`` §F.4 #3 read the name as
+    the latter and recorded a naming finding; that obligation is carried
+    today by cp-03's product gate ``OFS-G12``, and the SDK's declared form of
+    it is ledger row ``24.5-L-26``. This paragraph is a bounded correction
+    (``D-07.1``): the token, the refusal type and this signature are
+    unchanged.
 
     The sequence, and it is an order:
 
