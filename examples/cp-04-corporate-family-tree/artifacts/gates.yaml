@@ -515,7 +515,12 @@ declaration:
       test: tests/examples/test_cp_04_seams.py::test_cft_g11_attributes_resolve_in_one_batched_query
       sabotage: >-
         fire one query per node — a fan-out that works at depth 2 and collapses
-        at depth 4.
+        at depth 4. AND, DECLARED 2026-09-01 after the close panel's finding 4,
+        a second sabotage against the roster limbs: issue exactly ONE statement
+        that does not ADDRESS the requested roster — an unparameterized read of
+        the whole attribute table. It leaves the statement count at one, returns
+        every row the batched form would have returned, and is what a check
+        asserting two cardinalities cannot see.
       observed_red:
         result: >-
           RED, under its own id, at BOTH scales. Sabotage applied to
@@ -556,8 +561,52 @@ declaration:
           `CFT-G10` stayed GREEN under this sabotage — the leg still ran
           against the declared table and served the right values — so the two
           gates are measurably disjoint rather than two names for one check.
+
+          APPENDED 2026-09-01 at `a1cb7b8`, FOR THE ROSTER LIMBS THE CLOSE
+          PANEL'S FINDING 4 REQUIRED. As shipped this gate was TWO
+          CARDINALITIES — `len(requested) < 2` and `len(statements) != 1` — and
+          it PRINTED the roster it resolved in the failure message without ever
+          asserting it. One unparameterized `SELECT` over the whole attribute
+          table satisfied it: one statement, every row, nothing addressed.
+          Dave: *"assert set difference both ways; print is not an assertion."*
+
+          WHAT THE STATEMENT ADDRESSED IS A DIFFERENT FACT FROM HOW MANY
+          STATEMENTS THERE WERE, and nothing in the tree carried it, so a
+          channel was added beside `statements` at the same seam —
+          `examples/cp-04-corporate-family-tree/deployment.py::_counting_cursor`
+          now records the values every `execute` BINDS, published as
+          `AttributeResolution.addressed`. Three limbs by name: nothing
+          requested went unaddressed, nothing was addressed that was not
+          requested, and no ROW came back for a key never requested.
+
+          SECOND SABOTAGE, WATCHED RED at both scales. The batched
+          `WHERE lei = ANY(%s)` in
+          `examples/cp-04-corporate-family-tree/deployment.py::resolve_attributes`
+          was replaced by an unparameterized read of the whole table — ONE
+          statement, same connection, same declared table. Observed —
+          "CFT-G11: the demonstration subtree (22 members) asked for 2 key(s)
+          and the statement(s) BOUND none of ['54930022CZO1N2UGVW07',
+          '549300F16C4PEFXU0S92']", "was RETURNED rows for [...] — 140 key(s)
+          it never requested", and "the whole LEI-bearing population ... 181
+          requested key(s) went unaddressed".
+
+          AND THE COUNT LIMB SAID NOTHING — no "not 1" appeared, because
+          `len(statements)` was still exactly 1. That silence is the finding,
+          and it is asserted in the tree rather than only recorded here by
+          `tests/examples/test_cp_04_seams.py::test_the_batching_check_refuses_one_statement_addressing_nothing`.
+
+          Reach measured: 2 of 229 cp-04 tests went red — this gate and
+          `tests/examples/test_cp_04_census.py::test_the_anchor_subtree_store_split`,
+          which reads the same resolver. `CFT-G10` stayed green again.
+
+          A RESOLVED ROSTER SMALLER THAN THE REQUESTED ONE IS DELIBERATELY NOT A
+          VIOLATION — 181 LEIs resolve 142 rows on this estate, and a member
+          with no row is a null resolution rather than a dropped member
+          (`D-16`, `CFT-G09`). That case is pinned as COMPLIANT by
+          `tests/examples/test_cp_04_seams.py::test_the_batching_check_accepts_the_compliant_shape`,
+          so a later limb cannot quietly forbid it.
         date: "2026-09-01"
-        commit: "65f4a91"
+        commit: "65f4a91, roster limbs a1cb7b8"
 
     # ---- Assembly Mode 1 (§B.3) ------------------------------------------
     - id: CFT-G12
@@ -638,6 +687,11 @@ declaration:
         instead of refusing. A resolver docstring saying it refuses is not the
         resolver refusing, and a refusal type merely imported is not a refusal
         raised, so the gate must drive a real resource read and a real tool ask.
+        AND, DECLARED 2026-09-01 after the close panel's finding 3, a second
+        sabotage against limb (c): make the door ECHO the requested depth into
+        the payload while WALKING the declared default. `max_depth_applied` is
+        written from the request and the walk is bound by the operator parameter
+        set, so the two can disagree — and a limb reading the echo cannot tell.
       observed_red:
         result: >-
           RED, under its own id, SIX WAYS AT ONCE. Sabotage applied to
@@ -677,8 +731,59 @@ declaration:
           and from the declared depth default; the behavior comes from
           `examples/cp-04-corporate-family-tree/server/compose.py`, which the
           sabotage mutated. Different files.
+
+          APPENDED 2026-09-01 at `b05bad3`, FOR THE ROSTER LIMBS THE CLOSE
+          PANEL'S FINDING 3 REQUIRED — and this is the gate the phase's headline
+          claim, *"the ladder's first MCP door"*, rests on. As shipped, limb (c)
+          read `max_depth_applied` off the served payload and compared the
+          anchor URI. NEITHER IS THE WALK.
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection.invoke`
+          writes `max_depth_applied` from the REQUEST while the walk takes its
+          bound from the operator parameter set
+          `examples/cp-04-corporate-family-tree/deployment.py::traversal_parameters`
+          binds, so a door echoing the caller's depth while walking the declared
+          default passed the gate whole. Dave: *"the door must compare rosters
+          across depths, not echo `max_depth_applied` — that is CFT-G13."*
+
+          FOUR LIMBS WERE ADDED, all over ROSTERS and never sizes (`D-13`): the
+          shallower ask's roster is a SUBSET of the deeper one's; the deeper ask
+          reached members the shallower did not; every member
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor_subtree.depth_to`
+          declares beyond the ask is ABSENT by name; every member it declares
+          within the ask is PRESENT by name. The one lifespan already drove both
+          asks, so no second door was needed.
+
+          SECOND SABOTAGE, WATCHED RED.
+          `examples/cp-04-corporate-family-tree/deployment.py::traversal_parameters`
+          was made to return the declared parameters unchanged, so the caller's
+          depth reached the payload's label and not the walk. Observed on two
+          roster limbs at once — "CFT-G13 (c): max_depth=1 and the declared
+          default 3 served the IDENTICAL roster [22 members]" and "max_depth=1
+          served ['CycCalderIndustrialNv', 'CycThornburyCapitalLtd'], which
+          expected.yaml::census.anchor_subtree.depth_to declares at [2, 3] —
+          deeper than the caller asked for".
+
+          AND THE ECHO LIMB SAID NOTHING. Neither "did not reach the walk" nor
+          "substituted the declared default" appeared: the gate AS IT SHIPPED
+          would have been GREEN here. That comparison is asserted in the tree
+          rather than only recorded, by
+          `tests/examples/test_cp_04_seams.py::test_the_door_check_refuses_a_walk_at_the_default_while_the_echo_says_the_ask`,
+          which requires the roster limbs to fire AND both echo limbs to stay
+          silent.
+
+          Reach measured: 4 of 225 cp-04 tests went red — this gate, `CFT-G04`,
+          `CFT-G05` and the traversal precondition. `CFT-G14` stayed green,
+          correctly, because both callers are equally sabotaged and their
+          rosters still agree — which is the same lesson `CFT-G05`'s third limb
+          recorded from the other side: a movement gate over one boundary says
+          nothing about a second.
+
+          The added expectation resolves from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor_subtree.depth_to`,
+          which no sabotage of the door touches; the behavior comes from
+          `examples/cp-04-corporate-family-tree/deployment.py`. Different files.
         date: "2026-09-01"
-        commit: "0b02099"
+        commit: "0b02099, roster limbs b05bad3"
 
     # ---- One assembler, two callers (D-21) -------------------------------
     - id: CFT-G14
