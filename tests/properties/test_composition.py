@@ -33,16 +33,21 @@ from __future__ import annotations
 import itertools
 
 import pytest
-from hypothesis import given
+from hypothesis import find, given
 
 from ccf.contracts.canonical import canonical_bytes
 from ccf.graph.protocols import GraphView
 from ccf.operators.base import Operator
-from ccf.operators.params import PolicyFilterParameters
+from ccf.operators.categories import TraversalNeighborhood
+from ccf.operators.params import (
+    PolicyFilterParameters,
+    TraversalNeighborhoodParameters,
+)
 from ccf.operators.planner import IntermediateCache, compose
 
 from .strategies import (
     BOUNDARY,
+    CONTROL,
     TENANT,
     CuratedGraph,
     banking_graph_states,
@@ -62,6 +67,40 @@ CURATED = curated_edge_graphs()
 
 #: The Policy operator's registry key — SDK vocabulary, not a domain value.
 POLICY_KEY = "policy.principal-subgraph"
+
+#: The Traversal operator's registry key — SDK vocabulary, not a domain value.
+TRAVERSAL_KEY = "traversal.typed-neighborhood"
+
+#: Every shipped key OTHER than traversal — the partners of the admission
+#: variant below. Derived from the registry, so a fifth operator joins here
+#: on its own.
+OTHER_KEYS: tuple[str, ...] = tuple(k for k in OPERATOR_KEYS if k != TRAVERSAL_KEY)
+
+
+def admitted_traversal() -> TraversalNeighborhood:
+    """The shipped traversal with ``admitted_entity_classes`` set (ledger row ``24.5-L-05``).
+
+    NOT registered — ``OperatorRegistry.register`` refuses a second
+    ``traversal.typed-neighborhood`` (``DuplicateOperatorKey``), so the
+    parameter variant is built beside the registry rather than in it.
+    Admission is set to the fixture's own seed classes, so the instance
+    actually filters: every hop onto a non-seed class is refused, and the
+    variant differs from the registered instance on any drawn state that
+    has such an edge (asserted below, so the law is not proven on an
+    identity).
+    """
+    params = CONTROL["operator_parameters"]["traversal"]
+    return TraversalNeighborhood(
+        parameters=TraversalNeighborhoodParameters(
+            seed_entity_classes=frozenset(params["seed_entity_classes"]),
+            relationship_types=frozenset(params["relationship_types"]),
+            depth_limit=params["depth_limit"],
+            admitted_entity_classes=frozenset(params["seed_entity_classes"]),
+        )
+    )
+
+
+ADMITTED_TRAVERSAL = admitted_traversal()
 
 
 def _assert_composition_preserved(
@@ -116,6 +155,68 @@ def test_composition_is_preserved_on_curated_edge_graphs(
         inner=REGISTRY.resolve(inner_key),
         view=case.view,
     )
+
+
+@pytest.mark.parametrize("other_key", OTHER_KEYS)
+@given(view=banking_graph_states())
+def test_composition_is_preserved_under_admission(
+    other_key: str, view: GraphView
+) -> None:
+    """(A∘B)(G) = A(B(G)) with ``admitted_entity_classes`` set, both orderings.
+
+    Criterion 8 (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0): the
+    n² suite's law holds for the parameterized variant against every other
+    shipped operator — the variant applied second and applied first — and
+    for the variant composed with itself.
+    """
+    other = REGISTRY.resolve(other_key)
+    _assert_composition_preserved(outer=ADMITTED_TRAVERSAL, inner=other, view=view)
+    _assert_composition_preserved(outer=other, inner=ADMITTED_TRAVERSAL, view=view)
+    _assert_composition_preserved(
+        outer=ADMITTED_TRAVERSAL, inner=ADMITTED_TRAVERSAL, view=view
+    )
+
+
+@pytest.mark.parametrize("other_key", OTHER_KEYS)
+@pytest.mark.parametrize("case", CURATED, ids=[case.name for case in CURATED])
+def test_composition_is_preserved_under_admission_on_curated_edge_graphs(
+    other_key: str, case: CuratedGraph
+) -> None:
+    """The same equality under admission on the curated edge cases."""
+    other = REGISTRY.resolve(other_key)
+    _assert_composition_preserved(
+        outer=ADMITTED_TRAVERSAL, inner=other, view=case.view
+    )
+    _assert_composition_preserved(
+        outer=other, inner=ADMITTED_TRAVERSAL, view=case.view
+    )
+
+
+def test_the_admission_variant_actually_filters() -> None:
+    """A law proven on an identity proves nothing: the variant must differ somewhere.
+
+    ``hypothesis.find`` searches the same strategy the property runs over
+    for a state on which the admitted walk reaches strictly fewer entities
+    than the registered, unfiltered walk — a hop onto a non-seed class that
+    admission refused. If no such state exists the variant is vacuous and
+    this test fails, which is the point.
+    """
+    unfiltered = REGISTRY.resolve(TRAVERSAL_KEY)
+
+    def reach(operator: Operator, view: GraphView) -> set[str]:
+        output = operator.apply(
+            view=view, tenant_id=TENANT, temporal_boundary=BOUNDARY, upstream=()
+        )
+        return {record.claim.entity_uri for record in output.view.entities}
+
+    def strictly_narrower(view: GraphView) -> bool:
+        admitted = reach(ADMITTED_TRAVERSAL, view)
+        return admitted < reach(unfiltered, view)
+
+    witness = find(banking_graph_states(), strictly_narrower)
+    assert strictly_narrower(witness)
+    assert ADMITTED_TRAVERSAL.key == TRAVERSAL_KEY
+    assert ADMITTED_TRAVERSAL.parameters.admitted_entity_classes is not None
 
 
 @given(view=banking_graph_states())

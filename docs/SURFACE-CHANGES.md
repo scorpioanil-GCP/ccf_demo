@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**789 entries**, of which **551** name a public Python surface.
+**794 entries**, of which **556** name a public Python surface.
 
 ## Added
 
@@ -7750,7 +7750,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-302 entries — 119 public Python surface, 183 not public Python API.
+306 entries — 123 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -10234,6 +10234,85 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
 
+#### ccf.graph.protocols.TraversalSpec
+
+- Surface: ccf.graph.protocols.TraversalSpec
+- Public surface: true
+- Change type: reshaped
+- Before: three required fields — `seed_entity_classes`, `relationship_types`,
+  `depth_limit` — "all three required with no defaults"
+- After: a fourth, additive, sentinel-defaulted field
+  `admitted_entity_classes: frozenset[str] | None = None` — the spec's first
+  sentinel field, on the `GraphQuery.allowed_entities` precedent. `None` admits
+  every class (today's behavior); a set admits a hop only onto an entity whose
+  `entity_class` is a member. Admission filters REACHED nodes and never walk
+  STARTS (`GQ-11` selects starts; `GQ-10`'s "seeds are included" stands), and
+  an entity absent from in-scope state is not a hop. The empty set admits no
+  hop and answers the starts.
+- Why: `24.5-L-05`; `GQ-10` at semantics version 1.1.0; `D-10` additive over
+  breaking
+- Migration: none — additive. A pushed answerer that cannot express the field
+  declines to the fallback (`GQ-32`, D-04)
+
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
+
+#### ccf.operators.params.TraversalNeighborhoodParameters
+
+- Surface: ccf.operators.params.TraversalNeighborhoodParameters
+- Public surface: true
+- Change type: reshaped
+- Before: `seed_entity_classes`, `relationship_types`, `depth_limit`, no
+  defaults; the module docstring said "no field in this module carries a
+  default"
+- After: `admitted_entity_classes: frozenset[str] | None = None` mirrored
+  field-for-field onto `TraversalSpec`. The module docstring now says no field
+  carries a NUMERIC default and names this one `None` as a positive sentinel:
+  `D-IMPL-38`'s concern is a silently chosen number, and none is chosen. The
+  `CINV-01b` lint (numeric default on a declared parameter field) was measured
+  silent on it — no allowlist entry and no `NO_ADMISSION_FILTER` routing were
+  needed. The committed schema
+  `docs/schemas/ccf.operator-parameters.traversal.json` gains the optional
+  array property.
+- Why: `24.5-L-05`; the operator-tier contract the artifact class inherits
+- Migration: none — every artifact written before the field parses as it did
+
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
+
+#### ccf.operators.categories.TraversalNeighborhoodParameters
+
+- Surface: ccf.operators.categories.TraversalNeighborhoodParameters
+- Public surface: true
+- Change type: reshaped
+- Before: the re-export of `ccf.operators.params.TraversalNeighborhoodParameters`
+  from the categories module, three fields
+- After: the same re-export, now carrying `admitted_entity_classes`. Not a
+  second class — the manifest lists the name under both modules, so both are
+  claimed
+- Why: `24.5-L-05`; one contract, two import paths
+- Migration: none — additive
+
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
+
+#### ccf.controlplane.artifacts.TraversalNeighborhoodParametersArtifact
+
+- Surface: ccf.controlplane.artifacts.TraversalNeighborhoodParametersArtifact
+- Public surface: true
+- Change type: reshaped
+- Before: inherited the three-field parameter class verbatim plus `semver`
+- After: inherits the four-field class — `admitted_entity_classes` arrives by
+  inheritance with **no edit to `src/ccf/controlplane/artifacts.py`** (the
+  artifact adds a semver lane and nothing else; there is no second vocabulary
+  to drift). The committed schema
+  `docs/schemas/ccf.operator-parameters.traversal.json` gains the optional
+  `admitted_entity_classes` array property (`anyOf` array-of-string / null,
+  default null) and its `required` list is unchanged
+- Why: `24.5-L-05`; the artifact IS the parameter set
+  (`tests/controlplane/test_artifact_roundtrip.py::test_a_parsed_traversal_artifact_is_accepted_by_the_traversal_operator`)
+- Migration: none — every artifact document written before the field parses
+  as it did; an author may now set `admitted_entity_classes`
+
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
+
 #### ccf_runtime.mcp.egress.build_egress_server
 
 - Surface: ccf_runtime.mcp.egress.build_egress_server
@@ -12694,7 +12773,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-96 entries — 76 public Python surface, 20 not public Python API.
+97 entries — 77 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -14451,6 +14530,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   dedicated code is owed
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
+
+#### ccf.operators.categories.TraversalNeighborhood
+
+- Surface: ccf.operators.categories.TraversalNeighborhood
+- Public surface: true
+- Change type: behavior
+- Before: `read_intent()` projected three fields onto `TraversalSpec`;
+  `apply()` BFS-expanded from seed-class entities over the undirected typed
+  adjacency and nothing filtered the reached node by class
+- After: `read_intent()` mirrors `admitted_entity_classes`; `apply()` builds
+  the view's class map once and admits a hop onto `n` only when
+  `admitted_entity_classes is None or class_of.get(n) in admitted_entity_classes`.
+  Constructor and key unchanged (the manifest records constructors only — the
+  `24.1.1-03` dumper blind spot — so the behavior change is claimed here).
+  `src/ccf/graph/fallback.py::_walk` — private, the differential oracle —
+  applies the identical predicate, built from its `entities` argument's class
+  map, which is what holds every pushed answer to this operator.
+- Why: `24.5-L-05`, criterion 8 — an excluded neighbor shown against an
+  all-admitted control (`tests/operators/test_traversal_admission.py`), the
+  oracle agreeing, composition preserved under the parameter
+  (`tests/properties/test_composition.py::test_composition_is_preserved_under_admission`)
+- Migration: none — additive
+
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
 
 #### ccf.products.request.refuse_request
 

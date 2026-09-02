@@ -470,8 +470,16 @@ def admission_cases(draw: st.DrawFn) -> CorpusCase:
     unadmitted class (a start is never filtered by admission — `GQ-11`).
     Every backend is held byte-identical to the fallback on each, whether
     it honors the field natively, in Python, or declines it (`GQ-32`).
+
+    The content is observed at or before the boundary on EVERY draw, so no
+    draw is vacuous: a chain observed after ``as_of`` answers empty under
+    every admission set and would prove nothing about the field (measured
+    at plan 24.5-04 — a ``LATE`` draw let a sabotaged SQLite pushdown pass
+    the derandomized ``ci`` profile). The empty-answer boundary is
+    :func:`depth_cases`' question, not this family's. ``depth >= 1`` for the
+    same reason — at depth 0 no hop exists to admit or refuse.
     """
-    observed_at = draw(st.sampled_from((ON_BOUNDARY, LATE)))
+    observed_at = draw(st.sampled_from((EARLY, ON_BOUNDARY)))
     entities, relationships = chain_claims(
         mid_classification=PERMITTED_CLASSIFICATION, observed_at=observed_at
     )
