@@ -387,6 +387,8 @@ class Observed:
     statements: tuple[str, ...]
     #: The LEI roster the attribute leg was asked to resolve.
     requested_leis: tuple[str, ...]
+    #: Every key value the statements BOUND, taken at the same connection.
+    addressed_leis: tuple[str, ...]
     #: The rows it resolved, keyed by LEI.
     rows: Mapping[str, Mapping[str, Any]]
 
@@ -451,6 +453,7 @@ def ask_observed(*, asked_as: str, max_depth: int | None = None) -> Observed:
             stores_opened=tuple(assembled.stores_opened),
             statements=tuple(resolution.statements),
             requested_leis=tuple(resolution.requested),
+            addressed_leis=tuple(resolution.addressed),
             rows={key: dict(value) for key, value in resolution.rows.items()},
         )
 
@@ -963,13 +966,42 @@ def _compliant_provenance() -> Provenance:
 
 
 def batching_violations(
-    *, statements: Sequence[str], requested: Sequence[str], subject: str
+    *,
+    statements: Sequence[str],
+    requested: Sequence[str],
+    addressed: Sequence[str],
+    resolved: Sequence[str],
+    subject: str,
 ) -> list[str]:
     """Every way one attribute resolution fails `CFT-G11`.
 
-    A COUNT OF EXACTLY ONE, with the roster it resolved beside it. "Few" is not
-    one, and one statement for one key is not batching — so the roster is
-    required to carry more than a single member before the count means anything.
+    **THE COUNT IS NOT THE CLAIM, AND THAT WAS THE CLOSE PANEL'S FINDING 4.**
+    The first shape of this check had exactly two limbs — ``len(requested) < 2``
+    and ``len(statements) != 1`` — and PRINTED the roster it resolved in the
+    failure message without ever asserting it. One unparameterized ``SELECT``
+    over the whole attribute table therefore satisfied the gate: one statement,
+    every row, nothing addressed. Dave: *"assert set difference both ways; print
+    is not an assertion."*
+
+    So the one statement must be shown to have resolved the REQUESTED ROSTER,
+    in both directions and by name (`D-13`):
+
+    * **nothing requested went unaddressed** — every requested key appears among
+      the values the statements BOUND, taken at the connection by
+      ``examples/cp-04-corporate-family-tree/deployment.py::_counting_cursor``.
+      An unparameterized statement binds nothing and fails here whatever its
+      text says about itself;
+    * **nothing was addressed that was not requested** — a bound key nobody
+      asked for is a resolution answering a wider question than the one put;
+    * **no ROW came back for a key nobody requested**. This limb reads the
+      EFFECT rather than the binding, and it is what catches a whole-table read
+      that binds nothing at all: the parameters are empty, and the rows are the
+      table.
+
+    A resolved roster SMALLER than the requested one is NOT a violation and must
+    not become one. Measured on this estate, 181 LEIs resolve 142 rows in
+    ``legal_entity``; a member with no row is a null resolution and never a
+    dropped member (`D-16`, `CFT-G09`).
     """
     violations: list[str] = []
     if len(requested) < 2:
@@ -986,11 +1018,52 @@ def batching_violations(
             " whitepaper's DataLoader-style resolution exists to prevent."
             f" First statements: {[text[:120] for text in statements[:3]]}"
         )
+
+    wanted = set(requested)
+    bound = set(addressed)
+    unaddressed = sorted(wanted - bound)
+    if unaddressed:
+        violations.append(
+            f"CFT-G11: {subject} asked for {len(wanted)} key(s) and the"
+            f" statement(s) BOUND none of {unaddressed[:5]}"
+            f"{' …' if len(unaddressed) > 5 else ''} —"
+            f" {len(unaddressed)} requested key(s) went unaddressed. One"
+            " statement that does not address the requested roster is not a"
+            " batched resolution of it; an unparameterized read of the whole"
+            " table is one statement and addresses nothing"
+        )
+    unrequested = sorted(bound - wanted)
+    if unrequested:
+        violations.append(
+            f"CFT-G11: {subject} BOUND {unrequested[:5]}"
+            f"{' …' if len(unrequested) > 5 else ''} —"
+            f" {len(unrequested)} key(s) nobody asked for. The resolution"
+            " answered a wider question than the one put to it"
+        )
+    stray = sorted(set(resolved) - wanted)
+    if stray:
+        violations.append(
+            f"CFT-G11: {subject} was RETURNED rows for {stray[:5]}"
+            f"{' …' if len(stray) > 5 else ''} —"
+            f" {len(stray)} key(s) it never requested. Reading the whole"
+            " attribute table in one statement is one statement and is not this"
+            " gate's claim"
+        )
     return violations
 
 
+@dataclass(frozen=True)
+class WholeEstateResolution:
+    """The shipped resolver driven over EVERY LEI the graph leg carries."""
+
+    requested: tuple[str, ...]
+    statements: tuple[str, ...]
+    addressed: tuple[str, ...]
+    resolved: tuple[str, ...]
+
+
 @pytest.fixture(scope="module")
-def whole_estate_resolution(estate: tuple[str, str]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def whole_estate_resolution(estate: tuple[str, str]) -> WholeEstateResolution:
     """The SHIPPED resolver, driven over EVERY LEI the graph leg carries.
 
     **This is `CFT-G11`'s scale limb and it is not decoration.** Measured
@@ -1003,17 +1076,23 @@ def whole_estate_resolution(estate: tuple[str, str]) -> tuple[tuple[str, ...], t
     population — read out of the graph leg by this module — and required to
     still take one statement.
 
-    Returns the requested roster and the statements it took.
+    Returns the requested roster, the statements it took, the keys those
+    statements BOUND and the keys they returned rows for.
     """
     deployment = _load("deployment")
     roster = fluree_lei_roster(*_url_and_ledger(estate))
     resolution = deployment.resolve_attributes(roster)
-    return tuple(resolution.requested), tuple(resolution.statements)
+    return WholeEstateResolution(
+        requested=tuple(resolution.requested),
+        statements=tuple(resolution.statements),
+        addressed=tuple(resolution.addressed),
+        resolved=tuple(sorted(resolution.rows)),
+    )
 
 
 def test_cft_g11_attributes_resolve_in_one_batched_query(
     observed: Observed,
-    whole_estate_resolution: tuple[tuple[str, ...], tuple[str, ...]],
+    whole_estate_resolution: WholeEstateResolution,
 ) -> None:
     """`CFT-G11` (criterion 35). ONE batched PostgreSQL query, at two scales.
 
@@ -1024,47 +1103,127 @@ def test_cft_g11_attributes_resolve_in_one_batched_query(
 
     Sabotaged by firing one query per node.
     """
-    requested, statements = whole_estate_resolution
+    whole = whole_estate_resolution
     violations = batching_violations(
         statements=observed.statements,
         requested=observed.requested_leis,
+        addressed=observed.addressed_leis,
+        resolved=sorted(observed.rows),
         subject=f"the demonstration subtree ({len(observed.roster)} members)",
     )
     violations += batching_violations(
-        statements=statements,
-        requested=requested,
+        statements=whole.statements,
+        requested=whole.requested,
+        addressed=whole.addressed,
+        resolved=whole.resolved,
         subject="the whole LEI-bearing population",
     )
     assert not violations, "\n".join(violations)
 
 
+def _compliant_batch() -> dict[str, Any]:
+    """One batched resolution in which every limb holds, for controls to vary.
+
+    Three requested keys, one statement binding all three, and rows back for
+    two of them — because a resolved roster SMALLER than the requested one is
+    the estate's normal case (`D-16`) and must stay compliant.
+    """
+    return {
+        "statements": ["SELECT lei, ... FROM legal_entity WHERE lei = ANY(%s)"],
+        "requested": ("a", "b", "c"),
+        "addressed": ("a", "b", "c"),
+        "resolved": ("a", "b"),
+        "subject": "a batched resolution",
+    }
+
+
+def test_the_batching_check_accepts_the_compliant_shape() -> None:
+    """**Control on the control.** The varied baseline must itself pass.
+
+    Including the case that must NOT be a violation: two of three keys resolved.
+    A limb requiring the rows to equal the request would forbid the null
+    resolution `CFT-G09` exists to protect.
+    """
+    assert not batching_violations(**_compliant_batch())
+
+
 def test_the_batching_check_refuses_a_per_node_fan_out() -> None:
     """**Sabotage control.** One query per node is what this gate forbids."""
-    violations = batching_violations(
-        statements=[f"SELECT ... WHERE lei = '{n}'" for n in ("a", "b", "c")],
-        requested=("a", "b", "c"),
-        subject="a fan-out",
-    )
+    arguments = _compliant_batch()
+    arguments["statements"] = [
+        f"SELECT ... WHERE lei = '{n}'" for n in ("a", "b", "c")
+    ]
+    violations = batching_violations(**arguments)
     assert violations, "a three-statement fan-out was accepted as one batch"
     assert any("not 1" in entry for entry in violations), violations
 
 
+def test_the_batching_check_refuses_one_statement_addressing_nothing() -> None:
+    """**THE CLOSE PANEL'S FINDING 4, as a control.**
+
+    An unparameterized `SELECT` over the whole attribute table: ONE statement,
+    which the count limb accepts, binding nothing and returning the table. Both
+    the binding limb and the effect limb fire, and the count limb stays silent —
+    asserted, because that silence is the whole reason the roster limbs exist.
+    """
+    arguments = _compliant_batch()
+    arguments["statements"] = ["SELECT lei, ... FROM legal_entity"]
+    arguments["addressed"] = ()
+    arguments["resolved"] = ("a", "b", "somebody-else", "another-one")
+    violations = batching_violations(**arguments)
+    assert violations, "one statement addressing nothing was accepted as a batch"
+    assert any("went unaddressed" in entry for entry in violations), violations
+    assert any("never requested" in entry for entry in violations), violations
+    assert not any("not 1" in entry for entry in violations), (
+        "the count limb fired, so this control is no longer measuring the shape"
+        f" the finding names: {violations}"
+    )
+
+
+def test_the_batching_check_refuses_a_partially_addressed_roster() -> None:
+    """**Sabotage control.** One statement addressing SOME of the request.
+
+    A batch over the first key only is still one statement and still returns
+    plausible rows. Only the both-ways roster comparison sees it.
+    """
+    arguments = _compliant_batch()
+    arguments["addressed"] = ("a",)
+    violations = batching_violations(**arguments)
+    assert violations, "a statement addressing part of the roster was accepted"
+    assert any("went unaddressed" in entry for entry in violations), violations
+    assert any("'b'" in entry and "'c'" in entry for entry in violations), violations
+
+
+def test_the_batching_check_refuses_keys_nobody_asked_for() -> None:
+    """**Sabotage control.** The other direction — a wider question than the one put."""
+    arguments = _compliant_batch()
+    arguments["addressed"] = ("a", "b", "c", "d")
+    violations = batching_violations(**arguments)
+    assert violations, "a statement binding an unrequested key was accepted"
+    assert any("nobody asked for" in entry for entry in violations), violations
+
+
 def test_the_batching_check_refuses_a_single_key_roster() -> None:
     """**Vacuity control.** One statement for one key is not batching."""
-    violations = batching_violations(
-        statements=["SELECT ... = ANY(...)"], requested=("only",), subject="one key"
-    )
+    arguments = _compliant_batch()
+    arguments["requested"] = ("only",)
+    arguments["addressed"] = ("only",)
+    arguments["resolved"] = ("only",)
+    violations = batching_violations(**arguments)
     assert violations, "a single-key resolution was accepted as a batched one"
     assert any("fewer than two keys" in entry for entry in violations), violations
 
 
 def test_the_batching_check_refuses_a_leg_that_issued_nothing() -> None:
     """**Vacuity control.** Zero statements is not one statement."""
-    violations = batching_violations(
-        statements=[], requested=("a", "b"), subject="a leg that ran nothing"
-    )
+    arguments = _compliant_batch()
+    arguments["statements"] = []
+    arguments["addressed"] = ()
+    arguments["resolved"] = ()
+    violations = batching_violations(**arguments)
     assert violations, "an attribute leg that issued no statement was accepted"
     assert any("not 1" in entry for entry in violations), violations
+    assert any("went unaddressed" in entry for entry in violations), violations
 
 
 # ---------------------------------------------------------------------------

@@ -152,7 +152,7 @@ import os
 import re
 import uuid
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -1481,6 +1481,19 @@ class AttributeResolution:
     rows: Mapping[str, Mapping[str, Any]]
     statements: tuple[str, ...]
     requested: tuple[str, ...]
+    #: Every KEY VALUE the statements actually BOUND, taken at the connection
+    #: beside ``statements`` and by the same cursor factory.
+    #:
+    #: **A count of statements is not a batched resolution of the requested
+    #: roster.** ``CFT-G11``'s first shape asserted ``len(statements) == 1`` and
+    #: printed the roster in its failure message without ever asserting it, so
+    #: ONE unparameterized ``SELECT`` over the whole attribute table satisfied
+    #: the gate — one statement, every row, nothing addressed. That was the
+    #: close panel's finding 4. What the statement ADDRESSED is a different
+    #: fact from how many statements there were, and only this channel carries
+    #: it: an unparameterized statement binds nothing and shows up here as an
+    #: empty roster, whatever its text says about itself.
+    addressed: tuple[str, ...] = ()
 
     @property
     def unresolved(self) -> tuple[str, ...]:
@@ -1495,14 +1508,47 @@ class AttributeResolution:
         return tuple(lei for lei in self.requested if lei not in self.rows)
 
 
-def _counting_cursor(tally: list[str]) -> type[psycopg.Cursor[Any]]:
-    """A cursor class that records every statement executed on its connection."""
+def _bound_values(params: Any) -> Iterator[str]:
+    """Every scalar `params` binds, as text, one nesting level deep.
+
+    ``WHERE lei = ANY(%s)`` binds a LIST inside a one-element tuple, so a walk
+    that stopped at the tuple would report the batched form as binding one
+    opaque value. Mappings are walked by value for the named-parameter form.
+    """
+    if params is None:
+        return
+    if isinstance(params, Mapping):
+        candidates: Iterable[Any] = params.values()
+    elif isinstance(params, (list, tuple)):
+        candidates = params
+    else:
+        candidates = (params,)
+    for value in candidates:
+        if isinstance(value, (list, tuple)):
+            yield from (str(item) for item in value)
+        elif isinstance(value, Mapping):
+            yield from (str(item) for item in value.values())
+        else:
+            yield str(value)
+
+
+def _counting_cursor(
+    tally: list[str], bound: list[str]
+) -> type[psycopg.Cursor[Any]]:
+    """A cursor class recording every statement AND every value it bound.
+
+    Both are taken at the CONNECTION rather than at the resolving call site, for
+    the reason :class:`AttributeResolution` records: a statement fired anywhere
+    on this connection is seen even when it does not go through
+    :func:`resolve_attributes`.
+    """
 
     class _Cursor(psycopg.Cursor[Any]):
         def execute(self, query: Any, params: Any = None, **kwargs: Any) -> Any:
             tally.append(
                 query if isinstance(query, str) else query.decode("utf-8", "replace")
             )
+            bound.extend(_bound_values(params))
             return super().execute(query, params, **kwargs)
 
     return _Cursor
@@ -1539,11 +1585,12 @@ def resolve_attributes(
     columns = tuple(str(name) for name in declared[VOCAB_SERVED_COLUMNS])
     wanted = tuple(sorted({lei for lei in leis if lei}))
     tally: list[str] = []
+    bound: list[str] = []
     rows: dict[str, Mapping[str, Any]] = {}
     if wanted:
         projection = ", ".join([key_column, *columns])
         with psycopg.connect(
-            resolved.dsn, cursor_factory=_counting_cursor(tally)
+            resolved.dsn, cursor_factory=_counting_cursor(tally, bound)
         ) as connection_handle:
             with connection_handle.cursor() as cursor:
                 cursor.execute(
@@ -1557,7 +1604,10 @@ def resolve_attributes(
                         name: record[index + 1] for index, name in enumerate(columns)
                     }
     return AttributeResolution(
-        rows=rows, statements=tuple(tally), requested=wanted
+        rows=rows,
+        statements=tuple(tally),
+        requested=wanted,
+        addressed=tuple(sorted(set(bound))),
     )
 
 
@@ -2473,7 +2523,9 @@ def source_read(
     resolved_graph = graph or graph_source()
     refuse_stale_vocabulary_pointer()
     anchor_uri = resolve_anchor(subject, source=resolved_graph)
-    empty = AttributeResolution(rows={}, statements=(), requested=())
+    empty = AttributeResolution(
+        rows={}, statements=(), requested=(), addressed=()
+    )
     if anchor_uri is None:
         return FamilySourceRead(
             anchor_uri=None,
