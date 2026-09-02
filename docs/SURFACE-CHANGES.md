@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**760 entries**, of which **522** name a public Python surface.
+**763 entries**, of which **525** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-374 entries — 339 public Python surface, 35 not public Python API.
+376 entries — 341 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -6892,85 +6892,125 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
 
-#### ccf_runtime.mcp.egress.PRODUCT_ADDRESS_TEMPLATE
+#### ccf.graph.protocols.TemporalAxis
 
-- Surface: ccf_runtime.mcp.egress.PRODUCT_ADDRESS_TEMPLATE
+- Surface: ccf.graph.protocols.TemporalAxis
+- Public surface: true
+- Change type: added
+- Before: absent — event time, transaction time and CCF `as_of` were three
+  facts stated in prose across two adapters' docstrings and `D-IMPL-88`, with no
+  typed home
+- After: `Literal["event-time", "transaction-time", "as-of"]`, with each axis
+  stated in one sentence beside the definition: event time is when the world
+  changed (`observed_at`, the validity window; Fluree's backdatable `@iso:`),
+  transaction time is when the store recorded it (Fluree's monotonic `t`; a fact
+  about a read, never a temporal cut), `as_of` is CCF's cut over observations
+  (`GQ-07`; `D-IMPL-88`: `t` never implements it)
+- Why: `24.5-L-03` — the three axes become named SDK vocabulary so a pin, a
+  docstring and a replay record spell them from one definition
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.TEMPORAL_AXES
+
+- Surface: ccf.graph.protocols.TEMPORAL_AXES
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: `"ccf-product://{tenant}/{product_class}/{version}/q/{q}"` — a PATH-SEGMENT form, five
-  segments with the literal `q` fourth
-- Why: `24.5-L-08`. A path-segment form rather than a query string because FastMCP (`mcp==1.28.1`)
-  matches each `{x}` placeholder as one non-slash run and answers the FIRST registered template that
-  matches, so a `?q=` form would be captured by `PRODUCT_URI_TEMPLATE` as its `version` and answered
-  by the product-resource handler. The two templates are disjoint in both directions and
-  `tests/mcp/test_egress_listing.py` proves it on the real `ResourceTemplate.matches`, with a
-  negative control showing the rejected `?q=` form captured
+- After: `("event-time", "transaction-time", "as-of")` — the closed roster of
+  `TemporalAxis`, in the `ccf.operators.base.CATEGORY_ORDER` form, so a consumer
+  iterates the vocabulary rather than re-listing it
+- Why: `24.5-L-03`; the docstring test in `tests/graph/test_fluree_backend.py`
+  greps the adapter for the three phrases this roster names
 - Migration: none — additive
 
-*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
 
-#### ccf_runtime.mcp.egress.AddressedQuestion
+#### ccf.graph.protocols.StoreSnapshotPin
 
-- Surface: ccf_runtime.mcp.egress.AddressedQuestion
+- Surface: ccf.graph.protocols.StoreSnapshotPin
+- Public surface: true
+- Change type: added
+- Before: absent — a store-native pin had no type, so nothing stopped a
+  transaction counter from being handed to a seam typed for an as-of instant
+- After: `StoreSnapshotPin(substrate: str, pin: str)`, a frozen `CCFContract` on
+  the `"transaction-time"` axis. Deliberately a model rather than a `datetime`
+  and text rather than an `int`: `GraphQuery.as_of` refuses it by type (pydantic
+  refuses a model where a `datetime` is typed — the `D-IMPL-88` guard at the
+  type level), a pin is substrate-shaped and no arithmetic is ever done on it
+- Why: `24.5-L-01`, `D-IMPL-240` (2) — the pin must be a value `as_of` cannot
+  accept; also the type `24.5-L-02` (plan 03) records on `ProductLineage`
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN
+
+- Surface: ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: a frozen `CCFContract` (`extra=forbid`) carrying the tool's non-path arguments — `request`
-  (the caller's `WireRequest` as canonical text, exactly the tool's `request` argument), `subject`,
-  `intent`, `freshness`, `asked_at` (timezone-aware, or refused at construction)
-- Why: the plan specified the fifth segment as the canonical `WireRequest` alone. Measured against
-  the tool, that could not answer *the same question*: a `WireRequest` carries none of whitepaper
-  §6.3's four axes, and the door would have had to invent three strings (CINV-01) and read a clock for
-  the fourth (`D-IMPL-98`, `C-15`). Carrying the axes in the address is the only shape under which
-  `read_resource(product_address(q))` and `call_tool(q)` are the same call. Recorded as a deviation in
-  `24.5-06-SUMMARY.md`
+- After: `StoreSnapshotPin(substrate="none", pin="no-store-snapshot-pin")` — the
+  positive sentinel "this read carried no store-native pin", in the
+  `ccf.replay.record` `NO_*` voice, so a SQLite or Postgres deployment asserts
+  the absence rather than carrying a fake `t`
+- Why: `24.5-L-01` / `L-02` — "no pin" and "a pin" are distinguished by equality
+  against one value, never by `None`
 - Migration: none — additive
 
-*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
 
-#### ccf_runtime.mcp.egress.product_address
+#### ccf.graph.protocols.SnapshotPinnable
 
-- Surface: ccf_runtime.mcp.egress.product_address
+- Surface: ccf.graph.protocols.SnapshotPinnable
+- Public surface: true
+- Change type: added
+- Before: absent — no seam existed by which a consumer could ask a reader for
+  the state it read at, or for the same answer at an earlier state
+- After: a `@runtime_checkable` Protocol with two members —
+  `snapshot_pin() -> StoreSnapshotPin` (the substrate's current head, a fact
+  about the read) and `query_pinned(q, *, pin) -> GraphView` (the same answer
+  `query` would give with the store rolled back to `pin`; every as-of predicate
+  of `q` still applies — the pin bounds the STORE, `q.as_of` bounds the
+  OBSERVATIONS). Structural: a reader that cannot pin does not implement it and
+  needs no stub; consumers test `isinstance(reader, SnapshotPinnable)`
+- Why: `24.5-L-01`, `D-IMPL-240` (2); `D-10` — the graph Protocol gains, never
+  changes, signatures
+- Migration: none — additive. `FlureeGraphReader` is the only conforming reader
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.backends.fluree.FlureePinAhead
+
+- Surface: ccf.graph.backends.fluree.FlureePinAhead
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: `(*, tenant, product_class, version, question: WireRequest, subject, intent, freshness, asked_at) -> str`.
-  The fifth segment is `base64.urlsafe_b64encode(canonical_bytes(AddressedQuestion(...)))` with the
-  `=` padding STRIPPED — alphabet `A–Z a–z 0–9 - _`, no `=`, `/`, `+`, `?` or `%`; canonical, so two
-  equal questions give one address. A naive `asked_at` or a path segment holding `/` is refused
-- Why: `24.5-L-08` — one place the address is spelled, so server, client and tests cannot drift
+- After: `class FlureePinAhead(LookupError)` — raised when a pin names a
+  transaction the ledger has not reached; its message carries the asked pin,
+  the ledger name and the server's own `current t=N`, and nothing from the URL
+  (`T-24.5-04`). A `LookupError` because that is what `SnapshotPinnable`
+  declares for a state the store cannot resolve
+- Why: `24.5-L-01` — a pin ahead of the head is a caller-catchable condition,
+  not a bare `httpx.HTTPStatusError`
 - Migration: none — additive
 
-*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
 
-#### ccf_runtime.mcp.egress.parse_product_address
+#### ccf.graph.backends.fluree.FLUREE_SUBSTRATE
 
-- Surface: ccf_runtime.mcp.egress.parse_product_address
+- Surface: ccf.graph.backends.fluree.FLUREE_SUBSTRATE
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: `(uri: str) -> tuple[str, str, str, AddressedQuestion]`. Matches the five-segment shape
-  itself, refuses a `q` outside the unpadded alphabet or over `MAX_ADDRESS_QUESTION_BYTES`, re-pads,
-  decodes, validates the body and proves its `request` parses through `door_question`. Every refusal
-  is a `ValueError` naming the segment. The address handler rebuilds the URI from FastMCP's matched
-  segments and re-parses it here, so the parser is the single authority on every segment
-- Why: `T-24.5-17` — a tampered address is refused by name, never answered as a different question
+- After: `"fluree"` — the `substrate` a pin minted by this adapter carries and
+  the only one `query_pinned` accepts. A name, not a tuning value (CINV-01)
+- Why: `24.5-L-01` — a `StoreSnapshotPin` is substrate-shaped and only the
+  substrate that minted it can resolve it
 - Migration: none — additive
 
-*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
-
-#### ccf_runtime.mcp.egress.MAX_ADDRESS_QUESTION_BYTES
-
-- Surface: ccf_runtime.mcp.egress.MAX_ADDRESS_QUESTION_BYTES
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: `8_192` — the ceiling on the `q` segment's length, measured before decoding
-- Why: `T-24.5-19`, in the voice of the Fluree backend's `MAX_QUERY_BODY_BYTES`
-- Migration: none — additive
-
-*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
 
 ### Not public Python API
 
@@ -7546,7 +7586,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-294 entries — 111 public Python surface, 183 not public Python API.
+295 entries — 112 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -9979,23 +10019,56 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `19-02-the-adapter-seam-carries-bytes.md`.*
 
-#### ccf_runtime.mcp.egress.build_egress_server
+#### ccf.graph.backends.fluree.FlureeGraphStore
 
-- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Surface: ccf.graph.backends.fluree.FlureeGraphStore
 - Public surface: true
 - Change type: reshaped
-- Before: `(*, server_name, resolver, token_verifier, auth_settings, entitlement_source, perspective_resolver, expose_product_tool=False, product_tool_description=None)`
-- After: one added keyword, `expose_product_resource: bool = True`, placed after `perspective_resolver`.
-  Under `False` the product resource template is NOT registered (a TOOL-ONLY door).
-  `expose_product_resource=False` together with `expose_product_tool=False` is refused by
-  `ValueError` in the `D-03` voice — a door with neither surface answers nothing. When the tool is
-  exposed, a second resource template (`PRODUCT_ADDRESS_TEMPLATE`) is registered beside it.
-- Why: `24.5-L-09` — a parameterized class's resource has no parameter-free answer (cp-04's
-  `CFT-G13` limb (b) measured it refusing every read), and the only honest shape for such a class is
-  a door with no resource at all
-- Migration: none — the default preserves every existing deployment
+- Before: transport for the Cypher read (`post_query`, threading the
+  `Fluree-Min-T` floor) and the JSON-LD write (`post_update`); the ledger head
+  was readable only off a commit receipt
+- After: two methods added, constructor unchanged. `head_t() -> int` reads the
+  head off `GET …/ledgers`, matching `name` AND `branch` (the listing carries
+  every branch of every ledger on the server; the cp-04 example's name-only
+  match would answer whichever branch was listed first).
+  `post_query_pinned(body, *, pin_t) -> list[dict]` sends one JSON-LD read with
+  `from: <ledger>@t:N` as a dict value to `POST {base}/query` (no ledger in the
+  path — the path form is a measured `500`), refuses an over-budget body
+  loudly (there is no fallback to decline to), and raises `FlureePinAhead` on
+  the measured `408 err:db/ReadAfterWriteTimeout`. *(The manifest records a
+  class by its constructor, so these two methods leave no diff line — the
+  dumper blind spot `24.1.1-03` recorded. The name is post-baseline, so this is
+  the reconciled `reshaped`-over-`added` case of
+  `tests/test_surface_completeness.py`.)*
+- Why: `24.5-L-01` — the pin needs a transport the Cypher route cannot provide
+- Migration: none — additive
 
-*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.backends.fluree.FlureeGraphReader
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphReader
+- Public surface: true
+- Change type: reshaped
+- Before: `GraphReader` over a Fluree ledger, every read on the Cypher route,
+  no way to ask for an earlier state of the store
+- After: two methods added, constructor unchanged; the reader now satisfies
+  `SnapshotPinnable` structurally. `snapshot_pin()` mints
+  `StoreSnapshotPin(substrate="fluree", pin=str(head_t))`.
+  `query_pinned(q, *, pin)` runs the `D-IMPL-88` guard first — a `datetime`, an
+  `int`, a `str` or a pin from another substrate is a `TypeError` naming the
+  ruling, before any I/O — then three pinned selects (entity claims,
+  relationship claims, the tenant's whole L axis) mapped by `_pinned_row` onto
+  the Cypher column names, then `materialize_view`, `fallback.answer` and the
+  interface's ordering: byte-identical to the unpinned route on a ledger frozen
+  at that `t` (proven live: `canonical_bytes(query_pinned(q, pin=head)) ==
+  canonical_bytes(as_of(...))`). Telemetry counters are untouched. *(Same
+  constructor-only manifest note as the store.)*
+- Why: `24.5-L-01`, `D-IMPL-240` (2): "Pinned JSON-LD claim read, fed to the
+  fallback"
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
 
 ### Not public Python API
 
