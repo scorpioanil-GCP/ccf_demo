@@ -112,6 +112,32 @@ CASES: tuple[_Case, ...] = (
         unknown_keys=("tenant_id",),
     ),
     _Case(
+        artifact_class=HALF_LIFE_TABLE,
+        # The same class, carrying one supersede-only entry beside a curve
+        # entry (ledger row 24.5-L-22). `half_life_seconds` is ABSENT on the
+        # event-driven row and the absence is the point: the entry declares
+        # its driver and its supersession event and no rate, and a number
+        # beside `supersede-only` is refused at parse. The curve row above
+        # is unchanged — the reshaping is additive (D-10), and both cases
+        # must keep round-tripping.
+        document={
+            "semver": _SEMVER,
+            "entries": {
+                "fixture-observation": {
+                    "half_life_seconds": 3600,
+                    "decay_driver": "fixture-driver",
+                    "supersession_event": "fixture-supersession",
+                },
+                "fixture-event-driven-observation": {
+                    "decay": "supersede-only",
+                    "decay_driver": "fixture-rewrite",
+                    "supersession_event": "fixture-superseding-event",
+                },
+            },
+        },
+        unknown_keys=("tenant_id",),
+    ),
+    _Case(
         artifact_class=DEBT_PROFILE,
         document={
             "semver": _SEMVER,
