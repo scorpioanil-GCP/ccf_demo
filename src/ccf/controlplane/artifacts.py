@@ -87,6 +87,7 @@ from ccf.operators.params import (
 )
 from ccf.products.contract import (
     NO_PAYLOAD_SCHEMA,
+    NO_SERVE_OBLIGATIONS,
     NO_VALIDITY_FLOORS,
     NOT_ADDRESSABLE,
     NOT_DISCOVERABLE,
@@ -96,6 +97,7 @@ from ccf.products.contract import (
     FreshnessSLA,
     ProductAddress,
     ProductDiscovery,
+    ServeObligations,
     TTLAnchor,
 )
 from ccf.products.request import NO_REQUEST_CONTRACT
@@ -787,7 +789,21 @@ class ProductClassDeclaration(VersionedArtifact):
             ``15.5-15``, carrying the typed request and the authorized
             perspective together rather than reshaping 24 files twice.
 
-    **The six governance fields above all default**, on the
+        serve_obligations: What this class obliges the serve path to enforce
+            (``24.5-L-14``, ``24.5-L-26``). An obligation is a STRUCTURAL
+            declaration the serve path enforces through the ONE gate
+            mechanism ``D-IMPL-237`` licenses
+            (:data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`): it names
+            a ``D_c`` ceiling and payload MEMBERS, never a payload shape —
+            ``D-IMPL-238`` reads ``D-IMPL-102`` limb 3 as *no payload gate*.
+            Products do not declare gate TYPES; they declare obligations
+            under the one type the SDK ships. The ceiling's number is this
+            document's to author (the class declares the cap's presence; a
+            request may only tighten it, ``D-IMPL-240`` (3)); the SDK holds
+            no number. Defaults to
+            :data:`~ccf.products.contract.NO_SERVE_OBLIGATIONS`.
+
+    **The seven governance fields above all default**, on the
     ``accepted_policy_binding_modes`` precedent and for the same reason: an
     artifact authored before they existed declared exactly what it declares
     now, so no committed document is rewritten and no adopter's file becomes
@@ -813,6 +829,7 @@ class ProductClassDeclaration(VersionedArtifact):
     constituent_validity_floors: ConstituentValidityFloors = NO_VALIDITY_FLOORS
     payload_schema_key: str = NO_PAYLOAD_SCHEMA
     request_contract_key: str = NO_REQUEST_CONTRACT
+    serve_obligations: ServeObligations = NO_SERVE_OBLIGATIONS
 
 
 class ProjectionRequirements(VersionedArtifact):

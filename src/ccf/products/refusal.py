@@ -22,8 +22,9 @@ carries — before any door is changed.
 The two ruled constraints
 -------------------------
 **(a) Every refusal kind crosses without flattening.** The fabric declares
-eighteen of them: the ``GateRefusal`` hierarchy
-(:mod:`ccf.products.gates`), the peering-admission refusals that derive from it
+nineteen of them: the ``GateRefusal`` hierarchy
+(:mod:`ccf.products.gates`, including the declared-obligations refusal of
+``24.5-L-14`` / ``24.5-L-26``), the peering-admission refusals that derive from it
 (:mod:`ccf.peering.admission`), the product-mount refusal that derives from it
 (:mod:`ccf.graph.product_source`), the two request/payload conformity verdicts
 (:mod:`ccf.products.request`, :mod:`ccf.products.payload`), the pre-assembly
@@ -97,6 +98,7 @@ from ccf.products.composition import MixingRefusal
 from ccf.products.contract import ProductLineage
 from ccf.products.gates import (
     AttestationRefusal,
+    DeclaredObligationRefusal,
     EmptyOperatorRefusal,
     GateRefusal,
     LineageAttributionRefusal,
@@ -223,14 +225,17 @@ class RefusalEnvelope(CCFContract):
 #: allowlists below. A type added to the tree and not added here fails the
 #: build; a token declared here whose type no longer ships fails it too.
 REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
-    # The three-gate family (whitepaper §7.6), and the additive attestation
-    # gate beside it.
+    # The three-gate family (whitepaper §7.6), the additive attestation
+    # gate beside it, and the ONE structural declared-obligations gate
+    # D-IMPL-237 licenses (24.5-L-14, 24.5-L-26) — the kind the HTTP door
+    # maps to the Standard's 409.
     GateRefusal: "gate-refusal",
     EmptyOperatorRefusal: "empty-operator-refusal",
     LineageMismatchRefusal: "lineage-mismatch-refusal",
     LineageAttributionRefusal: "lineage-attribution-refusal",
     TTLRefusal: "ttl-refusal",
     AttestationRefusal: "attestation-refusal",
+    DeclaredObligationRefusal: "declared-obligation-refusal",
     # The peering-admission family, which derives from the gate family rather
     # than paralleling it (CLAUDE.md §7.2).
     AdmissionRefusal: "admission-refusal",

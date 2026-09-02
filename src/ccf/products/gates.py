@@ -89,14 +89,35 @@ caller against a pre-phase reader — passes: the compatibility posture. The
 canonical three gates, their order, and their refusal precedence are
 byte-untouched.
 
-This module holds no TTL values and no thresholds (CLAUDE.md §11, CINV-01).
+**The declared-obligations gate (Phase 24.5 Wave 2, ``D-IMPL-237``).** The
+ONE structural serve-time gate mechanism the SDK ships beyond the five tokens
+``D-IMPL-238`` records: after every universal gate above has passed, both
+runners hold the candidate to what its product class *declared* in
+:class:`~ccf.products.contract.ServeObligations` — a ``D_c`` ceiling
+(ledger row ``24.5-L-14``; whitepaper §7.7.4–§7.7.8, where Context Debt gates
+Forced LLM and Fail-Closed behavior) and a per-attribute lineage obligation
+(ledger row ``24.5-L-26``). It runs LAST because it is the only *declared*
+gate: every universal gate precedes it, and a class that declares nothing
+(:data:`~ccf.products.contract.NO_SERVE_OBLIGATIONS`) never reaches a
+comparison. The ceiling is class-declared and a request may only TIGHTEN it
+(``D-IMPL-240`` (3), :func:`effective_debt_ceiling`); the lineage half reads
+the presence and non-emptiness of a NAMED payload member and nothing else —
+it is a structural gate, never a payload gate (``D-IMPL-238`` reading
+``D-IMPL-102`` limb 3). ``_GATE_TOKEN``, :class:`_ServableProductMeta` and
+:class:`GateBypassError` are untouched by it: the new step returns a refusal
+before the token is minted, exactly as the four before it do.
+
+This module holds no TTL values and no thresholds (CLAUDE.md §11, CINV-01):
+the ceiling's number is the deployment's, authored on the product class.
 Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
 
+from collections.abc import Sized
 from datetime import datetime, timedelta
-from typing import Literal, Never
+from decimal import Decimal, InvalidOperation
+from typing import Final, Literal, Never
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
@@ -111,6 +132,8 @@ from ccf.products.contract import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "DEBT_TOLERANCE_PARAMETER",
+    "GATE_DECLARED_OBLIGATIONS",
     "GATE_EMPTY_OPERATOR",
     "GATE_LINEAGE_ATTRIBUTABILITY",
     "GATE_LINEAGE_EQUALITY",
@@ -118,6 +141,7 @@ __all__ = [
     "GATE_TTL_BOUNDS",
     "PYDANTIC_MODEL_FORMS",
     "AttestationRefusal",
+    "DeclaredObligationRefusal",
     "EmptyOperatorRefusal",
     "GateBypassError",
     "GateRefusal",
@@ -126,6 +150,7 @@ __all__ = [
     "ServableProduct",
     "ServableProductNotAModel",
     "TTLRefusal",
+    "effective_debt_ceiling",
     "refuse_attestation",
     "run_federated_gates",
     "run_gates",
@@ -136,6 +161,27 @@ GATE_LINEAGE_EQUALITY = "lineage-strict-equality"
 GATE_LINEAGE_ATTRIBUTABILITY = "lineage-attributability"
 GATE_TTL_BOUNDS = "ttl-bounds"
 GATE_SOURCE_ATTESTATION = "source-attestation"
+# The ONE structural mechanism D-IMPL-237 licenses beyond the five tokens
+# above, which D-IMPL-238 records by name as the membership it joins
+# (24.5-L-14, 24.5-L-26). Not a payload gate (limb 3), not a second mechanism.
+GATE_DECLARED_OBLIGATIONS = "declared-obligations"
+
+#: The Standard's universal request parameter (``references/
+#: Context_Product_Specification_Standard_v0-3.md`` §2.4) by which a caller
+#: may TIGHTEN — never loosen — the ceiling its product class declared
+#: (``D-IMPL-240`` (3), ``24.5-L-14``). The resolver reads it off
+#: ``request.parameters`` only when the class declares a ceiling and the
+#: request contract declares the parameter; otherwise
+#: :func:`~ccf.products.request.refuse_request` has already refused it as
+#: undeclared, and an undeclared class ignores it whatever it says.
+#:
+#: CINV-01, reasoned rather than assumed: this is a parameter NAME the SDK
+#: owns as mechanism vocabulary — on the footing of the four request axes
+#: (subject, instant, perspective, tier), which are names the SDK also owns —
+#: and never a value. No number, no threshold and no default tolerance lives
+#: here or anywhere in ``src/``; the ceiling's number is authored on the
+#: product class by the deployment, and the request's number is the caller's.
+DEBT_TOLERANCE_PARAMETER: Final[str] = "debt_tolerance"
 
 
 class GateBypassError(TypeError):
@@ -231,6 +277,195 @@ class AttestationRefusal(GateRefusal):
     failing_dimension: Literal["policy_binding", "lineage"]
     source_mode: str
     accepted_modes: frozenset[str]
+
+
+class DeclaredObligationRefusal(GateRefusal):
+    """The declared-obligations gate: the product broke what its class declared.
+
+    SDK-defined per CLAUDE.md §11 — whitepaper §7.6 (the validation gates)
+    and §7.7.4–§7.7.8 (Context Debt as the quantified shortfall that gates
+    Forced LLM and Fail-Closed behavior). The ONE structural mechanism
+    ``D-IMPL-237`` licenses, carrying both of the obligations it enforces
+    (ledger rows ``24.5-L-14`` and ``24.5-L-26``) under one token,
+    :data:`GATE_DECLARED_OBLIGATIONS`, so that there is one gate and not two.
+    Derives from :class:`GateRefusal` for the reason :class:`AttestationRefusal`
+    records: a product meets the fabric's one gate discipline, and the
+    ``ServableProduct | GateRefusal`` return union of :func:`run_gates` is
+    unchanged by this refusal existing. The HTTP door maps this kind to the
+    Standard's ``409`` (*"Debt gate exceeded → 409 with the debt block"*,
+    §9); this module knows nothing of status codes.
+
+    Both sides are carried, in the :class:`TTLRefusal` voice: a caller never
+    re-derives either to learn what the gap was.
+
+    Attributes:
+        obligation: Which declared obligation refused — ``debt-ceiling`` (the
+            candidate's ``D_c`` exceeded the effective ceiling, or the class
+            declared a ceiling and the candidate carries no assessment) or
+            ``lineage-inputs`` (a named payload member the class obliges is
+            absent or empty). Two SDK code paths under one gate, never a
+            deployment vocabulary.
+        declared: What the class declared, rendered: the effective ceiling as
+            a decimal string, or the obliged member's name.
+        observed: What the candidate carried, rendered: its ``D_c`` as a
+            decimal string, ``no-assessment``, ``absent`` or ``empty``.
+    """
+
+    obligation: Literal["debt-ceiling", "lineage-inputs"]
+    declared: str
+    observed: str
+
+
+def _as_finite_decimal(requested: object) -> Decimal | None:
+    """The requested tolerance as a finite ``Decimal``, or ``None`` if it is not one.
+
+    A request parameter arrives as whatever the door parsed — ``Decimal``,
+    ``int`` or ``float`` — and a value that is none of those, or is a ``bool``
+    (which Python counts as an ``int``), or is not finite, is not a
+    tolerance and is ignored rather than refused: the class's ceiling is the
+    floor of strictness and stands on its own.
+    """
+    if isinstance(requested, bool) or not isinstance(requested, (Decimal, int, float)):
+        return None
+    try:
+        value = requested if isinstance(requested, Decimal) else Decimal(str(requested))
+    except InvalidOperation:
+        return None
+    return value if value.is_finite() else None
+
+
+def effective_debt_ceiling(
+    *, declared: Decimal | None, requested: object
+) -> Decimal | None:
+    """The ceiling the gate holds a product to — class-declared, request-tightened.
+
+    ``D-IMPL-240`` (3), Dave's selection among three: *the class declares, a
+    request may tighten*. Pure over its two arguments; no I/O, no clock.
+
+    * ``declared is None`` → ``None``. An undeclared class is unaffected
+      whatever the request says: a request cannot CREATE a ceiling, because a
+      ceiling is class governance and a caller is not the class.
+    * ``requested`` absent, or not a finite number → ``declared``. The class's
+      ceiling stands.
+    * otherwise → ``min(declared, requested)``. A request may only tighten. A
+      looser request is *ignored, not refused*: the class's ceiling is the
+      floor of strictness, and a caller asking for less strictness than the
+      class grants is asking for something the class already answered — the
+      served product is then held to the class's number, which is what the
+      refusal reports as ``declared``.
+
+    :func:`run_gates` and :func:`run_federated_gates` apply this function
+    themselves against the class's declaration, so no caller — the resolver
+    included — can pass a ``debt_tolerance`` that loosens the ceiling; the
+    resolver's own call is then idempotent (``min(d, min(d, r)) == min(d, r)``).
+
+    Args:
+        declared: :attr:`~ccf.products.contract.ServeObligations.debt_ceiling`
+            of the registered class.
+        requested: The request's :data:`DEBT_TOLERANCE_PARAMETER` value, as
+            presented, or ``None``.
+
+    Returns:
+        The effective ceiling, or ``None`` when the class declares none.
+    """
+    if declared is None:
+        return None
+    tightened = _as_finite_decimal(requested)
+    if tightened is None:
+        return declared
+    return min(declared, tightened)
+
+
+def _refuse_declared_obligations(
+    candidate: ContextProductContract,
+    *,
+    product_class: RegisteredProductClass,
+    debt_tolerance: Decimal | None,
+) -> DeclaredObligationRefusal | None:
+    """The declared-obligations gate, shared by both sequences — one function, two obligations.
+
+    Factored rather than duplicated for the reason gates 1 and 3 are: the two
+    runners cannot drift into two readings of what a class declared.
+
+    **The debt half** (``24.5-L-14``). ``ceiling`` is
+    :func:`effective_debt_ceiling` over the class's declaration and the
+    caller's ``debt_tolerance``. ``None`` — the class declares no ceiling —
+    is silent. Under a ceiling, a candidate carrying no assessment is refused
+    (``observed="no-assessment"``): a class that declares a ceiling cannot be
+    served unmeasured, since an unmeasured product is neither within nor
+    over it. A candidate whose ``D_c`` exceeds the ceiling is refused with
+    both numbers. No principal and no perspective reach this comparison
+    (``D-IMPL-105``): ``D_c`` is entitlement-neutral, as it was assessed.
+
+    **The lineage half** (``24.5-L-26``). For each member the class names in
+    ``lineage_inputs_at``, in sorted order so the named member is
+    deterministic: absent or ``None`` → ``observed="absent"``; a sized value
+    of length zero → ``observed="empty"``. Nothing else about the payload is
+    read — presence and non-emptiness of a NAMED top-level member only. That
+    is what keeps this a structural gate under ``D-IMPL-238``'s reading of
+    ``D-IMPL-102`` limb 3: a payload whose named member holds anything at all
+    serves, and no shape, type or schema is consulted.
+
+    Returns:
+        ``None`` when every declared obligation holds, otherwise the refusal
+        naming the first that did not — the debt half before the lineage
+        half, a fixed order.
+    """
+    obligations = product_class.serve_obligations
+    ceiling = effective_debt_ceiling(
+        declared=obligations.debt_ceiling, requested=debt_tolerance
+    )
+    if ceiling is not None:
+        if candidate.debt is None:
+            return DeclaredObligationRefusal(
+                gate=GATE_DECLARED_OBLIGATIONS,
+                detail=(
+                    f"product {candidate.schema_name!r} carries no debt "
+                    f"assessment but its class declares a D_c ceiling of "
+                    f"{ceiling}; a class that declares a ceiling cannot be "
+                    "served unmeasured — debt gate exceeded, 409 with the debt "
+                    "block (Standard §9; 24.5-L-14)"
+                ),
+                obligation="debt-ceiling",
+                declared=str(ceiling),
+                observed="no-assessment",
+            )
+        if candidate.debt.debt > ceiling:
+            return DeclaredObligationRefusal(
+                gate=GATE_DECLARED_OBLIGATIONS,
+                detail=(
+                    f"product {candidate.schema_name!r} carries D_c "
+                    f"{candidate.debt.debt}, over the effective ceiling "
+                    f"{ceiling} its class declared (a request may tighten "
+                    "that ceiling, never loosen it — D-IMPL-240 (3)); debt "
+                    "gate exceeded, 409 with the debt block (Standard §9; "
+                    "whitepaper §7.7.4–§7.7.8; 24.5-L-14)"
+                ),
+                obligation="debt-ceiling",
+                declared=str(ceiling),
+                observed=str(candidate.debt.debt),
+            )
+    for member in sorted(obligations.lineage_inputs_at):
+        value = candidate.payload.get(member)
+        if value is None:
+            observed = "absent"
+        elif isinstance(value, Sized) and len(value) == 0:
+            observed = "empty"
+        else:
+            continue
+        return DeclaredObligationRefusal(
+            gate=GATE_DECLARED_OBLIGATIONS,
+            detail=(
+                f"product {candidate.schema_name!r} declares a lineage "
+                f"obligation on payload member {member!r}, which is "
+                f"{observed}; every served line must name what it was "
+                "computed from (24.5-L-26)"
+            ),
+            obligation="lineage-inputs",
+            declared=member,
+            observed=observed,
+        )
+    return None
 
 
 def refuse_attestation(
@@ -454,6 +689,7 @@ def run_gates(
     registry: ControlPlaneProtocol,
     product_class: RegisteredProductClass,
     source_attestation: SourceAttestation | None = None,
+    debt_tolerance: Decimal | None = None,
 ) -> ServableProduct | GateRefusal:
     """Run the canonical gate sequence over ``candidate``.
 
@@ -480,10 +716,21 @@ def run_gates(
             :data:`GATE_SOURCE_ATTESTATION` gate returns an
             :class:`AttestationRefusal` naming the failing dimension, and
             no :class:`ServableProduct` exists (D-09).
+        debt_tolerance: The request's tolerance (``24.5-L-14``,
+            ``D-IMPL-240`` (3)), which may only TIGHTEN the ceiling
+            ``product_class.serve_obligations`` declares —
+            :func:`effective_debt_ceiling` takes the minimum here, so no
+            caller can loosen it. ``None`` — the default, and every
+            pre-phase call site — means *the class's ceiling stands*; and a
+            class that declares no ceiling is unaffected whatever is passed.
 
     Returns:
         A :class:`ServableProduct` when every gate passes, otherwise the
-        refusal of the *first* gate that did not.
+        refusal of the *first* gate that did not. The order is: empty
+        operators, lineage strict equality, TTL bounds, source attestation,
+        then — LAST, because every universal gate precedes a declared one —
+        the :data:`GATE_DECLARED_OBLIGATIONS` step, which is silent for a
+        class that declares nothing (``D-IMPL-237``).
 
     Raises:
         ccf.controlplane.registry.ControlPlaneMissing: the pinned MAX_TTL has
@@ -524,6 +771,12 @@ def run_gates(
     if attestation is not None:
         return attestation
 
+    obligation = _refuse_declared_obligations(
+        candidate, product_class=product_class, debt_tolerance=debt_tolerance
+    )
+    if obligation is not None:
+        return obligation
+
     return ServableProduct(candidate, _GATE_TOKEN)
 
 
@@ -534,6 +787,7 @@ def run_federated_gates(
     now: datetime,
     registry: ControlPlaneProtocol,
     product_class: RegisteredProductClass,
+    debt_tolerance: Decimal | None = None,
 ) -> ServableProduct | GateRefusal:
     """Run the federated form of the gate sequence over ``candidate``.
 
@@ -605,6 +859,13 @@ def run_federated_gates(
        MAX_TTL a locally assembled product is held to. Expiry is a property of
        the product and the consumer's clock and needs nothing the consumer
        lacks.
+    4. **declared obligations** — the same :data:`GATE_DECLARED_OBLIGATIONS`
+       step :func:`run_gates` runs last, against the consuming class's own
+       :class:`~ccf.products.contract.ServeObligations` (``24.5-L-14``,
+       ``24.5-L-26``; ``D-IMPL-237``). A federated candidate carries ``debt``
+       too, so the debt half applies where the consuming class declares a
+       ceiling; the lineage half applies as declared. Last, for the reason it
+       is last locally: every universal gate precedes a declared one.
 
     Args:
         candidate: The product as the peer declares it, parsed from the bytes
@@ -615,11 +876,16 @@ def run_federated_gates(
             function exists to remove.
         now: The evaluation instant, supplied by the caller.
         registry: Control Plane the MAX_TTL is resolved from.
-        product_class: The registered class carrying the pinned MAX_TTL.
+        product_class: The registered class carrying the pinned MAX_TTL — and,
+            since ``24.5-L-14``, the serve obligations step 4 reads.
+        debt_tolerance: As on :func:`run_gates`: may only tighten the class's
+            declared ceiling; ``None`` (the default, every pre-phase call
+            site) leaves the class's ceiling standing.
 
     Returns:
         A :class:`ServableProduct` when every gate passes, otherwise the
-        refusal of the *first* gate that did not.
+        refusal of the *first* gate that did not, in the four-step order
+        above.
 
     Raises:
         ccf.controlplane.registry.ControlPlaneMissing: the pinned MAX_TTL has
@@ -653,6 +919,12 @@ def run_federated_gates(
     )
     if ttl is not None:
         return ttl
+
+    obligation = _refuse_declared_obligations(
+        candidate, product_class=product_class, debt_tolerance=debt_tolerance
+    )
+    if obligation is not None:
+        return obligation
 
     return ServableProduct(candidate, _GATE_TOKEN)
 

@@ -6,7 +6,7 @@ CLAUDE.md §7.3. The envelope under test is
 
 **What these tests enforce, and why each shape was chosen.**
 
-1. **Per kind, one at a time.** Every one of the eighteen kinds gets its own
+1. **Per kind, one at a time.** Every one of the nineteen kinds gets its own
    assertion. Deliberately *not* one parameterized assertion over the mapping
    with an ``any()`` inside: a property asserted in aggregate passes when one
    member survives and licenses the seventeen that do not, which is this
@@ -80,12 +80,14 @@ from ccf.peering.admission import (
 from ccf.products.composition import MixingRefusal
 from ccf.products.contract import ProductLineage
 from ccf.products.gates import (
+    GATE_DECLARED_OBLIGATIONS,
     GATE_EMPTY_OPERATOR,
     GATE_LINEAGE_ATTRIBUTABILITY,
     GATE_LINEAGE_EQUALITY,
     GATE_SOURCE_ATTESTATION,
     GATE_TTL_BOUNDS,
     AttestationRefusal,
+    DeclaredObligationRefusal,
     EmptyOperatorRefusal,
     GateRefusal,
     LineageAttributionRefusal,
@@ -288,6 +290,34 @@ def test_envelope_for_ttl_refusal(request_identity: RequestIdentity) -> None:
     assert envelope.fields["expires_at"] == '"2026-08-16T12:00:00.000000Z"'
     assert envelope.fields["now"] == '"2026-08-15T12:00:00.000000Z"'
     assert envelope.fields["max_ttl_seconds"] == "3600"
+
+
+def test_envelope_for_declared_obligation_refusal(
+    request_identity: RequestIdentity,
+) -> None:
+    """The ONE structural declared-obligations gate names which obligation and both sides.
+
+    ``24.5-L-14`` / ``24.5-L-26`` (``D-IMPL-237``). The gate token is the
+    promoted ``reason``, the three fields the kind declares cross intact, and
+    the kind is the one the HTTP door maps to the Standard's ``409``.
+    """
+    refusal = DeclaredObligationRefusal(
+        gate=GATE_DECLARED_OBLIGATIONS,
+        detail="the product's D_c is over the ceiling its class declared",
+        obligation="debt-ceiling",
+        declared="0.5",
+        observed="0.7",
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[DeclaredObligationRefusal]
+    assert envelope.kind == "declared-obligation-refusal"
+    assert envelope.reason == GATE_DECLARED_OBLIGATIONS == "declared-obligations"
+    assert envelope.key is None
+    assert set(envelope.fields) == {"obligation", "declared", "observed"}
+    assert envelope.fields["obligation"] == '"debt-ceiling"'
+    assert envelope.fields["declared"] == '"0.5"'
+    assert envelope.fields["observed"] == '"0.7"'
 
 
 def test_envelope_for_attestation_refusal(
