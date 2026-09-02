@@ -547,6 +547,19 @@ REQUIREMENTS_REGISTRATION_RE = re.compile(
     rf"^[ \t]*class_id:[ \t]*{re.escape(REQUIREMENTS_CLASS_ID)}[ \t]*$", re.MULTILINE
 )
 
+#: The `D-IMPL-136` single-file config section the product class is authored in,
+#: and the attribute that section's operator set is spelled with. Both are
+#: someone else's names — the first is a key of
+#: ``ccf.deployment.config``'s reserved-section table, the second a field of
+#: :class:`~ccf.controlplane.artifacts.ProductClassDeclaration` — so both are
+#: asserted against the SDK by
+#: :func:`test_the_product_class_surface_still_names_its_operator_set`
+#: rather than believed. A rename there must turn that red, not make
+#: :func:`_supplied_by_the_product_class` match nothing and quietly hand out no
+#: exemptions, which would look like the gate tightening (`D-IMPL-234`).
+PRODUCT_CLASS_SECTION = "product_class"
+PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE = "required_operator_keys"
+
 #: Deployments ruled onto the one-document exemption, **by name and not by
 #: count**. The module's floors stop coverage shrinking silently and this stops
 #: the exemption spreading silently, which is the same instrument inverted.
@@ -572,10 +585,37 @@ REQUIREMENTS_REGISTRATION_RE = re.compile(
 #: A THIRD claimant is red until a human rules on it, which is what *"no
 #: headroom"* meant all along: every new name gets a look, not that the number
 #: can never change.
+#:
+#: **``cp-04`` is the third, and it is here because `D-IMPL-234` ruled it here
+#: — in the entry, before the edit, which is what the sentence above exists to
+#: force.** It is a different SHAPE of one-document deployment from the two
+#: above, and that difference is why the detector had to be taught rather than
+#: the list appended to: ``cp-00`` and ``s1-00`` author one document and read it
+#: twice *in the same body*, so :func:`_class_claim` and :func:`_plan_sources`
+#: both see it. ``cp-04`` assembles its lineage in a sibling function, so the
+#: in-body claim is absent — and an absent claim is not evidence of anything,
+#: which is why :func:`_one_document`'s fail-closed default refused it. What
+#: earns the exemption is the POSITIVE reading `D-IMPL-234` names:
+#: :func:`_supplied_by_the_product_class`. Dave: *"The binder's premise is two
+#: documents that can disagree. cp-04 has one authored side; ``required`` would
+#: be compared to itself. That is the tautology you already refused after
+#: 17-13."*
+#:
+#: **The three below are the whole roster, and the tree currently holds more
+#: claimants than that — deliberately.** ``cp-01``, ``cp-02`` and ``cp-03``
+#: arrived in phases 24.2 and 24.3 claiming this exemption with no ruling, and
+#: `D-IMPL-234` expressly did NOT rule them in: *"Dave raised the ceiling by
+#: ONE, for cp-04 ... each of the three needs its own sitting."* So
+#: :func:`test_the_one_document_exemption_has_not_spread` is RED on exactly
+#: those three names, that red is carved by `D-IMPL-234` with that number, and
+#: adding them here to make the suite green would be widening an exemption
+#: beyond what was granted — the precise failure the roster exists to refuse.
 RULED_ONE_DOCUMENT_DEPLOYMENTS: frozenset[str] = frozenset(
     {
         "examples/cp-00-institutional-holders",
         "examples/s1-00-companies-over-revenue",
+        # D-IMPL-234 (Dave, 2026-09-01) — the gate-two closure for cp-04.
+        "examples/cp-04-corporate-family-tree",
     }
 )
 
@@ -1489,6 +1529,123 @@ def _class_claim(
     return None
 
 
+def _config_declares_operator_set(root: pathlib.Path | None) -> bool:
+    """Whether this deployment authors its operator set in the ONE config document.
+
+    The positive half of `D-IMPL-234`'s first condition: the single authored
+    side EXISTS and is readable on disk, in the `D-IMPL-136` section the SDK
+    reserves for it, carrying a non-empty operator list. A deployment that
+    declares no product class, or declares one with no operator set, has not
+    authored the one document this route is about and gets nothing from it.
+
+    Read from the config rather than assumed from the *absence* of a
+    requirements artifact, which is the whole discipline `D-IMPL-234` insists
+    on: *"never by the inference `no binder call implies exempt`."* Absence of a
+    second document is necessary but it is not sufficient, and on its own it is
+    indistinguishable from `D-IMPL-137` row C — a second set authored where the
+    Control Plane cannot see it.
+
+    Parsed plainly rather than through
+    :func:`~ccf.deployment.config.derive_deployment`, for the reason
+    :func:`_binding_plan_reference` gives for the same choice: that loader
+    validates the whole document, so an unrelated authoring mistake would take
+    this gate down with it and report a wiring typo as a binder-coverage
+    failure. Only the one section is read; its *name* still comes from the SDK.
+    """
+    if root is None:
+        return False
+    document = root / SINGLE_FILE_CONFIG_NAME
+    if not document.is_file():
+        return False
+    try:
+        parsed = yaml.safe_load(document.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        return False
+    if not isinstance(parsed, dict):
+        return False
+    section = parsed.get(PRODUCT_CLASS_SECTION)
+    if not isinstance(section, dict):
+        return False
+    declared = section.get(PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE)
+    return isinstance(declared, list) and bool(declared)
+
+
+def _supplied_by_the_product_class(
+    scope: ast.AST,
+    path: pathlib.Path,
+    root: pathlib.Path | None,
+    plan_classes: frozenset[str] | None = None,
+) -> bool:
+    """`D-IMPL-234`: the plan's ``required=`` is SUPPLIED by the one authored
+    document, not authored a second time.
+
+    **The second shape a one-document deployment can take, and the reason the
+    detector had to be taught rather than the roster appended to.** Dave, at the
+    2026-09-01 close-panel triage: *"Do not call the binder. Do not slip cp-04
+    onto the exemption list as a quiet edit. The binder's premise is two
+    documents that can disagree. cp-04 has one authored side; ``required`` would
+    be compared to itself. That is the tautology you already refused after
+    17-13."* The premise is learned **by positive conditions** — his words for
+    what this route reads — *"the plan/binding names the one projection and
+    ``required`` is supplied rather than authored twice"* — and **never** by the
+    inference *"no binder call implies exempt."*
+
+    **Why** :func:`_one_document`'s original reading could not see it. That
+    route pairs an in-body class claim against an in-body plan source. ``cp-00``
+    and ``s1-00`` assemble their lineage and construct their plan in the SAME
+    body, so both readings land. ``examples/cp-04-corporate-family-tree``
+    projects in ``produce.py::_project`` and assembles its
+    :class:`~ccf.contracts.product.ProductLineage` in a sibling function, so
+    :func:`_class_claim` answers ``None`` there — and the fail-closed default
+    correctly refused it, because **an absent claim is not evidence of
+    anything**. This route supplies the missing evidence positively rather than
+    relaxing that default.
+
+    **Three conditions, each a fact a TWO-document deployment would not
+    exhibit:**
+
+    1. The deployment registers **no** ``ccf.projection-requirements`` — checked
+       by the caller, and it is the fact sabotage (a) inverts. A second
+       operator-set document that can disagree is the binder's whole premise, so
+       registering one withdraws the exemption and restores the demand. This is
+       the same first reading :func:`_one_document` and
+       :func:`_sdk_supplied_operator_set` each make.
+    2. The one authored side **exists and is readable**
+       (:func:`_config_declares_operator_set`): the config's reserved
+       ``product_class`` section carries a non-empty operator set. A two-document
+       deployment's plan reads the *requirements* artifact, not this.
+    3. Every plan this body constructs reads its ``required=`` from **that
+       declaration's own attribute** — at least one construction, and none from
+       anywhere else. ``required=tuple(scenario.product_class.required_operator_keys)``
+       is the shipped shape; ``required=tuple(scenario.operator_parameters)`` is
+       `D-IMPL-137` **row C**, a second set authored where the Control Plane
+       cannot see it, and row C stays red.
+
+    Condition (3) reads :func:`_constructed_plan_sources` rather than
+    :func:`_plan_sources` for the reason that function exists: ``_project``'s
+    construction is passed straight to the engine, and a construction that is
+    never assigned is invisible to the binding-pair reader — *and its
+    invisibility is not evidence of anything* either.
+
+    **This is an absence of demand, not a licence**, exactly as `D-IMPL-137`'s
+    routes are: :func:`_binder_collapses` property (1) stays unconditional, so a
+    body claiming this route and calling the binder anyway over a plan built
+    from the very claim it is about to be compared against is STILL refused for
+    the tautology. :func:`test_a_cp_04_shaped_exempt_body_that_calls_the_binder_is_refused`
+    watches that rather than asserting it.
+    """
+    if not _config_declares_operator_set(root):
+        return False
+    sources = _constructed_plan_sources(scope, plan_classes)
+    if not sources:
+        return False
+    return all(
+        source is not None
+        and source[-1:] == (PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE,)
+        for source in sources
+    )
+
+
 def _one_document(
     scope: ast.AST,
     path: pathlib.Path,
@@ -1496,6 +1653,16 @@ def _one_document(
     plan_classes: frozenset[str] | None = None,
 ) -> bool:
     """Whether the binder demand's premise is false for this body (D-IMPL-137).
+
+    **TWO shapes of one-document deployment reach this, and the registration
+    reading gates both.** The reading below — an in-body class claim paired
+    against an in-body plan source — is the shape ``cp-00`` and ``s1-00`` ship.
+    :func:`_supplied_by_the_product_class` is the second, ruled by `D-IMPL-234`
+    for ``cp-04``, where the lineage is assembled in a sibling function and the
+    plan's ``required=`` is instead read straight off the one authored
+    declaration. Both are positive readings and neither infers the exemption
+    from an absence; the ``_registers_requirements`` refusal above applies to
+    both, which is what sabotage (a) in `D-IMPL-234`'s contract inverts.
 
     **A conjunction of two independent readings, and every other combination is
     refused.** The artifact tree says whether a second document is registered;
@@ -1523,6 +1690,8 @@ def _one_document(
     root = _deployment_root(path)
     if root is None or _registers_requirements(root):
         return False
+    if _supplied_by_the_product_class(scope, path, root, plan_classes):
+        return True
     claim = _class_claim(scope, bindings)
     if claim is None:
         return False
@@ -2934,10 +3103,35 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         " operator set authored where the Control Plane cannot see it."
         f" unregistered={unregistered} row_b={row_b} sdk_supplied={sdk_supplied}"
     )
+    # Both `D-IMPL-137` shapes are pinned by name, and `cp-04` is pinned
+    # SEPARATELY from the two that precede it because it reaches row B by the
+    # other route (`_supplied_by_the_product_class`, `D-IMPL-234`). A single
+    # merged list would stay green if that route stopped matching and the older
+    # reading started matching cp-04 for some unrelated reason — the
+    # "differently-green" failure this test's own docstring names.
+    #
+    # cp-01/02/03 appear here and NOT on the roster: they claim the exemption
+    # unruled, `D-IMPL-234` expressly declined to rule them in, and
+    # `test_the_one_document_exemption_has_not_spread` is red on exactly those
+    # three by that number. This assertion describes the tree; that one
+    # describes what was ruled. They disagree on purpose.
     assert row_b == [
         "examples/cp-00-institutional-holders",
+        "examples/cp-01-counterparty-reference-snapshot",
+        "examples/cp-02-facility-terms-snapshot",
+        "examples/cp-03-obligor-financial-spread",
+        "examples/cp-04-corporate-family-tree",
         "examples/s1-00-companies-over-revenue",
     ], row_b
+    assert _supplied_by_the_product_class(
+        *next(
+            (scope, path, _deployment_root(path))
+            for path, scope in _projecting_scopes()
+            if str(path.relative_to(REPO_ROOT)).startswith(
+                "examples/cp-04-corporate-family-tree/"
+            )
+        )
+    ), "cp-04 must reach row B by the D-IMPL-234 route, not by the older reading"
     assert sdk_supplied == ["examples/hw1-companies-over-revenue/deployment"], (
         sdk_supplied
     )
@@ -3023,6 +3217,29 @@ def test_the_factory_seam_still_names_its_operator_set_parameter() -> None:
 
     parameters = inspect.signature(ProjectionPlanFactoryProtocol.__call__).parameters
     assert FACTORY_REQUIRED_PARAMETER in parameters, sorted(parameters)
+
+
+def test_the_product_class_surface_still_names_its_operator_set() -> None:
+    """The two names the `D-IMPL-234` route keys on are the SDK's, not ours.
+
+    Both are assumptions about someone else's vocabulary, and a rename in either
+    place must turn THIS red. The failure mode being bought off is specific and
+    quiet: an unasserted rename would make
+    :func:`_config_declares_operator_set` read ``None`` and
+    :func:`_supplied_by_the_product_class` return ``False`` for every body, so
+    the route would hand out no exemptions at all — which reads as the gate
+    getting *stricter* and would sail past any check watching only for
+    over-permission. The same reasoning
+    :func:`test_the_factory_seam_still_names_its_operator_set_parameter` gives
+    for the `D-IMPL-141` route's parameter.
+    """
+    from ccf.controlplane.artifacts import ProductClassDeclaration
+    from ccf.deployment.config import _RESERVED_SECTIONS
+
+    assert PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE in ProductClassDeclaration.model_fields, (
+        sorted(ProductClassDeclaration.model_fields)
+    )
+    assert PRODUCT_CLASS_SECTION in _RESERVED_SECTIONS, sorted(_RESERVED_SECTIONS)
 
 
 def test_the_sdk_supplied_route_recognises_the_shipped_shape(
@@ -3387,6 +3604,242 @@ def test_a_second_operator_set_outside_the_control_plane_is_refused() -> None:
     ), problems
 
 
+#: A ``cp-04``-shaped deployment reduced to its skeleton: a config authoring the
+#: ONE operator set in the reserved section, and a projecting body whose plan
+#: reads ``required=`` off that declaration. Built from the module's own
+#: constants so a rename reaches this fixture rather than leaving it stale.
+_PRODUCT_CLASS_CONFIG = (
+    "semver: '1.0.0'\n"
+    f"{PRODUCT_CLASS_SECTION}:\n"
+    f"  {PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE}:\n"
+    "    - policy.principal-subgraph\n"
+    "    - traversal.typed-neighborhood\n"
+)
+
+_PRODUCT_CLASS_BODY = (
+    "def project(scenario, reader):\n"
+    f"    plan = Fixture{PLAN_CLASS_SUFFIX}({PLAN_ID_KEYWORD}=scenario.plan_id,"
+    f" {PLAN_REQUIRED_KEYWORD}=tuple(scenario.{PRODUCT_CLASS_SECTION}"
+    f".{PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE}))\n"
+    f"    return ProjectionEngine(reader=reader).execute({ENGINE_PLAN_KEYWORD}=plan)\n"
+)
+
+
+def _product_class_deployment(
+    root: pathlib.Path,
+    *,
+    config: str | None = _PRODUCT_CLASS_CONFIG,
+    body: str = _PRODUCT_CLASS_BODY,
+    requirements: str | None = None,
+) -> tuple[pathlib.Path, ast.AST]:
+    """Synthesize a `D-IMPL-234`-shaped deployment and return its projecting scope.
+
+    ``requirements`` writes a SECOND operator-set document into the artifact
+    tree — the sabotage (a) shape from `D-IMPL-234`'s contract, and the one fact
+    that must withdraw the exemption however the AST reads.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    if config is not None:
+        (root / SINGLE_FILE_CONFIG_NAME).write_text(config, encoding="utf-8")
+    if requirements is not None:
+        (root / "artifacts").mkdir(exist_ok=True)
+        (root / "artifacts" / "requirements.yaml").write_text(
+            requirements, encoding="utf-8"
+        )
+    path = root / "produce.py"
+    path.write_text(body, encoding="utf-8")
+    scope = next(
+        node
+        for node in ast.walk(ast.parse(body))
+        if isinstance(node, ast.FunctionDef) and node.name == "project"
+    )
+    return path, scope
+
+
+def test_the_product_class_route_recognises_the_shipped_cp_04_shape() -> None:
+    """The `D-IMPL-234` route's baseline: it matches the body it was ruled for.
+
+    A detector taught to recognise a shape can just as easily be taught to
+    recognise nothing, and a route matching zero bodies grants zero exemptions —
+    which reads as the gate tightening and would leave every refusal control
+    below passing over a dead function. Asserted against the SHIPPED example,
+    which is the subject the ruling names.
+    """
+    shipped = [
+        (path, scope)
+        for path, scope in _projecting_scopes()
+        if str(path.relative_to(REPO_ROOT)).startswith(
+            "examples/cp-04-corporate-family-tree/"
+        )
+    ]
+    assert shipped, "cp-04 has no projecting body; the ruling's subject moved"
+    for path, scope in shipped:
+        root = _deployment_root(path)
+        assert not _registers_requirements(root), (
+            "cp-04 registers a `ccf.projection-requirements` — it now has the"
+            " TWO documents the binder's premise wants, and D-IMPL-234's"
+            " exemption no longer describes it"
+        )
+        assert _supplied_by_the_product_class(scope, path, root), (
+            f"{path.relative_to(REPO_ROOT)}:{_scope_line(scope)}"
+        )
+        assert _one_document(scope, path, _bindings(scope))
+
+
+@pytest.mark.parametrize(
+    ("label", "kwargs"),
+    [
+        ("no Control Plane authoring surface at all", {"config": None}),
+        (
+            "a config with no product_class section",
+            {"config": "semver: '1.0.0'\n"},
+        ),
+        (
+            "a product class declaring no operator set",
+            {"config": f"semver: '1.0.0'\n{PRODUCT_CLASS_SECTION}:\n  ttl_anchor: x\n"},
+        ),
+        (
+            "a product class whose operator set is empty",
+            {
+                "config": f"semver: '1.0.0'\n{PRODUCT_CLASS_SECTION}:\n"
+                f"  {PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE}: []\n"
+            },
+        ),
+        (
+            "a plan built from a second set the Control Plane cannot see",
+            {
+                "body": _PRODUCT_CLASS_BODY.replace(
+                    f"scenario.{PRODUCT_CLASS_SECTION}"
+                    f".{PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE}",
+                    "scenario.operator_parameters",
+                )
+            },
+        ),
+        (
+            "a body that constructs no plan at all",
+            {"body": "def project(scenario, reader):\n    return None\n"},
+        ),
+    ],
+)
+def test_the_product_class_route_refuses_a_broken_condition(
+    tmp_path: pathlib.Path, label: str, kwargs: dict[str, object]
+) -> None:
+    """Each `D-IMPL-234` condition broken in turn, and watched to refuse.
+
+    The fifth case is `D-IMPL-137` **row C** at this route — a second operator
+    set authored where the Control Plane cannot see it — and it is the case that
+    separates a positive reading from *"registers nothing, therefore exempt."*
+    """
+    path, scope = _product_class_deployment(tmp_path / "zz-demo", **kwargs)  # type: ignore[arg-type]
+    assert not _supplied_by_the_product_class(scope, path, tmp_path / "zz-demo"), label
+
+
+def test_a_second_registered_document_withdraws_the_product_class_exemption(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Sabotage (a) from `D-IMPL-234`'s contract, as a standing control.
+
+    Dave's contract: *"a SECOND operator-set document in cp-04 that disagrees
+    must go RED under the binder or a named refusal."* The exemption is a claim
+    about the deployment's SHAPE, never about its name being on a roster, so the
+    same body under a tree that registers a second — **disagreeing** — operator
+    set must lose it. Registration is read by :func:`_registers_requirements`,
+    which :func:`_one_document` consults before either route, so the withdrawal
+    happens whatever the AST says.
+
+    Both halves asserted: that the unsabotaged fixture IS recognised, and that
+    the sabotaged one is refused. Either alone would keep passing if the other
+    silently changed.
+    """
+    root = tmp_path / "zz-demo"
+    path, scope = _product_class_deployment(root)
+    assert _supplied_by_the_product_class(scope, path, root), (
+        "the baseline fixture is not recognised, so the refusal below would"
+        " prove nothing"
+    )
+    assert not _registers_requirements(root)
+
+    # The second document, disagreeing with the config's two keys.
+    sabotaged_path, sabotaged_scope = _product_class_deployment(
+        root,
+        requirements=(
+            "semver: '1.0.0'\n"
+            f"class_id: {REQUIREMENTS_CLASS_ID}\n"
+            "declaration:\n"
+            f"  {PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE}:\n"
+            "    - similarity.nearest-neighbors\n"
+        ),
+    )
+    assert _registers_requirements(root), (
+        "a registered `ccf.projection-requirements` was not read, so the"
+        " exemption would survive the very shape it must not survive"
+    )
+    # The AST is unchanged; the DOCUMENT is what withdrew the exemption.
+    assert _supplied_by_the_product_class(sabotaged_scope, sabotaged_path, root), (
+        "the route itself reads only the code and the one config, by design —"
+        " the registration reading that refuses this body lives in"
+        " `_one_document`, and the assertion above is what proves it fires"
+    )
+
+
+def test_a_cp_04_shaped_exempt_body_that_calls_the_binder_is_refused() -> None:
+    """Sabotage (b) from `D-IMPL-234`'s contract, as a standing control.
+
+    Dave's contract: *"a copy of ``produce.py`` carrying a DECORATIVE
+    ``refuse_operator_set_divergence()`` must turn the tautology control RED."*
+    This is the sentence that makes the new route defensible on the same terms
+    `D-IMPL-137`'s routes are: the exemption is an **absence of demand**, not a
+    **licence**. A body reaching row B by :func:`_supplied_by_the_product_class`
+    is not asked to call the binder — but if it calls it anyway over the plan it
+    built from the very declaration it is about to be compared against, the
+    binder compares a value against itself, and :func:`_binder_collapses`
+    property (1), which the ``if demanded:`` guards do not cover, still refuses
+    it. Nothing is bought by claiming this exemption that could not be had
+    without it.
+
+    Run against cp-04's **real** ``produce.py`` path, the same way
+    :func:`test_an_exempt_body_that_calls_the_binder_is_still_refused` runs
+    HW-1's: a synthesized path resolves :func:`_deployment_root` to ``None`` and
+    the fail-closed default would refuse the body whatever its AST said, so the
+    control would pass without ever reaching the exempt branch it exists to
+    exercise. Both halves are asserted — that the body IS exempt by this route,
+    and that it is refused regardless.
+    """
+    produce = (
+        REPO_ROOT / "examples" / "cp-04-corporate-family-tree" / "produce.py"
+    )
+    root = _deployment_root(produce)
+    assert root is not None, (
+        "this control needs cp-04's REAL artifact tree; a synthesized path is"
+        " refused by the fail-closed default before the exempt branch is reached"
+    )
+
+    source = (
+        "def serve(scenario, reader, declared):\n"
+        f"    plan = Fixture{PLAN_CLASS_SUFFIX}({PLAN_ID_KEYWORD}=scenario.plan_id,"
+        f" {PLAN_REQUIRED_KEYWORD}=tuple(scenario.{PRODUCT_CLASS_SECTION}"
+        f".{PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE}))\n"
+        f"    {BINDER_CALL}({BINDER_DECLARED_KEYWORD}=scenario"
+        f".{PRODUCT_CLASS_SECTION}, {ENGINE_PLAN_KEYWORD}=plan)\n"
+        f"    return ProjectionEngine(reader=reader).execute("
+        f"{ENGINE_PLAN_KEYWORD}=plan)\n"
+    )
+    function = ast.parse(source).body[0]
+    assert isinstance(function, ast.FunctionDef)
+
+    # exempt, and by the D-IMPL-234 route specifically
+    assert _supplied_by_the_product_class(function, produce, root), source
+    assert _one_document(function, produce, _bindings(function)), source
+
+    # …and refused anyway, by property (1). This is what makes the exemption an
+    # absence of demand rather than a licence.
+    problems = _binder_collapses(function, produce)
+    assert problems, source
+    assert all(
+        "compares a value against itself" in problem for problem in problems
+    ), problems
+
+
 def test_the_exemption_roster_refuses_a_third_claimant() -> None:
     """The roster fires on a THIRD claimant, watched rather than assumed.
 
@@ -3396,8 +3849,15 @@ def test_the_exemption_roster_refuses_a_third_claimant() -> None:
     a synthesized third claimant — standing a real one up on disk would mean
     shipping it.
 
-    Two is what Dave ruled on 2026-08-27, naming ``s1-00`` and ``cp-00``.
-    Three is what nobody has ruled on, and it is red here until somebody does.
+    Two was what Dave ruled on 2026-08-27, naming ``s1-00`` and ``cp-00``;
+    `D-IMPL-234` made it three on 2026-09-01, naming ``cp-04``. **A FOURTH is
+    what nobody has ruled on, and it is red here until somebody does** — which
+    is not hypothetical: ``cp-01``, ``cp-02`` and ``cp-03`` are claiming it
+    unruled on the shipped tree right now, and
+    :func:`test_the_one_document_exemption_has_not_spread` is red on exactly
+    those three by `D-IMPL-234`. The synthesized name below keeps this control
+    independent of that standing red, so it still fires the day those three are
+    ruled on.
     """
     assert not _exemption_problems(sorted(RULED_ONE_DOCUMENT_DEPLOYMENTS))
     problems = _exemption_problems(
