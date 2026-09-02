@@ -811,9 +811,10 @@ declaration:
   # addresses, the suite goes red naming `CFT-G16`, and the values below are
   # replaced deliberately, in the same commit as the change, after the failure
   # has been read.
+  # Re-sealed 2026-09-02 under `D-IMPL-240` (1): `24.5-L-02` added `ProductLineage.store_snapshot_pin`, which is inside every content address by construction; the two addresses moved for that cause and no other; `CFT-G16` is on the 24.5 flip roster by id.
   perspective_content_addresses:
-    credit-officer: "205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498"
-    kyc-analyst: "838afbb037a8ca820a2854b1ac7eedd296262508ce00d747369bf48ee6077ea8"
+    credit-officer: "86fc6f998ebd83a3d1411c3f7e51c2118b39d2713725640287302cd6350206be"
+    kyc-analyst: "6ea9bb01886344da722f410c4e7011318124d3f58728bb55f03f667a910a92fc"
 
   # ---- `D_c` at two depths — the close-panel Finding 1 pin ----------------
   #

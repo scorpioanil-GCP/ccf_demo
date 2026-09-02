@@ -56,10 +56,13 @@ from datetime import datetime
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.graph.protocols import (
+    NO_STORE_SNAPSHOT_PIN,
     GraphQuery,
     GraphReader,
     GraphView,
+    SnapshotPinnable,
     SourceAttestation,
+    StoreSnapshotPin,
 )
 from ccf.operators.base import OperatorOutput, OperatorProvenance
 from ccf.operators.planner import IntermediateCache, build_operator_plan
@@ -174,6 +177,21 @@ class ExecutionResult(CCFContract):
             the compatibility posture (D-09).
             :func:`~ccf.replay.record.build_replay_record` pins this value
             into replay dimension 1.
+        store_snapshot_pin: The substrate's transaction-time head **as read
+            once before the first query of this execution** (ledger row
+            24.5-L-02, D-IMPL-240): a fact about the read, so it is taken
+            before anything is read — a pin taken afterward would describe
+            whatever head the store had reached by then, not the state the
+            queries saw. Threaded unconditionally by
+            :meth:`ProjectionEngine.execute` from a reader that is
+            :class:`~ccf.graph.protocols.SnapshotPinnable`;
+            :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN` is the positive
+            assertion that the reader exposes no native pin — every reader
+            shipped before the Protocol existed, and a result built by hand
+            without the field. The resolver copies it onto
+            :attr:`~ccf.products.contract.ProductLineage.store_snapshot_pin`
+            and :func:`~ccf.replay.record.build_replay_record` pins it into
+            replay dimension 1, where replay resolves exactly it or refuses.
     """
 
     plan_id: str
@@ -186,6 +204,7 @@ class ExecutionResult(CCFContract):
     executed_queries: tuple[GraphQuery, ...] = ()
     survivor_cap: int | None = None
     source_attestation: SourceAttestation | None = None
+    store_snapshot_pin: StoreSnapshotPin = NO_STORE_SNAPSHOT_PIN
 
     def touched_entities(self) -> tuple[str, ...]:
         """Entity URIs the execution actually touched, sorted."""
@@ -298,6 +317,22 @@ class ProjectionEngine:
         if attestation is None or isinstance(attestation, SourceAttestation):
             return attestation
         return None
+
+    def _reader_snapshot_pin(self) -> StoreSnapshotPin:
+        """The reader's store-native head pin, or the sentinel for one that cannot pin.
+
+        The pin analogue of :meth:`_reader_attestation` (ledger row
+        24.5-L-02, D-IMPL-240), and tolerant for the same reason: pinning is
+        a structural Protocol (:class:`~ccf.graph.protocols.SnapshotPinnable`),
+        so a reader that does not implement it has nothing to add and an
+        engine that crashed on it would be a behavior break. Such a reader
+        yields :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN` — the
+        positive claim "this substrate exposes no native pin" — and replay
+        dimension 1 records exactly that.
+        """
+        if isinstance(self._reader, SnapshotPinnable):
+            return self._reader.snapshot_pin()
+        return NO_STORE_SNAPSHOT_PIN
 
     def check_source_attestation(
         self, *, product_class: RegisteredProductClass
@@ -512,6 +547,11 @@ class ProjectionEngine:
         self._last_survivor_set_sizes = ()
         survivors: frozenset[str] | None = None
         view: GraphView | None = None
+        # Read ONCE, before the first ``reader.query()`` of this execution
+        # (24.5-L-02): the pin is a fact about the read, and a pin taken
+        # after the queries would describe a later head, not the state the
+        # queries saw. The sentinel for a reader that cannot pin.
+        store_snapshot_pin = self._reader_snapshot_pin()
 
         def run_operators(
             operator_keys: tuple[str, ...], current: GraphView
@@ -631,4 +671,7 @@ class ProjectionEngine:
             # which run_gates then refuses on and replay dimension 1 pins
             # (D-09; T-15.2-25).
             source_attestation=self._reader_attestation(),
+            # The head read before the first query, not re-read here: a
+            # second read could report a head the queries never saw.
+            store_snapshot_pin=store_snapshot_pin,
         )

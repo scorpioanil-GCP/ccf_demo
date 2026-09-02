@@ -726,6 +726,9 @@ class GovernedResolver:
                 operators_invoked=frozenset(required),
                 policy_bundle_versions=frozenset({policy_version}),
                 graph_snapshot_at=request.asked_at,
+                # 24.5-L-02: the head the engine read once before its first
+                # query, beside the temporal anchor and never inside it.
+                store_snapshot_pin=execution.store_snapshot_pin,
             ),
             payload=execution.projection.payload,
             debt=self.debt_scorer(view=execution.view),

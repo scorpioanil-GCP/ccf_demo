@@ -192,4 +192,8 @@ def snapshot_of_execution(
         store_watermark=execution.state_watermark(),
         touched_entities=execution.touched_entities(),
         touched_relationships=execution.touched_relationships(),
+        # 24.5-L-02: re-derived from the execution exactly as the id
+        # constituents are, so replay compares the pin it read under with
+        # the pin the record names.
+        store_snapshot_pin=execution.store_snapshot_pin,
     )

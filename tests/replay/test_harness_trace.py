@@ -231,6 +231,15 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
         b'"source_attestation":null,',
         b"",
     ).replace(
+        # 24.5-03, ledger row 24.5-L-02 (D-IMPL-240): the store-native
+        # snapshot pin lands on dimension 1 beside `source_attestation`
+        # under the same sentinel-default discipline. `NO_STORE_SNAPSHOT_PIN`
+        # renders as a two-field model rather than `null` because a pin is
+        # substrate-shaped — still a positive claim in one shape, never a
+        # `null` standing for "unknown" (D-IMPL-38).
+        b'"store_snapshot_pin":{"pin":"no-store-snapshot-pin","substrate":"none"},',
+        b"",
+    ).replace(
         b',"graph_adapter":"no-adapter","graph_adapter_version":"no-adapter"'
         b',"graph_secret_refs":[]',
         b"",

@@ -225,7 +225,12 @@ from typing import Any, Literal
 
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
-from ccf.graph.protocols import LineageMode, PolicyBindingMode
+from ccf.graph.protocols import (
+    NO_STORE_SNAPSHOT_PIN,
+    LineageMode,
+    PolicyBindingMode,
+    StoreSnapshotPin,
+)
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
     NO_OBLIGATION_IN_FORCE,
@@ -610,11 +615,30 @@ class ProductLineage(CCFContract):
             state assembled under two bundle versions has two bindings and
             collapsing them would lose the one that mattered.
         graph_snapshot_at: The temporal anchor of the graph state read.
+        store_snapshot_pin: The substrate's transaction-time head at the read
+            that assembled this product — the
+            :class:`~ccf.graph.protocols.StoreSnapshotPin` the reader minted
+            once, before its first query — recorded **beside**
+            ``graph_snapshot_at`` and never inside it (D-IMPL-88: a store
+            transaction counter is not an as-of instant and never implements
+            one; ledger row 24.5-L-02; D-IMPL-240). The default,
+            :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN`, is the positive
+            assertion *this product's substrate exposes no native pin* — what
+            a SQLite or Postgres deployment is in fact asserting today — and
+            it is asserted, never inferred from silence: a product assembled
+            before this field existed, and one assembled over a reader that
+            cannot pin, both say exactly that. This field is inside
+            :func:`~ccf.contracts.canonical.canonical_bytes` by construction
+            (every ``model_fields`` member is), so two products differing only
+            in pin have different content addresses — which is what makes
+            "served at pin N is not reproducible from pin N+1" a property of
+            the contract rather than a hope about the replay path.
     """
 
     operators_invoked: frozenset[str]
     policy_bundle_versions: frozenset[str]
     graph_snapshot_at: datetime
+    store_snapshot_pin: StoreSnapshotPin = NO_STORE_SNAPSHOT_PIN
 
 
 class ContextProductContract(CCFContract):

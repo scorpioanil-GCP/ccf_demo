@@ -387,6 +387,14 @@ class _Environment:
                     binding.version for binding in record.policy_bindings.bindings
                 ),
                 graph_snapshot_at=record.context_fabric_snapshot.temporal_boundary,
+                # And the store pin the decision read under (24.5-L-02,
+                # D-IMPL-240): it is inside the lineage's content address, so
+                # it does not ride the projection back and dimension 1 is
+                # the only place a `(record, projection)` rehydrator can read
+                # it from. On the memory backend both sides are the sentinel,
+                # so this line costs nothing here — the populated-value proof
+                # is the fluree-marked module beside this one.
+                store_snapshot_pin=record.context_fabric_snapshot.store_snapshot_pin,
             ),
             payload=projection.payload,
             debt=record.content_generation_path.debt,
@@ -1891,11 +1899,13 @@ def test_the_snapshot_holds_no_physical_copy_of_the_graph(
     """D-IMPL-06: boundary + tenant + watermark + manifest, and nothing else
     graph-shaped.
 
-    ``source_attestation`` (15.2-11, D-09) is the one non-D-IMPL-06 field:
+    ``source_attestation`` (15.2-11, D-09) is the first non-D-IMPL-06 field:
     the per-dimension provenance modes the reading source reported — a pin,
     not a copy of any graph state, and deliberately outside the
     ``graph_snapshot_id`` derivation, which stays the four D-IMPL-06
-    constituents exactly.
+    constituents exactly. ``store_snapshot_pin`` (24.5-L-02, D-IMPL-240) is a
+    pin, not a copy of graph state, and sits outside the ``graph_snapshot_id``
+    derivation (D-IMPL-06).
     """
     _address, record = _serve(deployment)
     snapshot = record.context_fabric_snapshot
@@ -1907,6 +1917,7 @@ def test_the_snapshot_holds_no_physical_copy_of_the_graph(
         "touched_entities",
         "touched_relationships",
         "source_attestation",
+        "store_snapshot_pin",
     }
 
 
