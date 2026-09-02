@@ -475,3 +475,96 @@ and compare it both ways instead of taking `subtree_size` as an integer. The
 same edit that fixed finding 5, applied one gate over.
 
 **Nothing was worked around.** `CFT-G09` is untouched by this plan.
+
+## 14. What the product should DO when an estate carries a SHARED LEI — a ruling, not an edit
+
+**Found during:** plan `24.4-FIX-03`, disposing close-panel finding 7 (codex).
+
+**What is true, read in the source.**
+`examples/cp-04-corporate-family-tree/deployment.py::resolve_anchor` issues
+`SELECT ?s WHERE { ?s <lei> "…" }` with **no `ORDER BY`** and returns the FIRST
+binding. Two graph nodes carrying one LEI would therefore make the anchor — and
+with it the whole served family, its content address and its replay record —
+depend on the store's row order, against a product whose own declaration says
+`determinism_class: deterministic`.
+
+**What was CLOSED here, and it is the check half only.** The estate property the
+determinism rests on was stated in a COMMENT in
+`artifacts/expected.yaml::census.lei_coverage` — *"1:1 — no node carries two, no
+LEI is shared"* — and the precondition guarding it compared distinct LEI VALUES
+against the declared NODE count, which a duplicate accompanied by an extra node
+satisfies exactly. `tests/examples/test_cp_04_seams.py::lei_identity_violations`
+now asserts both halves against the committed fixture, with four controls, and
+the measurement is 181 LEI-bearing nodes / 181 distinct values / 0 nodes
+carrying two / 0 values shared, over 748 insert nodes.
+
+**Why the rest is out of scope here.** What the product should DO when an estate
+DOES carry a shared LEI is a product-surface decision with at least three
+defensible answers, and they are different decisions:
+
+* **(a)** a **404** — the anchor is unresolvable rather than ambiguous, which
+  reads *this company has no family* and is a claim about the world;
+* **(b)** a **new refusal kind** — the honest verdict is *ambiguous anchor*, and
+  `ccf.products.refusal.py::REFUSAL_KINDS` has no member for it. That is `src/`
+  work, which criterion 49 forbids this phase, and it is the same gap deferred
+  item 9 records for `AssemblyRefused`;
+* **(c)** **serve the tree carrying a duplicate-identity finding** — which is
+  what this product ALREADY does for the duplicate pair one hop out
+  (`census.duplicate_entity_pair`, `CFT-G09`'s neighbour). It is the answer most
+  consistent with the product's own subject and the largest change.
+
+**Nothing was decided and nothing was worked around.** `resolve_anchor` is
+untouched.
+
+## 15. `refuse_stale_vocabulary_pointer`'s second condition cannot fail over its OWN source document
+
+**Found during:** plan `24.4-FIX-03`, while BUILDING the control for close-panel
+finding 9 — not by reading the function.
+
+**What is true.** The function holds every document `ccf_config.yaml` names to
+carrying all six family predicate IRIs. The set it looks for is
+`examples/cp-04-corporate-family-tree/deployment.py::family_predicate_iris`,
+which reads `SOURCE_VOCABULARY` — **the very document the fourth condition
+requires to be among the named ones**. So for that document the second condition
+compares a file against itself and is satisfied whatever the values are: a
+scratch `source-vocabulary.yaml` declaring `iri: TBC` for all six passes, and
+that is asserted rather than described by
+`tests/examples/test_cp_04_traversal.py::test_the_vocabulary_pointer_cannot_fail_over_its_own_source_document`.
+
+**What the check therefore does have.** Condition 1 (a pointer exists at all),
+condition 3 (every named document exists), condition 4 (the interpreter's
+document is among the named), and condition 2 **over any ADDITIONAL document the
+config names** — which is exactly the shipped defect its docstring reproduces
+(repointing the sentence at `assembly-recipe.yaml`). The value reading added by
+finding 9's fix is what makes condition 2 mean *carries* rather than *mentions*
+for those.
+
+**Why it is out of scope here.** Making condition 2 non-circular for the primary
+document requires a second, independent statement of the six IRIs to hold it
+against — a second place for one fact, which
+`artifacts/expected.yaml`'s own header refuses by name — or a decision that the
+IRIs live somewhere other than the document the interpreter reads. Both are
+surface decisions for whoever owns the artifact set.
+
+## 16. `CFT-G01`'s recipe witness names a weaker property than the gate proves
+
+**Found during:** plan `24.4-FIX-03`, disposing close-panel finding 10 (codex).
+
+**The finding as filed was REJECTED and the residual is this.** Codex reported
+that `CFT-G01` claims a *known* FIBO class while checking non-emptiness. It does
+not: `tests/examples/test_cp_04_traversal.py::class_violations` asserts
+MEMBERSHIP in `declared_class_vocabulary()` and carries two positive controls,
+one refusing an untyped node and one refusing an off-ontology class — *"a check
+that accepts any string measures presence"* — plus a vacuity control.
+
+**What is real.** `artifacts/assembly-recipe.yaml` step 3's witness argument is
+`every_returned_node_carries_a_non_empty_fibo_type_chain`. Non-empty is not
+known, so the recipe's witness understates what the build proves.
+
+**Why it is out of scope here.** Nothing executes a recipe witness —
+`grep -rn` for that argument across the tree returns exactly one hit, the
+declaration itself. That is `24.4-D-31`, which Phase 24.5 closes. It matters
+*then* rather than now: a checker wired to that string would implement the
+weaker property while `CFT-G01` proves the stronger one. Whether the witness is
+renamed to match the gate, or the gate's statement is read down to the witness,
+is a decision for the plan that builds the executor.
