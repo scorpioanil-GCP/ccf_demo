@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**758 entries**, of which **520** name a public Python surface.
+**789 entries**, of which **551** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-370 entries — 335 public Python surface, 35 not public Python API.
+387 entries — 352 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -6892,6 +6892,230 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
 
+#### ccf.graph.protocols.TemporalAxis
+
+- Surface: ccf.graph.protocols.TemporalAxis
+- Public surface: true
+- Change type: added
+- Before: absent — event time, transaction time and CCF `as_of` were three
+  facts stated in prose across two adapters' docstrings and `D-IMPL-88`, with no
+  typed home
+- After: `Literal["event-time", "transaction-time", "as-of"]`, with each axis
+  stated in one sentence beside the definition: event time is when the world
+  changed (`observed_at`, the validity window; Fluree's backdatable `@iso:`),
+  transaction time is when the store recorded it (Fluree's monotonic `t`; a fact
+  about a read, never a temporal cut), `as_of` is CCF's cut over observations
+  (`GQ-07`; `D-IMPL-88`: `t` never implements it)
+- Why: `24.5-L-03` — the three axes become named SDK vocabulary so a pin, a
+  docstring and a replay record spell them from one definition
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.TEMPORAL_AXES
+
+- Surface: ccf.graph.protocols.TEMPORAL_AXES
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `("event-time", "transaction-time", "as-of")` — the closed roster of
+  `TemporalAxis`, in the `ccf.operators.base.CATEGORY_ORDER` form, so a consumer
+  iterates the vocabulary rather than re-listing it
+- Why: `24.5-L-03`; the docstring test in `tests/graph/test_fluree_backend.py`
+  greps the adapter for the three phrases this roster names
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.StoreSnapshotPin
+
+- Surface: ccf.graph.protocols.StoreSnapshotPin
+- Public surface: true
+- Change type: added
+- Before: absent — a store-native pin had no type, so nothing stopped a
+  transaction counter from being handed to a seam typed for an as-of instant
+- After: `StoreSnapshotPin(substrate: str, pin: str)`, a frozen `CCFContract` on
+  the `"transaction-time"` axis. Deliberately a model rather than a `datetime`
+  and text rather than an `int`: `GraphQuery.as_of` refuses it by type (pydantic
+  refuses a model where a `datetime` is typed — the `D-IMPL-88` guard at the
+  type level), a pin is substrate-shaped and no arithmetic is ever done on it
+- Why: `24.5-L-01`, `D-IMPL-240` (2) — the pin must be a value `as_of` cannot
+  accept; also the type `24.5-L-02` (plan 03) records on `ProductLineage`
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN
+
+- Surface: ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `StoreSnapshotPin(substrate="none", pin="no-store-snapshot-pin")` — the
+  positive sentinel "this read carried no store-native pin", in the
+  `ccf.replay.record` `NO_*` voice, so a SQLite or Postgres deployment asserts
+  the absence rather than carrying a fake `t`
+- Why: `24.5-L-01` / `L-02` — "no pin" and "a pin" are distinguished by equality
+  against one value, never by `None`
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.SnapshotPinnable
+
+- Surface: ccf.graph.protocols.SnapshotPinnable
+- Public surface: true
+- Change type: added
+- Before: absent — no seam existed by which a consumer could ask a reader for
+  the state it read at, or for the same answer at an earlier state
+- After: a `@runtime_checkable` Protocol with two members —
+  `snapshot_pin() -> StoreSnapshotPin` (the substrate's current head, a fact
+  about the read) and `query_pinned(q, *, pin) -> GraphView` (the same answer
+  `query` would give with the store rolled back to `pin`; every as-of predicate
+  of `q` still applies — the pin bounds the STORE, `q.as_of` bounds the
+  OBSERVATIONS). Structural: a reader that cannot pin does not implement it and
+  needs no stub; consumers test `isinstance(reader, SnapshotPinnable)`
+- Why: `24.5-L-01`, `D-IMPL-240` (2); `D-10` — the graph Protocol gains, never
+  changes, signatures
+- Migration: none — additive. `FlureeGraphReader` is the only conforming reader
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.backends.fluree.FlureePinAhead
+
+- Surface: ccf.graph.backends.fluree.FlureePinAhead
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `class FlureePinAhead(LookupError)` — raised when a pin names a
+  transaction the ledger has not reached; its message carries the asked pin,
+  the ledger name and the server's own `current t=N`, and nothing from the URL
+  (`T-24.5-04`). A `LookupError` because that is what `SnapshotPinnable`
+  declares for a state the store cannot resolve
+- Why: `24.5-L-01` — a pin ahead of the head is a caller-catchable condition,
+  not a bare `httpx.HTTPStatusError`
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.backends.fluree.FLUREE_SUBSTRATE
+
+- Surface: ccf.graph.backends.fluree.FLUREE_SUBSTRATE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"fluree"` — the `substrate` a pin minted by this adapter carries and
+  the only one `query_pinned` accepts. A name, not a tuning value (CINV-01)
+- Why: `24.5-L-01` — a `StoreSnapshotPin` is substrate-shaped and only the
+  substrate that minted it can resolve it
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf_runtime.mcp.egress.PRODUCT_ADDRESS_TEMPLATE
+
+- Surface: ccf_runtime.mcp.egress.PRODUCT_ADDRESS_TEMPLATE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"ccf-product://{tenant}/{product_class}/{version}/q/{q}"` — a PATH-SEGMENT form, five
+  segments with the literal `q` fourth
+- Why: `24.5-L-08`. A path-segment form rather than a query string because FastMCP (`mcp==1.28.1`)
+  matches each `{x}` placeholder as one non-slash run and answers the FIRST registered template that
+  matches, so a `?q=` form would be captured by `PRODUCT_URI_TEMPLATE` as its `version` and answered
+  by the product-resource handler. The two templates are disjoint in both directions and
+  `tests/mcp/test_egress_listing.py` proves it on the real `ResourceTemplate.matches`, with a
+  negative control showing the rejected `?q=` form captured
+- Migration: none — additive
+
+*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+
+#### ccf_runtime.mcp.egress.AddressedQuestion
+
+- Surface: ccf_runtime.mcp.egress.AddressedQuestion
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen `CCFContract` (`extra=forbid`) carrying the tool's non-path arguments — `request`
+  (the caller's `WireRequest` as canonical text, exactly the tool's `request` argument), `subject`,
+  `intent`, `freshness`, `asked_at` (timezone-aware, or refused at construction)
+- Why: the plan specified the fifth segment as the canonical `WireRequest` alone. Measured against
+  the tool, that could not answer *the same question*: a `WireRequest` carries none of whitepaper
+  §6.3's four axes, and the door would have had to invent three strings (CINV-01) and read a clock for
+  the fourth (`D-IMPL-98`, `C-15`). Carrying the axes in the address is the only shape under which
+  `read_resource(product_address(q))` and `call_tool(q)` are the same call. Recorded as a deviation in
+  `24.5-06-SUMMARY.md`
+- Migration: none — additive
+
+*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+
+#### ccf_runtime.mcp.egress.product_address
+
+- Surface: ccf_runtime.mcp.egress.product_address
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(*, tenant, product_class, version, question: WireRequest, subject, intent, freshness, asked_at) -> str`.
+  The fifth segment is `base64.urlsafe_b64encode(canonical_bytes(AddressedQuestion(...)))` with the
+  `=` padding STRIPPED — alphabet `A–Z a–z 0–9 - _`, no `=`, `/`, `+`, `?` or `%`; canonical, so two
+  equal questions give one address. A naive `asked_at` or a path segment holding `/` is refused
+- Why: `24.5-L-08` — one place the address is spelled, so server, client and tests cannot drift
+- Migration: none — additive
+
+*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+
+#### ccf_runtime.mcp.egress.parse_product_address
+
+- Surface: ccf_runtime.mcp.egress.parse_product_address
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(uri: str) -> tuple[str, str, str, AddressedQuestion]`. Matches the five-segment shape
+  itself, refuses a `q` outside the unpadded alphabet or over `MAX_ADDRESS_QUESTION_BYTES`, re-pads,
+  decodes, validates the body and proves its `request` parses through `door_question`. Every refusal
+  is a `ValueError` naming the segment. The address handler rebuilds the URI from FastMCP's matched
+  segments and re-parses it here, so the parser is the single authority on every segment
+- Why: `T-24.5-17` — a tampered address is refused by name, never answered as a different question
+- Migration: none — additive
+
+*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+
+#### ccf_runtime.mcp.egress.MAX_ADDRESS_QUESTION_BYTES
+
+- Surface: ccf_runtime.mcp.egress.MAX_ADDRESS_QUESTION_BYTES
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `8_192` — the ceiling on the `q` segment's length, measured before decoding
+- Why: `T-24.5-19`, in the voice of the Fluree backend's `MAX_QUERY_BODY_BYTES`
+- Migration: none — additive
+
+*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+
+#### ccf.products.request.AnchorAmbiguityRefusal
+
+- Surface: ccf.products.request.AnchorAmbiguityRefusal
+- Public surface: true
+- Change type: added
+- Before: absent. An anchor resolving to more than one entity had no kind; cp-04's resolver served whichever row came first
+- After: `AnchorAmbiguityRefusal(CCFContract)` with `anchor: str`, `candidates: frozenset[str]`, `detail: str`; token `anchor-ambiguity-refusal` in `REFUSAL_KINDS`; a member of `_PRE_ASSEMBLY_REFUSALS`, so `envelope_for` refuses a lineage offered with it exactly as it does for `ProductRequestViolation`
+- Why: `24.5-L-16` (24.4 deferred item 14, `D-IMPL-234` (d)). The SDK names the kind and ships no resolver: which anchor is ambiguous, and whether a product answers 404, refuses with this value, or serves one candidate with a finding, is the product's ruling
+- Migration: none — a new type. `examples/cp-04-corporate-family-tree/deployment.py::resolve_anchor` is untouched
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.agents.errors.AssemblyRefusal
+
+- Surface: ccf.agents.errors.AssemblyRefusal
+- Public surface: true
+- Change type: added
+- Before: absent. An assembler's own refusal — a tier it does not serve, a capability it lacks — could only be raised as `AssemblyRefused`, which crossed the MCP door as `ToolError` prose
+- After: `AssemblyRefusal(CCFContract)` with `reason: str`, `detail: str`; token `assembly-refusal` in `REFUSAL_KINDS` under its own family comment; translated by `door_refusal` with no door edit
+- Why: `24.5-L-11`. The value form of an assembly-time refusal an assembler RETURNS through the D-60 channel, beside the kept exception. `reason` is the assembler's own token (a closed vocabulary is the deployment's to declare, CINV-01); the SDK fixes only the one token `as_refusal()` mints
+- Migration: none — a new type. An assembler that wants its refusal typed at a client returns it instead of raising
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
 #### ccf.assembly.worker.NO_RESOLVING_RULE
 
 - Surface: ccf.assembly.worker.NO_RESOLVING_RULE
@@ -6904,6 +7128,53 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none
 
 *Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
+
+#### ccf.controlplane.artifacts.DecayMode
+
+- Surface: ccf.controlplane.artifacts.DecayMode
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["curve", "supersede-only"]` — the type of `HalfLifeEntry.decay` and the return
+  type of `ccf.halflife.decay.decay_mode_of`
+- Why: a named module-level alias in the `ArtifactRole` / `RegistrationMode` shape, so that
+  `tests/invariants/test_no_obligation_vocabulary.py` sees one bound declaration it can exempt
+  by name (the members name two SDK code paths, not deployment values) rather than an unbound
+  `Literal` in a return annotation it cannot
+- Migration: none — additive
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### ccf.halflife.decay.NoDecayCurve
+
+- Surface: ccf.halflife.decay.NoDecayCurve
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `LookupError` sibling of `MissingHalfLife` (not a subclass), raised by `half_life_of`
+  for a supersede-only class
+- Why: a caller that wants a curve for an event-driven class is asking the wrong question, and
+  handing back any `timedelta` would express a decay nobody declared (INV-CH7-58). A sibling
+  rather than a subclass because an undeclared type and a declared-supersede-only type are
+  different authoring states with different fixes
+- Migration: none — additive. Callers of `half_life_of` over a table that may hold a
+  supersede-only class should read `decay_mode_of` first
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### ccf.halflife.decay.decay_mode_of
+
+- Surface: ccf.halflife.decay.decay_mode_of
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(table: HalfLifeTable, observation_type: str) -> Literal["curve", "supersede-only"]`;
+  raises `MissingHalfLife` for an undeclared type, as `half_life_of` does
+- Why: the one read `freshness` makes before it touches a curve, so the branch happens before any
+  rate is looked up
+- Migration: none — additive
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
 
 ### Not public Python API
 
@@ -7479,7 +7750,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-295 entries — 112 public Python surface, 183 not public Python API.
+302 entries — 119 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -9912,6 +10183,111 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `19-02-the-adapter-seam-carries-bytes.md`.*
 
+#### ccf.graph.backends.fluree.FlureeGraphStore
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphStore
+- Public surface: true
+- Change type: reshaped
+- Before: transport for the Cypher read (`post_query`, threading the
+  `Fluree-Min-T` floor) and the JSON-LD write (`post_update`); the ledger head
+  was readable only off a commit receipt
+- After: two methods added, constructor unchanged. `head_t() -> int` reads the
+  head off `GET …/ledgers`, matching `name` AND `branch` (the listing carries
+  every branch of every ledger on the server; the cp-04 example's name-only
+  match would answer whichever branch was listed first).
+  `post_query_pinned(body, *, pin_t) -> list[dict]` sends one JSON-LD read with
+  `from: <ledger>@t:N` as a dict value to `POST {base}/query` (no ledger in the
+  path — the path form is a measured `500`), refuses an over-budget body
+  loudly (there is no fallback to decline to), and raises `FlureePinAhead` on
+  the measured `408 err:db/ReadAfterWriteTimeout`. *(The manifest records a
+  class by its constructor, so these two methods leave no diff line — the
+  dumper blind spot `24.1.1-03` recorded. The name is post-baseline, so this is
+  the reconciled `reshaped`-over-`added` case of
+  `tests/test_surface_completeness.py`.)*
+- Why: `24.5-L-01` — the pin needs a transport the Cypher route cannot provide
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.backends.fluree.FlureeGraphReader
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphReader
+- Public surface: true
+- Change type: reshaped
+- Before: `GraphReader` over a Fluree ledger, every read on the Cypher route,
+  no way to ask for an earlier state of the store
+- After: two methods added, constructor unchanged; the reader now satisfies
+  `SnapshotPinnable` structurally. `snapshot_pin()` mints
+  `StoreSnapshotPin(substrate="fluree", pin=str(head_t))`.
+  `query_pinned(q, *, pin)` runs the `D-IMPL-88` guard first — a `datetime`, an
+  `int`, a `str` or a pin from another substrate is a `TypeError` naming the
+  ruling, before any I/O — then three pinned selects (entity claims,
+  relationship claims, the tenant's whole L axis) mapped by `_pinned_row` onto
+  the Cypher column names, then `materialize_view`, `fallback.answer` and the
+  interface's ordering: byte-identical to the unpinned route on a ledger frozen
+  at that `t` (proven live: `canonical_bytes(query_pinned(q, pin=head)) ==
+  canonical_bytes(as_of(...))`). Telemetry counters are untouched. *(Same
+  constructor-only manifest note as the store.)*
+- Why: `24.5-L-01`, `D-IMPL-240` (2): "Pinned JSON-LD claim read, fed to the
+  fallback"
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf_runtime.mcp.egress.build_egress_server
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: reshaped
+- Before: `(*, server_name, resolver, token_verifier, auth_settings, entitlement_source, perspective_resolver, expose_product_tool=False, product_tool_description=None)`
+- After: one added keyword, `expose_product_resource: bool = True`, placed after `perspective_resolver`.
+  Under `False` the product resource template is NOT registered (a TOOL-ONLY door).
+  `expose_product_resource=False` together with `expose_product_tool=False` is refused by
+  `ValueError` in the `D-03` voice — a door with neither surface answers nothing. When the tool is
+  exposed, a second resource template (`PRODUCT_ADDRESS_TEMPLATE`) is registered beside it.
+- Why: `24.5-L-09` — a parameterized class's resource has no parameter-free answer (cp-04's
+  `CFT-G13` limb (b) measured it refusing every read), and the only honest shape for such a class is
+  a door with no resource at all
+- Migration: none — the default preserves every existing deployment
+
+*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+
+#### ccf.products.request.ProductRequestViolationReason
+
+- Surface: ccf.products.request.ProductRequestViolationReason
+- Public surface: true
+- Change type: reshaped
+- Before: `Literal["undeclared-parameter", "missing-required-parameter", "type-mismatch", "class-mismatch"]` — four members; a tier refusal had no member and the ladder raised it as a string
+- After: five members, the fifth `"not-supported-at-tier"` — the Standard §9 `400 not_supported_at_tier` in the vocabulary's own hyphenated spelling
+- Why: `24.5-L-12`. Met at cp-01, cp-02, cp-03 and cp-04, each raising `AssemblyRefused("400 not_supported_at_tier …")` because the `Literal` could not say it. Hyphenated because every other member is; the Standard's underscore token travels verbatim inside `detail`
+- Migration: none — additive. A consumer branching on the four existing members sees them unchanged; one that enumerates the `Literal` sees a fifth
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.products.request.ProductRequestViolation
+
+- Surface: ccf.products.request.ProductRequestViolation
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` admitted the four members
+- After: `reason` admits the five; for a tier refusal `key` is the inert parameter's name, `declared_type` is `None` (an inert parameter is refused whatever its type), `presented_type` is the presented Python type name, and `detail` carries the Standard's status token, the parameter name and the declared reason prose — all three
+- Why: `24.5-L-12`. The manifest records the widened `reason` annotation as a reshape; the fields are unchanged
+- Migration: none — additive
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: reshaped
+- Before: `semver`, `schema_name`, `schema_version`, `arguments`; `from_declared` read exactly those and ignored every sibling key
+- After: one added field, `unsupported_arguments: Mapping[str, str] = Field(default_factory=dict)` — parameter name → the declared reason prose. `from_declared` reads the optional fourth key `unsupported_arguments` when present, defaults to the empty mapping when absent, and refuses a non-mapping or a non-string value in the same one-error voice the three required keys use. `docs/schemas/ccf.product-request-contract.json` regenerated
+- Why: `24.5-L-13`, Standard §2.4 (*declared-but-inert*): the request-contract artifact could not say "declared and always refused", which pushed the one thing §2.4 cares about out of the artifact and into code. The empty mapping is the positive assertion that a class declares no inert parameter — what every pre-phase declaration said and still says
+- Migration: none for an adopter whose declaration lacks the key. An adopter who was enforcing an inert set in code moves it into the artifact under this key and deletes the code
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
 #### ccf.assembly.worker.RelationshipResolutionRule
 
 - Surface: ccf.assembly.worker.RelationshipResolutionRule
@@ -9947,6 +10323,32 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   them mints nothing, because an endpoint no rule claims is not selectable
 
 *Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
+
+#### ccf.controlplane.artifacts.HalfLifeEntry
+
+- Surface: ccf.controlplane.artifacts.HalfLifeEntry
+- Public surface: true
+- Change type: reshaped
+- Before: `half_life_seconds: int` (required, positive), `decay_driver: str`,
+  `supersession_event: str`; `supersession_event` could only ride BESIDE a curve
+- After: `decay: Literal["curve", "supersede-only"] = "curve"` added;
+  `half_life_seconds: int | None = None`, required and positive under `curve`, refused under
+  `supersede-only`; `decay_driver` and `supersession_event` unchanged and required in both modes.
+  The unconditional `_rate_is_positive` field validator became the conditional
+  `_shape_matches_mode` model validator, keeping the `half_life_seconds must be positive`
+  message verbatim. The same class is re-exported unchanged as
+  `ccf.halflife.decay.HalfLifeEntry`, which the surface report lists as reshaped for the same
+  reason
+- Why: `24.5-L-22` — cp-03 §E.1 gives Restatement an event-driven λ_c with no number, and the
+  entry could not say so; cp-03 omitted the row rather than invent one. Whitepaper §7.7.1–§7.7.2:
+  supersession collapses the curve rather than continuing it. Additive under `D-10`: every
+  existing four-key entry validates unchanged (`tests/controlplane/test_artifact_roundtrip.py`
+  carries both a curve-only and a mixed case). No product value lands in `src/`
+- Migration: none for existing documents. A deployment with an event-driven class writes
+  `decay: supersede-only` and omits `half_life_seconds`. The regenerated
+  `docs/schemas/ccf.half-life-table.json` carries the new shape
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
 
 ### Not public Python API
 
@@ -12292,7 +12694,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-89 entries — 69 public Python surface, 20 not public Python API.
+96 entries — 76 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -14050,6 +14452,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
 
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: behavior
+- Before: address check, then the payload comparison. A presented inert parameter not in `arguments.properties` was refused as `undeclared-parameter`; one that WAS declared passed
+- After: address → **tier** → payload. The tier step returns `ProductRequestViolation(reason="not-supported-at-tier", key=<parameter>, declared_type=None, presented_type=<type name>, declared_keys=<arguments.properties>, presented_keys=<request.parameters>, detail="<key>: 400 not_supported_at_tier — <declared prose>")` for the first presented parameter, in sorted order, that the declaration names in `unsupported_arguments`. The verdict comes FROM the declaration; the function holds no parameter name
+- Why: `24.5-L-13`. The order is load-bearing: an inert parameter is refused whatever its type and is typically not in `arguments.properties`, so the payload comparison run first would call it undeclared and hide the reason the declaration authored. `tests/products/test_request_contract.py::test_a_planted_spine_constant_does_not_decide_the_verdict` plants `INERT_PARAMETERS = frozenset({"as_of"})` in a scratch copy of the module, shows the copy's verdict still comes from the declaration, and RECORDS that the No-Hardcoding lint reports nothing for the plant (its rules are prompt-shape, numeric-table and factory-bypass) — which is why the contract test is the gate
+- Migration: none for a request presenting no inert parameter. A caller presenting one now receives `not-supported-at-tier` where it previously received `undeclared-parameter` or a served product
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.agents.errors.AssemblyRefused
+
+- Surface: ccf.agents.errors.AssemblyRefused
+- Public surface: true
+- Change type: behavior
+- Before: a `ValueError` raised for channel-1 identity disagreements; no conversion to any value
+- After: the same exception, not retyped, with one added method `as_refusal() -> AssemblyRefusal` (reason `"assembly-refused"`, detail `str(self)`) so an assembler that catches its own raise can return the value; `AssemblyRefused("x").as_refusal()` envelopes identically to `AssemblyRefusal(reason="assembly-refused", detail="x")`
+- Why: `24.5-L-11`. Labeled `behavior` rather than `reshaped` deliberately: the surface manifest records a class's constructor shape only (the blind spot `24.1.1-03` recorded), so an added method moves no manifest line, and a `reshaped` claim with no diff line is a phase-close defect. The DECISION recorded in the docstring: the MCP tool handler does NOT catch this exception; governance and identity refusals stay raises and no door converts between the channels
+- Migration: none — additive
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.agents.assembler.ContextAssemblerProtocol
+
+- Surface: ccf.agents.assembler.ContextAssemblerProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `assemble(...) -> AssemblyOutcome | ProductRequestViolation` — the D-60 channel admitted one refusal value
+- After: `assemble(...) -> AssemblyOutcome | ProductRequestViolation | AssemblyRefusal`, widened additively so a conforming assembler can return the new value. `DeterministicAssembler` keeps its narrower annotation (return types are covariant) and is unchanged
+- Why: `24.5-L-11`; the plan's own instruction when the channel is narrower than "a `REFUSAL_KINDS` member". `src/ccf/agents/assembler.py` is outside the plan's `files_modified` and the edit is one annotation plus one docstring paragraph; recorded in the SUMMARY as a deviation. Labeled `behavior` because the manifest records the Protocol's constructor shape, not its members — the same blind spot `24.1.1-03` measured for the first widening
+- Migration: none — every existing implementation's narrower return still conforms
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: behavior
+- Before: sixteen entries across the gate, peering, mount, conformity and mixing families
+- After: eighteen — `AnchorAmbiguityRefusal: "anchor-ambiguity-refusal"` beside the two conformity verdicts, `AssemblyRefusal: "assembly-refusal"` under a new family comment. No token is a substring of another; `tests/products/test_refusal_envelope.py::test_the_refusal_vocabulary_is_closed_by_set_equality` is GREEN at 18 and each new kind has its own `test_envelope_for_<token>` function
+- Why: `24.5-L-11`, `24.5-L-16`. Found while sabotaging the per-kind coverage gate: its substring match was satisfied for `assembly-refusal` by the pre-existing `test_pre_assembly_refusal_rejects_a_lineage`; `test_every_kind_has_its_own_test_function` now requires the exact name `test_envelope_for_<token>`
+- Migration: none for a consumer of the envelope; a consumer that enumerates the mapping sees two more kinds
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
 #### ccf.assembly.worker.AssemblyWorker
 
 - Surface: ccf.assembly.worker.AssemblyWorker
@@ -14071,6 +14521,59 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   (measured: no fixture declares a rule whose subject and object classes coincide)
 
 *Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
+
+#### ccf.halflife.decay.half_life_of
+
+- Surface: ccf.halflife.decay.half_life_of
+- Public surface: true
+- Change type: behavior
+- Before: returned `timedelta(seconds=entry.half_life_seconds)` for any declared type
+- After: the same for a `curve` type; raises `NoDecayCurve` naming the type for a
+  `supersede-only` type
+- Why: no curve exists and none is fabricated (`24.5-L-22`; INV-CH7-58, D-IMPL-38)
+- Migration: none for tables with only curve classes (every table on the tree today)
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### ccf.halflife.decay.freshness
+
+- Surface: ccf.halflife.decay.freshness
+- Public surface: true
+- Change type: behavior
+- Before: naive-instant refusal, then budget from `half_life_of`, then the curve ratio (which
+  made the future-observation and non-positive-sensitivity refusals inside the curve path)
+- After: the naive-instant, future-observation and non-positive-sensitivity refusals are made
+  first and in both modes; then `decay_mode_of` branches — `supersede-only` returns
+  `Decimal(1)`, `curve` takes the unchanged budget/ratio path. `FreshnessScorer` and
+  `assess_debt` needed no edit; they call `freshness`
+- Why: retained relevance is whole until the supersession event, and a superseded observation is
+  excluded from the as-of view (INV-CH7-14) before freshness is read, so the value never sees a
+  stale one. The refusals moving ahead of the branch is what keeps a supersede-only declaration
+  from laundering a clock fault into a perfect freshness figure
+- Migration: none — identical figures and identical refusals for every curve class; the
+  refusal *order* is unchanged for curve classes (naive, then future, then sensitivity, as before)
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### `24.5-L-23` — no surface change
+
+- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
+- Public surface: true
+- Change type: behavior
+- Before: `max_ttl_key: str` and no seconds field; the ceiling's number is `MaxTTL.seconds`,
+  registered by the deployment under that key; `run_gates` refuses over-cap as `ttl-bounds`
+- After: **unchanged — 0 diff lines in `ProductClassDeclaration` and `RegisteredProductClass`.**
+  The precedence is stated in one sentence, enforced by
+  `tests/products/test_max_ttl_precedence.py` (the REGISTERED number decides, by name; a
+  re-registration at a new version moves the cap without touching the class; a set-comprehension
+  field-absence assertion goes RED on any future second copy), and cut by a dated note
+- Why: criterion 18's cut branch, Dave's conditional verbatim on ledger row `24.5-L-23`:
+  *"If Wave 1 cannot state that precedence in one sentence, cut L-23 then — don't ship two
+  unused fields."* Wave 1 stated it and measured it true; a seconds field on the declaration
+  would be the second copy that conditional forbids
+- Migration: none. A future ceiling-in-seconds proposal is a `D-IMPL`, not a field
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
 
 ### Not public Python API
 
