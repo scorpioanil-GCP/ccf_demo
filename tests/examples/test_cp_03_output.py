@@ -768,8 +768,12 @@ def test_ofs_g06_as_of_is_refused_and_never_silently_honored(seeded: str) -> Non
     dangerous outcome is not the refusal; it is ACCEPTING the parameter and
     ignoring it, which answers a question about today while the caller believes
     they asked about last March.
+
+    Rewritten under 24.5-FLIP-ROSTER.md (`24.5-L-12`, `24.5-L-13`): the
+    refusal is now the SDK's own `not-supported-at-tier` verdict, returned as
+    DATA by the tier step of `refuse_request` before the product's inert
+    branch is reached, so nothing raises and the observer sees the verdict.
     """
-    produce = _load("produce")
     deployment = _load("deployment")
 
     declared = deployment.unsupported_arguments()
@@ -796,39 +800,44 @@ def test_ofs_g06_as_of_is_refused_and_never_silently_honored(seeded: str) -> Non
         raised = True
         served = captured[0] if captured else None
 
-    # THE REFUSAL MUST HAVE BEEN RAISED, not merely observed. The gate checked
-    # only that the captured value WAS a `ParameterNotSupported`, which a
-    # product could satisfy while completing the assembly normally and handing
-    # the caller a served spread — the parameter noted and then ignored, which
-    # is the precise failure this gate exists to prevent. Close-panel finding,
-    # 2026-08-31.
-    assert raised, (
-        "the assembly completed without refusing. `as_of` was noted and then"
-        " ignored, which answers a question about today while the caller"
-        " believes they asked about a past date"
+    # THE REFUSAL IS RETURNED, NOT RAISED. The tier step of `refuse_request`
+    # (`24.5-L-13`) answers `as_of` with the SDK's own `not-supported-at-tier`
+    # verdict as DATA, before the product's inert branch, so the observer sees
+    # the verdict and nothing raises. A raise here would mean the SDK step did
+    # not fire and the product's own branch answered instead; a served spread
+    # would mean neither did. The raise this replaced was the close-panel
+    # finding of 2026-08-31; rewritten under 24.5-FLIP-ROSTER.md.
+    from ccf.products.request import ProductRequestViolation
+
+    assert not raised, (
+        "the refusal arrived as a raise from the product's own branch; the"
+        " SDK's tier verdict (not-supported-at-tier) did not fire first"
     )
-    assert isinstance(served, produce.ParameterNotSupported), (
+    assert isinstance(served, ProductRequestViolation), (
         "as_of was accepted rather than refused; got"
         f" {type(served).__name__}. A silently ignored as_of answers a"
         " question about today while the caller believes they asked about a"
         " past date, and nothing in the payload would say so"
     )
-    assert served.status == 400, f"expected status 400, got {served.status}"
-    assert served.parameter == deployment.PARAM_AS_OF, (
-        f"the refusal names {served.parameter!r} rather than as_of"
+    assert served.reason == "not-supported-at-tier", (
+        f"the refusal reads {served.reason!r} rather than not-supported-at-tier"
     )
-    assert served.reason, "the refusal carries no reason for the caller to read"
+    assert served.key == deployment.PARAM_AS_OF, (
+        f"the refusal names {served.key!r} rather than as_of"
+    )
+    assert "400 not_supported_at_tier" in served.detail, (
+        "the refusal's detail does not carry the Standard's status token"
+    )
 
     # `not_supported_at_tier` is the SPEC's name for this condition and is not
     # a value anywhere in the SDK: `ProductRequestViolation.reason` is a closed
     # Literal with no member for it, which is why the assembler RAISES rather
     # than returning a violation. Recorded at §F.4; asserted here so that a
     # future SDK member for it is noticed rather than silently unused.
-    from ccf.products.request import ProductRequestViolation
-
     members = getattr(
         ProductRequestViolation.model_fields["reason"].annotation, "__args__", ()
     )
+    # green by spelling — 24.5-FLIP-ROSTER.md
     assert "not_supported_at_tier" not in members, (
         "the SDK now has a not_supported_at_tier refusal member. This product"
         " should return it rather than raising, and §F.4's finding closes"

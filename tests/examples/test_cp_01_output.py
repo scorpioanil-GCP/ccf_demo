@@ -334,6 +334,11 @@ def test_as_of_is_declared_and_always_refused(seeded: str) -> None:
     *"A parameter that appears to work and does not will be relied on in a
     dispute."* It must be DISCOVERABLE in the contract and REFUSED at the door,
     and both halves are asserted: the declaration, then the refusal.
+
+    Rewritten under 24.5-FLIP-ROSTER.md (`24.5-L-12`, `24.5-L-13`): the
+    refusal is now the SDK's own verdict, returned as DATA by the tier step of
+    `refuse_request` — reason `not-supported-at-tier`, carrying the
+    declaration's prose — before the product's own branch could raise.
     """
     deployment = _load("deployment")
     declared = yaml.safe_load(deployment.CONFIG.read_text(encoding="utf-8"))
@@ -341,8 +346,23 @@ def test_as_of_is_declared_and_always_refused(seeded: str) -> None:
     assert "as_of" in properties, "an undeclared parameter tells a caller nothing"
     assert "as_of" in deployment.unsupported_arguments()
 
-    with pytest.raises(AssemblyRefused, match="not_supported_at_tier"):
-        _serve(seeded, as_of="2026-01-01T00:00:00+00:00")
+    from ccf.products.request import ProductRequestViolation
+
+    served = _serve(seeded, as_of="2026-01-01T00:00:00+00:00")
+    assert isinstance(served, ProductRequestViolation), (
+        "as_of was not refused by the SDK's tier verdict; the seam handed back"
+        f" {type(served).__name__}"
+    )
+    assert served.reason == "not-supported-at-tier", (
+        f"the refusal reads {served.reason!r} rather than not-supported-at-tier"
+    )
+    assert served.key == "as_of", f"the refusal names {served.key!r}"
+    assert "400 not_supported_at_tier" in served.detail, (
+        "the refusal's detail does not carry the Standard's status token"
+    )
+    assert deployment.unsupported_arguments()["as_of"] in served.detail, (
+        "the verdict does not carry the declaration's own reason prose"
+    )
 
 
 def test_the_product_is_byte_identical_across_identical_requests(
