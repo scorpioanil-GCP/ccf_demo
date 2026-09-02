@@ -3723,7 +3723,7 @@ def test_the_module_docstring_names_the_three_temporal_axes() -> None:
     ``event time``, ``transaction time`` and ``as_of`` — the
     ``TEMPORAL_AXES`` vocabulary in prose — plus the ruling that keeps them
     apart, ``D-IMPL-88``. Then the control, in the
-    ``tests/products/test_refusal_envelope.py::test_control_1_…`` voice: for
+    ``tests/products/test_refusal_envelope.py::test_control_1_a_new_direct_gate_subclass_fails_the_gate`` voice: for
     each phrase, the docstring with that phrase removed must FAIL the same
     predicate, naming exactly that phrase. A predicate that cannot be made
     to fail proves nothing.
