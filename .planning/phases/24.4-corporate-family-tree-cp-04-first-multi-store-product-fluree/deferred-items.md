@@ -568,3 +568,59 @@ declaration itself. That is `24.4-D-31`, which Phase 24.5 closes. It matters
 weaker property while `CFT-G01` proves the stronger one. Whether the witness is
 renamed to match the gate, or the gate's statement is read down to the witness,
 is a decision for the plan that builds the executor.
+
+## 17. Close-panel advisories deferred by ruling at plan `24.4-FIX-05` — WR-02, WR-03, WR-04, WR-06
+
+**Found during:** the 2026-09-01 close-panel review (`24.4-REVIEW.md`). Dave's
+ruling scoped `24.4-FIX-05` to CR-01, CR-02, WR-05 and WR-01. The four warnings
+below are **advisory, recorded and NOT fixed** — each named with why it is
+deferred rather than worked in this fix.
+
+**WR-02 — contract validation runs after the full two-store source read.**
+`produce.py::assemble_and_serve` calls `read(...)` (the whole two-estate read,
+both closed-world guards, the mint) BEFORE `refuse_request` and the
+unsupported-parameter loop, while `ccf_config.yaml` and `produce.py`'s own inline
+comment say the contract is *"Checked at the door, before either store is
+opened, so a question this class does not answer costs nothing."* The order is
+false as written. **Deferred:** the fix is a reorder of the spine (`produce.py`)
+that moves what runs for BOTH callers, and it is an efficiency/wording
+correction rather than a defect that takes anything down — out of the four
+scoped fixes. A reorder here would also want its own equivalence check that the
+two callers still agree, which belongs with whoever reworks the spine.
+
+**WR-03 — `intent` is declared operative ("an unknown intent is a 400") and is
+unimplemented; the caller's copy is discarded.** `refuse_request` checks only
+`type: string`, so any `intent` serves, and `deployment.py::request` sets
+`intent` from `question.yaml` unconditionally, so `ProductRequest.intent` is
+always the artifact's value even when the caller's differs. **Deferred:** it is
+the SAME class as CR-02 (a declared-operative-but-inert parameter) on a
+different parameter, and it is not in this fix's scope. The two honest closures
+— validate `intent` against a declared closed set and refuse unknowns, OR
+rewrite the description to what is true and derive `intent` from the caller's
+parameters — are the same shape CR-02 took for `debt_tolerance` and belong to
+whoever owns the `intent` surface.
+
+**WR-04 — the verified caller `client_id` does not reach the replay record.**
+`serve.py::resolve_perspective` builds `Perspective(principal_id=grant.client_id,
+…)` and `compose` forwards it, but `deployment.read` rebuilds the scenario
+perspective from the registered artifact via `perspective(role)`, whose
+`principal_id` is `ccf_config.yaml`'s `PRIN-COV-001`. Today the two coincide
+because the minted token's `client_id` is that same string, so the role-axis
+check cannot see it. **Deferred:** threading the full forwarded `Perspective`
+through `produce` to `read` changes what the serving path records for BOTH
+callers and reopens `DI-15.5-03` on the principal axis — a behavior change to the
+spine beyond this fix, and it wants its own principal-axis assertion from the
+door test.
+
+**WR-06 — SQL identifiers interpolated without identifier quoting.**
+`deployment.py::resolve_attributes` composes
+`f'SELECT {projection} FROM "{resolved.schema}".{table} WHERE {key_column} =
+ANY(%s)'`; `schema` is double-quoted but not escape-doubled, and `table`,
+`key_column` and the served columns are interpolated bare. All sources are
+deployment-controlled (env var + `source-vocabulary.yaml`), so this is **not
+remotely injectable** — the key VALUES are correctly bound via `ANY(%s)`.
+**Deferred:** it is adoption-template hardening (composing identifiers with
+`psycopg.sql.Identifier`), valuable because adopters repoint the artifacts at
+their own estates, but not a defect in the shipped deployment and outside this
+fix's scope. The same pattern in `tests/examples/cp_04_seed.py` and the dump
+tool is test-side and acceptable.
