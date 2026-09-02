@@ -295,7 +295,16 @@ def _report(result: Result, *, args: argparse.Namespace, asked_at: datetime) -> 
     findings: list[Mapping[str, Any]] = list(payload["findings"])
     resolved = [node for node in nodes if node["attributes"]]
     unresolved = [node for node in nodes if not node["attributes"]]
-    deepest = max((int(node["depth"]) for node in nodes), default=0)
+    # `projection.py::_node` serves `NOT_EVALUABLE` — a declared member of the
+    # depth field's vocabulary (§C.4 trap 5: never `0`, never `null`) — for a
+    # node the undirected L4 walk admits outside the directed reach at the
+    # ceiling (the `D-36` gap the sentinel exists for). A finding the product is
+    # ALLOWED to emit must not take the reporter down: the sentinel is skipped
+    # for `deepest` and its count is surfaced instead, so the gap is made
+    # visible rather than crashing `int()` after the JSON already printed (WR-05).
+    integer_depths = [node["depth"] for node in nodes if isinstance(node["depth"], int)]
+    deepest = max(integer_depths, default=0)
+    not_evaluable = sum(1 for node in nodes if not isinstance(node["depth"], int))
     asked_depth = (
         f"{args.max_depth}   (named by the caller)"
         if args.max_depth is not None
@@ -318,6 +327,10 @@ def _report(result: Result, *, args: argparse.Namespace, asked_at: datetime) -> 
           f" over it is refused by name, never clamped)")
     print(f"   deepest node       {deepest} hop(s) out — an undirected"
           f" NEIGHBORHOOD, not a directed descendant tree (D-36)")
+    if not_evaluable:
+        print(f"   ...NOT_EVALUABLE   {not_evaluable} node(s) the undirected walk"
+              f" admits outside the directed reach at the ceiling (D-36) — the"
+              f" gap made visible, never a depth of 0")
     print(f"   nodes returned     {len(nodes)}")
     # THE HEADLINE OF THIS RUNG. The two numbers are the multi-store split made
     # visible on one small subtree, and the second one is the point: a build

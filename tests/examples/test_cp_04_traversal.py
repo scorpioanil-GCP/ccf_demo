@@ -1547,3 +1547,110 @@ def test_the_debt_limb_refuses_a_pin_nothing_asks() -> None:
     violations = debt_movement_violations(asks=asks, pinned=pins)
     assert violations, "a declared depth nothing asked was accepted as covered"
     assert any("do not correspond" in entry for entry in violations), violations
+
+
+# ---------------------------------------------------------------------------
+# WR-05 — the reporter renders the `NOT_EVALUABLE` depth sentinel, never crashes.
+# ---------------------------------------------------------------------------
+
+
+def _report_payload(deepest_depth: Any) -> dict[str, Any]:
+    """A minimal served payload for `run.py::_report`, one node at ``deepest_depth``.
+
+    The second node carries the depth field's `NOT_EVALUABLE` sentinel — a
+    DECLARED member of that field's vocabulary (`projection.py::_node`,
+    §C.4 trap 5) — so the reporter is fed exactly the value a payload is
+    ALLOWED to emit.
+    """
+    return {
+        "anchor": {
+            "lei": "54930022CZO1N2UGVW07",
+            "label": "Super Micro Computer, Inc.",
+            "type_chain": ["https://www.omg.org/spec/Commons/Organizations/LegalEntity"],
+        },
+        "nodes": [
+            {"depth": deepest_depth, "attributes": {"legal_jurisdiction": "US-DE"}},
+            {"depth": _load("projection").NOT_EVALUABLE, "attributes": {}},
+        ],
+        "findings": [],
+        "max_depth_applied": 3,
+        "jurisdictions": ["US-DE"],
+        "perspective_role": "credit-officer",
+        "class_axis": "Corporation",
+        "detailed_members": ["a", "b"],
+    }
+
+
+def _report_result(payload: Mapping[str, Any]) -> Any:
+    """A stand-in `ccf.client.result.Result` for `_report` — it only READS."""
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        payload=payload,
+        debt=None,
+        lineage=SimpleNamespace(
+            operators_invoked={"traversal.typed-neighborhood", "policy.principal-subgraph"},
+            policy_bundle_versions={"pv-1"},
+        ),
+        expires_at=datetime(2026, 9, 1, tzinfo=UTC),
+        content_address="sha256:demo",
+        replay_ref="replay:demo",
+    )
+
+
+def test_report_renders_a_not_evaluable_depth_without_crashing() -> None:
+    """**WR-05.** A payload carrying `NOT_EVALUABLE` in a depth field is reported.
+
+    Dave: *"`_report` must not crash on `NOT_EVALUABLE`. Print the sentinel /
+    skip the block. A finding the product is allowed to emit cannot take down
+    the example."* Before the fix, `_report` did `int(node["depth"])` over every
+    node and raised `ValueError` on the string sentinel AFTER the JSON already
+    printed. Now the sentinel is skipped for the deepest-node figure and its
+    count is surfaced instead.
+
+    Sabotage: restoring `int(node["depth"])` over every node makes this raise
+    `ValueError` — watched RED when the reporter was reverted.
+    """
+    from types import SimpleNamespace
+    from datetime import UTC, datetime
+    import io
+    from contextlib import redirect_stdout
+
+    run = _load("run")
+    result = _report_result(_report_payload(deepest_depth=2))
+    args = SimpleNamespace(max_depth=3)
+    captured = io.StringIO()
+    # Must not raise — the whole subject of WR-05.
+    with redirect_stdout(captured):
+        run._report(result, args=args, asked_at=datetime(2026, 9, 1, tzinfo=UTC))
+    out = captured.getvalue()
+
+    # The gap is made VISIBLE, not swallowed: the sentinel node is counted and
+    # the deepest-node figure comes from the one integer depth (2), never a 0
+    # coerced from the sentinel.
+    assert "NOT_EVALUABLE" in out, out
+    assert "1 node(s)" in out, out
+    assert "deepest node       2 hop(s)" in out, out
+
+
+def test_report_reads_the_deepest_integer_depth_not_the_sentinel() -> None:
+    """**Control.** The deepest figure tracks the integer depths, and only those.
+
+    A reporter that quietly read the sentinel as `0` would report a deepest node
+    of `0` on a payload whose only integer depth is `5`. Fed exactly that, the
+    figure must be `5` — proving the sentinel is excluded rather than coerced.
+    """
+    from types import SimpleNamespace
+    from datetime import UTC, datetime
+    import io
+    from contextlib import redirect_stdout
+
+    run = _load("run")
+    result = _report_result(_report_payload(deepest_depth=5))
+    args = SimpleNamespace(max_depth=6)
+    captured = io.StringIO()
+    with redirect_stdout(captured):
+        run._report(result, args=args, asked_at=datetime(2026, 9, 1, tzinfo=UTC))
+    out = captured.getvalue()
+    assert "deepest node       5 hop(s)" in out, out
