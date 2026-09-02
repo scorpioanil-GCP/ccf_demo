@@ -1,0 +1,55 @@
+{
+  "additionalProperties": false,
+  "description": "The Traversal category's DIRECTED walk parameters as a versioned artifact (\u00a77.4).\n\nThe sibling of :class:`TraversalNeighborhoodParametersArtifact` for ledger\nrow ``24.5-L-06``, in the same shape: inherits\n:class:`~ccf.operators.params.TraversalDescendantsParameters` verbatim, so\na parsed artifact **is** a descendants parameter set and passes straight\nto :class:`~ccf.operators.categories.TraversalDescendants` with no field\ntranslation. The artifact adds a semver lane and nothing else.\n\n**Selecting this class is what selects the direction.** The document\ncarries no ``direction`` value \u2014 the operator the builder constructs from\nit (``src/ccf/deployment/operators.py::build_operator_registry``) walks\nforward, subject to object as stored, and no authored value can turn it\naround. A deployment that wants the undirected neighborhood authors the\nsibling class; both are ``traversal`` (D-IMPL-223).\n\nNo field gains a default here; ``depth_limit`` stays required (INV-CH7-24).",
+  "properties": {
+    "admitted_entity_classes": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Admitted Entity Classes"
+    },
+    "depth_limit": {
+      "title": "Depth Limit",
+      "type": "integer"
+    },
+    "relationship_types": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Relationship Types",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "seed_entity_classes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Seed Entity Classes",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "seed_entity_classes",
+    "relationship_types",
+    "depth_limit",
+    "semver"
+  ],
+  "title": "TraversalDescendantsParametersArtifact",
+  "type": "object",
+  "x-ccf-class-id": "ccf.operator-parameters.traversal-descendants"
+}

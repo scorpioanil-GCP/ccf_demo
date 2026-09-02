@@ -82,6 +82,7 @@ from ccf.halflife.assessment import (
 from ccf.operators.params import (
     SimilaritySelectParameters,
     TemporalAsOfParameters,
+    TraversalDescendantsParameters,
     TraversalNeighborhoodParameters,
 )
 from ccf.products.contract import (
@@ -112,6 +113,7 @@ __all__ = [
     "OPERATOR_PARAMETERS_SIMILARITY",
     "OPERATOR_PARAMETERS_TEMPORAL",
     "OPERATOR_PARAMETERS_TRAVERSAL",
+    "OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS",
     "PERSPECTIVE",
     "PRODUCT_CLASS",
     "PROJECTION_REQUIREMENTS",
@@ -138,6 +140,7 @@ __all__ = [
     "SignalBatch",
     "SimilaritySelectParametersArtifact",
     "TemporalAsOfParametersArtifact",
+    "TraversalDescendantsParametersArtifact",
     "TraversalNeighborhoodParametersArtifact",
     "VersionedArtifact",
     "declared_artifact_class",
@@ -442,6 +445,29 @@ class TraversalNeighborhoodParametersArtifact(
     No field gains a default here. ``depth_limit`` in particular stays required —
     the bound is the operator's entire correctness claim (INV-CH7-24), and a
     default bound is one nobody chose.
+    """
+
+
+class TraversalDescendantsParametersArtifact(
+    OperatorParametersArtifact, TraversalDescendantsParameters
+):
+    """The Traversal category's DIRECTED walk parameters as a versioned artifact (§7.4).
+
+    The sibling of :class:`TraversalNeighborhoodParametersArtifact` for ledger
+    row ``24.5-L-06``, in the same shape: inherits
+    :class:`~ccf.operators.params.TraversalDescendantsParameters` verbatim, so
+    a parsed artifact **is** a descendants parameter set and passes straight
+    to :class:`~ccf.operators.categories.TraversalDescendants` with no field
+    translation. The artifact adds a semver lane and nothing else.
+
+    **Selecting this class is what selects the direction.** The document
+    carries no ``direction`` value — the operator the builder constructs from
+    it (``src/ccf/deployment/operators.py::build_operator_registry``) walks
+    forward, subject to object as stored, and no authored value can turn it
+    around. A deployment that wants the undirected neighborhood authors the
+    sibling class; both are ``traversal`` (D-IMPL-223).
+
+    No field gains a default here; ``depth_limit`` stays required (INV-CH7-24).
     """
 
 
@@ -1513,6 +1539,13 @@ RESOLUTION_SPEC = ArtifactClass(
 OPERATOR_PARAMETERS_TRAVERSAL = ArtifactClass(
     class_id="ccf.operator-parameters.traversal",
     contract=TraversalNeighborhoodParametersArtifact,
+)
+#: The Traversal category's DIRECTED sibling (whitepaper §7.4; ledger row
+#: ``24.5-L-06``). A second class id under ``ccf.operator-parameters.*`` so a
+#: manifest selects the walk's direction by naming the class, never by a value.
+OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS = ArtifactClass(
+    class_id="ccf.operator-parameters.traversal-descendants",
+    contract=TraversalDescendantsParametersArtifact,
 )
 #: The Temporal category's parameter class (whitepaper §7.4).
 OPERATOR_PARAMETERS_TEMPORAL = ArtifactClass(

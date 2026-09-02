@@ -26,7 +26,7 @@ reaches :data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES` without one.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -43,6 +43,7 @@ from ccf.controlplane.artifacts import (
     OPERATOR_PARAMETERS_SIMILARITY,
     OPERATOR_PARAMETERS_TEMPORAL,
     OPERATOR_PARAMETERS_TRAVERSAL,
+    OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS,
     PERSPECTIVE,
     PRODUCT_CLASS,
     PROJECTION_REQUIREMENTS,
@@ -55,16 +56,21 @@ from ccf.controlplane.artifacts import (
     parse_artifact,
 )
 from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
+from ccf.deployment.operators import build_operator_registry
+from ccf.deployment.pins import ResolvedPins
+from ccf.graph.protocols import GraphView
 from ccf.operators.categories import (
     PolicyFilter,
     SimilaritySelect,
     TemporalAsOf,
+    TraversalDescendants,
     TraversalNeighborhood,
 )
 from ccf.operators.params import (
     PolicyFilterParameters,
     SimilaritySelectParameters,
     TemporalAsOfParameters,
+    TraversalDescendantsParameters,
     TraversalNeighborhoodParameters,
 )
 from ccf.projection.plan import Perspective
@@ -72,6 +78,9 @@ from ccf.signal.envelope import SignalEnvelope
 from ccf.similarity.protocol import TokenOverlapIndex
 
 _SEMVER = "1.0.0"
+#: A boundary for the one registry build below — the view is empty, so the
+#: instant is fixture vocabulary like everything else here.
+_BOUNDARY = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 @dataclass(frozen=True)
@@ -187,6 +196,21 @@ CASES: tuple[_Case, ...] = (
             "depth_limit": 2,
         },
         unknown_keys=("tenant_id",),
+    ),
+    _Case(
+        artifact_class=OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS,
+        # The directed sibling (ledger row 24.5-L-06): the SAME document as the
+        # traversal case above, deliberately — the two classes differ in no
+        # field, and `direction` is not a key an author can write (it is
+        # what selecting this class means). `direction` is therefore in
+        # `unknown_keys`: stating it is a parse failure, not a redundancy.
+        document={
+            "semver": _SEMVER,
+            "seed_entity_classes": ["fixture-entity"],
+            "relationship_types": ["fixture-edge"],
+            "depth_limit": 2,
+        },
+        unknown_keys=("tenant_id", "direction"),
     ),
     _Case(
         artifact_class=OPERATOR_PARAMETERS_TEMPORAL,
@@ -437,6 +461,40 @@ def test_a_parsed_traversal_artifact_is_accepted_by_the_traversal_operator() -> 
     assert isinstance(parsed, TraversalNeighborhoodParameters)
     operator = TraversalNeighborhood(parameters=parsed)
     assert operator.parameters is parsed
+
+
+def test_a_parsed_descendants_artifact_is_accepted_by_the_descendants_operator() -> None:
+    """The directed sibling, in the traversal case's shape (ledger row 24.5-L-06).
+
+    Two claims. First, the artifact IS the parameter set — no translation.
+    Second, the builder's dispatch arm exists and routes by CLASS: handed the
+    parsed artifact under one manifest key, ``build_operator_registry``
+    registers exactly one operator, under ``traversal.typed-descendants``,
+    and its ``read_intent`` walks forward. The neighborhood arm cannot have
+    caught it — the two artifact classes share only the marker base.
+    """
+    parsed = parse_artifact(
+        _document_for("ccf.operator-parameters.traversal-descendants"),
+        OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS,
+    )
+    assert isinstance(parsed, TraversalDescendantsParameters)
+    assert not isinstance(parsed, TraversalNeighborhoodParameters)
+    operator = TraversalDescendants(parameters=parsed)
+    assert operator.parameters is parsed
+
+    registry = build_operator_registry(
+        parameters={"fixture-descendants": parsed},
+        view=GraphView(tenant_id="fixture-tenant", as_of=_BOUNDARY),
+        pins=ResolvedPins(),
+        policy_bundle_key="fixture-policy-bundle",
+    )
+    assert registry.keys() == ("traversal.typed-descendants",)
+    registered = registry.resolve("traversal.typed-descendants")
+    assert isinstance(registered, TraversalDescendants)
+    assert registered.parameters is parsed
+    fragment = registered.read_intent()
+    assert fragment.traverse is not None
+    assert fragment.traverse.direction == "forward"
 
 
 def test_a_parsed_temporal_artifact_is_accepted_by_the_temporal_operator() -> None:
