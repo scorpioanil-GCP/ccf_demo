@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**811 entries**, of which **572** name a public Python surface.
+**823 entries**, of which **584** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-395 entries — 359 public Python surface, 36 not public Python API.
+401 entries — 365 public Python surface, 36 not public Python API.
 
 ### Public Python surface
 
@@ -7311,6 +7311,78 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
 
+#### ccf.products.contract.ServeObligations
+
+- Surface: ccf.products.contract.ServeObligations
+- Public surface: true
+- Change type: added
+- Before: absent — a product class could declare no serve-time obligation; the ceiling and the lineage obligation had no seat
+- After: `ServeObligations(debt_ceiling: Decimal | None = None, lineage_inputs_at: frozenset[str] = frozenset())` — `debt_ceiling` validated to `[0, 1]`, `None` the positive sentinel *no ceiling declared*; `lineage_inputs_at` the TOP-LEVEL payload members that must be present and non-empty at serve, the empty set the positive sentinel *no obligation declared*
+- Why: `24.5-L-14`, `24.5-L-26`, `D-IMPL-237`, `D-IMPL-240` (3): the class declares the ceiling, a request may tighten it, serve refuses over-ceiling by name. Obligations, never gate types: a class declares what the one shipped gate holds it to
+- Migration: none — additive. An adopter that wants the gate to bite authors `serve_obligations` on its product-class artifact
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.contract.NO_SERVE_OBLIGATIONS
+
+- Surface: ccf.products.contract.NO_SERVE_OBLIGATIONS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ServeObligations()` — the positive sentinel every class registered before the field existed was already asserting; the only value under which the declared-obligations gate is silent
+- Why: `24.5-L-14` / `L-26`; the `NOT_DISCOVERABLE` / `NO_VALIDITY_FLOORS` shape, so the default is a named assertion and not a blank (`D-10`)
+- Migration: none
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.GATE_DECLARED_OBLIGATIONS
+
+- Surface: ccf.products.gates.GATE_DECLARED_OBLIGATIONS
+- Public surface: true
+- Change type: added
+- Before: absent — five gate tokens (`D-IMPL-238`)
+- After: `"declared-obligations"`, the sixth token, beside the five, with a comment naming it the ONE mechanism `D-IMPL-237` licenses
+- Why: `24.5-L-14` / `L-26`. One token for both obligations so that there is one gate and not two
+- Migration: none. A consumer branching on `GateRefusal.gate` sees a sixth value
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.DEBT_TOLERANCE_PARAMETER
+
+- Surface: ccf.products.gates.DEBT_TOLERANCE_PARAMETER
+- Public surface: true
+- Change type: added
+- Before: absent — `debt_tolerance` had 0 occurrences in `src/`
+- After: `Final[str] = "debt_tolerance"`, the Standard §2.4 universal request parameter NAME; the resolver reads it off `request.parameters` only when the class declares a ceiling and the request contract declares the parameter (otherwise `refuse_request` already refused it as undeclared)
+- Why: `24.5-L-14`; CINV-01 reasoned in the docstring — a parameter name the SDK owns as mechanism vocabulary, on the footing of the four request axes, never a value
+- Migration: none. A deployment whose request contract already declares `debt_tolerance` under this exact name (cp-01..cp-04 do) is read with no touch once its class declares a ceiling
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.effective_debt_ceiling
+
+- Surface: ccf.products.gates.effective_debt_ceiling
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `effective_debt_ceiling(*, declared: Decimal | None, requested: object) -> Decimal | None` — pure: `declared is None → None` (a request cannot CREATE a ceiling); `requested` absent or not a finite number → `declared`; else `min(declared, requested)`. A looser request is ignored, not refused: the class's ceiling is the floor of strictness. Both runners apply it themselves against the class's declaration, so no caller can pass a loosening value; the resolver's own call is idempotent
+- Why: `24.5-L-14`, `D-IMPL-240` (3) (*"Class declares, request may tighten"*); threat `T-24.5-33`
+- Migration: none
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.DeclaredObligationRefusal
+
+- Surface: ccf.products.gates.DeclaredObligationRefusal
+- Public surface: true
+- Change type: added
+- Before: absent — an over-ceiling product and a product missing its lineage member had no refusal
+- After: `DeclaredObligationRefusal(GateRefusal)` with `obligation: Literal["debt-ceiling", "lineage-inputs"]`, `declared: str`, `observed: str` — both sides carried in the `TTLRefusal` voice; `observed` is the `D_c` as a decimal string, `no-assessment`, `absent` or `empty`; `detail` carries the Standard's §9 `409` sentence. Joins the `GateRefusal` family, so the `ServableProduct | GateRefusal` union is unchanged
+- Why: `24.5-L-14` / `L-26`; the kind the HTTP door maps to `409` (plan `24.5-14`); MCP carries the kind
+- Migration: none. A consumer matching on `GateRefusal` subclasses sees a sixth
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -7903,7 +7975,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-311 entries — 128 public Python surface, 183 not public Python API.
+316 entries — 133 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -10686,6 +10758,66 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
 
+#### ccf.products.contract.RegisteredProductClass
+
+- Surface: ccf.products.contract.RegisteredProductClass
+- Public surface: true
+- Change type: reshaped
+- Before: sixteen fields ending `request_contract_key`, `request_contract_version`
+- After: one added last field, `serve_obligations: ServeObligations = NO_SERVE_OBLIGATIONS` — carried here because this is the value `run_gates` receives, on the `accepted_lineage_modes` reasoning
+- Why: `24.5-L-14` / `L-26`; the gate reads the class's declaration off what it already holds. `tests/products/test_contract_elements.py`'s union may grow and is green
+- Migration: none — the default. Note that a defaulted field is inside the canonical rendering, so the content address of a `RegisteredProductClass` value moves; no committed seal pins one (`D-IMPL-240` (1) measured the only sealed addresses in the tree as cp-04's two product addresses, which embed `ContextProductContract` and not this class)
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.contract.register_product_class
+
+- Surface: ccf.products.contract.register_product_class
+- Public surface: true
+- Change type: reshaped
+- Before: keyword-only through `request_contract_version`
+- After: one added keyword, `serve_obligations: ServeObligations = NO_SERVE_OBLIGATIONS`, passed straight through onto the registered value
+- Why: `24.5-L-14` / `L-26`; every registration written before it existed asserts exactly what it always asserted
+- Migration: none
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.controlplane.artifacts.ProductClassDeclaration
+
+- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
+- Public surface: true
+- Change type: reshaped
+- Before: `payload_schema_key`, `request_contract_key` the last authored fields; a declaration could name no serve obligation
+- After: one added last field, `serve_obligations: ServeObligations = NO_SERVE_OBLIGATIONS`; the docstring states that an obligation is a STRUCTURAL declaration the serve path enforces through the one gate `D-IMPL-237` licenses, naming a ceiling and payload MEMBERS, never a payload shape — products declare obligations, not gate types. `docs/schemas/ccf.product-class.json` regenerated by `tools/dump_schemas.py`. `GovernedResolver._register` forwards it
+- Why: `24.5-L-14` / `L-26`; `D-IMPL-240` (3) puts the ceiling on the class artifact. The number is the deployment's to author here; the SDK holds none
+- Migration: none for an adopter whose declaration lacks the key; every committed declaration parses unchanged. The declaration's content address moves (a defaulted field renders); no committed seal pins one
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.run_gates
+
+- Surface: ccf.products.gates.run_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `run_gates(candidate, *, engine_resolved, now, registry, product_class, source_attestation=None)` — four steps: empty operators, lineage strict equality, TTL bounds, source attestation
+- After: one added keyword, `debt_tolerance: Decimal | None = None`, and one added LAST step — `_refuse_declared_obligations(candidate, product_class=…, debt_tolerance=…)` after attestation and before the token is minted. The Returns clause names the fifth step and why it is last: every universal gate precedes a declared one
+- Why: `24.5-L-14` / `L-26`, `D-IMPL-237`; the `source_attestation` compatibility posture — every pre-phase call site byte-identical
+- Migration: none for a caller whose class declares nothing. A caller whose class declares a ceiling and wants a request to tighten it passes `debt_tolerance`
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.run_federated_gates
+
+- Surface: ccf.products.gates.run_federated_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `run_federated_gates(candidate, *, attested_address, now, registry, product_class)` — three steps: empty operators, attributability, TTL bounds
+- After: one added keyword, `debt_tolerance: Decimal | None = None`, and the same declared-obligations step as step 4, after TTL. A federated candidate carries `debt`, so the debt half applies where the consuming class declares a ceiling; the lineage half applies as declared
+- Why: `24.5-L-14` / `L-26`; one function shared by both runners so they cannot drift into two readings of a declaration (the gate-1/gate-3 factoring reason)
+- Migration: none
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -13030,7 +13162,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-101 entries — 81 public Python surface, 20 not public Python API.
+102 entries — 82 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -15029,6 +15161,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none. A future ceiling-in-seconds proposal is a `D-IMPL`, not a field
 
 *Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: behavior
+- Before: eighteen kinds; the gate family ended at `attestation-refusal`
+- After: nineteen kinds; `DeclaredObligationRefusal: "declared-obligation-refusal"` in the gate family block (not a substring of any existing token, checked by the closure gate). `tests/products/test_refusal_envelope.py::test_envelope_for_declared_obligation_refusal` landed in the same commit as the kind, under the exact-name coverage rule `24.5-07` shipped; the four closure tests are green at nineteen
+- Why: `24.5-L-14` / `L-26`; constraint (a) — every kind crosses without flattening
+- Migration: none. A consumer enumerating `kind` sees a nineteenth
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
 
 ### Not public Python API
 
