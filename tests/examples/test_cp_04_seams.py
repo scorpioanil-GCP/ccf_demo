@@ -278,6 +278,20 @@ def attribute_vocabulary() -> Mapping[str, Any]:
     return dict(_yaml(VOCABULARY)["attributes"])
 
 
+def declared_member_depths() -> Mapping[str, int]:
+    """Which subtree member enters the walk at which depth, DECLARED.
+
+    `artifacts/expected.yaml::census.anchor_subtree.depth_to`, by local name.
+    `CFT-G13`'s roster limbs (iii) and (iv) hold the door's served roster
+    against it, so the depth claim is measured against a document and not only
+    against a second run of the same product.
+    """
+    return {
+        str(name): int(depth)
+        for name, depth in dict(census()["anchor_subtree"]["depth_to"]).items()
+    }
+
+
 def lei_predicate() -> str:
     """The IRI the graph carries an LEI under — a DECLARED node predicate."""
     return str(_yaml(VOCABULARY)["graph"]["node_predicates"]["lei"])
@@ -1320,9 +1334,11 @@ def door_violations(
     tool_refused: bool,
     tool_text: str,
     tool_payload: Mapping[str, Any] | None,
+    default_payload: Mapping[str, Any] | None,
     asked_depth: int,
     declared_default_depth: int,
     declared_anchor: str,
+    declared_depths: Mapping[str, int],
 ) -> list[str]:
     """Every way this door fails `CFT-G13`.
 
@@ -1415,7 +1431,147 @@ def door_violations(
                 f"CFT-G13 (c): the tool served anchor {served_anchor!r} where"
                 f" the caller named {declared_anchor!r}"
             )
+        violations += _depth_roster_violations(
+            planted_payload=tool_payload,
+            default_payload=default_payload,
+            asked_depth=asked_depth,
+            declared_default_depth=declared_default_depth,
+            declared_depths=declared_depths,
+        )
     return violations
+
+
+def _depth_roster_violations(
+    *,
+    planted_payload: Mapping[str, Any],
+    default_payload: Mapping[str, Any] | None,
+    asked_depth: int,
+    declared_default_depth: int,
+    declared_depths: Mapping[str, int],
+) -> list[str]:
+    """Limb (c)'s ROSTER half — what the door SERVED at each depth.
+
+    **THIS IS THE CLOSE PANEL'S FINDING 3, and it is the limb the phase's
+    headline rests on.** Limb (c) read `max_depth_applied` off the served
+    payload and compared the anchor URI, and neither of those is the walk.
+    `examples/cp-04-corporate-family-tree/projection.py` writes
+    `max_depth_applied` from `scenario.max_depth` — the REQUEST — while the walk
+    takes its bound from the operator parameter set
+    `examples/cp-04-corporate-family-tree/deployment.py::traversal_parameters`
+    binds. So a door that echoes the requested depth into the payload while
+    walking the declared default passes the echo limb whole. That is not a
+    hypothetical: it is `CFT-G05`'s own recorded sabotage, and it is the defect
+    class this ladder has now met four times — a check reading a RECORD OF THE
+    INTENT rather than the EFFECT.
+
+    Dave: *"the door must compare **rosters across depths**, not echo
+    `max_depth_applied` — that is `CFT-G13`."*
+
+    Four limbs, all over ROSTERS and never over sizes (`D-13`):
+
+    (i) the shallower ask's roster is a SUBSET of the deeper ask's — a member
+    served at depth 1 and not at the default is a walk that is not nested;
+    (ii) the deeper ask reached members the shallower one did not, so the two
+    depths are two answers rather than one answer served twice;
+    (iii) every member `expected.yaml::census.anchor_subtree.depth_to` declares
+    at a depth GREATER than the ask is ABSENT, named;
+    (iv) every member it declares at a depth within the ask is PRESENT, named.
+
+    (iii) and (iv) are what make this a comparison against a DECLARATION rather
+    than only between two runs. `depth_to` lives in a file no sabotage of the
+    door touches.
+    """
+    violations: list[str] = []
+    if default_payload is None:
+        violations.append(
+            "CFT-G13 (c): the door was not asked at the declared default depth,"
+            " so there is no second roster to compare the caller's depth"
+            " against and the depth claim holds over one run"
+        )
+        return violations
+
+    planted = _served_local_names(planted_payload)
+    default = _served_local_names(default_payload)
+    if not planted or not default:
+        violations.append(
+            f"CFT-G13 (c): one of the two asks served no member — max_depth="
+            f"{asked_depth} served {sorted(planted)}, the declared default"
+            f" served {sorted(default)}. A roster comparison over an empty side"
+            " is a comparison that cannot fail"
+        )
+        return violations
+
+    default_applied = default_payload.get("max_depth_applied")
+    if default_applied != declared_default_depth:
+        violations.append(
+            f"CFT-G13 (c): the second ask walked at {default_applied!r} rather"
+            f" than the declared default {declared_default_depth}, so the two"
+            " rosters below are not two depths"
+        )
+
+    unnested = sorted(planted - default)
+    if unnested:
+        violations.append(
+            f"CFT-G13 (c): max_depth={asked_depth} served {unnested}, which the"
+            f" declared default {declared_default_depth} did NOT serve. A"
+            " shallower walk cannot reach what a deeper one misses"
+        )
+    reached_only_deeper = sorted(default - planted)
+    if not reached_only_deeper:
+        violations.append(
+            f"CFT-G13 (c): max_depth={asked_depth} and the declared default"
+            f" {declared_default_depth} served the IDENTICAL roster"
+            f" {sorted(planted)}. The caller's depth reached the payload's label"
+            " and not the walk — which is exactly what a door echoing"
+            " `max_depth_applied` looks like from the echo limb, and why that"
+            " limb cannot carry this claim"
+        )
+
+    beyond = sorted(
+        name for name, depth in declared_depths.items() if int(depth) > asked_depth
+    )
+    intruders = sorted(name for name in beyond if name in planted)
+    if intruders:
+        violations.append(
+            f"CFT-G13 (c): max_depth={asked_depth} served {intruders}, which"
+            " expected.yaml::census.anchor_subtree.depth_to declares at"
+            f" {[declared_depths[name] for name in intruders]} — deeper than the"
+            " caller asked for"
+        )
+    within = sorted(
+        name for name, depth in declared_depths.items() if int(depth) <= asked_depth
+    )
+    absent = sorted(name for name in within if name not in planted)
+    if absent:
+        violations.append(
+            f"CFT-G13 (c): max_depth={asked_depth} did NOT serve {absent}, which"
+            " expected.yaml::census.anchor_subtree.depth_to declares at"
+            f" {[declared_depths[name] for name in absent]} — within the depth"
+            " the caller asked for"
+        )
+    if not declared_depths:
+        violations.append(
+            "CFT-G13 (c): the declaration named no member at any depth, so"
+            " limbs (iii) and (iv) hold over the empty set"
+        )
+    return violations
+
+
+def local_name(iri: str) -> str:
+    """The last segment of an IRI — the census vocabulary.
+
+    `artifacts/expected.yaml` names members by LOCAL NAME and says why: *"the
+    full IRIs are derived from the store's own answers; a prefix written here
+    would be a domain value in an artifact AND a second place for the estate's
+    namespace to be wrong."* So the comparison happens in local-name space, the
+    same convention `tests/examples/test_cp_04_payload.py::local_name` uses.
+    """
+    return str(iri).rsplit("/", 1)[-1]
+
+
+def _served_local_names(payload: Mapping[str, Any]) -> set[str]:
+    """The member roster of one served payload, by local name."""
+    return {local_name(str(node["uri"])) for node in payload.get("nodes") or ()}
 
 
 @dataclass(frozen=True)
@@ -1429,11 +1585,31 @@ class DoorReading:
     tool_refused: bool
     tool_text: str
     tool_payload: Mapping[str, Any] | None
+    #: What the SAME door served the SAME way at the DECLARED DEFAULT depth.
+    #: Limb (c)'s roster comparison is between these two, and one ask cannot
+    #: carry a claim about depth (close panel finding 3).
+    default_payload: Mapping[str, Any] | None
+
+
+def _tool_outcome(result: Any) -> tuple[bool, str, Mapping[str, Any] | None]:
+    """One door tool ask, reduced to ``(refused, text, payload)``.
+
+    A refusal is a value rather than a raise — the module's posture for the
+    whole door — because a helper that raised would turn a door serving nothing
+    into an ERROR rather than into the violation limb (c) names.
+    """
+    if isinstance(result, Refused):
+        return True, result.reason, None
+    is_error, text = result
+    if is_error:
+        return True, text, None
+    outcome = json.loads(text)
+    return False, text, dict(json.loads(outcome["product_json"])["payload"])
 
 
 @pytest.fixture(scope="module")
 def door_reading(surfaces: dict[str, Any]) -> DoorReading:
-    """The shipped door's enumeration, resource read and planted-depth tool ask."""
+    """The shipped door's enumeration, resource read and BOTH tool asks."""
     listed = surfaces[ENUMERATE]
     assert not isinstance(listed, Refused), (
         f"the door could not be enumerated at all: {listed.reason[:1500]}"
@@ -1444,30 +1620,19 @@ def door_reading(surfaces: dict[str, Any]) -> DoorReading:
     resource_served = not isinstance(read, Refused)
     resource_text = str(read if resource_served else read.reason)
 
-    planted = surfaces[PLANTED_ASK]
-    if isinstance(planted, Refused):
-        return DoorReading(
-            resources=tuple(resources),
-            templates=tuple(templates),
-            resource_served=resource_served,
-            resource_text=resource_text,
-            tool_refused=True,
-            tool_text=planted.reason,
-            tool_payload=None,
-        )
-    is_error, text = planted
-    payload: Mapping[str, Any] | None = None
-    if not is_error:
-        outcome = json.loads(text)
-        payload = dict(json.loads(outcome["product_json"])["payload"])
+    refused, text, payload = _tool_outcome(surfaces[PLANTED_ASK])
+    _default_refused, _default_text, default_payload = _tool_outcome(
+        surfaces[DEMONSTRATION_ASK]
+    )
     return DoorReading(
         resources=tuple(resources),
         templates=tuple(templates),
         resource_served=resource_served,
         resource_text=resource_text,
-        tool_refused=bool(is_error),
+        tool_refused=refused,
         tool_text=text,
         tool_payload=payload,
+        default_payload=default_payload,
     )
 
 
@@ -1490,9 +1655,11 @@ def test_cft_g13_the_tool_serves_and_the_registered_resource_refuses(
         tool_refused=door_reading.tool_refused,
         tool_text=door_reading.tool_text,
         tool_payload=door_reading.tool_payload,
+        default_payload=door_reading.default_payload,
         asked_depth=PLANTED_DEPTH,
         declared_default_depth=deployment.declared_depth_default(),
         declared_anchor=str(census()["anchor"]["uri"]),
+        declared_depths=declared_member_depths(),
     )
     assert not violations, "\n".join(violations)
 
@@ -1512,10 +1679,21 @@ def _compliant_door_arguments() -> dict[str, Any]:
         "tool_payload": {
             "max_depth_applied": PLANTED_DEPTH,
             "anchor": {"uri": "x://anchor"},
+            "nodes": [{"uri": "x://anchor"}, {"uri": "x://near"}],
+        },
+        "default_payload": {
+            "max_depth_applied": 3,
+            "anchor": {"uri": "x://anchor"},
+            "nodes": [
+                {"uri": "x://anchor"},
+                {"uri": "x://near"},
+                {"uri": "x://far"},
+            ],
         },
         "asked_depth": PLANTED_DEPTH,
         "declared_default_depth": 3,
         "declared_anchor": "x://anchor",
+        "declared_depths": {"near": PLANTED_DEPTH, "far": 3},
     }
 
 
@@ -1571,18 +1749,118 @@ def test_the_door_check_refuses_a_concrete_product_resource() -> None:
 
 
 def test_the_door_check_refuses_a_tool_that_substituted_its_own_default() -> None:
-    """**Sabotage control.** The caller's depth must reach the walk."""
+    """**Sabotage control.** The caller's depth must reach the walk.
+
+    The substitution is visible in BOTH halves of limb (c) here — the echo says
+    3 and the served roster is the deeper one — which is the case the echo limb
+    was written for and the only case it catches.
+    """
     arguments = _compliant_door_arguments()
-    arguments["tool_payload"] = {
-        "max_depth_applied": 3,
-        "anchor": {"uri": "x://anchor"},
-    }
+    arguments["tool_payload"] = dict(arguments["default_payload"])
     violations = door_violations(**arguments)
     assert violations, "a door that ignored the caller's max_depth was accepted"
     assert any("did not reach the walk" in entry for entry in violations), violations
     assert any("substituted the declared default" in entry for entry in violations), (
         violations
     )
+
+
+def test_the_door_check_refuses_a_walk_at_the_default_while_the_echo_says_the_ask() -> None:
+    """**THE CLOSE PANEL'S FINDING 3, as a control — and the echo limb is
+    proven insufficient here rather than argued.**
+
+    The payload echoes the CALLER's depth and serves the DEEPER walk's roster.
+    That is not a hypothetical shape: `max_depth_applied` is written from the
+    REQUEST by
+    `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection.invoke`
+    while the walk's bound comes from the operator parameter set, so a door that
+    stopped binding the caller's depth onto the walk produces exactly this.
+
+    Both halves are asserted: the roster limbs FIRE, and NEITHER echo limb says
+    anything. A gate carrying only the echo would have been green here.
+    """
+    arguments = _compliant_door_arguments()
+    arguments["tool_payload"] = {
+        **arguments["default_payload"],
+        "max_depth_applied": PLANTED_DEPTH,
+    }
+    violations = door_violations(**arguments)
+    assert violations, "a door walking the default while echoing the ask was accepted"
+    assert any("served ['far']" in entry for entry in violations), violations
+    assert any("deeper than the caller asked for" in entry for entry in violations), (
+        violations
+    )
+    assert not any("did not reach the walk" in entry for entry in violations), (
+        "the echo limb fired, so this control is no longer measuring what it"
+        f" exists to measure: {violations}"
+    )
+    assert not any(
+        "substituted the declared default" in entry for entry in violations
+    ), violations
+
+
+def test_the_door_check_refuses_two_depths_that_served_one_roster() -> None:
+    """**Sabotage control.** Two depths, one answer, is one answer served twice.
+
+    The declared roster limbs cannot see this on their own when the declaration
+    names no member beyond the ask — so the between-runs limb is asserted with
+    `declared_depths` emptied of the deeper member, and it still fires.
+    """
+    arguments = _compliant_door_arguments()
+    arguments["tool_payload"] = {
+        **arguments["default_payload"],
+        "max_depth_applied": PLANTED_DEPTH,
+    }
+    arguments["declared_depths"] = {"near": PLANTED_DEPTH}
+    violations = door_violations(**arguments)
+    assert violations, "two depths serving one roster were accepted"
+    assert any("IDENTICAL roster" in entry for entry in violations), violations
+
+
+def test_the_door_check_refuses_a_shallow_ask_that_reached_further() -> None:
+    """**Sabotage control.** A walk that is not nested is not a depth bound."""
+    arguments = _compliant_door_arguments()
+    arguments["tool_payload"] = {
+        **arguments["tool_payload"],
+        "nodes": [{"uri": "x://anchor"}, {"uri": "x://elsewhere"}],
+    }
+    violations = door_violations(**arguments)
+    assert violations, "a shallower ask serving an unreached member was accepted"
+    assert any("cannot reach what a deeper one misses" in entry for entry in violations), (
+        violations
+    )
+
+
+def test_the_door_check_refuses_a_missing_member_the_declaration_puts_within_reach() -> None:
+    """**Sabotage control.** Limb (iv) — the roster is short a declared member."""
+    arguments = _compliant_door_arguments()
+    arguments["tool_payload"] = {
+        **arguments["tool_payload"],
+        "nodes": [{"uri": "x://anchor"}],
+    }
+    violations = door_violations(**arguments)
+    assert violations, "an ask missing a member declared within its depth was accepted"
+    assert any("within the depth the caller asked for" in entry for entry in violations), (
+        violations
+    )
+
+
+def test_the_door_check_refuses_a_single_depth_comparison() -> None:
+    """**Vacuity control.** One ask cannot carry a claim about two depths."""
+    arguments = _compliant_door_arguments()
+    arguments["default_payload"] = None
+    violations = door_violations(**arguments)
+    assert violations, "a depth claim over one run was accepted"
+    assert any("holds over one run" in entry for entry in violations), violations
+
+
+def test_the_door_check_refuses_an_empty_declaration_of_member_depths() -> None:
+    """**Vacuity control.** Limbs (iii) and (iv) need a declaration to read."""
+    arguments = _compliant_door_arguments()
+    arguments["declared_depths"] = {}
+    violations = door_violations(**arguments)
+    assert violations, "an empty depth declaration was accepted"
+    assert any("hold over the empty set" in entry for entry in violations), violations
 
 
 # ---------------------------------------------------------------------------
