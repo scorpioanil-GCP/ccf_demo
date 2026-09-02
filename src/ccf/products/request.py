@@ -151,6 +151,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "NO_REQUEST_CONTRACT",
     "PRODUCT_REQUEST_CONTRACT",
+    "AnchorAmbiguityRefusal",
     "ProductRequest",
     "ProductRequestContract",
     "ProductRequestViolation",
@@ -531,6 +532,44 @@ class ProductRequestViolation(CCFContract):
     presented_type: str | None
     declared_keys: frozenset[str]
     presented_keys: frozenset[str]
+    detail: str
+
+
+class AnchorAmbiguityRefusal(CCFContract):
+    """The request's anchor resolves to more than one entity (``24.5-L-16``).
+
+    SDK-defined (CLAUDE.md §11: *refusal is data*). Whitepaper §6.3
+    **Addressability** (``docs/CCF_Whitepaper_1-2.md:1465``) makes the entity
+    anchor the ``{id}`` slot of the address — *which entity* the question is
+    about — and a slot that answers with two entities has not addressed one.
+    The ladder met the case at cp-04 (``24.4`` deferred item 14, ``D-IMPL-234``
+    (d)): a shared LEI made the anchor row-order dependent, and there was no
+    kind to say so, so a product could only serve the wrong one silently.
+
+    **The SDK ships the kind and no resolver.** Which anchor is ambiguous is a
+    fact about the deployment's identifiers and its resolution rules, and
+    what a product does about it — answer ``404`` (Standard §9, *anchor
+    unresolvable*), refuse with this value, or serve one candidate with a
+    finding — is the product's ruling. Nothing here decides it; this type
+    only lets the decision be a typed, auditable value rather than an
+    exception's prose.
+
+    **Pre-assembly.** An anchor resolves before the graph is touched, so this
+    kind is in :data:`~ccf.products.refusal._PRE_ASSEMBLY_REFUSALS` beside
+    :class:`ProductRequestViolation`, and
+    :func:`~ccf.products.refusal.envelope_for` refuses a lineage offered
+    with it for the same reason.
+
+    Attributes:
+        anchor: What was asked — the request's ``subject``, as presented.
+        candidates: The entity URIs that answered to it. More than one, which
+            is the whole of what makes this a refusal; carried so a consumer
+            can see the collision rather than be told of it.
+        detail: The human-readable statement, for an operator reading a log.
+    """
+
+    anchor: str
+    candidates: frozenset[str]
     detail: str
 
 

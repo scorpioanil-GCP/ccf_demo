@@ -6,10 +6,10 @@ CLAUDE.md §7.3. The envelope under test is
 
 **What these tests enforce, and why each shape was chosen.**
 
-1. **Per kind, one at a time.** Every one of the sixteen kinds gets its own
+1. **Per kind, one at a time.** Every one of the eighteen kinds gets its own
    assertion. Deliberately *not* one parameterized assertion over the mapping
    with an ``any()`` inside: a property asserted in aggregate passes when one
-   member survives and licenses the fifteen that do not, which is this
+   member survives and licenses the seventeen that do not, which is this
    project's recurring defect class rather than a hypothetical one.
 
 2. **The vocabulary is closed by set equality against a structural walk of the
@@ -57,6 +57,7 @@ from typing import Any
 
 import pytest
 
+from ccf.agents.errors import AssemblyRefusal, AssemblyRefused
 from ccf.contracts.base import CCFContract
 
 from ccf.products.refusal import (
@@ -92,7 +93,7 @@ from ccf.products.gates import (
     TTLRefusal,
 )
 from ccf.products.payload import PayloadSchemaViolation
-from ccf.products.request import ProductRequestViolation
+from ccf.products.request import AnchorAmbiguityRefusal, ProductRequestViolation
 
 #: The real source root the shipped assertions read. The sabotage controls read
 #: a copy of it under ``tmp_path`` instead — never this one.
@@ -130,7 +131,7 @@ def partial_lineage() -> ProductLineage:
 
 # --- one assertion per kind -------------------------------------------------
 #
-# Sixteen functions, each naming its kind. The coverage test below derives the
+# Eighteen functions, each naming its kind. The coverage test below derives the
 # expected names from REFUSAL_KINDS and reads the actual ones out of this
 # file's own AST, so a kind added to the mapping with no test here fails.
 
@@ -521,6 +522,76 @@ def test_envelope_for_mixing_refusal(request_identity: RequestIdentity) -> None:
     }
     assert envelope.fields["floor_seconds"] == "600"
     assert envelope.fields["constituent_expires_at"] == '"2026-08-16T12:00:00.000000Z"'
+
+
+def test_envelope_for_assembly_refusal(request_identity: RequestIdentity) -> None:
+    """``24.5-L-11``: the assembler's own refusal, as a value, and as the raise converted.
+
+    Two own fields and both are promoted, so ``fields`` is empty — which is
+    asserted as an equality rather than left implied, because an empty
+    ``fields`` is the positive statement *nothing was flattened out*, not the
+    absence of a check. The second half is the conversion: an assembler that
+    caught its own :class:`AssemblyRefused` and returned ``as_refusal()``
+    envelopes **identically** to one that returned the value to begin with,
+    field for field, so a consumer cannot tell the two routes apart and does
+    not need to.
+    """
+    refusal = AssemblyRefusal(
+        reason="assembly-refused",
+        detail="this tier does not serve the question as asked",
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[AssemblyRefusal]
+    assert envelope.kind == "assembly-refusal"
+    assert envelope.reason == "assembly-refused"
+    assert envelope.key is None
+    assert envelope.detail == refusal.detail
+    assert envelope.fields == {}
+    assert envelope.pre_assembly_lineage is None
+
+    converted = AssemblyRefused(
+        "this tier does not serve the question as asked"
+    ).as_refusal()
+    assert isinstance(converted, AssemblyRefusal)
+    assert converted == refusal
+    assert envelope_for(converted, request=request_identity) == envelope
+
+
+def test_envelope_for_anchor_ambiguity_refusal(
+    request_identity: RequestIdentity, partial_lineage: ProductLineage
+) -> None:
+    """``24.5-L-16``: an anchor that answered twice, carried by name, pre-assembly.
+
+    No ``reason`` and no ``key`` are declared, so ``reason`` falls back to the
+    kind token and ``key`` is ``None``; ``anchor`` and ``candidates`` are the
+    promoted-nothing remainder and cross in ``fields`` by name, the candidate
+    set rendered sorted. And it is a pre-assembly kind: a lineage offered
+    with it is refused exactly as one offered with a
+    :class:`ProductRequestViolation` is, with the type named in the message.
+    """
+    refusal = AnchorAmbiguityRefusal(
+        anchor="lei:shared",
+        candidates=frozenset({"urn:entity:b", "urn:entity:a"}),
+        detail="the anchor resolved to two entities; which one is the product's ruling",
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[AnchorAmbiguityRefusal]
+    assert envelope.kind == "anchor-ambiguity-refusal"
+    assert envelope.reason == "anchor-ambiguity-refusal"
+    assert envelope.key is None
+    assert envelope.detail == refusal.detail
+    assert set(envelope.fields) == {"anchor", "candidates"}
+    assert envelope.fields["anchor"] == '"lei:shared"'
+    assert envelope.fields["candidates"] == '["urn:entity:a","urn:entity:b"]'
+    assert envelope.pre_assembly_lineage is None
+
+    with pytest.raises(ValueError) as caught:
+        envelope_for(
+            refusal, request=request_identity, pre_assembly_lineage=partial_lineage
+        )
+    assert "AnchorAmbiguityRefusal" in str(caught.value)
 
 
 # --- properties of the translation itself -----------------------------------
