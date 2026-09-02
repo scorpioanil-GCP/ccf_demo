@@ -2501,3 +2501,59 @@ def test_the_duplicate_check_refuses_a_merged_pair() -> None:
     )
     assert violations, "a merged pair was reported as two served members"
     assert any("not in the served tree" in entry for entry in violations), violations
+
+
+# ---------------------------------------------------------------------------
+# The anchor block is held to the SAME admission as the edges beside it.
+#
+# NOT A GATE, and no id is minted for it. The roster is SIXTEEN,
+# `CFT-G01`..`CFT-G16`, and `CFT-G17` is WITHDRAWN. This is the close panel's
+# first finding of the 2026-09-01 second bundle, and its home is here because
+# the anchor block is payload shape.
+# ---------------------------------------------------------------------------
+
+
+def test_the_served_anchor_is_a_member_of_the_served_tree(served: Asked) -> None:
+    """The payload's anchor is in its own `nodes` block, by name.
+
+    ``projection.py::FamilyTreeProjection.invoke`` built the anchor block from
+    ``scenario.anchor_uri`` and ``scenario.facts`` — the SOURCE READ — while the
+    ``edges`` block two lines below admitted a pair only when both ends were in
+    the operator output. So the payload could NAME a company, its LEI, its label
+    and its seven-class chain that its own served member set did not contain.
+    Asserted here as a property of what reached the consumer, and refused at
+    source by ``projection.py::refuse_unadmitted_anchor``.
+    """
+    assert served.payload is not None, served.refusal
+    anchor = str(served.payload["anchor"]["uri"])
+    roster = sorted(str(node["uri"]) for node in served.nodes)
+    assert anchor in roster, (
+        f"the payload names {anchor!r} as its anchor and its own `nodes` block"
+        f" carries {len(roster)} member(s) that do not include it. An anchor"
+        " outside the served member set is the same leak the `edges` block"
+        " refuses by admitting a pair only when both ends are served"
+    )
+
+
+def test_the_anchor_check_refuses_an_anchor_outside_the_admitted_set() -> None:
+    """**Positive control.** The SHIPPED refusal, handed a divergent subject."""
+    projection = _load("projection")
+    with pytest.raises(RuntimeError) as refused:
+        projection.refuse_unadmitted_anchor(
+            "x://not-admitted", admitted={"x://one", "x://two"}
+        )
+    assert "is not in the member set the operators admitted" in str(refused.value)
+
+
+def test_the_anchor_check_refuses_an_empty_admitted_set() -> None:
+    """**Vacuity control.** Over no members the test passes by comparing nothing."""
+    projection = _load("projection")
+    with pytest.raises(RuntimeError) as refused:
+        projection.refuse_unadmitted_anchor("x://anchor", admitted=set())
+    assert "refusing a check that cannot fail" in str(refused.value)
+
+
+def test_the_anchor_check_admits_the_compliant_shape() -> None:
+    """**Compliance control.** A later limb cannot quietly forbid the real case."""
+    projection = _load("projection")
+    projection.refuse_unadmitted_anchor("x://anchor", admitted={"x://anchor", "x://b"})

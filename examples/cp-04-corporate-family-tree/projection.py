@@ -63,7 +63,7 @@ that disagreement, measured, and ``D-36`` for the gap it records.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -82,6 +82,52 @@ NOT_EVALUABLE = "NOT_EVALUABLE"
 #: `ccf_v2.legal_entity` row, never a count, because a right count with a wrong
 #: member audits clean forever (`D-13`).
 FINDING_UNRESOLVED_JURISDICTION = "unresolved_jurisdiction"
+
+
+def refuse_unadmitted_anchor(anchor_uri: str, *, admitted: Collection[str]) -> None:
+    """The anchor block may name only a member the operators ADMITTED.
+
+    **THE ANCHOR IS HELD TO THE SAME ADMISSION RULE AS THE EDGES BESIDE IT.**
+    ``FamilyTreeProjection.invoke``'s ``edges`` block serves a pair only when
+    BOTH ends are in the admitted set, and says why: an edge whose far end the
+    operators did not admit would be served pointing into nothing, which is
+    INV-CH7-40's no-leak-by-absence read at the payload. The anchor block was
+    EXEMPT from that rule — built unconditionally from ``scenario.anchor_uri``
+    and ``scenario.facts``, both of which are the SOURCE READ rather than the
+    operator output — so a payload could name a company, its LEI, its label and
+    its seven-class chain that its own ``nodes`` block does not carry. Found by
+    the 2026-09-01 close panel; a projection with a filtering operator ahead of
+    it is the reachable case.
+
+    **REFUSED RATHER THAN SERVED WITH NULLS.** Section D.6 makes the anchor
+    block's four keys always-present, so there is no honest shape for *the
+    anchor of this tree was not admitted*; and ``attributes: null`` already
+    means SOMETHING ELSE on this product — a null RESOLUTION for an admitted
+    member (``D-16``, ``CFT-G09``). A second kind of null here would make the
+    payload's own vocabulary ambiguous.
+
+    **AN EMPTY ADMITTED SET IS REFUSED SEPARATELY**, on
+    ``deployment.py::refuse_open_jurisdiction_world``'s reasoning: over no
+    members the membership test passes by having nothing to compare, and a check
+    that cannot fail is not a check.
+
+    A module-level function rather than an inline branch so a control can hand
+    the SHIPPED check a divergent subject and be watched refusing it.
+    """
+    if not admitted:
+        raise RuntimeError(
+            "no member was admitted at all, so the anchor has nothing to be"
+            " held against; refusing a check that cannot fail"
+        )
+    if anchor_uri not in admitted:
+        raise RuntimeError(
+            f"the anchor {anchor_uri!r} is not in the member set the operators"
+            f" admitted ({len(admitted)} member(s)), so this payload would name"
+            " an entity — its URI, its LEI, its label and its class chain —"
+            " that its own `nodes` block does not carry. The `edges` block"
+            " refuses exactly that by admitting a pair only when both ends are"
+            " served; the anchor is held to the same rule"
+        )
 
 
 class FamilyTreeProjection:
@@ -285,15 +331,39 @@ class FamilyTreeProjection:
         member this payload does not carry has no attributes here to be
         unresolved. At the declared default depth of 3 the two scopes coincide
         on all 22.
+
+        **READ THROUGH :meth:`_attributes` — THE SAME RESOLUTION THE NODE BLOCKS
+        CARRY — AND NOT THROUGH ``scenario.jurisdictions``.** The 2026-09-01
+        close panel's second bundle found this roster reading the deployment's
+        own map while the served ``attributes`` block beside it came from
+        :meth:`_attributes`. The two are computed from the same PostgreSQL rows
+        and are equal today, which is exactly why the divergence survived: two
+        places computing *the members with no resolved row* is the defect one
+        level up, and it has a measured consequence. ``deployment.py``'s
+        :func:`served_jurisdictions` names the fill-from-anchor sabotage as
+        living there; :meth:`_attributes`'s own docstring names the SAME
+        sabotage as living HERE — *"the addition of exactly one ``or``"*. Applied
+        at this module's site the old roster did not move, because it was
+        reading the other module's map, so ``CFT-G09`` stayed green while twenty
+        members carried a jurisdiction no source asserted about them. One
+        resolution, read once, covers both sites.
+
+        **NOT read off the emitted node blocks**, and the difference is not
+        cosmetic. ``_node`` gates ``attributes`` on the role's conditioning, so a
+        role detailing nothing would see every member as unresolved — which
+        would make a role's VIEW change a finding about the ESTATE. Whether a
+        member resolved is a fact about the join, not about who is asking.
         """
+        column = deployment.jurisdiction_column()
+        members: list[str] = []
+        for uri in served:
+            resolved = self._attributes(uri)
+            if resolved is None or not resolved.get(column):
+                members.append(uri)
         return {
             "type": FINDING_UNRESOLVED_JURISDICTION,
             "predicate": None,
-            "members": [
-                uri
-                for uri in served
-                if self._scenario.jurisdictions.get(uri) is None
-            ],
+            "members": members,
             "closing_edge": None,
         }
 
@@ -319,6 +389,7 @@ class FamilyTreeProjection:
         admitted = set(served)
 
         anchor_uri = scenario.anchor_uri
+        refuse_unadmitted_anchor(anchor_uri, admitted=admitted)
         anchor_node = scenario.facts.get(anchor_uri)
         nodes = [self._node(uri, by_uri[uri], role) for uri in served]
         payload: dict[str, Any] = {
