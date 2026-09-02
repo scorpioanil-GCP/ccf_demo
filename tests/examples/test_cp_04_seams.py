@@ -2744,10 +2744,11 @@ def dangling_references(
 
     **THE WHOLE PATH IS COMPARED, NOT THE BASENAME — the 2026-09-01 close
     panel's finding.** As written this resolved a declared reference by
-    `(os.path.basename(module), function)`, so the DIRECTORY was discarded and
-    `tests/products/test_cp_04_seams.py::test_cft_g14_…` resolved against
-    `tests/examples/test_cp_04_seams.py::test_cft_g14_…`. A reference naming a
-    path that does not exist was therefore accepted, which is the same
+    `(os.path.basename(module), function)`, so the DIRECTORY was discarded: a
+    reference naming this module's FILE NAME under `tests/products/` — where no
+    such file exists — resolved against the collected node id under
+    `tests/examples/`. A reference naming a path that does not exist was
+    therefore accepted, which is the same
     reader-stops-looking defect
     `examples/cp-04-corporate-family-tree/deployment.py::refuse_stale_vocabulary_pointer`
     exists for one document over. The comparison is now the literal node id.

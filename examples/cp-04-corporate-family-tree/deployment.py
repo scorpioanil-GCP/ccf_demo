@@ -644,6 +644,27 @@ def _comment_blocks(text: str) -> tuple[str, ...]:
     return tuple(blocks)
 
 
+def _scalar_values(document: Any) -> frozenset[str]:
+    """Every scalar string a parsed YAML document carries, at any depth.
+
+    **VALUES, so a comment cannot satisfy a check about what a document
+    carries.** ``yaml.safe_load`` drops comments, which is the whole reason the
+    walk is over the parsed form rather than over the file's text.
+    """
+    found: set[str] = set()
+    stack: list[Any] = [document]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, str):
+            found.add(node)
+        elif isinstance(node, Mapping):
+            stack.extend(node.keys())
+            stack.extend(node.values())
+        elif isinstance(node, (list, tuple, set, frozenset)):
+            stack.extend(node)
+    return frozenset(found)
+
+
 def refuse_stale_vocabulary_pointer() -> tuple[str, ...]:
     """Refuse a ``ccf_config.yaml`` pointer that names the wrong document.
 
@@ -684,6 +705,17 @@ def refuse_stale_vocabulary_pointer() -> tuple[str, ...]:
     among the ones the config names. A config and an interpreter pointing at
     two different documents is the same reader-stops-looking failure with one
     more step in it.
+
+    **THE IRIs ARE SOUGHT IN THE DOCUMENT'S VALUES, NOT IN ITS TEXT — the
+    2026-09-01 close panel's finding.** As shipped this read the target with
+    ``read_text()`` and asked ``iri not in held``, so a document MENTIONING the
+    six in a comment satisfied it — including a comment saying they are *not*
+    here. That is this phase's own named defect, met for the ninth time: a check
+    reading a token present in BOTH the compliant and the violating case is
+    measuring vocabulary rather than content, and it is the same failure as the
+    ``mkdocs.yml`` comment `grep -q cp-04` passed on. The document is parsed and
+    the six are sought among its scalar VALUES, which is what *carrying* an IRI
+    means for a document a machine reads.
     """
     named: list[str] = []
     for block in _comment_blocks(CONFIG.read_text(encoding="utf-8")):
@@ -705,13 +737,16 @@ def refuse_stale_vocabulary_pointer() -> tuple[str, ...]:
                 f"ccf_config.yaml points at artifacts/{filename} for the six"
                 f" predicate IRIs and no such file exists."
             )
-        held = target.read_text(encoding="utf-8")
+        held = _scalar_values(_load(target))
         missing = sorted(iri for iri in wanted if iri not in held)
         if missing:
             raise SystemExit(
                 f"ccf_config.yaml points at artifacts/{filename} for the six"
-                f" predicate IRIs and it carries none of"
+                f" predicate IRIs and its VALUES carry none of"
                 f" {len(missing)} of them:\n  " + "\n  ".join(missing)
+                + "\n(A mention in a comment is not a document carrying the"
+                " subject: a reader following the pointer still has to look"
+                " somewhere else.)"
             )
     if SOURCE_VOCABULARY.name not in set(named):
         raise SystemExit(

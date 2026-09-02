@@ -595,6 +595,138 @@ def test_the_seed_carries_what_these_five_gates_need(
 
 
 # ---------------------------------------------------------------------------
+# The vocabulary pointer, and what "carries the IRIs" means.
+#
+# NOT A GATE and no id is minted. `refuse_stale_vocabulary_pointer` runs on
+# every assembly, so it is exercised in the COMPLIANT direction constantly and
+# had never been watched refuse anything. The 2026-09-01 close panel found the
+# reason it could not refuse the case it was written for.
+# ---------------------------------------------------------------------------
+
+
+def commented_out_vocabulary(text: str) -> tuple[str, int]:
+    """Move every declared `iri:` VALUE into a comment, keeping the text.
+
+    The document still MENTIONS all six — `grep` finds them, and so did the
+    shipped `iri not in target.read_text()` — while carrying none of them as a
+    value a machine can read. That is the compliant-and-violating-in-one-token
+    shape this phase has now met nine times.
+
+    Returns the rewritten text and how many lines moved, so a control cannot
+    pass over a rewrite that hit nothing.
+    """
+    rewritten: list[str] = []
+    hits = 0
+    for line in text.splitlines(keepends=True):
+        match = re.match(r"^(\s*)iri:\s*(https://\S+)\s*$", line)
+        if match:
+            indent, iri = match.groups()
+            rewritten.append(f"{indent}iri: TBC   # was {iri}\n")
+            hits += 1
+            continue
+        rewritten.append(line)
+    return "".join(rewritten), hits
+
+
+def test_the_vocabulary_pointer_refuses_a_document_that_only_mentions_the_iris(
+    tmp_path: pathlib.Path,
+) -> None:
+    """**Positive control**, and the close panel's finding in its own shape.
+
+    `ccf_config.yaml` points a reader at `source-vocabulary.yaml` for the six
+    family predicate IRIs. The scratch copy MENTIONS all six in comments and
+    declares none as a value. The shipped check read the file's raw text and
+    accepted it; the check now parses the document and looks among its values.
+
+    **ONLY `ARTIFACTS` IS MOVED, AND THAT IS THE POINT.** The IRIs are read from
+    `SOURCE_VOCABULARY` — the document the INTERPRETER uses — while the document
+    the CONFIG points a reader at is resolved under `ARTIFACTS`. Moving both
+    would make the check compare the scratch document against itself and pass
+    for a reason that has nothing to do with the finding; see
+    `test_the_vocabulary_pointer_cannot_fail_over_its_own_source_document`,
+    which asserts that self-comparison as the measured property it is.
+    """
+    deployment = _load("deployment")
+    text, hits = commented_out_vocabulary(
+        deployment.SOURCE_VOCABULARY.read_text(encoding="utf-8")
+    )
+    assert hits >= 6, (
+        f"the scratch rewrite moved {hits} `iri:` values, fewer than the six"
+        " family predicates; a control over a document it did not change is a"
+        " control that cannot fail"
+    )
+    scratch_dir = tmp_path / "artifacts"
+    scratch_dir.mkdir()
+    scratch = scratch_dir / deployment.SOURCE_VOCABULARY.name
+    scratch.write_text(text, encoding="utf-8")
+
+    for iri in deployment.family_predicate_iris().values():
+        assert iri in text, (
+            "the scratch document does not even MENTION the six, so this control"
+            " would refuse for the wrong reason"
+        )
+
+    patch = pytest.MonkeyPatch()
+    patch.setattr(deployment, "ARTIFACTS", scratch_dir)
+    try:
+        with pytest.raises(SystemExit) as refused:
+            deployment.refuse_stale_vocabulary_pointer()
+    finally:
+        patch.undo()
+    assert "VALUES carry none of" in str(refused.value), refused.value
+    assert "mention in a comment" in str(refused.value), refused.value
+
+
+def test_the_vocabulary_pointer_cannot_fail_over_its_own_source_document(
+    tmp_path: pathlib.Path,
+) -> None:
+    """**The measured limit of the check, asserted rather than described.**
+
+    Found on 2026-09-01 while building the control above. The set of IRIs the
+    check looks for is
+    `examples/cp-04-corporate-family-tree/deployment.py::family_predicate_iris`,
+    which reads `SOURCE_VOCABULARY` — so for THAT document the second condition
+    compares a file against itself and cannot fail, whatever the values are.
+    Its force is over any ADDITIONAL document `ccf_config.yaml` names, and the
+    fourth condition is what stops the config naming only such a document.
+
+    Asserted here, in the shape that demonstrates it: with the interpreter's
+    document and the named document moved TOGETHER to a copy declaring `TBC`
+    for every IRI, the check still passes.
+    """
+    deployment = _load("deployment")
+    text, hits = commented_out_vocabulary(
+        deployment.SOURCE_VOCABULARY.read_text(encoding="utf-8")
+    )
+    assert hits >= 6, hits
+    scratch_dir = tmp_path / "artifacts"
+    scratch_dir.mkdir()
+    scratch = scratch_dir / deployment.SOURCE_VOCABULARY.name
+    scratch.write_text(text, encoding="utf-8")
+
+    patch = pytest.MonkeyPatch()
+    patch.setattr(deployment, "ARTIFACTS", scratch_dir)
+    patch.setattr(deployment, "SOURCE_VOCABULARY", scratch)
+    try:
+        named = deployment.refuse_stale_vocabulary_pointer()
+        wanted = set(deployment.family_predicate_iris().values())
+    finally:
+        patch.undo()
+    assert named == (scratch.name,), named
+    assert wanted == {"TBC"}, (
+        "the scratch document does not declare a single placeholder for every"
+        f" predicate, so this is not the self-comparison case: {sorted(wanted)}"
+    )
+
+
+def test_the_vocabulary_pointer_accepts_the_shipped_document() -> None:
+    """**Compliance control.** A stricter reading must not refuse the real tree."""
+    deployment = _load("deployment")
+    named = deployment.refuse_stale_vocabulary_pointer()
+    assert deployment.SOURCE_VOCABULARY.name in named, named
+
+
+# ---------------------------------------------------------------------------
 # CFT-G01 — every returned node carries a KNOWN FIBO class.
 # ---------------------------------------------------------------------------
 
