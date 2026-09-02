@@ -23,6 +23,13 @@ The deliberately generated shapes, and the defects they exist to catch:
   later-Mongo parity hazard): the fixture ontology's edges already point
   against the walk on alternating hops (``guarantees`` and ``governs`` aim
   spoke-to-hub), so every multi-hop case is a mixed-direction case.
+* **Node-class admission at the class boundary** (ledger row ``24.5-L-05``,
+  `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, semantics version 1.1.0):
+  the chain walked with ``admitted_entity_classes`` set to one chain class
+  beside the all-admitted and ``None`` controls, the empty set, admission
+  combined with the policy family and with ``allowed_entities``, and an
+  explicit start of an unadmitted class — so a backend that honors the
+  field natively, in Python, or declines it is held to the same bytes.
 * **Orphaned nodes** — entities with no relationships — and the DANGLING
   first-class edge (both endpoints entity-claim-less), which the degenerate
   everything-question must keep (`GQ-05` at
@@ -348,12 +355,21 @@ def build_queries(
     return tuple(queries)
 
 
-def _traverse(depth: int) -> TraversalSpec:
-    """The fixture-declared traverse family at ``depth`` hops."""
+def _traverse(
+    depth: int, *, admitted: frozenset[str] | None = None
+) -> TraversalSpec:
+    """The fixture-declared traverse family at ``depth`` hops.
+
+    ``admitted`` is `GQ-10`'s node-class admission (semantics version
+    1.1.0): ``None`` — the default here exactly as on the contract — admits
+    every class, so every case written before the field existed asks the
+    same question it always asked (D-10, additive over breaking).
+    """
     return TraversalSpec(
         seed_entity_classes=SEED_CLASSES,
         relationship_types=RELATIONSHIP_TYPES,
         depth_limit=depth,
+        admitted_entity_classes=admitted,
     )
 
 
@@ -429,6 +445,72 @@ def depth_cases(draw: st.DrawFn) -> CorpusCase:
     )
     return CorpusCase(
         name="depth-and-seeds",
+        entities=entities,
+        relationships=relationships,
+        query_specs=specs,
+    )
+
+
+#: The three classes of the seed - mid - target chain — the all-admitted
+#: control's set, discovered from the ontology, never written here.
+CHAIN_CLASSES: frozenset[str] = frozenset({SEED_CLASS, MID_CLASS, TARGET_CLASS})
+
+
+@st.composite
+def admission_cases(draw: st.DrawFn) -> CorpusCase:
+    """Node-class admission on the walk (`GQ-10`, semantics version 1.1.0).
+
+    Ledger row ``24.5-L-05``. The same chain as :func:`depth_cases`, asked
+    with ``admitted_entity_classes`` set to ONE drawn class of the chain —
+    so a hop onto an unadmitted class is refused and the walk stops at the
+    class boundary — beside the all-admitted control (every chain class),
+    the ``None`` control (the 1.0.x question), the empty set (no hop is
+    admitted; the starts answer), admission combined with the policy
+    family and with ``allowed_entities``, and an explicit seed of an
+    unadmitted class (a start is never filtered by admission — `GQ-11`).
+    Every backend is held byte-identical to the fallback on each, whether
+    it honors the field natively, in Python, or declines it (`GQ-32`).
+    """
+    observed_at = draw(st.sampled_from((ON_BOUNDARY, LATE)))
+    entities, relationships = chain_claims(
+        mid_classification=PERMITTED_CLASSIFICATION, observed_at=observed_at
+    )
+    _, _, target_uri = chain_uris()
+    depth = draw(st.integers(min_value=1, max_value=3))
+    one_class = frozenset({draw(st.sampled_from(sorted(CHAIN_CLASSES)))})
+    specs = (
+        # One admitted class: the walk stops at the class boundary.
+        QuerySpec(as_of=ON_BOUNDARY, traverse=_traverse(depth, admitted=one_class)),
+        # The all-admitted control on the same content and depth.
+        QuerySpec(
+            as_of=ON_BOUNDARY, traverse=_traverse(depth, admitted=CHAIN_CLASSES)
+        ),
+        # The sentinel control: None is the 1.0.x question.
+        QuerySpec(as_of=ON_BOUNDARY, traverse=_traverse(depth)),
+        # The empty set admits no hop: the walk starting points only.
+        QuerySpec(as_of=ON_BOUNDARY, traverse=_traverse(depth, admitted=frozenset())),
+        # Admission x the policy family.
+        QuerySpec(
+            as_of=ON_BOUNDARY,
+            policy=True,
+            traverse=_traverse(depth, admitted=one_class),
+        ),
+        # Admission x the uniform rule.
+        QuerySpec(
+            as_of=ON_BOUNDARY,
+            traverse=_traverse(depth, admitted=one_class),
+            allowed=ALLOWED_UNIVERSE,
+        ),
+        # An explicit start of a (possibly) unadmitted class stays in the
+        # answer and still expands — admission filters hops, never starts.
+        QuerySpec(
+            as_of=ON_BOUNDARY,
+            traverse=_traverse(depth, admitted=one_class),
+            seeds=frozenset({target_uri}),
+        ),
+    )
+    return CorpusCase(
+        name="admission-at-the-class-boundary",
         entities=entities,
         relationships=relationships,
         query_specs=specs,
@@ -728,6 +810,7 @@ def corpus_cases() -> st.SearchStrategy[CorpusCase]:
     return st.one_of(
         mixed_admissibility_path_cases(),
         depth_cases(),
+        admission_cases(),
         orphan_cases(),
         self_loop_cases(),
         allowed_entities_cases(),

@@ -1,10 +1,10 @@
 # Graph Query Semantics
 
-**Semantics version: 1.0.1** — the query vocabulary is versioned through this
+**Semantics version: 1.1.0** — the query vocabulary is versioned through this
 document only (D-12): the `GraphQuery` contract carries **no version field**
 and evolves by additive sentinel-defaulted fields under the existing
 frozen/`extra=forbid` discipline; the differential conformance suite is the
-compatibility check. Version 1 includes `allowed_entities`.
+compatibility check. 1.0 added `allowed_entities`; 1.1.0 adds `admitted_entity_classes` (`GQ-10`, `GQ-35`).
 
 This is the normative definition of what a `GraphQuery` means and what any
 conformant answerer must return — D-05 artifact 1, written before the
@@ -203,20 +203,20 @@ model, and which one a decision needs is declared, never assumed.
 When the traverse family is present, the answer is a bounded breadth-first
 expansion (INV-CH7-24, whitepaper §7.4) with these decided semantics:
 
-- **Undirected.** An edge is crossable in either direction; subject→object
-  order carries no traversal meaning.
-- **Typed.** The walk crosses only edges whose `relationship_type` is a
-  member of `relationship_types`. Edges of other types are not crossable
-  — and are **absent from the answer** even when both their endpoints are
-  reached: the traverse family's answer contains exactly the permitted-type
-  edges among reached entities.
-- **Seeds are included.** Every walk starting point that is itself in
-  scope is in the answer.
-- **`depth_limit=0` yields the walk starting points only.** Zero hops is a
-  legal, meaningful bound, not an error and not "unlimited".
-- **`depth_limit=N` reaches at most N hops** from a walk starting point.
-  A node whose shortest admissible path from every start exceeds N is
-  absent.
+- **Undirected.** An edge is crossable in either direction; subject→object order carries no traversal meaning.
+- **Typed.** The walk crosses only edges whose `relationship_type` is a member of `relationship_types`.
+  Edges of other types are not crossable — and are **absent from the answer** even when both their
+  endpoints are reached: the traverse family's answer contains exactly the permitted-type edges among
+  reached entities.
+- **Seeds are included.** Every walk starting point that is itself in scope is in the answer.
+- **`depth_limit=0` yields the walk starting points only.** Zero hops is a legal, meaningful bound,
+  not an error and not "unlimited".
+- **`depth_limit=N` reaches at most N hops** from a walk starting point. A node whose shortest
+  admissible path from every start exceeds N is absent.
+- **Admitted.** When `admitted_entity_classes` is present, a hop lands only on an entity whose
+  `entity_class` is a member; walk starts (`GQ-11`) are unaffected, and an entity absent from
+  in-scope state is not a hop. Absent (`None`), every class is admissible — the 1.0.x behavior
+  (amendment 1.1.0, `GQ-35`).
 
 ### `GQ-11` — Walk-start selection
 
@@ -636,6 +636,40 @@ clause they amend out of existence, and an amendment is written so it does
 not move the clause headings above it — the anchored citations across
 `/src` and `/tests` carry line numbers, and a renumbering edit would make
 the citation guard report a hundred false moves and hide a real one.
+
+- **1.1.0** — *plan 24.5-04, ledger row `24.5-L-05`.* `GQ-10` gains a sixth
+  bullet, **Admitted**: the traverse family carries
+  `admitted_entity_classes: frozenset[str] | None = None`, mirrored on
+  `TraversalSpec` and `TraversalNeighborhoodParameters`.
+
+  *What it means.* When the set is present, a hop lands only on an entity
+  whose `entity_class` is a member — a walk stops at a class boundary
+  rather than crossing it. Admission filters REACHED nodes and never walk
+  STARTS: `GQ-11` selects starts, "seeds are included" stands, and a start
+  of an unadmitted class is in the answer and still expands. An entity
+  absent from in-scope state has no class and is not a hop. `None` is the
+  positive assertion "every class is admissible" — the 1.0.x question,
+  byte-for-byte — so every query and every parameter artifact written
+  before this amendment asks exactly what it always asked (D-10, additive
+  over breaking; the `allowed_entities` precedent). The empty set admits no
+  hop and answers the walk starting points. Endpoint closure (`GQ-16`) is
+  unchanged: an edge to an unadmitted node is pruned as any excluded
+  neighbor's edge is.
+
+  *Why it was needed.* `TraversalNeighborhood` typed the walk on EDGES and
+  `seed_entity_classes` seeded only; a walk that must stop at a class
+  boundary — cp-04's `24.4-D-33` — had no SDK expression. A new name under
+  the existing `traversal` category is additive (D-10); a fifth operator
+  category is not (`D-IMPL-223`, four classes). Every answerer honors the
+  field or declines it to the fallback (`GQ-32`, D-04): SQLite and Postgres
+  natively, inside the recursive walk term; Neo4j and Fluree in Python, by
+  narrowing the admissible node list to admitted-class survivors plus the
+  starts; MongoDB declines. The differential suite holds all five to the
+  fallback over `tests/conformance/query_corpus.py::admission_cases`.
+  Because `canonical_bytes` walks every field, `content_hash(GraphQuery)`
+  moves for every traverse query (`GQ-20`); no committed query pin exists
+  in the tree, and `tests/replay/test_query_sequence_pin.py` re-derives
+  pins from live executions.
 
 - **1.0.1** — *plan 15.2-14, the phase-close audit.* `GQ-16`'s
   endpoint-closure half is scoped to **constrained** answers; the

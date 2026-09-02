@@ -583,6 +583,27 @@ def _translated_statements(
             clause, values = _in_clause(_REACHED, q.allowed_entities)
             text.append("      AND " + clause + "\n")
             params += list(values)
+        if q.traverse.admitted_entity_classes is not None:
+            # Node-class admission on the REACHED node, honored natively
+            # (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, semantics
+            # version 1.1.0; ledger row 24.5-L-05): a hop lands only on a
+            # survivor whose class is admitted. Stated inside the recursive
+            # term so a path through an unadmitted node does not exist, and
+            # never on the base case — starts are selected by `GQ-11` and
+            # are not filtered by admission. The class list binds as
+            # parameters, appended in the same order the seed-class binder
+            # appends (threat T-24.5-10); an empty set renders the always-
+            # false clause, so no hop is admitted and the starts answer.
+            clause, values = _in_clause(
+                "json_extract(a.claim_json, '$.entity_class')",
+                q.traverse.admitted_entity_classes,
+            )
+            text.append(
+                "      AND " + _REACHED + " IN (\n"
+                "        SELECT a.entity_uri FROM survivors a\n"
+                "        WHERE " + clause + ")\n"
+            )
+            params += list(values)
         text.append(")\n")
 
     prologue = "WITH RECURSIVE " if q.traverse is not None else "WITH "
@@ -685,7 +706,10 @@ class SqliteGraphReader(BaseGraphReader):
         makes byte-identical and invisible outside telemetry. This
         translation covers every well-formed query shape; the one decline
         is a classification attribute name outside the safe JSON-path
-        charset (:func:`_json_attribute_path`).
+        charset (:func:`_json_attribute_path`). ``admitted_entity_classes``
+        (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0) is HONORED
+        natively — a class predicate on the reached survivor inside the
+        recursive walk term, the classes bound as parameters.
         """
         if q.allowed_entities is not None and not q.allowed_entities:
             # The empty survivor set IS the answer (`GQ-04` at
