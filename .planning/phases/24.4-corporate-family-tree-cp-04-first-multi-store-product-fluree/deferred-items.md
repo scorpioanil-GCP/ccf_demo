@@ -382,3 +382,59 @@ before this phase began — against a positive control showing `examples/` moved
 It would mean either rendering into `public/` or teaching `docs_dir` about a
 second tree, and both are surface decisions for whoever owns
 `example_delivery.md` §10.
+
+---
+
+## 12. `tests/products/test_gate_two_call_shape.py` is RED on `main` for cp-04, and was before this fix
+
+**Found during:** plan `24.4-FIX-01`, task 1, taking the pre-work baseline.
+**Out of scope, not fixed.** It is not caused by anything this fix touches and
+closing it needs a ruling, not an edit.
+
+**The measurement.** At `f4a5828` — the phase HEAD, before a character of this
+fix existed, working tree clean — `.venv/bin/python -m pytest
+tests/products/test_gate_two_call_shape.py -q` reports **4 failed, 113 passed**:
+
+```
+test_the_one_document_exemption_has_not_spread
+test_every_projecting_example_body_names_the_binder[examples/cp-04-corporate-family-tree/produce.py-]
+test_the_premise_detector_reads_the_shipped_tree_correctly
+test_no_projecting_body_names_the_binder_without_binding_it[examples/cp-04-corporate-family-tree/produce.py-]
+```
+
+The message names the subject exactly:
+
+> `examples/cp-04-corporate-family-tree/produce.py:410: _project() constructs or
+> runs a projection plan without naming `refuse_operator_set_divergence`.`
+
+**The same four, and only the same four, after this fix.** Recorded to a file
+before the first edit and diffed after the last: byte-identical rosters, so this
+plan added nothing to the population and removed nothing from it. Enumerated as
+a **roster**, never as the count `4` (`D-13`) — a right count with a wrong member
+audits clean forever, and this fix changed `_project`'s signature, which is
+precisely the kind of edit that could have swapped one failure for another
+without moving the total.
+
+**What it is about.** `D-IMPL-86` element (3) requires a projecting body to call
+`ccf.deployment::refuse_operator_set_divergence` between plan construction and
+`ProjectionEngine.execute`, because the product class's `required_operator_keys`
+and the projection's own are two separately authored documents and the binder is
+the only thing that holds them in agreement. cp-04's
+`examples/cp-04-corporate-family-tree/produce.py::_project` calls neither the
+binder nor qualifies for either declared exemption —
+`RULED_ONE_DOCUMENT_DEPLOYMENTS` (the deployment registers no
+`ccf.projection-requirements` AND the plan's `required=` reads the product
+class's own claim) or `RULED_SDK_SUPPLIED_DEPLOYMENTS`.
+
+**Why it is a ruling and not an edit.** cp-04's plan DOES take its `required=`
+from the product class's own document — `_project` passes
+`required=tuple(scenario.product_class.required_operator_keys)` — which is
+exactly the shape the one-document exemption describes. So there are two
+defensible closures and they are different decisions: **(a)** add cp-04 to
+`RULED_ONE_DOCUMENT_DEPLOYMENTS`, which is Dave admitting a fifth product to a
+ruled roster; or **(b)** call the binder in `_project` anyway, which makes it
+compare a value against itself — the collapse `_binder_collapses` property (1)
+refuses by name. Picking either without a ruling is choosing for him.
+
+**Not this plan's to close, and deliberately not worked around.** Nothing in
+`24.4-FIX-01` touches the binder, the exemption rosters or `required=`.
