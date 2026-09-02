@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**754 entries**, of which **516** name a public Python surface.
+**758 entries**, of which **520** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-369 entries — 334 public Python surface, 35 not public Python API.
+370 entries — 335 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -6892,6 +6892,19 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
 
+#### ccf.assembly.worker.NO_RESOLVING_RULE
+
+- Surface: ccf.assembly.worker.NO_RESOLVING_RULE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the module constant `"no-resolving-rule"`, the `resolved_by` value of an entity no rule
+  claims. Exported so a custom strategy can name the sentinel rather than guess the string
+- Why: `24.5-L-21`, `D-IMPL-38` (a stated sentinel, not a silent default)
+- Migration: none
+
+*Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -7466,7 +7479,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-293 entries — 110 public Python surface, 183 not public Python API.
+295 entries — 112 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -9899,6 +9912,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `19-02-the-adapter-seam-carries-bytes.md`.*
 
+#### ccf.assembly.worker.RelationshipResolutionRule
+
+- Surface: ccf.assembly.worker.RelationshipResolutionRule
+- Public surface: true
+- Change type: reshaped
+- Before: `(relationship_type: str, subject_entity_class: str, object_entity_class: str)` — fires on
+  class co-occurrence in one envelope, every subject × object pair, self-loops included
+- After: the same three required fields plus three sentinel-defaulted selectors —
+  `predicate_key: str | None = None` (the rule fires only when the payload value under that key
+  equals the rule's own `relationship_type`), `subject_rule: str | None = None` and
+  `object_rule: str | None = None` (the `match_key` of the entity rule that resolved each endpoint;
+  a `model_validator` refuses one without the other). `predicate_key` may stand alone
+- Why: `24.5-L-21`, `24.4-D-35`. The single writer decides what a rule mints; the rule must be able
+  to say. The comparison under `predicate_key` is against the rule's own type, so a payload cannot
+  name a type no rule declares (T-24.5-26)
+- Migration: none — every existing rule constructs and behaves as before, except that a self-loop
+  from one envelope is no longer minted under any rule
+
+*Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
+
+#### ccf.assembly.worker.ResolvedEntity
+
+- Surface: ccf.assembly.worker.ResolvedEntity
+- Public surface: true
+- Change type: reshaped
+- Before: `(entity_uri: str, entity_class: str, attributes: dict[str, str])`
+- After: the same plus `resolved_by: str = NO_RESOLVING_RULE` — the `match_key` of the entity rule
+  that produced the entity, filled by `SpecDrivenEntityResolution.resolve`
+- Why: `24.5-L-21`. Endpoint selection chooses an endpoint by the rule that produced it, not by its
+  class; the resolved entity has to carry which rule that was
+- Migration: none for callers. A custom `EntityResolutionStrategy` that does not fill the field
+  leaves the sentinel, and its entities are then reachable by class only — a selector rule over
+  them mints nothing, because an endpoint no rule claims is not selectable
+
+*Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -12243,7 +12292,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-88 entries — 68 public Python surface, 20 not public Python API.
+89 entries — 69 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -14000,6 +14049,28 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   dedicated code is owed
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
+
+#### ccf.assembly.worker.AssemblyWorker
+
+- Surface: ccf.assembly.worker.AssemblyWorker
+- Public surface: true
+- Change type: behavior
+- Before: `ingest` minted `by_class[subject_class] × by_class[object_class]` for every declared
+  rule, self-loops included; one cp-04 node envelope under twelve rules → 12 relationships, 6
+  self-loops
+- After: `ingest` skips a rule whose `predicate_key` the envelope does not select; chooses endpoints
+  by `by_rule[subject_rule] × by_rule[object_rule]` when both selectors are set, else by class as
+  before; and never mints a pair with `subject_uri == object_uri`. The same twelve co-occurrence
+  rules → 6 relationships (the anchor→member pairs, which join two URIs), 0 self-loops; the same
+  twelve rules carrying `predicate_key="predicate"` on a node envelope → 0 and 0. Constructor and
+  method signatures are unchanged, so the manifest records no reshape
+- Why: `24.5-L-21`, `24.4-D-35`, `D-10`. Criterion 16: mints only what the envelope selects, never
+  a self-loop, member-to-member expressible from one envelope, single-writer preserved
+- Migration: none — a deployment relying on a self-loop minted from one envelope would have to
+  admit it through `admit_relationship_claim` deliberately; no shipped fixture or example does
+  (measured: no fixture declares a rule whose subject and object classes coincide)
+
+*Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
 
 ### Not public Python API
 
