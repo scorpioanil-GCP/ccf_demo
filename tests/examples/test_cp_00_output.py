@@ -1039,3 +1039,588 @@ def test_the_record_is_written_before_delivery(
     assert restored == observed.record
     recorded = restored.content_generation_path.request
     assert recorded.parameters[deployment.THRESHOLD_PARAMETER] == low
+
+
+# --------------------------------------------------------------------------
+# 11 — the product-specific gates of spec §D.7, executed by id.
+#
+# Backfilled in Phase 24.5 (ledger row 24.5-L-49, ROADMAP criterion 13): until
+# then `test_a_row_exactly_at_the_threshold_is_served` above was the only one
+# of the eight a test executed. Each test names its id in its DOCSTRING — the
+# convention `examples/cp-00-institutional-holders/artifacts/gates.yaml`
+# declares and `tools/check_product_gates.py` reads — and each was watched RED
+# against a scratch copy of the example's `deployment.py` carrying the seeded
+# violation the roster names, with the committed example untouched. The
+# excerpts are in the roster's `observed_red` blocks and in 24.5-09-SUMMARY.md.
+#
+# Every expectation below is read from the seeded table by SQL or from the
+# example's own artifacts, never written down here, so a gate cannot pass its
+# own sabotage by moving both sides together.
+# --------------------------------------------------------------------------
+def _assembled_or_fail(
+    gate_id: str, root: pathlib.Path, threshold: int, **kwargs: Any
+) -> Any:
+    """One run, or a failure that NAMES the gate.
+
+    A gate over a served product cannot be read off a run that raised — and a
+    raise inside the spine is exactly what several seeded violations produce,
+    because an emptied view is refused by the freshness scorer long before Π.
+    Naming the id here is what makes that red legible as THIS gate's rather
+    than as an unrelated error in the report.
+    """
+    try:
+        _outcome, observed = _over(root, threshold, **kwargs)
+    except Exception as exc:  # noqa: BLE001 — the id must reach the report
+        pytest.fail(
+            f"{gate_id}: the assembly did not complete, so the gate had no"
+            f" served product to read: {exc!r}"
+        )
+    return observed
+
+
+def _managers(observed: Any) -> list[Any]:
+    """The assembled manager records Π ran over — the served rows' source."""
+    deployment = _load("deployment")
+    return [
+        record
+        for record in observed.view.entities
+        if record.claim.entity_class == deployment.CLASS_MANAGER
+    ]
+
+
+def _served_pairs(observed: Any) -> set[tuple[str, str]]:
+    """``(manager_cik, value_usd)`` for every served row — the roster, as pairs."""
+    deployment = _load("deployment")
+    return {
+        (str(entry[deployment.ATTR_MANAGER_CIK]), str(entry[deployment.COLUMN_VALUE]))
+        for entry in observed.product.payload["holders"]
+    }
+
+
+def _pinned_scope(dsn: str) -> tuple[str, str, tuple[str, str]]:
+    """``(table, where-clause, bind)`` for the anchor at the pinned period, all securities."""
+    deployment = _load("deployment")
+    table = f"{deployment.SOURCE_SCHEMA}.{deployment.TABLE_HOLDINGS}"
+    where = (
+        f" where {deployment.COLUMN_ISSUER_LEI} = %s"
+        f" and {deployment.COLUMN_PERIOD} = %s"
+    )
+    return table, where, (_anchor(), deployment.reported_period())
+
+
+def _floor(dsn: str) -> int:
+    """The smallest position the anchor filed at the pin ON ANY SECURITY.
+
+    Below `_thresholds`' ``low`` (which is the minimum on the dominant
+    security alone), so a run at the floor serves EVERY assembled manager —
+    which is what lets a wrong-security row be seen rather than hide below
+    the line.
+    """
+    deployment = _load("deployment")
+    table, where, bind = _pinned_scope(dsn)
+    with psycopg.connect(dsn) as db, db.cursor() as cursor:
+        cursor.execute(
+            f"select min({deployment.COLUMN_VALUE}) from {table}{where}", bind  # noqa: S608
+        )
+        return int(cursor.fetchone()[0])
+
+
+def _filed_at_the_pin(dsn: str) -> int:
+    """Rows the anchor filed at the pin, every security — the read count's twin."""
+    table, where, bind = _pinned_scope(dsn)
+    with psycopg.connect(dsn) as db, db.cursor() as cursor:
+        cursor.execute(f"select count(*) from {table}{where}", bind)  # noqa: S608
+        return int(cursor.fetchone()[0])
+
+
+def _managers_off_the_dominant_security(dsn: str) -> int:
+    """Managers with a filed position at the pin and NONE on the dominant security."""
+    deployment = _load("deployment")
+    table, where, bind = _pinned_scope(dsn)
+    with psycopg.connect(dsn) as db, db.cursor() as cursor:
+        cursor.execute(
+            f"select count(distinct h.{deployment.COLUMN_MANAGER_CIK})"  # noqa: S608
+            f" from {table} h"
+            f"{where.replace(deployment.COLUMN_ISSUER_LEI, 'h.' + deployment.COLUMN_ISSUER_LEI).replace(deployment.COLUMN_PERIOD, 'h.' + deployment.COLUMN_PERIOD)}"
+            f" and not exists (select 1 from {table} x"
+            f" where x.{deployment.COLUMN_ISSUER_LEI} = h.{deployment.COLUMN_ISSUER_LEI}"
+            f" and x.{deployment.COLUMN_PERIOD} = h.{deployment.COLUMN_PERIOD}"
+            f" and x.{deployment.COLUMN_MANAGER_CIK} = h.{deployment.COLUMN_MANAGER_CIK}"
+            f" and x.{deployment.COLUMN_CUSIP} = %s)",
+            bind + (_dominant_cusip(dsn)[0][0],),
+        )
+        return int(cursor.fetchone()[0])
+
+
+def _rows_outside_the_pin(dsn: str) -> int:
+    """Rows the anchor filed for a period OTHER than the pinned one."""
+    deployment = _load("deployment")
+    table = f"{deployment.SOURCE_SCHEMA}.{deployment.TABLE_HOLDINGS}"
+    with psycopg.connect(dsn) as db, db.cursor() as cursor:
+        cursor.execute(
+            f"select count(*) from {table}"  # noqa: S608
+            f" where {deployment.COLUMN_ISSUER_LEI} = %s"
+            f" and {deployment.COLUMN_PERIOD} <> %s",
+            (_anchor(), deployment.reported_period()),
+        )
+        return int(cursor.fetchone()[0])
+
+
+def _bands_on_the_dominant_security(dsn: str) -> tuple[set[str], int]:
+    """``(the band values the source carries, how many rows carry NULL)``."""
+    deployment = _load("deployment")
+    table, where, bind = _pinned_scope(dsn)
+    bind = bind + (_dominant_cusip(dsn)[0][0],)
+    where = f"{where} and {deployment.COLUMN_CUSIP} = %s"
+    with psycopg.connect(dsn) as db, db.cursor() as cursor:
+        cursor.execute(
+            f"select distinct {deployment.COLUMN_MATCH_BAND} from {table}{where}"  # noqa: S608
+            f" and {deployment.COLUMN_MATCH_BAND} is not null",
+            bind,
+        )
+        bands = {str(row[0]) for row in cursor.fetchall()}
+        cursor.execute(
+            f"select count(*) from {table}{where}"  # noqa: S608
+            f" and {deployment.COLUMN_MATCH_BAND} is null",
+            bind,
+        )
+        return bands, int(cursor.fetchone()[0])
+
+
+def _max_position(dsn: str) -> int:
+    """The largest position the anchor filed at the pin, any security."""
+    deployment = _load("deployment")
+    table, where, bind = _pinned_scope(dsn)
+    with psycopg.connect(dsn) as db, db.cursor() as cursor:
+        cursor.execute(
+            f"select max({deployment.COLUMN_VALUE}) from {table}{where}", bind  # noqa: S608
+        )
+        return int(cursor.fetchone()[0])
+
+
+def _integer_leaves(value: Any, path: str = "payload") -> list[tuple[str, int]]:
+    """Every integer at any depth of ``value``, with the path it sits at."""
+    if isinstance(value, bool):
+        return []
+    if isinstance(value, int):
+        return [(path, value)]
+    if isinstance(value, dict):
+        return [
+            leaf
+            for key, item in value.items()
+            for leaf in _integer_leaves(item, f"{path}.{key}")
+        ]
+    if isinstance(value, (list, tuple)):
+        return [
+            leaf
+            for index, item in enumerate(value)
+            for leaf in _integer_leaves(item, f"{path}[{index}]")
+        ]
+    return []
+
+
+def test_ih_g01_every_served_row_cusip_equals_the_resolved_security(
+    tmp_path: pathlib.Path, seeded: str
+) -> None:
+    """`IH-G01` — every served row's cusip equals `resolved_security.cusip`.
+
+    A served row does not print its cusip; the assembled manager record it
+    was projected from carries it as `resolved_cusip`, and that is what is
+    held to step 1's answer, row by served row. The threshold is the FLOOR
+    over every position the anchor filed at the pin — on any security — so
+    every assembled manager is served and a wrong-security row cannot hide
+    below the line. The positive control is the fixture itself: managers
+    whose only position is off the dominant security exist in it, measured
+    by SQL, so the CUSIP filter has rows to drop and this gate has something
+    to catch. The served roster is also held to the pinned, cusip-filtered
+    oracle, so a fan-out that happened to carry the right attribute could not
+    pass on the attribute alone.
+    """
+    deployment = _load("deployment")
+    off_dominant = _managers_off_the_dominant_security(seeded)
+    assert off_dominant > 0, (
+        "IH-G01: the fixture holds no manager off the dominant security, so"
+        " this gate could not fail"
+    )
+    floor = _floor(seeded)
+    observed = _assembled_or_fail("IH-G01", tmp_path / "g01", floor)
+    resolved = observed.product.payload["resolved_security"][
+        deployment.ATTR_SECURITY_CUSIP
+    ]
+    served = _served_pairs(observed)
+    assert served, "IH-G01: nothing was served at the floor, so no row can be held to step 1"
+
+    wrong = sorted(
+        {
+            (
+                str(record.claim.attributes[deployment.ATTR_MANAGER_CIK]),
+                str(record.claim.attributes.get(deployment.ATTR_CUSIP)),
+            )
+            for record in _managers(observed)
+            if (
+                str(record.claim.attributes[deployment.ATTR_MANAGER_CIK]),
+                str(record.claim.attributes[deployment.ATTR_VALUE]),
+            )
+            in served
+            and record.claim.attributes.get(deployment.ATTR_CUSIP) != resolved
+        }
+    )
+    assert wrong == [], (
+        f"IH-G01: served rows {wrong} were assembled from a security other"
+        f" than the resolved {resolved!r} — step 1's output was not applied"
+        " to the read and the fan-out over-count is back"
+    )
+    oracle = _oracle(seeded, floor, comparison=deployment.COMPARISON)
+    assert observed.product.payload["count"] == len(oracle), (
+        f"IH-G01: {observed.product.payload['count']} rows were served where"
+        f" the pinned, cusip-filtered oracle holds {len(oracle)}"
+    )
+
+
+def test_ih_g02_every_served_row_report_period_equals_the_pinned_period(
+    tmp_path: pathlib.Path, seeded: str
+) -> None:
+    """`IH-G02` — every served row's `report_period` equals the pinned period.
+
+    Read off the assembled manager record each served row was projected
+    from — never off the payload's own `report_period` label, which is
+    copied from the pin and would agree with itself. The fixture seeds rows
+    for the anchor OUTSIDE the pin (measured by SQL; `_alternate_period`
+    above reads one of them), so an unpinned read has a decade to merge in.
+    The served roster is also held to the pinned oracle as ordered pairs, so
+    a merged period whose rows happened to carry the right attribute could
+    not pass on the attribute alone.
+    """
+    deployment = _load("deployment")
+    pin = deployment.reported_period()
+    assert _rows_outside_the_pin(seeded) > 0, (
+        "IH-G02: the fixture seeds no row outside the pin, so this gate could"
+        " not fail"
+    )
+    floor = _floor(seeded)
+    observed = _assembled_or_fail("IH-G02", tmp_path / "g02", floor)
+    served = _served_pairs(observed)
+    assert served, "IH-G02: nothing was served at the floor"
+
+    off_pin = sorted(
+        {
+            (
+                str(record.claim.attributes[deployment.ATTR_MANAGER_CIK]),
+                str(record.claim.attributes.get(deployment.ATTR_PERIOD)),
+            )
+            for record in _managers(observed)
+            if (
+                str(record.claim.attributes[deployment.ATTR_MANAGER_CIK]),
+                str(record.claim.attributes[deployment.ATTR_VALUE]),
+            )
+            in served
+            and record.claim.attributes.get(deployment.ATTR_PERIOD) != pin
+        }
+    )
+    assert off_pin == [], (
+        f"IH-G02: served rows {off_pin} were assembled from a period other"
+        f" than the pinned {pin!r} — the period pin was dropped"
+    )
+    assert [
+        (entry[deployment.ATTR_MANAGER_CIK], entry[deployment.COLUMN_VALUE])
+        for entry in observed.product.payload["holders"]
+    ] == _oracle(seeded, floor, comparison=deployment.COMPARISON), (
+        "IH-G02: the served roster is not the pinned oracle's"
+    )
+
+
+def test_ih_g03_every_served_row_carries_a_non_null_issuer_match_band(
+    tmp_path: pathlib.Path, seeded: str
+) -> None:
+    """`IH-G03` — every served row carries a non-null `issuer_match_band`.
+
+    "Non-null" is held against the band VALUES the seeded table actually
+    carries, read by SQL, because the projection writes `NOT_EVALUABLE` for
+    an attribute the source did not supply — a string, present, and not a
+    band. A check for the key alone would be green against it. The fixture
+    carries no NULL band on the dominant security (asserted), so a marker in
+    the payload can only have come from the boundary dropping the column —
+    §C.2's rare capability property, degraded where a consumer can no longer
+    see which rows rest on a weak match.
+    """
+    deployment = _load("deployment")
+    bands, nulls = _bands_on_the_dominant_security(seeded)
+    assert bands and nulls == 0, (
+        f"IH-G03: the fixture carries bands {sorted(bands)} and {nulls} NULL"
+        " band(s) on the dominant security; a NULL in the source would make a"
+        " marker in the payload correct rather than a defect"
+    )
+    observed = _assembled_or_fail("IH-G03", tmp_path / "g03", _floor(seeded))
+    holders = observed.product.payload["holders"]
+    assert holders, "IH-G03: nothing was served at the floor"
+    unbanded = [
+        (entry[deployment.ATTR_MANAGER_CIK], entry[deployment.ATTR_MATCH_BAND])
+        for entry in holders
+        if entry[deployment.ATTR_MATCH_BAND] not in bands
+    ]
+    assert unbanded == [], (
+        f"IH-G03: served rows {unbanded} carry no band the source holds"
+        f" ({sorted(bands)}) — the quality signal was dropped at the source"
+        " boundary"
+    )
+
+
+def test_ih_g05_the_boundary_is_at_or_after_ingest_and_the_assembled_set_is_non_empty(
+    tmp_path: pathlib.Path, seeded: str
+) -> None:
+    """`IH-G05` — the as-of boundary is at or after the run's ingest instant, and a non-empty assembled set is observed before Π runs.
+
+    Two limbs, because §D.4's failure passes every shipped gate: a boundary
+    set to the reported quarter end drops every claim on `observed_at`, the
+    view empties, and a 200 with no holders is served by a product computed
+    over nothing. The boundary is held at or after every envelope's ingest
+    instant AND every assembled claim's `observed_at`. The assembled set is
+    the view Π ran over — `Assembled.view`, the last readable evidence of the
+    write path — and it must hold the manager records the fixture seeds on
+    the dominant security BY COUNT, read by SQL, not merely be non-empty.
+    """
+    deployment = _load("deployment")
+    low, _high, _exact = _thresholds(seeded)
+    observed = _assembled_or_fail("IH-G05", tmp_path / "g05", low)
+
+    boundary = observed.scenario.temporal_boundary
+    ingested = max(
+        envelope.ingestion_timestamp for envelope in observed.scenario.envelopes
+    )
+    assert boundary >= ingested, (
+        f"IH-G05: the as-of boundary {boundary.isoformat()} precedes the"
+        f" ingest instant {ingested.isoformat()} — every claim is invisible to"
+        " the temporal operator"
+    )
+    late = sorted(
+        record.claim.entity_uri
+        for record in observed.view.entities
+        if record.claim.observed_at > boundary
+    )
+    assert late == [], f"IH-G05: assembled claims observed after the boundary: {late}"
+
+    managers = _managers(observed)
+    expected = _count(seeded, lei=_anchor())
+    on_dominant = len(_oracle(seeded, _floor(seeded), comparison=deployment.COMPARISON))
+    assert expected > 0 and on_dominant > 0
+    assert len(managers) == on_dominant, (
+        f"IH-G05: {len(managers)} manager record(s) were assembled where the"
+        f" fixture seeds {on_dominant} on the dominant security — the"
+        " assembled set observed before Π is not the read"
+    )
+
+
+def test_ih_g06_every_declared_class_names_and_carries_its_classification_attribute(
+    tmp_path: pathlib.Path, seeded: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`IH-G06` — every entity class this product declares is named in `classification_attribute_by_class` and carries that attribute.
+
+    Three limbs. (1) The DECLARATION: every `entity_class` under
+    `resolution.entity_rules` is a key of the Policy operator's
+    `classification_attribute_by_class`, and the attribute it names is among
+    that rule's `attribute_keys`. (2) The RUN: every assembled entity of a
+    declared class carries that attribute with a value, and both declared
+    classes are present in the view so the limb is not vacuous. (3) THE
+    NEGATIVE FIXTURE spec §F.3 calls a construction obligation: a scratch
+    TEXT copy of `ccf_config.yaml` with one class removed from the mapping —
+    exactly one line, asserted — is booted, and that run must refuse or
+    assemble no entity of that class, because `PolicyFilter._admits` excludes
+    a class with no classification attribute declared (§D.3). An UNEDITED
+    scratch copy is booted first and must serve the same roster, so the
+    negative result is attributable to the one line and not to the copy.
+    """
+    deployment = _load("deployment")
+    low, _high, _exact = _thresholds(seeded)
+    declared = yaml.safe_load(deployment.CONFIG.read_text(encoding="utf-8"))
+    rules = declared[deployment.KEY_RESOLUTION]["entity_rules"]
+    mapping = declared["operators"][deployment.KEY_POLICY_OPERATOR][
+        "classification_attribute_by_class"
+    ]
+    classes = {rule["entity_class"] for rule in rules}
+    assert len(classes) > 1, "IH-G06: fewer than two classes are declared"
+
+    # (1) the declaration.
+    unnamed = sorted(classes - set(mapping))
+    assert unnamed == [], (
+        f"IH-G06: declared class(es) {unnamed} are absent from"
+        " classification_attribute_by_class — the Policy step will empty the"
+        " view for them"
+    )
+    uncarried = sorted(
+        (rule["entity_class"], mapping[rule["entity_class"]])
+        for rule in rules
+        if mapping[rule["entity_class"]] not in rule["attribute_keys"]
+    )
+    assert uncarried == [], (
+        f"IH-G06: {uncarried} name a classification attribute the resolution"
+        " rule does not carry"
+    )
+
+    # (2) the run.
+    observed = _assembled_or_fail("IH-G06", tmp_path / "g06", low)
+    present = {
+        record.claim.entity_class
+        for record in observed.view.entities
+        if record.claim.entity_class in classes
+    }
+    assert present == classes, (
+        f"IH-G06: the assembled view holds {sorted(present)} of the declared"
+        f" {sorted(classes)}"
+    )
+    lacking = sorted(
+        (record.claim.entity_class, record.claim.entity_uri)
+        for record in observed.view.entities
+        if record.claim.entity_class in classes
+        and not record.claim.attributes.get(mapping[record.claim.entity_class])
+    )
+    assert lacking == [], (
+        f"IH-G06: assembled entities {lacking} carry no value for their"
+        " class's classification attribute"
+    )
+
+    # (3) the negative fixture, constructed here — with its control first.
+    text = deployment.CONFIG.read_text(encoding="utf-8")
+    victim = sorted(classes - {deployment.CLASS_ISSUER})[0]
+    wounded, hits = re.subn(
+        rf"(?m)^[ \t]+{re.escape(victim)}:[ \t]+{re.escape(mapping[victim])}[ \t]*\n",
+        "",
+        text,
+    )
+    assert hits == 1, (
+        f"IH-G06: the scratch rewrite removed {hits} mapping line(s) for"
+        f" {victim!r}, not 1"
+    )
+    control_copy = tmp_path / "g06-control" / "ccf_config.yaml"
+    control_copy.parent.mkdir(parents=True)
+    control_copy.write_text(text, encoding="utf-8")
+    negative_copy = tmp_path / "g06-negative" / "ccf_config.yaml"
+    negative_copy.parent.mkdir(parents=True)
+    negative_copy.write_text(wounded, encoding="utf-8")
+
+    monkeypatch.setattr(deployment, "CONFIG", control_copy)
+    try:
+        _outcome, control = _over(tmp_path / "g06-control-run", low)
+    finally:
+        monkeypatch.undo()
+    assert _served_pairs(control) == _served_pairs(observed), (
+        "IH-G06: an UNEDITED scratch copy of the declaration served a"
+        " different roster, so nothing below is attributable to the edit"
+    )
+
+    monkeypatch.setattr(deployment, "CONFIG", negative_copy)
+    refused: BaseException | None = None
+    negative: Any = None
+    try:
+        try:
+            _outcome, negative = _over(tmp_path / "g06-negative-run", low)
+        except Exception as exc:  # noqa: BLE001 — a refusal is the expected shape
+            refused = exc
+    finally:
+        monkeypatch.undo()
+    if refused is None:
+        survivors = [
+            record.claim.entity_uri
+            for record in negative.view.entities
+            if record.claim.entity_class == victim
+        ]
+        assert survivors == [], (
+            f"IH-G06: with {victim!r} removed from the mapping the run still"
+            f" assembled {len(survivors)} entities of that class — the Policy"
+            " step is not reading the declaration this gate is about"
+        )
+
+
+def test_ih_g07_an_empty_assembled_set_fails_closed_and_an_empty_served_set_serves(
+    tmp_path: pathlib.Path, seeded: str
+) -> None:
+    """`IH-G07` — an empty ASSEMBLED set fails closed; an empty SERVED set (threshold above every position) returns 200.
+
+    The two emptinesses, distinguished by name. Half one: a threshold above
+    every position the anchor filed — read by SQL, then exceeded — serves a
+    `ServableProduct` whose `count` is 0 and whose `holders` is empty, because
+    "nobody" is the honest answer to an impossibly high number. Half two: an
+    anchor the source holds nothing for assembles NOTHING, and the deployment
+    refuses it BY NAME at step 1 — the spec's own fail-closed sentence —
+    rather than carrying an empty set forward to gates that cannot see it.
+    The SDK's gate 1 catches neither emptiness today: it refuses a product
+    that DECLARES no operators. Ledger row 24.5-L-24 gives the returned-empty
+    half a token of its own in Wave 2, and plan 16 re-measures this gate on
+    the return trip.
+    """
+    deployment = _load("deployment")
+    above = _max_position(seeded) + 1
+    served = _assembled_or_fail("IH-G07", tmp_path / "g07-served", above)
+    assert isinstance(served.gated, ServableProduct), (
+        "IH-G07: the empty SERVED set did not come back through the gates"
+    )
+    assert served.product.payload["count"] == 0, (
+        f"IH-G07: a threshold above every position served"
+        f" {served.product.payload['count']} row(s)"
+    )
+    assert served.product.payload["holders"] == [], (
+        "IH-G07: an empty SERVED set is an answer and must be served as one"
+    )
+
+    asked = deployment.request(
+        parameters={deployment.THRESHOLD_PARAMETER: above}
+    ).model_copy(update={"subject": "__NO_SUCH_LEI__"})
+    answered: Any = None
+    refused: BaseException | None = None
+    try:
+        answered = _assembler(tmp_path / "g07-nothing", _Recorder()).assemble(
+            request=asked,
+            perspective=deployment.perspective(),
+            tenant_id=deployment.tenant_id(),
+        )
+    except Exception as exc:  # noqa: BLE001 — the refusal's SHAPE is the assertion
+        refused = exc
+    assert answered is None, (
+        f"IH-G07: an anchor that assembles NOTHING was ANSWERED with"
+        f" {type(answered).__name__} — an empty assembled set must fail closed"
+    )
+    assert isinstance(refused, RuntimeError) and "fail-closed" in str(refused), (
+        "IH-G07: the empty assembled set was not refused BY NAME at step 1;"
+        f" the run ended with {refused!r}"
+    )
+
+
+def test_ih_g08_the_payload_carries_no_count_of_rows_read(
+    tmp_path: pathlib.Path, seeded: str
+) -> None:
+    """`IH-G08` — the product's `payload` carries no count of rows read.
+
+    Two limbs. The `assembled` key s1-00 publishes is absent — by name,
+    because inheriting it is the defect §D.6 records. And no integer anywhere
+    in the payload, at any depth, equals the number of rows the fabric read
+    (the envelopes this run ingested) or the number of rows the anchor filed
+    at the pin (read by SQL) — because a read count under ANY name, beside
+    the served count, is the below-threshold count by subtraction, and §B.2
+    commits this product to silence about what fell below the caller's line.
+    Measured at the demonstration threshold, where served < read is asserted
+    first, so the served `count` itself cannot trip the second limb.
+    """
+    deployment = _load("deployment")
+    _low, high, _exact = _thresholds(seeded)
+    observed = _assembled_or_fail("IH-G08", tmp_path / "g08", high)
+    payload = observed.product.payload
+    read = len(observed.scenario.envelopes)
+    filed = _filed_at_the_pin(seeded)
+    assert 0 < payload["count"] < read <= filed, (
+        f"IH-G08: served {payload['count']}, read {read}, filed {filed} — the"
+        " demonstration threshold must leave rows below the line for a read"
+        " count to disclose anything"
+    )
+    assert "assembled" not in payload, (
+        "IH-G08: the payload carries `assembled` — s1-00's read count, which"
+        " is the below-threshold count by subtraction"
+    )
+    disclosing = [
+        (path, value)
+        for path, value in _integer_leaves(payload)
+        if value in {read, filed}
+    ]
+    assert disclosing == [], (
+        f"IH-G08: {disclosing} equal the number of rows read ({read}) or"
+        f" filed ({filed}) — a count of rows read reached the payload under"
+        " another name"
+    )

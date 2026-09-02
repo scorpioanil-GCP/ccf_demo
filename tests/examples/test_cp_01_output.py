@@ -36,6 +36,7 @@ import yaml
 
 from ccf.agents.errors import AssemblyRefused
 from ccf.contracts.canonical import content_hash
+from ccf.halflife.assessment import DebtSignal
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO / "examples" / "cp-01-counterparty-reference-snapshot"
@@ -410,3 +411,82 @@ def test_a_no_lei_entity_is_refused_by_the_ttl_lower_bound(seeded: str) -> None:
     """
     with pytest.raises(RuntimeError, match="ttl-bounds"):
         _serve(seeded, anchor="CLI-000101")
+
+
+# --------------------------------------------------------------------------
+# The ninth gate, backfilled in Phase 24.5 (ledger row 24.5-L-49, ROADMAP
+# criterion 13). It occurred ZERO times in this module until then, because the
+# specification records (§F.2 row 20) that the estate holds no principal whose
+# grant set matches no entity — and a gate with no fixture cannot be watched.
+# The principal is constructed HERE, in the test; no fixture row was added.
+# --------------------------------------------------------------------------
+def test_cpr_g08_a_principal_matching_no_entity_is_refused_or_carries_a_debt_contribution_never_an_empty_200(
+    seeded: str,
+) -> None:
+    """`CPR-G08` — a principal whose grant set matches no entity gets a fail-closed refusal or an explicit debt contribution, never a 200 with an empty list.
+
+    THE PRINCIPAL IS CONSTRUCTED HERE. `PRIN-NONE-000` is a name with no
+    grant row, asserted against the seeded grant table before it is asked —
+    an empty grant set is what a principal nobody granted anything HAS, which
+    is exactly the gate's subject, so no fixture row is needed and none was
+    added (spec §F.2 row 20 records that the estate holds no such principal).
+
+    The disjunction is read as the spec states it. Either the assembly is
+    REFUSED — a governed value returned, or a raise — or the served product's
+    debt block carries an EXPLICIT contribution: the fail-closed signal, both
+    factors zero, a D_c strictly above the entitled principal's. The
+    forbidden shape is the third one: `counterparty: None` beside a debt
+    block reading as if the assembled set were whole, which a consumer could
+    not tell from a served answer about nothing. The entitled principal is
+    the positive control — served, present, `OK` — so the contribution is
+    shown to be a difference and not a constant.
+    """
+    deployment = _load("deployment")
+    produce = _load("produce")
+    principal = "PRIN-NONE-000"
+    with psycopg.connect(seeded) as db, db.cursor() as cursor:
+        cursor.execute(
+            f"select count(*) from {deployment.SOURCE_SCHEMA}"  # noqa: S608
+            f".{deployment.TABLE_PRINCIPAL_JURISDICTION} where principal_id = %s",
+            (principal,),
+        )
+        grants = int(cursor.fetchone()[0])
+    assert grants == 0, (
+        f"CPR-G08: {principal} holds {grants} grant row(s); the gate's subject"
+        " is a principal whose grant set matches NO entity"
+    )
+
+    control = _serve(seeded, principal="PRIN-COV-001")
+    assert isinstance(control, produce.Assembled)
+    assert control.product.payload["counterparty"] is not None
+    assert control.product.debt.signal == DebtSignal.OK, (
+        "CPR-G08: the entitled control is not served OK, so a fail-closed"
+        " reading below would not be a difference"
+    )
+
+    outcome: Any = None
+    refused: BaseException | None = None
+    try:
+        outcome = _serve(seeded, principal=principal)
+    except AssemblyRefused as exc:
+        refused = exc
+    if refused is not None or not isinstance(outcome, produce.Assembled):
+        return  # a fail-closed refusal, as a raise or as a returned value
+
+    payload = outcome.product.payload
+    assert payload["counterparty"] is None, (
+        f"CPR-G08: {principal} was served an entity, so its grant set matched"
+        " something and the gate's premise does not hold"
+    )
+    debt = outcome.product.debt
+    assert (
+        debt.signal == DebtSignal.FAIL_CLOSED
+        and debt.factors.completeness == 0
+        and debt.factors.freshness == 0
+        and debt.debt > control.product.debt.debt
+    ), (
+        f"CPR-G08: {principal} was served a 200 with an empty list and NO"
+        f" explicit debt contribution — signal {debt.signal!s}, D_c"
+        f" {debt.debt} against the entitled control's"
+        f" {control.product.debt.debt}"
+    )

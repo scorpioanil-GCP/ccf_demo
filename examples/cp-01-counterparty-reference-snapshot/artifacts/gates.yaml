@@ -153,7 +153,27 @@ declaration:
         is gone. The principal is constructed in the test (no grant row
         exists for it), because the estate holds no such principal (§F.2 row
         20).
-      observed_red: null
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to a scratch copy of
+          `examples/cp-01-counterparty-reference-snapshot/deployment.py::CounterpartyScenario.debt`
+          — the empty-view branch made to return a NOMINAL reading (freshness
+          1, completeness 1) instead of the maximum it ships. Observed —
+          "CPR-G08: PRIN-NONE-000 was served a 200 with an empty list and NO
+          explicit debt contribution — signal ok, D_c 0 against the entitled
+          control's 0.292893218813452476". THE SHIPPED VERDICT, MEASURED
+          FIRST: the shipped product serves the no-grant principal
+          `counterparty: None` with D_c 1, signal fail_closed, both factors
+          0 — the statement's SECOND limb, an explicit debt contribution —
+          and not a refusal; cp-01's `produce.py` acts on no debt tolerance
+          (0 occurrences), so the fail-closed reading travels as a served
+          product, which is ledger row 24.5-L-14's territory and a
+          candidate for plan 16's re-measurement. The principal was
+          constructed in the test with 0 grant rows asserted; no fixture row
+          was added. The sabotage edits `deployment.py`; the control is the
+          entitled principal's own served reading. Two different sources.
+        date: "2026-09-02"
+        commit: "6b14bd6 (the roster); the executing test lands in the Task 2 commit that fills this block"
 
     # ---- §B.1 element 3 — written to go red when the defect is fixed -----
     - id: CPR-G09
