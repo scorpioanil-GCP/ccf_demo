@@ -281,8 +281,20 @@ def assembled(tmp_path_factory: pytest.TempPathFactory) -> Any:
     )
 
 
-def _contract(address: ProductAddress) -> ProductRequestContract:
-    """The request surface this module's class declares — one required integer."""
+#: The parameter this module's class declares and always refuses, and the
+#: reason its declaration authors (``24.5-L-13``). Test deployment vocabulary.
+INERT_PARAMETER = "as_of"
+INERT_REASON = "declared, always refused at this tier"
+
+
+def _contract(
+    address: ProductAddress, *, inert: Mapping[str, str] | None = None
+) -> ProductRequestContract:
+    """The request surface this module's class declares — one required integer.
+
+    ``inert`` widens it with the declared-and-always-refused mapping; omitted,
+    the contract is exactly what it was before ``24.5-L-13``.
+    """
     return ProductRequestContract(
         semver="1.0.0",
         schema_name=address.product_class,
@@ -296,6 +308,7 @@ def _contract(address: ProductAddress) -> ProductRequestContract:
             },
             required=(REQUIRED_PARAMETER,),
         ),
+        unsupported_arguments=dict(inert or {}),
     )
 
 
@@ -634,6 +647,42 @@ def test_a_request_the_class_does_not_answer_returns_an_envelope(
     assert outcome.refusal.key == REQUIRED_PARAMETER
 
 
+def test_a_tier_refusal_arrives_as_a_typed_verdict_not_tool_error_prose(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """``24.5-L-12``/``L-13`` at a real client: the tier refusal is a typed verdict.
+
+    What would fail here: the state the ladder shipped in, where every
+    example's assembler raised ``AssemblyRefused("400 not_supported_at_tier
+    …")`` because the reason vocabulary had no member for it — and the raise
+    reached an MCP client as ``ToolError`` prose with ``isError=True``
+    (``24.4`` deferred item 9). Now the declaration names the parameter inert,
+    ``refuse_request`` returns the fifth reason, and the door envelopes it:
+    ``is_error`` is **false** and the consumer reads ``kind``, ``reason`` and
+    ``key`` as fields, not by parsing a sentence.
+    """
+    address = assembled.address
+    is_error, text = _ask_mcp_door(
+        tmp_path,
+        address=address,
+        resolver=_refusing(_contract(address, inert={INERT_PARAMETER: INERT_REASON})),
+        parameters={**CALLER_PARAMETERS, INERT_PARAMETER: "2026-08-17"},
+    )
+
+    assert is_error is False, (
+        f"the tier refusal reached the client as protocol-level error prose"
+        f" rather than as the governed verdict: {text}"
+    )
+    outcome = _decode(text)
+    assert outcome.product_json is None
+    assert outcome.refusal is not None
+    assert outcome.refusal.kind == "product-request-violation"
+    assert outcome.refusal.reason == "not-supported-at-tier"
+    assert outcome.refusal.key == INERT_PARAMETER
+    assert "400 not_supported_at_tier" in outcome.refusal.detail
+    assert INERT_REASON in outcome.refusal.detail
+
+
 def test_a_gate_refusal_carries_its_own_typed_fields(
     assembled: Any, tmp_path: Path
 ) -> None:
@@ -693,6 +742,11 @@ def test_a_governance_refusal_still_raises_and_is_not_enveloped(
     at all, and in the translation the shipped renderer produces no envelope
     for the type. A door could get the first right by accident — the exception
     is raised before the resolver — and still acquire a translation later.
+
+    A raised :class:`~ccf.agents.errors.AssemblyRefused` is likewise not
+    enveloped: ``24.5-L-11`` added the value channel
+    (:class:`~ccf.agents.errors.AssemblyRefusal`, returned by the assembler),
+    not a catch at the door.
     """
     address = assembled.address
     is_error, text = _ask_mcp_door(

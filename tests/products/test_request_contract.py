@@ -38,8 +38,12 @@ Requirements CPS-07, CPS-12.
 from __future__ import annotations
 
 import ast
+import importlib.util
 import pathlib
+import shutil
+import sys
 from datetime import datetime, timezone
+from types import ModuleType
 from typing import Any
 
 import pytest
@@ -842,3 +846,317 @@ def test_the_equivalence_case_reads_the_committed_artifact_from_disk() -> None:
     assert "s1-01-hello-context-product" in source
     assert "request-contract.yaml" in source
     assert REQUEST_CONTRACT_ARTIFACT.is_file()
+
+
+# --- (g) declared and always refused — 24.5-L-12, 24.5-L-13 -------------------
+#
+# The Standard's declared-but-inert parameter (§2.4) and its `400
+# not_supported_at_tier` (§9). The parameter set lives in the ARTIFACT and the
+# verdict comes from the declaration; no spine constant carries it. Criterion
+# 15's control below plants one in a scratch copy of the module and shows it
+# decides nothing — because the No-Hardcoding lint does not fire on a
+# parameter-name set (RESEARCH Pitfall 7), this contract test is the gate.
+
+#: Test deployment vocabulary: the inert parameter and its declared reason.
+#: The SDK holds neither (CINV-01).
+INERT_PARAMETER = "as_of"
+INERT_REASON = "fixture tier reason: time travel arrives at a later tier"
+
+#: The real module the scratch-copy control reads. Resolved from this file's
+#: own path, never from ``Path.cwd()``.
+REQUEST_MODULE = (
+    pathlib.Path(__file__).resolve().parents[2] / "src" / "ccf" / "products" / "request.py"
+)
+
+
+def _inert_contract(**overrides: Any) -> ProductRequestContract:
+    """The fixture contract, declaring one parameter inert."""
+    return _contract(
+        unsupported_arguments={INERT_PARAMETER: INERT_REASON}, **overrides
+    )
+
+
+def test_a_declared_and_always_refused_parameter_is_refused_from_the_declaration() -> None:
+    """``24.5-L-13``: the tier verdict, and every one of its three ``detail`` tokens.
+
+    What would fail here: the field existing on the contract but
+    ``refuse_request`` never reading it — the state the four ladder configs
+    were in, with ``unsupported_arguments:`` authored and enforced by each
+    example's own code after the SDK had already said the request conformed.
+    """
+    request = _request(
+        parameters={"required_leaf": "value", INERT_PARAMETER: "2026-01-01"}
+    )
+    violation = refuse_request(request=request, declared=_inert_contract())
+
+    assert isinstance(violation, ProductRequestViolation)
+    assert violation.reason == "not-supported-at-tier"
+    assert violation.key == INERT_PARAMETER
+    assert violation.declared_type is None
+    assert violation.presented_type == "str"
+    assert violation.declared_keys == frozenset(_arguments().properties)
+    assert INERT_PARAMETER in violation.presented_keys
+    # The Standard's status token, the parameter name and the declared prose:
+    # all three, so a reader of the sentence sees what the declaration said.
+    assert "400" in violation.detail
+    assert "not_supported_at_tier" in violation.detail
+    assert INERT_PARAMETER in violation.detail
+    assert INERT_REASON in violation.detail
+
+
+def test_the_tier_verdict_precedes_the_payload_comparison() -> None:
+    """Address → tier → payload, and the order is what makes the reason readable.
+
+    An inert parameter is typically not in ``arguments.properties``, so the
+    payload comparison run first would call it ``undeclared-parameter`` and
+    hide the declared reason. Presenting the inert parameter AND a mistyped
+    declared one settles which step spoke: the tier step.
+    """
+    request = _request(
+        parameters={"required_leaf": 1, INERT_PARAMETER: "2026-01-01"}
+    )
+    violation = refuse_request(request=request, declared=_inert_contract())
+
+    assert isinstance(violation, ProductRequestViolation)
+    assert violation.reason == "not-supported-at-tier"
+    assert violation.key == INERT_PARAMETER
+
+
+def test_the_address_check_still_precedes_the_tier_step() -> None:
+    """A request to another class never reaches the tier step (T-24.5-16)."""
+    request = _request(
+        schema_name="fixture.other",
+        parameters={"required_leaf": "value", INERT_PARAMETER: "2026-01-01"},
+    )
+    violation = refuse_request(request=request, declared=_inert_contract())
+
+    assert isinstance(violation, ProductRequestViolation)
+    assert violation.reason == "class-mismatch"
+
+
+def test_an_absent_inert_parameter_is_not_refused() -> None:
+    """Declaring a parameter inert refuses its *presence*, never its absence."""
+    assert refuse_request(request=_request(), declared=_inert_contract()) is None
+
+
+def test_an_inert_parameter_is_refused_whatever_its_type() -> None:
+    """The declaration refuses the parameter, not a type of it."""
+    for presented in (1, 1.5, True, None, {"nested": "x"}, ["listed"]):
+        request = _request(
+            parameters={"required_leaf": "value", INERT_PARAMETER: presented}
+        )
+        violation = refuse_request(request=request, declared=_inert_contract())
+        assert isinstance(violation, ProductRequestViolation), presented
+        assert violation.reason == "not-supported-at-tier", presented
+        assert violation.presented_type == type(presented).__name__
+
+
+def test_a_declaration_without_unsupported_arguments_still_parses() -> None:
+    """The pre-phase shape: no key, the empty mapping, nothing refused by tier."""
+    contract = ProductRequestContract.from_declared(_declared())
+
+    assert dict(contract.unsupported_arguments) == {}
+    assert refuse_request(request=_request(), declared=contract) is None
+
+
+def test_from_declared_reads_the_optional_fourth_key() -> None:
+    """The four ladder configs already author this key; the SDK now reads it."""
+    declaration = dict(_declared().declaration)
+    declaration["unsupported_arguments"] = {INERT_PARAMETER: INERT_REASON}
+    contract = ProductRequestContract.from_declared(
+        _declared(declaration=declaration)
+    )
+
+    assert dict(contract.unsupported_arguments) == {INERT_PARAMETER: INERT_REASON}
+
+
+@pytest.mark.parametrize(
+    "malformed", [[INERT_PARAMETER], "as_of", {INERT_PARAMETER: 3}, {4: "x"}]
+)
+def test_from_declared_refuses_a_malformed_unsupported_arguments(
+    malformed: Any,
+) -> None:
+    """Not a mapping of name to prose → refused by name, in the one-error voice."""
+    declaration = dict(_declared().declaration)
+    declaration["unsupported_arguments"] = malformed
+
+    with pytest.raises(ValueError) as raised:
+        ProductRequestContract.from_declared(_declared(declaration=declaration))
+
+    assert "unsupported_arguments" in str(raised.value)
+
+
+def test_the_reason_vocabulary_has_five_members_ending_in_the_tier_reason() -> None:
+    """``24.5-L-12``: the fifth member, in the vocabulary's hyphenated spelling."""
+    import typing
+
+    from ccf.products.request import ProductRequestViolationReason
+
+    members = typing.get_args(ProductRequestViolationReason)
+    assert len(members) == 5
+    assert members[-1] == "not-supported-at-tier"
+
+
+def _string_collection_constants(source: str) -> list[str]:
+    """Module-level ``frozenset``/``set``/``tuple`` constants of string literals.
+
+    The shape a spine-held inert-parameter set would take. ``_DECLARATION_KEYS``
+    is a tuple of *names*, not of string literals, and ``_REASONS`` is a dict,
+    so neither matches — which is the point: this reads the elements, not the
+    constructor.
+    """
+    collections = {"frozenset", "set", "tuple"}
+    found: list[str] = []
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.AnnAssign):
+            targets, value = [node.target], node.value
+        elif isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        else:
+            continue
+        if value is None:
+            continue
+        elements: list[ast.expr] | None = None
+        if isinstance(value, (ast.Set, ast.Tuple)):
+            elements = list(value.elts)
+        elif (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id in collections
+            and len(value.args) == 1
+            and isinstance(value.args[0], (ast.Set, ast.Tuple, ast.List))
+        ):
+            elements = list(value.args[0].elts)
+        if elements is None or not elements:
+            continue
+        if all(
+            isinstance(element, ast.Constant) and isinstance(element.value, str)
+            for element in elements
+        ):
+            found.extend(ast.unparse(target) for target in targets)
+    return found
+
+
+def _planted_copy(tmp_path: pathlib.Path) -> tuple[ModuleType, pathlib.Path, int]:
+    """A scratch copy of the real module with a spine constant planted.
+
+    Returns the imported copy, its path, and the planted line number. The
+    copy — never ``src/`` — is what the control reads, on the reasoning
+    ``tests/products/test_refusal_envelope.py::sabotaged_root`` gives: an
+    edit-and-revert control leaves nothing behind to show it fired.
+    """
+    copy = tmp_path / "request_with_plant.py"
+    shutil.copyfile(REQUEST_MODULE, copy)
+    lines = copy.read_text(encoding="utf-8").splitlines(keepends=True)
+    # Plant it immediately after the `__ccf_mode__` line, at module level.
+    anchor = next(i for i, line in enumerate(lines) if line.startswith("__ccf_mode__"))
+    plant = f'INERT_PARAMETERS = frozenset({{"{INERT_PARAMETER}"}})\n'
+    lines.insert(anchor + 1, plant)
+    copy.write_text("".join(lines), encoding="utf-8")
+    planted_line = anchor + 2  # 1-based
+
+    spec = importlib.util.spec_from_file_location("request_with_plant", copy)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    # Registered before execution: the copy carries `from __future__ import
+    # annotations`, and pydantic resolves a model's forward references through
+    # `sys.modules[<module name>]`, so an unregistered copy's `ProductRequest`
+    # is "not fully defined" the moment it is constructed.
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module, copy, planted_line
+
+
+def test_a_planted_spine_constant_does_not_decide_the_verdict(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Criterion 15's control: the declaration decides, and code cannot.
+
+    Three limbs. **(a)** A copy of the real module carries
+    ``INERT_PARAMETERS = frozenset({"as_of"})`` at module level. Against a
+    declaration whose ``unsupported_arguments`` is EMPTY and which declares
+    ``as_of`` as an ordinary argument, the copy's ``refuse_request`` returns
+    ``None`` for a request presenting ``as_of`` — the planted constant decided
+    nothing. Its positive twin — the same request against a declaration that
+    names ``as_of`` inert — returns the tier verdict, and that twin is what a
+    copy with the tier step removed turns RED (naming
+    ``not-supported-at-tier``). **(b)** The No-Hardcoding checker, run
+    directly on the copy's source, reports NOTHING for the planted line:
+    RECORDED here, not assumed — its three rules are prompt-shape,
+    numeric-table and factory-bypass, and a parameter-name set is none of
+    them (RESEARCH Pitfall 7), which is exactly why this contract test is the
+    gate and the lint is not. **(c)** The REAL module holds no module-level
+    ``frozenset``/``set``/``tuple`` constant whose elements are all string
+    literals.
+    """
+    from tools.lints import no_hardcoding
+
+    copy, copy_path, planted_line = _planted_copy(tmp_path)
+    assert copy.INERT_PARAMETERS == frozenset({INERT_PARAMETER})
+
+    # (a) — build the world out of the COPY's classes, never the real ones.
+    arguments = SkillArgumentSchema(
+        properties={
+            "required_leaf": SkillArgumentProperty(
+                type="string", description="a required top-level parameter"
+            ),
+            INERT_PARAMETER: SkillArgumentProperty(
+                type="string", description="declared as an ordinary argument"
+            ),
+        },
+        required=("required_leaf",),
+    )
+    empty_declaration = copy.ProductRequestContract(
+        semver="1.0.0",
+        schema_name=CLASS_NAME,
+        schema_version=CLASS_VERSION,
+        arguments=arguments,
+    )
+    request = copy.ProductRequest(
+        schema_name=CLASS_NAME,
+        schema_version=CLASS_VERSION,
+        subject="fixture:subject/one",
+        intent="fixture-intent",
+        freshness="fixture-freshness",
+        asked_at=INSTANT,
+        parameters={"required_leaf": "value", INERT_PARAMETER: "2026-01-01"},
+    )
+    assert copy.refuse_request(request=request, declared=empty_declaration) is None
+
+    inert_declaration = copy.ProductRequestContract(
+        semver="1.0.0",
+        schema_name=CLASS_NAME,
+        schema_version=CLASS_VERSION,
+        arguments=arguments,
+        unsupported_arguments={INERT_PARAMETER: INERT_REASON},
+    )
+    twin = copy.refuse_request(request=request, declared=inert_declaration)
+    assert twin is not None, (
+        "the declaration names the parameter inert and the verdict did not"
+        " come from it — the tier step is missing (not-supported-at-tier)"
+    )
+    assert twin.reason == "not-supported-at-tier"
+
+    # (b) — the lint is silent on the plant; recorded, not assumed.
+    findings = no_hardcoding.check_source(
+        copy_path.read_text(encoding="utf-8"), copy_path, "request_with_plant"
+    )
+    on_planted_line = [
+        finding for finding in findings if f"{copy_path}:{planted_line} " in finding
+    ]
+    assert on_planted_line == [], on_planted_line
+
+    # (c) — the real module carries no such constant.
+    assert _string_collection_constants(
+        REQUEST_MODULE.read_text(encoding="utf-8")
+    ) == []
+
+
+def test_the_string_collection_scan_sees_a_planted_constant(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Limb (c)'s own control: the scan finds the plant in the copy."""
+    _, copy_path, _ = _planted_copy(tmp_path)
+    assert _string_collection_constants(
+        copy_path.read_text(encoding="utf-8")
+    ) == ["INERT_PARAMETERS"]

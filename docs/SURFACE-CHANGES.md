@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**754 entries**, of which **516** name a public Python surface.
+**763 entries**, of which **525** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-369 entries — 334 public Python surface, 35 not public Python API.
+371 entries — 336 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -6892,6 +6892,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
 
+#### ccf.products.request.AnchorAmbiguityRefusal
+
+- Surface: ccf.products.request.AnchorAmbiguityRefusal
+- Public surface: true
+- Change type: added
+- Before: absent. An anchor resolving to more than one entity had no kind; cp-04's resolver served whichever row came first
+- After: `AnchorAmbiguityRefusal(CCFContract)` with `anchor: str`, `candidates: frozenset[str]`, `detail: str`; token `anchor-ambiguity-refusal` in `REFUSAL_KINDS`; a member of `_PRE_ASSEMBLY_REFUSALS`, so `envelope_for` refuses a lineage offered with it exactly as it does for `ProductRequestViolation`
+- Why: `24.5-L-16` (24.4 deferred item 14, `D-IMPL-234` (d)). The SDK names the kind and ships no resolver: which anchor is ambiguous, and whether a product answers 404, refuses with this value, or serves one candidate with a finding, is the product's ruling
+- Migration: none — a new type. `examples/cp-04-corporate-family-tree/deployment.py::resolve_anchor` is untouched
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.agents.errors.AssemblyRefusal
+
+- Surface: ccf.agents.errors.AssemblyRefusal
+- Public surface: true
+- Change type: added
+- Before: absent. An assembler's own refusal — a tier it does not serve, a capability it lacks — could only be raised as `AssemblyRefused`, which crossed the MCP door as `ToolError` prose
+- After: `AssemblyRefusal(CCFContract)` with `reason: str`, `detail: str`; token `assembly-refusal` in `REFUSAL_KINDS` under its own family comment; translated by `door_refusal` with no door edit
+- Why: `24.5-L-11`. The value form of an assembly-time refusal an assembler RETURNS through the D-60 channel, beside the kept exception. `reason` is the assembler's own token (a closed vocabulary is the deployment's to declare, CINV-01); the SDK fixes only the one token `as_refusal()` mints
+- Migration: none — a new type. An assembler that wants its refusal typed at a client returns it instead of raising
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -7466,7 +7490,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-293 entries — 110 public Python surface, 183 not public Python API.
+296 entries — 113 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -9899,6 +9923,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `19-02-the-adapter-seam-carries-bytes.md`.*
 
+#### ccf.products.request.ProductRequestViolationReason
+
+- Surface: ccf.products.request.ProductRequestViolationReason
+- Public surface: true
+- Change type: reshaped
+- Before: `Literal["undeclared-parameter", "missing-required-parameter", "type-mismatch", "class-mismatch"]` — four members; a tier refusal had no member and the ladder raised it as a string
+- After: five members, the fifth `"not-supported-at-tier"` — the Standard §9 `400 not_supported_at_tier` in the vocabulary's own hyphenated spelling
+- Why: `24.5-L-12`. Met at cp-01, cp-02, cp-03 and cp-04, each raising `AssemblyRefused("400 not_supported_at_tier …")` because the `Literal` could not say it. Hyphenated because every other member is; the Standard's underscore token travels verbatim inside `detail`
+- Migration: none — additive. A consumer branching on the four existing members sees them unchanged; one that enumerates the `Literal` sees a fifth
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.products.request.ProductRequestViolation
+
+- Surface: ccf.products.request.ProductRequestViolation
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` admitted the four members
+- After: `reason` admits the five; for a tier refusal `key` is the inert parameter's name, `declared_type` is `None` (an inert parameter is refused whatever its type), `presented_type` is the presented Python type name, and `detail` carries the Standard's status token, the parameter name and the declared reason prose — all three
+- Why: `24.5-L-12`. The manifest records the widened `reason` annotation as a reshape; the fields are unchanged
+- Migration: none — additive
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: reshaped
+- Before: `semver`, `schema_name`, `schema_version`, `arguments`; `from_declared` read exactly those and ignored every sibling key
+- After: one added field, `unsupported_arguments: Mapping[str, str] = Field(default_factory=dict)` — parameter name → the declared reason prose. `from_declared` reads the optional fourth key `unsupported_arguments` when present, defaults to the empty mapping when absent, and refuses a non-mapping or a non-string value in the same one-error voice the three required keys use. `docs/schemas/ccf.product-request-contract.json` regenerated
+- Why: `24.5-L-13`, Standard §2.4 (*declared-but-inert*): the request-contract artifact could not say "declared and always refused", which pushed the one thing §2.4 cares about out of the artifact and into code. The empty mapping is the positive assertion that a class declares no inert parameter — what every pre-phase declaration said and still says
+- Migration: none for an adopter whose declaration lacks the key. An adopter who was enforcing an inert set in code moves it into the artifact under this key and deletes the code
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -12243,7 +12303,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-88 entries — 68 public Python surface, 20 not public Python API.
+92 entries — 72 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -14000,6 +14060,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   dedicated code is owed
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
+
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: behavior
+- Before: address check, then the payload comparison. A presented inert parameter not in `arguments.properties` was refused as `undeclared-parameter`; one that WAS declared passed
+- After: address → **tier** → payload. The tier step returns `ProductRequestViolation(reason="not-supported-at-tier", key=<parameter>, declared_type=None, presented_type=<type name>, declared_keys=<arguments.properties>, presented_keys=<request.parameters>, detail="<key>: 400 not_supported_at_tier — <declared prose>")` for the first presented parameter, in sorted order, that the declaration names in `unsupported_arguments`. The verdict comes FROM the declaration; the function holds no parameter name
+- Why: `24.5-L-13`. The order is load-bearing: an inert parameter is refused whatever its type and is typically not in `arguments.properties`, so the payload comparison run first would call it undeclared and hide the reason the declaration authored. `tests/products/test_request_contract.py::test_a_planted_spine_constant_does_not_decide_the_verdict` plants `INERT_PARAMETERS = frozenset({"as_of"})` in a scratch copy of the module, shows the copy's verdict still comes from the declaration, and RECORDS that the No-Hardcoding lint reports nothing for the plant (its rules are prompt-shape, numeric-table and factory-bypass) — which is why the contract test is the gate
+- Migration: none for a request presenting no inert parameter. A caller presenting one now receives `not-supported-at-tier` where it previously received `undeclared-parameter` or a served product
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.agents.errors.AssemblyRefused
+
+- Surface: ccf.agents.errors.AssemblyRefused
+- Public surface: true
+- Change type: behavior
+- Before: a `ValueError` raised for channel-1 identity disagreements; no conversion to any value
+- After: the same exception, not retyped, with one added method `as_refusal() -> AssemblyRefusal` (reason `"assembly-refused"`, detail `str(self)`) so an assembler that catches its own raise can return the value; `AssemblyRefused("x").as_refusal()` envelopes identically to `AssemblyRefusal(reason="assembly-refused", detail="x")`
+- Why: `24.5-L-11`. Labeled `behavior` rather than `reshaped` deliberately: the surface manifest records a class's constructor shape only (the blind spot `24.1.1-03` recorded), so an added method moves no manifest line, and a `reshaped` claim with no diff line is a phase-close defect. The DECISION recorded in the docstring: the MCP tool handler does NOT catch this exception; governance and identity refusals stay raises and no door converts between the channels
+- Migration: none — additive
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.agents.assembler.ContextAssemblerProtocol
+
+- Surface: ccf.agents.assembler.ContextAssemblerProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `assemble(...) -> AssemblyOutcome | ProductRequestViolation` — the D-60 channel admitted one refusal value
+- After: `assemble(...) -> AssemblyOutcome | ProductRequestViolation | AssemblyRefusal`, widened additively so a conforming assembler can return the new value. `DeterministicAssembler` keeps its narrower annotation (return types are covariant) and is unchanged
+- Why: `24.5-L-11`; the plan's own instruction when the channel is narrower than "a `REFUSAL_KINDS` member". `src/ccf/agents/assembler.py` is outside the plan's `files_modified` and the edit is one annotation plus one docstring paragraph; recorded in the SUMMARY as a deviation. Labeled `behavior` because the manifest records the Protocol's constructor shape, not its members — the same blind spot `24.1.1-03` measured for the first widening
+- Migration: none — every existing implementation's narrower return still conforms
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: behavior
+- Before: sixteen entries across the gate, peering, mount, conformity and mixing families
+- After: eighteen — `AnchorAmbiguityRefusal: "anchor-ambiguity-refusal"` beside the two conformity verdicts, `AssemblyRefusal: "assembly-refusal"` under a new family comment. No token is a substring of another; `tests/products/test_refusal_envelope.py::test_the_refusal_vocabulary_is_closed_by_set_equality` is GREEN at 18 and each new kind has its own `test_envelope_for_<token>` function
+- Why: `24.5-L-11`, `24.5-L-16`. Found while sabotaging the per-kind coverage gate: its substring match was satisfied for `assembly-refusal` by the pre-existing `test_pre_assembly_refusal_rejects_a_lineage`; `test_every_kind_has_its_own_test_function` now requires the exact name `test_envelope_for_<token>`
+- Migration: none for a consumer of the envelope; a consumer that enumerates the mapping sees two more kinds
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
 
 ### Not public Python API
 
