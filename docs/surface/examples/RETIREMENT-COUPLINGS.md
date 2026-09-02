@@ -769,6 +769,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.1.1-the-two-protocol-shaped-seams-deployment-operators-and-re/24.1.1-RESEARCH.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.1.1-the-two-protocol-shaped-seams-deployment-operators-and-re/24.1.1-VERIFICATION.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.4-corporate-family-tree-cp-04-first-multi-store-product-fluree/24.4-13-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04/24.5-RESEARCH.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 92 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |

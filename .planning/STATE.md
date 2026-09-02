@@ -20,7 +20,7 @@ last_activity: >-
   criteria LOCKED one per line (continuation-line detector proven on a planted wrap), block sha256
   cfa493afedfa8c1a1a22b3fbaa8eee0f2fd964a76202e0ae4e9196a6f5ec45b5; two marked amendments (cp-01 label; Phase 24
   gate count -> five by name). Branch `phase-24.5` from tag `phase-24.5-base` = `13bd250`. Examples CLOSED except
-  criteria 12, 13, 25. **Next free id `D-IMPL-240`.** **Next:** `/gsd:plan-phase 24.5` against `24.5-CONTEXT.md`
+  criteria 12, 13, 25. **Next free id `D-IMPL-241`** (`D-IMPL-240` written at planning 2026-09-02). **Next:** `/gsd:plan-phase 24.5` against `24.5-CONTEXT.md`
   and `24.5-LEDGER.md`; two waves; Wave 2 cannot start before 237/238 (already in the log). Hand-edited; no
   `state.*` or `roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   PHASE 24.5 IS COMMISSIONED AND BANKED (D-IMPL-235, Dave, 2026-09-02): the comprehensive SDK gap catch-up for
