@@ -755,6 +755,11 @@ class GovernedResolver:
             product_class=registered,
             source_attestation=execution.source_attestation,
             debt_tolerance=debt_tolerance,
+            # 24.5-L-24: the engine's own record of which operators returned
+            # an empty set, so the empty-operator gate's second half can
+            # refuse by name. Only the governed resolver threads it; the
+            # engine-level call site keeps the compatibility default.
+            empty_results=execution.empty_results,
         )
         if not isinstance(gated, ServableProduct):
             # A refusal is a value, and it travels with the lineage the

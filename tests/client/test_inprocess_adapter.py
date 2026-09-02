@@ -594,22 +594,34 @@ def test_an_explicit_as_of_reaches_the_deployment(seeded_root: Path) -> None:
     """`D-04`. Naming an instant asks the question against that moment.
 
     The fixture's rows are fixed instants, so a boundary before them assembles
-    nothing — which is a different answer from the default, and that difference
-    is the whole observable proof the boundary crossed the seam.
+    nothing — which is a different answer from the pinned boundary's, and that
+    difference is the whole observable proof the boundary crossed the seam.
 
-    The debt is asserted alongside, because an empty assembly is exactly where
-    a scorer is most likely to report a confident number about a graph that
-    said nothing. This deployment scores both factors zero, so ``D_c`` is 1 and
-    the reading is ``fail_closed`` — visible on the Result rather than buried.
+    What "assembles nothing" looks like moved in ``24.5-L-24``. It used to be
+    a SERVED product carrying ``"assembled": 0`` with the scorer's ``D_c`` of
+    1 routing to ``fail_closed`` — advisory, a number about a graph that said
+    nothing. The returned-empty half of the empty-operator gate
+    (:data:`ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT`) now makes that
+    fail-closed structural on the governed path: the one operator returned an
+    empty set, so the fabric REFUSES by name rather than serving an empty
+    answer, and the refusal — not a payload — is what carries the boundary
+    across the seam. The pinned boundary beside it is the positive control:
+    the same question, an instant the rows exist at, serves every row.
     """
     before = datetime(2020, 1, 1, tzinfo=UTC)
 
     result = _client(seeded_root).ask(parameters={THRESHOLD: 20}, as_of=before)
 
     assert result.temporal_boundary == before
-    assert result.payload["assembled"] == 0
-    assert result.debt.debt == 1
-    assert result.debt.signal.value == "fail_closed"
+    assert result.refused
+    assert result.refusal is not None
+    assert result.refusal.reason == "empty-operator-result"
+    assert result.refusal.kind == "empty-result-refusal"
+
+    served = _client(seeded_root).ask(parameters={THRESHOLD: 20}, as_of=_PINNED)
+    assert not served.refused
+    assert served.temporal_boundary == _PINNED
+    assert served.payload["assembled"] == len(SEEDED_ROWS)
 
 
 def test_reset_boot_cache_is_not_part_of_the_client_surface() -> None:

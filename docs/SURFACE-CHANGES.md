@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**824 entries**, of which **585** name a public Python surface.
+**830 entries**, of which **591** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-401 entries — 365 public Python surface, 36 not public Python API.
+403 entries — 367 public Python surface, 36 not public Python API.
 
 ### Public Python surface
 
@@ -7383,6 +7383,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
 
+#### ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT
+
+- Surface: ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT
+- Public surface: true
+- Change type: added
+- Before: absent — one token, `empty-operator-guard`, for two assertions
+- After: `"empty-operator-result"`, beside `GATE_EMPTY_OPERATOR`, with a comment naming the split: the guard is the SDK's half (a product DECLARING no operators, INV-CH7-46); the result is the Standard's half (an operator RETURNING an empty set)
+- Why: `24.5-L-24`; `D-IMPL-238` second sentence; cp-00 `IH-G07`, cp-01 `CPR-G08`. Two names so a refusal says which half fired
+- Migration: none. A consumer branching on `GateRefusal.gate` sees a seventh value; neither token is a substring of the other
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
+#### ccf.products.gates.EmptyResultRefusal
+
+- Surface: ccf.products.gates.EmptyResultRefusal
+- Public surface: true
+- Change type: added
+- Before: absent — an operator that returned an empty set had no refusal
+- After: `EmptyResultRefusal(GateRefusal)` with `operator_key: str` (the FIRST operator, in sorted key order, whose output view carried zero entities and zero relationships) and `empty_operators: frozenset[str]` (all of them); `detail` names the key and the Standard's sentence. Joins the `GateRefusal` family, so the `ServableProduct | GateRefusal` union is unchanged. Not a subclass of `EmptyOperatorRefusal` and not its base
+- Why: `24.5-L-24`; the module's refusal discipline — both what a caller branches on and everything the gate observed
+- Migration: none. A consumer matching on `GateRefusal` subclasses sees a seventh
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -7975,7 +7999,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-316 entries — 133 public Python surface, 183 not public Python API.
+319 entries — 136 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -10818,6 +10842,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
 
+#### ccf.products.gates.run_gates
+
+- Surface: ccf.products.gates.run_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `run_gates(candidate, *, engine_resolved, now, registry, product_class, source_attestation=None, debt_tolerance=None)` — five steps: empty operators, lineage strict equality, TTL bounds, source attestation, declared obligations
+- After: one added keyword, `empty_results: frozenset[str] | None = None`, and one added step IMMEDIATELY AFTER the declared half — `_refuse_empty_results(candidate, empty_results=…)` — before strict equality; six steps. The Returns clause names the two halves as adjacent, declared first. `None` (the default, every pre-phase call site) is *not observed* and passes; the empty set is the engine's positive *no operator returned empty* and passes; a non-empty set is refused by name
+- Why: `24.5-L-24`; the `source_attestation` compatibility posture (`D-10`) — a product does not observe its own operators' emptiness, the engine's record does
+- Migration: none for a caller that passes nothing. The governed resolver passes `execution.empty_results`; a direct caller that wants the Standard's half to bite threads its execution's record the same way
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
+#### ccf.products.gates.run_federated_gates
+
+- Surface: ccf.products.gates.run_federated_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `run_federated_gates(candidate, *, attested_address, now, registry, product_class, debt_tolerance=None)` — four steps: empty operators, attributability, TTL bounds, declared obligations
+- After: one added keyword, `empty_results: frozenset[str] | None = None`, and the same returned-empty step as step 2, immediately after the declared half and before attributability; five steps. A consumer ran no engine, so the observation arrives only if the caller threads it; `None` passes
+- Why: `24.5-L-24`; one helper shared by both runners so they cannot drift into two readings of the Standard's half (the gate-1/gate-3 factoring reason)
+- Migration: none
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
+#### ccf.projection.engine.ExecutionResult
+
+- Surface: ccf.projection.engine.ExecutionResult
+- Public surface: true
+- Change type: reshaped
+- Before: eleven fields ending `source_attestation`, `store_snapshot_pin`; the engine recorded WHAT ran and in what order, not whether any operator returned nothing
+- After: one added last field, `empty_results: frozenset[str] = frozenset()` — the operator keys whose output view carried zero entities AND zero relationships, computed ALWAYS by `ProjectionEngine.execute` from one inspection of each `OperatorOutput` view as it is produced; the empty set is the engine's positive assertion, not a sentinel for absence. Inside one pushed segment the answer is composed, so an empty answer is recorded against every operator of that segment (the engine re-applies each over the answer, `GQ-19`); the record names what each operator returned. A result built by hand without the field carries the empty set
+- Why: `24.5-L-24`; the returned half needs an input `run_gates` did not receive, and the only honest source is the thing that ran the plan — never the payload (`D-IMPL-238` limb 3)
+- Migration: none — the default. A defaulted field is inside the canonical rendering, so the content address of an `ExecutionResult` value moves; no committed seal pins one (the execution record is not a served vessel; `D-IMPL-240` (1) measured the only sealed addresses in the tree as cp-04's two product addresses)
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -13162,7 +13222,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-103 entries — 83 public Python surface, 20 not public Python API.
+104 entries — 84 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -15174,17 +15234,29 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
 
-#### ccf_runtime.http_api.routes.product.build_router
+#### ccf.products.resolver.GovernedResolver
 
-- Surface: ccf_runtime.http_api.routes.product.build_router
+- Surface: ccf.products.resolver.GovernedResolver
 - Public surface: true
 - Change type: behavior
-- Before: the door had no refusal channel (DIV-4). A resolver answering with any `RefusalEnvelope` reached `served_answer`, which raised `TypeError` naming the shape — an opaque 500 for every kind alike; the module docstring said rendering a fabric refusal over HTTP was a status and body decision nobody had ruled
-- After: `retrieve` routes the resolver's answer through `door_refusal(resolved, asked=asked, product_class=..., version=...)` before `served_answer`. An envelope whose `kind == REFUSAL_KINDS[DeclaredObligationRefusal]` (`declared-obligation-refusal`) returns `JSONResponse(status_code=409, content={"kind": <kind>, "refusal_type": "DeclaredObligationRefusal", "refusal": <the whole envelope, canonically rendered>})` — the `routes/skill.py` body shape, so the gate's `declared`/`observed` pair, the request identity and the pre-assembly lineage all travel. A bare `DeclaredObligationRefusal` on a call that posed a question is translated by the door and answered the same way (lineage honestly `None`); a bare refusal on a call with no question is `door_refusal`'s documented `ValueError` — no response, as before, now naming why. Every other envelope falls through to `served_answer` exactly as before. The module docstring names the one mapped kind and DIV-4 for the rest in place of the sentence that said the door had no refusal channel
-- Why: `24.5-L-14`; `D-IMPL-237` (the one structural mechanism, whose refusal the Standard §9 says the door answers as "409 with the debt block"); ROADMAP Phase 24.5 criterion 21. Additive: a status is added and none is moved (`D-10`). Sabotage: `tests/http_api/test_product_declared_obligation_409.py::test_the_status_check_refuses_a_200_for_a_declared_obligation` (the predicate over a fake 200, a 409 of another kind, and no response — each RED naming the kind) and `::test_a_door_with_the_409_branch_removed_is_red_by_name` (a scratch copy of the route with the decision line made `False`, loaded under another name and bound into `create_app` for one build — RED by name; its control leg answers 409; the shipped module byte-compared before and after)
-- Migration: none for a served product or for any existing refusal status. A client of this door that reached an opaque 500 for an over-ceiling product (a class declaring `serve_obligations.debt_ceiling`, plan `24.5-13`) now receives `409` with the envelope; a client should branch on `body["kind"]` and read `body["refusal"]["fields"]` (each value in the SDK's canonical form — a string arrives quoted), never parse `detail`
+- Before: the reference resolver's `run_gates` call threaded `engine_resolved`, `source_attestation` and `debt_tolerance` from the execution; an operator that returned nothing served, with `D_c` reporting `fail_closed` advisorily
+- After: the call also threads `empty_results=execution.empty_results`, so a governed serve whose operator returned an empty set is refused by name (`empty-operator-result`) and arrives as a `RefusalEnvelope` of kind `empty-result-refusal`. The constructor is unchanged; no manifest line moves
+- Why: `24.5-L-24`; the Standard's *an empty assembled set fails closed* becomes structural on the one path that serves products with a request contract. The engine's own `run_gates` call site keeps the compatibility default so no non-resolver fixture flips silently; the return trip (plan `24.5-16`) measures the resolver-served rungs
+- Migration: a deployment that served over an EMPTY fabric is now refused by name on that path — which is the Standard's reading and cp-00's `IH-G07`. `tests/products/test_resolver_seam.py`'s fixture, which served over an empty fabric, now ingests its deployment's own signal batch and asserts `assembled == 1` as the positive control
 
-*Recorded by `24.5-14-the-product-door-answers-409-for-a-declared-obligation.md`.*
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: behavior
+- Before: nineteen kinds; the gate family carried one empty-operator kind
+- After: twenty kinds; `EmptyResultRefusal: "empty-result-refusal"` in the gate family block beside `empty-operator-refusal`. `empty-result-refusal` was chosen over `empty-operator-result-refusal` because neither of the pair is a substring of the other under the closure gate's rule and the shorter name reads as what it is. `tests/products/test_refusal_envelope.py::test_envelope_for_empty_result_refusal` landed in the same commit as the kind, under the exact-name coverage rule `24.5-07` shipped; the four closure tests are green at twenty
+- Why: `24.5-L-24`; constraint (a) — every kind crosses without flattening, and this one crosses saying which half fired
+- Migration: none. A consumer enumerating `kind` sees a twentieth
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
 
 ### Not public Python API
 

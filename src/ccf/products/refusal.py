@@ -22,9 +22,10 @@ carries — before any door is changed.
 The two ruled constraints
 -------------------------
 **(a) Every refusal kind crosses without flattening.** The fabric declares
-nineteen of them: the ``GateRefusal`` hierarchy
+twenty of them: the ``GateRefusal`` hierarchy
 (:mod:`ccf.products.gates`, including the declared-obligations refusal of
-``24.5-L-14`` / ``24.5-L-26``), the peering-admission refusals that derive from it
+``24.5-L-14`` / ``24.5-L-26`` and the empty-operator gate's returned-empty
+half of ``24.5-L-24``), the peering-admission refusals that derive from it
 (:mod:`ccf.peering.admission`), the product-mount refusal that derives from it
 (:mod:`ccf.graph.product_source`), the two request/payload conformity verdicts
 (:mod:`ccf.products.request`, :mod:`ccf.products.payload`), the pre-assembly
@@ -100,6 +101,7 @@ from ccf.products.gates import (
     AttestationRefusal,
     DeclaredObligationRefusal,
     EmptyOperatorRefusal,
+    EmptyResultRefusal,
     GateRefusal,
     LineageAttributionRefusal,
     LineageMismatchRefusal,
@@ -228,9 +230,15 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     # The three-gate family (whitepaper §7.6), the additive attestation
     # gate beside it, and the ONE structural declared-obligations gate
     # D-IMPL-237 licenses (24.5-L-14, 24.5-L-26) — the kind the HTTP door
-    # maps to the Standard's 409.
+    # maps to the Standard's 409. The empty-operator gate's two halves are
+    # two kinds (24.5-L-24): a product that DECLARED no operators, and an
+    # operator that RETURNED an empty set. `empty-result-refusal` was chosen
+    # over `empty-operator-result-refusal` because neither of the pair is a
+    # substring of the other under the closure gate's rule, and the shorter
+    # name reads as what it is.
     GateRefusal: "gate-refusal",
     EmptyOperatorRefusal: "empty-operator-refusal",
+    EmptyResultRefusal: "empty-result-refusal",
     LineageMismatchRefusal: "lineage-mismatch-refusal",
     LineageAttributionRefusal: "lineage-attribution-refusal",
     TTLRefusal: "ttl-refusal",
