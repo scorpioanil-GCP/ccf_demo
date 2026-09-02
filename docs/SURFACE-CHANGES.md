@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**789 entries**, of which **551** name a public Python surface.
+**790 entries**, of which **552** name a public Python surface.
 
 ## Added
 
@@ -7750,7 +7750,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-302 entries — 119 public Python surface, 183 not public Python API.
+303 entries — 120 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -10347,6 +10347,22 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none for existing documents. A deployment with an event-driven class writes
   `decay: supersede-only` and omits `half_life_seconds`. The regenerated
   `docs/schemas/ccf.half-life-table.json` carries the new shape
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### ccf.halflife.decay.HalfLifeEntry
+
+- Surface: ccf.halflife.decay.HalfLifeEntry
+- Public surface: true
+- Change type: reshaped
+- Before: the re-export of `ccf.controlplane.artifacts.HalfLifeEntry` with the four-key shape
+- After: the same re-export, carrying the `decay` field and the conditional
+  `half_life_seconds` described under `ccf.controlplane.artifacts.HalfLifeEntry` above; the
+  manifest lists the name as reshaped under both module paths because `ccf.halflife.decay`
+  re-exports the class unchanged
+- Why: `24.5-L-22` — one class, two public paths; the entry above is the change, this entry
+  claims the second path so the completeness gate reads one fragment for both
+- Migration: none — identical to the entry above
 
 *Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
 
