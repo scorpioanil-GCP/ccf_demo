@@ -11,13 +11,18 @@ module is what the Control Plane registers and what
 ``content_hash`` pins into every provenance sub-chain, while
 :mod:`ccf.operators.categories` holds the code that interprets it.
 
-**No field in this module carries a default.** Not a threshold, not a depth
-limit, not a score floor, not a flag. Every value is required at plan time
-and must arrive from a Control Plane artifact or from the caller. A default
-is a value nobody chose, and a value nobody chose cannot be audited, cannot
-be versioned, and silently changes the meaning of a replay when the SDK
-revises it (D-IMPL-38; CINV-01b enforces this mechanically for modules named
-like this one).
+**No field in this module carries a NUMERIC default.** Not a threshold, not
+a depth limit, not a score floor, not a flag. Every value is required at
+plan time and must arrive from a Control Plane artifact or from the caller.
+A default is a value nobody chose, and a value nobody chose cannot be
+audited, cannot be versioned, and silently changes the meaning of a replay
+when the SDK revises it (D-IMPL-38; CINV-01b enforces this mechanically for
+modules named like this one). The one ``None`` in this module —
+``TraversalNeighborhoodParameters.admitted_entity_classes`` — is a named
+positive sentinel, not a chosen number: it asserts "every class is
+admissible on a hop", which is exactly the behavior every artifact written
+before it carried (additive over breaking, ledger row ``24.5-L-05``).
+D-IMPL-38's concern is a silently chosen number, and none is chosen here.
 
 Algorithmic module (CINV-03).
 """
@@ -122,8 +127,19 @@ class TraversalNeighborhoodParameters(OperatorParameters):
         depth_limit: Maximum hops from a seed. Required, no default: the bound
             is the operator's entire correctness claim (INV-CH7-24), and a
             default bound is one nobody chose.
+        admitted_entity_classes: Node-class ADMISSION on the walk (`GQ-10`
+            at docs/GRAPH_QUERY_SEMANTICS.md:201, semantics version 1.1.0).
+            ``None`` is the positive assertion "every class is admissible
+            on a hop" — today's behavior; a set admits a hop only onto an
+            entity whose class is a member. Admission filters REACHED nodes
+            and never walk STARTS (`GQ-11` at
+            docs/GRAPH_QUERY_SEMANTICS.md:221 selects starts; "seeds are
+            included" stands), and an entity absent from the view's class
+            map is not admitted. Mirrored field-for-field onto
+            ``src/ccf/graph/protocols.py::TraversalSpec``.
     """
 
     seed_entity_classes: frozenset[str]
     relationship_types: frozenset[str]
     depth_limit: int
+    admitted_entity_classes: frozenset[str] | None = None

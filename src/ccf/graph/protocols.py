@@ -258,8 +258,13 @@ class TraversalSpec(CCFContract):
     and ``ccf.operators`` imports *this* module — the mirror keeps the
     dependency pointing one way.
 
-    All three fields are required with no defaults, the D-IMPL-38 discipline
-    of the mirrored contract: a default is a value nobody chose.
+    The three original fields are required with no defaults, the D-IMPL-38
+    discipline of the mirrored contract: a default is a value nobody chose.
+    ``admitted_entity_classes`` is the spec's first additive sentinel field
+    (the ``allowed_entities`` precedent on :class:`GraphQuery`; semantics
+    version 1.1.0, ledger row ``24.5-L-05``): ``None`` is the positive
+    assertion "every class is admissible on a hop" — today's behavior — and
+    a set admits a hop only onto an entity whose class is a member.
 
     Attributes:
         seed_entity_classes: Walk starting points, in ontology vocabulary —
@@ -272,11 +277,18 @@ class TraversalSpec(CCFContract):
         depth_limit: Maximum hops from a walk starting point. ``0`` is a
             legal, meaningful bound — the starting points only, not an error
             and not "unlimited" (``GQ-10``).
+        admitted_entity_classes: Node-class ADMISSION on the walk. Filters
+            REACHED nodes and never walk STARTS — ``GQ-11`` selects starts
+            and ``GQ-10``'s "seeds are included" stands, so a start of an
+            unadmitted class is in the answer and still expands. An entity
+            absent from the view's class map is not admitted. ``None``
+            admits every class (the 1.0.x behavior).
     """
 
     seed_entity_classes: frozenset[str]
     relationship_types: frozenset[str]
     depth_limit: int
+    admitted_entity_classes: frozenset[str] | None = None
 
 
 class GraphQuery(CCFContract):

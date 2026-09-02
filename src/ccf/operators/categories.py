@@ -372,6 +372,17 @@ class TraversalNeighborhood:
     relationship types, stopping at ``depth_limit``. Runs last: it expands over
     state that Policy, Similarity, and Temporal have already reconciled, so an
     edge to a node excluded upstream is not a hop this walk can take.
+
+    **Node-class admission** (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201,
+    semantics version 1.1.0; ledger row ``24.5-L-05``). When
+    ``admitted_entity_classes`` is present, a hop lands only on an entity
+    whose ``entity_class`` is a member; walk starts are selected by `GQ-11`
+    at docs/GRAPH_QUERY_SEMANTICS.md:221 and are never filtered by admission,
+    and an entity absent from the view's class map is not a hop. ``None``
+    admits every class — the behavior every earlier parameter set carried.
+    The adjacency stays undirected here; direction is ledger row ``24.5-L-06``.
+    ``src/ccf/graph/fallback.py::_walk`` applies the identical predicate, which
+    is what holds every pushed answer to this operator differentially.
     """
 
     key = "traversal.typed-neighborhood"
@@ -404,6 +415,7 @@ class TraversalNeighborhood:
                 seed_entity_classes=params.seed_entity_classes,
                 relationship_types=params.relationship_types,
                 depth_limit=params.depth_limit,
+                admitted_entity_classes=params.admitted_entity_classes,
             )
         )
 
@@ -431,6 +443,15 @@ class TraversalNeighborhood:
                 edge.claim.subject_uri
             )
 
+        # The class map, built once: admission reads the REACHED node's class
+        # (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0), and a node
+        # absent from the view has no class and is not admitted.
+        class_of = {
+            record.claim.entity_uri: record.claim.entity_class
+            for record in view.entities
+        }
+        admitted = params.admitted_entity_classes
+
         frontier = {
             record.claim.entity_uri
             for record in view.entities
@@ -443,6 +464,7 @@ class TraversalNeighborhood:
                 for node in frontier
                 for neighbour in adjacency.get(node, ())
                 if neighbour not in reached
+                and (admitted is None or class_of.get(neighbour) in admitted)
             }
             if not frontier:
                 break

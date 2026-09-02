@@ -214,7 +214,12 @@ def _walk(
     typed — only edges whose type is permitted are crossable, and edges of
     other types are absent from the answer even between reached endpoints;
     seeds are included; ``depth_limit=0`` yields the walk starting points
-    only; ``depth_limit=N`` reaches at most N hops.
+    only; ``depth_limit=N`` reaches at most N hops; admitted — when
+    ``admitted_entity_classes`` is present a hop lands only on an entity of
+    an admitted class (semantics version 1.1.0, ledger row ``24.5-L-05``):
+    the predicate reads the REACHED node's class from ``entities``, never a
+    walk start's, and an entity absent from ``entities`` is not admitted;
+    ``None`` admits every class.
 
     Walk starting points are the union of two selections computed over
     in-scope state only (`GQ-11` at docs/GRAPH_QUERY_SEMANTICS.md:221):
@@ -241,6 +246,10 @@ def _walk(
         )
 
     in_scope = {record.claim.entity_uri for record in entities}
+    class_of = {
+        record.claim.entity_uri: record.claim.entity_class for record in entities
+    }
+    admitted = traverse.admitted_entity_classes
     frontier = {
         record.claim.entity_uri
         for record in entities
@@ -255,6 +264,7 @@ def _walk(
             for node in frontier
             for neighbour in adjacency.get(node, ())
             if neighbour not in reached
+            and (admitted is None or class_of.get(neighbour) in admitted)
         }
         if not frontier:
             break
