@@ -423,6 +423,54 @@ def test_a_test_reference_without_a_function_is_refused() -> None:
         jsonschema.validate(instance=document, schema=load_schema())
 
 
+def test_a_line_anchored_test_reference_is_refused() -> None:
+    """`D-IMPL-114`: prose cites `path.py::Symbol`, never `path.py:LINE`.
+
+    **The close panel's finding, and the pattern it names is the one that
+    shipped.** `^[^ ]+::[^ ]+$` required a separator and nothing else, so
+    `tests/x.py:123::test_name` — a line anchor wearing a node id's shape —
+    satisfied it. Measured before the tightening: the old pattern accepted this
+    subject, the new one does not.
+    """
+    document = load_roster()
+    document["declaration"]["gates"][0]["test"] = (
+        "tests/examples/test_cp_04_traversal.py:637::test_cft_g01_every_returned"
+        "_node_carries_a_known_fibo_class"
+    )
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=document, schema=load_schema())
+
+
+def test_a_test_reference_naming_no_python_module_is_refused() -> None:
+    """A reference must name a `.py` module; `tests/examples::test_x` does not."""
+    document = load_roster()
+    document["declaration"]["gates"][0]["test"] = "tests/examples::test_x"
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(instance=document, schema=load_schema())
+
+
+def test_every_shipped_test_reference_still_validates() -> None:
+    """**Compliance control.** A tightened pattern must not move a declared value.
+
+    Asserted as a ROSTER of the ids whose reference fails the pattern, so the
+    control names what broke rather than reporting a bare count.
+    """
+    schema = load_schema()
+    pattern = schema["properties"]["declaration"]["properties"]["gates"]["items"][
+        "properties"
+    ]["test"]["pattern"]
+    failing = sorted(
+        str(gate["id"])
+        for gate in load_roster()["declaration"]["gates"]
+        if re.match(pattern, str(gate["test"])) is None
+    )
+    assert not failing, (
+        f"{failing} carry a `test:` reference the tightened pattern refuses."
+        " Tightening a schema may not change a value the roster already"
+        " declares"
+    )
+
+
 # ---------------------------------------------------------------------------
 # (b) The roster, and the withdrawal
 # ---------------------------------------------------------------------------

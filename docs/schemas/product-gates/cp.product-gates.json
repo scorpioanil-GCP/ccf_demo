@@ -68,8 +68,8 @@
                 "type": "string"
               },
               "test": {
-                "description": "A `module::function` reference to the test that executes this gate. A path with no `::` names a module and not a test, so the separator is required.",
-                "pattern": "^[^ ]+::[^ ]+$",
+                "description": "A `path.py::Symbol` reference to the test that executes this gate, in the citation form `D-IMPL-114` rules for this tree — never `path.py:LINE`, because a line anchor is wrong the moment code moves. The earlier pattern `^[^ ]+::[^ ]+$` checked only that a separator was present, so `tests/x.py:123::test_name` satisfied it: a line-anchored citation wearing a node id's shape. Found by the 2026-09-01 close panel. The declaring product's own test resolves the reference against a real `pytest --collect-only`; this pattern is what stops a malformed one reaching that check at all.",
+                "pattern": "^[^ :]+\\.py::[A-Za-z_][A-Za-z0-9_]*$",
                 "type": "string"
               }
             },

@@ -2741,6 +2741,23 @@ def dangling_references(
     this half the phase could ship sixteen dangling `module::function`
     references while criterion 43 still held — criterion 43 only requires the
     ids be declared as data.
+
+    **THE WHOLE PATH IS COMPARED, NOT THE BASENAME — the 2026-09-01 close
+    panel's finding.** As written this resolved a declared reference by
+    `(os.path.basename(module), function)`, so the DIRECTORY was discarded and
+    `tests/products/test_cp_04_seams.py::test_cft_g14_…` resolved against
+    `tests/examples/test_cp_04_seams.py::test_cft_g14_…`. A reference naming a
+    path that does not exist was therefore accepted, which is the same
+    reader-stops-looking defect
+    `examples/cp-04-corporate-family-tree/deployment.py::refuse_stale_vocabulary_pointer`
+    exists for one document over. The comparison is now the literal node id.
+
+    **A reference whose module does not end in `.py` is a violation rather than
+    a value to repair.** The earlier form appended the suffix for the caller,
+    which meant a malformed declaration resolved anyway; the closed schema
+    `docs/schemas/product-gates/cp.product-gates.json` now requires the
+    `path.py::Symbol` citation form (`D-IMPL-114`), so a repair here would be
+    this check being more forgiving than the document it reads.
     """
     violations: list[str] = []
     if not gates:
@@ -2752,21 +2769,31 @@ def dangling_references(
             " over an empty tree"
         )
         return violations
-    by_function: dict[tuple[str, str], None] = {}
+    resolvable: set[str] = set()
     for node in collected:
         module, _, function = node.rpartition("::")
-        by_function[(os.path.basename(module.split("::")[0]), function)] = None
+        resolvable.add(f"{module}::{function}")
+        # A parametrized id collects as `…::name[param]`; a declaration naming
+        # the function itself is still a reference to something that runs.
+        base, bracket, _params = function.partition("[")
+        if bracket:
+            resolvable.add(f"{module}::{base}")
     for gate in gates:
         reference = str(gate.get("test", ""))
-        module, _, function = reference.partition("::")
-        stem = os.path.basename(module)
-        if not stem.endswith(".py"):
-            stem = f"{stem}.py"
-        if (stem, function) not in by_function:
+        module, _, _function = reference.partition("::")
+        if not module.endswith(".py"):
+            violations.append(
+                f"{gate['id']}'s `test:` reference {reference!r} does not name a"
+                " `.py` module, so it is not a pytest node id at all"
+            )
+            continue
+        if reference not in resolvable:
             violations.append(
                 f"{gate['id']}'s `test:` reference {reference!r} is not a"
                 " COLLECTED pytest node id — a function pytest does not collect"
-                " does not run"
+                " does not run. The whole path is compared: a reference with the"
+                " right file NAME under the wrong directory names a file that"
+                " does not exist"
             )
     return violations
 
@@ -2781,6 +2808,35 @@ def test_every_gate_test_reference_is_a_collected_pytest_node_id() -> None:
     """
     violations = dangling_references(declared_gates(), collected_node_ids())
     assert not violations, "\n".join(violations)
+
+
+def test_the_collection_check_refuses_the_right_basename_under_the_wrong_directory() -> None:
+    """**Positive control** for the close panel's finding, in its own shape.
+
+    The file name is right, the function is right and it is collected — under
+    `tests/examples/`. The declared reference names `tests/products/`, where no
+    such file exists. The basename comparison this replaced accepted it.
+    """
+    gates = [dict(gate) for gate in declared_gates()]
+    assert gates, "there are no gates to point at nothing"
+    victim = gates[0]
+    real = str(victim["test"])
+    module, _, function = real.partition("::")
+    moved = f"tests/products/{os.path.basename(module)}::{function}"
+    assert moved != real, "the control did not move the reference"
+    assert not (REPO / f"tests/products/{os.path.basename(module)}").exists(), (
+        "the control points at a path that exists, so it is not a dangling"
+        " reference at all"
+    )
+    victim["test"] = moved
+    violations = dangling_references(gates, collected_node_ids())
+    assert violations, "a reference under a directory with no such file was accepted"
+    assert any(moved in entry for entry in violations), violations
+
+
+def test_the_collection_check_accepts_the_shipped_references() -> None:
+    """**Compliance control.** A stricter limb must not refuse the real roster."""
+    assert not dangling_references(declared_gates(), collected_node_ids())
 
 
 def test_the_collection_check_refuses_a_dangling_reference() -> None:
