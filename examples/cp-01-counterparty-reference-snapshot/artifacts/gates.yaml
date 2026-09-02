@@ -1,0 +1,191 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE NINE DECLARED PRODUCT GATES, AS DATA — `CPR-G01` through `CPR-G09`.
+#
+# The `$schema` header above names the OPEN ENVELOPE, because that is what the
+# tree-wide header gate reads (`tools/check_schema_headers.py`) and this is a
+# deployment-authored class the SDK does not own. THE CLOSED SCHEMA THAT
+# ACTUALLY CONSTRAINS THIS DOCUMENT is
+# `docs/schemas/product-gates/cp.product-gates.json`, which
+# `tools/check_product_gates.py` validates every `examples/cp-*` roster against
+# before any id is read.
+#
+# WHY THIS FILE EXISTS. `D-IMPL-224`: product gates are a DECLARED ARTIFACT plus
+# CI coverage, and the specification's §D.7 table is the machine source for
+# nothing. BACKFILLED in Phase 24.5 (ledger row `24.5-L-49`, ROADMAP criterion
+# 12). Eight of the nine ids were already executed by tests in
+# `tests/examples/test_cp_01_output.py`; `CPR-G08` occurred ZERO times in that
+# module, because the specification recorded (§F.2 row 20) that no principal
+# in the estate matches no entity. Criterion 13 constructs that principal in
+# the test rather than waiting for the estate.
+#
+# THE CRITERION COLUMN, STATED RATHER THAN LEFT TO BE INFERRED. No ROADMAP
+# criteria were locked for Phase 24.2 — the ROADMAP entry says they were to be
+# locked in `24.2-CONTEXT.md`, and no such file exists in the tree — so the
+# numbers below are the specification's OWN §G.2 acceptance-criterion numbers,
+# the only numbered obligations this product carries. The mapping is the one
+# §G.2 states beside each item; two items name two gates each (item 3 for
+# `CPR-G03` and `CPR-G09`, item 5 for `CPR-G02` and `CPR-G04`), so the
+# one-gate-per-criterion bijection cp-04's roster claims does not hold here
+# and is not claimed. `CPR-G08` reaches no §G.2 item by name; it carries item
+# 10 — the observed-RED obligation the spec's own sabotage table said this gate
+# could not discharge for lack of a fixture — because this backfill is what
+# discharges it.
+#
+# NO GATE IS RECORDED AS PASSING UNTIL IT HAS BEEN OBSERVED RED AT LEAST ONCE.
+# The eight pre-existing gates were watched red in their own build (spec §D.7,
+# 2026-08-29) and their `observed_red` stays `null` here — a backfill does not
+# invent a record for a sabotage it did not watch. `CPR-G08` carries the red
+# Phase 24.5 watched.
+#
+# `role: load`. A gate roster is a declaration of obligations, parsed and handed
+# back; it is not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-01.product-gates
+
+declaration:
+  product: reference.counterparty
+
+  # HOW A GATE ID MAPS ONTO THE TEST THAT EXECUTES IT, DECLARED RATHER THAN
+  # INFERRED. A CHECKER INPUT: `tools/check_product_gates.py` applies ONLY the
+  # form declared here. cp-01's convention is the DOCSTRING form — `CPR-G02`
+  # is named in the docstring of
+  # `test_entitlement_discriminates_as_sets_with_a_negative_control`.
+  test_naming_convention: >-
+    the gate id appears in the executing test's docstring — `CPR-G02` is named
+    in the docstring of
+    `test_entitlement_discriminates_as_sets_with_a_negative_control`.
+
+  gates:
+    # ---- §C.4 trap 1 — two addresses, one place ---------------------------
+    - id: CPR-G01
+      criterion: 6
+      statement: >-
+        Address distinguishability — headquarters and legal address are
+        separately populated and compared case- and whitespace-normalized; an
+        entity carrying WILMINGTON against Wilmington counts as one address,
+        not two.
+      test: tests/examples/test_cp_01_output.py::test_both_addresses_are_present_and_distinguishable
+      sabotage: >-
+        make the two addresses identical in the fixture. A second executing
+        test, `test_a_lapsed_entity_is_excluded_entirely_by_default`, carries
+        this gate's §B.4 half (excluded entirely, never returned unflagged).
+      observed_red: null
+
+    # ---- §C.4 trap 3 — a Policy step that is a no-op ---------------------
+    - id: CPR-G02
+      criterion: 5
+      statement: >-
+        Entitlement discriminates — the visible entity SET differs pairwise
+        across principals, with at least one entity visible to A and not B.
+        Counts sets, never sizes. Carries a negative control: a principal
+        differenced against itself must report identical.
+      test: tests/examples/test_cp_01_output.py::test_entitlement_discriminates_as_sets_with_a_negative_control
+      sabotage: make the entitlement join admit every entity.
+      observed_red: null
+
+    # ---- §C.3 — one freshness claim over a mixed population --------------
+    - id: CPR-G03
+      criterion: 3
+      statement: >-
+        Freshness ceiling — an entity resolved through the internal client
+        master must not advertise the 24-hour vendor SLA; its
+        freshness.signal_class is internal-kyc and its ceiling is months.
+      test: tests/examples/test_cp_01_output.py::test_a_no_lei_entity_reports_the_lower_freshness_ceiling
+      sabotage: make an internal-client entity report the 24-hour vendor ceiling.
+      observed_red: null
+
+    # ---- §B.2 — a marker that is itself a disclosure ---------------------
+    - id: CPR-G04
+      criterion: 5
+      statement: >-
+        Suppression silence — two principals' payloads differ in content and
+        are indistinguishable in structure; no count, marker, placeholder or
+        notice indicates anything was withheld.
+      test: tests/examples/test_cp_01_output.py::test_a_suppressed_entity_leaves_no_marker
+      sabotage: leak a "1 entity hidden" notice into the suppressed payload.
+      observed_red: null
+
+    # ---- §B.4 — the declared-but-inert parameter -------------------------
+    - id: CPR-G05
+      criterion: 7
+      statement: >-
+        Inert parameter fails loudly — as_of returns 400 not_supported_at_tier
+        and never silently succeeds against current state.
+      test: tests/examples/test_cp_01_output.py::test_as_of_is_declared_and_always_refused
+      sabotage: empty unsupported_arguments, so as_of is silently honored.
+      observed_red: null
+
+    # ---- §C.3 — a partial chain propagates catalog-wide ------------------
+    - id: CPR-G06
+      criterion: 8
+      statement: >-
+        Type-chain completeness — all seven Commons/FIBO classes of §C.3 are
+        asserted; a partial chain propagates catalog-wide.
+      test: tests/examples/test_cp_01_output.py::test_the_seven_class_type_chain_is_asserted
+      sabotage: truncate the type chain to six classes.
+      observed_red: null
+
+    # ---- §D.3 — which authority answered ---------------------------------
+    - id: CPR-G07
+      criterion: 9
+      statement: >-
+        Authority disclosure — every identity attribute names its authoring
+        source via identity_authority; an attribute with no authority is a
+        defect, not a default.
+      test: tests/examples/test_cp_01_output.py::test_the_anchor_resolves_through_the_vendor_authority
+      sabotage: drop identity_authority from the payload.
+      observed_red: null
+
+    # ---- The gap between the Standard's gate 1 and the SDK's -------------
+    - id: CPR-G08
+      criterion: 10
+      statement: >-
+        Empty served set — a principal whose grant set matches no entity gets
+        a fail-closed refusal or an explicit debt contribution, never a 200
+        with an empty list.
+      test: tests/examples/test_cp_01_output.py::test_cpr_g08_a_principal_matching_no_entity_is_refused_or_carries_a_debt_contribution_never_an_empty_200
+      sabotage: >-
+        serve the no-entity principal a plain 200 — the empty payload with the
+        debt block read as if the assembled set were whole — so the one thing
+        that distinguishes "nothing was assembled" from "nothing is visible"
+        is gone. The principal is constructed in the test (no grant row
+        exists for it), because the estate holds no such principal (§F.2 row
+        20).
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to a scratch copy of
+          `examples/cp-01-counterparty-reference-snapshot/deployment.py::CounterpartyScenario.debt`
+          — the empty-view branch made to return a NOMINAL reading (freshness
+          1, completeness 1) instead of the maximum it ships. Observed —
+          "CPR-G08: PRIN-NONE-000 was served a 200 with an empty list and NO
+          explicit debt contribution — signal ok, D_c 0 against the entitled
+          control's 0.292893218813452476". THE SHIPPED VERDICT, MEASURED
+          FIRST: the shipped product serves the no-grant principal
+          `counterparty: None` with D_c 1, signal fail_closed, both factors
+          0 — the statement's SECOND limb, an explicit debt contribution —
+          and not a refusal; cp-01's `produce.py` acts on no debt tolerance
+          (0 occurrences), so the fail-closed reading travels as a served
+          product, which is ledger row 24.5-L-14's territory and a
+          candidate for plan 16's re-measurement. The principal was
+          constructed in the test with 0 grant rows asserted; no fixture row
+          was added. The sabotage edits `deployment.py`; the control is the
+          entitled principal's own served reading. Two different sources.
+        date: "2026-09-02"
+        commit: "6b14bd6 (the roster); the executing test lands in the Task 2 commit that fills this block"
+
+    # ---- §B.1 element 3 — written to go red when the defect is fixed -----
+    - id: CPR-G09
+      criterion: 3
+      statement: >-
+        No-LEI entity is servable — a no-LEI entity resolves and reports its
+        lower freshness ceiling (§G criterion 3) rather than being refused by
+        the TTL lower bound. The gate is written to FAIL on the declaration as
+        it stands, and it is expected to — that failure is the evidence the
+        finding is taken back with.
+      test: tests/examples/test_cp_01_output.py::test_a_no_lei_entity_is_refused_by_the_ttl_lower_bound
+      sabotage: >-
+        switch expires_at to from_decision, making the no-LEI entity servable
+        — fixing the defect is the sabotage, and the test correctly goes red.
+      observed_red: null

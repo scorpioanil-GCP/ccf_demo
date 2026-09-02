@@ -53,11 +53,11 @@ Rows by coupling shape:
 | --- | ---: | --- | --- | --- | ---: | --- | --- | --- |
 | `.github/workflows/live-legs.yml` | 5 | `archive/examples/03-harness-portability` | `comment` | documentary | - | - | 23-04 |  |
 | `.gitignore` | 23 | `archive/examples/external/00-hello-context` | `config-token` | live | - | - | 23-04 |  |
-| `Makefile` | 238 | `tests/examples/test_s1_01_output.py` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 290 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 292 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
-| `Makefile` | 304 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 306 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `Makefile` | 251 | `tests/examples/test_s1_01_output.py` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 303 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 305 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `Makefile` | 317 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 319 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
 | `README.md` | 42 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
 | `README.md` | 46 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
 | `README.md` | 67 | `archive/examples/00-quickstart` | `markdown-link` | live | - | - | 23-04 |  |

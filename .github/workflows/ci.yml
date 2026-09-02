@@ -34,8 +34,28 @@ jobs:
       - name: Lint checker unit tests (CINV-01/02/03 + citations)
         run: pytest tools/lints/tests -q
 
+      # The product-gate checker (plan 24.5-09, D-IMPL-224) is an enforcement
+      # mechanism too, so its tests run here before the gate they implement —
+      # the same precedent as the step above, and the same command string as
+      # the third line of the Makefile's `gate-tools` recipe modulo
+      # `$(ENV_DOCS) $(PYTHON) -m`. Restated rather than calling `gate-tools`
+      # whole: that target also runs `tools/docs_tests`, whose ledger test
+      # needs the full-history clone only the `test` and `docs` jobs take.
+      - name: Product-gate checker unit tests (D-IMPL-224)
+        run: pytest tools/product_gates_tests -q
+
       - name: CCF invariant lints (No-Hardcoding, harness imports, @algorithmic, citations)
         run: python -m tools.lints --all
+
+      # Every `examples/cp-*` roster declares exactly the ids that have an
+      # EXECUTING test (D-IMPL-224; ledger row 24.5-L-10). CALLS the Makefile
+      # target rather than restating its command, per this file's own rule
+      # for the pytest steps below: the Makefile mirrors ci.yml
+      # command-for-command, and calling is what makes that structural.
+      # PYTHON=python because this job installs into the hosted interpreter
+      # and has no `.venv`.
+      - name: Product-gate coverage (declared ids have executing tests)
+        run: make PYTHON=python product-gates
 
       # No explicit paths: `[tool.mypy] files` is the single source of truth for what
       # is type-checked, and it now covers `src` *and* `runtime` (06-RESEARCH.md B2).

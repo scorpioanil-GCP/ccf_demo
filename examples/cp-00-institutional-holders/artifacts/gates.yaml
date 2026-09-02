@@ -1,0 +1,270 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE EIGHT DECLARED PRODUCT GATES, AS DATA — `IH-G01` through `IH-G08`.
+#
+# The `$schema` header above names the OPEN ENVELOPE, because that is what the
+# tree-wide header gate reads (`tools/check_schema_headers.py`) and this is a
+# deployment-authored class the SDK does not own. THE CLOSED SCHEMA THAT
+# ACTUALLY CONSTRAINS THIS DOCUMENT is
+# `docs/schemas/product-gates/cp.product-gates.json`, which
+# `tools/check_product_gates.py` validates every `examples/cp-*` roster against
+# before any id is read. Two schemas, two jobs: the envelope says this is a
+# versioned artifact, the closed schema says what a gate roster is.
+#
+# WHY THIS FILE EXISTS. `D-IMPL-224`: product gates are a DECLARED ARTIFACT plus
+# CI coverage, and the specification's §D.7 table is the machine source for
+# nothing. This roster was BACKFILLED in Phase 24.5 (ledger row `24.5-L-49`,
+# ROADMAP criterion 12) — cp-00 shipped in Phase 24.1 with its eight gates in
+# a prose table and exactly ONE of them executed by a test (`IH-G04`). The
+# other seven executing tests are criterion 13's, written in the same phase.
+#
+# THE CRITERION COLUMN, STATED RATHER THAN LEFT TO BE INFERRED. Phase 24.1
+# locked nineteen ROADMAP criteria and none of them is per gate. Every row
+# below carries criterion 6 — the served payload passes the gates "with the
+# gate result RECORDED rather than assumed" — because an executing test per
+# declared id is what makes that sentence true of a product-level gate. The
+# per-gate obligation in the specification's own words is §G.2 item 5:
+# "`IH-G01` … `IH-G08` (§D.7) each pass on the happy path and each fail on a
+# seeded violation." The one-gate-per-criterion bijection cp-04's roster
+# claims does not hold here and is not claimed.
+#
+# NO GATE IS RECORDED AS PASSING UNTIL IT HAS BEEN OBSERVED RED AT LEAST ONCE.
+# `IH-G04`'s red was recorded in its own phase and its `observed_red` stays
+# `null` here — a backfill does not invent a record for a sabotage it did not
+# watch. The seven backfilled rows carry the red Phase 24.5 watched.
+#
+# `role: load`. A gate roster is a declaration of obligations, parsed and handed
+# back; it is not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-00.product-gates
+
+declaration:
+  product: holdings.institutional-holders
+
+  # HOW A GATE ID MAPS ONTO THE TEST THAT EXECUTES IT, DECLARED RATHER THAN
+  # INFERRED. This is a CHECKER INPUT: `tools/check_product_gates.py` reads
+  # this field and applies ONLY the form it declares. cp-00's convention is
+  # the DOCSTRING form — `IH-G04` is named in the docstring of
+  # `test_a_row_exactly_at_the_threshold_is_served`, not in its name — and the
+  # seven backfilled tests follow it.
+  test_naming_convention: >-
+    the gate id appears in the executing test's docstring — `IH-G04` is named
+    in the docstring of `test_a_row_exactly_at_the_threshold_is_served`, and
+    each backfilled test names its own id the same way.
+
+  gates:
+    # ---- Step 1 applied to the read (§D.2, §C.4 trap 1) ------------------
+    - id: IH-G01
+      criterion: 6
+      statement: >-
+        Every served row's cusip equals resolved_security.cusip.
+      test: tests/examples/test_cp_00_output.py::test_ih_g01_every_served_row_cusip_equals_the_resolved_security
+      sabotage: >-
+        drop the CUSIP filter from the envelope emission, so step 1's output is
+        not applied to the read and the fan-out over-count returns — the
+        fixture seeds managers whose only position is off the dominant
+        security, so there is something to catch.
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to a scratch copy of
+          `examples/cp-00-institutional-holders/deployment.py::_envelopes` —
+          the CUSIP filter removed, so every filed position at the pin became
+          an envelope. Observed — "IH-G01: served rows [('0000019617',
+          '032095951'), ('0000046392', '8033009TT'), ('0000926171',
+          '032095901'), ('0001326234', '81369Y506'), ('0001452861',
+          '032095901'), ('0001452861', '032095951'), ('0001488542',
+          '032095901'), ('0001616667', '002159795')] were assembled from a
+          security other than the resolved '032095101' — step 1's output was
+          not applied to the read and the fan-out over-count is back." Eight
+          served rows off the dominant security: the six managers the SQL
+          positive control counts with no position on it, plus two that hold
+          both. The expectation is the payload's own `resolved_security`
+          and the pinned SQL oracle; the sabotage edits `deployment.py`.
+          Two different sources. The committed example was never opened for
+          writing — the scratch copy was exec'd into the loaded module.
+        date: "2026-09-02"
+        commit: "6b14bd6 (the roster); the executing test lands in the Task 2 commit that fills this block"
+
+    # ---- The period pin (§C.4 trap 1) ------------------------------------
+    - id: IH-G02
+      criterion: 6
+      statement: >-
+        Every served row's report_period equals the pinned period.
+      test: tests/examples/test_cp_00_output.py::test_ih_g02_every_served_row_report_period_equals_the_pinned_period
+      sabotage: >-
+        drop the period pin from the source read, so a decade of positions
+        merges into one answer — the fixture seeds rows outside the pin.
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to a scratch copy of
+          `examples/cp-00-institutional-holders/deployment.py::_rows` — the
+          `report_period = %s` predicate removed from the source read.
+          Observed — "IH-G02: served rows [('0000895421', '31-DEC-2025'),
+          ('0001374170', '31-MAR-2025')] were assembled from a period other
+          than the pinned '31-MAR-2026' — the period pin was dropped."
+          Exactly the two rows the fixture seeds outside the pin, counted
+          by the SQL positive control. The expectation is the pin read from
+          `artifacts/question.yaml` and the pinned SQL oracle; the sabotage
+          edits `deployment.py`. Two different files.
+        date: "2026-09-02"
+        commit: "6b14bd6 (the roster); the executing test lands in the Task 2 commit that fills this block"
+
+    # ---- The band travels with the row (§C.4 trap 3, D-61) ---------------
+    - id: IH-G03
+      criterion: 6
+      statement: >-
+        Every served row carries a non-null issuer_match_band.
+      test: tests/examples/test_cp_00_output.py::test_ih_g03_every_served_row_carries_a_non_null_issuer_match_band
+      sabotage: >-
+        drop the band at the source boundary, so the quality signal never
+        reaches the payload and a consumer cannot see which rows rest on a
+        weak match.
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to a scratch copy of
+          `examples/cp-00-institutional-holders/deployment.py::_envelopes` —
+          the band dropped from the emitted payload. Observed — "IH-G03:
+          served rows [('0002012383', 'NOT_EVALUABLE'), ('0000315066',
+          'NOT_EVALUABLE'), … fourteen rows …] carry no band the source holds
+          (['strong', 'weak']) — the quality signal was dropped at the source
+          boundary." Every served row carried the projection's absence
+          marker, a string that is present and is not a band — which is
+          why the gate reads the band VALUES the seeded table carries (SQL)
+          and not the key. The sabotage edits `deployment.py`; the
+          expectation is the source. Two different sources.
+        date: "2026-09-02"
+        commit: "6b14bd6 (the roster); the executing test lands in the Task 2 commit that fills this block"
+
+    # ---- The threshold comparison (§B.4, §D.3) ---------------------------
+    - id: IH-G04
+      criterion: 6
+      statement: >-
+        A manager whose value_usd equals minimum_position_usd is served.
+      test: tests/examples/test_cp_00_output.py::test_a_row_exactly_at_the_threshold_is_served
+      sabotage: >-
+        write the comparison as a strict greater-than, the defect a line copied
+        from s1-00 produces; the fixture holds exactly one row AT the
+        threshold so the gate is able to fail.
+      observed_red: null
+
+    # ---- The as-of boundary (§D.4) ---------------------------------------
+    - id: IH-G05
+      criterion: 6
+      statement: >-
+        The as-of boundary is at or after the run's ingest instant, and a
+        non-empty assembled set is observed before Π runs.
+      test: tests/examples/test_cp_00_output.py::test_ih_g05_the_boundary_is_at_or_after_ingest_and_the_assembled_set_is_non_empty
+      sabotage: >-
+        set the boundary to the reported quarter end, so the temporal operator
+        drops every claim on observed_at and the three shipped gates pass an
+        empty answer.
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to a scratch copy of
+          `examples/cp-00-institutional-holders/deployment.py::HoldersScenario.temporal_boundary`
+          — returns the reported quarter end instead of the request instant.
+          Observed — "Failed: IH-G05: the assembly did not complete, so the
+          gate had no served product to read: ValueError('freshness is
+          undefined over zero observations; an empty assembly is a
+          completeness shortfall, not a fresh one')". RECORDED RATHER THAN
+          GLOSSED: the specification's failure mode is "the three shipped
+          gates passed an empty answer"; on this tree the emptied view is
+          refused EARLIER, by the freshness scorer while D_c is measured,
+          before any gate runs. The gate still fails naming itself, because
+          a run that never reached Π observed no non-empty assembled set —
+          which is the statement's second limb. Both limbs are read off
+          `Assembled.scenario` and `Assembled.view`; the sabotage edits
+          `deployment.py`.
+        date: "2026-09-02"
+        commit: "6b14bd6 (the roster); the executing test lands in the Task 2 commit that fills this block"
+
+    # ---- Classification containment at L4 (§D.3) -------------------------
+    - id: IH-G06
+      criterion: 6
+      statement: >-
+        Every entity class this product declares is named in
+        classification_attribute_by_class and carries that attribute.
+      test: tests/examples/test_cp_00_output.py::test_ih_g06_every_declared_class_names_and_carries_its_classification_attribute
+      sabotage: >-
+        drop the classification attribute from the emitted envelopes for one
+        declared class, so the Policy step silently empties the view for that
+        class; the negative fixture (a class absent from the mapping) is
+        constructed in the test itself, as §F.3 says it must be.
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to a scratch copy of
+          `examples/cp-00-institutional-holders/deployment.py::_envelopes` —
+          the classification attribute dropped from every emitted payload,
+          so neither declared class carries it. Observed — "Failed: IH-G06:
+          the assembly did not complete, so the gate had no served product
+          to read: ValueError('freshness is undefined over zero
+          observations; an empty assembly is a completeness shortfall, not a
+          fresh one')" — the Policy step admitted nothing and the emptied
+          view was refused by the freshness scorer. THE DECLARATION LIMB
+          STAYED GREEN under this sabotage, correctly: the declaration was
+          not edited, and that is why the run limb exists. The negative
+          fixture limb — a scratch TEXT copy of `ccf_config.yaml` with one
+          mapping line removed, booted against the shipped code after an
+          unedited copy served the same roster — refused in the unsabotaged
+          run, which is the §F.3 construction obligation discharged. The
+          sabotage edits `deployment.py`; the declaration limb reads
+          `ccf_config.yaml`. Two different files.
+        date: "2026-09-02"
+        commit: "6b14bd6 (the roster); the executing test lands in the Task 2 commit that fills this block"
+
+    # ---- The two emptinesses (§D.6, §D.7) --------------------------------
+    - id: IH-G07
+      criterion: 6
+      statement: >-
+        An empty assembled set fails closed; an empty served set (threshold
+        above every position) returns 200.
+      test: tests/examples/test_cp_00_output.py::test_ih_g07_an_empty_assembled_set_fails_closed_and_an_empty_served_set_serves
+      sabotage: >-
+        remove the fail-closed refusal on an empty read, so an anchor that
+        assembles nothing is carried past step 1 instead of being refused by
+        name — the SDK's gate 1 catches neither emptiness (ledger row
+        24.5-L-24 gives its half a token in Wave 2).
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to a scratch copy of
+          `examples/cp-00-institutional-holders/deployment.py::source_read`
+          — the fail-closed guard on an empty read removed. Observed —
+          "IH-G07: the empty assembled set was not refused BY NAME at step 1;
+          the run ended with IndexError('list index out of range')". The
+          empty read was carried one line further and died reading the
+          first row — a crash, not a refusal, and not an answer either; the
+          gate requires the NAMED refusal. The empty-SERVED half stayed
+          green under the sabotage, correctly: a threshold above every
+          position still served `count: 0` through the gates, which is the
+          distinction the two halves exist to draw. The sabotage edits
+          `deployment.py`; the expectation is the specification's own
+          fail-closed sentence and the SQL maximum. Two different sources.
+        date: "2026-09-02"
+        commit: "6b14bd6 (the roster); the executing test lands in the Task 2 commit that fills this block"
+
+    # ---- Suppression discipline (§B.2, §D.6) -----------------------------
+    - id: IH-G08
+      criterion: 6
+      statement: >-
+        The product's payload carries no count of rows read.
+      test: tests/examples/test_cp_00_output.py::test_ih_g08_the_payload_carries_no_count_of_rows_read
+      sabotage: >-
+        publish the assembled row count in the payload — s1-00's `assembled`
+        field — which is the below-threshold count by subtraction.
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to a scratch copy of
+          `examples/cp-00-institutional-holders/deployment.py::HoldersOverThresholdProjection.invoke`
+          — `assembled`, the manager count of the view, added to the
+          payload. Observed — "IH-G08: the payload carries `assembled` —
+          s1-00's read count, which is the below-threshold count by
+          subtraction", with the served payload showing `'count': 8,
+          'assembled': 14`. The second limb — no integer at any depth equal
+          to the 14 rows read or the 22 filed at the pin — would have named
+          `payload.assembled` had the first not fired first; the served
+          `count` of 8 cannot trip it because served < read is asserted
+          before either limb. The sabotage edits `deployment.py`; the
+          expectations are the run's own envelopes and the SQL count.
+        date: "2026-09-02"
+        commit: "6b14bd6 (the roster); the executing test lands in the Task 2 commit that fills this block"

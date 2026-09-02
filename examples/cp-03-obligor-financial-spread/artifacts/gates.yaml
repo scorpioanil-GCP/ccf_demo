@@ -1,0 +1,207 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE FOURTEEN DECLARED PRODUCT GATES, AS DATA — `OFS-G01` through `OFS-G13`
+# and `OFS-G15`. THERE IS NO `OFS-G14`; see the comment beside `OFS-G13`.
+#
+# The `$schema` header above names the OPEN ENVELOPE, because that is what the
+# tree-wide header gate reads (`tools/check_schema_headers.py`) and this is a
+# deployment-authored class the SDK does not own. THE CLOSED SCHEMA THAT
+# ACTUALLY CONSTRAINS THIS DOCUMENT is
+# `docs/schemas/product-gates/cp.product-gates.json`, which
+# `tools/check_product_gates.py` validates every `examples/cp-*` roster against
+# before any id is read.
+#
+# WHY THIS FILE EXISTS. `D-IMPL-224`: product gates are a DECLARED ARTIFACT plus
+# CI coverage, and the specification's §G.2 table is the machine source for
+# nothing. BACKFILLED in Phase 24.5 (ledger row `24.5-L-49`, ROADMAP criterion
+# 12). All fourteen ids were already executed by tests in
+# `tests/examples/test_cp_03_output.py`, by function name.
+#
+# THE CRITERION COLUMN. Phase 24.3 locked one ROADMAP criterion per gate —
+# criteria 19 through 32, in id order — so the bijection holds here and the
+# numbers are the ROADMAP's, not the specification's.
+#
+# NO GATE IS RECORDED AS PASSING UNTIL IT HAS BEEN OBSERVED RED AT LEAST ONCE.
+# All fourteen were watched red on 2026-08-31 (spec §G.2's sabotage table) and
+# their `observed_red` stays `null` here — a backfill does not invent a record
+# for a sabotage it did not watch.
+#
+# `role: load`. A gate roster is a declaration of obligations, parsed and handed
+# back; it is not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-03.product-gates
+
+declaration:
+  product: credit-risk.spread
+
+  # HOW A GATE ID MAPS ONTO THE TEST THAT EXECUTES IT, DECLARED RATHER THAN
+  # INFERRED. A CHECKER INPUT: `tools/check_product_gates.py` applies ONLY the
+  # form declared here. cp-03's convention is the NAME form, cp-04's exact
+  # phrase — and under it a function DOCSTRING is not read, which is why the
+  # retired `OFS-G14` in a module docstring is not an observation.
+  test_naming_convention: >-
+    the gate id lower-cased with its hyphen dropped, prefixed `test_`, followed
+    by a slug of the statement — `OFS-G01` becomes
+    `test_ofs_g01_the_payload_carries_both_fact_kinds`.
+
+  gates:
+    # ---- §C.5 — both fact kinds ------------------------------------------
+    - id: OFS-G01
+      criterion: 19
+      statement: >-
+        The payload carries at least one instant and at least one duration
+        fact, and the restatement census equals the full-key figure. A
+        duration-only payload fails.
+      test: tests/examples/test_cp_03_output.py::test_ofs_g01_the_payload_carries_both_fact_kinds
+      sabotage: serve a duration-only payload.
+      observed_red: null
+
+    # ---- §C.3 — resolution through the crosswalk -------------------------
+    - id: OFS-G02
+      criterion: 20
+      statement: >-
+        Resolution goes through crosswalk; financial_fact.cik is never the
+        resolution path.
+      test: tests/examples/test_cp_03_output.py::test_ofs_g02_resolution_goes_through_the_crosswalk
+      sabotage: resolve through financial_fact.cik instead of ccf_v2.crosswalk.
+      observed_red: null
+
+    # ---- §C.4 trap 1 — the restatement key -------------------------------
+    - id: OFS-G03
+      criterion: 21
+      statement: >-
+        The restatement key is the estate's declared identity (lei, tag, unit,
+        period_end, fiscal_period); the census is 321 — not 392, not 410, not
+        3,547.
+      test: tests/examples/test_cp_03_output.py::test_ofs_g03_the_restatement_key_is_the_estates_own
+      sabotage: relax the restatement key.
+      observed_red: null
+
+    # ---- §C.4 trap 2 — corroboration, never the detector -----------------
+    - id: OFS-G04
+      criterion: 22
+      statement: >-
+        Item 4.02 is corroboration, never the detector — a restatement without
+        a 4.02 is still detected (28 of 37), and a 4.02 without a value change
+        is not reported as restated (2 of 11).
+      test: tests/examples/test_cp_03_output.py::test_ofs_g04_item_402_corroborates_and_never_detects
+      sabotage: detect restatement from Item 4.02 instead of value comparison.
+      observed_red: null
+
+    # ---- §C.4 trap 4 — one store ----------------------------------------
+    - id: OFS-G05
+      criterion: 23
+      statement: >-
+        No store but PostgreSQL is opened at all, and spread_observation is
+        never read — asserted by row count, not by sampling.
+      test: tests/examples/test_cp_03_output.py::test_ofs_g05_no_store_but_postgres_is_opened
+      sabotage: open any store other than Postgres.
+      observed_red: null
+
+    # ---- §B.5 — the declared-but-inert parameter -------------------------
+    - id: OFS-G06
+      criterion: 24
+      statement: >-
+        as_of is refused 400 not_supported_at_tier, never silently honored.
+      test: tests/examples/test_cp_03_output.py::test_ofs_g06_as_of_is_refused_and_never_silently_honored
+      sabotage: silently honor as_of instead of refusing 400 not_supported_at_tier.
+      observed_red: null
+
+    # ---- §B.3 — Assembly Mode 1 ------------------------------------------
+    - id: OFS-G07
+      criterion: 25
+      statement: >-
+        No LLM client is reachable from any §D step — Assembly Mode 1.
+      test: tests/examples/test_cp_03_output.py::test_ofs_g07_no_llm_client_is_reachable
+      sabotage: make an LLM client reachable from a §D step.
+      observed_red: null
+
+    # ---- §C.4 trap 5 — absence is a word ---------------------------------
+    - id: OFS-G08
+      criterion: 26
+      statement: >-
+        The obligor with no revenue tag serves NOT_EVALUABLE, never 0.
+      test: tests/examples/test_cp_03_output.py::test_ofs_g08_absence_is_a_word_and_never_a_zero
+      sabotage: serve 0 for the revenue-less obligor instead of NOT_EVALUABLE.
+      observed_red: null
+
+    # ---- §B.1.1 — the expiry anchor --------------------------------------
+    - id: OFS-G09
+      criterion: 27
+      statement: >-
+        expires_at is 30 days from the latest filed_date in the payload, and
+        does not move with asked_at. Turns RED if the basis is changed to
+        earliest.
+      test: tests/examples/test_cp_03_output.py::test_ofs_g09_the_expiry_is_anchored_on_the_filing_not_the_question
+      sabotage: anchor the expiry on asked_at instead of the latest filed_date.
+      observed_red: null
+
+    # ---- §D.2.1 — exactly one operator, no Enrich ------------------------
+    - id: OFS-G10
+      criterion: 28
+      statement: >-
+        operators_invoked has exactly one entry and no Enrich operator is
+        registered. Turns RED if the §10.2 vocabulary is later adopted — that
+        redness reopens §F.2 row 1.
+      test: tests/examples/test_cp_03_output.py::test_ofs_g10_exactly_one_operator_and_no_enrich
+      sabotage: register a second operator.
+      observed_red: null
+
+    # ---- §D.4 — basis and the content address ----------------------------
+    - id: OFS-G11
+      criterion: 29
+      statement: >-
+        basis changes the content address for a restated obligor, and changes
+        no figure for an unrestated one (D-IMPL-222).
+      test: tests/examples/test_cp_03_output.py::test_ofs_g11_basis_changes_the_address_only_where_it_changes_the_answer
+      sabotage: make basis not change the content address for a restated obligor.
+      observed_red: null
+
+    # ---- §D.7.1 — per-attribute lineage, example-local -------------------
+    - id: OFS-G12
+      criterion: 30
+      statement: >-
+        Every derived line has a non-empty inputs, and every entry resolves to
+        a fact-cell in the same payload. Example-local; nothing added to src/.
+      test: tests/examples/test_cp_03_output.py::test_ofs_g12_every_derived_line_names_what_it_consumed
+      sabotage: emit a derived line with an empty inputs.
+      observed_red: null
+
+    # ---- §E.5 — the threshold comes from the artifact --------------------
+    #
+    # THERE IS NO `OFS-G14`, AND THE NUMBER IS SKIPPED RATHER THAN REUSED.
+    # `OFS-G14` asserted Fluree predicate counts and was WITHDRAWN with the
+    # Fluree design (ROADMAP 24.3 criterion 17, 2026-08-30): this product reads
+    # no Fluree store, so the control had no subject here and moved to the rung
+    # that reads that store. It survives only in a module docstring in
+    # `tests/examples/test_cp_03_census.py`, which the checker does not read.
+    # A row here would declare a gate nothing executes; renumbering `OFS-G15`
+    # would make the specification and the tests disagree about a name.
+    - id: OFS-G13
+      criterion: 31
+      statement: >-
+        restatement_class is read from artifacts/restatement.yaml — changing
+        the artifact's threshold moves cells between classes.
+      test: tests/examples/test_cp_03_output.py::test_ofs_g13_the_severity_threshold_comes_from_the_artifact
+      sabotage: hard-code the restatement threshold instead of reading artifacts/restatement.yaml.
+      observed_red: null
+
+    # ---- §B.2 — entitlement as sets, with a negative control -------------
+    - id: OFS-G15
+      criterion: 32
+      statement: >-
+        Entitlement discriminates AS SETS, with a negative control. The four
+        principals resolve to their measured visible populations — PRIN-RES-002
+        49, PRIN-COV-001 47, PRIN-KYC-004 0, PRIN-TRD-003 0 — and 49 != 47
+        proves the check is not returning a constant. A principal granted
+        nothing sees nothing, paired with a positive assertion so an
+        always-empty result cannot pass. No served figure differs between
+        principals — entitlement removes rows, never rewrites them.
+      test: tests/examples/test_cp_03_output.py::test_ofs_g15_entitlement_discriminates_as_sets_with_a_negative_control
+      sabotage: >-
+        return the same obligor set for every principal, or an empty set for
+        all of them. A second executing test,
+        `test_ofs_g15_suppression_is_indistinguishable_from_absence`, carries
+        the suppression half.
+      observed_red: null

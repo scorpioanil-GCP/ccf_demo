@@ -1,0 +1,166 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE NINE DECLARED PRODUCT GATES, AS DATA — `FTS-G01` through `FTS-G09`.
+#
+# The `$schema` header above names the OPEN ENVELOPE, because that is what the
+# tree-wide header gate reads (`tools/check_schema_headers.py`) and this is a
+# deployment-authored class the SDK does not own. THE CLOSED SCHEMA THAT
+# ACTUALLY CONSTRAINS THIS DOCUMENT is
+# `docs/schemas/product-gates/cp.product-gates.json`, which
+# `tools/check_product_gates.py` validates every `examples/cp-*` roster against
+# before any id is read.
+#
+# WHY THIS FILE EXISTS. `D-IMPL-224`: product gates are a DECLARED ARTIFACT plus
+# CI coverage, and the specification's §D.7 table is the machine source for
+# nothing. BACKFILLED in Phase 24.5 (ledger row `24.5-L-49`, ROADMAP criterion
+# 12). All nine ids were already executed by tests in
+# `tests/examples/test_cp_02_output.py`; this roster declares them as data so
+# the checker can hold the module to the declaration.
+#
+# THE CRITERION COLUMN, STATED RATHER THAN LEFT TO BE INFERRED. Phase 24.2.1
+# locked NO ROADMAP criteria, by ruling: it is a retrospective record for a
+# product built outside the phase machinery, and `D-GATE-24.2.1` rules Dave's
+# inspection to BE the success criterion. The numbers below are therefore the
+# specification's OWN §G.2 acceptance-criterion numbers, the only numbered
+# obligations this product carries, mapped as §G.2 states beside each item
+# (`FTS-G01` also appears at item 2, `FTS-G04` also at item 7; the first item
+# naming each gate alone is the one carried).
+#
+# NO GATE IS RECORDED AS PASSING UNTIL IT HAS BEEN OBSERVED RED AT LEAST ONCE.
+# The nine gates were built and watched in their own build (2026-08-29) and
+# their `observed_red` stays `null` here — a backfill does not invent a record
+# for a sabotage it did not watch.
+#
+# `role: load`. A gate roster is a declaration of obligations, parsed and handed
+# back; it is not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-02.product-gates
+
+declaration:
+  product: reference.facility
+
+  # HOW A GATE ID MAPS ONTO THE TEST THAT EXECUTES IT, DECLARED RATHER THAN
+  # INFERRED. A CHECKER INPUT: `tools/check_product_gates.py` applies ONLY the
+  # form declared here. cp-02's convention is the DOCSTRING form — `FTS-G01`
+  # is named in the docstring of
+  # `test_the_expiry_does_not_move_when_the_question_moves`.
+  test_naming_convention: >-
+    the gate id appears in the executing test's docstring — `FTS-G01` is named
+    in the docstring of `test_the_expiry_does_not_move_when_the_question_moves`.
+
+  gates:
+    # ---- §A — the anchor this product exists for -------------------------
+    - id: FTS-G01
+      criterion: 1
+      statement: >-
+        Expiry does not move with the question — the same facility asked for
+        at two different asked_at values returns the same expires_at, to the
+        second.
+      test: tests/examples/test_cp_02_output.py::test_the_expiry_does_not_move_when_the_question_moves
+      sabotage: >-
+        anchor expires_at on the request instant underneath a label that says
+        from_entity_freshness — the entire counterfactual.
+      observed_red: null
+
+    # ---- Rung 01's trap 3, departed from ---------------------------------
+    - id: FTS-G02
+      criterion: 7
+      statement: >-
+        Entitlement discriminates — at least one principal pair whose visible
+        facility SETS differ, with a named facility visible to A and not B.
+        Counts sets, never sizes. Carries a negative control: a principal
+        differenced against itself must report identical. It must NOT demand
+        that every pair differ.
+      test: tests/examples/test_cp_02_output.py::test_entitlement_discriminates_as_sets_with_a_negative_control
+      sabotage: >-
+        make the Policy step a no-op so every principal sees every facility. A
+        second executing test, `test_need_to_know_is_load_bearing`, drives the
+        same sets from the need-to-know side.
+      observed_red: null
+
+    # ---- A two-condition policy where one condition does the work --------
+    - id: FTS-G03
+      criterion: 9
+      statement: >-
+        Need-to-know is load-bearing — removing the sees_need_to_know
+        condition changes the served set. A principal with jurisdiction but
+        without need-to-know receives nothing.
+      test: tests/examples/test_cp_02_output.py::test_need_to_know_is_load_bearing
+      sabotage: >-
+        gate on jurisdiction alone, which serves sixty facilities to a research
+        analyst holding no facility-level need-to-know while every pairwise
+        set-difference check still passes.
+      observed_red: null
+
+    # ---- §B.2, including the empty case ----------------------------------
+    - id: FTS-G04
+      criterion: 8
+      statement: >-
+        Suppression silence, including the empty case — two principals'
+        payloads differ in content and are indistinguishable in structure; and
+        a principal seeing zero facilities receives a refusal indistinguishable
+        from the refusal for a facility that does not exist.
+      test: tests/examples/test_cp_02_output.py::test_a_suppressed_facility_is_indistinguishable_from_a_missing_one
+      sabotage: >-
+        answer the zero-visible principal with a 404 that discloses
+        non-existence, or a 200 with an empty list that implies it.
+      observed_red: null
+
+    # ---- §B.4 — the declared-but-inert parameter -------------------------
+    - id: FTS-G05
+      criterion: 10
+      statement: >-
+        Inert parameter fails loudly — as_of returns 400 not_supported_at_tier
+        and never silently succeeds against current state.
+      test: tests/examples/test_cp_02_output.py::test_as_of_is_refused_and_never_silently_honored
+      sabotage: honor as_of silently against current state.
+      observed_red: null
+
+    # ---- §C.4 trap 3 — a T1 product that became a T4 product -------------
+    - id: FTS-G06
+      criterion: 6
+      statement: >-
+        The tier boundary holds — no source_accession, source_document or
+        source_offsets value appears anywhere in the served payload or its
+        lineage.
+      test: tests/examples/test_cp_02_output.py::test_no_source_pointer_reaches_the_payload
+      sabotage: let a source pointer through to the payload.
+      observed_red: null
+
+    # ---- §C.4 trap 4 — a flattened grid ----------------------------------
+    - id: FTS-G07
+      criterion: 5
+      statement: >-
+        Pricing grid is a structure — the grid is served as basis plus a tier
+        list of at least three entries, read through pricing_grid->'tiers'; a
+        scalar margin is never substituted.
+      test: tests/examples/test_cp_02_output.py::test_the_pricing_grid_is_served_as_a_tier_structure
+      sabotage: substitute a scalar margin for the tier list.
+      observed_red: null
+
+    # ---- §C.4 trap 1 — arithmetic served as a term -----------------------
+    - id: FTS-G08
+      criterion: 4
+      statement: >-
+        Incoherent tenor is not computed — for a facility whose maturity_date
+        precedes its effective_date, tenor_days is null and the claim is marked
+        NOT_EVALUABLE, never a negative number.
+      test: tests/examples/test_cp_02_output.py::test_an_inverted_date_pair_serves_without_computing_a_tenor
+      sabotage: compute the tenor anyway and serve the negative number.
+      observed_red: null
+
+    # ---- §B.1 element 3 — written to go red when the defect is fixed -----
+    - id: FTS-G09
+      criterion: 11
+      statement: >-
+        The TTL refusal, asserted so that fixing it goes red — a facility
+        whose effective_date is older than 90 days is refused on ttl-bounds,
+        and the refusal names ttl_basis. The gate is written to assert the
+        shipped behavior, and it is expected to turn RED when the declaration
+        is corrected.
+      test: tests/examples/test_cp_02_output.py::test_a_facility_older_than_the_window_is_refused
+      sabotage: >-
+        correct the TTL declaration so the old facility serves — fixing the
+        defect is the sabotage, and the test correctly goes red.
+      observed_red: null
