@@ -98,6 +98,8 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 
+from pydantic import Field
+
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifact_base import ArtifactClass, VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
@@ -170,17 +172,27 @@ __all__ = [
 
 #: Why a request did not conform.
 #:
-#: Three of the four are the three ways a closed, typed, partially-required
+#: Three of the five are the three ways a closed, typed, partially-required
 #: declaration can be missed, spelled in the request's own vocabulary
 #: (*parameter*, not *key*) so a caller reading a refusal is not asked to
 #: translate. The fourth has no payload analogue: a payload belongs to whatever
 #: product carried it, while a request is **addressed**, and a request handed
 #: to the wrong class's contract is a mis-delivery rather than a bad argument.
+#:
+#: The fifth, ``not-supported-at-tier``, is the Context Product Specification
+#: Standard's ``400 not_supported_at_tier`` (``references/Context_Product_Specification_Standard_v0-3.md``
+#: §9) rendered in this vocabulary's own hyphenated spelling: the parameter is
+#: part of the class's declared surface and the class refuses it **by
+#: declaration**, every time, rather than honoring it (Standard §2.4,
+#: *declared-but-inert*). It arrives through
+#: :attr:`ProductRequestContract.unsupported_arguments`, never through the
+#: payload comparison. Ledger row ``24.5-L-12``.
 ProductRequestViolationReason = Literal[
     "undeclared-parameter",
     "missing-required-parameter",
     "type-mismatch",
     "class-mismatch",
+    "not-supported-at-tier",
 ]
 
 #: How :func:`~ccf.products.payload.refuse_payload`'s reasons read on the
@@ -290,11 +302,24 @@ class ProductRequestContract(VersionedArtifact):
             parameter the class did not declare is refused rather than
             forwarded, because a parameter that reaches plan selection without
             having been declared is an argument nobody governed.
+        unsupported_arguments: The parameters this class declares **and always
+            refuses** — the Standard's *declared-but-inert* parameter
+            (``references/Context_Product_Specification_Standard_v0-3.md``
+            §2.4): part of the uniform surface, unsupported at this product's
+            tier, and therefore refused explicitly rather than allowed to
+            appear to work. Parameter name → the declared reason, as Control
+            Plane prose the deployment authors and that lands verbatim in the
+            verdict's ``detail``. The empty mapping is the positive assertion
+            that this class declares no inert parameter, which is what every
+            declaration written before this field said and still says. The set
+            lives here, in the artifact, so that no spine code carries it
+            (CLAUDE.md §6.4; ledger row ``24.5-L-13``).
     """
 
     schema_name: str
     schema_version: str
     arguments: SkillArgumentSchema
+    unsupported_arguments: Mapping[str, str] = Field(default_factory=dict)
 
     @classmethod
     def from_declared(cls, artifact: DeclaredArtifact) -> ProductRequestContract:
@@ -365,12 +390,20 @@ class ProductRequestContract(VersionedArtifact):
             ``examples/s1-01-hello-context-product/artifacts/request-contract.yaml``
             rather than against an inline copy of it.
 
+        **The optional fourth key** (``24.5-L-13``). ``unsupported_arguments``
+        is read when present and defaults to the empty mapping when absent, so
+        a declaration written before the key existed parses exactly as it did.
+        The four ladder configs already carried the key as an uninterpreted
+        sibling — the SDK reading it is the change, not the artifacts.
+
         Raises:
             ValueError: the declaration is missing one or more of the three
-                keys, **named together in one message**. An adopter fixing a
-                declaration one ``KeyError`` at a time is the papercut this
-                method exists to close, so the exhaustive message is the
-                behaviour and not a nicety.
+                required keys, **named together in one message**. An adopter
+                fixing a declaration one ``KeyError`` at a time is the papercut
+                this method exists to close, so the exhaustive message is the
+                behaviour and not a nicety. Also raised, in the same one-error
+                shape, when ``unsupported_arguments`` is present but is not a
+                mapping of parameter name to reason prose.
         """
         declaration = artifact.declaration
         missing = tuple(
@@ -385,6 +418,19 @@ class ProductRequestContract(VersionedArtifact):
                 "missing key is named here rather than one per exception, so "
                 "the document is fixed in one pass (D-IMPL-98, D-IMPL-126)"
             )
+        unsupported = declaration.get(_KEY_UNSUPPORTED_ARGUMENTS, {})
+        if not isinstance(unsupported, Mapping) or not all(
+            isinstance(name, str) and isinstance(reason, str)
+            for name, reason in unsupported.items()
+        ):
+            raise ValueError(
+                f"the declared artifact {artifact.class_id!r} at lane "
+                f"{artifact.semver!r} carries {_KEY_UNSUPPORTED_ARGUMENTS!r} "
+                f"as {type(unsupported).__name__}, and it must be a mapping "
+                "of parameter name to the declared reason prose — the shape "
+                "the four ladder configs already author (Standard §2.4, "
+                "24.5-L-13)"
+            )
         return cls(
             semver=artifact.semver,
             schema_name=declaration[_KEY_SCHEMA_NAME],
@@ -392,12 +438,18 @@ class ProductRequestContract(VersionedArtifact):
             arguments=SkillArgumentSchema.model_validate(
                 declaration[_KEY_ARGUMENTS]
             ),
+            unsupported_arguments=dict(unsupported),
         )
 
 
 _KEY_SCHEMA_NAME = "schema_name"
 _KEY_SCHEMA_VERSION = "schema_version"
 _KEY_ARGUMENTS = "arguments"
+#: The optional fourth declaration key (``24.5-L-13``). A key NAME of the
+#: artifact, like the three above — not a parameter set. Nothing in this module
+#: names a parameter; the parameters a class refuses are read from the artifact
+#: at :meth:`ProductRequestContract.from_declared` and nowhere else.
+_KEY_UNSUPPORTED_ARGUMENTS = "unsupported_arguments"
 
 #: The three keys a request-contract declaration carries, in the order
 #: :meth:`ProductRequestContract.from_declared` reports them missing. They are
@@ -449,14 +501,16 @@ class ProductRequestViolation(CCFContract):
     re-derives either to learn what the gap was.
 
     Attributes:
-        reason: Which of the four ways the request missed.
+        reason: Which of the five ways the request missed.
         key: Where. A parameter reads by name, a nested member reads
             ``parent.member`` and an element of a declared list reads
             ``parent[].member``; a class mismatch reads the field that
-            disagreed.
+            disagreed; a tier refusal reads the inert parameter's name.
         declared_type: The JSON Schema type declared at ``key`` — or, for a
             class mismatch, the value the **contract** declares. ``None`` when
-            neither applies.
+            neither applies, which includes a tier refusal: an inert parameter
+            is refused whatever its type, so no type is what the declaration
+            says about it.
         presented_type: The Python type name the request presented at ``key``
             — or, for a class mismatch, the value the **request** presented.
         declared_keys: Every parameter the contract declares at the level the
@@ -465,7 +519,10 @@ class ProductRequestViolation(CCFContract):
             about a level.
         presented_keys: Every parameter the request presented at that level.
         detail: The human-readable statement, for the operator reading a log.
-            The typed fields above are the machine-readable version.
+            The typed fields above are the machine-readable version. For a
+            tier refusal it carries the Standard's status token, the parameter
+            name and the declared reason prose, all three, so a reader of the
+            sentence sees what the declaration said.
     """
 
     reason: ProductRequestViolationReason
@@ -538,10 +595,50 @@ def _refuse_address(
     return None
 
 
+def _refuse_tier(
+    *, request: ProductRequest, declared: ProductRequestContract
+) -> ProductRequestViolation | None:
+    """Does this request present a parameter the class declared and always refuses?
+
+    The tier step (``24.5-L-13``): the first presented parameter, in sorted
+    order, that the declaration names in
+    :attr:`ProductRequestContract.unsupported_arguments` is refused by
+    ``not-supported-at-tier``, carrying the declaration's own reason prose.
+    The verdict comes **from the declaration**: this function holds no
+    parameter name and no reason text of its own.
+    """
+    for key in sorted(request.parameters):
+        if key not in declared.unsupported_arguments:
+            continue
+        return ProductRequestViolation(
+            reason="not-supported-at-tier",
+            key=key,
+            declared_type=None,
+            presented_type=type(request.parameters[key]).__name__,
+            declared_keys=frozenset(declared.arguments.properties),
+            presented_keys=frozenset(request.parameters),
+            detail=(
+                f"{key}: 400 not_supported_at_tier — "
+                f"{declared.unsupported_arguments[key]}"
+            ),
+        )
+    return None
+
+
 def refuse_request(
     *, request: ProductRequest, declared: ProductRequestContract
 ) -> ProductRequestViolation | None:
-    """The one request-conformity comparison — address first, then parameters.
+    """The one request-conformity comparison — address, then tier, then parameters.
+
+    **The order is fixed and load-bearing** (``24.5-L-13``): address first,
+    the tier step second, the payload comparison last. A declared-and-inert
+    parameter is refused whatever its type, and it is typically *not* in
+    ``arguments.properties`` — so the payload comparison, run first, would
+    call it ``undeclared-parameter`` and hide the reason the declaration
+    authored. The tier step runs before that comparison so the declared reason
+    is what a caller reads. The address check stays first for the reason
+    :func:`_refuse_address` gives: a request to another class never reaches
+    the tier step, so a tier verdict is always about this class's declaration.
 
     **Called by the deployment's own resolver, not by any door**
     (``D-IMPL-121``, Dave, 2026-08-12, extending ``D-IMPL-113``). This
@@ -572,10 +669,12 @@ def refuse_request(
     request* precisely so that this stays true (see the module docstring).
 
     Returns:
-        ``None`` when the request is addressed to this contract and matches its
-        declared parameters at every level, otherwise the
+        ``None`` when the request is addressed to this contract, presents no
+        parameter the contract declares inert, and matches its declared
+        parameters at every level; otherwise the
         :class:`ProductRequestViolation` naming the first failure — address
-        first, then the fixed undeclared-then-missing-then-mistyped order
+        first, then the tier step over sorted presented names, then the fixed
+        undeclared-then-missing-then-mistyped order
         :func:`~ccf.products.payload.refuse_payload` imposes over sorted names
         — carrying both sides of the comparison that failed.
     """
@@ -593,6 +692,9 @@ def refuse_request(
     address = _refuse_address(request=request, declared=declared)
     if address is not None:
         return address
+    tier = _refuse_tier(request=request, declared=declared)
+    if tier is not None:
+        return tier
     parameters = refuse_payload(
         payload=request.parameters, declared=declared.arguments
     )
