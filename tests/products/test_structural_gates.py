@@ -50,11 +50,18 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from ccf.contracts.canonical import content_hash
+from ccf.controlplane.artifacts import (
+    PRODUCT_CLASS,
+    ProductClassDeclaration,
+    parse_artifact,
+)
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.halflife.assessment import DebtAssessment, DebtFactors, DebtSignal
 from ccf.products import gates as gates_module
+from ccf.products import resolver as resolver_module
 from ccf.products.contract import (
     NO_SERVE_OBLIGATIONS,
     ContextProductContract,
@@ -265,6 +272,104 @@ def lineage_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
 def undeclared_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
     """The control: a class declaring nothing — every pre-phase class."""
     return _class(registry, serve_obligations=NO_SERVE_OBLIGATIONS)
+
+
+# --- the declaration seat: a proportion, declared as data, carried to serve ---
+
+
+def test_a_ceiling_outside_the_unit_interval_is_refused_at_declaration() -> None:
+    """``D_c`` is a proportion; a ceiling outside ``[0, 1]`` refuses everything or nothing and is refused where the author can fix it."""
+    for bad in (Decimal("1.5"), Decimal("-0.1")):
+        with pytest.raises(ValidationError, match="24.5-L-14"):
+            ServeObligations(debt_ceiling=bad)
+    assert ServeObligations(debt_ceiling=Decimal("0")).debt_ceiling == Decimal("0")
+    assert ServeObligations(debt_ceiling=Decimal("1")).debt_ceiling == Decimal("1")
+    assert ServeObligations() == NO_SERVE_OBLIGATIONS
+    assert NO_SERVE_OBLIGATIONS.debt_ceiling is None
+    assert NO_SERVE_OBLIGATIONS.lineage_inputs_at == frozenset()
+
+
+def test_the_authored_declaration_carries_both_obligations_to_the_registered_class(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The artifact an adopter writes names the ceiling and the member; registration forwards both (the resolver's ``_register`` shape).
+
+    The NUMBER is in the document, never in ``src/``: the declaration below is
+    the only place ``0.5`` is authored on this path.
+    """
+    parsed = parse_artifact(
+        {
+            "semver": "1.0.0",
+            "schema_name": SCHEMA_NAME,
+            "schema_version": SCHEMA_VERSION,
+            "ttl_anchor": "from_decision",
+            "assembly_mode": "algorithmic",
+            "max_ttl_key": MAX_TTL_KEY,
+            "required_operator_keys": sorted(OPERATORS),
+            "serve_obligations": {
+                "debt_ceiling": str(DECLARED_CEILING),
+                "lineage_inputs_at": [OBLIGED_MEMBER],
+            },
+        },
+        PRODUCT_CLASS,
+    )
+    assert isinstance(parsed, ProductClassDeclaration)
+    assert parsed.serve_obligations.debt_ceiling == DECLARED_CEILING
+    assert parsed.serve_obligations.lineage_inputs_at == frozenset({OBLIGED_MEMBER})
+
+    registered = _class(registry, serve_obligations=parsed.serve_obligations)
+    assert registered.serve_obligations == parsed.serve_obligations
+
+    # A declaration that says nothing registers the sentinel — every
+    # committed declaration in the tree, unchanged.
+    silent = parse_artifact(
+        {
+            "semver": "1.0.0",
+            "schema_name": SCHEMA_NAME,
+            "schema_version": SCHEMA_VERSION,
+            "ttl_anchor": "from_decision",
+            "assembly_mode": "algorithmic",
+            "max_ttl_key": MAX_TTL_KEY,
+            "required_operator_keys": sorted(OPERATORS),
+        },
+        PRODUCT_CLASS,
+    )
+    assert isinstance(silent, ProductClassDeclaration)
+    assert silent.serve_obligations == NO_SERVE_OBLIGATIONS
+
+
+def test_the_resolver_threads_the_effective_ceiling_and_no_principal() -> None:
+    """``GovernedResolver`` computes the effective ceiling from the class and the request, passes it to ``run_gates``, and hands no principal to any debt path.
+
+    Read by AST off :mod:`ccf.products.resolver` so the key link
+    (``resolver → run_gates`` via ``effective_debt_ceiling``) is measured, not
+    remembered — and so a future edit that reads the perspective into the
+    ceiling goes RED here (``D-IMPL-105``, threat ``T-24.5-34``).
+    """
+    tree = ast.parse(inspect.getsource(resolver_module))
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+
+    def _named(call: ast.Call) -> str:
+        func = call.func
+        return func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+
+    ceiling_calls = [c for c in calls if _named(c) == "effective_debt_ceiling"]
+    assert len(ceiling_calls) == 1, "the resolver computes the effective ceiling exactly once"
+    (ceiling_call,) = ceiling_calls
+    keywords = {kw.arg: ast.unparse(kw.value) for kw in ceiling_call.keywords}
+    assert set(keywords) == {"declared", "requested"}
+    assert "serve_obligations.debt_ceiling" in keywords["declared"]
+    assert "DEBT_TOLERANCE_PARAMETER" in keywords["requested"]
+    assert "request.parameters" in keywords["requested"]
+    for forbidden in ("perspective", "principal"):
+        assert forbidden not in ast.unparse(ceiling_call), forbidden
+
+    gate_calls = [c for c in calls if _named(c) == "run_gates"]
+    assert len(gate_calls) == 1
+    (gate_call,) = gate_calls
+    gate_keywords = {kw.arg: ast.unparse(kw.value) for kw in gate_call.keywords}
+    assert gate_keywords.get("debt_tolerance") == "debt_tolerance"
+    assert "serve_obligations" in ast.unparse(tree), "_register forwards the declaration's obligations"
 
 
 # --- criterion 21: the debt ceiling (24.5-L-14) -----------------------------
