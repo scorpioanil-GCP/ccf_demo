@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE CALLER'S OWN VOCABULARY — read-side, so NOT in `ccf_config.yaml`.
+# A question is not a permission. It has no business in Control Plane state or
+# in Decision Replay dimension 2.
+
+semver: "1.0.0"
+class_id: cp-04.question
+
+declaration:
+  # THE ANCHOR. Spec §B.1 element 8 gives the address
+  # `/context-products/reference/corporate-family/{lei}` — and at this rung the
+  # address is NOT THE DOOR (§B.4.2): the served surfaces are `ProductClient`
+  # in-process and an MCP TOOL. The MCP product RESOURCE is registered and
+  # enumerable and REFUSES; it never serves this product.
+  #
+  # WHY THIS ANCHOR. `54930022CZO1N2UGVW07` is SUPER MICRO COMPUTER, INC.
+  # (`http://example.org/fibo/SuperMicroComputerInc`), and it is the
+  # demonstration anchor because ONE anchor exercises everything this rung
+  # exists to teach. Every figure below is measured, from
+  # `24.4-MEASUREMENT.md`:
+  #
+  #   * A FAMILY DEEP ENOUGH THAT `max_depth` CHANGES THE ANSWER — 20 nodes at
+  #     depth 1, 21 at depth 2, 22 at depth 3. Three depths, three different
+  #     answers, three content addresses (`CFT-G05`).
+  #
+  #   * THE ONLY CYCLE REACHABLE FROM AN LEI-BEARING ANCHOR IN THE WHOLE GRAPH.
+  #     Exactly ONE external edge enters any cycle anywhere —
+  #     `SuperMicroComputerInc -> CycMeridianHoldingsSa` — and it is this
+  #     anchor's. The whole of cycle 1 is visible at depth 3, which is what the
+  #     declared default of 3 rests on.
+  #
+  #   * THE MULTI-STORE SPLIT, VISIBLE ON ONE SMALL SUBTREE — 2 of its 22 nodes
+  #     carry an LEI and both resolve in PostgreSQL; 20 of 22 resolve to no row
+  #     at all. That population is exactly what `CFT-G09` protects: a member
+  #     with no attribute row is a member, and a build that quietly served only
+  #     the two that resolve would return a smaller, tidier, WRONG family.
+  #
+  #   * THE SAME COMPANY ENTERED TWICE, ONE HOP AWAY — `SuperMicroComputerBV`
+  #     (LEI `549300F16C4PEFXU0S92`) and `SubSuperMicroComputerBV` (no LEI).
+  #     The product surfaces the pair rather than silently serving both as
+  #     distinct subsidiaries.
+  #
+  #   * A NEGATIVE CONTROL ON PRODUCTION DATA THAT IS NOT AN EMPTY WALK — the
+  #     same anchor over `isDirectlyConsolidatedBy` alone reaches 2 nodes at
+  #     depth 1 and yields 0 cycles. An earlier draft asserted the anchor had no
+  #     such edge at all; measured, it has exactly one. Had that stood, the
+  #     control would have been an empty walk asserting no cycle — a control
+  #     that cannot fail.
+  #
+  # THE ANCHOR IS SWAPPABLE. Nothing in the code names this LEI; it is read from
+  # here.
+  subject: "54930022CZO1N2UGVW07"
+
+  # THE PINNED INSTANT — spec §D.8, `D-IMPL-218`.
+  #
+  # The demonstrated run assembles OVER THIS PIN so the printed transcript
+  # reproduces. The bar is SAME QUESTION -> SAME ANSWER against a quiescent
+  # ledger for that run, and no stronger claim is made anywhere: a reader whose
+  # numbers differ has RE-DERIVED, not reproduced, and the most likely reason is
+  # that the ledger moved — a property of the estate rather than of the product.
+  #
+  # Asking "now" instead is legitimate and is what a deployment does; it is not
+  # the reproduction recipe. THE CYCLE IS ALREADY IN THE ESTATE, planted and
+  # labeled, so no `load_*` step is part of the demonstration.
+  asked_at: "2026-08-31T12:00:00+00:00"
+
+  # THE FRESHNESS CURRENCY THE CALLER IS ASKING IN — `ProductRequest.freshness`.
+  #
+  # `acquisition-disposal-restructuring` is the `decay_driver` the ownership-edge
+  # class already declares in `ccf_config.yaml`, reused rather than reworded: a
+  # family is as current as the relationship records behind it. Naming a
+  # different cadence here would assert this product decays on a clock its own
+  # λ_c table does not use.
+  freshness: acquisition-disposal-restructuring
+
+  parameters:
+    # Selects the policy envelope.
+    intent: concentration-review
+
+    # THE PARAMETER THIS RUNG EXISTS FOR, and it is DEMONSTRATED AT ITS DECLARED
+    # DEFAULT rather than at an interesting-looking number. Three properties
+    # ride on it and each is gated separately:
+    #
+    #   `CFT-G03`  above the ceiling of 6 is REFUSED BY NAME, never clamped.
+    #   `CFT-G04`  absent takes the DECLARED default of 3, read from
+    #              `ccf_config.yaml::request_contract.argument_defaults` and
+    #              never invented at serve time.
+    #   `CFT-G05`  depth is part of product identity — two depths are two
+    #              content addresses, because they are two different answers to
+    #              two different questions.
+    #
+    # 3 IS THE SMALLEST DEPTH AT WHICH THE HEADLINE FINDING EXISTS: cycle 1's
+    # three members sit at depths 1, 2 and 3 from this anchor.
+    max_depth: 3
+
+    # DECLARED AND ADVISORY at this tier (CR-02, 2026-09-01) — a demonstration
+    # pin, NOT an enforced ceiling: no `D_c`-versus-`debt_tolerance` comparison
+    # runs anywhere in this product and nothing refuses on it; the assessed
+    # debt is SERVED in the payload's debt block. The spec's `409` on breach
+    # (§F.2) is a `src/` obligation this example does not wire. Provisional —
+    # `[TBC — product owner]`. Declared here so the value travels into the
+    # content address rather than being defaulted somewhere a reader cannot see.
+    debt_tolerance: "0.25"
+
+  # DECLARED AND INERT — spec §B.4.3. `as_of` is refused
+  # `400 not_supported_at_tier` rather than silently ignored. Fluree's `t` is
+  # TRANSACTION time (`D-IMPL-88` rules it must not back `as_of`) and Fluree's
+  # `@iso:` searches EVENT time and is backdatable; neither is what `as_of`
+  # asks. `CFT-G06` asserts the refusal and is sabotaged by silently honoring it.
+  unsupported_parameters:
+    - as_of

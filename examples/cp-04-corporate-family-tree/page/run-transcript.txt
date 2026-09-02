@@ -1,0 +1,850 @@
+{
+  "anchor": {
+    "label": "SUPER MICRO COMPUTER, INC.",
+    "lei": "54930022CZO1N2UGVW07",
+    "type_chain": [
+      "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+      "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+      "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+      "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+      "https://www.omg.org/spec/Commons/Organizations/Organization",
+      "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+      "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+    ],
+    "uri": "http://example.org/fibo/SuperMicroComputerInc"
+  },
+  "class_axis": "Corporation",
+  "detailed_members": [
+    "http://example.org/fibo/CycCalderIndustrialNv",
+    "http://example.org/fibo/CycMeridianHoldingsSa",
+    "http://example.org/fibo/CycThornburyCapitalLtd",
+    "http://example.org/fibo/SubSuperMicroAsiaScienceAndTechnologyParkInc",
+    "http://example.org/fibo/SubSuperMicroComputerArabiaLtd",
+    "http://example.org/fibo/SubSuperMicroComputerBV",
+    "http://example.org/fibo/SubSuperMicroComputerGmbh",
+    "http://example.org/fibo/SubSuperMicroComputerHoldingsBV",
+    "http://example.org/fibo/SubSuperMicroComputerIncTaiwan",
+    "http://example.org/fibo/SubSuperMicroComputerInternationalInc",
+    "http://example.org/fibo/SubSuperMicroComputerKoreaYh",
+    "http://example.org/fibo/SubSuperMicroComputerLimited",
+    "http://example.org/fibo/SubSuperMicroComputerMalaysiaSdnBhd",
+    "http://example.org/fibo/SubSuperMicroComputerSRL",
+    "http://example.org/fibo/SubSuperMicroComputerSarl",
+    "http://example.org/fibo/SubSuperMicroComputerSingaporePteLtd",
+    "http://example.org/fibo/SubSuperMicroComputerSpainSL",
+    "http://example.org/fibo/SubSuperMicroComputerUsLlc",
+    "http://example.org/fibo/SubSupermicroKk",
+    "http://example.org/fibo/SubSupermicroTechnologyBeijingCoLtd",
+    "http://example.org/fibo/SuperMicroComputerBV",
+    "http://example.org/fibo/SuperMicroComputerInc"
+  ],
+  "edges": [
+    {
+      "child": "http://example.org/fibo/CycThornburyCapitalLtd",
+      "parent": "http://example.org/fibo/CycCalderIndustrialNv",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/CycCalderIndustrialNv",
+      "parent": "http://example.org/fibo/CycMeridianHoldingsSa",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/CycMeridianHoldingsSa",
+      "parent": "http://example.org/fibo/CycThornburyCapitalLtd",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerHoldingsBV",
+      "parent": "http://example.org/fibo/SubSuperMicroComputerBV",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerInternationalInc",
+      "parent": "http://example.org/fibo/SubSuperMicroComputerHoldingsBV",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerLimited",
+      "parent": "http://example.org/fibo/SubSuperMicroComputerInternationalInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/CycMeridianHoldingsSa",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroAsiaScienceAndTechnologyParkInc",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerArabiaLtd",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerBV",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerGmbh",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerHoldingsBV",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerIncTaiwan",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerInternationalInc",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerKoreaYh",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerLimited",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerMalaysiaSdnBhd",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerSRL",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerSarl",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerSingaporePteLtd",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerSpainSL",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSuperMicroComputerUsLlc",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSupermicroKk",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SubSupermicroTechnologyBeijingCoLtd",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    },
+    {
+      "child": "http://example.org/fibo/SuperMicroComputerBV",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "hasGlobalUltimateParent"
+    },
+    {
+      "child": "http://example.org/fibo/SuperMicroComputerBV",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "isDirectlyConsolidatedBy"
+    },
+    {
+      "child": "http://example.org/fibo/SuperMicroComputerBV",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "isUltimatelyConsolidatedBy"
+    },
+    {
+      "child": "http://example.org/fibo/SuperMicroComputerBV",
+      "parent": "http://example.org/fibo/SuperMicroComputerInc",
+      "predicate": "owns"
+    }
+  ],
+  "family": {
+    "attribute": "family_id",
+    "source": "walk_admission",
+    "value": "54930022CZO1N2UGVW07"
+  },
+  "findings": [
+    {
+      "closing_edge": [
+        "http://example.org/fibo/CycMeridianHoldingsSa",
+        "http://example.org/fibo/CycCalderIndustrialNv"
+      ],
+      "members": [
+        "http://example.org/fibo/CycCalderIndustrialNv",
+        "http://example.org/fibo/CycThornburyCapitalLtd",
+        "http://example.org/fibo/CycMeridianHoldingsSa"
+      ],
+      "predicate": "owns",
+      "type": "ownership_cycle"
+    },
+    {
+      "closing_edge": null,
+      "members": [
+        "http://example.org/fibo/SubSuperMicroComputerBV",
+        "http://example.org/fibo/SuperMicroComputerBV"
+      ],
+      "predicate": null,
+      "type": "duplicate_entity_pair"
+    },
+    {
+      "closing_edge": null,
+      "members": [
+        "http://example.org/fibo/CycCalderIndustrialNv",
+        "http://example.org/fibo/CycMeridianHoldingsSa",
+        "http://example.org/fibo/CycThornburyCapitalLtd",
+        "http://example.org/fibo/SubSuperMicroAsiaScienceAndTechnologyParkInc",
+        "http://example.org/fibo/SubSuperMicroComputerArabiaLtd",
+        "http://example.org/fibo/SubSuperMicroComputerBV",
+        "http://example.org/fibo/SubSuperMicroComputerGmbh",
+        "http://example.org/fibo/SubSuperMicroComputerHoldingsBV",
+        "http://example.org/fibo/SubSuperMicroComputerIncTaiwan",
+        "http://example.org/fibo/SubSuperMicroComputerInternationalInc",
+        "http://example.org/fibo/SubSuperMicroComputerKoreaYh",
+        "http://example.org/fibo/SubSuperMicroComputerLimited",
+        "http://example.org/fibo/SubSuperMicroComputerMalaysiaSdnBhd",
+        "http://example.org/fibo/SubSuperMicroComputerSRL",
+        "http://example.org/fibo/SubSuperMicroComputerSarl",
+        "http://example.org/fibo/SubSuperMicroComputerSingaporePteLtd",
+        "http://example.org/fibo/SubSuperMicroComputerSpainSL",
+        "http://example.org/fibo/SubSuperMicroComputerUsLlc",
+        "http://example.org/fibo/SubSupermicroKk",
+        "http://example.org/fibo/SubSupermicroTechnologyBeijingCoLtd"
+      ],
+      "predicate": null,
+      "type": "unresolved_jurisdiction"
+    }
+  ],
+  "jurisdictions": [
+    "NL",
+    "US-DE"
+  ],
+  "max_depth_applied": 3,
+  "minted_uris": {
+    "http://example.org/fibo/CycCalderIndustrialNv": "family_member://b05361ec6c3e5f6b8f2ffd6056ce1b152f21d5a2c239e0b6dfc792638602bf0b",
+    "http://example.org/fibo/CycMeridianHoldingsSa": "family_member://fabaa7d863657b5c53133c4b2dcb1660ab89a43e98491ed30ac97fc92d289c6b",
+    "http://example.org/fibo/CycThornburyCapitalLtd": "family_member://75c23ccea28e2b63e989c1c6914b53f6e524b33eb55d57299399a9fdc0d6dc6c",
+    "http://example.org/fibo/SubSuperMicroAsiaScienceAndTechnologyParkInc": "family_member://3b856eb8e5e10f1688aaf4b0cb7f814e366a91d15ed7ded9c1cc41664945e50f",
+    "http://example.org/fibo/SubSuperMicroComputerArabiaLtd": "family_member://de13786e9a45746c365c543f4524bde0258611756fb1807821ff37199ba96309",
+    "http://example.org/fibo/SubSuperMicroComputerBV": "family_member://38c39308bbdee1f5cf66d678ec3b92191aa8b237d3de607f12e5a5c52adba78a",
+    "http://example.org/fibo/SubSuperMicroComputerGmbh": "family_member://c7fb92ece6d20889e5eeb92211d1be54a452438c3c1c2b34669f7a68f6f8529a",
+    "http://example.org/fibo/SubSuperMicroComputerHoldingsBV": "family_member://a7ba19a638f88c1a06567f5cc84d02f86244369ff2a2691611543729486a37ef",
+    "http://example.org/fibo/SubSuperMicroComputerIncTaiwan": "family_member://b22f6951ad435ee4af240629a1572566740ff8092152aa2227f21c0f97256179",
+    "http://example.org/fibo/SubSuperMicroComputerInternationalInc": "family_member://cbb00fe647bc754620931fb7f70c24709e15b94eb0553f08ac2c2b0a6e9b2b23",
+    "http://example.org/fibo/SubSuperMicroComputerKoreaYh": "family_member://8f84e39f67ba2a79e183890985e4acce7eaa7613bd9864b1da939259824e3ab7",
+    "http://example.org/fibo/SubSuperMicroComputerLimited": "family_member://b8f1b5c2c9b23931f34f6dac34790417b6aa025b7b30876e110f318167640b2d",
+    "http://example.org/fibo/SubSuperMicroComputerMalaysiaSdnBhd": "family_member://a349948ab2afb80311025e72a3e3b85ad51cf849f903e0cb7c7b811b629dd755",
+    "http://example.org/fibo/SubSuperMicroComputerSRL": "family_member://92f9d72ff5db6c80c17ad768c2948fcbad468648d0aee4197b07913c07aaeaf8",
+    "http://example.org/fibo/SubSuperMicroComputerSarl": "family_member://c3049b4507b2b31d9a0b7e74b93b5ddc71cac6511199fcc857328cae7562fb15",
+    "http://example.org/fibo/SubSuperMicroComputerSingaporePteLtd": "family_member://394e894677c85a54827b0facc6ebbb055e42f79b231671545d139522cfaa2208",
+    "http://example.org/fibo/SubSuperMicroComputerSpainSL": "family_member://6041cee610661ba56f62abe13c6ac6ca0088857c86256694e04e2d87d70820c7",
+    "http://example.org/fibo/SubSuperMicroComputerUsLlc": "family_member://8671e3b0be5994072200dbd5140e1c59dcf51fdb845b8970c61559560c3c8e50",
+    "http://example.org/fibo/SubSupermicroKk": "family_member://ee1c811760c10a18666ae7af9d7a90033fbd11f6575ee8d6132bf7a210690ba5",
+    "http://example.org/fibo/SubSupermicroTechnologyBeijingCoLtd": "family_member://862e41d4049dd5dbd72c03147bc200f5cb2b36f3a0ce54a6cbd336f4b8113330",
+    "http://example.org/fibo/SuperMicroComputerBV": "family_member://c63f3951e15bbe666d5621df8ca504f9862504400eb52a16dd09291f5f686221",
+    "http://example.org/fibo/SuperMicroComputerInc": "family_anchor://cf3101e0eadddc28f4ee90f1b9505398e0fcc79d92f8c25540f6570a3e46fc1a"
+  },
+  "nodes": [
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 2,
+      "entity_id": "family_member://b05361ec6c3e5f6b8f2ffd6056ce1b152f21d5a2c239e0b6dfc792638602bf0b",
+      "label": "Calder Industrial N.V.",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/CycCalderIndustrialNv"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://fabaa7d863657b5c53133c4b2dcb1660ab89a43e98491ed30ac97fc92d289c6b",
+      "label": "Meridian Holdings S.A.",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/CycMeridianHoldingsSa"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 3,
+      "entity_id": "family_member://75c23ccea28e2b63e989c1c6914b53f6e524b33eb55d57299399a9fdc0d6dc6c",
+      "label": "Thornbury Capital Ltd",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/CycThornburyCapitalLtd"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://3b856eb8e5e10f1688aaf4b0cb7f814e366a91d15ed7ded9c1cc41664945e50f",
+      "label": "Super Micro Asia Science and Technology Park, Inc",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroAsiaScienceAndTechnologyParkInc"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://de13786e9a45746c365c543f4524bde0258611756fb1807821ff37199ba96309",
+      "label": "Super Micro Computer Arabia Ltd",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerArabiaLtd"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://38c39308bbdee1f5cf66d678ec3b92191aa8b237d3de607f12e5a5c52adba78a",
+      "label": "Super Micro Computer B.V",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerBV"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://c7fb92ece6d20889e5eeb92211d1be54a452438c3c1c2b34669f7a68f6f8529a",
+      "label": "Super Micro Computer GmbH",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerGmbh"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://a7ba19a638f88c1a06567f5cc84d02f86244369ff2a2691611543729486a37ef",
+      "label": "Super Micro Computer Holdings B.V",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerHoldingsBV"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://b22f6951ad435ee4af240629a1572566740ff8092152aa2227f21c0f97256179",
+      "label": "Super Micro Computer, Inc. Taiwan",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerIncTaiwan"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://cbb00fe647bc754620931fb7f70c24709e15b94eb0553f08ac2c2b0a6e9b2b23",
+      "label": "Super Micro Computer International Inc",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerInternationalInc"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://8f84e39f67ba2a79e183890985e4acce7eaa7613bd9864b1da939259824e3ab7",
+      "label": "Super Micro Computer Korea YH",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerKoreaYh"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://b8f1b5c2c9b23931f34f6dac34790417b6aa025b7b30876e110f318167640b2d",
+      "label": "Super Micro Computer Limited",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerLimited"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://a349948ab2afb80311025e72a3e3b85ad51cf849f903e0cb7c7b811b629dd755",
+      "label": "Super Micro Computer Malaysia Sdn Bhd",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerMalaysiaSdnBhd"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://92f9d72ff5db6c80c17ad768c2948fcbad468648d0aee4197b07913c07aaeaf8",
+      "label": "Super Micro Computer, S.R.L",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerSRL"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://c3049b4507b2b31d9a0b7e74b93b5ddc71cac6511199fcc857328cae7562fb15",
+      "label": "Super Micro Computer SARL",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerSarl"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://394e894677c85a54827b0facc6ebbb055e42f79b231671545d139522cfaa2208",
+      "label": "Super Micro Computer Singapore Pte. Ltd",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerSingaporePteLtd"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://6041cee610661ba56f62abe13c6ac6ca0088857c86256694e04e2d87d70820c7",
+      "label": "Super Micro Computer Spain, S.L",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerSpainSL"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://8671e3b0be5994072200dbd5140e1c59dcf51fdb845b8970c61559560c3c8e50",
+      "label": "Super Micro Computer US LLC",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSuperMicroComputerUsLlc"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://ee1c811760c10a18666ae7af9d7a90033fbd11f6575ee8d6132bf7a210690ba5",
+      "label": "Supermicro KK",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSupermicroKk"
+    },
+    {
+      "attributes": null,
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://862e41d4049dd5dbd72c03147bc200f5cb2b36f3a0ce54a6cbd336f4b8113330",
+      "label": "Supermicro Technology (Beijing) Co., Ltd",
+      "lei": null,
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SubSupermicroTechnologyBeijingCoLtd"
+    },
+    {
+      "attributes": {
+        "entity_status": "ACTIVE",
+        "gleif_legal_name": "SUPER MICRO COMPUTER B.V.",
+        "legal_address_city": "'S-HERTOGENBOSCH",
+        "legal_address_country": "NL",
+        "legal_form": "54M6",
+        "legal_jurisdiction": "NL",
+        "legal_name": "SUPER MICRO COMPUTER B.V.",
+        "registration_status": "LAPSED",
+        "sic": null,
+        "sic_description": null
+      },
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 1,
+      "entity_id": "family_member://c63f3951e15bbe666d5621df8ca504f9862504400eb52a16dd09291f5f686221",
+      "label": "SUPER MICRO COMPUTER B.V.",
+      "lei": "549300F16C4PEFXU0S92",
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SuperMicroComputerBV"
+    },
+    {
+      "attributes": {
+        "entity_status": "ACTIVE",
+        "gleif_legal_name": "SUPER MICRO COMPUTER, INC.",
+        "legal_address_city": "DOVER",
+        "legal_address_country": "US",
+        "legal_form": "XTIQ",
+        "legal_jurisdiction": "US-DE",
+        "legal_name": "Super Micro Computer, Inc.",
+        "registration_status": "ISSUED",
+        "sic": "3571",
+        "sic_description": "Electronic Computers"
+      },
+      "conditioning": {
+        "carries_class_axis": true,
+        "class_axis": "Corporation",
+        "detailed": true,
+        "role": "credit-officer"
+      },
+      "depth": 0,
+      "entity_id": "family_anchor://cf3101e0eadddc28f4ee90f1b9505398e0fcc79d92f8c25540f6570a3e46fc1a",
+      "label": "SUPER MICRO COMPUTER, INC.",
+      "lei": "54930022CZO1N2UGVW07",
+      "type_chain": [
+        "https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation",
+        "https://www.omg.org/spec/Commons/Organizations/FormalOrganization",
+        "https://www.omg.org/spec/Commons/Organizations/LegalEntity",
+        "https://www.omg.org/spec/Commons/Organizations/LegalPerson",
+        "https://www.omg.org/spec/Commons/Organizations/Organization",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Agent",
+        "https://www.omg.org/spec/Commons/PartiesAndSituations/Party"
+      ],
+      "uri": "http://example.org/fibo/SuperMicroComputerInc"
+    }
+  ],
+  "perspective_role": "credit-officer"
+}
+
+What a plain SELECT would not have told you:
+   asked as of        2026-08-31T12:00:00+00:00
+   anchor             54930022CZO1N2UGVW07  SUPER MICRO COMPUTER, INC.
+   ...its class chain 7 FIBO classes, from Corporation
+   depth asked        absent -> the DECLARED default 3, read from ccf_config.yaml::request_contract.argument_defaults
+   depth applied      3   (ceiling 6; over it is refused by name, never clamped)
+   deepest node       3 hop(s) out — an undirected NEIGHBORHOOD, not a directed descendant tree (D-36)
+   nodes returned     22
+   ...resolved in the attribute store    2
+   ...resolved to NO row                 20   — STILL IN THE TREE. A member with no LEI is a member
+   jurisdictions      ['NL', 'US-DE']   — SERVED and asserted, never a permission key
+   perspective role   credit-officer   (class axis Corporation, 22 member(s) detailed)
+   findings           3
+     - ownership_cycle: 3 member(s)
+         CycCalderIndustrialNv
+         CycThornburyCapitalLtd
+         CycMeridianHoldingsSa
+         closing edge CycMeridianHoldingsSa -> CycCalderIndustrialNv (owns)
+     - duplicate_entity_pair: 2 member(s)
+         SubSuperMicroComputerBV
+         SuperMicroComputerBV
+     - unresolved_jurisdiction: 20 member(s)
+         CycCalderIndustrialNv
+         CycMeridianHoldingsSa
+         CycThornburyCapitalLtd
+         SubSuperMicroAsiaScienceAndTechnologyParkInc
+         SubSuperMicroComputerArabiaLtd
+         SubSuperMicroComputerBV
+         SubSuperMicroComputerGmbh
+         SubSuperMicroComputerHoldingsBV
+         SubSuperMicroComputerIncTaiwan
+         SubSuperMicroComputerInternationalInc
+         SubSuperMicroComputerKoreaYh
+         SubSuperMicroComputerLimited
+         SubSuperMicroComputerMalaysiaSdnBhd
+         SubSuperMicroComputerSRL
+         SubSuperMicroComputerSarl
+         SubSuperMicroComputerSingaporePteLtd
+         SubSuperMicroComputerSpainSL
+         SubSuperMicroComputerUsLlc
+         SubSupermicroKk
+         SubSupermicroTechnologyBeijingCoLtd
+   operators invoked  ['policy.principal-subgraph', 'traversal.typed-neighborhood']
+   ...TWO on this rung, and one on every rung before it — the traversal is where the count moves off one
+   context debt D_c   0.0909  ->  ok
+   ...decomposed      F=1  C=1  S=0.9090909090909090909090909091
+   policy version     ['fe3f5f3426ea9d64bcf3f4f9c98ccfe348b2838c938c2e92dd2a7875a566294e']
+   expires at         2026-09-01T12:00:00+00:00
+   content address    205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498
+   replay record      ccf-artifact://cp-04-demo/cp-04.replay-record/9ea7b3a55740f39cadcd63a4626c0d678c7a9cab95909b1c197d787e6e10c99b@5aaa1572fc3e91b85e454b595891370118cd33be23b1fe7d32d7f79e18b9f030

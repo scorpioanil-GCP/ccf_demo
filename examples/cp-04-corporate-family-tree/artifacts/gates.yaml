@@ -1,0 +1,970 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SIXTEEN DECLARED PRODUCT GATES, AS DATA — `CFT-G01` through `CFT-G16`.
+#
+# The `$schema` header above names the OPEN ENVELOPE, because that is what the
+# tree-wide header gate reads (`tools/check_schema_headers.py`) and this is a
+# deployment-authored class the SDK does not own. THE CLOSED SCHEMA THAT
+# ACTUALLY CONSTRAINS THIS DOCUMENT is
+# `docs/schemas/product-gates/cp.product-gates.json`, and
+# `tests/examples/test_cp_04_gates_declaration.py` validates against it with a
+# negative control proving the closure can fail. Two schemas, two jobs: the
+# envelope says this is a versioned artifact, the closed schema says what a gate
+# roster is.
+#
+# ============================================================================
+# WHY THIS FILE EXISTS AND WHY THE SPECIFICATION'S TABLE DOES NOT REPLACE IT
+# ============================================================================
+#
+# `D-IMPL-224`: product gates are a DECLARED ARTIFACT plus CI coverage. There is
+# no `ProductGate` Protocol, no serve path, and the SDK's universal gates stay
+# the only serve-time gates — nothing here is added to the fabric.
+#
+# **THE SPECIFICATION'S §G.2 TABLE IS THE MACHINE SOURCE FOR NOTHING** (`D-22`).
+# CI must not depend on parsing prose out of Markdown; a prose table cannot be
+# held against a run. The statements below are the same statements, and this
+# document is where a checker reads them.
+#
+# **ENFORCEMENT IS PHASE 24.5's, NOT THIS PHASE's** (`D-24`). The checker that
+# asserts each declared id has an EXECUTING test — never an `id in file`
+# substring match — is scheduled and is deliberately not built here. Measured
+# across this ladder, 40 product-level gate ids exist across four products and
+# `grep -rnE "OFS-G|FTS-G|[A-Z]{2,4}-G[0-9]{2}" --include=*.py src/ runtime/`
+# returns 0. That is `D-31`, recorded and open.
+#
+# **NO GATE IS RECORDED AS PASSING UNTIL IT HAS BEEN OBSERVED RED AT LEAST
+# ONCE.** All sixteen `observed_red` values are `null` at the end of plan
+# `24.4-03` — required as KEYS so an unsabotaged gate is VISIBLY unsabotaged
+# rather than absent. Plans `24.4-10`, `24.4-11` and `24.4-12` build the tests,
+# apply the sabotage, watch the failure and fill them in. A gate that has never
+# been seen red is not evidence that it runs; fourteen declared gates once sat
+# idle on this ladder behind exactly that assumption.
+#
+# ============================================================================
+# THE ROSTER IS SIXTEEN, AND THAT IS A RULING RATHER THAN A COUNT
+# ============================================================================
+#
+# `CFT-G01` through `CFT-G16`, discharging locked ROADMAP criteria 25 through
+# 40, one-for-one in both directions. **Criterion 41 is WITHDRAWN IN PLACE**
+# (Dave, 2026-08-31) together with ontology role 1 — *the walk stops when the
+# neighbor's class is outside the admitted set* — and NO GATE CLAIMS IT.
+#
+# Two independently measured reasons, either sufficient on its own:
+#
+#   * **THE ESTATE CANNOT EXHIBIT THE STOP.** Over all 748 family nodes, no
+#     LEI-bearing anchor reaches a node outside the 7-class profile within depth
+#     3. The class-diverse populations are real — `Person` 46,
+#     `SpecialPurposeVehicle` 50, 5-class 123 — and every one sits in a
+#     component no LEI-bearing anchor reaches downward. A gate over this would
+#     go green having proven nothing and its sabotage would change no output.
+#     Recorded as the estate gap `D-32`.
+#
+#   * **THE SDK CANNOT EXPRESS THE STOP.** The Traversal family types the walk
+#     on EDGES ONLY (`GQ-10`); `seed_entity_classes` seeds the frontier and is
+#     never re-applied per hop (`src/ccf/operators/categories.py::TraversalNeighborhood`). A
+#     node-class admission filter has NO SDK EXPRESSION. Recorded as the
+#     mechanism gap `D-33`. Had the estate carried the data, the walk still
+#     could not have stopped without work under `src/` that criterion 49 forbids.
+#
+# **IT IS NOT REPLACED BY A POSITIVE-PROPERTY RESTATEMENT.** *"Every admitted
+# node's class is in the declared set"* was refused BY NAME: it is a tautology
+# over a class-homogeneous population, and it would read as coverage while
+# measuring nothing. **A seventeenth id is declared here under no name at all**,
+# and the absence is asserted BY NAME on a CODE line in
+# `tests/examples/test_cp_04_gates_declaration.py` — never in a comment, because
+# that module's own comment-only check would then demand the very id the
+# withdrawal forbids.
+#
+# `role: load`. A gate roster is a declaration of obligations, parsed and handed
+# back; it is not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-04.product-gates
+
+declaration:
+  product: reference.corporate-family
+
+  # HOW A GATE ID MAPS ONTO THE FUNCTION THAT EXECUTES IT, DECLARED RATHER THAN
+  # INFERRED. Measured across this ladder, three products used three conventions
+  # and a coverage instrument keyed on function names reported 0 of 8, 0 of 9 and
+  # 0 of 9 falsely — three products, three conventions, one instrument that could
+  # not read any of them. Plans 24.4-10, 11 and 12 hit the convention below, and
+  # each may CORRECT the `test:` reference it finds here in the same edit that
+  # records its `observed_red`.
+  test_naming_convention: >-
+    the gate id lower-cased with its hyphen dropped, prefixed `test_`, followed
+    by a slug of the statement — `CFT-G01` becomes
+    `test_cft_g01_every_returned_node_carries_a_known_fibo_class`.
+
+  gates:
+    # ---- Ontology validates the assembly (§D.2.1 role 4) -----------------
+    - id: CFT-G01
+      criterion: 25
+      statement: >-
+        Every returned node carries a known FIBO class. An untyped or
+        off-ontology node cannot enter silently.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g01_every_returned_node_carries_a_known_fibo_class
+      sabotage: admit an untyped node into the returned set
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::read_node_facts` — the drop guard
+          `if chains.get(uri)` removed so an untyped node is admitted rather
+          than dropped, AND the first walked node's type read forced empty. The
+          second half is necessary and is recorded rather than glossed: the
+          committed fixture carries `@type` on all 748 documents and no
+          family-predicate object lacks a document, so removing the guard ALONE
+          changes no output and would have been a sabotage this gate could not
+          have failed. Observed — "CFT-G01: node
+          'http://example.org/fibo/CycCalderIndustrialNv' was served UNTYPED —
+          an empty type_chain." The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor.type_chain`, which the
+          sabotage does not touch; the product's behavior comes from
+          `examples/cp-04-corporate-family-tree/deployment.py`. Two different files, so the gate cannot pass its
+          own sabotage by moving both sides together.
+        date: "2026-09-01"
+        commit: "6213b86"
+
+    - id: CFT-G02
+      criterion: 26
+      statement: >-
+        Every returned edge is one of the six declared family predicates —
+        owns, controls, isDirectlyConsolidatedBy, isUltimatelyConsolidatedBy,
+        hasGlobalUltimateParent, hasDomesticUltimateParent.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g02_every_returned_edge_is_one_of_the_six_declared_predicates
+      sabotage: >-
+        admit a seventh predicate into the edge set. Seven others exist in this
+        ledger and are deliberately excluded, so the sabotage draws on real data
+        rather than an invented predicate.
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::normalize_edges` — every normalized
+          parent-to-child edge admitted carrying a seventh predicate beside the
+          ones the source asserted. Observed — "CFT-G02: the served edge set
+          carries ['hasSubsidiary'], which are not among the six declared family
+          predicates." The name is drawn from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.predicates_deliberately_excluded`,
+          a real predicate of this estate that this product excludes. THE
+          COMMITTED FIXTURE CARRIES ONLY THE SIX, measured, so the seventh is
+          injected by name rather than read out of the fixture — recorded rather
+          than implied, because the declared sabotage says the seventh is drawn
+          from real data and against this fixture it cannot be. The expectation
+          was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.family_predicate_triples`, which
+          the sabotage does not touch. Two different files.
+        date: "2026-09-01"
+        commit: "6213b86"
+
+    # ---- The depth parameter (§B.4.1) ------------------------------------
+    - id: CFT-G03
+      criterion: 27
+      statement: >-
+        max_depth above the declared ceiling of 6 is REFUSED BY NAME. Never
+        clamped.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g03_max_depth_above_the_ceiling_is_refused_by_name
+      sabotage: >-
+        replace the refusal with a silent clamp to 6. This is the sabotage a
+        count-based check cannot see — the request says 8, the walk does 6, the
+        payload looks fine and the content address greens.
+      observed_red:
+        result: >-
+          RED, under its own id, on BOTH limbs. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::resolve_max_depth` — the `DepthOutOfBounds`
+          return replaced by `min(max(requested, minimum), maximum)`. Observed —
+          "CFT-G03: max_depth=7 was ANSWERED rather than refused — a tree came
+          back, walked at max_depth_applied=6 over 22 members" and "and the
+          answer was CLAMPED to the declared ceiling 6." This is the
+          fourteen-idle-gates class stated concretely: the request said 7, the
+          walk did 6, the payload was well formed and the content address
+          greened. A gate inspecting only the returned tree could not have told
+          the clamp from the refusal, which is why this one asserts that NO tree
+          came back. The bounds the refusal is checked against are read from
+          `examples/cp-04-corporate-family-tree/ccf_config.yaml` through the deployment's accessors; the
+          sabotage edits `examples/cp-04-corporate-family-tree/deployment.py` and never the declaration, so the
+          two sides cannot move together.
+        date: "2026-09-01"
+        commit: "6213b86"
+
+    - id: CFT-G04
+      criterion: 28
+      statement: >-
+        A missing max_depth takes the DECLARED default of 3 — read from the
+        declaration, never invented at serve time.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g04_a_missing_max_depth_takes_the_declared_default
+      sabotage: default at serve time instead of reading the declaration
+      observed_red:
+        result: >-
+          RED, under its own id — and RED ONLY on the control limb, which is the
+          whole reason the control lives inside the gate. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::resolve_max_depth` — `declared_depth_default()`
+          replaced by the literal `3`, a serve-time default equal to the shipped
+          declaration. THE PLAIN LIMB PASSED UNDER THE SABOTAGE: a missing
+          max_depth still walked at 3, exactly as a number-only check would have
+          reported. Observed — "CFT-G04: with the declared default moved to 1, a
+          missing max_depth still walked at 3. The default did not FOLLOW the
+          declaration" and "moving the declared default served the IDENTICAL
+          member roster (22 members)." The control moves the declaration in a
+          SCRATCH TEXT COPY of `examples/cp-04-corporate-family-tree/ccf_config.yaml` — a text rewrite, because
+          `examples/cp-04-corporate-family-tree/deployment.py::refuse_stale_vocabulary_pointer` reads that
+          document's comments and a YAML round trip would lose them — while the
+          sabotage edits `examples/cp-04-corporate-family-tree/deployment.py`. Two different files.
+        date: "2026-09-01"
+        commit: "6213b86"
+
+    - id: CFT-G05
+      criterion: 29
+      statement: >-
+        Depth is part of product identity. Two depths are two content addresses.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g05_depth_is_part_of_product_identity
+      sabotage: make max_depth not change the content address
+      observed_red:
+        result: >-
+          RED, under its own id — on the ROSTER limb ONLY, and that is the
+          finding worth carrying out of this plan. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::traversal_parameters`, made to return the
+          declared operator parameters unchanged so the caller's depth never
+          reaches the walk. Observed — "CFT-G05: `max_depth=1 (the declared
+          floor)` and `max_depth absent (the declared default)` served the
+          IDENTICAL member roster (22 members), so max_depth reached the
+          payload's label but not the walk." THE TWO CONTENT ADDRESSES STILL
+          DIFFERED UNDER THE SABOTAGE, because `max_depth_applied` is echoed
+          into the sealed payload — so a gate asserting only that two depths
+          give two addresses would have PASSED its own sabotage, which is the
+          Phase 24.3 defect class exactly. The roster limb was written before
+          the sabotage was run, from that same reasoning, and is what made this
+          gate able to fail. The comparison is between two runs of this product
+          rather than against a document, so there is no shared declaration for
+          a sabotage to move.
+
+          THIRD LIMB ADDED 2026-09-01 AFTER THE CLOSE PANEL'S FINDING 1, and
+          watched red twice. Dave ruled that `S` — and therefore `D_c` — are
+          taken over the SERVED ROSTER rather than over the deployment's
+          source read: *"Computing over the source-read 22 is why
+          `MAX_DEPTH=1` still prints `20/22` and why `D_c` is the same at
+          every depth — a scalar that cannot fail through the door. That is
+          not the §E.2 weight TBC. It is a wrong denominator."* NO NEW GATE ID
+          WAS MINTED; the pair lands here because *depth is part of product
+          identity* is exactly the statement it holds.
+
+          SABOTAGE A — THE OLD DENOMINATOR, RESTORED. Applied to
+          `examples/cp-04-corporate-family-tree/produce.py::_agreement`, whose
+          member set was put back to `tuple(sorted(scenario.facts))`. RED,
+          under its own id, on THREE of the new limb's assertions at once —
+          "CFT-G05: `max_depth=1 (the declared floor)` served D_c
+          0.0909090909090909090909090909 where
+          `debt_by_depth.at_the_declared_floor.context_debt` declares 0.1",
+          the matching S mismatch, and "CFT-G05: two different depths served
+          the SAME D_c" naming both values. The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::debt_by_depth`,
+          which the sabotage does not touch. Two different files.
+
+          AND THE SABOTAGE'S REACH WAS MEASURED RATHER THAN ASSUMED. Under
+          sabotage A, EXACTLY ONE test in the 216-test cp-04 suite went red
+          and it was this gate. In particular the pre-existing `D_c` movement
+          gate — `tests/examples/test_cp_04_debt.py`, built by plan `24.4-08`
+          — passed WHOLE, all six tests green: it moves the IDENTITY boundary
+          at a FIXED depth, where the served roster and the source read
+          coincide on all 22, so the wrong denominator is invisible to it.
+          That is the finding worth carrying: a movement gate over one
+          boundary says nothing about a second.
+
+          SABOTAGE B — THE INVERSE CONTROL, proving the gate READS the
+          artifact rather than ignoring it. The shipped code was left
+          untouched and one pinned value was corrupted in
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml`
+          (`debt_by_depth.at_the_declared_floor.context_debt`, 0.1 -> 0.125).
+          RED, under its own id — "served D_c 0.1 where … declares 0.125". A
+          gate that had hard-coded its own figure would have stayed green
+          through this.
+
+          FIVE POSITIVE CONTROLS SIT BESIDE THE LIMB, each handing the shipped
+          check a subject it must refuse, and the first of them mirrors the
+          shipped defect exactly: one `D_c` at two depths. The pin's
+          DISTINCTNESS is asserted from the document as well, because an
+          equality-only reading is satisfiable by a frozen scalar if the
+          document happens to carry one value twice — the trap
+          `expected.yaml::perspective_content_addresses` records for `CFT-G16`,
+          met here from the other side.
+        date: "2026-09-01"
+        commit: "6213b86, third limb fa73839"
+
+    # ---- The inert parameter (§B.4.3) ------------------------------------
+    - id: CFT-G06
+      criterion: 30
+      statement: >-
+        as_of is refused 400 not_supported_at_tier.
+      test: tests/examples/test_cp_04_payload.py::test_cft_g06_as_of_is_refused_not_supported_at_tier
+      sabotage: silently honor it
+      observed_red:
+        result: >-
+          RED, under its own id, on BOTH limbs. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/produce.py::assemble_and_serve`
+          — the declared-but-inert branch neutralized so the parameter is
+          noted and then ignored. Observed — "CFT-G06: 'as_of' was ANSWERED
+          rather than refused — a tree came back over 22 members" and "the
+          assembly SERVED ['Assembled'] while 'as_of' was on the wire." THE
+          SECOND LIMB IS THE ONE A REASON-STRING CHECK CANNOT MAKE, and it
+          exists because cp-03's close panel found exactly that shape in its
+          own `OFS-G06`: a product can note the parameter, emit the declared
+          reason and serve the tree anyway. The parameter name and the
+          refusal reason are read from
+          `examples/cp-04-corporate-family-tree/ccf_config.yaml::request_contract.unsupported_arguments`
+          through the deployment's accessor; the status 400 is AUTHORED in
+          the gate from locked criterion 30 rather than read from
+          `examples/cp-04-corporate-family-tree/produce.py`, because that is
+          the file this sabotage mutates and an expectation resolving from
+          the mutated file is how a gate comes to pass its own sabotage. A
+          precondition asserts the shipped verdict type still carries 400,
+          so a drift is reported rather than absorbed. Two different files.
+        date: "2026-09-01"
+        commit: "8ecd22f"
+
+    # ---- Findings (§D.2.2) -----------------------------------------------
+    - id: CFT-G07
+      criterion: 31
+      statement: >-
+        A cycle reaches the consumer carrying type, ORDERED members AND the
+        closing_edge — asserted as the exact roster, never as len(findings) > 0.
+      test: tests/examples/test_cp_04_payload.py::test_cft_g07_a_cycle_carries_type_ordered_members_and_closing_edge
+      sabotage: >-
+        drop the closing edge, which is precisely the part a flattened
+        representation loses.
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection._finding`
+          — `closing_edge` emitted as `None` for every finding. Observed —
+          "CFT-G07: the cycle reached the consumer with NO closing edge."
+          The members survived, every count stayed right, and the arrow that
+          makes it a circuit was gone: that is why all four fields are
+          asserted rather than the roster alone. The members are compared as
+          an ORDERED sequence and never as a set, because the same circuit
+          entered from a different node is the same set naming a DIFFERENT
+          closing edge — `test_the_cycle_check_refuses_a_rotated_roster`
+          feeds the shipped check exactly that and watches it refuse. The
+          expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.cycle_1`,
+          which the sabotage does not touch. Two different files.
+        date: "2026-09-01"
+        commit: "8ecd22f"
+
+    - id: CFT-G08
+      criterion: 32
+      statement: >-
+        Findings are ORTHOGONAL to the tree. No node carries a cycle flag.
+      test: tests/examples/test_cp_04_payload.py::test_cft_g08_findings_are_orthogonal_to_the_tree
+      sabotage: >-
+        flag cycle membership on the nodes instead, which destroys the closing
+        edge while every node count stays right.
+      observed_red:
+        result: >-
+          RED, under its own id, and RUN IN TWO VARIANTS because the
+          declared sabotage trips one limb before the other is reached.
+          VARIANT A is the sabotage as declared — the cycle moved OUT of
+          `findings[]` and ONTO the nodes, applied to
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection.invoke`
+          and
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection._node`.
+          Observed — "CFT-G08: no finding of type 'ownership_cycle' is in
+          findings[]." That is the POSITIVE limb and the gate returns on it,
+          so the content limb was never reached. VARIANT B keeps the finding
+          and adds the node flag alone. Observed — "CFT-G08: the served node
+          field 'in_cycle' takes the value True on EXACTLY the cycle members
+          ['CycCalderIndustrialNv', 'CycMeridianHoldingsSa',
+          'CycThornburyCapitalLtd'] and on no other member." THE CONTENT
+          LIMB READS A PARTITION AND NEVER A NAME: a check scanning the node
+          keys for the token "cycle" is green against a flag called
+          `flagged`, which
+          `test_the_orthogonality_check_refuses_a_flag_named_anything`
+          demonstrates. Measured against the shipped product BEFORE the
+          sabotage was written: no field of a served node partitions the 22
+          members into the cycle's three — `lei` and `attributes` are null
+          on twenty, `depth` takes three different values across the three,
+          and `type_chain` and `conditioning` are identical across all 22.
+          The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.cycle_1`;
+          the sabotage edits
+          `examples/cp-04-corporate-family-tree/projection.py`. Two
+          different files.
+        date: "2026-09-01"
+        commit: "8ecd22f"
+
+    # ---- The unresolved member (§C.3, D-16) ------------------------------
+    - id: CFT-G09
+      criterion: 33
+      statement: >-
+        A node carrying no LEI stays in the tree AND in the roster. A failed
+        join is a null resolution or a finding.
+      test: tests/examples/test_cp_04_payload.py::test_cft_g09_a_node_with_no_lei_stays_in_the_tree_and_the_roster
+      sabotage: >-
+        drop members whose PostgreSQL join fails. 606 of 748 family nodes have
+        no attribute row, so the sabotage returns a smaller, tidier, wrong
+        family with no error at all.
+      observed_red:
+        result: >-
+          RED, under its own id, on all three limbs. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection.invoke`
+          — the served member set filtered to those whose PostgreSQL join
+          resolved. Observed — "CFT-G09: 2 members were served where
+          expected.yaml::census.anchor_subtree declares 22. Served
+          ['SuperMicroComputerBV', 'SuperMicroComputerInc']", then the
+          twenty NAMED as dropped, then "the unresolved roster reached the
+          consumer as [] where expected.yaml declares [...]". The sabotage
+          returns a smaller, tidier, WRONG family with no error at all, and
+          only the ROSTER catches it: a count alone passes on twenty
+          entirely different nodes (`D-13`, applied to this finding by name
+          in `D-IMPL-229`). The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::unresolved_subtree_members`
+          and
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor_subtree`,
+          which the sabotage does not touch. RECORDED OVERLAP RATHER THAN
+          GLOSSED: the unresolved finding's TYPE TOKEN is read from
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection`'s
+          module constant, which lives in the mutated file. The sabotage
+          does not touch that constant, and what the gate COMPARES is the
+          declared roster and the served member set — neither moves with a
+          renamed constant.
+        date: "2026-09-01"
+        commit: "8ecd22f"
+
+    # ---- The two stores (§C.3, §F.3) -------------------------------------
+    - id: CFT-G10
+      criterion: 34
+      statement: >-
+        THE ASSEMBLY opened both stores — Fluree for edges and ontology,
+        PostgreSQL for attributes. The subject is the assembly, NOT the runner:
+        a fixture that pre-opens both stores and hands the product a populated
+        graph does NOT satisfy this gate.
+      test: tests/examples/test_cp_04_seams.py::test_cft_g10_the_assembly_opened_both_stores
+      sabotage: >-
+        serve attributes from Fluree — and equally, move the opening into a
+        fixture loader. An import of a PostgreSQL driver is not the attribute
+        leg reading PostgreSQL.
+      observed_red:
+        result: >-
+          RED, under its own id, in THREE VARIANTS — and the first is recorded
+          rather than glossed because it never reached this gate at all.
+
+          THE DECLARED SABOTAGE DOES NOT MOVE THE OPENED-STORE SET, MEASURED.
+          With the attribute leg reading the graph store,
+          `examples/cp-04-corporate-family-tree/assembler.py::stores_opened`
+          still reported ('corporate_family_graph',
+          'corporate_family_attributes') while the relational leg issued 0
+          statements — probed directly, not inferred. A gate asserting only
+          "both stores were opened" therefore PASSES its own declared sabotage,
+          exactly as `CFT-G05` and `CFT-G16` did on this ladder. The role limb
+          and the provenance limb exist because of that, and both were written
+          before the sabotage was run.
+
+          VARIANT A — the sabotage as declared, the whole attribute leg reading
+          Fluree. It does NOT reach this gate: the graph store carries no
+          jurisdiction at all, so
+          `examples/cp-04-corporate-family-tree/deployment.py::refuse_open_jurisdiction_world`
+          refuses the assembly upstream — "22 member(s) were served and NONE
+          carries a jurisdiction, so the declared set ['NL', 'US-DE'] is held
+          against an empty observation." That is evidence the two stores hold
+          different things, and it is NOT this gate speaking, so it was
+          recorded and a second variant was run. Same shape as `CFT-G08`'s
+          split in plan 24.4-11.
+
+          VARIANT B — the whole attribute leg reading Fluree, with a
+          jurisdiction assigned from the declared observed set so the assembly
+          completes. Observed on TWO limbs: "CFT-G10: the relational leg
+          'corporate_family_attributes' issued NO statement, so the attributes
+          on the served payload came from somewhere other than the store
+          declared to hold them", and, per member, "was served [...
+          ('legal_jurisdiction', 'NL'), ('legal_name', 'SUPER MICRO COMPUTER,
+          INC.') ...] where a DIRECT read of 'legal_entity' holds [...
+          ('legal_jurisdiction', 'US-DE'), ('legal_name', 'Super Micro
+          Computer, Inc.') ...]". The opened-store limb reported NOTHING.
+
+          VARIANT C — the PostgreSQL leg left running and ONE column served
+          from the graph. Limbs (a) and (b) both PASS — both stores open, one
+          statement against the declared table, `CFT-G11` green — and ONLY the
+          provenance limb fires: "member
+          'http://example.org/fibo/SuperMicroComputerInc' was served
+          [('legal_name', 'SUPER MICRO COMPUTER, INC.')] where a DIRECT read of
+          'legal_entity' holds [('legal_name', 'Super Micro Computer, Inc.')]".
+          This is the variant that names which limb discriminates.
+
+          VARIANT C ALSO VINDICATES THE ROSTER DISCIPLINE, MEASURED. Only ONE
+          of the two declared resolving members fired: `SuperMicroComputerBV`'s
+          PostgreSQL `legal_name` is byte-identical to its `rdfs:label`, so the
+          two stores agree about that member and disagree about the other. A
+          gate that had sampled one member instead of asserting the declared
+          roster would have had a 50% chance of reporting clean.
+
+          The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor_subtree_store_split`
+          for the roster, `examples/cp-04-corporate-family-tree/backends.yaml`
+          for the declared source legs, and A DIRECT `SELECT` and a DIRECT
+          SPARQL read issued by the test itself for the values. The product's
+          behavior comes from
+          `examples/cp-04-corporate-family-tree/deployment.py`, which is what
+          every variant mutated. Different files, so the gate cannot pass its
+          own sabotage by moving both sides together.
+        date: "2026-09-01"
+        commit: "2fd3ae0"
+
+    - id: CFT-G11
+      criterion: 35
+      statement: >-
+        The returned node set resolves to attributes in ONE batched PostgreSQL
+        query.
+      test: tests/examples/test_cp_04_seams.py::test_cft_g11_attributes_resolve_in_one_batched_query
+      sabotage: >-
+        fire one query per node — a fan-out that works at depth 2 and collapses
+        at depth 4. AND, DECLARED 2026-09-01 after the close panel's finding 4,
+        a second sabotage against the roster limbs: issue exactly ONE statement
+        that does not ADDRESS the requested roster — an unparameterized read of
+        the whole attribute table. It leaves the statement count at one, returns
+        every row the batched form would have returned, and is what a check
+        asserting two cardinalities cannot see.
+      observed_red:
+        result: >-
+          RED, under its own id, at BOTH scales. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::resolve_attributes`
+          — the batched `WHERE lei = ANY(%s)` replaced by one `WHERE lei = %s`
+          per key, on the same connection, against the same table, returning
+          the same rows.
+
+          Observed — "CFT-G11: the demonstration subtree (22 members) resolved
+          2 key(s) in 2 statement(s), not 1" and "CFT-G11: the whole
+          LEI-bearing population resolved 181 key(s) in 181 statement(s), not
+          1".
+
+          THE SECOND LIMB IS WHY THIS GATE IS WORTH ANYTHING, and the reason is
+          a measured property of the estate rather than a preference. Only TWO
+          of the demonstration subtree's TWENTY-TWO members carry an LEI, so a
+          per-node fan-out over the subtree issues 2 statements — not the
+          hundreds the declared sabotage describes, and a difference of one
+          that a reader could dismiss. The gate therefore ALSO drives the
+          shipped resolver over every LEI the graph leg carries — 181, which
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.lei_coverage`
+          declares and the precondition test asserts the seed reproduces —
+          where the fan-out issues 181. That is the shape "works at depth 2 and
+          collapses at depth 4" actually takes.
+
+          The count is taken at the CONNECTION by
+          `examples/cp-04-corporate-family-tree/deployment.py::AttributeResolution`'s
+          cursor factory, so a statement fired anywhere on that connection is
+          counted even if it does not go through `resolve_attributes`' own call
+          site.
+
+          The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.lei_coverage`
+          and `::census.anchor_subtree`; the behavior comes from
+          `examples/cp-04-corporate-family-tree/deployment.py`. Two different
+          files.
+
+          `CFT-G10` stayed GREEN under this sabotage — the leg still ran
+          against the declared table and served the right values — so the two
+          gates are measurably disjoint rather than two names for one check.
+
+          APPENDED 2026-09-01 at `a1cb7b8`, FOR THE ROSTER LIMBS THE CLOSE
+          PANEL'S FINDING 4 REQUIRED. As shipped this gate was TWO
+          CARDINALITIES — `len(requested) < 2` and `len(statements) != 1` — and
+          it PRINTED the roster it resolved in the failure message without ever
+          asserting it. One unparameterized `SELECT` over the whole attribute
+          table satisfied it: one statement, every row, nothing addressed.
+          Dave: *"assert set difference both ways; print is not an assertion."*
+
+          WHAT THE STATEMENT ADDRESSED IS A DIFFERENT FACT FROM HOW MANY
+          STATEMENTS THERE WERE, and nothing in the tree carried it, so a
+          channel was added beside `statements` at the same seam —
+          `examples/cp-04-corporate-family-tree/deployment.py::_counting_cursor`
+          now records the values every `execute` BINDS, published as
+          `AttributeResolution.addressed`. Three limbs by name: nothing
+          requested went unaddressed, nothing was addressed that was not
+          requested, and no ROW came back for a key never requested.
+
+          SECOND SABOTAGE, WATCHED RED at both scales. The batched
+          `WHERE lei = ANY(%s)` in
+          `examples/cp-04-corporate-family-tree/deployment.py::resolve_attributes`
+          was replaced by an unparameterized read of the whole table — ONE
+          statement, same connection, same declared table. Observed —
+          "CFT-G11: the demonstration subtree (22 members) asked for 2 key(s)
+          and the statement(s) BOUND none of ['54930022CZO1N2UGVW07',
+          '549300F16C4PEFXU0S92']", "was RETURNED rows for [...] — 140 key(s)
+          it never requested", and "the whole LEI-bearing population ... 181
+          requested key(s) went unaddressed".
+
+          AND THE COUNT LIMB SAID NOTHING — no "not 1" appeared, because
+          `len(statements)` was still exactly 1. That silence is the finding,
+          and it is asserted in the tree rather than only recorded here by
+          `tests/examples/test_cp_04_seams.py::test_the_batching_check_refuses_one_statement_addressing_nothing`.
+
+          Reach measured: 2 of 229 cp-04 tests went red — this gate and
+          `tests/examples/test_cp_04_census.py::test_the_anchor_subtree_store_split`,
+          which reads the same resolver. `CFT-G10` stayed green again.
+
+          A RESOLVED ROSTER SMALLER THAN THE REQUESTED ONE IS DELIBERATELY NOT A
+          VIOLATION — 181 LEIs resolve 142 rows on this estate, and a member
+          with no row is a null resolution rather than a dropped member
+          (`D-16`, `CFT-G09`). That case is pinned as COMPLIANT by
+          `tests/examples/test_cp_04_seams.py::test_the_batching_check_accepts_the_compliant_shape`,
+          so a later limb cannot quietly forbid it.
+        date: "2026-09-01"
+        commit: "65f4a91, roster limbs a1cb7b8"
+
+    # ---- Assembly Mode 1 (§B.3) ------------------------------------------
+    - id: CFT-G12
+      criterion: 36
+      statement: >-
+        No LLM client is reachable from any §D step.
+      test: tests/examples/test_cp_04_seams.py::test_cft_g12_no_llm_client_is_reachable_from_any_step
+      sabotage: make one reachable from a §D step
+      observed_red:
+        result: >-
+          RED, under its own id, in TWO VARIANTS, one per limb.
+
+          VARIANT A — `import anthropic` at module scope in
+          `examples/cp-04-corporate-family-tree/projection.py`, which the
+          recipe declares as §D step 9. Observed on BOTH limbs: "CFT-G12: the
+          declared client 'anthropic' is REACHABLE from the §D steps
+          ['assembler', 'ccf.assembly.worker', 'ccf.graph.backends.fluree',
+          'ccf.operators.categories', 'ccf.products.gates', 'deployment',
+          'produce', 'projection'] — 1070 module(s) in the closure", alongside
+          the import-site limb.
+
+          VARIANT B — `from openai import OpenAI` DEFERRED inside a new method
+          of the same class, called nowhere. Observed on the import-site limb
+          ALONE: "CFT-G12: [('projection.py', 'openai'), ('projection.py',
+          'openai.OpenAI')] — a lazily-imported client is still a model call in
+          the algorithmic path, which the closure limb cannot see until the
+          function runs." THE CLOSURE LIMB REPORTED NOTHING, which is the whole
+          reason the second limb exists and is recorded here rather than
+          asserted in a docstring.
+
+          The 1,070 figure was verified independently of the gate before it was
+          recorded: importing `anthropic` alone adds 1,438 modules to
+          `sys.modules`, of which 1,070 are `anthropic.*`. It is a real
+          property of that SDK and not an instrument artifact.
+
+          THE ROOTS ARE READ FROM THE DECLARATION, not authored in the test.
+          `examples/cp-04-corporate-family-tree/artifacts/assembly-recipe.yaml`'s
+          `steps[].sdk_mechanism` names them, and a sibling check asserts that
+          both kinds resolve — at least one `src/ccf` module and at least three
+          of the example's own — so a parser that silently found nothing cannot
+          leave this gate walking a smaller closure than it reports. THE CLIENT
+          ROSTER IS THE SDK'S OWN, `tools/lints/algorithmic.py::LLM_MODULES`,
+          matched with `tools/lints/__init__.py::matches_module`; a roster
+          authored in the test would be the test agreeing with itself about
+          what a model client is.
+
+          The expectation resolves from `tools/lints/algorithmic.py` and
+          `examples/cp-04-corporate-family-tree/artifacts/assembly-recipe.yaml`;
+          the behavior comes from
+          `examples/cp-04-corporate-family-tree/projection.py`, which is the
+          file both variants mutated. Different files.
+        date: "2026-09-01"
+        commit: "0b02099"
+
+    # ---- The MCP door (§D.1, D-18, D-34) ---------------------------------
+    #
+    # THIS GATE IS THREE ASSERTIONS HELD TOGETHER, NOT "TOOL-ONLY". Criterion 37
+    # was AMENDED at Gate 1 (2026-08-31, Dave, `D-IMPL-225` amendment 1) because
+    # its original wording was FALSE against this tree:
+    # `runtime/ccf_runtime/mcp/egress.py::build_egress_server` registers `@server.resource`
+    # UNCONDITIONALLY and only the tool at `:529` sits behind
+    # `expose_product_tool`, so `build_egress_server` can be resource-only or
+    # resource-plus-tool and CANNOT be tool-only. `runtime/` is not touched
+    # (`D-04`), so the door this rung ships is a REGISTERED RESOURCE THAT
+    # REFUSES, and the residual gap is recorded as `D-34`.
+    - id: CFT-G13
+      criterion: 37
+      statement: >-
+        The MCP door SERVES THROUGH THE TOOL ONLY, and the registered product
+        resource REFUSES. Three parts, asserted together — (a) the resource IS
+        registered and enumerable in resources/list; (b) a resolve or read of it
+        returns ProductNotServable, or the existing refusal type, and NEVER a
+        tree; (c) the TOOL is the only path that serves, taking a
+        client-supplied lei and max_depth.
+      test: tests/examples/test_cp_04_seams.py::test_cft_g13_the_tool_serves_and_the_registered_resource_refuses
+      sabotage: >-
+        make the resolver return a payload — a resource read that yields a tree
+        instead of refusing. A resolver docstring saying it refuses is not the
+        resolver refusing, and a refusal type merely imported is not a refusal
+        raised, so the gate must drive a real resource read and a real tool ask.
+        AND, DECLARED 2026-09-01 after the close panel's finding 3, a second
+        sabotage against limb (c): make the door ECHO the requested depth into
+        the payload while WALKING the declared default. `max_depth_applied` is
+        written from the request and the walk is bound by the operator parameter
+        set, so the two can disagree — and a limb reading the echo cannot tell.
+      observed_red:
+        result: >-
+          RED, under its own id, SIX WAYS AT ONCE. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/server/compose.py::build_resolver`
+          — the `request is None` refusal replaced by the deployment's own
+          demonstration question, so a parameter-free resource read serves a
+          standing answer. This is the sabotage `D-IMPL-225` names in terms:
+          *"make the resolver return a payload and the gate must go RED."*
+
+          Observed, all on limb (b) and all against a REAL MCP client reading a
+          REAL resource: "the product RESOURCE served"; "the resource read did
+          not refuse for THIS deployment's stated reason" (followed by the
+          served vessel); and one entry each for `"nodes"`, `"anchor"`,
+          `"findings"` and `type_chain` — "that is a TREE, and the one thing
+          this surface must never produce".
+
+          LIMBS (a) AND (c) STAYED GREEN, correctly: the door still enumerated
+          its template and the tool still served at the caller's depth. That is
+          why the three limbs are asserted TOGETHER — a gate asserting only the
+          refusal passes on a door where nothing works at all, and a gate
+          asserting only the tool passes on a door that also serves a standing
+          answer.
+
+          CRITERION 37'S WORDING IS NOT TOUCHED HERE. It says the resource is
+          *"enumerable in `resources/list`"*; measured at an MCP client the
+          product enumerates in `resources/templates/list` and `resources/list`
+          returns `[]`, because a URI carrying placeholders registers as a
+          resource TEMPLATE. That is an open wording question for Dave (plan
+          24.4-09's deferred item 7) and this gate does not resolve it: BOTH
+          listings are asserted as shipped, so neither the template vanishing
+          nor a concrete entry appearing goes unseen, whichever way the wording
+          lands. Substance and `D-34` are unchanged.
+
+          The expectation resolves from
+          `runtime/ccf_runtime/mcp/egress.py::PRODUCT_URI_TEMPLATE`, from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor`
+          and from the declared depth default; the behavior comes from
+          `examples/cp-04-corporate-family-tree/server/compose.py`, which the
+          sabotage mutated. Different files.
+
+          APPENDED 2026-09-01 at `b05bad3`, FOR THE ROSTER LIMBS THE CLOSE
+          PANEL'S FINDING 3 REQUIRED — and this is the gate the phase's headline
+          claim, *"the ladder's first MCP door"*, rests on. As shipped, limb (c)
+          read `max_depth_applied` off the served payload and compared the
+          anchor URI. NEITHER IS THE WALK.
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection.invoke`
+          writes `max_depth_applied` from the REQUEST while the walk takes its
+          bound from the operator parameter set
+          `examples/cp-04-corporate-family-tree/deployment.py::traversal_parameters`
+          binds, so a door echoing the caller's depth while walking the declared
+          default passed the gate whole. Dave: *"the door must compare rosters
+          across depths, not echo `max_depth_applied` — that is CFT-G13."*
+
+          FOUR LIMBS WERE ADDED, all over ROSTERS and never sizes (`D-13`): the
+          shallower ask's roster is a SUBSET of the deeper one's; the deeper ask
+          reached members the shallower did not; every member
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor_subtree.depth_to`
+          declares beyond the ask is ABSENT by name; every member it declares
+          within the ask is PRESENT by name. The one lifespan already drove both
+          asks, so no second door was needed.
+
+          SECOND SABOTAGE, WATCHED RED.
+          `examples/cp-04-corporate-family-tree/deployment.py::traversal_parameters`
+          was made to return the declared parameters unchanged, so the caller's
+          depth reached the payload's label and not the walk. Observed on two
+          roster limbs at once — "CFT-G13 (c): max_depth=1 and the declared
+          default 3 served the IDENTICAL roster [22 members]" and "max_depth=1
+          served ['CycCalderIndustrialNv', 'CycThornburyCapitalLtd'], which
+          expected.yaml::census.anchor_subtree.depth_to declares at [2, 3] —
+          deeper than the caller asked for".
+
+          AND THE ECHO LIMB SAID NOTHING. Neither "did not reach the walk" nor
+          "substituted the declared default" appeared: the gate AS IT SHIPPED
+          would have been GREEN here. That comparison is asserted in the tree
+          rather than only recorded, by
+          `tests/examples/test_cp_04_seams.py::test_the_door_check_refuses_a_walk_at_the_default_while_the_echo_says_the_ask`,
+          which requires the roster limbs to fire AND both echo limbs to stay
+          silent.
+
+          Reach measured: 4 of 225 cp-04 tests went red — this gate, `CFT-G04`,
+          `CFT-G05` and the traversal precondition. `CFT-G14` stayed green,
+          correctly, because both callers are equally sabotaged and their
+          rosters still agree — which is the same lesson `CFT-G05`'s third limb
+          recorded from the other side: a movement gate over one boundary says
+          nothing about a second.
+
+          The added expectation resolves from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor_subtree.depth_to`,
+          which no sabotage of the door touches; the behavior comes from
+          `examples/cp-04-corporate-family-tree/deployment.py`. Different files.
+        date: "2026-09-01"
+        commit: "0b02099, roster limbs b05bad3"
+
+    # ---- One assembler, two callers (D-21) -------------------------------
+    - id: CFT-G14
+      criterion: 38
+      statement: >-
+        One standalone assembler serves both callers. assembler.py knows nothing
+        about MCP.
+      test: tests/examples/test_cp_04_seams.py::test_cft_g14_one_standalone_assembler_serves_both_callers
+      sabotage: give server/serve.py its own assembly path
+      observed_red:
+        result: >-
+          RED, under its own id, in TWO VARIANTS — one visible in the tree, one
+          visible only from the payload.
+
+          VARIANT A — the sabotage as declared: a second construction of
+          `assembler.py::FamilyTreeAssembler` added to
+          `examples/cp-04-corporate-family-tree/server/serve.py`. Observed —
+          "CFT-G14: `server/` holds ['compose.py', 'serve.py'] as its assembly
+          entry point(s). `D-21` gives it exactly one, in `compose.py`". Read
+          from the AST rather than by grepping, because both modules name that
+          class in PROSE and a text search would find the claim and read it as
+          the violation.
+
+          VARIANT B — the door's assembly path made to DIVERGE, by substituting
+          the declared floor for the caller's depth in
+          `examples/cp-04-corporate-family-tree/server/compose.py::_typed`.
+          Observed on the ROSTER limb — "CFT-G14: the two callers served
+          DIFFERENT families for one question — in-process only
+          ['http://example.org/fibo/CycCalderIndustrialNv',
+          'http://example.org/fibo/CycThornburyCapitalLtd'], MCP only []" —
+          while the entry-point limb and the module-identity limb BOTH stayed
+          green.
+
+          VARIANT B IS WHY THIS GATE EXERCISES BOTH CALLERS RATHER THAN
+          INSPECTING IMPORTS. `D-21`'s property is that one assembler serves
+          two callers, and a second assembly path that is not in the tree — a
+          substitution inside the one resolver — is invisible to every
+          structural limb. The only thing that catches it is driving both paths
+          on one question and comparing the served rosters, as rosters and
+          never as counts (`D-13`): the two families here differ by two named
+          members.
+
+          The expectation is a comparison between two runs of this product,
+          plus `examples/cp-04-corporate-family-tree/artifacts/expected.yaml`
+          for what the demonstration ask must reproduce; the behavior comes
+          from `examples/cp-04-corporate-family-tree/server/serve.py` and
+          `::server/compose.py`, which the two variants mutated. Different
+          files.
+        date: "2026-09-01"
+        commit: "0b02099"
+
+    # ---- Ontology is served, and it drives the projection (§D.2.1) -------
+    - id: CFT-G15
+      criterion: 39
+      statement: >-
+        Each served node carries its FIBO class chain.
+      test: tests/examples/test_cp_04_payload.py::test_cft_g15_each_served_node_carries_its_fibo_class_chain
+      sabotage: serve the tree without type information
+      observed_red:
+        result: >-
+          RED, under its own id, on all four limbs. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection._node`
+          and
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection.invoke`
+          — `type_chain` served as an empty list on every node and on the
+          anchor. Observed — all 22 members "were served with an EMPTY class
+          chain", the anchor's chain "reached the consumer as [] where
+          expected.yaml declares ['Agent', 'Corporation',
+          'FormalOrganization', 'LegalEntity', 'LegalPerson',
+          'Organization', 'Party']", and 'CycCalderIndustrialNv' "carries 0
+          classes where expected.yaml::census.cycle_member_typing declares
+          7". PRESENCE AND CONTENT ARE SEPARATE LIMBS because a check that
+          only looks for the key is green against a chain served as an empty
+          list. THE SECOND CYCLE IS NOT ASSERTABLE FROM A SERVED PAYLOAD,
+          and the reason is asserted rather than omitted:
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.cycle_2`
+          declares zero external in-edges and `::census.cycle_member_typing`
+          declares that no cycle member carries an LEI, so cycle 2 can be
+          reached neither as a subtree nor asked for as an anchor. It is
+          asserted in the direction this estate can carry by
+          `tests/examples/test_cp_04_payload.py::test_no_cycle_two_member_reaches_a_served_payload`,
+          and the 7-versus-5 fact itself is asserted against the store by
+          `tests/examples/test_cp_04_cycles.py::test_the_two_circuits_class_chains_differ_and_no_member_carries_an_lei`.
+          The expectation was read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::census.anchor`
+          and `::census.cycle_member_typing`. Two different files.
+        date: "2026-09-01"
+        commit: "8ecd22f"
+
+    - id: CFT-G16
+      criterion: 40
+      statement: >-
+        Perspective conditions on FIBO class, not on a hand-written role map.
+      test: tests/examples/test_cp_04_payload.py::test_cft_g16_perspective_conditions_on_fibo_class
+      sabotage: >-
+        substitute a hand-written role map. The word "class" appears in BOTH a
+        class-conditioned projection and a role map keyed by class name, so a
+        check reading for that token would be green against both — the gate must
+        read what the projection DID, never what it is called. AND, DECLARED
+        2026-09-01 under `D-IMPL-233`, a second sabotage against the fourth
+        limb: make the role COSMETIC. Two shapes, both watched — the projection
+        ignores the requested role, and the role's SUPPRESSION stops applying
+        while its detailed roster stays exactly right. Both leave the served
+        family at the declared twenty-two under both roles, so every member
+        roster in this suite stays green; what moves is the pinned seal.
+      observed_red:
+        result: >-
+          RED, under its own id — on the MUTATION limb ONLY, exactly as this
+          gate's declared sabotage predicts, and that is the finding worth
+          carrying out of this plan. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/projection.py`: a
+          module-level role map keyed by ENTITY NAME substituted for
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection._detailed_for`
+          at both call sites. THE SERVED OUTCOME WAS IDENTICAL — 22 detailed
+          for `credit-officer`, 0 for `kyc-analyst`, the class axis still
+          named `Corporation`, and every node's `carries_class_axis` still
+          agreeing with its own served chain — so the two OUTCOME limbs
+          PASSED under the sabotage, which is the Phase 24.3 defect class
+          exactly. What failed is the limb that strips the class axis from
+          ONE member's chain, through the SHIPPED projection, and requires
+          that member to move in BOTH views in OPPOSITE directions. Observed
+          — "with the class axis stripped from 'CycCalderIndustrialNv', role
+          'credit-officer' detailed [all 22] where the class chain implies
+          [the other 21]" and "role 'kyc-analyst' detailed [] where the
+          class chain implies exactly ['CycCalderIndustrialNv']". A SECOND
+          check went red beside it:
+          `tests/examples/test_cp_04_payload.py::test_no_role_to_entity_mapping_exists_anywhere_in_the_example`
+          named 24 collection literals in the sabotaged file naming a
+          declared role or a served entity. That limb is STRUCTURAL and
+          deliberately not a token scan, because the word "class" appears in
+          BOTH a class-conditioned projection and a role map keyed by class
+          name. The expectations were read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::perspective_detailed_members`
+          and
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::perspective_discriminating_class`,
+          and the two roles' sides from
+          `examples/cp-04-corporate-family-tree/artifacts/source-vocabulary.yaml::perspective_conditioning`;
+          the sabotage edits
+          `examples/cp-04-corporate-family-tree/projection.py`. Two
+          different files.
+
+          APPENDED 2026-09-01 at `751606f`, FOR THE FOURTH LIMB — the two
+          `--role` seals pinned in
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml::perspective_content_addresses`
+          under `D-IMPL-233`. Dave: *"Keep both addresses and the 22→0
+          detailed count in the expected block / README so a later 'role is
+          cosmetic' regression cannot hide behind a still-green tree of
+          22."* TWO COSMETIC-ROLE SABOTAGES WERE APPLIED TO
+          `examples/cp-04-corporate-family-tree/projection.py` AND BOTH WERE
+          WATCHED RED UNDER THIS ID, with the tree restored and re-verified
+          green after each. **Sabotage A — the projection ignores the
+          requested role**:
+          `examples/cp-04-corporate-family-tree/projection.py::FamilyTreeProjection._detailed_for`
+          returns the class test without reading the role's declared side.
+          Observed — "role 'kyc-analyst' sealed to '2ea513a5…' where
+          expected.yaml pins '838afbb0…'" and "role 'kyc-analyst' was shown
+          detail for 22 members where expected.yaml declares 0", beside the
+          pre-existing identical-views and one-mutation limbs. **Sabotage B —
+          the role's SUPPRESSION becomes cosmetic**: the attribute block is
+          served regardless of whether the role details the member, so
+          `kyc-analyst` is shown detail for NOBODY and is served two non-null
+          attribute blocks anyway. **B IS THE OBSERVATION THAT MAKES THE PIN
+          LOAD-BEARING RATHER THAN REDUNDANT.** Under it the served roster is
+          the declared twenty-two, the detailed rosters are exactly right, the
+          detailed counts are exactly 22 and 0, the class axis is named
+          correctly and the one-mutation limb still moves the target in both
+          views — so **every other limb of this gate, and all 156 other cp-04
+          gate tests, stayed GREEN**, and the ONLY violation reported was
+          "role 'kyc-analyst' sealed to '745b2543…' where expected.yaml pins
+          '838afbb0…'". Under both sabotages 36 of the 37 tests in
+          `tests/examples/test_cp_04_payload.py` passed, including
+          `tests/examples/test_cp_04_payload.py::test_cft_g09_a_node_with_no_lei_stays_in_the_tree_and_the_roster`,
+          which is Dave's still-green tree of 22 observed rather than
+          asserted. AND THE INVERSE CONTROL, because a limb that read no file
+          would be green under both: ONE character of the `credit-officer`
+          pin was corrupted in `expected.yaml` and this gate went RED under
+          its own id naming only that role, with the tree restored after. The
+          expectations are read from
+          `examples/cp-04-corporate-family-tree/artifacts/expected.yaml`; the
+          sabotages edit
+          `examples/cp-04-corporate-family-tree/projection.py`. Two different
+          files.
+        date: "2026-09-01"
+        commit: "8ecd22f"

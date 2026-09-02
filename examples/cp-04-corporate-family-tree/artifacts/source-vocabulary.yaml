@@ -1,0 +1,365 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# WHAT THIS DEPLOYMENT READS OUT OF ITS TWO SYSTEMS OF RECORD, AND IN WHICH
+# DIRECTION. The source vocabulary — IRIs on the graph leg, column names on the
+# attribute leg — and the per-predicate arrow that turns a raw triple into a
+# parent -> child edge.
+#
+# ============================================================================
+# WHY THIS DOCUMENT EXISTS, GIVEN FIVE ARTIFACTS ALREADY DID
+# ============================================================================
+#
+# `ccf_config.yaml` declares the six family predicates in the SHORT-NAME
+# vocabulary the normalization step mints — `owns`, `controls`,
+# `isDirectlyConsolidatedBy`, `isUltimatelyConsolidatedBy`,
+# `hasGlobalUltimateParent`, `hasDomesticUltimateParent` — because that is the
+# relationship-type vocabulary of THE FABRIC'S OWN GRAPH. It says, in place,
+# that the full IRI for each *"is in `artifacts/assembly-recipe.yaml`"*.
+#
+# **IT IS NOT.** The recipe carries ten steps, a witness per step and a closed
+# operator vocabulary, and no IRI appears anywhere in it. Neither does a
+# direction. Measured 2026-08-31 against the shipped tree:
+# `grep -rn 'edmcouncil' examples/cp-04-corporate-family-tree/artifacts/`
+# returns nothing.
+#
+# The per-predicate DIRECTION does exist in `artifacts/expected.yaml`, under
+# `edge_direction.reading` — and that document is **READ BY THE GATES AND BY
+# NOTHING ON THE SERVING PATH**. A deployment that consulted its own
+# expectations would be agreeing with itself rather than being held to them,
+# which is rung 03's rule and is why `expected.yaml` names itself the declared
+# EXPECTATION rather than a source of truth.
+#
+# So the serving path had two domain values with no document: the IRI of each
+# predicate, and its arrow. This document is that home. It is the deployment's
+# SOURCE vocabulary; `ccf_config.yaml` stays the fabric's OWN vocabulary, and
+# the two are deliberately separate — `owns` in the config is a
+# `relationship_type` in CCF's graph, and `.../Ownership/owns` here is a
+# predicate in somebody else's RDF store.
+#
+# ============================================================================
+# THE ARROW IS THE WHOLE GAME, AND A COUNT IS BLIND TO IT
+# ============================================================================
+#
+# `ccf_dataprep/validators/test_parent_edge_direction.py` exists because **139
+# GLEIF edges were inverted for seven waves with every check green** — *"every
+# check that touches these predicates is a bare COUNT, and a count cannot see
+# an arrow."* Reversing exactly one of the six below moves the family graph's
+# root count off 83 — measured, all six, at `24.4-MEASUREMENT.md` criterion 6 —
+# which is what makes each `direction:` value below an assertion rather than a
+# comment.
+#
+# A PREDICATE WITH NO `direction:` FAILS CLOSED. The interpreter refuses to
+# normalize a triple whose predicate declares no arrow rather than guessing
+# one, because a guessed arrow is an arrow nobody chose and it presents as a
+# clean edge count.
+#
+# `role: load`. A source vocabulary is a fact about somebody else's store,
+# parsed and handed back; it is not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-04.source-vocabulary
+
+declaration:
+  # ==========================================================================
+  # THE GRAPH LEG — Fluree, ledger named by `backends.yaml`
+  # ==========================================================================
+  graph:
+    # THE SIX FAMILY PREDICATES. The short name is the key because that is the
+    # vocabulary `ccf_config.yaml::operators` already declares under
+    # `relationship_types`; the interpreter reads the roster from there and
+    # resolves each name here, so a predicate declared in one document and
+    # missing from the other is a refusal rather than a silent skip.
+    #
+    # Seven other relationship predicates exist in this ledger —
+    # `hasSubsidiary`, `hasBeneficialOwner`, `isBeneficialOwnerOf`,
+    # `ownershipIn`, `hasOwnershipPercentage`, `isDirectorOf`, `isOfficerOf` —
+    # and are deliberately absent. `CFT-G02` asserts every returned edge is one
+    # of the six and is sabotaged by admitting a seventh.
+    #
+    # `signal_class` binds each predicate to the row of `ccf_config.yaml`'s
+    # `half_life:` table it decays against. §E.1 states the binding in prose
+    # beside each row — ~180d for the ownership edges, ~365d for the two
+    # consolidation predicates and ~365d for the two ultimate-parent ones — and
+    # a binding that lives only in a comment is a binding no debt reading can
+    # apply. Declared here so `D_c` is computed against the class the edge
+    # actually belongs to rather than against one product-level rate.
+    family_predicates:
+      owns:
+        iri: https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/owns
+        direction: subject_to_object
+        basis: FIBO `owns` runs parent to child
+        signal_class: ownership_edges
+
+      controls:
+        iri: https://spec.edmcouncil.org/fibo/ontology/FND/Relations/Relations/controls
+        direction: subject_to_object
+        # THREE TRIPLES, AND FLIPPING THEM STILL MOVES THE ROOT COUNT BY ONE —
+        # 83 to 82. Small enough to be invisible to a count and large enough to
+        # matter, which is why the direction of all six is asserted rather than
+        # only the four that carry volume.
+        basis: the validator's explicit negative control against a blanket flip
+        signal_class: ownership_edges
+
+      isDirectlyConsolidatedBy:
+        iri: https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LEIEntities/isDirectlyConsolidatedBy
+        direction: object_to_subject
+        basis: the subject is the subsidiary
+        signal_class: consolidation_relationships
+
+      isUltimatelyConsolidatedBy:
+        iri: https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LEIEntities/isUltimatelyConsolidatedBy
+        direction: object_to_subject
+        basis: the subject is the subsidiary
+        signal_class: consolidation_relationships
+
+      hasGlobalUltimateParent:
+        iri: https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/hasGlobalUltimateParent
+        direction: object_to_subject
+        basis: "`rdfs:range GlobalUltimateParent` — the object is the parent"
+        signal_class: ultimate_parent_designation
+
+      hasDomesticUltimateParent:
+        iri: https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/hasDomesticUltimateParent
+        direction: object_to_subject
+        basis: same as hasGlobalUltimateParent
+        signal_class: ultimate_parent_designation
+
+    # THE LITERAL PREDICATES EVERY NODE FACT IS READ THROUGH. `type_chain` is
+    # the ontology role 2 material — served on every node, `CFT-G15` — and it
+    # is the one of the three that is NOT nullable (§D.6): an untyped node is
+    # not admitted at all, which is what makes `CFT-G01` non-vacuous rather
+    # than a check that passes on an empty set.
+    node_predicates:
+      lei: http://example.org/fibo/lei
+      label: http://www.w3.org/2000/01/rdf-schema#label
+      type_chain: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
+
+      # MEASURED, NOT ASSUMED. 356 of the 748 family nodes carry a
+      # `jurisdictionCode`, in ISO 3166-1 **alpha-3** (`JPN`, `NLD`, `USA`),
+      # while `ccf_v2.legal_entity.legal_jurisdiction` carries ISO 3166-2-style
+      # values (`US-DE`, `NL`, `GB`). The two vocabularies are NOT the same and
+      # this document does not pretend they are — see `entitlement:` below,
+      # which is the open question rather than a mapping table nobody measured.
+      jurisdiction_code: http://example.org/fibo/jurisdictionCode
+
+  # ==========================================================================
+  # THE ATTRIBUTE LEG — PostgreSQL, DSN and schema named by `backends.yaml`
+  # ==========================================================================
+  #
+  # THE TABLE IS `legal_entity` AND THE DECOY IS `crosswalk` (§C.4 trap 4).
+  # Measured over the family graph's 181 LEI-bearing nodes, `legal_entity`
+  # resolves 142 and `crosswalk` resolves 39 — both real numbers, only one an
+  # answer to the question asked, and far enough apart that a check reading the
+  # wrong table cannot report the right answer by accident.
+  attributes:
+    table: legal_entity
+    key_column: lei
+
+    # THE COLUMN THE POLICY OPERATOR'S CLASSIFICATION WOULD BE READ FROM for a
+    # node that HAS a row. 606 of 748 family nodes have none — which is this
+    # product's subject rather than its defect (`D-16`) — so this column
+    # answers for 142 of 748 and for no more than that.
+    jurisdiction_column: legal_jurisdiction
+
+    # WHAT A RESOLVED MEMBER'S `attributes` CARRIES. A closed list, because a
+    # `SELECT *` would put whatever the estate happens to hold into a
+    # content-addressed payload and make the address move when a DBA adds a
+    # column.
+    served_columns:
+      - legal_name
+      - gleif_legal_name
+      - legal_jurisdiction
+      - entity_status
+      - registration_status
+      - legal_form
+      - legal_address_country
+      - legal_address_city
+      - sic
+      - sic_description
+
+  # ==========================================================================
+  # THE DUPLICATE-IDENTITY RULE — §C.4 trap 3, recipe step 8
+  # ==========================================================================
+  #
+  # `SuperMicroComputerBV` (LEI `549300F16C4PEFXU0S92`, label
+  # `SUPER MICRO COMPUTER B.V.`) and `SubSuperMicroComputerBV` (no LEI, label
+  # `Super Micro Computer B.V`) are one company entered twice, one hop from the
+  # anchor. They differ by case, by a trailing period, and by whether a GLEIF
+  # identity exists.
+  #
+  # THE COMPARISON IS ON THE LABEL, CASE- AND PUNCTUATION-FOLDED, AND ON
+  # NOTHING ELSE. Not on the LEI: exactly one of the pair has one, so an
+  # LEI-keyed comparison finds nothing. Not on the URI: they differ by a `Sub`
+  # prefix, and a prefix rule would fire on all seventeen Exhibit 21 stubs.
+  #
+  # A LABEL THAT FOLDS TO NOTHING IS NOT A DUPLICATE. Measured over the whole
+  # family graph: 15 label buckets hold more than one node, and ONE of the 15
+  # is a bucket of nine nodes whose labels fold to the empty string. A rule
+  # without this guard would report those nine as one company entered nine
+  # times.
+  duplicate_identity:
+    compare: label
+    fold: casefold_and_strip_non_alphanumeric
+    refuse_empty_fold: true
+
+  # ==========================================================================
+  # ENTITLEMENT — RULED 2026-09-01 (`D-IMPL-228`), AMENDED THE SAME DAY BY
+  # `D-IMPL-229`. THE POLICY AXIS IS OBSERVED FAMILY MEMBERSHIP; JURISDICTION IS
+  # A SERVED FIELD.
+  # ==========================================================================
+  #
+  # WHAT THIS BLOCK SAID UNTIL `D-IMPL-229` AND WHY IT COULD NOT STAND. It
+  # declared `classification_attribute: entity_jurisdiction` and two
+  # `classification_sources` — a member's own `legal_entity.legal_jurisdiction`
+  # where PostgreSQL holds a row, and **the family's, the ANCHOR's, where it does
+  # not**. That second source is STRUCK. Dave: *"A missing Postgres row is not
+  # `US-DE`."* And: *"Cycle members already have no LEI; they must not pick up
+  # SMCI's Delaware because the walk started there."*
+  #
+  # THE FOUR THINGS THAT COULD NOT ALL HOLD. `src/ccf/operators/categories.py`
+  # `::PolicyFilter._admits` ends `return record.claim.attributes.get(attribute)
+  # in params.permitted_classifications`, so an ABSENT value is refused exactly
+  # as firmly as an out-of-grant one. Given that: (1) `{NL, US-DE}` as
+  # `permitted_classifications` on a jurisdiction attribute; (2) the 20 row-less
+  # SMCI-subtree members carrying a null jurisdiction and never a default;
+  # (3) all 22 served, per criteria 12 and 33 and `CFT-G09`; and (4) `_admits`
+  # refusing null. Holding 1, 2 and 4 serves 2 OF 22.
+  #
+  # THE RULING: THE AXIS MOVED, AND THE JURISDICTION LIST MOVED WITH IT RATHER
+  # THAN DISAPPEARING.
+  #
+  #   * POLICY admits on FAMILY MEMBERSHIP — the anchor's LEI, minted when a
+  #     node is admitted to the walk, so it is OBSERVED and not inferred from a
+  #     store that holds no row for it. Declared below as
+  #     `membership_attribute`.
+  #   * JURISDICTION is a SERVED FIELD. A member with a `ccf_v2.legal_entity`
+  #     row carries its STORED `legal_jurisdiction`; a member with no row carries
+  #     no jurisdiction at all — `attributes` is `null` and the field is absent.
+  #     Never the anchor's, and never a null token inside a permitted set.
+  #   * `{NL, US-DE}` stays CLOSED and stays sabotaged in BOTH directions, now
+  #     against what the payload SERVES rather than against what Policy admits.
+  #     `deployment.py::refuse_open_jurisdiction_world` holds it.
+  #
+  # WHY INHERITANCE WAS REFUSED, and it is the phase's recurring defect for the
+  # third time. Dave: *"Inheritance is the same class as the nine-row fiction: a
+  # value that was never observed, applied so a gate looks populated."* The
+  # struck nine-jurisdiction list carried seven rows that could never fire;
+  # anchor-inheritance would have put a value on 20 nodes no source ever
+  # asserted it about. Both make a check look populated while measuring nothing.
+  # **Family membership is admissible precisely because the walk DID observe
+  # it** — that is the distinction between the two.
+  #
+  # WHY NOT THE THIRD ROUTE FOR JURISDICTION, MEASURED RATHER THAN ARGUED AWAY.
+  # Deriving a missing value from the graph leg's own `jurisdiction_code` is
+  # unavailable twice over: the vocabularies differ (ISO 3166-1 alpha-3 against
+  # `legal_jurisdiction`'s 3166-2-style values), and measured over the CI fixture
+  # `tests/examples/fixtures/cp_04_family_fluree.json` **0 of the 22 subtree
+  # nodes carry a `jurisdictionCode` at all**. A mapping table nobody measured
+  # would have been mapping an empty set.
+  #
+  # WHAT IS STILL OPEN, AND NEITHER RULING CLOSES IT. Spec §F.4 row 5 —
+  # residency constraints and cross-border serving as an identity-and-access
+  # CERTIFICATION — stays `[TBC]`. These blocks rule what THIS BUILD declares,
+  # not what a certifying function will require of a deployment.
+  entitlement:
+    status: ruled
+    ruling: D-IMPL-229
+    amends: D-IMPL-228
+    ruled_on: "2026-09-01"
+
+    # ---- The POLICY axis: observed family membership -----------------------
+    #
+    # The attribute both entity classes are classified on, matching
+    # `ccf_config.yaml::operators.policy.principal-subgraph`
+    # `.classification_attribute_by_class`. The value is minted at walk
+    # admission, so its provenance is THE WALK and not either store — which is
+    # why it is named here, in the document that says where values come from,
+    # and why `membership_source` reads `walk_admission` and nothing else.
+    membership_attribute: family_id
+
+    # WHERE THE VALUE COMES FROM. One source, and it is not a store. A node
+    # carries this value because the anchor-bounded walk reached it; nothing is
+    # looked up, so nothing can be absent, so `_admits` never sees `None` on
+    # this axis. THAT PROPERTY IS THE WHOLE POINT OF THE MOVE and it is
+    # asserted at runtime rather than assumed —
+    # `deployment.py::refuse_unminted_membership` refuses a node the walk
+    # admitted that carries no membership value.
+    membership_source: walk_admission
+
+    # The membership value's own vocabulary: the anchor's LEI, the same token
+    # `artifacts/question.yaml::subject` asks in. Named as a KIND rather than as
+    # a value — the value is per request and lives nowhere in any document.
+    membership_value_kind: anchor_lei
+
+    # ---- The SERVED jurisdiction set: closed, in both directions -----------
+    #
+    # The column a resolved member's jurisdiction is read from is
+    # `attributes.jurisdiction_column` above. This is the SET the 22-node SMCI
+    # subtree exhibits, re-derived against the committed fixture:
+    # `SuperMicroComputerInc` -> `US-DE` and `SuperMicroComputerBV` -> `NL`. The
+    # other 20 carry NO jurisdiction — they hold no row, and a row-less member
+    # is served with `attributes: null` rather than with a filled-in value.
+    #
+    # BOTH DECLARED ROWS FIRE AND NEITHER IS IDLE, which is what makes each
+    # sabotageable. Drop `NL` and `SuperMicroComputerBV` serves a value nobody
+    # declared; drop `US-DE` and the anchor does; add `US-NY` as if it were
+    # in-family and a declared row fires on nothing.
+    # `deployment.py::refuse_open_jurisdiction_world` refuses all three, so the
+    # closed world is a gate rather than a convention.
+    served_jurisdictions:
+      - NL
+      - US-DE
+
+    spec_reference: "spec section B.2, classification and residency"
+
+  # ==========================================================================
+  # PERSPECTIVE CONDITIONING — §D.2.1 ONTOLOGY ROLE 3, WHICH `CFT-G16` GATES
+  # ==========================================================================
+  #
+  # THE ROLES AND THE CLASS AXIS ARE DECLARED HERE BECAUSE THEY CANNOT BE
+  # DECLARED IN `ccf_config.yaml`. `src/ccf/controlplane/artifacts.py`
+  # `::DeploymentConfig` rules that *"unknown top-level keys are an error"* and
+  # reserves exactly eight section names, of which `default_perspective` holds
+  # ONE perspective. A product whose §D.2.1 role 3 claim is that TWO roles see
+  # the same family differently needs a roster, and the roster has to live in a
+  # declared artifact. It lives beside the FIBO vocabulary because the thing it
+  # names IS a FIBO class.
+  #
+  # ONE CLASS, TWO SIDES OF IT — NOT TWO INDEPENDENT PREDICATES, and the
+  # difference is what makes `CFT-G16` able to fail. Both roles read the SAME
+  # class off the SAME `type_chain` the graph carries; the credit officer's view
+  # details the members that CARRY it and the KYC analyst's view details the
+  # members that DO NOT. So ONE mutation moves a node in BOTH views, in opposite
+  # directions — which a hand-written role map keyed by entity name could not
+  # reproduce, and which is the sabotage `CFT-G16` names.
+  #
+  # THE POPULATION IS CLASS-HOMOGENEOUS AND THAT IS MEASURED, NOT ASSUMED. All
+  # 22 SMCI-subtree nodes carry the IDENTICAL 7-class chain, so no class
+  # discriminates BETWEEN members — the same measured property that withdrew
+  # ontology role 1 (`D-32`). What the two roles' views differ by is therefore
+  # the class's presence on ALL of them: the credit officer details 22 and the
+  # KYC analyst details 0, each stating the class it read. A KYC analyst's
+  # subject in a corporate family is the NON-corporate party — a natural person,
+  # a beneficial owner — and this family contains none, which is a true
+  # statement about it rather than an empty view.
+  perspective_conditioning:
+    # The FIBO class the conditioning reads, by its full IRI, because that is
+    # what `read_node_facts` collects into `type_chain`. The local name is the
+    # census vocabulary (`expected.yaml::census.anchor.type_chain`) and is
+    # derived from this IRI rather than written twice.
+    class_axis_iri: https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation
+
+    # THE TWO ROLES, AND WHICH SIDE OF THE AXIS EACH DETAILS. `carries` and
+    # `lacks` are the only two admitted values and `deployment.py` refuses a
+    # third rather than defaulting one — a role whose side nobody chose would
+    # condition on nothing while looking configured.
+    #
+    # NO ENTITY NAME APPEARS HERE OR ANYWHERE IN THIS EXAMPLE. A dictionary of
+    # role to entity names is precisely the substitution `CFT-G16` is sabotaged
+    # with, and it would be invisible to a check that only read for the word
+    # "class".
+    roles:
+      credit-officer: carries
+      kyc-analyst: lacks
+
+    spec_reference: "spec section D.2.1 role 3"

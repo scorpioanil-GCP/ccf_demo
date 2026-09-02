@@ -1,0 +1,25 @@
+92761e041a542b46166973b3a235a3f883cfed94
+
+Phase 24.4's pinned diff BASE — the commit `main` sat at before anything
+belonging to this phase was written.
+
+WHY THIS COMMIT AND NOT ANOTHER. `92761e0` is
+`chore(24.2, 24.2.1): D-GATE approved for both — the criterion is Dave's
+inspection`, and the very next commit, `bde7660`, is
+`docs(24.4): D-IMPL-223 and D-IMPL-224 — the two surface questions are ruled,
+and 24.4 is anchored` — the commit that anchors Phase 24.4. Everything from
+`bde7660` forward belongs to this phase, including its context capture, its
+criteria lock, its plan set and all fourteen plans. A base pinned at plan 01's
+first EXECUTION commit (`dddd901`, whose parent is `5e48c55`) would leave the
+phase's own planning commits outside the window, and criterion 49 says *"no
+file under `src/` is modified by IT"* — by the phase, not by its execution
+waves. This base is the wider, and therefore the stronger, reading.
+
+WHY A FILE RATHER THAN A LITERAL IN A TEST. `D-GATE-20` pinned Phase 20's base
+in `.planning/phases/20-*/20-BASE-COMMIT.txt` for two reasons that both still
+hold: a base resolved from a branch name at close time can fail to resolve, and
+an assertion built on a base that does not resolve is VACUOUS rather than red;
+and the value needs somewhere to record why it is that value, which a bare SHA
+in a function body does not have.
+
+READ BY `tests/examples/test_cp_04_phase_record.py::phase_base_commit`.

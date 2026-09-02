@@ -1336,7 +1336,7 @@ phantoms which return **zero rows**, one of which (`ex:AdministrativeAgent`) is 
    is defined in `src/ccf/halflife/assessment.py` as *"the fabric does not know
    enough to support the decision"*, and its docstring commits further: this
    state *"escalates and never quietly proceeds."* **Nothing in `src/` reads
-   it.** The signal is written once, at `src/ccf/halflife/debt.py:313`, and no
+   it.** The signal is written once, at `src/ccf/halflife/debt.py::assess_debt`, and no
    shipped code branches on the value; debt is not one of the three validation
    gates, so a `fail_closed` product is constructed, gated, recorded and served
    exactly like an `ok` one.

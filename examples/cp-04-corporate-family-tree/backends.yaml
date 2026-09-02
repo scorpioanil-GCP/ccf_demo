@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# HOW the declared backend kind's connection settings are COMPOSED, and how the
+# two SYSTEMS OF RECORD are reached. Not in `ccf_config.yaml`: connection
+# material is deployment ENVIRONMENT, not Control Plane state, and a DSN in a
+# content-hashed artifact is a DSN persisted into the audit plane forever.
+#
+# NO CONNECTION VALUE APPEARS HERE — no host, no port, no path, no credential.
+# This document holds a variable's NAME and a per-run path RECIPE, and nothing
+# else.
+#
+# TWO SOURCES, AND THIS IS THE FILE RUNG 03's OWN COMMENT ANTICIPATED. That
+# document carried one source block and said the second store was
+# "not here on purpose... moving to the rung that actually reads that store".
+# This is that rung. A Fluree binding was specified for rung 03 and REMOVED FROM
+# IT ENTIRELY (Dave, 2026-08-30) rather than staged, because a specification
+# carrying thirteen sections about a store its build never opens describes an
+# intention rather than a product.
+#
+# THE SPEC SAYS WHICH STORE, THIS SAYS HOW TO REACH IT, AND ONLY THE ENVIRONMENT
+# SAYS WHERE IT IS. Spec §F.3 names both — Fluree ledger `fibo-v2` for edges,
+# ontology, labels and LEIs; PostgreSQL schema `ccf_v2`, table `legal_entity`,
+# for attributes — because an implementation specification that will not say
+# which of five stores an element lives in cannot be built from. It does not name
+# the deployment.
+#
+# THREE STORES ARE READ BY NEITHER LEG AND THE ABSENCE IS DELIBERATE: MongoDB
+# (filing text and passages; passage lineage arrives at rung 13), the
+# departmental SQLite (nothing family-shaped), and Neo4j — DROPPED FROM THE v2
+# ESTATE 2026-08-16, which is the measured reason cycle detection runs
+# application-side rather than as a stored graph algorithm.
+#
+# `CFT-G10` ASSERTS THE POSITIVE HALF — that THE ASSEMBLY opened both sources,
+# each for its own thing. The subject is the assembly and NOT the runner: a
+# fixture that pre-opens both stores and hands the product a populated graph does
+# not satisfy it. Sabotaged by serving attributes from Fluree, and equally by
+# moving the opening into a fixture loader.
+
+semver: "1.0.0"
+class_id: cp-04.backend-profiles
+
+declaration:
+  profiles:
+    sqlite:
+      settings:
+        database_path:
+          per_run: path
+          prefix: cp_04
+          suffix: .sqlite3
+
+  sources:
+    # ---------------------------------------------------------------------
+    # THE GRAPH LEG — edges, ontology, labels, LEIs. Spec §C.1 rows 1, 2, 3,
+    # 4, 6, 7, 8 and 12; §F.3 row 1.
+    # ---------------------------------------------------------------------
+    #
+    # TWO VARIABLES, NOT ONE, AND THE LEDGER NAME IS THE SECOND. Every query
+    # this leg issues carries an EXPLICIT `FROM <ledger>`: the server returns an
+    # unhelpful HTTP 500 without one, so the ledger name is not an optional
+    # nicety that could default. It is also the isolation boundary — the
+    # measurement pass seeded the same fixture into two ledgers precisely to
+    # prove that two names were not secretly one store.
+    #
+    # AN UNSET VARIABLE RAISES, CARRYING ITS REMEDY STRING. There is no default
+    # and no in-tree URL to fall back onto.
+    corporate_family_graph:
+      settings:
+        url:
+          from_env: CCF_CP_04_FLUREE_URL
+          remedy: >-
+            export CCF_CP_04_FLUREE_URL with the base URL of a READ-ONLY Fluree
+            server carrying the family ledger. The example issues only
+            `/v1/fluree/query`; it never creates, updates or deletes a ledger,
+            and the estate it reads is read-only to this repository. See the
+            example README's "Run it" section for the local
+            `fluree/server:4.1.4` container the test leg uses instead.
+        ledger:
+          from_env: CCF_CP_04_FLUREE_LEDGER
+          remedy: >-
+            export CCF_CP_04_FLUREE_LEDGER with the ledger name to read. Every
+            query carries an explicit `FROM <ledger>` and there is no default:
+            the server answers HTTP 500 without one, and a defaulted ledger name
+            would be a value nobody chose pointing at a store nobody named. The
+            demonstrated run reads the ledger the printed transcript names,
+            beside the `ledger_t` it was read at.
+
+    # ---------------------------------------------------------------------
+    # THE ATTRIBUTE LEG — GLEIF Level 1 rows for the LEIs the walk collected.
+    # Spec §C.1 rows 5, 8, 9, 10 and 11; §F.3 row 2.
+    # ---------------------------------------------------------------------
+    #
+    # THE TABLE IS `legal_entity` AND THE DECOY IS `crosswalk` (§C.4 trap 4),
+    # and this is not a pedantic distinction: measured over the family graph's
+    # 181 LEI-bearing nodes, `legal_entity` resolves 142 and `crosswalk`
+    # resolves 39. Both are real numbers; only one is an answer to the question
+    # asked. The two are far enough apart that a check reading the wrong table
+    # cannot report the right answer by accident.
+    #
+    # ONE BATCHED QUERY FOR THE WHOLE NODE SET, NEVER ONE PER NODE. `CFT-G11`
+    # asserts it and is sabotaged by firing one query per node — a fan-out that
+    # works at depth 2 and collapses at depth 4.
+    corporate_family_attributes:
+      settings:
+        dsn:
+          from_env: CCF_CP_04_POSTGRES_DSN
+          remedy: >-
+            export CCF_CP_04_POSTGRES_DSN with a READ-ONLY connection string for
+            the entity-attribute estate — the GLEIF Level 1 table
+            `legal_entity`, NOT `crosswalk`. The role needs SELECT and nothing
+            else: this deployment never writes to the store it reads, and a role
+            that could write would make that a promise rather than a guarantee.
+        schema:
+          from_env: CCF_CP_04_POSTGRES_SCHEMA
+          remedy: >-
+            export CCF_CP_04_POSTGRES_SCHEMA with the namespace holding
+            `legal_entity`. Declared as a variable rather than defaulted, on the
+            same reasoning as the ledger name on the graph leg: a schema name
+            selects WHICH of a store's namespaces the product reads, and a
+            defaulted one is a namespace nobody chose. The measurement pass
+            seeded the fixture into two schemas exactly to prove that two names
+            were not secretly one store, so a silent default would have
+            dissolved that control.

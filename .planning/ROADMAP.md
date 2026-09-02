@@ -58,6 +58,7 @@ and the upgraded examples.
 - [x] **Phase 24.2: The Second Context Product — Counterparty Reference Snapshot, One Store and Five Systems of Record** (INSERTED) - `cp-01`, rung 01 of the vault's ladder and the product every other product resolves identity through. Single STORE (Postgres), **five SYSTEMS OF RECORD**, which is the point rather than an obstacle (`24-CONTEXT.md` `D-29`). Built in the vault's COMPLEXITY order, never readiness order — a proposal to take `obligor-financial-spread` first BECAUSE ITS DATA WAS RICHER was refused (`D-IMPL-219`). *(Checklist row added 2026-08-29: the phase had a detail section and no bullet here, so the checklist skipped from 24.1.1 to 24.3 and read as though 24.2 did not exist.)* *(Ticked 2026-08-31, and **`D-GATE-24.2` APPROVED the same day** — Dave ruled that his inspection and approval IS this phase's success criterion. No close panel ran; the gate says so itself.)*
 - [x] **Phase 24.2.1: Facility Terms Snapshot (cp-02) — built ahead of the close machinery** (INSERTED RETROSPECTIVELY 2026-08-31) - `cp-02`, rung 02 of the vault's ladder. **This phase is a bookkeeping record, not a re-run.** The work was specified, built and documented on 2026-08-29 against NO ROADMAP phase, no success criteria and no gate entry — the only Context Product on the ladder built entirely outside the phase machinery (`D-IMPL-221`). It is numbered here so the phase counters stop reporting a ladder with a hole in it. **`D-GATE-24.2.1` APPROVED** (Dave, 2026-08-31, on inspection of the shipped work, his inspection ruled to be this phase's success criterion). The bullet read *"no `D-GATE` is minted"* for the few hours between the phase being created and that ruling — correct then, because a gate records an approval that happened and none had. **No close panel ran**, so this is not a §3.1-conforming close and the gate entry says so.
 - [x] **Phase 24.3: Credit Spreading — Obligor Financial Spread (cp-03), Gate 2** (INSERTED) - `cp-03`, rung 03 and the LAST of Tier 1, discharging the Gate-1 specification Dave approved 2026-08-29 at `310225b`. Teaches **attribute-level temporal validity** — one freshness per product stops being enough — and demonstrates `basis`, the catalog's first parameter where both settings are correct and the decision picks. **Forty Success Criteria LOCKED before planning** (`D-GATE-19`), **weighted toward the CENSUS rather than the mechanism**: every serious defect found while specifying this product was a measurement defect, four wrong counts before a line of code existed, so criteria 13–18 require each wrong method to produce its specific wrong number AND fail. The Policy OPERATOR is in the plan (`empty-operator-guard`), reading Postgres entitlement and emitting `policy_version` from the Control Plane artifact. **A Fluree policy-version binding was specified in this product and then REMOVED from it entirely** (Dave, 2026-08-30) — this product reads ONE store.
+- [x] **Phase 24.4: Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal and Ontology, and the Ladder's First MCP Door** (INSERTED) - `cp-04`, rung 04 and the FIRST of Tier 2. The first product that opens more than one store (Fluree for edges and ontology, Postgres for attributes), the first that traverses a graph, the first exercising three ontology roles (role 1 STRUCK 2026-08-31, Dave), and the first on the ladder reachable over MCP. **Forty-nine Success Criteria LOCKED 2026-08-31 before planning** (`D-GATE-19`), of which sixteen require a named product gate to be **observed RED under a named sabotage** — criterion 41 and `CFT-G17` are WITHDRAWN in place — a gate never seen red is not evidence that it runs. `artifacts/gates.yaml` is the ladder's **first machine-readable gate declaration** (`D-IMPL-224`); the coverage CHECKER and the cp-00/cp-01 backfill are **Phase 24.5**, not this phase. **`D-26`..`D-31` are RECORDED as SDK gaps and NONE is closed** — no file under `src/` is modified (`D-04` of `24-CONTEXT.md`). *(Checklist bullet added 2026-08-31 at planning; the phase had a detail section and no bullet here.)*
 
 ## Phase Details
 
@@ -2767,33 +2768,51 @@ the vault's ladder and the FIRST of Tier 2** — as the first product that opens
 than one store, the first that traverses a graph, and the first on the ladder to be
 reachable over MCP.
 
+**CLOSED — `D-GATE-24.4` APPROVED (Dave, 2026-09-01).** Built, evaluated against Dave's own
+five-check gate on live fixtures (all five held), paneled on the shipped tree (§3.1), reviewed,
+fixed and gated. `src/` + `runtime/` changed files **0**; gaps `24.4-D-26`..`24.4-D-37` recorded,
+none closed; criteria 37 and 49 as amended. Suite: nine of ten `make ci` legs rc=0; pytest
+**4664 / 45 / 1**, the 1 being `test_the_one_document_exemption_has_not_spread`, carved by
+`D-IMPL-234` and NOT suite-green — cp-01/02/03 exemption claims remain unruled. Family-scope
+guards stay `SystemExit` by ruling. 17 deferred rows. Next id `D-IMPL-235`.
+
 **Why this rung, and why now.** Dave, 2026-08-31, naming two new concepts: *"using
 the Fluree graph for graph traversal and ontology along with other backends to form a
 new context product"*, and *"access the code that assembles the context product via an
 MCP. We will do A2A in a later example. Just MCP for this one."*
 
-**STATUS: ANCHORED, NOT PLANNED. NO SUCCESS CRITERIA ARE WRITTEN HERE, AND THAT IS
-DELIBERATE** — `D-GATE-19` binds criteria to the discuss sitting immediately before
-planning, never retroactively and never far in advance of the measurements they rest
-on. This entry records WHAT the phase is; criteria lock when it is discussed.
+**STATUS: DISCUSSED AND LOCKED 2026-08-31, NOT YET PLANNED.** The discuss sitting
+happened 2026-08-31 (`24.4-CONTEXT.md`, `24.4-DISCUSSION-LOG.md`) and its FORTY-NINE
+Success Criteria are locked below, BEFORE planning and BEFORE Wave 1, per `D-GATE-19`.
+Every Fluree figure in them was re-measured against `fibo-v2` at `ledger_t = 5112` on
+the day of locking; **three figures carried out of the sitting were WRONG and were
+corrected rather than inherited** — see criteria 4, 9 and the `D-31` note.
 
-**The product is build-ready — measured 2026-08-28, re-confirmed 2026-08-31.** Fluree
-`fibo-v2` at `ledger_t = 4,560` carries `owns` 636, `isDirectlyConsolidatedBy` 140,
-`isUltimatelyConsolidatedBy` 140 and `hasGlobalUltimateParent` 103, across 91 classes
-and 171 predicates. The family-tree health probe was **repaired by `ccf_dataprep` at
+**The product is build-ready — measured 2026-08-28, re-measured 2026-08-31.** Fluree
+`fibo-v2` at `ledger_t = 5112` carries **SIX** family predicates, not the four the
+2026-08-28 survey reported: `owns` 636, `isDirectlyConsolidatedBy` 140,
+`isUltimatelyConsolidatedBy` 140, `hasGlobalUltimateParent` 103,
+**`hasDomesticUltimateParent` 36** and **`controls` 3** — 1,058 raw triples
+normalizing to **722** distinct parent→child edges over **748** nodes and **83**
+roots, across 91 classes and 171 predicates. The family-tree health probe was **repaired by `ccf_dataprep` at
 `96b88ae`**: the population now derives from the four family predicates — **136
 entities, 0 unresolved** — rather than from every `ex:lei` node, and the floor holding
 the row honest is *"ownership graph edges (all predicates) >= 500"* rather than an
-entity floor. **`ledger_t = 4,560` is the exact replay anchor for `graph_snapshot_at`**
-that `D-IMPL-218` requires — this is the first rung to have one.
+entity floor. **The claim that `ledger_t` is "the exact replay anchor for `graph_snapshot_at`" was
+STRUCK 2026-08-31 (`D-03`)** — `graph_snapshot_at` is a `datetime` and `t` is an `int`,
+the adapter FLOORS rather than pins (`D-26`), and `t` must not back `as_of`
+(`D-IMPL-88`). `ledger_t` moved 4,560 → 5,112 between two sittings six days apart,
+which is why the reproducibility claim is *"byte-identical against a quiescent ledger
+for that run"* and nothing stronger (`D-02`).
 
-**THE FOUR ONTOLOGY ROLES, all four ruled in scope by Dave 2026-08-31.** The ontology
-is load-bearing in four independent places, not decoration:
+**THE ONTOLOGY ROLES — FOUR RULED IN SCOPE 2026-08-31, REDUCED TO THREE THE SAME DAY
+(Dave).** Role 1 is STRUCK from this rung; see the marked amendment on it below and the
+`D-04` gap it became. The ontology is load-bearing in three independent places here:
 
-1. **Types constrain the walk.** Traversal follows ownership edges only between entities whose FIBO class permits it; a walk that would step onto a `Person` or a `Trade` stops.
+1. **Types constrain the walk — STRUCK FROM THIS RUNG 2026-08-31 (Dave), NOT built and NOT gated here.** The claim, restated correctly for whenever a rung can carry it: *the walk stops when the neighbor's class is outside the admitted set.* The original wording — *"a walk that would step onto a `Person` or a `Trade` stops"* — is withdrawn: **measured over all 748 family nodes, no LEI-bearing anchor reaches a node outside the 7-class `LegalPerson` `Corporation` profile within depth 3.** The class-diverse populations are real (`Person` 46, `SpecialPurposeVehicle` 50, 5-class 123, 4-class 68, 3-class 29) and every one of them sits in a component no LEI-bearing anchor reaches downward. A second anchor was measured and refused: Extreme Networks (22 nodes) and Celanese (53 nodes) carry no SPV and no Bank, and their only class variation is `Guarantor` **added to the root** — an additive class, not an exclusion, and a guarantor belongs inside a credit family anyway. Recorded as a `D-04` gap, not manufactured.
 2. **Ontology is served in the product.** The payload carries each node's FIBO class and the relevant hierarchy, so a consuming agent knows an SPV is an SPV without a second lookup. This is what makes the product self-describing over MCP.
 3. **Ontology drives the projection.** Perspective conditions on FIBO class, so a credit officer's view and a KYC analyst's view of the same family differ by class rather than by a hand-written role map.
-4. **Ontology validates the assembly.** A declared product gate asserts every returned node carries a known FIBO class and every edge is one of the four declared family predicates, so an untyped or off-ontology node cannot enter silently.
+4. **Ontology validates the assembly.** A declared product gate asserts every returned node carries a known FIBO class and every edge is one of the six declared family predicates, so an untyped or off-ontology node cannot enter silently.
 
 **THE MCP DOOR — the ladder's first, and REUSE rather than new mechanism.** No `cp-*`
 rung has ever touched MCP: a grep over `examples/cp-0*` returns zero MCP references and
@@ -2839,13 +2858,109 @@ pressure-tests** whether ontology claims must refuse **at serve** rather than on
 CI, and only such a product writes the case for a `ProductGate` Protocol.
 
 **Depends on:** Phase 24.3 (`D-GATE-24.3`, APPROVED and closed). **24.4 Success Criteria
-lock at the discuss sitting (`D-GATE-19`)** -- that is the only precondition. A gate on
+lock at the discuss sitting (`D-GATE-19`)** -- that is the only precondition, and it is
+**SATISFIED**: the sitting ran 2026-08-31 and the forty-nine criteria below were locked
+the same day, before planning. A gate on
 *"24.3 paused for evaluation"* was written here 2026-08-31 and STRUCK the same day (Dave):
 it named an already-closed subject and could never fire.
 
-**Requirements:** to be determined at the discuss sitting, under the v0.3 lane.
-`EXAM-06` (`D-IMPL-217`) applies — the example ships a companion HTML documentation
-page whose subject is the example alone.
+**Plans:** 14 plans in 12 waves (planned 2026-08-31; re-waved 2026-08-31 at plan-check —
+`24.4-05` moved from wave 4 to wave 5 and now depends on `24.4-06`, because plan `24.4-06`
+task 2 is where the shipped cycle detector and the shipped normalization are built and
+criteria 19 and 21 are statements about the SHIPPED artifact, not about a test-local copy;
+the wave COUNT is unchanged). **Wave 2 is Gate 1 and it is a
+BLOCKING HUMAN GATE** — `example_delivery.md` §1's *"No implementation code before Gate 1"*
+is absolute, and plan `24.4-02` does not complete until Dave's approval is recorded in the
+specification itself. **Waves 8, 9 and 10 are serial by construction**: each carries a
+sabotage pass over the shipped product, and parallel sabotage-verifying agents observe each
+other's mutations and read them as tampering. **Wave 12 ends in a PAUSE, not a close** —
+Dave evaluates the built product before any close panel, `D-GATE` or completion mark.
+**Three measured conflicts between the locked criteria and the shipped SDK are Gate 1
+decision items** (criterion 37 against `build_egress_server`'s unconditional resource
+registration; criterion 47 against the in-process transport's `build_governed_resolver`
+path; criterion 43 against the `docs/schemas/` orphan check) — each stated in spec §F.4
+with a proposed reading and an alternative, none resolved by the planner.
+
+Plans:
+- [x] 24.4-01-PLAN.md — the measurement pass and the committed Fluree + Postgres fixture pair
+- [x] 24.4-02-PLAN.md — **GATE 1**: CP-SPEC-004 authored to the full Standard, and Dave's approval
+- [x] 24.4-03-PLAN.md — the Control Plane documents, the five artifacts, and `gates.yaml` under a closed schema
+- [x] 24.4-04-PLAN.md — the census: criteria 3-13 re-derived at gate time
+- [x] 24.4-05-PLAN.md — the cycles and all eleven controls: criteria 14-24
+- [x] 24.4-06-PLAN.md — `deployment.py`: two source reads, normalization, findings, the refusals
+- [x] 24.4-07-PLAN.md — `produce.py`, `projection.py`, `assembler.py`: the spine and the governed seam
+- [x] 24.4-08-PLAN.md — `run.py` through `ProductClient`, and the `example-cp-04` target
+- [x] 24.4-09-PLAN.md — the ladder's first MCP door, and the two-caller equivalence proof
+- [x] 24.4-10-PLAN.md — gates `CFT-G01`..`G05`, each observed RED (serial)
+- [x] 24.4-11-PLAN.md — gates `CFT-G06`..`G09`, `G15`, `G16`, each observed RED (serial)
+- [x] 24.4-12-PLAN.md — gates `CFT-G10`..`G14`, each observed RED, and the 16-of-16 roster check (serial)
+- [x] 24.4-13-PLAN.md — README, `summary_explanations.md`, the documentation page. **AMENDED 2026-09-01 (Dave): the `mkdocs nav` clause is STRICKEN** — `docs_dir` is `public/`, the page renders into a git-ignored `examples/*/page/`, so a nav entry aborts `make docs-strict`; cp-00..cp-03 carry none either. The README and `page/build_page.py` are the surface
+- [x] 24.4-14-PLAN.md — the ELEVEN gaps `24.4-D-26`..`24.4-D-36` recorded, `src/` proven untouched, and the PAUSE for Dave. **AMENDED 2026-09-01 (Dave): this row read `D-26`..`D-31`, six, written before the `D-34`/`D-35`/`D-36` rulings.** `D-IMPL-232` is the source of truth; plan prose is not
+
+**Success Criteria** (what must be TRUE) — **LOCKED 2026-08-31, BEFORE PLANNING AND
+BEFORE WAVE 1**, per `D-GATE-19`'s forward binding. Each criterion is ONE LINE: a
+wrapped criterion parses as a single verification truth, and the criterion COUNT is
+not a wrap guard — a continuation line does not start with a digit, so a real
+continuation-line detector is required beside the count. **Every Fluree figure below
+was re-measured 2026-08-31 against `fibo-v2` at `ledger_t = 5112` before locking;
+three figures carried in from the discuss sitting were WRONG and are corrected here
+rather than inherited.**
+
+  1. A Context Product specification exists for `corporate-family-tree` at `examples/cp-04-corporate-family-tree/spec/CP-SPEC-004_Corporate_Family_Tree.md`, authored to the FULL Standard — front matter plus sections A–G — and its Gate 1 approval is recorded in the document itself; a spec still reading `reviewer pending` is RED
+  2. Spec §G states the reproducibility claim in exactly the words *"byte-identical against a quiescent ledger for that run"*, and no stronger claim appears in the README, the spec, the documentation page or any test name
+  3. The build re-derives the six family predicates from `fibo-v2` AT GATE TIME and reports exactly `owns` **636**, `isDirectlyConsolidatedBy` **140**, `isUltimatelyConsolidatedBy` **140**, `hasGlobalUltimateParent` **103**, `hasDomesticUltimateParent` **36** and `controls` **3**; a hard-coded constant, an imported fixture or a figure copied from the spec is RED
+  4. The build re-derives the raw family-triple total and reports exactly **1,058**, re-derives the NORMALIZED parent→child edge set and reports exactly **722** distinct edges, and reports the **336**-triple collapse between them, so the difference is visible rather than hidden
+  5. The build re-derives the family-graph node set and reports exactly **748** distinct nodes and exactly **83** roots
+  6. Normalization direction is asserted per predicate — `owns` and `controls` read subject→object, the four consolidation and ultimate-parent predicates read object→subject — and reversing any one of them changes the reported root count, so a bare count cannot stand in for the arrow
+  7. The build re-derives LEI coverage over the family graph and reports exactly **181 of 748** nodes carrying `ex:lei`, of which exactly **142** resolve in `ccf_v2.legal_entity`
+  8. The build re-derives the anchor and reports `SuperMicroComputerInc` carrying LEI `54930022CZO1N2UGVW07`, label `SUPER MICRO COMPUTER, INC.` and a **7**-class FIBO type chain
+  9. The build re-derives SMCI's direct children and reports exactly **19** — exactly **17** `Sub*` Exhibit-21 stubs, plus `SuperMicroComputerBV` and `CycMeridianHoldingsSa`
+  10. The build reports that `SuperMicroComputerBV` (LEI `549300F16C4PEFXU0S92`, label `SUPER MICRO COMPUTER B.V.`) and `SubSuperMicroComputerBV` (no LEI, label `Super Micro Computer B.V`) are the SAME company entered twice one hop from the anchor, and the product surfaces the pair rather than silently serving both as distinct subsidiaries
+  11. The build re-derives the SMCI subtree and reports exactly **22** reachable nodes at maximum depth **3**, with depth **1** to `CycMeridianHoldingsSa`, **2** to `CycCalderIndustrialNv` and **3** to `CycThornburyCapitalLtd`
+  12. The build re-derives the SMCI subtree's store split and reports exactly **2 of 22** nodes carrying an LEI — both resolving in `ccf_v2.legal_entity` — and exactly **20 of 22** resolving to no Postgres row
+  13. The build re-derives the deepest tree anywhere in the estate and reports depth **6** rooted at `PSC-0124`, which is the measurement the declared ceiling of 6 rests on
+  14. The build re-derives the cycle set over the whole family graph and reports exactly **2** distinct cycles, both wholly inside `owns`
+  15. Cycle 1 is served as a `findings[]` entry with `type: ownership_cycle`, `predicate: owns`, ordered `members: [CycCalderIndustrialNv, CycThornburyCapitalLtd, CycMeridianHoldingsSa]` and `closing_edge: [CycMeridianHoldingsSa, CycCalderIndustrialNv]`, asserted as that EXACT roster and never as `len(findings) > 0`
+  16. Cycle 2's roster is `[CycHarborstoneKy, CycLindenfeldGmbh, CycPahangPteLtd]` with closing edge `[CycPahangPteLtd, CycHarborstoneKy]`, and the build reports it carries **zero** external in-edges — unreachable from any LEI-bearing anchor, which is the measured reason it is not the headline
+  17. The build reports exactly **one** external edge into any cycle in the whole graph — `SuperMicroComputerInc → CycMeridianHoldingsSa` — so the anchor's reach into cycle 1 is the only such path and not one of several
+  18. All six cycle members are re-derived to carry NO LEI, and cycle 1's three members carry **7** FIBO classes each while cycle 2's carry **5** — AMENDED 2026-08-31 (Dave): the trailing clause *"so a type-constrained walk demonstrably behaves differently on each"* is STRUCK with role 1, because cycle 2 has zero external in-edges and no walk from an LEI-bearing anchor reaches it; the measured 7-versus-5 fact stands and is still asserted
+  19. The same anchor walked over `isDirectlyConsolidatedBy` alone yields NO `ownership_cycle` finding, and the negative control is production data rather than a synthetic DAG
+  20. Each of the five acyclic predicates is executed as its own negative control and yields zero cycles, so a detector that fires on everything is detected rather than passing quietly
+  21. Running the detector over the raw 1,058 triples instead of the 722 normalized edges is executed as a control, yields a cycle count other than 2, and FAILS, so an un-normalized graph cannot look green
+  22. Reading `hasGlobalUltimateParent` subject→object instead of object→subject is executed as a control, yields a root count other than 83, and FAILS, so an inverted arrow is caught by something other than a count
+  23. Asserting `len(findings) > 0` against a detector returning a WRONG three-member roster is executed as a control and FAILS, so roster-blindness is itself detected
+  24. Each control in criteria 19–23 asserts BOTH its specific wrong result AND the failure, so a control that stops discriminating is detected rather than passing quietly
+  25. `CFT-G01` — every returned node carries a known FIBO class — is sabotaged by admitting an untyped node and observed RED
+  26. `CFT-G02` — every returned edge is one of the six declared family predicates — is sabotaged by admitting a seventh predicate and observed RED
+  27. `CFT-G03` — `max_depth` above the declared ceiling of 6 is REFUSED BY NAME — is sabotaged by replacing the refusal with a silent clamp to 6 and observed RED
+  28. `CFT-G04` — a missing `max_depth` takes the DECLARED default of 3 — is sabotaged by defaulting at serve time instead of reading the declaration and observed RED
+  29. `CFT-G05` — depth is part of product identity — is sabotaged by making `max_depth` not change the content address and observed RED
+  30. `CFT-G06` — `as_of` is refused `400 not_supported_at_tier` — is sabotaged by silently honoring it and observed RED
+  31. `CFT-G07` — a cycle reaches the consumer carrying type, ordered members AND the closing edge — is sabotaged by dropping the closing edge and observed RED
+  32. `CFT-G08` — findings are orthogonal to the tree — is sabotaged by flagging cycle membership on the nodes instead and observed RED
+  33. `CFT-G09` — a node carrying no LEI stays in the tree and in the roster — is sabotaged by dropping members whose Postgres join fails and observed RED
+  34. `CFT-G10` — both stores are opened, Fluree for edges and ontology and Postgres for attributes — is sabotaged by serving attributes from Fluree and observed RED — CLARIFIED at Gate 1, 2026-08-31 (Dave): the gate asserts **the ASSEMBLY opened both stores, not that the runner did**, so a fixture that pre-opens both and hands the product a populated graph does NOT satisfy it
+  35. `CFT-G11` — the returned node set resolves to attributes in ONE batched Postgres query — is sabotaged by firing one query per node and observed RED
+  36. `CFT-G12` — no LLM client is reachable from any §D step — is sabotaged by making one reachable and observed RED
+  37. AMENDED at Gate 1, 2026-08-31 (Dave). It read *"`CFT-G13` — the MCP door is TOOL-ONLY — is sabotaged by exposing a product resource and observed RED"*, and **that wording is FALSE against this tree**: `runtime/ccf_runtime/mcp/egress.py::build_egress_server` registers `@server.resource` UNCONDITIONALLY and only the tool at `:529` sits behind `expose_product_tool`, so `build_egress_server` cannot be tool-only and a listing that includes the resource IS the SDK. `runtime/` is NOT touched (`D-04`). `CFT-G13` now asserts all three: the resource IS registered and enumerable in `resources/list`; a resolve or read of it returns `ProductNotServable` (or the existing refusal type) and NEVER a tree; and the TOOL is the only path that serves, taking a client-supplied `lei` and `max_depth`. **Sabotage: make the resolver return a payload and the gate must go RED** **AMENDED AGAIN 2026-09-01 (Dave) — the SECOND amendment to this criterion, and the THIRD locked sentence in this phase to lose to measurement.** The clause *"and enumerable in `resources/list`"* is **STRICKEN**. Measured at an MCP client rather than inferred from the decorator: `resources/list` returns `[]`, and `resources/templates/list` returns `ccf-product://{tenant}/{product_class}/{version}` — a URI carrying placeholders registers as a resource **TEMPLATE**, not a concrete entry. The prior wording was read off `@server.resource` rather than off a client, and the SDK's own `tests/crossproc/test_mcp_egress.py` enumerates neither listing, so nothing would have caught it. **WHAT DOES NOT MOVE:** the resource IS registered; a resolve or read of it returns `ProductNotServable` and NEVER a tree; the TOOL is the only path that serves; and **`D-34` is unchanged**. **The shipped check STAYS** — it asserts BOTH listings, so neither the template vanishing nor a concrete entry appearing goes unseen.
+  38. `CFT-G14` — one standalone assembler serves both callers — is sabotaged by giving `server/serve.py` its own assembly path and observed RED
+  39. `CFT-G15` — each served node carries its FIBO class chain — is sabotaged by serving the tree without type information and observed RED
+  40. `CFT-G16` — perspective conditions on FIBO class — is sabotaged by substituting a hand-written role map and observed RED
+  41. WITHDRAWN 2026-08-31 (Dave), with ontology role 1. It asserted `CFT-G17` — a type-constrained walk that STOPS at a neighbor of an inadmissible class. **The estate cannot exhibit the stop:** no LEI-bearing anchor reaches a node outside the 7-class profile within depth 3, so the gate would go green having proven nothing and its sabotage would change no output — the fourteen-idle-gates class exactly. **Deliberately NOT replaced by a positive-property restatement** (*"every admitted node's class is in the declared set"*), which is a tautology over a class-homogeneous population and would read as coverage while measuring nothing. The roster is **SIXTEEN** gates, `CFT-G01`..`CFT-G16`. The `hasTenPercentOwner` fixture that would carry this claim is a **KYC/UBO** concern and is explicitly NOT run for cp-04
+  42. No gate is recorded as passing until it has been observed RED at least once, and the sabotage applied to each is recorded with its observed result
+  43. `examples/cp-04-corporate-family-tree/artifacts/gates.yaml` declares every `CFT-G**` id as DATA under a CLOSED schema committed under `docs/schemas/`, and no gate id appears anywhere as a YAML comment only — RESOLVED at Gate 1, 2026-08-31 (Dave): the schema is `docs/schemas/product-gates/cp.product-gates.json`, deliberately OFF the top-level `docs/schemas/*.json` glob that `tools/dump_schemas.py::committed` walks and `:399` `unlink()`s, so a hand-authored file is never destroyed as an orphan; keys are CLOSED, `gates.yaml` validates against it, and ENFORCEMENT is Phase 24.5's checker, not this phase
+  44. `artifacts/expected.yaml` carries expected VALUES only and is NOT widened to carry gate rosters, and the spec's §G table is NOT the machine source for any check
+  45. Every expected figure in criteria 3–18 is read from `artifacts/expected.yaml` and never authored in a test file
+  46. The recipe artifact declares each step's `operator:` as a Standard name or `null`, its `layer:` and its `sdk_mechanism:` with a witness, and cycle detection declares `operator: null` because it executes in the L2 assembler
+  47. `run.py` consumes in-process through `ProductClient` and the MCP tool ask returns an equivalent payload for the same request, with no `GET /tenant/class/version` path anywhere in the example — RESOLVED at Gate 1, 2026-08-31 (Dave): the form is `ProductClient(product_id=…, adapter=…)`, the documented direct-adapter constructor (`src/ccf/client/client.py::ProductClient.__init__`), because `src/ccf/client/adapters/binding_document.py::RULED_OUT_KEYS` refuses a `resolver:` key BY NAME and the binding path therefore cannot express a two-store product; **the binding stays SINGLE-STORE and is not widened**, the two-store assembly happens INSIDE the product, and nothing under `src/` changes. **cp-04 is the FIRST `cp-*` rung to consume through the client seam** and it proves `D-21`'s property — one standalone assembler, two thin callers — NOT hw1's *"same `consume.py`, different `CCF_BINDING`, identical `Result`"*; no cp-04 document may imply it re-proves the latter
+  48. The example ships a companion HTML documentation page whose subject is this example alone per `EXAM-06` (`D-IMPL-217`), and its printed run is reproduced against the named `ledger_t` it was read at per `D-IMPL-218`
+  49. `D-26` through `D-31` are RECORDED in `docs/DECISIONS.md` as SDK gaps, NONE of them is closed in this phase, and no file under `src/` is modified by it — EXTENDED 2026-08-31 (Dave) to `D-32`, the ESTATE gap role 1 became: *class-diverse populations (`Person` 46, `SpecialPurposeVehicle` 50, 5-class 123) sit in components no LEI-bearing anchor reaches downward*, recorded under the same `D-04` posture and closed by neither this phase nor `ccf_dataprep` this sitting — and to `D-33`, the MECHANISM half of the same finding: *the Traversal family types the walk on EDGES only (`GQ-10`: "the walk crosses only edges whose `relationship_type` is a member of `relationship_types`"), `seed_entity_classes` seeds the frontier and is never re-applied per hop (`src/ccf/operators/categories.py::TraversalNeighborhood`) and is documented as "walk starting points" (`src/ccf/graph/protocols.py::TraversalSpec`), so a node-class admission filter has NO SDK expression* — the same class as `D-26`..`D-30`, and the second independent reason role 1 could not ship: had the estate carried the data, the walk still could not have stopped without `src/` work that criterion 49 forbids — and to `D-34`, ruled at Gate 1 2026-08-31 (Dave) and the same `D-04` class as `D-30` and `D-33`: *`build_egress_server` cannot omit a product resource from MCP `resources/list` without `runtime/` work, so a genuinely tool-only door is not expressible today; cp-04 ships a REGISTERED resource that REFUSES, and criterion 37 was amended to say so rather than left asserting something false* — and to `D-35`, ruled at wave 4 2026-09-01 (Dave) and the fourth mechanism gap of this phase: *`src/ccf/assembly/worker.py::AssemblyWorker.ingest` mints relationship claims by CLASS CO-OCCURRENCE — every declared rule whose subject and object classes both resolve from one envelope fires, nothing selects the relationship type from the payload, and a member-to-member edge cannot be minted at all because one envelope resolves at most one `family_member`; measured live, one envelope minted TWELVE relationships, SIX of them self-loops, across all six declared predicates. The declared resolution spec therefore cannot carry a typed edge from source data.* cp-04 works within it: one envelope per NODE so no relationship rule fires, `resolution.relationship_rules: []`, and each normalized edge admitted through the public `worker.admit_relationship_claim` carrying its true predicate — still the single writer, still L2, no `src/` change — and to `D-36`, ruled 2026-09-01 (Dave) and the FIFTH mechanism gap: *`src/ccf/operators/categories.py::TraversalNeighborhood` adds BOTH `subject→object` and `object→subject` to its adjacency, so the L4 walk is an undirected NEIGHBORHOOD, not a directed descendant walk. Traversal expands adjacency, not `owns` parent→child.* Measured: it serves 20/22/22 at depths 1/2/3 where the family tree gives 20/**21**/22, because `CycThornburyCapitalLtd` arrives at depth 2 through cycle 1's CLOSING EDGE rather than as a child. **No declared figure moves** — every demonstration sits at the default depth of 3, where both shapes give 22 — and it is NOT fixed in `src/`; spec §C and §D state that L4 is a neighborhood and that a directed tree is not what this SDK walk is **AMENDED 2026-09-01 (Dave) — the roster is ELEVEN and the ids are RENAMED.** The gaps this criterion governs are **`24.4-D-26` … `24.4-D-36`**, eleven of them, none closed in this phase. **The bare form `D-26` is retired from this phase's record**: `D-26`, `D-27` and `D-32` already name Phase 17 entries in the same decision log, so a bare id is ambiguous and a `! grep` guard written against one matches the other. **`D-IMPL-232` is the SOURCE OF TRUTH for the inventory; plan prose is not** — this plan's own objective named eight and its ROADMAP checklist row named six, both written before the `D-34`/`D-35`/`D-36` rulings, and both are corrected rather than counted. **AMENDED AGAIN 2026-09-01 (Dave, `D-IMPL-234`) — the roster is TWELVE.** `24.4-D-37` (cycle 2 is not askable, ruled at `D-IMPL-233` ruling 3) is a real recorded gap, so the roster this criterion governs is **`24.4-D-26` … `24.4-D-37`**, twelve, none closed in this phase. Dave: *"Do not leave 'eleven' in ROADMAP and twelve in `D-IMPL-232`'s cousin."* The eleven-member enumeration above stays as the record of the prior amendment; this sentence supersedes its cardinality.
+
+**Requirements:** discharges none. `EXAM-06` (`D-IMPL-217` / `D-IMPL-218`) applies —
+the example ships a companion documentation page whose subject is the example alone,
+with its printed run reproduced against the `ledger_t` it was read at. The phase
+RECORDS `D-26`…`D-31` as SDK gaps under `D-04` of `24-CONTEXT.md` and closes none of
+them; `D-31`'s closure is Phase 24.5.
 
 
 ## Progress
@@ -2887,7 +3002,7 @@ page whose subject is the example alone.
 | 24.2. The Second Context Product — Counterparty Reference Snapshot (cp-01) | 15/15 commits | **Complete — `D-GATE-24.2` APPROVED** (Dave, 2026-08-31, on inspection; his inspection ruled to be the criterion). **No close panel ran**, so this is not a §3.1-conforming close and the gate entry says so. Gate 1 approved by Dave 2026-08-29 (`2709a39`, spec authored, nothing implemented). Gate 2 was BUILT and never CLOSED: no close panel, no triage, and the phase's **Success Criteria were never written** — the detail section defers them to a discuss sitting that did not happen. Ships the full example plus a documentation page, and **13 gates proven by sabotage** at the time (`dd88f6e`); 13 tests green on re-run 2026-08-31. Row added retrospectively 2026-08-31: the phase existed and its bookkeeping did not. **No gate is minted, and no criteria are invented** | 2026-08-29 (recorded 2026-08-31) |
 | 24.2.1. Facility Terms Snapshot (cp-02) — built ahead of the close machinery | 3/3 commits | **Complete — `D-GATE-24.2.1` APPROVED** (Dave, 2026-08-31, on inspection; his inspection ruled to be the criterion). **No close panel ran**, so this is not a §3.1-conforming close. Specified `59f36f2`, built `f1086bb`, documented `749d1db`, all 2026-08-29 against no phase, no criteria and no gate. Row added retrospectively 2026-08-31 to discharge `D-IMPL-221`; it is the gating record, per `D-IMPL-171`. Ships the full example and 20 tests. **No criteria were invented after the fact** | 2026-08-29 (recorded 2026-08-31) |
 | 24.3. Credit Spreading — Obligor Financial Spread (cp-03), Gate 2 | 5/5 steps + close-panel fixes | **Complete — `D-GATE-24.3` APPROVED** (Dave). Commits `294cb63`..`e350cde` on `main`. All FOURTEEN gates built and every one observed RED; they did not exist at phase start. Close panel (codex + cursor; gemini absent, no key) found a PRODUCT defect — the restatement key was hard-coded against its own artifact and hid four real corrections. Nine blocking findings fixed in-phase, four advisory carried, one of the executor's own suspicions rejected. `D-IMPL-222` ruled inside the phase. **`cp-02` still has no phase (`D-IMPL-221`), carried** | 2026-08-31 |
-| 24.4. Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal & Ontology, and the Ladder's First MCP Door | 0/? | **Anchored, NOT PLANNED** — entry written 2026-08-31 on Dave's two new concepts (Fluree traversal + ontology across backends; assembly reachable over MCP, A2A deferred). **No Success Criteria yet** — `D-GATE-19` locks them at the discuss sitting. Carries `D-IMPL-223` (four scheduling classes, eight names as spec vocabulary) and `D-IMPL-224` (product gates = declared artifact + CI coverage, no `ProductGate` Protocol). Carries cp-00/cp-01 gate debt as a finding, not a reopened gate. **24.4 Success Criteria lock at the discuss sitting (`D-GATE-19`).** | — |
+| 24.4. Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal & Ontology, and the Ladder's First MCP Door | 14/14 plans + FIX-01..05 | **Complete — `D-GATE-24.4` APPROVED** (Dave). Commits `bde7660`..`14edd82` on `main`, merged `--no-ff`. Five-check eval held on live fixtures; sixteen gates `CFT-G01`..`G16` every one observed RED, `CFT-G17` withdrawn; `--role` kept on measurement (two seals, 22 vs 0 detailed). Close panel on the shipped tree: 5 blocking fixed under sabotage, 6 rejected with evidence; single-agent review: CR-01/WR-05/WR-01 fixed, CR-02's 409 claim removed from all three artifacts. `src/`+`runtime/` 0 files; twelve gaps `24.4-D-26`..`D-37` recorded, none closed. Pytest 4664/45/1 — the 1 carved by `D-IMPL-234`, NOT suite-green; cp-01/02/03 exemption claims unruled. 17 deferred rows | 2026-09-01 |
 
 ## Coverage
 

@@ -1,0 +1,886 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# WHAT THE SERVED PRODUCT SHOULD CONTAIN, DECLARED — the strong form of the
+# obligation.
+#
+# **THIS DOCUMENT DERIVES NOTHING FROM A RUN.** There is no regeneration target
+# and none will be added. If the artifacts change, run the example's test suite,
+# review the failure, then deliberately edit this file to match what you
+# reviewed, IN THE SAME COMMIT as the change. That is what makes an
+# expected-output change an edit to a REVIEWED ARTIFACT rather than a refreshed
+# transcript.
+#
+# **It also exists so the test modules have a source for their expectations
+# OTHER THAN THEMSELVES.** A number a test authored would be the test agreeing
+# with itself about what the estate holds.
+#
+# ==========================================================================
+# WHO OWNS WHICH HALF OF THIS DOCUMENT, AND WHY IT IS REOPENED LATER
+# ==========================================================================
+#
+# **WAVE 3 (plan `24.4-03`) OWNS EXACTLY TWO THINGS HERE:** the contract
+# envelope and payload key rosters, the `census:` block carrying every figure of
+# ROADMAP criteria 3 through 18, and the `wrong_methods:` block. Nothing else.
+#
+# **WAVE 5 (plan `24.4-07`) REOPENS THIS FILE AND APPENDS.** The values it adds
+# are the ones only wave 5 can know — the roster of the twenty unresolved
+# SMCI-subtree members, and the class that explains the `CFT-G16` perspective
+# difference. **The append is ADDITIVE: plan 07 rewrites no key authored here.**
+# Said out loud so a later reader meets the append as ownership rather than as
+# drift.
+#
+# **THIS FILE CARRIES EXPECTED VALUES ONLY AND IS NOT WIDENED TO CARRY GATE
+# ROSTERS** (criterion 44). The sixteen `CFT-G` ids live as DATA in
+# `artifacts/gates.yaml` under a closed schema, and the specification's §G.2
+# prose table is the machine source for nothing at all. Two documents, two
+# subjects: what the product should CONTAIN is here, what must be OBSERVED RED
+# is there.
+#
+# **AND THERE IS NO CONTENT ADDRESS IN HERE.** A `payload_hash` authored here
+# would be a transcript of a run — which is what this document exists NOT to be
+# — or the suite agreeing with itself. The hash belongs to the test's own
+# comparison: two runs of the same question, compared to each other.
+#
+# **AMENDED 2026-09-01 (Dave), IN PART AND NARROWLY. The paragraph above is
+# STRICKEN FOR THE TWO `--role` ADDRESSES AND STANDS FOR EVERYTHING ELSE.** It
+# is preserved rather than rewritten, because it is the record of what this
+# document asserted about itself and the reason the amendment is narrow is only
+# legible beside it.
+#
+# What is amended: `perspective_content_addresses` at the foot of this document
+# pins the content address each of the two declared roles seals to. Dave, at the
+# build evaluation: *"Keep both addresses and the 22→0 detailed count in the
+# expected block / README so a later 'role is cosmetic' regression cannot hide
+# behind a still-green tree of 22."*
+#
+# **WHY THE ORIGINAL RULE DOES NOT REACH THIS CASE.** The rule refuses a
+# transcript — a hash of THE run, standing in for the content the run produced,
+# which the census blocks above already declare properly. These two are not that.
+# The served MEMBER ROSTER is the same 22 under both roles, by design and by
+# `CFT-G16`'s own first limb, so **no roster in this document can tell the two
+# roles apart and none of them moves when the role stops being read.** The seal
+# and the detailed count are the only declared figures that can. A pin nobody
+# writes down here is a pin the test would have to author, and a test that
+# authors the figure it asserts is the suite agreeing with itself — which is the
+# same failure the original rule was written against, arriving from the other
+# side.
+#
+# **THE ADDRESSES ARE NOT A SUBSTITUTE FOR CONTENT AND NOTHING ELSE READS THEM.**
+# `CFT-G16`'s roster, class-axis and one-mutation limbs are unchanged and remain
+# the gate's content. The pin is an ADDITIONAL limb over the one fact those limbs
+# cannot reach: what the whole served vessel is, under each role, as a single
+# value a cosmetic role cannot leave undisturbed.
+#
+# **EVERY CENSUS FIGURE NAMES THE SECTION OF `24.4-MEASUREMENT.md` IT WAS
+# TRANSCRIBED FROM.** Not one is authored from memory and not one is copied out
+# of the specification — the specification was itself authored from that
+# document, so copying from it would be a second-hand number wearing a
+# first-hand citation.
+#
+# `role: load`. An expectation is not something the fabric is permitted to do.
+
+semver: "1.0.0"
+class_id: cp-04.expected
+
+declaration:
+  # --- The contract envelope. Follows from §B.1 and `ccf_config.yaml`. ------
+  product: reference.corporate-family
+  semantic_version: "1.0.0"
+  assembly_mode: 1
+  determinism_class: deterministic
+  ttl_anchor: from_entity_freshness
+  ttl_basis: latest_family_edge_assertion_time_in_payload
+  declared_ttl_seconds: 86400
+
+  # --- The payload's shape — §D.6's emitted contract. ----------------------
+  #
+  # KEYS, not values. What the product is addressed by is its payload, so a
+  # value written here would be a second place to change one fact.
+  payload_keys_always_present:
+    - anchor
+    - nodes
+    - edges
+    - findings
+    - max_depth_applied
+
+  anchor_keys_always_present:
+    - uri
+    - lei
+    - label
+    - type_chain
+
+  node_keys_always_present:
+    - uri
+    - lei
+    - label
+    - type_chain
+    - depth
+    - attributes
+
+  edge_keys_always_present:
+    - parent
+    - child
+    - predicate
+
+  # ORTHOGONAL TO `nodes`, and that orthogonality is the shape rather than a
+  # convention: a cycle is A SET PLUS THE EDGE THAT CLOSES IT, never a bit on a
+  # node. Flattening it onto the nodes destroys the closing edge while every
+  # node count stays right, which is why the sabotage for `CFT-G08` is exactly
+  # that flattening.
+  finding_keys_always_present:
+    - type
+    - predicate
+    - members
+    - closing_edge
+
+  # THE NULLABILITY SPLIT IS THIS PRODUCT'S SUBJECT, NOT A DETAIL. 606 of 748
+  # family nodes have no attribute row. A member with no row is a member.
+  nullable_node_keys:
+    - lei
+    - label
+    - attributes
+
+  non_nullable_node_keys:
+    - uri
+    - type_chain
+    - depth
+
+  lineage_keys_always_present:
+    - operators_invoked
+    - graph_snapshot_at
+    - ledger_t
+    - policy_version
+    - projection_plan_id
+    - context_debt
+    - payload_hash
+
+  # EXACTLY TWO, and lineage strict equality is why the number is assertable
+  # rather than approximate. Six of the ten §D steps declare `operator: null`
+  # and one declares a Standard name against a mechanism that is not a
+  # registered operator; none of the seven enters this list.
+  operators_invoked_expected:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+  # `graph_snapshot_at` IS A `datetime` AND `ledger_t` IS AN `int`. Two fields
+  # describing two axes, and one cannot carry the other (§B.1.1). Declared here
+  # because the temptation to collapse them is specific and was struck by name.
+  lineage_field_types:
+    graph_snapshot_at: datetime
+    ledger_t: integer
+
+  # ========================================================================
+  # THE CENSUS — every figure of ROADMAP criteria 3 through 18.
+  # ========================================================================
+  #
+  # Each block names its criterion and the section of `24.4-MEASUREMENT.md` the
+  # figure was transcribed from. Read at `ledger_t = 5112` on 2026-08-31, in one
+  # pass that read `ledger_t` ONCE at its start — a per-query read lets the
+  # anchor drift inside a single pass and leaves no way to tell which figure was
+  # read against which state.
+  #
+  # THE FIXTURE REPRODUCES ALL OF THEM. Every figure below was re-measured
+  # against the committed fixture seeded into a local `fluree/server:4.1.4` and
+  # a local `postgres:16`, twice, into two ledgers and two schemas. All 32
+  # measured figures agreed on both runs, and two planted defects each moved a
+  # DIFFERENT subset — 14 figures and 9 figures — so the comparison
+  # discriminates rather than merely reacting.
+  census:
+    ledger_t_read_at: 5112
+    measured_on: "2026-08-31"
+
+    # --- Criterion 3 -----------------------------------------------------
+    family_predicate_triples:
+      criterion: 3
+      source: "24.4-MEASUREMENT.md :: Criterion 3 — the six predicate counts"
+      # ENUMERATED, NEVER AGGREGATED. Over this ledger the aggregate forms
+      # invent phantoms: `COUNT(DISTINCT ?p)` returns 178 and `GROUP BY ?p`
+      # returns 198 where `SELECT DISTINCT ?p` returns 171, which is correct.
+      # Row count and distinct-pair count agree for every predicate below, so
+      # no count is inflated by a duplicated triple.
+      owns: 636
+      isDirectlyConsolidatedBy: 140
+      isUltimatelyConsolidatedBy: 140
+      hasGlobalUltimateParent: 103
+      hasDomesticUltimateParent: 36
+      controls: 3
+
+    # SEVEN OTHER RELATIONSHIP PREDICATES EXIST IN THIS LEDGER AND ARE
+    # DELIBERATELY EXCLUDED. Named so the exclusion is a roster rather than an
+    # implication, and so `CFT-G02`'s sabotage — admit a seventh — has a
+    # declared population to draw from.
+    predicates_deliberately_excluded:
+      criterion: 3
+      source: "24.4-MEASUREMENT.md :: Query surface, stated once; spec §C.5"
+      names:
+        - hasSubsidiary
+        - hasBeneficialOwner
+        - isBeneficialOwnerOf
+        - ownershipIn
+        - hasOwnershipPercentage
+        - isDirectorOf
+        - isOfficerOf
+      distinct_predicates_in_ledger: 171
+
+    # --- Criterion 4 -----------------------------------------------------
+    normalization:
+      criterion: 4
+      source: "24.4-MEASUREMENT.md :: Criterion 4 — 1,058 raw triples, 722 normalized edges, a 336-triple collapse"
+      # THE COLLAPSE MUST BE VISIBLE RATHER THAN HIDDEN. 1,058 raw triples are
+      # 722 distinct parent->child edges: six predicates routinely assert the
+      # SAME parent-child pair, so a build reporting 1,058 edges is reporting
+      # assertions and calling them relationships.
+      raw_family_triples: 1058
+      distinct_normalized_edges: 722
+      collapse: 336
+
+    # --- Criterion 5 -----------------------------------------------------
+    graph:
+      criterion: 5
+      source: "24.4-MEASUREMENT.md :: Criterion 5 — 748 nodes, 83 roots"
+      distinct_nodes: 748
+      roots: 83
+
+    # --- Criterion 6 -----------------------------------------------------
+    #
+    # DIRECTION IS ASSERTED PER PREDICATE, AND A COUNT IS BLIND TO AN ARROW.
+    # The reading below is a claim about each predicate's semantics, and the
+    # flip table under it is what makes the claim falsifiable: reversing ANY ONE
+    # of the six moves the root count off 83. A product that reported 722 edges
+    # and 83 roots with one arrow backwards would look right on both figures.
+    edge_direction:
+      criterion: 6
+      source: "24.4-MEASUREMENT.md :: Criterion 6 — direction is asserted per predicate"
+      reading:
+        owns: subject_to_object
+        controls: subject_to_object
+        isDirectlyConsolidatedBy: object_to_subject
+        isUltimatelyConsolidatedBy: object_to_subject
+        hasGlobalUltimateParent: object_to_subject
+        hasDomesticUltimateParent: object_to_subject
+      basis:
+        owns: FIBO `owns` runs parent -> child
+        controls: the validator's explicit negative control against a blanket flip
+        isDirectlyConsolidatedBy: the subject is the subsidiary
+        isUltimatelyConsolidatedBy: the subject is the subsidiary
+        hasGlobalUltimateParent: "`rdfs:range GlobalUltimateParent` — the object is the parent"
+        hasDomesticUltimateParent: same as hasGlobalUltimateParent
+
+    # EDGES AND ROOTS AFTER FLIPPING EACH PREDICATE, ONE AT A TIME. Every one
+    # moves the root count, including `controls` — three edges, and flipping it
+    # still moves the count by one, which is what makes a three-edge predicate
+    # worth asserting rather than rounding away.
+    edge_direction_flipped:
+      criterion: 6
+      source: "24.4-MEASUREMENT.md :: Criterion 6 — the flip table"
+      owns: {edges: 825, roots: 391}
+      controls: {edges: 722, roots: 82}
+      isDirectlyConsolidatedBy: {edges: 841, roots: 59}
+      isUltimatelyConsolidatedBy: {edges: 841, roots: 59}
+      hasGlobalUltimateParent: {edges: 825, roots: 59}
+      hasDomesticUltimateParent: {edges: 756, roots: 69}
+
+    # --- Criterion 7 -----------------------------------------------------
+    lei_coverage:
+      criterion: 7
+      source: "24.4-MEASUREMENT.md :: Criterion 7 — 181 of 748 carry `ex:lei`, 142 resolve"
+      family_nodes: 748
+      nodes_carrying_lei: 181
+      distinct_lei_values: 181          # 1:1 — no node carries two, no LEI is shared
+      resolving_in_legal_entity: 142
+      # THE POPULATION CONTROL, AND IT IS THE HAZARD THIS ESTATE HAS ALREADY
+      # PRODUCED ONCE. The same 181 LEIs measured against `crosswalk` — the
+      # decoy of §C.4 trap 4 — give 39: a real number about the wrong thing,
+      # which survives re-checking. 142 and 39 are far enough apart that a check
+      # reading the wrong table cannot report the right answer by accident.
+      resolving_in_crosswalk_decoy: 39
+      correct_table: legal_entity
+      decoy_table: crosswalk
+
+    # --- Criterion 8 -----------------------------------------------------
+    anchor:
+      criterion: 8
+      source: "24.4-MEASUREMENT.md :: Criterion 8 — the anchor"
+      uri: "http://example.org/fibo/SuperMicroComputerInc"
+      lei: "54930022CZO1N2UGVW07"
+      label: "SUPER MICRO COMPUTER, INC."
+      type_chain_length: 7
+      type_chain:
+        - Corporation
+        - FormalOrganization
+        - LegalEntity
+        - LegalPerson
+        - Organization
+        - Agent
+        - Party
+
+    # --- Criterion 9 -----------------------------------------------------
+    #
+    # THE ROSTER, NOT ONLY THE CARDINALITY. A right count with a wrong member
+    # audits clean forever.
+    #
+    # AND THE ROSTER IS WHAT CATCHES A PLAUSIBLE-LOOKING PREFIX BUG. TWO of the
+    # seventeen stubs carry a lower-case `micro` — `SubSupermicroKk` and
+    # `SubSupermicroTechnologyBeijingCoLtd` — so a classifier matching
+    # `SubSuperMicro` rather than `Sub` finds FIFTEEN and reports a
+    # clean-looking count. The classification below matches on the `Sub` prefix.
+    anchor_direct_children:
+      criterion: 9
+      source: "24.4-MEASUREMENT.md :: Criterion 9 — SMCI's 19 direct children, as a ROSTER"
+      total: 19
+      exhibit_21_stub_count: 17
+      exhibit_21_stubs:
+        - SubSuperMicroAsiaScienceAndTechnologyParkInc
+        - SubSuperMicroComputerArabiaLtd
+        - SubSuperMicroComputerBV
+        - SubSuperMicroComputerGmbh
+        - SubSuperMicroComputerHoldingsBV
+        - SubSuperMicroComputerIncTaiwan
+        - SubSuperMicroComputerInternationalInc
+        - SubSuperMicroComputerKoreaYh
+        - SubSuperMicroComputerLimited
+        - SubSuperMicroComputerMalaysiaSdnBhd
+        - SubSuperMicroComputerSRL
+        - SubSuperMicroComputerSarl
+        - SubSuperMicroComputerSingaporePteLtd
+        - SubSuperMicroComputerSpainSL
+        - SubSuperMicroComputerUsLlc
+        - SubSupermicroKk
+        - SubSupermicroTechnologyBeijingCoLtd
+      non_stub_children:
+        - SuperMicroComputerBV
+        - CycMeridianHoldingsSa
+
+    # PER-PREDICATE CHILD COUNTS FROM THE ANCHOR, all measured. Recorded here
+    # because one of them is the whole reason criterion 19's control is a real
+    # control: SMCI has EXACTLY ONE `isDirectlyConsolidatedBy` edge, not zero.
+    # An earlier draft asserted zero — written from the shape of the argument
+    # rather than from a query — and had it stood, that control would have been
+    # an EMPTY WALK asserting no cycle, which is a control that cannot fail.
+    anchor_children_by_predicate:
+      criterion: 9
+      source: "24.4-MEASUREMENT.md :: Appendix A — the correction made inside the pass"
+      owns: 19
+      isDirectlyConsolidatedBy: 1
+      isUltimatelyConsolidatedBy: 1
+      hasGlobalUltimateParent: 1
+      controls: 0
+      hasDomesticUltimateParent: 0
+
+    # --- Criterion 10 ----------------------------------------------------
+    #
+    # THE SAME COMPANY ENTERED TWICE, ONE HOP FROM THE ANCHOR. The product
+    # SURFACES THE PAIR rather than silently serving both as distinct
+    # subsidiaries — a family that double-counts a subsidiary is a concentration
+    # denominator that is wrong in the safe-looking direction.
+    duplicate_entity_pair:
+      criterion: 10
+      source: "24.4-MEASUREMENT.md :: Criterion 10 — the same company entered twice"
+      members:
+        - uri: SuperMicroComputerBV
+          lei: "549300F16C4PEFXU0S92"
+          label: "SUPER MICRO COMPUTER B.V."
+          type_chain_length: 7
+        - uri: SubSuperMicroComputerBV
+          lei: null
+          label: "Super Micro Computer B.V"
+          type_chain_length: 7
+
+    # --- Criterion 11 ----------------------------------------------------
+    anchor_subtree:
+      criterion: 11
+      source: "24.4-MEASUREMENT.md :: Criterion 11 — the SMCI subtree: 22 nodes, max depth 3"
+      reachable_nodes: 22            # the anchor itself included
+      maximum_depth: 3
+      depth_to:
+        CycMeridianHoldingsSa: 1
+        CycCalderIndustrialNv: 2
+        CycThornburyCapitalLtd: 3
+      # THE ARITHMETIC THE MEASUREMENT SECTION STATES IN PLACE: 19 direct
+      # children + the anchor = 20 at depth 1; + Calder = 21 at depth 2;
+      # + Thornbury = 22 at depth 3. THREE DEPTHS, THREE DIFFERENT ANSWERS,
+      # and therefore three content addresses — which is the material
+      # `CFT-G05` needs to be non-vacuous.
+      # A LIST OF PAIRS RATHER THAN A DEPTH-KEYED MAPPING, AND THE REASON IS
+      # MECHANICAL. `ccf.contracts.canonical::content_hash` raises
+      # `mapping keys must be str, got int` — an artifact whose keys are
+      # integers cannot be canonically encoded, so it cannot travel into a
+      # content address or a replay pin. `run.py` puts every artifact through
+      # that encoder and caught this on its first run, exactly as rung 03's
+      # driver caught an unquoted float. Quoting the keys would also have
+      # worked; pairs say what each number IS.
+      nodes_reached_by_depth:
+        - {depth: 1, nodes: 20}
+        - {depth: 2, nodes: 21}
+        - {depth: 3, nodes: 22}
+      # THE WALK IS CYCLE-SAFE. A node already assigned a depth is never
+      # re-queued, so the walk TERMINATES INSIDE CYCLE 1 rather than running
+      # forever. A detector that cannot terminate fails closed.
+      walk_is_cycle_safe: true
+
+    # --- Criterion 12 ----------------------------------------------------
+    #
+    # THE MULTI-STORE SPLIT MADE VISIBLE ON ONE SMALL SUBTREE: the tree is
+    # Fluree's, the attributes are PostgreSQL's, and 20 of 22 members have no
+    # attribute row at all. That is exactly the population `CFT-G09` protects.
+    anchor_subtree_store_split:
+      criterion: 12
+      source: "24.4-MEASUREMENT.md :: Criterion 12 — the subtree's store split"
+      subtree_nodes: 22
+      nodes_carrying_lei: 2
+      of_those_resolving_in_legal_entity: 2
+      nodes_with_no_postgres_row: 20
+      the_two_resolving:
+        - uri: SuperMicroComputerInc
+          lei: "54930022CZO1N2UGVW07"
+        - uri: SuperMicroComputerBV
+          lei: "549300F16C4PEFXU0S92"
+
+    # --- Criterion 13 ----------------------------------------------------
+    #
+    # PHRASED AS "DEPTH 6, WHICH `PSC-0124` ATTAINS", NEVER AS "THE DEEPEST ROOT
+    # IS `PSC-0124`". The second asserts a uniqueness this estate does not
+    # carry: SEVEN roots attain depth 6, and nothing distinguishes `PSC-0124`
+    # among them — six of the seven span 7 nodes and `PSC-0037` spans 11, so it
+    # is not even the largest. Recorded at spec §F.4 finding 7 and raised to
+    # Dave rather than smoothed.
+    deepest_tree:
+      criterion: 13
+      source: "24.4-MEASUREMENT.md :: Criterion 13 — the deepest tree in the estate is depth 6"
+      maximum_depth_anywhere: 6
+      roots_attaining_it: 7
+      roots_attaining_it_roster:
+        - PSC-0018
+        - PSC-0037
+        - PSC-0053
+        - PSC-0089
+        - PSC-0124
+        - PSC-0140
+        - PSC-0153
+      psc_0124_attains_it: true
+      psc_0124_is_unique: false
+      # Pairs rather than a depth-keyed mapping, for the canonical-encoding
+      # reason recorded at `anchor_subtree.nodes_reached_by_depth` above.
+      root_depth_distribution:
+        - {depth: 1, roots: 33}
+        - {depth: 2, roots: 18}
+        - {depth: 3, roots: 13}
+        - {depth: 4, roots: 11}
+        - {depth: 5, roots: 1}
+        - {depth: 6, roots: 7}
+
+    # --- Criterion 14 ----------------------------------------------------
+    cycles:
+      criterion: 14
+      source: "24.4-MEASUREMENT.md :: Criterion 14 — exactly two cycles, both wholly inside `owns`"
+      distinct_cycles: 2
+      all_wholly_inside_owns: true
+      cycle_edges: 6
+      # ALL SIX CYCLE EDGES ARE PRESENT IN THE `owns` ENUMERATION READ
+      # SUBJECT->OBJECT, and ZERO are contributed by any of the other five
+      # predicates in either direction.
+      cycle_edges_contributed_by_other_predicates: 0
+
+      # ==================================================================
+      # THE ROSTER ORDER IS A CONVENTION, AND IT SHIPS WITH THE DETECTOR
+      # ==================================================================
+      #
+      # Criteria 15 and 16 assert EXACT ORDERED rosters. The same circuit
+      # entered from a different node is the same SET in a different ORDER, so
+      # the ordering convention has to be PINNED or the roster assertion is
+      # unstable across runs — and A CORRECT DETECTOR USING A DIFFERENT ROTATION
+      # WOULD FAIL A CORRECT ASSERTION.
+      #
+      # The convention: ROTATE EACH CIRCUIT TO START AT ITS LEXICOGRAPHICALLY
+      # SMALLEST MEMBER. Stated at spec §C.4 trap 5 and §D.2.2 and carried here
+      # so the shipped detector INHERITS it rather than rediscovering it.
+      roster_order_convention: rotate_to_lexicographically_smallest_member
+
+    # --- Criterion 15 ----------------------------------------------------
+    cycle_1:
+      criterion: 15
+      source: "24.4-MEASUREMENT.md :: Criterion 15 — cycle 1's roster and closing edge"
+      type: ownership_cycle
+      predicate: owns
+      members:
+        - CycCalderIndustrialNv
+        - CycThornburyCapitalLtd
+        - CycMeridianHoldingsSa
+      closing_edge:
+        - CycMeridianHoldingsSa
+        - CycCalderIndustrialNv
+      member_iris:
+        - "http://example.org/fibo/CycCalderIndustrialNv"
+        - "http://example.org/fibo/CycThornburyCapitalLtd"
+        - "http://example.org/fibo/CycMeridianHoldingsSa"
+
+    # --- Criterion 16 ----------------------------------------------------
+    #
+    # CYCLE 2 IS NOT THE HEADLINE AND THE REASON IS MEASURED RATHER THAN
+    # EDITORIAL: it has ZERO external in-edges, so no walk from any LEI-bearing
+    # anchor can reach it. That same measurement is why the seventeenth gate
+    # withdrawn with ontology role 1 could never have fired on it — and the
+    # withdrawn id is deliberately NOT written here, because
+    # `tests/examples/test_cp_04_gates_declaration.py` collects every `CFT-G`
+    # token found on a COMMENT LINE across this tree and requires each one to be
+    # DECLARED. Naming it in a comment would demand its declaration, which is
+    # precisely what the withdrawal forbids. It is named on a CODE line in that
+    # module and nowhere else.
+    cycle_2:
+      criterion: 16
+      source: "24.4-MEASUREMENT.md :: Criterion 16 — cycle 2's roster, closing edge, and zero external in-edges"
+      type: ownership_cycle
+      predicate: owns
+      members:
+        - CycHarborstoneKy
+        - CycLindenfeldGmbh
+        - CycPahangPteLtd
+      closing_edge:
+        - CycPahangPteLtd
+        - CycHarborstoneKy
+      external_in_edges: 0
+
+    # --- Criterion 17 ----------------------------------------------------
+    #
+    # EXACTLY ONE, NOT ONE OF SEVERAL. The anchor's reach into cycle 1 is THE
+    # only path from the LEI-bearing population into either cycle in the whole
+    # 722-edge graph.
+    external_edges_into_any_cycle:
+      criterion: 17
+      source: "24.4-MEASUREMENT.md :: Criterion 17 — exactly one external edge into any cycle"
+      count: 1
+      edge:
+        parent: SuperMicroComputerInc
+        child: CycMeridianHoldingsSa
+      into_cycle_1: 1
+      into_cycle_2: 0
+
+    # --- Criterion 18 ----------------------------------------------------
+    #
+    # SCOPE NOTE, CARRIED FORWARD RATHER THAN DROPPED. Criterion 18 was AMENDED
+    # 2026-08-31 (Dave): its trailing clause — *"so a type-constrained walk
+    # demonstrably behaves differently on each"* — is STRUCK along with ontology
+    # role 1. The SURVIVING half is the 7-versus-5 fact below and it is still
+    # asserted. Nothing about admitted sets, class boundaries, off-ontology
+    # neighbors or a stopped-at node is expected anywhere in this document.
+    cycle_member_typing:
+      criterion: 18
+      source: "24.4-MEASUREMENT.md :: Criterion 18 — no LEI on any cycle member; 7 classes versus 5"
+      all_members_carry_no_lei: true
+      cycle_1_type_chain_length: 7
+      cycle_2_type_chain_length: 5
+      per_member:
+        CycCalderIndustrialNv: {cycle: 1, lei: null, type_chain_length: 7}
+        CycThornburyCapitalLtd: {cycle: 1, lei: null, type_chain_length: 7}
+        CycMeridianHoldingsSa: {cycle: 1, lei: null, type_chain_length: 7}
+        CycHarborstoneKy: {cycle: 2, lei: null, type_chain_length: 5}
+        CycLindenfeldGmbh: {cycle: 2, lei: null, type_chain_length: 5}
+        CycPahangPteLtd: {cycle: 2, lei: null, type_chain_length: 5}
+
+  # ========================================================================
+  # THE WRONG METHODS — the three method controls of criteria 21, 22 and 23.
+  # ========================================================================
+  #
+  # **WHY THESE NUMBERS ARE HERE AND NOT IN A TEST MODULE.** Plan `24.4-05`
+  # builds the three controls and is told the wrong results are declared HERE,
+  # never authored there. Had this document not carried them, the control module
+  # would have authored its own expectations and criterion 24 would have become
+  # a test checking its own literals — which is the same vacuity as a check that
+  # reads a token present in both the compliant and the violating case.
+  #
+  # **CRITERION 24 IS THE SUBJECT.** Each control must assert BOTH its specific
+  # wrong result AND the failure. Asserting only "this fails" keeps passing
+  # after the method stops producing a wrong answer; asserting only the number
+  # does not prove the control still discriminates.
+  #
+  # **THE THREE `yields` ARE PAIRWISE DISTINCT AND NONE EQUALS THE CENSUS FIGURE
+  # ITS CONTROL IS A CONTROL ON.** Both properties are asserted by parsing this
+  # file, not by reading it.
+  #
+  # Every `yields` is transcribed from `24.4-MEASUREMENT.md`. The shape follows
+  # rung 03's `tests/examples/fixtures/cp_03_census_expected.yaml`.
+  wrong_methods:
+    unnormalized_graph:
+      criterion: 21
+      source: "24.4-MEASUREMENT.md :: Appendix A — the detector over the RAW 1,058 triples"
+      description: >-
+        the cycle detector run over the RAW 1,058 family triples read
+        subject->object — 825 distinct pairs — instead of over the 722
+        normalized parent->child edges.
+      yields: 130
+      controls_census_figure:
+        name: census.cycles.distinct_cycles
+        value: 2
+      hides: >-
+        the per-predicate direction entirely. Reading all six predicates
+        subject->object turns every consolidation and ultimate-parent edge
+        backwards, and the resulting graph carries 130 circuits where the family
+        graph carries 2. The gap is what makes this control able to
+        DISCRIMINATE rather than merely able to differ.
+
+    inverted_ultimate_parent:
+      criterion: 22
+      source: "24.4-MEASUREMENT.md :: Criterion 6 flip table; Appendix A row 22"
+      description: >-
+        `hasGlobalUltimateParent` read subject->object instead of
+        object->subject — one predicate reversed, the other five left correct.
+      yields: 59
+      controls_census_figure:
+        name: census.graph.roots
+        value: 83
+      hides: >-
+        an inverted arrow behind a plausible edge count. The flip leaves 825
+        edges where the correct reading gives 722, and both look like reasonable
+        graph sizes — so a check that counted edges, or counted nodes, would
+        report clean. Only the ROOT count moves decisively, 83 to 59, which is
+        why criterion 6 asserts the arrow per predicate rather than trusting a
+        total.
+
+    roster_blind:
+      criterion: 23
+      source: "24.4-MEASUREMENT.md :: Criterion 14 (the count) and Criterion 15 (the roster it accepts)"
+      description: >-
+        asserting `len(findings) > 0` against a detector that returns the RIGHT
+        NUMBER of cycles with a WRONG three-member roster on cycle 1.
+      # THE NUMBER THE ROSTER-BLIND ASSERTION REPORTS IS THE RIGHT ONE, AND THAT
+      # IS THE WHOLE POINT. The substituted detector still returns two findings,
+      # so `len(findings) > 0` passes and so would `len(findings) == 2`. What
+      # fails is the EXACT ORDERED ROSTER. A right count with a wrong member
+      # audits clean forever.
+      yields: 2
+      controls_census_figure:
+        name: census.cycle_1.members length
+        value: 3
+      hides:
+        wrong_roster_accepted:
+          - CycCalderIndustrialNv
+          - CycThornburyCapitalLtd
+          - CycHarborstoneKy
+        explanation: >-
+          cycle 1's third member replaced by a cycle-2 member. Same length,
+          same first two names, same finding count, and a circuit that does not
+          exist in the graph at all — `CycHarborstoneKy` has zero external
+          in-edges and is unreachable from this anchor. A roster-blind assertion
+          accepts it; the exact-roster assertion of `CFT-G07` does not.
+
+  # ========================================================================
+  # APPENDED IN WAVE 5 BY PLAN `24.4-07`. NOTHING ABOVE THIS LINE IS TOUCHED.
+  # ========================================================================
+  #
+  # **WHY THESE TWO VALUES ARE HERE AND NOT IN A TEST MODULE.** Plan `24.4-03`
+  # authored this document in wave 3 and could only know the criteria 3 through
+  # 18 figures and the `wrong_methods` block — both values below fall out of the
+  # ASSEMBLY, which wave 5 is the first to run. No other plan reopens this file.
+  # Without the append, plan `24.4-11`'s executor would author them inside the
+  # test module that asserts them, and `CFT-G09` and `CFT-G16` would each be a
+  # test agreeing with itself.
+  #
+  # **BOTH WERE ENUMERATED FROM A RUN, NOT TRANSCRIBED FROM A SUMMARY.** The run
+  # was the shipped `assembler.py` against the committed fixture pair seeded into
+  # a local `fluree/server:4.1.4` and a local `postgres:16`, at the DECLARED
+  # DEFAULT depth of 3 and under the DECLARED default role.
+  #
+  # **THE APPEND IS ADDITIVE.** `git diff` over this file shows added lines only:
+  # no key plan 03 authored is rewritten, reordered or re-keyed.
+  #
+  # **NO `CFT-G` TOKEN APPEARS AS A KEY**, and criterion 44 is why: this document
+  # carries expected VALUES and is not widened to carry gate rosters. The sixteen
+  # ids live as DATA in `artifacts/gates.yaml` under a closed schema.
+
+  # ---- The roster `CFT-G09` asserts (criteria 12 and 33) -----------------
+  #
+  # **THE ROSTER, NEVER THE COUNT.** Criterion 12 declares the figures 2, 20 and
+  # 22 and declares NO roster — so an assertion on the count alone passes against
+  # twenty entirely different nodes, which is the defect `D-13` fixed for cycles
+  # and which `D-IMPL-229` applies to this finding by name.
+  #
+  # These twenty are the SMCI-subtree members that resolve to NO
+  # `ccf_v2.legal_entity` row. The product serves each of them with
+  # `attributes: null` and surfaces all twenty together as one
+  # `unresolved_jurisdiction` finding, ORTHOGONAL to the tree exactly as the
+  # cycle findings are. **Not one is dropped** — that is the sabotage `CFT-G09`
+  # names, and it returns a smaller, tidier, WRONG family with no error at all.
+  #
+  # **THE SABOTAGE THIS ROSTER CATCHES AND THE JURISDICTION SET DOES NOT.**
+  # `D-IMPL-229` strikes the rule that filled a missing jurisdiction from the
+  # ANCHOR. Measured: with that fill restored, the served jurisdiction set below
+  # is UNCHANGED at `{NL, US-DE}` and the closed-world check stays green, while
+  # this roster collapses from 20 to 0. A check reading the SET measures
+  # vocabulary; only the roster measures content.
+  #
+  # LOCAL NAMES, on the census convention (`census.anchor_direct_children`).
+  # The full IRIs are derived from the store's own answers; a prefix written here
+  # would be a domain value in an artifact AND a second place for the estate's
+  # namespace to be wrong.
+  unresolved_subtree_members:
+      - CycCalderIndustrialNv
+      - CycMeridianHoldingsSa
+      - CycThornburyCapitalLtd
+      - SubSuperMicroAsiaScienceAndTechnologyParkInc
+      - SubSuperMicroComputerArabiaLtd
+      - SubSuperMicroComputerBV
+      - SubSuperMicroComputerGmbh
+      - SubSuperMicroComputerHoldingsBV
+      - SubSuperMicroComputerIncTaiwan
+      - SubSuperMicroComputerInternationalInc
+      - SubSuperMicroComputerKoreaYh
+      - SubSuperMicroComputerLimited
+      - SubSuperMicroComputerMalaysiaSdnBhd
+      - SubSuperMicroComputerSRL
+      - SubSuperMicroComputerSarl
+      - SubSuperMicroComputerSingaporePteLtd
+      - SubSuperMicroComputerSpainSL
+      - SubSuperMicroComputerUsLlc
+      - SubSupermicroKk
+      - SubSupermicroTechnologyBeijingCoLtd
+
+  # ---- The class `CFT-G16` must NAME (criterion 40) -----------------------
+  #
+  # **THE ONE FIBO CLASS BOTH DECLARED PERSPECTIVES CONDITION ON**, declared by
+  # IRI at `artifacts/source-vocabulary.yaml::perspective_conditioning
+  # .class_axis_iri` and named here by its local name, the census vocabulary.
+  #
+  # **ONE CLASS, TWO SIDES — not two independent predicates**, and that is what
+  # lets the gate fail. The credit officer's view details the members that CARRY
+  # it; the KYC analyst's details the members that do NOT. Measured over the
+  # 22-node subtree: **22 detailed for `credit-officer` and 0 for
+  # `kyc-analyst`**, from one class read off the `type_chain` the graph carries.
+  # So ONE mutation to ONE node's chain moves that node in BOTH views, in
+  # opposite directions — which a hand-written role map keyed by entity name
+  # cannot reproduce, and which is the substitution `CFT-G16` is sabotaged with.
+  #
+  # **THE POPULATION IS CLASS-HOMOGENEOUS AND THAT IS MEASURED.** All 22 nodes
+  # carry the IDENTICAL 7-class chain, so no class discriminates BETWEEN
+  # members — the same measured property that withdrew ontology role 1 and the
+  # seventeenth gate with it (criterion 41). What the two roles differ by is
+  # therefore the class's presence on ALL of them, which is a difference between
+  # VIEWS and not a difference between members. Recorded plainly rather than
+  # implied.
+  #
+  # THE WITHDRAWN ID IS DELIBERATELY NOT WRITTEN HERE.
+  # `tests/examples/test_cp_04_gates_declaration.py` collects every `CFT-G`
+  # token found on a COMMENT LINE across this tree and requires each one to be
+  # DECLARED; naming the withdrawn id in a comment would demand its declaration,
+  # which is precisely what the withdrawal forbids. Wave 3 recorded that trap in
+  # `census.cycle_2` above and this append walked straight into it — caught by
+  # running the gate rather than by reading it.
+  perspective_discriminating_class: Corporation
+  perspective_detailed_members:
+    credit-officer: 22
+    kyc-analyst: 0
+
+  # ---- The two addresses `--role` seals to (`D-IMPL-233`, Dave) -----------
+  #
+  # source: re-derived 2026-09-01 from TWO INDEPENDENT RUNS of the shipped
+  #   caller, never copied from a summary, a README or a brief —
+  #   (1) `examples/cp-04-corporate-family-tree/run.py` with `--role <role>`
+  #       against the live estate (Fluree ledger `fibo-v2`, PostgreSQL schema
+  #       `ccf_v2`), at the declared default depth;
+  #   (2) the same two asks through
+  #       `tests/examples/test_cp_04_payload.py::views` against the COMMITTED
+  #       FIXTURE seeded into a local `fluree/server:4.1.4` and a local
+  #       `postgres:16`, under per-module ledger and schema names.
+  #   Both runs returned the same two addresses. That agreement is what makes
+  #   the pin assertable in CI at all: a figure true only of the live estate
+  #   would be a figure no test leg could ever read.
+  #
+  # **WHAT THIS PIN IS FOR, SAID PLAINLY.** The served member roster is the
+  # SAME 22 under both declared roles — that is the product's own claim, and
+  # `CFT-G16`'s first limb asserts it. So **the roster cannot detect a role
+  # that has stopped conditioning anything.** A regression that made `--role`
+  # cosmetic would leave every member-set assertion in this suite green, the
+  # family intact, the tree of 22 unchanged, and nothing but these two figures
+  # moved. The seal and the detailed count are the whole of what can fail.
+  #
+  # **TWO FIGURES AND NOT ONE, BECAUSE EITHER ALONE IS REACHABLE BY ACCIDENT.**
+  # `perspective_role` is echoed into the sealed payload, so a projection that
+  # ignored the role entirely would STILL produce two different addresses —
+  # exactly the shape that let `CFT-G05` pass its own first sabotage on
+  # `max_depth_applied`. **An "the two addresses differ" check is therefore
+  # vacuous here and is deliberately not what is declared.** What is declared is
+  # each address EXACTLY, so a role read for its name and not for its meaning
+  # moves one of them off the value below and is caught.
+  #
+  # **A DIFFERENT VALUE ON EACH SIDE, ASSERTED RATHER THAN ASSUMED.** The two
+  # entries below are distinct, and the check reads that distinctness from this
+  # document rather than trusting it: one address written twice would satisfy an
+  # equality pin against a product serving one view under two names.
+  #
+  # **THIS PIN IS EDITED THE WAY THIS WHOLE DOCUMENT IS EDITED** (the header):
+  # nothing regenerates it. A legitimate change to the served payload moves both
+  # addresses, the suite goes red naming `CFT-G16`, and the values below are
+  # replaced deliberately, in the same commit as the change, after the failure
+  # has been read.
+  perspective_content_addresses:
+    credit-officer: "205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498"
+    kyc-analyst: "838afbb037a8ca820a2854b1ac7eedd296262508ce00d747369bf48ee6077ea8"
+
+  # ---- `D_c` at two depths — the close-panel Finding 1 pin ----------------
+  #
+  # source: re-derived 2026-09-01 from TWO INDEPENDENT RUNS of the shipped
+  #   caller, never copied from a summary, a README or a brief —
+  #   (1) `ccf.client.client.ProductClient` over
+  #       `examples/cp-04-corporate-family-tree/transport.py::FamilyTreeInProcessAdapter`
+  #       against the LIVE estate (Fluree ledger `fibo-v2`, PostgreSQL schema
+  #       `ccf_v2`), asked twice — `max_depth` absent, and at the declared
+  #       floor;
+  #   (2) the same two asks through
+  #       `tests/examples/test_cp_04_traversal.py::ask` against the COMMITTED
+  #       FIXTURE seeded into a local `fluree/server:4.1.4` and a local
+  #       `postgres:16`, under per-module ledger and schema names.
+  #   Both runs returned the same two pairs. That agreement is what makes the
+  #   pin assertable in CI at all: a figure true only of the live estate would
+  #   be a figure no test leg could ever read.
+  #
+  # **WHY THIS PIN EXISTS.** The 2026-09-01 close panel found that
+  # `examples/cp-04-corporate-family-tree/produce.py::_agreement` opened with
+  # *"S — the fraction of SERVED members whose identity no finding disputes"*
+  # and then took its denominator from `scenario.facts` — the deployment's
+  # SOURCE-READ population, bounded by the declared CEILING, with the caller's
+  # `max_depth` applied downstream of it by the L4 traversal. So `max_depth=1`
+  # served 20 members and still reported `20/22`, and `D_c` read `0.0909` at
+  # depth 1, depth 2 and depth 3 alike. Dave: *"a scalar that cannot fail
+  # through the door. That is not the §E.2 weight TBC. It is a wrong
+  # denominator."* Depth is now a real boundary for this scalar, and this is
+  # where that claim is held.
+  #
+  # **THE ARITHMETIC, SO A READER CAN CHECK IT RATHER THAN TRUST IT.** `D_c =
+  # 1 − (F · C · S)`; on this estate `F` is 1 and `C` is 1 (§E.2.1), so `S` is
+  # the whole of the variation. Both disputed members — `SuperMicroComputerBV`
+  # and `SubSuperMicroComputerBV`, the duplicate-identity finding — sit ONE HOP
+  # from the anchor, so they survive every depth this product accepts while the
+  # denominator shrinks with it. At the declared default the payload carries 22
+  # members and `S` is `20/22`; at the declared floor it carries 20 and `S` is
+  # `18/20`. The two served rosters themselves are not re-declared here — the
+  # subtree roster lives at `census.anchor_subtree` above and the floor roster
+  # is compared between two runs rather than against a document, which is the
+  # `CFT-G05` roster limb's own design.
+  #
+  # **THIS PIN IS NOT THE TWENTY MISSING JURISDICTIONS AND NEVER BECOMES
+  # THEM.** `D-IMPL-230` ruled SERVE: the attribute shortfall reaches the
+  # consumer as the `unresolved_jurisdiction` roster finding and as
+  # `attributes: null` on each member, and is deliberately NOT folded into `S`.
+  # Folding it in gives `S = 2/22` and `D_c ≈ 0.909`, which against the
+  # declared `debt_tolerance` of `0.25` would refuse `409` and never serve the
+  # tree. Nothing in this fix moved §E.2's routing, its weights or the
+  # tolerance; only the SET `S` is taken over changed.
+  #
+  # **STRINGS AND NOT YAML FLOATS.** `0.1` parsed as a float is not the
+  # `Decimal` the fabric computed, and an equality between the two would either
+  # be false or be true by rounding. The gate compares `Decimal(str)`.
+  #
+  # **EDITED THE WAY THIS WHOLE DOCUMENT IS EDITED** (the header): nothing
+  # regenerates it. A legitimate change to the debt profile or to the estate
+  # moves these figures, the suite goes red naming `CFT-G05`, and the values
+  # below are replaced deliberately, in the same commit as the change, after
+  # the failure has been read.
+  debt_by_depth:
+    criterion: 29
+    at_the_declared_default:
+      max_depth_applied: 3
+      semantic_consistency: "0.9090909090909090909090909091"
+      context_debt: "0.0909090909090909090909090909"
+    at_the_declared_floor:
+      max_depth_applied: 1
+      semantic_consistency: "0.9"
+      context_debt: "0.1"

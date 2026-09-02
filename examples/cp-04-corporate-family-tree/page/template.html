@@ -1,0 +1,349 @@
+<title>Corporate Family Tree · cp-04</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --paper:#EFF2F3; --surface:#FFFFFF; --sunk:#E4E9EB;
+  --ink:#16202A; --ink-2:#3A4A55; --muted:#64757F; --rule:#CBD5D9;
+  --verd:#1F7A68; --verd-soft:#DCEBE7;
+  --amber:#A65E17; --amber-soft:#F6E9DA;
+  --crit:#9B2C2C; --crit-soft:#F3E0E0;
+  --tok-c:#6C7C86; --tok-k:#1F7A68; --tok-s:#8A5A2B; --tok-n:#2B4C63;
+  --shadow:0 1px 2px rgba(22,32,42,.06),0 8px 24px -12px rgba(22,32,42,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+    --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+    --verd:#46B39D; --verd-soft:#16302B;
+    --amber:#D9903F; --amber-soft:#2F2417;
+    --crit:#E07A7A; --crit-soft:#2E1B1B;
+    --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+  --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+  --verd:#46B39D; --verd-soft:#16302B;
+  --amber:#D9903F; --amber-soft:#2F2417;
+  --crit:#E07A7A; --crit-soft:#2E1B1B;
+  --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,56px)}
+.col{max-width:74ch}
+
+/* ---------- masthead ---------- */
+.mast{border-bottom:1px solid var(--rule);padding:clamp(48px,8vw,88px) 0 40px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--verd);margin:0 0 18px
+}
+h1{
+  font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weight:400;
+  font-size:clamp(38px,6.2vw,68px);line-height:1.04;letter-spacing:-.015em;
+  margin:0 0 22px;text-wrap:balance
+}
+.standfirst{font-size:clamp(17px,2vw,20px);line-height:1.6;color:var(--ink-2);margin:0;max-width:66ch}
+
+/* the shape strip — what the product IS, in its own terms */
+.shape{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);margin-top:40px
+}
+.shape div{background:var(--surface);padding:14px 16px}
+.shape dt{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0 0 5px
+}
+.shape dd{margin:0;font-size:14px;font-weight:600;line-height:1.35}
+.shape dd .sub{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:3px}
+
+/* ---------- sections ---------- */
+section{padding:clamp(44px,6vw,68px) 0;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+h2{
+  font-family:"Bodoni Moda",Georgia,serif;font-weight:400;
+  font-size:clamp(26px,3.6vw,38px);line-height:1.14;letter-spacing:-.01em;
+  margin:0 0 8px;text-wrap:balance
+}
+h3{font-size:17px;font-weight:700;margin:34px 0 10px;letter-spacing:-.005em}
+.kicker{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:0 0 14px
+}
+p{margin:0 0 16px}
+strong{font-weight:600}
+em{font-style:italic}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.875em;
+  background:var(--sunk);padding:.1em .34em;border-radius:3px;
+}
+a{color:var(--verd);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--verd) 40%,transparent)}
+a:hover{border-bottom-color:var(--verd)}
+a:focus-visible{outline:2px solid var(--verd);outline-offset:3px;border-radius:2px}
+
+/* ---------- the two-authority device ---------- */
+.auth{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin:26px 0 8px}
+.auth article{background:var(--surface);border:1px solid var(--rule);border-top:3px solid var(--verd);padding:20px 22px}
+.auth article.internal{border-top-color:var(--amber)}
+.auth h4{margin:0 0 4px;font-size:15px;font-weight:700}
+.auth .who{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--verd);margin:0 0 12px}
+.auth article.internal .who{color:var(--amber)}
+.auth dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13.5px}
+.auth dt{color:var(--muted)}
+.auth dd{margin:0;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:22px 0}
+th,td{text-align:left;padding:9px 14px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  border-bottom-color:var(--ink-2)
+}
+td code{background:none;padding:0}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* pills carry state, not decoration */
+.pill{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  font-weight:600;letter-spacing:.06em;padding:2px 8px;border-radius:99px;white-space:nowrap
+}
+.pill.yes{background:var(--verd-soft);color:var(--verd)}
+.pill.no{background:var(--crit-soft);color:var(--crit)}
+.pill.warn{background:var(--amber-soft);color:var(--amber)}
+
+/* ---------- build order ---------- */
+ol.build{list-style:none;counter-reset:step;margin:26px 0 0;padding:0}
+ol.build > li{
+  counter-increment:step;position:relative;padding:0 0 26px 54px;
+  border-left:1px solid var(--rule);margin-left:15px
+}
+ol.build > li:last-child{border-left-color:transparent;padding-bottom:0}
+ol.build > li::before{
+  content:counter(step,decimal-leading-zero);position:absolute;left:-15px;top:0;
+  width:30px;height:30px;border-radius:50%;background:var(--surface);
+  border:1px solid var(--rule);color:var(--muted);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  display:flex;align-items:center;justify-content:center
+}
+ol.build h3{margin:2px 0 6px;font-size:16px}
+ol.build p{font-size:14.5px;color:var(--ink-2);margin:0 0 12px}
+
+/* ---------- collapsibles: guidance first, source on demand ---------- */
+details{
+  background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+  margin:12px 0;box-shadow:var(--shadow)
+}
+summary{
+  cursor:pointer;padding:12px 16px;font-family:"IBM Plex Mono",monospace;
+  font-size:12.5px;font-weight:600;color:var(--ink-2);list-style:none;
+  display:flex;align-items:center;gap:10px
+}
+summary::-webkit-details-marker{display:none}
+summary::before{
+  content:"";width:0;height:0;flex:none;
+  border-left:5px solid var(--muted);border-top:4px solid transparent;border-bottom:4px solid transparent;
+  transition:transform .16s ease
+}
+details[open] > summary::before{transform:rotate(90deg)}
+summary:hover{color:var(--verd)}
+summary:focus-visible{outline:2px solid var(--verd);outline-offset:-2px;border-radius:3px}
+details .note{margin:0;padding:0 16px 12px;font-size:13px;color:var(--muted)}
+details pre{margin:0;padding:16px;background:var(--sunk);font-size:12.5px;line-height:1.55}
+details .scroll{border-top:1px solid var(--rule)}
+pre{overflow-x:auto;margin:0}
+pre code{background:none;padding:0;font-size:12.5px}
+
+/* ---------- callouts ---------- */
+.call{border-left:3px solid var(--verd);background:var(--surface);padding:18px 22px;margin:24px 0}
+.call.warn{border-left-color:var(--amber)}
+.call.crit{border-left-color:var(--crit)}
+.call p:last-child{margin-bottom:0}
+.call .lbl{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--verd);display:block;margin-bottom:7px
+}
+.call.warn .lbl{color:var(--amber)}
+.call.crit .lbl{color:var(--crit)}
+
+ul.plain{margin:0 0 16px;padding-left:20px}
+ul.plain li{margin-bottom:7px}
+
+footer{padding:44px 0 72px;color:var(--muted);font-size:13.5px}
+footer p{margin:0 0 8px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* the transcript is long; bound its box rather than the page */
+.tall{max-height:72vh;overflow-y:auto}
+</style>
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Context Product · cp-04</p>
+  <h1>Corporate Family Tree</h1>
+  <p class="standfirst">One corporate family walked from an anchor identifier, where every member carries its FIBO class chain, members with no reference record stay in the tree, and a circular ownership structure arrives with its roster and the edge that closes it — the rung where one store stops being enough.</p>
+
+  <dl class="shape">
+    <div><dt>Registry name</dt><dd>reference.corporate-family<span class="sub">v1.0.0</span></dd></div>
+    <div><dt>Tier</dt><dd>2<span class="sub">first of Tier 2 · first multi-store</span></dd></div>
+    <div><dt>Assembly mode</dt><dd>1 — pure algorithmic<span class="sub">no model in the path</span></dd></div>
+    <div><dt>Stores</dt><dd>two<span class="sub">Fluree ledger · PostgreSQL <code>legal_entity</code></span></dd></div>
+    <div><dt>Anchor</dt><dd>a company<span class="sub">by legal-entity identifier</span></dd></div>
+    <div><dt>Declared operators</dt><dd>Policy + Traversal<span class="sub">two, where every earlier rung had one</span></dd></div>
+  </dl>
+</header>
+
+<section>
+  <div class="col">
+    <p class="kicker">Orientation</p>
+    <h2>Where one store stops being enough</h2>
+    <p>Rungs 00 through 03 each read <strong>one store</strong> and answer a <strong>lookup</strong>. A corporate family cannot be either. Who owns whom lives in an ownership graph; what each company legally <em>is</em> lives in a reference table; and neither store holds the answer, because the answer is the join.</p>
+    <p>So this rung opens both on every ask, and the split is <strong>visible in the payload rather than in the architecture</strong>. Under the demonstration anchor, <strong>2 of 22 members carry a reference record and 20 do not</strong> — and all 22 are served. A build that quietly returned only the two that resolve would hand back a smaller, tidier, wrong family that balanced perfectly.</p>
+
+    <h3>What the failure actually is</h3>
+    <p>An entity-master query returns every company it has a record for. What it cannot return is <strong>the companies it has no record for</strong>. An exposure roll-up drawn from it finds the parent and one subsidiary, sums cleanly, and is wrong about the shape of the group by a factor of eleven. <strong>A member with no identifier is still a member.</strong></p>
+  </div>
+
+  <div class="col">
+    <h3>A walk, and the depth inside the seal</h3>
+    <p><code>max_depth</code> is the parameter this rung exists for, and three properties ride on it. Above the declared ceiling it is <strong>refused by name and never clamped</strong>; absent, it takes the <strong>declared default</strong> read from the Control Plane rather than invented at serve time; and <strong>two depths are two content addresses</strong> &mdash; and, since 2026-09-01, two <strong>measured debts</strong>, because <code>S</code> is taken over the members the payload actually served.</p>
+    <table class="grid">
+      <thead><tr><th>Asked</th><th>Members served</th><th>Content address</th><th><code>D_c</code></th></tr></thead>
+      <tbody>
+        <tr><td><code>--max-depth 1</code></td><td class="num">20</td><td><code>56c1d54d…</code></td><td class="num">0.1</td></tr>
+        <tr><td><strong>absent → declared default 3</strong></td><td class="num"><strong>22</strong></td><td><code><strong>205ae065…</strong></code></td><td class="num"><strong>0.0909</strong></td></tr>
+        <tr><td><code>--max-depth 8</code></td><td colspan="3"><span class="pill no">refused</span> above the ceiling of 6, by name</td></tr>
+      </tbody>
+    </table>
+    <p class="note">The dangerous version is not a wrong depth — it is a silent one. A build that clamped 8 to 6 would return a payload that looks entirely healthy, seals cleanly, and answers a question nobody asked.</p>
+
+    <h3>Ontology, load-bearing in three places</h3>
+    <p><strong>Served</strong> — every member carries its FIBO class chain, so a consuming agent needs no second lookup. <strong>Projecting</strong> — the perspective conditions on FIBO class, not on a hand-written role map, which is why <code>credit-officer</code> details 22 members and <code>kyc-analyst</code> details 0 against the same family, and why the two seal differently. <strong>Validating</strong> — declared gates refuse an untyped node and an off-vocabulary predicate.</p>
+    <div class="call warn">
+      <span class="lbl">Struck, not quietly dropped</span>
+      <p>A fourth role — <em>types constrain the walk</em> — was <strong>struck from this rung</strong> on two independently measured grounds: no identifier-bearing anchor in this estate reaches a class-diverse node within the demonstrated depth, so a gate over it would go green having proven nothing; and the SDK's traversal family types the walk on <strong>edges only</strong>, so the stop has no expression to build against. Nothing on this page claims a type-constrained walk.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The run</p>
+    <h2>One question, and what comes back beside the answer</h2>
+    <p><strong>The snapshot.</strong> The transcript below is the default run, built from the tree at commit <code>{{commit}}</code>, anchored on <code>{{anchor}}</code>, asked as of a pinned <code>{{asked_at}}</code>, read at ledger transaction <code>{{ledger_t}}</code>, serving content address <code>{{content_address}}</code>.</p>
+    <p>The <code>asked_at</code> pin and the content address are <strong>checked against the transcript itself at build time</strong>, and the ledger transaction against <code>artifacts/expected.yaml</code>; a build whose snapshot sentence disagrees with either refuses rather than publishing a page that misattributes its own run.</p>
+    <p>Reproduce it with <code>make -s example-cp-04</code> after exporting the four connection variables the README describes. The <code>-s</code> suppresses make's echo of the recipe, which is the only thing separating the target's output from the text below.</p>
+    <div class="call">
+      <span class="lbl">The claim, in exactly these words</span>
+      <p>The product reproduces byte-identical against a quiescent ledger for that run. <strong>The qualifier is load-bearing and it was measured</strong> — the ledger's transaction counter moved 4,560 to 5,112 between two sittings six days apart. Quiescence is a property of a run, never of the database. A reader whose figures differ has <em>re-derived</em>, not reproduced.</p>
+    </div>
+    <p class="note">The served product is printed first — 22 members, their edges, their class chains and three findings — followed by the summary block. The summary is the part worth reading first.</p>
+    <div class="scroll tall"><pre><code>{{run}}</code></pre></div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The order to work in</p>
+    <h2>Specification first, and everything after it derived</h2>
+    <p>The specification was authored and approved <strong>before a line of code existed</strong>. Every artifact below follows from it, including the sixteen gates, the sabotage recorded against each, and the eleven gaps this rung raised and left open. Reading in this order shows the dependency; reading the code first does not.</p>
+    {{spec}}
+    {{config}}
+    {{backends}}
+    {{question}}
+    {{vocabulary}}
+    {{ttl}}
+    {{recipe}}
+    {{expected}}
+    {{gates}}
+  </div>
+
+  <div class="col">
+    <h3>The code, which is thin on purpose</h3>
+    <p>The seam is the point. <code>deployment.py</code> names every ledger query, table, column, predicate and domain word, and makes <strong>no fabric call</strong>. <code>produce.py</code> makes every fabric call and names <strong>no table, no column and no domain word</strong>. Adapting this example to another estate touches the first and not the second.</p>
+    {{deployment}}
+    {{produce}}
+    {{projection}}
+    {{assembler}}
+    {{transport}}
+    {{run_py}}
+  </div>
+
+  <div class="col">
+    <h3>Two callers over one assembler</h3>
+    <p>The command-line driver and the MCP door reach <strong>the same standalone assembler</strong>, which knows nothing about MCP. Neither owns the question — it is composed once, so two callers that disagreed would disagree about the <em>transport</em> and never about what was asked. Measured, both seal one request to <code>205ae065…</code>.</p>
+    <p>The door is tool-only in the only sense this SDK can express today: the product <strong>tool</strong> serves, and the registered product <strong>resource</strong> refuses by name, because this class is parameterized and a resource URL carries no parameters. That the resource is registered at all is not a choice this deployment made — the egress builder registers it unconditionally — and the residual gap is recorded rather than closed.</p>
+    {{door_yaml}}
+    {{compose}}
+    {{serve}}
+  </div>
+
+  <div class="col">
+    <h3>The gates, and the documents for two readers</h3>
+    {{tests_census}}
+    {{tests_traversal}}
+    {{tests_cycles}}
+    {{tests_payload}}
+    {{tests_debt}}
+    {{tests_seams}}
+    {{tests_callers}}
+    {{tests_gates}}
+    {{readme}}
+    {{summary}}
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Refusals</p>
+    <h2>Four ways this product declines, and each is correct</h2>
+    <p><strong>A depth above the ceiling is refused, never clamped.</strong> The request says 8, a clamping build walks 6, and the payload looks fine while the seal greens. That is the whole failure mode this rung is most exposed to, which is why the refusal names the bound rather than adjusting to it.</p>
+    <p><strong>An as-of date is refused, never honored quietly.</strong> Reconstructing the family as it stood on a past date needs a temporal axis this tier does not have. The dangerous outcome is not the refusal — it is accepting the parameter and ignoring it, which answers a question about today while the caller believes they asked about last year.</p>
+    <p><strong>An unresolvable anchor is a 404, never an empty family.</strong> An empty payload reads as <em>this company has no subsidiaries</em>, which is a claim about the world rather than about the request.</p>
+    <p><strong>And the served jurisdiction vocabulary is closed in both directions.</strong> A family serving a code the document does not declare is refused; so is a document declaring a code no member serves. Most systems check only the first. A declared rule that fires on nothing looks identical to a working one, right up until the day it should have caught something.</p>
+  </div>
+
+  <div class="col">
+    <h3>Sixteen gates, and every one made to fail</h3>
+    <p>A gate that has never been observed red is not evidence that it runs. Each of the sixteen was sabotaged <strong>under its own gate id</strong> and the observed result recorded as data in <code>artifacts/gates.yaml</code> — a sabotage that turns <em>something</em> red proves only that the suite noticed.</p>
+    <p><strong>None of the sixteen passed its first sabotage</strong>, and that is not the same as saying the risk was absent. Several were rewritten <em>before</em> they were ever run, because the design pass measured that the obvious version could not discriminate. A gate asserting only <em>“two depths are two content addresses”</em> — the criterion's own wording — passes its own sabotage, because the applied depth is echoed into the payload and the payload is what is sealed. The roster limb exists because of that measurement.</p>
+    <p class="note">A check that reads a token present in both the compliant and the violating case is measuring vocabulary, not content.</p>
+
+    <h3>Three wrong methods, with the number each produces</h3>
+    <table class="grid">
+      <thead><tr><th>Method</th><th>Yields</th><th>Against</th></tr></thead>
+      <tbody>
+        <tr><td>cycle detection over the <strong>raw</strong> triples</td><td class="num">130 circuits</td><td class="num">2</td></tr>
+        <tr><td>one ultimate-parent predicate read backwards</td><td class="num">59 roots</td><td class="num">83</td></tr>
+        <tr><td><code>len(findings) &gt; 0</code> against a swapped roster</td><td class="num">accepted</td><td>exact roster refuses it</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Each control asserts both its own wrong number and that the number differs from the census, so a control that stops discriminating is itself detected rather than passing quietly.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Scope</p>
+    <h2>What this example is not</h2>
+    <p>It is not a credit opinion. The estate is public reference and filing data used to exercise mechanism, together with <strong>planted synthetic ownership circles</strong> — the circular structures are constructed rather than observed.</p>
+    <p>It is not a directed descendant tree. The walk is an undirected <strong>neighborhood</strong>: it follows a declared edge in both directions, so <em>depth</em> here is hops through adjacency rather than generations of ownership. At the demonstrated depth the two shapes agree; at depth 2 they do not, and the specification says so rather than letting a reader assume otherwise.</p>
+    <p>It is not a complete group. The demonstration anchor was chosen because <strong>one anchor exercises everything this rung teaches</strong> — a family deep enough that depth changes the answer, the only cycle reachable from an identifier-bearing anchor anywhere in the estate, the two-store split on a subtree small enough to read, and the same company entered twice. No company in this estate carries a complete reference footprint.</p>
+    <p>And <strong>eleven gaps were raised here and none was closed.</strong> Among them: the graph adapter <em>floors</em> the read at a minimum transaction rather than pinning it, which is exactly why the reproducibility claim above is bounded to a quiescent ledger for that run; the egress builder cannot withhold a product resource, so a genuinely tool-only door is not expressible and the resource must refuse instead; and no node-class admission filter exists in the traversal family, which is half of why the fourth ontology role is struck. <strong>An executor surfaces gaps; it does not close them</strong> — no file under <code>src/</code> or <code>runtime/</code> was touched by this phase.</p>
+  </div>
+</section>
+
+</div>

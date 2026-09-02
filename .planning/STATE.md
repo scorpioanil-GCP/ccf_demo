@@ -3,9 +3,126 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-31T23:35:00.000Z"
+last_updated: "2026-09-02T05:15:00.000Z"
 last_activity: >-
-  2026-08-31 -- **PHASE 24.3 IS CLOSED; 24.2 AND 24.2.1 ARE GATED RETROSPECTIVELY; TIER 1 OF
+  2026-09-01 -- **PHASE 24.4 IS CLOSED. `D-GATE-24.4` APPROVED BY DAVE, 2026-09-01, ENTERED IN
+  `docs/DECISIONS.md` AFTER `D-IMPL-234`.** Everything SS3.1 orders ran in order on the SHIPPED
+  TREE: cross-AI panel (`24.4-CLOSE-REVIEWS.md` SS1-SS10; findings 1-5 fixed under sabotage naming
+  their own gate id and restored; six rejected with evidence) -> single-agent review
+  (`24.4-REVIEW.md`, 16 findings) -> Dave's disposition -> `24.4-FIX-05` (CR-01 serve-path
+  `SystemExit` -> `AssemblyRefused`; WR-05; WR-01; CR-02's 409 claim removed from ALL THREE artifacts
+  that carried it, one test reads all three) -> SS12 of the close record -> the gate. **RULED at the
+  gate:** family-scope guards STAY `SystemExit` -- *"deployment/binding, not caller data; same
+  discriminator as unset env / mis-authored config."* **THE SUITE SENTENCE, PER THE CARVE:** nine of
+  ten `make ci` legs rc=0; pytest **4664 passed / 45 skipped / 1 failed = 4710** collected, three
+  foreground chunks proven a partition; the 1 is
+  `test_the_one_document_exemption_has_not_spread`, carved by `D-IMPL-234` and NOT suite-green --
+  cp-01/02/03's exemption claims remain UNRULED. Ratchets: unanchored citations 0; gates 16;
+  `observed_red` null 0; `src/`+`runtime/` changed files 0 (control: `examples/` 24). Gaps
+  `24.4-D-26`..`24.4-D-37` recorded, none closed. 17 deferred rows. **Next free id `D-IMPL-235`.**
+  ROADMAP ticked and progress row rewritten BY HAND; this file edited BY HAND; no `state.*` or
+  `roadmap.*` writer ran. Merged to `main` with `--no-ff` citing `D-GATE-24.4`. **Next:** the ladder's
+  next rung is Dave's to name; cp-01/02/03's exemption claims (`D-IMPL-234`) and `D-IMPL-221`'s
+  cp-02 history are the open items that predate this phase.
+  PRIOR: 2026-09-01 -- **PHASE 24.4 IS BUILT, NOT GATED. All 14 plans complete, the build was EVALUATED
+  by Dave against his own five-check gate and ALL FIVE HELD, and his FIVE RULINGS are logged at
+  `D-IMPL-233` and now APPLIED through the phase record.** **NOTHING IS CLOSED.** There is no
+  `D-GATE-24.4`, nothing is marked complete, `ROADMAP.md` carries no phase tick, and the CLAUDE.md
+  SS3.1 close panel has NOT run. Dave: *"Do not treat 14/14 plans as a close. No `D-GATE` until that
+  run plus SS3.1."* The run is done; the panel is next, and it reviews the **SHIPPED TREE** rather
+  than the plans -- write it to `24.4-CLOSE-REVIEWS.md`, inline the source over stdin (codex can exit
+  0 having read nothing, and a single argv string caps at 128KB), brief it on the known findings, and
+  verify every finding against the tree before recording it.
+  **THE FIVE RULINGS, AND WHAT EACH ONE MOVED.** (1) **Criterion 37 amended a SECOND time** --
+  `resources/list` -> `[]`, `resources/templates/list` -> the URI template, a read still refuses
+  `ProductNotServable`; *"enumerable in `resources/list`"* STRUCK; the shipped check asserting BOTH
+  listings stays; `24.4-D-34` unchanged. (2) **The `mkdocs.yml` cp-04 comment DELETED** -- `grep -c
+  'cp-04' mkdocs.yml` is now **0** against a positive control of **1** for `docs_dir`, and the file is
+  diff-EMPTY against the phase base. Plan 13's verify line no longer requires it; the measurement
+  moved to `deferred-items.md` item 11, a document a human reads and no check consults. Dave: *"A
+  `grep -q cp-04` that passes on a comment is an idle gate."* (3) **Cycle 2 RECORDED, not served** --
+  `24.4-D-37`, an ESTATE gap of `24.4-D-32`'s class; `CFT-G15` asserting the unreachability is correct
+  and stays; **no seventeenth gate**, the roster stays SIXTEEN. (4) **The three first-sabotage passes
+  are ADVISORY**, with the lesson recorded as a CLOSE NOTE and no new mechanism: *criterion-shaped
+  sabotage can still miss; a sabotage counts only when the gate goes RED naming its OWN id and the
+  tree is restored.* (5) **The gap roster is ELEVEN under RENAMED ids**, `24.4-D-26`..`24.4-D-36`.
+  **THE IDS ARE `24.4-D-NN` NOW, AND THE MAPPING IS STATED ONCE.** Dave: *"Stop using bare `D-26` in
+  this phase's record - those ids already mean Phase 17."* Measured, roster not count: a bare
+  `D-26` grep over `docs/DECISIONS.md` matches SIX entry lines -- `D-IMPL-145`, `D-IMPL-176`,
+  `D-IMPL-199` (Phase 17) and `D-IMPL-226`, `D-IMPL-232`, `D-IMPL-233` (24.4). The LIVE records were
+  normalized; the completed SUMMARYs and other dated snapshots were deliberately NOT rewritten, and
+  `D-IMPL-232` AMENDMENT 1 carries the mapping a reader resolves them against.
+  **ONE QUESTION IS OPEN AND IT IS DAVE'S: does criterion 49's roster extend from ELEVEN to TWELVE?**
+  Ruling 3 folds cycle 2 into the 24.4 gap list; ruling 5, in the same message, enumerates that list
+  as exactly eleven. Both cannot be mechanical without a twelfth id. `24.4-D-37` is recorded OUTSIDE
+  the roster; criterion 49 is NOT extended and nobody wrote that he approved twelve (`D-IMPL-227`).
+  **MEASURED AT THIS SITTING, each against a control shown to move:** `tests/examples` **787 passed /
+  113 skipped** rc=0; `tests/invariants/test_citation_coverage.py` **5 passed** rc=0 with the ratchet
+  watched go **0 -> 1 -> 0** under a planted line-anchored citation and the tree restored;
+  `tools.lints --all` rc=0, with a planted harness import in `src/` driving it to rc=1 naming
+  `cinv02-harness` and back to rc=0 on removal; `make docs-strict` rc=0; **16** gate ids enumerated
+  `CFT-G01`..`CFT-G16` with **0** `observed_red` null and **0** `CFT-G17`; `src/` and `runtime/`
+  diff-EMPTY across `92761e0..HEAD` against a positive control showing `examples/` moved **24** files
+  in the same window -- and it is recorded that a misspelled `srcc/` pathspec diffs empty EXACTLY like
+  a clean one, which is why that control exists. **`.planning/ROADMAP.md` was NOT touched by this
+  session** -- the orchestrator owns it and had already amended criteria 37 and 49 and both plan
+  checklist rows. **`src/` and `runtime/` were NOT touched.** STATE.md was hand-edited only, backed up
+  before every stage; no `gsd-sdk query state.*` or `roadmap.*` writer was invoked.
+  PRIOR: 2026-09-01 -- **PHASE 24.4's BUILD IS DONE AND THE PHASE IS PAUSED FOR DAVE. 14 of 14 plans
+  complete.** `example_delivery.md` sections 1 and 11: Dave evaluates the built product HIMSELF
+  before any close panel, `D-GATE` or completion mark. **NOTHING IS CLOSED** -- no `D-GATE-24.4`
+  exists, `ROADMAP.md` is untouched, no milestone is marked complete, and no close panel has run.
+  **The product:** `examples/cp-04-corporate-family-tree`, rung 04 and the first of Tier 2 -- the
+  ladder's first two-store product, first graph traversal, first over MCP, three ontology roles.
+  **SIXTEEN gates** `CFT-G01`..`CFT-G16`, every one observed RED under its own id, declared as DATA
+  under a closed schema; `CFT-G17` stays WITHDRAWN and must never be minted. **`D-IMPL-232` records
+  all ELEVEN gaps `24.4-D-26`..`24.4-D-36` and closes NONE of them** -- note the plan text said eight and the
+  ROADMAP bullet said six; criterion 49 says eleven, and the lag is recorded rather than reconciled.
+  **`src/` and `runtime/` are diff-EMPTY across `92761e0..83953e8`**, asserted by
+  `tests/examples/test_cp_04_phase_record.py` against pinned base and ceiling files, with the
+  instrument proven able to report a change and `srcc/` refused by name. Measured at the pause:
+  `tests/examples` **769 passed / 113 skipped** rc=0, `tools.lints --all` rc=0, unanchored Python
+  citations **0** against a ceiling of 0, gate ids **16** with **0** still null.
+  **FIVE THINGS NEED DAVE and none was decided here** -- (1) criterion 37's amended wording names
+  `resources/list` where the shipped door lists the URI only under `resources/templates/list`; a
+  wording amendment to a ruled criterion, the THIRD criterion in this phase found wrong against the
+  tree; (2) whether the `mkdocs.yml` cp-04 COMMENT stays, given that plan 13's `grep -q 'cp-04'`
+  now passes on it rather than on a nav entry; (3) cycle 2 is unservable -- zero external in-edges
+  and no member carries an LEI -- a plan-versus-estate discrepancy of `24.4-D-32`'s shape; (4) three
+  gates passed their own sabotage as their criteria worded them (`CFT-G05`, `CFT-G16`, `CFT-G10`),
+  all three rewritten BEFORE shipping so the shipped count is zero; (5) the plan-text lag above.
+  PRIOR: 2026-09-01 -- **PHASE 24.4 IS EXECUTING -- 8 of 14 plans complete, `24.4-09` IN FLIGHT at a
+  `/clear` boundary.** `main` = `7fc1bb4`. **READ
+  `.planning/phases/24.4-corporate-family-tree-cp-04-first-multi-store-product-fluree/.continue-here.md`
+  FIRST** -- it carries the in-flight state, the one OPEN question, wave 8's constraints and the
+  anti-patterns. **SIXTEEN gates** `CFT-G01`..`CFT-G16` (`CFT-G17` withdrawn), **THREE** ontology
+  roles, gaps **`D-26`..`D-36`** recorded and none closed, **zero** files under `src/` or `runtime/`
+  across the whole phase. Baseline to print as NUMBERS: forbidden files 0, unanchored citations 0,
+  gate ids 16. **Dave rulings this session: `D-IMPL-225` through `D-IMPL-231`** -- Gate 1 approved
+  with three amendments; one envelope per node with `relationship_rules: []`; a **retraction**
+  (`227`) of a ruling never made, with wave 4's work reverted; jurisdictions `{NL, US-DE}` closed;
+  policy admitting on **observed family membership** with jurisdiction served and never inherited;
+  `D-36` plus **SERVE** on context debt; and `D_c` gated on **identity dispute**, not on a missing
+  Postgres row. **OPEN, needs Dave:** whether `--role` survives -- keep only if two roles yield a
+  different `content_address`, else drop it and say so in the README. **The unanchored-citation
+  ratchet went 1 -> 41 during this phase and is now 0**; it can only be read as a number.
+  PRIOR: 2026-09-01 -- **PHASE 24.4 IS EXECUTING.** Criteria LOCKED before planning at `a80c81e`
+  (forty-nine, D-GATE-19). Fourteen plans in twelve waves at `6b752e4`, revised at `f734668`
+  (six plan-check blockers + seven warnings) and `e1c2e47` (role-1 strike folded through).
+  **Ontology role 1 STRUCK and `CFT-G17` WITHDRAWN** (Dave, ruling A, `853ccc9`): the product
+  carries THREE ontology roles and SIXTEEN gates. Two independent blockers, both measured --
+  `D-32` the ESTATE gap (no LEI-bearing anchor reaches a node outside the 7-class profile
+  within depth 3) and `D-33` the MECHANISM gap (`GQ-10` types traversal on EDGES only; no
+  node-class admission filter exists), recorded at `e8cb3c7`. Refused by name: a second anchor
+  whose only class variation is `Guarantor` on the root, a positive-property restatement
+  (tautology over a class-homogeneous population), and projecting `person_role`'s 44
+  `ten_percent_owner` rows onto `owns` -- Dave: *"changing the fixture so a sentence stays
+  true."* SMCI headline untouched: 22 nodes, both cycles, depth 3, ceiling 6, 722 edges.
+  **Wave 2 is Gate 1 and BLOCKS for Dave** (CP-SPEC-004). Wave 12 pauses again.
+  **`state.begin-phase` CORRUPTED STATE.md this session** -- 2517 lines to 1653, 864 lost, while
+  reporting success. Restored byte-identical from a pre-call backup and hand-edited since.
+  Do not call a `state.*` writer on this file without backing it up first.
+  PRIOR: 2026-08-31 -- **PHASE 24.3 IS CLOSED; 24.2 AND 24.2.1 ARE GATED RETROSPECTIVELY; TIER 1 OF
   THE CONTEXT PRODUCT LADDER IS COMPLETE.** `D-GATE-24.3` at `5dfdd8d`; `D-GATE-24.2` and
   `D-GATE-24.2.1` APPROVED on Dave's inspection -- the success criterion was his inspection,
   ruled explicitly. All four rungs closed: cp-00 (24.1/24.1.1), cp-01 (24.2), cp-02 (24.2.1),
@@ -648,12 +765,18 @@ last_activity: >-
   `DOCS-14`/`EXAM-02`'s replacement surface. **DELETION REMAINS OWED FOR EVERY SCHEDULED ROW**
   (`D-IMPL-191` ruling 3).
 progress:
-  total_phases: 31
-  completed_phases: 29
-  total_plans: 225
-  completed_plans: 225
+  total_phases: 36
+  completed_phases: 34
+  total_plans: 257
+  completed_plans: 257
   percent: 94
-  measured: "**OPERATIVE RE-MEASURE AT THE PHASE 23.1 GATE, 2026-08-25/26 by
+  measured: "**RE-MEASURED AT THE PHASE 24.4 GATE, 2026-09-01, by hand, stated FIRST;
+    everything below is PRESERVED HISTORY.** total_plans 257 = `*-PLAN.md` at depth 1 under
+    `.planning/phases/*/` (control `*-PLANN.md` = 0); completed_plans 257 = those with a
+    `*-SUMMARY.md` beside them. total_phases 36 = `### Phase` sections in ROADMAP.md;
+    completed_phases 34 = `- [x] **Phase` checklist ticks, with 1 unticked and the checklist
+    one entry SHORT of the sections (the four-places drift, known). percent left at 94 because
+    the milestone's DOCS debt (`D-IMPL-176`) is unchanged, not because it was computed. **OPERATIVE RE-MEASURE AT THE PHASE 23.1 GATE, 2026-08-25/26 by
     plan `23.1-08`, stated FIRST and alone; everything below it is PRESERVED HISTORY.**
     RE-MEASURED FROM THE TREE, NOT INCREMENTED (Dave, 2026-08-25: *re-measure and
     hand-correct; do not increment*). **total_plans 225** = `*-PLAN.md` at depth 1 under
@@ -749,7 +872,25 @@ progress:
     bullet is struck through as superseded). The first is the EXACT error recorded against
     a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
-  **PHASE 24.1: WAVES 1-10 OF 11 DONE. WAVE 10 IS PARKED ON EXACTLY ONE DAVE DECISION AND
+  **PHASE 24.4 IS CLOSED -- `D-GATE-24.4` APPROVED (Dave, 2026-09-01) and merged to `main`
+  `--no-ff`.** Nothing is in flight. The next rung of the Context Product ladder is Dave's to name.
+  Open items that PREDATE this phase and are not its debt: cp-01/02/03's one-document exemption claims
+  are unruled (`D-IMPL-234` carves the one red test to them); `D-IMPL-221`'s cp-02 history. The
+  phase's own 17 deferred rows live in `deferred-items.md`. Next free decision id `D-IMPL-235`.
+  PRIOR:
+  **PHASE 24.4 IS PAUSED AFTER ITS BUILD, AWAITING DAVE'S EVALUATION OF THE PRODUCT.** 14 of 14
+  plans complete. The stop is the DELIVERABLE, not a blocker: `example_delivery.md` sections 1 and
+  11 put the pause after the build and before any close panel, `D-GATE` or completion mark, and
+  Dave validates that `examples/cp-04-corporate-family-tree` runs from a cold shell himself.
+  **Nothing is closed** -- `docs/DECISIONS.md` has no `D-GATE-24.4` entry (0 entry-opening lines,
+  against a control of 1 for `D-GATE-24.3`), `ROADMAP.md` is untouched, no milestone is marked
+  complete. **The next event is Dave's evaluation.** He resumes with "approved" for the close
+  protocol, or with what to fix. **Five items need his ruling and none was decided by the
+  executor:** criterion 37's wording versus the measured `resources/list`; whether the
+  `mkdocs.yml` cp-04 comment stays; cycle 2's unservability; the three gates that passed their own
+  sabotage as worded (all rewritten before shipping); and the plan text that named eight gaps
+  where criterion 49 names eleven. See `## Current Position` above and `24.4-14-SUMMARY.md`.
+  PRIOR: **PHASE 24.1: WAVES 1-10 OF 11 DONE. WAVE 10 IS PARKED ON EXACTLY ONE DAVE DECISION AND
   WAVE 11 CANNOT START UNTIL IT LANDS.**
   **THE DECISION -- BLOCKER A.** `tests/products/test_gate_two_call_shape.py`
   `MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1`, no headroom BY DESIGN so a human rules on each
@@ -968,6 +1109,113 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**PHASE 24.4 IS CLOSED. `D-GATE-24.4` APPROVED (Dave, 2026-09-01).** Built, evaluated (five-check
+gate held on live fixtures), paneled on the shipped tree, reviewed, fixed, gated, merged `--no-ff`.
+`src/` + `runtime/` 0 files changed; gaps `24.4-D-26`..`24.4-D-37` recorded and none closed. Pytest
+4664 / 45 / 1 -- the 1 is the `D-IMPL-234` carve and is NOT suite-green. Family-scope guards stay
+`SystemExit` by ruling. Next id `D-IMPL-235`. Nothing is in flight; the next rung is Dave's call.
+Everything below this paragraph is the record as it stood before the gate.
+
+**PHASE 24.4 IS BUILT, NOT GATED. THE BUILD WAS EVALUATED AND DAVE'S FIVE-CHECK GATE HELD ON
+LIVE FIXTURES. HIS FIVE RULINGS ARE LOGGED AT `D-IMPL-233` AND APPLIED.** 14 of 14 plans have
+SUMMARYs. `main` is ahead of `origin/main`; the tree is clean. **Nothing is closed:**
+`docs/DECISIONS.md` holds no `D-GATE-24.4`, `.planning/ROADMAP.md` is not ticked for this phase,
+no milestone is marked complete, and **no close panel has run.**
+
+**THE EVALUATION IS DONE.** All five of Dave's checks held, run against the live fixtures rather
+than reproduced from a document: 22 nodes at `205ae065...`; `MAX_DEPTH=2` and `MAX_DEPTH=4`
+sealing to DIFFERENT addresses; `MAX_DEPTH=8` refused BY NAME at the ceiling of 6 and never
+clamped; `AS_OF` refused `not_supported_at_tier`; and 22 subtree nodes of which 2 resolve in the
+attribute store and 20 resolve to NO row and STAY IN THE TREE. Dave: *"If those five hold on your
+machine, the build is the product you asked for."*
+
+**WHAT COMES NEXT IS THE CLAUDE.md SS3.1 CLOSE PANEL, AGAINST THE SHIPPED TREE.** Dave: *"Do not
+treat 14/14 plans as a close. No `D-GATE` until that run plus SS3.1."* The run is done; the panel
+is not. It reviews the **shipped code**, not the plans -- those are already executed. Write it to
+`24.4-CLOSE-REVIEWS.md` so any pre-execution plan review survives. **Inline the source over
+stdin:** on this host `codex` can exit 0 having read nothing (its `bwrap` sandbox fails silently)
+and a single argv string caps at 128KB, where an over-long payload dies rc=126 with 0 bytes and
+reads exactly like a clean empty review. Brief the panel on the findings already known and point
+it at what is ADJACENT to each. **Verify every finding against the tree before recording or acting
+on it, and record the rejected ones as rejected.** Then triage blocking vs advisory, fix blocking
+in-phase, present to Dave, and only then `D-GATE-24.4`.
+
+**THE ONE OPEN QUESTION, AND IT IS DAVE'S: does criterion 49's roster extend from ELEVEN to
+TWELVE?** Ruling 3 folds *cycle 2 is not askable* into the 24.4 gap list; ruling 5, in the same
+message, enumerates that list as exactly eleven, `24.4-D-26` through `24.4-D-36`. Both cannot be
+mechanical without a twelfth id. It is recorded as **`24.4-D-37`, OUTSIDE the roster**, at
+`D-IMPL-232` AMENDMENT 2. Criterion 49 is NOT extended, nothing is renumbered, and nobody wrote
+that he approved twelve (`D-IMPL-227`, silence is not assent).
+
+**RULING 4's CLOSE NOTE, to be read before the panel runs:** *criterion-shaped sabotage can still
+miss; a sabotage counts only when the gate goes RED naming its OWN id and the tree is restored.*
+`CFT-G05`, `CFT-G16` and `CFT-G10` each passed the sabotage their own criterion worded, from three
+unrelated causes with one shape -- each was reading a RECORD OF THE INTENT rather than the EFFECT.
+All three were rewritten before shipping, so the shipped count is ZERO. **A note, not a mechanism:
+no new test, no new lint, no new gate. Dave said so in terms.**
+
+**WHAT TO RUN, if the product is to be exercised again, in order:** `make venv`; export the two connection variables the README's Run-it
+section names; `make -s example-cp-04`; then `MAX_DEPTH=2` and `MAX_DEPTH=4` (the content
+addresses must DIFFER); then `MAX_DEPTH=8` (must be REFUSED BY NAME at the ceiling of 6, never
+clamped); then `AS_OF=2026-01-01` (must be refused `not_supported_at_tier`); then read
+`examples/cp-04-corporate-family-tree/summary_explanations.md`; then build and open the page with
+`.venv/bin/python examples/cp-04-corporate-family-tree/page/build_page.py`.
+
+**THE FIVE ITEMS THAT WERE WAITING ON DAVE ARE ALL RULED, at `D-IMPL-233`, and applied. The
+paragraph below is kept as the record of what was carried to him and what each item actually was.
+(1) RULED -- criterion 37 amended a second time; `resources/list` -> `[]` and the
+`resources/templates/list` wording stands; the shipped both-listings check stays. (2) RULED -- the
+`mkdocs.yml` comment is DELETED and plan 13's verify line freed; the measurement moved to
+`deferred-items.md` item 11. (3) RULED -- cycle 2 is RECORDED, not served: `24.4-D-37`, outside
+criterion 49's roster, with the roster question left OPEN to Dave. (4) RULED -- advisory, with a
+close note and no new mechanism. (5) RULED -- the roster is ELEVEN under RENAMED `24.4-D-NN` ids.
+The original text, preserved:**
+
+**FIVE ITEMS WERE WAITING ON DAVE and none was decided by the executor.** (1) **Criterion 37's
+amended wording is wrong against the tree** -- it says the product resource is *"enumerable in
+`resources/list`"*, and measured at an MCP client `resources/list` returns `[]` while
+`resources/templates/list` returns the URI template, because a placeholder URI registers as a
+TEMPLATE. Substance and `24.4-D-34` are unchanged and the shipped check asserts BOTH listings. This is
+the THIRD criterion in this phase found wrong against the tree, and amending a ruled criterion is
+Dave's (`D-IMPL-222`). (2) **The `mkdocs.yml` cp-04 nav entry could not be made** -- `docs_dir` is
+`public/` and the render is git-ignored, so a nav entry aborts `make docs-strict`; cp-00..cp-03
+carry none either and no locked criterion requires one. The measurement was recorded as a COMMENT
+in `mkdocs.yml`, so plan 13's `grep -q 'cp-04' mkdocs.yml` now passes on the comment rather than
+on a nav entry -- a token present in both the compliant and the violating case. Whether the
+comment stays is Dave's. (3) **Cycle 2 is unservable** -- `expected.yaml` gives
+`cycle_2.external_in_edges: 0`, `into_cycle_2: 0`, and all six members carry `lei: null`, so it can
+be reached neither as a subtree nor asked for as an anchor; plan 11 asserted the unreachability
+instead. Criterion 39 speaks of SERVED nodes so it is discharged, but it is a plan-versus-estate
+discrepancy of `24.4-D-32`'s shape. (4) **Three gates passed their own sabotage when written as their
+criterion worded it** -- `CFT-G05`, `CFT-G16` and `CFT-G10`, from three unrelated causes, each
+caught and rewritten BEFORE shipping, so the shipped count of gates that passed their first
+sabotage is ZERO. (5) **The plan text lagged its own criterion** -- plan `24.4-14`'s objective
+names eight gaps and its ROADMAP checklist bullet names six; criterion 49 as amended names
+ELEVEN, `24.4-D-26`..`24.4-D-36`. All eleven are recorded at `D-IMPL-232`; the lag is written down rather
+than reconciled away, and criterion 49 was NOT amended.
+
+**MEASURED AFTER THE RULINGS WERE APPLIED, 2026-09-01, each against a control shown to move:**
+`tests/examples` **787 passed / 113 skipped** rc=0; `tests/invariants/test_citation_coverage.py`
+**5 passed** rc=0, with the ratchet watched go **0 -> 1 -> 0** under a planted line-anchored
+citation and the tree restored; `tools.lints --all` rc=0, driven to rc=1 naming `cinv02-harness`
+by a planted harness import in `src/` and back to rc=0 on removal; `make docs-strict` rc=0;
+`grep -c 'cp-04' mkdocs.yml` **0** against a positive control of **1** for `docs_dir`; **16** gate
+ids enumerated `CFT-G01`..`CFT-G16` with **0** `observed_red` null and **0** `CFT-G17`; `src/` and
+`runtime/` diff-EMPTY across `92761e0..HEAD` against a positive control showing `examples/` moved
+**24** files in the same window, and it is recorded that a misspelled `srcc/` pathspec diffs empty
+EXACTLY like a clean one, which is why that control exists.
+
+**MEASURED AT THE PAUSE, before the rulings, each with a positive control** (`D-IMPL-232`,
+`24.4-14-SUMMARY.md`): `tests/examples` **769 passed / 113 skipped** rc=0; `tools.lints --all` rc=0; unanchored Python
+citations **0** against a ceiling of 0, with the ratchet watched go 0 -> 1 -> 0 under a planted
+citation; **16** declared gate ids with **0** still `null` and `CFT-G17` absent; `src/` and
+`runtime/` both diff-EMPTY across `92761e0..83953e8`, against a positive control showing
+`examples/` moved 24 files in the same window and a `srcc/` pathspec refused by name.
+
+---
+
+**WHAT IS BELOW HERE IS SUPERSEDED and is kept rather than overwritten** (`D-19`, `D-IMPL-174`).
 
 **PHASE 24.3 IS CLOSED. TIER 1 OF THE CONTEXT PRODUCT LADDER IS COMPLETE. PHASE 24.4 IS
 ANCHORED BUT NOT PLANNED, AND ITS BUILD HAS NOT STARTED.** `origin/main` = `92761e0`, tree
