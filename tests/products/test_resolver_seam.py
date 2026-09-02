@@ -79,6 +79,7 @@ from tests.deployment.conftest import (
     ARTIFACT_SET,
     POLICY_BUNDLE_KEY,
     PRODUCT_CLASS_KEY,
+    SIGNAL_BATCH_KEY,
     TENANT,
     TRAVERSAL_KEY,
     manifest_document,
@@ -319,6 +320,19 @@ def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
         registry=control_plane,
         connection={"database_path": str(tmp_path / "resolver-seam.sqlite3")},
     )
+    # 24.5-L-24: the fixture ingests the deployment's OWN signal batch (the
+    # one `acct-1` envelope `tests/deployment` ships, an hour before
+    # `ASKED_AT`) so the traversal has something to assemble. Until the
+    # empty-operator gate's returned-empty half existed, this fixture served
+    # over an EMPTY fabric — `"assembled": 0` — which
+    # `ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT` now refuses by name
+    # through the governed resolver. The seam under test is the composition
+    # (assemble → gate → serve, and its refusal legs), not emptiness; the
+    # success leg stays a success leg by carrying one entity, and the
+    # refusal legs below force the gate they name on a candidate that
+    # passed the two empty-operator halves.
+    for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
+        fabric.handle.worker.ingest(envelope)
     try:
         yield _Booted(
             fabric=fabric,
@@ -458,6 +472,22 @@ def test_an_answerable_question_yields_a_served_product(booted: _Booted) -> None
     assert outcome.product.expires_at == ASKED_AT + timedelta(
         seconds=PRODUCT_TTL_SECONDS
     )
+
+
+def test_the_success_leg_assembles_the_fixtures_own_entity(booted: _Booted) -> None:
+    """The positive control for the seeded fixture (``24.5-L-24``).
+
+    The success leg is a success leg because the traversal assembled the ONE
+    entity the deployment's own signal batch carries — not because the
+    returned-empty half of the empty-operator gate was bypassed. A fixture
+    that went green with ``"assembled": 0`` would mean the resolver stopped
+    threading ``execution.empty_results`` into ``run_gates``, which is the
+    one repair this seeding must never stand in for.
+    """
+    outcome = _ask(_resolver(booted), _request())
+
+    assert isinstance(outcome, ServedProduct)
+    assert outcome.product.payload["assembled"] == 1
 
 
 def test_the_served_products_replay_reference_resolves(booted: _Booted) -> None:

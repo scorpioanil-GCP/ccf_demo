@@ -192,6 +192,21 @@ class ExecutionResult(CCFContract):
             :attr:`~ccf.products.contract.ProductLineage.store_snapshot_pin`
             and :func:`~ccf.replay.record.build_replay_record` pins it into
             replay dimension 1, where replay resolves exactly it or refuses.
+        empty_results: The operator keys whose output view carried zero
+            entities AND zero relationships (ledger row ``24.5-L-24``) —
+            the Standard's *an operator returned an empty set*, observed by
+            the thing that ran it. Computed ALWAYS by
+            :meth:`ProjectionEngine.execute`, one inspection of each
+            operator's :class:`~ccf.operators.base.OperatorOutput` view as
+            it is produced, so the empty set is the engine's positive
+            assertion *no operator returned empty* and not a sentinel for
+            absence — an engine execution always observes this. The
+            governed resolver threads it to
+            :func:`~ccf.products.gates.run_gates` as ``empty_results``,
+            where the second half of the empty-operator gate
+            (:data:`~ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT`) refuses
+            a non-empty set by name; a result built by hand without the
+            field carries the empty set and passes.
     """
 
     plan_id: str
@@ -205,6 +220,7 @@ class ExecutionResult(CCFContract):
     survivor_cap: int | None = None
     source_attestation: SourceAttestation | None = None
     store_snapshot_pin: StoreSnapshotPin = NO_STORE_SNAPSHOT_PIN
+    empty_results: frozenset[str] = frozenset()
 
     def touched_entities(self) -> tuple[str, ...]:
         """Entity URIs the execution actually touched, sorted."""
@@ -544,6 +560,10 @@ class ProjectionEngine:
         chain: tuple[OperatorProvenance, ...] = ()
         executed_queries: list[GraphQuery] = []
         survivor_sizes: list[int] = []
+        # 24.5-L-24: the operator keys whose output carried nothing — read
+        # off each OperatorOutput once, as it is produced, never off the
+        # payload. Always computed; the empty set is a positive assertion.
+        empty_results: set[str] = set()
         self._last_survivor_set_sizes = ()
         survivors: frozenset[str] | None = None
         view: GraphView | None = None
@@ -569,6 +589,8 @@ class ProjectionEngine:
                 )
                 current = output.view
                 outputs[operator.key] = output
+                if not output.view.entities and not output.view.relationships:
+                    empty_results.add(operator.key)
                 chain = (output.provenance,)
                 steps.append(
                     ExecutionStep(
@@ -674,4 +696,5 @@ class ProjectionEngine:
             # The head read before the first query, not re-read here: a
             # second read could report a head the queries never saw.
             store_snapshot_pin=store_snapshot_pin,
+            empty_results=frozenset(empty_results),
         )

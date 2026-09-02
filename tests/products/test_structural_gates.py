@@ -74,6 +74,7 @@ from ccf.products.contract import (
 from ccf.products.gates import (
     GATE_DECLARED_OBLIGATIONS,
     GATE_EMPTY_OPERATOR,
+    GATE_EMPTY_OPERATOR_RESULT,
     GATE_LINEAGE_ATTRIBUTABILITY,
     GATE_LINEAGE_EQUALITY,
     GATE_SOURCE_ATTESTATION,
@@ -112,12 +113,17 @@ PAYLOAD_WITH_MEMBER: Mapping[str, Any] = {"value": 1, OBLIGED_MEMBER: ["line-1"]
 PAYLOAD_WITHOUT_MEMBER: Mapping[str, Any] = {"value": 1}
 PAYLOAD_EMPTY_MEMBER: Mapping[str, Any] = {"value": 1, OBLIGED_MEMBER: []}
 
-#: D-IMPL-238's five, by name, and the one D-IMPL-237 licenses — the rosters
-#: the census judges by set equality. The numerals below are the sizes of
-#: these sets and nothing else.
+#: D-IMPL-238's five, by name; the one mechanism D-IMPL-237 licenses
+#: (`declared-obligations`, plan 24.5-13); and the returned-empty half of the
+#: empty-operator gate that D-IMPL-238's second sentence unlocked
+#: (`empty-operator-result`, plan 24.5-15, ledger row 24.5-L-24) — the
+#: rosters the census judges by set equality. The numerals below are the
+#: sizes of these sets and nothing else: six on `run_gates`, five on
+#: `run_federated_gates`, seven distinct across the two.
 RUN_GATES_TOKENS: frozenset[str] = frozenset(
     {
         "empty-operator-guard",
+        "empty-operator-result",
         "lineage-strict-equality",
         "ttl-bounds",
         "source-attestation",
@@ -127,6 +133,7 @@ RUN_GATES_TOKENS: frozenset[str] = frozenset(
 RUN_FEDERATED_GATES_TOKENS: frozenset[str] = frozenset(
     {
         "empty-operator-guard",
+        "empty-operator-result",
         "lineage-attributability",
         "ttl-bounds",
         "declared-obligations",
@@ -748,7 +755,19 @@ def _roster_problems(
 
 
 def test_both_runners_register_exactly_the_recorded_tokens() -> None:
-    """``run_gates`` = five, ``run_federated_gates`` = four, six distinct across both — by set equality."""
+    """``run_gates`` = six, ``run_federated_gates`` = five, seven distinct across both — by set equality.
+
+    How the roster came to be this size, so the numerals are never read as
+    a ceiling: ``D-IMPL-238`` recorded FIVE tokens by name; ``D-IMPL-237``
+    licensed ONE mechanism beyond them (``declared-obligations``, plan
+    ``24.5-13``); and ``D-IMPL-238``'s second sentence unlocked the
+    returned-empty half of the empty-operator gate (``empty-operator-result``,
+    plan ``24.5-15``, ledger row ``24.5-L-24``) — a NAME for an assertion
+    that had none, not a second mechanism. Six on ``run_gates``, five on
+    ``run_federated_gates``, seven distinct names across the two runners,
+    and no payload gate. Judged by set equality with arrivals and departures
+    reported separately; never a superset check.
+    """
     local = _tokens_registered_by(run_gates)
     federated = _tokens_registered_by(run_federated_gates)
 
@@ -764,9 +783,12 @@ def test_both_runners_register_exactly_the_recorded_tokens() -> None:
     assert len(set(federated)) == len(RUN_FEDERATED_GATES_TOKENS)
     assert set(local) | set(federated) == RUN_GATES_TOKENS | RUN_FEDERATED_GATES_TOKENS
     assert GATE_DECLARED_OBLIGATIONS in set(local) & set(federated)
-    # And the constants the module exports spell the same five-plus-one.
+    # Both halves of the empty-operator gate are on BOTH runners (24.5-L-24).
+    assert {GATE_EMPTY_OPERATOR, GATE_EMPTY_OPERATOR_RESULT} <= set(local) & set(federated)
+    # And the constants the module exports spell the same five-plus-one-plus-one.
     assert RUN_GATES_TOKENS == {
         GATE_EMPTY_OPERATOR,
+        GATE_EMPTY_OPERATOR_RESULT,
         GATE_LINEAGE_EQUALITY,
         GATE_TTL_BOUNDS,
         GATE_SOURCE_ATTESTATION,
@@ -774,10 +796,12 @@ def test_both_runners_register_exactly_the_recorded_tokens() -> None:
     }
     assert RUN_FEDERATED_GATES_TOKENS == {
         GATE_EMPTY_OPERATOR,
+        GATE_EMPTY_OPERATOR_RESULT,
         GATE_LINEAGE_ATTRIBUTABILITY,
         GATE_TTL_BOUNDS,
         GATE_DECLARED_OBLIGATIONS,
     }
+    assert len(RUN_GATES_TOKENS | RUN_FEDERATED_GATES_TOKENS) == 7
 
 
 def test_the_census_sees_a_planted_token_and_a_departure() -> None:

@@ -107,6 +107,23 @@ it is a structural gate, never a payload gate (``D-IMPL-238`` reading
 :class:`GateBypassError` are untouched by it: the new step returns a refusal
 before the token is minted, exactly as the four before it do.
 
+**The empty-operator gate's two halves, by name (Phase 24.5 Wave 2, ledger
+row ``24.5-L-24``; ``D-IMPL-238`` second sentence).** Two assertions shared
+the name ``empty-operator-guard``: the SDK's — a product that DECLARED no
+operators (INV-CH7-46) — and the Standard's — an operator that RETURNED an
+empty set, which nothing in ``src/`` said anything about while cp-00's
+``IH-G07`` and cp-01's ``CPR-G08`` carried it as product gates. They are now
+two named structural gates, adjacent in both runners with the declared half
+first: :data:`GATE_EMPTY_OPERATOR` (:func:`_refuse_empty_operators`,
+unchanged) and :data:`GATE_EMPTY_OPERATOR_RESULT`
+(:func:`_refuse_empty_results`, :class:`EmptyResultRefusal`). The returned
+half reads the engine's own record,
+:attr:`~ccf.projection.engine.ExecutionResult.empty_results`, threaded as a
+keyword-only ``empty_results`` whose ``None`` default is *not observed* and
+passes — the same compatibility posture as ``source_attestation``, so every
+pre-phase call site is byte-identical. It is not a second mechanism and not
+a payload gate: it reads operator keys, never the payload (limb 3).
+
 This module holds no TTL values and no thresholds (CLAUDE.md §11, CINV-01):
 the ceiling's number is the deployment's, authored on the product class.
 Algorithmic module (CINV-03).
@@ -135,6 +152,7 @@ __all__ = [
     "DEBT_TOLERANCE_PARAMETER",
     "GATE_DECLARED_OBLIGATIONS",
     "GATE_EMPTY_OPERATOR",
+    "GATE_EMPTY_OPERATOR_RESULT",
     "GATE_LINEAGE_ATTRIBUTABILITY",
     "GATE_LINEAGE_EQUALITY",
     "GATE_SOURCE_ATTESTATION",
@@ -143,6 +161,7 @@ __all__ = [
     "AttestationRefusal",
     "DeclaredObligationRefusal",
     "EmptyOperatorRefusal",
+    "EmptyResultRefusal",
     "GateBypassError",
     "GateRefusal",
     "LineageAttributionRefusal",
@@ -157,6 +176,14 @@ __all__ = [
 ]
 
 GATE_EMPTY_OPERATOR = "empty-operator-guard"
+# The empty-operator gate's two halves, separated by NAME (24.5-L-24;
+# D-IMPL-238 second sentence). ``empty-operator-guard`` is the SDK's half: a
+# product DECLARING no operators (INV-CH7-46, unchanged).
+# ``empty-operator-result`` is the Standard's half: an operator RETURNING an
+# empty set. Two tokens so a refusal names which half fired; neither is a
+# second mechanism — both are structural, both read the execution record and
+# never the payload (limb 3).
+GATE_EMPTY_OPERATOR_RESULT = "empty-operator-result"
 GATE_LINEAGE_EQUALITY = "lineage-strict-equality"
 GATE_LINEAGE_ATTRIBUTABILITY = "lineage-attributability"
 GATE_TTL_BOUNDS = "ttl-bounds"
@@ -204,6 +231,35 @@ class GateRefusal(CCFContract):
 
 class EmptyOperatorRefusal(GateRefusal):
     """Gate 1: ``operators_invoked`` was empty (INV-CH7-46)."""
+
+
+class EmptyResultRefusal(GateRefusal):
+    """Gate 1's second half: an operator RETURNED an empty set (``24.5-L-24``).
+
+    SDK-defined per CLAUDE.md §11, beside the whitepaper's INV-CH7-46 half
+    (:class:`EmptyOperatorRefusal`) and distinguishable from it by name — the
+    ``gate`` token is :data:`GATE_EMPTY_OPERATOR_RESULT`, never
+    :data:`GATE_EMPTY_OPERATOR`. The Standard's sentence for this half is the
+    one cp-00's ``IH-G07`` and cp-01's ``CPR-G08`` carried as product gates
+    before the SDK named it: *an empty assembled set fails closed*.
+
+    What it carries follows the module's refusal discipline — both what the
+    caller needs to branch on and everything the gate observed:
+
+    Attributes:
+        operator_key: The FIRST operator, in sorted key order, whose output
+            view carried zero entities and zero relationships. One name for a
+            consumer that branches on a key.
+        empty_operators: Every such operator key, so a plan in which two
+            operators returned empty is reported once, whole, and a reader
+            never re-derives the rest from ``detail``.
+
+    Observed from :attr:`~ccf.projection.engine.ExecutionResult.empty_results`,
+    the engine's own record — never from the payload (``D-IMPL-238`` limb 3).
+    """
+
+    operator_key: str
+    empty_operators: frozenset[str]
 
 
 class LineageMismatchRefusal(GateRefusal):
@@ -690,6 +746,7 @@ def run_gates(
     product_class: RegisteredProductClass,
     source_attestation: SourceAttestation | None = None,
     debt_tolerance: Decimal | None = None,
+    empty_results: frozenset[str] | None = None,
 ) -> ServableProduct | GateRefusal:
     """Run the canonical gate sequence over ``candidate``.
 
@@ -723,14 +780,25 @@ def run_gates(
             caller can loosen it. ``None`` — the default, and every
             pre-phase call site — means *the class's ceiling stands*; and a
             class that declares no ceiling is unaffected whatever is passed.
+        empty_results: The operator keys whose output view carried zero
+            entities and zero relationships, as the engine observed them
+            (``24.5-L-24``; :attr:`~ccf.projection.engine.ExecutionResult.empty_results`).
+            The governed resolver passes ``execution.empty_results``.
+            ``None`` — the default, and every pre-phase call site — means
+            *not observed* and passes, on the ``source_attestation``
+            compatibility posture; the empty set is the engine's positive
+            *no operator returned empty* and passes too. A non-empty set is
+            refused by name (:data:`GATE_EMPTY_OPERATOR_RESULT`).
 
     Returns:
         A :class:`ServableProduct` when every gate passes, otherwise the
-        refusal of the *first* gate that did not. The order is: empty
-        operators, lineage strict equality, TTL bounds, source attestation,
-        then — LAST, because every universal gate precedes a declared one —
-        the :data:`GATE_DECLARED_OBLIGATIONS` step, which is silent for a
-        class that declares nothing (``D-IMPL-237``).
+        refusal of the *first* gate that did not. The order is: the
+        empty-operator gate's two halves, adjacent and declared half first
+        (``empty-operator-guard``, then ``empty-operator-result`` —
+        ``24.5-L-24``), lineage strict equality, TTL bounds, source
+        attestation, then — LAST, because every universal gate precedes a
+        declared one — the :data:`GATE_DECLARED_OBLIGATIONS` step, which is
+        silent for a class that declares nothing (``D-IMPL-237``).
 
     Raises:
         ccf.controlplane.registry.ControlPlaneMissing: the pinned MAX_TTL has
@@ -745,6 +813,10 @@ def run_gates(
     empty = _refuse_empty_operators(candidate)
     if empty is not None:
         return empty
+
+    returned_empty = _refuse_empty_results(candidate, empty_results=empty_results)
+    if returned_empty is not None:
+        return returned_empty
 
     if declared != engine_resolved:
         return LineageMismatchRefusal(
@@ -788,6 +860,7 @@ def run_federated_gates(
     registry: ControlPlaneProtocol,
     product_class: RegisteredProductClass,
     debt_tolerance: Decimal | None = None,
+    empty_results: frozenset[str] | None = None,
 ) -> ServableProduct | GateRefusal:
     """Run the federated form of the gate sequence over ``candidate``.
 
@@ -854,12 +927,18 @@ def run_federated_gates(
     1. **empty-operator guard** — unchanged from the local path, and fully
        meaningful across a boundary: a product declaring no operators was
        computed by nothing, whoever signed it (INV-CH7-46).
-    2. **attributability** — ``content_hash(candidate) == attested_address``.
-    3. **TTL bounds** — the same INV-CH7-48 bound against the same pinned
+    2. **empty-operator result** — the guard's second half, by name
+       (``24.5-L-24``): an operator RETURNED an empty set. Adjacent to the
+       declared half, as locally. The consumer ran no engine, so the
+       observation arrives only if the caller threads ``empty_results``;
+       ``None`` (the default, every pre-phase call site) is *not observed*
+       and passes.
+    3. **attributability** — ``content_hash(candidate) == attested_address``.
+    4. **TTL bounds** — the same INV-CH7-48 bound against the same pinned
        MAX_TTL a locally assembled product is held to. Expiry is a property of
        the product and the consumer's clock and needs nothing the consumer
        lacks.
-    4. **declared obligations** — the same :data:`GATE_DECLARED_OBLIGATIONS`
+    5. **declared obligations** — the same :data:`GATE_DECLARED_OBLIGATIONS`
        step :func:`run_gates` runs last, against the consuming class's own
        :class:`~ccf.products.contract.ServeObligations` (``24.5-L-14``,
        ``24.5-L-26``; ``D-IMPL-237``). A federated candidate carries ``debt``
@@ -881,10 +960,13 @@ def run_federated_gates(
         debt_tolerance: As on :func:`run_gates`: may only tighten the class's
             declared ceiling; ``None`` (the default, every pre-phase call
             site) leaves the class's ceiling standing.
+        empty_results: As on :func:`run_gates` (``24.5-L-24``): the operator
+            keys observed to have returned empty, or ``None`` — the default
+            and every pre-phase call site — for *not observed*, which passes.
 
     Returns:
         A :class:`ServableProduct` when every gate passes, otherwise the
-        refusal of the *first* gate that did not, in the four-step order
+        refusal of the *first* gate that did not, in the five-step order
         above.
 
     Raises:
@@ -897,6 +979,10 @@ def run_federated_gates(
     empty = _refuse_empty_operators(candidate)
     if empty is not None:
         return empty
+
+    returned_empty = _refuse_empty_results(candidate, empty_results=empty_results)
+    if returned_empty is not None:
+        return returned_empty
 
     candidate_address = content_hash(candidate)
     if candidate_address != attested_address:
@@ -945,6 +1031,51 @@ def _refuse_empty_operators(
             f"product {candidate.schema_name!r} declares no operators; a "
             "product computed by nothing is not servable (INV-CH7-46)"
         ),
+    )
+
+
+def _refuse_empty_results(
+    candidate: ContextProductContract,
+    *,
+    empty_results: frozenset[str] | None,
+) -> EmptyResultRefusal | None:
+    """Gate 1's second half, shared by both sequences: an operator returned nothing.
+
+    Ledger row ``24.5-L-24`` (``D-IMPL-238`` second sentence). The two halves
+    of the empty-operator gate are two assertions that shared one name:
+    :func:`_refuse_empty_operators` refuses a product that DECLARED no
+    operators (the SDK's half, INV-CH7-46), and this function refuses a
+    product one of whose operators RETURNED an empty set (the Standard's
+    half). They are adjacent in both runners, declared half first, and each
+    names itself.
+
+    ``empty_results`` is the engine's observation
+    (:attr:`~ccf.projection.engine.ExecutionResult.empty_results`), threaded
+    by the governed resolver as a keyword. ``None`` means *not observed* —
+    a caller built before the observation existed, or a federated candidate
+    whose engine ran in another fabric — and PASSES: the compatibility
+    posture :func:`refuse_attestation` documents, so every pre-phase call
+    site is byte-identical in behavior. The empty set is the engine's
+    positive assertion that no operator returned empty, and passes too. A
+    non-empty set refuses, naming the first key in sorted order and carrying
+    all of them.
+
+    Reads operator keys from the execution and nothing from the payload
+    (``D-IMPL-238`` limb 3): a payload that happens to be empty is the
+    product's business; an operator that produced nothing is the fabric's.
+    """
+    if empty_results is None or not empty_results:
+        return None
+    ordered = sorted(empty_results)
+    return EmptyResultRefusal(
+        gate=GATE_EMPTY_OPERATOR_RESULT,
+        detail=(
+            f"product {candidate.schema_name!r}: operator {ordered[0]!r} "
+            f"returned an empty set (all such operators: {ordered}); an "
+            "empty assembled set fails closed (24.5-L-24)"
+        ),
+        operator_key=ordered[0],
+        empty_operators=frozenset(empty_results),
     )
 
 
