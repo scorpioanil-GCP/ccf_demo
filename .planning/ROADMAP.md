@@ -59,6 +59,7 @@ and the upgraded examples.
 - [x] **Phase 24.2.1: Facility Terms Snapshot (cp-02) — built ahead of the close machinery** (INSERTED RETROSPECTIVELY 2026-08-31) - `cp-02`, rung 02 of the vault's ladder. **This phase is a bookkeeping record, not a re-run.** The work was specified, built and documented on 2026-08-29 against NO ROADMAP phase, no success criteria and no gate entry — the only Context Product on the ladder built entirely outside the phase machinery (`D-IMPL-221`). It is numbered here so the phase counters stop reporting a ladder with a hole in it. **`D-GATE-24.2.1` APPROVED** (Dave, 2026-08-31, on inspection of the shipped work, his inspection ruled to be this phase's success criterion). The bullet read *"no `D-GATE` is minted"* for the few hours between the phase being created and that ruling — correct then, because a gate records an approval that happened and none had. **No close panel ran**, so this is not a §3.1-conforming close and the gate entry says so.
 - [x] **Phase 24.3: Credit Spreading — Obligor Financial Spread (cp-03), Gate 2** (INSERTED) - `cp-03`, rung 03 and the LAST of Tier 1, discharging the Gate-1 specification Dave approved 2026-08-29 at `310225b`. Teaches **attribute-level temporal validity** — one freshness per product stops being enough — and demonstrates `basis`, the catalog's first parameter where both settings are correct and the decision picks. **Forty Success Criteria LOCKED before planning** (`D-GATE-19`), **weighted toward the CENSUS rather than the mechanism**: every serious defect found while specifying this product was a measurement defect, four wrong counts before a line of code existed, so criteria 13–18 require each wrong method to produce its specific wrong number AND fail. The Policy OPERATOR is in the plan (`empty-operator-guard`), reading Postgres entitlement and emitting `policy_version` from the Control Plane artifact. **A Fluree policy-version binding was specified in this product and then REMOVED from it entirely** (Dave, 2026-08-30) — this product reads ONE store.
 - [x] **Phase 24.4: Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal and Ontology, and the Ladder's First MCP Door** (INSERTED) - `cp-04`, rung 04 and the FIRST of Tier 2. The first product that opens more than one store (Fluree for edges and ontology, Postgres for attributes), the first that traverses a graph, the first exercising three ontology roles (role 1 STRUCK 2026-08-31, Dave), and the first on the ladder reachable over MCP. **Forty-nine Success Criteria LOCKED 2026-08-31 before planning** (`D-GATE-19`), of which sixteen require a named product gate to be **observed RED under a named sabotage** — criterion 41 and `CFT-G17` are WITHDRAWN in place — a gate never seen red is not evidence that it runs. `artifacts/gates.yaml` is the ladder's **first machine-readable gate declaration** (`D-IMPL-224`); the coverage CHECKER and the cp-00/cp-01 backfill are **Phase 24.5**, not this phase. **`D-26`..`D-31` are RECORDED as SDK gaps and NONE is closed** — no file under `src/` is modified (`D-04` of `24-CONTEXT.md`). *(Checklist bullet added 2026-08-31 at planning; the phase had a detail section and no bullet here.)*
+- [ ] **Phase 24.5: SDK Gap Catch-Up — Every Gap the Ladder Found in cp-00 through cp-04, Ledgered, Ruled and Closed** (INSERTED, `D-IMPL-235`) - The comprehensive SDK gap fix Dave commissioned 2026-09-02 (*"I want to remedy the sdk gaps and not wait until we have 50 to close"*). A catch-up over EVERY rung shipped so far, not a remedy for 24.4 alone. **First deliverable is a LEDGER SITTING, no code** — one roster of every gap by id, classified SDK / estate / product-tier, each ruled fix / won't-fix / later — and that roster is the phase's fence. `src/` and `runtime/` OPEN; examples closed except where a changed call shape forces a touch. Close by re-running cp-01..04: a rung whose limitation-asserting gates flip RED gets a versioned rebuild, the rest stay. **DIRECTION BANKED, NOT DISCUSSED** — criteria are written at the discuss sitting (`D-GATE-19`). One ruling open: whether `D-IMPL-224` is amendable if `24.4-D-31` becomes a fix-row.
 
 ## Phase Details
 
@@ -2963,6 +2964,95 @@ RECORDS `D-26`…`D-31` as SDK gaps under `D-04` of `24-CONTEXT.md` and closes n
 them; `D-31`'s closure is Phase 24.5.
 
 
+### Phase 24.5: SDK Gap Catch-Up — Every Gap the Ladder Found in cp-00 through cp-04, Ledgered, Ruled and Closed (INSERTED)
+
+**Goal:** close the SDK gaps the Context Product ladder has surfaced so far — in `src/` and
+`runtime/`, which every rung to date has held at zero changed files — so that cp-05 is built on
+the fixed SDK and tests the NEXT claim instead of carrying workarounds for the last one. Then
+re-run cp-01..04 against the fixed SDK and read which rungs' outcomes change.
+
+**STATUS: DIRECTION BANKED 2026-09-02 (`D-IMPL-235`), NOT DISCUSSED, NOT PLANNED.** Success
+criteria are NOT written here; `D-GATE-19` binds them to the discuss sitting. The discuss sitting
+reads `.planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04/.continue-here.md` first.
+
+**Why this phase, in Dave's words (2026-09-02).** *"Each Context Product Phase is designed to
+introduce more complexity associated with developing a context product. This means each new
+example will in theory test the CCF SDK in ways the previous example has not tested."* and *"One
+of the key reasons we have such real world examples is so that we can pressure test the sdk and
+since it has not yet been released I want to remedy the sdk gaps and not wait until we have 50 to
+close."* Dave sought a second opinion (Grok) and adopted Fable's reply as the path forward; both
+are recorded at `D-IMPL-235`.
+
+**What this phase IS.** A CATCH-UP over every rung shipped so far — cp-00 (not on the ladder but
+in the estate), cp-01 (Phase 24.1, whose two Protocol-shaped gaps `D-59`/`D-60` already closed in
+24.1.1 — the precedent for this phase's shape), cp-02 (NO phase, `D-IMPL-221` — its gaps were never
+recorded anywhere and the ledger must FIND them), cp-03 (Phase 24.3 — recorded ZERO gaps under any
+SDK-gap label; `fail_closed` is written once and read nowhere), and cp-04 (Phase 24.4 — twelve
+recorded, `24.4-D-26`…`D-37`, of which nine are SDK-shaped and two are estate). It is inside the
+Phase 24 container because the fixes are owed to the ladder; it is NOT numbered `24.4.1` because it
+is not a remedy for 24.4 alone.
+
+**What this phase does FIRST — the ledger sitting, no code.** One document enumerates every gap on
+the ladder BY ID (verify rosters, not counts), classifies each SDK / estate / product-tier, and Dave
+rules each **fix / won't-fix / later**. Won't-fix rows get a decision entry the products'
+limitation-asserting gates can cite, so those gates stop reading as defects. The ruled roster is the
+phase's FENCE, exactly as `D-IMPL-213` fenced 24.1.1 to two ids. Nothing is planned before it exists.
+
+**The clusters, as measured from 24.4's roster** (the ledger will extend them for cp-00..03):
+- **time** — `24.4-D-26` the Fluree adapter floors but cannot pin; `D-27` `graph_snapshot_at` is a
+  `datetime` and store `t` is an `int`; `D-28` `@iso:` searches backdatable EVENT time, not
+  transaction time and not CCF `as_of`; `D-29` the adapter docstring collapses three time axes into two.
+- **traversal** — `D-33` the Traversal family types the walk on EDGES only, so a node-class admission
+  filter has no SDK expression; `D-36` `TraversalNeighborhood` is undirected, so the L4 walk is a
+  neighborhood and not a descendant walk.
+- **door / gates** — `D-30` the MCP resource URI cannot address a parameterized product; `D-34`
+  `build_egress_server` cannot omit a product resource; `D-31` declared product gates have no SDK or
+  CI expression (**bound by `D-IMPL-224` as written — see the open ruling**); 24.4 deferred row 9,
+  `AssemblyRefused` reaches an MCP client as a server's prose.
+- **ingest** — `D-35` `AssemblyWorker.ingest` mints relationship claims by class co-occurrence.
+- **NOT SDK work** — `24.4-D-32` (ontology role 1, an estate gap) and `24.4-D-37` (cycle 2 not
+  askable, an estate gap of `D-32`'s class).
+
+**Shape of the fix work.** Clustered into AT MOST TWO waves; a `.1`…`.9` sub-phase per gap is
+refused (`D-IMPL-235` (3)). `src/` and `runtime/` are OPEN in this phase — the first time on the
+ladder. Examples are CLOSED except where a changed call shape forces a touch, and every such touch
+is named. Every check is sabotaged RED naming its own id and restored; `path.py::Symbol` citations
+only, ceiling 0.
+
+**How the phase CLOSES — the return trip is the instrument, not a re-open.** Each rung pins its
+outcome (`artifacts/expected.yaml`, the `--role` seals) and several gates ASSERT THE LIMITATION
+(`CFT-G15` asserts cycle 2 unreachable; the cp-04 debt tests assert no `409` is wired). After the
+fix those are EXPECTED to go RED — red is the answer to *"does closing the sdk gaps result in a
+different outcome"*. A flipped limitation-gate is a signal, never a regression; it is rewritten
+under the fix, never deleted. A rung whose gates flip gets a VERSIONED product rebuild; a rung whose
+gates hold stays as shipped. Then the §3.1 close protocol as always: panel on the shipped tree,
+single-agent review, every finding verified, `D-GATE-24.5`.
+
+**Cadence from cp-05 on (`D-IMPL-235` (5)).** `24.N` product → ledger sitting → at most `24.N.1` /
+`24.N.2` → `24.N+1`. No next rung enters discussion while the prior rung's ledger has fix-rows open;
+that sentence is a phase-entry criterion for every subsequent rung.
+
+**What STANDS and what is OPEN.** `D-IMPL-223` (four scheduling classes, forever) stands — a row
+needing a fifth class is a row to overturn 223 by mini-cycle, not to extend it. **OPEN, Dave's:**
+`D-IMPL-224` says no `ProductGate` type is built in **Phase 24** — the container — so as written it
+binds this phase; if the ledger makes `24.4-D-31` a fix-row, 224 is amended by a one-line Phase D
+mini-cycle first. Grok's reading that 224 bound only 24.4 was checked against the text and rejected.
+
+**Depends on:** `D-GATE-24.4` (approved 2026-09-01, merged at `d81d759`). The one red test on
+`main` (`test_the_one_document_exemption_has_not_spread`, carved by `D-IMPL-234`) is a candidate
+ledger row — cp-01/02/03's exemption claims are unruled.
+
+**Requirements:** discharges none directly; closes the ruled fix-rows of the ladder's gap ledger as
+SDK surface. `D-IMPL-221` (cp-02 has no phase) is adjacent and may be ruled in the same sitting.
+
+**Success Criteria** (what must be TRUE) — **NOT YET WRITTEN.** Authored at the discuss sitting per
+`D-GATE-19`. They will, at minimum, have to name: the roster (by id) the phase is fenced to; the
+won't-fix entries; the `src/`/`runtime/` positive control (this time the count must be NON-zero,
+with the examples count as the control); the re-run of cp-01..04 with each limitation-gate's
+observed state before and after; and the `D-IMPL-224` disposition if `D-31` is a fix-row.
+
+**Plans:** none yet.
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -3003,6 +3093,7 @@ them; `D-31`'s closure is Phase 24.5.
 | 24.2.1. Facility Terms Snapshot (cp-02) — built ahead of the close machinery | 3/3 commits | **Complete — `D-GATE-24.2.1` APPROVED** (Dave, 2026-08-31, on inspection; his inspection ruled to be the criterion). **No close panel ran**, so this is not a §3.1-conforming close. Specified `59f36f2`, built `f1086bb`, documented `749d1db`, all 2026-08-29 against no phase, no criteria and no gate. Row added retrospectively 2026-08-31 to discharge `D-IMPL-221`; it is the gating record, per `D-IMPL-171`. Ships the full example and 20 tests. **No criteria were invented after the fact** | 2026-08-29 (recorded 2026-08-31) |
 | 24.3. Credit Spreading — Obligor Financial Spread (cp-03), Gate 2 | 5/5 steps + close-panel fixes | **Complete — `D-GATE-24.3` APPROVED** (Dave). Commits `294cb63`..`e350cde` on `main`. All FOURTEEN gates built and every one observed RED; they did not exist at phase start. Close panel (codex + cursor; gemini absent, no key) found a PRODUCT defect — the restatement key was hard-coded against its own artifact and hid four real corrections. Nine blocking findings fixed in-phase, four advisory carried, one of the executor's own suspicions rejected. `D-IMPL-222` ruled inside the phase. **`cp-02` still has no phase (`D-IMPL-221`), carried** | 2026-08-31 |
 | 24.4. Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal & Ontology, and the Ladder's First MCP Door | 14/14 plans + FIX-01..05 | **Complete — `D-GATE-24.4` APPROVED** (Dave). Commits `bde7660`..`14edd82` on `main`, merged `--no-ff`. Five-check eval held on live fixtures; sixteen gates `CFT-G01`..`G16` every one observed RED, `CFT-G17` withdrawn; `--role` kept on measurement (two seals, 22 vs 0 detailed). Close panel on the shipped tree: 5 blocking fixed under sabotage, 6 rejected with evidence; single-agent review: CR-01/WR-05/WR-01 fixed, CR-02's 409 claim removed from all three artifacts. `src/`+`runtime/` 0 files; twelve gaps `24.4-D-26`..`D-37` recorded, none closed. Pytest 4664/45/1 — the 1 carved by `D-IMPL-234`, NOT suite-green; cp-01/02/03 exemption claims unruled. 17 deferred rows | 2026-09-01 |
+| 24.5. SDK Gap Catch-Up — cp-00 through cp-04, Ledgered, Ruled and Closed | 0/0 (not planned) | **Direction banked** (`D-IMPL-235`, 2026-09-02). Ledger sitting first, no code; `src/`+`runtime/` OPEN; close by re-running cp-01..04. Criteria at the discuss sitting (`D-GATE-19`). Open: `D-IMPL-224` amendable? | — |
 
 ## Coverage
 

@@ -3,8 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-02T05:15:00.000Z"
+last_updated: "2026-09-02T07:40:00.000Z"
 last_activity: >-
+  PHASE 24.5 IS COMMISSIONED AND BANKED (D-IMPL-235, Dave, 2026-09-02): the comprehensive SDK gap catch-up for
+  cp-00 through cp-04. Direction only -- NOT discussed, NOT planned, no criteria (D-GATE-19). Next action is
+  /gsd-discuss-phase 24.5, whose FIRST deliverable is a ledger sitting with no code. src/ and runtime/ are OPEN
+  in 24.5. One ruling open: is D-IMPL-224 amendable if 24.4-D-31 is a fix-row. Read the phase's
+  .continue-here.md first. Next id D-IMPL-236. PRIOR HEAD FOLLOWS.
   2026-09-01 -- **PHASE 24.4 IS CLOSED. `D-GATE-24.4` APPROVED BY DAVE, 2026-09-01, ENTERED IN
   `docs/DECISIONS.md` AFTER `D-IMPL-234`.** Everything SS3.1 orders ran in order on the SHIPPED
   TREE: cross-AI panel (`24.4-CLOSE-REVIEWS.md` SS1-SS10; findings 1-5 fixed under sabotage naming
@@ -765,11 +770,11 @@ last_activity: >-
   `DOCS-14`/`EXAM-02`'s replacement surface. **DELETION REMAINS OWED FOR EVERY SCHEDULED ROW**
   (`D-IMPL-191` ruling 3).
 progress:
-  total_phases: 36
+  total_phases: 37
   completed_phases: 34
   total_plans: 257
   completed_plans: 257
-  percent: 94
+  percent: 92
   measured: "**RE-MEASURED AT THE PHASE 24.4 GATE, 2026-09-01, by hand, stated FIRST;
     everything below is PRESERVED HISTORY.** total_plans 257 = `*-PLAN.md` at depth 1 under
     `.planning/phases/*/` (control `*-PLANN.md` = 0); completed_plans 257 = those with a
@@ -872,6 +877,8 @@ progress:
     bullet is struck through as superseded). The first is the EXACT error recorded against
     a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
+  Between phases. 24.4 closed and merged at d81d759; 24.5 banked at D-IMPL-235 with a ROADMAP entry, a phase
+  directory and a .continue-here.md; nothing in flight. Resume with /gsd-discuss-phase 24.5. PRIOR FOLLOWS.
   **PHASE 24.4 IS CLOSED -- `D-GATE-24.4` APPROVED (Dave, 2026-09-01) and merged to `main`
   `--no-ff`.** Nothing is in flight. The next rung of the Context Product ladder is Dave's to name.
   Open items that PREDATE this phase and are not its debt: cp-01/02/03's one-document exemption claims
@@ -1109,6 +1116,15 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**PHASE 24.5 IS COMMISSIONED — `D-IMPL-235` (Dave, 2026-09-02) — AND NOTHING OF IT IS BUILT.** It is the
+comprehensive SDK gap catch-up for cp-00 through cp-04: ledger sitting first (no code), fix-rows clustered
+into at most two waves, `src/`+`runtime/` OPEN for the first time on the ladder, close by re-running
+cp-01..04 and reading which limitation-gates flip RED. Direction is banked in ROADMAP `### Phase 24.5` and
+`.planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04/.continue-here.md`; criteria are written at
+the discuss sitting (`D-GATE-19`). **One ruling open:** whether `D-IMPL-224` ("no `ProductGate` type in
+Phase 24" -- the container) is amendable if `24.4-D-31` is a fix-row. Next id `D-IMPL-236`. **Resume with
+`/gsd-discuss-phase 24.5`.** The paragraph below is the record as it stood at the 24.4 gate.
 
 **PHASE 24.4 IS CLOSED. `D-GATE-24.4` APPROVED (Dave, 2026-09-01).** Built, evaluated (five-check
 gate held on live fixtures), paneled on the shipped tree, reviewed, fixed, gated, merged `--no-ff`.
