@@ -560,6 +560,18 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf.client.codec.decode_outcome": (
         "19-02-the-adapter-seam-carries-bytes.md"
     ),
+    # Phase 24.5 plan 13 (D-IMPL-237, ledger rows 24.5-L-14 / L-26). Both gate
+    # runners gained `product_class: RegisteredProductClass` so the ONE
+    # declared-obligations gate can read the class's declared ceiling and
+    # lineage obligation. A required positional, not a defaulted widening —
+    # the fragment records it under `reshaped` and names every call site the
+    # resolver threads it through; the two runners are the same move.
+    "ccf.products.gates.run_gates": (
+        "24.5-13-one-structural-gate-for-declared-obligations.md"
+    ),
+    "ccf.products.gates.run_federated_gates": (
+        "24.5-13-one-structural-gate-for-declared-obligations.md"
+    ),
 }
 
 
