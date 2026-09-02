@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**789 entries**, of which **551** name a public Python surface.
+**795 entries**, of which **557** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-387 entries — 352 public Python surface, 35 not public Python API.
+388 entries — 353 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -7012,6 +7012,24 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
 
+#### ccf.replay.snapshots.SnapshotPinUnresolvable
+
+- Surface: ccf.replay.snapshots.SnapshotPinUnresolvable
+- Public surface: true
+- Change type: added
+- Before: absent — a recorded store pin had no refusal path, because nothing
+  recorded one
+- After: `class SnapshotPinUnresolvable(LookupError)` — raised when dimension
+  1 pins the store at a transaction the live reader cannot resolve; the
+  message names the pin and the reader type. A `LookupError` because it is
+  the same class of failure as `ReplayUnresolvable`: something the record
+  names cannot be resolved as recorded
+- Why: `24.5-L-02` — the refusal must be a caller-catchable, named condition,
+  not a silent read of the current head
+- Migration: none — additive
+
+*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+
 #### ccf_runtime.mcp.egress.PRODUCT_ADDRESS_TEMPLATE
 
 - Surface: ccf_runtime.mcp.egress.PRODUCT_ADDRESS_TEMPLATE
@@ -7750,7 +7768,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-302 entries — 119 public Python surface, 183 not public Python API.
+305 entries — 122 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -10234,6 +10252,73 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
 
+#### ccf.products.contract.ProductLineage
+
+- Surface: ccf.products.contract.ProductLineage
+- Public surface: true
+- Change type: reshaped
+- Before: three fields — `operators_invoked`, `policy_bundle_versions`,
+  `graph_snapshot_at: datetime`; no way to record which state of the store
+  the product was assembled from
+- After: a fourth, last field `store_snapshot_pin: StoreSnapshotPin =
+  NO_STORE_SNAPSHOT_PIN` — the substrate's transaction-time head at the read
+  that assembled the product, recorded beside `graph_snapshot_at` and never
+  inside it (`D-IMPL-88`). Inside `canonical_bytes` by construction, so two
+  products differing only in pin have different content addresses: "served
+  at pin N is not reproducible from pin N+1" is a property of the contract
+- Why: `24.5-L-02`, `D-IMPL-240` (1) — criterion 6 asks the vessel to carry
+  a store-native pin
+- Migration: none — additive; a lineage built without the keyword carries
+  the sentinel and hashes exactly as a lineage built with it. Deployments
+  that seal whole-vessel content addresses re-seal them once (the cp-04
+  precedent above)
+
+*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+
+#### ccf.projection.engine.ExecutionResult
+
+- Surface: ccf.projection.engine.ExecutionResult
+- Public surface: true
+- Change type: reshaped
+- Before: the execution facts carried the source attestation but not the
+  store state the queries ran against
+- After: a last field `store_snapshot_pin: StoreSnapshotPin =
+  NO_STORE_SNAPSHOT_PIN`, threaded unconditionally by
+  `ProjectionEngine.execute`, which reads the reader's `snapshot_pin()`
+  **once, before the first `reader.query()`** of the execution — a fact about
+  the read, taken before anything is read — through
+  `ProjectionEngine._reader_snapshot_pin` (the `_reader_attestation` shape:
+  `isinstance(reader, SnapshotPinnable)`, sentinel otherwise). The governed
+  resolver copies it onto the lineage; `build_replay_record` pins it into
+  dimension 1
+- Why: `24.5-L-02` — the pin must travel with the execution facts, as the
+  attestation does, so a caller that skipped every check still leaves it
+- Migration: none — additive; a result built by hand without the field
+  carries the sentinel
+
+*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+
+#### ccf.replay.record.ContextFabricSnapshot
+
+- Surface: ccf.replay.record.ContextFabricSnapshot
+- Public surface: true
+- Change type: reshaped
+- Before: seven fields ending in `source_attestation`; `build(...)` took the
+  four D-IMPL-06 constituents and `source_attestation`
+- After: an eighth, last field `store_snapshot_pin: StoreSnapshotPin =
+  NO_STORE_SNAPSHOT_PIN` and the matching `build(..., store_snapshot_pin=)`
+  keyword, passed through verbatim and deliberately **not** an id
+  constituent (the `source_attestation` sentence: the id identifies graph
+  STATE, and this keeps re-derived ids comparable across records written
+  before and after the field). `build_replay_record` and
+  `snapshot_of_execution` both thread `execution.store_snapshot_pin`
+- Why: `24.5-L-02` — dimension 1 is *what state the decision drew from*, and
+  which committed state of the store that was is a dimension-1 fact
+- Migration: none — additive; records written before the field deserialize
+  with the sentinel
+
+*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+
 #### ccf_runtime.mcp.egress.build_egress_server
 
 - Surface: ccf_runtime.mcp.egress.build_egress_server
@@ -12694,7 +12779,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-96 entries — 76 public Python surface, 20 not public Python API.
+98 entries — 78 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -14451,6 +14536,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   dedicated code is owed
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
+
+#### ccf.replay.snapshots.SnapshotReader
+
+- Surface: ccf.replay.snapshots.SnapshotReader
+- Public surface: true
+- Change type: behavior
+- Before: pinned `(tenant, temporal_boundary)` and delegated every read to
+  the live reader's `as_of`/`query` — the live reader's current head, always
+- After: two members added, constructor unchanged (so the manifest shows no
+  diff line — the constructor-only blind spot `24.1.1-03` recorded — which is
+  why this is `behavior` and not `reshaped`). The reader is itself
+  `SnapshotPinnable`: `snapshot_pin()` reports the **recorded** pin, so an
+  execution driven through it carries the recorded pin and
+  `snapshot_of_execution` re-derives dimension 1 with it; `query_pinned(q,
+  *, pin)` admits only the recorded pin (`SnapshotScopeViolation` otherwise).
+  When the snapshot records a pin other than the sentinel, `as_of` (the
+  degenerate query, `GQ-21`) and `query` are answered through the live
+  reader's `query_pinned` at that pin; a live reader that is not
+  `SnapshotPinnable` raises `SnapshotPinUnresolvable` before any delegation.
+  When the sentinel is recorded, both reads behave exactly as before
+- Why: `24.5-L-02`, `D-IMPL-240` (1), CLAUDE.md §7.4 — replay resolves the
+  exact recorded state or refuses; the head is never a fallback
+- Migration: none for sentinel records. A deployment whose records carry a
+  real pin must hand `replay` a `SnapshotPinnable` reader for that substrate;
+  any other reader is refused rather than silently answering the head
+
+*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: behavior
+- Before: compared the re-derived `graph_snapshot_id` with the recorded one;
+  a re-execution that read under another store state than the record names
+  was invisible when the substate happened to agree
+- After: beside that comparison, the reproduced dimension-1
+  `store_snapshot_pin` is compared with the recorded pin and a mismatch is
+  `ReplayDivergence` naming both pins — a pin that moved between record and
+  rehydration is a different decision, in the
+  `test_a_rehydration_that_drops_the_debt_is_divergence` voice. A record
+  whose pin the handed reader cannot resolve surfaces
+  `SnapshotPinUnresolvable` from the first read
+- Why: `24.5-L-02` — the pin is outside the id derivation, so it must be
+  compared on its own or a moved pin would replay green
+- Migration: none for sentinel records; see `SnapshotReader` for pinned ones
+
+*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
 
 #### ccf.products.request.refuse_request
 
