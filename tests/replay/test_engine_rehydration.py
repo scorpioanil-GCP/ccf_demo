@@ -36,7 +36,13 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.graph.protocols import GraphQuery, GraphView
+from ccf.graph.protocols import (
+    NO_STORE_SNAPSHOT_PIN,
+    GraphQuery,
+    GraphView,
+    SnapshotPinnable,
+    StoreSnapshotPin,
+)
 from ccf.controlplane.artifacts import DebtProfile
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
@@ -78,12 +84,17 @@ from ccf.replay.engine import (
 )
 from ccf.replay.record import (
     ContentGenerationPath,
+    ContextFabricSnapshot,
     DecisionReplayRecord,
     PolicyBinding,
     build_replay_record,
 )
 from ccf.replay.serve import ReplayWriter, serve
-from ccf.replay.snapshots import SnapshotReader, SnapshotScopeViolation
+from ccf.replay.snapshots import (
+    SnapshotPinUnresolvable,
+    SnapshotReader,
+    SnapshotScopeViolation,
+)
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 if TYPE_CHECKING:
@@ -1919,6 +1930,237 @@ def test_the_snapshot_holds_no_physical_copy_of_the_graph(
         "source_attestation",
         "store_snapshot_pin",
     }
+
+
+# --- the store pin on dimension 1 and on the vessel (24.5-L-02, D-IMPL-240) --
+
+
+#: A pin no memory-backed reader can resolve — the substrate name is a test
+#: literal standing for "some store that mints transaction pins"; the memory
+#: reader is not `SnapshotPinnable` whatever the substrate says.
+FOREIGN_PIN = StoreSnapshotPin(substrate="fluree", pin="7")
+
+
+def test_a_record_written_before_the_pin_seam_still_replays(
+    deployment: _Deployment,
+) -> None:
+    """The sentinel's compatibility promise, for the pin (D-IMPL-89 lineage).
+
+    A product whose lineage asserts "no store-native pin", and a record whose
+    dimension 1 therefore pins the same sentinel, still reproduce exactly:
+    ``NO_STORE_SNAPSHOT_PIN`` on both sides is the positive claim "this
+    substrate exposes no native pin", the memory reader is one such
+    substrate, and the two agree. A change that made a real pin required
+    would break every pre-seam record — and every SQLite deployment.
+    """
+    execution = deployment.execute()
+    assert execution.store_snapshot_pin == NO_STORE_SNAPSHOT_PIN
+    candidate = deployment.candidate(execution)
+    candidate = candidate.model_copy(
+        update={
+            "lineage": candidate.lineage.model_copy(
+                update={"store_snapshot_pin": NO_STORE_SNAPSHOT_PIN}
+            )
+        }
+    )
+    product_class = deployment.product_class()
+    gated = run_gates(
+        candidate,
+        engine_resolved=execution.operators_invoked,
+        now=NOW,
+        registry=deployment.registry,
+        product_class=product_class,
+    )
+    assert isinstance(gated, ServableProduct)
+    record = build_replay_record(
+        execution=execution,
+        product=gated.product,
+        perspective=deployment.perspective(),
+        policy_bindings=(
+            PolicyBinding(key=POLICY_BUNDLE_KEY, version=deployment.policy_version),
+        ),
+        assembly_mode="algorithmic",
+        recorded_at=NOW,
+    )
+    served = serve(
+        product=gated,
+        record=record,
+        replay_writer=ReplayWriter(
+            store=deployment.store, artifact_class=ARTIFACT_CLASS
+        ),
+    )
+
+    assert record.context_fabric_snapshot.store_snapshot_pin == NO_STORE_SNAPSHOT_PIN
+    assert gated.product.lineage.store_snapshot_pin == NO_STORE_SNAPSHOT_PIN
+
+    outcome = _replay(deployment, served.replay_ref.content_address)
+
+    assert outcome.product.lineage.store_snapshot_pin == NO_STORE_SNAPSHOT_PIN
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+
+
+def test_the_pin_lands_on_dimension_one_and_is_not_an_id_constituent() -> None:
+    """The pin is beside the id, inside the address (the D-IMPL-06 shape).
+
+    Two snapshots of identical graph state under different store pins share
+    one ``graph_snapshot_id`` — the id identifies graph STATE, and keeping the
+    pin out of it is what keeps re-derived ids comparable across records
+    written before and after the field existed — and hash to different
+    content addresses, so a moved pin is tamper-evident without being
+    identity-bearing. And on the vessel, two lineages differing only in pin
+    have different content addresses: "served at pin N is not reproducible
+    from pin N+1" holds at the contract level before any reader is involved.
+    """
+    at_n = ContextFabricSnapshot.build(
+        tenant_id=TENANT,
+        temporal_boundary=BOUNDARY,
+        store_watermark="w",
+        touched_entities=("e://1",),
+        touched_relationships=(),
+        store_snapshot_pin=StoreSnapshotPin(substrate="s", pin="1"),
+    )
+    at_n_plus_1 = ContextFabricSnapshot.build(
+        tenant_id=TENANT,
+        temporal_boundary=BOUNDARY,
+        store_watermark="w",
+        touched_entities=("e://1",),
+        touched_relationships=(),
+        store_snapshot_pin=StoreSnapshotPin(substrate="s", pin="2"),
+    )
+    unpinned = ContextFabricSnapshot.build(
+        tenant_id=TENANT,
+        temporal_boundary=BOUNDARY,
+        store_watermark="w",
+        touched_entities=("e://1",),
+        touched_relationships=(),
+    )
+    assert at_n.graph_snapshot_id == at_n_plus_1.graph_snapshot_id == unpinned.graph_snapshot_id
+    assert content_hash(at_n) != content_hash(at_n_plus_1)
+    assert content_hash(at_n) != content_hash(unpinned)
+    assert unpinned.store_snapshot_pin == NO_STORE_SNAPSHOT_PIN
+
+    lineage_n = ProductLineage(
+        operators_invoked=frozenset({"op"}),
+        policy_bundle_versions=frozenset({"v1"}),
+        graph_snapshot_at=BOUNDARY,
+        store_snapshot_pin=StoreSnapshotPin(substrate="s", pin="1"),
+    )
+    lineage_n_plus_1 = lineage_n.model_copy(
+        update={"store_snapshot_pin": StoreSnapshotPin(substrate="s", pin="2")}
+    )
+    assert content_hash(lineage_n) != content_hash(lineage_n_plus_1)
+    # The default IS the sentinel — omitting the keyword and passing the
+    # sentinel are the same lineage, byte for byte (D-10).
+    assert canonical_bytes(
+        ProductLineage(
+            operators_invoked=frozenset({"op"}),
+            policy_bundle_versions=frozenset({"v1"}),
+            graph_snapshot_at=BOUNDARY,
+        )
+    ) == canonical_bytes(
+        ProductLineage(
+            operators_invoked=frozenset({"op"}),
+            policy_bundle_versions=frozenset({"v1"}),
+            graph_snapshot_at=BOUNDARY,
+            store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
+        )
+    )
+
+
+def test_a_rehydration_whose_reader_cannot_resolve_the_recorded_pin_refuses(
+    deployment: _Deployment,
+) -> None:
+    """Never "latest": a recorded pin the live reader cannot honor is refused.
+
+    The memory reader is not ``SnapshotPinnable`` — asserted, because the
+    refusal only means something if the precondition holds. A snapshot
+    carrying a real pin over that reader raises ``SnapshotPinUnresolvable``
+    on ``as_of`` and on ``query`` before any delegation; it never answers
+    the head in the pin's place (CLAUDE.md §7.4). The ``SnapshotReader`` is
+    itself ``SnapshotPinnable``, reports the RECORDED pin, and admits only
+    that pin on ``query_pinned``.
+    """
+    _address, record = _serve(deployment)
+    assert not isinstance(deployment.handle.reader, SnapshotPinnable)
+    pinned = record.context_fabric_snapshot.model_copy(
+        update={"store_snapshot_pin": FOREIGN_PIN}
+    )
+    reader = SnapshotReader(reader=deployment.handle.reader, snapshot=pinned)
+
+    assert isinstance(reader, SnapshotPinnable)
+    assert reader.snapshot_pin() == FOREIGN_PIN
+
+    with pytest.raises(SnapshotPinUnresolvable, match="refuses"):
+        reader.as_of(tenant_id=TENANT, at=BOUNDARY)
+    with pytest.raises(SnapshotPinUnresolvable, match="refuses"):
+        reader.query(GraphQuery(tenant_id=TENANT, as_of=BOUNDARY))
+    with pytest.raises(SnapshotPinUnresolvable, match="refuses"):
+        reader.query_pinned(GraphQuery(tenant_id=TENANT, as_of=BOUNDARY), pin=FOREIGN_PIN)
+    # Another pin than the recorded one is a scope violation, checked first.
+    with pytest.raises(SnapshotScopeViolation, match="different decision"):
+        reader.query_pinned(
+            GraphQuery(tenant_id=TENANT, as_of=BOUNDARY),
+            pin=StoreSnapshotPin(substrate="fluree", pin="8"),
+        )
+    # And the whole replay reports it as unresolvable, never as a product.
+    unresolvable = record.model_copy(update={"context_fabric_snapshot": pinned})
+    address = deployment.store.put(
+        tenant_id=TENANT,
+        artifact_class=ARTIFACT_CLASS,
+        name="pinned-past-the-memory-reader",
+        artifact=unresolvable,
+    ).content_address
+    with pytest.raises(SnapshotPinUnresolvable):
+        _replay(deployment, address)
+
+    # The sentinel-pinned record still reads through, exactly as before.
+    unpinned = SnapshotReader(
+        reader=deployment.handle.reader, snapshot=record.context_fabric_snapshot
+    )
+    assert unpinned.as_of(tenant_id=TENANT, at=BOUNDARY).as_of == BOUNDARY
+
+
+def test_a_rehydration_that_moves_the_pin_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """The adversarial half: a moved pin is *detected*, not tolerated.
+
+    Two seams, both asserted. On the vessel: the pin is inside the lineage's
+    content address, so a rehydrator that returned the product under another
+    pin returns a different decision — ``ReplayDivergence`` on the product
+    address. On dimension 1: a re-execution that read under another pin than
+    the record names — here, a ``SnapshotReader`` whose ``snapshot_pin`` is
+    made to report a foreign pin while the record carries the sentinel —
+    diverges on the pin comparison itself, naming both pins, before any
+    product is rehydrated.
+    """
+
+    class _PinMover(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            return product.model_copy(
+                update={
+                    "lineage": product.lineage.model_copy(
+                        update={"store_snapshot_pin": FOREIGN_PIN}
+                    )
+                }
+            )
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_PinMover(deployment))
+
+    original = SnapshotReader.snapshot_pin
+    try:
+        SnapshotReader.snapshot_pin = lambda self: FOREIGN_PIN  # type: ignore[method-assign]
+        with pytest.raises(ReplayDivergence, match="fluree:'7'.*none:'no-store-snapshot-pin'"):
+            _replay(deployment, address)
+    finally:
+        SnapshotReader.snapshot_pin = original  # type: ignore[method-assign]
 
 
 # --- structural: no moving targets on the replay path ----------------------
