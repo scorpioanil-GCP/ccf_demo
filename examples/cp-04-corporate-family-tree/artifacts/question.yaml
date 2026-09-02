@@ -94,10 +94,13 @@ declaration:
     # three members sit at depths 1, 2 and 3 from this anchor.
     max_depth: 3
 
-    # The ceiling above which assembly refuses with `409` and the debt block.
-    # Provisional — `[TBC — product owner]`, spec §F.2. Declared here so the
-    # value travels into the content address rather than being defaulted
-    # somewhere a reader cannot see it.
+    # DECLARED AND ADVISORY at this tier (CR-02, 2026-09-01) — a demonstration
+    # pin, NOT an enforced ceiling: no `D_c`-versus-`debt_tolerance` comparison
+    # runs anywhere in this product and nothing refuses on it; the assessed
+    # debt is SERVED in the payload's debt block. The spec's `409` on breach
+    # (§F.2) is a `src/` obligation this example does not wire. Provisional —
+    # `[TBC — product owner]`. Declared here so the value travels into the
+    # content address rather than being defaulted somewhere a reader cannot see.
     debt_tolerance: "0.25"
 
   # DECLARED AND INERT — spec §B.4.3. `as_of` is refused

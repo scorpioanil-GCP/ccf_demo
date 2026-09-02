@@ -449,7 +449,9 @@ declaration:
         - context_debt
       failure: >-
         503 on gate refusal, returned AS DATA and never as a 200 with a
-        warning; 409 on a debt breach, with the debt block. The SDK's shipped
+        warning. The spec's `409` on a debt breach (§F.2) is NOT wired at this
+        tier: `debt_tolerance` is advisory (CR-02, `ccf_config.yaml`), the
+        debt block is SERVED and nothing compares `D_c` to it. The SDK's shipped
         gates run UNCHANGED and NO GATE IS ADDED TO THE SDK — `D-IMPL-224`
         makes the sixteen `CFT-G` assertions a DECLARED ARTIFACT plus CI
         coverage, with no `ProductGate` Protocol and no serve path.

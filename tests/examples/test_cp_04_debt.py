@@ -772,6 +772,12 @@ def test_the_debt_tolerance_contract_claims_no_unenforced_409() -> None:
 
     Sabotage: restoring the `refuses with 409` sentence turns the first
     assertion RED; moving the key into `unsupported_arguments` turns the third.
+
+    The same sentence lived in two sibling artifacts — `question.yaml`'s
+    comment on the `debt_tolerance` key and the recipe's L6 `failure` field
+    ("409 on a debt breach") — so the last two assertions read those too. A
+    counterfactual ("folding coverage into `S` *would* `409`") is not a claim
+    of shipped behavior and is left alone.
     """
     import dataclasses
 
@@ -809,3 +815,34 @@ def test_the_debt_tolerance_contract_claims_no_unenforced_409() -> None:
         "FamilyScenario still carries the dead debt_tolerance field pinned to"
         " the artifact's copy"
     )
+
+    # The sibling artifacts: the comment beside the declared pin, and the
+    # recipe's L6 failure contract. Neither may assert a 409 this tier fires.
+    question_text = (EXAMPLE / "artifacts" / "question.yaml").read_text(encoding="utf-8")
+    key_at = question_text.index("debt_tolerance:")
+    comment_window = question_text[max(0, key_at - 700) : key_at]
+    assert "refuses with `409`" not in comment_window, (
+        "question.yaml's comment on debt_tolerance still says assembly"
+        " `refuses with 409` — the same unfired claim ccf_config.yaml lost"
+    )
+    assert "advisory" in comment_window.lower(), (
+        "question.yaml's debt_tolerance comment must say the pin is advisory"
+    )
+
+    recipe = yaml.safe_load(
+        (EXAMPLE / "artifacts" / "assembly-recipe.yaml").read_text(encoding="utf-8")
+    )
+    failures = [
+        step.get("failure", "")
+        for step in recipe["declaration"]["steps"]
+        if isinstance(step, dict) and step.get("layer") == "L6"
+    ]
+    assert failures, "the recipe no longer declares an L6 step — the check is idle"
+    for failure in failures:
+        assert "409 on a debt breach" not in failure, (
+            "the recipe's L6 failure field still claims `409 on a debt breach`"
+            f" as shipped behavior: {failure!r}"
+        )
+        assert "advisory" in failure.lower(), (
+            f"the recipe's L6 failure field must say debt_tolerance is advisory: {failure!r}"
+        )
