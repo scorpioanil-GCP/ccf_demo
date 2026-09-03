@@ -3177,7 +3177,7 @@ the serve-time pin window (R4, `L-02`); WR-01 / WR-03 (advisory); any `src/` or 
 **Plans:** 8 plans in 5 waves (planned 2026-09-03; `24.5.1-0N-PLAN.md`)
 
 Plans:
-- [ ] 24.5.1-01-PLAN.md — baselines and controls at `ad56c816` (criteria 1, 3, 5, 6, 15, 19, 22, 24) and the 24.6 ledger candidates `LC-01..05` (criterion 7) — the FIRST commit
+- [x] 24.5.1-01-PLAN.md — baselines and controls at `ad56c816` (criteria 1, 3, 5, 6, 15, 19, 22, 24) and the 24.6 ledger candidates `LC-01..05` (criterion 7) — the FIRST commit
 - [ ] 24.5.1-02-PLAN.md — cp-01/02/03 code and tests: dead `ParameterNotSupported` machinery deleted, `ASSEMBLER_VERSION` 1.0.1 with a pin test, the `assembled by` line, `CPR-G08` refuses through one `_not_available` (D-08), `OFS-G06`'s spelling line inverted
 - [ ] 24.5.1-03-PLAN.md — cp-01/02/03 prose, §F.4 closure notes, transcripts diffed then re-pinned, pages rebuilt
 - [ ] 24.5.1-04-PLAN.md — hw1: `runner/signal-batch.yaml` + `runner/seed.py`, seeded parity, the negative module, `consume.py` key suffix, README narrowed and re-captured byte for byte, the seed target
