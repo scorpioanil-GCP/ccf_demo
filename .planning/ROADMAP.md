@@ -3174,7 +3174,17 @@ the serve-time pin window (R4, `L-02`); WR-01 / WR-03 (advisory); any `src/` or 
 23. **The §3.1 close protocol runs on the SHIPPED tree:** the four foreground chunks A/B/C/D are a proven partition of the collected count and both store legs (`leg-postgres`, `leg-fluree`) are green; the hw1 red of `D-GATE-24.5` is GONE (criterion 9) and NO new red is carved without a dated ruling; `make lint`, `make typecheck`, `make gate-tools` and `tools/check_product_gates.py` exit 0; the cross-AI panel reads the shipped code inlined over stdin (`24.5.1-CLOSE-REVIEWS.md`), the single-agent review runs, every finding is verified against the tree and rejected ones are recorded as rejected; unanchored `path.py:LINE` citations **0**; `docs/surface/examples/RETIREMENT-COUPLINGS.md` regenerated LAST.
 24. **The criteria block's sha256 is pinned at this lock and is byte-identical at close;** `gsd-sdk query roadmap.get-phase 24.5.1` parses EXACTLY 24 criteria (the authored count), the continuation-line detector is proven RED on a planted wrap in a scratch copy, and the two marked amendments this sitting made to this section (the STATUS line and the criteria placeholder) preserve their superseded text.
 
-**Plans:** none yet.
+**Plans:** 8 plans in 5 waves (planned 2026-09-03; `24.5.1-0N-PLAN.md`)
+
+Plans:
+- [ ] 24.5.1-01-PLAN.md — baselines and controls at `ad56c816` (criteria 1, 3, 5, 6, 15, 19, 22, 24) and the 24.6 ledger candidates `LC-01..05` (criterion 7) — the FIRST commit
+- [ ] 24.5.1-02-PLAN.md — cp-01/02/03 code and tests: dead `ParameterNotSupported` machinery deleted, `ASSEMBLER_VERSION` 1.0.1 with a pin test, the `assembled by` line, `CPR-G08` refuses through one `_not_available` (D-08), `OFS-G06`'s spelling line inverted
+- [ ] 24.5.1-03-PLAN.md — cp-01/02/03 prose, §F.4 closure notes, transcripts diffed then re-pinned, pages rebuilt
+- [ ] 24.5.1-04-PLAN.md — hw1: `runner/signal-batch.yaml` + `runner/seed.py`, seeded parity, the negative module, `consume.py` key suffix, README narrowed and re-captured byte for byte, the seed target
+- [ ] 24.5.1-05-PLAN.md — cp-04 code and tests: `ledger_t` on name AND branch, `AnchorAmbiguityRefusal` as data with `CFT-G17` (D-09), dead branch deleted, one PATCH bump, the declaration test reconciled
+- [ ] 24.5.1-06-PLAN.md — cp-04 recorded lies, README/summary/spec, `CFT-G16` live, transcript diffed then re-pinned, page built
+- [ ] 24.5.1-07-PLAN.md — close prep: every instrument at close with controls, the four foreground chunks and both legs (criterion 23's measured half)
+- [ ] 24.5.1-08-PLAN.md — pages republished (cp-04 first publish), the §3.1 panel packet, the `D-GATE-24.5.1` draft, `RETIREMENT-COUPLINGS.md` last
 
 ## Progress
 
@@ -3217,7 +3227,7 @@ the serve-time pin window (R4, `L-02`); WR-01 / WR-03 (advisory); any `src/` or 
 | 24.3. Credit Spreading — Obligor Financial Spread (cp-03), Gate 2 | 5/5 steps + close-panel fixes | **Complete — `D-GATE-24.3` APPROVED** (Dave). Commits `294cb63`..`e350cde` on `main`. All FOURTEEN gates built and every one observed RED; they did not exist at phase start. Close panel (codex + cursor; gemini absent, no key) found a PRODUCT defect — the restatement key was hard-coded against its own artifact and hid four real corrections. Nine blocking findings fixed in-phase, four advisory carried, one of the executor's own suspicions rejected. `D-IMPL-222` ruled inside the phase. **`cp-02` still has no phase (`D-IMPL-221`), carried** | 2026-08-31 |
 | 24.4. Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal & Ontology, and the Ladder's First MCP Door | 14/14 plans + FIX-01..05 | **Complete — `D-GATE-24.4` APPROVED** (Dave). Commits `bde7660`..`14edd82` on `main`, merged `--no-ff`. Five-check eval held on live fixtures; sixteen gates `CFT-G01`..`G16` every one observed RED, `CFT-G17` withdrawn; `--role` kept on measurement (two seals, 22 vs 0 detailed). Close panel on the shipped tree: 5 blocking fixed under sabotage, 6 rejected with evidence; single-agent review: CR-01/WR-05/WR-01 fixed, CR-02's 409 claim removed from all three artifacts. `src/`+`runtime/` 0 files; twelve gaps `24.4-D-26`..`D-37` recorded, none closed. Pytest 4664/45/1 — the 1 carved by `D-IMPL-234`, NOT suite-green; cp-01/02/03 exemption claims unruled. 17 deferred rows | 2026-09-01 |
 | 24.5. SDK Gap Catch-Up — cp-00 through cp-04, Ledgered, Ruled and Closed | **CLOSED** — `D-GATE-24.5` approved (Dave, 2026-09-03) at `17a1de3f`; 18/18 plans; CR-01 (`D-IMPL-243`), WR-02 (`24.5-FIX-02`) and panel R3 (`24.5-FIX-03`) fixed in-phase; R1/R2/R4 carried by ruling; `24.5.1` opened and owns hw1 (`D-IMPL-242`); merged `--no-ff` to `main` | **Direction banked** (`D-IMPL-235`, 2026-09-02). Ledger sitting first, no code; `src/`+`runtime/` OPEN; close by re-running cp-01..04. Criteria at the discuss sitting (`D-GATE-19`). Open: `D-IMPL-224` amendable? | — |
-| 24.5.1. The Return Trip — cp-01/02/03 and hw1 re-versioned, recorded lies corrected | 0/0 plans | **Direction banked** (`D-IMPL-244`, 2026-09-03). Examples OPEN, `src/`+`runtime/` CLOSED. Criteria at the discuss sitting (`D-GATE-19`). | — |
+| 24.5.1. The Return Trip — cp-01/02/03 and hw1 re-versioned, recorded lies corrected | 0/8 plans | **Planned** (2026-09-03): discussed (`D-IMPL-245` + am.1-3), 24 criteria LOCKED at `3f51b184` (digest `580d785f…`), 8 plans in 5 waves. Examples OPEN, `src/`+`runtime/` CLOSED. | — |
 
 ## Coverage
 
