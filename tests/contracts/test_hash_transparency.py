@@ -264,26 +264,35 @@ def test_a_null_nested_value_is_a_leaf_not_a_walk() -> None:
 
 # --- the marks in the tree: the ticked table, as a roster --------------------
 
-#: Every hash-transparent field the SDK declares, as ``D-IMPL-243``'s ticked
-#: table (rows 1–5 and 7–10) plus the ONE inherited occurrence: the artifact
-#: form of row 1 subclasses the parameters class and carries the same
-#: declaration, so the mark rides the inheritance — which is the CR-01
-#: consequence for a registered table's content-hash version. Rows 6, 11 and
-#: 12 (``ExecutionResult.store_snapshot_pin``, ``ResolvedEntity.resolved_by``,
-#: ``ExecutionResult.empty_results``) are never content-hashed and carry no
-#: mark. A roster, never a count: a right count with a wrong member audits
-#: clean forever.
+#: Every hash-transparent field the SDK declares: ``D-IMPL-243``'s ticked
+#: table (rows 1–5 and 7–10), amendment 2's seven ticks (the descendants twin
+#: of row 1, ``HalfLifeEntry.half_life_seconds`` at ``None``, rows 6, 11 and
+#: 12 superseded from "no mark" to ``True`` — inert until those models are
+#: hashed — and ``ServeObligations``' two fields at empty), plus the TWO
+#: inherited occurrences: the artifact forms of the two traversal parameter
+#: classes subclass them and carry the same declarations, so the mark rides
+#: the inheritance — which is the CR-01 consequence for a registered table's
+#: content-hash version. A roster, never a count: a right count with a wrong
+#: member audits clean forever.
 _MARKED_IN_THE_TREE = frozenset(
     {
         "ccf.operators.params.TraversalNeighborhoodParameters.admitted_entity_classes",
         "ccf.controlplane.artifacts.TraversalNeighborhoodParametersArtifact.admitted_entity_classes",
+        "ccf.operators.params.TraversalDescendantsParameters.admitted_entity_classes",
+        "ccf.controlplane.artifacts.TraversalDescendantsParametersArtifact.admitted_entity_classes",
         "ccf.graph.protocols.TraversalSpec.admitted_entity_classes",
         "ccf.graph.protocols.TraversalSpec.direction",
         "ccf.products.contract.ProductLineage.store_snapshot_pin",
         "ccf.replay.record.ContextFabricSnapshot.store_snapshot_pin",
+        "ccf.projection.engine.ExecutionResult.store_snapshot_pin",
+        "ccf.projection.engine.ExecutionResult.empty_results",
+        "ccf.assembly.worker.ResolvedEntity.resolved_by",
         "ccf.controlplane.artifacts.HalfLifeEntry.decay",
+        "ccf.controlplane.artifacts.HalfLifeEntry.half_life_seconds",
         "ccf.controlplane.artifacts.ProductClassDeclaration.serve_obligations",
         "ccf.products.contract.RegisteredProductClass.serve_obligations",
+        "ccf.products.contract.ServeObligations.debt_ceiling",
+        "ccf.products.contract.ServeObligations.lineage_inputs_at",
         "ccf.products.request.ProductRequestContract.unsupported_arguments",
         "ccf.assembly.worker.RelationshipResolutionRule.predicate_key",
         "ccf.assembly.worker.RelationshipResolutionRule.subject_rule",
@@ -335,6 +344,15 @@ _BASE_TREE_DIGESTS = {
     "TraversalNeighborhoodParameters": (
         "34df2d942bbe6d91bdb31d304a50a35a26ea5b291eb13d90fabca17b101775a9"
     ),
+    # The directed twin (``D-IMPL-243`` amendment 2) did NOT exist at
+    # ``13bd250``; its identity claim is that the canonical form renders
+    # fields and never a class name, so the same three required fields at
+    # HEAD, with the admission at its sentinel, MUST hash as the base tree's
+    # three-field parameters did — the digest above, verbatim. A rendered
+    # admission would move it; measured below.
+    "TraversalDescendantsParameters": (
+        "34df2d942bbe6d91bdb31d304a50a35a26ea5b291eb13d90fabca17b101775a9"
+    ),
     "TraversalSpec": (
         "34df2d942bbe6d91bdb31d304a50a35a26ea5b291eb13d90fabca17b101775a9"
     ),
@@ -373,7 +391,10 @@ def _real_models_at_their_sentinels() -> dict[str, object]:
         ProductClassDeclaration,
     )
     from ccf.graph.protocols import GraphQuery, TraversalSpec
-    from ccf.operators.params import TraversalNeighborhoodParameters
+    from ccf.operators.params import (
+        TraversalDescendantsParameters,
+        TraversalNeighborhoodParameters,
+    )
     from ccf.products.contract import ProductLineage, RegisteredProductClass
     from ccf.products.request import ProductRequestContract, SkillArgumentSchema
     from ccf.replay.record import ContextFabricSnapshot
@@ -386,6 +407,11 @@ def _real_models_at_their_sentinels() -> dict[str, object]:
     )
     return {
         "TraversalNeighborhoodParameters": TraversalNeighborhoodParameters(
+            seed_entity_classes=frozenset({"a"}),
+            relationship_types=frozenset({"r"}),
+            depth_limit=1,
+        ),
+        "TraversalDescendantsParameters": TraversalDescendantsParameters(
             seed_entity_classes=frozenset({"a"}),
             relationship_types=frozenset({"r"}),
             depth_limit=1,
@@ -452,3 +478,20 @@ def test_each_marked_model_at_its_sentinel_hashes_as_the_base_tree_did(
 
 def test_the_digest_table_and_the_construction_table_name_the_same_models() -> None:
     assert set(_real_models_at_their_sentinels()) == set(_BASE_TREE_DIGESTS)
+
+
+def test_the_descendants_twin_at_a_non_sentinel_admission_moves_its_hash() -> None:
+    """Amendment 2's first tick, both halves: silence equals yesterday, and a
+    rendered admission is a new identity — the same two facts row 1 carries."""
+    from ccf.operators.params import TraversalDescendantsParameters
+
+    silent = TraversalDescendantsParameters(
+        seed_entity_classes=frozenset({"a"}),
+        relationship_types=frozenset({"r"}),
+        depth_limit=1,
+    )
+    admitting = silent.model_copy(update={"admitted_entity_classes": frozenset({"a"})})
+    assert content_hash(silent) == _BASE_TREE_DIGESTS["TraversalDescendantsParameters"]
+    assert content_hash(admitting) != content_hash(silent)
+    assert b"admitted_entity_classes" in canonical_bytes(admitting)
+    assert b"admitted_entity_classes" not in canonical_bytes(silent)

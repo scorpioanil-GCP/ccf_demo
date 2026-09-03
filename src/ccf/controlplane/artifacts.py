@@ -265,7 +265,12 @@ class HalfLifeEntry(CCFContract):
             rather than a fractional quantity because seconds are exact and
             floats are not; sub-second half-lives are outside the bands the
             whitepaper's operational story contemplates. Absent under
-            ``supersede-only``.
+            ``supersede-only``. Hash-transparent at ``None`` under
+            ``D-IMPL-243`` amendment 2: ``None`` occurs only on a
+            supersede-only entry, and an entry that carries no rate is
+            omitted-at-sentinel exactly as the required-seconds shape of
+            ``13bd250`` rendered nothing for it; a curve entry's seconds
+            are rendered as they always were.
         decay_driver: What actually makes this observation type go stale.
         supersession_event: The event that ends this observation's validity for
             current-value queries. Required in both modes — under
@@ -273,7 +278,9 @@ class HalfLifeEntry(CCFContract):
     """
 
     decay: DecayMode = Field(default="curve", json_schema_extra={HASH_TRANSPARENT_KEY: True})
-    half_life_seconds: int | None = None
+    half_life_seconds: int | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     decay_driver: str
     supersession_event: str
 

@@ -1,22 +1,15 @@
-"""CINV-06 — every sentinel-defaulted ``CCFContract`` field declares its hash posture.
+"""CINV-06 — every sentinel-defaulted ``CCFContract`` field NEW since ``13bd250`` declares its hash posture.
 
 ``D-IMPL-243`` amendment 1 (Dave: *"Lint: every new sentinel-defaulted field
-on a ``CCFContract`` must declare the key. Pre-243 fifteen allowlisted by name
-in that lint (not a count). A forgotten key is red, not a quiet upgrade."*);
-whitepaper §7.10; CLAUDE.md §7.4. SDK-defined enforcement, not
-whitepaper-derived.
-
-**REGISTRATION STATUS: written, tested, and NOT yet registered under
-``python -m tools.lints --all``.** Its first run over ``src/`` and ``runtime/``
-with the fifteen allowlisted found further pre-243 sentinel-defaulted fields
-without the key — the roster is pinned by
-``tools/lints/tests/test_hash_transparent_key.py`` and reported in
-``24.5-FIX-01-SUMMARY.md`` — and amendment 1 says the allowlist is the
-fifteen *and nothing else*. Widening it, or narrowing the rule's universe,
-is a ruling, not an executor's call. Until that ruling this module is a
-measurement instrument that ``make lint`` does not run; the docstring of
-``tools/lints/__init__.py`` says the same, so nothing in the tree implies a
-gate that is not standing.
+on a ``CCFContract`` must declare the key. … A forgotten key is red, not a
+quiet upgrade."*) and amendment 2 (Dave: *"New-since-13bd250 only. Do not
+allowlist 115 names. Lint: field absent at 13bd250 → must declare
+``ccf_hash_transparent``. Older fields are D-IMPL-89 by construction. The
+fifteen stay a named roster on the replay check only (record shape), not a
+second copy of the lint universe. Base roster is a committed file measured at
+``13bd250``, not a comment."*); whitepaper §7.10; CLAUDE.md §7.4.
+SDK-defined enforcement, not whitepaper-derived. Registered under
+``python -m tools.lints --all`` (``make lint``) as ``hash-transparent-key``.
 
 The rule
 --------
@@ -29,17 +22,43 @@ lineage (no key). The three states mean three different things at
 ``replay()``, so the state must be **declared**, in the field's
 ``json_schema_extra``, as the literal ``True`` or the literal ``False``.
 This checker reports every defaulted field whose declaration does neither,
-by ``Class.field``, unless the field is on the allowlist below.
+by ``Class.field`` — **unless the field is in the base roster.**
 
 ``cinv06-hash-transparent-key``
-    ``Class.field`` declares a default and no ``ccf_hash_transparent`` key —
-    or a key whose value is not the literal ``True``/``False``, or a
-    ``json_schema_extra`` this checker cannot read statically. All three are
-    the same finding: the field's hash posture is not declared where the
-    canonicalizer reads it.
+    ``Class.field`` declares a default, is not in the base roster, and
+    declares no ``ccf_hash_transparent`` key — or a key whose value is not
+    the literal ``True``/``False``, or a ``json_schema_extra`` this checker
+    cannot read statically. All three are the same finding: the field's hash
+    posture is not declared where the canonicalizer reads it.
 
 Scope: ``src/`` and ``runtime/`` — every tree the canonicalizer's models live
 in. Tests and examples declare scratch models by design and are out of scope.
+
+The universe: new since ``13bd250``, measured
+--------------------------------------------
+The lint's universe is the defaulted contract fields that did NOT exist with
+a default in the Phase 24.5 base tree. The boundary is a committed file,
+``tools/lints/hash_transparent_base_roster.json`` — every defaulted
+``CCFContract`` field at ``13bd250``, ``module.Class.field``, 130 names —
+generated from ``git archive 13bd250`` by ``tools/lints/base_roster.py``
+with the same :func:`defaulted_fields` walker this checker runs over HEAD,
+and held equal to a fresh measurement by that module's ``--check`` (and by
+``tools/lints/tests/test_base_roster.py``). A field in the roster is silent
+here whatever it declares: it predates the mark, its default has rendered
+into every hash since it shipped, and a stored object lacking it is the
+``D-IMPL-89`` compatibility case — the lineage amendment 2 calls "by
+construction". The fifteen fields amendment 1 named on the decision record
+are in the roster like any other pre-phase field; **they are no longer a
+list in this module.** As a roster they live on the replay check —
+``tests/replay/test_generation_mismatch.py::THE_FIFTEEN`` — which is about the
+record's shape, not about the lint's universe.
+
+Why a roster and not an allowlist, in Dave's words: *"Not 2 — 130-name roster
+will rot. Not 3 — 'hashed family' is another judgment the lint cannot see."*
+The roster does not rot because nothing is ever added to it by hand: it is a
+measurement of one immutable tree, and ``--check`` proves the file is that
+measurement. A field added after the base is in the universe forever, and
+declares the key or is red.
 
 What "a ``CCFContract`` subclass" means to an AST
 -------------------------------------------------
@@ -52,19 +71,14 @@ and misses a base reached only through an alias; the compensating control is
 ``test_the_ast_universe_equals_the_imported_universe`` in this checker's
 test module, which imports every model and holds the two rosters equal.
 
-The allowlist
--------------
-:data:`ALLOWLISTED_PRE_243_FIELDS` — the fifteen fields amendment 1 names, by
-``Class.field``, each the pre-243 ``D-IMPL-89`` lineage on the decision
-record. A roster, not a count; asserted by test against the amendment's own
-measurement (``tests/replay/test_generation_mismatch.py::THE_FIFTEEN``). No
-data file: like every other CINV rule but the first, this one takes no
-``allowlist.yaml`` entry (``D-13``).
+No allowlist. Like every other CINV rule but the first, this one takes no
+``allowlist.yaml`` entry (``D-13``), and it carries no name list of its own.
 """
 
 from __future__ import annotations
 
 import ast
+import json
 import pathlib
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -85,29 +99,13 @@ CONTRACT_BASE = "CCFContract"
 #: design — they declare scratch models — and the archive is not core.
 SCOPE_TREES: tuple[str, ...] = ("src", "runtime")
 
-#: The fifteen (``D-IMPL-243`` amendment 1), model-qualified, and nothing else.
-#: ``ContextFabricSnapshot``, ``PolicyBindingsSnapshot``, ``ModelVersionRecord``
-#: and ``ContentGenerationPath`` are the four dimension models of
-#: ``ccf.replay.record`` the amendment's dotted names resolve to.
-ALLOWLISTED_PRE_243_FIELDS: frozenset[str] = frozenset(
-    {
-        "ContextFabricSnapshot.source_attestation",
-        "PolicyBindingsSnapshot.hitl_actions",
-        "PolicyBindingsSnapshot.survivor_cap",
-        "PolicyBindingsSnapshot.graph_adapter",
-        "PolicyBindingsSnapshot.graph_adapter_version",
-        "PolicyBindingsSnapshot.graph_secret_refs",
-        "ModelVersionRecord.harness_trace",
-        "ContentGenerationPath.workflow_step_sequence",
-        "ContentGenerationPath.assembly_refusal",
-        "ContentGenerationPath.graph_query_sequence",
-        "ContentGenerationPath.debt",
-        "ContentGenerationPath.debt_evidence",
-        "ContentGenerationPath.source_refresh_recency",
-        "ContentGenerationPath.obligation_in_force",
-        "ContentGenerationPath.request",
-    }
-)
+#: The committed base roster (``D-IMPL-243`` amendment 2): generated and
+#: checked by ``tools/lints/base_roster.py``, read here with the stdlib. The
+#: header keys are asserted by that module's ``load``; this reader takes only
+#: the names, because a lint that refused to run on a malformed roster would
+#: be red for the wrong reason — ``test_base_roster.py`` is where the file's
+#: shape is held.
+BASE_ROSTER_PATH = pathlib.Path(__file__).with_name("hash_transparent_base_roster.json")
 
 SKIP_DIRS: frozenset[str] = frozenset(
     {"__pycache__", ".git", ".venv", "venv", "build", "dist", ".mypy_cache"}
@@ -163,6 +161,12 @@ def module_qualified(field: DefaultedField, base: pathlib.Path) -> str:
             parts.pop()
         return ".".join([*parts, field.class_name, field.field_name])
     raise ValueError(f"{field.path} is under none of {SCOPE_TREES} in {base}")
+
+
+def base_roster(path: pathlib.Path = BASE_ROSTER_PATH) -> frozenset[str]:
+    """The names in the committed base roster — the fields OUTSIDE the universe."""
+    document = json.loads(path.read_text(encoding="utf-8"))
+    return frozenset(document["fields"])
 
 
 def _base_name(expr: ast.expr) -> str | None:
@@ -284,11 +288,18 @@ def defaulted_fields(base: pathlib.Path) -> list[DefaultedField]:
     return found
 
 
-def check_tree(base: pathlib.Path) -> list[str]:
-    """Report every defaulted contract field whose hash posture is undeclared."""
+def check_tree(base: pathlib.Path, roster: frozenset[str] | None = None) -> list[str]:
+    """Report every defaulted contract field outside the base roster whose hash posture is undeclared.
+
+    ``roster`` defaults to the committed base roster; a test that pins a
+    scratch roster passes its own. The membership test is module-qualified,
+    so a scratch tree's ``scratch.m.Planted.forgotten`` is in the universe
+    however its class is named.
+    """
+    outside = base_roster() if roster is None else roster
     findings: list[str] = []
     for field in defaulted_fields(base):
-        if field.qualified in ALLOWLISTED_PRE_243_FIELDS:
+        if module_qualified(field, base) in outside:
             continue
         if field.declared is True or field.declared is False:
             continue
@@ -310,7 +321,7 @@ def check_tree(base: pathlib.Path) -> list[str]:
                 field.path,
                 field.lineno,
                 RULE_HASH_TRANSPARENT_KEY,
-                f"{field.qualified} {detail} (D-IMPL-243 amendment 1)",
+                f"{field.qualified} {detail} (D-IMPL-243 amendments 1 and 2)",
             )
         )
     return findings

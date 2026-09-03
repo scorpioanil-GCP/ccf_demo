@@ -564,10 +564,21 @@ class ServeObligations(CCFContract):
             *no obligation declared*. Names only: which members a class
             obliges is the class's to say, and what those members contain is
             never read here.
+
+    Both fields are hash-transparent at their sentinels under ``D-IMPL-243``
+    amendment 2 (Dave: *"``ServeObligations``' two fields at empty True —
+    empty ≡ pre-phase 'nothing enforced'"*): a model absent at ``13bd250``
+    whose empty form obliges nothing is omitted member-by-member at that
+    value, so a class declaring a ceiling and no lineage obligation renders
+    the ceiling alone.
     """
 
-    debt_ceiling: Decimal | None = None
-    lineage_inputs_at: frozenset[str] = frozenset()
+    debt_ceiling: Decimal | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    lineage_inputs_at: frozenset[str] = Field(
+        default_factory=frozenset, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("debt_ceiling")
     @classmethod

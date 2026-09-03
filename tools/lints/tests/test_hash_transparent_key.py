@@ -1,18 +1,21 @@
-"""CINV-06 — the ``ccf_hash_transparent`` key on every sentinel-defaulted contract field.
+"""CINV-06 — the ``ccf_hash_transparent`` key on every sentinel-defaulted contract field NEW since ``13bd250``.
 
-``D-IMPL-243`` amendment 1; whitepaper §7.10; CLAUDE.md §7.4. The checker is
-``tools/lints/hash_transparent_key.py``; see its docstring for the rule and
-for its **registration status** — written and NOT registered under ``--all``,
-because its first run over the tree found the roster pinned at the bottom of
-this module, and widening the allowlist beyond the fifteen is a ruling.
+``D-IMPL-243`` amendments 1 and 2; whitepaper §7.10; CLAUDE.md §7.4. The
+checker is ``tools/lints/hash_transparent_key.py``; the base roster it reads
+is ``tools/lints/hash_transparent_base_roster.json``, whose own proofs are in
+``test_base_roster.py``. The checker is registered under ``--all``
+(``test_runner.py`` holds the registry equal by name).
 
 Two kinds of proof here. The mechanism, on scratch trees under ``tmp_path``:
 a planted keyless field is RED naming ``Class.field``; ``True`` and ``False``
 are silent; anything else under the key is red; required fields, private
 attributes and ``ClassVar``s are outside the rule; subclassing is followed
-across files. And the tree: the fifteen are found, silent, and are exactly
-the amendment's fifteen; the AST universe equals the imported universe; the
-roster the first run measured is what the tree still says.
+across files; and the roster boundary is module-qualified — a scratch class
+that happens to share a roster entry's ``Class.field`` in a different module
+is still in the universe. And the tree: the seven fields amendment 2 ticks
+are declared ``True`` by name; every field in the base roster is silent
+whatever it declares (130 keyless pre-phase fields, zero findings); the AST
+universe equals the imported universe; and the tree is clean.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from collections.abc import Mapping
 
 import pytest
 
+from tools.lints import base_roster
 from tools.lints import hash_transparent_key as checker
 from tools.lints.__main__ import CHECKERS, WHOLE_TREE_CHECKERS
 
@@ -185,8 +189,12 @@ def test_subclassing_is_followed_across_files_and_through_intermediates(
     assert _qualified(checker.check_tree(base)) == ["Leaf.forgotten"]
 
 
-def test_the_allowlist_is_honored_by_qualified_name_only(tmp_path: pathlib.Path) -> None:
-    """The fifteen are ``Class.field``; a same-named field elsewhere is not one."""
+# --- the roster boundary --------------------------------------------------------------
+
+
+def test_the_roster_boundary_is_module_qualified(tmp_path: pathlib.Path) -> None:
+    """A roster entry is ``module.Class.field``; the same ``Class.field`` in
+    another module is a different declaration and stays in the universe."""
     base = _tree(
         tmp_path,
         m="""
@@ -194,58 +202,136 @@ def test_the_allowlist_is_honored_by_qualified_name_only(tmp_path: pathlib.Path)
 
         class PolicyBindingsSnapshot(CCFContract):
             hitl_actions: str = "none"
-
-        class Other(CCFContract):
-            hitl_actions: str = "none"
         """,
     )
-    assert _qualified(checker.check_tree(base)) == ["Other.hitl_actions"]
+    record = tmp_path / "src" / "ccf" / "replay"
+    record.mkdir(parents=True)
+    (tmp_path / "src" / "ccf" / "__init__.py").write_text("")
+    (record / "__init__.py").write_text("")
+    (record / "record.py").write_text(
+        textwrap.dedent(
+            """
+            from scratch.base import CCFContract
+
+            class PolicyBindingsSnapshot(CCFContract):
+                hitl_actions: str = "none"
+            """
+        )
+    )
+    assert "ccf.replay.record.PolicyBindingsSnapshot.hitl_actions" in base_roster.load()
+    findings = checker.check_tree(base)
+    assert _qualified(findings) == ["PolicyBindingsSnapshot.hitl_actions"]
+    assert str(base / "src" / "scratch" / "m.py") in findings[0]
+
+
+def test_a_scratch_roster_bounds_the_universe(tmp_path: pathlib.Path) -> None:
+    base = _tree(
+        tmp_path,
+        m="""
+        from scratch.base import CCFContract
+
+        class Old(CCFContract):
+            kept: int = 0
+
+        class New(CCFContract):
+            forgotten: int = 0
+        """,
+    )
+    roster = frozenset({"scratch.m.Old.kept"})
+    assert _qualified(checker.check_tree(base, roster=roster)) == ["New.forgotten"]
+    assert _qualified(checker.check_tree(base, roster=frozenset())) == [
+        "Old.kept",
+        "New.forgotten",
+    ]
+
+
+def test_a_roster_field_is_silent_whatever_it_declares(tmp_path: pathlib.Path) -> None:
+    """In the roster means outside the universe: keyless, ``True``, ``False``
+    and unreadable are all silent — the field predates the mark."""
+    base = _tree(
+        tmp_path,
+        m="""
+        from pydantic import Field
+        from scratch.base import CCFContract
+        from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
+        EXTRA = {HASH_TRANSPARENT_KEY: True}
+
+        class Old(CCFContract):
+            keyless: int = 0
+            true: int = Field(default=0, json_schema_extra={HASH_TRANSPARENT_KEY: True})
+            false: int = Field(default=0, json_schema_extra={HASH_TRANSPARENT_KEY: False})
+            unreadable: int = Field(default=0, json_schema_extra=EXTRA)
+        """,
+    )
+    roster = frozenset(
+        f"scratch.m.Old.{name}" for name in ("keyless", "true", "false", "unreadable")
+    )
+    assert checker.check_tree(base, roster=roster) == []
+    assert _qualified(checker.check_tree(base, roster=frozenset())) == [
+        "Old.keyless",
+        "Old.unreadable",
+    ]
 
 
 # --- the tree -----------------------------------------------------------------------
 
 
-#: The amendment's fifteen, in its own dotted spelling — a second spelling of
-#: the checker's ``Class.field`` roster, so the two cannot drift apart.
-_AMENDMENT_FIFTEEN = {
-    "context_fabric_snapshot": ("ContextFabricSnapshot", ["source_attestation"]),
-    "policy_bindings": (
-        "PolicyBindingsSnapshot",
-        ["hitl_actions", "survivor_cap", "graph_adapter", "graph_adapter_version", "graph_secret_refs"],
-    ),
-    "model_version": ("ModelVersionRecord", ["harness_trace"]),
-    "content_generation_path": (
-        "ContentGenerationPath",
-        [
-            "workflow_step_sequence", "assembly_refusal", "graph_query_sequence", "debt",
-            "debt_evidence", "source_refresh_recency", "obligation_in_force", "request",
-        ],
-    ),
-}
+#: Amendment 2's seven ticks, ``module.Class.field``, all ``True`` — the
+#: fields the first roster-bounded sweep named and nothing else.
+THE_SEVEN: tuple[str, ...] = (
+    "ccf.assembly.worker.ResolvedEntity.resolved_by",
+    "ccf.controlplane.artifacts.HalfLifeEntry.half_life_seconds",
+    "ccf.operators.params.TraversalDescendantsParameters.admitted_entity_classes",
+    "ccf.products.contract.ServeObligations.debt_ceiling",
+    "ccf.products.contract.ServeObligations.lineage_inputs_at",
+    "ccf.projection.engine.ExecutionResult.empty_results",
+    "ccf.projection.engine.ExecutionResult.store_snapshot_pin",
+)
 
 
-def test_the_allowlist_is_exactly_the_amendments_fifteen_by_name() -> None:
-    expected = {
-        f"{cls}.{field}"
-        for cls, fields in _AMENDMENT_FIFTEEN.values()
-        for field in fields
-    }
-    assert checker.ALLOWLISTED_PRE_243_FIELDS == expected
-    assert len(expected) == 15
+def _at_head() -> dict[str, checker.DefaultedField]:
+    return {checker.module_qualified(f, REPO): f for f in checker.defaulted_fields(REPO)}
 
 
-def test_each_of_the_fifteen_is_a_defaulted_field_the_tree_declares() -> None:
-    """The allowlist is not dead: every entry names a real, keyless default."""
-    by_name = {f.qualified: f for f in checker.defaulted_fields(REPO)}
-    for name in sorted(checker.ALLOWLISTED_PRE_243_FIELDS):
-        assert name in by_name, name
-        assert by_name[name].declared is None, name
-        assert by_name[name].path == REPO / "src" / "ccf" / "replay" / "record.py"
+def test_the_seven_are_declared_true_and_outside_the_roster() -> None:
+    at_head = _at_head()
+    roster = base_roster.load()
+    for name in THE_SEVEN:
+        assert name in at_head, name
+        assert at_head[name].declared is True, name
+        assert name not in roster, name
 
 
-def test_the_fifteen_are_silent_on_the_real_tree() -> None:
-    named = set(_qualified(checker.check_tree(REPO)))
-    assert not (named & checker.ALLOWLISTED_PRE_243_FIELDS)
+def test_every_field_new_since_base_declares_the_key() -> None:
+    """The universe, enumerated: every defaulted field outside the roster
+    declares ``True`` or ``False``. A roster of names, so a future field that
+    forgets the key is named here as well as by ``make lint``."""
+    roster = base_roster.load()
+    undeclared = sorted(
+        name
+        for name, field in _at_head().items()
+        if name not in roster and field.declared not in (True, False)
+    )
+    assert undeclared == []
+
+
+def test_the_tree_is_clean() -> None:
+    assert checker.check_tree(REPO) == []
+
+
+def test_the_roster_fields_are_keyless_on_the_tree_and_silent() -> None:
+    """The 130 pre-phase fields carry no key (the ``D-IMPL-89`` lineage) and
+    the lint names none of them — silence by construction, not by allowlist."""
+    at_head = _at_head()
+    roster = base_roster.load()
+    keyless = {name for name in roster if at_head[name].declared is None}
+    assert keyless == roster
+    assert len(roster) == 130
+    # The positive control: with the roster taken away the lint names every
+    # one of the 130 — so their silence is the roster's doing and nothing else.
+    unbounded = checker.check_tree(REPO, roster=frozenset())
+    assert len(unbounded) == 130
+    assert set(_qualified(unbounded)) == {".".join(n.rsplit(".", 2)[1:]) for n in roster}
 
 
 def _imported_universe() -> dict[str, str]:
@@ -307,153 +393,10 @@ def test_the_ast_universe_equals_the_imported_universe() -> None:
     assert by_ast == by_import
 
 
-# --- registration status and the measured roster ------------------------------
+# --- registration ---------------------------------------------------------------
 
 
-def test_the_checker_is_not_registered_pending_the_roster_ruling() -> None:
-    """Honest status: written, tested, NOT under ``--all``.
-
-    Flip this to an ``in`` assertion in the same commit that registers the
-    checker — after the ruling on the roster below — and delete the roster.
-    """
-    assert "hash-transparent-key" not in WHOLE_TREE_CHECKERS
+def test_the_checker_is_registered_under_all() -> None:
+    """``D-IMPL-243`` amendment 2: registered, whole-tree, by this name."""
+    assert WHOLE_TREE_CHECKERS["hash-transparent-key"] is checker.check_tree
     assert "hash-transparent-key" not in CHECKERS
-
-
-#: Measured by the checker's first run over the tree with the fifteen
-#: allowlisted (24.5-FIX-01, ``D-IMPL-243`` amendment 1). Eight are 24.5's own
-#: additions (not at ``13bd250``); the rest predate Phase 24.5. Every entry is
-#: a sentinel-defaulted ``CCFContract`` field without the key. A roster, not
-#: a count: the ruling on the allowlist's width is taken against these names.
-UNDECLARED_ADDED_IN_24_5: tuple[str, ...] = (
-    "ExecutionResult.empty_results",
-    "ExecutionResult.store_snapshot_pin",
-    "HalfLifeEntry.half_life_seconds",
-    "ResolvedEntity.resolved_by",
-    "ServeObligations.debt_ceiling",
-    "ServeObligations.lineage_inputs_at",
-    "TraversalDescendantsParameters.admitted_entity_classes",
-)
-
-UNDECLARED_BEFORE_24_5: tuple[str, ...] = (
-    "AuditEvent.actor",
-    "AuditEvent.artifact_class",
-    "AuthzDecisionAuditEvent.authz_action_id",
-    "AuthzDecisionAuditEvent.authz_matched_pattern",
-    "ChangeEvent.after",
-    "ChangeEvent.before",
-    "ContextContract.emits",
-    "ContextProductContract.debt",
-    "ContextProductContract.debt_evidence",
-    "ContextProductContract.obligation_in_force",
-    "ContextProductContract.source_refresh_recency",
-    "DebtAssessment.scorers",
-    "DebtProfile.signal_obligations",
-    "DeploymentConfig.backend_secrets",
-    "DeploymentConfig.debt_profile",
-    "DeploymentConfig.default_perspective",
-    "DeploymentConfig.half_life",
-    "DeploymentConfig.operators",
-    "DeploymentConfig.policy",
-    "DeploymentConfig.policy_bundle_key",
-    "DeploymentConfig.request_contract",
-    "DeploymentConfig.resolution",
-    "DeploymentConfig.resolution_spec_key",
-    "DeploymentConfig.survivor_cap",
-    "DeploymentConfig.tenant_id",
-    "DeploymentManifest.backend_secrets",
-    "DeploymentManifest.survivor_cap",
-    "DeploymentManifest.tenant_id",
-    "EntityClaim.attributes",
-    "EntityRecord.superseded_at",
-    "EntityRecord.superseded_by",
-    "EntityResolutionRule.attribute_keys",
-    "EntityResolutionSpec.relationship_rules",
-    "ExecutionResult.acquisitions",
-    "ExecutionResult.executed_queries",
-    "ExecutionResult.source_attestation",
-    "ExecutionResult.survivor_cap",
-    "FederatedIngestSpec.record_key_aliases",
-    "FlureeConnection.partition",
-    "GraphQuery.allowed_entities",
-    "GraphQuery.classification_attribute_by_class",
-    "GraphQuery.permitted_classifications",
-    "GraphQuery.permitted_policy_bundle_versions",
-    "GraphQuery.require_valid_at_boundary",
-    "GraphQuery.seeds",
-    "GraphQuery.traverse",
-    "GraphView.entities",
-    "GraphView.relationships",
-    "HarnessTrace.harness_id",
-    "HarnessTrace.input_tokens",
-    "HarnessTrace.model_version",
-    "HarnessTrace.output_tokens",
-    "HarnessTrace.trace_id",
-    "HarnessTrace.trace_provider",
-    "HitlActionSubmission.annotation",
-    "HitlActionSubmission.signed_binding",
-    "HitlPolicy.signed_binding_required",
-    "IngestResult.entities",
-    "IngestResult.relationships",
-    "LineageEntry.passage_anchor",
-    "ModelVersionRecord.model_version",
-    "MongoConnection.partition",
-    "Neo4jConnection.partition",
-    "Observation.subject",
-    "OperatorProvenance.index_version",
-    "OperatorProvenance.upstream",
-    "PendingHitlEvent.policy_ref",
-    "PerspectiveConditioning.agent_definition_hash",
-    "PerspectiveConditioning.agent_definition_uri",
-    "PerspectiveConditioning.archetype_composition",
-    "PerspectiveConditioning.delegation_chain",
-    "PerspectiveConditioning.grant_set_hash",
-    "PostgresConnection.schema_name",
-    "ProductClassDeclaration.accepted_lineage_modes",
-    "ProductClassDeclaration.accepted_policy_binding_modes",
-    "ProductClassDeclaration.addressability",
-    "ProductClassDeclaration.constituent_validity_floors",
-    "ProductClassDeclaration.discovery",
-    "ProductClassDeclaration.freshness_sla",
-    "ProductClassDeclaration.payload_schema_key",
-    "ProductClassDeclaration.request_contract_key",
-    "ProductDiscovery.audiences",
-    "QueryFragment.classification_attribute_by_class",
-    "QueryFragment.permitted_classifications",
-    "QueryFragment.permitted_policy_bundle_versions",
-    "QueryFragment.require_valid_at_boundary",
-    "QueryFragment.traverse",
-    "RegisteredProductClass.accepted_lineage_modes",
-    "RegisteredProductClass.accepted_policy_binding_modes",
-    "RegisteredProductClass.addressability",
-    "RegisteredProductClass.constituent_validity_floors",
-    "RegisteredProductClass.discovery",
-    "RegisteredProductClass.freshness_sla",
-    "RegisteredProductClass.payload_schema_key",
-    "RegisteredProductClass.payload_schema_version",
-    "RegisteredProductClass.request_contract_key",
-    "RegisteredProductClass.request_contract_version",
-    "RelationshipClaim.attributes",
-    "RelationshipRecord.superseded_at",
-    "RelationshipRecord.superseded_by",
-    "ResolvedPins.entries",
-    "SignalEnvelope.observed_time",
-    "SignalEnvelope.source_metadata",
-    "SkillArgumentElement.properties",
-    "SkillArgumentElement.required",
-    "SkillArgumentProperty.items",
-    "SkillArgumentProperty.properties",
-    "SkillArgumentProperty.required",
-    "TaskDefinition.instruction_bindings",
-    "TaskStep.ref",
-    "UpsertResult.superseded_claim_id",
-    "WebhookDeliveryOutcome.error",
-    "WorkflowDefinition.exception_refs",
-    "WorkflowDefinition.gate_policies",
-    "_TemporalClaim.valid_to",
-)
-
-
-def test_the_first_run_roster_is_what_the_tree_still_says() -> None:
-    named = sorted(_qualified(checker.check_tree(REPO)))
-    assert named == sorted(UNDECLARED_ADDED_IN_24_5 + UNDECLARED_BEFORE_24_5)

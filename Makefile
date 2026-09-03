@@ -101,7 +101,7 @@ install: ## Refresh the editable install with dev extras (pip install -e ".[dev]
 	.venv/bin/pip install -e ".[dev]"
 	.venv/bin/pip install -e ./tests/fixtures/ccf-demo-adapter
 
-lint: ## CCF invariant lints — CINV-01/02/03 + orchestration split (blocking, D-07)
+lint: ## CCF invariant lints — CINV-01/02/03/04/06 + orchestration split + citations (blocking, D-07)
 	$(ENV) $(PYTHON) -m tools.lints --all
 
 typecheck: ## mypy --strict over src + runtime ([tool.mypy] files is authoritative)

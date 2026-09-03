@@ -184,10 +184,16 @@ class TraversalDescendantsParameters(OperatorParameters):
             on the undirected sibling — ``None`` admits every class; a set
             admits a hop only onto an entity whose class is a member; starts
             are never filtered. Mirrored field-for-field onto
-            ``src/ccf/graph/protocols.py::TraversalSpec``.
+            ``src/ccf/graph/protocols.py::TraversalSpec``. Hash-transparent
+            at ``None`` under ``D-IMPL-243`` amendment 2 — the same sentinel
+            and the same tick as the undirected twin: a directed walk
+            admitting every class is omitted from the canonical form at
+            that value and rendered, moving ``parameter_hash``, at any other.
     """
 
     seed_entity_classes: frozenset[str]
     relationship_types: frozenset[str]
     depth_limit: int
-    admitted_entity_classes: frozenset[str] | None = None
+    admitted_entity_classes: frozenset[str] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )

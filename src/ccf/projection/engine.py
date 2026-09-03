@@ -53,8 +53,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime
 
+from pydantic import Field
+
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.graph.protocols import (
     NO_STORE_SNAPSHOT_PIN,
     GraphQuery,
@@ -192,6 +194,11 @@ class ExecutionResult(CCFContract):
             :attr:`~ccf.products.contract.ProductLineage.store_snapshot_pin`
             and :func:`~ccf.replay.record.build_replay_record` pins it into
             replay dimension 1, where replay resolves exactly it or refuses.
+            Hash-transparent at the sentinel under ``D-IMPL-243`` amendment
+            2: this result is never content-hashed, so the mark is inert
+            today, and if the model ever lands on a hashed path the sentinel
+            reads as absent — the copy on the product lineage carries the
+            same tick.
         empty_results: The operator keys whose output view carried zero
             entities AND zero relationships (ledger row ``24.5-L-24``) —
             the Standard's *an operator returned an empty set*, observed by
@@ -206,7 +213,11 @@ class ExecutionResult(CCFContract):
             where the second half of the empty-operator gate
             (:data:`~ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT`) refuses
             a non-empty set by name; a result built by hand without the
-            field carries the empty set and passes.
+            field carries the empty set and passes. Hash-transparent at the
+            empty set under ``D-IMPL-243`` amendment 2, on the same footing
+            as ``store_snapshot_pin``: never content-hashed, the mark is
+            inert until the model is, and the empty set then reads as
+            absent.
     """
 
     plan_id: str
@@ -219,8 +230,12 @@ class ExecutionResult(CCFContract):
     executed_queries: tuple[GraphQuery, ...] = ()
     survivor_cap: int | None = None
     source_attestation: SourceAttestation | None = None
-    store_snapshot_pin: StoreSnapshotPin = NO_STORE_SNAPSHOT_PIN
-    empty_results: frozenset[str] = frozenset()
+    store_snapshot_pin: StoreSnapshotPin = Field(
+        default=NO_STORE_SNAPSHOT_PIN, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    empty_results: frozenset[str] = Field(
+        default_factory=frozenset, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     def touched_entities(self) -> tuple[str, ...]:
         """Entity URIs the execution actually touched, sorted."""

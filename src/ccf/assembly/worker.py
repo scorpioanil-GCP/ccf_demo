@@ -242,13 +242,19 @@ class ResolvedEntity(CCFContract):
             :class:`EntityResolutionStrategy` that does not fill it leaves
             :data:`NO_RESOLVING_RULE`, and a relationship rule selecting its
             endpoints by rule then never chooses this entity — an endpoint no
-            rule claims is not selectable (``24.5-L-21``).
+            rule claims is not selectable (``24.5-L-21``). Hash-transparent
+            at :data:`NO_RESOLVING_RULE` under ``D-IMPL-243`` amendment 2:
+            a resolved entity is never content-hashed, so the mark is inert
+            today and reads the sentinel as absent if the model is ever
+            hashed.
     """
 
     entity_uri: str
     entity_class: str
     attributes: dict[str, str]
-    resolved_by: str = NO_RESOLVING_RULE
+    resolved_by: str = Field(
+        default=NO_RESOLVING_RULE, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 @runtime_checkable

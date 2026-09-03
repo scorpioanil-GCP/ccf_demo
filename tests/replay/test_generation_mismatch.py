@@ -70,9 +70,13 @@ from tests.replay.test_query_sequence_pin import _stored_verbatim
 
 #: The fifteen fields ``PRE_CHANGE_CANONICAL`` lacks that the running record
 #: declares — amendment 1's own measurement, as a roster and never a count.
-#: None carries the key; every one is the ``D-IMPL-89`` lineage. The lint
-#: (``tools/lints``) allowlists exactly these by name, so this roster and that
-#: allowlist are two spellings of one fact and must not drift apart.
+#: None carries the key; every one is the ``D-IMPL-89`` lineage. Under
+#: ``D-IMPL-243`` amendment 2 this is the ONLY place the fifteen are a named
+#: roster: the CINV-06 lint no longer lists them (they are in its committed
+#: ``13bd250`` base roster like every other pre-phase field, silent by
+#: construction), and this module holds them by name because they are a fact
+#: about the RECORD's shape — what a pre-extension record lacks and still
+#: replays past — not about the lint's universe.
 THE_FIFTEEN: tuple[str, ...] = (
     "context_fabric_snapshot.source_attestation",
     "policy_bindings.hitl_actions",
