@@ -221,11 +221,20 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Literal
 
+from pydantic import Field, field_validator
+
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
-from ccf.graph.protocols import LineageMode, PolicyBindingMode
+from ccf.graph.protocols import (
+    NO_STORE_SNAPSHOT_PIN,
+    LineageMode,
+    PolicyBindingMode,
+    StoreSnapshotPin,
+)
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
     NO_OBLIGATION_IN_FORCE,
@@ -243,6 +252,7 @@ __all__ = [
     "NOT_DISCOVERABLE",
     "NO_PAYLOAD_SCHEMA",
     "NO_REQUEST_CONTRACT",
+    "NO_SERVE_OBLIGATIONS",
     "NO_VALIDITY_FLOORS",
     "UNMEASURED_FRESHNESS_SLA",
     "AssemblyMode",
@@ -255,6 +265,7 @@ __all__ = [
     "ProductDiscovery",
     "ProductLineage",
     "RegisteredProductClass",
+    "ServeObligations",
     "TTLAnchor",
     "register_product_class",
 ]
@@ -515,6 +526,81 @@ NO_PAYLOAD_SCHEMA = "no-payload-schema"
 NO_REQUEST_CONTRACT = "no-request-contract"
 
 
+class ServeObligations(CCFContract):
+    """What a product class obliges the serve path to enforce — declared as data.
+
+    SDK-defined per CLAUDE.md §11; whitepaper §7.6 (the delivery contract and
+    its validation gates) and §7.7.4–§7.7.8 (Context Debt gating Forced LLM
+    and Fail-Closed behavior). Ledger rows ``24.5-L-14`` (the debt ceiling)
+    and ``24.5-L-26`` (the per-attribute lineage obligation), licensed by
+    ``D-IMPL-237`` — the ONE structural serve-time gate mechanism the SDK
+    ships — and shaped by ``D-IMPL-240`` (3). In one sentence: **the class
+    declares the ceiling, a request may tighten it, and serve refuses
+    over-ceiling by name** (:data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`).
+
+    Both members are *obligations*, never gate types: a product class does
+    not declare a new kind of gate (``D-IMPL-224`` stands), it declares what
+    the one shipped gate holds it to. And both are read as **structure** —
+    a number against a number, the presence of a named member — never as a
+    payload shape (``D-IMPL-238`` reads ``D-IMPL-102`` limb 3 as *no payload
+    gate*).
+
+    Attributes:
+        debt_ceiling: The class's ``D_c`` ceiling, a proportion in ``[0, 1]``
+            (the interval :class:`~ccf.halflife.assessment.DebtAssessment`
+            already holds ``debt`` to). ``None`` is the positive sentinel
+            *this class declares no ceiling* — the only value under which the
+            debt half of the gate is silent, and what every class registered
+            before this field existed was asserting. The NUMBER is the
+            deployment's to author in its product-class artifact; the SDK
+            ships no default and no threshold (CINV-01, CLAUDE.md §11). A
+            request's ``debt_tolerance`` may only *lower* the effective
+            ceiling (:func:`~ccf.products.gates.effective_debt_ceiling`); it
+            can neither create one nor raise one.
+        lineage_inputs_at: The TOP-LEVEL payload members that must be present
+            and non-empty at serve — the class's per-attribute lineage
+            obligation (``24.5-L-26``; the SDK's declared form of what cp-03
+            carries as a product gate). The empty set is the positive sentinel
+            *no obligation declared*. Names only: which members a class
+            obliges is the class's to say, and what those members contain is
+            never read here.
+
+    Both fields are hash-transparent at their sentinels under ``D-IMPL-243``
+    amendment 2 (Dave: *"``ServeObligations``' two fields at empty True —
+    empty ≡ pre-phase 'nothing enforced'"*): a model absent at ``13bd250``
+    whose empty form obliges nothing is omitted member-by-member at that
+    value, so a class declaring a ceiling and no lineage obligation renders
+    the ceiling alone.
+    """
+
+    debt_ceiling: Decimal | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    lineage_inputs_at: frozenset[str] = Field(
+        default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @field_validator("debt_ceiling")
+    @classmethod
+    def _ceiling_is_a_proportion(cls, value: Decimal | None) -> Decimal | None:
+        if value is not None and not (Decimal(0) <= value <= Decimal(1)):
+            raise ValueError(
+                "debt_ceiling must lie in [0, 1]: D_c is a proportion "
+                "(whitepaper §7.7.4), so a ceiling outside that interval "
+                "either refuses everything or nothing (24.5-L-14)"
+            )
+        return value
+
+
+#: A class that declares no serve obligation — no debt ceiling, no lineage
+#: member. The positive assertion every product class registered before
+#: ``24.5-L-14`` / ``24.5-L-26`` existed was already making, so every
+#: pre-phase registration and every pre-phase ``run_gates`` call site says
+#: exactly what it always said (``D-10``, additive; ``D-IMPL-240`` (3): "a
+#: class declaring no ceiling is unaffected").
+NO_SERVE_OBLIGATIONS = ServeObligations()
+
+
 class RegisteredProductClass(CCFContract):
     """Class-level governance of one product class, resolved at registration.
 
@@ -573,6 +659,17 @@ class RegisteredProductClass(CCFContract):
             to be re-resolvable years later for a decision to replay — or
             the same sentinel. The pair moves together; half a pin is refused
             at registration.
+        serve_obligations: The class's declared :class:`ServeObligations`
+            (``24.5-L-14``, ``24.5-L-26``; ``D-IMPL-237``) — the debt ceiling
+            and the lineage members the ONE structural declared-obligations
+            gate in :func:`~ccf.products.gates.run_gates` holds a served
+            product to. Carried here because this is the value the gate
+            receives, on the ``accepted_lineage_modes`` reasoning. Defaults to
+            :data:`NO_SERVE_OBLIGATIONS`, under which the gate is silent.
+            Hash-transparent at that sentinel (``D-IMPL-243``): a class
+            obliging nothing is every pre-phase class, so the field is
+            omitted from the canonical form at that value and rendered at
+            any declared obligation.
     """
 
     schema_name: str
@@ -595,6 +692,9 @@ class RegisteredProductClass(CCFContract):
     payload_schema_version: str = NO_PAYLOAD_SCHEMA
     request_contract_key: str = NO_REQUEST_CONTRACT
     request_contract_version: str = NO_REQUEST_CONTRACT
+    serve_obligations: ServeObligations = Field(
+        default=NO_SERVE_OBLIGATIONS, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class ProductLineage(CCFContract):
@@ -610,11 +710,36 @@ class ProductLineage(CCFContract):
             state assembled under two bundle versions has two bindings and
             collapsing them would lose the one that mattered.
         graph_snapshot_at: The temporal anchor of the graph state read.
+        store_snapshot_pin: The substrate's transaction-time head at the read
+            that assembled this product — the
+            :class:`~ccf.graph.protocols.StoreSnapshotPin` the reader minted
+            once, before its first query — recorded **beside**
+            ``graph_snapshot_at`` and never inside it (D-IMPL-88: a store
+            transaction counter is not an as-of instant and never implements
+            one; ledger row 24.5-L-02; D-IMPL-240). The default,
+            :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN`, is the positive
+            assertion *this product's substrate exposes no native pin* — what
+            a SQLite or Postgres deployment is in fact asserting today — and
+            it is asserted, never inferred from silence: a product assembled
+            before this field existed, and one assembled over a reader that
+            cannot pin, both say exactly that. This field is inside
+            :func:`~ccf.contracts.canonical.canonical_bytes` by construction
+            (every ``model_fields`` member is), so two products differing only
+            in pin have different content addresses — which is what makes
+            "served at pin N is not reproducible from pin N+1" a property of
+            the contract rather than a hope about the replay path.
+            Hash-transparent at the sentinel (``D-IMPL-243``): "no pin
+            recorded" is what a product assembled before this field
+            existed says, so the field is omitted from the canonical form
+            at that value; a real pin is rendered and is a new identity.
     """
 
     operators_invoked: frozenset[str]
     policy_bundle_versions: frozenset[str]
     graph_snapshot_at: datetime
+    store_snapshot_pin: StoreSnapshotPin = Field(
+        default=NO_STORE_SNAPSHOT_PIN, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class ContextProductContract(CCFContract):
@@ -721,6 +846,7 @@ def register_product_class(
     payload_schema_version: str = NO_PAYLOAD_SCHEMA,
     request_contract_key: str = NO_REQUEST_CONTRACT,
     request_contract_version: str = NO_REQUEST_CONTRACT,
+    serve_obligations: ServeObligations = NO_SERVE_OBLIGATIONS,
 ) -> RegisteredProductClass:
     """Register a product class, requiring its MAX_TTL to already exist.
 
@@ -761,6 +887,13 @@ def register_product_class(
     conformity comparison the pin makes possible runs at bind — request time
     — on the surface D-IMPL-98 creates. :func:`ccf.products.gates.run_gates`
     is untouched and the three shipped validation gates stay at three.
+
+    ``serve_obligations`` (``24.5-L-14``, ``24.5-L-26``) is passed straight
+    through onto the registered value: it is a declared obligation the ONE
+    structural gate ``D-IMPL-237`` licenses reads at serve, not a payload
+    gate, and its default — :data:`NO_SERVE_OBLIGATIONS` — keeps every
+    registration written before it existed asserting exactly what it always
+    asserted.
 
     Raises:
         ProductClassRegistrationError: no MAX_TTL is registered at
@@ -822,6 +955,7 @@ def register_product_class(
         payload_schema_version=payload_schema_version,
         request_contract_key=request_contract_key,
         request_contract_version=request_contract_version,
+        serve_obligations=serve_obligations,
     )
 
 

@@ -245,6 +245,23 @@ _REACHED = (
     "CASE WHEN c.subject_uri = w.uri THEN c.object_uri ELSE c.subject_uri END"
 )
 
+#: The crossable set stated ONCE per direction (`GQ-10` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:201, semantics version 1.2.0; ledger row
+#: 24.5-L-06). Under ``direction="undirected"`` every edge is rendered in
+#: both orientations, so the walk's equality join crosses it either way;
+#: under ``direction="forward"`` an edge is rendered as stored, subject to
+#: object, and nothing else. ``direction`` chooses between these two
+#: code-authored constants in Python — it is never rendered into statement
+#: text (threat T-24.5-12), and ``_REACHED`` above is unchanged: under the
+#: forward rendering its CASE simply always takes the ``object_uri`` branch.
+_HOPS_UNDIRECTED = (
+    "    SELECT c.subject_uri, c.object_uri FROM edges c\n"
+    "  UNION\n"
+    "    SELECT c.object_uri, c.subject_uri FROM edges c\n"
+    ")\n"
+)
+_HOPS_FORWARD = "    SELECT c.subject_uri, c.object_uri FROM edges c\n)\n"
+
 
 def _json_attribute_path(attribute: str) -> str | None:
     """The ONE site where an artifact-authored attribute name becomes a path.
@@ -512,13 +529,16 @@ def _translated_statements(
         # exactly as the disjunction's single match did. The reached-node
         # expression below is unchanged and still reads as the general
         # undirected step: under this join its CASE simply always takes the
-        # `object_uri` branch.
+        # `object_uri` branch. Under `direction="forward"` (1.2.0; ledger
+        # row 24.5-L-06) the crossable set is the edges AS STORED — the
+        # reverse rendering is simply never written — and the walk below
+        # is otherwise the same statement: the direction is a Python
+        # branch between two constants, never text (threat T-24.5-12).
         text.append(",\nhops(subject_uri, object_uri) AS MATERIALIZED (\n")
         text.append(
-            "    SELECT c.subject_uri, c.object_uri FROM edges c\n"
-            "  UNION\n"
-            "    SELECT c.object_uri, c.subject_uri FROM edges c\n"
-            ")\n"
+            _HOPS_FORWARD
+            if q.traverse.direction == "forward"
+            else _HOPS_UNDIRECTED
         )
         # The bounded typed undirected walk (`GQ-10` at
         # docs/GRAPH_QUERY_SEMANTICS.md:201, INV-CH7-24). Walk starting
@@ -582,6 +602,27 @@ def _translated_statements(
             # the closure is explicit in the term that expands the walk.
             clause, values = _in_clause(_REACHED, q.allowed_entities)
             text.append("      AND " + clause + "\n")
+            params += list(values)
+        if q.traverse.admitted_entity_classes is not None:
+            # Node-class admission on the REACHED node, honored natively
+            # (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, semantics
+            # version 1.1.0; ledger row 24.5-L-05): a hop lands only on a
+            # survivor whose class is admitted. Stated inside the recursive
+            # term so a path through an unadmitted node does not exist, and
+            # never on the base case — starts are selected by `GQ-11` and
+            # are not filtered by admission. The class list binds as
+            # parameters, appended in the same order the seed-class binder
+            # appends (threat T-24.5-10); an empty set renders the always-
+            # false clause, so no hop is admitted and the starts answer.
+            clause, values = _in_clause(
+                "json_extract(a.claim_json, '$.entity_class')",
+                q.traverse.admitted_entity_classes,
+            )
+            text.append(
+                "      AND " + _REACHED + " IN (\n"
+                "        SELECT a.entity_uri FROM survivors a\n"
+                "        WHERE " + clause + ")\n"
+            )
             params += list(values)
         text.append(")\n")
 
@@ -685,7 +726,17 @@ class SqliteGraphReader(BaseGraphReader):
         makes byte-identical and invisible outside telemetry. This
         translation covers every well-formed query shape; the one decline
         is a classification attribute name outside the safe JSON-path
-        charset (:func:`_json_attribute_path`).
+        charset (:func:`_json_attribute_path`). ``admitted_entity_classes``
+        (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0) is HONORED
+        natively — a class predicate on the reached survivor inside the
+        recursive walk term, the classes bound as parameters. ``direction``
+        (`GQ-10`, 1.2.0; ledger row ``24.5-L-06``) is HONORED natively: the
+        walk's crossable set is rendered from the edges as stored under
+        ``"forward"`` and from both orientations under ``"undirected"`` —
+        a Python choice between :data:`_HOPS_FORWARD` and
+        :data:`_HOPS_UNDIRECTED`, never a value in statement text — and
+        the differential suite holds the answer to the fallback over
+        ``tests/conformance/query_corpus.py::direction_cases``.
         """
         if q.allowed_entities is not None and not q.allowed_entities:
             # The empty survivor set IS the answer (`GQ-04` at

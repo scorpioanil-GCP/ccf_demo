@@ -43,10 +43,10 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
 from ccf.controlplane.artifact_base import VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneProtocol
@@ -63,10 +63,18 @@ __all__ = [
     "EntityResolutionStrategy",
     "FederatedIngestSpec",
     "IngestResult",
+    "NO_RESOLVING_RULE",
     "RelationshipResolutionRule",
     "ResolvedEntity",
     "SpecDrivenEntityResolution",
 ]
+
+#: The ``resolved_by`` a :class:`ResolvedEntity` carries when no entity rule
+#: claims it — the value a custom :class:`EntityResolutionStrategy` leaves in
+#: place when it does not say which rule produced an entity. An entity under
+#: this sentinel is not selectable by ``subject_rule`` / ``object_rule``: an
+#: endpoint no rule claims cannot be chosen by rule (``24.5-L-21``).
+NO_RESOLVING_RULE = "no-resolving-rule"
 
 
 class EntityResolutionRule(CCFContract):
@@ -92,15 +100,73 @@ class EntityResolutionRule(CCFContract):
 class RelationshipResolutionRule(CCFContract):
     """One user-declared rule producing a typed edge between resolved entities.
 
-    Emits an edge whenever a single envelope resolves an entity of
-    ``subject_entity_class`` and one of ``object_entity_class`` — co-occurrence
-    in one source event is the evidence. Relationship types are first-class and
-    user-declared (INV-CH7-20).
+    Relationship types are first-class and user-declared (INV-CH7-20). A rule
+    mints in one of three modes, and the envelope decides which rules fire
+    (``24.5-L-21``, closing ``24.4-D-35``):
+
+    **Co-occurrence** (no selector fields — every rule declared before Phase
+    24.5, kept unchanged for every existing deployment). The rule fires when a
+    single envelope resolves an entity of ``subject_entity_class`` and one of
+    ``object_entity_class``: co-occurrence in one source event is the evidence,
+    and every subject × object pair across the two classes is minted.
+
+    **Predicate selection** (``predicate_key``). The rule fires only when the
+    envelope's payload carries ``predicate_key`` and its value equals this
+    rule's own ``relationship_type``. A payload therefore selects among the
+    rules a deployment declared; it cannot name a type no rule declares,
+    because the comparison is against the rule, never a free value. Endpoints
+    are still chosen by class unless the endpoint selectors below are set.
+
+    **Endpoint selection** (``subject_rule`` and ``object_rule``, together).
+    Each names the ``match_key`` of the *entity* rule that resolved the
+    endpoint, so the subject is the entity one declared rule produced and the
+    object the entity another produced — chosen by the rule that made them,
+    not by their class. This is what lets one envelope carrying
+    ``{parent, child, predicate}`` mint a single edge between two entities of
+    the same class, which co-occurrence by class could never express. The two
+    fields travel together or not at all; ``predicate_key`` may stand alone or
+    beside them.
+
+    In **every** mode a pair whose subject and object are the same URI is never
+    minted: a self-loop from one envelope is co-occurrence noise, never
+    evidence (the cp-04 one-envelope case minted six of them). The entity
+    classes remain required in every mode — under endpoint selection they
+    describe the endpoints the named entity rules produce.
+
+    Attributes:
+        relationship_type: The edge type minted. Under predicate selection it
+            is also the value the payload must carry to select this rule.
+        subject_entity_class: Class of the subject endpoint (URI scheme).
+        object_entity_class: Class of the object endpoint (URI scheme).
+        predicate_key: Payload key whose value must equal
+            ``relationship_type`` for this rule to fire. ``None`` keeps
+            co-occurrence semantics. Hash-transparent at ``None``
+            (``D-IMPL-243``): a co-occurrence rule is every pre-phase rule,
+            so the field is omitted from the canonical form at that value.
+        subject_rule: ``match_key`` of the entity rule that resolved the
+            subject. ``None`` chooses subjects by ``subject_entity_class``.
+            Hash-transparent at ``None`` (``D-IMPL-243``), as ``predicate_key``.
+        object_rule: ``match_key`` of the entity rule that resolved the
+            object. ``None`` chooses objects by ``object_entity_class``.
+            Hash-transparent at ``None`` (``D-IMPL-243``), as ``predicate_key``.
     """
 
     relationship_type: str
     subject_entity_class: str
     object_entity_class: str
+    predicate_key: str | None = Field(default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True})
+    subject_rule: str | None = Field(default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True})
+    object_rule: str | None = Field(default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True})
+
+    @model_validator(mode="after")
+    def _endpoint_selectors_are_whole(self) -> RelationshipResolutionRule:
+        if (self.subject_rule is None) != (self.object_rule is None):
+            raise ValueError(
+                "endpoint selectors carry both of their fields or neither;"
+                " a rule naming the rule for one endpoint and the class for"
+                " the other is not a legal value (`24.5-L-21`)"
+            )
+        return self
 
 
 class EntityResolutionSpec(VersionedArtifact):
@@ -165,11 +231,30 @@ class FederatedIngestSpec(CCFContract):
 
 
 class ResolvedEntity(CCFContract):
-    """An entity a strategy recognized in one envelope, before persistence."""
+    """An entity a strategy recognized in one envelope, before persistence.
+
+    Attributes:
+        entity_uri: The canonical, tenant-scoped URI (INV-CH7-18).
+        entity_class: Class within the user's ontology; also the URI scheme.
+        attributes: Payload values carried onto the claim.
+        resolved_by: ``match_key`` of the entity rule that produced this
+            entity, filled by :class:`SpecDrivenEntityResolution`. A custom
+            :class:`EntityResolutionStrategy` that does not fill it leaves
+            :data:`NO_RESOLVING_RULE`, and a relationship rule selecting its
+            endpoints by rule then never chooses this entity — an endpoint no
+            rule claims is not selectable (``24.5-L-21``). Hash-transparent
+            at :data:`NO_RESOLVING_RULE` under ``D-IMPL-243`` amendment 2:
+            a resolved entity is never content-hashed, so the mark is inert
+            today and reads the sentinel as absent if the model is ever
+            hashed.
+    """
 
     entity_uri: str
     entity_class: str
     attributes: dict[str, str]
+    resolved_by: str = Field(
+        default=NO_RESOLVING_RULE, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 @runtime_checkable
@@ -227,6 +312,7 @@ class SpecDrivenEntityResolution:
                         for key in rule.attribute_keys
                         if key in payload
                     },
+                    resolved_by=rule.match_key,
                 )
             )
         return tuple(resolved)
@@ -374,13 +460,43 @@ class AssemblyWorker:
         )
 
         by_class: dict[str, list[ResolvedEntity]] = {}
+        by_rule: dict[str, list[ResolvedEntity]] = {}
         for item in resolved:
             by_class.setdefault(item.entity_class, []).append(item)
+            # An entity under the sentinel is claimed by no rule, so no rule
+            # can select it; it is reachable by class only (24.5-L-21).
+            if item.resolved_by != NO_RESOLVING_RULE:
+                by_rule.setdefault(item.resolved_by, []).append(item)
 
         relationship_results: list[UpsertResult] = []
         for rule in self._relationship_rules():
-            for subject in by_class.get(rule.subject_entity_class, ()):
-                for obj in by_class.get(rule.object_entity_class, ()):
+            # Predicate selection: the envelope must name this rule's own
+            # type under the declared key, or the rule does not fire. The
+            # comparison is against the rule, so a payload cannot select a
+            # type no rule declares (24.5-L-21).
+            if (
+                rule.predicate_key is not None
+                and envelope.raw_payload.get(rule.predicate_key)
+                != rule.relationship_type
+            ):
+                continue
+            subjects: Sequence[ResolvedEntity]
+            objects: Sequence[ResolvedEntity]
+            if rule.subject_rule is not None and rule.object_rule is not None:
+                # Endpoint selection: by the entity rule that produced each
+                # endpoint, not by its class.
+                subjects = by_rule.get(rule.subject_rule, ())
+                objects = by_rule.get(rule.object_rule, ())
+            else:
+                subjects = by_class.get(rule.subject_entity_class, ())
+                objects = by_class.get(rule.object_entity_class, ())
+            for subject in subjects:
+                for obj in objects:
+                    if subject.entity_uri == obj.entity_uri:
+                        # A self-loop from one envelope is co-occurrence
+                        # noise, never evidence — skipped under every mode
+                        # (24.5-L-21, 24.4-D-35).
+                        continue
                     relationship_results.append(
                         self.admit_relationship_claim(
                             tenant_id=envelope.tenant_id,

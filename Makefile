@@ -61,8 +61,8 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	example-hw1-harness-clients-live-langgraph \
 	legs leg-postgres leg-neo4j leg-mongo leg-fluree \
 	perf perf-micro perf-scale perf-xproc perf-replay \
-	docs docs-strict docs-serve openapi schemas schema-headers surface \
-	surface-changes measure-examples
+	docs docs-strict docs-serve openapi schemas schema-headers product-gates \
+	surface surface-changes measure-examples
 
 help: ## List targets with one-line descriptions
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -101,7 +101,7 @@ install: ## Refresh the editable install with dev extras (pip install -e ".[dev]
 	.venv/bin/pip install -e ".[dev]"
 	.venv/bin/pip install -e ./tests/fixtures/ccf-demo-adapter
 
-lint: ## CCF invariant lints — CINV-01/02/03 + orchestration split (blocking, D-07)
+lint: ## CCF invariant lints — CINV-01/02/03/04/06 + orchestration split + citations (blocking, D-07)
 	$(ENV) $(PYTHON) -m tools.lints --all
 
 typecheck: ## mypy --strict over src + runtime ([tool.mypy] files is authoritative)
@@ -148,7 +148,11 @@ ci-coverage: ## CI: informational coverage over the no-substrate suite (D-17 set
 # (DEF-17-08, measured 2026-08-16). A gate the working command does not reach
 # is not a gate. This is the fifth instance in Phase 17 of a check that stops
 # checking without going red.
-ci-core: lint typecheck test gate-tools ## Mid-phase verification sweep — MUST stay green from Wave 1 onward
+#
+# `product-gates` joins here for the same reason (plan 24.5-09): a roster
+# whose declared id has no executing test is exactly the kind of red that
+# stays invisible until a close, and `ci-core` is the command every wave runs.
+ci-core: lint typecheck test gate-tools product-gates ## Mid-phase verification sweep — MUST stay green from Wave 1 onward
 
 # The client adapter parity gate (D-15, plan 17-07). A NAME, not a second
 # collection path: `[tool.pytest] testpaths = ["tests"]` (pyproject.toml:142)
@@ -184,13 +188,21 @@ conformance: ## Client adapter conformance suite — the D-15 parity gate, by na
 # phase would have closed green locally and red in Actions. This is the Phase
 # 16 lesson applied to the gate itself: a measurement nobody is looking at
 # protects nothing.
-ci: ci-core examples docs-strict gate-tools ## Full local reproduction of the always-on pipeline (D-10)
+# Amended in plan 24.5-09: `product-gates` joins the composition, in BOTH
+# `ci-core` above and here, so the product-gate coverage checker
+# (`D-IMPL-224`, ledger row `24.5-L-10`) runs on every mid-phase sweep and on
+# the phase gate command alike.
+ci: ci-core examples docs-strict gate-tools product-gates ## Full local reproduction of the always-on pipeline (D-10)
 
-# The two commands are `.github/workflows/ci.yml:35` and `:314` verbatim, so
-# this target reproduces what CI already runs rather than inventing a third
-# command for the same suites. `$(ENV_DOCS)`, not `$(ENV)`: these suites do
-# `from tools.publish_scan import ...` and `from tools.lints import ...`, so
-# the repo root must be on PYTHONPATH — the same reason `docs-strict` uses it.
+# The three commands are the `lint` job's "Lint checker unit tests" step, the
+# `docs` job's "Docs-gate checker unit tests" step and the `lint` job's
+# "Product-gate checker unit tests" step of `.github/workflows/ci.yml`,
+# verbatim modulo `$(ENV_DOCS) $(PYTHON) -m`, so this target reproduces what
+# CI already runs rather than inventing a fourth command for the same suites.
+# `$(ENV_DOCS)`, not `$(ENV)`: these suites do
+# `from tools.publish_scan import ...`, `from tools.lints import ...` and
+# `from tools.check_product_gates import ...`, so the repo root must be on
+# PYTHONPATH — the same reason `docs-strict` uses it.
 #
 # Who reads the number and what fails when it moves: `make ci` reads it on
 # every local run and the two named Actions jobs read it on every push, so a
@@ -203,6 +215,7 @@ ci: ci-core examples docs-strict gate-tools ## Full local reproduction of the al
 gate-tools: ## Run the tools/ suites CI runs that `testpaths` excludes from `make test`
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/lints/tests -q
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/publish_scan_tests tools/docs_tests -q
+	$(ENV_DOCS) $(PYTHON) -m pytest tools/product_gates_tests -q
 
 # The runner is `runner/drive.py`, and BOTH halves of that path are load-bearing.
 # The subdirectory keeps the one `ccf`-importing file structurally outside
@@ -655,6 +668,19 @@ schemas: ## Regenerate the committed docs/schemas/ tree — the ERGO-12 authorin
 # close. Also always-on via tests/cli/test_schema_export.py.
 schema-headers: ## Verify example artifact $$schema headers name the class that accepts them (DIR=<path> to narrow)
 	$(ENV_DOCS) $(PYTHON) tools/check_schema_headers.py $(DIR)
+
+# The product-gate coverage checker `D-IMPL-224` ordered (ledger row
+# `24.5-L-10`). Every `examples/cp-*` rung must carry `artifacts/gates.yaml`
+# with closed keys and a DECLARED test-naming convention; every declared id
+# must resolve to a test a REAL `pytest --collect-only` over `tests/examples/`
+# collects, and no test may name an id its roster does not declare. Never an
+# `id in file` substring match — two earlier instruments keyed on function
+# names and on substrings reported 0/8, 0/9, 0/9 falsely across this ladder.
+# `hw1-*` and `s1-*` are outside the glob by construction. The checker's own
+# tests run under `gate-tools` above; `.github/workflows/ci.yml` CALLS this
+# target from the `lint` job rather than restating the command (D-10).
+product-gates: ## Verify every examples/cp-* gates.yaml declares exactly the ids with EXECUTING tests (D-IMPL-224; 24.5-L-10)
+	$(ENV_DOCS) $(PYTHON) tools/check_product_gates.py
 
 # D-15's generated half: the public surface of every /src and /runtime module
 # with an `__all__`, committed so a removed or reshaped export surfaces as a

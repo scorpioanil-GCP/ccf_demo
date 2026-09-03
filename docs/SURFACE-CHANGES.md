@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**754 entries**, of which **516** name a public Python surface.
+**843 entries**, of which **601** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-369 entries — 334 public Python surface, 35 not public Python API.
+410 entries — 371 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -79,6 +79,54 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none — additive
 
 *Recorded by `24.1.1-04-a-refusal-has-an-identity-in-the-record.md`.*
+
+#### ccf.contracts.canonical.HASH_TRANSPARENT_KEY
+
+- Surface: ccf.contracts.canonical.HASH_TRANSPARENT_KEY
+- Public surface: true
+- Change type: added
+- Before: absent — a model rendered every field, defaults included, and no declaration could say otherwise
+- After: `"ccf_hash_transparent"`, the `json_schema_extra` key a field declares its hash posture under, in three states: `True` (omitted when the value is the declared sentinel — the field's `default` or its `default_factory()` result — rendered otherwise), `False` (a declared generation boundary: rendered always, and a stored object lacking it is refused by name at replay), absent (the pre-243 lineage: rendered, never refused). Only the literal `True` and the literal `False` are marks. A `True` on a field with no default is refused by `CanonicalizationError`, never ignored. The key surfaces in the exported JSON Schemas (`docs/schemas/`, six files regenerated)
+- Why: `D-IMPL-243` — "Mark that at the field (`ccf_hash_transparent`)"; amendment 1 — the three states
+- Migration: none for a reader. An adopter adding a sentinel-defaulted field to a `CCFContract` declares the key — `True` if the sentinel means the contract as it was before the field existed, `False` if a record without the field is of an earlier generation; the CINV-06 lint below is what makes forgetting red
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### ccf.contracts.canonical.hash_transparent_fields
+
+- Surface: ccf.contracts.canonical.hash_transparent_fields
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `hash_transparent_fields(model_cls: type[BaseModel]) -> frozenset[str]` — the fields of `model_cls` marked `True`, read from the field declarations and memoized per class, so what this reports and what `canonical_bytes` omits cannot disagree. Every pre-24.5 model answers the empty set
+- Why: the marks are declarations, and a reader (a test, a schema tool, an adopter's audit) needs to read them from the one place the canonicalizer does
+- Migration: none
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### ccf.contracts.canonical.generation_mismatch
+
+- Surface: ccf.contracts.canonical.generation_mismatch
+- Public surface: true
+- Change type: added
+- Before: absent — no code could say whether a stored canonical object belonged to the running canonicalizer's generation
+- After: `generation_mismatch(model_cls: type[BaseModel], stored: Mapping[str, object]) -> tuple[str, ...]` — the fields `model_cls` declares as generation boundaries (`False`) that the stored object lacks, nested models walked and reported dotted (`outer.inner`), an absent nested field reported once as the outer name if it is itself marked `False`; `True`-marked and unmarked absent fields are never named. Takes the parsed bytes, never a validated model, because validation fills every default and erases the absence measured
+- Why: `D-IMPL-243` — the refusal token `canonical_generation_mismatch` needs a decision procedure; amendment 1 — declared scope, because the unscoped form named fifteen pre-243 fields on every pre-extension record and would have repealed `D-IMPL-89` in practice
+- Migration: none
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### ccf.replay.engine.ReplayGenerationMismatch
+
+- Surface: ccf.replay.engine.ReplayGenerationMismatch
+- Public surface: true
+- Change type: added
+- Before: absent — a record of an earlier canonical generation replayed into `ReplayDivergence` on a parameter hash, reporting drifted operators that had not drifted
+- After: `ReplayGenerationMismatch(ReplayError)` with class attribute `reason = "canonical_generation_mismatch"`, instance attributes `fields` (model-qualified, dotted: `DecisionReplayRecord.policy_bindings.hitl_actions`) and `content_address`; constructed by the engine as `ReplayGenerationMismatch(*, contract, fields, content_address)`. Not a `ReplayDivergence` (nothing was reproduced and found to differ) and not a `ReplayUnresolvable` (nothing is missing from a store); a caller catching `ReplayError` already catches it
+- Why: `D-IMPL-243` — "not a quiet address drift and not a silent upgrade"; the token was measured absent from the tree before this fix
+- Migration: a caller that catches `ReplayDivergence` and `ReplayUnresolvable` separately and wants the third finding names it too. The HTTP `replay` noun resolves records through `resolve_artifact` and never calls `replay()`, so no route or status code moves
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
 
 #### ccf.deployment.classes.resolve_artifact_class
 
@@ -6892,7 +6940,558 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
 
+#### ccf.graph.protocols.TemporalAxis
+
+- Surface: ccf.graph.protocols.TemporalAxis
+- Public surface: true
+- Change type: added
+- Before: absent — event time, transaction time and CCF `as_of` were three
+  facts stated in prose across two adapters' docstrings and `D-IMPL-88`, with no
+  typed home
+- After: `Literal["event-time", "transaction-time", "as-of"]`, with each axis
+  stated in one sentence beside the definition: event time is when the world
+  changed (`observed_at`, the validity window; Fluree's backdatable `@iso:`),
+  transaction time is when the store recorded it (Fluree's monotonic `t`; a fact
+  about a read, never a temporal cut), `as_of` is CCF's cut over observations
+  (`GQ-07`; `D-IMPL-88`: `t` never implements it)
+- Why: `24.5-L-03` — the three axes become named SDK vocabulary so a pin, a
+  docstring and a replay record spell them from one definition
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.TEMPORAL_AXES
+
+- Surface: ccf.graph.protocols.TEMPORAL_AXES
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `("event-time", "transaction-time", "as-of")` — the closed roster of
+  `TemporalAxis`, in the `ccf.operators.base.CATEGORY_ORDER` form, so a consumer
+  iterates the vocabulary rather than re-listing it
+- Why: `24.5-L-03`; the docstring test in `tests/graph/test_fluree_backend.py`
+  greps the adapter for the three phrases this roster names
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.StoreSnapshotPin
+
+- Surface: ccf.graph.protocols.StoreSnapshotPin
+- Public surface: true
+- Change type: added
+- Before: absent — a store-native pin had no type, so nothing stopped a
+  transaction counter from being handed to a seam typed for an as-of instant
+- After: `StoreSnapshotPin(substrate: str, pin: str)`, a frozen `CCFContract` on
+  the `"transaction-time"` axis. Deliberately a model rather than a `datetime`
+  and text rather than an `int`: `GraphQuery.as_of` refuses it by type (pydantic
+  refuses a model where a `datetime` is typed — the `D-IMPL-88` guard at the
+  type level), a pin is substrate-shaped and no arithmetic is ever done on it
+- Why: `24.5-L-01`, `D-IMPL-240` (2) — the pin must be a value `as_of` cannot
+  accept; also the type `24.5-L-02` (plan 03) records on `ProductLineage`
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN
+
+- Surface: ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `StoreSnapshotPin(substrate="none", pin="no-store-snapshot-pin")` — the
+  positive sentinel "this read carried no store-native pin", in the
+  `ccf.replay.record` `NO_*` voice, so a SQLite or Postgres deployment asserts
+  the absence rather than carrying a fake `t`
+- Why: `24.5-L-01` / `L-02` — "no pin" and "a pin" are distinguished by equality
+  against one value, never by `None`
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.protocols.SnapshotPinnable
+
+- Surface: ccf.graph.protocols.SnapshotPinnable
+- Public surface: true
+- Change type: added
+- Before: absent — no seam existed by which a consumer could ask a reader for
+  the state it read at, or for the same answer at an earlier state
+- After: a `@runtime_checkable` Protocol with two members —
+  `snapshot_pin() -> StoreSnapshotPin` (the substrate's current head, a fact
+  about the read) and `query_pinned(q, *, pin) -> GraphView` (the same answer
+  `query` would give with the store rolled back to `pin`; every as-of predicate
+  of `q` still applies — the pin bounds the STORE, `q.as_of` bounds the
+  OBSERVATIONS). Structural: a reader that cannot pin does not implement it and
+  needs no stub; consumers test `isinstance(reader, SnapshotPinnable)`
+- Why: `24.5-L-01`, `D-IMPL-240` (2); `D-10` — the graph Protocol gains, never
+  changes, signatures
+- Migration: none — additive. `FlureeGraphReader` is the only conforming reader
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.backends.fluree.FlureePinAhead
+
+- Surface: ccf.graph.backends.fluree.FlureePinAhead
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `class FlureePinAhead(LookupError)` — raised when a pin names a
+  transaction the ledger has not reached; its message carries the asked pin,
+  the ledger name and the server's own `current t=N`, and nothing from the URL
+  (`T-24.5-04`). A `LookupError` because that is what `SnapshotPinnable`
+  declares for a state the store cannot resolve
+- Why: `24.5-L-01` — a pin ahead of the head is a caller-catchable condition,
+  not a bare `httpx.HTTPStatusError`
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.backends.fluree.FLUREE_SUBSTRATE
+
+- Surface: ccf.graph.backends.fluree.FLUREE_SUBSTRATE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"fluree"` — the `substrate` a pin minted by this adapter carries and
+  the only one `query_pinned` accepts. A name, not a tuning value (CINV-01)
+- Why: `24.5-L-01` — a `StoreSnapshotPin` is substrate-shaped and only the
+  substrate that minted it can resolve it
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.replay.snapshots.SnapshotPinUnresolvable
+
+- Surface: ccf.replay.snapshots.SnapshotPinUnresolvable
+- Public surface: true
+- Change type: added
+- Before: absent — a recorded store pin had no refusal path, because nothing
+  recorded one
+- After: `class SnapshotPinUnresolvable(LookupError)` — raised when dimension
+  1 pins the store at a transaction the live reader cannot resolve; the
+  message names the pin and the reader type. A `LookupError` because it is
+  the same class of failure as `ReplayUnresolvable`: something the record
+  names cannot be resolved as recorded
+- Why: `24.5-L-02` — the refusal must be a caller-catchable, named condition,
+  not a silent read of the current head
+- Migration: none — additive
+
+*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+
+#### ccf.graph.protocols.TraversalDirection
+
+- Surface: ccf.graph.protocols.TraversalDirection
+- Public surface: true
+- Change type: added
+- Before: absent — the walk's direction was a property of the one operator's
+  two `adjacency.setdefault(...)` lines, stated nowhere in a type
+- After: `Literal["undirected", "forward"]`, the closed direction vocabulary
+  of `TraversalSpec`, in the `PolicyBindingMode` form. `"undirected"` crosses
+  an edge from either endpoint; `"forward"` crosses it only from
+  `subject_uri` to `object_uri` AS STORED — the graph's own orientation, so
+  a deployment that wants parent→child normalizes at ingest (cp-04 does).
+  No `"backward"`: a reverse walk is the same edge stored the other way
+- Why: `24.5-L-06`; `D-IMPL-223` — the direction is a spec field, not a
+  category
+- Migration: none — additive
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
+#### ccf.operators.params.TraversalDescendantsParameters
+
+- Surface: ccf.operators.params.TraversalDescendantsParameters
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the directed sibling of `TraversalNeighborhoodParameters` — the same
+  four fields (`seed_entity_classes`, `relationship_types`, `depth_limit`,
+  `admitted_entity_classes=None`), read by `TraversalDescendants`. Direction
+  is deliberately NOT a field: it is fixed by the operator the artifact class
+  selects. The module docstring now says the Traversal category has two
+  parameter classes that differ in no field and why
+- Why: `24.5-L-06`; a sibling key needs its own parameter schema so the
+  registry's `parameters_schema` and the artifact class can name it
+- Migration: none — additive
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
+#### ccf.operators.categories.TraversalDescendantsParameters
+
+- Surface: ccf.operators.categories.TraversalDescendantsParameters
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the re-export of `ccf.operators.params.TraversalDescendantsParameters`
+  from the categories module, exactly as `TraversalNeighborhoodParameters` is
+  re-exported. Not a second class — one contract, two import paths
+- Why: `24.5-L-06`; symmetry with the sibling's re-export
+- Migration: none — additive
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
+#### ccf.operators.categories.TraversalDescendants
+
+- Surface: ccf.operators.categories.TraversalDescendants
+- Public surface: true
+- Change type: added
+- Before: absent — no SDK operator could walk a stored orientation
+- After: `key = "traversal.typed-descendants"`, `category = "traversal"`,
+  constructed from `parameters: TraversalDescendantsParameters`.
+  `read_intent()` projects the four fields onto `TraversalSpec` with
+  `direction="forward"` fixed by the operator; `apply()` runs the shared
+  `_bounded_walk(..., forward=True)`, whose adjacency adds only
+  `subject → object` — the one line on which the two walks differ. Joins
+  `_CONFORMANCE` (Protocol conformance asserted at import) and `__all__`.
+  Registers under its own key, so `DuplicateOperatorKey` never fires beside
+  the neighborhood
+- Why: `24.5-L-06`, criterion 9; `D-IMPL-223` (a sibling shape, the category
+  count untouched); `24.5-RESEARCH.md` Pitfall 3 (a sibling key enters the
+  n² suite for free once registered)
+- Migration: none — additive. A deployment that wants the directed walk
+  authors an artifact of the new class (`24.5-05` Task 2) and requires the
+  new key in its product class
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
+#### ccf.controlplane.artifacts.TraversalDescendantsParametersArtifact
+
+- Surface: ccf.controlplane.artifacts.TraversalDescendantsParametersArtifact
+- Public surface: true
+- Change type: added
+- Before: absent — the one traversal artifact class could only ever build
+  the undirected walk
+- After: `class TraversalDescendantsParametersArtifact(OperatorParametersArtifact,
+  TraversalDescendantsParameters)`, in the exact shape of
+  `TraversalNeighborhoodParametersArtifact`: the parameter class inherited
+  verbatim plus a semver lane, no field translation. Selecting this class is
+  what selects the direction — the document carries no `direction` key, and
+  writing one is a parse failure
+  (`tests/controlplane/test_artifact_roundtrip.py` lists it under
+  `unknown_keys`)
+- Why: `24.5-L-06`; the artifact IS the parameter set
+  (`tests/controlplane/test_artifact_roundtrip.py::test_a_parsed_descendants_artifact_is_accepted_by_the_descendants_operator`)
+- Migration: none — additive. An author who wants the directed walk copies
+  a traversal document and changes only its `class_id`
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
+#### ccf.controlplane.artifacts.OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS
+
+- Surface: ccf.controlplane.artifacts.OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ArtifactClass(class_id="ccf.operator-parameters.traversal-descendants",
+  contract=TraversalDescendantsParametersArtifact)`, a member of
+  `ccf.deployment.classes.SDK_ARTIFACT_CLASSES` (manifest-addressable,
+  `registration: typed`) and therefore emitted by `make schemas` as
+  `docs/schemas/ccf.operator-parameters.traversal-descendants.json` — five
+  properties (`seed_entity_classes`, `relationship_types`, `depth_limit`,
+  `admitted_entity_classes`, `semver`), the first three and `semver`
+  required, `additionalProperties: false`, and no `direction` property
+- Why: `24.5-L-06`; a second class id under `ccf.operator-parameters.*` so a
+  manifest selects the walk's direction by naming a class, never a value
+- Migration: none — additive
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
+#### ccf_runtime.mcp.egress.PRODUCT_ADDRESS_TEMPLATE
+
+- Surface: ccf_runtime.mcp.egress.PRODUCT_ADDRESS_TEMPLATE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"ccf-product://{tenant}/{product_class}/{version}/q/{q}"` — a PATH-SEGMENT form, five
+  segments with the literal `q` fourth
+- Why: `24.5-L-08`. A path-segment form rather than a query string because FastMCP (`mcp==1.28.1`)
+  matches each `{x}` placeholder as one non-slash run and answers the FIRST registered template that
+  matches, so a `?q=` form would be captured by `PRODUCT_URI_TEMPLATE` as its `version` and answered
+  by the product-resource handler. The two templates are disjoint in both directions and
+  `tests/mcp/test_egress_listing.py` proves it on the real `ResourceTemplate.matches`, with a
+  negative control showing the rejected `?q=` form captured
+- Migration: none — additive
+
+*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+
+#### ccf_runtime.mcp.egress.AddressedQuestion
+
+- Surface: ccf_runtime.mcp.egress.AddressedQuestion
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen `CCFContract` (`extra=forbid`) carrying the tool's non-path arguments — `request`
+  (the caller's `WireRequest` as canonical text, exactly the tool's `request` argument), `subject`,
+  `intent`, `freshness`, `asked_at` (timezone-aware, or refused at construction)
+- Why: the plan specified the fifth segment as the canonical `WireRequest` alone. Measured against
+  the tool, that could not answer *the same question*: a `WireRequest` carries none of whitepaper
+  §6.3's four axes, and the door would have had to invent three strings (CINV-01) and read a clock for
+  the fourth (`D-IMPL-98`, `C-15`). Carrying the axes in the address is the only shape under which
+  `read_resource(product_address(q))` and `call_tool(q)` are the same call. Recorded as a deviation in
+  `24.5-06-SUMMARY.md`
+- Migration: none — additive
+
+*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+
+#### ccf_runtime.mcp.egress.product_address
+
+- Surface: ccf_runtime.mcp.egress.product_address
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(*, tenant, product_class, version, question: WireRequest, subject, intent, freshness, asked_at) -> str`.
+  The fifth segment is `base64.urlsafe_b64encode(canonical_bytes(AddressedQuestion(...)))` with the
+  `=` padding STRIPPED — alphabet `A–Z a–z 0–9 - _`, no `=`, `/`, `+`, `?` or `%`; canonical, so two
+  equal questions give one address. A naive `asked_at` or a path segment holding `/` is refused
+- Why: `24.5-L-08` — one place the address is spelled, so server, client and tests cannot drift
+- Migration: none — additive
+
+*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+
+#### ccf_runtime.mcp.egress.parse_product_address
+
+- Surface: ccf_runtime.mcp.egress.parse_product_address
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(uri: str) -> tuple[str, str, str, AddressedQuestion]`. Matches the five-segment shape
+  itself, refuses a `q` outside the unpadded alphabet or over `MAX_ADDRESS_QUESTION_BYTES`, re-pads,
+  decodes, validates the body and proves its `request` parses through `door_question`. Every refusal
+  is a `ValueError` naming the segment. The address handler rebuilds the URI from FastMCP's matched
+  segments and re-parses it here, so the parser is the single authority on every segment
+- Why: `T-24.5-17` — a tampered address is refused by name, never answered as a different question
+- Migration: none — additive
+
+*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+
+#### ccf_runtime.mcp.egress.MAX_ADDRESS_QUESTION_BYTES
+
+- Surface: ccf_runtime.mcp.egress.MAX_ADDRESS_QUESTION_BYTES
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `8_192` — the ceiling on the `q` segment's length, measured before decoding
+- Why: `T-24.5-19`, in the voice of the Fluree backend's `MAX_QUERY_BODY_BYTES`
+- Migration: none — additive
+
+*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+
+#### ccf.products.request.AnchorAmbiguityRefusal
+
+- Surface: ccf.products.request.AnchorAmbiguityRefusal
+- Public surface: true
+- Change type: added
+- Before: absent. An anchor resolving to more than one entity had no kind; cp-04's resolver served whichever row came first
+- After: `AnchorAmbiguityRefusal(CCFContract)` with `anchor: str`, `candidates: frozenset[str]`, `detail: str`; token `anchor-ambiguity-refusal` in `REFUSAL_KINDS`; a member of `_PRE_ASSEMBLY_REFUSALS`, so `envelope_for` refuses a lineage offered with it exactly as it does for `ProductRequestViolation`
+- Why: `24.5-L-16` (24.4 deferred item 14, `D-IMPL-234` (d)). The SDK names the kind and ships no resolver: which anchor is ambiguous, and whether a product answers 404, refuses with this value, or serves one candidate with a finding, is the product's ruling
+- Migration: none — a new type. `examples/cp-04-corporate-family-tree/deployment.py::resolve_anchor` is untouched
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.agents.errors.AssemblyRefusal
+
+- Surface: ccf.agents.errors.AssemblyRefusal
+- Public surface: true
+- Change type: added
+- Before: absent. An assembler's own refusal — a tier it does not serve, a capability it lacks — could only be raised as `AssemblyRefused`, which crossed the MCP door as `ToolError` prose
+- After: `AssemblyRefusal(CCFContract)` with `reason: str`, `detail: str`; token `assembly-refusal` in `REFUSAL_KINDS` under its own family comment; translated by `door_refusal` with no door edit
+- Why: `24.5-L-11`. The value form of an assembly-time refusal an assembler RETURNS through the D-60 channel, beside the kept exception. `reason` is the assembler's own token (a closed vocabulary is the deployment's to declare, CINV-01); the SDK fixes only the one token `as_refusal()` mints
+- Migration: none — a new type. An assembler that wants its refusal typed at a client returns it instead of raising
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.assembly.worker.NO_RESOLVING_RULE
+
+- Surface: ccf.assembly.worker.NO_RESOLVING_RULE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the module constant `"no-resolving-rule"`, the `resolved_by` value of an entity no rule
+  claims. Exported so a custom strategy can name the sentinel rather than guess the string
+- Why: `24.5-L-21`, `D-IMPL-38` (a stated sentinel, not a silent default)
+- Migration: none
+
+*Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
+
+#### ccf.controlplane.artifacts.DecayMode
+
+- Surface: ccf.controlplane.artifacts.DecayMode
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["curve", "supersede-only"]` — the type of `HalfLifeEntry.decay` and the return
+  type of `ccf.halflife.decay.decay_mode_of`
+- Why: a named module-level alias in the `ArtifactRole` / `RegistrationMode` shape, so that
+  `tests/invariants/test_no_obligation_vocabulary.py` sees one bound declaration it can exempt
+  by name (the members name two SDK code paths, not deployment values) rather than an unbound
+  `Literal` in a return annotation it cannot
+- Migration: none — additive
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### ccf.halflife.decay.NoDecayCurve
+
+- Surface: ccf.halflife.decay.NoDecayCurve
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `LookupError` sibling of `MissingHalfLife` (not a subclass), raised by `half_life_of`
+  for a supersede-only class
+- Why: a caller that wants a curve for an event-driven class is asking the wrong question, and
+  handing back any `timedelta` would express a decay nobody declared (INV-CH7-58). A sibling
+  rather than a subclass because an undeclared type and a declared-supersede-only type are
+  different authoring states with different fixes
+- Migration: none — additive. Callers of `half_life_of` over a table that may hold a
+  supersede-only class should read `decay_mode_of` first
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### ccf.halflife.decay.decay_mode_of
+
+- Surface: ccf.halflife.decay.decay_mode_of
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(table: HalfLifeTable, observation_type: str) -> Literal["curve", "supersede-only"]`;
+  raises `MissingHalfLife` for an undeclared type, as `half_life_of` does
+- Why: the one read `freshness` makes before it touches a curve, so the branch happens before any
+  rate is looked up
+- Migration: none — additive
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### ccf.products.contract.ServeObligations
+
+- Surface: ccf.products.contract.ServeObligations
+- Public surface: true
+- Change type: added
+- Before: absent — a product class could declare no serve-time obligation; the ceiling and the lineage obligation had no seat
+- After: `ServeObligations(debt_ceiling: Decimal | None = None, lineage_inputs_at: frozenset[str] = frozenset())` — `debt_ceiling` validated to `[0, 1]`, `None` the positive sentinel *no ceiling declared*; `lineage_inputs_at` the TOP-LEVEL payload members that must be present and non-empty at serve, the empty set the positive sentinel *no obligation declared*
+- Why: `24.5-L-14`, `24.5-L-26`, `D-IMPL-237`, `D-IMPL-240` (3): the class declares the ceiling, a request may tighten it, serve refuses over-ceiling by name. Obligations, never gate types: a class declares what the one shipped gate holds it to
+- Migration: none — additive. An adopter that wants the gate to bite authors `serve_obligations` on its product-class artifact
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.contract.NO_SERVE_OBLIGATIONS
+
+- Surface: ccf.products.contract.NO_SERVE_OBLIGATIONS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ServeObligations()` — the positive sentinel every class registered before the field existed was already asserting; the only value under which the declared-obligations gate is silent
+- Why: `24.5-L-14` / `L-26`; the `NOT_DISCOVERABLE` / `NO_VALIDITY_FLOORS` shape, so the default is a named assertion and not a blank (`D-10`)
+- Migration: none
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.GATE_DECLARED_OBLIGATIONS
+
+- Surface: ccf.products.gates.GATE_DECLARED_OBLIGATIONS
+- Public surface: true
+- Change type: added
+- Before: absent — five gate tokens (`D-IMPL-238`)
+- After: `"declared-obligations"`, the sixth token, beside the five, with a comment naming it the ONE mechanism `D-IMPL-237` licenses
+- Why: `24.5-L-14` / `L-26`. One token for both obligations so that there is one gate and not two
+- Migration: none. A consumer branching on `GateRefusal.gate` sees a sixth value
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.DEBT_TOLERANCE_PARAMETER
+
+- Surface: ccf.products.gates.DEBT_TOLERANCE_PARAMETER
+- Public surface: true
+- Change type: added
+- Before: absent — `debt_tolerance` had 0 occurrences in `src/`
+- After: `Final[str] = "debt_tolerance"`, the Standard §2.4 universal request parameter NAME; the resolver reads it off `request.parameters` only when the class declares a ceiling and the request contract declares the parameter (otherwise `refuse_request` already refused it as undeclared)
+- Why: `24.5-L-14`; CINV-01 reasoned in the docstring — a parameter name the SDK owns as mechanism vocabulary, on the footing of the four request axes, never a value
+- Migration: none. A deployment whose request contract already declares `debt_tolerance` under this exact name (cp-01..cp-04 do) is read with no touch once its class declares a ceiling
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.effective_debt_ceiling
+
+- Surface: ccf.products.gates.effective_debt_ceiling
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `effective_debt_ceiling(*, declared: Decimal | None, requested: object) -> Decimal | None` — pure: `declared is None → None` (a request cannot CREATE a ceiling); `requested` absent or not a finite number → `declared`; else `min(declared, requested)`. A looser request is ignored, not refused: the class's ceiling is the floor of strictness. Both runners apply it themselves against the class's declaration, so no caller can pass a loosening value; the resolver's own call is idempotent
+- Why: `24.5-L-14`, `D-IMPL-240` (3) (*"Class declares, request may tighten"*); threat `T-24.5-33`
+- Migration: none
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.DeclaredObligationRefusal
+
+- Surface: ccf.products.gates.DeclaredObligationRefusal
+- Public surface: true
+- Change type: added
+- Before: absent — an over-ceiling product and a product missing its lineage member had no refusal
+- After: `DeclaredObligationRefusal(GateRefusal)` with `obligation: Literal["debt-ceiling", "lineage-inputs"]`, `declared: str`, `observed: str` — both sides carried in the `TTLRefusal` voice; `observed` is the `D_c` as a decimal string, `no-assessment`, `absent` or `empty`; `detail` carries the Standard's §9 `409` sentence. Joins the `GateRefusal` family, so the `ServableProduct | GateRefusal` union is unchanged
+- Why: `24.5-L-14` / `L-26`; the kind the HTTP door maps to `409` (plan `24.5-14`); MCP carries the kind
+- Migration: none. A consumer matching on `GateRefusal` subclasses sees a sixth
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT
+
+- Surface: ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT
+- Public surface: true
+- Change type: added
+- Before: absent — one token, `empty-operator-guard`, for two assertions
+- After: `"empty-operator-result"`, beside `GATE_EMPTY_OPERATOR`, with a comment naming the split: the guard is the SDK's half (a product DECLARING no operators, INV-CH7-46); the result is the Standard's half (an operator RETURNING an empty set)
+- Why: `24.5-L-24`; `D-IMPL-238` second sentence; cp-00 `IH-G07`, cp-01 `CPR-G08`. Two names so a refusal says which half fired
+- Migration: none. A consumer branching on `GateRefusal.gate` sees a seventh value; neither token is a substring of the other
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
+#### ccf.products.gates.EmptyResultRefusal
+
+- Surface: ccf.products.gates.EmptyResultRefusal
+- Public surface: true
+- Change type: added
+- Before: absent — an operator that returned an empty set had no refusal
+- After: `EmptyResultRefusal(GateRefusal)` with `operator_key: str` (the FIRST operator, in sorted key order, whose output view carried zero entities and zero relationships) and `empty_operators: frozenset[str]` (all of them); `detail` names the key and the Standard's sentence. Joins the `GateRefusal` family, so the `ServableProduct | GateRefusal` union is unchanged. Not a subclass of `EmptyOperatorRefusal` and not its base
+- Why: `24.5-L-24`; the module's refusal discipline — both what a caller branches on and everything the gate observed
+- Migration: none. A consumer matching on `GateRefusal` subclasses sees a seventh
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
 ### Not public Python API
+
+#### tools.lints.hash_transparent_key (CINV-06)
+
+- Surface: tools/lints/hash_transparent_key.py
+- Public surface: false
+- Change type: added
+- Before: absent — a sentinel-defaulted field could ship without declaring its hash posture and every hash it touched would move with nothing red
+- After: a whole-tree AST checker over `src/` and `runtime/`, rule id `cinv06-hash-transparent-key` (CINV-05 is reserved by `D-GATE-15.4` ruling (3) for the deferred substrate-name split), **registered under `python -m tools.lints --all` as `hash-transparent-key`** (`make lint`, the CI lint job): every defaulted field on a `CCFContract` subclass — bases closed by simple name across files — that is NOT in the base roster below must declare `ccf_hash_transparent` as the literal `True` or `False`; a missing key, a non-boolean value, or a `json_schema_extra` it cannot read statically is one finding naming `Class.field`. The universe is NEW-SINCE-`13bd250` only (amendment 2): a field in the base roster is silent whatever it declares, because its default has rendered into every hash since it shipped and its absence from a stored object is the `D-IMPL-89` lineage by construction. No allowlist and no name list of its own — the fifteen fields amendment 1 named left this module entirely and are in the roster like every other pre-phase field; as a roster they live on the replay check only (`tests/replay/test_generation_mismatch.py::THE_FIFTEEN`, the record's shape). No `allowlist.yaml` entry (`D-13`). Its first roster-bounded sweep named exactly the seven declarations amendment 2 ticks, which are now marked; the tree is clean
+- Why: amendment 1 — "A forgotten key is red, not a quiet upgrade."; amendment 2 — "New-since-13bd250 only. Do not allowlist 115 names. … Base roster is a committed file measured at `13bd250`, not a comment."
+- Migration: an adopter adding a sentinel-defaulted field to any `CCFContract` in `src/` or `runtime/` declares the key, or `make lint` is red naming the field. Nothing for a reader of the SDK
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### tools.lints.base_roster and tools/lints/hash_transparent_base_roster.json (the CINV-06 base roster)
+
+- Surface: tools/lints/base_roster.py
+- Public surface: false
+- Change type: added
+- Before: absent — "new since the phase base" had no measured boundary, so a lint over sentinel-defaulted fields either allowlisted 130 names by hand or named every one of them
+- After: a committed JSON roster of every defaulted `CCFContract` field at `13bd250` — 130 names, `module.Class.field`, sorted, with a header naming the base commit (`13bd250e7a9d9ea12daf596ef86597557aad702f`), the generator and the rule — produced by `python -m tools.lints.base_roster`, which exports `src/` and `runtime/` at that commit with `git archive` and walks them with the lint's own `defaulted_fields` walker; `--check` regenerates into memory and diffs, exit 1 on drift, and fails loudly (never a clean result) when the commit is not in the clone. JSON over YAML because the lint package is stdlib-only, `json.dumps(sort_keys=True, indent=2)` is byte-deterministic so `--check` is a byte equality, and the header carries what a comment would. The CI lint job now checks out with `fetch-depth: 0` so `tools/lints/tests/test_base_roster.py` can run `--check` there
+- Why: amendment 2 — the roster does not rot because nothing is ever added to it by hand; it is a measurement of one immutable tree, and `--check` proves the file is that measurement
+- Migration: none. The roster is regenerated only by a ruling that moves the base; a later phase's new fields are in the lint's universe forever
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### tests/replay/fixtures/golden_13bd250 (the fixture is the gate)
+
+- Surface: tests/replay/fixtures/golden_13bd250/
+- Public surface: false
+- Change type: added
+- Before: no pre-phase record existed in the tree, which is why CR-01 stayed green
+- After: one `DecisionReplayRecord` with a traversal step over SQLite, produced by the `13bd250` tree by a recorded command, with its graph, its store and a manifest of every identity it carries; `tests/replay/test_golden_13bd250.py` replays it at HEAD with `parameter_hash`, the `graph_query_sequence` pin, the product address and the snapshot id all equal (leg 1), diverges on demand with one mark disabled (the control), and refuses by name with a `False` planted on a field the record lacks (leg 2)
+- Why: `D-IMPL-243` — "The fixture is the gate."
+- Migration: none. A later generation gets a new directory named for its producing commit, never a rewrite
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
 
 #### src/ccf/deployment/\_\_init\_\_.py
 
@@ -7462,13 +8061,43 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `18-99-close-review-blocking-fixes.md`.*
 
+#### ccf.operator-parameters.traversal-descendants
+
+- Surface: ccf.operator-parameters.traversal-descendants
+- Public surface: false
+- Change type: added
+- Before: absent
+- After: the document format of the new class — byte-identical in shape to a
+  `ccf.operator-parameters.traversal` document (`semver`,
+  `seed_entity_classes`, `relationship_types`, `depth_limit`, optional
+  `admitted_entity_classes`); the committed schema is
+  `docs/schemas/ccf.operator-parameters.traversal-descendants.json`,
+  regenerated by `make schemas` and never hand-edited
+  (`tests/cli/test_schema_export.py`)
+- Why: `24.5-L-06`; the only authoring change is the `class_id` string
+- Migration: none — additive
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-293 entries — 110 public Python surface, 183 not public Python API.
+320 entries — 137 public Python surface, 183 not public Python API.
 
 ### Public Python surface
+
+#### ccf.products.request.ProductRequestViolationReason
+
+- Surface: ccf.products.request.ProductRequestViolationReason
+- Public surface: true
+- Change type: reshaped
+- Before: five members, the fifth `"not-supported-at-tier"`
+- After: six members, the sixth `"not-a-proportion"` — the one verdict in the vocabulary that reads a presented VALUE rather than a name or a type. Appended, not inserted, so `24.5-07`'s "the fifth" stays true of the tier reason. The manifest records the widened `reason` annotation as a reshape; `ProductRequestViolation`'s fields are unchanged
+- Why: WR-02 (Dave, 2026-09-02). `D_c` is a proportion (whitepaper §7.7.4), so a declared, honored, well-typed number outside `[0, 1]` — or not finite — is not a tolerance at all, and a request that states one is a bad *question*, in the contract-refusal family (a `400`, never the `409` family). The interval is the one `ServeObligations._ceiling_is_a_proportion` holds the CLASS's ceiling to (`24.5-L-14`): the request boundary and the class boundary read the same interval
+- Migration: none for a reader of the existing five. A client switching on `reason` gains one arm
+
+*Recorded by `24.5-fix-02-the-tolerance-interval-at-the-request-boundary.md`.*
 
 #### ccf.assembly.worker.EntityResolutionSpec
 
@@ -9899,6 +10528,452 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `19-02-the-adapter-seam-carries-bytes.md`.*
 
+#### ccf.graph.backends.fluree.FlureeGraphStore
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphStore
+- Public surface: true
+- Change type: reshaped
+- Before: transport for the Cypher read (`post_query`, threading the
+  `Fluree-Min-T` floor) and the JSON-LD write (`post_update`); the ledger head
+  was readable only off a commit receipt
+- After: two methods added, constructor unchanged. `head_t() -> int` reads the
+  head off `GET …/ledgers`, matching `name` AND `branch` (the listing carries
+  every branch of every ledger on the server; the cp-04 example's name-only
+  match would answer whichever branch was listed first).
+  `post_query_pinned(body, *, pin_t) -> list[dict]` sends one JSON-LD read with
+  `from: <ledger>@t:N` as a dict value to `POST {base}/query` (no ledger in the
+  path — the path form is a measured `500`), refuses an over-budget body
+  loudly (there is no fallback to decline to), and raises `FlureePinAhead` on
+  the measured `408 err:db/ReadAfterWriteTimeout`. *(The manifest records a
+  class by its constructor, so these two methods leave no diff line — the
+  dumper blind spot `24.1.1-03` recorded. The name is post-baseline, so this is
+  the reconciled `reshaped`-over-`added` case of
+  `tests/test_surface_completeness.py`.)*
+- Why: `24.5-L-01` — the pin needs a transport the Cypher route cannot provide
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.graph.backends.fluree.FlureeGraphReader
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphReader
+- Public surface: true
+- Change type: reshaped
+- Before: `GraphReader` over a Fluree ledger, every read on the Cypher route,
+  no way to ask for an earlier state of the store
+- After: two methods added, constructor unchanged; the reader now satisfies
+  `SnapshotPinnable` structurally. `snapshot_pin()` mints
+  `StoreSnapshotPin(substrate="fluree", pin=str(head_t))`.
+  `query_pinned(q, *, pin)` runs the `D-IMPL-88` guard first — a `datetime`, an
+  `int`, a `str` or a pin from another substrate is a `TypeError` naming the
+  ruling, before any I/O — then three pinned selects (entity claims,
+  relationship claims, the tenant's whole L axis) mapped by `_pinned_row` onto
+  the Cypher column names, then `materialize_view`, `fallback.answer` and the
+  interface's ordering: byte-identical to the unpinned route on a ledger frozen
+  at that `t` (proven live: `canonical_bytes(query_pinned(q, pin=head)) ==
+  canonical_bytes(as_of(...))`). Telemetry counters are untouched. *(Same
+  constructor-only manifest note as the store.)*
+- Why: `24.5-L-01`, `D-IMPL-240` (2): "Pinned JSON-LD claim read, fed to the
+  fallback"
+- Migration: none — additive
+
+*Recorded by `24.5-02-the-fluree-pin-and-the-three-temporal-axes.md`.*
+
+#### ccf.products.contract.ProductLineage
+
+- Surface: ccf.products.contract.ProductLineage
+- Public surface: true
+- Change type: reshaped
+- Before: three fields — `operators_invoked`, `policy_bundle_versions`,
+  `graph_snapshot_at: datetime`; no way to record which state of the store
+  the product was assembled from
+- After: a fourth, last field `store_snapshot_pin: StoreSnapshotPin =
+  NO_STORE_SNAPSHOT_PIN` — the substrate's transaction-time head at the read
+  that assembled the product, recorded beside `graph_snapshot_at` and never
+  inside it (`D-IMPL-88`). Inside `canonical_bytes` by construction, so two
+  products differing only in pin have different content addresses: "served
+  at pin N is not reproducible from pin N+1" is a property of the contract
+- Why: `24.5-L-02`, `D-IMPL-240` (1) — criterion 6 asks the vessel to carry
+  a store-native pin
+- Migration: none — additive; a lineage built without the keyword carries
+  the sentinel and hashes exactly as a lineage built with it. Deployments
+  that seal whole-vessel content addresses re-seal them once (the cp-04
+  precedent above)
+
+*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+
+#### ccf.projection.engine.ExecutionResult
+
+- Surface: ccf.projection.engine.ExecutionResult
+- Public surface: true
+- Change type: reshaped
+- Before: the execution facts carried the source attestation but not the
+  store state the queries ran against
+- After: a last field `store_snapshot_pin: StoreSnapshotPin =
+  NO_STORE_SNAPSHOT_PIN`, threaded unconditionally by
+  `ProjectionEngine.execute`, which reads the reader's `snapshot_pin()`
+  **once, before the first `reader.query()`** of the execution — a fact about
+  the read, taken before anything is read — through
+  `ProjectionEngine._reader_snapshot_pin` (the `_reader_attestation` shape:
+  `isinstance(reader, SnapshotPinnable)`, sentinel otherwise). The governed
+  resolver copies it onto the lineage; `build_replay_record` pins it into
+  dimension 1
+- Why: `24.5-L-02` — the pin must travel with the execution facts, as the
+  attestation does, so a caller that skipped every check still leaves it
+- Migration: none — additive; a result built by hand without the field
+  carries the sentinel
+
+*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+
+#### ccf.replay.record.ContextFabricSnapshot
+
+- Surface: ccf.replay.record.ContextFabricSnapshot
+- Public surface: true
+- Change type: reshaped
+- Before: seven fields ending in `source_attestation`; `build(...)` took the
+  four D-IMPL-06 constituents and `source_attestation`
+- After: an eighth, last field `store_snapshot_pin: StoreSnapshotPin =
+  NO_STORE_SNAPSHOT_PIN` and the matching `build(..., store_snapshot_pin=)`
+  keyword, passed through verbatim and deliberately **not** an id
+  constituent (the `source_attestation` sentence: the id identifies graph
+  STATE, and this keeps re-derived ids comparable across records written
+  before and after the field). `build_replay_record` and
+  `snapshot_of_execution` both thread `execution.store_snapshot_pin`
+- Why: `24.5-L-02` — dimension 1 is *what state the decision drew from*, and
+  which committed state of the store that was is a dimension-1 fact
+- Migration: none — additive; records written before the field deserialize
+  with the sentinel
+
+*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+
+#### ccf.graph.protocols.TraversalSpec
+
+- Surface: ccf.graph.protocols.TraversalSpec
+- Public surface: true
+- Change type: reshaped
+- Before: three required fields — `seed_entity_classes`, `relationship_types`,
+  `depth_limit` — "all three required with no defaults"
+- After: a fourth, additive, sentinel-defaulted field
+  `admitted_entity_classes: frozenset[str] | None = None` — the spec's first
+  sentinel field, on the `GraphQuery.allowed_entities` precedent. `None` admits
+  every class (today's behavior); a set admits a hop only onto an entity whose
+  `entity_class` is a member. Admission filters REACHED nodes and never walk
+  STARTS (`GQ-11` selects starts; `GQ-10`'s "seeds are included" stands), and
+  an entity absent from in-scope state is not a hop. The empty set admits no
+  hop and answers the starts.
+- Why: `24.5-L-05`; `GQ-10` at semantics version 1.1.0; `D-10` additive over
+  breaking
+- Migration: none — additive. A pushed answerer that cannot express the field
+  declines to the fallback (`GQ-32`, D-04)
+
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
+
+#### ccf.operators.params.TraversalNeighborhoodParameters
+
+- Surface: ccf.operators.params.TraversalNeighborhoodParameters
+- Public surface: true
+- Change type: reshaped
+- Before: `seed_entity_classes`, `relationship_types`, `depth_limit`, no
+  defaults; the module docstring said "no field in this module carries a
+  default"
+- After: `admitted_entity_classes: frozenset[str] | None = None` mirrored
+  field-for-field onto `TraversalSpec`. The module docstring now says no field
+  carries a NUMERIC default and names this one `None` as a positive sentinel:
+  `D-IMPL-38`'s concern is a silently chosen number, and none is chosen. The
+  `CINV-01b` lint (numeric default on a declared parameter field) was measured
+  silent on it — no allowlist entry and no `NO_ADMISSION_FILTER` routing were
+  needed. The committed schema
+  `docs/schemas/ccf.operator-parameters.traversal.json` gains the optional
+  array property.
+- Why: `24.5-L-05`; the operator-tier contract the artifact class inherits
+- Migration: none — every artifact written before the field parses as it did
+
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
+
+#### ccf.operators.categories.TraversalNeighborhoodParameters
+
+- Surface: ccf.operators.categories.TraversalNeighborhoodParameters
+- Public surface: true
+- Change type: reshaped
+- Before: the re-export of `ccf.operators.params.TraversalNeighborhoodParameters`
+  from the categories module, three fields
+- After: the same re-export, now carrying `admitted_entity_classes`. Not a
+  second class — the manifest lists the name under both modules, so both are
+  claimed
+- Why: `24.5-L-05`; one contract, two import paths
+- Migration: none — additive
+
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
+
+#### ccf.controlplane.artifacts.TraversalNeighborhoodParametersArtifact
+
+- Surface: ccf.controlplane.artifacts.TraversalNeighborhoodParametersArtifact
+- Public surface: true
+- Change type: reshaped
+- Before: inherited the three-field parameter class verbatim plus `semver`
+- After: inherits the four-field class — `admitted_entity_classes` arrives by
+  inheritance with **no edit to `src/ccf/controlplane/artifacts.py`** (the
+  artifact adds a semver lane and nothing else; there is no second vocabulary
+  to drift). The committed schema
+  `docs/schemas/ccf.operator-parameters.traversal.json` gains the optional
+  `admitted_entity_classes` array property (`anyOf` array-of-string / null,
+  default null) and its `required` list is unchanged
+- Why: `24.5-L-05`; the artifact IS the parameter set
+  (`tests/controlplane/test_artifact_roundtrip.py::test_a_parsed_traversal_artifact_is_accepted_by_the_traversal_operator`)
+- Migration: none — every artifact document written before the field parses
+  as it did; an author may now set `admitted_entity_classes`
+
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
+
+#### ccf.graph.protocols.TraversalSpec
+
+- Surface: ccf.graph.protocols.TraversalSpec
+- Public surface: true
+- Change type: reshaped
+- Before: four fields after `24.5-04` — `seed_entity_classes`,
+  `relationship_types`, `depth_limit`, `admitted_entity_classes=None`
+- After: a fifth, last, sentinel-defaulted field
+  `direction: TraversalDirection = "undirected"`. The default is the 1.0.x
+  behavior; `"forward"` is emitted only by `TraversalDescendants.read_intent`.
+  A pushed answerer that cannot express the direction declines the whole
+  query to the fallback (`GQ-32`, D-04) — which every backend does at this
+  plan's tip
+- Why: `24.5-L-06`; pushdown and the fallback read the spec, not the
+  operator, so the direction has to travel on the spec
+- Migration: none — additive. `TraversalSpec(seed_entity_classes=…,
+  relationship_types=…, depth_limit=…)` still constructs and still means the
+  undirected walk
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
+#### ccf_runtime.mcp.egress.build_egress_server
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: reshaped
+- Before: `(*, server_name, resolver, token_verifier, auth_settings, entitlement_source, perspective_resolver, expose_product_tool=False, product_tool_description=None)`
+- After: one added keyword, `expose_product_resource: bool = True`, placed after `perspective_resolver`.
+  Under `False` the product resource template is NOT registered (a TOOL-ONLY door).
+  `expose_product_resource=False` together with `expose_product_tool=False` is refused by
+  `ValueError` in the `D-03` voice — a door with neither surface answers nothing. When the tool is
+  exposed, a second resource template (`PRODUCT_ADDRESS_TEMPLATE`) is registered beside it.
+- Why: `24.5-L-09` — a parameterized class's resource has no parameter-free answer (cp-04's
+  `CFT-G13` limb (b) measured it refusing every read), and the only honest shape for such a class is
+  a door with no resource at all
+- Migration: none — the default preserves every existing deployment
+
+*Recorded by `24.5-06-the-door-addresses-a-parameterized-product-and-can-be-tool-only.md`.*
+
+#### ccf.products.request.ProductRequestViolationReason
+
+- Surface: ccf.products.request.ProductRequestViolationReason
+- Public surface: true
+- Change type: reshaped
+- Before: `Literal["undeclared-parameter", "missing-required-parameter", "type-mismatch", "class-mismatch"]` — four members; a tier refusal had no member and the ladder raised it as a string
+- After: five members, the fifth `"not-supported-at-tier"` — the Standard §9 `400 not_supported_at_tier` in the vocabulary's own hyphenated spelling
+- Why: `24.5-L-12`. Met at cp-01, cp-02, cp-03 and cp-04, each raising `AssemblyRefused("400 not_supported_at_tier …")` because the `Literal` could not say it. Hyphenated because every other member is; the Standard's underscore token travels verbatim inside `detail`
+- Migration: none — additive. A consumer branching on the four existing members sees them unchanged; one that enumerates the `Literal` sees a fifth
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.products.request.ProductRequestViolation
+
+- Surface: ccf.products.request.ProductRequestViolation
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` admitted the four members
+- After: `reason` admits the five; for a tier refusal `key` is the inert parameter's name, `declared_type` is `None` (an inert parameter is refused whatever its type), `presented_type` is the presented Python type name, and `detail` carries the Standard's status token, the parameter name and the declared reason prose — all three
+- Why: `24.5-L-12`. The manifest records the widened `reason` annotation as a reshape; the fields are unchanged
+- Migration: none — additive
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: reshaped
+- Before: `semver`, `schema_name`, `schema_version`, `arguments`; `from_declared` read exactly those and ignored every sibling key
+- After: one added field, `unsupported_arguments: Mapping[str, str] = Field(default_factory=dict)` — parameter name → the declared reason prose. `from_declared` reads the optional fourth key `unsupported_arguments` when present, defaults to the empty mapping when absent, and refuses a non-mapping or a non-string value in the same one-error voice the three required keys use. `docs/schemas/ccf.product-request-contract.json` regenerated
+- Why: `24.5-L-13`, Standard §2.4 (*declared-but-inert*): the request-contract artifact could not say "declared and always refused", which pushed the one thing §2.4 cares about out of the artifact and into code. The empty mapping is the positive assertion that a class declares no inert parameter — what every pre-phase declaration said and still says
+- Migration: none for an adopter whose declaration lacks the key. An adopter who was enforcing an inert set in code moves it into the artifact under this key and deletes the code
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.assembly.worker.RelationshipResolutionRule
+
+- Surface: ccf.assembly.worker.RelationshipResolutionRule
+- Public surface: true
+- Change type: reshaped
+- Before: `(relationship_type: str, subject_entity_class: str, object_entity_class: str)` — fires on
+  class co-occurrence in one envelope, every subject × object pair, self-loops included
+- After: the same three required fields plus three sentinel-defaulted selectors —
+  `predicate_key: str | None = None` (the rule fires only when the payload value under that key
+  equals the rule's own `relationship_type`), `subject_rule: str | None = None` and
+  `object_rule: str | None = None` (the `match_key` of the entity rule that resolved each endpoint;
+  a `model_validator` refuses one without the other). `predicate_key` may stand alone
+- Why: `24.5-L-21`, `24.4-D-35`. The single writer decides what a rule mints; the rule must be able
+  to say. The comparison under `predicate_key` is against the rule's own type, so a payload cannot
+  name a type no rule declares (T-24.5-26)
+- Migration: none — every existing rule constructs and behaves as before, except that a self-loop
+  from one envelope is no longer minted under any rule
+
+*Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
+
+#### ccf.assembly.worker.ResolvedEntity
+
+- Surface: ccf.assembly.worker.ResolvedEntity
+- Public surface: true
+- Change type: reshaped
+- Before: `(entity_uri: str, entity_class: str, attributes: dict[str, str])`
+- After: the same plus `resolved_by: str = NO_RESOLVING_RULE` — the `match_key` of the entity rule
+  that produced the entity, filled by `SpecDrivenEntityResolution.resolve`
+- Why: `24.5-L-21`. Endpoint selection chooses an endpoint by the rule that produced it, not by its
+  class; the resolved entity has to carry which rule that was
+- Migration: none for callers. A custom `EntityResolutionStrategy` that does not fill the field
+  leaves the sentinel, and its entities are then reachable by class only — a selector rule over
+  them mints nothing, because an endpoint no rule claims is not selectable
+
+*Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
+
+#### ccf.controlplane.artifacts.HalfLifeEntry
+
+- Surface: ccf.controlplane.artifacts.HalfLifeEntry
+- Public surface: true
+- Change type: reshaped
+- Before: `half_life_seconds: int` (required, positive), `decay_driver: str`,
+  `supersession_event: str`; `supersession_event` could only ride BESIDE a curve
+- After: `decay: Literal["curve", "supersede-only"] = "curve"` added;
+  `half_life_seconds: int | None = None`, required and positive under `curve`, refused under
+  `supersede-only`; `decay_driver` and `supersession_event` unchanged and required in both modes.
+  The unconditional `_rate_is_positive` field validator became the conditional
+  `_shape_matches_mode` model validator, keeping the `half_life_seconds must be positive`
+  message verbatim. The same class is re-exported unchanged as
+  `ccf.halflife.decay.HalfLifeEntry`, which the surface report lists as reshaped for the same
+  reason
+- Why: `24.5-L-22` — cp-03 §E.1 gives Restatement an event-driven λ_c with no number, and the
+  entry could not say so; cp-03 omitted the row rather than invent one. Whitepaper §7.7.1–§7.7.2:
+  supersession collapses the curve rather than continuing it. Additive under `D-10`: every
+  existing four-key entry validates unchanged (`tests/controlplane/test_artifact_roundtrip.py`
+  carries both a curve-only and a mixed case). No product value lands in `src/`
+- Migration: none for existing documents. A deployment with an event-driven class writes
+  `decay: supersede-only` and omits `half_life_seconds`. The regenerated
+  `docs/schemas/ccf.half-life-table.json` carries the new shape
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### ccf.halflife.decay.HalfLifeEntry
+
+- Surface: ccf.halflife.decay.HalfLifeEntry
+- Public surface: true
+- Change type: reshaped
+- Before: the re-export of `ccf.controlplane.artifacts.HalfLifeEntry` with the four-key shape
+- After: the same re-export, carrying the `decay` field and the conditional
+  `half_life_seconds` described under `ccf.controlplane.artifacts.HalfLifeEntry` above; the
+  manifest lists the name as reshaped under both module paths because `ccf.halflife.decay`
+  re-exports the class unchanged
+- Why: `24.5-L-22` — one class, two public paths; the entry above is the change, this entry
+  claims the second path so the completeness gate reads one fragment for both
+- Migration: none — identical to the entry above
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### ccf.products.contract.RegisteredProductClass
+
+- Surface: ccf.products.contract.RegisteredProductClass
+- Public surface: true
+- Change type: reshaped
+- Before: sixteen fields ending `request_contract_key`, `request_contract_version`
+- After: one added last field, `serve_obligations: ServeObligations = NO_SERVE_OBLIGATIONS` — carried here because this is the value `run_gates` receives, on the `accepted_lineage_modes` reasoning
+- Why: `24.5-L-14` / `L-26`; the gate reads the class's declaration off what it already holds. `tests/products/test_contract_elements.py`'s union may grow and is green
+- Migration: none — the default. Note that a defaulted field is inside the canonical rendering, so the content address of a `RegisteredProductClass` value moves; no committed seal pins one (`D-IMPL-240` (1) measured the only sealed addresses in the tree as cp-04's two product addresses, which embed `ContextProductContract` and not this class)
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.contract.register_product_class
+
+- Surface: ccf.products.contract.register_product_class
+- Public surface: true
+- Change type: reshaped
+- Before: keyword-only through `request_contract_version`
+- After: one added keyword, `serve_obligations: ServeObligations = NO_SERVE_OBLIGATIONS`, passed straight through onto the registered value
+- Why: `24.5-L-14` / `L-26`; every registration written before it existed asserts exactly what it always asserted
+- Migration: none
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.controlplane.artifacts.ProductClassDeclaration
+
+- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
+- Public surface: true
+- Change type: reshaped
+- Before: `payload_schema_key`, `request_contract_key` the last authored fields; a declaration could name no serve obligation
+- After: one added last field, `serve_obligations: ServeObligations = NO_SERVE_OBLIGATIONS`; the docstring states that an obligation is a STRUCTURAL declaration the serve path enforces through the one gate `D-IMPL-237` licenses, naming a ceiling and payload MEMBERS, never a payload shape — products declare obligations, not gate types. `docs/schemas/ccf.product-class.json` regenerated by `tools/dump_schemas.py`. `GovernedResolver._register` forwards it
+- Why: `24.5-L-14` / `L-26`; `D-IMPL-240` (3) puts the ceiling on the class artifact. The number is the deployment's to author here; the SDK holds none
+- Migration: none for an adopter whose declaration lacks the key; every committed declaration parses unchanged. The declaration's content address moves (a defaulted field renders); no committed seal pins one
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.run_gates
+
+- Surface: ccf.products.gates.run_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `run_gates(candidate, *, engine_resolved, now, registry, product_class, source_attestation=None)` — four steps: empty operators, lineage strict equality, TTL bounds, source attestation
+- After: one added keyword, `debt_tolerance: Decimal | None = None`, and one added LAST step — `_refuse_declared_obligations(candidate, product_class=…, debt_tolerance=…)` after attestation and before the token is minted. The Returns clause names the fifth step and why it is last: every universal gate precedes a declared one
+- Why: `24.5-L-14` / `L-26`, `D-IMPL-237`; the `source_attestation` compatibility posture — every pre-phase call site byte-identical
+- Migration: none for a caller whose class declares nothing. A caller whose class declares a ceiling and wants a request to tighten it passes `debt_tolerance`
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.run_federated_gates
+
+- Surface: ccf.products.gates.run_federated_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `run_federated_gates(candidate, *, attested_address, now, registry, product_class)` — three steps: empty operators, attributability, TTL bounds
+- After: one added keyword, `debt_tolerance: Decimal | None = None`, and the same declared-obligations step as step 4, after TTL. A federated candidate carries `debt`, so the debt half applies where the consuming class declares a ceiling; the lineage half applies as declared
+- Why: `24.5-L-14` / `L-26`; one function shared by both runners so they cannot drift into two readings of a declaration (the gate-1/gate-3 factoring reason)
+- Migration: none
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf.products.gates.run_gates
+
+- Surface: ccf.products.gates.run_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `run_gates(candidate, *, engine_resolved, now, registry, product_class, source_attestation=None, debt_tolerance=None)` — five steps: empty operators, lineage strict equality, TTL bounds, source attestation, declared obligations
+- After: one added keyword, `empty_results: frozenset[str] | None = None`, and one added step IMMEDIATELY AFTER the declared half — `_refuse_empty_results(candidate, empty_results=…)` — before strict equality; six steps. The Returns clause names the two halves as adjacent, declared first. `None` (the default, every pre-phase call site) is *not observed* and passes; the empty set is the engine's positive *no operator returned empty* and passes; a non-empty set is refused by name
+- Why: `24.5-L-24`; the `source_attestation` compatibility posture (`D-10`) — a product does not observe its own operators' emptiness, the engine's record does
+- Migration: none for a caller that passes nothing. The governed resolver passes `execution.empty_results`; a direct caller that wants the Standard's half to bite threads its execution's record the same way
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
+#### ccf.products.gates.run_federated_gates
+
+- Surface: ccf.products.gates.run_federated_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `run_federated_gates(candidate, *, attested_address, now, registry, product_class, debt_tolerance=None)` — four steps: empty operators, attributability, TTL bounds, declared obligations
+- After: one added keyword, `empty_results: frozenset[str] | None = None`, and the same returned-empty step as step 2, immediately after the declared half and before attributability; five steps. A consumer ran no engine, so the observation arrives only if the caller threads it; `None` passes
+- Why: `24.5-L-24`; one helper shared by both runners so they cannot drift into two readings of the Standard's half (the gate-1/gate-3 factoring reason)
+- Migration: none
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
+#### ccf.projection.engine.ExecutionResult
+
+- Surface: ccf.projection.engine.ExecutionResult
+- Public surface: true
+- Change type: reshaped
+- Before: eleven fields ending `source_attestation`, `store_snapshot_pin`; the engine recorded WHAT ran and in what order, not whether any operator returned nothing
+- After: one added last field, `empty_results: frozenset[str] = frozenset()` — the operator keys whose output view carried zero entities AND zero relationships, computed ALWAYS by `ProjectionEngine.execute` from one inspection of each `OperatorOutput` view as it is produced; the empty set is the engine's positive assertion, not a sentinel for absence. Inside one pushed segment the answer is composed, so an empty answer is recorded against every operator of that segment (the engine re-applies each over the answer, `GQ-19`); the record names what each operator returned. A result built by hand without the field carries the empty set
+- Why: `24.5-L-24`; the returned half needs an input `run_gates` did not receive, and the only honest source is the thing that ran the plan — never the payload (`D-IMPL-238` limb 3)
+- Migration: none — the default. A defaulted field is inside the canonical rendering, so the content address of an `ExecutionResult` value moves; no committed seal pins one (the execution record is not a served vessel; `D-IMPL-240` (1) measured the only sealed addresses in the tree as cp-04's two product addresses)
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -12243,7 +13318,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-88 entries — 68 public Python surface, 20 not public Python API.
+109 entries — 89 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -12355,6 +13430,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none — sentinel-defaulted; all 40 call sites unchanged
 
 *Recorded by `24.1.1-04-a-refusal-has-an-identity-in-the-record.md`.*
+
+#### ccf.contracts.canonical.canonical_bytes
+
+- Surface: ccf.contracts.canonical.canonical_bytes
+- Public surface: true
+- Change type: behavior
+- Before: a `BaseModel` rendered every declared field
+- After: a `BaseModel` renders every declared field EXCEPT a `True`-marked one whose value `==` its declared sentinel (compared by value, so a model-valued sentinel such as `NO_STORE_SNAPSHOT_PIN` compares by content). The same holds for `content_hash`, which hashes these bytes. Measured: eleven `content_hash` digests of the marked models at their sentinels are IDENTICAL to the `13bd250` tree's (`tests/contracts/test_hash_transparency.py`), CR-01's own pair now `34df2d94…` at both, and the directed twin `TraversalDescendantsParameters` — absent at base — hashing as the base three-field parameters did because the canonical form renders fields, never a class name; every non-sentinel value moves its hash
+- Why: `D-IMPL-243` — "`_normalize` omits it when the value is that sentinel. Any non-sentinel value is rendered and must move the hash. That is not 'defaults never count.' It is 'silence equals yesterday.'"
+- Migration: none for an adopter whose stores predate 24.5 on the marked models — their identities are what they were. `D-GATE-24.5` carries the sentence for everything else: adopter stores from before 24.5 are not promised byte-identical replay
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: behavior
+- Before: resolve the record byte-first, resolve bindings, plan, operators; re-execute; compare
+- After: one step added between resolving the record and resolving its bindings, BEFORE anything is re-executed: the record's stored canonical object — obtained the way the record was resolved, a second `store.get` at the same address re-hashed to it (different bytes on the second read are `ReplayDivergence`) — is held against `generation_mismatch(DecisionReplayRecord, …)`, and a non-empty answer raises `ReplayGenerationMismatch` naming the fields. Signature unchanged; every record in the tree passes the step silently (measured: `tests/replay` 142 passed, 1 skipped, including the golden `13bd250` record and the pre-extension `PRE_CHANGE_CANONICAL`)
+- Why: amendment 1 — "Declared scope + lint, at `replay()`. … Do not put this in `resolve_artifact`."
+- Migration: none for any record in the tree or any record whose absent fields are `True`-marked or unmarked. A future field declared `False` makes every record written before it refused by name here — which is the declaration's meaning
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: behavior
+- Before: address → tier → payload; a `debt_tolerance` of `-1` under a `number` declaration conformed, reached `effective_debt_ceiling` as a "tightening" and refused every product `declared-obligation-refusal` with `declared="-1"`
+- After: address → tier → payload → **tolerance interval** (`_refuse_tolerance`, module-private, last). The step reads `DEBT_TOLERANCE_PARAMETER` off `request.parameters` (a call-time import from `ccf.products.gates`, on the `DEF-17-02` pattern the payload import already uses); returns `None` when the key is absent, when the value is a `bool` or not an `int`/`Decimal` (those are the payload comparison's to name), or when the value is finite and `0 <= value <= 1`; otherwise `ProductRequestViolation(reason="not-a-proportion", key="debt_tolerance", declared_type=<the declared JSON type>, presented_type=<type name>, declared_keys=<arguments.properties>, presented_keys=<request.parameters>, detail="debt_tolerance: <value> is not a proportion — … [0, 1] … (24.5-L-14) …")`. Reads nothing about the class's ceiling: a request cannot create one, and a value that is not a proportion is not a tolerance under any class. Signature unchanged
+- Why: WR-02. Last, for the converse of the reason the tier step is second: the interval step judges a number's magnitude, and only a declared, honored, well-typed number has one — so undeclared reads `undeclared-parameter`, declared-inert reads `not-supported-at-tier`, and a string `"-1"` under a `number` declaration reads `type-mismatch`, each exactly as before. Refusing at this boundary, rather than clamping at the gate, is what keeps `declared` on a `409` a number some class actually declared, and keeps `D-IMPL-224`'s one mechanism one
+- Migration: none for a caller presenting a proportion. A caller presenting `-1`, `1.5`, `Infinity` or `NaN` now receives `product-request-violation` / `not-a-proportion` (no lineage; the graph is never touched) where it previously received a `declared-obligation-refusal` naming its own number as the class's — or, under a class declaring no ceiling, a served product
+
+*Recorded by `24.5-fix-02-the-tolerance-interval-at-the-request-boundary.md`.*
+
+#### ccf_runtime.http_api.routes.product.retrieve
+
+- Surface: ccf_runtime.http_api.routes.product.retrieve
+- Public surface: true
+- Change type: behavior
+- Before: a `RefusalEnvelope` of kind `product-request-violation` fell through to `served_answer`, which raised `TypeError` — no response (an opaque 500 behind a real server)
+- After: a second mapped kind beside the `409`: `envelope.kind == REFUSAL_KINDS[ProductRequestViolation]` → `JSONResponse(status_code=400, content={"kind", "refusal_type": "ProductRequestViolation", "refusal": <the whole envelope>})`, the `409`'s body shape. Mapped by KIND, so all six reasons of `ProductRequestViolationReason` (`undeclared-parameter`, `missing-required-parameter`, `type-mismatch`, `class-mismatch`, `not-supported-at-tier`, `not-a-proportion`) arrive as `400` through one branch; the envelope carries `reason`, `key`, both type names, both key sets, the request identity and `pre_assembly_lineage: null` (the verdict precedes the graph)
+- Why: panel R3, Dave 2026-09-03. A request-conformity verdict is the caller's question failing the class's declared contract — the same family as the door's own request-shape refusals, which were already `400`; a `TypeError` for it was a door fault reported for a caller error
+- Migration: none for a caller presenting a conformant request. A caller whose request is refused by the resolver's boundary now receives `400` with the envelope where it previously received a transport-level server error
+
+*Recorded by `24.5-fix-03-the-http-door-answers-400-for-a-request-violation.md`.*
 
 #### ccf.controlplane.artifacts.load_artifact
 
@@ -14000,6 +15123,296 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   dedicated code is owed
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
+
+#### ccf.replay.snapshots.SnapshotReader
+
+- Surface: ccf.replay.snapshots.SnapshotReader
+- Public surface: true
+- Change type: behavior
+- Before: pinned `(tenant, temporal_boundary)` and delegated every read to
+  the live reader's `as_of`/`query` — the live reader's current head, always
+- After: two members added, constructor unchanged (so the manifest shows no
+  diff line — the constructor-only blind spot `24.1.1-03` recorded — which is
+  why this is `behavior` and not `reshaped`). The reader is itself
+  `SnapshotPinnable`: `snapshot_pin()` reports the **recorded** pin, so an
+  execution driven through it carries the recorded pin and
+  `snapshot_of_execution` re-derives dimension 1 with it; `query_pinned(q,
+  *, pin)` admits only the recorded pin (`SnapshotScopeViolation` otherwise).
+  When the snapshot records a pin other than the sentinel, `as_of` (the
+  degenerate query, `GQ-21`) and `query` are answered through the live
+  reader's `query_pinned` at that pin; a live reader that is not
+  `SnapshotPinnable` raises `SnapshotPinUnresolvable` before any delegation.
+  When the sentinel is recorded, both reads behave exactly as before
+- Why: `24.5-L-02`, `D-IMPL-240` (1), CLAUDE.md §7.4 — replay resolves the
+  exact recorded state or refuses; the head is never a fallback
+- Migration: none for sentinel records. A deployment whose records carry a
+  real pin must hand `replay` a `SnapshotPinnable` reader for that substrate;
+  any other reader is refused rather than silently answering the head
+
+*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: behavior
+- Before: compared the re-derived `graph_snapshot_id` with the recorded one;
+  a re-execution that read under another store state than the record names
+  was invisible when the substate happened to agree
+- After: beside that comparison, the reproduced dimension-1
+  `store_snapshot_pin` is compared with the recorded pin and a mismatch is
+  `ReplayDivergence` naming both pins — a pin that moved between record and
+  rehydration is a different decision, in the
+  `test_a_rehydration_that_drops_the_debt_is_divergence` voice. A record
+  whose pin the handed reader cannot resolve surfaces
+  `SnapshotPinUnresolvable` from the first read
+- Why: `24.5-L-02` — the pin is outside the id derivation, so it must be
+  compared on its own or a moved pin would replay green
+- Migration: none for sentinel records; see `SnapshotReader` for pinned ones
+
+*Recorded by `24.5-03-the-lineage-carries-the-store-pin.md`.*
+
+#### ccf.operators.categories.TraversalNeighborhood
+
+- Surface: ccf.operators.categories.TraversalNeighborhood
+- Public surface: true
+- Change type: behavior
+- Before: `read_intent()` projected three fields onto `TraversalSpec`;
+  `apply()` BFS-expanded from seed-class entities over the undirected typed
+  adjacency and nothing filtered the reached node by class
+- After: `read_intent()` mirrors `admitted_entity_classes`; `apply()` builds
+  the view's class map once and admits a hop onto `n` only when
+  `admitted_entity_classes is None or class_of.get(n) in admitted_entity_classes`.
+  Constructor and key unchanged (the manifest records constructors only — the
+  `24.1.1-03` dumper blind spot — so the behavior change is claimed here).
+  `src/ccf/graph/fallback.py::_walk` — private, the differential oracle —
+  applies the identical predicate, built from its `entities` argument's class
+  map, which is what holds every pushed answer to this operator.
+- Why: `24.5-L-05`, criterion 8 — an excluded neighbor shown against an
+  all-admitted control (`tests/operators/test_traversal_admission.py`), the
+  oracle agreeing, composition preserved under the parameter
+  (`tests/properties/test_composition.py::test_composition_is_preserved_under_admission`)
+- Migration: none — additive
+
+*Recorded by `24.5-04-node-class-admission-on-the-walk.md`.*
+
+#### ccf.operators.categories.TraversalNeighborhood
+
+- Surface: ccf.operators.categories.TraversalNeighborhood
+- Public surface: true
+- Change type: behavior
+- Before: `apply()` held its own BFS with the two undirected
+  `adjacency.setdefault(...)` lines inline; `read_intent()` left
+  `TraversalSpec.direction` to its default
+- After: `apply()` calls the shared `_bounded_walk(..., forward=False)` —
+  the same BFS, the same admission predicate, now in one place for both
+  walks; `read_intent()` emits `direction="undirected"` explicitly. Constructor
+  and key unchanged (the manifest records constructors only, so the
+  behavior-neutral refactor is claimed here). Answers are byte-identical:
+  `tests/operators/test_traversal_admission.py` and the quick conformance
+  suite pass with no edit
+- Why: `24.5-L-06`; one walk function so the two shapes cannot drift
+  (threat `T-24.5-13`)
+- Migration: none
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
+#### ccf.deployment.operators.build_operator_registry
+
+- Surface: ccf.deployment.operators.build_operator_registry
+- Public surface: true
+- Change type: behavior
+- Before: four `isinstance` dispatch arms; a
+  `TraversalDescendantsParametersArtifact` did not exist, and any unrecognized
+  artifact class raised "names no canonical operator category"
+- After: one more arm — `elif isinstance(parameter,
+  TraversalDescendantsParametersArtifact): registry.register(TraversalDescendants(parameters=parameter))`.
+  The two traversal artifact classes share only the marker base, so neither
+  `isinstance` can catch the other's document and the arm order is not
+  load-bearing (verified by reading, as the plan asked). Signature unchanged;
+  the unknown-class error path is unchanged. Proven by construction: the
+  round-trip module builds a registry from the parsed descendants artifact
+  and gets exactly `("traversal.typed-descendants",)` with
+  `read_intent().traverse.direction == "forward"`
+- Why: `24.5-L-06`; an SDK-shipped sibling belongs in the dispatch, not in
+  the `deployment_operators=` channel, which is for out-of-tree operators
+  (`D-59`)
+- Migration: none — a deployment may register both traversal classes under
+  different manifest keys; they are different operator keys under one
+  category
+
+*Recorded by `24.5-05-the-directed-descendant-walk.md`.*
+
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: behavior
+- Before: address check, then the payload comparison. A presented inert parameter not in `arguments.properties` was refused as `undeclared-parameter`; one that WAS declared passed
+- After: address → **tier** → payload. The tier step returns `ProductRequestViolation(reason="not-supported-at-tier", key=<parameter>, declared_type=None, presented_type=<type name>, declared_keys=<arguments.properties>, presented_keys=<request.parameters>, detail="<key>: 400 not_supported_at_tier — <declared prose>")` for the first presented parameter, in sorted order, that the declaration names in `unsupported_arguments`. The verdict comes FROM the declaration; the function holds no parameter name
+- Why: `24.5-L-13`. The order is load-bearing: an inert parameter is refused whatever its type and is typically not in `arguments.properties`, so the payload comparison run first would call it undeclared and hide the reason the declaration authored. `tests/products/test_request_contract.py::test_a_planted_spine_constant_does_not_decide_the_verdict` plants `INERT_PARAMETERS = frozenset({"as_of"})` in a scratch copy of the module, shows the copy's verdict still comes from the declaration, and RECORDS that the No-Hardcoding lint reports nothing for the plant (its rules are prompt-shape, numeric-table and factory-bypass) — which is why the contract test is the gate
+- Migration: none for a request presenting no inert parameter. A caller presenting one now receives `not-supported-at-tier` where it previously received `undeclared-parameter` or a served product
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.agents.errors.AssemblyRefused
+
+- Surface: ccf.agents.errors.AssemblyRefused
+- Public surface: true
+- Change type: behavior
+- Before: a `ValueError` raised for channel-1 identity disagreements; no conversion to any value
+- After: the same exception, not retyped, with one added method `as_refusal() -> AssemblyRefusal` (reason `"assembly-refused"`, detail `str(self)`) so an assembler that catches its own raise can return the value; `AssemblyRefused("x").as_refusal()` envelopes identically to `AssemblyRefusal(reason="assembly-refused", detail="x")`
+- Why: `24.5-L-11`. Labeled `behavior` rather than `reshaped` deliberately: the surface manifest records a class's constructor shape only (the blind spot `24.1.1-03` recorded), so an added method moves no manifest line, and a `reshaped` claim with no diff line is a phase-close defect. The DECISION recorded in the docstring: the MCP tool handler does NOT catch this exception; governance and identity refusals stay raises and no door converts between the channels
+- Migration: none — additive
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.agents.assembler.ContextAssemblerProtocol
+
+- Surface: ccf.agents.assembler.ContextAssemblerProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `assemble(...) -> AssemblyOutcome | ProductRequestViolation` — the D-60 channel admitted one refusal value
+- After: `assemble(...) -> AssemblyOutcome | ProductRequestViolation | AssemblyRefusal`, widened additively so a conforming assembler can return the new value. `DeterministicAssembler` keeps its narrower annotation (return types are covariant) and is unchanged
+- Why: `24.5-L-11`; the plan's own instruction when the channel is narrower than "a `REFUSAL_KINDS` member". `src/ccf/agents/assembler.py` is outside the plan's `files_modified` and the edit is one annotation plus one docstring paragraph; recorded in the SUMMARY as a deviation. Labeled `behavior` because the manifest records the Protocol's constructor shape, not its members — the same blind spot `24.1.1-03` measured for the first widening
+- Migration: none — every existing implementation's narrower return still conforms
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: behavior
+- Before: sixteen entries across the gate, peering, mount, conformity and mixing families
+- After: eighteen — `AnchorAmbiguityRefusal: "anchor-ambiguity-refusal"` beside the two conformity verdicts, `AssemblyRefusal: "assembly-refusal"` under a new family comment. No token is a substring of another; `tests/products/test_refusal_envelope.py::test_the_refusal_vocabulary_is_closed_by_set_equality` is GREEN at 18 and each new kind has its own `test_envelope_for_<token>` function
+- Why: `24.5-L-11`, `24.5-L-16`. Found while sabotaging the per-kind coverage gate: its substring match was satisfied for `assembly-refusal` by the pre-existing `test_pre_assembly_refusal_rejects_a_lineage`; `test_every_kind_has_its_own_test_function` now requires the exact name `test_envelope_for_<token>`
+- Migration: none for a consumer of the envelope; a consumer that enumerates the mapping sees two more kinds
+
+*Recorded by `24.5-07-the-refusal-vocabulary-and-the-declared-and-always-refused-parameter.md`.*
+
+#### ccf.assembly.worker.AssemblyWorker
+
+- Surface: ccf.assembly.worker.AssemblyWorker
+- Public surface: true
+- Change type: behavior
+- Before: `ingest` minted `by_class[subject_class] × by_class[object_class]` for every declared
+  rule, self-loops included; one cp-04 node envelope under twelve rules → 12 relationships, 6
+  self-loops
+- After: `ingest` skips a rule whose `predicate_key` the envelope does not select; chooses endpoints
+  by `by_rule[subject_rule] × by_rule[object_rule]` when both selectors are set, else by class as
+  before; and never mints a pair with `subject_uri == object_uri`. The same twelve co-occurrence
+  rules → 6 relationships (the anchor→member pairs, which join two URIs), 0 self-loops; the same
+  twelve rules carrying `predicate_key="predicate"` on a node envelope → 0 and 0. Constructor and
+  method signatures are unchanged, so the manifest records no reshape
+- Why: `24.5-L-21`, `24.4-D-35`, `D-10`. Criterion 16: mints only what the envelope selects, never
+  a self-loop, member-to-member expressible from one envelope, single-writer preserved
+- Migration: none — a deployment relying on a self-loop minted from one envelope would have to
+  admit it through `admit_relationship_claim` deliberately; no shipped fixture or example does
+  (measured: no fixture declares a rule whose subject and object classes coincide)
+
+*Recorded by `24.5-10-ingest-mints-only-what-the-envelope-selects.md`.*
+
+#### ccf.halflife.decay.half_life_of
+
+- Surface: ccf.halflife.decay.half_life_of
+- Public surface: true
+- Change type: behavior
+- Before: returned `timedelta(seconds=entry.half_life_seconds)` for any declared type
+- After: the same for a `curve` type; raises `NoDecayCurve` naming the type for a
+  `supersede-only` type
+- Why: no curve exists and none is fabricated (`24.5-L-22`; INV-CH7-58, D-IMPL-38)
+- Migration: none for tables with only curve classes (every table on the tree today)
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### ccf.halflife.decay.freshness
+
+- Surface: ccf.halflife.decay.freshness
+- Public surface: true
+- Change type: behavior
+- Before: naive-instant refusal, then budget from `half_life_of`, then the curve ratio (which
+  made the future-observation and non-positive-sensitivity refusals inside the curve path)
+- After: the naive-instant, future-observation and non-positive-sensitivity refusals are made
+  first and in both modes; then `decay_mode_of` branches — `supersede-only` returns
+  `Decimal(1)`, `curve` takes the unchanged budget/ratio path. `FreshnessScorer` and
+  `assess_debt` needed no edit; they call `freshness`
+- Why: retained relevance is whole until the supersession event, and a superseded observation is
+  excluded from the as-of view (INV-CH7-14) before freshness is read, so the value never sees a
+  stale one. The refusals moving ahead of the branch is what keeps a supersede-only declaration
+  from laundering a clock fault into a perfect freshness figure
+- Migration: none — identical figures and identical refusals for every curve class; the
+  refusal *order* is unchanged for curve classes (naive, then future, then sensitivity, as before)
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### `24.5-L-23` — no surface change
+
+- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
+- Public surface: true
+- Change type: behavior
+- Before: `max_ttl_key: str` and no seconds field; the ceiling's number is `MaxTTL.seconds`,
+  registered by the deployment under that key; `run_gates` refuses over-cap as `ttl-bounds`
+- After: **unchanged — 0 diff lines in `ProductClassDeclaration` and `RegisteredProductClass`.**
+  The precedence is stated in one sentence, enforced by
+  `tests/products/test_max_ttl_precedence.py` (the REGISTERED number decides, by name; a
+  re-registration at a new version moves the cap without touching the class; a set-comprehension
+  field-absence assertion goes RED on any future second copy), and cut by a dated note
+- Why: criterion 18's cut branch, Dave's conditional verbatim on ledger row `24.5-L-23`:
+  *"If Wave 1 cannot state that precedence in one sentence, cut L-23 then — don't ship two
+  unused fields."* Wave 1 stated it and measured it true; a seconds field on the declaration
+  would be the second copy that conditional forbids
+- Migration: none. A future ceiling-in-seconds proposal is a `D-IMPL`, not a field
+
+*Recorded by `24.5-11-a-supersede-only-half-life-class.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: behavior
+- Before: eighteen kinds; the gate family ended at `attestation-refusal`
+- After: nineteen kinds; `DeclaredObligationRefusal: "declared-obligation-refusal"` in the gate family block (not a substring of any existing token, checked by the closure gate). `tests/products/test_refusal_envelope.py::test_envelope_for_declared_obligation_refusal` landed in the same commit as the kind, under the exact-name coverage rule `24.5-07` shipped; the four closure tests are green at nineteen
+- Why: `24.5-L-14` / `L-26`; constraint (a) — every kind crosses without flattening
+- Migration: none. A consumer enumerating `kind` sees a nineteenth
+
+*Recorded by `24.5-13-one-structural-gate-for-declared-obligations.md`.*
+
+#### ccf_runtime.http_api.routes.product.build_router
+
+- Surface: ccf_runtime.http_api.routes.product.build_router
+- Public surface: true
+- Change type: behavior
+- Before: the door had no refusal channel (DIV-4). A resolver answering with any `RefusalEnvelope` reached `served_answer`, which raised `TypeError` naming the shape — an opaque 500 for every kind alike; the module docstring said rendering a fabric refusal over HTTP was a status and body decision nobody had ruled
+- After: `retrieve` routes the resolver's answer through `door_refusal(resolved, asked=asked, product_class=..., version=...)` before `served_answer`. An envelope whose `kind == REFUSAL_KINDS[DeclaredObligationRefusal]` (`declared-obligation-refusal`) returns `JSONResponse(status_code=409, content={"kind": <kind>, "refusal_type": "DeclaredObligationRefusal", "refusal": <the whole envelope, canonically rendered>})` — the `routes/skill.py` body shape, so the gate's `declared`/`observed` pair, the request identity and the pre-assembly lineage all travel. A bare `DeclaredObligationRefusal` on a call that posed a question is translated by the door and answered the same way (lineage honestly `None`); a bare refusal on a call with no question is `door_refusal`'s documented `ValueError` — no response, as before, now naming why. Every other envelope falls through to `served_answer` exactly as before. The module docstring names the one mapped kind and DIV-4 for the rest in place of the sentence that said the door had no refusal channel
+- Why: `24.5-L-14`; `D-IMPL-237` (the one structural mechanism, whose refusal the Standard §9 says the door answers as "409 with the debt block"); ROADMAP Phase 24.5 criterion 21. Additive: a status is added and none is moved (`D-10`). Sabotage: `tests/http_api/test_product_declared_obligation_409.py::test_the_status_check_refuses_a_200_for_a_declared_obligation` (the predicate over a fake 200, a 409 of another kind, and no response — each RED naming the kind) and `::test_a_door_with_the_409_branch_removed_is_red_by_name` (a scratch copy of the route with the decision line made `False`, loaded under another name and bound into `create_app` for one build — RED by name; its control leg answers 409; the shipped module byte-compared before and after)
+- Migration: none for a served product or for any existing refusal status. A client of this door that reached an opaque 500 for an over-ceiling product (a class declaring `serve_obligations.debt_ceiling`, plan `24.5-13`) now receives `409` with the envelope; a client should branch on `body["kind"]` and read `body["refusal"]["fields"]` (each value in the SDK's canonical form — a string arrives quoted), never parse `detail`
+
+*Recorded by `24.5-14-the-product-door-answers-409-for-a-declared-obligation.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the reference resolver's `run_gates` call threaded `engine_resolved`, `source_attestation` and `debt_tolerance` from the execution; an operator that returned nothing served, with `D_c` reporting `fail_closed` advisorily
+- After: the call also threads `empty_results=execution.empty_results`, so a governed serve whose operator returned an empty set is refused by name (`empty-operator-result`) and arrives as a `RefusalEnvelope` of kind `empty-result-refusal`. The constructor is unchanged; no manifest line moves
+- Why: `24.5-L-24`; the Standard's *an empty assembled set fails closed* becomes structural on the one path that serves products with a request contract. The engine's own `run_gates` call site keeps the compatibility default so no non-resolver fixture flips silently; the return trip (plan `24.5-16`) measures the resolver-served rungs
+- Migration: a deployment that served over an EMPTY fabric is now refused by name on that path — which is the Standard's reading and cp-00's `IH-G07`. `tests/products/test_resolver_seam.py`'s fixture, which served over an empty fabric, now ingests its deployment's own signal batch and asserts `assembled == 1` as the positive control
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: behavior
+- Before: nineteen kinds; the gate family carried one empty-operator kind
+- After: twenty kinds; `EmptyResultRefusal: "empty-result-refusal"` in the gate family block beside `empty-operator-refusal`. `empty-result-refusal` was chosen over `empty-operator-result-refusal` because neither of the pair is a substring of the other under the closure gate's rule and the shorter name reads as what it is. `tests/products/test_refusal_envelope.py::test_envelope_for_empty_result_refusal` landed in the same commit as the kind, under the exact-name coverage rule `24.5-07` shipped; the four closure tests are green at twenty
+- Why: `24.5-L-24`; constraint (a) — every kind crosses without flattening, and this one crosses saying which half fired
+- Migration: none. A consumer enumerating `kind` sees a twentieth
+
+*Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
 
 ### Not public Python API
 

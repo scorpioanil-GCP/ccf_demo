@@ -36,6 +36,15 @@ render the normative vocabulary of ``docs/GRAPH_QUERY_SEMANTICS.md``
 contracts carry it — a dispute about what a query means is resolved by
 quoting the clause, never by reading an adapter.
 
+**The temporal vocabulary (Phase 24.5, ledger rows ``24.5-L-03`` /
+``24.5-L-01``).** :data:`TEMPORAL_AXES` names the three time axes a graph read
+can be bounded on — event time, transaction time, CCF ``as_of`` — as distinct
+SDK vocabulary; :class:`StoreSnapshotPin` carries a transaction-time pin as a
+value :class:`GraphQuery.as_of` structurally cannot accept; and
+:class:`SnapshotPinnable` is the Protocol a reader implements when its
+substrate can answer at a pinned transaction. ``D-IMPL-88`` is the ruling the
+three uphold: a store's transaction counter never implements ``as_of``.
+
 Algorithmic module (CINV-03).
 """
 
@@ -43,17 +52,20 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Literal, Protocol, runtime_checkable
+from typing import Final, Literal, Protocol, runtime_checkable
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.contracts.claims import EntityClaim, RelationshipClaim
 from ccf.peering.protocol import PeerRef
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "NO_STORE_SNAPSHOT_PIN",
+    "TEMPORAL_AXES",
     "EntityRecord",
     "GraphQuery",
     "GraphReader",
@@ -63,10 +75,45 @@ __all__ = [
     "PolicyBindingMode",
     "QueryFragment",
     "RelationshipRecord",
+    "SnapshotPinnable",
     "SourceAttestation",
+    "StoreSnapshotPin",
+    "TemporalAxis",
+    "TraversalDirection",
     "TraversalSpec",
     "UpsertResult",
 ]
+
+#: The three time axes a graph read can be bounded on — closed vocabulary,
+#: SDK-defined per CLAUDE.md §11 (ledger row ``24.5-L-03``). One definition,
+#: so every surface that names an axis — a pin's declared axis, an adapter's
+#: module docstring, a replay record — spells it from here and cannot drift.
+#: The three are DIFFERENT facts about a claim, and no one of them stands in
+#: for another:
+#:
+#: * ``"event-time"`` is when the WORLD changed — a claim's ``observed_at``
+#:   and its ``valid_from`` / ``valid_to`` window (whitepaper §7.3, the T
+#:   axis); on Fluree this is what its backdatable ``@iso:`` addressing
+#:   speaks. Arbitrary, non-monotone, frequently late-arriving: data.
+#: * ``"transaction-time"`` is when the STORE recorded it — Fluree's
+#:   monotonic commit counter ``t``, a SQL substrate's nothing at all. It
+#:   advances on a data no-op and orders writes, not observations. A fact
+#:   about a read, worth recording as lineage, and never a temporal cut.
+#: * ``"as-of"`` is CCF's own cut over observations — ``GraphQuery.as_of``,
+#:   the observed-time boundary every answer applies (``GQ-07`` at
+#:   docs/GRAPH_QUERY_SEMANTICS.md:148, INV-CH7-14). ``D-IMPL-88``: a
+#:   transaction counter never implements it, because the two diverge on
+#:   exactly the late arrivals and supersessions the cut exists to render.
+TemporalAxis = Literal["event-time", "transaction-time", "as-of"]
+
+#: The closed roster of :data:`TemporalAxis`, in the order the sentences above
+#: state them — the ``ccf.operators.base.CATEGORY_ORDER`` form, so a consumer
+#: can iterate the vocabulary rather than re-list it.
+TEMPORAL_AXES: Final[tuple[TemporalAxis, ...]] = (
+    "event-time",
+    "transaction-time",
+    "as-of",
+)
 
 #: The closed policy-binding mode vocabulary of :class:`SourceAttestation`
 #: (D-09) — SDK-defined per CLAUDE.md §11. Named so that every surface that
@@ -79,6 +126,18 @@ PolicyBindingMode = Literal["assembly-stamped", "admission-verified", "none"]
 #: SDK-defined per CLAUDE.md §11. One definition for every referencing
 #: surface, exactly as :data:`PolicyBindingMode`.
 LineageMode = Literal["graph-supplied", "product-carried", "none"]
+
+#: The closed direction vocabulary of :class:`TraversalSpec` (ledger row
+#: ``24.5-L-06``; `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201) — SDK-defined
+#: per CLAUDE.md §11, one definition exactly as :data:`PolicyBindingMode`.
+#: ``"undirected"`` crosses an edge from either endpoint — the 1.0.x walk, a
+#: NEIGHBORHOOD. ``"forward"`` crosses an edge only from ``subject_uri`` to
+#: ``object_uri`` AS STORED — the graph's own orientation, so the walk reaches
+#: DESCENDANTS in whatever sense the deployment normalized at ingest (a
+#: deployment that wants parent→child stores parent→child; the fabric does
+#: not reorient). No ``"backward"``: a reverse walk is the same edge stored the
+#: other way, and a third value nobody has needed is a value nobody chose.
+TraversalDirection = Literal["undirected", "forward"]
 
 
 def _policy_family_is_partial(
@@ -206,15 +265,21 @@ class TraversalSpec(CCFContract):
 
     Whitepaper §7.4 (Traversal as a canonical operator category, INV-CH7-24);
     ``GQ-02`` at docs/GRAPH_QUERY_SEMANTICS.md:64. Mirrors
-    ``src/ccf/operators/params.py::TraversalNeighborhoodParameters``
+    ``src/ccf/operators/params.py::TraversalNeighborhoodParameters`` (and its
+    directed sibling ``src/ccf/operators/params.py::TraversalDescendantsParameters``)
     field-for-field, so a pushed traversal and an in-process traversal are
-    parameterized by the same three facts. A mirror rather than a reuse,
+    parameterized by the same facts. A mirror rather than a reuse,
     deliberately: the operator-parameter contracts live in the operator tier
     and ``ccf.operators`` imports *this* module — the mirror keeps the
     dependency pointing one way.
 
-    All three fields are required with no defaults, the D-IMPL-38 discipline
-    of the mirrored contract: a default is a value nobody chose.
+    The three original fields are required with no defaults, the D-IMPL-38
+    discipline of the mirrored contract: a default is a value nobody chose.
+    ``admitted_entity_classes`` is the spec's first additive sentinel field
+    (the ``allowed_entities`` precedent on :class:`GraphQuery`; semantics
+    version 1.1.0, ledger row ``24.5-L-05``): ``None`` is the positive
+    assertion "every class is admissible on a hop" — today's behavior — and
+    a set admits a hop only onto an entity whose class is a member.
 
     Attributes:
         seed_entity_classes: Walk starting points, in ontology vocabulary —
@@ -227,11 +292,41 @@ class TraversalSpec(CCFContract):
         depth_limit: Maximum hops from a walk starting point. ``0`` is a
             legal, meaningful bound — the starting points only, not an error
             and not "unlimited" (``GQ-10``).
+        admitted_entity_classes: Node-class ADMISSION on the walk. Filters
+            REACHED nodes and never walk STARTS — ``GQ-11`` selects starts
+            and ``GQ-10``'s "seeds are included" stands, so a start of an
+            unadmitted class is in the answer and still expands. An entity
+            absent from the view's class map is not admitted. ``None``
+            admits every class (the 1.0.x behavior). Hash-transparent at
+            ``None`` (``D-IMPL-243``): omitted from the canonical form at
+            that value, so a query pin computed before the field existed
+            still matches; any set is rendered and moves the pin.
+        direction: Which way an edge may be crossed
+            (:data:`TraversalDirection`; ledger row ``24.5-L-06``).
+            ``"undirected"`` — the default and the 1.0.x behavior — crosses
+            an edge from either endpoint; ``"forward"`` crosses it only from
+            ``subject_uri`` to ``object_uri`` as stored. The direction is
+            fixed by which operator emitted the spec
+            (``src/ccf/operators/categories.py::TraversalNeighborhood`` is
+            undirected, ``src/ccf/operators/categories.py::TraversalDescendants``
+            is forward), never by an artifact value. A pushed answerer that
+            cannot express the direction declines the whole query to the
+            fallback (`GQ-32` at docs/GRAPH_QUERY_SEMANTICS.md:583; D-04).
+            Hash-transparent at ``"undirected"`` (``D-IMPL-243``): the
+            undirected walk is the 1.0.x walk, so it is omitted from the
+            canonical form at that value; ``"forward"`` is rendered and
+            moves the pin.
     """
 
     seed_entity_classes: frozenset[str]
     relationship_types: frozenset[str]
     depth_limit: int
+    admitted_entity_classes: frozenset[str] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    direction: TraversalDirection = Field(
+        default="undirected", json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class GraphQuery(CCFContract):
@@ -301,8 +396,10 @@ class GraphQuery(CCFContract):
             interval covers the boundary (``GQ-09`` at
             docs/GRAPH_QUERY_SEMANTICS.md:186). ``None`` means the family
             is absent: no constraint beyond the always-applied as-of cut.
-        traverse: Traverse family — the bounded typed undirected expansion
-            of ``GQ-10``, or ``None`` when the query walks nothing.
+        traverse: Traverse family — the bounded typed expansion of ``GQ-10``
+            (undirected, or forward only under the spec's ``direction``;
+            node-class admission when it names ``admitted_entity_classes``),
+            or ``None`` when the query walks nothing.
         seeds: Explicit entity-URI walk starting points, with exactly one
             meaning everywhere: walk starting points (``GQ-03`` at
             docs/GRAPH_QUERY_SEMANTICS.md:87). Authored by the caller of
@@ -485,6 +582,49 @@ class SourceAttestation(CCFContract):
     peer: PeerRef | None
 
 
+class StoreSnapshotPin(CCFContract):
+    """A store-native transaction pin — the ``"transaction-time"`` axis, as a value.
+
+    SDK-defined per CLAUDE.md §11, an extension beside the whitepaper's T axis
+    (§7.3) and its replay commitment (§7.10): ``D-IMPL-240`` (2) routes the
+    Fluree pin through this type, and ``D-IMPL-88`` is why the type exists at
+    all. Its axis is :data:`TemporalAxis` ``"transaction-time"`` and nothing
+    else: it says *which state of the store* a read saw, never *which
+    observations* the read admitted.
+
+    **Deliberately not a** ``datetime``, and deliberately not an ``int``. A
+    pin is substrate-shaped — Fluree renders an integer ``t``, a SQL substrate
+    has no native pin, a content-addressed store might render a digest — and
+    no arithmetic is ever done on it, so it travels as text. And because it
+    is a model rather than an instant, :attr:`GraphQuery.as_of` cannot accept
+    it: pydantic refuses a model where a ``datetime`` is typed, and that
+    refusal IS the ``D-IMPL-88`` guard at the type level. A caller who tries
+    to implement the observed-time cut with a transaction counter gets a
+    validation error at the seam rather than a silently wrong answer.
+
+    Attributes:
+        substrate: Which store family minted the pin, in the adapter's own
+            vocabulary (``ccf.graph.backends.fluree.FLUREE_SUBSTRATE``). A
+            reader refuses a pin minted by a different substrate.
+        pin: The substrate's rendering of its own head — Fluree's ``t`` as
+            decimal text. Opaque to everything outside the adapter that
+            minted it.
+    """
+
+    substrate: str
+    pin: str
+
+
+#: The positive sentinel "this read carried no store-native pin" — the
+#: ``NO_*`` voice of ``ccf.replay.record`` (``NO_GRANTS_SET_HASH``,
+#: ``NO_HARNESS``, ``NO_ADAPTER``): a SQLite or Postgres deployment asserts the
+#: absence rather than carrying a fake ``t``, and a consumer distinguishes
+#: "no pin" from "a pin" by equality against one value instead of by ``None``.
+NO_STORE_SNAPSHOT_PIN: Final[StoreSnapshotPin] = StoreSnapshotPin(
+    substrate="none", pin="no-store-snapshot-pin"
+)
+
+
 @runtime_checkable
 class GraphReader(Protocol):
     """Read-only access to graph state — the only graph handle L4+ receives.
@@ -558,6 +698,57 @@ class GraphReader(Protocol):
         self, *, tenant_id: str, relationship_key: str
     ) -> tuple[RelationshipRecord, ...]:
         """Return every claim ever made about one edge, oldest first."""
+        ...
+
+
+@runtime_checkable
+class SnapshotPinnable(Protocol):
+    """A reader whose substrate can answer at a pinned transaction — SDK-defined.
+
+    An SDK extension beside :class:`GraphReader`, labeled per CLAUDE.md §11;
+    the whitepaper commits to replay (§7.10) and this is one substrate-level
+    means of resolving an exact prior state for it (``D-IMPL-240`` (2),
+    ledger row ``24.5-L-01``). **Structural typing, by design**: a reader
+    that cannot pin simply does not implement these two members — every
+    reader shipped before this Protocol stays exactly as it is, with no
+    stub to add — and a consumer asks ``isinstance(reader, SnapshotPinnable)``
+    rather than reading a capability flag. Nothing on :class:`GraphReader` changes
+    (D-10: the graph Protocol gains, never changes, signatures).
+
+    **Two axes, never one.** ``query_pinned`` bounds the STORE by ``pin``
+    and bounds the OBSERVATIONS by ``q.as_of``, and applies both: the pin
+    says which committed state of the substrate the read may see, and the
+    as-of cut then runs over that state exactly as it runs over the head.
+    Neither stands in for the other (``D-IMPL-88``): a pin is not an as-of
+    instant and an as-of instant is not a pin, and an implementation that
+    is offered the wrong kind refuses it with a ``TypeError`` naming the
+    ruling.
+    """
+
+    def snapshot_pin(self) -> StoreSnapshotPin:
+        """The substrate's current head pin — read once, a fact about the read.
+
+        Recorded beside ``graph_snapshot_at``, never inside it: this is
+        lineage about *which state the store was in*, not a temporal
+        boundary. Under the single-writer invariant (INV-CH7-10) the head
+        cannot move underneath a read issued in the same call.
+        """
+        ...
+
+    def query_pinned(self, q: GraphQuery, *, pin: StoreSnapshotPin) -> GraphView:
+        """Answer ``q`` as ``query`` would if the store were rolled back to ``pin``.
+
+        Every as-of predicate of ``q`` still applies — the pin bounds the
+        STORE, ``q.as_of`` bounds the OBSERVATIONS; two axes, never one. The
+        answer is byte-identical to what ``query(q)`` would return on a
+        store frozen at ``pin`` (D-04: the fallback is the oracle).
+
+        Raises:
+            TypeError: ``pin`` is not a :class:`StoreSnapshotPin` (a
+                ``datetime``, an ``int``, a ``str`` offered as a pin — the
+                ``D-IMPL-88`` refusal), or was minted by another substrate.
+            LookupError: ``pin`` names a state the store has not reached.
+        """
         ...
 
 

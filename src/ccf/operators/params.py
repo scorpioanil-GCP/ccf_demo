@@ -11,13 +11,25 @@ module is what the Control Plane registers and what
 ``content_hash`` pins into every provenance sub-chain, while
 :mod:`ccf.operators.categories` holds the code that interprets it.
 
-**No field in this module carries a default.** Not a threshold, not a depth
-limit, not a score floor, not a flag. Every value is required at plan time
-and must arrive from a Control Plane artifact or from the caller. A default
-is a value nobody chose, and a value nobody chose cannot be audited, cannot
-be versioned, and silently changes the meaning of a replay when the SDK
-revises it (D-IMPL-38; CINV-01b enforces this mechanically for modules named
-like this one).
+**No field in this module carries a NUMERIC default.** Not a threshold, not
+a depth limit, not a score floor, not a flag. Every value is required at
+plan time and must arrive from a Control Plane artifact or from the caller.
+A default is a value nobody chose, and a value nobody chose cannot be
+audited, cannot be versioned, and silently changes the meaning of a replay
+when the SDK revises it (D-IMPL-38; CINV-01b enforces this mechanically for
+modules named like this one). The ``None`` defaults in this module —
+``admitted_entity_classes`` on the two traversal parameter classes — are a
+named positive sentinel, not a chosen number: each asserts "every class is
+admissible on a hop", which is exactly the behavior every artifact written
+before it carried (additive over breaking, ledger row ``24.5-L-05``).
+D-IMPL-38's concern is a silently chosen number, and none is chosen here.
+
+The Traversal category has TWO parameter classes and they differ in no field:
+:class:`TraversalNeighborhoodParameters` parameterizes the undirected walk and
+:class:`TraversalDescendantsParameters` the directed one (ledger row
+``24.5-L-06``). Direction is not a field — it is fixed by which operator key
+the artifact class selects, so no artifact value can flip it — and the
+category stays one of four (D-IMPL-223).
 
 Algorithmic module (CINV-03).
 """
@@ -26,6 +38,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from pydantic import Field
+
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.operators.base import OperatorParameters
 
 __ccf_mode__ = "algorithmic"
@@ -34,6 +49,7 @@ __all__ = [
     "PolicyFilterParameters",
     "SimilaritySelectParameters",
     "TemporalAsOfParameters",
+    "TraversalDescendantsParameters",
     "TraversalNeighborhoodParameters",
 ]
 
@@ -54,6 +70,22 @@ class PolicyFilterParameters(OperatorParameters):
             see. Everything else — *including an entity carrying no
             classification at all* — is excluded: the fabric does not admit
             state it cannot prove is admissible.
+
+            Read the mechanism, not the name (ledger row ``24.5-L-28``). This
+            is a **generic attribute-value allowlist**: the set of values
+            admitted for whichever attribute ``classification_attribute_by_class``
+            names for the record's entity class, tested by exact membership in
+            :meth:`~ccf.operators.categories.PolicyFilter._admits`. The name
+            comes from the Policy operator's sensitivity use — data
+            classification such as MNPI is the whitepaper's headline example
+            (§7.4) — but the mechanism admits any per-class attribute value,
+            and §7.4 itself names entitlement, jurisdiction and regulatory
+            constraint as the operator's scope. cp-01 binds it to
+            ``legal_jurisdiction`` so the allowlist is the calling principal's
+            jurisdiction grant set; that binding is a deployment value
+            (``D-09``), not a second mechanism. The name is not changed —
+            a bounded correction (``D-07.1``): it is whitepaper vocabulary,
+            and the surface manifest records signatures, not prose.
     """
 
     permitted_policy_bundle_versions: frozenset[str]
@@ -106,8 +138,62 @@ class TraversalNeighborhoodParameters(OperatorParameters):
         depth_limit: Maximum hops from a seed. Required, no default: the bound
             is the operator's entire correctness claim (INV-CH7-24), and a
             default bound is one nobody chose.
+        admitted_entity_classes: Node-class ADMISSION on the walk (`GQ-10`
+            at docs/GRAPH_QUERY_SEMANTICS.md:201, semantics version 1.1.0).
+            ``None`` is the positive assertion "every class is admissible
+            on a hop" — today's behavior; a set admits a hop only onto an
+            entity whose class is a member. Admission filters REACHED nodes
+            and never walk STARTS (`GQ-11` at
+            docs/GRAPH_QUERY_SEMANTICS.md:221 selects starts; "seeds are
+            included" stands), and an entity absent from the view's class
+            map is not admitted. Mirrored field-for-field onto
+            ``src/ccf/graph/protocols.py::TraversalSpec``. Hash-transparent
+            at ``None`` (``D-IMPL-243``): a walk admitting every class is
+            observationally the walk recorded before this field existed,
+            so it is omitted from the canonical form at that value and
+            rendered — moving ``parameter_hash`` — at any other.
     """
 
     seed_entity_classes: frozenset[str]
     relationship_types: frozenset[str]
     depth_limit: int
+    admitted_entity_classes: frozenset[str] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+
+class TraversalDescendantsParameters(OperatorParameters):
+    """Declared parameters of the Traversal category's DIRECTED walk.
+
+    The sibling of :class:`TraversalNeighborhoodParameters` (ledger row
+    ``24.5-L-06``; `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201): the same
+    four fields, read by ``src/ccf/operators/categories.py::TraversalDescendants``,
+    whose walk crosses an edge only from ``subject_uri`` to ``object_uri`` as
+    stored — "descendants" in the graph's own orientation. A deployment that
+    wants parent→child normalizes at ingest; the fabric does not reorient.
+    Direction is fixed by the operator, never carried here: an artifact of
+    this class can select the directed walk and cannot turn it around.
+
+    Attributes:
+        seed_entity_classes: Where the walk starts, in ontology vocabulary.
+        relationship_types: Which typed edges the walk may cross, forward
+            only. Typed, per INV-CH7-20.
+        depth_limit: Maximum forward hops from a seed. Required, no default:
+            the bound is the operator's entire correctness claim (INV-CH7-24).
+        admitted_entity_classes: Node-class ADMISSION on the walk, exactly as
+            on the undirected sibling — ``None`` admits every class; a set
+            admits a hop only onto an entity whose class is a member; starts
+            are never filtered. Mirrored field-for-field onto
+            ``src/ccf/graph/protocols.py::TraversalSpec``. Hash-transparent
+            at ``None`` under ``D-IMPL-243`` amendment 2 — the same sentinel
+            and the same tick as the undirected twin: a directed walk
+            admitting every class is omitted from the canonical form at
+            that value and rendered, moving ``parameter_hash``, at any other.
+    """
+
+    seed_entity_classes: frozenset[str]
+    relationship_types: frozenset[str]
+    depth_limit: int
+    admitted_entity_classes: frozenset[str] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )

@@ -67,6 +67,7 @@ from pydantic import Field, field_validator, model_validator
 
 from ccf.assembly.worker import EntityResolutionSpec
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.graph.protocols import LineageMode, PolicyBindingMode
 from ccf.controlplane.artifact_base import (
     ArtifactClass,
@@ -82,10 +83,12 @@ from ccf.halflife.assessment import (
 from ccf.operators.params import (
     SimilaritySelectParameters,
     TemporalAsOfParameters,
+    TraversalDescendantsParameters,
     TraversalNeighborhoodParameters,
 )
 from ccf.products.contract import (
     NO_PAYLOAD_SCHEMA,
+    NO_SERVE_OBLIGATIONS,
     NO_VALIDITY_FLOORS,
     NOT_ADDRESSABLE,
     NOT_DISCOVERABLE,
@@ -95,6 +98,7 @@ from ccf.products.contract import (
     FreshnessSLA,
     ProductAddress,
     ProductDiscovery,
+    ServeObligations,
     TTLAnchor,
 )
 from ccf.products.request import NO_REQUEST_CONTRACT
@@ -112,6 +116,7 @@ __all__ = [
     "OPERATOR_PARAMETERS_SIMILARITY",
     "OPERATOR_PARAMETERS_TEMPORAL",
     "OPERATOR_PARAMETERS_TRAVERSAL",
+    "OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS",
     "PERSPECTIVE",
     "PRODUCT_CLASS",
     "PROJECTION_REQUIREMENTS",
@@ -121,6 +126,7 @@ __all__ = [
     "ArtifactLoadError",
     "ArtifactRole",
     "DebtProfile",
+    "DecayMode",
     "DeclaredArtifact",
     "DeploymentConfig",
     "DeploymentManifest",
@@ -137,6 +143,7 @@ __all__ = [
     "SignalBatch",
     "SimilaritySelectParametersArtifact",
     "TemporalAsOfParametersArtifact",
+    "TraversalDescendantsParametersArtifact",
     "TraversalNeighborhoodParametersArtifact",
     "VersionedArtifact",
     "declared_artifact_class",
@@ -196,37 +203,109 @@ def declared_artifact_class(class_id: str) -> ArtifactClass:
     return ArtifactClass(class_id=class_id, contract=DeclaredArtifact)
 
 
+#: Which of the two decay paths a λ_c row takes in
+#: :func:`ccf.halflife.decay.freshness` (ledger row ``24.5-L-22``; whitepaper
+#: §7.7.1–§7.7.2).
+#:
+#: ``curve`` reads the declared rate off the whitepaper's decay formula.
+#: ``supersede-only`` holds retained relevance whole until the row's
+#: supersession event, because the class has no curve to read. The two members
+#: name two SDK code paths — the :data:`ArtifactRole` / :data:`RegistrationMode`
+#: shape, and their reason — and no deployment can add a third. Which of its
+#: observation types takes which path is the deployment's to declare, in its
+#: table, beside every rate.
+DecayMode = Literal["curve", "supersede-only"]
+
+
 class HalfLifeEntry(CCFContract):
-    """One row of a λ_c table (whitepaper §7.7; INV-CH7-59).
+    """One row of a λ_c table (whitepaper §7.7.1–§7.7.2; INV-CH7-59).
 
     The whitepaper's illustrative table is four columns wide — observation
     type, λ_c band, dominant decay driver, supersession event — and the *row
-    shape is the commitment*, so all four are required. The driver and the
-    supersession event are not documentation: supersession is a Policy event
-    that collapses the decay curve rather than continuing it (INV-CH7-60), and
-    an entry that never names its supersession event cannot participate in that
-    mechanism later.
+    shape is the commitment*. The driver and the supersession event are not
+    documentation: supersession is a Policy event that collapses the decay
+    curve rather than continuing it (INV-CH7-60), and an entry that never
+    names its supersession event cannot participate in that mechanism later.
+
+    **Two decay modes** (ledger row ``24.5-L-22``, an additive reshaping under
+    ``D-10``). Whitepaper §7.7.2 gives one class of observation an
+    *event-driven* λ_c rather than a band: a restatement rewrites a closed
+    period, so its relevance is whole until the superseding event arrives and
+    zero for current-value queries afterward — it supersedes; it does not
+    decay. Before this row the table could not say that. ``half_life_seconds``
+    was required and positive, and ``supersession_event`` rode *beside* a
+    curve, never *instead of* one, so a deployment holding such a class had to
+    invent a positive number the specification never gave (a domain value
+    minted by a build) or omit the row and record the gap. It chose the gap.
+    ``decay`` closes it:
+
+    * ``"curve"`` (the default, so every existing document validates
+      unchanged): the row is the four-column row it always was, and
+      ``half_life_seconds`` is **required and positive** — a missing rate is
+      still refused, because no default rate exists (INV-CH7-58, D-IMPL-38).
+    * ``"supersede-only"``: the row declares its driver and its supersession
+      event and **no rate**. A number beside ``supersede-only`` is refused
+      outright rather than ignored: a field the reader never consults is a
+      second, unused copy of a calibration, and an unused field is exactly the
+      shape ``24.5-L-23`` was cut to avoid.
+
+    The mode is read by :func:`ccf.halflife.decay.decay_mode_of`; the curve
+    reader :func:`ccf.halflife.decay.half_life_of` refuses to hand a curve for
+    a supersede-only class rather than fabricate one. No value lives here in
+    either mode — which classes supersede is the deployment's to say, as much
+    as which classes decay at what rate (CLAUDE.md §11).
 
     Attributes:
-        half_life_seconds: λ_c as whole seconds. Integer rather than a
-            fractional quantity because seconds are exact and floats are not;
-            sub-second half-lives are outside the bands the whitepaper's
-            operational story contemplates.
+        decay: ``"curve"`` or ``"supersede-only"``, as above.
+            Hash-transparent at ``"curve"`` (``D-IMPL-243``): a curve entry
+            is the only pre-phase entry, so the field is omitted from the
+            canonical form at that value — a table's content-hash version
+            is what it was — and ``"supersede-only"`` is rendered.
+        half_life_seconds: λ_c as whole seconds under ``curve``. Integer
+            rather than a fractional quantity because seconds are exact and
+            floats are not; sub-second half-lives are outside the bands the
+            whitepaper's operational story contemplates. Absent under
+            ``supersede-only``. Hash-transparent at ``None`` under
+            ``D-IMPL-243`` amendment 2: ``None`` occurs only on a
+            supersede-only entry, and an entry that carries no rate is
+            omitted-at-sentinel exactly as the required-seconds shape of
+            ``13bd250`` rendered nothing for it; a curve entry's seconds
+            are rendered as they always were.
         decay_driver: What actually makes this observation type go stale.
         supersession_event: The event that ends this observation's validity for
-            current-value queries.
+            current-value queries. Required in both modes — under
+            ``supersede-only`` it is the *only* thing that ends it.
     """
 
-    half_life_seconds: int
+    decay: DecayMode = Field(default="curve", json_schema_extra={HASH_TRANSPARENT_KEY: True})
+    half_life_seconds: int | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     decay_driver: str
     supersession_event: str
 
-    @field_validator("half_life_seconds")
-    @classmethod
-    def _rate_is_positive(cls, value: int) -> int:
-        if value <= 0:
-            raise ValueError("half_life_seconds must be positive")
-        return value
+    @model_validator(mode="after")
+    def _shape_matches_mode(self) -> "HalfLifeEntry":
+        """The rate is present exactly when the mode reads one.
+
+        Replaces the unconditional ``_rate_is_positive`` field validator; the
+        two ``curve`` refusals keep that validator's meaning, and the second
+        keeps its message verbatim, so every test that pinned it still pins it.
+        """
+        if self.decay == "curve":
+            if self.half_life_seconds is None:
+                raise ValueError(
+                    "a curve class declares its rate; no default rate exists"
+                    " (INV-CH7-58, D-IMPL-38)"
+                )
+            if self.half_life_seconds <= 0:
+                raise ValueError("half_life_seconds must be positive")
+        elif self.half_life_seconds is not None:
+            raise ValueError(
+                "a supersede-only class carries no curve; a number beside it"
+                " is a second, unused field (24.5-L-22)"
+            )
+        return self
 
 
 class HalfLifeTable(VersionedArtifact):
@@ -380,6 +459,29 @@ class TraversalNeighborhoodParametersArtifact(
     No field gains a default here. ``depth_limit`` in particular stays required —
     the bound is the operator's entire correctness claim (INV-CH7-24), and a
     default bound is one nobody chose.
+    """
+
+
+class TraversalDescendantsParametersArtifact(
+    OperatorParametersArtifact, TraversalDescendantsParameters
+):
+    """The Traversal category's DIRECTED walk parameters as a versioned artifact (§7.4).
+
+    The sibling of :class:`TraversalNeighborhoodParametersArtifact` for ledger
+    row ``24.5-L-06``, in the same shape: inherits
+    :class:`~ccf.operators.params.TraversalDescendantsParameters` verbatim, so
+    a parsed artifact **is** a descendants parameter set and passes straight
+    to :class:`~ccf.operators.categories.TraversalDescendants` with no field
+    translation. The artifact adds a semver lane and nothing else.
+
+    **Selecting this class is what selects the direction.** The document
+    carries no ``direction`` value — the operator the builder constructs from
+    it (``src/ccf/deployment/operators.py::build_operator_registry``) walks
+    forward, subject to object as stored, and no authored value can turn it
+    around. A deployment that wants the undirected neighborhood authors the
+    sibling class; both are ``traversal`` (D-IMPL-223).
+
+    No field gains a default here; ``depth_limit`` stays required (INV-CH7-24).
     """
 
 
@@ -699,7 +801,25 @@ class ProductClassDeclaration(VersionedArtifact):
             ``15.5-15``, carrying the typed request and the authorized
             perspective together rather than reshaping 24 files twice.
 
-    **The six governance fields above all default**, on the
+        serve_obligations: What this class obliges the serve path to enforce
+            (``24.5-L-14``, ``24.5-L-26``). An obligation is a STRUCTURAL
+            declaration the serve path enforces through the ONE gate
+            mechanism ``D-IMPL-237`` licenses
+            (:data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`): it names
+            a ``D_c`` ceiling and payload MEMBERS, never a payload shape —
+            ``D-IMPL-238`` reads ``D-IMPL-102`` limb 3 as *no payload gate*.
+            Products do not declare gate TYPES; they declare obligations
+            under the one type the SDK ships. The ceiling's number is this
+            document's to author (the class declares the cap's presence; a
+            request may only tighten it, ``D-IMPL-240`` (3)); the SDK holds
+            no number. Defaults to
+            :data:`~ccf.products.contract.NO_SERVE_OBLIGATIONS`.
+            Hash-transparent at that sentinel (``D-IMPL-243``): a
+            declaration obliging nothing is every pre-phase declaration,
+            so the field is omitted from the canonical form at that value
+            and a declared obligation is rendered and versions the document.
+
+    **The seven governance fields above all default**, on the
     ``accepted_policy_binding_modes`` precedent and for the same reason: an
     artifact authored before they existed declared exactly what it declares
     now, so no committed document is rewritten and no adopter's file becomes
@@ -725,6 +845,9 @@ class ProductClassDeclaration(VersionedArtifact):
     constituent_validity_floors: ConstituentValidityFloors = NO_VALIDITY_FLOORS
     payload_schema_key: str = NO_PAYLOAD_SCHEMA
     request_contract_key: str = NO_REQUEST_CONTRACT
+    serve_obligations: ServeObligations = Field(
+        default=NO_SERVE_OBLIGATIONS, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class ProjectionRequirements(VersionedArtifact):
@@ -1451,6 +1574,13 @@ RESOLUTION_SPEC = ArtifactClass(
 OPERATOR_PARAMETERS_TRAVERSAL = ArtifactClass(
     class_id="ccf.operator-parameters.traversal",
     contract=TraversalNeighborhoodParametersArtifact,
+)
+#: The Traversal category's DIRECTED sibling (whitepaper §7.4; ledger row
+#: ``24.5-L-06``). A second class id under ``ccf.operator-parameters.*`` so a
+#: manifest selects the walk's direction by naming the class, never by a value.
+OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS = ArtifactClass(
+    class_id="ccf.operator-parameters.traversal-descendants",
+    contract=TraversalDescendantsParametersArtifact,
 )
 #: The Temporal category's parameter class (whitepaper §7.4).
 OPERATOR_PARAMETERS_TEMPORAL = ArtifactClass(

@@ -544,10 +544,25 @@ def test_as_of_is_refused_and_never_silently_honored(seeded: str) -> None:
     amendments visibly HAS a history to ask about, so this is a question a
     caller will actually ask. A silent success against current state would
     answer a historical question with today's terms wearing yesterday's label.
+
+    Rewritten under 24.5-FLIP-ROSTER.md (`24.5-L-12`, `24.5-L-13`): the seam
+    now RETURNS the SDK's `not-supported-at-tier` verdict as data, from the
+    tier step of `refuse_request`, instead of letting the product's own
+    `AssemblyRefused` escape.
     """
-    with pytest.raises(AssemblyRefused) as refused:
-        _assemble_through_seam(seeded, as_of="2026-01-01T00:00:00+00:00")
-    assert "not_supported_at_tier" in str(refused.value)
+    from ccf.products.request import ProductRequestViolation
+
+    refused = _assemble_through_seam(seeded, as_of="2026-01-01T00:00:00+00:00")
+    assert isinstance(refused, ProductRequestViolation), (
+        "as_of was not refused by the SDK's tier verdict; the seam returned"
+        f" {type(refused).__name__}"
+    )
+    assert refused.reason == "not-supported-at-tier", (
+        f"the refusal reads {refused.reason!r} rather than not-supported-at-tier"
+    )
+    assert refused.key == "as_of", f"the refusal names {refused.key!r}"
+    assert "not_supported_at_tier" in refused.detail
+    assert "400" in refused.detail
 
 
 def test_no_source_pointer_reaches_the_payload(seeded: str) -> None:

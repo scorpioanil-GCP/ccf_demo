@@ -96,9 +96,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
 
+from pydantic import Field
+
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.artifact_base import ArtifactClass, VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.products.contract import (
@@ -149,6 +153,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "NO_REQUEST_CONTRACT",
     "PRODUCT_REQUEST_CONTRACT",
+    "AnchorAmbiguityRefusal",
     "ProductRequest",
     "ProductRequestContract",
     "ProductRequestViolation",
@@ -170,17 +175,41 @@ __all__ = [
 
 #: Why a request did not conform.
 #:
-#: Three of the four are the three ways a closed, typed, partially-required
+#: Three of the five are the three ways a closed, typed, partially-required
 #: declaration can be missed, spelled in the request's own vocabulary
 #: (*parameter*, not *key*) so a caller reading a refusal is not asked to
 #: translate. The fourth has no payload analogue: a payload belongs to whatever
 #: product carried it, while a request is **addressed**, and a request handed
 #: to the wrong class's contract is a mis-delivery rather than a bad argument.
+#:
+#: The fifth, ``not-supported-at-tier``, is the Context Product Specification
+#: Standard's ``400 not_supported_at_tier`` (``references/Context_Product_Specification_Standard_v0-3.md``
+#: §9) rendered in this vocabulary's own hyphenated spelling: the parameter is
+#: part of the class's declared surface and the class refuses it **by
+#: declaration**, every time, rather than honoring it (Standard §2.4,
+#: *declared-but-inert*). It arrives through
+#: :attr:`ProductRequestContract.unsupported_arguments`, never through the
+#: payload comparison. Ledger row ``24.5-L-12``.
+#:
+#: The sixth, ``not-a-proportion``, is the one verdict that reads a presented
+#: VALUE rather than a name or a type: the Standard's universal
+#: :data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER` is a ``D_c`` ceiling
+#: and ``D_c`` is a proportion (whitepaper §7.7.4), so a declared, honored,
+#: well-typed number outside ``[0, 1]`` — or not finite — is not a tolerance
+#: at all. It is refused here, in the contract-refusal family, so it can never
+#: reach :func:`~ccf.products.gates.effective_debt_ceiling` as a "tightening"
+#: and coerce every serve into a ``409`` whose ``declared`` names a number no
+#: class declared (``24.5-REVIEW.md`` WR-02, Dave, 2026-09-02). The interval is
+#: the one :class:`~ccf.products.contract.ServeObligations` holds the CLASS's
+#: ceiling to at declaration (``24.5-L-14``): the request boundary and the
+#: class boundary read the same interval.
 ProductRequestViolationReason = Literal[
     "undeclared-parameter",
     "missing-required-parameter",
     "type-mismatch",
     "class-mismatch",
+    "not-supported-at-tier",
+    "not-a-proportion",
 ]
 
 #: How :func:`~ccf.products.payload.refuse_payload`'s reasons read on the
@@ -290,11 +319,29 @@ class ProductRequestContract(VersionedArtifact):
             parameter the class did not declare is refused rather than
             forwarded, because a parameter that reaches plan selection without
             having been declared is an argument nobody governed.
+        unsupported_arguments: The parameters this class declares **and always
+            refuses** — the Standard's *declared-but-inert* parameter
+            (``references/Context_Product_Specification_Standard_v0-3.md``
+            §2.4): part of the uniform surface, unsupported at this product's
+            tier, and therefore refused explicitly rather than allowed to
+            appear to work. Parameter name → the declared reason, as Control
+            Plane prose the deployment authors and that lands verbatim in the
+            verdict's ``detail``. The empty mapping is the positive assertion
+            that this class declares no inert parameter, which is what every
+            declaration written before this field said and still says. The set
+            lives here, in the artifact, so that no spine code carries it
+            (CLAUDE.md §6.4; ledger row ``24.5-L-13``). Hash-transparent at
+            the empty mapping (``D-IMPL-243``): nothing declared-refused is
+            every pre-phase contract, so the field is omitted from the
+            canonical form at that value and a non-empty mapping is rendered.
     """
 
     schema_name: str
     schema_version: str
     arguments: SkillArgumentSchema
+    unsupported_arguments: Mapping[str, str] = Field(
+        default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @classmethod
     def from_declared(cls, artifact: DeclaredArtifact) -> ProductRequestContract:
@@ -365,12 +412,20 @@ class ProductRequestContract(VersionedArtifact):
             ``examples/s1-01-hello-context-product/artifacts/request-contract.yaml``
             rather than against an inline copy of it.
 
+        **The optional fourth key** (``24.5-L-13``). ``unsupported_arguments``
+        is read when present and defaults to the empty mapping when absent, so
+        a declaration written before the key existed parses exactly as it did.
+        The four ladder configs already carried the key as an uninterpreted
+        sibling — the SDK reading it is the change, not the artifacts.
+
         Raises:
             ValueError: the declaration is missing one or more of the three
-                keys, **named together in one message**. An adopter fixing a
-                declaration one ``KeyError`` at a time is the papercut this
-                method exists to close, so the exhaustive message is the
-                behaviour and not a nicety.
+                required keys, **named together in one message**. An adopter
+                fixing a declaration one ``KeyError`` at a time is the papercut
+                this method exists to close, so the exhaustive message is the
+                behaviour and not a nicety. Also raised, in the same one-error
+                shape, when ``unsupported_arguments`` is present but is not a
+                mapping of parameter name to reason prose.
         """
         declaration = artifact.declaration
         missing = tuple(
@@ -385,6 +440,19 @@ class ProductRequestContract(VersionedArtifact):
                 "missing key is named here rather than one per exception, so "
                 "the document is fixed in one pass (D-IMPL-98, D-IMPL-126)"
             )
+        unsupported = declaration.get(_KEY_UNSUPPORTED_ARGUMENTS, {})
+        if not isinstance(unsupported, Mapping) or not all(
+            isinstance(name, str) and isinstance(reason, str)
+            for name, reason in unsupported.items()
+        ):
+            raise ValueError(
+                f"the declared artifact {artifact.class_id!r} at lane "
+                f"{artifact.semver!r} carries {_KEY_UNSUPPORTED_ARGUMENTS!r} "
+                f"as {type(unsupported).__name__}, and it must be a mapping "
+                "of parameter name to the declared reason prose — the shape "
+                "the four ladder configs already author (Standard §2.4, "
+                "24.5-L-13)"
+            )
         return cls(
             semver=artifact.semver,
             schema_name=declaration[_KEY_SCHEMA_NAME],
@@ -392,12 +460,18 @@ class ProductRequestContract(VersionedArtifact):
             arguments=SkillArgumentSchema.model_validate(
                 declaration[_KEY_ARGUMENTS]
             ),
+            unsupported_arguments=dict(unsupported),
         )
 
 
 _KEY_SCHEMA_NAME = "schema_name"
 _KEY_SCHEMA_VERSION = "schema_version"
 _KEY_ARGUMENTS = "arguments"
+#: The optional fourth declaration key (``24.5-L-13``). A key NAME of the
+#: artifact, like the three above — not a parameter set. Nothing in this module
+#: names a parameter; the parameters a class refuses are read from the artifact
+#: at :meth:`ProductRequestContract.from_declared` and nowhere else.
+_KEY_UNSUPPORTED_ARGUMENTS = "unsupported_arguments"
 
 #: The three keys a request-contract declaration carries, in the order
 #: :meth:`ProductRequestContract.from_declared` reports them missing. They are
@@ -449,14 +523,18 @@ class ProductRequestViolation(CCFContract):
     re-derives either to learn what the gap was.
 
     Attributes:
-        reason: Which of the four ways the request missed.
+        reason: Which of the six ways the request missed.
         key: Where. A parameter reads by name, a nested member reads
             ``parent.member`` and an element of a declared list reads
             ``parent[].member``; a class mismatch reads the field that
-            disagreed.
+            disagreed; a tier refusal reads the inert parameter's name; a
+            proportion refusal reads the tolerance parameter's name.
         declared_type: The JSON Schema type declared at ``key`` — or, for a
             class mismatch, the value the **contract** declares. ``None`` when
-            neither applies.
+            neither applies, which includes a tier refusal: an inert parameter
+            is refused whatever its type, so no type is what the declaration
+            says about it. A proportion refusal carries the declared type
+            (the value was well-typed; it was its magnitude that missed).
         presented_type: The Python type name the request presented at ``key``
             — or, for a class mismatch, the value the **request** presented.
         declared_keys: Every parameter the contract declares at the level the
@@ -465,7 +543,13 @@ class ProductRequestViolation(CCFContract):
             about a level.
         presented_keys: Every parameter the request presented at that level.
         detail: The human-readable statement, for the operator reading a log.
-            The typed fields above are the machine-readable version.
+            The typed fields above are the machine-readable version. For a
+            tier refusal it carries the Standard's status token, the parameter
+            name and the declared reason prose, all three, so a reader of the
+            sentence sees what the declaration said. For a proportion refusal
+            it carries the parameter name, the presented value and the
+            interval, so a caller reads which number missed and what it had
+            to be.
     """
 
     reason: ProductRequestViolationReason
@@ -474,6 +558,44 @@ class ProductRequestViolation(CCFContract):
     presented_type: str | None
     declared_keys: frozenset[str]
     presented_keys: frozenset[str]
+    detail: str
+
+
+class AnchorAmbiguityRefusal(CCFContract):
+    """The request's anchor resolves to more than one entity (``24.5-L-16``).
+
+    SDK-defined (CLAUDE.md §11: *refusal is data*). Whitepaper §6.3
+    **Addressability** (``docs/CCF_Whitepaper_1-2.md:1465``) makes the entity
+    anchor the ``{id}`` slot of the address — *which entity* the question is
+    about — and a slot that answers with two entities has not addressed one.
+    The ladder met the case at cp-04 (``24.4`` deferred item 14, ``D-IMPL-234``
+    (d)): a shared LEI made the anchor row-order dependent, and there was no
+    kind to say so, so a product could only serve the wrong one silently.
+
+    **The SDK ships the kind and no resolver.** Which anchor is ambiguous is a
+    fact about the deployment's identifiers and its resolution rules, and
+    what a product does about it — answer ``404`` (Standard §9, *anchor
+    unresolvable*), refuse with this value, or serve one candidate with a
+    finding — is the product's ruling. Nothing here decides it; this type
+    only lets the decision be a typed, auditable value rather than an
+    exception's prose.
+
+    **Pre-assembly.** An anchor resolves before the graph is touched, so this
+    kind is in :data:`~ccf.products.refusal._PRE_ASSEMBLY_REFUSALS` beside
+    :class:`ProductRequestViolation`, and
+    :func:`~ccf.products.refusal.envelope_for` refuses a lineage offered
+    with it for the same reason.
+
+    Attributes:
+        anchor: What was asked — the request's ``subject``, as presented.
+        candidates: The entity URIs that answered to it. More than one, which
+            is the whole of what makes this a refusal; carried so a consumer
+            can see the collision rather than be told of it.
+        detail: The human-readable statement, for an operator reading a log.
+    """
+
+    anchor: str
+    candidates: frozenset[str]
     detail: str
 
 
@@ -538,10 +660,105 @@ def _refuse_address(
     return None
 
 
+def _refuse_tier(
+    *, request: ProductRequest, declared: ProductRequestContract
+) -> ProductRequestViolation | None:
+    """Does this request present a parameter the class declared and always refuses?
+
+    The tier step (``24.5-L-13``): the first presented parameter, in sorted
+    order, that the declaration names in
+    :attr:`ProductRequestContract.unsupported_arguments` is refused by
+    ``not-supported-at-tier``, carrying the declaration's own reason prose.
+    The verdict comes **from the declaration**: this function holds no
+    parameter name and no reason text of its own.
+    """
+    for key in sorted(request.parameters):
+        if key not in declared.unsupported_arguments:
+            continue
+        return ProductRequestViolation(
+            reason="not-supported-at-tier",
+            key=key,
+            declared_type=None,
+            presented_type=type(request.parameters[key]).__name__,
+            declared_keys=frozenset(declared.arguments.properties),
+            presented_keys=frozenset(request.parameters),
+            detail=(
+                f"{key}: 400 not_supported_at_tier — "
+                f"{declared.unsupported_arguments[key]}"
+            ),
+        )
+    return None
+
+
+def _refuse_tolerance(
+    *, request: ProductRequest, declared: ProductRequestContract
+) -> ProductRequestViolation | None:
+    """Is the presented ``debt_tolerance`` a proportion?
+
+    The interval step (WR-02). Runs LAST, after the payload comparison has
+    said the parameter is declared, honored and well-typed, so this function
+    only ever judges a number's magnitude: ``bool`` (an ``int`` to Python,
+    not to the contract) and non-numbers are the payload comparison's to
+    name, and a parameter the declaration does not carry never reaches here.
+    The interval ``[0, 1]`` is the one the class's own ceiling is held to
+    (:class:`~ccf.products.contract.ServeObligations`, ``24.5-L-14``); the
+    parameter NAME is the SDK's mechanism vocabulary
+    (:data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER`); the number is the
+    caller's. Nothing about the class's *ceiling* is read — a request cannot
+    create one and this step does not need one: a value that is not a
+    proportion is not a tolerance under any class.
+    """
+    # Imported at call time for the same DEF-17-02 reason `refuse_payload` is:
+    # `ccf.products.gates` reaches `ccf.products.contract`, which is on the
+    # path back to this module through the replay record. One name, needed
+    # once the comparison runs and never before.
+    from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
+
+    key = DEBT_TOLERANCE_PARAMETER
+    if key not in request.parameters:
+        return None
+    presented = request.parameters[key]
+    if isinstance(presented, bool) or not isinstance(presented, (int, Decimal)):
+        return None
+    value = Decimal(presented)
+    if value.is_finite() and Decimal(0) <= value <= Decimal(1):
+        return None
+    property_ = declared.arguments.properties.get(key)
+    return ProductRequestViolation(
+        reason="not-a-proportion",
+        key=key,
+        declared_type=None if property_ is None else property_.type,
+        presented_type=type(presented).__name__,
+        declared_keys=frozenset(declared.arguments.properties),
+        presented_keys=frozenset(request.parameters),
+        detail=(
+            f"{key}: {presented} is not a proportion — D_c is a proportion "
+            "(whitepaper §7.7.4), so a tolerance must lie in [0, 1]; the "
+            "class's ceiling is held to the same interval at declaration "
+            "(24.5-L-14), and a request may only tighten it, never state a "
+            "number that is not a ceiling at all"
+        ),
+    )
+
+
 def refuse_request(
     *, request: ProductRequest, declared: ProductRequestContract
 ) -> ProductRequestViolation | None:
-    """The one request-conformity comparison — address first, then parameters.
+    """The one request-conformity comparison — address, then tier, then parameters, then the tolerance interval.
+
+    **The order is fixed and load-bearing** (``24.5-L-13``): address first,
+    the tier step second, the payload comparison third, the interval step
+    last. A declared-and-inert
+    parameter is refused whatever its type, and it is typically *not* in
+    ``arguments.properties`` — so the payload comparison, run first, would
+    call it ``undeclared-parameter`` and hide the reason the declaration
+    authored. The tier step runs before that comparison so the declared reason
+    is what a caller reads. The address check stays first for the reason
+    :func:`_refuse_address` gives: a request to another class never reaches
+    the tier step, so a tier verdict is always about this class's declaration.
+    The interval step (:func:`_refuse_tolerance`, WR-02) runs after the
+    payload comparison for the converse reason: it judges a number's
+    magnitude, and only a declared, honored, well-typed number has one.
 
     **Called by the deployment's own resolver, not by any door**
     (``D-IMPL-121``, Dave, 2026-08-12, extending ``D-IMPL-113``). This
@@ -572,12 +789,16 @@ def refuse_request(
     request* precisely so that this stays true (see the module docstring).
 
     Returns:
-        ``None`` when the request is addressed to this contract and matches its
-        declared parameters at every level, otherwise the
+        ``None`` when the request is addressed to this contract, presents no
+        parameter the contract declares inert, matches its declared
+        parameters at every level, and presents no tolerance outside the unit
+        interval; otherwise the
         :class:`ProductRequestViolation` naming the first failure — address
-        first, then the fixed undeclared-then-missing-then-mistyped order
-        :func:`~ccf.products.payload.refuse_payload` imposes over sorted names
-        — carrying both sides of the comparison that failed.
+        first, then the tier step over sorted presented names, then the fixed
+        undeclared-then-missing-then-mistyped order
+        :func:`~ccf.products.payload.refuse_payload` imposes over sorted names,
+        then the interval step — carrying both sides of the comparison that
+        failed.
     """
     # Imported at call time, not at module scope (DEF-17-02). `ccf.products.
     # payload` reaches `ccf.skills.catalog` at its own top, and that reaches
@@ -593,12 +814,15 @@ def refuse_request(
     address = _refuse_address(request=request, declared=declared)
     if address is not None:
         return address
+    tier = _refuse_tier(request=request, declared=declared)
+    if tier is not None:
+        return tier
     parameters = refuse_payload(
         payload=request.parameters, declared=declared.arguments
     )
-    if parameters is None:
-        return None
-    return _translate(parameters)
+    if parameters is not None:
+        return _translate(parameters)
+    return _refuse_tolerance(request=request, declared=declared)
 
 
 def request_seeds(request: ProductRequest | None) -> frozenset[str] | None:

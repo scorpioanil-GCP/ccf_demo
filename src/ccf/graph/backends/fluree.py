@@ -71,14 +71,38 @@ docs/GRAPH_QUERY_SEMANTICS.md:482). Probe F-A5 read the datatypes back
 directly: every temporal property this adapter writes lands as
 ``xsd:string``.
 
-**Fluree's ``t`` is transaction time and MUST NOT implement ``as_of``**
-(D-IMPL-88). ``t`` is a commit counter — it advances on a data no-op, and it
-orders *writes*, not observations. CCF's ``as_of`` is a cut over
-``observed_at``, which is data: arbitrary, non-monotone, and frequently
-late-arriving. Substituting one for the other is the transaction-time-for-
-observation-time error the ruling forbids. ``t`` appears in this module in
-exactly one role — threading ``Fluree-Min-T`` for read-after-write — and in no
-other.
+**Three temporal axes, named by ``ccf.graph.protocols.TEMPORAL_AXES``, and
+``t`` is only ever the second** (D-IMPL-88; ledger rows ``24.5-L-03`` /
+``24.5-L-04``). The three, in that vocabulary's order: **event time** is when
+the world changed — a claim's ``observed_at`` and its validity window, which
+on this substrate is what the backdatable ``@iso:`` addressing speaks;
+**transaction time** is when the store recorded it — Fluree's ``t``, a commit
+counter that advances on a data no-op and orders *writes*, not observations;
+and CCF's **as_of** is a cut over ``observed_at``, which is data: arbitrary,
+non-monotone, and frequently late-arriving. Substituting ``t`` for ``as_of``
+is the transaction-time-for-observation-time error the ruling forbids, and
+this module never does it: the pin bounds the STORE, never the observations.
+
+``t`` appears in this module in **two** roles, both on the transaction-time
+axis and neither a temporal cut (D-IMPL-240 (2), ``24.5-L-01``):
+
+* the **FLOOR** — ``Fluree-Min-T`` threaded on the openCypher route by
+  :meth:`FlureeGraphStore.post_query`, so read-after-write is exact. A floor
+  is a lower bound: on a ledger that has advanced it answers the head;
+* the **PIN** — ``from: <ledger>@t:N`` on the JSON-LD route by
+  :meth:`FlureeGraphStore.post_query_pinned`, an upper bound distinct from the
+  floor, answered by :meth:`FlureeGraphReader.query_pinned` through the
+  substrate-neutral fallback. Measured (2026-09-02, ``fluree/server:4.1.4``):
+  the Cypher route silently ignores every pin form — header and body alike —
+  so the pinned read is a declared second dialect beside D-02's split
+  (JSON-LD writes and pinned reads; openCypher unpinned reads). A pin past
+  the head is ``408 err:db/ReadAfterWriteTimeout`` and surfaces as
+  :class:`FlureePinAhead`.
+
+Under either role, ``q.as_of`` still applies to every answer (``GQ-07``); the
+pin is typed :class:`~ccf.graph.protocols.StoreSnapshotPin` precisely so that
+``GraphQuery.as_of`` cannot accept it and :meth:`FlureeGraphReader.query_pinned`
+refuses an instant offered as a pin.
 
 **Credentials — two channels, exactly one at a time.** The connection URL may
 carry userinfo, or the deployment may supply a ``bearer_token``. Userinfo
@@ -147,18 +171,25 @@ from base64 import b64encode
 from collections.abc import Sequence
 from http import HTTPStatus
 from types import TracebackType
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Final
 from urllib.parse import unquote, urlsplit
 
 import httpx
 
 from ccf.contracts.canonical import canonical_timestamp, content_hash
-from ccf.graph.protocols import GraphQuery
-from ccf.graph.reader import BaseGraphReader, Row
+from ccf.graph import fallback
+from ccf.graph.protocols import GraphQuery, GraphView, StoreSnapshotPin
+from ccf.graph.reader import (
+    BaseGraphReader,
+    Row,
+    _LineageRowsFor,
+    _ordered_view,
+    materialize_view,
+)
 
 __ccf_mode__ = "algorithmic"
 
-#: The public surface is deliberately five names. The physical-layout
+#: The public surface is deliberately seven names. The physical-layout
 #: constants below — labels, the link predicate, the ``ccf_``-prefixed
 #: property names, :data:`ADAPTER_CONTEXT`, :func:`_mint_id` — are
 #: module-level and importable, because ``ccf.graph._writer`` needs them, but
@@ -166,14 +197,42 @@ __ccf_mode__ = "algorithmic"
 #: D-IMPL-34, and a deployment that coded against a label would be coding
 #: against a decision the adapter reserves the right to change. Same line the
 #: Mongo adapter draws around its collection names and the Neo4j adapter
-#: around ``ATTRIBUTE_PROPERTY_PREFIX``.
+#: around ``ATTRIBUTE_PROPERTY_PREFIX``. :data:`FLUREE_SUBSTRATE` and
+#: :class:`FlureePinAhead` joined in Phase 24.5 (``24.5-L-01``): the first is
+#: the vocabulary a :class:`~ccf.graph.protocols.StoreSnapshotPin` names this
+#: adapter by, the second is what a caller catches when a pin is ahead of the
+#: ledger — both are things a deployment legitimately writes code against.
 __all__ = [
     "DEFAULT_PARTITION",
+    "FLUREE_SUBSTRATE",
     "MAX_DEPTH_CEILING",
     "MAX_QUERY_BODY_BYTES",
     "FlureeGraphReader",
     "FlureeGraphStore",
+    "FlureePinAhead",
 ]
+
+#: The substrate name a :class:`~ccf.graph.protocols.StoreSnapshotPin` minted
+#: by this adapter carries, and the only one :meth:`FlureeGraphReader.
+#: query_pinned` accepts. A name, not a tuning value (CINV-01).
+FLUREE_SUBSTRATE: Final[str] = "fluree"
+
+#: The branch a ledger name without a ``:`` lives on, as the server lists it
+#: under ``GET …/ledgers`` (``{"name": "ccf", "branch": "main", "t": N}`` for
+#: :data:`DEFAULT_LEDGER`). A ledger name is ``name`` or ``name:branch`` — the
+#: server's own ``Invalid ledger ID format`` message states the two forms —
+#: so :meth:`FlureeGraphStore.head_t` matches BOTH parts: the listing carries
+#: every branch of every ledger on the server, and a match on ``name`` alone
+#: would answer the head of whichever branch the server listed first.
+DEFAULT_BRANCH: Final[str] = "main"
+
+#: The ``@type`` substring identifying a pin past the ledger head, **measured**
+#: (2026-09-02, ``fluree/server:4.1.4``) rather than taken from documentation:
+#: ``408 {"error": "Ledger has not reached t=3, current t=2", "status": 408,
+#: "@type": "err:db/ReadAfterWriteTimeout"}``. The same type the Cypher
+#: route's ``Fluree-Min-T`` raises on a floor past the head — one server
+#: condition, reachable from both roles of ``t``.
+PIN_AHEAD_MARKER: Final[str] = "ReadAfterWriteTimeout"
 
 #: Partition the fabric's graph lives in when the caller does not say
 #: otherwise. A name, not a tuning value — the SDK ships no domain vocabulary
@@ -639,6 +698,205 @@ def _query_body(cypher: str, params: dict[str, object]) -> str:
     return json.dumps({"cypher": cypher, "params": params})
 
 
+# --- the pinned JSON-LD claim read (plan 24.5-02, ledger row 24.5-L-01) ------
+#
+# The second dialect on the READ side, ruled at D-IMPL-240 (2): the Cypher
+# route cannot be pinned — every header and body form was measured to answer
+# the head silently — so a read pinned to a transaction `t` rides the JSON-LD
+# `from: <ledger>@t:N` form and hands raw claim rows to the substrate-neutral
+# fallback, which is the oracle every pushed answer is already held
+# byte-identical to (D-04, `GQ-34`). Nothing here touches `_translate_query`;
+# the unpinned path is D-02's openCypher pushdown, unchanged.
+#
+# Every value below is DATA in a dict — the pin, the partition, the tenant, the
+# predicate names — and the body is rendered by one `json.dumps`. No
+# formatting site renders query text (threat T-24.5-03), which is also why
+# `test_exactly_one_formatting_site_renders_query_text` stays at exactly one:
+# a JSON-LD dict is outside its Cypher-shaped regex by construction.
+
+
+class FlureePinAhead(LookupError):
+    """A pin named a transaction the ledger has not reached.
+
+    Raised by :meth:`FlureeGraphStore.post_query_pinned` on the measured
+    ``408 err:db/ReadAfterWriteTimeout`` (:data:`PIN_AHEAD_MARKER`), carrying
+    the asked pin and the server's own ``current t=N`` in its message — the
+    ledger name and two integers, never the URL's userinfo (threat
+    T-24.5-04; the :func:`_server_root` discipline). A :class:`LookupError`
+    because that is what :class:`~ccf.graph.protocols.SnapshotPinnable`
+    declares for a state the store cannot resolve: the pin is well-formed,
+    the substrate simply is not there yet.
+    """
+
+
+#: The row vocabulary of the pinned read, keyed by the Cypher column names
+#: the ``SELECT_*_AS_OF`` / ``SELECT_LINEAGE`` statements return, valued by
+#: the predicate each column reads. **One place** for the mapping, so the
+#: pinned rows and the Cypher rows cannot disagree on a column name — the
+#: fallback and :func:`ccf.graph.reader.materialize_view` address rows by
+#: exactly these keys.
+_PINNED_ENTITY_COLUMNS: Final[dict[str, str]] = {
+    "entity_uri": P_ENTITY_URI,
+    "claim_id": P_CLAIM_ID,
+    "claim_json": P_CLAIM_JSON,
+    "policy_bundle_version": P_POLICY_VERSION,
+    "superseded_by": P_SUPERSEDED_BY,
+    "superseded_at": P_SUPERSEDED_AT,
+}
+_PINNED_RELATIONSHIP_COLUMNS: Final[dict[str, str]] = {
+    "relationship_key": P_RELATIONSHIP_KEY,
+    "claim_id": P_CLAIM_ID,
+    "claim_json": P_CLAIM_JSON,
+    "policy_bundle_version": P_POLICY_VERSION,
+    "superseded_by": P_SUPERSEDED_BY,
+    "superseded_at": P_SUPERSEDED_AT,
+}
+#: Lineage rows carry their index key beside ``entry_json`` because the pinned
+#: read acquires a tenant's whole L axis in ONE select and indexes it in
+#: Python, where the Cypher route asks per claim.
+_PINNED_LINEAGE_COLUMNS: Final[dict[str, str]] = {
+    "claim_kind": P_CLAIM_KIND,
+    "node_key": P_NODE_KEY,
+    "claim_id": P_CLAIM_ID,
+    "entry_json": P_ENTRY_JSON,
+}
+
+#: The JSON-LD variable sigil. A ``where`` VALUE beginning with it is read by
+#: the server as a **variable**, not a literal — measured 2026-09-02 on
+#: ``fluree/server:4.1.4``: ``{"ccf_tenant_id": "?zzz"}`` matched every
+#: tenant, and the ``{"@value": …}`` form did not change that. See
+#: :func:`_pinned_select`.
+_VARIABLE_SIGIL: Final[str] = "?"
+
+
+def _pinned_query_body(
+    body: dict[str, object], *, ledger: str, pin_t: int
+) -> str:
+    """Render the request body of one pinned JSON-LD read.
+
+    ``from`` is the ledger name with the transaction pin appended in the
+    server's own ``name:branch@t:N`` form — a dict VALUE, never interpolated
+    into query text. One function rather than an inline ``json.dumps``, for
+    the same reason :func:`_query_body` is one: the budget check in
+    :meth:`FlureeGraphStore.post_query_pinned` measures the exact bytes sent.
+    ``bool`` is refused because ``True`` renders as ``@t:1`` and is not a pin
+    anyone meant.
+
+    Raises:
+        ValueError: ``pin_t`` is not a non-negative ``int``.
+    """
+    if isinstance(pin_t, bool) or pin_t < 0:
+        raise ValueError(
+            f"a transaction pin is a non-negative int; got {pin_t!r}"
+        )
+    return json.dumps({"from": f"{ledger}@t:{pin_t}", **body})
+
+
+def _pinned_select(
+    node_type: str, *, partition: str, tenant: str, columns: dict[str, str]
+) -> dict[str, object]:
+    """The JSON-LD select for one node type's rows in one tenant's graph.
+
+    The zero-coercion :data:`ADAPTER_CONTEXT` the writer declares, so the
+    predicate names come back as the bare ``ccf_*`` names the writer stored
+    them under; ``select`` names exactly the predicates ``columns`` reads,
+    and ``where`` scopes by partition and tenant exactly as every Cypher
+    statement's inline map does (D-03: two partitions in one ledger are two
+    graphs). ``@type`` is a code-authored label, never caller data.
+
+    **A scope value beginning with** :data:`_VARIABLE_SIGIL` **is refused,
+    never sent.** Measured: the server reads such a value as a query
+    variable, so a tenant id ``"?x"`` would match every tenant in the
+    partition — over-disclosure by the pinned path, the exact T-15.2-03
+    class and this plan's T-24.5-03. The Cypher route binds the same value
+    as a ``$param`` and is immune. There is no literal form on this route
+    that closes it (the ``{"@value": …}`` form was measured to behave the
+    same), so the read fails closed rather than widening.
+
+    Raises:
+        ValueError: ``partition`` or ``tenant`` begins with the variable
+            sigil.
+    """
+    for name, value in (("partition", partition), ("tenant_id", tenant)):
+        if value.startswith(_VARIABLE_SIGIL):
+            raise ValueError(
+                f"{name} {value!r} begins with the JSON-LD variable sigil"
+                f" {_VARIABLE_SIGIL!r}; on the pinned route the server would"
+                " read it as a query variable and answer every scope in the"
+                " ledger, so the read is refused rather than widened"
+                " (threat T-24.5-03)"
+            )
+    return {
+        "@context": ADAPTER_CONTEXT,
+        "select": {"?node": sorted(columns.values())},
+        "where": {
+            "@id": "?node",
+            "@type": node_type,
+            P_PARTITION: partition,
+            P_TENANT: tenant,
+        },
+    }
+
+
+def _pinned_row(
+    node: dict[str, Any], *, columns: dict[str, str]
+) -> dict[str, object]:
+    """Map one JSON-LD result node to a row keyed by the Cypher column names.
+
+    Written against the envelope **measured** on ``fluree/server:4.1.4``
+    (2026-09-02) and recorded verbatim in
+    ``tests/graph/test_fluree_backend.py::
+    test_fa7_a_pinned_read_answers_the_pinned_state_and_the_floor_answers_the_head``:
+    a pinned ``select`` answers a bare JSON array of node objects keyed by
+    predicate name, and a predicate the node does not carry is **absent**
+    from the object rather than ``null``. The Cypher route renders that same
+    absence as a ``null`` column, and both the supersession rule and the
+    fallback read ``row["superseded_at"]`` expecting ``None`` — so absence
+    maps to ``None`` here, and a row satisfies :class:`ccf.graph.reader.Row`
+    exactly as a Cypher row does.
+    """
+    return {column: node.get(predicate) for column, predicate in columns.items()}
+
+
+def _require_fluree_pin(pin: object) -> int:
+    """The ``D-IMPL-88`` guard: only a Fluree-minted pin becomes a ``t``.
+
+    Typed over ``object`` on purpose — the refusal exists for callers who
+    offer something that is *not* a :class:`~ccf.graph.protocols.
+    StoreSnapshotPin`: a ``datetime`` (an as-of instant mistaken for a pin),
+    an ``int`` (a bare ``t`` mistaken for a value the seam accepts), a
+    ``str``. Each is a :class:`TypeError` naming the ruling, so the
+    transaction-time-for-observation-time substitution D-IMPL-88 forbids
+    fails at the seam instead of answering.
+
+    Raises:
+        TypeError: ``pin`` is not a :class:`StoreSnapshotPin`, or was minted
+            by a different substrate.
+        ValueError: the pin's text is not a decimal transaction number.
+    """
+    if not isinstance(pin, StoreSnapshotPin):
+        raise TypeError(
+            f"query_pinned takes a StoreSnapshotPin, not {type(pin).__name__};"
+            " a transaction pin is not an as-of instant and an as-of instant"
+            " is not a pin — the two are different temporal axes and neither"
+            " implements the other (D-IMPL-88)"
+        )
+    if pin.substrate != FLUREE_SUBSTRATE:
+        raise TypeError(
+            f"a pin minted by substrate {pin.substrate!r} cannot bound a"
+            f" {FLUREE_SUBSTRATE!r} read; a StoreSnapshotPin is"
+            " substrate-shaped and only the substrate that minted it can"
+            " resolve it"
+        )
+    try:
+        return int(pin.pin)
+    except ValueError as malformed:
+        raise ValueError(
+            f"a {FLUREE_SUBSTRATE!r} pin is a decimal transaction number;"
+            f" got {pin.pin!r}"
+        ) from malformed
+
+
 def _mint_id(kind: str, *parts: str) -> str:
     """Mint the ``@id`` of one node — the ONE site that produces an identifier.
 
@@ -906,6 +1164,85 @@ class FlureeGraphStore:
         receipt: dict[str, Any] = response.json()
         self._min_t = max(self._min_t, int(receipt["t"]))
         return receipt
+
+    def head_t(self) -> int:
+        """The ledger's current transaction ``t`` — read off ``GET …/ledgers``.
+
+        Transport, on :meth:`post_query`'s terms. The Cypher route returns no
+        ``X-Fluree-T`` (measured, plan 15.3-01) and the commit receipt is
+        write-derived, so the listing is the one read-side source of the head
+        (the route ``examples/cp-04-corporate-family-tree/deployment.py::
+        ledger_t`` reads it by; the shape is copied, never the values). The
+        listing carries ``{"name", "branch", "t"}`` for **every** branch of
+        every ledger on the server, so the match is on the ``name:branch``
+        pair — see :data:`DEFAULT_BRANCH`. No host, port or credential
+        literal: the request goes through this store's own client.
+
+        Raises:
+            LookupError: the server lists no such ledger. Named by ledger
+                only; the message carries nothing from the URL.
+            httpx.HTTPError: the listing itself failed.
+        """
+        response = self._client.get(f"{self._base}/ledgers")
+        response.raise_for_status()
+        name, _, branch = self._ledger.partition(":")
+        branch = branch or DEFAULT_BRANCH
+        for entry in response.json():
+            if entry.get("name") == name and entry.get("branch") == branch:
+                return int(entry["t"])
+        raise LookupError(
+            f"the server lists no ledger {self._ledger!r}; its head t cannot"
+            " be read"
+        )
+
+    def post_query_pinned(
+        self, body: dict[str, object], *, pin_t: int
+    ) -> list[dict[str, Any]]:
+        """Run one JSON-LD read PINNED to transaction ``pin_t``; return its nodes.
+
+        Transport, on :meth:`post_query`'s terms — the second read dialect
+        D-IMPL-240 (2) declares. The pin rides as ``from: <ledger>@t:N``
+        inside the body (:func:`_pinned_query_body`), a dict value and never
+        query text, and the request goes to ``POST {base}/query`` with **no
+        ledger in the path**: the path form ``/query/<ledger>@t:N`` is a
+        measured ``500 Invalid ledger ID format``. The body is measured against
+        :data:`MAX_QUERY_BODY_BYTES` on the exact bytes sent — the
+        :meth:`post_update` posture, and unlike the Cypher route there is no
+        fallback to decline to, so an over-budget body is refused loudly.
+
+        The answer is the envelope measured on ``fluree/server:4.1.4``: a bare
+        JSON array of node objects keyed by predicate name, ``[]`` for a scope
+        with nothing in it.
+
+        Raises:
+            FlureePinAhead: ``pin_t`` is past the ledger head — the measured
+                ``408 err:db/ReadAfterWriteTimeout`` (:data:`PIN_AHEAD_MARKER`).
+            ValueError: the rendered body exceeds :data:`MAX_QUERY_BODY_BYTES`.
+            httpx.HTTPStatusError: any other refusal, unchanged.
+        """
+        rendered = _pinned_query_body(body, ledger=self._ledger, pin_t=pin_t)
+        size = len(rendered.encode("utf-8"))
+        if size > MAX_QUERY_BODY_BYTES:
+            raise ValueError(
+                f"pinned query body is {size} bytes, over this adapter's"
+                f" {MAX_QUERY_BODY_BYTES}-byte budget under the server's"
+                " documented 1 MB (--max-query-size) limit; a pinned read has"
+                " no fallback route to decline to, so it is refused rather"
+                " than narrowed"
+            )
+        response = self._client.post(f"{self._base}/query", content=rendered)
+        if (
+            response.status_code == HTTPStatus.REQUEST_TIMEOUT
+            and PIN_AHEAD_MARKER in response.text
+        ):
+            served = response.json().get("error", "")
+            raise FlureePinAhead(
+                f"pin t={pin_t} is past the head of ledger {self._ledger!r}:"
+                f" {served}"
+            )
+        response.raise_for_status()
+        nodes: list[dict[str, Any]] = response.json()
+        return nodes
 
     def close(self) -> None:
         self._client.close()
@@ -1338,6 +1675,109 @@ class FlureeGraphReader(BaseGraphReader):
         bound["partition"] = self._store.partition
         return self._store.post_query(sql, bound)
 
+    # -- the pinned read: ``SnapshotPinnable``, structurally (24.5-L-01) -----
+
+    def snapshot_pin(self) -> StoreSnapshotPin:
+        """This ledger's head, as a :class:`~ccf.graph.protocols.StoreSnapshotPin`.
+
+        ``substrate`` is :data:`FLUREE_SUBSTRATE`; ``pin`` is the head ``t``
+        :meth:`FlureeGraphStore.head_t` reads, as decimal text. A fact about
+        the read on the transaction-time axis — recorded beside
+        ``graph_snapshot_at``, never inside it (D-IMPL-88).
+        """
+        return StoreSnapshotPin(
+            substrate=FLUREE_SUBSTRATE, pin=str(self._store.head_t())
+        )
+
+    def query_pinned(self, q: GraphQuery, *, pin: StoreSnapshotPin) -> GraphView:
+        """Answer ``q`` as :meth:`query` would on the ledger frozen at ``pin``.
+
+        The D-IMPL-240 (2) route: three JSON-LD selects pinned to
+        ``@t:{pin}`` acquire the tenant's entity claims, relationship claims
+        and lineage entries (:func:`_pinned_select`, one per node type), each
+        result node is mapped to a Cypher-column-keyed row by
+        :func:`_pinned_row`, and everything above the rows is the
+        substrate-neutral core — :func:`ccf.graph.reader.materialize_view`,
+        then :func:`ccf.graph.fallback.answer` for every predicate family of
+        ``q``, then the interface's own ordering — so the answer is
+        byte-identical to what the unpinned route would give on a ledger
+        frozen at that ``t`` (D-04: the fallback is the oracle, `GQ-34`).
+
+        **Two axes, applied in sequence and never conflated.** The pin bounds
+        the STORE: rows are read at the committed state ``t``. ``q.as_of``
+        bounds the OBSERVATIONS: the fallback re-applies the full survival
+        predicate over ``observed_at`` / ``superseded_at`` (`GQ-12`), so a
+        claim committed before ``t`` but observed after ``q.as_of`` is still
+        absent. The rows are acquired without an as-of cut on the wire
+        precisely because the fallback owns that cut and is independently
+        enforceable at this tier.
+
+        The D-IMPL-88 guard runs **first**, before any I/O
+        (:func:`_require_fluree_pin`): a ``datetime``, an ``int`` or a pin
+        from another substrate is refused by ``TypeError`` naming the ruling.
+        This method does not touch :meth:`_translate_query` — the unpinned
+        openCypher path is D-02's and is untouched — and it does not move the
+        ``translated_answers`` / ``fallback_answers`` telemetry, which counts
+        :meth:`query`'s posture and nothing else.
+
+        Raises:
+            TypeError: ``pin`` is not a Fluree-minted :class:`StoreSnapshotPin`.
+            FlureePinAhead: ``pin`` is past the ledger head.
+            ValueError: the tenant or partition would be read as a query
+                variable on this route (:func:`_pinned_select`).
+        """
+        pin_t = _require_fluree_pin(pin)
+        partition = self._store.partition
+
+        def rows_of(node_type: str, columns: dict[str, str]) -> list[Row]:
+            nodes = self._store.post_query_pinned(
+                _pinned_select(
+                    node_type,
+                    partition=partition,
+                    tenant=q.tenant_id,
+                    columns=columns,
+                ),
+                pin_t=pin_t,
+            )
+            return [_pinned_row(node, columns=columns) for node in nodes]
+
+        entity_rows = rows_of(L_ENTITY_CLAIM, _PINNED_ENTITY_COLUMNS)
+        relationship_rows = rows_of(
+            L_RELATIONSHIP_CLAIM, _PINNED_RELATIONSHIP_COLUMNS
+        )
+        # The whole L axis at the pin, once, indexed on the same
+        # (kind, node_key, claim_id) key `SELECT_LINEAGE` binds — so a lineage
+        # entry that arrived AFTER the pin is as absent as a claim that did.
+        lineage_index: dict[tuple[str, str, str], list[Row]] = {}
+        for row in rows_of(L_LINEAGE, _PINNED_LINEAGE_COLUMNS):
+            key = (
+                str(row["claim_kind"]),
+                str(row["node_key"]),
+                str(row["claim_id"]),
+            )
+            lineage_index.setdefault(key, []).append(row)
+
+        def lineage_rows_for(kind: str, node_key: str, claim_id: str) -> list[Row]:
+            return lineage_index.get((kind, node_key, claim_id), [])
+
+        supplier: _LineageRowsFor = lineage_rows_for
+        materialized = materialize_view(
+            entity_rows=entity_rows,
+            relationship_rows=relationship_rows,
+            tenant_id=q.tenant_id,
+            as_of=q.as_of,
+            lineage_rows_for=supplier,
+        )
+        entities, relationships = fallback.answer(
+            materialized.entities, materialized.relationships, query=q
+        )
+        return _ordered_view(
+            tenant_id=q.tenant_id,
+            as_of=q.as_of,
+            entities=entities,
+            relationships=relationships,
+        )
+
     def _translate_query(
         self, q: GraphQuery
     ) -> tuple[Sequence[Row], Sequence[Row]] | None:
@@ -1382,6 +1822,17 @@ class FlureeGraphReader(BaseGraphReader):
         * a query whose policy family cannot be encoded injectively declines
           (:func:`policy_key`).
 
+        ``admitted_entity_classes`` (`GQ-10` at
+        docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0) is HONORED in Python: the
+        ``$admissible`` entity keys narrow to admitted-class survivors plus
+        the starts before the walk statement is built. ``direction`` other
+        than ``"undirected"`` (`GQ-10`, 1.2.0; ledger row ``24.5-L-06``) is
+        DECLINED (`GQ-32`): the interposed layout writes both ``CCF_LINK``s
+        FROM the edge node, so the link carries no edge direction and a
+        directed variable-length pattern is not expressible over it
+        (24.5-RESEARCH.md Pitfall 5) — the fallback answers, byte-identical,
+        rather than an approximation.
+
         Two further declines are measured rather than computed: the rendered
         request body is checked against :data:`MAX_QUERY_BODY_BYTES` before
         each statement is sent, and a walk refused by the server's
@@ -1394,6 +1845,12 @@ class FlureeGraphReader(BaseGraphReader):
             # answer, never an error (`GQ-23` at
             # docs/GRAPH_QUERY_SEMANTICS.md:474).
             return (), ()
+        if q.traverse is not None and q.traverse.direction != "undirected":
+            # Decline → the fallback answers (D-04; ledger row 24.5-L-06). A
+            # pure function of the query value, before any translation: a
+            # pushdown that ignored `direction` would walk undirected while
+            # the oracle walks directed, a divergence nothing would observe.
+            return None
         if (
             q.traverse is not None
             and q.traverse.depth_limit > MAX_DEPTH_CEILING
@@ -1518,6 +1975,23 @@ class FlureeGraphReader(BaseGraphReader):
                 # term that could reopen it
                 # (``src/ccf/graph/backends/neo4j.py::_WALK_NODES_ALLOWED``).
                 reachable = survivor_uris & q.allowed_entities
+            if q.traverse.admitted_entity_classes is not None:
+                # Node-class admission, HONORED in Python (`GQ-10` at
+                # docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0; ledger row
+                # 24.5-L-05): the `e:`-prefixed admissible keys narrow to
+                # survivors of an admitted class PLUS the starts — the seed
+                # is in `nodes(p)` and `GQ-11` starts are never filtered by
+                # admission. Survivor rows carry `entity_class` (the same
+                # column the start selection reads), so no extra round trip.
+                admitted = q.traverse.admitted_entity_classes
+                class_of = {
+                    row["entity_uri"]: row["entity_class"] for row in entity_rows
+                }
+                reachable = {
+                    uri
+                    for uri in reachable
+                    if uri in starts or class_of.get(uri) in admitted
+                }
             admissible = {ENTITY_ADMIT_PREFIX + uri for uri in reachable} | {
                 RELATIONSHIP_ADMIT_PREFIX + row["relationship_key"]
                 for row in relationship_rows

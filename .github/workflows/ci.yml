@@ -14,10 +14,20 @@ on:
 
 jobs:
   lint:
-    name: lint (CINV-01..03) + strict types
+    name: lint (CINV-01..04, 06) + strict types
     runs-on: ubuntu-latest
     steps:
+      # `fetch-depth: 0` for the same reason the test job deepens its clone:
+      # `tools/lints/tests/test_base_roster.py` regenerates the CINV-06 base
+      # roster from `git archive 13bd250` and holds the committed file equal
+      # (D-IMPL-243 amendment 2). Under `fetch-depth: 1` that commit is not in
+      # the clone, `git archive` exits 128, and the test FAILS by design rather
+      # than skipping — a check that cannot read its subject must not report
+      # clean. Deepening the clone is the fix; a skip would retire the drift
+      # check the moment CI ran it.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -31,11 +41,31 @@ jobs:
       # so they are themselves tested in CI. `pytest tests` in the test job does
       # not cover them (testpaths is the shipped suite); run them here, before
       # the gate they implement.
-      - name: Lint checker unit tests (CINV-01/02/03 + citations)
+      - name: Lint checker unit tests (CINV-01/02/03/04/06 + citations)
         run: pytest tools/lints/tests -q
 
-      - name: CCF invariant lints (No-Hardcoding, harness imports, @algorithmic, citations)
+      # The product-gate checker (plan 24.5-09, D-IMPL-224) is an enforcement
+      # mechanism too, so its tests run here before the gate they implement —
+      # the same precedent as the step above, and the same command string as
+      # the third line of the Makefile's `gate-tools` recipe modulo
+      # `$(ENV_DOCS) $(PYTHON) -m`. Restated rather than calling `gate-tools`
+      # whole: that target also runs `tools/docs_tests`, whose ledger test
+      # needs the full-history clone only the `test` and `docs` jobs take.
+      - name: Product-gate checker unit tests (D-IMPL-224)
+        run: pytest tools/product_gates_tests -q
+
+      - name: CCF invariant lints (No-Hardcoding, harness imports, @algorithmic, substrate names, hash-transparent key, citations)
         run: python -m tools.lints --all
+
+      # Every `examples/cp-*` roster declares exactly the ids that have an
+      # EXECUTING test (D-IMPL-224; ledger row 24.5-L-10). CALLS the Makefile
+      # target rather than restating its command, per this file's own rule
+      # for the pytest steps below: the Makefile mirrors ci.yml
+      # command-for-command, and calling is what makes that structural.
+      # PYTHON=python because this job installs into the hosted interpreter
+      # and has no `.venv`.
+      - name: Product-gate coverage (declared ids have executing tests)
+        run: make PYTHON=python product-gates
 
       # No explicit paths: `[tool.mypy] files` is the single source of truth for what
       # is type-checked, and it now covers `src` *and* `runtime` (06-RESEARCH.md B2).

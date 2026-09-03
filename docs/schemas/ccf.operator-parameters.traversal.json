@@ -2,6 +2,23 @@
   "additionalProperties": false,
   "description": "The Traversal category's parameters as a versioned artifact (\u00a77.4).\n\nInherits :class:`~ccf.operators.params.TraversalNeighborhoodParameters`\nverbatim, so a parsed artifact **is** a traversal parameter set and passes\nstraight to :class:`~ccf.operators.categories.TraversalNeighborhood` with no\nfield translation. There is no second vocabulary to drift: the artifact adds\na semver lane and nothing else.\n\nNo field gains a default here. ``depth_limit`` in particular stays required \u2014\nthe bound is the operator's entire correctness claim (INV-CH7-24), and a\ndefault bound is one nobody chose.",
   "properties": {
+    "admitted_entity_classes": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "ccf_hash_transparent": true,
+      "default": null,
+      "title": "Admitted Entity Classes"
+    },
     "depth_limit": {
       "title": "Depth Limit",
       "type": "integer"

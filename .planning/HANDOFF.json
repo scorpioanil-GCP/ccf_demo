@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-09-03T05:43:10.372Z",
+  "phase": "24.5",
+  "phase_name": "sdk-gap-catch-up-cp-00-through-cp-04",
+  "phase_dir": ".planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04",
+  "plan": 18,
+  "task": 43,
+  "total_tasks": 43,
+  "status": "paused",
+  "branch": "phase-24.5",
+  "head": "4b090aa2",
+  "completed_tasks": [
+    {"id": "waves 1-8", "name": "All 18 plans executed (01..18), every SUMMARY committed", "status": "done", "commit": "d26c9227"},
+    {"id": "review", "name": "Single-agent code review: 1 critical (CR-01), 3 warnings, 5 info", "status": "done", "commit": "4f894372"},
+    {"id": "verification", "name": "gsd-verifier: gaps_found 24/27 (unrun panel, criterion-3 unclaimed file, CR-01)", "status": "done", "commit": "ceab40fd"},
+    {"id": "CR-01 fix", "name": "D-IMPL-243 + amendments 1 and 2 executed: hash-transparency mark, _normalize omission, canonical_generation_mismatch at replay(), CINV-06 lint with committed 130-name base roster, golden 13bd250 fixture both legs", "status": "done", "commit": "555909ad"},
+    {"id": "seals and pin", "name": "D-IMPL-240 am.1 (cp-04 seals restored to base) and D-IMPL-241 am.1 (archive e2e pin back to 51f85386) after live re-hash", "status": "done", "commit": "a2128ace"},
+    {"id": "tracking", "name": "STATE.md head and ROADMAP progress row hand-edited (no state.*/roadmap.* writer)", "status": "done", "commit": "4b090aa2"}
+  ],
+  "remaining_tasks": [
+    {"id": "WR-02", "name": "Refuse a negative debt_tolerance by name at the request/class boundary (same family as other contract refusals); sabotage by restoring acceptance of -1 -> new test RED; restore", "status": "not_started"},
+    {"id": "criterion-3", "name": "src/ccf/agents/assembler.py (plan 07, in no plan's files_modified): dated override if the edit is on a named ledger id (L-11), else revert", "status": "not_started"},
+    {"id": "leftovers", "name": "Record, do not absorb: plan 09 CPR-G08 (200-with-debt correct below ceiling); plan 10 six co-occurrence edges = criterion 16 yes/no in the D-GATE; plan 15's two repaired SDK test files listed in the close record; plan 06 address=question+axes one sentence in VERIFICATION", "status": "not_started"},
+    {"id": "five-check", "name": "Re-run the close instruments and the suite read after WR-02 (still 1 failed = hw1, D-IMPL-242, named)", "status": "not_started"},
+    {"id": "panel", "name": "§3.1 cross-AI panel on the SHIPPED tree -> 24.5-CLOSE-REVIEWS.md (payload recipe in 24.5-CLOSE-PREP.md; stdin-inlined; codex via CODEX_API_KEY; verify every finding; record rejections)", "status": "not_started"},
+    {"id": "D-GATE-24.5", "name": "Present to Dave; D-GATE-24.5 entry; merge --no-ff to main; regenerate RETIREMENT-COUPLINGS.md last", "status": "not_started"}
+  ],
+  "blockers": [
+    {"description": "Dave ruled 'Do not D-GATE yet' and ordered: WR-02 + CR-01 fixture + criterion-3 entry -> five-check -> §3.1 panel -> D-GATE-24.5. CR-01 is done; WR-02 and criterion 3 are parked for his next sitting.", "type": "human_action", "workaround": "none"},
+    {"description": "Pre-existing docs-test red: tools/docs_tests test_the_uat_roster_matches_the_records_on_disk (frozen roster lacks 24.5-VERIFICATION.md, deferred-items.md); logged in deferred-items.md, not fixed; make gate-tools stops there so product-gates is run by hand", "type": "technical", "workaround": "run tools/product_gates_tests directly"},
+    {"description": "CI lint job now checks out with fetch-depth: 0 so the CINV-06 base roster --check can read 13bd250; unverified from this host (no CI token)", "type": "external", "workaround": "Dave runs ~/ci_diag2.py and pastes output"}
+  ],
+  "human_actions_pending": [
+    {"action": "Rule WR-02 disposition (already stated: refuse by name at the boundary) and criterion 3 (override vs revert) at the next sitting", "context": "Dave parked both explicitly", "blocking": true},
+    {"action": "D-GATE-24.5 after the panel", "context": "Approval authority is Dave's alone (§3.1)", "blocking": true}
+  ],
+  "decisions": [
+    {"decision": "D-IMPL-241: archived e2e transcript pin moved once; then amendment 1 moved it BACK to 51f85386 after D-IMPL-243 returned the identity", "rationale": "D-IMPL-215 procedure; one line differed each time", "phase": "24.5"},
+    {"decision": "D-IMPL-242: L-24's returned half REFUSES (empty-operator-result); hw1 parity red carried to 24.5.1 as a non-limitation red", "rationale": "the Standard's returned half; hw1 is not a limitation test; examples closed", "phase": "24.5"},
+    {"decision": "D-IMPL-243 (+am.1, am.2): hash-transparent only when the sentinel means the old contract; three-state key; refusal declared-scope in replay() only; lint universe = new since 13bd250 against a committed roster; the seven extra 24.5 fields ticked True; Option A narrowly, not B", "rationale": "silence equals yesterday; B walks past §7.10; the fifteen stay D-IMPL-89 lineage", "phase": "24.5"},
+    {"decision": "D-IMPL-240 am.1: cp-04 seals restored to the pre-phase pair", "rationale": "plan 03's re-seal was over a rendered sentinel pin; cp-04 never carried a real pin", "phase": "24.5"},
+    {"decision": "Process: the decision entry is written AFTER Dave ticks a measured per-field table, never before (a premature D-IMPL-243 draft was withdrawn)", "rationale": "D-IMPL-227: never write a disposition he did not state", "phase": "24.5"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Read this phase's .continue-here.md, then docs/DECISIONS.md entries D-IMPL-243 (+2 amendments), D-IMPL-240 am.1, D-IMPL-241 am.1, D-IMPL-242, then 24.5-CLOSE-PREP.md's D-GATE draft. First edit is WR-02 (refuse negative debt_tolerance by name at the boundary) ONLY after Dave opens the sitting; never run state.*/roadmap.* writers; regenerate RETIREMENT-COUPLINGS.md last.",
+  "context_notes": "Execution finished 18/18; the close is mid-flight under Dave's explicit order. Suite sentence at 4b090aa2: ladder 837 passed / 116 skipped / 1 failed (hw1, D-IMPL-242); lint 0; mypy clean; examples/ vs base = four gates.yaml + cp-04 expected.yaml comment-only; archive/ vs base 0 modified. Next free decision id D-IMPL-244. Worktree executors fork from main (13bd250), not the phase tip: fast-forward to the expected base first; no .venv in a worktree."
+}

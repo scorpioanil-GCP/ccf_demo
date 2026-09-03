@@ -181,6 +181,22 @@ EXEMPT_DECLARATIONS: tuple[tuple[str, str], ...] = (
         "RegistrationMode",
         "D-IMPL-85 — names two SDK registration paths, not deployment values",
     ),
+    # Which of the two decay paths a λ_c row takes in
+    # `ccf.halflife.decay.freshness` (ledger row 24.5-L-22, whitepaper
+    # §7.7.1–§7.7.2): read the curve, or hold retained relevance whole until
+    # the supersession event. Same reason as the two entries above: the members
+    # name two SDK code paths, and no deployment can add a third. A deployment
+    # chooses WHICH of its observation types takes which path — and that choice,
+    # like every rate beside it, lives in the deployment's table, never here.
+    # Declared as a named module-level alias (the `ArtifactRole` shape) rather
+    # than inline on `HalfLifeEntry.decay` and on `decay_mode_of`'s return, so
+    # the guard sees ONE bound declaration to exempt by name rather than an
+    # unbound `Literal` it cannot.
+    (
+        "DecayMode",
+        "24.5-L-22 — names two SDK decay paths (curve / supersede-only), not"
+        " deployment values",
+    ),
     # The three characters that make a path a glob rather than a name, used by
     # `ManifestEntry._path_is_a_name_not_a_pattern`. Added when the table shape
     # was brought into scope at Phase 15.6's close; it is the **only** finding

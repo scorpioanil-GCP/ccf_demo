@@ -2,7 +2,7 @@
   "$defs": {
     "ProductLineage": {
       "additionalProperties": false,
-      "description": "The L axis as it appears on a delivered product (INV-CH7-47).\n\nAttributes:\n    operators_invoked: The operator set the *producer declares* it ran.\n        Declared, not observed \u2014 the L6 lineage gate compares it against\n        the engine's independent record, and a field the engine filled in\n        would make that comparison vacuous.\n    policy_bundle_versions: Every Control Plane policy-bundle version bound\n        into the state this product was assembled from. A set, because\n        state assembled under two bundle versions has two bindings and\n        collapsing them would lose the one that mattered.\n    graph_snapshot_at: The temporal anchor of the graph state read.",
+      "description": "The L axis as it appears on a delivered product (INV-CH7-47).\n\nAttributes:\n    operators_invoked: The operator set the *producer declares* it ran.\n        Declared, not observed \u2014 the L6 lineage gate compares it against\n        the engine's independent record, and a field the engine filled in\n        would make that comparison vacuous.\n    policy_bundle_versions: Every Control Plane policy-bundle version bound\n        into the state this product was assembled from. A set, because\n        state assembled under two bundle versions has two bindings and\n        collapsing them would lose the one that mattered.\n    graph_snapshot_at: The temporal anchor of the graph state read.\n    store_snapshot_pin: The substrate's transaction-time head at the read\n        that assembled this product \u2014 the\n        :class:`~ccf.graph.protocols.StoreSnapshotPin` the reader minted\n        once, before its first query \u2014 recorded **beside**\n        ``graph_snapshot_at`` and never inside it (D-IMPL-88: a store\n        transaction counter is not an as-of instant and never implements\n        one; ledger row 24.5-L-02; D-IMPL-240). The default,\n        :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN`, is the positive\n        assertion *this product's substrate exposes no native pin* \u2014 what\n        a SQLite or Postgres deployment is in fact asserting today \u2014 and\n        it is asserted, never inferred from silence: a product assembled\n        before this field existed, and one assembled over a reader that\n        cannot pin, both say exactly that. This field is inside\n        :func:`~ccf.contracts.canonical.canonical_bytes` by construction\n        (every ``model_fields`` member is), so two products differing only\n        in pin have different content addresses \u2014 which is what makes\n        \"served at pin N is not reproducible from pin N+1\" a property of\n        the contract rather than a hope about the replay path.\n        Hash-transparent at the sentinel (``D-IMPL-243``): \"no pin\n        recorded\" is what a product assembled before this field\n        existed says, so the field is omitted from the canonical form\n        at that value; a real pin is rendered and is a new identity.",
       "properties": {
         "graph_snapshot_at": {
           "format": "date-time",
@@ -24,6 +24,14 @@
           "title": "Policy Bundle Versions",
           "type": "array",
           "uniqueItems": true
+        },
+        "store_snapshot_pin": {
+          "$ref": "#/$defs/StoreSnapshotPin",
+          "ccf_hash_transparent": true,
+          "default": {
+            "pin": "no-store-snapshot-pin",
+            "substrate": "none"
+          }
         }
       },
       "required": [
@@ -32,6 +40,26 @@
         "graph_snapshot_at"
       ],
       "title": "ProductLineage",
+      "type": "object"
+    },
+    "StoreSnapshotPin": {
+      "additionalProperties": false,
+      "description": "A store-native transaction pin \u2014 the ``\"transaction-time\"`` axis, as a value.\n\nSDK-defined per CLAUDE.md \u00a711, an extension beside the whitepaper's T axis\n(\u00a77.3) and its replay commitment (\u00a77.10): ``D-IMPL-240`` (2) routes the\nFluree pin through this type, and ``D-IMPL-88`` is why the type exists at\nall. Its axis is :data:`TemporalAxis` ``\"transaction-time\"`` and nothing\nelse: it says *which state of the store* a read saw, never *which\nobservations* the read admitted.\n\n**Deliberately not a** ``datetime``, and deliberately not an ``int``. A\npin is substrate-shaped \u2014 Fluree renders an integer ``t``, a SQL substrate\nhas no native pin, a content-addressed store might render a digest \u2014 and\nno arithmetic is ever done on it, so it travels as text. And because it\nis a model rather than an instant, :attr:`GraphQuery.as_of` cannot accept\nit: pydantic refuses a model where a ``datetime`` is typed, and that\nrefusal IS the ``D-IMPL-88`` guard at the type level. A caller who tries\nto implement the observed-time cut with a transaction counter gets a\nvalidation error at the seam rather than a silently wrong answer.\n\nAttributes:\n    substrate: Which store family minted the pin, in the adapter's own\n        vocabulary (``ccf.graph.backends.fluree.FLUREE_SUBSTRATE``). A\n        reader refuses a pin minted by a different substrate.\n    pin: The substrate's rendering of its own head \u2014 Fluree's ``t`` as\n        decimal text. Opaque to everything outside the adapter that\n        minted it.",
+      "properties": {
+        "pin": {
+          "title": "Pin",
+          "type": "string"
+        },
+        "substrate": {
+          "title": "Substrate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "substrate",
+        "pin"
+      ],
+      "title": "StoreSnapshotPin",
       "type": "object"
     }
   },

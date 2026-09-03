@@ -89,6 +89,7 @@ from ccf.controlplane.artifacts import (
     PolicyFilterParametersArtifact,
     SimilaritySelectParametersArtifact,
     TemporalAsOfParametersArtifact,
+    TraversalDescendantsParametersArtifact,
     TraversalNeighborhoodParametersArtifact,
 )
 from ccf.deployment.pins import ResolvedPins
@@ -98,6 +99,7 @@ from ccf.operators.categories import (
     PolicyFilter,
     SimilaritySelect,
     TemporalAsOf,
+    TraversalDescendants,
     TraversalNeighborhood,
 )
 from ccf.operators.params import PolicyFilterParameters, SimilaritySelectParameters
@@ -184,7 +186,10 @@ def build_operator_registry(
     artifacts ``parameters`` contains. A deployment registering three of the four
     categories passes three entries and gets a three-operator registry; this
     module holds no fixed set of four keys, no operator key literal, and no
-    entity class literal (CINV-01).
+    entity class literal (CINV-01). The Traversal category has two artifact
+    classes — the undirected neighborhood and the directed descendants walk
+    (ledger row ``24.5-L-06``) — and a deployment may register both: they are
+    different keys under one category (D-IMPL-223).
 
     Registration goes through ``register(operator)`` with **no category
     argument**. The registry reads category and parameter schema off the
@@ -298,6 +303,13 @@ def build_operator_registry(
     for key, parameter in sorted(parameters.items()):
         if isinstance(parameter, TraversalNeighborhoodParametersArtifact):
             registry.register(TraversalNeighborhood(parameters=parameter))
+        elif isinstance(parameter, TraversalDescendantsParametersArtifact):
+            # The directed sibling (ledger row 24.5-L-06). The two artifact
+            # classes share only the marker base, so neither `isinstance`
+            # can match the other's document; the arm order is not
+            # load-bearing. The class selects the direction — the document
+            # carries no value that could.
+            registry.register(TraversalDescendants(parameters=parameter))
         elif isinstance(parameter, TemporalAsOfParametersArtifact):
             registry.register(TemporalAsOf(parameters=parameter))
         elif isinstance(parameter, PolicyFilterParametersArtifact):

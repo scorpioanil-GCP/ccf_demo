@@ -207,14 +207,23 @@ def _walk(
     traverse: TraversalSpec,
     seeds: frozenset[str] | None,
 ) -> tuple[tuple[EntityRecord, ...], tuple[RelationshipRecord, ...]]:
-    """The bounded typed undirected walk — `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201.
+    """The bounded typed walk — `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201.
 
     Semantics, matching ``src/ccf/operators/categories.py::TraversalNeighborhood``
-    (INV-CH7-24): undirected — an edge is crossable in either direction;
+    and its directed sibling ``src/ccf/operators/categories.py::TraversalDescendants``
+    (INV-CH7-24): directed by ``traverse.direction`` (ledger row
+    ``24.5-L-06``) — under ``"undirected"`` an edge is crossable from either
+    endpoint, under ``"forward"`` only from ``subject_uri`` to ``object_uri``
+    as stored, and the reverse adjacency is simply never built;
     typed — only edges whose type is permitted are crossable, and edges of
     other types are absent from the answer even between reached endpoints;
     seeds are included; ``depth_limit=0`` yields the walk starting points
-    only; ``depth_limit=N`` reaches at most N hops.
+    only; ``depth_limit=N`` reaches at most N hops; admitted — when
+    ``admitted_entity_classes`` is present a hop lands only on an entity of
+    an admitted class (semantics version 1.1.0, ledger row ``24.5-L-05``):
+    the predicate reads the REACHED node's class from ``entities``, never a
+    walk start's, and an entity absent from ``entities`` is not admitted;
+    ``None`` admits every class.
 
     Walk starting points are the union of two selections computed over
     in-scope state only (`GQ-11` at docs/GRAPH_QUERY_SEMANTICS.md:221):
@@ -232,15 +241,21 @@ def _walk(
         if edge.claim.relationship_type in traverse.relationship_types
     )
     adjacency: dict[str, set[str]] = {}
+    undirected = traverse.direction == "undirected"
     for edge in typed:
         adjacency.setdefault(edge.claim.subject_uri, set()).add(
             edge.claim.object_uri
         )
-        adjacency.setdefault(edge.claim.object_uri, set()).add(
-            edge.claim.subject_uri
-        )
+        if undirected:
+            adjacency.setdefault(edge.claim.object_uri, set()).add(
+                edge.claim.subject_uri
+            )
 
     in_scope = {record.claim.entity_uri for record in entities}
+    class_of = {
+        record.claim.entity_uri: record.claim.entity_class for record in entities
+    }
+    admitted = traverse.admitted_entity_classes
     frontier = {
         record.claim.entity_uri
         for record in entities
@@ -255,6 +270,7 @@ def _walk(
             for node in frontier
             for neighbour in adjacency.get(node, ())
             if neighbour not in reached
+            and (admitted is None or class_of.get(neighbour) in admitted)
         }
         if not frontier:
             break
@@ -311,8 +327,11 @@ def answer(
        excluded or out-of-set node is structurally absent from the walk's
        state (`GQ-13` at docs/GRAPH_QUERY_SEMANTICS.md:261); see
        :func:`_endpoint_closure` for why the degenerate answer is exempt;
-    5. the traverse family, when present, is the bounded typed undirected
-       expansion of `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201.
+    5. the traverse family, when present, is the bounded typed expansion of
+       `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201 — undirected, or forward
+       only under ``direction="forward"`` (1.2.0, ledger row 24.5-L-06) —
+       with node-class admission when the spec names admitted classes (1.1.0,
+       24.5-L-05).
 
     The degenerate query — no families, no seeds, ``allowed_entities``
     ``None`` — returns **all** as-of-surviving records, dangling

@@ -38,11 +38,37 @@
     },
     "RelationshipResolutionRule": {
       "additionalProperties": false,
-      "description": "One user-declared rule producing a typed edge between resolved entities.\n\nEmits an edge whenever a single envelope resolves an entity of\n``subject_entity_class`` and one of ``object_entity_class`` \u2014 co-occurrence\nin one source event is the evidence. Relationship types are first-class and\nuser-declared (INV-CH7-20).",
+      "description": "One user-declared rule producing a typed edge between resolved entities.\n\nRelationship types are first-class and user-declared (INV-CH7-20). A rule\nmints in one of three modes, and the envelope decides which rules fire\n(``24.5-L-21``, closing ``24.4-D-35``):\n\n**Co-occurrence** (no selector fields \u2014 every rule declared before Phase\n24.5, kept unchanged for every existing deployment). The rule fires when a\nsingle envelope resolves an entity of ``subject_entity_class`` and one of\n``object_entity_class``: co-occurrence in one source event is the evidence,\nand every subject \u00d7 object pair across the two classes is minted.\n\n**Predicate selection** (``predicate_key``). The rule fires only when the\nenvelope's payload carries ``predicate_key`` and its value equals this\nrule's own ``relationship_type``. A payload therefore selects among the\nrules a deployment declared; it cannot name a type no rule declares,\nbecause the comparison is against the rule, never a free value. Endpoints\nare still chosen by class unless the endpoint selectors below are set.\n\n**Endpoint selection** (``subject_rule`` and ``object_rule``, together).\nEach names the ``match_key`` of the *entity* rule that resolved the\nendpoint, so the subject is the entity one declared rule produced and the\nobject the entity another produced \u2014 chosen by the rule that made them,\nnot by their class. This is what lets one envelope carrying\n``{parent, child, predicate}`` mint a single edge between two entities of\nthe same class, which co-occurrence by class could never express. The two\nfields travel together or not at all; ``predicate_key`` may stand alone or\nbeside them.\n\nIn **every** mode a pair whose subject and object are the same URI is never\nminted: a self-loop from one envelope is co-occurrence noise, never\nevidence (the cp-04 one-envelope case minted six of them). The entity\nclasses remain required in every mode \u2014 under endpoint selection they\ndescribe the endpoints the named entity rules produce.\n\nAttributes:\n    relationship_type: The edge type minted. Under predicate selection it\n        is also the value the payload must carry to select this rule.\n    subject_entity_class: Class of the subject endpoint (URI scheme).\n    object_entity_class: Class of the object endpoint (URI scheme).\n    predicate_key: Payload key whose value must equal\n        ``relationship_type`` for this rule to fire. ``None`` keeps\n        co-occurrence semantics. Hash-transparent at ``None``\n        (``D-IMPL-243``): a co-occurrence rule is every pre-phase rule,\n        so the field is omitted from the canonical form at that value.\n    subject_rule: ``match_key`` of the entity rule that resolved the\n        subject. ``None`` chooses subjects by ``subject_entity_class``.\n        Hash-transparent at ``None`` (``D-IMPL-243``), as ``predicate_key``.\n    object_rule: ``match_key`` of the entity rule that resolved the\n        object. ``None`` chooses objects by ``object_entity_class``.\n        Hash-transparent at ``None`` (``D-IMPL-243``), as ``predicate_key``.",
       "properties": {
         "object_entity_class": {
           "title": "Object Entity Class",
           "type": "string"
+        },
+        "object_rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "ccf_hash_transparent": true,
+          "default": null,
+          "title": "Object Rule"
+        },
+        "predicate_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "ccf_hash_transparent": true,
+          "default": null,
+          "title": "Predicate Key"
         },
         "relationship_type": {
           "title": "Relationship Type",
@@ -51,6 +77,19 @@
         "subject_entity_class": {
           "title": "Subject Entity Class",
           "type": "string"
+        },
+        "subject_rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "ccf_hash_transparent": true,
+          "default": null,
+          "title": "Subject Rule"
         }
       },
       "required": [

@@ -22,12 +22,17 @@ carries — before any door is changed.
 The two ruled constraints
 -------------------------
 **(a) Every refusal kind crosses without flattening.** The fabric declares
-sixteen of them across three families: the ``GateRefusal`` hierarchy
-(:mod:`ccf.products.gates`), the peering-admission refusals that derive from it
+twenty of them: the ``GateRefusal`` hierarchy
+(:mod:`ccf.products.gates`, including the declared-obligations refusal of
+``24.5-L-14`` / ``24.5-L-26`` and the empty-operator gate's returned-empty
+half of ``24.5-L-24``), the peering-admission refusals that derive from it
 (:mod:`ccf.peering.admission`), the product-mount refusal that derives from it
 (:mod:`ccf.graph.product_source`), the two request/payload conformity verdicts
-(:mod:`ccf.products.request`, :mod:`ccf.products.payload`), and the assembly
-mixing refusal (:mod:`ccf.products.composition`). If the envelope lost *which
+(:mod:`ccf.products.request`, :mod:`ccf.products.payload`), the pre-assembly
+anchor-ambiguity refusal beside them (:mod:`ccf.products.request`,
+``24.5-L-16``), the assembly mixing refusal (:mod:`ccf.products.composition`),
+and the assembly-time refusal returned as a value
+(:mod:`ccf.agents.errors`, ``24.5-L-11``). If the envelope lost *which
 kind* a refusal was, a client's ``refusal.reason`` would become mush and the
 auditable-refusal guarantee would die at the seam. So ``kind`` is a required
 member sourced from :data:`REFUSAL_KINDS`, and every field a refusal type
@@ -78,6 +83,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Final
 
+from ccf.agents.errors import AssemblyRefusal
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.graph.product_source import ProductMountRefusal
@@ -93,14 +99,16 @@ from ccf.products.composition import MixingRefusal
 from ccf.products.contract import ProductLineage
 from ccf.products.gates import (
     AttestationRefusal,
+    DeclaredObligationRefusal,
     EmptyOperatorRefusal,
+    EmptyResultRefusal,
     GateRefusal,
     LineageAttributionRefusal,
     LineageMismatchRefusal,
     TTLRefusal,
 )
 from ccf.products.payload import PayloadSchemaViolation
-from ccf.products.request import ProductRequestViolation
+from ccf.products.request import AnchorAmbiguityRefusal, ProductRequestViolation
 
 __ccf_mode__ = "algorithmic"
 
@@ -219,14 +227,23 @@ class RefusalEnvelope(CCFContract):
 #: allowlists below. A type added to the tree and not added here fails the
 #: build; a token declared here whose type no longer ships fails it too.
 REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
-    # The three-gate family (whitepaper §7.6), and the additive attestation
-    # gate beside it.
+    # The three-gate family (whitepaper §7.6), the additive attestation
+    # gate beside it, and the ONE structural declared-obligations gate
+    # D-IMPL-237 licenses (24.5-L-14, 24.5-L-26) — the kind the HTTP door
+    # maps to the Standard's 409. The empty-operator gate's two halves are
+    # two kinds (24.5-L-24): a product that DECLARED no operators, and an
+    # operator that RETURNED an empty set. `empty-result-refusal` was chosen
+    # over `empty-operator-result-refusal` because neither of the pair is a
+    # substring of the other under the closure gate's rule, and the shorter
+    # name reads as what it is.
     GateRefusal: "gate-refusal",
     EmptyOperatorRefusal: "empty-operator-refusal",
+    EmptyResultRefusal: "empty-result-refusal",
     LineageMismatchRefusal: "lineage-mismatch-refusal",
     LineageAttributionRefusal: "lineage-attribution-refusal",
     TTLRefusal: "ttl-refusal",
     AttestationRefusal: "attestation-refusal",
+    DeclaredObligationRefusal: "declared-obligation-refusal",
     # The peering-admission family, which derives from the gate family rather
     # than paralleling it (CLAUDE.md §7.2).
     AdmissionRefusal: "admission-refusal",
@@ -238,11 +255,19 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     # The mount refusal, on the same derivation argument.
     ProductMountRefusal: "product-mount-refusal",
     # The two conformity verdicts — named for what they are rather than for
-    # the gate family they deliberately do not join.
+    # the gate family they deliberately do not join — and, beside them, the
+    # pre-assembly refusal for an anchor that resolves to more than one
+    # entity (24.5-L-16). The SDK names the kind; who is ambiguous, and what a
+    # product does about it, stays the product's.
     ProductRequestViolation: "product-request-violation",
     PayloadSchemaViolation: "payload-schema-violation",
+    AnchorAmbiguityRefusal: "anchor-ambiguity-refusal",
     # The assembly-time mixing rule, which is not a fourth gate.
     MixingRefusal: "mixing-refusal",
+    # The assembly-time refusal returned as a value — the exception of the
+    # same name stays a raise (24.5-L-11). A second channel beside
+    # `AssemblyRefused`, never a translation of it: no door catches the raise.
+    AssemblyRefusal: "assembly-refusal",
 }
 
 #: ``…Refusal``-named contracts under ``src/`` that are **not** product
@@ -298,8 +323,12 @@ NON_VALUE_VIOLATIONS: Final[frozenset[str]] = frozenset(
 #:
 #: Private: it is a statement about *when* the fabric reaches a refusal, not a
 #: second vocabulary, and it is not part of this module's exported surface.
+#:
+#: :class:`~ccf.products.request.AnchorAmbiguityRefusal` joined in ``24.5-L-16``:
+#: an anchor resolves before the graph is touched, so offering it a lineage is
+#: the same false claim.
 _PRE_ASSEMBLY_REFUSALS: Final[frozenset[type[CCFContract]]] = frozenset(
-    {ProductRequestViolation}
+    {ProductRequestViolation, AnchorAmbiguityRefusal}
 )
 
 

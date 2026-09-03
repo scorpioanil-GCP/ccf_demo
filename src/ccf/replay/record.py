@@ -59,11 +59,19 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Final
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import canonical_bytes, content_hash
-from ccf.graph.protocols import SourceAttestation
+from ccf.contracts.canonical import (
+    HASH_TRANSPARENT_KEY,
+    canonical_bytes,
+    content_hash,
+)
+from ccf.graph.protocols import (
+    NO_STORE_SNAPSHOT_PIN,
+    SourceAttestation,
+    StoreSnapshotPin,
+)
 from ccf.graph.registry import AdapterPin
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
@@ -217,6 +225,22 @@ class ContextFabricSnapshot(CCFContract):
             source attestation existed" — or an execution against a
             pre-phase reader that reported none — asserted, never inferred
             from silence, exactly as every sentinel default in this record.
+        store_snapshot_pin: The substrate's transaction-time head the
+            execution read under (ledger row 24.5-L-02, D-IMPL-240) — the
+            :class:`~ccf.graph.protocols.StoreSnapshotPin` the engine took
+            once before its first query, pinned verbatim so replay resolves
+            **exactly** this state or refuses (CLAUDE.md §7.4: exact
+            versions, never "latest"). Recorded beside ``temporal_boundary``
+            and never inside it (D-IMPL-88).
+            :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN` is the positive
+            assertion "this substrate exposes no native pin" — a record
+            written before the field existed, or an execution over a reader
+            that cannot pin — asserted, never inferred from silence, exactly
+            as ``source_attestation``'s ``None``. Hash-transparent at the
+            sentinel (``D-IMPL-243``): a record written before this field
+            existed carries the same dimension-1 bytes, so the field is
+            omitted from the canonical form at that value and rendered at
+            any real pin.
     """
 
     graph_snapshot_id: str
@@ -226,6 +250,9 @@ class ContextFabricSnapshot(CCFContract):
     touched_entities: tuple[str, ...]
     touched_relationships: tuple[str, ...]
     source_attestation: SourceAttestation | None = None
+    store_snapshot_pin: StoreSnapshotPin = Field(
+        default=NO_STORE_SNAPSHOT_PIN, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @classmethod
     def build(
@@ -237,6 +264,7 @@ class ContextFabricSnapshot(CCFContract):
         touched_entities: tuple[str, ...],
         touched_relationships: tuple[str, ...],
         source_attestation: SourceAttestation | None = None,
+        store_snapshot_pin: StoreSnapshotPin = NO_STORE_SNAPSHOT_PIN,
     ) -> "ContextFabricSnapshot":
         """Derive the snapshot id from the state it identifies.
 
@@ -252,6 +280,15 @@ class ContextFabricSnapshot(CCFContract):
         The attestation is pinned beside the id and is covered by the
         record's own content address, so it is tamper-evident without being
         identity-bearing.
+
+        ``store_snapshot_pin`` (24.5-L-02) is deliberately **not** an id
+        constituent either, for the same reason: the id identifies graph
+        *state*, and this keeps the re-derived id comparable across records
+        written before and after the field existed. The pin is pinned beside
+        the id, is inside the record's content address (tamper-evident), and
+        :func:`~ccf.replay.engine.replay` compares it separately — a pin that
+        moved between record and rehydration is
+        :class:`~ccf.replay.engine.ReplayDivergence`.
         """
         return cls(
             graph_snapshot_id=content_hash(
@@ -269,6 +306,7 @@ class ContextFabricSnapshot(CCFContract):
             touched_entities=touched_entities,
             touched_relationships=touched_relationships,
             source_attestation=source_attestation,
+            store_snapshot_pin=store_snapshot_pin,
         )
 
 
@@ -914,6 +952,10 @@ def build_replay_record(
             touched_entities=execution.touched_entities(),
             touched_relationships=execution.touched_relationships(),
             source_attestation=execution.source_attestation,
+            # 24.5-L-02: the head the engine read under, into dimension 1
+            # exactly where the attestation goes and for the same reason —
+            # replay resolves this pin, never the head now.
+            store_snapshot_pin=execution.store_snapshot_pin,
         ),
         policy_bindings=PolicyBindingsSnapshot(
             bindings=policy_bindings,

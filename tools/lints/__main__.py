@@ -1,4 +1,4 @@
-"""`python -m tools.lints` — the blocking CI gate for CINV-01/02/03/04 (D-07).
+"""`python -m tools.lints` — the blocking CI gate for CINV-01/02/03/04/06 (D-07).
 
 Walks the linted trees (`src/`, `runtime/`, `examples/`, `tests/`), derives
 each file's dotted module name from its path, runs the selected checkers,
@@ -7,12 +7,17 @@ exits nonzero if anything does. Not every rule runs over every tree — see
 `RULE_TREE_SCOPE`.
 
 Most checkers are **per-file AST** checkers, invoked once per Python module.
-One — `citations` — is a **whole-tree text** checker: a citation is a claim
-about a *second* file, so it cannot be decided from one module's AST, and it
-lives in prose (Markdown, YAML comments, docstrings) as much as in code. It is
-registered in `WHOLE_TREE_CHECKERS`, carries its own tree scope, and reports
-in the same `path:line rule message` format, so the gate signal stays one exit
-code.
+Two are **whole-tree** checkers, registered in `WHOLE_TREE_CHECKERS`, each
+carrying its own tree scope and reporting in the same `path:line rule
+message` format so the gate signal stays one exit code. `citations` is a
+whole-tree **text** checker: a citation is a claim about a *second* file, so
+it cannot be decided from one module's AST, and it lives in prose (Markdown,
+YAML comments, docstrings) as much as in code. `hash-transparent-key`
+(CINV-06, D-IMPL-243 amendments 1 and 2) is a whole-tree **AST** checker:
+subclassing crosses files, so which classes are `CCFContract`s is a
+tree-level fact; its universe is bounded by a committed base roster
+(`tools/lints/hash_transparent_base_roster.json`, measured at `13bd250`)
+rather than by a tree scope.
 
 Exit code is the only gate signal. There is deliberately no report-only,
 warning-only, or `--exit-zero` mode: D-07 requires the lints to block from the
@@ -60,6 +65,7 @@ from tools.lints import (
     backend_imports,
     citations,
     harness_imports,
+    hash_transparent_key,
     no_hardcoding,
     orchestration_imports,
     substrate_names,
@@ -196,6 +202,7 @@ CHECKERS: dict[str, Checker] = {
 #: what a check does not cover is stated, not left to path accident.
 WHOLE_TREE_CHECKERS: dict[str, TreeChecker] = {
     "citations": citations.check_tree,
+    "hash-transparent-key": hash_transparent_key.check_tree,
 }
 
 
@@ -307,6 +314,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="append_const",
         const="citations",
         help="cross-file citation drift (tools/lints/citations.py)",
+    )
+    parser.add_argument(
+        "--hash-transparent-key",
+        dest="selected",
+        action="append_const",
+        const="hash-transparent-key",
+        help=(
+            "CINV-06 every defaulted CCFContract field new since 13bd250"
+            " declares ccf_hash_transparent (D-IMPL-243 amendments 1 and 2)"
+        ),
     )
     parser.add_argument(
         "--report",

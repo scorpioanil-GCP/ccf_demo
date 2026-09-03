@@ -53,13 +53,18 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime
 
+from pydantic import Field
+
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.graph.protocols import (
+    NO_STORE_SNAPSHOT_PIN,
     GraphQuery,
     GraphReader,
     GraphView,
+    SnapshotPinnable,
     SourceAttestation,
+    StoreSnapshotPin,
 )
 from ccf.operators.base import OperatorOutput, OperatorProvenance
 from ccf.operators.planner import IntermediateCache, build_operator_plan
@@ -174,6 +179,45 @@ class ExecutionResult(CCFContract):
             the compatibility posture (D-09).
             :func:`~ccf.replay.record.build_replay_record` pins this value
             into replay dimension 1.
+        store_snapshot_pin: The substrate's transaction-time head **as read
+            once before the first query of this execution** (ledger row
+            24.5-L-02, D-IMPL-240): a fact about the read, so it is taken
+            before anything is read — a pin taken afterward would describe
+            whatever head the store had reached by then, not the state the
+            queries saw. Threaded unconditionally by
+            :meth:`ProjectionEngine.execute` from a reader that is
+            :class:`~ccf.graph.protocols.SnapshotPinnable`;
+            :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN` is the positive
+            assertion that the reader exposes no native pin — every reader
+            shipped before the Protocol existed, and a result built by hand
+            without the field. The resolver copies it onto
+            :attr:`~ccf.products.contract.ProductLineage.store_snapshot_pin`
+            and :func:`~ccf.replay.record.build_replay_record` pins it into
+            replay dimension 1, where replay resolves exactly it or refuses.
+            Hash-transparent at the sentinel under ``D-IMPL-243`` amendment
+            2: this result is never content-hashed, so the mark is inert
+            today, and if the model ever lands on a hashed path the sentinel
+            reads as absent — the copy on the product lineage carries the
+            same tick.
+        empty_results: The operator keys whose output view carried zero
+            entities AND zero relationships (ledger row ``24.5-L-24``) —
+            the Standard's *an operator returned an empty set*, observed by
+            the thing that ran it. Computed ALWAYS by
+            :meth:`ProjectionEngine.execute`, one inspection of each
+            operator's :class:`~ccf.operators.base.OperatorOutput` view as
+            it is produced, so the empty set is the engine's positive
+            assertion *no operator returned empty* and not a sentinel for
+            absence — an engine execution always observes this. The
+            governed resolver threads it to
+            :func:`~ccf.products.gates.run_gates` as ``empty_results``,
+            where the second half of the empty-operator gate
+            (:data:`~ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT`) refuses
+            a non-empty set by name; a result built by hand without the
+            field carries the empty set and passes. Hash-transparent at the
+            empty set under ``D-IMPL-243`` amendment 2, on the same footing
+            as ``store_snapshot_pin``: never content-hashed, the mark is
+            inert until the model is, and the empty set then reads as
+            absent.
     """
 
     plan_id: str
@@ -186,6 +230,12 @@ class ExecutionResult(CCFContract):
     executed_queries: tuple[GraphQuery, ...] = ()
     survivor_cap: int | None = None
     source_attestation: SourceAttestation | None = None
+    store_snapshot_pin: StoreSnapshotPin = Field(
+        default=NO_STORE_SNAPSHOT_PIN, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    empty_results: frozenset[str] = Field(
+        default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     def touched_entities(self) -> tuple[str, ...]:
         """Entity URIs the execution actually touched, sorted."""
@@ -298,6 +348,22 @@ class ProjectionEngine:
         if attestation is None or isinstance(attestation, SourceAttestation):
             return attestation
         return None
+
+    def _reader_snapshot_pin(self) -> StoreSnapshotPin:
+        """The reader's store-native head pin, or the sentinel for one that cannot pin.
+
+        The pin analogue of :meth:`_reader_attestation` (ledger row
+        24.5-L-02, D-IMPL-240), and tolerant for the same reason: pinning is
+        a structural Protocol (:class:`~ccf.graph.protocols.SnapshotPinnable`),
+        so a reader that does not implement it has nothing to add and an
+        engine that crashed on it would be a behavior break. Such a reader
+        yields :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN` — the
+        positive claim "this substrate exposes no native pin" — and replay
+        dimension 1 records exactly that.
+        """
+        if isinstance(self._reader, SnapshotPinnable):
+            return self._reader.snapshot_pin()
+        return NO_STORE_SNAPSHOT_PIN
 
     def check_source_attestation(
         self, *, product_class: RegisteredProductClass
@@ -509,9 +575,18 @@ class ProjectionEngine:
         chain: tuple[OperatorProvenance, ...] = ()
         executed_queries: list[GraphQuery] = []
         survivor_sizes: list[int] = []
+        # 24.5-L-24: the operator keys whose output carried nothing — read
+        # off each OperatorOutput once, as it is produced, never off the
+        # payload. Always computed; the empty set is a positive assertion.
+        empty_results: set[str] = set()
         self._last_survivor_set_sizes = ()
         survivors: frozenset[str] | None = None
         view: GraphView | None = None
+        # Read ONCE, before the first ``reader.query()`` of this execution
+        # (24.5-L-02): the pin is a fact about the read, and a pin taken
+        # after the queries would describe a later head, not the state the
+        # queries saw. The sentinel for a reader that cannot pin.
+        store_snapshot_pin = self._reader_snapshot_pin()
 
         def run_operators(
             operator_keys: tuple[str, ...], current: GraphView
@@ -529,6 +604,8 @@ class ProjectionEngine:
                 )
                 current = output.view
                 outputs[operator.key] = output
+                if not output.view.entities and not output.view.relationships:
+                    empty_results.add(operator.key)
                 chain = (output.provenance,)
                 steps.append(
                     ExecutionStep(
@@ -631,4 +708,8 @@ class ProjectionEngine:
             # which run_gates then refuses on and replay dimension 1 pins
             # (D-09; T-15.2-25).
             source_attestation=self._reader_attestation(),
+            # The head read before the first query, not re-read here: a
+            # second read could report a head the queries never saw.
+            store_snapshot_pin=store_snapshot_pin,
+            empty_results=frozenset(empty_results),
         )

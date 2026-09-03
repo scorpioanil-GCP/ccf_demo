@@ -128,7 +128,7 @@ def test_the_registered_rule_set_is_exactly_these_seven() -> None:
         "backend-imports",
         "substrate-names",
     }
-    assert set(WHOLE_TREE_CHECKERS) == {"citations"}
+    assert set(WHOLE_TREE_CHECKERS) == {"citations", "hash-transparent-key"}
 
 
 def test_both_new_rules_are_scoped_in_config_not_by_accident() -> None:

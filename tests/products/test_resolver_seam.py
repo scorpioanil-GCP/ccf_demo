@@ -48,6 +48,7 @@ fixture deployment under ``tests/deployment/``, reached through a real
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import pathlib
 from collections.abc import Iterator, Mapping
@@ -65,6 +66,7 @@ from ccf.deployment import BootedFabric, load_and_boot
 from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 from ccf.products.contract import ContextProductContract
+from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import (
@@ -79,6 +81,7 @@ from tests.deployment.conftest import (
     ARTIFACT_SET,
     POLICY_BUNDLE_KEY,
     PRODUCT_CLASS_KEY,
+    SIGNAL_BATCH_KEY,
     TENANT,
     TRAVERSAL_KEY,
     manifest_document,
@@ -101,6 +104,10 @@ REQUEST_CONTRACT_CLASS_ID = "fixture.request-contract"
 
 #: The one declared parameter, and the only thing two calls differ by.
 THRESHOLD_PARAMETER = "revenue_threshold"
+
+#: The ceiling the `booted_with_ceiling` class declares (`24.5-L-14`). A
+#: fixture figure, authored in this module's own document and nowhere in `src/`.
+CEILING_DECLARED = "0.5"
 
 #: The product class the fixture deployment declares, and its lane.
 PRODUCT_CLASS = "fixture.manifest-product"
@@ -296,11 +303,50 @@ def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     it with the shipped constructor rather than a hand-build — the ordinary
     authoring shape, not a convenience.
     """
+    yield from _boot(tmp_path)
+
+
+@pytest.fixture
+def booted_with_ceiling(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """The same deployment, with the class declaring a ``D_c`` ceiling and the
+    request contract declaring the Standard's universal ``debt_tolerance``.
+
+    The number is authored HERE, in a test-side document, never in ``src/``
+    (CINV-01): ``0.5`` is a fixture figure. This is the deployment WR-02 needs
+    — a ceiling that is live, so a tolerance the boundary lets through would
+    reach ``effective_debt_ceiling`` and be visible as a ``409``.
+    """
+    product_class = copy.deepcopy(
+        next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY)
+    )
+    product_class["serve_obligations"] = {"debt_ceiling": CEILING_DECLARED}
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    request_contract["declaration"]["arguments"]["properties"][
+        DEBT_TOLERANCE_PARAMETER
+    ] = {"type": "number", "description": "Fixture tolerance; a proportion."}
+    yield from _boot(
+        tmp_path, product_class=product_class, request_contract=request_contract
+    )
+
+
+def _boot(
+    tmp_path: pathlib.Path,
+    *,
+    product_class: dict[str, Any] | None = None,
+    request_contract: dict[str, Any] | None = None,
+) -> Iterator[_Booted]:
+    """The one boot, so the two fixtures cannot drift into two deployments."""
     root = tmp_path / "deployment"
     root.mkdir()
-    for _key, filename, _class_id, _role, _registration, document in ARTIFACT_SET:
+    for key, filename, _class_id, _role, _registration, document in ARTIFACT_SET:
+        if key == PRODUCT_CLASS_KEY and product_class is not None:
+            document = product_class
         write_artifact(root, filename, document)
-    write_artifact(root, "request-contract.yaml", REQUEST_CONTRACT_DOCUMENT)
+    write_artifact(
+        root,
+        "request-contract.yaml",
+        REQUEST_CONTRACT_DOCUMENT if request_contract is None else request_contract,
+    )
     body = manifest_document()
     body["artifacts"] = [
         *body["artifacts"],
@@ -319,6 +365,19 @@ def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
         registry=control_plane,
         connection={"database_path": str(tmp_path / "resolver-seam.sqlite3")},
     )
+    # 24.5-L-24: the fixture ingests the deployment's OWN signal batch (the
+    # one `acct-1` envelope `tests/deployment` ships, an hour before
+    # `ASKED_AT`) so the traversal has something to assemble. Until the
+    # empty-operator gate's returned-empty half existed, this fixture served
+    # over an EMPTY fabric — `"assembled": 0` — which
+    # `ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT` now refuses by name
+    # through the governed resolver. The seam under test is the composition
+    # (assemble → gate → serve, and its refusal legs), not emptiness; the
+    # success leg stays a success leg by carrying one entity, and the
+    # refusal legs below force the gate they name on a candidate that
+    # passed the two empty-operator halves.
+    for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
+        fabric.handle.worker.ingest(envelope)
     try:
         yield _Booted(
             fabric=fabric,
@@ -428,6 +487,54 @@ def test_the_request_refusal_leg_never_reads_the_graph(booted: _Booted) -> None:
     )
 
 
+def test_a_tolerance_that_is_not_a_proportion_is_refused_at_the_boundary_not_as_a_409(
+    booted_with_ceiling: _Booted,
+) -> None:
+    """WR-02 (Dave, 2026-09-02): a negative ``debt_tolerance`` is refused BY NAME at the boundary and never coerces the serve into a ``409``.
+
+    The class declares a ceiling and the fixture scorer measures ``D_c = 0``,
+    so before this ruling ``-1`` reached ``effective_debt_ceiling`` as a
+    "tightening", every product was refused ``declared-obligation-refusal``
+    and ``declared`` read ``"-1"`` — a number no class declared. Now the
+    request-conformity verdict names the parameter, carries no lineage
+    (the graph was never touched), and the ``409`` family is never reached.
+
+    Sabotage: restore acceptance of ``-1`` in ``refuse_request`` and this
+    goes RED on the first assertion with ``kind == "declared-obligation-refusal"``.
+    """
+    outcome = _ask(
+        _resolver(booted_with_ceiling),
+        _request(parameters={THRESHOLD_PARAMETER: 1000, DEBT_TOLERANCE_PARAMETER: -1}),
+    )
+
+    assert isinstance(outcome, RefusalEnvelope)
+    assert outcome.kind == "product-request-violation", outcome
+    assert outcome.reason == "not-a-proportion"
+    assert outcome.key == DEBT_TOLERANCE_PARAMETER
+    assert outcome.pre_assembly_lineage is None
+    assert "-1" not in outcome.fields.get("declared", "")
+
+
+def test_a_proportion_tolerance_still_reaches_the_live_ceiling(
+    booted_with_ceiling: _Booted,
+) -> None:
+    """The control for the test above: the ceiling class is LIVE, and a conformant tolerance is honored.
+
+    ``D_c = 0`` under a tolerance of ``0`` serves (``0 > 0`` is false), so the
+    served leg proves the boundary let a proportion through; the ceiling
+    itself is proven live by the sibling structural-gate tests, and by the
+    fact that a bypassed boundary turns the test above into a ``409``.
+    """
+    outcome = _ask(
+        _resolver(booted_with_ceiling),
+        _request(
+            parameters={THRESHOLD_PARAMETER: 1000, DEBT_TOLERANCE_PARAMETER: Decimal("0")}
+        ),
+    )
+
+    assert isinstance(outcome, ServedProduct), outcome
+
+
 def test_the_success_leg_does_read_the_graph(booted: _Booted) -> None:
     """The control for the test above — a guard that cannot fire proves nothing.
 
@@ -458,6 +565,22 @@ def test_an_answerable_question_yields_a_served_product(booted: _Booted) -> None
     assert outcome.product.expires_at == ASKED_AT + timedelta(
         seconds=PRODUCT_TTL_SECONDS
     )
+
+
+def test_the_success_leg_assembles_the_fixtures_own_entity(booted: _Booted) -> None:
+    """The positive control for the seeded fixture (``24.5-L-24``).
+
+    The success leg is a success leg because the traversal assembled the ONE
+    entity the deployment's own signal batch carries — not because the
+    returned-empty half of the empty-operator gate was bypassed. A fixture
+    that went green with ``"assembled": 0`` would mean the resolver stopped
+    threading ``execution.empty_results`` into ``run_gates``, which is the
+    one repair this seeding must never stand in for.
+    """
+    outcome = _ask(_resolver(booted), _request())
+
+    assert isinstance(outcome, ServedProduct)
+    assert outcome.product.payload["assembled"] == 1
 
 
 def test_the_served_products_replay_reference_resolves(booted: _Booted) -> None:

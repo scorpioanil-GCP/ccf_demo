@@ -1,4 +1,4 @@
-"""CCF invariant lints — CINV-01/02/03/04 and friends (SDK-defined; CLAUDE.md §6.4, §7.3, §11).
+"""CCF invariant lints — CINV-01/02/03/04/06 and friends (SDK-defined; CLAUDE.md §6.4, §7.3, §7.4, §11).
 
 Stdlib-only checkers, hand-rolled per D-06 (no plugin framework), run as one
 blocking CI gate per D-07 (`python -m tools.lints --all`):
@@ -12,6 +12,12 @@ blocking CI gate per D-07 (`python -m tools.lints --all`):
   under one walk (D-IMPL-93 property (2))
 * ``orchestration_imports``  — D-06, the orchestration/adapters split
 * ``citations``              — cross-file citation drift (SDK-defined)
+* ``hash_transparent_key``   — CINV-06, every sentinel-defaulted ``CCFContract``
+  field NEW since ``13bd250`` declares ``ccf_hash_transparent`` (D-IMPL-243
+  amendments 1 and 2; §7.4). Its universe is bounded by the committed base
+  roster ``hash_transparent_base_roster.json``, generated and drift-checked
+  by ``base_roster.py`` (``--check``); CINV-05 is reserved by D-GATE-15.4
+  ruling (3).
 
 The first six are **per-file AST** checkers and expose the same pair of
 entrypoints, so the runner can treat them uniformly::
@@ -24,13 +30,15 @@ vocabulary is read from the adapter package on disk, and a test pinning a
 synthetic package needs to say which disk. The positional pair is unchanged, so
 it registers in ``CHECKERS`` like any other per-file checker.
 
-``citations`` is the one **whole-tree text** checker — a citation is a claim
-about a *second* file and lives in prose as much as in code, so it takes the
-repo root instead::
+``citations`` and ``hash_transparent_key`` are the two registered
+**whole-tree** checkers and take the repo root instead — a citation is a
+claim about a *second* file and lives in prose as much as in code; a
+``CCFContract`` subclass is a fact about the whole tree because subclassing
+crosses files::
 
     check_tree(base: Path) -> list[str]
 
-All seven agree on the finding format: ``"{path}:{lineno} {rule} {message}"``.
+All eight agree on the finding format: ``"{path}:{lineno} {rule} {message}"``.
 The rule token is always the second whitespace-separated field; the runner and
 the allowlist both key off it — and only ``no_hardcoding`` findings are ever
 offered to the allowlist (D-13).

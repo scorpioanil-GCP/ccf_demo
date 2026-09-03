@@ -290,6 +290,19 @@ _REACHED = (
     "CASE WHEN c.subject_uri = w.uri THEN c.object_uri ELSE c.subject_uri END"
 )
 
+#: The recursive term's join, ONE per direction (`GQ-10` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:201, semantics version 1.2.0; ledger row
+#: 24.5-L-06). Under ``direction="undirected"`` an edge is crossable from
+#: either endpoint; under ``direction="forward"`` only from its stored
+#: ``subject_uri``. ``direction`` chooses between these two code-authored
+#: constants in Python — it is never rendered into statement text (threat
+#: T-24.5-12) — and ``_REACHED`` above is unchanged: under the forward join
+#: its CASE simply always takes the ``object_uri`` branch.
+_HOP_JOIN_UNDIRECTED = (
+    "      ON (c.subject_uri = w.uri OR c.object_uri = w.uri)\n"
+)
+_HOP_JOIN_FORWARD = "      ON c.subject_uri = w.uri\n"
+
 
 def _placeholders(count: int) -> str:
     """A generated ``%s`` list of ``count`` members — structure, never values."""
@@ -563,16 +576,23 @@ def _translated_statements(
         # types, and BOTH endpoints surviving — so an edge to an excluded
         # node is not a hop the walk can take, and a path through an
         # excluded node does not exist. Prune before walking, exactly the
-        # fallback's shape.
+        # fallback's shape. The join is chosen by `direction` (1.2.0;
+        # ledger row 24.5-L-06) between two constants — either endpoint
+        # under "undirected", the stored subject only under "forward" —
+        # a Python branch, never text (threat T-24.5-12).
         text.append(
             "  UNION\n"
             "    SELECT " + _REACHED + ",\n"
             "           w.depth + 1\n"
             "    FROM walk w\n"
             "    JOIN edges c\n"
-            "      ON (c.subject_uri = w.uri OR c.object_uri = w.uri)\n"
-            "    WHERE w.depth < %s\n"
         )
+        text.append(
+            _HOP_JOIN_FORWARD
+            if q.traverse.direction == "forward"
+            else _HOP_JOIN_UNDIRECTED
+        )
+        text.append("    WHERE w.depth < %s\n")
         # Depth is a bound parameter in SQL — the literal-inlining
         # exception is Cypher-only (plan 15.2-09).
         params.append(q.traverse.depth_limit)
@@ -586,6 +606,27 @@ def _translated_statements(
             # the closure is explicit in the term that expands the walk.
             clause, values = _in_clause(_REACHED, q.allowed_entities)
             text.append("      AND " + clause + "\n")
+            params += list(values)
+        if q.traverse.admitted_entity_classes is not None:
+            # Node-class admission on the REACHED node, honored natively
+            # (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, semantics
+            # version 1.1.0; ledger row 24.5-L-05): a hop lands only on a
+            # survivor whose class is admitted. Stated inside the recursive
+            # term so a path through an unadmitted node does not exist, and
+            # never on the base case — starts are selected by `GQ-11` and
+            # are not filtered by admission. The class list binds as
+            # parameters, appended in the same order the seed-class binder
+            # appends (threat T-24.5-10); an empty set renders the always-
+            # false clause, so no hop is admitted and the starts answer.
+            clause, values = _in_clause(
+                "(a.claim_json::jsonb ->> 'entity_class')",
+                q.traverse.admitted_entity_classes,
+            )
+            text.append(
+                "      AND " + _REACHED + " IN (\n"
+                "        SELECT a.entity_uri FROM survivors a\n"
+                "        WHERE " + clause + ")\n"
+            )
             params += list(values)
         text.append(")\n")
 
@@ -685,6 +726,17 @@ class PostgresGraphReader(BaseGraphReader):
         admissibility applied, ``allowed_entities`` membership applied.
         This dialect declines nothing: the classification attribute name
         binds as a bare jsonb key, so every well-formed query translates.
+        ``admitted_entity_classes`` (`GQ-10` at
+        docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0) is HONORED natively — a
+        class predicate on the reached survivor inside the recursive walk
+        term, the classes bound as parameters. ``direction`` (`GQ-10`,
+        1.2.0; ledger row ``24.5-L-06``) is HONORED natively: the recursive
+        term joins the crossable set from either endpoint under
+        ``"undirected"`` and from the stored subject only under
+        ``"forward"`` — a Python choice between :data:`_HOP_JOIN_FORWARD`
+        and :data:`_HOP_JOIN_UNDIRECTED`, never a value in statement text —
+        and the differential suite holds the answer to the fallback over
+        ``tests/conformance/query_corpus.py::direction_cases``.
         """
         if q.allowed_entities is not None and not q.allowed_entities:
             # The empty survivor set IS the answer (`GQ-04` at

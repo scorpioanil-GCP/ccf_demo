@@ -154,7 +154,12 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.debt_scorer import AssemblyDebtScorer, DeclaredFactor
-from ccf.products.gates import ServableProduct, run_gates
+from ccf.products.gates import (
+    DEBT_TOLERANCE_PARAMETER,
+    ServableProduct,
+    effective_debt_ceiling,
+    run_gates,
+)
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
 from ccf.products.request import (
     ProductRequest,
@@ -726,11 +731,22 @@ class GovernedResolver:
                 operators_invoked=frozenset(required),
                 policy_bundle_versions=frozenset({policy_version}),
                 graph_snapshot_at=request.asked_at,
+                # 24.5-L-02: the head the engine read once before its first
+                # query, beside the temporal anchor and never inside it.
+                store_snapshot_pin=execution.store_snapshot_pin,
             ),
             payload=execution.projection.payload,
             debt=self.debt_scorer(view=execution.view),
         )
 
+        # 24.5-L-14 (D-IMPL-240 (3)): the class declares the ceiling; the
+        # request may only tighten it; an undeclared class is unaffected
+        # whatever the request says. Nothing about the principal or the
+        # perspective reaches this path (D-IMPL-105).
+        debt_tolerance = effective_debt_ceiling(
+            declared=registered.serve_obligations.debt_ceiling,
+            requested=request.parameters.get(DEBT_TOLERANCE_PARAMETER),
+        )
         gated = run_gates(
             candidate,
             engine_resolved=execution.operators_invoked,
@@ -738,6 +754,12 @@ class GovernedResolver:
             registry=self.control_plane,
             product_class=registered,
             source_attestation=execution.source_attestation,
+            debt_tolerance=debt_tolerance,
+            # 24.5-L-24: the engine's own record of which operators returned
+            # an empty set, so the empty-operator gate's second half can
+            # refuse by name. Only the governed resolver threads it; the
+            # engine-level call site keeps the compatibility default.
+            empty_results=execution.empty_results,
         )
         if not isinstance(gated, ServableProduct):
             # A refusal is a value, and it travels with the lineage the
@@ -851,6 +873,9 @@ class GovernedResolver:
             constituent_validity_floors=declaration.constituent_validity_floors,
             request_contract_key=self.request_contract_key,
             request_contract_version=request_contract_version,
+            # 24.5-L-14 / L-26: the declared obligations reach the gate off
+            # the registered value, exactly as the accepted modes do.
+            serve_obligations=declaration.serve_obligations,
         )
 
 

@@ -601,21 +601,33 @@ PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE = "required_operator_keys"
 #: be compared to itself. That is the tautology you already refused after
 #: 17-13."*
 #:
-#: **The three below are the whole roster, and the tree currently holds more
-#: claimants than that — deliberately.** ``cp-01``, ``cp-02`` and ``cp-03``
-#: arrived in phases 24.2 and 24.3 claiming this exemption with no ruling, and
-#: `D-IMPL-234` expressly did NOT rule them in: *"Dave raised the ceiling by
-#: ONE, for cp-04 ... each of the three needs its own sitting."* So
-#: :func:`test_the_one_document_exemption_has_not_spread` is RED on exactly
-#: those three names, that red is carved by `D-IMPL-234` with that number, and
-#: adding them here to make the suite green would be widening an exemption
-#: beyond what was granted — the precise failure the roster exists to refuse.
+#: **The six below are the whole roster.** ``cp-01``, ``cp-02`` and ``cp-03``
+#: arrived in Phases 24.2, 24.2.1 and 24.3 claiming this exemption with no
+#: ruling, and `D-IMPL-234` expressly did NOT rule them in: *"Dave raised the
+#: ceiling by ONE, for cp-04 ... each of the three needs its own sitting."*
+#: That sitting was the Phase 24.5 discuss sitting, ledger row ``24.5-L-45``,
+#: and `D-IMPL-239` is the ruling — Dave: *"Rule all three in, by name."* —
+#: written in the entry before this edit, which is exactly what "red until a
+#: human rules on it" above exists to force. All three arrived by the identical
+#: route ``cp-00`` (`D-66`) and ``cp-04`` (`D-IMPL-234`) took: one authored
+#: operator-set document, ``required=`` read from the product class's own
+#: claim, no ``ccf.projection-requirements`` registration — the shape
+#: `D-IMPL-137` names as legitimate. The carve `D-IMPL-234` cut into
+#: `D-GATE-24.4`'s suite-green sentence is discharged with `D-IMPL-239`: from
+#: Phase 24.5 on, a suite-green claim may not exclude
+#: :func:`test_the_one_document_exemption_has_not_spread` by number.
 RULED_ONE_DOCUMENT_DEPLOYMENTS: frozenset[str] = frozenset(
     {
         "examples/cp-00-institutional-holders",
         "examples/s1-00-companies-over-revenue",
         # D-IMPL-234 (Dave, 2026-09-01) — the gate-two closure for cp-04.
         "examples/cp-04-corporate-family-tree",
+        # D-IMPL-239 (Dave, 2026-09-02) — ruled in by name on ledger row 24.5-L-45.
+        "examples/cp-01-counterparty-reference-snapshot",
+        # D-IMPL-239 (Dave, 2026-09-02) — ruled in by name on ledger row 24.5-L-45.
+        "examples/cp-02-facility-terms-snapshot",
+        # D-IMPL-239 (Dave, 2026-09-02) — ruled in by name on ledger row 24.5-L-45.
+        "examples/cp-03-obligor-financial-spread",
     }
 )
 

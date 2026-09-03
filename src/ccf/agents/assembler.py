@@ -73,7 +73,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from pydantic import model_validator
 
 from ccf.agents.agent import Agent
-from ccf.agents.errors import AssemblyRefused
+from ccf.agents.errors import AssemblyRefusal, AssemblyRefused
 from ccf.products.request import (
     ProductRequestContract,
     ProductRequestViolation,
@@ -295,7 +295,7 @@ class ContextAssemblerProtocol(Protocol):
         request: ProductRequest,
         perspective: Perspective,
         tenant_id: str,
-    ) -> AssemblyOutcome | ProductRequestViolation:
+    ) -> AssemblyOutcome | ProductRequestViolation | AssemblyRefusal:
         """Assemble one answer to ``request`` for ``perspective``.
 
         Reads no clock: the instant is ``request.asked_at``, supplied by the
@@ -308,7 +308,12 @@ class ContextAssemblerProtocol(Protocol):
         honour: *a refusal returned as data cannot be swallowed by a bare*
         ``except``. An implementation that has decided the question does not
         conform to its declared contract returns the violation; it does not
-        raise one.
+        raise one. ``24.5-L-11`` widened the union once more, additively, by
+        :class:`~ccf.agents.errors.AssemblyRefusal` — the assembler's *own*
+        refusal (a tier it does not serve, a capability it lacks) as a value —
+        so that a conforming assembler can return it rather than raising
+        :class:`~ccf.agents.errors.AssemblyRefused` and having the verdict
+        reach a client as ``ToolError`` prose.
 
         **The boundary between the two channels, in one sentence:** a
         *governed* refusal — this question does not conform to the contract it

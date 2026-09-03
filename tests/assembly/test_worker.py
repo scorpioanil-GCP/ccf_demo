@@ -8,12 +8,22 @@ E and R under a stated temporal rule, with policy bound on the way in.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from pydantic import ValidationError
 
+from ccf.assembly.worker import (
+    NO_RESOLVING_RULE,
+    EntityResolutionRule,
+    EntityResolutionSpec,
+    RelationshipResolutionRule,
+    ResolvedEntity,
+    SpecDrivenEntityResolution,
+)
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneRegistry
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
@@ -261,3 +271,464 @@ def test_a_failed_boot_leaves_the_graph_bootable(
         assert handle.worker.policy_bundle_version == policy_version
     finally:
         handle.close()
+
+
+# ---------------------------------------------------------------------------
+# 24.5-L-21 — L2 mints a relationship only when the envelope selects it, and
+# never a self-loop. The cp-04 one-envelope shape (`24.4-D-35`) is reproduced
+# here as a fixture; `examples/` is not touched.
+# ---------------------------------------------------------------------------
+
+#: cp-04's six family predicates, as its `ccf_config.yaml` declared them at
+#: 2805803 — the twelve rules removed under `24.4-D-35` were these six, each
+#: once as anchor→member and once as member→member.
+FAMILY_PREDICATES = (
+    "owns",
+    "controls",
+    "isDirectlyConsolidatedBy",
+    "isUltimatelyConsolidatedBy",
+    "hasGlobalUltimateParent",
+    "hasDomesticUltimateParent",
+)
+LEI = "5493001KJTIIGC8Y1R12"
+PARENT_LEI = "529900T8BM49AURSDO55"
+
+
+def _two_class_spec(
+    *,
+    rules: tuple[RelationshipResolutionRule, ...],
+    member_key: str = "lei",
+    anchor_key: str = "lei",
+) -> EntityResolutionSpec:
+    """cp-04's resolution shape: two classes, ONE node under both.
+
+    Both entity rules match and identify on the same payload key by default,
+    so one envelope resolves one identity under ``family_anchor`` *and*
+    ``family_member`` — two URIs (the class is the scheme), one node. Passing a
+    different ``anchor_key`` makes the two rules resolve two distinct nodes.
+    """
+    return EntityResolutionSpec(
+        semver="1.0.0",
+        entity_rules=(
+            EntityResolutionRule(
+                match_key=anchor_key,
+                entity_class="family_anchor",
+                identity_keys=(anchor_key,),
+            ),
+            EntityResolutionRule(
+                match_key=member_key,
+                entity_class="family_member",
+                identity_keys=(member_key,),
+            ),
+        ),
+        relationship_rules=rules,
+    )
+
+
+def _cp04_twelve_rules(
+    *, predicate_key: str | None = None
+) -> tuple[RelationshipResolutionRule, ...]:
+    """The twelve rules cp-04 declared before `24.4-D-35` removed them."""
+    rules: list[RelationshipResolutionRule] = []
+    for predicate in FAMILY_PREDICATES:
+        rules.append(
+            RelationshipResolutionRule(
+                relationship_type=predicate,
+                subject_entity_class="family_anchor",
+                object_entity_class="family_member",
+                predicate_key=predicate_key,
+            )
+        )
+        rules.append(
+            RelationshipResolutionRule(
+                relationship_type=predicate,
+                subject_entity_class="family_member",
+                object_entity_class="family_member",
+                predicate_key=predicate_key,
+            )
+        )
+    return tuple(rules)
+
+
+def _parent_child_spec(
+    *, rules: tuple[RelationshipResolutionRule, ...]
+) -> EntityResolutionSpec:
+    """Two entity rules of ONE class on two payload keys — an edge envelope.
+
+    ``parent`` resolves ``parent_lei`` and ``child`` resolves ``lei``; both
+    mint ``family_member`` URIs, so any edge between them is member-to-member.
+    """
+    return EntityResolutionSpec(
+        semver="1.0.0",
+        entity_rules=(
+            EntityResolutionRule(
+                match_key="parent_lei",
+                entity_class="family_member",
+                identity_keys=("parent_lei",),
+            ),
+            EntityResolutionRule(
+                match_key="lei",
+                entity_class="family_member",
+                identity_keys=("lei",),
+            ),
+        ),
+        relationship_rules=rules,
+    )
+
+
+def _self_loops(handle: "FabricHandle") -> list[Any]:
+    view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
+    return [
+        r for r in view.relationships if r.claim.subject_uri == r.claim.object_uri
+    ]
+
+
+@pytest.fixture
+def spec_fabric() -> Iterator[Callable[[EntityResolutionSpec], "FabricHandle"]]:
+    """A factory booting a memory-backed fabric over a given resolution spec.
+
+    The session ``fabric`` fixture boots the banking spec; these tests need
+    their own vocabulary, so they boot their own graph and close it on
+    teardown.
+    """
+    from ccf.boot import boot
+
+    handles: list[FabricHandle] = []
+
+    def factory(spec: EntityResolutionSpec) -> "FabricHandle":
+        registry = ControlPlaneRegistry()
+        spec_version = registry.register(SPEC_KEY, spec)
+        policy_version = registry.register(POLICY_KEY, {"regime": "l-21"})
+        handle = boot(
+            backend="memory",
+            connection={},
+            registry=registry,
+            resolution_spec_key=SPEC_KEY,
+            resolution_spec_version=spec_version,
+            policy_bundle_key=POLICY_KEY,
+            policy_bundle_version=policy_version,
+        )
+        handles.append(handle)
+        return handle
+
+    try:
+        yield factory
+    finally:
+        for handle in reversed(handles):
+            handle.close()
+
+
+def test_one_node_under_two_classes_and_twelve_co_occurrence_rules_mints_no_self_loop(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """The cp-04 one-envelope case: no rule mints a self-loop (24.5-L-21).
+
+    MEASURED on the base tree (`phase-24.5-base` = 13bd250, worker untouched
+    at 55c2fe6) with exactly this fixture, before Task 1 of plan 24.5-10
+    landed::
+
+        rules=12 entities=2 relationships=12 view_relationships=12 self_loops=6
+
+    — the figure cp-04 recorded live under `24.4-D-35`. The six self-loops were
+    the member→member rules: one envelope resolves one ``family_member``, and
+    co-occurrence paired it with itself. After the fix the same fixture gives::
+
+        rules=12 entities=2 relationships=6 view_relationships=6 self_loops=0
+
+    The six that remain are the anchor→member rules, which join the node's
+    two URIs (``family_anchor://h`` and ``family_member://h``). They are what
+    co-occurrence by class means, and a rule with none of the selector fields
+    keeps that meaning unchanged (D-10) — the self-loop skip is the ONE
+    behavior every mode shares. The case that mints nothing at all is the
+    next test: rules that select their predicate, on an envelope that selects
+    none.
+    """
+    handle = spec_fabric(_two_class_spec(rules=_cp04_twelve_rules()))
+
+    result = handle.worker.ingest(envelope(payload={"lei": LEI}))
+
+    assert len(result.entities) == 2, "one node, two classes, two URIs"
+    assert _self_loops(handle) == [], "a self-loop was minted from one envelope"
+    view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
+    assert all(
+        r.claim.subject_uri != r.claim.object_uri for r in view.relationships
+    ), "self-loop present in the reader's view"
+    # The D-10 control, pinned: the six anchor→member co-occurrence edges are
+    # still minted, one per predicate, exactly as before the phase.
+    assert len(result.relationships) == 6
+    assert {r.claim.relationship_type for r in view.relationships} == set(
+        FAMILY_PREDICATES
+    )
+    assert all(
+        r.claim.subject_uri.startswith("family_anchor://")
+        and r.claim.object_uri.startswith("family_member://")
+        for r in view.relationships
+    )
+
+
+def test_the_cp_04_one_envelope_case_mints_nothing_the_envelope_did_not_select(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """Criterion 16's zero / zero: ingest mints only what the envelope selects.
+
+    The same twelve rules, now each declaring ``predicate_key="predicate"``,
+    and cp-04's actual node envelope — one node, no predicate — mint ZERO
+    relationships and ZERO self-loops. When the envelope does select a
+    predicate, exactly that predicate's rules are the only ones that fire;
+    the member→member one is still a self-loop and still skipped.
+    """
+    handle = spec_fabric(
+        _two_class_spec(rules=_cp04_twelve_rules(predicate_key="predicate"))
+    )
+
+    node = handle.worker.ingest(envelope(payload={"lei": LEI}))
+
+    assert len(node.entities) == 2
+    assert node.relationships == ()
+    assert handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT).relationships == ()
+
+    selected = handle.worker.ingest(
+        envelope(envelope_id="env-2", payload={"lei": LEI, "predicate": "owns"})
+    )
+
+    assert len(selected.relationships) == 1
+    view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
+    assert [r.claim.relationship_type for r in view.relationships] == ["owns"]
+    assert _self_loops(handle) == []
+
+
+def test_a_predicate_selector_rule_mints_only_the_selected_predicate(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """Twelve predicate-keyed rules, one envelope, exactly one edge.
+
+    Six predicates in two orderings: ``parent→child`` selected under the
+    payload key ``predicate``, ``child→parent`` under ``inverse_predicate``.
+    The envelope carries ``predicate: owns`` and no inverse, so eleven rules
+    are silent for the one reason the mechanism has — the envelope did not
+    select them: five by a value that names another predicate, six by a key
+    the envelope does not carry. The comparison is against each rule's own
+    ``relationship_type``, so a payload can never name a type no rule
+    declares (T-24.5-26).
+    """
+    rules: list[RelationshipResolutionRule] = []
+    for predicate in FAMILY_PREDICATES:
+        rules.append(
+            RelationshipResolutionRule(
+                relationship_type=predicate,
+                subject_entity_class="family_member",
+                object_entity_class="family_member",
+                predicate_key="predicate",
+                subject_rule="parent_lei",
+                object_rule="lei",
+            )
+        )
+        rules.append(
+            RelationshipResolutionRule(
+                relationship_type=predicate,
+                subject_entity_class="family_member",
+                object_entity_class="family_member",
+                predicate_key="inverse_predicate",
+                subject_rule="lei",
+                object_rule="parent_lei",
+            )
+        )
+    assert len(rules) == 12
+    handle = spec_fabric(_parent_child_spec(rules=tuple(rules)))
+
+    result = handle.worker.ingest(
+        envelope(payload={"lei": LEI, "parent_lei": PARENT_LEI, "predicate": "owns"})
+    )
+
+    assert len(result.entities) == 2
+    assert len(result.relationships) == 1
+    view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
+    assert len(view.relationships) == 1
+    edge = view.relationships[0].claim
+    assert edge.relationship_type == "owns"
+    by_key = {r.node_key: r for r in result.entities}
+    parent_uri, child_uri = edge.subject_uri, edge.object_uri
+    assert parent_uri in by_key and child_uri in by_key
+    strategy = SpecDrivenEntityResolution(spec=_parent_child_spec(rules=()))
+    resolved = {
+        item.resolved_by: item.entity_uri
+        for item in strategy.resolve(
+            envelope=envelope(payload={"lei": LEI, "parent_lei": PARENT_LEI})
+        )
+    }
+    assert (parent_uri, child_uri) == (resolved["parent_lei"], resolved["lei"]), (
+        "the edge runs parent→child, chosen by the entity rule that resolved each"
+    )
+
+    # A payload value naming a type no rule declares selects nothing.
+    stray = handle.worker.ingest(
+        envelope(
+            envelope_id="env-2",
+            payload={"lei": LEI, "parent_lei": PARENT_LEI, "predicate": "ownedBy"},
+        )
+    )
+    assert stray.relationships == ()
+
+
+def test_a_member_to_member_edge_is_expressible_from_one_envelope(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """Criterion 16's third clause: two entities of one class, one typed edge.
+
+    Under co-occurrence by class this was impossible — one envelope resolved
+    at most one ``family_member`` (`24.4-D-35`). With endpoint selectors the
+    rule picks the parent by the rule that resolved it and the child likewise,
+    and the edge joins two distinct URIs of the same class.
+    """
+    handle = spec_fabric(
+        _parent_child_spec(
+            rules=(
+                RelationshipResolutionRule(
+                    relationship_type="owns",
+                    subject_entity_class="family_member",
+                    object_entity_class="family_member",
+                    subject_rule="parent_lei",
+                    object_rule="lei",
+                ),
+            )
+        )
+    )
+
+    result = handle.worker.ingest(
+        envelope(payload={"lei": LEI, "parent_lei": PARENT_LEI})
+    )
+
+    assert len(result.entities) == 2
+    assert len(result.relationships) == 1
+    edge = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT).relationships[0].claim
+    assert edge.relationship_type == "owns"
+    assert edge.subject_uri != edge.object_uri
+    assert edge.subject_uri.startswith("family_member://")
+    assert edge.object_uri.startswith("family_member://")
+    assert _self_loops(handle) == []
+
+
+def test_an_endpoint_no_rule_claims_is_not_selectable(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A custom strategy that leaves ``resolved_by`` at the sentinel.
+
+    Its entities are reachable by class, so a co-occurrence rule still mints
+    between them; a rule selecting endpoints by rule finds nothing to choose,
+    because an endpoint no rule claims cannot be chosen by rule.
+    """
+    import ccf.boot
+
+    class _Unclaimed:
+        """Wraps the reference strategy and drops the resolving rule."""
+
+        def __init__(self, *, spec: EntityResolutionSpec) -> None:
+            self.spec = spec
+            self._inner = SpecDrivenEntityResolution(spec=spec)
+
+        def resolve(self, *, envelope: SignalEnvelope) -> tuple[ResolvedEntity, ...]:
+            return tuple(
+                ResolvedEntity(
+                    entity_uri=item.entity_uri,
+                    entity_class=item.entity_class,
+                    attributes=item.attributes,
+                )
+                for item in self._inner.resolve(envelope=envelope)
+            )
+
+    monkeypatch.setattr(ccf.boot, "SpecDrivenEntityResolution", _Unclaimed)
+    by_rule = RelationshipResolutionRule(
+        relationship_type="owns",
+        subject_entity_class="family_member",
+        object_entity_class="family_member",
+        subject_rule="parent_lei",
+        object_rule="lei",
+    )
+    by_class = RelationshipResolutionRule(
+        relationship_type="controls",
+        subject_entity_class="family_member",
+        object_entity_class="family_member",
+    )
+    handle = spec_fabric(_parent_child_spec(rules=(by_rule, by_class)))
+
+    result = handle.worker.ingest(
+        envelope(payload={"lei": LEI, "parent_lei": PARENT_LEI})
+    )
+
+    assert len(result.entities) == 2
+    view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
+    minted = sorted(r.claim.relationship_type for r in view.relationships)
+    assert "owns" not in minted, "a selector rule chose an entity no rule claims"
+    # By class, both orderings of the two distinct members mint (no self-loop).
+    assert minted == ["controls", "controls"]
+    assert _self_loops(handle) == []
+    # The sentinel is what the strategy left in place.
+    assert ResolvedEntity(
+        entity_uri="x://1", entity_class="x", attributes={}
+    ).resolved_by == NO_RESOLVING_RULE
+
+
+def test_co_occurrence_rules_still_mint_between_distinct_entities(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """The pre-phase control on the two-class spec (D-10).
+
+    A rule with none of the selector fields, over two DISTINCT nodes of two
+    classes, mints exactly the one edge co-occurrence always minted — and the
+    banking fixture's own test above (``obligor_of``) is untouched.
+    """
+    handle = spec_fabric(
+        _two_class_spec(
+            anchor_key="anchor_lei",
+            rules=(
+                RelationshipResolutionRule(
+                    relationship_type="owns",
+                    subject_entity_class="family_anchor",
+                    object_entity_class="family_member",
+                ),
+            ),
+        )
+    )
+
+    result = handle.worker.ingest(
+        envelope(payload={"anchor_lei": PARENT_LEI, "lei": LEI})
+    )
+
+    assert len(result.entities) == 2
+    assert len(result.relationships) == 1
+    edge = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT).relationships[0].claim
+    assert edge.relationship_type == "owns"
+    assert edge.subject_uri.startswith("family_anchor://")
+    assert edge.object_uri.startswith("family_member://")
+    assert edge.subject_uri != edge.object_uri
+
+
+def test_a_rule_with_no_selector_fields_is_the_pre_phase_rule() -> None:
+    """Additive over breaking: the three required fields still construct alone,
+    the three selectors default to ``None``, and a half endpoint selector is
+    refused rather than read as class-on-one-side."""
+    rule = RelationshipResolutionRule(
+        relationship_type="owns",
+        subject_entity_class="a",
+        object_entity_class="b",
+    )
+    assert (rule.predicate_key, rule.subject_rule, rule.object_rule) == (
+        None,
+        None,
+        None,
+    )
+    with pytest.raises(ValidationError, match="both of their fields or neither"):
+        RelationshipResolutionRule(
+            relationship_type="owns",
+            subject_entity_class="a",
+            object_entity_class="b",
+            subject_rule="a_key",
+        )
+    with pytest.raises(ValidationError, match="24.5-L-21"):
+        RelationshipResolutionRule(
+            relationship_type="owns",
+            subject_entity_class="a",
+            object_entity_class="b",
+            object_rule="b_key",
+        )

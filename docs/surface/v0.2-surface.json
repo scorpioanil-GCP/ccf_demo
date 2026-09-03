@@ -123,7 +123,7 @@
       },
       "DeterministicAssembler": {
         "kind": "class",
-        "shape": "(agent: 'Agent', projection: 'ProjectionOutput', acquisitions: 'tuple[AcquiredContent, ...]' = ()) -> None"
+        "shape": "(agent: 'Agent', projection: 'ProjectionOutput', acquisitions: 'tuple[AcquiredContent, ...]' = (), request_contract: 'ProductRequestContract | None' = None) -> None"
       },
       "EmittedEffect": {
         "kind": "contract",
@@ -322,7 +322,7 @@
       },
       "DeterministicAssembler": {
         "kind": "class",
-        "shape": "(agent: 'Agent', projection: 'ProjectionOutput', acquisitions: 'tuple[AcquiredContent, ...]' = ()) -> None"
+        "shape": "(agent: 'Agent', projection: 'ProjectionOutput', acquisitions: 'tuple[AcquiredContent, ...]' = (), request_contract: 'ProductRequestContract | None' = None) -> None"
       },
       "NO_CONSULTATIONS": {
         "kind": "constant",
@@ -508,6 +508,7 @@
     "__all__": [
       "AgentConstructionError",
       "AgentDefinitionError",
+      "AssemblyRefusal",
       "AssemblyRefused",
       "ConsumptionRefused",
       "FalseGrantClaimError",
@@ -524,6 +525,13 @@
       "AgentDefinitionError": {
         "kind": "class",
         "shape": "type"
+      },
+      "AssemblyRefusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "reason": "<class 'str'>"
+        }
       },
       "AssemblyRefused": {
         "kind": "class",
@@ -712,6 +720,7 @@
       "EntityResolutionStrategy",
       "FederatedIngestSpec",
       "IngestResult",
+      "NO_RESOLVING_RULE",
       "RelationshipResolutionRule",
       "ResolvedEntity",
       "SpecDrivenEntityResolution"
@@ -760,12 +769,19 @@
           "tenant_id": "<class 'str'>"
         }
       },
+      "NO_RESOLVING_RULE": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "RelationshipResolutionRule": {
         "kind": "contract",
         "shape": {
           "object_entity_class": "<class 'str'>",
+          "object_rule": "str | None",
+          "predicate_key": "str | None",
           "relationship_type": "<class 'str'>",
-          "subject_entity_class": "<class 'str'>"
+          "subject_entity_class": "<class 'str'>",
+          "subject_rule": "str | None"
         }
       },
       "ResolvedEntity": {
@@ -773,7 +789,8 @@
         "shape": {
           "attributes": "dict[str, str]",
           "entity_class": "<class 'str'>",
-          "entity_uri": "<class 'str'>"
+          "entity_uri": "<class 'str'>",
+          "resolved_by": "<class 'str'>"
         }
       },
       "SpecDrivenEntityResolution": {
@@ -1126,14 +1143,21 @@
   "ccf.contracts.canonical": {
     "__all__": [
       "CanonicalizationError",
+      "HASH_TRANSPARENT_KEY",
       "canonical_bytes",
       "canonical_timestamp",
-      "content_hash"
+      "content_hash",
+      "generation_mismatch",
+      "hash_transparent_fields"
     ],
     "exports": {
       "CanonicalizationError": {
         "kind": "class",
         "shape": "type"
+      },
+      "HASH_TRANSPARENT_KEY": {
+        "kind": "constant",
+        "shape": "str"
       },
       "canonical_bytes": {
         "kind": "function",
@@ -1146,6 +1170,14 @@
       "content_hash": {
         "kind": "function",
         "shape": "(obj: 'object') -> 'str'"
+      },
+      "generation_mismatch": {
+        "kind": "function",
+        "shape": "(model_cls: 'type[BaseModel]', stored: 'Mapping[str, object]') -> 'tuple[str, ...]'"
+      },
+      "hash_transparent_fields": {
+        "kind": "function",
+        "shape": "(model_cls: 'type[BaseModel]') -> 'frozenset[str]'"
       }
     }
   },
@@ -1265,6 +1297,7 @@
       "DEPLOYMENT_CONFIG",
       "DEPLOYMENT_MANIFEST",
       "DebtProfile",
+      "DecayMode",
       "DeclaredArtifact",
       "DeploymentConfig",
       "DeploymentManifest",
@@ -1276,6 +1309,7 @@
       "OPERATOR_PARAMETERS_SIMILARITY",
       "OPERATOR_PARAMETERS_TEMPORAL",
       "OPERATOR_PARAMETERS_TRAVERSAL",
+      "OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS",
       "OperatorParametersArtifact",
       "PERSPECTIVE",
       "PRODUCT_CLASS",
@@ -1291,6 +1325,7 @@
       "SignalBatch",
       "SimilaritySelectParametersArtifact",
       "TemporalAsOfParametersArtifact",
+      "TraversalDescendantsParametersArtifact",
       "TraversalNeighborhoodParametersArtifact",
       "VersionedArtifact",
       "declared_artifact_class",
@@ -1332,6 +1367,10 @@
           "semver": "<class 'str'>",
           "signal_obligations": "tuple[ccf.halflife.assessment.SignalObligation, ...]"
         }
+      },
+      "DecayMode": {
+        "kind": "function",
+        "shape": "typing.Literal['curve', 'supersede-only']"
       },
       "DeclaredArtifact": {
         "kind": "contract",
@@ -1381,8 +1420,9 @@
       "HalfLifeEntry": {
         "kind": "contract",
         "shape": {
+          "decay": "typing.Literal['curve', 'supersede-only']",
           "decay_driver": "<class 'str'>",
-          "half_life_seconds": "<class 'int'>",
+          "half_life_seconds": "int | None",
           "supersession_event": "<class 'str'>"
         }
       },
@@ -1416,6 +1456,10 @@
         "shape": "ArtifactClass"
       },
       "OPERATOR_PARAMETERS_TRAVERSAL": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS": {
         "kind": "constant",
         "shape": "ArtifactClass"
       },
@@ -1470,6 +1514,7 @@
           "schema_name": "<class 'str'>",
           "schema_version": "<class 'str'>",
           "semver": "<class 'str'>",
+          "serve_obligations": "<class 'ccf.products.contract.ServeObligations'>",
           "ttl_anchor": "typing.Literal['from_decision', 'from_entity_freshness']"
         }
       },
@@ -1525,9 +1570,20 @@
           "semver": "<class 'str'>"
         }
       },
+      "TraversalDescendantsParametersArtifact": {
+        "kind": "contract",
+        "shape": {
+          "admitted_entity_classes": "frozenset[str] | None",
+          "depth_limit": "<class 'int'>",
+          "relationship_types": "frozenset[str]",
+          "seed_entity_classes": "frozenset[str]",
+          "semver": "<class 'str'>"
+        }
+      },
       "TraversalNeighborhoodParametersArtifact": {
         "kind": "contract",
         "shape": {
+          "admitted_entity_classes": "frozenset[str] | None",
           "depth_limit": "<class 'int'>",
           "relationship_types": "frozenset[str]",
           "seed_entity_classes": "frozenset[str]",
@@ -1818,7 +1874,7 @@
       },
       "build_operator_registry": {
         "kind": "function",
-        "shape": "(*, parameters: 'Mapping[str, OperatorParametersArtifact]', view: 'GraphView', pins: 'ResolvedPins', policy_bundle_key: 'str', similarity_index_version: 'str | None' = None) -> 'OperatorRegistry'"
+        "shape": "(*, parameters: 'Mapping[str, OperatorParametersArtifact]', view: 'GraphView', pins: 'ResolvedPins', policy_bundle_key: 'str', similarity_index_version: 'str | None' = None, deployment_operators: 'Sequence[Operator]' = ()) -> 'OperatorRegistry'"
       },
       "derive_deployment": {
         "kind": "function",
@@ -1951,7 +2007,7 @@
       },
       "build_operator_registry": {
         "kind": "function",
-        "shape": "(*, parameters: 'Mapping[str, OperatorParametersArtifact]', view: 'GraphView', pins: 'ResolvedPins', policy_bundle_key: 'str', similarity_index_version: 'str | None' = None) -> 'OperatorRegistry'"
+        "shape": "(*, parameters: 'Mapping[str, OperatorParametersArtifact]', view: 'GraphView', pins: 'ResolvedPins', policy_bundle_key: 'str', similarity_index_version: 'str | None' = None, deployment_operators: 'Sequence[Operator]' = ()) -> 'OperatorRegistry'"
       }
     }
   },
@@ -1986,13 +2042,19 @@
   "ccf.graph.backends.fluree": {
     "__all__": [
       "DEFAULT_PARTITION",
+      "FLUREE_SUBSTRATE",
       "FlureeGraphReader",
       "FlureeGraphStore",
+      "FlureePinAhead",
       "MAX_DEPTH_CEILING",
       "MAX_QUERY_BODY_BYTES"
     ],
     "exports": {
       "DEFAULT_PARTITION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "FLUREE_SUBSTRATE": {
         "kind": "constant",
         "shape": "str"
       },
@@ -2003,6 +2065,10 @@
       "FlureeGraphStore": {
         "kind": "class",
         "shape": "(*, url: 'str', partition: 'str' = 'ccf', ledger: 'str' = 'ccf:main', bearer_token: 'str | None' = None) -> 'None'"
+      },
+      "FlureePinAhead": {
+        "kind": "class",
+        "shape": "type"
       },
       "MAX_DEPTH_CEILING": {
         "kind": "constant",
@@ -2330,10 +2396,16 @@
       "GraphView",
       "GraphWriter",
       "LineageMode",
+      "NO_STORE_SNAPSHOT_PIN",
       "PolicyBindingMode",
       "QueryFragment",
       "RelationshipRecord",
+      "SnapshotPinnable",
       "SourceAttestation",
+      "StoreSnapshotPin",
+      "TEMPORAL_AXES",
+      "TemporalAxis",
+      "TraversalDirection",
       "TraversalSpec",
       "UpsertResult"
     ],
@@ -2383,6 +2455,10 @@
         "kind": "function",
         "shape": "typing.Literal['graph-supplied', 'product-carried', 'none']"
       },
+      "NO_STORE_SNAPSHOT_PIN": {
+        "kind": "constant",
+        "shape": "StoreSnapshotPin"
+      },
       "PolicyBindingMode": {
         "kind": "function",
         "shape": "typing.Literal['assembly-stamped', 'admission-verified', 'none']"
@@ -2408,6 +2484,10 @@
           "superseded_by": "str | None"
         }
       },
+      "SnapshotPinnable": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
       "SourceAttestation": {
         "kind": "contract",
         "shape": {
@@ -2416,10 +2496,31 @@
           "policy_binding": "typing.Literal['assembly-stamped', 'admission-verified', 'none']"
         }
       },
+      "StoreSnapshotPin": {
+        "kind": "contract",
+        "shape": {
+          "pin": "<class 'str'>",
+          "substrate": "<class 'str'>"
+        }
+      },
+      "TEMPORAL_AXES": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "TemporalAxis": {
+        "kind": "function",
+        "shape": "typing.Literal['event-time', 'transaction-time', 'as-of']"
+      },
+      "TraversalDirection": {
+        "kind": "function",
+        "shape": "typing.Literal['undirected', 'forward']"
+      },
       "TraversalSpec": {
         "kind": "contract",
         "shape": {
+          "admitted_entity_classes": "frozenset[str] | None",
           "depth_limit": "<class 'int'>",
+          "direction": "typing.Literal['undirected', 'forward']",
           "relationship_types": "frozenset[str]",
           "seed_entity_classes": "frozenset[str]"
         }
@@ -2807,8 +2908,10 @@
       "HalfLifeTable",
       "MissingHalfLife",
       "NO_SUBJECT_IDENTITY",
+      "NoDecayCurve",
       "Observation",
       "TemporalOrderError",
+      "decay_mode_of",
       "effective_half_life",
       "freshness",
       "half_life_of",
@@ -2818,8 +2921,9 @@
       "HalfLifeEntry": {
         "kind": "contract",
         "shape": {
+          "decay": "typing.Literal['curve', 'supersede-only']",
           "decay_driver": "<class 'str'>",
-          "half_life_seconds": "<class 'int'>",
+          "half_life_seconds": "int | None",
           "supersession_event": "<class 'str'>"
         }
       },
@@ -2838,6 +2942,10 @@
         "kind": "constant",
         "shape": "str"
       },
+      "NoDecayCurve": {
+        "kind": "class",
+        "shape": "type"
+      },
       "Observation": {
         "kind": "contract",
         "shape": {
@@ -2849,6 +2957,10 @@
       "TemporalOrderError": {
         "kind": "class",
         "shape": "type"
+      },
+      "decay_mode_of": {
+        "kind": "function",
+        "shape": "(table: 'HalfLifeTable', observation_type: 'str') -> 'DecayMode'"
       },
       "effective_half_life": {
         "kind": "function",
@@ -3907,6 +4019,8 @@
       "SimilaritySelectParameters",
       "TemporalAsOf",
       "TemporalAsOfParameters",
+      "TraversalDescendants",
+      "TraversalDescendantsParameters",
       "TraversalNeighborhood",
       "TraversalNeighborhoodParameters"
     ],
@@ -3945,6 +4059,19 @@
           "require_valid_at_boundary": "<class 'bool'>"
         }
       },
+      "TraversalDescendants": {
+        "kind": "class",
+        "shape": "(*, parameters: 'TraversalDescendantsParameters') -> 'None'"
+      },
+      "TraversalDescendantsParameters": {
+        "kind": "contract",
+        "shape": {
+          "admitted_entity_classes": "frozenset[str] | None",
+          "depth_limit": "<class 'int'>",
+          "relationship_types": "frozenset[str]",
+          "seed_entity_classes": "frozenset[str]"
+        }
+      },
       "TraversalNeighborhood": {
         "kind": "class",
         "shape": "(*, parameters: 'TraversalNeighborhoodParameters') -> 'None'"
@@ -3952,6 +4079,7 @@
       "TraversalNeighborhoodParameters": {
         "kind": "contract",
         "shape": {
+          "admitted_entity_classes": "frozenset[str] | None",
           "depth_limit": "<class 'int'>",
           "relationship_types": "frozenset[str]",
           "seed_entity_classes": "frozenset[str]"
@@ -3964,6 +4092,7 @@
       "PolicyFilterParameters",
       "SimilaritySelectParameters",
       "TemporalAsOfParameters",
+      "TraversalDescendantsParameters",
       "TraversalNeighborhoodParameters"
     ],
     "exports": {
@@ -3989,9 +4118,19 @@
           "require_valid_at_boundary": "<class 'bool'>"
         }
       },
+      "TraversalDescendantsParameters": {
+        "kind": "contract",
+        "shape": {
+          "admitted_entity_classes": "frozenset[str] | None",
+          "depth_limit": "<class 'int'>",
+          "relationship_types": "frozenset[str]",
+          "seed_entity_classes": "frozenset[str]"
+        }
+      },
       "TraversalNeighborhoodParameters": {
         "kind": "contract",
         "shape": {
+          "admitted_entity_classes": "frozenset[str] | None",
           "depth_limit": "<class 'int'>",
           "relationship_types": "frozenset[str]",
           "seed_entity_classes": "frozenset[str]"
@@ -4503,12 +4642,14 @@
       "NOT_DISCOVERABLE",
       "NO_PAYLOAD_SCHEMA",
       "NO_REQUEST_CONTRACT",
+      "NO_SERVE_OBLIGATIONS",
       "NO_VALIDITY_FLOORS",
       "ProductAddress",
       "ProductClassRegistrationError",
       "ProductDiscovery",
       "ProductLineage",
       "RegisteredProductClass",
+      "ServeObligations",
       "TTLAnchor",
       "UNMEASURED_FRESHNESS_SLA",
       "register_product_class"
@@ -4570,6 +4711,10 @@
         "kind": "constant",
         "shape": "str"
       },
+      "NO_SERVE_OBLIGATIONS": {
+        "kind": "constant",
+        "shape": "ServeObligations"
+      },
       "NO_VALIDITY_FLOORS": {
         "kind": "constant",
         "shape": "ConstituentValidityFloors"
@@ -4598,7 +4743,8 @@
         "shape": {
           "graph_snapshot_at": "<class 'datetime.datetime'>",
           "operators_invoked": "frozenset[str]",
-          "policy_bundle_versions": "frozenset[str]"
+          "policy_bundle_versions": "frozenset[str]",
+          "store_snapshot_pin": "<class 'ccf.graph.protocols.StoreSnapshotPin'>"
         }
       },
       "RegisteredProductClass": {
@@ -4619,7 +4765,15 @@
           "request_contract_version": "<class 'str'>",
           "schema_name": "<class 'str'>",
           "schema_version": "<class 'str'>",
+          "serve_obligations": "<class 'ccf.products.contract.ServeObligations'>",
           "ttl_anchor": "typing.Literal['from_decision', 'from_entity_freshness']"
+        }
+      },
+      "ServeObligations": {
+        "kind": "contract",
+        "shape": {
+          "debt_ceiling": "decimal.Decimal | None",
+          "lineage_inputs_at": "frozenset[str]"
         }
       },
       "TTLAnchor": {
@@ -4632,7 +4786,7 @@
       },
       "register_product_class": {
         "kind": "function",
-        "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', ttl_anchor: 'TTLAnchor', assembly_mode: 'AssemblyMode', max_ttl_key: 'str', max_ttl_version: 'str', accepted_policy_binding_modes: 'frozenset[PolicyBindingMode]' = frozenset({'assembly-stamped'}), accepted_lineage_modes: 'frozenset[LineageMode]' = frozenset({'graph-supplied'}), freshness_sla: 'FreshnessSLA' = FreshnessSLA(max_age_seconds_by_signal={}), discovery: 'ProductDiscovery' = ProductDiscovery(domain='not-discoverable', intents=frozenset(), capabilities=frozenset(), audiences=frozenset()), addressability: 'ProductAddress' = ProductAddress(address_template='not-addressable'), constituent_validity_floors: 'ConstituentValidityFloors' = ConstituentValidityFloors(min_validity_seconds_by_signal={}), payload_schema_key: 'str' = 'no-payload-schema', payload_schema_version: 'str' = 'no-payload-schema', request_contract_key: 'str' = 'no-request-contract', request_contract_version: 'str' = 'no-request-contract') -> 'RegisteredProductClass'"
+        "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', ttl_anchor: 'TTLAnchor', assembly_mode: 'AssemblyMode', max_ttl_key: 'str', max_ttl_version: 'str', accepted_policy_binding_modes: 'frozenset[PolicyBindingMode]' = frozenset({'assembly-stamped'}), accepted_lineage_modes: 'frozenset[LineageMode]' = frozenset({'graph-supplied'}), freshness_sla: 'FreshnessSLA' = FreshnessSLA(max_age_seconds_by_signal={}), discovery: 'ProductDiscovery' = ProductDiscovery(domain='not-discoverable', intents=frozenset(), capabilities=frozenset(), audiences=frozenset()), addressability: 'ProductAddress' = ProductAddress(address_template='not-addressable'), constituent_validity_floors: 'ConstituentValidityFloors' = ConstituentValidityFloors(min_validity_seconds_by_signal={}), payload_schema_key: 'str' = 'no-payload-schema', payload_schema_version: 'str' = 'no-payload-schema', request_contract_key: 'str' = 'no-request-contract', request_contract_version: 'str' = 'no-request-contract', serve_obligations: 'ServeObligations' = ServeObligations(debt_ceiling=None, lineage_inputs_at=frozenset())) -> 'RegisteredProductClass'"
       }
     }
   },
@@ -4764,8 +4918,13 @@
   "ccf.products.gates": {
     "__all__": [
       "AttestationRefusal",
+      "DEBT_TOLERANCE_PARAMETER",
+      "DeclaredObligationRefusal",
       "EmptyOperatorRefusal",
+      "EmptyResultRefusal",
+      "GATE_DECLARED_OBLIGATIONS",
       "GATE_EMPTY_OPERATOR",
+      "GATE_EMPTY_OPERATOR_RESULT",
       "GATE_LINEAGE_ATTRIBUTABILITY",
       "GATE_LINEAGE_EQUALITY",
       "GATE_SOURCE_ATTESTATION",
@@ -4778,6 +4937,7 @@
       "ServableProduct",
       "ServableProductNotAModel",
       "TTLRefusal",
+      "effective_debt_ceiling",
       "refuse_attestation",
       "run_federated_gates",
       "run_gates"
@@ -4793,6 +4953,20 @@
           "source_mode": "<class 'str'>"
         }
       },
+      "DEBT_TOLERANCE_PARAMETER": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "DeclaredObligationRefusal": {
+        "kind": "contract",
+        "shape": {
+          "declared": "<class 'str'>",
+          "detail": "<class 'str'>",
+          "gate": "<class 'str'>",
+          "obligation": "typing.Literal['debt-ceiling', 'lineage-inputs']",
+          "observed": "<class 'str'>"
+        }
+      },
       "EmptyOperatorRefusal": {
         "kind": "contract",
         "shape": {
@@ -4800,7 +4974,24 @@
           "gate": "<class 'str'>"
         }
       },
+      "EmptyResultRefusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "empty_operators": "frozenset[str]",
+          "gate": "<class 'str'>",
+          "operator_key": "<class 'str'>"
+        }
+      },
+      "GATE_DECLARED_OBLIGATIONS": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "GATE_EMPTY_OPERATOR": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "GATE_EMPTY_OPERATOR_RESULT": {
         "kind": "constant",
         "shape": "str"
       },
@@ -4872,17 +5063,21 @@
           "now": "<class 'datetime.datetime'>"
         }
       },
+      "effective_debt_ceiling": {
+        "kind": "function",
+        "shape": "(*, declared: 'Decimal | None', requested: 'object') -> 'Decimal | None'"
+      },
       "refuse_attestation": {
         "kind": "function",
         "shape": "(*, attestation: 'SourceAttestation | None', product_class: 'RegisteredProductClass') -> 'AttestationRefusal | None'"
       },
       "run_federated_gates": {
         "kind": "function",
-        "shape": "(candidate: 'ContextProductContract', *, attested_address: 'str', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass') -> 'ServableProduct | GateRefusal'"
+        "shape": "(candidate: 'ContextProductContract', *, attested_address: 'str', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', debt_tolerance: 'Decimal | None' = None, empty_results: 'frozenset[str] | None' = None) -> 'ServableProduct | GateRefusal'"
       },
       "run_gates": {
         "kind": "function",
-        "shape": "(candidate: 'ContextProductContract', *, engine_resolved: 'frozenset[str]', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', source_attestation: 'SourceAttestation | None' = None) -> 'ServableProduct | GateRefusal'"
+        "shape": "(candidate: 'ContextProductContract', *, engine_resolved: 'frozenset[str]', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', source_attestation: 'SourceAttestation | None' = None, debt_tolerance: 'Decimal | None' = None, empty_results: 'frozenset[str] | None' = None) -> 'ServableProduct | GateRefusal'"
       }
     }
   },
@@ -4974,6 +5169,7 @@
   },
   "ccf.products.request": {
     "__all__": [
+      "AnchorAmbiguityRefusal",
       "NO_REQUEST_CONTRACT",
       "PRODUCT_REQUEST_CONTRACT",
       "ProductRequest",
@@ -4985,6 +5181,14 @@
       "request_seeds"
     ],
     "exports": {
+      "AnchorAmbiguityRefusal": {
+        "kind": "contract",
+        "shape": {
+          "anchor": "<class 'str'>",
+          "candidates": "frozenset[str]",
+          "detail": "<class 'str'>"
+        }
+      },
       "NO_REQUEST_CONTRACT": {
         "kind": "constant",
         "shape": "str"
@@ -5011,7 +5215,8 @@
           "arguments": "<class 'ccf.skills.catalog.SkillArgumentSchema'>",
           "schema_name": "<class 'str'>",
           "schema_version": "<class 'str'>",
-          "semver": "<class 'str'>"
+          "semver": "<class 'str'>",
+          "unsupported_arguments": "collections.abc.Mapping[str, str]"
         }
       },
       "ProductRequestViolation": {
@@ -5023,12 +5228,12 @@
           "key": "<class 'str'>",
           "presented_keys": "frozenset[str]",
           "presented_type": "str | None",
-          "reason": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch']"
+          "reason": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion']"
         }
       },
       "ProductRequestViolationReason": {
         "kind": "function",
-        "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch']"
+        "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion']"
       },
       "refuse_request": {
         "kind": "function",
@@ -5178,6 +5383,7 @@
         "kind": "contract",
         "shape": {
           "acquisitions": "tuple[ccf.projection.acquisition.AcquiredContent, ...]",
+          "empty_results": "frozenset[str]",
           "executed_queries": "tuple[ccf.graph.protocols.GraphQuery, ...]",
           "operators_invoked": "frozenset[str]",
           "plan_id": "<class 'str'>",
@@ -5185,6 +5391,7 @@
           "provenance": "ccf.operators.base.OperatorProvenance | None",
           "source_attestation": "ccf.graph.protocols.SourceAttestation | None",
           "steps": "tuple[ccf.projection.engine.ExecutionStep, ...]",
+          "store_snapshot_pin": "<class 'ccf.graph.protocols.StoreSnapshotPin'>",
           "survivor_cap": "int | None",
           "view": "<class 'ccf.graph.protocols.GraphView'>"
         }
@@ -5312,6 +5519,7 @@
       "ReplayDivergence",
       "ReplayEnvironment",
       "ReplayError",
+      "ReplayGenerationMismatch",
       "ReplayOutcome",
       "ReplayUnresolvable",
       "replay",
@@ -5330,6 +5538,10 @@
       "ReplayError": {
         "kind": "class",
         "shape": "type"
+      },
+      "ReplayGenerationMismatch": {
+        "kind": "class",
+        "shape": "(*, contract: 'type[CCFContract]', fields: 'tuple[str, ...]', content_address: 'str') -> 'None'"
       },
       "ReplayOutcome": {
         "kind": "contract",
@@ -5364,11 +5576,13 @@
       "ContentGenerationPath",
       "ContextFabricSnapshot",
       "DecisionReplayRecord",
+      "FalseAssemblyRefusalClaimError",
       "HarnessTrace",
       "MODE_1_MODEL_VERSION",
       "ModelVersionRecord",
       "NO_ADAPTER",
       "NO_AGENT_DEFINITION",
+      "NO_ASSEMBLY_REFUSAL",
       "NO_GRANTS_SET_HASH",
       "NO_GRAPH_QUERIES",
       "NO_HARNESS",
@@ -5378,12 +5592,14 @@
       "PerspectiveConditioning",
       "PolicyBinding",
       "PolicyBindingsSnapshot",
-      "build_replay_record"
+      "build_replay_record",
+      "mint_assembly_refusal"
     ],
     "exports": {
       "ContentGenerationPath": {
         "kind": "contract",
         "shape": {
+          "assembly_refusal": "<class 'str'>",
           "debt": "ccf.halflife.assessment.DebtAssessment | None",
           "debt_evidence": "tuple[ccf.halflife.assessment.DebtEvidencePointer, ...]",
           "graph_query_sequence": "tuple[str, ...]",
@@ -5402,6 +5618,7 @@
         "shape": {
           "graph_snapshot_id": "<class 'str'>",
           "source_attestation": "ccf.graph.protocols.SourceAttestation | None",
+          "store_snapshot_pin": "<class 'ccf.graph.protocols.StoreSnapshotPin'>",
           "store_watermark": "<class 'str'>",
           "temporal_boundary": "<class 'datetime.datetime'>",
           "tenant_id": "<class 'str'>",
@@ -5420,6 +5637,10 @@
           "recorded_at": "<class 'datetime.datetime'>",
           "tenant_id": "<class 'str'>"
         }
+      },
+      "FalseAssemblyRefusalClaimError": {
+        "kind": "class",
+        "shape": "type"
       },
       "HarnessTrace": {
         "kind": "contract",
@@ -5449,6 +5670,10 @@
         "shape": "str"
       },
       "NO_AGENT_DEFINITION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "NO_ASSEMBLY_REFUSAL": {
         "kind": "constant",
         "shape": "str"
       },
@@ -5508,7 +5733,11 @@
       },
       "build_replay_record": {
         "kind": "function",
-        "shape": "(*, execution: 'ExecutionResult', product: 'ContextProductContract', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None) -> 'DecisionReplayRecord'"
+        "shape": "(*, execution: 'ExecutionResult', product: 'ContextProductContract', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None) -> 'DecisionReplayRecord'"
+      },
+      "mint_assembly_refusal": {
+        "kind": "function",
+        "shape": "(outcome: \"'AssemblyOutcome | ProductRequestViolation'\", *, claimed: 'str | None' = None) -> 'str'"
       }
     }
   },
@@ -5558,11 +5787,16 @@
   },
   "ccf.replay.snapshots": {
     "__all__": [
+      "SnapshotPinUnresolvable",
       "SnapshotReader",
       "SnapshotScopeViolation",
       "snapshot_of_execution"
     ],
     "exports": {
+      "SnapshotPinUnresolvable": {
+        "kind": "class",
+        "shape": "type"
+      },
       "SnapshotReader": {
         "kind": "class",
         "shape": "(*, reader: 'GraphReader', snapshot: 'ContextFabricSnapshot') -> 'None'"
@@ -7633,19 +7867,42 @@
   },
   "ccf_runtime.mcp.egress": {
     "__all__": [
+      "AddressedQuestion",
+      "MAX_ADDRESS_QUESTION_BYTES",
       "NaiveAskedAtRefused",
+      "PRODUCT_ADDRESS_TEMPLATE",
       "PRODUCT_REQUEST_TOOL",
       "PRODUCT_URI_SCHEME",
       "PRODUCT_URI_TEMPLATE",
       "ProductNotServable",
       "ProductResolverProtocol",
       "build_egress_server",
+      "parse_product_address",
+      "product_address",
       "product_uri"
     ],
     "exports": {
+      "AddressedQuestion": {
+        "kind": "contract",
+        "shape": {
+          "asked_at": "<class 'datetime.datetime'>",
+          "freshness": "<class 'str'>",
+          "intent": "<class 'str'>",
+          "request": "<class 'str'>",
+          "subject": "<class 'str'>"
+        }
+      },
+      "MAX_ADDRESS_QUESTION_BYTES": {
+        "kind": "constant",
+        "shape": "int"
+      },
       "NaiveAskedAtRefused": {
         "kind": "class",
         "shape": "type"
+      },
+      "PRODUCT_ADDRESS_TEMPLATE": {
+        "kind": "constant",
+        "shape": "str"
       },
       "PRODUCT_REQUEST_TOOL": {
         "kind": "constant",
@@ -7669,7 +7926,15 @@
       },
       "build_egress_server": {
         "kind": "function",
-        "shape": "(*, server_name: 'str', resolver: 'ProductResolverProtocol', token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', expose_product_tool: 'bool' = False, product_tool_description: 'str | None' = None) -> 'FastMCP'"
+        "shape": "(*, server_name: 'str', resolver: 'ProductResolverProtocol', token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', expose_product_resource: 'bool' = True, expose_product_tool: 'bool' = False, product_tool_description: 'str | None' = None) -> 'FastMCP'"
+      },
+      "parse_product_address": {
+        "kind": "function",
+        "shape": "(uri: 'str') -> 'tuple[str, str, str, AddressedQuestion]'"
+      },
+      "product_address": {
+        "kind": "function",
+        "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', question: 'WireRequest', subject: 'str', intent: 'str', freshness: 'str', asked_at: 'datetime') -> 'str'"
       },
       "product_uri": {
         "kind": "function",

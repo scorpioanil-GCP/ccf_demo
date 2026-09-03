@@ -7,6 +7,10 @@ substitution, INV-CH7-27 corpus-scoped similarity); DESIGN.md §2B.1.
 These four are minimal in *coverage* and deliberately not minimal in
 *behavior*: each one actually removes or reshapes graph state, so a chain of
 them is a chain, not four identity functions wearing category names (D-02).
+The Traversal category ships a fifth operator under the same category — the
+DIRECTED sibling :class:`TraversalDescendants` (ledger row ``24.5-L-06``) —
+which is a second shape, not a fifth category (D-IMPL-223): both walks call
+one private :func:`_bounded_walk`, so they cannot drift from each other.
 
 Their declared parameter contracts live in :mod:`ccf.operators.params`, they
 are registered with their category and parameter schema in
@@ -50,6 +54,7 @@ from ccf.operators.params import (
     PolicyFilterParameters,
     SimilaritySelectParameters,
     TemporalAsOfParameters,
+    TraversalDescendantsParameters,
     TraversalNeighborhoodParameters,
 )
 from ccf.similarity.protocol import SimilarityIndexProtocol
@@ -63,6 +68,8 @@ __all__ = [
     "SimilaritySelectParameters",
     "TemporalAsOf",
     "TemporalAsOfParameters",
+    "TraversalDescendants",
+    "TraversalDescendantsParameters",
     "TraversalNeighborhood",
     "TraversalNeighborhoodParameters",
 ]
@@ -91,6 +98,83 @@ def _substitute(
         entities=entities,
         relationships=kept,
     )
+
+
+
+def _bounded_walk(
+    view: GraphView,
+    *,
+    seed_classes: frozenset[str],
+    relationship_types: frozenset[str],
+    depth_limit: int,
+    admitted: frozenset[str] | None,
+    forward: bool,
+) -> tuple[tuple[EntityRecord, ...], tuple[RelationshipRecord, ...]]:
+    """The one bounded typed walk both traversal operators run (INV-CH7-24).
+
+    `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201. Breadth-first from every
+    entity of a seed class over edges of the permitted types, at most
+    ``depth_limit`` hops; a hop lands only on an admitted class when
+    ``admitted`` is a set (starts are never filtered — `GQ-11` at
+    docs/GRAPH_QUERY_SEMANTICS.md:221 selects them), and an entity absent
+    from the view's class map is not a hop. ``forward`` decides the adjacency:
+    ``False`` adds both endpoints (the undirected NEIGHBORHOOD,
+    :class:`TraversalNeighborhood`); ``True`` adds only ``subject → object``
+    as stored (the directed DESCENDANTS walk, :class:`TraversalDescendants`,
+    ledger row ``24.5-L-06``). One function rather than two copies so the two
+    walks differ in exactly that line and nothing else — the same shape
+    ``src/ccf/graph/fallback.py::_walk`` keeps, which is what holds every
+    pushed answer to these operators differentially.
+
+    Returns the reached entities and the TRAVERSABLE edges — every edge of a
+    permitted type, not only those among reached nodes; the caller's
+    :func:`_substitute` prunes to the reached endpoints (INV-CH7-40).
+    """
+    traversable = tuple(
+        edge
+        for edge in view.relationships
+        if edge.claim.relationship_type in relationship_types
+    )
+    adjacency: dict[str, set[str]] = {}
+    for edge in traversable:
+        adjacency.setdefault(edge.claim.subject_uri, set()).add(
+            edge.claim.object_uri
+        )
+        if not forward:
+            adjacency.setdefault(edge.claim.object_uri, set()).add(
+                edge.claim.subject_uri
+            )
+
+    # The class map, built once: admission reads the REACHED node's class
+    # (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0), and a node
+    # absent from the view has no class and is not admitted.
+    class_of = {
+        record.claim.entity_uri: record.claim.entity_class
+        for record in view.entities
+    }
+
+    frontier = {
+        record.claim.entity_uri
+        for record in view.entities
+        if record.claim.entity_class in seed_classes
+    }
+    reached = set(frontier)
+    for _hop in range(depth_limit):
+        frontier = {
+            neighbour
+            for node in frontier
+            for neighbour in adjacency.get(node, ())
+            if neighbour not in reached
+            and (admitted is None or class_of.get(neighbour) in admitted)
+        }
+        if not frontier:
+            break
+        reached |= frontier
+
+    entities = tuple(
+        record for record in view.entities if record.claim.entity_uri in reached
+    )
+    return entities, traversable
 
 
 
@@ -134,6 +218,17 @@ class PolicyFilter:
         )
 
     def _admits(self, record: EntityRecord) -> bool:
+        """Admit a record whose bundle version is permitted and whose per-class
+        attribute value is on the allowlist.
+
+        The last test is a generic attribute-value allowlist (ledger row
+        ``24.5-L-28``): ``classification_attribute_by_class`` names the
+        attribute per entity class and ``permitted_classifications`` is the
+        set of values admitted for it, by exact membership — "classification"
+        is the name's origin, not a constraint on what the attribute holds
+        (cp-01 binds it to jurisdiction). See
+        :class:`~ccf.operators.params.PolicyFilterParameters`.
+        """
         params = self._parameters
         if record.policy_bundle_version not in params.permitted_policy_bundle_versions:
             return False
@@ -361,6 +456,20 @@ class TraversalNeighborhood:
     relationship types, stopping at ``depth_limit``. Runs last: it expands over
     state that Policy, Similarity, and Temporal have already reconciled, so an
     edge to a node excluded upstream is not a hop this walk can take.
+
+    **Node-class admission** (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201,
+    semantics version 1.1.0; ledger row ``24.5-L-05``). When
+    ``admitted_entity_classes`` is present, a hop lands only on an entity
+    whose ``entity_class`` is a member; walk starts are selected by `GQ-11`
+    at docs/GRAPH_QUERY_SEMANTICS.md:221 and are never filtered by admission,
+    and an entity absent from the view's class map is not a hop. ``None``
+    admits every class — the behavior every earlier parameter set carried.
+    The adjacency is undirected here — ``read_intent`` emits
+    ``direction="undirected"`` — and the directed walk is the sibling
+    :class:`TraversalDescendants` (ledger row ``24.5-L-06``); both run
+    :func:`_bounded_walk`. ``src/ccf/graph/fallback.py::_walk`` applies the
+    identical predicate, which is what holds every pushed answer to this
+    operator differentially.
     """
 
     key = "traversal.typed-neighborhood"
@@ -393,6 +502,8 @@ class TraversalNeighborhood:
                 seed_entity_classes=params.seed_entity_classes,
                 relationship_types=params.relationship_types,
                 depth_limit=params.depth_limit,
+                admitted_entity_classes=params.admitted_entity_classes,
+                direction="undirected",
             )
         )
 
@@ -406,39 +517,92 @@ class TraversalNeighborhood:
     ) -> OperatorOutput:
         """Expand from the seeds to the bounded typed neighborhood."""
         params = self._parameters
-        traversable = tuple(
-            edge
-            for edge in view.relationships
-            if edge.claim.relationship_type in params.relationship_types
+        entities, traversable = _bounded_walk(
+            view,
+            seed_classes=params.seed_entity_classes,
+            relationship_types=params.relationship_types,
+            depth_limit=params.depth_limit,
+            admitted=params.admitted_entity_classes,
+            forward=False,
         )
-        adjacency: dict[str, set[str]] = {}
-        for edge in traversable:
-            adjacency.setdefault(edge.claim.subject_uri, set()).add(
-                edge.claim.object_uri
-            )
-            adjacency.setdefault(edge.claim.object_uri, set()).add(
-                edge.claim.subject_uri
-            )
+        return OperatorOutput(
+            view=_substitute(view, entities=entities, relationships=traversable),
+            provenance=mint_provenance(self, upstream=upstream),
+        )
 
-        frontier = {
-            record.claim.entity_uri
-            for record in view.entities
-            if record.claim.entity_class in params.seed_entity_classes
-        }
-        reached = set(frontier)
-        for _hop in range(params.depth_limit):
-            frontier = {
-                neighbour
-                for node in frontier
-                for neighbour in adjacency.get(node, ())
-                if neighbour not in reached
-            }
-            if not frontier:
-                break
-            reached |= frontier
 
-        entities = tuple(
-            record for record in view.entities if record.claim.entity_uri in reached
+class TraversalDescendants:
+    """Traversal category — the DIRECTED bounded walk (INV-CH7-24).
+
+    Whitepaper §7.4; ledger row ``24.5-L-06``; `GQ-10` at
+    docs/GRAPH_QUERY_SEMANTICS.md:201. The sibling of
+    :class:`TraversalNeighborhood` under the same ``traversal`` category
+    (D-IMPL-223 — a second SHAPE, not a fifth category): breadth-first from
+    the seed classes over the permitted relationship types, stopping at
+    ``depth_limit``, crossing an edge ONLY from ``subject_uri`` to
+    ``object_uri`` as stored. Where the neighborhood walk reaches a node one
+    undirected hop from a reached node — a parent's other child, a cycle's
+    closing edge — this walk reaches only what the stored orientation leads
+    to: descendants, in whatever sense the deployment normalized at ingest.
+
+    Both operators run :func:`_bounded_walk`; they differ in the ``forward``
+    flag and the key. ``read_intent`` emits ``direction="forward"``, which
+    every backend that cannot express a directed walk declines to
+    ``src/ccf/graph/fallback.py::_walk`` (D-04, `GQ-32` at
+    docs/GRAPH_QUERY_SEMANTICS.md:583). Node-class admission is the
+    neighborhood's, unchanged. Runs last, as every traversal does.
+    """
+
+    key = "traversal.typed-descendants"
+    category: OperatorCategory = "traversal"
+
+    def __init__(self, *, parameters: TraversalDescendantsParameters) -> None:
+        self._parameters = parameters
+
+    @property
+    def parameters(self) -> TraversalDescendantsParameters:
+        return self._parameters
+
+    def read_intent(self) -> QueryFragment:
+        """The traverse family this operator's ``apply()`` renders (D-03).
+
+        Computed from ``self.parameters`` alone: a field-for-field projection
+        of :class:`~ccf.operators.params.TraversalDescendantsParameters` onto
+        :class:`~ccf.graph.protocols.TraversalSpec` (`GQ-02` at
+        docs/GRAPH_QUERY_SEMANTICS.md:64) with ``direction="forward"`` fixed
+        by this operator — the one thing the parameters do not carry, so no
+        artifact value can turn the walk around. The fragment names no walk
+        starting points beyond the seed classes (`GQ-06` at
+        docs/GRAPH_QUERY_SEMANTICS.md:132).
+        """
+        params = self._parameters
+        return QueryFragment(
+            traverse=TraversalSpec(
+                seed_entity_classes=params.seed_entity_classes,
+                relationship_types=params.relationship_types,
+                depth_limit=params.depth_limit,
+                admitted_entity_classes=params.admitted_entity_classes,
+                direction="forward",
+            )
+        )
+
+    def apply(
+        self,
+        *,
+        view: GraphView,
+        tenant_id: str,
+        temporal_boundary: datetime,
+        upstream: tuple[OperatorProvenance, ...],
+    ) -> OperatorOutput:
+        """Expand from the seeds to the bounded typed forward reach."""
+        params = self._parameters
+        entities, traversable = _bounded_walk(
+            view,
+            seed_classes=params.seed_entity_classes,
+            relationship_types=params.relationship_types,
+            depth_limit=params.depth_limit,
+            admitted=params.admitted_entity_classes,
+            forward=True,
         )
         return OperatorOutput(
             view=_substitute(view, entities=entities, relationships=traversable),
@@ -454,4 +618,5 @@ _CONFORMANCE: tuple[type[Operator], ...] = (
     SimilaritySelect,
     TemporalAsOf,
     TraversalNeighborhood,
+    TraversalDescendants,
 )
