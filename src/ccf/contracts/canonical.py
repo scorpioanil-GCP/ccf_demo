@@ -64,18 +64,43 @@ exception, in Dave's words:
     is not 'defaults never count.' It is 'silence equals yesterday.'"
 
 The mark is the ``json_schema_extra`` key :data:`HASH_TRANSPARENT_KEY`
-(``"ccf_hash_transparent"``) set to ``True`` on the field. A marked field is
-**omitted** from the rendering when its value ``==`` its declared sentinel —
-the field's ``default``, or the result of its ``default_factory`` — and is
-rendered exactly as any other field otherwise. So a model whose marked fields
-all sit at their sentinels hashes byte-for-byte as the model did before those
-fields existed (whitepaper §7.10: a decision reconstructible years later;
-CLAUDE.md §7.4: replay resolves exact identities, never "latest"), while any
-non-sentinel value is inside the hash. :func:`hash_transparent_fields` reads
-the marks; :func:`generation_mismatch` is the converse check the replay engine
-runs on a stored record — a field the running class declares, absent from the
-stored bytes and **not** marked transparent, is a generation change the record
-cannot cross, refused by name (``canonical_generation_mismatch``).
+(``"ccf_hash_transparent"``), and it takes **three states** (``D-IMPL-243``
+amendment 1, Dave's words: *"``True`` → omit (your ticks). ``False`` →
+generation boundary, refuse by name. No key → D-IMPL-89 lineage: render,
+never refuse."*):
+
+``True`` — hash-transparent
+    The field is **omitted** from the rendering when its value ``==`` its
+    declared sentinel — the field's ``default``, or the result of its
+    ``default_factory`` — and is rendered exactly as any other field
+    otherwise. A model whose marked fields all sit at their sentinels hashes
+    byte-for-byte as the model did before those fields existed (whitepaper
+    §7.10: a decision reconstructible years later; CLAUDE.md §7.4: replay
+    resolves exact identities, never "latest"), while any non-sentinel value
+    is inside the hash.
+
+``False`` — a generation boundary
+    The field is rendered as every field is, defaults included, so it moves
+    the hash of every instance — and its owner has **declared** that a stored
+    object lacking it belongs to an earlier generation of the canonical form.
+    :func:`generation_mismatch` names exactly these fields when they are
+    absent from a stored object, and the replay engine refuses such a record
+    by name (``canonical_generation_mismatch``) before re-executing anything.
+
+absent — the pre-243 lineage
+    Rendered as every field always was, never refused. This is every
+    sentinel-defaulted field the SDK carried before the key existed, and it is
+    the compatibility promise ``D-IMPL-89`` makes to a record written before
+    the field was added: the record resolves, its own address is verified
+    byte-first, and its re-executed hashes are compared as they always were.
+    Nothing about an absent key is inferred; a field that says nothing is not
+    read as saying either of the other two things.
+
+:func:`hash_transparent_fields` reads the ``True`` marks;
+:func:`generation_mismatch` reads the ``False`` marks. The key's presence on
+every **new** sentinel-defaulted ``CCFContract`` field is a lint obligation
+(``D-IMPL-243`` amendment 1), so that a forgotten key is red rather than a
+quiet upgrade; the lint, not this module, decides what "new" means.
 
 This module is algorithmic (CINV-03): pure functions over typed inputs, no
 I/O, no clock, no LLM dependency ever.
@@ -108,14 +133,19 @@ __all__ = [
 
 _TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
-#: The ``json_schema_extra`` key that marks a field hash-transparent
-#: (``D-IMPL-243``). Declared at the field —
+#: The ``json_schema_extra`` key that declares a field's hash posture
+#: (``D-IMPL-243``, three states per amendment 1). Declared at the field —
 #: ``Field(default=SENTINEL, json_schema_extra={HASH_TRANSPARENT_KEY: True})``
 #: — never inferred: a field is transparent because its owner asserted that
 #: its sentinel means the contract as it was before the field existed, and
-#: for no other reason. Any value other than ``True`` under the key is not a
-#: mark. The key surfaces in the exported JSON Schema, so an adopter reading
-#: ``docs/schemas/`` can see which fields are silent at their sentinel.
+#: for no other reason; a field is a generation boundary
+#: (``{HASH_TRANSPARENT_KEY: False}``) because its owner asserted that a
+#: stored object lacking it is of an earlier generation. Only the literal
+#: ``True`` is a transparency mark and only the literal ``False`` is a
+#: boundary mark; any other value under the key is neither, and reads as the
+#: key being absent. The key surfaces in the exported JSON Schema, so an
+#: adopter reading ``docs/schemas/`` can see which fields are silent at their
+#: sentinel and which a pre-generation record cannot cross.
 HASH_TRANSPARENT_KEY: Final[str] = "ccf_hash_transparent"
 
 #: Exact scalar types that render as themselves. Membership is tested on the
@@ -141,6 +171,12 @@ _MODEL_FIELD_NAMES: dict[type, tuple[str, ...]] = {}
 #: nothing — and costs one dictionary lookup per model rendered.
 _TRANSPARENT_SENTINELS: dict[type, Mapping[str, object]] = {}
 
+#: Per model class, the fields marked ``False`` — the declared generation
+#: boundaries (``D-IMPL-243`` amendment 1) — memoized on the same key. Read by
+#: :func:`generation_mismatch` alone; :func:`_normalize` never consults it,
+#: because a boundary field renders exactly as an unmarked one does.
+_BOUNDARY_FIELDS: dict[type, frozenset[str]] = {}
+
 
 class CanonicalizationError(TypeError):
     """A value has no canonical rendering and must not be silently encoded."""
@@ -156,9 +192,20 @@ def _field_names(model_type: type) -> tuple[str, ...]:
 
 
 def _is_marked_transparent(field: Any) -> bool:
-    """Whether one ``FieldInfo`` carries the ``D-IMPL-243`` mark."""
+    """Whether one ``FieldInfo`` carries the ``D-IMPL-243`` ``True`` mark."""
     extra = field.json_schema_extra
     return isinstance(extra, Mapping) and extra.get(HASH_TRANSPARENT_KEY) is True
+
+
+def _is_marked_boundary(field: Any) -> bool:
+    """Whether one ``FieldInfo`` carries the ``D-IMPL-243`` ``False`` mark.
+
+    ``is False``, not falsiness: ``0``, ``None`` and ``""`` under the key are
+    not declarations of anything, and reading them as a boundary would turn a
+    typo into a refusal of every stored record.
+    """
+    extra = field.json_schema_extra
+    return isinstance(extra, Mapping) and extra.get(HASH_TRANSPARENT_KEY) is False
 
 
 def _declared_sentinel(model_type: type, name: str, field: Any) -> object:
@@ -192,6 +239,18 @@ def _transparent_sentinels(model_type: type) -> Mapping[str, object]:
         }
         _TRANSPARENT_SENTINELS[model_type] = sentinels
     return sentinels
+
+
+def _boundary_fields(model_type: type) -> frozenset[str]:
+    """Every field of ``model_type`` marked ``False`` — a generation boundary."""
+    boundaries = _BOUNDARY_FIELDS.get(model_type)
+    if boundaries is None:
+        fields = model_type.model_fields  # type: ignore[attr-defined]
+        boundaries = frozenset(
+            name for name, field in fields.items() if _is_marked_boundary(field)
+        )
+        _BOUNDARY_FIELDS[model_type] = boundaries
+    return boundaries
 
 
 def hash_transparent_fields(model_cls: type[BaseModel]) -> frozenset[str]:
@@ -232,30 +291,38 @@ def _nested_model_class(annotation: object) -> type[BaseModel] | None:
 def generation_mismatch(
     model_cls: type[BaseModel], stored: Mapping[str, object]
 ) -> tuple[str, ...]:
-    """Fields ``model_cls`` renders that ``stored`` lacks and cannot be silent on.
+    """The declared generation boundaries of ``model_cls`` that ``stored`` lacks.
 
-    The converse of the omission rule (``D-IMPL-243``): the running class
-    renders every field except a transparent one at its sentinel, so a field
-    the class declares that is **absent** from a stored canonical object was
-    either omitted as transparent — in which case the stored bytes and the
-    running canonicalizer agree, and the record replays — or never existed
-    when the bytes were written and is not transparent, in which case the
-    stored object belongs to an earlier generation of the canonical form and
-    no hash the running code computes can be compared with one it carries.
-    The second case is what this function names, so the replay engine can
-    refuse it as ``canonical_generation_mismatch`` **by field name, before
-    re-execution** — never as a generic step mismatch and never as a silent
-    upgrade (Dave's words in ``D-IMPL-243``: "not a quiet address drift and
-    not a silent upgrade").
+    The converse of the omission rule (``D-IMPL-243``), in the **declared
+    scope** amendment 1 rules: a field the running class declares that is
+    **absent** from a stored canonical object is named here when, and only
+    when, its declaration carries ``{HASH_TRANSPARENT_KEY: False}``. Such a
+    field's owner has asserted that the field renders into every hash and
+    that a stored object without it is of an earlier generation of the
+    canonical form — so no hash the running code computes can be compared
+    with one that object carries, and the replay engine refuses it as
+    ``canonical_generation_mismatch`` **by field name, before re-execution**
+    (Dave's words in ``D-IMPL-243``: "not a quiet address drift and not a
+    silent upgrade").
+
+    The other two states are never named. A ``True``-marked field absent from
+    the stored object was omitted at its sentinel, so the stored bytes and the
+    running canonicalizer agree. A field with **no key** is the pre-243
+    lineage — rendered, never refused — and its absence from a stored object
+    is exactly the ``D-IMPL-89`` compatibility case: the record written before
+    the field existed resolves and replays as it always did. Naming unmarked
+    fields here would, as amendment 1 measured, name fifteen pre-243 fields on
+    every pre-extension record and repeal ``D-IMPL-89`` in practice.
 
     Nested models are walked: a field whose annotation names one model class
     (``Model`` or ``Model | None``) and whose stored value is a mapping is
     checked against that class, and its findings are reported dotted
     (``"outer.inner"``). A nested field the stored object lacks entirely is
-    reported once, as the outer name — nothing below an absent field can be
-    inspected. Collections of models are leaves: their elements are not
-    individually walked here. The empty tuple means the stored object and the
-    running class are the same generation on every non-transparent field.
+    reported once, as the outer name, and only if it is itself marked
+    ``False`` — nothing below an absent field can be inspected. Collections
+    of models are leaves: their elements are not individually walked here.
+    The empty tuple means the stored object crosses no declared boundary of
+    the running class.
 
     Args:
         model_cls: The class the running code would validate ``stored`` as.
@@ -265,12 +332,12 @@ def generation_mismatch(
 
     Whitepaper §7.10; CLAUDE.md §7.4.
     """
-    transparent = _transparent_sentinels(model_cls)
+    boundaries = _boundary_fields(model_cls)
     fields = model_cls.model_fields
     missing: list[str] = []
     for name, field in fields.items():
         if name not in stored:
-            if name not in transparent:
+            if name in boundaries:
                 missing.append(name)
             continue
         nested = _nested_model_class(field.annotation)

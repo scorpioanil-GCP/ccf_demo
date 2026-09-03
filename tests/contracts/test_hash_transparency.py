@@ -10,7 +10,10 @@ carrying it — a replay record's per-step ``parameter_hash``, its
 rules that such a field is a generation change unless its owner marks it
 ``ccf_hash_transparent``, meaning its sentinel *is* the old contract; a marked
 field is omitted at its sentinel and rendered otherwise. Dave's rule, verbatim:
-"silence equals yesterday".
+"silence equals yesterday". Amendment 1 gives the key its three states —
+``True`` omits at the sentinel, ``False`` is a declared generation boundary
+that ``generation_mismatch`` names when absent, and no key is the pre-243
+``D-IMPL-89`` lineage: rendered, never named.
 
 Every model here is a scratch model owned by this module: the rule is about
 the canonicalizer, and proving it on a real SDK contract would prove the mark
@@ -63,10 +66,28 @@ class _Today(CCFContract):
 
 
 class _TodayUnmarked(CCFContract):
-    """The same addition WITHOUT the mark — the generation change, as ruled."""
+    """The same addition with NO key — the pre-243 lineage (amendment 1).
+
+    Rendered into every hash, so it IS a generation change for the hashes
+    (the rule is not "defaults never count"); but never *named* by
+    ``generation_mismatch``, because an absent key declares nothing and
+    ``D-IMPL-89`` promises a record written before the field existed still
+    resolves and replays.
+    """
 
     a: int
     n: int = 0
+
+
+class _TodayBoundary(CCFContract):
+    """The same addition marked ``False`` — a DECLARED generation boundary.
+
+    Rendered exactly as ``_TodayUnmarked.n`` is; the difference is entirely
+    what ``generation_mismatch`` says about a stored object that lacks it.
+    """
+
+    a: int
+    b: int = Field(default=0, json_schema_extra={HASH_TRANSPARENT_KEY: False})
 
 
 class _NoSentinel(CCFContract):
@@ -77,8 +98,11 @@ class _NoSentinel(CCFContract):
 
 
 class _Outer(CCFContract):
-    inner: _TodayUnmarked
-    optional: _TodayUnmarked | None = None
+    inner: _TodayBoundary
+    optional: _TodayBoundary | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    lineage: _TodayUnmarked | None = None
     silent: _Today | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
@@ -112,6 +136,13 @@ def test_a_mark_without_a_default_is_refused_not_ignored() -> None:
 
 
 # --- the omission rule: silence equals yesterday ------------------------------
+
+
+def test_a_boundary_mark_renders_exactly_as_no_mark_does() -> None:
+    """``False`` changes what is *named*, never what is *rendered*."""
+    assert canonical_bytes(_TodayBoundary(a=1)) == b'{"a":1,"b":0}'
+    assert hash_transparent_fields(_TodayBoundary) == frozenset()
+    assert content_hash(_TodayBoundary(a=1)) != content_hash(_Yesterday(a=1))
 
 
 def test_a_marked_field_at_its_sentinel_is_omitted() -> None:
@@ -156,41 +187,78 @@ def test_an_unmarked_default_still_renders() -> None:
 
 
 def test_a_transparent_model_valued_field_is_walked_when_present() -> None:
-    outer = _Outer(inner=_TodayUnmarked(a=1), silent=_Today(a=2, t="deep"))
+    outer = _Outer(inner=_TodayBoundary(a=1), silent=_Today(a=2, t="deep"))
     assert canonical_bytes(outer) == (
-        b'{"inner":{"a":1,"n":0},"optional":null,"silent":{"a":2,"t":"deep"}}'
+        b'{"inner":{"a":1,"b":0},"lineage":null,"optional":null,'
+        b'"silent":{"a":2,"t":"deep"}}'
     )
 
 
-# --- the converse: generation_mismatch ---------------------------------------
+# --- the converse: generation_mismatch, in DECLARED scope (amendment 1) ------
 
 
 def test_a_stored_object_lacking_only_transparent_fields_is_the_same_generation() -> None:
     assert generation_mismatch(_Today, {"a": 1}) == ()
 
 
-def test_a_stored_object_lacking_a_non_transparent_field_is_named() -> None:
-    assert generation_mismatch(_TodayUnmarked, {"a": 1}) == ("n",)
+def test_a_stored_object_lacking_a_boundary_field_is_named() -> None:
+    """``False`` → generation boundary, refuse by name."""
+    assert generation_mismatch(_TodayBoundary, {"a": 1}) == ("b",)
 
 
-def test_a_stored_object_carrying_every_field_is_the_same_generation() -> None:
+def test_a_stored_object_lacking_an_unmarked_field_is_never_named() -> None:
+    """No key → the D-IMPL-89 lineage: render, never refuse.
+
+    This is the control amendment 1 was written for. Under the first
+    specification this object was named ``("n",)``, and on a real
+    pre-extension record the same rule named fifteen pre-243 fields.
+    """
+    assert generation_mismatch(_TodayUnmarked, {"a": 1}) == ()
+
+
+def test_only_the_literal_false_is_a_boundary_mark() -> None:
+    class _Loose(CCFContract):
+        a: int
+        zero: int = Field(default=0, json_schema_extra={HASH_TRANSPARENT_KEY: 0})
+        none: int = Field(
+            default=0, json_schema_extra={HASH_TRANSPARENT_KEY: None}
+        )
+        text: int = Field(
+            default=0, json_schema_extra={HASH_TRANSPARENT_KEY: "false"}
+        )
+
+    assert generation_mismatch(_Loose, {"a": 1}) == ()
+
+
+def test_a_stored_object_carrying_every_field_crosses_no_boundary() -> None:
+    assert generation_mismatch(_TodayBoundary, {"a": 1, "b": 0}) == ()
     assert generation_mismatch(_TodayUnmarked, {"a": 1, "n": 0}) == ()
     assert generation_mismatch(_Today, {"a": 1, "t": "x"}) == ()
 
 
 def test_nested_models_are_walked_and_reported_dotted() -> None:
-    stored = {"inner": {"a": 1}, "optional": {"a": 2}, "silent": {"a": 3}}
-    assert generation_mismatch(_Outer, stored) == ("inner.n", "optional.n")
+    stored = {
+        "inner": {"a": 1},
+        "optional": {"a": 2},
+        "lineage": {"a": 3},
+        "silent": {"a": 4},
+    }
+    assert generation_mismatch(_Outer, stored) == ("inner.b", "optional.b")
 
 
-def test_an_absent_nested_field_is_reported_once_as_the_outer_name() -> None:
-    assert generation_mismatch(_Outer, {"inner": {"a": 1, "n": 0}}) == (
+def test_an_absent_nested_boundary_field_is_reported_once_as_the_outer_name() -> None:
+    assert generation_mismatch(_Outer, {"inner": {"a": 1, "b": 0}}) == (
         "optional",
     )
 
 
+def test_an_absent_nested_lineage_field_is_not_reported() -> None:
+    stored = {"inner": {"a": 1, "b": 0}, "optional": {"a": 2, "b": 0}}
+    assert generation_mismatch(_Outer, stored) == ()
+
+
 def test_a_null_nested_value_is_a_leaf_not_a_walk() -> None:
-    stored = {"inner": {"a": 1, "n": 0}, "optional": None}
+    stored = {"inner": {"a": 1, "b": 0}, "optional": None, "lineage": None}
     assert generation_mismatch(_Outer, stored) == ()
 
 

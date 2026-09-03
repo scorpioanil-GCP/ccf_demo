@@ -22,6 +22,25 @@ The pipeline, in order, with each step's failure mode named:
    through it as any other class does; no federation-shaped special case exists
    inside this engine, which is what keeps the seam described in one place
    rather than two.
+
+   Then — for the decision record only, and **before anything is resolved
+   or re-executed** — the record's stored canonical form is held against the
+   running canonicalizer's **declared generation boundaries** (``D-IMPL-243``
+   amendment 1). A field the running record class marks
+   ``ccf_hash_transparent: False`` that the stored bytes lack is a field
+   whose owner asserted "a record without this is of an earlier generation":
+   no hash this engine computes below could be compared with one that
+   record carries, so the record is refused as
+   :class:`ReplayGenerationMismatch` — reason
+   ``canonical_generation_mismatch``, **naming the field** — rather than
+   diverging later on a parameter hash for operators that are exactly the
+   ones that ran. Fields marked ``True`` (omitted at their sentinel) and
+   fields with no key (the pre-243 ``D-IMPL-89`` lineage) are never named;
+   the check is declared scope, not "every default the class has grown". It
+   lives here and not in :func:`resolve_artifact`, by ruling: byte-first
+   resolution is a statement about the record's **own** address and stays
+   exactly ``D-IMPL-89``; the generation boundary is a statement about the
+   hashes replay **re-computes**, which only this function does.
 2. **Resolve every Control Plane binding at its exact recorded version.** A
    control plane that has lost the version a decision was made under cannot say
    what that decision saw; that is :class:`ReplayUnresolvable`, not a fallback.
@@ -64,7 +83,9 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import hashlib
-from typing import Protocol, TypeVar, runtime_checkable
+import json
+from collections.abc import Mapping
+from typing import Final, Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.protocol import (
     ArtifactStoreError,
@@ -72,7 +93,7 @@ from ccf.artifacts.protocol import (
     MovingTargetRefused,
 )
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import content_hash, generation_mismatch
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import GraphReader
 from ccf.products.contract import ContextProductContract
@@ -88,6 +109,7 @@ __all__ = [
     "ReplayDivergence",
     "ReplayEnvironment",
     "ReplayError",
+    "ReplayGenerationMismatch",
     "ReplayOutcome",
     "ReplayUnresolvable",
     "replay",
@@ -123,6 +145,55 @@ class ReplayDivergence(ReplayError):
     docstring. Carries what disagreed in its message so the operator reading it
     can tell parameter drift from state drift from an envelope mismatch.
     """
+
+
+class ReplayGenerationMismatch(ReplayError):
+    """The record was written under an earlier generation of the canonical form.
+
+    ``D-IMPL-243`` (the CR-01 ruling) and its amendment 1; whitepaper §7.10;
+    CLAUDE.md §7.4. Raised by :func:`replay` **before** any binding, plan or
+    operator is resolved and before anything is re-executed, when the record's
+    stored canonical object lacks a field the running
+    :class:`~ccf.replay.record.DecisionReplayRecord` declares as a generation
+    boundary (``ccf_hash_transparent: False``). The record resolved — its own
+    address verified byte-first under ``D-IMPL-89`` — but every hash this
+    engine would go on to compare (``parameter_hash`` per step, the
+    ``graph_query_sequence`` pins, ``product_content_address``) is computed by
+    a canonicalizer that renders a field the record predates, so a comparison
+    would report divergence for operators that are exactly the ones that ran.
+    Refusing by name is the ruling: "not a quiet address drift and not a
+    silent upgrade".
+
+    Not a :class:`ReplayDivergence` — nothing was reproduced and found to
+    differ — and not a :class:`ReplayUnresolvable` — nothing is missing from
+    any store. It is its own finding, with its own token, so an operator can
+    tell "this record cannot be replayed by this revision of the SDK" from
+    either of those.
+
+    Attributes:
+        reason: The token, ``canonical_generation_mismatch``, fixed on the
+            class so a caller can branch on it without parsing the message.
+        fields: The model-qualified names of every boundary field the stored
+            object lacks, in the record class's declaration order, dotted
+            through nested models (``DecisionReplayRecord.policy_bindings.x``).
+        content_address: Where the refused record was resolved from.
+    """
+
+    reason: Final[str] = "canonical_generation_mismatch"
+
+    def __init__(self, *, contract: type[CCFContract], fields: tuple[str, ...], content_address: str) -> None:
+        self.fields = tuple(f"{contract.__name__}.{name}" for name in fields)
+        self.content_address = content_address
+        super().__init__(
+            f"{self.reason}: the {contract.__name__} at {content_address!r} "
+            "was written under an earlier generation of the canonical form — "
+            "it lacks "
+            + ", ".join(self.fields)
+            + ", which the running SDK declares as a generation boundary "
+            "(ccf_hash_transparent: False); no hash this revision computes "
+            "can be compared with one this record carries, so it is refused "
+            "by name rather than replayed into a divergence (D-IMPL-243)"
+        )
 
 
 @runtime_checkable
@@ -389,6 +460,56 @@ def _resolve_record(
     )
 
 
+def _stored_canonical_object(
+    *, store: ArtifactStoreProtocol, content_address: str
+) -> Mapping[str, object]:
+    """The record's stored canonical form, as bytes parsed — not as a model.
+
+    Fetched the way :func:`resolve_artifact` fetches it — the same
+    ``store.get`` at the same address — and held to the same arithmetic: the
+    bytes must hash to the address, or they are not the record that was just
+    resolved. The second read exists because the generation check needs the
+    stored **object**, and a validated model cannot supply it: validation
+    fills every default, which erases the very absence the check measures.
+    The store's ``get`` contract promises the same bytes for the same address,
+    and the re-hash makes that a verified property rather than a trusted one.
+    """
+    payload = store.get(content_address=content_address)
+    reproduced = hashlib.sha256(payload).hexdigest()
+    if reproduced != content_address:
+        raise ReplayDivergence(
+            f"the bytes at {content_address!r} hash to {reproduced!r} on the "
+            "second read; the store returned different bytes for the same "
+            "address between resolution and the generation check"
+        )
+    stored = json.loads(payload)
+    if not isinstance(stored, Mapping):
+        raise ReplayDivergence(
+            f"the bytes at {content_address!r} are not a canonical object"
+        )
+    return stored
+
+
+def _refuse_generation_mismatch(
+    *,
+    contract: type[CCFContract],
+    stored: Mapping[str, object],
+    content_address: str,
+) -> None:
+    """Refuse ``stored`` by name if it crosses a declared generation boundary.
+
+    ``D-IMPL-243`` amendment 1. Parametrized by contract for the same reason
+    :func:`resolve_artifact` is: the discipline is one rule, and a test can
+    hold it against a scratch contract without a decision record in the
+    loop. :func:`generation_mismatch` decides; this raises.
+    """
+    missing = generation_mismatch(contract, stored)
+    if missing:
+        raise ReplayGenerationMismatch(
+            contract=contract, fields=missing, content_address=content_address
+        )
+
+
 def _resolve_bindings(
     *, record: DecisionReplayRecord, control_plane: ControlPlaneProtocol
 ) -> None:
@@ -430,9 +551,23 @@ def replay(
     Raises:
         ReplayUnresolvable: the record, a binding, the plan, or an operator
             cannot be resolved at its exact recorded version.
+        ReplayGenerationMismatch: the record resolved but was written under
+            an earlier generation of the canonical form — it lacks a field the
+            running record class declares as a generation boundary
+            (``D-IMPL-243`` amendment 1). Raised before any binding is
+            resolved and before anything is re-executed.
         ReplayDivergence: something resolved but did not reproduce.
     """
     record = _resolve_record(store=store, record_address=record_address)
+    # D-IMPL-243 amendment 1: the declared-scope generation check, on the
+    # record's STORED form, here and never in resolve_artifact. A record that
+    # lacks a `False`-marked field is refused by name now; a record that lacks
+    # only `True`-marked or unmarked fields continues exactly as it always has.
+    _refuse_generation_mismatch(
+        contract=DecisionReplayRecord,
+        stored=_stored_canonical_object(store=store, content_address=record_address),
+        content_address=record_address,
+    )
     _resolve_bindings(record=record, control_plane=control_plane)
 
     path = record.content_generation_path
