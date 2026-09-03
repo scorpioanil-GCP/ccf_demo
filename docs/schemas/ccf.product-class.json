@@ -116,6 +116,7 @@
         },
         "lineage_inputs_at": {
           "ccf_hash_transparent": true,
+          "default": [],
           "items": {
             "type": "string"
           },

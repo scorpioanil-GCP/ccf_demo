@@ -234,7 +234,7 @@ class ExecutionResult(CCFContract):
         default=NO_STORE_SNAPSHOT_PIN, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     empty_results: frozenset[str] = Field(
-        default_factory=frozenset, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+        default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
     def touched_entities(self) -> tuple[str, ...]:

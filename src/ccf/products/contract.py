@@ -577,7 +577,7 @@ class ServeObligations(CCFContract):
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     lineage_inputs_at: frozenset[str] = Field(
-        default_factory=frozenset, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+        default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
     @field_validator("debt_ceiling")
