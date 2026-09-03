@@ -200,7 +200,12 @@ GATE_DECLARED_OBLIGATIONS = "declared-obligations"
 #: ``request.parameters`` only when the class declares a ceiling and the
 #: request contract declares the parameter; otherwise
 #: :func:`~ccf.products.request.refuse_request` has already refused it as
-#: undeclared, and an undeclared class ignores it whatever it says.
+#: undeclared, and an undeclared class ignores it whatever it says. That same
+#: boundary refuses a declared, well-typed number outside ``[0, 1]`` by name
+#: (``not-a-proportion``; ``24.5-REVIEW.md`` WR-02, Dave, 2026-09-02), so what
+#: reaches :func:`effective_debt_ceiling` through the governed resolver is
+#: always a proportion — a request states a tighter ceiling or none, never a
+#: number that is not a ceiling at all.
 #:
 #: CINV-01, reasoned rather than assumed: this is a parameter NAME the SDK
 #: owns as mechanism vocabulary — on the footing of the four request axes
@@ -409,6 +414,16 @@ def effective_debt_ceiling(
       class grants is asking for something the class already answered — the
       served product is then held to the class's number, which is what the
       refusal reports as ``declared``.
+
+    A number outside ``[0, 1]`` is not a looser request; it is not a ceiling.
+    The request boundary (:func:`~ccf.products.request.refuse_request`,
+    ``not-a-proportion``) refuses it by name before the resolver computes
+    anything here (WR-02), which is what keeps ``declared`` on a refusal a
+    number some class or caller actually declared as a ceiling. This function
+    stays pure ``min`` and does not re-judge the interval: a direct caller of
+    :func:`run_gates` that bypasses the boundary is the deployment's own
+    composition, and the boundary is where the Standard's request vocabulary
+    is enforced.
 
     :func:`run_gates` and :func:`run_federated_gates` apply this function
     themselves against the class's declaration, so no caller — the resolver

@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**840 entries**, of which **598** name a public Python surface.
+**842 entries**, of which **600** name a public Python surface.
 
 ## Added
 
@@ -8083,9 +8083,21 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-319 entries — 136 public Python surface, 183 not public Python API.
+320 entries — 137 public Python surface, 183 not public Python API.
 
 ### Public Python surface
+
+#### ccf.products.request.ProductRequestViolationReason
+
+- Surface: ccf.products.request.ProductRequestViolationReason
+- Public surface: true
+- Change type: reshaped
+- Before: five members, the fifth `"not-supported-at-tier"`
+- After: six members, the sixth `"not-a-proportion"` — the one verdict in the vocabulary that reads a presented VALUE rather than a name or a type. Appended, not inserted, so `24.5-07`'s "the fifth" stays true of the tier reason. The manifest records the widened `reason` annotation as a reshape; `ProductRequestViolation`'s fields are unchanged
+- Why: WR-02 (Dave, 2026-09-02). `D_c` is a proportion (whitepaper §7.7.4), so a declared, honored, well-typed number outside `[0, 1]` — or not finite — is not a tolerance at all, and a request that states one is a bad *question*, in the contract-refusal family (a `400`, never the `409` family). The interval is the one `ServeObligations._ceiling_is_a_proportion` holds the CLASS's ceiling to (`24.5-L-14`): the request boundary and the class boundary read the same interval
+- Migration: none for a reader of the existing five. A client switching on `reason` gains one arm
+
+*Recorded by `24.5-fix-02-the-tolerance-interval-at-the-request-boundary.md`.*
 
 #### ccf.assembly.worker.EntityResolutionSpec
 
@@ -13306,7 +13318,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-107 entries — 87 public Python surface, 20 not public Python API.
+108 entries — 88 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -13442,6 +13454,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for any record in the tree or any record whose absent fields are `True`-marked or unmarked. A future field declared `False` makes every record written before it refused by name here — which is the declaration's meaning
 
 *Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: behavior
+- Before: address → tier → payload; a `debt_tolerance` of `-1` under a `number` declaration conformed, reached `effective_debt_ceiling` as a "tightening" and refused every product `declared-obligation-refusal` with `declared="-1"`
+- After: address → tier → payload → **tolerance interval** (`_refuse_tolerance`, module-private, last). The step reads `DEBT_TOLERANCE_PARAMETER` off `request.parameters` (a call-time import from `ccf.products.gates`, on the `DEF-17-02` pattern the payload import already uses); returns `None` when the key is absent, when the value is a `bool` or not an `int`/`Decimal` (those are the payload comparison's to name), or when the value is finite and `0 <= value <= 1`; otherwise `ProductRequestViolation(reason="not-a-proportion", key="debt_tolerance", declared_type=<the declared JSON type>, presented_type=<type name>, declared_keys=<arguments.properties>, presented_keys=<request.parameters>, detail="debt_tolerance: <value> is not a proportion — … [0, 1] … (24.5-L-14) …")`. Reads nothing about the class's ceiling: a request cannot create one, and a value that is not a proportion is not a tolerance under any class. Signature unchanged
+- Why: WR-02. Last, for the converse of the reason the tier step is second: the interval step judges a number's magnitude, and only a declared, honored, well-typed number has one — so undeclared reads `undeclared-parameter`, declared-inert reads `not-supported-at-tier`, and a string `"-1"` under a `number` declaration reads `type-mismatch`, each exactly as before. Refusing at this boundary, rather than clamping at the gate, is what keeps `declared` on a `409` a number some class actually declared, and keeps `D-IMPL-224`'s one mechanism one
+- Migration: none for a caller presenting a proportion. A caller presenting `-1`, `1.5`, `Infinity` or `NaN` now receives `product-request-violation` / `not-a-proportion` (no lineage; the graph is never touched) where it previously received a `declared-obligation-refusal` naming its own number as the class's — or, under a class declaring no ceiling, a served product
+
+*Recorded by `24.5-fix-02-the-tolerance-interval-at-the-request-boundary.md`.*
 
 #### ccf.controlplane.artifacts.load_artifact
 

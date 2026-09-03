@@ -43,6 +43,7 @@ import pathlib
 import shutil
 import sys
 from datetime import datetime, timezone
+from decimal import Decimal
 from types import ModuleType
 from typing import Any
 
@@ -53,6 +54,7 @@ from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.contract import NO_PAYLOAD_SCHEMA, ProductClassRegistrationError
+from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
 from ccf.products.request import (
     NO_REQUEST_CONTRACT,
     PRODUCT_REQUEST_CONTRACT,
@@ -986,15 +988,125 @@ def test_from_declared_refuses_a_malformed_unsupported_arguments(
     assert "unsupported_arguments" in str(raised.value)
 
 
-def test_the_reason_vocabulary_has_five_members_ending_in_the_tier_reason() -> None:
-    """``24.5-L-12``: the fifth member, in the vocabulary's hyphenated spelling."""
+def test_the_reason_vocabulary_has_six_members_tier_then_proportion() -> None:
+    """``24.5-L-12``: the fifth member, in the vocabulary's hyphenated spelling; ``24.5-WR-02``: the sixth, appended after it."""
     import typing
 
     from ccf.products.request import ProductRequestViolationReason
 
     members = typing.get_args(ProductRequestViolationReason)
-    assert len(members) == 5
-    assert members[-1] == "not-supported-at-tier"
+    assert len(members) == 6
+    assert members[-2] == "not-supported-at-tier"
+    assert members[-1] == "not-a-proportion"
+
+
+# --- (g) the tolerance interval: a request number that is not a proportion ---
+#
+# ``24.5-REVIEW.md`` WR-02, ruled by Dave 2026-09-02: a negative
+# ``debt_tolerance`` is refused BY NAME at the request/class boundary, in the
+# contract-refusal family, so it can never reach ``effective_debt_ceiling`` and
+# coerce every serve into a ``409`` whose ``declared`` names a number no class
+# declared. The interval is the one ``ServeObligations`` holds the CLASS's
+# ceiling to (``24.5-L-14``): ``D_c`` is a proportion.
+
+
+def _tolerance_contract(**overrides: Any) -> ProductRequestContract:
+    """The fixture contract, declaring the Standard's universal tolerance as a number."""
+    arguments = _arguments()
+    properties = dict(arguments.properties)
+    properties[DEBT_TOLERANCE_PARAMETER] = SkillArgumentProperty(
+        type="number", description="the caller's D_c ceiling; a proportion"
+    )
+    return _contract(
+        arguments=SkillArgumentSchema(
+            properties=properties, required=arguments.required
+        ),
+        **overrides,
+    )
+
+
+def _tolerance_request(value: object) -> ProductRequest:
+    return _request(
+        parameters={"required_leaf": "value", DEBT_TOLERANCE_PARAMETER: value}
+    )
+
+
+@pytest.mark.parametrize(
+    "presented",
+    [-1, Decimal("-0.1"), Decimal("1.5"), Decimal("Infinity"), Decimal("NaN")],
+    ids=["negative-int", "negative-decimal", "over-one", "infinite", "nan"],
+)
+def test_a_tolerance_that_is_not_a_proportion_is_refused_by_name(
+    presented: object,
+) -> None:
+    """WR-02: outside ``[0, 1]`` (or not finite) → ``not-a-proportion`` naming the parameter.
+
+    What would fail here: ``refuse_request`` conforming the request on its
+    declared TYPE alone, which is the shipped state WR-02 measured — the
+    value then reached the gate as a "tightening" and refused every product
+    with ``declared="-1"``.
+    """
+    violation = refuse_request(
+        request=_tolerance_request(presented), declared=_tolerance_contract()
+    )
+
+    assert isinstance(violation, ProductRequestViolation)
+    assert violation.reason == "not-a-proportion"
+    assert violation.key == DEBT_TOLERANCE_PARAMETER
+    assert violation.declared_type == "number"
+    assert violation.presented_type == type(presented).__name__
+    assert violation.declared_keys == frozenset(_tolerance_contract().arguments.properties)
+    assert DEBT_TOLERANCE_PARAMETER in violation.presented_keys
+    assert DEBT_TOLERANCE_PARAMETER in violation.detail
+    assert str(presented) in violation.detail
+    assert "[0, 1]" in violation.detail
+    assert "24.5-L-14" in violation.detail
+
+
+@pytest.mark.parametrize(
+    "presented",
+    [0, 1, Decimal("0"), Decimal("1"), Decimal("0.25")],
+    ids=["zero-int", "one-int", "zero-decimal", "one-decimal", "quarter"],
+)
+def test_a_tolerance_inside_the_unit_interval_conforms(presented: object) -> None:
+    """The closed interval, both ends included, as the class-side validator reads it."""
+    assert (
+        refuse_request(
+            request=_tolerance_request(presented), declared=_tolerance_contract()
+        )
+        is None
+    )
+
+
+def test_the_tolerance_step_is_last_so_earlier_verdicts_keep_their_names() -> None:
+    """Order: address → tier → payload → tolerance; a value never reaches the interval check under an earlier verdict.
+
+    Three controls, one per earlier step that could see the same key:
+    undeclared → ``undeclared-parameter``; declared inert →
+    ``not-supported-at-tier``; declared ``number`` but presented as a string →
+    ``type-mismatch``. The interval is only ever judged on a declared,
+    honored, well-typed number.
+    """
+    undeclared = refuse_request(
+        request=_tolerance_request(-1), declared=_contract()
+    )
+    assert isinstance(undeclared, ProductRequestViolation)
+    assert undeclared.reason == "undeclared-parameter"
+
+    inert = refuse_request(
+        request=_tolerance_request(-1),
+        declared=_contract(
+            unsupported_arguments={DEBT_TOLERANCE_PARAMETER: "never honored here"}
+        ),
+    )
+    assert isinstance(inert, ProductRequestViolation)
+    assert inert.reason == "not-supported-at-tier"
+
+    mistyped = refuse_request(
+        request=_tolerance_request("-1"), declared=_tolerance_contract()
+    )
+    assert isinstance(mistyped, ProductRequestViolation)
+    assert mistyped.reason == "type-mismatch"
 
 
 def _string_collection_constants(source: str) -> list[str]:

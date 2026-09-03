@@ -96,6 +96,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field
@@ -189,12 +190,26 @@ __all__ = [
 #: *declared-but-inert*). It arrives through
 #: :attr:`ProductRequestContract.unsupported_arguments`, never through the
 #: payload comparison. Ledger row ``24.5-L-12``.
+#:
+#: The sixth, ``not-a-proportion``, is the one verdict that reads a presented
+#: VALUE rather than a name or a type: the Standard's universal
+#: :data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER` is a ``D_c`` ceiling
+#: and ``D_c`` is a proportion (whitepaper §7.7.4), so a declared, honored,
+#: well-typed number outside ``[0, 1]`` — or not finite — is not a tolerance
+#: at all. It is refused here, in the contract-refusal family, so it can never
+#: reach :func:`~ccf.products.gates.effective_debt_ceiling` as a "tightening"
+#: and coerce every serve into a ``409`` whose ``declared`` names a number no
+#: class declared (``24.5-REVIEW.md`` WR-02, Dave, 2026-09-02). The interval is
+#: the one :class:`~ccf.products.contract.ServeObligations` holds the CLASS's
+#: ceiling to at declaration (``24.5-L-14``): the request boundary and the
+#: class boundary read the same interval.
 ProductRequestViolationReason = Literal[
     "undeclared-parameter",
     "missing-required-parameter",
     "type-mismatch",
     "class-mismatch",
     "not-supported-at-tier",
+    "not-a-proportion",
 ]
 
 #: How :func:`~ccf.products.payload.refuse_payload`'s reasons read on the
@@ -508,16 +523,18 @@ class ProductRequestViolation(CCFContract):
     re-derives either to learn what the gap was.
 
     Attributes:
-        reason: Which of the five ways the request missed.
+        reason: Which of the six ways the request missed.
         key: Where. A parameter reads by name, a nested member reads
             ``parent.member`` and an element of a declared list reads
             ``parent[].member``; a class mismatch reads the field that
-            disagreed; a tier refusal reads the inert parameter's name.
+            disagreed; a tier refusal reads the inert parameter's name; a
+            proportion refusal reads the tolerance parameter's name.
         declared_type: The JSON Schema type declared at ``key`` — or, for a
             class mismatch, the value the **contract** declares. ``None`` when
             neither applies, which includes a tier refusal: an inert parameter
             is refused whatever its type, so no type is what the declaration
-            says about it.
+            says about it. A proportion refusal carries the declared type
+            (the value was well-typed; it was its magnitude that missed).
         presented_type: The Python type name the request presented at ``key``
             — or, for a class mismatch, the value the **request** presented.
         declared_keys: Every parameter the contract declares at the level the
@@ -529,7 +546,10 @@ class ProductRequestViolation(CCFContract):
             The typed fields above are the machine-readable version. For a
             tier refusal it carries the Standard's status token, the parameter
             name and the declared reason prose, all three, so a reader of the
-            sentence sees what the declaration said.
+            sentence sees what the declaration said. For a proportion refusal
+            it carries the parameter name, the presented value and the
+            interval, so a caller reads which number missed and what it had
+            to be.
     """
 
     reason: ProductRequestViolationReason
@@ -670,13 +690,65 @@ def _refuse_tier(
     return None
 
 
+def _refuse_tolerance(
+    *, request: ProductRequest, declared: ProductRequestContract
+) -> ProductRequestViolation | None:
+    """Is the presented ``debt_tolerance`` a proportion?
+
+    The interval step (WR-02). Runs LAST, after the payload comparison has
+    said the parameter is declared, honored and well-typed, so this function
+    only ever judges a number's magnitude: ``bool`` (an ``int`` to Python,
+    not to the contract) and non-numbers are the payload comparison's to
+    name, and a parameter the declaration does not carry never reaches here.
+    The interval ``[0, 1]`` is the one the class's own ceiling is held to
+    (:class:`~ccf.products.contract.ServeObligations`, ``24.5-L-14``); the
+    parameter NAME is the SDK's mechanism vocabulary
+    (:data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER`); the number is the
+    caller's. Nothing about the class's *ceiling* is read — a request cannot
+    create one and this step does not need one: a value that is not a
+    proportion is not a tolerance under any class.
+    """
+    # Imported at call time for the same DEF-17-02 reason `refuse_payload` is:
+    # `ccf.products.gates` reaches `ccf.products.contract`, which is on the
+    # path back to this module through the replay record. One name, needed
+    # once the comparison runs and never before.
+    from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
+
+    key = DEBT_TOLERANCE_PARAMETER
+    if key not in request.parameters:
+        return None
+    presented = request.parameters[key]
+    if isinstance(presented, bool) or not isinstance(presented, (int, Decimal)):
+        return None
+    value = Decimal(presented)
+    if value.is_finite() and Decimal(0) <= value <= Decimal(1):
+        return None
+    property_ = declared.arguments.properties.get(key)
+    return ProductRequestViolation(
+        reason="not-a-proportion",
+        key=key,
+        declared_type=None if property_ is None else property_.type,
+        presented_type=type(presented).__name__,
+        declared_keys=frozenset(declared.arguments.properties),
+        presented_keys=frozenset(request.parameters),
+        detail=(
+            f"{key}: {presented} is not a proportion — D_c is a proportion "
+            "(whitepaper §7.7.4), so a tolerance must lie in [0, 1]; the "
+            "class's ceiling is held to the same interval at declaration "
+            "(24.5-L-14), and a request may only tighten it, never state a "
+            "number that is not a ceiling at all"
+        ),
+    )
+
+
 def refuse_request(
     *, request: ProductRequest, declared: ProductRequestContract
 ) -> ProductRequestViolation | None:
-    """The one request-conformity comparison — address, then tier, then parameters.
+    """The one request-conformity comparison — address, then tier, then parameters, then the tolerance interval.
 
     **The order is fixed and load-bearing** (``24.5-L-13``): address first,
-    the tier step second, the payload comparison last. A declared-and-inert
+    the tier step second, the payload comparison third, the interval step
+    last. A declared-and-inert
     parameter is refused whatever its type, and it is typically *not* in
     ``arguments.properties`` — so the payload comparison, run first, would
     call it ``undeclared-parameter`` and hide the reason the declaration
@@ -684,6 +756,9 @@ def refuse_request(
     is what a caller reads. The address check stays first for the reason
     :func:`_refuse_address` gives: a request to another class never reaches
     the tier step, so a tier verdict is always about this class's declaration.
+    The interval step (:func:`_refuse_tolerance`, WR-02) runs after the
+    payload comparison for the converse reason: it judges a number's
+    magnitude, and only a declared, honored, well-typed number has one.
 
     **Called by the deployment's own resolver, not by any door**
     (``D-IMPL-121``, Dave, 2026-08-12, extending ``D-IMPL-113``). This
@@ -715,13 +790,15 @@ def refuse_request(
 
     Returns:
         ``None`` when the request is addressed to this contract, presents no
-        parameter the contract declares inert, and matches its declared
-        parameters at every level; otherwise the
+        parameter the contract declares inert, matches its declared
+        parameters at every level, and presents no tolerance outside the unit
+        interval; otherwise the
         :class:`ProductRequestViolation` naming the first failure — address
         first, then the tier step over sorted presented names, then the fixed
         undeclared-then-missing-then-mistyped order
-        :func:`~ccf.products.payload.refuse_payload` imposes over sorted names
-        — carrying both sides of the comparison that failed.
+        :func:`~ccf.products.payload.refuse_payload` imposes over sorted names,
+        then the interval step — carrying both sides of the comparison that
+        failed.
     """
     # Imported at call time, not at module scope (DEF-17-02). `ccf.products.
     # payload` reaches `ccf.skills.catalog` at its own top, and that reaches
@@ -743,9 +820,9 @@ def refuse_request(
     parameters = refuse_payload(
         payload=request.parameters, declared=declared.arguments
     )
-    if parameters is None:
-        return None
-    return _translate(parameters)
+    if parameters is not None:
+        return _translate(parameters)
+    return _refuse_tolerance(request=request, declared=declared)
 
 
 def request_seeds(request: ProductRequest | None) -> frozenset[str] | None:

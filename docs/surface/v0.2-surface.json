@@ -5228,12 +5228,12 @@
           "key": "<class 'str'>",
           "presented_keys": "frozenset[str]",
           "presented_type": "str | None",
-          "reason": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier']"
+          "reason": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion']"
         }
       },
       "ProductRequestViolationReason": {
         "kind": "function",
-        "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier']"
+        "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion']"
       },
       "refuse_request": {
         "kind": "function",
