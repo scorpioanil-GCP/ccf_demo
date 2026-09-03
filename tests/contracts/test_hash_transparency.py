@@ -192,3 +192,195 @@ def test_an_absent_nested_field_is_reported_once_as_the_outer_name() -> None:
 def test_a_null_nested_value_is_a_leaf_not_a_walk() -> None:
     stored = {"inner": {"a": 1, "n": 0}, "optional": None}
     assert generation_mismatch(_Outer, stored) == ()
+
+
+# --- the marks in the tree: the ticked table, as a roster --------------------
+
+#: Every hash-transparent field the SDK declares, as ``D-IMPL-243``'s ticked
+#: table (rows 1–5 and 7–10) plus the ONE inherited occurrence: the artifact
+#: form of row 1 subclasses the parameters class and carries the same
+#: declaration, so the mark rides the inheritance — which is the CR-01
+#: consequence for a registered table's content-hash version. Rows 6, 11 and
+#: 12 (``ExecutionResult.store_snapshot_pin``, ``ResolvedEntity.resolved_by``,
+#: ``ExecutionResult.empty_results``) are never content-hashed and carry no
+#: mark. A roster, never a count: a right count with a wrong member audits
+#: clean forever.
+_MARKED_IN_THE_TREE = frozenset(
+    {
+        "ccf.operators.params.TraversalNeighborhoodParameters.admitted_entity_classes",
+        "ccf.controlplane.artifacts.TraversalNeighborhoodParametersArtifact.admitted_entity_classes",
+        "ccf.graph.protocols.TraversalSpec.admitted_entity_classes",
+        "ccf.graph.protocols.TraversalSpec.direction",
+        "ccf.products.contract.ProductLineage.store_snapshot_pin",
+        "ccf.replay.record.ContextFabricSnapshot.store_snapshot_pin",
+        "ccf.controlplane.artifacts.HalfLifeEntry.decay",
+        "ccf.controlplane.artifacts.ProductClassDeclaration.serve_obligations",
+        "ccf.products.contract.RegisteredProductClass.serve_obligations",
+        "ccf.products.request.ProductRequestContract.unsupported_arguments",
+        "ccf.assembly.worker.RelationshipResolutionRule.predicate_key",
+        "ccf.assembly.worker.RelationshipResolutionRule.subject_rule",
+        "ccf.assembly.worker.RelationshipResolutionRule.object_rule",
+    }
+)
+
+
+def _every_marked_field_in_the_sdk() -> frozenset[str]:
+    import importlib
+    import pkgutil
+
+    from pydantic import BaseModel
+
+    import ccf
+
+    for module in pkgutil.walk_packages(ccf.__path__, "ccf."):
+        importlib.import_module(module.name)
+    found: set[str] = set()
+    seen: set[type] = set()
+
+    def walk(cls: type) -> None:
+        for sub in cls.__subclasses__():
+            if sub in seen:
+                continue
+            seen.add(sub)
+            if sub.__module__.startswith("ccf."):
+                for name in hash_transparent_fields(sub):
+                    found.add(f"{sub.__module__}.{sub.__name__}.{name}")
+            walk(sub)
+
+    walk(BaseModel)
+    return frozenset(found)
+
+
+def test_the_marked_fields_in_the_tree_are_exactly_the_ticked_table() -> None:
+    assert _every_marked_field_in_the_sdk() == _MARKED_IN_THE_TREE
+
+
+# --- silence equals yesterday, on the real models, against 13bd250 -----------
+
+#: ``content_hash`` of each marked model at its sentinel, MEASURED under the
+#: ``13bd250`` tree (the Phase 24.5 base, before any of these fields existed)
+#: by ``git archive 13bd250 src | tar -x`` and the same construction under
+#: ``PYTHONPATH=<scratch>/src``. The digests are the base tree's, verbatim;
+#: HEAD must reproduce every one. The first is CR-01's own reproduction
+#: (``34df2d94…``, the number the review measured at base).
+_BASE_TREE_DIGESTS = {
+    "TraversalNeighborhoodParameters": (
+        "34df2d942bbe6d91bdb31d304a50a35a26ea5b291eb13d90fabca17b101775a9"
+    ),
+    "TraversalSpec": (
+        "34df2d942bbe6d91bdb31d304a50a35a26ea5b291eb13d90fabca17b101775a9"
+    ),
+    "GraphQuery": "5e94449b20e50be3e6be2c7d5e566fde5226ed3062074db02f31493d1f0213e5",
+    "ProductLineage": (
+        "2c321c21705091837fbce2ab234e289c2f07d4fae85a960aaec03221ba0b39fc"
+    ),
+    "ContextFabricSnapshot": (
+        "e0575d5da1537f9a5da9c9ddf3121c7c364f7509d73d24f7e78dba8758337aac"
+    ),
+    "HalfLifeTable": (
+        "66d55b5f9358cce2e7b93a5d0198fd4df96acb3a1297e2bddd7330dba89b894c"
+    ),
+    "ProductClassDeclaration": (
+        "99ca269ca18f91b88cc8f0769aad16646b825dbe3b9387996f4723d76e3252f1"
+    ),
+    "RegisteredProductClass": (
+        "b79c57556c91866267adebe5f8309bab6939ff59888181fb90f5fc61f4d23b43"
+    ),
+    "ProductRequestContract": (
+        "cbc7c95d8564e5e3065eb76f00c1bfe2bf040be906cc81d32687969a9704dfbf"
+    ),
+    "RelationshipResolutionRule": (
+        "657bc97be381a5cf0d5afb1741462624a934a1ddc13eba5b8db76760ed0dffd1"
+    ),
+}
+
+
+def _real_models_at_their_sentinels() -> dict[str, object]:
+    from datetime import UTC, datetime
+
+    from ccf.assembly.worker import RelationshipResolutionRule
+    from ccf.controlplane.artifacts import (
+        HalfLifeEntry,
+        HalfLifeTable,
+        ProductClassDeclaration,
+    )
+    from ccf.graph.protocols import GraphQuery, TraversalSpec
+    from ccf.operators.params import TraversalNeighborhoodParameters
+    from ccf.products.contract import ProductLineage, RegisteredProductClass
+    from ccf.products.request import ProductRequestContract, SkillArgumentSchema
+    from ccf.replay.record import ContextFabricSnapshot
+
+    at = datetime(2026, 3, 15, tzinfo=UTC)
+    spec = TraversalSpec(
+        seed_entity_classes=frozenset({"a"}),
+        relationship_types=frozenset({"r"}),
+        depth_limit=1,
+    )
+    return {
+        "TraversalNeighborhoodParameters": TraversalNeighborhoodParameters(
+            seed_entity_classes=frozenset({"a"}),
+            relationship_types=frozenset({"r"}),
+            depth_limit=1,
+        ),
+        "TraversalSpec": spec,
+        "GraphQuery": GraphQuery(tenant_id="t", as_of=at, traverse=spec),
+        "ProductLineage": ProductLineage(
+            operators_invoked=frozenset({"o"}),
+            policy_bundle_versions=frozenset({"v"}),
+            graph_snapshot_at=at,
+        ),
+        "ContextFabricSnapshot": ContextFabricSnapshot.build(
+            tenant_id="t",
+            temporal_boundary=at,
+            store_watermark="w",
+            touched_entities=("e",),
+            touched_relationships=(),
+        ),
+        "HalfLifeTable": HalfLifeTable(
+            semver="1.0.0",
+            entries={
+                "x": HalfLifeEntry(
+                    half_life_seconds=10, decay_driver="d", supersession_event="e"
+                )
+            },
+        ),
+        "ProductClassDeclaration": ProductClassDeclaration(
+            semver="1.0.0",
+            schema_name="s",
+            schema_version="1.0.0",
+            ttl_anchor="from_decision",
+            assembly_mode="algorithmic",
+            max_ttl_key="k",
+            required_operator_keys=("o",),
+        ),
+        "RegisteredProductClass": RegisteredProductClass(
+            schema_name="s",
+            schema_version="1.0.0",
+            ttl_anchor="from_decision",
+            assembly_mode="algorithmic",
+            max_ttl_key="k",
+            max_ttl_version="v",
+        ),
+        "ProductRequestContract": ProductRequestContract(
+            semver="1.0.0",
+            schema_name="s",
+            schema_version="1.0.0",
+            arguments=SkillArgumentSchema(properties={}, required=()),
+        ),
+        "RelationshipResolutionRule": RelationshipResolutionRule(
+            relationship_type="rel", subject_entity_class="a", object_entity_class="b"
+        ),
+    }
+
+
+@pytest.mark.parametrize("model_name", sorted(_BASE_TREE_DIGESTS))
+def test_each_marked_model_at_its_sentinel_hashes_as_the_base_tree_did(
+    model_name: str,
+) -> None:
+    """Silence equals yesterday, model by model (``D-IMPL-243``)."""
+    instance = _real_models_at_their_sentinels()[model_name]
+    assert content_hash(instance) == _BASE_TREE_DIGESTS[model_name]
+
+
+def test_the_digest_table_and_the_construction_table_name_the_same_models() -> None:
+    assert set(_real_models_at_their_sentinels()) == set(_BASE_TREE_DIGESTS)

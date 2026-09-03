@@ -38,6 +38,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from pydantic import Field
+
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.operators.base import OperatorParameters
 
 __ccf_mode__ = "algorithmic"
@@ -144,13 +147,19 @@ class TraversalNeighborhoodParameters(OperatorParameters):
             docs/GRAPH_QUERY_SEMANTICS.md:221 selects starts; "seeds are
             included" stands), and an entity absent from the view's class
             map is not admitted. Mirrored field-for-field onto
-            ``src/ccf/graph/protocols.py::TraversalSpec``.
+            ``src/ccf/graph/protocols.py::TraversalSpec``. Hash-transparent
+            at ``None`` (``D-IMPL-243``): a walk admitting every class is
+            observationally the walk recorded before this field existed,
+            so it is omitted from the canonical form at that value and
+            rendered — moving ``parameter_hash`` — at any other.
     """
 
     seed_entity_classes: frozenset[str]
     relationship_types: frozenset[str]
     depth_limit: int
-    admitted_entity_classes: frozenset[str] | None = None
+    admitted_entity_classes: frozenset[str] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class TraversalDescendantsParameters(OperatorParameters):

@@ -101,6 +101,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import Field
 
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.artifact_base import ArtifactClass, VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.products.contract import (
@@ -314,13 +315,18 @@ class ProductRequestContract(VersionedArtifact):
             that this class declares no inert parameter, which is what every
             declaration written before this field said and still says. The set
             lives here, in the artifact, so that no spine code carries it
-            (CLAUDE.md §6.4; ledger row ``24.5-L-13``).
+            (CLAUDE.md §6.4; ledger row ``24.5-L-13``). Hash-transparent at
+            the empty mapping (``D-IMPL-243``): nothing declared-refused is
+            every pre-phase contract, so the field is omitted from the
+            canonical form at that value and a non-empty mapping is rendered.
     """
 
     schema_name: str
     schema_version: str
     arguments: SkillArgumentSchema
-    unsupported_arguments: Mapping[str, str] = Field(default_factory=dict)
+    unsupported_arguments: Mapping[str, str] = Field(
+        default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @classmethod
     def from_declared(cls, artifact: DeclaredArtifact) -> ProductRequestContract:

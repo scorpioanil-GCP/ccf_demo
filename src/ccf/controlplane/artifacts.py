@@ -67,6 +67,7 @@ from pydantic import Field, field_validator, model_validator
 
 from ccf.assembly.worker import EntityResolutionSpec
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.graph.protocols import LineageMode, PolicyBindingMode
 from ccf.controlplane.artifact_base import (
     ArtifactClass,
@@ -256,6 +257,10 @@ class HalfLifeEntry(CCFContract):
 
     Attributes:
         decay: ``"curve"`` or ``"supersede-only"``, as above.
+            Hash-transparent at ``"curve"`` (``D-IMPL-243``): a curve entry
+            is the only pre-phase entry, so the field is omitted from the
+            canonical form at that value — a table's content-hash version
+            is what it was — and ``"supersede-only"`` is rendered.
         half_life_seconds: λ_c as whole seconds under ``curve``. Integer
             rather than a fractional quantity because seconds are exact and
             floats are not; sub-second half-lives are outside the bands the
@@ -267,7 +272,7 @@ class HalfLifeEntry(CCFContract):
             ``supersede-only`` it is the *only* thing that ends it.
     """
 
-    decay: DecayMode = "curve"
+    decay: DecayMode = Field(default="curve", json_schema_extra={HASH_TRANSPARENT_KEY: True})
     half_life_seconds: int | None = None
     decay_driver: str
     supersession_event: str
@@ -802,6 +807,10 @@ class ProductClassDeclaration(VersionedArtifact):
             request may only tighten it, ``D-IMPL-240`` (3)); the SDK holds
             no number. Defaults to
             :data:`~ccf.products.contract.NO_SERVE_OBLIGATIONS`.
+            Hash-transparent at that sentinel (``D-IMPL-243``): a
+            declaration obliging nothing is every pre-phase declaration,
+            so the field is omitted from the canonical form at that value
+            and a declared obligation is rendered and versions the document.
 
     **The seven governance fields above all default**, on the
     ``accepted_policy_binding_modes`` precedent and for the same reason: an
@@ -829,7 +838,9 @@ class ProductClassDeclaration(VersionedArtifact):
     constituent_validity_floors: ConstituentValidityFloors = NO_VALIDITY_FLOORS
     payload_schema_key: str = NO_PAYLOAD_SCHEMA
     request_contract_key: str = NO_REQUEST_CONTRACT
-    serve_obligations: ServeObligations = NO_SERVE_OBLIGATIONS
+    serve_obligations: ServeObligations = Field(
+        default=NO_SERVE_OBLIGATIONS, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class ProjectionRequirements(VersionedArtifact):

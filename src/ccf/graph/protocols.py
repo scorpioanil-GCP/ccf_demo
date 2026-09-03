@@ -54,9 +54,10 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Final, Literal, Protocol, runtime_checkable
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.contracts.claims import EntityClaim, RelationshipClaim
 from ccf.peering.protocol import PeerRef
 
@@ -296,7 +297,10 @@ class TraversalSpec(CCFContract):
             and ``GQ-10``'s "seeds are included" stands, so a start of an
             unadmitted class is in the answer and still expands. An entity
             absent from the view's class map is not admitted. ``None``
-            admits every class (the 1.0.x behavior).
+            admits every class (the 1.0.x behavior). Hash-transparent at
+            ``None`` (``D-IMPL-243``): omitted from the canonical form at
+            that value, so a query pin computed before the field existed
+            still matches; any set is rendered and moves the pin.
         direction: Which way an edge may be crossed
             (:data:`TraversalDirection`; ledger row ``24.5-L-06``).
             ``"undirected"`` — the default and the 1.0.x behavior — crosses
@@ -308,13 +312,21 @@ class TraversalSpec(CCFContract):
             is forward), never by an artifact value. A pushed answerer that
             cannot express the direction declines the whole query to the
             fallback (`GQ-32` at docs/GRAPH_QUERY_SEMANTICS.md:583; D-04).
+            Hash-transparent at ``"undirected"`` (``D-IMPL-243``): the
+            undirected walk is the 1.0.x walk, so it is omitted from the
+            canonical form at that value; ``"forward"`` is rendered and
+            moves the pin.
     """
 
     seed_entity_classes: frozenset[str]
     relationship_types: frozenset[str]
     depth_limit: int
-    admitted_entity_classes: frozenset[str] | None = None
-    direction: TraversalDirection = "undirected"
+    admitted_entity_classes: frozenset[str] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    direction: TraversalDirection = Field(
+        default="undirected", json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class GraphQuery(CCFContract):

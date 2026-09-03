@@ -46,7 +46,7 @@ from typing import Protocol, runtime_checkable
 from pydantic import Field, model_validator
 
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
 from ccf.controlplane.artifact_base import VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneProtocol
@@ -140,19 +140,23 @@ class RelationshipResolutionRule(CCFContract):
         object_entity_class: Class of the object endpoint (URI scheme).
         predicate_key: Payload key whose value must equal
             ``relationship_type`` for this rule to fire. ``None`` keeps
-            co-occurrence semantics.
+            co-occurrence semantics. Hash-transparent at ``None``
+            (``D-IMPL-243``): a co-occurrence rule is every pre-phase rule,
+            so the field is omitted from the canonical form at that value.
         subject_rule: ``match_key`` of the entity rule that resolved the
             subject. ``None`` chooses subjects by ``subject_entity_class``.
+            Hash-transparent at ``None`` (``D-IMPL-243``), as ``predicate_key``.
         object_rule: ``match_key`` of the entity rule that resolved the
             object. ``None`` chooses objects by ``object_entity_class``.
+            Hash-transparent at ``None`` (``D-IMPL-243``), as ``predicate_key``.
     """
 
     relationship_type: str
     subject_entity_class: str
     object_entity_class: str
-    predicate_key: str | None = None
-    subject_rule: str | None = None
-    object_rule: str | None = None
+    predicate_key: str | None = Field(default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True})
+    subject_rule: str | None = Field(default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True})
+    object_rule: str | None = Field(default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True})
 
     @model_validator(mode="after")
     def _endpoint_selectors_are_whole(self) -> RelationshipResolutionRule:

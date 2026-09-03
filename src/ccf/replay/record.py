@@ -59,10 +59,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Final
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.contracts.canonical import (
+    HASH_TRANSPARENT_KEY,
+    canonical_bytes,
+    content_hash,
+)
 from ccf.graph.protocols import (
     NO_STORE_SNAPSHOT_PIN,
     SourceAttestation,
@@ -232,7 +236,11 @@ class ContextFabricSnapshot(CCFContract):
             assertion "this substrate exposes no native pin" — a record
             written before the field existed, or an execution over a reader
             that cannot pin — asserted, never inferred from silence, exactly
-            as ``source_attestation``'s ``None``.
+            as ``source_attestation``'s ``None``. Hash-transparent at the
+            sentinel (``D-IMPL-243``): a record written before this field
+            existed carries the same dimension-1 bytes, so the field is
+            omitted from the canonical form at that value and rendered at
+            any real pin.
     """
 
     graph_snapshot_id: str
@@ -242,7 +250,9 @@ class ContextFabricSnapshot(CCFContract):
     touched_entities: tuple[str, ...]
     touched_relationships: tuple[str, ...]
     source_attestation: SourceAttestation | None = None
-    store_snapshot_pin: StoreSnapshotPin = NO_STORE_SNAPSHOT_PIN
+    store_snapshot_pin: StoreSnapshotPin = Field(
+        default=NO_STORE_SNAPSHOT_PIN, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @classmethod
     def build(

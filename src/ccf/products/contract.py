@@ -224,9 +224,10 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import (
     NO_STORE_SNAPSHOT_PIN,
@@ -654,6 +655,10 @@ class RegisteredProductClass(CCFContract):
             product to. Carried here because this is the value the gate
             receives, on the ``accepted_lineage_modes`` reasoning. Defaults to
             :data:`NO_SERVE_OBLIGATIONS`, under which the gate is silent.
+            Hash-transparent at that sentinel (``D-IMPL-243``): a class
+            obliging nothing is every pre-phase class, so the field is
+            omitted from the canonical form at that value and rendered at
+            any declared obligation.
     """
 
     schema_name: str
@@ -676,7 +681,9 @@ class RegisteredProductClass(CCFContract):
     payload_schema_version: str = NO_PAYLOAD_SCHEMA
     request_contract_key: str = NO_REQUEST_CONTRACT
     request_contract_version: str = NO_REQUEST_CONTRACT
-    serve_obligations: ServeObligations = NO_SERVE_OBLIGATIONS
+    serve_obligations: ServeObligations = Field(
+        default=NO_SERVE_OBLIGATIONS, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class ProductLineage(CCFContract):
@@ -710,12 +717,18 @@ class ProductLineage(CCFContract):
             in pin have different content addresses — which is what makes
             "served at pin N is not reproducible from pin N+1" a property of
             the contract rather than a hope about the replay path.
+            Hash-transparent at the sentinel (``D-IMPL-243``): "no pin
+            recorded" is what a product assembled before this field
+            existed says, so the field is omitted from the canonical form
+            at that value; a real pin is rendered and is a new identity.
     """
 
     operators_invoked: frozenset[str]
     policy_bundle_versions: frozenset[str]
     graph_snapshot_at: datetime
-    store_snapshot_pin: StoreSnapshotPin = NO_STORE_SNAPSHOT_PIN
+    store_snapshot_pin: StoreSnapshotPin = Field(
+        default=NO_STORE_SNAPSHOT_PIN, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class ContextProductContract(CCFContract):
