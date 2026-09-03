@@ -80,3 +80,28 @@ and not fixed inside that row's fence.
 - **Owner:** `24.5.1`, alongside whatever ruling plan `24.5-16` reaches on
   the hw1 flip (a clean checkout's hello-world is now refused by name rather
   than served empty).
+
+## 24.5-FIX-01 — out-of-scope observations (not fixed here)
+
+### `tools/docs_tests/test_requirement_ledger.py::test_the_uat_roster_matches_the_records_on_disk` is red before this fix
+
+- **Observed:** `make gate-tools`'s docs leg: the frozen `human_verification`
+  roster lacks `.planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04/24.5-VERIFICATION.md`,
+  which `ceab40fd` (the phase verification report, before `24.5-FIX-01`)
+  put on disk. Pre-existing at `b232ff29`; not caused by CR-01's fix and not
+  touched by it.
+- **Owner:** the 24.5 close (the roster is a phase-close artifact).
+
+### `tests/replay/test_store_snapshot_pin_fluree.py::test_a_product_served_at_pin_n_is_not_reproducible_from_pin_n_plus_1` failed ONCE in a full Fluree leg
+
+- **Observed:** first full leg (`CCF_REQUIRE_FLUREE=1 CCF_TEST_FLUREE_URL=http://localhost:8090 … -m fluree`):
+  `TypeError: the JSON object must be str, bytes or bytearray, not NoneType`
+  from `src/ccf/graph/reader.py::_entity_records` under
+  `src/ccf/graph/backends/fluree.py::query_pinned` — a pinned read returning a
+  row with no attributes column. Not reproduced: the module alone passed twice,
+  and the second full leg passed it (284 passed, only `CFT-G16` red, which is
+  the measured consequence recorded in `24.5-FIX-01-SUMMARY.md`). No file in
+  the failing path was edited by this fix.
+- **Owner:** the Fluree leg's state-accumulation posture (`D-03`, one
+  CCF-owned ledger across a job); an order-dependent read, to be reproduced
+  before it is believed.

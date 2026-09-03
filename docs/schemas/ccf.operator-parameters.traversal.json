@@ -15,6 +15,7 @@
           "type": "null"
         }
       ],
+      "ccf_hash_transparent": true,
       "default": null,
       "title": "Admitted Entity Classes"
     },

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**831 entries**, of which **592** name a public Python surface.
+**839 entries**, of which **598** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-403 entries — 367 public Python surface, 36 not public Python API.
+409 entries — 371 public Python surface, 38 not public Python API.
 
 ### Public Python surface
 
@@ -79,6 +79,54 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none — additive
 
 *Recorded by `24.1.1-04-a-refusal-has-an-identity-in-the-record.md`.*
+
+#### ccf.contracts.canonical.HASH_TRANSPARENT_KEY
+
+- Surface: ccf.contracts.canonical.HASH_TRANSPARENT_KEY
+- Public surface: true
+- Change type: added
+- Before: absent — a model rendered every field, defaults included, and no declaration could say otherwise
+- After: `"ccf_hash_transparent"`, the `json_schema_extra` key a field declares its hash posture under, in three states: `True` (omitted when the value is the declared sentinel — the field's `default` or its `default_factory()` result — rendered otherwise), `False` (a declared generation boundary: rendered always, and a stored object lacking it is refused by name at replay), absent (the pre-243 lineage: rendered, never refused). Only the literal `True` and the literal `False` are marks. A `True` on a field with no default is refused by `CanonicalizationError`, never ignored. The key surfaces in the exported JSON Schemas (`docs/schemas/`, six files regenerated)
+- Why: `D-IMPL-243` — "Mark that at the field (`ccf_hash_transparent`)"; amendment 1 — the three states
+- Migration: none for a reader. An adopter adding a sentinel-defaulted field to a `CCFContract` declares the key — `True` if the sentinel means the contract as it was before the field existed, `False` if a record without the field is of an earlier generation; the CINV-06 lint below is what makes forgetting red
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### ccf.contracts.canonical.hash_transparent_fields
+
+- Surface: ccf.contracts.canonical.hash_transparent_fields
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `hash_transparent_fields(model_cls: type[BaseModel]) -> frozenset[str]` — the fields of `model_cls` marked `True`, read from the field declarations and memoized per class, so what this reports and what `canonical_bytes` omits cannot disagree. Every pre-24.5 model answers the empty set
+- Why: the marks are declarations, and a reader (a test, a schema tool, an adopter's audit) needs to read them from the one place the canonicalizer does
+- Migration: none
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### ccf.contracts.canonical.generation_mismatch
+
+- Surface: ccf.contracts.canonical.generation_mismatch
+- Public surface: true
+- Change type: added
+- Before: absent — no code could say whether a stored canonical object belonged to the running canonicalizer's generation
+- After: `generation_mismatch(model_cls: type[BaseModel], stored: Mapping[str, object]) -> tuple[str, ...]` — the fields `model_cls` declares as generation boundaries (`False`) that the stored object lacks, nested models walked and reported dotted (`outer.inner`), an absent nested field reported once as the outer name if it is itself marked `False`; `True`-marked and unmarked absent fields are never named. Takes the parsed bytes, never a validated model, because validation fills every default and erases the absence measured
+- Why: `D-IMPL-243` — the refusal token `canonical_generation_mismatch` needs a decision procedure; amendment 1 — declared scope, because the unscoped form named fifteen pre-243 fields on every pre-extension record and would have repealed `D-IMPL-89` in practice
+- Migration: none
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### ccf.replay.engine.ReplayGenerationMismatch
+
+- Surface: ccf.replay.engine.ReplayGenerationMismatch
+- Public surface: true
+- Change type: added
+- Before: absent — a record of an earlier canonical generation replayed into `ReplayDivergence` on a parameter hash, reporting drifted operators that had not drifted
+- After: `ReplayGenerationMismatch(ReplayError)` with class attribute `reason = "canonical_generation_mismatch"`, instance attributes `fields` (model-qualified, dotted: `DecisionReplayRecord.policy_bindings.hitl_actions`) and `content_address`; constructed by the engine as `ReplayGenerationMismatch(*, contract, fields, content_address)`. Not a `ReplayDivergence` (nothing was reproduced and found to differ) and not a `ReplayUnresolvable` (nothing is missing from a store); a caller catching `ReplayError` already catches it
+- Why: `D-IMPL-243` — "not a quiet address drift and not a silent upgrade"; the token was measured absent from the tree before this fix
+- Migration: a caller that catches `ReplayDivergence` and `ReplayUnresolvable` separately and wants the third finding names it too. The HTTP `replay` noun resolves records through `resolve_artifact` and never calls `replay()`, so no route or status code moves
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
 
 #### ccf.deployment.classes.resolve_artifact_class
 
@@ -7409,6 +7457,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 ### Not public Python API
 
+#### tools.lints.hash_transparent_key (CINV-06)
+
+- Surface: tools/lints/hash_transparent_key.py
+- Public surface: false
+- Change type: added
+- Before: absent — a sentinel-defaulted field could ship without declaring its hash posture and every hash it touched would move with nothing red
+- After: a whole-tree AST checker over `src/` and `runtime/`, rule id `cinv06-hash-transparent-key` (CINV-05 is reserved by `D-GATE-15.4` ruling (3) for the deferred substrate-name split): every defaulted field on a `CCFContract` subclass — bases closed by simple name across files — must declare `ccf_hash_transparent` as the literal `True` or `False`; a missing key, a non-boolean value, or a `json_schema_extra` it cannot read statically is one finding naming `Class.field`. Allowlist: the fifteen pre-243 record fields amendment 1 names, model-qualified, and nothing else; no `allowlist.yaml` entry (`D-13`). **Written and tested (26 cases), NOT registered under `python -m tools.lints --all`**: its first run over the tree found 122 keyless defaulted fields beyond the fifteen — 7 declarations 24.5 added, 115 older — and amendment 1 fixes the allowlist at the fifteen, so registration awaits a ruling on that roster (pinned by name in `tools/lints/tests/test_hash_transparent_key.py`; reported in `24.5-FIX-01-SUMMARY.md`)
+- Why: amendment 1 — "A forgotten key is red, not a quiet upgrade." The roster is the STOP the fix was instructed to report rather than resolve
+- Migration: none until registered. On registration `make lint` runs it; `tools/lints/__init__.py` states the status until then
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### tests/replay/fixtures/golden_13bd250 (the fixture is the gate)
+
+- Surface: tests/replay/fixtures/golden_13bd250/
+- Public surface: false
+- Change type: added
+- Before: no pre-phase record existed in the tree, which is why CR-01 stayed green
+- After: one `DecisionReplayRecord` with a traversal step over SQLite, produced by the `13bd250` tree by a recorded command, with its graph, its store and a manifest of every identity it carries; `tests/replay/test_golden_13bd250.py` replays it at HEAD with `parameter_hash`, the `graph_query_sequence` pin, the product address and the snapshot id all equal (leg 1), diverges on demand with one mark disabled (the control), and refuses by name with a `False` planted on a field the record lacks (leg 2)
+- Why: `D-IMPL-243` — "The fixture is the gate."
+- Migration: none. A later generation gets a new directory named for its producing commit, never a rewrite
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
 #### src/ccf/deployment/\_\_init\_\_.py
 
 - Surface: src/ccf/deployment/__init__.py
@@ -13222,7 +13294,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-105 entries — 85 public Python surface, 20 not public Python API.
+107 entries — 87 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -13334,6 +13406,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none — sentinel-defaulted; all 40 call sites unchanged
 
 *Recorded by `24.1.1-04-a-refusal-has-an-identity-in-the-record.md`.*
+
+#### ccf.contracts.canonical.canonical_bytes
+
+- Surface: ccf.contracts.canonical.canonical_bytes
+- Public surface: true
+- Change type: behavior
+- Before: a `BaseModel` rendered every declared field
+- After: a `BaseModel` renders every declared field EXCEPT a `True`-marked one whose value `==` its declared sentinel (compared by value, so a model-valued sentinel such as `NO_STORE_SNAPSHOT_PIN` compares by content). The same holds for `content_hash`, which hashes these bytes. Measured: ten `content_hash` digests of the marked models at their sentinels are IDENTICAL to the `13bd250` tree's (`tests/contracts/test_hash_transparency.py`), CR-01's own pair now `34df2d94…` at both; every non-sentinel value moves its hash
+- Why: `D-IMPL-243` — "`_normalize` omits it when the value is that sentinel. Any non-sentinel value is rendered and must move the hash. That is not 'defaults never count.' It is 'silence equals yesterday.'"
+- Migration: none for an adopter whose stores predate 24.5 on the marked models — their identities are what they were. `D-GATE-24.5` carries the sentence for everything else: adopter stores from before 24.5 are not promised byte-identical replay
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: behavior
+- Before: resolve the record byte-first, resolve bindings, plan, operators; re-execute; compare
+- After: one step added between resolving the record and resolving its bindings, BEFORE anything is re-executed: the record's stored canonical object — obtained the way the record was resolved, a second `store.get` at the same address re-hashed to it (different bytes on the second read are `ReplayDivergence`) — is held against `generation_mismatch(DecisionReplayRecord, …)`, and a non-empty answer raises `ReplayGenerationMismatch` naming the fields. Signature unchanged; every record in the tree passes the step silently (measured: `tests/replay` 142 passed, 1 skipped, including the golden `13bd250` record and the pre-extension `PRE_CHANGE_CANONICAL`)
+- Why: amendment 1 — "Declared scope + lint, at `replay()`. … Do not put this in `resolve_artifact`."
+- Migration: none for any record in the tree or any record whose absent fields are `True`-marked or unmarked. A future field declared `False` makes every record written before it refused by name here — which is the declaration's meaning
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
 
 #### ccf.controlplane.artifacts.load_artifact
 

@@ -1143,14 +1143,21 @@
   "ccf.contracts.canonical": {
     "__all__": [
       "CanonicalizationError",
+      "HASH_TRANSPARENT_KEY",
       "canonical_bytes",
       "canonical_timestamp",
-      "content_hash"
+      "content_hash",
+      "generation_mismatch",
+      "hash_transparent_fields"
     ],
     "exports": {
       "CanonicalizationError": {
         "kind": "class",
         "shape": "type"
+      },
+      "HASH_TRANSPARENT_KEY": {
+        "kind": "constant",
+        "shape": "str"
       },
       "canonical_bytes": {
         "kind": "function",
@@ -1163,6 +1170,14 @@
       "content_hash": {
         "kind": "function",
         "shape": "(obj: 'object') -> 'str'"
+      },
+      "generation_mismatch": {
+        "kind": "function",
+        "shape": "(model_cls: 'type[BaseModel]', stored: 'Mapping[str, object]') -> 'tuple[str, ...]'"
+      },
+      "hash_transparent_fields": {
+        "kind": "function",
+        "shape": "(model_cls: 'type[BaseModel]') -> 'frozenset[str]'"
       }
     }
   },
@@ -5504,6 +5519,7 @@
       "ReplayDivergence",
       "ReplayEnvironment",
       "ReplayError",
+      "ReplayGenerationMismatch",
       "ReplayOutcome",
       "ReplayUnresolvable",
       "replay",
@@ -5522,6 +5538,10 @@
       "ReplayError": {
         "kind": "class",
         "shape": "type"
+      },
+      "ReplayGenerationMismatch": {
+        "kind": "class",
+        "shape": "(*, contract: 'type[CCFContract]', fields: 'tuple[str, ...]', content_address: 'str') -> 'None'"
       },
       "ReplayOutcome": {
         "kind": "contract",
