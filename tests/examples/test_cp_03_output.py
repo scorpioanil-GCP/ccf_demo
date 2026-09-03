@@ -832,18 +832,25 @@ def test_ofs_g06_as_of_is_refused_and_never_silently_honored(seeded: str) -> Non
         "the refusal's detail does not carry the Standard's status token"
     )
 
-    # `not_supported_at_tier` is the SPEC's name for this condition and is not
-    # a value anywhere in the SDK: `ProductRequestViolation.reason` is a closed
-    # Literal with no member for it, which is why the assembler RAISES rather
-    # than returning a violation. Recorded at §F.4; asserted here so that a
-    # future SDK member for it is noticed rather than silently unused.
+    # `not-supported-at-tier` IS a member of `ProductRequestViolation.reason`
+    # (`src/ccf/products/request.py::ProductRequestViolationReason`,
+    # `24.5-L-12`), and the served verdict's `reason` is that member. The
+    # roster is read off the model so a renamed member is noticed rather than
+    # silently unused. The previous assertion here was true only by its
+    # spelling — it asserted `not_supported_at_tier` (underscores) was ABSENT,
+    # which stayed true after the hyphenated member arrived (recorded at
+    # `24.5-FLIP-ROSTER.md` under its own heading); inverted under
+    # `D-IMPL-245` / ROADMAP criterion 18.
     members = getattr(
         ProductRequestViolation.model_fields["reason"].annotation, "__args__", ()
     )
-    # green by spelling — 24.5-FLIP-ROSTER.md
-    assert "not_supported_at_tier" not in members, (
-        "the SDK now has a not_supported_at_tier refusal member. This product"
-        " should return it rather than raising, and §F.4's finding closes"
+    assert "not-supported-at-tier" in members, (
+        "the SDK vocabulary lost the tier member this product's refusal"
+        f" depends on; members are {members!r}"
+    )
+    assert served.reason in members, (
+        f"the served verdict names {served.reason!r}, a reason outside the"
+        f" closed vocabulary {members!r}"
     )
 
 
