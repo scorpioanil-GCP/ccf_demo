@@ -228,8 +228,8 @@ Rows by coupling shape:
 | `runtime/ccf_runtime/mcp/experience.py` | 483 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 74 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/request.py` | 391 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/request.py` | 694 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 397 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 700 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/cli/test_schema_export.py` | 60 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
 | `tests/client/conformance/suite.py` | 380 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 413 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
@@ -777,6 +777,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04/24.5-13-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04/24.5-18-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04/24.5-CLOSE-PREP.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04/24.5-FIX-01-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04/24.5-PATTERNS.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04/24.5-RESEARCH.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04/24.5-VERIFICATION.md` | 2 | the phase's own planning tree — not shipped, not published |
