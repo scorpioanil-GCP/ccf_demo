@@ -34,6 +34,7 @@ import psycopg
 import pytest
 import yaml
 
+from ccf.agents.assembler import AssemblyOutcome
 from ccf.agents.errors import AssemblyRefused
 from ccf.contracts.canonical import content_hash
 from ccf.halflife.assessment import DebtSignal
@@ -509,4 +510,53 @@ def test_cpr_g08_a_principal_matching_no_entity_is_refused_or_carries_a_debt_con
         f" explicit debt contribution — signal {debt.signal!s}, D_c"
         f" {debt.debt} against the entitled control's"
         f" {control.product.debt.debt}"
+    )
+
+
+def test_the_served_outcome_names_the_module_assembler_version(seeded: str) -> None:
+    """The Protocol's return names this module's assembler identity, pinned at `1.0.1`.
+
+    `D-IMPL-245` am.1: an assembler materially corrected in 24.5.1 bumps PATCH to
+    `1.0.1` — the dead `ParameterNotSupported` branch was deleted from this rung's
+    `assembler.py`, so the implementation changed — and am.3: never `1.0.2`.
+    `_serve` discards the Protocol's return (`governed`) for the spine's captured
+    value, so the seam is constructed here the same way and `governed` is KEPT.
+    This is the in-process identity; the transcript line `assembled by` carries it
+    as evidence, and Decision Replay carries none of it today (am.1).
+    """
+    import tempfile
+
+    deployment = _load("deployment")
+    assembler = _load("assembler")
+    parameters: dict[str, object] = {
+        deployment.PARAM_DEBT_TOLERANCE: Decimal(
+            str(deployment.demonstration_debt_tolerance())
+        ),
+        deployment.PARAM_INCLUDE_LAPSED: False,
+    }
+    asked = deployment.request(parameters=parameters)
+    with tempfile.TemporaryDirectory(prefix="cp01-test-") as tmp:
+        root = pathlib.Path(tmp)
+        captured: list[object] = []
+        seam = assembler.CounterpartyAssembler(
+            config=deployment.CONFIG,
+            root=root,
+            connection=deployment.connection(root=root),
+            read=deployment.read,
+            plan_class=deployment.plan_class(),
+            observer=captured.append,
+        )
+        governed = seam.assemble(
+            request=asked,
+            perspective=deployment.perspective(),
+            tenant_id=deployment.tenant_id(),
+        )
+    assert captured, "the observer never fired, so nothing was assembled"
+    assert isinstance(governed, AssemblyOutcome), type(governed).__name__
+    assert governed.assembler_id == assembler.ASSEMBLER_ID
+    assert governed.assembler_version == assembler.ASSEMBLER_VERSION
+    assert assembler.ASSEMBLER_VERSION == "1.0.1", (
+        "the pin is D-IMPL-245 am.1's PATCH identity for the corrected"
+        " implementation; 1.0.0 would make two implementations share one name,"
+        " and am.3 rules never 1.0.2"
     )

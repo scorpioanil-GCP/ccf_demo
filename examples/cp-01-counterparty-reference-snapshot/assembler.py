@@ -50,7 +50,7 @@ import produce
 #: computation that produced it. Changing what `assemble` does is a version
 #: change here.
 ASSEMBLER_ID = "cp-01.counterparty-reference-snapshot"
-ASSEMBLER_VERSION = "1.0.0"
+ASSEMBLER_VERSION = "1.0.1"
 
 
 class _AssemblyState(Protocol):
@@ -102,11 +102,10 @@ class CounterpartyAssembler:
     read: Callable[..., Any]
     plan_class: type[Any]
     #: Declared-but-inert parameters, from the deployment's request contract
-    #: (Standard §2.4). Passed through to the spine so the refusal happens at
-    #: the door, and defaulted to the deployment's own declaration rather than
-    #: to an empty mapping — a seam that silently supported everything the
-    #: contract says it refuses would be worse than one that could not express
-    #: the refusal at all.
+    #: (Standard §2.4). Carried for the declaration's sake and defaulted to
+    #: the deployment's own declaration rather than to an empty mapping. The
+    #: refusal itself is the SDK's tier step (`refuse_request`,
+    #: `not-supported-at-tier`), not anything this seam does.
     unsupported: Mapping[str, str] = field(
         default_factory=lambda: dict(deployment.unsupported_arguments())
     )
@@ -188,38 +187,10 @@ class CounterpartyAssembler:
         if isinstance(assembled, ProductRequestViolation):
             return assembled
 
-        # A DECLARED-BUT-INERT PARAMETER IS A CONTRACT VERDICT AND THIS SEAM
-        # CANNOT RETURN IT AS ONE. Recorded as an SDK-surface finding at spec
-        # §F.4 rather than disguised:
-        #
-        #   `ProductRequestViolation.reason` is a CLOSED `Literal` of four
-        #   values — undeclared-parameter · missing-required-parameter ·
-        #   type-mismatch · class-mismatch. Standard §9 requires
-        #   `400 not_supported_at_tier` as a DISTINCT condition, and §2.4 makes
-        #   the declared-but-inert parameter a first-class obligation. The
-        #   vocabulary has no member for it.
-        #
-        # The three dishonest options were all available and all refused:
-        # returning `undeclared-parameter` (false — the contract DECLARES
-        # `as_of`, which is the whole point of §2.4), returning `type-mismatch`
-        # (false, and it would send a caller to fix a type that is correct), and
-        # silently ignoring the parameter (the exact failure §2.4 exists to
-        # prevent: "a parameter that appears to work and does not will be relied
-        # on in a dispute").
-        #
-        # So it is RAISED, and the message says what it is. The spine still
-        # returns it as DATA — `run.py` reaches it through the observer and
-        # renders `400 not_supported_at_tier` — so the refusal is available in
-        # its honest form to a caller that holds the spine, and only the
-        # PROTOCOL boundary is where it has to become an exception.
-        if isinstance(assembled, produce.ParameterNotSupported):
-            raise AssemblyRefused(
-                f"{assembled.status} {assembled.reason}: {assembled.parameter}"
-                " — declared by this class and always refused (Standard §2.4)."
-                " This verdict is raised rather than returned because"
-                " ProductRequestViolation.reason is a closed Literal with no"
-                " member for it; see CP-SPEC-001 §F.4"
-            )
+        # A declared-but-inert parameter is refused by the SDK's own tier step —
+        # `src/ccf/products/request.py::refuse_request` step 2 (`_refuse_tier`) — as a
+        # `ProductRequestViolation(reason="not-supported-at-tier")` returned as DATA
+        # through the branch above (`24.5-L-12`/`L-13`); this seam has no branch of its own.
 
         # AN UNRESOLVABLE ANCHOR IS A DIFFERENT KIND OF THING, and the
         # distinction is worth keeping rather than collapsing into the line
