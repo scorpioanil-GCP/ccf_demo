@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**842 entries**, of which **600** name a public Python surface.
+**843 entries**, of which **601** name a public Python surface.
 
 ## Added
 
@@ -13318,7 +13318,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-108 entries — 88 public Python surface, 20 not public Python API.
+109 entries — 89 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -13466,6 +13466,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller presenting a proportion. A caller presenting `-1`, `1.5`, `Infinity` or `NaN` now receives `product-request-violation` / `not-a-proportion` (no lineage; the graph is never touched) where it previously received a `declared-obligation-refusal` naming its own number as the class's — or, under a class declaring no ceiling, a served product
 
 *Recorded by `24.5-fix-02-the-tolerance-interval-at-the-request-boundary.md`.*
+
+#### ccf_runtime.http_api.routes.product.retrieve
+
+- Surface: ccf_runtime.http_api.routes.product.retrieve
+- Public surface: true
+- Change type: behavior
+- Before: a `RefusalEnvelope` of kind `product-request-violation` fell through to `served_answer`, which raised `TypeError` — no response (an opaque 500 behind a real server)
+- After: a second mapped kind beside the `409`: `envelope.kind == REFUSAL_KINDS[ProductRequestViolation]` → `JSONResponse(status_code=400, content={"kind", "refusal_type": "ProductRequestViolation", "refusal": <the whole envelope>})`, the `409`'s body shape. Mapped by KIND, so all six reasons of `ProductRequestViolationReason` (`undeclared-parameter`, `missing-required-parameter`, `type-mismatch`, `class-mismatch`, `not-supported-at-tier`, `not-a-proportion`) arrive as `400` through one branch; the envelope carries `reason`, `key`, both type names, both key sets, the request identity and `pre_assembly_lineage: null` (the verdict precedes the graph)
+- Why: panel R3, Dave 2026-09-03. A request-conformity verdict is the caller's question failing the class's declared contract — the same family as the door's own request-shape refusals, which were already `400`; a `TypeError` for it was a door fault reported for a caller error
+- Migration: none for a caller presenting a conformant request. A caller whose request is refused by the resolver's boundary now receives `400` with the envelope where it previously received a transport-level server error
+
+*Recorded by `24.5-fix-03-the-http-door-answers-400-for-a-request-violation.md`.*
 
 #### ccf.controlplane.artifacts.load_artifact
 
