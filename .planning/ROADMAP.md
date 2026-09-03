@@ -60,6 +60,7 @@ and the upgraded examples.
 - [x] **Phase 24.3: Credit Spreading — Obligor Financial Spread (cp-03), Gate 2** (INSERTED) - `cp-03`, rung 03 and the LAST of Tier 1, discharging the Gate-1 specification Dave approved 2026-08-29 at `310225b`. Teaches **attribute-level temporal validity** — one freshness per product stops being enough — and demonstrates `basis`, the catalog's first parameter where both settings are correct and the decision picks. **Forty Success Criteria LOCKED before planning** (`D-GATE-19`), **weighted toward the CENSUS rather than the mechanism**: every serious defect found while specifying this product was a measurement defect, four wrong counts before a line of code existed, so criteria 13–18 require each wrong method to produce its specific wrong number AND fail. The Policy OPERATOR is in the plan (`empty-operator-guard`), reading Postgres entitlement and emitting `policy_version` from the Control Plane artifact. **A Fluree policy-version binding was specified in this product and then REMOVED from it entirely** (Dave, 2026-08-30) — this product reads ONE store.
 - [x] **Phase 24.4: Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal and Ontology, and the Ladder's First MCP Door** (INSERTED) - `cp-04`, rung 04 and the FIRST of Tier 2. The first product that opens more than one store (Fluree for edges and ontology, Postgres for attributes), the first that traverses a graph, the first exercising three ontology roles (role 1 STRUCK 2026-08-31, Dave), and the first on the ladder reachable over MCP. **Forty-nine Success Criteria LOCKED 2026-08-31 before planning** (`D-GATE-19`), of which sixteen require a named product gate to be **observed RED under a named sabotage** — criterion 41 and `CFT-G17` are WITHDRAWN in place — a gate never seen red is not evidence that it runs. `artifacts/gates.yaml` is the ladder's **first machine-readable gate declaration** (`D-IMPL-224`); the coverage CHECKER and the cp-00/cp-01 backfill are **Phase 24.5**, not this phase. **`D-26`..`D-31` are RECORDED as SDK gaps and NONE is closed** — no file under `src/` is modified (`D-04` of `24-CONTEXT.md`). *(Checklist bullet added 2026-08-31 at planning; the phase had a detail section and no bullet here.)*
 - [x] **Phase 24.5: SDK Gap Catch-Up — Every Gap the Ladder Found in cp-00 through cp-04, Ledgered, Ruled and Closed** (INSERTED, `D-IMPL-235`) - The comprehensive SDK gap fix Dave commissioned 2026-09-02 (*"I want to remedy the sdk gaps and not wait until we have 50 to close"*). A catch-up over EVERY rung shipped so far, not a remedy for 24.4 alone. **First deliverable is a LEDGER SITTING, no code** — one roster of every gap by id, classified SDK / estate / product-tier, each ruled fix / won't-fix / later — and that roster is the phase's fence. `src/` and `runtime/` OPEN; examples closed except where a changed call shape forces a touch. Close by re-running cp-01..04: a rung whose limitation-asserting gates flip RED gets a versioned rebuild, the rest stay. **DIRECTION BANKED, NOT DISCUSSED** — criteria are written at the discuss sitting (`D-GATE-19`). One ruling open: whether `D-IMPL-224` is amendable if `24.4-D-31` becomes a fix-row.
+- [ ] **Phase 24.5.1: The Return Trip — cp-01, cp-02, cp-03 and hw1 Re-versioned on the Fixed SDK, Every Recorded Lie Corrected** (INSERTED, `D-IMPL-244`) - The ONE rebuild follow-on `D-GATE-24.5` opened because the flip roster was non-empty (criterion 26 of 24.5; `D-IMPL-235` forbids a `.1`…`.9` per gap, not one rebuild phase). Examples OPEN, `src/` and `runtime/` CLOSED. Dave, 2026-09-03: *"the work requirement of going back and fixing stale prose is related to the SDK fixes … have phase 24.5.1 to finish the corrections then start phase 24.6 on context product development."* **DIRECTION BANKED, NOT DISCUSSED** — criteria at the discuss sitting (`D-GATE-19`).
 
 ## Phase Details
 
@@ -3098,6 +3099,59 @@ Plans:
 - [x] 24.5-17-PLAN.md — close prep: instruments for criteria 1/2/3/19/20/21/27/28, chunked `make ci`, `D-GATE-24.5` draft
 - [x] 24.5-18-PLAN.md — L-06 (split from 05): backends honor/decline direction, corpus `direction_cases`, `GQ-10` 1.2.0, the n² suite at 25 pairs, 20/21/22 vs 20/22/22 on the committed fixture
 
+### Phase 24.5.1: The Return Trip — cp-01, cp-02, cp-03 and hw1 Re-versioned on the Fixed SDK, Every Recorded Lie Corrected (INSERTED)
+
+**Goal:** make every rung shipped so far describe the SDK it now runs on. Phase 24.5 fixed the
+SDK and, by its own rule, touched no product version, README, seal or page; three rungs' limitation
+gates flipped under the fix and were rewritten, and a roster of GREEN tests and prose now assert or
+describe holes that are closed. This phase re-versions those rungs, rebuilds hello-world, and
+corrects every recorded lie — so that cp-05 (Phase 24.6) is built on a ladder whose every rung
+agrees with the SDK.
+
+**STATUS: DIRECTION BANKED 2026-09-03 (`D-IMPL-244`), NOT DISCUSSED, NOT PLANNED.** Success
+criteria are NOT written here; `D-GATE-19` binds them to the discuss sitting, which reads
+`.planning/phases/24.5.1-the-return-trip/.continue-here.md` first.
+
+**Why this phase, in Dave's words (2026-09-03).** *"Seems the work requirement of going back and
+fixing stale prose is related to the SDK fixes. Following that logic does it make sense to just
+have phase 24.5.1 to finish the corrections then start phase 24.6 on context product development?"*
+— ruled yes: the stale prose exists because the SDK moved, so the correction belongs to the
+catch-up, not to the next product; and the cadence rule of `D-IMPL-235` (no next rung with rows
+open) is honored as written.
+
+**The roster, by source, as the tree records it (re-measure at the sitting; every path named there):**
+1. **Three rungs to re-version** — cp-01 (`CPR-G05`), cp-02 (`FTS-G05`), cp-03 (`OFS-G06`), the
+   flip roster of `24.5-FLIP-ROSTER.md` / `D-GATE-24.5`: products, READMEs, `expected.yaml` seals,
+   doc pages, spec §F.4 findings that named closed holes (`CP-SPEC-001/002/003`: *"no member for
+   `not_supported_at_tier`"*).
+2. **The hello-world rebuild** — `D-IMPL-242`: hw1 is the ladder's one red (`refused:
+   empty-operator-result` on an empty fabric); the refusal stands, the example is rebuilt; plus
+   `consume.py` printing `— None` for a gate refusal's key (`deferred-items.md` item 3).
+3. **Recorded lies, GREEN today** (`24.5-FLIP-ROSTER.md` §"Recorded lies"): the cp-04 no-`409`
+   prose test and its neighbor's docstring (`tests/examples/test_cp_04_debt.py`); the `CFT-G13`
+   *"cannot express"* text (`test_cp_04_seams.py`, `test_cp_04_two_callers.py`); cp-04's door
+   docstrings *"cannot be tool-only"* (`server/serve.py`, `server/compose.py`); the three
+   assemblers' unreachable `ParameterNotSupported` branch and its comment (`examples/cp-0{1,2,3}-*/assembler.py`).
+4. **Green by spelling** — `test_cp_03_output.py::test_ofs_g06_…`'s closing
+   `assert "not_supported_at_tier" not in members` and the comment block above it.
+5. **cp-04's `ledger_t` matches the ledger `name` alone** where the SDK's `head_t` matches `name`
+   AND `branch` (plan 02 deferred; panel B5 gemini F1).
+6. **Two product-tier rulings for the sitting** — cp-01's `CPR-G08` second limb (an unmatched
+   principal served a `200` with `D_c = 1`, `fail_closed`) and cp-04's ambiguous-anchor behavior
+   (`L-16`'s product half: 404 / refuse / serve-with-finding).
+
+**NOT this phase:** the dangling-edge staged-vs-pushed divergence (`D-GATE-24.5` carry R1 — a
+ledger row on the next PRODUCT rung, 24.6); the standing MCP resource's channel (R2, shape ruled);
+the serve-time pin window (R4, `L-02`); WR-01 / WR-03 (advisory); any `src/` or `runtime/` edit.
+
+**Depends on:** `D-GATE-24.5` (approved 2026-09-03, merged at `ad56c816`, pushed).
+
+**Requirements:** discharges none directly; closes the return-trip rows `D-GATE-24.5` recorded.
+
+**Success Criteria:** NOT YET WRITTEN — authored at the discuss sitting (`D-GATE-19`), one per line.
+
+**Plans:** none yet.
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -3139,6 +3193,7 @@ Plans:
 | 24.3. Credit Spreading — Obligor Financial Spread (cp-03), Gate 2 | 5/5 steps + close-panel fixes | **Complete — `D-GATE-24.3` APPROVED** (Dave). Commits `294cb63`..`e350cde` on `main`. All FOURTEEN gates built and every one observed RED; they did not exist at phase start. Close panel (codex + cursor; gemini absent, no key) found a PRODUCT defect — the restatement key was hard-coded against its own artifact and hid four real corrections. Nine blocking findings fixed in-phase, four advisory carried, one of the executor's own suspicions rejected. `D-IMPL-222` ruled inside the phase. **`cp-02` still has no phase (`D-IMPL-221`), carried** | 2026-08-31 |
 | 24.4. Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal & Ontology, and the Ladder's First MCP Door | 14/14 plans + FIX-01..05 | **Complete — `D-GATE-24.4` APPROVED** (Dave). Commits `bde7660`..`14edd82` on `main`, merged `--no-ff`. Five-check eval held on live fixtures; sixteen gates `CFT-G01`..`G16` every one observed RED, `CFT-G17` withdrawn; `--role` kept on measurement (two seals, 22 vs 0 detailed). Close panel on the shipped tree: 5 blocking fixed under sabotage, 6 rejected with evidence; single-agent review: CR-01/WR-05/WR-01 fixed, CR-02's 409 claim removed from all three artifacts. `src/`+`runtime/` 0 files; twelve gaps `24.4-D-26`..`D-37` recorded, none closed. Pytest 4664/45/1 — the 1 carved by `D-IMPL-234`, NOT suite-green; cp-01/02/03 exemption claims unruled. 17 deferred rows | 2026-09-01 |
 | 24.5. SDK Gap Catch-Up — cp-00 through cp-04, Ledgered, Ruled and Closed | **CLOSED** — `D-GATE-24.5` approved (Dave, 2026-09-03) at `17a1de3f`; 18/18 plans; CR-01 (`D-IMPL-243`), WR-02 (`24.5-FIX-02`) and panel R3 (`24.5-FIX-03`) fixed in-phase; R1/R2/R4 carried by ruling; `24.5.1` opened and owns hw1 (`D-IMPL-242`); merged `--no-ff` to `main` | **Direction banked** (`D-IMPL-235`, 2026-09-02). Ledger sitting first, no code; `src/`+`runtime/` OPEN; close by re-running cp-01..04. Criteria at the discuss sitting (`D-GATE-19`). Open: `D-IMPL-224` amendable? | — |
+| 24.5.1. The Return Trip — cp-01/02/03 and hw1 re-versioned, recorded lies corrected | 0/0 plans | **Direction banked** (`D-IMPL-244`, 2026-09-03). Examples OPEN, `src/`+`runtime/` CLOSED. Criteria at the discuss sitting (`D-GATE-19`). | — |
 
 ## Coverage
 
