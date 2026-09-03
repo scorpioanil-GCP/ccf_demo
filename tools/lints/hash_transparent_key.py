@@ -140,6 +140,31 @@ class DefaultedField:
         return f"{self.class_name}.{self.field_name}"
 
 
+def module_qualified(field: DefaultedField, base: pathlib.Path) -> str:
+    """``module.Class.field`` for ``field``, the base roster's spelling.
+
+    The module is derived from the field's path relative to the scope tree
+    that holds it — ``src/ccf/replay/record.py`` is ``ccf.replay.record``,
+    ``runtime/ccf_runtime/cdc/envelope_map.py`` is ``ccf_runtime.cdc.envelope_map``
+    — the same derivation ``tools/lints/__main__.py::module_name_for`` uses
+    for every per-file rule. Module-qualified rather than ``Class.field``
+    because the roster is a claim about a commit, and a same-named class in
+    another module is a different declaration.
+    """
+    path = field.path.resolve()
+    for tree in SCOPE_TREES:
+        root = (base / tree).resolve()
+        try:
+            relative = path.relative_to(root)
+        except ValueError:
+            continue
+        parts = list(relative.with_suffix("").parts)
+        if parts and parts[-1] == "__init__":
+            parts.pop()
+        return ".".join([*parts, field.class_name, field.field_name])
+    raise ValueError(f"{field.path} is under none of {SCOPE_TREES} in {base}")
+
+
 def _base_name(expr: ast.expr) -> str | None:
     if isinstance(expr, ast.Name):
         return expr.id
