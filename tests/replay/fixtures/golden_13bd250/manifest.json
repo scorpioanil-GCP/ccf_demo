@@ -1,0 +1,31 @@
+{
+  "ccf_package_file": "/tmp/claude-1000/-home-parkave-ccf-code/442fe0b9-7a77-4fa2-8ac6-9f5dc60277ba/scratchpad/base/src/ccf/__init__.py",
+  "graph_query_sequence": [
+    "f1a105fbf0383947489e9318bf2085f0bc145075840d7a04f1727f2e10f99768"
+  ],
+  "graph_snapshot_id": "21ec74c063eda772f7e88d3b865fbab60b47c58a67b8322f9ffdf21ca3242a88",
+  "max_ttl_version": "e03266d6cc0284d4cc593e4f18401d6b13bcd9bd6c5d3566de1889cdb6d8e0a3",
+  "policy_bundle_version": "c1f7d2afcfab4fe78258818760c31f23eb0c78be8ecdfe6717a2df11ec644095",
+  "producing_commit": "13bd250e7a9d9ea12daf596ef86597557aad702f",
+  "product_class_content_hash": "0ef2de8e792937e8d16ba944244d057e753fc73b4c36e168386c55f7cc35a05d",
+  "product_content_address": "2580912f533edb39e3dd19fb748a28960ee2ce9e429a9e4177e6c975e1119375",
+  "record_content_address": "401bfc181108a613c8bf2e08ced35bee9a96a0a18f2426a49881e94876affadc",
+  "record_uri": "ccf-artifact://tenant-golden/decision-replay-record/21ec74c063eda772f7e88d3b865fbab60b47c58a67b8322f9ffdf21ca3242a88@401bfc181108a613c8bf2e08ced35bee9a96a0a18f2426a49881e94876affadc",
+  "resolution_spec_version": "ece09948a9780018ec765e802a8e8486f7048e3a384c41adc50ab885db411360",
+  "steps": [
+    {
+      "category": "temporal",
+      "operator_key": "temporal.as-of-boundary",
+      "parameter_hash": "02d6d2c8db26213e4c3aedea6df9740b8d21811f87e6f08dea70d9880c740084"
+    },
+    {
+      "category": "traversal",
+      "operator_key": "traversal.typed-neighborhood",
+      "parameter_hash": "904a302257854864e2da3dd7518d3b986bec2d774697d16f82e4899d784df476"
+    }
+  ],
+  "store_watermark": "df5925367f2ca51eba22b4eb459fb779935a7f4a9872ce670e66257525fe33c0",
+  "temporal_boundary": "2026-03-15T00:00:00+00:00",
+  "tenant_id": "tenant-golden",
+  "traversal_parameter_hash": "904a302257854864e2da3dd7518d3b986bec2d774697d16f82e4899d784df476"
+}
