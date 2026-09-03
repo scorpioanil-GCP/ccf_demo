@@ -12,6 +12,12 @@ blocking CI gate per D-07 (`python -m tools.lints --all`):
   under one walk (D-IMPL-93 property (2))
 * ``orchestration_imports``  — D-06, the orchestration/adapters split
 * ``citations``              — cross-file citation drift (SDK-defined)
+* ``hash_transparent_key``   — CINV-06, every sentinel-defaulted ``CCFContract``
+  field declares ``ccf_hash_transparent`` (D-IMPL-243 amendment 1).
+  **Written and tested; NOT registered under ``--all``** — its first run
+  found a roster of pre-243 keyless fields beyond the fifteen the amendment
+  allowlists, and the allowlist's width is a ruling; see the module docstring
+  and ``tools/lints/tests/test_hash_transparent_key.py``.
 
 The first six are **per-file AST** checkers and expose the same pair of
 entrypoints, so the runner can treat them uniformly::
@@ -24,11 +30,14 @@ vocabulary is read from the adapter package on disk, and a test pinning a
 synthetic package needs to say which disk. The positional pair is unchanged, so
 it registers in ``CHECKERS`` like any other per-file checker.
 
-``citations`` is the one **whole-tree text** checker — a citation is a claim
-about a *second* file and lives in prose as much as in code, so it takes the
-repo root instead::
+``citations`` is the one registered **whole-tree text** checker — a citation
+is a claim about a *second* file and lives in prose as much as in code, so it
+takes the repo root instead::
 
     check_tree(base: Path) -> list[str]
+
+``hash_transparent_key`` is a whole-tree AST checker of the same signature
+(subclassing crosses files), unregistered pending the ruling named above.
 
 All seven agree on the finding format: ``"{path}:{lineno} {rule} {message}"``.
 The rule token is always the second whitespace-separated field; the runner and
