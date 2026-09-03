@@ -257,6 +257,64 @@ def test_the_fallback_walk_agrees_with_the_operator(
     assert edges == output.view.relationships
 
 
+def test_direction_and_admission_compose_on_the_descendant_walk() -> None:
+    """Phase 24.5 close panel (2026-09-03): forward AND admitted, together, on one walk.
+
+    The admission suite exercises only the undirected operator and this
+    module exercised only unadmitted walks, so a future split of the shared
+    ``_bounded_walk`` could break the composition while both stayed green.
+    On the oriented view (P → S, S → A, A → C; A and C of the child class):
+
+    * forward + child class admitted → {S, A, C}: P is upstream (direction),
+      A and C are admitted (class);
+    * forward + parent class admitted → {S}: A is unadmitted, so C behind it
+      is unreachable — admission prunes the hop, and direction still keeps P out;
+    * the two controls that isolate each lever: undirected + parent admitted
+      reaches P; forward + no admission reaches A and C.
+    The fallback's ``_walk`` agrees with each, entities and edges.
+    """
+    def descendants(admitted: frozenset[str] | None) -> TraversalDescendants:
+        return TraversalDescendants(
+            parameters=TraversalDescendantsParameters(
+                seed_entity_classes=frozenset({SEED_CLASS}),
+                relationship_types=frozenset({EDGE_TYPE}),
+                depth_limit=2,
+                admitted_entity_classes=admitted,
+            )
+        )
+
+    def neighborhood(admitted: frozenset[str] | None) -> TraversalNeighborhood:
+        return TraversalNeighborhood(
+            parameters=TraversalNeighborhoodParameters(
+                seed_entity_classes=frozenset({SEED_CLASS}),
+                relationship_types=frozenset({EDGE_TYPE}),
+                depth_limit=2,
+                admitted_entity_classes=admitted,
+            )
+        )
+
+    assert _reached(descendants(frozenset({CHILD_CLASS}))) == {S_URI, A_URI, C_URI}
+    assert _reached(descendants(frozenset({PARENT_CLASS}))) == {S_URI}
+    # Controls: each lever alone.
+    assert P_URI in _reached(neighborhood(frozenset({PARENT_CLASS})))
+    assert _reached(descendants(None)) == {S_URI, A_URI, C_URI}
+    for operator in (
+        descendants(frozenset({CHILD_CLASS})),
+        descendants(frozenset({PARENT_CLASS})),
+        neighborhood(frozenset({PARENT_CLASS})),
+    ):
+        fragment = operator.read_intent()
+        assert fragment.traverse is not None
+        entities, edges = _walk(
+            VIEW.entities, VIEW.relationships, traverse=fragment.traverse, seeds=None
+        )
+        output = operator.apply(
+            view=VIEW, tenant_id=TENANT, temporal_boundary=BOUNDARY, upstream=()
+        )
+        assert entities == output.view.entities
+        assert edges == output.view.relationships
+
+
 # --- the direction is the operator's, never a parameter's --------------------
 
 

@@ -396,8 +396,10 @@ class GraphQuery(CCFContract):
             interval covers the boundary (``GQ-09`` at
             docs/GRAPH_QUERY_SEMANTICS.md:186). ``None`` means the family
             is absent: no constraint beyond the always-applied as-of cut.
-        traverse: Traverse family — the bounded typed undirected expansion
-            of ``GQ-10``, or ``None`` when the query walks nothing.
+        traverse: Traverse family — the bounded typed expansion of ``GQ-10``
+            (undirected, or forward only under the spec's ``direction``;
+            node-class admission when it names ``admitted_entity_classes``),
+            or ``None`` when the query walks nothing.
         seeds: Explicit entity-URI walk starting points, with exactly one
             meaning everywhere: walk starting points (``GQ-03`` at
             docs/GRAPH_QUERY_SEMANTICS.md:87). Authored by the caller of

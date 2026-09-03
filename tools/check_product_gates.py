@@ -364,6 +364,14 @@ def _resolvable(collected: frozenset[str]) -> frozenset[str]:
 def _schema_problems(roster: str, document: dict, schema: dict) -> list[str]:
     import jsonschema
 
+    if not isinstance(schema, dict) or not schema:
+        # Phase 24.5 close panel (2026-09-03): a corrupted or non-object schema
+        # file used to fold to ``{}``, and an empty schema validates every
+        # roster — the closed-keys guarantee vanished silently. Fail CLOSED.
+        return [
+            f"{roster}: the closed schema at {SCHEMA_RELATIVE} is empty or not an"
+            " object, so no roster can be judged against it"
+        ]
     validator = jsonschema.Draft202012Validator(schema)
     problems: list[str] = []
     for error in sorted(validator.iter_errors(document), key=lambda e: list(e.absolute_path)):
@@ -459,6 +467,14 @@ def check_tree(
         module_part, _sep, _function = node.partition("::")
         module_path = (root / module_part).resolve()
         if not module_path.is_file():
+            # Phase 24.5 close panel (2026-09-03): this branch used to
+            # ``continue``, so a declaration pointing at a collected node whose
+            # module is not a file under ``root`` was never judged. Fail CLOSED.
+            problems.append(
+                f"{tree_name}: {gate_id} declares test {node} but {module_part} is"
+                f" not a file under {root} — the executing test cannot be read,"
+                " so its claim cannot be judged"
+            )
             continue
         if module_path not in claims_by_module:
             claims_by_module[module_path] = named_ids(

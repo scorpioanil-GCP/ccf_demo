@@ -327,8 +327,11 @@ def answer(
        excluded or out-of-set node is structurally absent from the walk's
        state (`GQ-13` at docs/GRAPH_QUERY_SEMANTICS.md:261); see
        :func:`_endpoint_closure` for why the degenerate answer is exempt;
-    5. the traverse family, when present, is the bounded typed undirected
-       expansion of `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201.
+    5. the traverse family, when present, is the bounded typed expansion of
+       `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201 — undirected, or forward
+       only under ``direction="forward"`` (1.2.0, ledger row 24.5-L-06) —
+       with node-class admission when the spec names admitted classes (1.1.0,
+       24.5-L-05).
 
     The degenerate query — no families, no seeds, ``allowed_entities``
     ``None`` — returns **all** as-of-surviving records, dangling

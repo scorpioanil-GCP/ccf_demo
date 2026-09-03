@@ -83,8 +83,14 @@ class SnapshotPinUnresolvable(LookupError):
     would be a new decision wearing the recorded one's identifier. A
     ``LookupError`` because it is the same class of failure as
     :class:`~ccf.replay.engine.ReplayUnresolvable` — something the record
-    names cannot be resolved as recorded — and the engine reports it that
-    way.
+    names cannot be resolved as recorded. It is **not** a
+    :class:`~ccf.replay.engine.ReplayError`: this module is imported by the
+    engine, so it cannot name the engine's base class, and
+    :func:`~ccf.replay.engine.replay` lets it propagate exactly as raised
+    rather than translating it. A caller catching ``ReplayError`` around
+    ``replay()`` must catch this class beside it (Phase 24.5 close panel,
+    2026-09-03 — the earlier sentence here, *"the engine reports it that
+    way"*, was false as written and is corrected rather than left to rot).
     """
 
 

@@ -557,6 +557,14 @@ def replay(
             (``D-IMPL-243`` amendment 1). Raised before any binding is
             resolved and before anything is re-executed.
         ReplayDivergence: something resolved but did not reproduce.
+        ~ccf.replay.snapshots.SnapshotPinUnresolvable: dimension 1 carries a
+            real store pin and the reader is not
+            :class:`~ccf.graph.protocols.SnapshotPinnable`. A ``LookupError``
+            that is NOT a :class:`ReplayError`; it propagates from
+            re-execution exactly as raised (``24.5-L-02``).
+        ~ccf.replay.snapshots.SnapshotScopeViolation: a read during
+            re-execution left the recorded snapshot's scope. Likewise a
+            ``LookupError`` outside :class:`ReplayError`, propagated as raised.
     """
     record = _resolve_record(store=store, record_address=record_address)
     # D-IMPL-243 amendment 1: the declared-scope generation check, on the

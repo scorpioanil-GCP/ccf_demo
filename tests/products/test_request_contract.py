@@ -1108,6 +1108,20 @@ def test_the_tolerance_step_is_last_so_earlier_verdicts_keep_their_names() -> No
     assert isinstance(mistyped, ProductRequestViolation)
     assert mistyped.reason == "type-mismatch"
 
+    # Phase 24.5 close panel (2026-09-03): three reviewers claimed a FLOAT
+    # (-0.1, 1.5, nan, inf) slips past the interval step and reaches the gate.
+    # Measured and REJECTED: a float is not a ``number`` in this tree
+    # (``ccf.products.payload._matches`` — binary floating point cannot reach
+    # a content address), so the payload comparison names it first. Pinned
+    # here so the rejection stays measured rather than remembered.
+    for presented in (-0.1, 1.5, float("nan"), float("inf")):
+        as_float = refuse_request(
+            request=_tolerance_request(presented), declared=_tolerance_contract()
+        )
+        assert isinstance(as_float, ProductRequestViolation), presented
+        assert as_float.reason == "type-mismatch", presented
+        assert as_float.presented_type == "float"
+
 
 def _string_collection_constants(source: str) -> list[str]:
     """Module-level ``frozenset``/``set``/``tuple`` constants of string literals.

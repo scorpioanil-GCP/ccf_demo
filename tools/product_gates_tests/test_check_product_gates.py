@@ -417,6 +417,38 @@ def test_unrelated():
     assert "does not name" in problems[0]
 
 
+def test_a_declared_test_whose_module_is_not_on_disk_is_red_naming_it(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Phase 24.5 close panel (2026-09-03): the claim check must not fail OPEN.
+
+    The declared ``test:`` is in the (injected) collected set, so "did not
+    collect" stays green — but its module is not a file under ``root``, so
+    the executing test cannot be read and the "must claim the id" check has
+    nothing to judge. Before the fix the loop silently ``continue``d and the
+    row measured clean. Sabotage: restore the ``continue`` and this is RED.
+    """
+    ghost = "tests/examples/test_cp_04_ghost.py::test_zz_g01_first"
+    roster = _roster(_NAME_FORM_ROSTER, [_gate("ZZ-G01", ghost)])
+    root = _scratch_tree(tmp_path, roster=roster, tests={})
+    problems = _judge(root, {ghost})
+    assert any("ZZ-G01" in p and "not a file" in p for p in problems), problems
+
+
+def test_a_non_object_schema_file_is_red_not_a_vacuous_pass(tmp_path: pathlib.Path) -> None:
+    """Phase 24.5 close panel (2026-09-03): a corrupted closed schema must not fail OPEN.
+
+    ``load_schema`` used to fold a non-object document into ``{}``, and an
+    empty schema validates every roster — the closed-keys guarantee vanished
+    silently. Sabotage: restore the ``{}`` fold with no guard and this is RED.
+    """
+    roster, module, collected = _clean_case("name")
+    root = _scratch_tree(tmp_path, roster=roster, tests={"test_cp_04_scratch.py": module})
+    (root / SCHEMA_RELATIVE).write_text("[]", encoding="utf-8")
+    problems = _judge(root, collected)
+    assert any("schema" in p and "not an object" in p for p in problems), problems
+
+
 def test_a_duplicated_id_is_red_naming_it(tmp_path: pathlib.Path) -> None:
     roster = _roster(
         _NAME_FORM_ROSTER,
