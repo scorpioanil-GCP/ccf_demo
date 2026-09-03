@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**839 entries**, of which **598** name a public Python surface.
+**840 entries**, of which **598** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-409 entries — 371 public Python surface, 38 not public Python API.
+410 entries — 371 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -7463,9 +7463,21 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: false
 - Change type: added
 - Before: absent — a sentinel-defaulted field could ship without declaring its hash posture and every hash it touched would move with nothing red
-- After: a whole-tree AST checker over `src/` and `runtime/`, rule id `cinv06-hash-transparent-key` (CINV-05 is reserved by `D-GATE-15.4` ruling (3) for the deferred substrate-name split): every defaulted field on a `CCFContract` subclass — bases closed by simple name across files — must declare `ccf_hash_transparent` as the literal `True` or `False`; a missing key, a non-boolean value, or a `json_schema_extra` it cannot read statically is one finding naming `Class.field`. Allowlist: the fifteen pre-243 record fields amendment 1 names, model-qualified, and nothing else; no `allowlist.yaml` entry (`D-13`). **Written and tested (26 cases), NOT registered under `python -m tools.lints --all`**: its first run over the tree found 122 keyless defaulted fields beyond the fifteen — 7 declarations 24.5 added, 115 older — and amendment 1 fixes the allowlist at the fifteen, so registration awaits a ruling on that roster (pinned by name in `tools/lints/tests/test_hash_transparent_key.py`; reported in `24.5-FIX-01-SUMMARY.md`)
-- Why: amendment 1 — "A forgotten key is red, not a quiet upgrade." The roster is the STOP the fix was instructed to report rather than resolve
-- Migration: none until registered. On registration `make lint` runs it; `tools/lints/__init__.py` states the status until then
+- After: a whole-tree AST checker over `src/` and `runtime/`, rule id `cinv06-hash-transparent-key` (CINV-05 is reserved by `D-GATE-15.4` ruling (3) for the deferred substrate-name split), **registered under `python -m tools.lints --all` as `hash-transparent-key`** (`make lint`, the CI lint job): every defaulted field on a `CCFContract` subclass — bases closed by simple name across files — that is NOT in the base roster below must declare `ccf_hash_transparent` as the literal `True` or `False`; a missing key, a non-boolean value, or a `json_schema_extra` it cannot read statically is one finding naming `Class.field`. The universe is NEW-SINCE-`13bd250` only (amendment 2): a field in the base roster is silent whatever it declares, because its default has rendered into every hash since it shipped and its absence from a stored object is the `D-IMPL-89` lineage by construction. No allowlist and no name list of its own — the fifteen fields amendment 1 named left this module entirely and are in the roster like every other pre-phase field; as a roster they live on the replay check only (`tests/replay/test_generation_mismatch.py::THE_FIFTEEN`, the record's shape). No `allowlist.yaml` entry (`D-13`). Its first roster-bounded sweep named exactly the seven declarations amendment 2 ticks, which are now marked; the tree is clean
+- Why: amendment 1 — "A forgotten key is red, not a quiet upgrade."; amendment 2 — "New-since-13bd250 only. Do not allowlist 115 names. … Base roster is a committed file measured at `13bd250`, not a comment."
+- Migration: an adopter adding a sentinel-defaulted field to any `CCFContract` in `src/` or `runtime/` declares the key, or `make lint` is red naming the field. Nothing for a reader of the SDK
+
+*Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### tools.lints.base_roster and tools/lints/hash_transparent_base_roster.json (the CINV-06 base roster)
+
+- Surface: tools/lints/base_roster.py
+- Public surface: false
+- Change type: added
+- Before: absent — "new since the phase base" had no measured boundary, so a lint over sentinel-defaulted fields either allowlisted 130 names by hand or named every one of them
+- After: a committed JSON roster of every defaulted `CCFContract` field at `13bd250` — 130 names, `module.Class.field`, sorted, with a header naming the base commit (`13bd250e7a9d9ea12daf596ef86597557aad702f`), the generator and the rule — produced by `python -m tools.lints.base_roster`, which exports `src/` and `runtime/` at that commit with `git archive` and walks them with the lint's own `defaulted_fields` walker; `--check` regenerates into memory and diffs, exit 1 on drift, and fails loudly (never a clean result) when the commit is not in the clone. JSON over YAML because the lint package is stdlib-only, `json.dumps(sort_keys=True, indent=2)` is byte-deterministic so `--check` is a byte equality, and the header carries what a comment would. The CI lint job now checks out with `fetch-depth: 0` so `tools/lints/tests/test_base_roster.py` can run `--check` there
+- Why: amendment 2 — the roster does not rot because nothing is ever added to it by hand; it is a measurement of one immutable tree, and `--check` proves the file is that measurement
+- Migration: none. The roster is regenerated only by a ruling that moves the base; a later phase's new fields are in the lint's universe forever
 
 *Recorded by `24.5-fix-01-hash-transparency.md`.*
 
@@ -13413,7 +13425,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: a `BaseModel` rendered every declared field
-- After: a `BaseModel` renders every declared field EXCEPT a `True`-marked one whose value `==` its declared sentinel (compared by value, so a model-valued sentinel such as `NO_STORE_SNAPSHOT_PIN` compares by content). The same holds for `content_hash`, which hashes these bytes. Measured: ten `content_hash` digests of the marked models at their sentinels are IDENTICAL to the `13bd250` tree's (`tests/contracts/test_hash_transparency.py`), CR-01's own pair now `34df2d94…` at both; every non-sentinel value moves its hash
+- After: a `BaseModel` renders every declared field EXCEPT a `True`-marked one whose value `==` its declared sentinel (compared by value, so a model-valued sentinel such as `NO_STORE_SNAPSHOT_PIN` compares by content). The same holds for `content_hash`, which hashes these bytes. Measured: eleven `content_hash` digests of the marked models at their sentinels are IDENTICAL to the `13bd250` tree's (`tests/contracts/test_hash_transparency.py`), CR-01's own pair now `34df2d94…` at both, and the directed twin `TraversalDescendantsParameters` — absent at base — hashing as the base three-field parameters did because the canonical form renders fields, never a class name; every non-sentinel value moves its hash
 - Why: `D-IMPL-243` — "`_normalize` omits it when the value is that sentinel. Any non-sentinel value is rendered and must move the hash. That is not 'defaults never count.' It is 'silence equals yesterday.'"
 - Migration: none for an adopter whose stores predate 24.5 on the marked models — their identities are what they were. `D-GATE-24.5` carries the sentence for everything else: adopter stores from before 24.5 are not promised byte-identical replay
 
