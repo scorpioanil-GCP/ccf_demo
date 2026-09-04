@@ -3,9 +3,17 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-04T06:50:00.000Z"
+last_updated: "2026-09-04T07:45:00.000Z"
 last_activity: >-
-  **PHASE 24.5.1 IS PAUSED BEFORE GATE (Dave, 2026-09-04).** Example reconciliation exposed an unresolved
+  **PHASE 24.5.1 IS CLOSED — `D-GATE-24.5.1` (Dave, 2026-09-04), disposition option 3.** The pause below ended
+  with `D-IMPL-251` (the delivery boundary: refusal of fulfillment, not of response; C1=A C2=B C3=B C4=A C5=B;
+  policy-constraint layer → 24.6) and `D-IMPL-240` am.2 / `D-IMPL-242` am.1. Closed on the implemented and
+  reviewed state; `R-2`/`R-3`/`CR-01`/`CR-03` carried by ruling; the live cp-04 page is HISTORICAL EVIDENCE, not
+  current guidance, until 24.6 rebuilds it. Carry roster B-01..B-14 in the gate entry. **First question for the
+  next sitting: `D-IMPL-244` named 24.6 as cp-05; the boundary work is routed to "24.6" — whether cp-05 slides.**
+  Merged `--no-ff` to `main` (hash recorded on `main`). **Next free id `D-IMPL-252`.** Hand-edited; no `state.*`
+  or `roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
+  **PHASE 24.5.1 WAS PAUSED BEFORE GATE (Dave, 2026-09-04).** Example reconciliation exposed an unresolved
   question concerning the boundary between fabric-enforced delivery constraints and consumer-determined
   fitness for purpose. No further back-correction proceeds until that boundary is resolved. A read-only
   investigation (no code, no plan, no criteria change, no publication) produces a research memo; nothing
