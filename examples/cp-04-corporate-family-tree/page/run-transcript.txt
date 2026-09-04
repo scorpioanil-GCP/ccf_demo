@@ -842,6 +842,7 @@ What a plain SELECT would not have told you:
          SubSupermicroTechnologyBeijingCoLtd
    operators invoked  ['policy.principal-subgraph', 'traversal.typed-neighborhood']
    ...TWO on this rung, and one on every rung before it — the traversal is where the count moves off one
+   assembled by       cp-04.corporate-family-tree@1.0.1
    context debt D_c   0.0909  ->  ok
    ...decomposed      F=1  C=1  S=0.9090909090909090909090909091
    policy version     ['fe3f5f3426ea9d64bcf3f4f9c98ccfe348b2838c938c2e92dd2a7875a566294e']
