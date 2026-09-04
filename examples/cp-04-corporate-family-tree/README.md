@@ -37,9 +37,12 @@ so a consuming agent knows what each member is without a second lookup. The
 perspective *conditions on FIBO class* rather than on a hand-written role map.
 And a declared gate *validates* the assembly, so an untyped node or an
 off-vocabulary predicate cannot enter quietly. A fourth role — types constraining
-the walk — was struck from this rung on 2026-08-31, on two measured grounds:
-this estate cannot exhibit the stop, and the SDK's Traversal family types the
-walk on edges only. **Nothing here claims a type-constrained walk.**
+the walk — was struck from this rung on 2026-08-31, on two grounds measured
+then: this estate cannot exhibit the stop, and the SDK's Traversal family typed
+the walk on edges only. Phase 24.5 added a node-class admission filter
+(`admitted_entity_classes`, `24.5-L-05`); this rung does not bind it, the estate
+ground stands, and role 1 stays struck. **Nothing here claims a
+type-constrained walk.**
 
 **A circular ownership structure, reported rather than survived.** The
 demonstration family contains a three-member ownership cycle. It is served as a
@@ -101,6 +104,10 @@ make -s example-cp-04
 between this target's output and the transcript published on the documentation
 page.
 
+The `assembled by` line names the assembler implementation that produced this run (`cp-04.corporate-family-tree@1.0.1`) — transcript evidence, read off the program's own stdout.
+
+Replay carriage of that identity is a Phase 24.6 ledger row (`D-IMPL-245` amendment 1); the transcript is the evidence the example can carry today.
+
 **4 · Without make**, spelling the interpreter explicitly:
 
 ```
@@ -121,7 +128,9 @@ the run asks the question declared in `artifacts/question.yaml`.
 **6 · Four variations exit non-zero, and that is correct.** A refusal is not a
 crash, but it is also not a success, so `make` reports `Error 1`. The program's
 own exit code is `1`; `make`'s is `2`, which is make's status for a failed
-recipe rather than anything this program chose.
+recipe rather than anything this program chose. Each refusal is one line on
+**stderr** — stdout is empty — and the four blocks below quote that line byte
+for byte from a 2026-09-03 capture.
 
 ```
 make -s example-cp-04 MAX_DEPTH=8
@@ -133,7 +142,14 @@ make -s example-cp-04 MAX_DEPTH=8
 make -s example-cp-04 AS_OF=2026-03-31
 ```
 
-> `assembly refused: 400 not_supported_at_tier. Reconstructing the corporate family as it stood on a past date requires ledger time-travel on the CCF temporal axis, which arrives at Tier 3 with covenant-in-force-as-of. This tier serves the family as it stands, recording the `ledger_t` the Fluree leg read at BESIDE `graph_snapshot_at` and never inside it.: as_of — declared by this class and always refused (Standard §2.4). This verdict is raised rather than returned because ProductRequestViolation.reason is a closed Literal with no member for it; see CP-SPEC-004 §F.4`
+> `refused: not-supported-at-tier — as_of`
+
+That line is the SDK's verdict returned as **data**: the tier step of
+`refuse_request` (`src/ccf/products/request.py::_refuse_tier`, `24.5-L-12`/`L-13`)
+answers `not-supported-at-tier` before the product's own code runs, and the
+program prints the reason and the parameter it names. The declaration's own
+explanation of *why* this tier refuses a past date lives in `ccf_config.yaml`
+under `unsupported_arguments`.
 
 ```
 make -s example-cp-04 LEI=000000000000000000ZZ
@@ -145,7 +161,7 @@ make -s example-cp-04 LEI=000000000000000000ZZ
 make -s example-cp-04 LEI=549300F16C4PEFXU0S92
 ```
 
-> `artifacts/source-vocabulary.yaml declares jurisdiction(s) ['US-DE'] that no member of this family serves. The declared set is the family's OBSERVED set; a row that never fires is how an idle gate looks, and the observed set is ['NL'].`
+> `assembly refused: artifacts/source-vocabulary.yaml declares jurisdiction(s) ['US-DE'] that no member of this family serves. The declared set is the family's OBSERVED set; a row that never fires is how an idle gate looks, and the observed set is ['NL'].`
 
 **The last one is the interesting one, and it is a property rather than a
 defect.** The served jurisdiction vocabulary in `artifacts/source-vocabulary.yaml`
@@ -158,6 +174,12 @@ jurisdiction footprint is therefore an **artifact edit as well as a parameter**,
 and the refusal names which direction failed. Anchoring on Extreme Networks or
 Celanese is refused the other way, naming the jurisdictions those families serve
 that this document does not declare.
+
+A fifth refusal is not one command away, because the committed estate cannot
+exhibit it: an LEI carried by **more than one node** is refused as
+`AnchorAmbiguityRefusal` (`CFT-G18`, `D-IMPL-245` (4)) — never a coin flip on the
+store's row order, never a 404, never a served family with a finding.
+`tests/examples/test_cp_04_anchor.py` perturbs a ledger to show it.
 
 ## The story
 
@@ -222,7 +244,9 @@ pin.
 **The product reproduces byte-identical against a quiescent ledger for that run.**
 That sentence is the whole of the claim and no stronger one appears here. The
 qualifier is load-bearing and it was measured: the ledger's transaction counter
-moved 4,560 → 5,112 between two sittings six days apart. Quiescence is a property
+moved 4,560 → 5,112 between two sittings six days apart, and 5,112 → 5,296 by the
+2026-09-03 re-capture, which reproduced the transcript byte for byte with the one
+added `assembled by` line. Quiescence is a property
 of a run, never of the database. A reader whose figures differ has **re-derived**,
 not replayed, and the most likely reason is that the ledger moved.
 
@@ -235,7 +259,7 @@ not replayed, and the most likely reason is that the ledger moved.
 | `artifacts/ttl.yaml` | the 24-hour window, its ceiling, and the anchor — the latest assertion time among the admitted family edges, which moves as relationship records are published |
 | `artifacts/assembly-recipe.yaml` | the steps, in order, with a witness per step |
 | `artifacts/expected.yaml` | what the served product must contain, **declared rather than derived from a run**, plus the census of the estate and three deliberately wrong methods with the numbers each would have produced |
-| `artifacts/gates.yaml` | the **sixteen** product gates as data, each with the sabotage applied to it and the observed red recorded |
+| `artifacts/gates.yaml` | the **seventeen** product gates as data (`CFT-G18`, the ambiguous anchor, since 2026-09-03), each with the sabotage applied to it and the observed red recorded |
 | `backends.yaml` | the two store bindings — four environment variable names and their remedy strings, and nothing else |
 | `ccf_config.yaml` | the product class, the two operators, the request contract, the depth default and bounds, and the declared-but-inert parameters |
 | `deployment.py` | everything domain-specific: the ledger queries, the tables, the columns, the estate's vocabulary. Makes no fabric call |
@@ -285,12 +309,12 @@ third role is a class predicate rather than another branch.
 
 ## What would fail
 
-**Sixteen gates, and every one has been made to fail deliberately** — the
+**Seventeen gates, and every one has been made to fail deliberately** — the
 sabotage applied to each and the observed result are recorded as data in
 `artifacts/gates.yaml` and in `CP-SPEC-004` §G.2. A gate that has never been
 observed red is not evidence that it runs.
 
-**None of the sixteen passed its first sabotage**, and that is not the same as
+**None of the seventeen passed its first sabotage**, and that is not the same as
 saying the risk was absent. Several were rewritten *before* they were ever run,
 because the design pass measured that the obvious version could not
 discriminate. `CFT-G05` written as *"two depths are two content addresses"* —
@@ -312,20 +336,31 @@ a circuit that does not exist in the graph at all.
 
 **The snapshot.** The transcript published on the documentation page is the
 default run at commit — named on the page and in the transcript's own header —
-asked as of the pinned `2026-08-31T12:00:00+00:00`, read at ledger transaction
-`5112`, serving content address
-`205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498`. Every figure
-in it came from that run.
+asked as of the pinned `2026-08-31T12:00:00+00:00`, serving content address
+`205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498`. The page's
+snapshot names ledger transaction `5112`: that is `census.ledger_t_read_at`, the
+read the reviewed artifact holds from the 2026-08-31 measurement pass, and the
+program does not print the counter. The transcript itself was re-captured on
+2026-09-03 with the ledger head at `5296` — measured before and after the run —
+and reproduced byte for byte but for the `assembled by` line. Every figure in it
+came from that run.
 
-**Eleven SDK-surface and estate gaps were raised here and none was closed.**
-They are `D-26` through `D-36`, recorded under this phase's criterion 49. Seven
-of the eleven are written up as findings in `CP-SPEC-004` §F.4; the other four
-are recorded where they were ruled. Among them: the
-Fluree adapter *floors* the read with `Fluree-Min-T` rather than pinning it,
-which is exactly why the reproducibility claim above is bounded to a quiescent
-ledger for that run; the egress builder registers its product resource
-unconditionally, so a tool-only door cannot be expressed and the resource must
-refuse instead; and no node-class admission filter exists in the Traversal
-family, which is half of why ontology role 1 is struck. **An executor surfaces
-gaps; it does not close them**, and no file under `src/` or `runtime/` was
-touched by this phase.
+**Eleven SDK-surface and estate gaps were raised here, in Phase 24.4, and
+recorded.** They are `D-26` through `D-36`, recorded under that phase's
+criterion 49. Seven of the eleven are written up as findings in `CP-SPEC-004`
+§F.4; the other four are recorded where they were ruled. Phase 24.5 closed
+these in the SDK (each finding carries its dated note in §F.4): the Fluree
+adapter, which *floored* the read with `Fluree-Min-T`, now pins a read to a
+transaction — a JSON-LD claim read at `ledger@t:N`, carried in the lineage as
+`store_snapshot_pin` (`24.5-L-01` through `L-04`, `D-IMPL-240` (2)); the egress
+builder takes `expose_product_resource` (`24.5-L-09`), so a tool-only door is
+expressible — this rung keeps its resource registered and refusing by ruling;
+and the Traversal family has a node-class admission filter
+(`admitted_entity_classes`, `24.5-L-05`), which this rung does not bind. `D-30`
+(`24.5-L-08`) and `D-31` (`24.5-L-10`, the gate checker) are closed too. `D-32`
+and `D-33` are the two grounds role 1 was struck on and are recorded where they
+were ruled; whether any of `D-26`..`D-36` beyond those named is open is a
+question for its own record, not a status invented here (`D-IMPL-227`). **An
+executor surfaces gaps; it does not close them**, and no file under `src/` or
+`runtime/` was touched by Phase 24.4 or by the return trip that wrote this
+paragraph.
