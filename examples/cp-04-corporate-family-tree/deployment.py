@@ -174,6 +174,7 @@ from ccf.controlplane.artifacts import (
     ProductClassDeclaration,
 )
 from ccf.deployment import BootedFabric
+from ccf.graph.backends.fluree import DEFAULT_BRANCH
 from ccf.products.request import ProductRequest, ProductRequestContract
 from ccf.projection.plan import Perspective
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
@@ -912,6 +913,32 @@ def _binding(row: Mapping[str, Any], name: str) -> str | None:
     return value or None
 
 
+def head_t_of(listed: Sequence[Mapping[str, Any]], ledger: str) -> int | None:
+    """The ``t`` of ``ledger`` in a ``GET …/ledgers`` listing — name AND branch.
+
+    The predicate is the SDK's own, mirrored from
+    ``src/ccf/graph/backends/fluree.py::head_t``: the listing carries
+    ``{"name", "branch", "t"}`` for EVERY branch of every ledger on the server,
+    so a match on the name alone answers with whichever branch the server
+    lists first. ``ledger`` is ``name`` or ``name:branch``; a bare name means
+    the default branch, and the default is the SDK's ``DEFAULT_BRANCH``,
+    imported rather than spelled here (CLAUDE.md §6.4 — no hardcoded value
+    in an example). Pure over its two arguments, so a unit test can hold it
+    to a synthetic listing without a server.
+
+    Returns ``None`` rather than raising when the listing names no such
+    ``name:branch``, or lists it with no ``t``: an unknown ``t`` is a missing
+    lineage detail, not a reason to refuse a family the store answered for.
+    """
+    name, _, branch = ledger.partition(":")
+    branch = branch or DEFAULT_BRANCH
+    for entry in listed:
+        if entry.get("name") == name and entry.get("branch") == branch:
+            value = entry.get("t")
+            return int(value) if value is not None else None
+    return None
+
+
 def ledger_t(source: GraphSource | None = None) -> int | None:
     """The transaction the graph leg read at — section D.6's ``lineage.ledger_t``.
 
@@ -921,21 +948,18 @@ def ledger_t(source: GraphSource | None = None) -> int | None:
     not back ``as_of``. It is a fact about the read, which is exactly why it is
     worth recording and exactly why it is not a temporal axis.
 
-    Returns ``None`` rather than raising when the server lists no such ledger:
-    an unknown ``t`` is a missing lineage detail, not a reason to refuse a
-    family the store answered for.
+    The HTTP read is here; the match is :func:`head_t_of`, on the ``name`` AND
+    ``branch`` pair the SDK's ``head_t`` matches on (Phase 24.5.1, criterion
+    20). Returns ``None`` rather than raising when the server lists no such
+    ledger: an unknown ``t`` is a missing lineage detail, not a reason to
+    refuse a family the store answered for.
     """
     resolved = source or graph_source()
     with httpx.Client(timeout=_HTTP_TIMEOUT_SECONDS) as client:
         response = client.get(f"{resolved.url}{FLUREE_LEDGERS_PATH}")
         response.raise_for_status()
         listed = response.json()
-    wanted = resolved.ledger.split(":")[0]
-    for entry in listed:
-        if entry.get("name") in (resolved.ledger, wanted):
-            value = entry.get("t")
-            return int(value) if value is not None else None
-    return None
+    return head_t_of(listed, resolved.ledger)
 
 
 def enumerate_family_triples(

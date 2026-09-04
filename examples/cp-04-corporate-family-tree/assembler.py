@@ -63,7 +63,7 @@ import produce
 #: travel on the outcome because a payload is only reproducible alongside the
 #: computation that produced it.
 ASSEMBLER_ID = "cp-04.corporate-family-tree"
-ASSEMBLER_VERSION = "1.0.0"
+ASSEMBLER_VERSION = "1.0.1"
 
 
 class _AssemblyState(Protocol):
@@ -229,30 +229,10 @@ class FamilyTreeAssembler:
                 " question nobody asked, with no error"
             )
 
-        # A DECLARED-BUT-INERT PARAMETER IS A CONTRACT VERDICT AND THIS SEAM
-        # CANNOT RETURN IT AS ONE — the SDK-surface finding `cp-01` recorded,
-        # `cp-02` met a second time and `cp-03` a third. **THIS IS THE FOURTH
-        # RUNG IN A ROW**, which is what turns a repeated observation into a
-        # shape:
-        #
-        #   `ProductRequestViolation.reason` is a CLOSED `Literal` of four
-        #   values — undeclared-parameter · missing-required-parameter ·
-        #   type-mismatch · class-mismatch. Standard §9 requires
-        #   `400 not_supported_at_tier` as a DISTINCT condition and §2.4 makes
-        #   the declared-but-inert parameter a first-class obligation. The
-        #   vocabulary has no member for it.
-        #
-        # The pressure is specific at this rung: this is the first product whose
-        # STORE carries a time axis of its own, so "give me the family as it
-        # stood last March" looks answerable and is not.
-        if isinstance(assembled, produce.ParameterNotSupported):
-            raise AssemblyRefused(
-                f"{assembled.status} {assembled.reason}: {assembled.parameter}"
-                " — declared by this class and always refused (Standard §2.4)."
-                " This verdict is raised rather than returned because"
-                " ProductRequestViolation.reason is a closed Literal with no"
-                " member for it; see CP-SPEC-004 §F.4"
-            )
+        # A declared-but-inert parameter is refused by the SDK's own tier step —
+        # `src/ccf/products/request.py::refuse_request` step 2 (`_refuse_tier`) — as a
+        # `ProductRequestViolation(reason="not-supported-at-tier")` returned as DATA
+        # through the branch above (`24.5-L-12`/`L-13`); this seam has no branch of its own.
 
         # AN UNRESOLVABLE ANCHOR IS A DIFFERENT KIND OF THING. A
         # `ProductRequestViolation` says *this class does not answer that
