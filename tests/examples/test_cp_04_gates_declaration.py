@@ -1,4 +1,4 @@
-"""cp-04's sixteen declared product gates are DATA, closed, complete and not comment-only.
+"""cp-04's seventeen declared product gates are DATA, closed, complete and not comment-only.
 
 `D-IMPL-224` makes a product's gates **a declared artifact plus CI coverage**:
 no `ProductGate` Protocol, no serve path, and the SDK's universal gates stay
@@ -15,7 +15,9 @@ What is asserted, and what each assertion closes
     control that adds an undeclared key and watches validation fail. A closure
     nobody has watched refuse is a closure that may not be closed.
 
-(b) **The declared id set is exactly the sixteen**, ``CFT-G01`` … ``CFT-G16``,
+(b) **The declared id set is exactly the seventeen**: ``CFT-G01`` …
+    ``CFT-G16`` and ``CFT-G18`` (added 2026-09-03, Phase 24.5.1 criterion 19;
+    the withdrawn seventeenth id is skipped, never re-minted),
     asserted as a **ROSTER and never as a count** — a right count with a wrong
     member audits clean forever — and the withdrawn seventeenth id is asserted
     **ABSENT by name, on a code line**. See "The withdrawal" below for why the
@@ -26,8 +28,9 @@ What is asserted, and what each assertion closes
     appears only in a ``#`` comment inside a ``.py`` file — so the scan covers
     **two globs and every extension**.
 
-(d) **Criteria 25 through 40 map one-to-one onto the sixteen gates**, and
-    criterion 41 is claimed by no gate.
+(d) **Criteria 25 through 40 map one-to-one onto sixteen of the gates, and
+    Phase 24.5.1's criterion 19 onto ``CFT-G18``**; criterion 41 is claimed by
+    no gate.
 
 The withdrawal, and why it is named on a CODE line
 ---------------------------------------------------
@@ -121,9 +124,10 @@ GATES_PATH = EXAMPLE_ROOT / "artifacts" / "gates.yaml"
 #: and it is what stops criterion 43 and criterion 49 contradicting each other.
 SCHEMA_PATH = REPO_ROOT / "docs" / "schemas" / "product-gates" / "cp.product-gates.json"
 
-#: The roster, as a roster. Sixteen ids, written out rather than generated from
-#: a range, so a reader can see the set this module holds the artifact to
-#: without evaluating anything.
+#: The roster, as a roster. Seventeen ids, written out rather than generated
+#: from a range, so a reader can see the set this module holds the artifact to
+#: without evaluating anything. `CFT-G18` joined on 2026-09-03 (Phase 24.5.1
+#: criterion 19, `D-IMPL-245` (4)); the withdrawn seventeenth id is skipped.
 EXPECTED_IDS: frozenset[str] = frozenset(
     {
         "CFT-G01",
@@ -142,6 +146,7 @@ EXPECTED_IDS: frozenset[str] = frozenset(
         "CFT-G14",
         "CFT-G15",
         "CFT-G16",
+        "CFT-G18",
     }
 )
 
@@ -154,7 +159,9 @@ WITHDRAWN_ID = "CFT-G17"
 #: Plan `24.4-10` filled the first five — the traversal set and the depth
 #: identity set. Plan `24.4-11` filled six more — the refusal, findings and
 #: ontology-serving set. Plan `24.4-12` filled the last five, the seams set
-#: `CFT-G10` through `CFT-G14`, and the roster is now COMPLETE at sixteen. Held
+#: `CFT-G10` through `CFT-G14`, and the roster is now COMPLETE at sixteen. On
+#: 2026-09-03 plan `24.5.1-05` added `CFT-G18` and watched it RED on a
+#: perturbed ledger before recording it, so the roster is seventeen. Held
 #: here rather than derived from the artifact, because a check that read the
 #: artifact for both the expectation and the subject would agree with whatever
 #: it found and could never notice a record that went missing.
@@ -179,11 +186,18 @@ OBSERVED_RED_IDS: tuple[str, ...] = (
     "CFT-G14",
     "CFT-G15",
     "CFT-G16",
+    "CFT-G18",
 )
 
-#: The locked ROADMAP criteria the sixteen gates discharge, one-for-one.
+#: Phase 24.5.1's ROADMAP criterion 19 (`D-IMPL-245` (4), the ambiguous
+#: anchor), claimed by `CFT-G18`. A different phase's numbering from the
+#: sixteen below, held apart so the two ranges cannot be confused.
+RETURN_TRIP_CRITERIA: frozenset[int] = frozenset({19})
+
+#: The locked ROADMAP criteria the gates discharge, one-for-one: Phase 24.4's
+#: 25 through 40 onto sixteen gates, and Phase 24.5.1's 19 onto `CFT-G18`.
 #: Criterion 41 is WITHDRAWN IN PLACE and is claimed by no gate.
-EXPECTED_CRITERIA: frozenset[int] = frozenset(range(25, 41))
+EXPECTED_CRITERIA: frozenset[int] = frozenset(range(25, 41)) | RETURN_TRIP_CRITERIA
 
 #: The criterion no gate may claim.
 WITHDRAWN_CRITERION = 41

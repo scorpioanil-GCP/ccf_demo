@@ -45,3 +45,4 @@ What a plain SELECT would not have told you:
    operators invoked  ['policy.principal-subgraph']
    content address    ab2e1a62bf0e5b26c86b3dc122bc77ca4c7e8162ef86510f4a0901224723e9e4
    replay record      5cd4126b9a5eac5009dd1a01e13be27615e60ed75cce086ce2fa16bbf51dd888
+   assembled by       cp-01.counterparty-reference-snapshot@1.0.1

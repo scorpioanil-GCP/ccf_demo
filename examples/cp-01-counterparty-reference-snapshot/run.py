@@ -31,6 +31,7 @@ from pathlib import Path
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 
+from ccf.agents.assembler import AssemblyOutcome  # noqa: E402
 from ccf.agents.errors import AssemblyRefused  # noqa: E402
 from ccf.contracts.canonical import content_hash  # noqa: E402
 from ccf.products.request import ProductRequestViolation  # noqa: E402
@@ -148,22 +149,23 @@ def main(argv: list[str] | None = None) -> int:
 
         # BRANCHED ON AS DATA. Both refusals are values, not exceptions —
         # a bad question and a missing entity are not broken deployments.
-        if isinstance(outcome, produce.ParameterNotSupported):
-            print(f"{outcome.status} {outcome.reason}: {outcome.parameter}")
-            return 1
         if isinstance(outcome, produce.AnchorUnresolvable):
             print(f"{outcome.status} {outcome.reason}: {outcome.anchor}")
             return 1
         if not isinstance(outcome, produce.Assembled):
             print(f"refused: {outcome.reason} — {outcome.key}")
+            if isinstance(outcome, ProductRequestViolation):
+                print(f"   {outcome.detail}")
             return 1
 
         print(json.dumps(dict(outcome.product.payload), indent=2, sort_keys=True))
-        _report(outcome, asked_at=asked.asked_at)
+        _report(outcome, governed, asked_at=asked.asked_at)
     return 0
 
 
-def _report(assembled: produce.Assembled, *, asked_at: datetime) -> None:
+def _report(
+    assembled: produce.Assembled, outcome: AssemblyOutcome, *, asked_at: datetime
+) -> None:
     """What a plain SELECT would not have told you."""
     product = assembled.product
     debt = product.debt
@@ -181,6 +183,10 @@ def _report(assembled: produce.Assembled, *, asked_at: datetime) -> None:
     print(f"   operators invoked  {sorted(assembled.operators_invoked)}")
     print(f"   content address    {content_hash(product)}")
     print(f"   replay record      {content_hash(assembled.record)}")
+    # TRANSCRIPT evidence of which implementation ran (`D-IMPL-245` am.1).
+    # Decision Replay does not carry assembler identity today; this line is
+    # the example's evidence, not a replay claim.
+    print(f"   assembled by       {outcome.assembler_id}@{outcome.assembler_version}")
 
 
 if __name__ == "__main__":  # pragma: no cover

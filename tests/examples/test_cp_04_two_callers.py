@@ -50,8 +50,10 @@ the exclusions are named rather than left to be inferred from the code.
 
 Criterion 37 was AMENDED at Gate 1 (`D-IMPL-225` amendment 1) because its
 original wording — *"no resource is exposed"* — is false against this tree:
-`runtime/ccf_runtime/mcp/egress.py::build_egress_server` registers its product
-resource **unconditionally** and gates only the tool. The amended criterion
+`runtime/ccf_runtime/mcp/egress.py::build_egress_server` then registered its
+product resource **unconditionally** and gated only the tool (since `24.5-L-09`
+it takes `expose_product_resource`, default `True`; this door keeps the resource
+by ruling and passes no flag). The amended criterion
 asserts three things together: **(a)** the resource IS registered and
 enumerable; **(b)** a read of it returns
 `runtime/ccf_runtime/mcp/egress.py::ProductNotServable` and NEVER a tree; and
@@ -63,8 +65,8 @@ enumerable; **(b)** a read of it returns
 **resource TEMPLATE**. Against this door, `resources/list` returns **an empty
 list** and `resources/templates/list` returns exactly
 `ccf-product://{tenant}/{product_class}/{version}`. The substance of limb (a)
-holds — the door advertises the resource to every client that enumerates, cp-04
-cannot omit it, and `D-34` is unchanged — but *"enumerable in `resources/list`"*
+holds — the door advertises the resource to every client that enumerates, and
+cp-04 keeps it by ruling (`D-34` was closed by `24.5-L-09`) — but *"enumerable in `resources/list`"*
 names the wrong listing, and the SDK's own
 `tests/crossproc/test_mcp_egress.py` never enumerated either one, so the
 criterion's wording was inferred from the registration call rather than measured
@@ -845,8 +847,10 @@ def listing_violations(
             f"the product resource template {PRODUCT_URI_TEMPLATE!r} is not"
             f" enumerable — templates are {templates}. `CFT-G13` limb (a) says"
             " the resource IS registered and IS enumerable; a door that hid it"
-            " would be claiming a tool-only shape `build_egress_server` cannot"
-            " express (`D-34`)"
+            " would be claiming a tool-only shape `build_egress_server` CAN"
+            " express since `24.5-L-09` (`expose_product_resource=False`) and"
+            " this door does not choose (`D-34` closed; the resource stays by"
+            " ruling)"
         )
     if resources:
         violations.append(

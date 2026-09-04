@@ -36,7 +36,10 @@
 # The eight pre-existing gates were watched red in their own build (spec §D.7,
 # 2026-08-29) and their `observed_red` stays `null` here — a backfill does not
 # invent a record for a sabotage it did not watch. `CPR-G08` carries the red
-# Phase 24.5 watched.
+# Phase 24.5 watched, re-recorded 2026-09-03 when `D-IMPL-245` (4) moved it to
+# the refusal shape; `CPR-G02` and `CPR-G04` carry the reds Phase 24.5.1
+# watched when they moved with it. Each amended row keeps its superseded text
+# as a `# superseded 2026-09-03` comment — history is quoted, never rewritten.
 #
 # `role: load`. A gate roster is a declaration of obligations, parsed and handed
 # back; it is not something the fabric is PERMITTED to do.
@@ -76,14 +79,41 @@ declaration:
     # ---- §C.4 trap 3 — a Policy step that is a no-op ---------------------
     - id: CPR-G02
       criterion: 5
+      # superseded 2026-09-03 (D-IMPL-245 (4)): the statement read —
+      #   "Entitlement discriminates — the visible entity SET differs pairwise
+      #   across principals, with at least one entity visible to A and not B.
+      #   Counts sets, never sizes. Carries a negative control: a principal
+      #   differenced against itself must report identical."
+      # — the sabotage read "make the entitlement join admit every entity." and
+      # `observed_red` was `null` (watched red in its own build, spec §D.7,
+      # 2026-08-29; not re-recorded by the 24.5 backfill). Under that shape an
+      # unentitled principal was SERVED `counterparty: None`, which is the
+      # Policy-removed serve the ruling retired.
       statement: >-
-        Entitlement discriminates — the visible entity SET differs pairwise
-        across principals, with at least one entity visible to A and not B.
-        Counts sets, never sizes. Carries a negative control: a principal
-        differenced against itself must report identical.
+        Entitlement discriminates — an entitled principal is SERVED and an
+        unentitled one is REFUSED with the one text a nonexistent counterparty
+        receives; the outcomes differ as SETS (served LEI set vs empty), never
+        as sizes; negative control: a principal differenced against itself
+        reports identical (`D-IMPL-245` (4)).
       test: tests/examples/test_cp_01_output.py::test_entitlement_discriminates_as_sets_with_a_negative_control
-      sabotage: make the entitlement join admit every entity.
-      observed_red: null
+      sabotage: >-
+        make the entitlement join admit every entity — the unentitled principal
+        is served and the test is RED.
+      observed_red:
+        result: >-
+          RED, under its own id. Sabotage applied to
+          `examples/cp-01-counterparty-reference-snapshot/deployment.py::_permitted_jurisdictions`
+          — the grant join's `where pj.principal_id = %s` widened to
+          `where (pj.principal_id = %s or true)`, so every principal is granted
+          every jurisdiction the estate holds. Observed — "an EU grant must not
+          see a US-DE entity — it is REFUSED, not served" / "assert
+          'PRIN-KYC-004' in {}": PRIN-KYC-004 was SERVED. The expectation is
+          the test's own principal roster; the behavior comes from
+          `deployment.py`. Two different files, so the gate cannot pass its own
+          sabotage by moving both sides together. Restored byte-identical
+          (`cmp`).
+        date: "2026-09-03"
+        commit: "8b0e7620 (the tree the sabotage was watched on, Task 1's last rung); the amended row and the rewritten test land in the Task 2 commit that follows"
 
     # ---- §C.3 — one freshness claim over a mixed population --------------
     - id: CPR-G03
@@ -99,13 +129,38 @@ declaration:
     # ---- §B.2 — a marker that is itself a disclosure ---------------------
     - id: CPR-G04
       criterion: 5
+      # superseded 2026-09-03 (D-IMPL-245 (4)): the statement read —
+      #   "Suppression silence — two principals' payloads differ in content and
+      #   are indistinguishable in structure; no count, marker, placeholder or
+      #   notice indicates anything was withheld."
+      # — the sabotage read "leak a "1 entity hidden" notice into the
+      # suppressed payload." and `observed_red` was `null`. Under that shape a
+      # Policy-removed entity was SERVED `counterparty: None` and the PAYLOAD
+      # was read for the leak; the refusal text is now the whole boundary.
       statement: >-
-        Suppression silence — two principals' payloads differ in content and
-        are indistinguishable in structure; no count, marker, placeholder or
-        notice indicates anything was withheld.
+        Suppression silence — a Policy-removed entity is refused with a text
+        that names neither the principal nor the entitlement and carries no
+        count, marker, placeholder or notice; indistinguishable from the
+        nonexistent-counterparty refusal (`D-IMPL-245` (4)).
       test: tests/examples/test_cp_01_output.py::test_a_suppressed_entity_leaves_no_marker
-      sabotage: leak a "1 entity hidden" notice into the suppressed payload.
-      observed_red: null
+      sabotage: >-
+        append the principal id (or 'not entitled') to the refusal text at the
+        Policy-removed call site.
+      observed_red:
+        result: >-
+          RED, under its own id, in two forms. Sabotage applied to
+          `examples/cp-01-counterparty-reference-snapshot/assembler.py` at the
+          Policy-removed call site. (1) `" for PRIN-KYC-004"` appended to the
+          refusal — observed "the refusal names the principal: "counterparty
+          '529900E95812SYWMCE44' is not available (404); §D.2 step 1 fails
+          closed rather than returning an empty payload for PRIN-KYC-004"".
+          (2) `f" for principal {perspective.principal_id}"` appended —
+          observed "the refusal discloses suppression via 'principal'". The
+          expectation is the test's own word list and principal id; the text
+          comes from `assembler.py`. Two different files. Restored
+          byte-identical (`cmp`) after each.
+        date: "2026-09-03"
+        commit: "8b0e7620 (the tree the sabotage was watched on, Task 1's last rung); the amended row and the rewritten test land in the Task 2 commit that follows"
 
     # ---- §B.4 — the declared-but-inert parameter -------------------------
     - id: CPR-G05
@@ -141,39 +196,79 @@ declaration:
     # ---- The gap between the Standard's gate 1 and the SDK's -------------
     - id: CPR-G08
       criterion: 10
+      # superseded 2026-09-03 (D-IMPL-245 (4)): the statement read —
+      #   "Empty served set — a principal whose grant set matches no entity gets
+      #   a fail-closed refusal or an explicit debt contribution, never a 200
+      #   with an empty list."
+      # — the test was the node named
+      #   `test_cpr_g08_a_principal_matching_no_entity_is_refused_or_carries_a_debt_contribution_never_an_empty_200`
+      #   in the same module (written without its path so it no longer parses
+      #   as a citation — the function was renamed, and this line is history),
+      # the sabotage read —
+      #   "serve the no-entity principal a plain 200 — the empty payload with
+      #   the debt block read as if the assembled set were whole — so the one
+      #   thing that distinguishes "nothing was assembled" from "nothing is
+      #   visible" is gone. The principal is constructed in the test (no grant
+      #   row exists for it), because the estate holds no such principal (§F.2
+      #   row 20)."
+      # — and `observed_red` (date 2026-09-02, commit "6b14bd6 (the roster);
+      # the executing test lands in the Task 2 commit that fills this block")
+      # read, in full —
+      #   "RED, under its own id. Sabotage applied to a scratch copy of
+      #   `examples/cp-01-counterparty-reference-snapshot/deployment.py::CounterpartyScenario.debt`
+      #   — the empty-view branch made to return a NOMINAL reading (freshness
+      #   1, completeness 1) instead of the maximum it ships. Observed —
+      #   "CPR-G08: PRIN-NONE-000 was served a 200 with an empty list and NO
+      #   explicit debt contribution — signal ok, D_c 0 against the entitled
+      #   control's 0.292893218813452476". THE SHIPPED VERDICT, MEASURED
+      #   FIRST: the shipped product serves the no-grant principal
+      #   `counterparty: None` with D_c 1, signal fail_closed, both factors
+      #   0 — the statement's SECOND limb, an explicit debt contribution —
+      #   and not a refusal; cp-01's `produce.py` acts on no debt tolerance
+      #   (0 occurrences), so the fail-closed reading travels as a served
+      #   product, which is ledger row 24.5-L-14's territory and a
+      #   candidate for plan 16's re-measurement. The principal was
+      #   constructed in the test with 0 grant rows asserted; no fixture row
+      #   was added. The sabotage edits `deployment.py`; the control is the
+      #   entitled principal's own served reading. Two different sources."
+      # That measured second limb — served, D_c 1, fail_closed — is exactly the
+      # shape `D-IMPL-245` (4) rejects: "policy exclusion is not Context Debt".
       statement: >-
-        Empty served set — a principal whose grant set matches no entity gets
-        a fail-closed refusal or an explicit debt contribution, never a 200
-        with an empty list.
-      test: tests/examples/test_cp_01_output.py::test_cpr_g08_a_principal_matching_no_entity_is_refused_or_carries_a_debt_contribution_never_an_empty_200
+        Empty served set — a principal whose grant set matches no entity is
+        REFUSED, and the refusal cannot be told from the one a nonexistent
+        counterparty receives; never a 200 with an empty list and never a debt
+        contribution standing in for a policy outcome (`D-IMPL-245` (4)).
+      test: tests/examples/test_cp_01_output.py::test_cpr_g08_a_principal_matching_no_entity_is_refused_and_cannot_be_told_from_a_missing_one
       sabotage: >-
-        serve the no-entity principal a plain 200 — the empty payload with the
-        debt block read as if the assembled set were whole — so the one thing
-        that distinguishes "nothing was assembled" from "nothing is visible"
-        is gone. The principal is constructed in the test (no grant row
-        exists for it), because the estate holds no such principal (§F.2 row
-        20).
+        restore the serve — remove the Policy-removed branch so the excluded
+        principal is served `counterparty: None` with D_c 1 / fail_closed — or
+        make the two refusal texts differ by one word. The principal is
+        constructed in the test (no grant row exists for it), because the
+        estate holds no such principal (§F.2 row 20).
       observed_red:
         result: >-
-          RED, under its own id. Sabotage applied to a scratch copy of
-          `examples/cp-01-counterparty-reference-snapshot/deployment.py::CounterpartyScenario.debt`
-          — the empty-view branch made to return a NOMINAL reading (freshness
-          1, completeness 1) instead of the maximum it ships. Observed —
-          "CPR-G08: PRIN-NONE-000 was served a 200 with an empty list and NO
-          explicit debt contribution — signal ok, D_c 0 against the entitled
-          control's 0.292893218813452476". THE SHIPPED VERDICT, MEASURED
-          FIRST: the shipped product serves the no-grant principal
-          `counterparty: None` with D_c 1, signal fail_closed, both factors
-          0 — the statement's SECOND limb, an explicit debt contribution —
-          and not a refusal; cp-01's `produce.py` acts on no debt tolerance
-          (0 occurrences), so the fail-closed reading travels as a served
-          product, which is ledger row 24.5-L-14's territory and a
-          candidate for plan 16's re-measurement. The principal was
-          constructed in the test with 0 grant rows asserted; no fixture row
-          was added. The sabotage edits `deployment.py`; the control is the
-          entitled principal's own served reading. Two different sources.
-        date: "2026-09-02"
-        commit: "6b14bd6 (the roster); the executing test lands in the Task 2 commit that fills this block"
+          RED, under its own id, BOTH ways. (1) Sabotage applied to
+          `examples/cp-01-counterparty-reference-snapshot/assembler.py` — the
+          Policy-removed branch (`payload.get("counterparty") is None and
+          "excluded" not in payload` → raise) deleted, so PRIN-NONE-000 is
+          served `counterparty: None` with D_c 1 / fail_closed as the first
+          build did. Observed — "Failed: DID NOT RAISE AssemblyRefused" at the
+          excluded principal's `pytest.raises`. (2) The `AnchorUnresolvable`
+          call site's text changed by appending " — no such counterparty".
+          Observed — "CPR-G08: the two refusal texts differ modulo the subject
+          token: "counterparty '<subject>' is not available (404); §D.2 step 1
+          fails closed rather than returning an empty payload" vs "… — no such
+          counterparty"". The nonexistent-anchor control is the test's own;
+          the text comes from `assembler.py::_not_available`. Two different
+          files. The principal was constructed in the test with 0 grant rows
+          asserted; no fixture row was added. The narrowing's control:
+          `test_a_lapsed_entity_is_excluded_entirely_by_default` (byte-identical
+          to ad56c816) went RED — "AssemblyRefused: counterparty
+          '549300TRW1LZMDJZAQ78' is not available (404)…" — when the
+          `"excluded" not in payload` clause was dropped. Restored
+          byte-identical (`cmp`) after each.
+        date: "2026-09-03"
+        commit: "8b0e7620 (the tree the sabotage was watched on, Task 1's last rung); the amended row and the rewritten test land in the Task 2 commit that follows"
 
     # ---- §B.1 element 3 — written to go red when the defect is fixed -----
     - id: CPR-G09

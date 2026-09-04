@@ -26,6 +26,7 @@ from __future__ import annotations
 import importlib
 import os
 import pathlib
+import re
 import sys
 from decimal import Decimal
 from typing import Any
@@ -34,6 +35,7 @@ import psycopg
 import pytest
 import yaml
 
+from ccf.agents.assembler import AssemblyOutcome
 from ccf.agents.errors import AssemblyRefused
 from ccf.contracts.canonical import content_hash
 from ccf.halflife.assessment import DebtSignal
@@ -164,6 +166,115 @@ def _serve(seeded: str, **kwargs: Any) -> Any:
         return captured[0] if captured else governed
 
 
+#: A nonexistent anchor, the control every refusal is compared against. The
+#: same string `test_an_unresolvable_anchor_fails_closed` uses.
+MISSING_ANCHOR = "NOT-A-REAL-ANCHOR"
+
+#: Words a suppression-silent refusal must not carry (`D-IMPL-245` (4)).
+_LEAK_WORDS = re.compile(r"entitle|principal|grant|visible|withheld", re.IGNORECASE)
+_SUBJECT_TOKEN = "<subject>"
+
+
+def _demonstration_subject() -> str:
+    """The subject of the request `_serve` builds, read off that request.
+
+    Never a literal: the refusal text carries the subject token, and the
+    sameness check has to know which token to normalize away.
+    """
+    deployment = _load("deployment")
+    asked = deployment.request(
+        parameters={
+            deployment.PARAM_DEBT_TOLERANCE: Decimal(
+                str(deployment.demonstration_debt_tolerance())
+            ),
+            deployment.PARAM_INCLUDE_LAPSED: False,
+        }
+    )
+    return str(asked.subject)
+
+
+def refusal_sameness_violations(
+    excluded: str, missing: str, *, excluded_subject: str, missing_subject: str
+) -> list[str]:
+    """Every way two refusal texts fail §B.2's indistinguishability, by name.
+
+    (i) with each text's own subject token replaced by ``<subject>``, the two
+    must be identical — a difference is something the caller could learn;
+    (ii) neither may carry a word from the leak list (``entitle``,
+    ``principal``, ``grant``, ``visible``, ``withheld``, case-folded); (iii)
+    neither may be empty, because two empty strings are identical for no reason
+    at all. Returns an empty list only when all three hold. Three controls
+    beside this function watch it refuse.
+    """
+    violations: list[str] = []
+    if not excluded or not missing:
+        violations.append(
+            f"empty refusal text: excluded={excluded!r} missing={missing!r}"
+        )
+    normalized_excluded = (
+        excluded.replace(excluded_subject, _SUBJECT_TOKEN)
+        if excluded_subject
+        else excluded
+    )
+    normalized_missing = (
+        missing.replace(missing_subject, _SUBJECT_TOKEN)
+        if missing_subject
+        else missing
+    )
+    if normalized_excluded != normalized_missing:
+        violations.append(
+            "the two refusal texts differ modulo the subject token:"
+            f" {normalized_excluded!r} vs {normalized_missing!r}"
+        )
+    for label, text in (("excluded", excluded), ("missing", missing)):
+        for match in _LEAK_WORDS.finditer(text):
+            violations.append(
+                f"the {label} refusal carries the word {match.group(0)!r}"
+            )
+    return violations
+
+
+def test_refusal_sameness_reports_a_one_word_difference() -> None:
+    """Control for `refusal_sameness_violations`: one differing word is a violation naming the difference."""
+    found = refusal_sameness_violations(
+        "subject 'A' is not available",
+        "subject 'B' is not there",
+        excluded_subject="A",
+        missing_subject="B",
+    )
+    assert any("differ" in v for v in found), found
+    # The same pair with the difference removed is clean — the detector reads
+    # the words, not the pair.
+    assert (
+        refusal_sameness_violations(
+            "subject 'A' is not available",
+            "subject 'B' is not available",
+            excluded_subject="A",
+            missing_subject="B",
+        )
+        == []
+    )
+
+
+def test_refusal_sameness_reports_a_leaking_word() -> None:
+    """Control for `refusal_sameness_violations`: "not entitled" is a violation naming the word."""
+    found = refusal_sameness_violations(
+        "subject 'A' is not entitled",
+        "subject 'B' is not entitled",
+        excluded_subject="A",
+        missing_subject="B",
+    )
+    assert any("entitle" in v for v in found), found
+
+
+def test_refusal_sameness_reports_empty_texts() -> None:
+    """Control for `refusal_sameness_violations`: two empty texts are a violation, not a match."""
+    found = refusal_sameness_violations(
+        "", "", excluded_subject="A", missing_subject="B"
+    )
+    assert found and any("empty" in v for v in found), found
+
+
 # --------------------------------------------------------------------------
 # The seed is measured before anything is asserted against it.
 # --------------------------------------------------------------------------
@@ -249,52 +360,117 @@ def test_entitlement_discriminates_as_sets_with_a_negative_control(
 ) -> None:
     """`CPR-G02` — §D.3. Counts SETS, never sizes.
 
+    An entitled principal is SERVED and its outcome is the set of LEIs it saw;
+    an unentitled one is REFUSED and its outcome is the EMPTY set — the refusal
+    carrying the one text a nonexistent counterparty receives. The two outcomes
+    are compared as sets, never as sizes. History: the unentitled principals
+    were previously served `counterparty: None` (the Policy step's removal,
+    `D_c 1 / fail_closed`); `D-IMPL-245` (4), 2026-09-03, moved them to the
+    refusal — policy exclusion is not Context Debt.
+
     The negative control is the half that matters: a principal differenced
     against ITSELF must see the same thing, so a `DISCRIMINATES` verdict is
     known to be capable of reading the other way. A gate that has never been
     observed failing is not evidence.
     """
     produce = _load("produce")
-    visible: dict[str, str | None] = {}
+    subject = _demonstration_subject()
+    with pytest.raises(AssemblyRefused) as missing:
+        _serve(seeded, anchor=MISSING_ANCHOR)
+
+    outcome: dict[str, frozenset[str]] = {}
+    refusals: dict[str, str] = {}
     for principal in (
         "PRIN-COV-001",
         "PRIN-RES-002",
         "PRIN-KYC-004",
         "PRIN-TRD-003",
     ):
-        assembled = _serve(seeded, principal=principal)
+        try:
+            assembled = _serve(seeded, principal=principal)
+        except AssemblyRefused as refused:
+            outcome[principal] = frozenset()
+            refusals[principal] = str(refused)
+            continue
         assert isinstance(assembled, produce.Assembled)
         counterparty = assembled.product.payload["counterparty"]
-        visible[principal] = None if counterparty is None else counterparty["lei"]
+        assert counterparty is not None, (
+            f"{principal} was served a product with no counterparty — the"
+            " Policy-removed serve D-IMPL-245 (4) retired"
+        )
+        outcome[principal] = frozenset({counterparty["lei"]})
 
-    assert visible["PRIN-COV-001"] is not None, "the US grant should see a US-DE entity"
-    assert visible["PRIN-RES-002"] is not None
-    assert visible["PRIN-KYC-004"] is None, "an EU grant must not see a US-DE entity"
-    assert visible["PRIN-TRD-003"] is None
+    assert outcome["PRIN-COV-001"], "the US grant should see a US-DE entity"
+    assert outcome["PRIN-RES-002"]
+    assert "PRIN-KYC-004" in refusals, (
+        "an EU grant must not see a US-DE entity — it is REFUSED, not served"
+    )
+    assert "PRIN-TRD-003" in refusals
+    assert outcome["PRIN-KYC-004"] == frozenset()
+    assert outcome["PRIN-TRD-003"] == frozenset()
+    # SETS, never sizes: the served set of an entitled principal differs from
+    # the empty set of an unentitled one.
+    assert outcome["PRIN-COV-001"] != outcome["PRIN-KYC-004"]
+    assert outcome["PRIN-RES-002"] != outcome["PRIN-TRD-003"]
+    for principal, text in refusals.items():
+        violations = refusal_sameness_violations(
+            text,
+            str(missing.value),
+            excluded_subject=subject,
+            missing_subject=MISSING_ANCHOR,
+        )
+        assert not violations, f"CPR-G02: {principal}: " + "; ".join(violations)
+        assert principal not in text
 
     # NEGATIVE CONTROL — the same principal twice must agree. If this fails,
     # the assertions above are measuring run-to-run noise rather than policy.
     again = _serve(seeded, principal="PRIN-COV-001")
-    assert again.product.payload["counterparty"]["lei"] == visible["PRIN-COV-001"]
+    assert (
+        frozenset({again.product.payload["counterparty"]["lei"]})
+        == outcome["PRIN-COV-001"]
+    )
 
 
 def test_a_suppressed_entity_leaves_no_marker(seeded: str) -> None:
-    """`CPR-G04` — §B.2's suppression rule.
+    """`CPR-G04` — §B.2's suppression rule, at the whole product boundary.
 
     *"The payload must carry no count, marker, or placeholder indicating that
     anything was withheld."* A `"1 entity hidden"` notice IS a disclosure.
+    Since `D-IMPL-245` (4) (2026-09-03) a Policy-removed entity is not served
+    at all — previously it was served `counterparty: None` and this test read
+    the payload for a leak. Now the refusal text IS the boundary: it must name
+    neither the principal nor the entitlement, and it must be the text a
+    nonexistent counterparty receives.
     """
-    assembled = _serve(seeded, principal="PRIN-KYC-004")
-    payload = assembled.product.payload
-    assert payload["counterparty"] is None
-    flattened = repr(payload).casefold()
-    for leak in ("hidden", "withheld", "suppress", "redact", "denied", "filtered"):
-        assert leak not in flattened, f"the payload discloses suppression via {leak!r}"
-    assert "excluded" not in payload, (
-        "an `excluded` block belongs to the caller-requested lapsed exclusion,"
-        " not to a policy suppression — carrying it here would tell an"
-        " unentitled caller that something exists"
+    with pytest.raises(AssemblyRefused) as info:
+        _serve(seeded, principal="PRIN-KYC-004")
+    text = str(info.value)
+    flattened = text.casefold()
+    for leak in (
+        "hidden",
+        "withheld",
+        "suppress",
+        "redact",
+        "denied",
+        "filtered",
+        "entitle",
+        "principal",
+        "grant",
+        "visible",
+    ):
+        assert leak not in flattened, (
+            f"the refusal discloses suppression via {leak!r}: {text!r}"
+        )
+    assert "PRIN-KYC-004" not in text, f"the refusal names the principal: {text!r}"
+    with pytest.raises(AssemblyRefused) as missing:
+        _serve(seeded, anchor=MISSING_ANCHOR)
+    violations = refusal_sameness_violations(
+        text,
+        str(missing.value),
+        excluded_subject=_demonstration_subject(),
+        missing_subject=MISSING_ANCHOR,
     )
+    assert not violations, "CPR-G04: " + "; ".join(violations)
 
 
 def test_a_lapsed_entity_is_excluded_entirely_by_default(seeded: str) -> None:
@@ -324,7 +500,7 @@ def test_include_lapsed_returns_it_with_status_first_class(seeded: str) -> None:
 
 def test_an_unresolvable_anchor_fails_closed(seeded: str) -> None:
     """§D.2 step 1 — 404, *"never an empty payload"*."""
-    with pytest.raises(AssemblyRefused, match="resolved to no entity"):
+    with pytest.raises(AssemblyRefused, match="is not available"):
         _serve(seeded, anchor="NOT-A-REAL-ANCHOR")
 
 
@@ -440,10 +616,10 @@ def test_a_no_lei_entity_is_refused_by_the_ttl_lower_bound(seeded: str) -> None:
 # grant set matches no entity — and a gate with no fixture cannot be watched.
 # The principal is constructed HERE, in the test; no fixture row was added.
 # --------------------------------------------------------------------------
-def test_cpr_g08_a_principal_matching_no_entity_is_refused_or_carries_a_debt_contribution_never_an_empty_200(
+def test_cpr_g08_a_principal_matching_no_entity_is_refused_and_cannot_be_told_from_a_missing_one(
     seeded: str,
 ) -> None:
-    """`CPR-G08` — a principal whose grant set matches no entity gets a fail-closed refusal or an explicit debt contribution, never a 200 with an empty list.
+    """`CPR-G08` — a principal whose grant set matches no entity is REFUSED, and the refusal cannot be told from the one a nonexistent counterparty receives.
 
     THE PRINCIPAL IS CONSTRUCTED HERE. `PRIN-NONE-000` is a name with no
     grant row, asserted against the seeded grant table before it is asked —
@@ -451,15 +627,18 @@ def test_cpr_g08_a_principal_matching_no_entity_is_refused_or_carries_a_debt_con
     is exactly the gate's subject, so no fixture row is needed and none was
     added (spec §F.2 row 20 records that the estate holds no such principal).
 
-    The disjunction is read as the spec states it. Either the assembly is
-    REFUSED — a governed value returned, or a raise — or the served product's
-    debt block carries an EXPLICIT contribution: the fail-closed signal, both
-    factors zero, a D_c strictly above the entitled principal's. The
-    forbidden shape is the third one: `counterparty: None` beside a debt
-    block reading as if the assembled set were whole, which a consumer could
-    not tell from a served answer about nothing. The entitled principal is
-    the positive control — served, present, `OK` — so the contribution is
-    shown to be a difference and not a constant.
+    `D-IMPL-245` (4), Dave, 2026-09-03: *"refuse. Do not serve 200 + D_c=1 +
+    fail_closed. … policy exclusion is not Context Debt"*, and the refusal
+    obeys suppression silence — *"make unauthorized/not-visible
+    indistinguishable from unavailable at that product boundary."* The
+    disjunction the previous shape read ("a fail-closed refusal OR an explicit
+    debt contribution") is retired: the served-with-debt limb was the shape the
+    ruling rejects, and the early `return` on any refusal was a check that could
+    not fail. Now the refusal is asserted BY NAME; its text is compared modulo
+    the subject token against the nonexistent-anchor refusal; the word list
+    `entitle|principal|grant|visible|withheld` is refused; and the entitled
+    principal is the positive control — served, present, `OK` — so the refusal
+    is shown to be a difference and not a constant.
     """
     deployment = _load("deployment")
     produce = _load("produce")
@@ -484,29 +663,66 @@ def test_cpr_g08_a_principal_matching_no_entity_is_refused_or_carries_a_debt_con
         " reading below would not be a difference"
     )
 
-    outcome: Any = None
-    refused: BaseException | None = None
-    try:
-        outcome = _serve(seeded, principal=principal)
-    except AssemblyRefused as exc:
-        refused = exc
-    if refused is not None or not isinstance(outcome, produce.Assembled):
-        return  # a fail-closed refusal, as a raise or as a returned value
-
-    payload = outcome.product.payload
-    assert payload["counterparty"] is None, (
-        f"CPR-G08: {principal} was served an entity, so its grant set matched"
-        " something and the gate's premise does not hold"
+    with pytest.raises(AssemblyRefused) as excluded:
+        _serve(seeded, principal=principal)
+    with pytest.raises(AssemblyRefused) as missing:
+        _serve(seeded, anchor=MISSING_ANCHOR)
+    violations = refusal_sameness_violations(
+        str(excluded.value),
+        str(missing.value),
+        excluded_subject=_demonstration_subject(),
+        missing_subject=MISSING_ANCHOR,
     )
-    debt = outcome.product.debt
-    assert (
-        debt.signal == DebtSignal.FAIL_CLOSED
-        and debt.factors.completeness == 0
-        and debt.factors.freshness == 0
-        and debt.debt > control.product.debt.debt
-    ), (
-        f"CPR-G08: {principal} was served a 200 with an empty list and NO"
-        f" explicit debt contribution — signal {debt.signal!s}, D_c"
-        f" {debt.debt} against the entitled control's"
-        f" {control.product.debt.debt}"
+    assert not violations, "CPR-G08: " + "; ".join(violations)
+    assert principal not in str(excluded.value), (
+        f"CPR-G08: the refusal names the principal: {excluded.value!s}"
+    )
+
+
+def test_the_served_outcome_names_the_module_assembler_version(seeded: str) -> None:
+    """The Protocol's return names this module's assembler identity, pinned at `1.0.1`.
+
+    `D-IMPL-245` am.1: an assembler materially corrected in 24.5.1 bumps PATCH to
+    `1.0.1` — the dead compatibility branch for the inert parameter was deleted from this rung's
+    `assembler.py`, so the implementation changed — and am.3: never `1.0.2`.
+    `_serve` discards the Protocol's return (`governed`) for the spine's captured
+    value, so the seam is constructed here the same way and `governed` is KEPT.
+    This is the in-process identity; the transcript line `assembled by` carries it
+    as evidence, and Decision Replay carries none of it today (am.1).
+    """
+    import tempfile
+
+    deployment = _load("deployment")
+    assembler = _load("assembler")
+    parameters: dict[str, object] = {
+        deployment.PARAM_DEBT_TOLERANCE: Decimal(
+            str(deployment.demonstration_debt_tolerance())
+        ),
+        deployment.PARAM_INCLUDE_LAPSED: False,
+    }
+    asked = deployment.request(parameters=parameters)
+    with tempfile.TemporaryDirectory(prefix="cp01-test-") as tmp:
+        root = pathlib.Path(tmp)
+        captured: list[object] = []
+        seam = assembler.CounterpartyAssembler(
+            config=deployment.CONFIG,
+            root=root,
+            connection=deployment.connection(root=root),
+            read=deployment.read,
+            plan_class=deployment.plan_class(),
+            observer=captured.append,
+        )
+        governed = seam.assemble(
+            request=asked,
+            perspective=deployment.perspective(),
+            tenant_id=deployment.tenant_id(),
+        )
+    assert captured, "the observer never fired, so nothing was assembled"
+    assert isinstance(governed, AssemblyOutcome), type(governed).__name__
+    assert governed.assembler_id == assembler.ASSEMBLER_ID
+    assert governed.assembler_version == assembler.ASSEMBLER_VERSION
+    assert assembler.ASSEMBLER_VERSION == "1.0.1", (
+        "the pin is D-IMPL-245 am.1's PATCH identity for the corrected"
+        " implementation; 1.0.0 would make two implementations share one name,"
+        " and am.3 rules never 1.0.2"
     )

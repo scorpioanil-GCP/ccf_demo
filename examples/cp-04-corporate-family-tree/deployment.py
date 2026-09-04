@@ -174,9 +174,15 @@ from ccf.controlplane.artifacts import (
     ProductClassDeclaration,
 )
 from ccf.deployment import BootedFabric
+from ccf.graph.backends.fluree import DEFAULT_BRANCH
 from ccf.products.request import ProductRequest, ProductRequestContract
 from ccf.projection.plan import Perspective
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+
+# `produce.py` receives this module's `read` as a callable and imports nothing
+# from the example, so this edge is cycle-free; it exists for ONE constructor,
+# the typed "many" `resolve_anchor` returns beside `produce.AnchorUnresolvable`.
+import produce
 
 HERE = Path(__file__).parent
 ARTIFACTS = HERE / "artifacts"
@@ -912,6 +918,32 @@ def _binding(row: Mapping[str, Any], name: str) -> str | None:
     return value or None
 
 
+def head_t_of(listed: Sequence[Mapping[str, Any]], ledger: str) -> int | None:
+    """The ``t`` of ``ledger`` in a ``GET …/ledgers`` listing — name AND branch.
+
+    The predicate is the SDK's own, mirrored from
+    ``src/ccf/graph/backends/fluree.py::head_t``: the listing carries
+    ``{"name", "branch", "t"}`` for EVERY branch of every ledger on the server,
+    so a match on the name alone answers with whichever branch the server
+    lists first. ``ledger`` is ``name`` or ``name:branch``; a bare name means
+    the default branch, and the default is the SDK's ``DEFAULT_BRANCH``,
+    imported rather than spelled here (CLAUDE.md §6.4 — no hardcoded value
+    in an example). Pure over its two arguments, so a unit test can hold it
+    to a synthetic listing without a server.
+
+    Returns ``None`` rather than raising when the listing names no such
+    ``name:branch``, or lists it with no ``t``: an unknown ``t`` is a missing
+    lineage detail, not a reason to refuse a family the store answered for.
+    """
+    name, _, branch = ledger.partition(":")
+    branch = branch or DEFAULT_BRANCH
+    for entry in listed:
+        if entry.get("name") == name and entry.get("branch") == branch:
+            value = entry.get("t")
+            return int(value) if value is not None else None
+    return None
+
+
 def ledger_t(source: GraphSource | None = None) -> int | None:
     """The transaction the graph leg read at — section D.6's ``lineage.ledger_t``.
 
@@ -921,21 +953,18 @@ def ledger_t(source: GraphSource | None = None) -> int | None:
     not back ``as_of``. It is a fact about the read, which is exactly why it is
     worth recording and exactly why it is not a temporal axis.
 
-    Returns ``None`` rather than raising when the server lists no such ledger:
-    an unknown ``t`` is a missing lineage detail, not a reason to refuse a
-    family the store answered for.
+    The HTTP read is here; the match is :func:`head_t_of`, on the ``name`` AND
+    ``branch`` pair the SDK's ``head_t`` matches on (Phase 24.5.1, criterion
+    20). Returns ``None`` rather than raising when the server lists no such
+    ledger: an unknown ``t`` is a missing lineage detail, not a reason to
+    refuse a family the store answered for.
     """
     resolved = source or graph_source()
     with httpx.Client(timeout=_HTTP_TIMEOUT_SECONDS) as client:
         response = client.get(f"{resolved.url}{FLUREE_LEDGERS_PATH}")
         response.raise_for_status()
         listed = response.json()
-    wanted = resolved.ledger.split(":")[0]
-    for entry in listed:
-        if entry.get("name") in (resolved.ledger, wanted):
-            value = entry.get("t")
-            return int(value) if value is not None else None
-    return None
+    return head_t_of(listed, resolved.ledger)
 
 
 def enumerate_family_triples(
@@ -1099,8 +1128,10 @@ def walk_from_anchor(
     return tuple(collected[key] for key in sorted(collected))
 
 
-def resolve_anchor(lei: str, *, source: GraphSource | None = None) -> str | None:
-    """The graph node the request's LEI names, or ``None``.
+def resolve_anchor(
+    lei: str, *, source: GraphSource | None = None
+) -> str | produce.AnchorAmbiguous | None:
+    """The graph node the request's LEI names, ``None``, or a typed "many".
 
     **The request's ``subject`` is an LEI and the walk's anchor is an IRI**, and
     the step between them is a read rather than a formatting rule — nothing in
@@ -1111,6 +1142,14 @@ def resolve_anchor(lei: str, *, source: GraphSource | None = None) -> str | None
     ``None`` is a **404** and never an empty payload (spec section B.4). An
     empty family reads as *this company has no subsidiaries*, which is a claim
     about the world; an unresolvable anchor is a fact about the request.
+
+    **EVERY binding is collected, and more than one is AMBIGUITY returned as
+    data** (`D-IMPL-245` (4), `CFT-G18`) — never the first row of an unordered
+    SELECT, which made the anchor and the whole served family depend on the
+    store's row order (the shared-LEI case, `24.4` deferred item 14). Zero is
+    ``None``; one is the IRI; more is :class:`produce.AnchorAmbiguous` carrying
+    the anchor and every candidate, sorted, for the spine to refuse on before
+    the graph is touched.
     """
     resolved = source or graph_source()
     predicate = node_predicate_iris()[NODE_PREDICATE_LEI]
@@ -1121,11 +1160,14 @@ def resolve_anchor(lei: str, *, source: GraphSource | None = None) -> str | None
             f"SELECT ?s {_from_clause(resolved)} WHERE {{"
             f" ?s <{predicate}> {json.dumps(lei)} }}",
         )
-    for row in rows:
-        found = _binding(row, "s")
-        if found is not None:
-            return found
-    return None
+    found = sorted(
+        {binding for row in rows if (binding := _binding(row, "s")) is not None}
+    )
+    if not found:
+        return None
+    if len(found) == 1:
+        return found[0]
+    return produce.AnchorAmbiguous(anchor=lei, candidates=tuple(found))
 
 
 # ---------------------------------------------------------------------------
@@ -2573,7 +2615,7 @@ def source_read(
     subject: str,
     graph: GraphSource | None = None,
     attributes: AttributeSource | None = None,
-) -> FamilySourceRead:
+) -> FamilySourceRead | produce.AnchorAmbiguous:
     """Open BOTH systems of record, each for its declared role.
 
     **``CFT-G10`` READS THIS FUNCTION.** The gate asserts that THE ASSEMBLY
@@ -2583,16 +2625,22 @@ def source_read(
     that could have been handed a pre-populated graph. Policy is **not** that
     proof and is not consulted for it: ``D-IMPL-228`` says so in terms.
 
-    The order is: resolve the anchor, walk to the DECLARED CEILING, read the
-    node facts, batch-resolve the attributes, mint the membership, read the
-    served jurisdictions, then close the jurisdiction world. The minting runs
-    before any envelope is built, because a member's membership is part of the
-    claim L2 will admit, and the closed-world refusal runs before anything is
-    served.
+    The order is: resolve the anchor — and hand an AMBIGUOUS anchor back as
+    the typed value it resolved to, before any walk, ingest or envelope
+    (`D-IMPL-245` (4)) — walk to the DECLARED CEILING, read the node facts,
+    batch-resolve the attributes, mint the membership, read the served
+    jurisdictions, then close the jurisdiction world. The minting runs before
+    any envelope is built, because a member's membership is part of the claim
+    L2 will admit, and the closed-world refusal runs before anything is served.
     """
     resolved_graph = graph or graph_source()
     refuse_stale_vocabulary_pointer()
     anchor_uri = resolve_anchor(subject, source=resolved_graph)
+    # MORE THAN ONE NODE ANSWERED. Returned as data at the same point the
+    # ``None`` path returns an empty read: nothing below this line has run,
+    # no store but the graph has been opened, and nothing has been walked.
+    if isinstance(anchor_uri, produce.AnchorAmbiguous):
+        return anchor_uri
     empty = AttributeResolution(
         rows={}, statements=(), requested=(), addressed=()
     )
@@ -2833,7 +2881,7 @@ def read(
     *,
     max_depth: int,
     role: str | None = None,
-) -> FamilyScenario | None:
+) -> FamilyScenario | produce.AnchorAmbiguous | None:
     """Name this deployment's artifact keys and read this question's values.
 
     ``max_depth`` is resolved by :func:`resolve_max_depth` **before** this
@@ -2845,12 +2893,19 @@ def read(
 
     Returns ``None`` when the anchor resolves to nothing. *An anchor that
     resolves to no entity is never an empty payload* — an empty family reads as
-    a claim about the world.
+    a claim about the world. Returns the :class:`produce.AnchorAmbiguous` the
+    read produced when it resolves to MORE THAN ONE (`D-IMPL-245` (4)): the
+    spine refuses on it as typed data, the same way it refuses on ``None``.
     """
     artifacts = booted.artifacts
     read_source = source_read(
         booted.tenant_id, at=asked.asked_at, subject=asked.subject
     )
+    # THE SECOND BRANCH ON THE ANCHOR, and it must come FIRST: the ambiguity
+    # value has no `anchor_uri` to read, so probing the line below on it would
+    # be an `AttributeError` standing where a typed refusal belongs.
+    if isinstance(read_source, produce.AnchorAmbiguous):
+        return read_source
     if read_source.anchor_uri is None:
         return None
 

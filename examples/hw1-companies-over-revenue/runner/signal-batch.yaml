@@ -1,0 +1,144 @@
+# The declared source signals this example's deployment is populated FROM —
+# a declared INPUT document, not a committed store, and not producer output.
+#
+# WHAT THIS IS. `D-IMPL-245` amendment 2 (Dave, 2026-09-03): *"the seed should
+# be treated as declared input to the example, not as a hidden bootstrap
+# feature of the SDK."* `runner/seed.py` beside this file reads it, boots the
+# deployment through the SDK's normal path, ingests every envelope below
+# through the fabric's ONE writer, and closes that writer before either
+# documented transport boots. The populated `deployment/graph.sqlite3` and
+# `deployment/artifact-store/` that run leaves behind are generated state and
+# stay uncommitted (`deployment/.gitignore`). What is committed is what a
+# program reads; what a program produced is not.
+#
+# WHY THIS FILE IS ALLOWED TO EXIST. `D-32` (Dave, 2026-08-15) forbids
+# committing data to `examples/`. `D-IMPL-163` (Dave, 2026-08-20) narrows it:
+# `D-32` governs producer OUTPUT — a populated graph, an artifact store,
+# anything whose presence removes the need to produce it — not a declared
+# input document a fabric-side program interprets. This document removes
+# nothing: every claim the deployment serves is still produced, by the single
+# writer, on the reader's own machine.
+#
+# WHY IT IS NOT PYTHON. The No-Hardcoding Rule (CLAUDE.md §6.4) scopes to
+# `examples/` — `tools/lints/__main__.py::RULE_TREE_SCOPE` gives
+# `no-hardcoding` the tree tuple `("src", "runtime", "examples", "tests",
+# "archive")` — so eight companies spelled as constants in `seed.py` would be
+# that rule firing. The seed program is an interpreter over this document.
+#
+# WHY EVERY ID AND INSTANT IS FIXED. The README quotes a content address and
+# says two consecutive runs print the same one. An envelope id is part of the
+# served lineage and `ingestion_timestamp` is what the half-life curve reads,
+# so a clock read in either position would move the address between runs.
+# Nothing below is "now".
+#
+# WHY THERE IS NO `$schema` HEADER. `tools/check_schema_headers.py` scopes its
+# header gate to `examples/**/artifacts/*.yaml`; this is a declared input of
+# the example, not a Control Plane artifact — it is never registered, never
+# content-hashed, and never pinned (`ccf.signal-batch` is a `role: load` class
+# under `D-IMPL-80`). The `semver:` below is the batch's own version marker,
+# carrying no semver-lane obligation. The document IS validated: `seed.py`
+# parses it with `load_artifact(text, SIGNAL_BATCH)`, which refuses floats,
+# zone-less timestamps and any key outside the class's closed shape.
+#
+# THE PAYLOAD KEYS ARE THIS DEPLOYMENT'S SOURCE VOCABULARY. `company_ref`,
+# `company_name` and `company_revenue` are the keys `deployment/ccf_config.yaml`
+# resolves under `resolution.entity_rules` and `deployment/scenario.yaml` maps
+# onto roles. Values are strings: a claim attribute is text on the way in,
+# `projection.py` reads the revenue back through `Decimal`, and a float never
+# reaches the wire in this SDK at all.
+#
+# THE DEMONSTRATION THE INSTANTS ARE CHOSEN FOR. The deployment declares a
+# one-year half-life for a revenue observation and the documented command asks
+# `--as-of 2026-08-01T00:00:00+00:00`. The eight ingestion instants below are
+# spread across the twenty-three months before that boundary so the measured
+# freshness lands the debt figure `D_c` inside the `forced_llm` band
+# (`[0.20, 0.60)` under `deployment/ccf_config.yaml`'s `debt_profile:`). Both
+# instants on each envelope are equal: `ingestion_timestamp` becomes the
+# claim's `observed_at` (what the curve reads) and `observed_time` becomes its
+# `valid_from` (what the as-of boundary admits).
+#
+# [MECHANISM] the three top-level keys and the five per-envelope keys
+# [ADAPT]     every value — the companies are fictional and domain-neutral
+
+semver: "1.0.0"
+
+# Matches `tenant_id` in `../deployment/ccf_config.yaml`. The batch class
+# refuses an envelope whose tenant disagrees with the batch's, and `seed.py`
+# refuses a batch whose tenant disagrees with the deployment it booted.
+tenant_id: hw1-demo
+
+envelopes:
+  # --- strictly above the 1000000000 threshold: these five are the answer ---
+  - tenant_id: hw1-demo
+    envelope_id: hw1-seed/0001
+    source: {system_id: hw1-seed}
+    ingestion_timestamp: "2026-07-01T00:00:00+00:00"
+    observed_time: "2026-07-01T00:00:00+00:00"
+    raw_payload:
+      company_ref: CO-1001
+      company_name: Ardent Fenwick Holdings
+      company_revenue: "6420000000"
+  - tenant_id: hw1-demo
+    envelope_id: hw1-seed/0002
+    source: {system_id: hw1-seed}
+    ingestion_timestamp: "2026-05-01T00:00:00+00:00"
+    observed_time: "2026-05-01T00:00:00+00:00"
+    raw_payload:
+      company_ref: CO-1002
+      company_name: Marrowgate Shipping
+      company_revenue: "2310000000"
+  - tenant_id: hw1-demo
+    envelope_id: hw1-seed/0003
+    source: {system_id: hw1-seed}
+    ingestion_timestamp: "2026-02-01T00:00:00+00:00"
+    observed_time: "2026-02-01T00:00:00+00:00"
+    raw_payload:
+      company_ref: CO-1003
+      company_name: Solstice Ridge Energy
+      company_revenue: "1875000000"
+  - tenant_id: hw1-demo
+    envelope_id: hw1-seed/0004
+    source: {system_id: hw1-seed}
+    ingestion_timestamp: "2025-11-01T00:00:00+00:00"
+    observed_time: "2025-11-01T00:00:00+00:00"
+    raw_payload:
+      company_ref: CO-1004
+      company_name: Tarrowline Systems
+      company_revenue: "1290000000"
+  - tenant_id: hw1-demo
+    envelope_id: hw1-seed/0005
+    source: {system_id: hw1-seed}
+    ingestion_timestamp: "2025-08-01T00:00:00+00:00"
+    observed_time: "2025-08-01T00:00:00+00:00"
+    raw_payload:
+      company_ref: CO-1005
+      company_name: Quillbrook Pharmaceuticals
+      company_revenue: "1040000000"
+  # --- strictly below the 1000000000 threshold: these three are screened out ---
+  - tenant_id: hw1-demo
+    envelope_id: hw1-seed/0006
+    source: {system_id: hw1-seed}
+    ingestion_timestamp: "2025-04-01T00:00:00+00:00"
+    observed_time: "2025-04-01T00:00:00+00:00"
+    raw_payload:
+      company_ref: CO-1006
+      company_name: Pellstone Aggregates
+      company_revenue: "940000000"
+  - tenant_id: hw1-demo
+    envelope_id: hw1-seed/0007
+    source: {system_id: hw1-seed}
+    ingestion_timestamp: "2025-01-01T00:00:00+00:00"
+    observed_time: "2025-01-01T00:00:00+00:00"
+    raw_payload:
+      company_ref: CO-1007
+      company_name: Wrenfield Optics
+      company_revenue: "615000000"
+  - tenant_id: hw1-demo
+    envelope_id: hw1-seed/0008
+    source: {system_id: hw1-seed}
+    ingestion_timestamp: "2024-09-01T00:00:00+00:00"
+    observed_time: "2024-09-01T00:00:00+00:00"
+    raw_payload:
+      company_ref: CO-1008
+      company_name: Larkspur Confectionery
+      company_revenue: "288000000"

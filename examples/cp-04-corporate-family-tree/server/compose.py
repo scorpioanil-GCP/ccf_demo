@@ -36,18 +36,22 @@ binds it to a local name and hands it to the assembler. A resolver that called
 `deployment.perspective` again would entitle one role and assemble under
 another, and outcome parity against the resource would not see the difference.
 
-**THE RESOURCE PATH REFUSES BY NAME, AND `D-34` IS WHY IT IS A REFUSAL RATHER
-THAN AN ABSENCE.** `runtime/ccf_runtime/mcp/egress.py::build_egress_server`
-registers its product resource with `@server.resource(PRODUCT_URI_TEMPLATE, …)`
-**unconditionally**, and only the tool sits behind `if expose_product_tool:`.
-That builder can be resource-only or resource-plus-tool; it cannot be tool-only.
-So the product resource IS registered and IS enumerable, and what cp-04 controls
-is what a read of it does — which is
+**THE RESOURCE PATH REFUSES BY NAME, AND KEEPING THE RESOURCE IS A RULING
+RATHER THAN AN ABSENCE OF CHOICE.** Since `24.5-L-09`,
+`runtime/ccf_runtime/mcp/egress.py::build_egress_server` registers its product
+resource with `@server.resource(PRODUCT_URI_TEMPLATE, …)` behind
+`if expose_product_resource:` (default `True`), beside the tool's
+`if expose_product_tool:`. That builder CAN be tool-only. This door keeps the
+product resource registered and enumerable, and what cp-04 controls is what a
+read of it does — which is
 `runtime/ccf_runtime/mcp/egress.py::ProductNotServable`, raised by name.
-Dave, at Gate 1: *"A listing that includes the resource is the SDK."* That is
-`D-34`, RECORDED and NOT closed (`D-IMPL-225` amendment 1; `D-04` of
-`24-CONTEXT.md`; criterion 49) — no file under `src/` or `runtime/` is touched
-to make this door behave.
+Switching this rung to a tool-only door is a design change for its next
+rebuild, not a correction (`D-IMPL-245`'s deferred list), so `CFT-G13` limb (a)
+measures a choice, not an SDK limit. Dave, at Gate 1, when the builder still
+registered the resource unconditionally: *"A listing that includes the resource
+is the SDK."* That was `D-34` (`D-IMPL-225` amendment 1; `D-04` of
+`24-CONTEXT.md`; criterion 49), closed by `24.5-L-09` — this door passes no
+`expose_product_resource` flag and did not move.
 
 **MEASURED, AND IT REFINES WHICH LISTING.** `PRODUCT_URI_TEMPLATE` carries
 `{tenant}`, `{product_class}` and `{version}` placeholders, so `FastMCP`
@@ -55,7 +59,7 @@ registers it as a resource **TEMPLATE**: against this door `resources/list`
 returns an **empty** list and `resources/templates/list` returns exactly
 `ccf-product://{tenant}/{product_class}/{version}`. Criterion 37's amended
 wording says *"enumerable in `resources/list`"*, which names the wrong listing —
-the substance is unchanged and `D-34` is unchanged, but the door advertises the
+the substance is unchanged (that refinement did not touch `D-34`), but the door advertises the
 resource as a template rather than as a concrete entry, and it was worth
 measuring rather than reading off the registration call.
 `tests/examples/test_cp_04_two_callers.py::listing_violations` asserts BOTH

@@ -17,7 +17,7 @@
 | **Gate 2 status** | **in progress.** Artifacts, deployment, spine, projection, assembler, the in-process caller and the `example-cp-04` target are built; the MCP door, the sixteen gate modules and the documentation page are not. §F.2 rows 15 and 16 are CLEARED (`D-IMPL-230`); eleven `[TBC — this build]` rows remain |
 | **Estate** | Fluree ledger `fibo-v2` and PostgreSQL schema `ccf_v2` on the `ccf_dataprep` estate, both read-only. **Every figure in §C and §E was measured 2026-08-31 at `ledger_t = 5112`** and is traceable to a row in `24.4-MEASUREMENT.md` |
 | **Stores** | **TWO — Fluree and PostgreSQL.** The split is the vault catalog's and is **not re-derived here** (`D-17`): **Fluree 7 rows, Postgres 4, both 1, twelve rows in total** — §C.1 |
-| **Sixteen product gates** | `CFT-G01`…`CFT-G16`. **`CFT-G17` is WITHDRAWN** with ontology role 1, 2026-08-31 (Dave, `853ccc9`) — §D.2.1 and §G.2 |
+| **Seventeen product gates** | `CFT-G01`…`CFT-G16` and `CFT-G18` (`CFT-G18` = the ambiguous anchor, `D-IMPL-245` (4), 2026-09-03; previously: ~~Sixteen product gates, `CFT-G01`…`CFT-G16`~~). **`CFT-G17` is WITHDRAWN** with ontology role 1, 2026-08-31 (Dave, `853ccc9`) — §D.2.1 and §G.2 |
 
 ---
 
@@ -288,7 +288,7 @@ reachable, and observed RED.
 | `lei` | string(20), **required** | **E** — the anchor | — | Unresolvable → **404**, never an empty payload |
 | `intent` | enum, **required** | **P** — selects the policy envelope | — | Unknown intent → **400** |
 | `max_depth` | int **1–6**, optional | **R** — scope | **3, DECLARED** | Above the ceiling → **REFUSED BY NAME**, never clamped. Absent → the **declared** default, never a value invented at serve time |
-| `debt_tolerance` | float | **P** — the ceiling above which assembly refuses | `[TBC — this build]` | Breach → **409** with the debt block |
+| `debt_tolerance` | float | **P** — the ceiling above which assembly refuses | `[TBC — this build]` | Breach → **409** with the debt block (SUPERSEDED 2026-09-03: since `24.5-L-14` the `409` is a CLASS-DECLARED ceiling — `src/ccf/products/gates.py::effective_debt_ceiling`, tightened but never loosened by a request; this class declares none, so its `debt_tolerance` is advisory) |
 | `as_of` | — | **T** | — | **DECLARED-BUT-INERT. REFUSED `400 not_supported_at_tier`** |
 
 #### B.4.1 `max_depth` — both numbers are measured, and the ceiling disagrees with the article
@@ -900,8 +900,10 @@ sufficient:
   under `src/` that this phase forbids.
 
 > **`CFT-G17` is WITHDRAWN with role 1.** It appears in this document **only**
-> as this withdrawal note and never as a gate row. The roster is **SIXTEEN**
-> gates, `CFT-G01`…`CFT-G16`.
+> as this withdrawal note and never as a gate row. The roster is **SEVENTEEN**
+> gates, `CFT-G01`…`CFT-G16` and `CFT-G18` (2026-09-03, `D-IMPL-245` (4);
+> previously: ~~The roster is **SIXTEEN** gates, `CFT-G01`…`CFT-G16`~~).
+> `CFT-G17` remains withdrawn; `CFT-G18` is the next free id, never a re-mint.
 >
 > **It is deliberately NOT replaced by a positive-property restatement.**
 > *"Every admitted node's class is in the declared set"* was refused **by name**:
@@ -1143,11 +1145,12 @@ gates stay the only serve-time gates.
 | Empty-operator guard | SDK | **yes** — two operators, both non-empty |
 | Lineage strict equality | SDK | **yes** — and it is why step 6 does not enter `operators_invoked` (§D.2.3) |
 | TTL bounds | SDK | **yes** — §B.1.2 |
-| Debt gate | SDK | **yes** — breach → `409` with the debt block |
+| Debt gate | SDK | **yes** — breach → `409` with the debt block (SUPERSEDED 2026-09-03: `24.5-L-14` made the `409` class-declared — `src/ccf/products/gates.py::effective_debt_ceiling`; this class declares no ceiling, so no `409` fires here and `debt_tolerance` is advisory) |
 | Suppression silence | SDK | **yes** — and structurally satisfied by ordering, §B.2 |
 | Classification containment | SDK | **yes** — every element is `public` |
 
-**The sixteen `CFT-G` gates are DECLARED PRODUCT GATES**, not additions to the
+**The seventeen `CFT-G` gates are DECLARED PRODUCT GATES** (2026-09-03; previously
+~~sixteen~~ — `CFT-G18` added, `CFT-G17` remains withdrawn), not additions to the
 serve-time runner. They live as **DATA** in
 `examples/cp-04-corporate-family-tree/artifacts/gates.yaml` under a **closed
 schema**, and **no gate id appears anywhere as a YAML comment only** — the whole
@@ -1174,6 +1177,10 @@ between a declared gate id and an executing test is **naming convention**:
 measured across the ladder, **40 product-level gate ids exist across four
 products** and `grep -rnE "OFS-G|FTS-G|[A-Z]{2,4}-G[0-9]{2}" --include=*.py
 src/ runtime/` returns **0**. `D-31`, §F.4.
+
+> **2026-09-03:** that checker shipped in Phase 24.5 as `24.5-L-10`
+> (`tools/check_product_gates.py`, run as `make product-gates`) — §F.4 finding 6's
+> dated note. The paragraph above stands as the measurement it was.
 
 ### D.8 The snapshot the printed run reproduces
 
@@ -1316,7 +1323,8 @@ path.
 itself, and a debt score that does not move when its inputs move is the
 idle-gate class arriving through a float. **No new gate id is minted**: the
 roster's home is `CFT-G09` and the movement assertion is a test. The roster stays
-**sixteen**, `CFT-G01`…`CFT-G16`.
+**seventeen**, `CFT-G01`…`CFT-G16` and `CFT-G18` (2026-09-03, `D-IMPL-245` (4);
+previously: ~~**sixteen**, `CFT-G01`…`CFT-G16`~~; `CFT-G17` remains withdrawn).
 
 **CORRECTION 2026-09-01 (Dave), AFTER THE CLOSE PANEL'S FINDING 1 — `S` IS TAKEN
 OVER THE SERVED ROSTER, AND ONLY THAT SET CHANGED.** The paragraphs above are
@@ -1345,7 +1353,8 @@ survive every depth this product accepts while the denominator shrinks.
 `(depth 3 → 0.0909…, depth 1 → 0.1)` is pinned as DATA at
 `artifacts/expected.yaml::debt_by_depth` and read from there by a **third limb of
 `CFT-G05`** — whose statement, *depth is part of product identity*, is exactly
-what it holds. The roster stays **sixteen**. Measured rather than assumed: with
+what it holds. The roster stays **sixteen** — seventeen since 2026-09-03, with
+`CFT-G18`. Measured rather than assumed: with
 the source-read denominator restored, exactly ONE test in the 216-test cp-04
 suite went red and it was `CFT-G05`; the identity-boundary movement gate passed
 whole, because it moves its boundary at a FIXED depth where the served roster and
@@ -1449,7 +1458,7 @@ comparing totals — *a count is not a roster*.
 | 16 | `debt_tolerance` calibration — **CLEARED 2026-09-01 (Dave, `D-IMPL-230`): `0.25`, NOT moved.** The measured `D_c` is `0.090909…` and it SERVES against `0.25`; the tolerance was not calibrated to rescue a number — §E.2.1 | §B.4, §E.2 | this build | **CLEARED** |
 | 17 | `λ_c` measured against read frequency | §E.1 | this build | Gate 2 |
 | 18 | Counterfactual fixture `CFT-F01` — the two-answer comparison | §A.2 | this build | Gate 2 |
-| 19 | **Sabotage result for each of the SIXTEEN gates** | §D.7, §G.2 | this build | Gate 2 |
+| 19 | **Sabotage result for each of the SEVENTEEN gates** (2026-09-03; previously ~~SIXTEEN~~; `CFT-G18`'s observed red is recorded in `artifacts/gates.yaml`) | §D.7, §G.2 | this build | Gate 2 |
 | 20 | **The three Gate 1 conflicts of §F.4** — **CLEARED 2026-08-31 (Dave, `D-IMPL-225`)**: all three ruled, two by amending a locked criterion | §F.4 | **Dave** | **Gate 1 — CLEARED** |
 
 **Twenty rows. Four belong to the vault, one to identity and access, one to
@@ -1550,11 +1559,32 @@ On a quiet ledger a floor and a pin are indistinguishable; **that is a vacant
 guarantee, not a satisfied one.** It is why §D.5's replay test is written to
 reach a failing step 4 rather than to omit it.
 
+> **CLOSED 2026-09-03 (Phase 24.5.1), by dated note; the observation above
+> stands as measured.** When measured, on 2026-08-31, the adapter sent only a
+> floor. Phase 24.5 closed the gap as `24.5-L-01` through `24.5-L-04`
+> (`D-IMPL-240` (2)): the JSON-LD route pins a read as `from: <ledger>@t:N`
+> (`src/ccf/graph/backends/fluree.py::FlureeGraphStore`), the lineage carries
+> that pin as `store_snapshot_pin` on
+> `src/ccf/products/contract.py::ProductLineage`, and the three time axes — event
+> time, transaction time, `as_of` — are named apart in that adapter's docstring
+> (`24.5-L-03`, `L-04`; `D-IMPL-88` stands: `t` never implements `as_of`). This
+> rung's transcript was re-captured on 2026-09-03 with the ledger head at `5296`
+> and reproduced byte for byte; §G.4's quiescent-ledger qualifier still describes
+> what was demonstrated.
+
 #### Finding 2 — `D-27` · `graph_snapshot_at` is a `datetime` and store `t` is an `int`
 
 **RECORDED, not closed.** A type mismatch for transaction-snapshot pinning.
 `src/ccf/products/contract.py::ProductLineage.graph_snapshot_at`. The product records `ledger_t` **beside**
 the snapshot field rather than inside it (§D.6).
+
+> **CLOSED 2026-09-03 (Phase 24.5.1), by dated note.** `24.5-L-02`
+> (`D-IMPL-240` (2)) added the additive field `store_snapshot_pin` to
+> `src/ccf/products/contract.py::ProductLineage`, so an `int` transaction pin has
+> an L6 field of its own beside the `datetime` snapshot. Every `ProductLineage`
+> field enters the content address, which is why `CFT-G16`'s two seals were
+> re-sealed once, under `D-IMPL-240` (1), in the same commit as the field. The
+> product still records `ledger_t` beside `graph_snapshot_at`.
 
 #### Finding 3 — `D-28` · Fluree `@iso:` searches EVENT time and is backdatable
 
@@ -1578,6 +1608,14 @@ Conflict 1 is the mechanism face of, and **`D-34`** (finding 9) is its sibling:
 `D-30` is *the resource cannot carry the parameters*, `D-34` is *the resource
 cannot be withheld*. Both are recorded; neither is closed.
 
+> **CLOSED 2026-09-03 (Phase 24.5.1), by dated note.** `24.5-L-08` gave the
+> egress a PRODUCT ADDRESS with a fifth path segment carrying the canonical
+> question (`runtime/ccf_runtime/mcp/egress.py::AddressedQuestion`), so a
+> parameterized product is citable by a client; `24.5-L-09` made the resource
+> optional (finding 9, below). Neither row changed what THIS door does: its
+> registered product resource still refuses by name (`CFT-G13` limb (b)), which
+> is now a ruling rather than a limit — see finding 9's note.
+
 #### Finding 6 — `D-31` · declared product gates have NO SDK or CI expression
 
 **RECORDED, not closed.** Measured: **40 product-level gate ids across four
@@ -1589,6 +1627,17 @@ This is a **different seam** from findings 1 to 3 (mechanism) and from finding 4
 (a docstring), and it is why **Phase 24.5** exists. **`D-IMPL-212` — that the
 Standard's `Enrich` has no SDK expression — is likewise OPEN and is not closed
 by `D-IMPL-223`** (§D.2.3).
+
+> **CLOSED 2026-09-03 (Phase 24.5.1), by dated note.** `24.5-L-10` — under
+> `D-IMPL-224`, which ORDERED a checker and refused a serve-time gate type —
+> shipped `tools/check_product_gates.py`: every id in a product's `gates.yaml`
+> must name an EXECUTING pytest node, checked in CI as `make product-gates`, and
+> measured at this note's writing as `checked 5 product trees, 57 declared gates,
+> 57 executing`. `24.5-L-18` folded into that design (the checker resolves an
+> executing test, never a witness string), and `24.5-L-49` (Dave, 2026-09-02:
+> *"Both: gates.yaml + missing tests"*) backfilled `gates.yaml` for cp-00 through
+> cp-03 and their missing tests. `D-IMPL-212` (`Enrich`) is not closed by this
+> note and stays OPEN.
 
 #### Finding 7 — `PSC-0124` is not the unique deepest root
 
@@ -1624,6 +1673,15 @@ the reason criterion 37 was amended, and **criterion 49 is extended to it**: it
 is recorded in `docs/DECISIONS.md`, it is closed by neither this phase nor any
 other in this wave, and **no file under `src/` or `runtime/` is modified to
 close it.**
+
+> **CLOSED 2026-09-03 (Phase 24.5.1), by dated note — with a product ruling.**
+> `24.5-L-09` gave `runtime/ccf_runtime/mcp/egress.py::build_egress_server` an
+> `expose_product_resource` flag (default `True`), so a tool-only door IS
+> expressible. This rung KEEPS its resource registered and refusing by name and
+> passes no flag: switching it to a tool-only door is a design change for the
+> rung's next rebuild, not a correction (`D-IMPL-245`, deferred list), so
+> `CFT-G13` limb (a) now measures a choice rather than an SDK limit. Criterion 37
+> as amended stands.
 
 ---
 
@@ -1867,9 +1925,9 @@ the ruled reading above.
 | **Service objectives** | p50 / p95 assembly latency, expected volume, concurrency ceiling, payload bound, absolute per-call cost: `[TBC — this build]`. **Payload bound is the one to watch**: the anchor's family is 22 nodes, but the graph's largest is 11 and the deepest is 6, and a badly-chosen anchor at `max_depth=6` is bounded by fan-out rather than by depth |
 | **Degradation contract** | **Mandatory (fail closed):** anchor resolution → `404`; entitlement → `403` / `503`; **the Fluree family read → `503` with the source class named**; the class chain on any returned node; cycle detection. **Non-mandatory (serve with elevated `D_c` and a notice):** attribute resolution per node, the duplicate-pair check, the consolidation basis, valid-time intervals |
 | **Debt model** | §E.2, nine components. `debt_tolerance` default `[TBC — this build]` |
-| **Observability** | per-operator latency · **`D_c` distribution** · **gate-failure counts by gate, all sixteen** · **`max_depth` usage distribution** and **over-cap refusal rate** · **the ratio of returned nodes with `attributes: null` to those without** · cycle-finding rate · entitlement denials · TTL refusal rate · **the `ledger_t` each run read at**. This is also the evidence base for moving every `λ_c` in §E.1 off `illustrative` |
+| **Observability** | per-operator latency · **`D_c` distribution** · **gate-failure counts by gate, all seventeen** (2026-09-03; previously ~~all sixteen~~) · **`max_depth` usage distribution** and **over-cap refusal rate** · **the ratio of returned nodes with `attributes: null` to those without** · cycle-finding rate · entitlement denials · TTL refusal rate · **the `ledger_t` each run read at**. This is also the evidence base for moving every `λ_c` in §E.1 off `illustrative` |
 | **Retention and record of record** | **GLEIF is record of record for relationships and for Level 1 attributes; EDGAR for Exhibit 21; the estate itself for the engineered cycle.** The fabric references them and does not replace them. Replay-record retention tier: `[TBC — this build]` |
-| **Test fixtures** | `CFT-F01` counterfactual (§A.2) · **`CFT-G01`…`CFT-G16` — sixteen product gates** (§G.2) · `CFT-R01` replay assertion (§D.5) · the five negative controls of §G.3 |
+| **Test fixtures** | `CFT-F01` counterfactual (§A.2) · **`CFT-G01`…`CFT-G16` and `CFT-G18` — seventeen product gates** (§G.2; 2026-09-03, `D-IMPL-245` (4); previously ~~`CFT-G01`…`CFT-G16` — sixteen product gates~~; `CFT-G17` remains withdrawn) · `CFT-R01` replay assertion (§D.5) · the five negative controls of §G.3 |
 | **Lifecycle** | **`draft`** — **Gate 1 APPROVED 2026-08-31 (Dave, `D-IMPL-225`) on the amended text**, with three amendments landed in `.planning/ROADMAP.md` and `docs/DECISIONS.md` before this row was written. Gate 2 not started: no code, artifacts or tests exist yet. Certification additionally requires every §F.2 row closed or accepted by a named owner |
 
 **The obligation an operator must not lose.** **A member with no attribute row
@@ -1878,10 +1936,13 @@ serves only the 142 that do returns a smaller, tidier, wrong family — with no
 error, and with a concentration denominator that is wrong in the safe-looking
 direction.
 
-### G.2 The sixteen product gates
+### G.2 The seventeen product gates
 
-**`CFT-G01` through `CFT-G16`.** Each is a testable assertion naming the defect
-it detects and the sabotage that must turn it RED.
+**`CFT-G01` through `CFT-G16`, and `CFT-G18`** — seventeen since 2026-09-03
+(`D-IMPL-245` (4); previously: ~~The sixteen product gates: `CFT-G01` through
+`CFT-G16`~~; `CFT-G17` remains withdrawn and is never re-minted). Each is a
+testable assertion naming the defect it detects and the sabotage that must turn
+it RED.
 
 > **This table is NOT the machine source for any check** (`D-22`).
 > `artifacts/gates.yaml` is, under a closed schema, with **every id as DATA**.
@@ -1905,12 +1966,15 @@ it detects and the sabotage that must turn it RED.
 | **`CFT-G14`** | **One standalone assembler serves both callers.** `assembler.py` knows nothing about MCP | give `server/serve.py` its **own** assembly path | `D-21` — the standalone property is DEMONSTRATED by two callers sharing one module, not asserted |
 | **`CFT-G15`** | **Each served node carries its FIBO class chain** | serve the tree without type information | §D.2.1 role 2 |
 | **`CFT-G16`** | **Perspective conditions on FIBO class**, not on a hand-written role map | substitute a hand-written role map | §D.2.1 role 3 |
+| **`CFT-G18`** | **An LEI carried by MORE THAN ONE node is REFUSED as `AnchorAmbiguityRefusal`** (`src/ccf/products/request.py::AnchorAmbiguityRefusal`) — typed ambiguity data returned through the D-60 channel, naming every colliding node; never the first binding of an unordered `SELECT`, never a 404, never a served family with a finding | **restore first-binding** — return the first binding `resolve_anchor` yields | §B.4 · `D-IMPL-245` (4) · `24.5-L-16` · Phase 24.5.1 criterion 19 (added 2026-09-03) |
 
 **`CFT-G17` does not exist.** It is **WITHDRAWN** with ontology role 1
 (2026-08-31, Dave), for the two independently measured reasons at §D.2.1: the
 estate cannot exhibit the stop, and the SDK has no expression for it. **It is
 not replaced by a positive-property restatement**, which was refused by name as
-a tautology over a class-homogeneous population. **The roster is sixteen.**
+a tautology over a class-homogeneous population. **The roster is seventeen**
+(2026-09-03, `D-IMPL-245` (4): `CFT-G18`, the ambiguous anchor, is the next free
+id and not a re-mint; previously: ~~**The roster is sixteen.**~~).
 
 **EVERY GATE MUST BE OBSERVED RED AT LEAST ONCE, AND THE SABOTAGE AND ITS
 OBSERVED RESULT ARE RECORDED.** A gate that has never been seen red is not
@@ -1933,12 +1997,13 @@ Postgres, and a **fixture** that opened both stores is not **the assembly**
 opening them) and **`CFT-G16`** (the word *class* appears in both a
 class-conditioned projection and a role map keyed by class name).
 
-`[TBC — this build]` — the sabotage applied to each of the sixteen and the
-observed result.
+`[TBC — this build]` — the sabotage applied to each of the seventeen (2026-09-03;
+previously ~~sixteen~~) and the observed result.
 
 ### G.3 Acceptance criteria — each phrased so it can fail
 
-Beyond the sixteen gates, the build must additionally prove:
+Beyond the seventeen gates (2026-09-03; previously ~~sixteen~~), the build must
+additionally prove:
 
 1. **The six predicate counts are re-derived AT GATE TIME** from `fibo-v2` and
    report `owns` **636**, `isDirectlyConsolidatedBy` **140**,

@@ -10,7 +10,9 @@ below and it imports `ccf.client` and stdlib. (The exact line count is
 deliberately *not* quoted here: two numbers is two things to keep in step, and
 the budget is the one that is enforced.) It knows the product's identity and the
 question's parameters; it does not know a manifest, a Control Plane key, an
-operator, a projection or a deployment type.
+operator, a projection or a deployment type. `runner/seed.py` is setup — the
+program that populates the deployment from `runner/signal-batch.yaml` before the
+client runs — and you do not need to read it to understand the example.
 
 **Declared budget: 80 lines.** That number is enforced, not aspirational —
 `tests/examples/test_client_example_budget.py` parses it out of *this line* and
@@ -29,7 +31,21 @@ small MCP server program along for that job. **How a Context Product is assemble
 and served is deliberately out of scope here** — it is the subject of a later set of
 examples. The server is here to be reached, not to be studied.
 
-From the **repository root**, with the deployment already populated:
+From the **repository root**, after the seed step below:
+
+**The seed step.** A clean checkout holds no populated graph; it holds the
+example's declared input, `runner/signal-batch.yaml`, and the program that
+interprets it. Run it once, and it populates `deployment/` through the fabric's
+single writer and lets go:
+
+```
+make example-hw1-seed
+```
+
+`make example-hw1` and `make example-hw1-mcp` run that step for you first. If you
+type either raw command below yourself, run the seed once before the first of
+them. Running it again is harmless: it rebuilds the store from the document, so
+the printed content address does not move.
 
 ```
 CCF_BINDING="inprocess:examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
@@ -58,11 +74,12 @@ reached is the deployment's own business, declared in `binding.yaml` beside its
 projection and its graph.
 
 `make example-hw1` and `make example-hw1-mcp` run those two strings verbatim —
-same flags, same values, same interpreter. If a target and its block ever
-diverge, the target is wrong; `tests/examples/test_client_example_purity.py`
-asserts each documented command is character-identical to the recipe that runs
-it, because a documented command nobody runs and a run command nobody documents
-are the same defect seen from two sides.
+same flags, same values, same interpreter — after `make example-hw1-seed`. If a
+target and its block ever diverge, the target is wrong;
+`tests/examples/test_client_example_purity.py` asserts each documented command
+is character-identical to the recipe that runs it, because a documented command
+nobody runs and a run command nobody documents are the same defect seen from
+two sides.
 
 The MCP run also prints a couple of `INFO Processing request of type …` lines.
 Those are the child server talking, on **stderr**; the answer is on stdout.
@@ -90,56 +107,69 @@ was wrong with the wire.
 
 ### Expected output
 
+The in-process command prints exactly this — the whole of its stdout, nothing
+elided, and `tests/examples/test_hw1_readme_expected_output.py` compares this
+block to a captured run byte for byte on every push:
+
 ```
+
 Q: which companies have revenue over 1000000000?
-   Contoso Manufacturing          1850000000
-   ...
-   6 of 10 assembled
+   Ardent Fenwick Holdings        6420000000
+   Marrowgate Shipping            2310000000
+   Quillbrook Pharmaceuticals     1040000000
+   Solstice Ridge Energy          1875000000
+   Tarrowline Systems             1290000000
+
+   5 of 8 assembled
 
 and what a SELECT would not have told you:
-   context debt D_c   0.3886  →  forced_llm
-   content address    090b1b701d02f4be1711a9b645761959fec8502283e07144dc3a23dbdbc46737
-   replay record      ccf-artifact://hw1-demo/hw1.replay-record/...
+   context debt D_c   0.4271  →  forced_llm
+   content address    cbc7db84a98d5d2a5ab22bfb3adf1f5359dd6289f0f3f3ddbc6bcf2443d0d426
+   replay record      ccf-artifact://hw1-demo/hw1.replay-record/eeaa76fccd6b54b42caf3787f614fba8f9d9f411f45ad450130e1792ade7ac0f@762d8cec7688b18e2a7392f10da8e1f38011502897a7b74fe37c366420e40167
    answer expires     2026-08-01 00:10:00+00:00
 ```
 
 `D_c` is a **measured** number here, not a constant: the deployment's λ_c
-declares a one-year half-life for a revenue observation, and the filings the
-fabric learned span twelve days to almost two years, so freshness decays and
-the answer routes to `forced_llm`. That is the sentence the whole example
-exists to make true.
+declares a one-year half-life for a revenue observation, and the eight filings
+the fabric learned from `runner/signal-batch.yaml` were ingested at instants
+spread from one month to twenty-three months before the `--as-of` boundary, so
+freshness decays across them, `D_c` measures `0.4271`, and the answer routes to
+`forced_llm` — inside the `[0.20, 0.60)` band `deployment/ccf_config.yaml`
+declares. That is the sentence the whole example exists to make true.
 
 ## How this example is proven — stated plainly
 
-**The two-transport claim is proven always-on; the populated-deployment run is
-not.** Those are different claims and they get different answers.
+**Both the two-transport claim and the successful seeded run are always-on CI
+checks.** `tests/examples/test_hw1_two_transports.py` copies this example into a
+temporary directory with no graph in it, runs the copy's own `runner/seed.py`
+against the copy's deployment — the committed declared input, through the single
+writer — and then runs the shipped `consume.py` twice under the two shipped
+bindings, requiring the two runs to agree on every printed line: the answer, the
+measured `D_c`, the content address and the replay reference. It also asserts the
+seeded run routes to `forced_llm`, which is the demonstration sentence above,
+measured. It needs no credentials and no network, so it runs on every push.
 
-**The portability claim is a CI check.** `tests/examples/test_hw1_two_transports.py`
-copies this example into a temporary directory, runs the shipped `consume.py`
-twice under the two shipped bindings, and requires the two runs to agree on
-every printed line — the answer, the measured `D_c`, the content address and
-the replay reference. It needs no data and no credentials, so it runs on every
-push. That it agrees on an **empty** deployment is the point: two transports
-returning the same governed *refusal* to the same question is still the same
-answer, and it is the version of the claim a clean checkout can make.
+**The expected output above is a CI check too.**
+`tests/examples/test_hw1_readme_expected_output.py` captures the in-process
+command's stdout on the seeded copy and compares it to the fenced block under
+*Expected output* byte for byte — and runs a control string that must *not* be
+found, so a comparison that could pass on anything is caught before it passes on
+this.
 
-**A populated run is not a CI check, and this README does not claim one is.** It
-needs a populated deployment, and the always-on pipeline is network-free and
-holds no credentials. `.github/workflows/live-legs.yml` is *not* the answer
-either: its three jobs are all `runs-on: ubuntu-latest` and carry no database
-secrets, so naming it here would name a workflow that could not reach the data.
-A red check nobody can make green is worse than no check.
+**The empty-fabric refusal is a separate, negative conformance test.**
+`tests/examples/test_hw1_empty_fabric_refusal.py` runs both documented commands
+against the *unseeded* copy and requires each to exit 1 and print the identical
+line `refused: empty-operator-result` — the fabric refusing by name, the same
+way on both transports. It is a useful conformance test and a poor primary
+teaching experience, which is why it is no longer what a clean checkout shows
+you first (`D-IMPL-245`).
 
-What proves that one: a **local run**, recorded at the phase's human-verification
-checkpoint, with the printed content address captured from two consecutive runs
-and compared.
-
-**What *is* proven always-on** is the thing a reader actually depends on — the
-**client contract**. The four-name surface, the `Result` shape, the fail-closed
-guard, the transport inversion and cross-adapter parity are all asserted by
-`tests/client/conformance` against a network-free fixture deployment, on every
-push. `consume.py` uses that contract and nothing else, so the contract holding
-is the guarantee that carries.
+**What *is* proven always-on underneath all of that** is the thing a reader
+actually depends on — the **client contract**. The four-name surface, the
+`Result` shape, the fail-closed guard, the transport inversion and cross-adapter
+parity are all asserted by `tests/client/conformance` against a network-free
+fixture deployment, on every push. `consume.py` uses that contract and nothing
+else, so the contract holding is the guarantee that carries.
 
 ## The deployment is opaque, on purpose
 
@@ -161,17 +191,26 @@ and a real one commonly lives somewhere else entirely, on another machine.
 
 ## Populating a deployment
 
-**Nothing here is committed as data** — no store file, no seed artifact, no
-fixture data (`D-32`, Dave, 2026-08-15). This example asks a question of an
-*already-running* Context Product; getting data into one is producer-side work
-and belongs to a later example.
+**No populated graph or producer output is committed.** The example includes a
+declared signal-batch input (`runner/signal-batch.yaml`) used by its setup
+program (`runner/seed.py`) to populate the deployment through the fabric's
+normal single-writer path before the client runs (`D-IMPL-245` amendment 2;
+`D-32` governs producer output, `D-IMPL-163`). The seed program reads the
+document, boots the deployment the same way the client's in-process adapter
+does, ingests every envelope through the one writer, and closes that writer
+before either transport starts — nothing in the SDK knows it exists.
 
 `binding.yaml` points `connection.database_path` at `graph.sqlite3` inside
-`deployment/`, which is `.gitignore`d. Point it at your own populated graph, or
-populate that one, before running.
+`deployment/`, and that file and `artifact-store/` are what the seed generates;
+both are `.gitignore`d. Point `binding.yaml` at your own populated graph
+instead, and the seed step is not needed.
 
 ## What to change first
 
+0. **The rows in `runner/signal-batch.yaml`.** Change a revenue and the answer,
+   the count and the content address move; change an `ingestion_timestamp` and
+   `D_c` moves — far enough and the routing signal changes with it. Re-run the
+   seed after editing; it rebuilds the store from the document.
 1. **`--min-revenue`.** A request parameter, so it changes the answer and
    therefore the content address, and it never travels through `make`.
 2. **`deployment/ccf_config.yaml`'s `resolution:` and `half_life:` sections** —
@@ -189,6 +228,8 @@ CLAUDE.md §6.4 (No-Hardcoding — the example's code is thin and generic, the
 artifacts carry everything specific), §7.1 (MCP as the SDK's bidirectional
 integration surface — `server/serve.py` is the egress role, read from the far
 side), §7.3 (the typed contract as the stable seam — *"portability is
-demonstrated, not asserted"*), §9 (examples are the adoption contract), §11.
-Whitepaper §6.3 (the Context Product Contract), §7.6 (delivery), §7.7
-(half-life and debt), §7.10 (Decision Replay), §8.3 Pattern 3 (MCP egress).
+demonstrated, not asserted"*), §9 (examples are the adoption contract), §10 (the
+single writer — the seed program populates the graph through it and releases
+it), §11. Whitepaper §6.3 (the Context Product Contract), §7.1 (the Signal
+Layer — `runner/signal-batch.yaml` is a batch of L1 envelopes), §7.6 (delivery),
+§7.7 (half-life and debt), §7.10 (Decision Replay), §8.3 Pattern 3 (MCP egress).

@@ -64,3 +64,4 @@ What a plain SELECT would not have told you:
    operators invoked  ['policy.principal-subgraph']
    content address    708a4a3f1a8486b125fdcbcbb848c3a43ae7cda81066ad3ee832aafe749d8b0c
    replay record      bb02ebad4a79df8b0e49e1757c5d0f7469076a971c03cbc87e3f5a169641a01b
+   assembled by       cp-02.facility-terms-snapshot@1.0.1

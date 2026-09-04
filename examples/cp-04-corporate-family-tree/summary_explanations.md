@@ -141,6 +141,10 @@ three-member roster with one member swapped in from the other cycle, which a
 identifier is dropped from the tree or from the roster — which, in this family,
 is exactly the twenty that resolve to no reference row.
 
+The `assembled by` line names the assembler implementation that produced this run (`cp-04.corporate-family-tree@1.0.1`) — transcript evidence, read off the program's own stdout.
+
+Replay carriage of that identity is a Phase 24.6 ledger row (`D-IMPL-245` amendment 1); the transcript is the evidence the example can carry today.
+
 ---
 
 ## Run 2 — one hop instead of three
@@ -259,11 +263,12 @@ make -s example-cp-04 LEI=549300F16C4PEFXU0S92
 ```
 
 ```
-artifacts/source-vocabulary.yaml declares jurisdiction(s) ['US-DE'] that no member of this family serves. The declared set is the family's OBSERVED set; a row that never fires is how an idle gate looks, and the observed set is ['NL'].
+assembly refused: artifacts/source-vocabulary.yaml declares jurisdiction(s) ['US-DE'] that no member of this family serves. The declared set is the family's OBSERVED set; a row that never fires is how an idle gate looks, and the observed set is ['NL'].
 ```
 
-Anchoring on a larger group is refused the other way, naming the jurisdictions
-that group serves and this document does not declare.
+(The whole of stderr before make's own error line; stdout is empty and the
+program exits 1.) Anchoring on a larger group is refused the other way, naming
+the jurisdictions that group serves and this document does not declare.
 
 ### What you'd have missed
 
@@ -308,10 +313,11 @@ make -s example-cp-04 AS_OF=2026-03-31
 ```
 
 ```
-assembly refused: 400 not_supported_at_tier. Reconstructing the corporate family as it stood on a past date requires ledger time-travel on the CCF temporal axis, which arrives at Tier 3 with covenant-in-force-as-of. This tier serves the family as it stands, recording the `ledger_t` the Fluree leg read at BESIDE `graph_snapshot_at` and never inside it.: as_of — declared by this class and always refused (Standard §2.4). This verdict is raised rather than returned because ProductRequestViolation.reason is a closed Literal with no member for it; see CP-SPEC-004 §F.4
+refused: not-supported-at-tier — as_of
 ```
 
-Both exit non-zero. A refusal is not a crash, but it is also not a success.
+Both exit non-zero, and each refusal is one line on stderr with stdout empty. A
+refusal is not a crash, but it is also not a success.
 
 ### What you'd have missed
 
@@ -333,9 +339,13 @@ gap is visible in the contract rather than discovered in an audit.
 
 Both refusals are declared in **`ccf_config.yaml`** — the depth bounds under
 `argument_bounds`, the refused parameter under `unsupported_arguments` — and
-neither is a condition written in a module. Gate **`CFT-G03`** fails if an
-over-ceiling depth is clamped instead of refused; gate **`CFT-G06`** fails if
-`as_of` is silently honored.
+neither is a condition written in a module. They travel differently: the
+`as_of` verdict is the SDK's, returned as data by the tier step of
+`refuse_request` (`src/ccf/products/request.py::_refuse_tier`, `24.5-L-12`/`L-13`)
+before the product's own code runs, and printed as the reason plus the parameter
+it names; the over-ceiling depth is refused by the assembler by name. Gate
+**`CFT-G03`** fails if an over-ceiling depth is clamped instead of refused; gate
+**`CFT-G06`** fails if `as_of` is silently honored.
 
 ---
 
@@ -373,10 +383,15 @@ This is the section that separates a demonstration from a guarantee.
 | Attributes are read in one batched query, never one per member | the batched select | `CFT-G11` |
 | Each served member carries its class chain | the projection's output shape | `CFT-G15` |
 | The perspective conditions on class, not on a role map | `projection.py` | `CFT-G16` |
+| An identifier carried by more than one node is refused as ambiguity, never resolved by row order | `resolve_anchor`, which collects every binding | `CFT-G18` |
 
-**All sixteen gates have been made to fail deliberately at least once**, under
+**All seventeen gates have been made to fail deliberately at least once**, under
 their own gate id, and the sabotage applied to each is recorded as data in
-`artifacts/gates.yaml`. **None of the sixteen passed its first sabotage** — but
+`artifacts/gates.yaml`. The seventeenth, **`CFT-G18`**, was added on 2026-09-03:
+an LEI carried by more than one node is refused as `AnchorAmbiguityRefusal`
+(`D-IMPL-245` (4)) — never a coin flip on the store's row order, never a 404,
+never a served family with a finding. **None of the seventeen passed its first
+sabotage** — but
 that is not the same as saying the risk was absent. Several were rewritten
 *before* they were ever run, because the design pass measured that the obvious
 version could not discriminate: a gate asserting only *"two depths are two
@@ -390,16 +405,20 @@ the payload and the payload is what is sealed.
 Every figure in this document came from a real run against a live estate, not
 from a design document.
 
-The default run is pinned: asked as of `2026-08-31T12:00:00+00:00`, read at
-ledger transaction `5112`, serving content address
-`205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498`. **The
-product reproduces byte-identical against a quiescent ledger for that run.**
-That sentence is the whole of the claim and no stronger one appears anywhere in
-this example.
+The default run is pinned: asked as of `2026-08-31T12:00:00+00:00`, serving
+content address
+`205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498`. The census
+behind every figure was read at ledger transaction `5112` on 2026-08-31, and
+that is the transaction the documentation page names; the transcript was
+re-captured on 2026-09-03 with the ledger head at `5296` and reproduced byte for
+byte, the one new line being `assembled by`. **The product reproduces
+byte-identical against a quiescent ledger for that run.** That sentence is the
+whole of the claim and no stronger one appears anywhere in this example.
 
 **The qualifier "for that run" is load-bearing, and it was measured.** The
 ledger's transaction counter moved **4,560 to 5,112 between two sittings six
-days apart** — 552 transactions. Quiescence is a property of a run, never of the
+days apart** — 552 transactions — and **5,112 to 5,296** by the 2026-09-03
+re-capture, 184 more, with every seal unchanged. Quiescence is a property of a run, never of the
 database. A reader whose figures differ has **re-derived** rather than
 reproduced, and the most likely reason is that the ledger moved.
 
@@ -420,9 +439,10 @@ variables as the README describes.
   class falls outside an admitted set was **struck from this rung**, on two
   independently measured grounds: no identifier-bearing anchor in this estate
   reaches a class-diverse node within the demonstrated depth, so a gate over it
-  would go green having proven nothing; and the SDK's traversal family types the
-  walk on **edges only**, so the stop has no expression to build against. Both
-  are recorded as open gaps rather than closed.
+  would go green having proven nothing; and, when the rung was built, the SDK's
+  traversal family typed the walk on **edges only**. Phase 24.5 gave the family
+  a node-class admission filter (`admitted_entity_classes`, `24.5-L-05`); this
+  rung does not bind it, because the estate ground still stands.
 - **A directed descendant tree.** The walk is an undirected **neighborhood** —
   it follows a declared edge in both directions — so *depth* here is hops
   through adjacency, not generations of ownership. At the demonstrated depth the
@@ -436,10 +456,14 @@ variables as the README describes.
   anywhere in the estate, the two-store split on a small enough subtree to read,
   and the same company entered twice. It was not chosen for having a complete
   reference footprint, and no company in this estate has one.
-- **A snapshot-pinned read.** The graph adapter *floors* the read at a minimum
-  transaction rather than pinning it to one, which is exactly why the
-  reproducibility claim above is bounded to a quiescent ledger for that run and
-  to nothing wider. Recorded as an open gap.
+- **A snapshot-pinned read.** As this rung was built, *the graph adapter
+  floors* the read at a minimum transaction rather than pinning it to one —
+  the words of the 2026-08-31 measurement, kept. Phase 24.5 closed that
+  (`24.5-L-01` through `L-04`, `D-IMPL-240` (2)): the adapter now pins a read
+  as a claim at `ledger@t:N` and the lineage carries the pin as
+  `store_snapshot_pin`. The reproducibility claim above stays bounded to a
+  quiescent ledger for that run because that is what these runs demonstrated —
+  a pinned replay is a later rung's demonstration, not this one's.
 - **Anything about the companies themselves.** This estate is public reference
   and filing data used to exercise mechanism, together with planted synthetic
   ownership circles. Nothing here is a credit opinion, and the circular

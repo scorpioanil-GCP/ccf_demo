@@ -89,6 +89,7 @@ from ccf.client.wire import TransportAdapter  # noqa: E402
 
 import deployment  # noqa: E402
 import transport  # noqa: E402
+import assembler  # noqa: E402  (loaded by transport; its constants name the implementation that ran HERE)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -258,13 +259,24 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = client.ask(parameters, as_of=asked_at)
         except AssemblyRefused as refused:
-            # RAISED RATHER THAN RETURNED, AND THAT IS A RECORDED SDK-SURFACE
-            # GAP RATHER THAN A CHOICE (spec §F.4). `RefusalEnvelope` carries a
-            # CLOSED set of refusal kinds with no member for
-            # `not_supported_at_tier` and none for an over-ceiling depth, so
-            # these two cannot cross the wire as values. Translating them into a
-            # kind that does exist would report the wrong reason, which is the
+            # TWO CONDITIONS ON THIS RUNG SIGNAL BY EXCEPTION, AND THAT IS A
+            # RECORDED SDK-SURFACE GAP RATHER THAN A CHOICE (spec §F.4). A
+            # non-integer `max_depth` is refused by name inside
+            # `deployment.py::resolve_max_depth` (`WR-01`), which raises
+            # directly; a depth above the declared ceiling comes back from that
+            # same function as `deployment.DepthOutOfBounds` and is refused by
+            # `assembler.py`. BOTH are this example's own types, the SDK knows
+            # neither, and `ccf.products.refusal::REFUSAL_KINDS` therefore
+            # declares no envelope naming either. Translating them into a kind
+            # that does exist would report the wrong reason, which is the
             # flattening the envelope exists to prevent.
+            #
+            # A DECLARED-BUT-INERT PARAMETER NO LONGER ARRIVES HERE. Since
+            # `24.5-L-12`/`L-13` the SDK's own tier step
+            # (`src/ccf/products/request.py::_refuse_tier`) returns a
+            # `ProductRequestViolation` whose reason is `not-supported-at-tier`,
+            # and `assembler.py` hands that back as DATA through its governed
+            # branch — `CFT-G06` is the declared gate that exercises it.
             print(f"assembly refused: {refused}", file=sys.stderr)
             return 1
 
@@ -273,7 +285,11 @@ def main(argv: list[str] | None = None) -> int:
         if result.refused:
             refusal = result.refusal
             assert refusal is not None
-            print(f"refused: {refusal.reason} — {refusal.key}", file=sys.stderr)
+            # THE KEY SUFFIX ONLY WHEN THE ENVELOPE NAMES ONE. A pre-assembly refusal
+            # such as `anchor-ambiguity-refusal` carries no `key`, and `— None` is
+            # a printed lie about the envelope (`deferred-items.md` item 3, 24.5).
+            suffix = "" if refusal.key is None else f" — {refusal.key}"
+            print(f"refused: {refusal.reason}{suffix}", file=sys.stderr)
             return 1
 
         print(json.dumps(dict(result.payload), indent=2, sort_keys=True))
@@ -358,6 +374,12 @@ def _report(result: Result, *, args: argparse.Namespace, asked_at: datetime) -> 
     print(f"   operators invoked  {sorted(result.lineage.operators_invoked)}")
     print("   ...TWO on this rung, and one on every rung before it — the"
           " traversal is where the count moves off one")
+    # THE IMPLEMENTATION THAT PRODUCED `result`, BY NAME. The in-process
+    # adapter runs `assembler.py` in THIS process, so the module constants ARE
+    # the identity of the code that assembled the vessel above — TRANSCRIPT
+    # evidence (`D-IMPL-245` am.1), never a replay claim: Decision Replay
+    # carries no assembler identity today, and that carriage is a 24.6 row.
+    print(f"   assembled by       {assembler.ASSEMBLER_ID}@{assembler.ASSEMBLER_VERSION}")
     if debt is not None:
         print(f"   context debt D_c   {debt.debt:.4f}  ->  {debt.signal}")
         print(f"   ...decomposed      F={debt.factors.freshness}"

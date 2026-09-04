@@ -355,6 +355,18 @@ Gate `OFS-G06` asserts the refusal.
 > `not_supported_at_tier` member. Rung 02 recorded this as its §F.4 finding 2
 > and it is **still open**. §F.4 finding 5 restates it; the build will need the
 > same workaround rung 02 used, and it is not invented here.
+>
+> **CLOSED, 2026-09-03 (Phase 24.5.1, `D-IMPL-245` (3)).** When measured
+> (2026-08-31) the reason vocabulary had four members and none for a tier
+> refusal. Closed by `24.5-L-12`/`24.5-L-13`: `ProductRequestViolationReason`
+> now carries `not-supported-at-tier`
+> (`src/ccf/products/request.py::ProductRequestViolationReason`) and
+> `refuse_request`'s tier step (`src/ccf/products/request.py::_refuse_tier`)
+> returns it as data before any product code runs; this rung's assembler carries
+> no workaround. One cross-reference above is corrected here rather than
+> rewritten: rung 02's §F.4 finding 2 is the amendment effective date
+> (`CP-SPEC-002` §F.4 finding 2); the rung-02 record of the tier-refusal gap was
+> its `assembler.py` comment, not a numbered finding.
 
 ---
 
@@ -1309,6 +1321,12 @@ phantoms which return **zero rows**, one of which (`ex:AdministrativeAgent`) is 
    as latest; `OFS-G09` asserts it and turns red if changed. §B.1.1.
 5. **`ProductRequestViolation.reason` still cannot encode a tier refusal.**
    Carried forward from rung 02 §F.4 finding 2, **still open**. §B.5.
+
+   **CLOSED, 2026-09-03 (Phase 24.5.1, `D-IMPL-245` (3)).** The vocabulary lacked a
+   member for a tier refusal when measured; `24.5-L-12`/`24.5-L-13` added
+   `not-supported-at-tier`, and `src/ccf/products/request.py::_refuse_tier` returns it
+   as data. §B.5 carries the corrected cross-reference. Gate `OFS-G06` asserts the
+   member by name.
 6. **The estate exceeds its own manufacture envelope on three counts** —
    restatements 37 obligors versus ~3 asked, non-December fiscal years 16 versus
    ~2, peers 1,678 versus ~150. Recorded so a later reader does not "correct"
@@ -1384,6 +1402,17 @@ phantoms which return **zero rows**, one of which (`ex:AdministrativeAgent`) is 
    product. **Recorded and left open**, owner Dave. It is the sixth SDK-side
    finding of Phase 24 and, like the missing Restatement λ_c row, it is ALGEBRA
    rather than seam ergonomics.
+
+   **SUPERSEDED, 2026-09-03 (Phase 24.5.1, `D-IMPL-245` (3)).** When measured, the
+   fail-closed signal was written by `assess_debt` and read by no serve path, and the
+   tolerance traveled into the address without being tested. `24.5-L-14` shipped the
+   mechanism: `src/ccf/products/gates.py::effective_debt_ceiling` resolves a
+   CLASS-declared ceiling that a request may only tighten (`D-IMPL-240` (3)), and a
+   breach is a `DeclaredObligationRefusal` — HTTP 409 at the door
+   (`runtime/ccf_runtime/http_api/routes/product.py::build_router`). This product declares no
+   ceiling, so the ruling above stands unchanged and still describes the demonstrated
+   run: the spread is served and the verdict printed. The aggregate question is
+   `24.5-L-15`, a product-side scorer choice rather than an SDK gap.
 
 13. **The vault article omits `debt_tolerance` and `as_of`, and this is the
    THIRD of three.** Both are universal under Standard §2.4; this article's

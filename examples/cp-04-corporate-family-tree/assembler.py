@@ -53,7 +53,11 @@ from typing import Any, Protocol, cast
 
 from ccf.agents.assembler import NO_CONSULTATIONS, AssemblyOutcome
 from ccf.agents.errors import AssemblyRefused
-from ccf.products.request import ProductRequest, ProductRequestViolation
+from ccf.products.request import (
+    AnchorAmbiguityRefusal,
+    ProductRequest,
+    ProductRequestViolation,
+)
 from ccf.projection.plan import Perspective
 
 import deployment
@@ -63,7 +67,7 @@ import produce
 #: travel on the outcome because a payload is only reproducible alongside the
 #: computation that produced it.
 ASSEMBLER_ID = "cp-04.corporate-family-tree"
-ASSEMBLER_VERSION = "1.0.0"
+ASSEMBLER_VERSION = "1.0.1"
 
 
 class _AssemblyState(Protocol):
@@ -155,14 +159,17 @@ class FamilyTreeAssembler:
         request: ProductRequest,
         perspective: Perspective,
         tenant_id: str,
-    ) -> AssemblyOutcome | ProductRequestViolation:
+    ) -> AssemblyOutcome | ProductRequestViolation | AnchorAmbiguityRefusal:
         """Assemble one answer to ``request`` for ``perspective``.
 
         Returns:
             The :class:`~ccf.agents.assembler.AssemblyOutcome`, or a
             :class:`~ccf.products.request.ProductRequestViolation` RETURNED as
             data when the question does not conform to the declared contract
-            (D-60).
+            (D-60), or an
+            :class:`~ccf.products.request.AnchorAmbiguityRefusal` RETURNED as
+            data when the anchor LEI resolves to more than one node
+            (`D-IMPL-245` (4), `CFT-G18`) — the same channel, never a raise.
 
         Raises:
             AssemblyRefused: ``tenant_id`` or ``perspective`` disagrees with what
@@ -229,29 +236,36 @@ class FamilyTreeAssembler:
                 " question nobody asked, with no error"
             )
 
-        # A DECLARED-BUT-INERT PARAMETER IS A CONTRACT VERDICT AND THIS SEAM
-        # CANNOT RETURN IT AS ONE — the SDK-surface finding `cp-01` recorded,
-        # `cp-02` met a second time and `cp-03` a third. **THIS IS THE FOURTH
-        # RUNG IN A ROW**, which is what turns a repeated observation into a
-        # shape:
+        # A declared-but-inert parameter is refused by the SDK's own tier step —
+        # `src/ccf/products/request.py::refuse_request` step 2 (`_refuse_tier`) — as a
+        # `ProductRequestViolation(reason="not-supported-at-tier")` returned as DATA
+        # through the branch above (`24.5-L-12`/`L-13`); this seam has no branch of its own.
+
+        # AMBIGUITY IN E FAILS CLOSED AS TYPED DATA, AND THE DOOR CARRIES IT
+        # (`D-IMPL-245` (4), `CFT-G18`). More than one node answered to the
+        # anchor's LEI. Dave: *"Debt must not become a substitute vocabulary
+        # for policy refusal, and ambiguity in E must not be allowed downstream
+        # as merely another finding."* A 404 would say nothing resolved, which
+        # is false; serving whichever candidate the store listed first, with a
+        # finding attached, would let the collision flow on as one more row in
+        # `findings`. So the SDK kind is RETURNED — it is in `REFUSAL_KINDS`,
+        # so `transport.py` and `server/compose.py` hand it to the door as
+        # `anchor-ambiguity-refusal` without an edit — and never raised.
         #
-        #   `ProductRequestViolation.reason` is a CLOSED `Literal` of four
-        #   values — undeclared-parameter · missing-required-parameter ·
-        #   type-mismatch · class-mismatch. Standard §9 requires
-        #   `400 not_supported_at_tier` as a DISTINCT condition and §2.4 makes
-        #   the declared-but-inert parameter a first-class obligation. The
-        #   vocabulary has no member for it.
-        #
-        # The pressure is specific at this rung: this is the first product whose
-        # STORE carries a time axis of its own, so "give me the family as it
-        # stood last March" looks answerable and is not.
-        if isinstance(assembled, produce.ParameterNotSupported):
-            raise AssemblyRefused(
-                f"{assembled.status} {assembled.reason}: {assembled.parameter}"
-                " — declared by this class and always refused (Standard §2.4)."
-                " This verdict is raised rather than returned because"
-                " ProductRequestViolation.reason is a closed Literal with no"
-                " member for it; see CP-SPEC-004 §F.4"
+        # THE CANDIDATES ARE THE IRIs THE KIND CARRIES BY DESIGN; the detail
+        # names the count and the rule and NOTHING about which of them this
+        # principal may see. Visibility is the audit plane's account, not the
+        # caller's (the same line `_not_available` draws).
+        if isinstance(assembled, produce.AnchorAmbiguous):
+            return AnchorAmbiguityRefusal(
+                anchor=assembled.anchor,
+                candidates=frozenset(assembled.candidates),
+                detail=(
+                    f"anchor {assembled.anchor!r} resolves to"
+                    f" {len(assembled.candidates)} nodes; §D.2 step 1 fails"
+                    " closed on ambiguity rather than choosing one of them"
+                    " (D-IMPL-245 (4))"
+                ),
             )
 
         # AN UNRESOLVABLE ANCHOR IS A DIFFERENT KIND OF THING. A

@@ -303,13 +303,25 @@ means `expires_at` is computed from the entity's own last-observed instant, so:
 | **Residency constraints** | `[TBC — identity and access]` — no jurisdiction is currently declared as non-exportable. The estate holds entities across 12+ jurisdictions (§C.1) and a residency rule would bind here rather than at §D |
 | **Cross-border serving** | `[TBC — identity and access]`. The entitlement scope of §C.1 row 3 constrains **which entities a principal sees**; it does not currently express **where a principal may be** when they see them. Those are different questions and only the first is implemented |
 
-**The suppression rule, and it is load-bearing here.** Where policy excludes content,
-the payload carries **no count, no marker and no placeholder** indicating that anything
-was withheld. This product's entitlement filter removes entities from the visible set
-per principal (§D.3); a `"3 entities not shown"` notice would disclose the existence of
-what the filter exists to hide. Restricted content is **never materialized and then
-filtered** — the ordering at §D.2 is what makes that structural rather than
-conventional. Proven by gate `CPR-G04`.
+**The suppression rule, and it is load-bearing here** *(updated in place 2026-09-03
+under `D-IMPL-245` (4), D-07b's exception for a normative statement; the superseded
+wording is quoted at the end of this paragraph)*. A principal the Policy step excludes
+is **REFUSED at the product boundary with the same text a nonexistent counterparty
+receives** — Dave: *"make unauthorized/not-visible indistinguishable from unavailable at
+that product boundary"* — and the refusal carries **no count, no marker and no
+placeholder** indicating that anything was withheld, and names neither the principal
+nor the entitlement. This product's entitlement filter removes entities from the visible set
+per principal (§D.3), and a record so removed is not served empty: a `"3 entities not
+shown"` notice, or a `counterparty: null` payload that a caller could tell apart from a
+`404`, would disclose the existence of what the filter exists to hide. The §B.4
+exclusion the caller requests (`include_lapsed: false`) is a different silence — the
+caller asked for it — and IS served, with its `excluded` block. Restricted content is
+**never materialized and then filtered** — the ordering at §D.2 is what makes that
+structural rather than conventional. Proven by gate `CPR-G04`. *(Superseded
+2026-09-03, `D-IMPL-245` (4): previously "Where policy excludes content, the payload
+carries no count, no marker and no placeholder indicating that anything was withheld"
+— under which a Policy-removed record was SERVED as `counterparty: null` with
+`D_c = 1`, the shape the ruling retired: "policy exclusion is not Context Debt".)*
 
 ### B.3 Model-risk annotation — Mode 2 and Mode 3 only
 
@@ -597,7 +609,9 @@ have distinct visible-set sizes?* — **is wrong here**, and the estate proves i
 `PRIN-KYC-004` and `PRIN-TRD-003` each see **21** entities and **share none of them**.
 Four distinct views, three distinct sizes. A gate comparing counts reports 3 and
 passes a no-op. §D.7's `CPR-G02` therefore compares **sets**, and carries a negative
-control.
+control. *(2026-09-03: the sets it compares are now OUTCOME sets — a served LEI set
+against an empty one for a refused principal — see §B.2's updated suppression
+paragraph, `D-IMPL-245` (4).)*
 
 > **The method these three traps share, and it belongs in the spec rather than in a
 > post-mortem: a check whose population is not its question.** Each of the three was
@@ -709,7 +723,10 @@ principal's grant set are **never materialized and then filtered** — the permi
 subgraph is substituted *for* the full graph, so there is nothing to leak a count
 from. The payload carries no marker of what was withheld (§B.2), and gate `CPR-G04`
 proves it by asserting that two principals' payloads differ in **content** and are
-**indistinguishable in structure**.
+**indistinguishable in structure**. *(2026-09-03: a Policy-removed record is no longer
+served with an empty `counterparty`; it is refused with the missing-counterparty text —
+§B.2, `D-IMPL-245` (4) — and `CPR-G04` now reads that refusal for leak words. The
+measurement above is unchanged.)*
 
 > **A design finding, recorded rather than footnoted.** Until 2026-08-28 this step had
 > nothing to filter on, and a rung 01 shipping that way would have put a decorative
@@ -909,13 +926,13 @@ cross-referenced to a fixture ID.
 | Gate | Assertion | Detects | Fixture |
 |---|---|---|---|
 | **CPR-G01** Address distinguishability | headquarters and legal address are separately populated and **compared case- and whitespace-normalised**; an entity carrying `WILMINGTON` against `Wilmington` counts as **one** address, not two | §C.4 trap 1 — an unlabelled address served as the wrong one; and a raw comparison inflating 65 to 69 | `CPR-G01` |
-| **CPR-G02** Entitlement discriminates | the **visible entity SET** differs pairwise across principals, with at least one entity visible to A and not B. **Counts sets, never sizes.** Carries a **negative control**: a principal differenced against itself must report identical | §C.4 trap 3 — a Policy step that is a no-op, and a cardinality check that passes one | `CPR-G02` |
+| **CPR-G02** Entitlement discriminates | an entitled principal is **SERVED** and an unentitled one is **REFUSED** with the one text a nonexistent counterparty receives; the outcomes differ as **SETS** (served LEI set vs empty), never as sizes; carries a **negative control**: a principal differenced against itself must report identical (`D-IMPL-245` (4)). *Superseded 2026-09-03 — previously: "the visible entity SET differs pairwise across principals, with at least one entity visible to A and not B. Counts sets, never sizes. Carries a negative control: a principal differenced against itself must report identical"* | §C.4 trap 3 — a Policy step that is a no-op, and a cardinality check that passes one | `CPR-G02` |
 | **CPR-G03** Freshness ceiling | an entity resolved through the internal client master **must not** advertise the 24-hour vendor SLA; its `freshness.signal_class` is `internal-kyc` and its ceiling is months | §C.3 — one averaged freshness claim over a mixed population | `CPR-G03` |
-| **CPR-G04** Suppression silence | two principals' payloads differ in **content** and are **indistinguishable in structure**; no count, marker, placeholder or notice indicates anything was withheld | §B.2 — a `"3 hidden"` marker that is itself a disclosure | `CPR-G04` |
+| **CPR-G04** Suppression silence | a Policy-removed entity is **REFUSED** with a text that names neither the principal nor the entitlement and carries no count, marker, placeholder or notice; indistinguishable from the nonexistent-counterparty refusal (`D-IMPL-245` (4)). *Superseded 2026-09-03 — previously: "two principals' payloads differ in content and are indistinguishable in structure; no count, marker, placeholder or notice indicates anything was withheld"* | §B.2 — a `"3 hidden"` marker that is itself a disclosure | `CPR-G04` |
 | **CPR-G05** Inert parameter fails loudly | `as_of` returns **`400 not_supported_at_tier`** and **never** silently succeeds against current state | §B.4 — a parameter that appears to work and will be relied on in a dispute | `CPR-G05` |
 | **CPR-G06** Type-chain completeness | all **seven** Commons/FIBO classes of §C.3 are asserted; a partial chain propagates catalog-wide | §C.3 — an entity unreachable by three roles it genuinely holds | `CPR-G06` |
 | **CPR-G07** Authority disclosure | **every** identity attribute names its authoring source via `identity_authority`; an attribute with no authority is a defect, not a default | §D.3 — a payload that cannot say which authority answered | `CPR-G07` |
-| **CPR-G08** Empty served set | a principal whose grant set matches no entity gets a **fail-closed refusal or an explicit debt contribution**, never a `200` with an empty list | the gap between the Standard's gate 1 and the SDK's, named above | `CPR-G08` |
+| **CPR-G08** Empty served set | a principal whose grant set matches no entity is **REFUSED**, and the refusal cannot be told from the one a nonexistent counterparty receives; never a `200` with an empty list and never a debt contribution standing in for a policy outcome (`D-IMPL-245` (4)). *Superseded 2026-09-03 — previously: "gets a fail-closed refusal or an explicit debt contribution, never a `200` with an empty list"* | the gap between the Standard's gate 1 and the SDK's, named above | `CPR-G08` |
 | **CPR-G09** No-LEI entity is servable | a no-LEI entity **resolves and reports its lower freshness ceiling** (§G criterion 3) rather than being refused by the TTL lower bound. The gate is written to FAIL on the declaration as it stands, and it is expected to — that failure is the evidence the finding is taken back with | §B.1 element 3's measured consequence — a 24h TTL over a months-old KYC observation puts `expires_at` in the past for **30 of 30** internal-client entities | `CPR-G09` |
 
 **Every gate has been made to fail deliberately once — DONE 2026-08-29, P7.** A gate
@@ -924,9 +941,9 @@ that has never been observed red is not evidence that it runs.
 | Gate | Sabotage applied | Result |
 |---|---|---|
 | `CPR-G01` | the two addresses made identical in the fixture | RED |
-| `CPR-G02` | the entitlement join made to admit every entity | RED |
+| `CPR-G02` | the entitlement join made to admit every entity — the unentitled principal is SERVED (re-recorded 2026-09-03 under the refusal shape; previously the same sabotage against the served-`counterparty: None` shape) | RED |
 | `CPR-G03` | an internal-client entity made to report the 24-hour vendor ceiling | RED |
-| `CPR-G04` | a `"1 entity hidden"` notice leaked into the suppressed payload | RED |
+| `CPR-G04` | the principal id, or the words "not entitled", appended to the refusal text at the Policy-removed call site (re-recorded 2026-09-03; previously: a `"1 entity hidden"` notice leaked into the suppressed payload) | RED |
 | `CPR-G05` | `unsupported_arguments` emptied, so `as_of` is silently honoured | RED |
 | `CPR-G06` | the type chain truncated to six classes | RED |
 | `CPR-G07` | `identity_authority` dropped from the payload | RED |
@@ -944,7 +961,12 @@ instance in the data — every principal sees at least 21 entities, so the empty
 served set it refuses cannot currently occur. Standard §6: *"a demonstrable
 primitive with no instance in the data reads to reviewers as machinery without a
 purpose."* Registered at §F.2 row 20, owned by `ccf_dataprep`, and it is a
-one-row fixture rather than a data programme.
+one-row fixture rather than a data programme. *(2026-09-03, `D-IMPL-245` (4): the
+gate's statement is now refusal-only — see its table row above with the superseded
+wording beside it. Its executing test constructs the no-grant principal itself, and
+the not-visible principals `PRIN-KYC-004` and `PRIN-TRD-003` take the same refusal
+through the same function, so the gate runs against an instance without a new fixture
+row. Row 20 stands as the data request it was.)*
 
 ---
 
@@ -1096,13 +1118,13 @@ products.
 | 11 | `payload_hash` value | §D.4 | this build | P6 |
 | 12 | Replay fixture `CPR-R01`, both hashes | §D.5 | this build | P6 |
 | 13 | Schema artifact + `extra=forbid` CI binding | §D.6 | this build | P6 |
-| 14 | Debt-gate `409` behavior | §D.7 | this build | P7 |
+| 14 | Debt-gate `409` behavior — **SUPERSEDED 2026-09-03** (Phase 24.5.1, `D-IMPL-245` (3)): when measured, no rung compared `debt_tolerance` against anything; `24.5-L-14` shipped `src/ccf/products/gates.py::effective_debt_ceiling`, a class-declared ceiling a request may only tighten (`D-IMPL-240` (3)), with a breach rendered as HTTP 409 by `runtime/ccf_runtime/http_api/routes/product.py::build_router`; cp-01 declares no ceiling, so its behavior is unchanged | §D.7 | this build | P7 |
 | 15 | ~~Sabotage result for each of the eight gates~~ **CLEARED 2026-08-29** — seven of eight red; `CPR-G08` has no instance (row 20) | §D.7 | this build | **P7 — done** |
 | 16 | `λ_c` measured against read frequency | §E.1 | this build | P8 |
 | 17 | Per-component `D_c` contributions (5 rows) | §E.2 | this build | P8 |
 | 18 | Counterfactual fixture `CPR-F01` | §A | this build | P7 |
 | 19 | An entity whose registration **lapses** — the data condition `CPR-F01` acts on | §F.3 | `ccf_dataprep` | — |
-| 20 | A principal whose grant set matches **no** entity — the condition `CPR-G08` acts on | §F.3 | `ccf_dataprep` | — |
+| 20 | A principal whose grant set matches **no** entity — the condition `CPR-G08` acts on. *2026-09-03, `D-IMPL-245` (4): `CPR-G08` now REFUSES and its test constructs the no-grant principal itself; the data request stands, unwithdrawn (that is Dave's, `D-IMPL-227`)* | §F.3 | `ccf_dataprep` | — |
 
 > **Rows 19 and 20 were missing from this register when it was first written, and the
 > omission is recorded rather than quietly fixed.** Both markers existed in §F.3's
@@ -1195,7 +1217,7 @@ something to act on:**
 | `CPR-G02` negative control | 1 principal to difference against itself | 4 | yes |
 | `CPR-G03` freshness ceiling | ≥1 no-LEI entity | **30** | yes |
 | `CPR-G07` authority disclosure | ≥1 entity per authority | 156 + 30 | yes |
-| `CPR-G08` empty served set | ≥1 principal whose grant set matches **no** entity | **0 — every principal sees ≥21** | **no** |
+| `CPR-G08` empty served set *(refusal-only since 2026-09-03, `D-IMPL-245` (4); the retired debt-contribution limb is quoted beside the §D.7 row)* | ≥1 principal whose grant set matches **no** entity | **0 — every principal sees ≥21** | **no** |
 | `CPR-F01` counterfactual (TTL expiry) | an entity whose registration lapses | `[TBC — ccf_dataprep]` | unknown |
 | `CPR-R01` replay | a mutable attribute + a snapshot | see History depth | `[TBC — this build]` |
 
@@ -1236,6 +1258,14 @@ something to act on:**
    inherited as fact.
 5. **The SDK's empty-operator guard is not the Standard's** (§D.7). Recorded for the
    gap register under `D-04`; covered by `CPR-G08`, not closed here.
+
+   **CLOSED, 2026-09-03 (Phase 24.5.1, `D-IMPL-245` (3)).** When measured (2026-08-29)
+   the SDK's gate 1 refused only a product that DECLARED no operators, while the
+   Standard's gate 1 also refuses an operator that RETURNS an empty set — two
+   assertions sharing one name. Closed by `24.5-L-24`: the returned-empty half now runs
+   as `src/ccf/products/gates.py::_refuse_empty_results` (token `empty-operator-result`,
+   the half `D-IMPL-242` named). `CPR-G08` no longer covers that gap by proxy; it asserts
+   the refusal of §B.2 (`D-IMPL-245` (4)).
 6. **The exemplar at `public/reference/specifications/` declares four out-of-scope
    payload fields** (§B.5). It is a control for comparison, not an authority; the
    `409` its debt table implies does not arise under this specification.

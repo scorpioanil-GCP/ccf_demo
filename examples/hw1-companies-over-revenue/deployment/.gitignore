@@ -1,11 +1,15 @@
-# `D-32` (Dave, 2026-08-15): nothing is committed to `examples/` as data — no
-# store file, no seed artifact, no fixture data. The deployment a client
-# reaches is ALREADY POPULATED, and populating one is producer-side work that
-# happens before a client exists.
+# The populated graph and the artifact store are GENERATED runtime state and
+# stay uncommitted. `D-32` (Dave, 2026-08-15) governs producer OUTPUT — a
+# populated store, anything whose presence removes the need to produce it —
+# and `D-IMPL-163` (Dave, 2026-08-20) narrows it to exactly that: a declared
+# INPUT document a program interprets is not what `D-32` forbids. This
+# deployment's declared input lives in `../runner/signal-batch.yaml`, and
+# `../runner/seed.py` produces the three names below from it through the
+# fabric's single writer (`D-IMPL-245` amendment 2, Dave, 2026-09-03).
 #
-# These two are what a populated deployment leaves on disk. They are named
-# here so that a developer who has populated one cannot commit it by accident,
-# which is the difference between a rule and a mechanism.
+# They are named here so that a developer who has run the seed cannot commit
+# what it produced by accident, which is the difference between a rule and a
+# mechanism.
 graph.sqlite3
 graph.sqlite3-*
 artifact-store/

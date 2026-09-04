@@ -47,10 +47,14 @@ pair lives where depth is the subject, pinned as data at
 **THE ATTRIBUTE ROW IS A GATE, NOT A GAP.** `D-IMPL-230` ruled **SERVE**: the
 attribute shortfall reaches the consumer as the roster finding and as
 `attributes: null` on each member, and is deliberately **not** folded into `S`.
-Folding it in gives `S = 2/22` and `D_c ≈ 0.909`, which against the declared
-`debt_tolerance` of `0.25` would `409` and never serve the tree criteria 12 and
-33 exist to protect. Dave: *"Don't raise tolerance to 0.95 and don't pretend
-0.909 is the whitepaper number."* So a test that watched `D_c` move when a
+Folding it in gives `S = 2/22` and `D_c ≈ 0.909`. Since `24.5-L-14` the SDK
+enforces a class-DECLARED debt ceiling
+(`src/ccf/products/gates.py::effective_debt_ceiling`, `D-IMPL-240` (3)) and a
+request's `debt_tolerance` may only TIGHTEN it; cp-04 declares no ceiling, so
+`0.909` would not `409` here — it would be SERVED, a false debt figure riding
+the tree criteria 12 and 33 exist to protect. That is why this assertion
+exists, and the reason is unchanged. Dave: *"Don't raise tolerance to 0.95 and
+don't pretend 0.909 is the whitepaper number."* So a test that watched `D_c` move when a
 Postgres row appeared would be watching the forbidden change happen, and the
 assertion here is the opposite one — **the roster moves and the debt does not**.
 
@@ -661,8 +665,10 @@ def test_the_attribute_boundary_moves_the_roster_and_not_the_debt(
     that member **by name**, and `D_c` does **not** move — because the shortfall
     is served as data (`D-IMPL-229`'s roster finding and `attributes: null`) and
     is deliberately not folded into `S`. A build that folded it in would move
-    `D_c` here, and would serve `0.909` against a tolerance of `0.25` on the
-    demonstration question: a `409` where the product is supposed to answer.
+    `D_c` here and serve `0.909` on the demonstration question — cp-04 declares
+    no class ceiling (`src/ccf/products/gates.py::effective_debt_ceiling`,
+    `24.5-L-14`), so nothing would `409`; the false figure would simply reach
+    the consumer where the product is supposed to answer.
     """
     ledger, schema = baseline
     base = _assemble(
@@ -692,8 +698,9 @@ def test_the_attribute_boundary_moves_the_roster_and_not_the_debt(
         f"D_c moved from {base.debt} to {resolving.debt} when an attribute row"
         " appeared. D-IMPL-230 ruled SERVE: the attribute shortfall reaches the"
         " consumer as the roster finding and as `attributes: null`, and is NOT"
-        " folded into S. Folding it in gives S = 2/22 and D_c ~ 0.909, which"
-        " 409s against the declared tolerance of 0.25 and never serves the tree"
+        " folded into S. Folding it in gives S = 2/22 and D_c ~ 0.909 — SERVED,"
+        " not 409ed: cp-04 declares no class ceiling (effective_debt_ceiling,"
+        " 24.5-L-14), so the false figure would reach the consumer"
     )
 
 
@@ -778,6 +785,14 @@ def test_the_debt_tolerance_contract_claims_no_unenforced_409() -> None:
     ("409 on a debt breach") — so the last two assertions read those too. A
     counterfactual ("folding coverage into `S` *would* `409`") is not a claim
     of shipped behavior and is left alone.
+
+    **2026-09-03 (Phase 24.5.1), the history above dated.** Phase 24.5 wired
+    it: `24.5-L-14` added `src/ccf/products/gates.py::effective_debt_ceiling`
+    and `DeclaredObligationRefusal`, which
+    `runtime/ccf_runtime/http_api/routes/product.py::retrieve` maps to HTTP
+    `409` — for a class that DECLARES a ceiling. cp-04 declares none
+    (`D-IMPL-240` (3)), so the artifact prose this test reads stays advisory
+    and every assertion below is unchanged.
     """
     import dataclasses
 

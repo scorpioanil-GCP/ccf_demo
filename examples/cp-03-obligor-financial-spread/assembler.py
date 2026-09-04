@@ -41,7 +41,7 @@ import produce
 #: travel on the outcome because a payload is only reproducible alongside the
 #: computation that produced it.
 ASSEMBLER_ID = "cp-03.obligor-financial-spread"
-ASSEMBLER_VERSION = "1.0.0"
+ASSEMBLER_VERSION = "1.0.1"
 
 
 class _AssemblyState(Protocol):
@@ -109,10 +109,10 @@ class SpreadAssembler:
     read: Callable[..., Any]
     plan_class: type[Any]
     #: Declared-but-inert parameters, from the deployment's request contract
-    #: (Standard §2.4). Defaulted to the deployment's own declaration rather
-    #: than to an empty mapping — a seam that silently supported everything the
-    #: contract says it refuses would be worse than one that could not express
-    #: the refusal at all.
+    #: (Standard §2.4). Carried for the declaration's sake and defaulted to
+    #: the deployment's own declaration rather than to an empty mapping. The
+    #: refusal itself is the SDK's tier step (`refuse_request`,
+    #: `not-supported-at-tier`), not anything this seam does.
     unsupported: Mapping[str, str] = field(
         default_factory=lambda: dict(deployment.unsupported_arguments())
     )
@@ -182,31 +182,10 @@ class SpreadAssembler:
         if isinstance(assembled, ProductRequestViolation):
             return assembled
 
-        # A DECLARED-BUT-INERT PARAMETER IS A CONTRACT VERDICT AND THIS SEAM
-        # CANNOT RETURN IT AS ONE — the SDK-surface finding `cp-01` recorded and
-        # `cp-02` met a second time. **THIS IS THE THIRD RUNG IN A ROW**, which
-        # is what turns a pair of observations into a shape:
-        #
-        #   `ProductRequestViolation.reason` is a CLOSED `Literal` of four
-        #   values — undeclared-parameter · missing-required-parameter ·
-        #   type-mismatch · class-mismatch. Standard §9 requires
-        #   `400 not_supported_at_tier` as a DISTINCT condition and §2.4 makes
-        #   the declared-but-inert parameter a first-class obligation. The
-        #   vocabulary has no member for it.
-        #
-        # The pressure is highest here of the three. This product's whole
-        # subject is that a figure changes across filings, so "give me the
-        # spread as it stood last March" is the FIRST question a reader asks
-        # after watching `basis` work — and it is the one question this tier
-        # cannot answer.
-        if isinstance(assembled, produce.ParameterNotSupported):
-            raise AssemblyRefused(
-                f"{assembled.status} {assembled.reason}: {assembled.parameter}"
-                " — declared by this class and always refused (Standard §2.4)."
-                " This verdict is raised rather than returned because"
-                " ProductRequestViolation.reason is a closed Literal with no"
-                " member for it; see CP-SPEC-003 §F.4"
-            )
+        # A declared-but-inert parameter is refused by the SDK's own tier step —
+        # `src/ccf/products/request.py::refuse_request` step 2 (`_refuse_tier`) — as a
+        # `ProductRequestViolation(reason="not-supported-at-tier")` returned as DATA
+        # through the branch above (`24.5-L-12`/`L-13`); this seam has no branch of its own.
 
         # AN UNRESOLVABLE ANCHOR IS A DIFFERENT KIND OF THING. A
         # `ProductRequestViolation` says *this class does not answer that

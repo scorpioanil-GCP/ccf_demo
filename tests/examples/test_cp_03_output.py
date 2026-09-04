@@ -45,6 +45,8 @@ import psycopg
 import pytest
 import yaml
 
+from ccf.agents.assembler import AssemblyOutcome
+
 REPO = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO / "examples" / "cp-03-obligor-financial-spread"
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
@@ -786,10 +788,11 @@ def test_ofs_g06_as_of_is_refused_and_never_silently_honored(seeded: str) -> Non
 
     # THE SPINE'S VALUE IS READ HERE, ON A REFUSAL, WHICH `_serve` OTHERWISE
     # REFUSES TO DO. It is safe in this one gate and nowhere else: the
-    # assertion below is that the captured value IS a `ParameterNotSupported`,
-    # a type that cannot be mistaken for a served product. The trap `_serve`
-    # guards against is reading a captured value that CARRIES a product; here
-    # a captured product would fail the very first assertion.
+    # assertion below is that the captured value IS the SDK's
+    # `ProductRequestViolation` tier verdict, returned as data — nothing that
+    # carries a product. The trap `_serve` guards against is reading a captured
+    # value that CARRIES a product; here a captured product would fail the very
+    # first assertion.
     captured: list[object] = []
     raised = False
     try:
@@ -829,18 +832,25 @@ def test_ofs_g06_as_of_is_refused_and_never_silently_honored(seeded: str) -> Non
         "the refusal's detail does not carry the Standard's status token"
     )
 
-    # `not_supported_at_tier` is the SPEC's name for this condition and is not
-    # a value anywhere in the SDK: `ProductRequestViolation.reason` is a closed
-    # Literal with no member for it, which is why the assembler RAISES rather
-    # than returning a violation. Recorded at §F.4; asserted here so that a
-    # future SDK member for it is noticed rather than silently unused.
+    # `not-supported-at-tier` IS a member of `ProductRequestViolation.reason`
+    # (`src/ccf/products/request.py::ProductRequestViolationReason`,
+    # `24.5-L-12`), and the served verdict's `reason` is that member. The
+    # roster is read off the model so a renamed member is noticed rather than
+    # silently unused. The previous assertion here was true only by its
+    # spelling — it asserted `not_supported_at_tier` (underscores) was ABSENT,
+    # which stayed true after the hyphenated member arrived (recorded at
+    # `24.5-FLIP-ROSTER.md` under its own heading); inverted under
+    # `D-IMPL-245` / ROADMAP criterion 18.
     members = getattr(
         ProductRequestViolation.model_fields["reason"].annotation, "__args__", ()
     )
-    # green by spelling — 24.5-FLIP-ROSTER.md
-    assert "not_supported_at_tier" not in members, (
-        "the SDK now has a not_supported_at_tier refusal member. This product"
-        " should return it rather than raising, and §F.4's finding closes"
+    assert "not-supported-at-tier" in members, (
+        "the SDK vocabulary lost the tier member this product's refusal"
+        f" depends on; members are {members!r}"
+    )
+    assert served.reason in members, (
+        f"the served verdict names {served.reason!r}, a reason outside the"
+        f" closed vocabulary {members!r}"
     )
 
 
@@ -1346,4 +1356,60 @@ def test_ofs_g13_the_severity_threshold_comes_from_the_artifact(
         f" kept its class ({sorted(before)}). The classification is not"
         " reading the artifact — it is a constant that happens to agree with"
         " it today"
+    )
+
+
+def test_the_served_outcome_names_the_module_assembler_version(seeded: str) -> None:
+    """The Protocol's return names this module's assembler identity, pinned at `1.0.1`.
+
+    `D-IMPL-245` am.1: an assembler materially corrected in 24.5.1 bumps PATCH to
+    `1.0.1` — the dead compatibility branch for the inert parameter was deleted from this rung's
+    `assembler.py`, so the implementation changed — and am.3: never `1.0.2`.
+    `_serve` discards the Protocol's return (`governed`) for the spine's captured
+    value, so the seam is constructed here the same way and `governed` is KEPT.
+    This is the in-process identity; the transcript line `assembled by` carries it
+    as evidence, and Decision Replay carries none of it today (am.1).
+    """
+    import tempfile
+
+    deployment = _load("deployment")
+    assembler = _load("assembler")
+    declared = deployment.demonstration_parameters()
+    parameters: dict[str, object] = {
+        deployment.PARAM_INTENT: declared[deployment.PARAM_INTENT],
+        deployment.PARAM_PERIODS: int(declared[deployment.PARAM_PERIODS]),
+        deployment.PARAM_BASIS: str(declared[deployment.PARAM_BASIS]),
+        deployment.PARAM_INCLUDE_PEERS: bool(
+            declared[deployment.PARAM_INCLUDE_PEERS]
+        ),
+        deployment.PARAM_PEER_BASIS: str(declared[deployment.PARAM_PEER_BASIS]),
+        deployment.PARAM_DEBT_TOLERANCE: Decimal(
+            str(declared[deployment.PARAM_DEBT_TOLERANCE])
+        ),
+    }
+    asked = deployment.request(parameters=parameters, asked_at=None)
+    with tempfile.TemporaryDirectory(prefix="cp03-gate-") as tmp:
+        root = pathlib.Path(tmp)
+        captured: list[object] = []
+        seam = assembler.SpreadAssembler(
+            config=deployment.CONFIG,
+            root=root,
+            connection=deployment.connection(root=root),
+            read=deployment.read,
+            plan_class=deployment.plan_class(),
+            observer=captured.append,
+        )
+        governed = seam.assemble(
+            request=asked,
+            perspective=deployment.perspective(),
+            tenant_id=deployment.tenant_id(),
+        )
+    assert captured, "the observer never fired, so nothing was assembled"
+    assert isinstance(governed, AssemblyOutcome), type(governed).__name__
+    assert governed.assembler_id == assembler.ASSEMBLER_ID
+    assert governed.assembler_version == assembler.ASSEMBLER_VERSION
+    assert assembler.ASSEMBLER_VERSION == "1.0.1", (
+        "the pin is D-IMPL-245 am.1's PATCH identity for the corrected"
+        " implementation; 1.0.0 would make two implementations share one name,"
+        " and am.3 rules never 1.0.2"
     )

@@ -172,32 +172,6 @@ class AnchorUnresolvable:
 
 
 @dataclass(frozen=True)
-class ParameterNotSupported:
-    """Standard §2.4's declared-but-inert refusal — `400`, returned as data.
-
-    *"A parameter that appears to work and does not will be relied on in a
-    dispute."* The parameter IS part of the uniform surface — it is declared in
-    the request contract, so a caller can discover it — and it fails explicitly
-    rather than succeeding silently against current state. Those are the two
-    halves of §2.4 and neither works without the other: an absent parameter
-    tells a caller nothing, and a silently-ignored one tells them something
-    false.
-
-    **`as_of` is the one this tier declares and refuses** (§B.5, gate
-    `OFS-G06`), and the pressure on it is real rather than theoretical. This
-    product's whole subject is that figures change across filings, so *"give me
-    the spread as it stood last March"* is the first question a credit officer
-    thinks of after seeing `basis` work. It needs ledger time-travel and
-    arrives at Tier 3. Answering it with today's spread would be the most
-    plausible wrong answer this product could give.
-    """
-
-    parameter: str
-    reason: str
-    status: int = 400
-
-
-@dataclass(frozen=True)
 class Assembled:
     """What one run produced, for a caller to inspect.
 
@@ -233,7 +207,7 @@ def assemble_and_serve(
     request: ProductRequest,
     root: Path,
     unsupported: Mapping[str, str] | None = None,
-) -> Assembled | ProductRequestViolation | AnchorUnresolvable | ParameterNotSupported:
+) -> Assembled | ProductRequestViolation | AnchorUnresolvable:
     """Answer one question, end to end, against ``root`` as scratch space."""
     registry = ControlPlaneRegistry()
 
@@ -271,14 +245,6 @@ def assemble_and_serve(
         )
         if violation is not None:
             return violation
-
-        # DECLARED BUT INERT — Standard §2.4, checked at the door and BEFORE
-        # the graph is touched. The set comes from the deployment's own request
-        # contract, so this branch names no parameter of its own — a parameter
-        # this tier stops refusing, or starts, is an edit to `ccf_config.yaml`.
-        for name, reason in (unsupported or {}).items():
-            if name in request.parameters:
-                return ParameterNotSupported(parameter=name, reason=reason)
 
         # --8<-- [start:ingest]
         # 2. L1 → L2. `booted.handle.worker` is the ONLY write handle to L3

@@ -21,8 +21,8 @@ witness string (`L-18`), which is proven unread by recording every file the
 checker opens.
 
 The one real-tree assertion is the control that the instrument fires on
-real ids: cp-04 measures clean under a REAL collection, all sixteen
-``CFT-G`` ids resolve by function name, and the two phantoms are visible
+real ids: cp-04 measures clean under a REAL collection, all seventeen
+``CFT-G`` ids (``G01..G16`` and ``G18``; 17 withdrawn) resolve by function name, and the two phantoms are visible
 only when the docstring form is deliberately applied to the seams file.
 """
 
@@ -78,9 +78,15 @@ _NAME_FORM_ROSTER = (
 
 FORMS = ("docstring", "name")
 
-#: The sixteen cp-04 ids, as a roster, so the real-tree control names what
-#: it expects rather than counting to sixteen.
-CP04_IDS = frozenset(f"CFT-G{n:02d}" for n in range(1, 17))
+#: The cp-04 ids, as a roster, so the real-tree control names what it
+#: expects rather than counting. Sixteen (``CFT-G01..G16``) held Dave's
+#: 2026-08-31 ruling; ``CFT-G18`` joined on 2026-09-03 under Phase 24.5.1
+#: criterion 19 as amended (CRITERIA-LOCK Amendment 1; ``D-IMPL-245`` (4),
+#: the ambiguous-anchor refusal), and this roster was amended in-phase by
+#: Dave's ruling at ``D-IMPL-248`` — the one ``tools/`` edit of that phase.
+#: ``CFT-G17`` is the id Dave WITHDREW and stays a phantom: it is never
+#: re-minted, so the roster is seventeen ids with a hole at 17.
+CP04_IDS = frozenset(f"CFT-G{n:02d}" for n in range(1, 17)) | {"CFT-G18"}
 CP04_PHANTOMS = frozenset({"CFT-G17", "CFT-G99"})
 
 
@@ -602,7 +608,7 @@ def test_the_real_cp_04_tree_is_clean() -> None:
     """One REAL collection; cp-04 judged under its DECLARED name form.
 
     Two facts are asserted by name so "clean" cannot be vacuous: every one of
-    the sixteen ``CFT-G`` ids is claimed by function name in cp-04's own
+    the seventeen ``CFT-G`` ids (a hole at 17) is claimed by function name in cp-04's own
     modules, and ``CFT-G17``/``CFT-G99`` — which the seams module names only
     in function DOCSTRINGS — are absent under the name form and present
     when the docstring form is deliberately applied to that file.

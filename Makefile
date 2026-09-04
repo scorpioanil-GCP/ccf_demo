@@ -454,11 +454,24 @@ example-cp-04: ## Run examples/cp-04-corporate-family-tree (LEI, MAX_DEPTH, ROLE
 		$(if $(AS_OF),--as-of $(AS_OF))
 
 # HW-1 — the first example a newcomer reads. NOT in the `examples:` aggregate
-# and NOT in any workflow: it needs a populated deployment, the always-on
-# pipeline is network-free, and `live-legs.yml`'s one remaining job is
-# `runs-on: ubuntu-latest` with no database secrets. A red check nobody can
-# make green is worse than no check. See the example's README.
+# and NOT in any workflow as a target: what CI runs is
+# `tests/examples/test_hw1_two_transports.py`, which copies the example, seeds
+# the copy from its declared input and runs both documented commands against
+# it on every push — the same two strings the two targets below run.
 #
+# THE SEED STEP. `D-IMPL-245` amendment 2 (Dave, 2026-09-03): the deployment is
+# populated by the example's own pre-boot seed program from a committed,
+# declared signal-batch input (`runner/signal-batch.yaml`) through the fabric's
+# single writer, before either transport boots. The input is committed; the
+# store the seed writes (`deployment/graph.sqlite3`, `deployment/artifact-store/`)
+# is generated state and is ignored. Both consume targets depend on this one,
+# so `make example-hw1` on a clean checkout seeds and then answers. The seed
+# rebuilds the store from the document every run, which is what keeps the
+# printed content address the same from one run to the next.
+.PHONY: example-hw1-seed
+example-hw1-seed: ## Populate examples/hw1-companies-over-revenue from its declared signal-batch input (runner/seed.py)
+	.venv/bin/python examples/hw1-companies-over-revenue/runner/seed.py
+
 # THIS TARGET DELIBERATELY DOES NOT USE $(PYTHON) OR $(ENV), and that is the
 # one place in this file where spelling the interpreter is correct rather than
 # sloppy. The README documents this exact string for a reader to type, and
@@ -471,7 +484,7 @@ example-cp-04: ## Run examples/cp-04-corporate-family-tree (LEI, MAX_DEPTH, ROLE
 # No MIN_REVENUE variable: a threshold is a REQUEST parameter and a build tool
 # is not a request channel (the s1-00 ruling, D-18).
 .PHONY: example-hw1
-example-hw1: ## Run examples/hw1-companies-over-revenue (needs a populated deployment; never CI)
+example-hw1: example-hw1-seed ## Run examples/hw1-companies-over-revenue (seeds first; never CI)
 	CCF_BINDING="inprocess:examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
 
 # THE SAME `consume.py`, THE SAME DEPLOYMENT, THE OTHER TRANSPORT. `D-IMPL-150`
@@ -491,7 +504,7 @@ example-hw1: ## Run examples/hw1-companies-over-revenue (needs a populated deplo
 #
 # The same interpreter rule applies as above, for the same reason.
 .PHONY: example-hw1-mcp
-example-hw1-mcp: ## Run examples/hw1-companies-over-revenue over MCP stdio (same consume.py)
+example-hw1-mcp: example-hw1-seed ## Run examples/hw1-companies-over-revenue over MCP stdio (same consume.py; seeds first)
 	CCF_BINDING="mcp+stdio:examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
 
 # ONE LEG AT A TIME, for examples/hw1-harness-clients. These are the DOCUMENTED

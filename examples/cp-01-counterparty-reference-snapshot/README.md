@@ -44,7 +44,7 @@ Parsippany, New Jersey.** The demonstration anchor is chosen to make that
 visible in the served payload.
 
 **4. A Policy step that is load-bearing at Tier 1.** The same question asked by
-four principals is two answers and two silences:
+four principals is two answers and two refusals:
 
 | Principal | Grant | Sees the anchor? |
 |---|---|---|
@@ -53,10 +53,13 @@ four principals is two answers and two silences:
 | `PRIN-KYC-004` EU KYC analyst | `AT BE DE ES HU IT LU NL SE` | **no** |
 | `PRIN-TRD-003` trader | `GB HK JP SG` | **no** |
 
-And the two silences carry **no count, no marker, no notice** of what was
-withheld — because `Policy` substitutes the permissible subgraph for the full
-graph *before* anything reads graph state, rather than filtering afterwards. A
-`"1 entity hidden"` notice is itself a disclosure.
+And the two who cannot see it are **refused, in the words a nonexistent
+counterparty gets** — no count, no marker, no notice of what was withheld, and
+no name for the principal or the entitlement — because `Policy` substitutes the
+permissible subgraph for the full graph *before* anything reads graph state,
+rather than filtering afterwards, and the assembler refuses a Policy-removed
+record rather than serving it empty (`D-IMPL-245` (4)). A `"1 entity hidden"`
+notice is itself a disclosure, and so is a refusal that says *"not entitled"*.
 
 ---
 
@@ -90,7 +93,21 @@ make example-cp-01
 Use **`make -s example-cp-01`** to suppress make's own echo of the recipe. That
 form is what makes the output byte-comparable with the run published on this
 example's documentation page — the echoed command is the only thing that
-differs otherwise.
+differs otherwise. The run ends with an `assembled by` line:
+
+The `assembled by` line names the assembler implementation that produced this run (`cp-01.counterparty-reference-snapshot@1.0.1`) — transcript evidence, read off the program's own stdout.
+
+Replay carriage of that identity is a Phase 24.6 ledger row (`D-IMPL-245` amendment 1); the transcript is the evidence the example can carry today.
+
+**What changed in this example on 2026-09-03.** The assembler's unreachable
+compatibility branch — kept for a refusal the SDK could not, at the time, return
+as data — was removed after the SDK gained the tier refusal (`24.5-L-12`/`L-13`),
+so the implementation identity moved to `1.0.1` while the product stayed `1.0.0`,
+because the served bytes and the contract did not change (`D-IMPL-245` (1)). A principal the Policy step excludes — one whose grant matches no entity
+(`CPR-G08`) or one not entitled to this entity (`CPR-G02`, `CPR-G04`) — is now
+refused with the same text a missing counterparty receives (`D-IMPL-245` (4)),
+never a served answer with `D_c = 1`; the §B.4 lapsed exclusion the caller asks
+for is still served with its `excluded` block.
 
 Without make, the same thing. The interpreter is the venv's, and spelling it is
 the point rather than clutter:
@@ -103,7 +120,8 @@ Then the things worth trying, each of which changes the answer rather than the
 formatting:
 
 ```bash
-# The same question as somebody who cannot see US-DE entities.
+# The same question, asked by a principal the Policy step excludes. REFUSED — in
+# the words a nonexistent counterparty gets (D-IMPL-245 (4)), never served empty.
 make example-cp-01 PRINCIPAL=PRIN-KYC-004
 
 # The other identity authority — a no-LEI borrower. SEE "What would fail".
@@ -121,11 +139,23 @@ Every one of those is OPTIONAL and none of them is deployment configuration:
 they are REQUEST parameters, and omitting them asks the demonstration question
 declared in `artifacts/question.yaml`.
 
-**Two of those five exit NON-ZERO, and that is the correct answer rather than a
-broken target.** `ANCHOR=CLI-000101` refuses at the `ttl-bounds` gate — the
-shipped defect this example documents rather than hides, and the subject of
-*"What would fail"* below. `AS_OF=…` refuses with `not_supported_at_tier`,
-because the contract declares the parameter so a caller can discover it and
+**Three of those five exit NON-ZERO, and that is the correct answer rather than
+a broken target.** `PRINCIPAL=PRIN-KYC-004` is refused — the Policy step removes
+the counterparty from what that principal can see, and the assembler refuses a
+Policy-removed record with the same text a nonexistent one gets, so a caller
+cannot learn by probing which counterparties this estate covers.
+`ANCHOR=CLI-000101` refuses at the `ttl-bounds` gate — the shipped defect this
+example documents rather than hides, and the subject of *"What would fail"*
+below. `AS_OF=…` is refused before the product's own code runs: the SDK's tier
+step returns the verdict as data and the program prints the declaration's detail
+beneath it —
+
+```
+refused: not-supported-at-tier — as_of
+   as_of: 400 not_supported_at_tier — not_supported_at_tier
+```
+
+— because the contract declares the parameter so a caller can discover it and
 then fails loudly so nobody relies on it in a dispute. **A refusal is not a
 crash**, but it is also not a success, so `make` reports it as `Error 1`.
 

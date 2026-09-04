@@ -105,6 +105,12 @@ The rest of the summary block:
 | `amendments 1` | a **count**, and the payload claims no amendment *date* — the estate holds none anywhere, so nothing is asserted that cannot be evidenced |
 | `operators invoked` | held to strict equality against what the engine resolved. A declared operator that did not run, or one that ran undeclared, is a refusal in either direction |
 
+The last line of the block, `assembled by`, is new at `1.0.1`:
+
+The `assembled by` line names the assembler implementation that produced this run (`cp-02.facility-terms-snapshot@1.0.1`) — transcript evidence, read off the program's own stdout.
+
+Replay carriage of that identity is a Phase 24.6 ledger row (`D-IMPL-245` amendment 1); the transcript is the evidence the example can carry today.
+
 ## Run 2 — the same facility, seventeen days later
 
 ```bash
@@ -273,7 +279,14 @@ transcript was produced against the estate as loaded on **2026-08-25**, asking
 as of a pinned **2026-08-29T12:00:00+00:00**, with content address
 `708a4a3f1a8486b125fdcbcbb848c3a43ae7cda81066ad3ee832aafe749d8b0c`. Anyone with
 read access can re-run the command in the README and compare that address; if it
-matches, they have the same answer, not a similar one.
+matches, they have the same answer, not a similar one. The transcript was
+re-captured on 2026-09-03 with that address unchanged.
+
+**What changed in this example on 2026-09-03.** The assembler's unreachable
+compatibility branch — kept for a refusal the SDK could not, at the time, return
+as data — was removed after the SDK gained the tier refusal (`24.5-L-12`/`L-13`),
+so the implementation identity moved to `1.0.1` while the product stayed `1.0.0`,
+because the served bytes and the contract did not change (`D-IMPL-245` (1)).
 
 The product's own checks are stronger than its documentation. Eleven of them
 were **deliberately broken one at a time** to confirm each actually fails when

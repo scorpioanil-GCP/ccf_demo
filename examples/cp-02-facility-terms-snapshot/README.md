@@ -129,7 +129,17 @@ allows. The default run:
 ```
 
 *Three lines lifted from the summary block of the default run; the full
-transcript is in `page/run-transcript.txt`.*
+transcript is in `page/run-transcript.txt`.* Its last line is `assembled by`:
+
+The `assembled by` line names the assembler implementation that produced this run (`cp-02.facility-terms-snapshot@1.0.1`) — transcript evidence, read off the program's own stdout.
+
+Replay carriage of that identity is a Phase 24.6 ledger row (`D-IMPL-245` amendment 1); the transcript is the evidence the example can carry today.
+
+**What changed in this example on 2026-09-03.** The assembler's unreachable
+compatibility branch — kept for a refusal the SDK could not, at the time, return
+as data — was removed after the SDK gained the tier refusal (`24.5-L-12`/`L-13`),
+so the implementation identity moved to `1.0.1` while the product stayed `1.0.0`,
+because the served bytes and the contract did not change (`D-IMPL-245` (1)).
 
 **The uncomfortable half is the point.** At the pinned instant, 50 of the 60
 facilities in this estate are **refused** — their agreements are older than 90

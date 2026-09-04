@@ -80,6 +80,12 @@ for a regulatory notice. The key is in an artifact rather than in code because
 clothing. Gate **`OFS-G03`** fails if the key is relaxed; gate **`OFS-G01`**
 fails if the payload loses its balance-sheet half.
 
+The last line of the report, `assembled by`, is new at `1.0.1`:
+
+The `assembled by` line names the assembler implementation that produced this run (`cp-03.obligor-financial-spread@1.0.1`) — transcript evidence, read off the program's own stdout.
+
+Replay carriage of that identity is a Phase 24.6 ledger row (`D-IMPL-245` amendment 1); the transcript is the evidence the example can carry today.
+
 ---
 
 ## Run 2 — the same obligor, read the other way
@@ -253,8 +259,13 @@ make -s example-cp-03 AS_OF=2026-03-31
 ```
 
 ```
-assembly refused: 400 reconstructing the spread as it stood on a past date requires ledger time-travel and arrives at Tier 3 with covenant-in-force-as-of. This tier serves the spread as it stands, with every figure naming the filing that asserted it.: as_of — declared by this class and always refused (Standard §2.4). This verdict is raised rather than returned because ProductRequestViolation.reason is a closed Literal with no member for it; see CP-SPEC-003 §F.4
+refused: not-supported-at-tier — as_of
+   as_of: 400 not_supported_at_tier — reconstructing the spread as it stood on a past date requires ledger time-travel and arrives at Tier 3 with covenant-in-force-as-of. This tier serves the spread as it stands, with every figure naming the filing that asserted it.
 ```
+
+The first line is the SDK's verdict, returned as data by the tier step of
+`refuse_request` before the product's own code runs; the second is the detail
+the class declaration carries for the parameter, printed beneath it.
 
 ```
 make -s example-cp-03 PRINCIPAL=PRIN-KYC-004
@@ -346,7 +357,14 @@ figure, the expiry window and the operator plan. One drifted value anywhere and
 the hash differs.
 
 Reproduce it yourself with `make -s example-cp-03`, after setting the connection
-string as the README describes.
+string as the README describes. The transcript and the quoted outputs in this
+document were re-captured on 2026-09-03 with that address unchanged.
+
+**What changed in this example on 2026-09-03.** The assembler's unreachable
+compatibility branch — kept for a refusal the SDK could not, at the time, return
+as data — was removed after the SDK gained the tier refusal (`24.5-L-12`/`L-13`),
+so the implementation identity moved to `1.0.1` while the product stayed `1.0.0`,
+because the served bytes and the contract did not change (`D-IMPL-245` (1)).
 
 ---
 

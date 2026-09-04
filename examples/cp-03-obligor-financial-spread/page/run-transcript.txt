@@ -3136,3 +3136,4 @@ What a plain SELECT would not have told you:
    policy version     ['f7d293f3fc01775bb8958dca019fb29709b213deab819e7638e3df24021ce3da']
    content address    e2a0224fa5c9ecf4cbf7c0e6ef4ae89a4bccb85d85ebf20f7e206f73b1372edc
    replay record      ad70fa4b511065d7ba436f3d1f9a7ebf20db7951af665fd0a18973853a33b236
+   assembled by       cp-03.obligor-financial-spread@1.0.1

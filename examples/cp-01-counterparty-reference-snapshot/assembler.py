@@ -50,7 +50,7 @@ import produce
 #: computation that produced it. Changing what `assemble` does is a version
 #: change here.
 ASSEMBLER_ID = "cp-01.counterparty-reference-snapshot"
-ASSEMBLER_VERSION = "1.0.0"
+ASSEMBLER_VERSION = "1.0.1"
 
 
 class _AssemblyState(Protocol):
@@ -68,6 +68,30 @@ class _AssemblyState(Protocol):
 
 def _unobserved(assembled: object) -> None:
     """The default observer: the run happened and nobody watched it."""
+
+
+def _not_available(subject: str) -> str:
+    """The ONE refusal text for "you are not getting this counterparty".
+
+    A single function with a single caller-facing string, because §B.2's
+    suppression rule is a statement about what a caller can DISTINGUISH, and two
+    separately-worded messages drift apart the moment either is edited.
+
+    **AN ANCHOR THAT NAMES NO ENTITY AND AN ENTITY THIS PRINCIPAL MAY NOT SEE
+    PRODUCE BYTE-IDENTICAL OUTPUT.** An LEI is a PUBLIC identifier with a public
+    registry behind it, and an internal client id is the caller's own — a caller
+    can already look either up. What they must not be able to learn by probing
+    is which counterparties THIS ESTATE covers, and separate answers would
+    disclose exactly that. `D-IMPL-245` (4), Dave: *"make unauthorized/not-visible
+    indistinguishable from unavailable at that product boundary."*
+
+    It deliberately does not say "not entitled", does not name the principal,
+    and does not say whether the counterparty exists.
+    """
+    return (
+        f"counterparty {subject!r} is not available (404); §D.2 step 1 fails"
+        " closed rather than returning an empty payload"
+    )
 
 
 @dataclass(frozen=True)
@@ -102,11 +126,10 @@ class CounterpartyAssembler:
     read: Callable[..., Any]
     plan_class: type[Any]
     #: Declared-but-inert parameters, from the deployment's request contract
-    #: (Standard §2.4). Passed through to the spine so the refusal happens at
-    #: the door, and defaulted to the deployment's own declaration rather than
-    #: to an empty mapping — a seam that silently supported everything the
-    #: contract says it refuses would be worse than one that could not express
-    #: the refusal at all.
+    #: (Standard §2.4). Carried for the declaration's sake and defaulted to
+    #: the deployment's own declaration rather than to an empty mapping. The
+    #: refusal itself is the SDK's tier step (`refuse_request`,
+    #: `not-supported-at-tier`), not anything this seam does.
     unsupported: Mapping[str, str] = field(
         default_factory=lambda: dict(deployment.unsupported_arguments())
     )
@@ -144,8 +167,11 @@ class CounterpartyAssembler:
         Raises:
             AssemblyRefused: ``tenant_id`` or ``perspective`` disagrees with
                 what this deployment declares, or the anchor resolved to no
-                entity. **Identity and existence only.** A question this class
-                does not answer is a GOVERNED refusal and is returned.
+                entity, or the Policy step removed the record for this
+                principal — the last two share ONE text (§B.2,
+                ``_not_available``). **Identity and availability only.** A
+                question this class does not answer is a GOVERNED refusal
+                and is returned.
         """
         # --- Identity, settled BEFORE anything is assembled. ---------------
         # Read from `ccf_config.yaml`, which is the same document the fabric
@@ -188,38 +214,10 @@ class CounterpartyAssembler:
         if isinstance(assembled, ProductRequestViolation):
             return assembled
 
-        # A DECLARED-BUT-INERT PARAMETER IS A CONTRACT VERDICT AND THIS SEAM
-        # CANNOT RETURN IT AS ONE. Recorded as an SDK-surface finding at spec
-        # §F.4 rather than disguised:
-        #
-        #   `ProductRequestViolation.reason` is a CLOSED `Literal` of four
-        #   values — undeclared-parameter · missing-required-parameter ·
-        #   type-mismatch · class-mismatch. Standard §9 requires
-        #   `400 not_supported_at_tier` as a DISTINCT condition, and §2.4 makes
-        #   the declared-but-inert parameter a first-class obligation. The
-        #   vocabulary has no member for it.
-        #
-        # The three dishonest options were all available and all refused:
-        # returning `undeclared-parameter` (false — the contract DECLARES
-        # `as_of`, which is the whole point of §2.4), returning `type-mismatch`
-        # (false, and it would send a caller to fix a type that is correct), and
-        # silently ignoring the parameter (the exact failure §2.4 exists to
-        # prevent: "a parameter that appears to work and does not will be relied
-        # on in a dispute").
-        #
-        # So it is RAISED, and the message says what it is. The spine still
-        # returns it as DATA — `run.py` reaches it through the observer and
-        # renders `400 not_supported_at_tier` — so the refusal is available in
-        # its honest form to a caller that holds the spine, and only the
-        # PROTOCOL boundary is where it has to become an exception.
-        if isinstance(assembled, produce.ParameterNotSupported):
-            raise AssemblyRefused(
-                f"{assembled.status} {assembled.reason}: {assembled.parameter}"
-                " — declared by this class and always refused (Standard §2.4)."
-                " This verdict is raised rather than returned because"
-                " ProductRequestViolation.reason is a closed Literal with no"
-                " member for it; see CP-SPEC-001 §F.4"
-            )
+        # A declared-but-inert parameter is refused by the SDK's own tier step —
+        # `src/ccf/products/request.py::refuse_request` step 2 (`_refuse_tier`) — as a
+        # `ProductRequestViolation(reason="not-supported-at-tier")` returned as DATA
+        # through the branch above (`24.5-L-12`/`L-13`); this seam has no branch of its own.
 
         # AN UNRESOLVABLE ANCHOR IS A DIFFERENT KIND OF THING, and the
         # distinction is worth keeping rather than collapsing into the line
@@ -229,11 +227,36 @@ class CounterpartyAssembler:
         # contract verdicts, so existence is raised — a caller that wants the
         # 404 as data calls the spine, which returns it as data (`run.py`).
         if isinstance(assembled, produce.AnchorUnresolvable):
-            raise AssemblyRefused(
-                f"anchor {assembled.anchor!r} resolved to no entity through"
-                " either identity authority (404); §D.2 step 1 fails closed"
-                " rather than returning an empty payload"
-            )
+            raise AssemblyRefused(_not_available(assembled.anchor))
+
+        # AND A POLICY-REMOVED COUNTERPARTY MUST BE INDISTINGUISHABLE FROM THAT
+        # ONE. §B.2, §D.3, gates `CPR-G08`, `CPR-G02`, `CPR-G04`.
+        #
+        # The projection served `counterparty: None` with NO `excluded` block,
+        # which is the Policy step's removal (`deployment.py`, the
+        # `record is None` branch of the plan's `invoke`): this principal's
+        # grant set matches no entity, or does not reach this one. The first
+        # build of this example served that as `200` with `D_c 1 /
+        # fail_closed`. `D-IMPL-245` (4), Dave: *"policy exclusion is not
+        # Context Debt … A principal being unauthorized for the entity is a
+        # policy outcome, not degraded context. Encoding that as D_c=1 risks
+        # turning Debt into an entitlement oracle."*
+        #
+        # Both cases share ONE string, so a caller cannot separate "not there"
+        # from "not for you". The §B.4 lapsed exclusion is a DIFFERENT silence:
+        # the caller asked for it and the payload echoes the parameter back in
+        # an `excluded` block, so it is SERVED — that block is the discriminator
+        # this predicate reads, and the Policy-removed payload does not carry
+        # it.
+        #
+        # THE DISTINCTION IS NOT LOST — IT MOVES TO THE AUDIT PLANE. The product
+        # was assembled, gated and its replay record written before this branch
+        # is reached, so the record knows which principal asked and which policy
+        # version was in force (the timing residue cp-02's spec §F.4 finding 9
+        # accepts). The audit knows; the caller does not.
+        payload = assembled.product.payload
+        if payload.get("counterparty") is None and "excluded" not in payload:
+            raise AssemblyRefused(_not_available(request.subject))
 
         return AssemblyOutcome(
             payload=assembled.product.payload,
