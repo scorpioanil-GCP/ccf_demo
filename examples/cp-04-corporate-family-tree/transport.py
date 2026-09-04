@@ -47,10 +47,12 @@ the assembler **raises** propagates: `AssemblyRefused` is not in
 `ccf.products.refusal::REFUSAL_KINDS`, so there is no envelope for it, and
 synthesizing one here would report a refusal in a vocabulary the fabric does not
 have. That gap is now a narrow one: since `24.5-L-12`/`L-13` a declared-but-inert
-parameter crosses as a `ProductRequestViolation` value, so the depth ceiling's
-`deployment.DepthOutOfBounds` is the one condition left on this rung for which
-the fabric declares no envelope — and this file works within that rather than
-papering over it.
+parameter crosses as a `ProductRequestViolation` value. What is left on this rung
+are the two depth refusals — a non-integer `max_depth`, which
+`deployment.py::resolve_max_depth` raises by name (`WR-01`), and an over-ceiling
+depth, which the same function returns as `deployment.DepthOutOfBounds` for
+`assembler.py` to raise — and the fabric declares no envelope for either. This
+file works within that rather than papering over it.
 """
 
 from __future__ import annotations

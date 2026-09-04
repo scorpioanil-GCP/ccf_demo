@@ -259,12 +259,15 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = client.ask(parameters, as_of=asked_at)
         except AssemblyRefused as refused:
-            # THE ONE CONDITION THIS RUNG SIGNALS BY EXCEPTION IS A DEPTH
-            # ABOVE THE DECLARED CEILING, AND THAT IS A RECORDED SDK-SURFACE
-            # GAP RATHER THAN A CHOICE (spec §F.4). `deployment.DepthOutOfBounds`
-            # is this example's own type; the SDK does not know it, so
-            # `ccf.products.refusal::REFUSAL_KINDS` declares no envelope that
-            # names it and `assembler.py` raises. Translating it into a kind
+            # TWO CONDITIONS ON THIS RUNG SIGNAL BY EXCEPTION, AND THAT IS A
+            # RECORDED SDK-SURFACE GAP RATHER THAN A CHOICE (spec §F.4). A
+            # non-integer `max_depth` is refused by name inside
+            # `deployment.py::resolve_max_depth` (`WR-01`), which raises
+            # directly; a depth above the declared ceiling comes back from that
+            # same function as `deployment.DepthOutOfBounds` and is refused by
+            # `assembler.py`. BOTH are this example's own types, the SDK knows
+            # neither, and `ccf.products.refusal::REFUSAL_KINDS` therefore
+            # declares no envelope naming either. Translating them into a kind
             # that does exist would report the wrong reason, which is the
             # flattening the envelope exists to prevent.
             #
