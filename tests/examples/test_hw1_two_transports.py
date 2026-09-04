@@ -19,16 +19,28 @@ portability to us; the example proves it to an adopter.* An adopter does not run
 the README's own commands, the shipped ``consume.py``, the shipped deployment —
 driven as a subprocess exactly as a reader would drive it.
 
-Why an empty deployment is the right subject, not a limitation
-----------------------------------------------------------------
-``D-32`` (Dave, 2026-08-15) forbids committing data to ``examples/``, so a clean
-checkout's ``deployment/`` holds no graph. Booting one produces an empty fabric,
-and the example prints ``0 of 0 assembled`` with ``D_c`` at ``1.0000`` routing to
-``fail_closed``. That is the honest mechanism reporting an honest measurement,
-and it is **exactly as good a subject for this claim**: two transports returning
-the same governed refusal to the same question are returning the same answer.
-Manufacturing data to get a prettier one would trade a claim a clean checkout
-can make for a claim only a populated one can.
+Why the subject is SEEDED, and how
+-----------------------------------
+``D-32`` (Dave, 2026-08-15) forbids committing producer output to ``examples/``
+— a populated ``graph.sqlite3``, an ``artifact-store/`` — so a clean checkout's
+``deployment/`` holds no graph, and the temporary copy this module makes holds
+none either (``NOT_COPIED``). What the checkout DOES hold is the example's own
+declared input, ``runner/signal-batch.yaml``, and the program that interprets
+it, ``runner/seed.py`` (``D-IMPL-245`` amendment 2, Dave, 2026-09-03: *"the seed
+should be treated as declared input to the example, not as a hidden bootstrap
+feature of the SDK"*; ``D-IMPL-163`` narrows ``D-32`` to producer output). The
+``seeded_example`` fixture runs that program inside the copy, through the
+fabric's single writer, before either leg boots — so the claim a clean checkout
+can make is now the SUCCESSFUL one: the answer, the measured ``D_c`` routing to
+``forced_llm``, the content address, the replay reference and the expiry the
+README says the example demonstrates.
+
+Two transports returning the same governed *refusal* on an empty fabric is
+still a useful conformance claim, and it did not go away: it moved to
+``test_hw1_empty_fabric_refusal.py``, which runs both legs against the UNSEEDED
+copy (``D-IMPL-245`` (2); the refusal is ``empty-operator-result`` by name,
+``D-IMPL-242``). Dave's framing of the split: transport parity on a refusal is
+*"a useful conformance test, but a poor primary teaching experience."*
 
 What is compared, and why it is the whole of stdout
 -----------------------------------------------------
@@ -209,21 +221,72 @@ def example(tmp_path: pathlib.Path) -> pathlib.Path:
     return root
 
 
+def seed_copy(root: pathlib.Path) -> None:
+    """Run the example's own seed program inside the copy at ``root``.
+
+    The program takes no arguments and seeds the deployment beside itself, so
+    running the COPY's ``runner/seed.py`` populates the copy's deployment and
+    never the repository's. ``check=True``: a seed that fails is this module's
+    failure to report, not a condition to run the legs under.
+    """
+    subprocess.run(
+        [sys.executable, str(root / "runner" / "seed.py")],
+        cwd=REPO_ROOT,
+        env={**os.environ},
+        check=True,
+        timeout=TIMEOUT_SECONDS,
+    )
+    assert (root / "deployment" / "graph.sqlite3").is_file(), (
+        "the seed program exited 0 but left no graph in the copy's deployment"
+    )
+
+
+@pytest.fixture()
+def seeded_example(example: pathlib.Path) -> pathlib.Path:
+    """The same private copy, populated from its own declared input.
+
+    Built ON the unseeded ``example`` fixture rather than beside it, so the
+    positive and negative modules share one copy shape and differ only in
+    whether the seed ran.
+    """
+    seed_copy(example)
+    return example
+
+
 def test_both_documented_transports_return_the_same_answer(
-    example: pathlib.Path,
+    seeded_example: pathlib.Path,
 ) -> None:
     """``D-IMPL-150``. The same ``consume.py``, a different ``CCF_BINDING``.
 
     Both legs are run in the README's order — in-process first, then the child
-    process — against one deployment, and every printed line must match.
+    process — against one seeded deployment, and every printed line must match.
     """
     answers = {
         shlex.split(command)[0].partition("=")[2]: run_leg(
-            command, example=example
+            command, example=seeded_example
         )
         for command in documented_commands(EXAMPLE_ROOT)
     }
     assert not parity_violations(answers), "\n".join(parity_violations(answers))
+
+
+def test_the_seeded_run_reports_the_demonstrated_signal(
+    seeded_example: pathlib.Path,
+) -> None:
+    """The README's demonstration sentence, measured.
+
+    The README says the filings' spread of ages under the one-year half-life
+    makes freshness decay and routes the answer to ``forced_llm``. That is a
+    claim about the shipped input document and the shipped deployment together,
+    so it is asserted on the in-process leg's stdout rather than trusted.
+    """
+    in_process = documented_commands(EXAMPLE_ROOT)[0]
+    stdout = run_leg(in_process, example=seeded_example)
+    assert ADDRESS.search(stdout), f"no content address was printed:\n{stdout}"
+    assert "forced_llm" in stdout, (
+        "the seeded run did not route to `forced_llm`, which is the signal the"
+        f" README says the example demonstrates:\n{stdout}"
+    )
 
 
 def test_the_two_documented_transports_are_actually_different(
@@ -246,9 +309,12 @@ def test_the_two_documented_transports_are_actually_different(
 
 
 def test_the_mcp_leg_really_runs_the_examples_own_server_program(
-    example: pathlib.Path,
+    seeded_example: pathlib.Path,
 ) -> None:
     """The documented address names a deployment that DECLARES a program.
+
+    Needs no data, but the documented address must name a deployment that
+    SERVES, so it stays on the seeded copy rather than the empty one.
 
     ``build_egress_server`` requires five deployment values in their entirety
     (CINV-01), so a server program is the deployment's to write. Since
@@ -265,7 +331,7 @@ def test_the_mcp_leg_really_runs_the_examples_own_server_program(
         for command in documented_commands(EXAMPLE_ROOT)
         if "mcp+stdio:" in command
     )
-    address, _ = invocation(mcp, example=example)
+    address, _ = invocation(mcp, example=seeded_example)
     tokens = shlex.split(address.partition(":")[2])
     assert len(tokens) == 1, (
         f"the documented `mcp+stdio` address states {len(tokens)} tokens; it"

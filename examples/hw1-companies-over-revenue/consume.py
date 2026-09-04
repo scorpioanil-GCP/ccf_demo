@@ -48,8 +48,8 @@ def main() -> int:
         as_of=datetime.fromisoformat(args.as_of) if args.as_of else None,
     )
 
-    if result.refused:
-        print(f"refused: {result.refusal.reason} — {result.refusal.key}")
+    if result.refused:  # a refusal names a key only when it names one; a gate refusal names none
+        print(f"refused: {result.refusal.reason}" + (f" — {result.refusal.key}" if result.refusal.key is not None else ""))
         return 1
 
     print(f"\nQ: which companies have revenue over {result.payload['threshold']}?")
