@@ -3,8 +3,20 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-04T21:40:00.000Z"
+last_updated: "2026-09-04T23:30:00.000Z"
 last_activity: >-
+  **PHASE 24.6 IS PLANNED (2026-09-04, /gsd-plan-phase 24.6, branch `phase-24.6`).** Dave ruled the five ledger
+  questions (`D-IMPL-255`); 35 criteria LOCKED one per line before any plan (`4da5a80d`, digest `eba17d45…`), then
+  Amendment 1 after the planner and before Wave 1 (digest re-pinned `c3224bb4…`): criteria 1/17's "18 cp-00..03
+  sites" corrected to 14 (a false count I carried from research prose into the question Dave ruled on —
+  `D-IMPL-255` correction 1; disposition unaffected) and five `::symbol` cites to symbols the phase deletes recast to
+  prose so criterion 35's lint stays green (probe-proven). **15 plans in 12 waves** (`24.6-01..15-PLAN.md`,
+  `95886103`), ruled order preserved; plan 14 is the one `autonomous: false` (the two publishes); plan 15 the close
+  evidence + panel packet. Discretionary names fixed in the plans: `ccf.policy-constraint` / `policy_constraints`
+  section, `ProductRequestContract.defaults`, `ServeObligations.default_debt_tolerance`, kinds `tolerance-exceeded` /
+  `constraint-refusal` / `policy-resolution-conflict` / `subject-unavailable`, disclosure `minimal|reasoned|full`,
+  `TraversalDepthCapability`. Plan checker next; then Dave reviews plans; then `/gsd-execute-phase 24.6`.
+  Next free id `D-IMPL-256`. Hand-edited; no `state.*` or `roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 PLANNING IN PROGRESS — LEDGER BUILT, CRITERIA NOT LOCKED, FIVE ITEMS OPEN FOR DAVE (2026-09-04,
   /gsd-plan-phase 24.6, branch `phase-24.6`).** Dave reviewed CONTEXT/RULINGS remotely and ruled GO with four
   amendments (`D-IMPL-253` am.2: D-01 provenance generalized, D-12 emptiness alone does not determine Debt,
