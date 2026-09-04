@@ -11,7 +11,7 @@ last_activity: >-
   reviewed state; `R-2`/`R-3`/`CR-01`/`CR-03` carried by ruling; the live cp-04 page is HISTORICAL EVIDENCE, not
   current guidance, until 24.6 rebuilds it. Carry roster B-01..B-14 in the gate entry. **First question for the
   next sitting: `D-IMPL-244` named 24.6 as cp-05; the boundary work is routed to "24.6" — whether cp-05 slides.**
-  Merged `--no-ff` to `main` (hash recorded on `main`). **Next free id `D-IMPL-252`.** Hand-edited; no `state.*`
+  Merged `--no-ff` to `main` at `cd5a1bbb` and pushed. **Next free id `D-IMPL-252`.** Hand-edited; no `state.*`
   or `roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.5.1 WAS PAUSED BEFORE GATE (Dave, 2026-09-04).** Example reconciliation exposed an unresolved
   question concerning the boundary between fabric-enforced delivery constraints and consumer-determined
