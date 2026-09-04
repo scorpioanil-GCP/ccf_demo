@@ -93,7 +93,21 @@ make example-cp-01
 Use **`make -s example-cp-01`** to suppress make's own echo of the recipe. That
 form is what makes the output byte-comparable with the run published on this
 example's documentation page — the echoed command is the only thing that
-differs otherwise.
+differs otherwise. The run ends with an `assembled by` line:
+
+The `assembled by` line names the assembler implementation that produced this run (`cp-01.counterparty-reference-snapshot@1.0.1`) — transcript evidence, read off the program's own stdout.
+
+Replay carriage of that identity is a Phase 24.6 ledger row (`D-IMPL-245` amendment 1); the transcript is the evidence the example can carry today.
+
+**What changed in this example on 2026-09-03.** The assembler's unreachable
+compatibility branch — kept for a refusal the SDK could not, at the time, return
+as data — was removed after the SDK gained the tier refusal (`24.5-L-12`/`L-13`),
+so the implementation identity moved to `1.0.1` while the product stayed `1.0.0`,
+because the served bytes and the contract did not change (`D-IMPL-245` (1)). A principal the Policy step excludes — one whose grant matches no entity
+(`CPR-G08`) or one not entitled to this entity (`CPR-G02`, `CPR-G04`) — is now
+refused with the same text a missing counterparty receives (`D-IMPL-245` (4)),
+never a served answer with `D_c = 1`; the §B.4 lapsed exclusion the caller asks
+for is still served with its `excluded` block.
 
 Without make, the same thing. The interpreter is the venv's, and spelling it is
 the point rather than clutter:

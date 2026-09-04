@@ -8,7 +8,7 @@ difference.**
 **Written for three readers at once.** A subject-matter expert should be able to
 read the consequence and skip the mechanism; an engineer should be able to read
 the mechanism and find the file; a product manager should be able to read both
-and know what is real, what is declared, and what is still open. Each run
+and know what is real, what is declared, and what is recorded as a finding. Each run
 therefore carries the same three parts, in the same order: **the output**, **what
 you'd have missed**, and **how it works** — the last naming the operator, the
 artifact and the gate, so nothing here is a claim you have to take on trust.
@@ -77,6 +77,17 @@ make venv
 export CCF_CP_01_POSTGRES_DSN="dbname=<your database>"
 make -s example-cp-01
 ```
+
+The transcripts and quoted outputs in this document were re-captured on
+2026-09-03 with every seal unchanged. **What changed in this example on 2026-09-03.** The assembler's unreachable
+compatibility branch — kept for a refusal the SDK could not, at the time, return
+as data — was removed after the SDK gained the tier refusal (`24.5-L-12`/`L-13`),
+so the implementation identity moved to `1.0.1` while the product stayed `1.0.0`,
+because the served bytes and the contract did not change (`D-IMPL-245` (1)). A principal the Policy step excludes — one whose grant matches no entity
+(`CPR-G08`) or one not entitled to this entity (`CPR-G02`, `CPR-G04`) — is now
+refused with the same text a missing counterparty receives (`D-IMPL-245` (4)),
+never a served answer with `D_c = 1`; the §B.4 lapsed exclusion the caller asks
+for is still served with its `excluded` block.
 
 ---
 
@@ -166,6 +177,12 @@ Line by line, and what each one prevents:
 **Nothing above is written in code.** The TTL is an artifact, the half-lives are
 an artifact, the entitlement is a table. `deployment.py` is an interpreter of
 documents beside it — delete `artifacts/` and this example has nothing to run.
+
+The last line of the report, `assembled by`, is new at `1.0.1`:
+
+The `assembled by` line names the assembler implementation that produced this run (`cp-01.counterparty-reference-snapshot@1.0.1`) — transcript evidence, read off the program's own stdout.
+
+Replay carriage of that identity is a Phase 24.6 ledger row (`D-IMPL-245` amendment 1); the transcript is the evidence the example can carry today.
 
 ### The detail that is easy to miss
 
@@ -303,7 +320,7 @@ Run 3's completeness is **`0.2929` — identical to the successful Run 1.**
 Nothing was stale, nothing was unreachable. The counterparty was found, read,
 and then excluded by a rule.
 
-**That is why completeness is a number and not a flag.** A yes/no cannot express
+**That is why completeness is a number and not a flag.** A yes/no has no way to say
 *"I saw everything I needed and returned none of it, on purpose."* An operations
 team chasing a data-quality alert needs to know the difference immediately.
 
@@ -559,12 +576,13 @@ regressing?"* rather than *"what does it do?"*
 | The claim | The mechanism | The gate |
 |---|---|---|
 | Both addresses are present and genuinely distinguishable | two typed objects in the payload, compared case- and whitespace-normalized | `CPR-G01` |
-| Entitlement changes **which entities exist**, not how they are shaped | `PolicyFilter` substitutes the permissible subgraph at L4 | `CPR-G02`, comparing **sets** and carrying a negative control |
+| Entitlement changes **which entities exist**, not how they are shaped — an entitled principal is served, an unentitled one refused | `PolicyFilter` substitutes the permissible subgraph at L4; the assembler refuses a Policy-removed record through `_not_available` | `CPR-G02`, comparing outcome **sets** and carrying a negative control |
 | A no-LEI entity reports its own months-long freshness ceiling | `identity_authority` emitted per resolution | `CPR-G03` |
-| Two principals' answers differ in content and are indistinguishable in structure | suppression is structural, not a filter | `CPR-G04` |
+| The refusal an unentitled principal receives names neither the principal nor the entitlement, and cannot be told from the missing-counterparty refusal | one refusal function, one text; the test reads it for leak words | `CPR-G04` |
 | `as_of` is refused, never silently honored | `unsupported_arguments:` in `ccf_config.yaml` | `CPR-G05` |
 | All seven ontology classes are asserted | the typing chain decided at §C.3 | `CPR-G06` |
 | Every identity attribute names its authoring source | `identity_authority` in the payload | `CPR-G07` |
+| A principal whose grant matches no entity is refused — never a `200` with an empty list, never a debt figure standing in for a policy outcome | the same `_not_available` refusal (`D-IMPL-245` (4)) | `CPR-G08` |
 | A no-LEI entity is refused by the TTL lower bound | `_refuse_ttl` requires `now < expires_at` | `CPR-G09` — **and it is written to go RED when this is fixed** |
 
 **Every one of these was deliberately broken at least once**, and observed to

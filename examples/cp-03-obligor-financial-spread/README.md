@@ -73,7 +73,17 @@ make -s example-cp-03
 
 `-s` suppresses make's echo of the recipe. That echo is the only difference
 between this target's output and the transcript published on the documentation
-page.
+page. The run ends with an `assembled by` line:
+
+The `assembled by` line names the assembler implementation that produced this run (`cp-03.obligor-financial-spread@1.0.1`) — transcript evidence, read off the program's own stdout.
+
+Replay carriage of that identity is a Phase 24.6 ledger row (`D-IMPL-245` amendment 1); the transcript is the evidence the example can carry today.
+
+**What changed in this example on 2026-09-03.** The assembler's unreachable
+compatibility branch — kept for a refusal the SDK could not, at the time, return
+as data — was removed after the SDK gained the tier refusal (`24.5-L-12`/`L-13`),
+so the implementation identity moved to `1.0.1` while the product stayed `1.0.0`,
+because the served bytes and the contract did not change (`D-IMPL-245` (1)).
 
 **4 · Without make**, spelling the interpreter explicitly:
 
