@@ -253,8 +253,13 @@ make -s example-cp-03 AS_OF=2026-03-31
 ```
 
 ```
-assembly refused: 400 reconstructing the spread as it stood on a past date requires ledger time-travel and arrives at Tier 3 with covenant-in-force-as-of. This tier serves the spread as it stands, with every figure naming the filing that asserted it.: as_of — declared by this class and always refused (Standard §2.4). This verdict is raised rather than returned because ProductRequestViolation.reason is a closed Literal with no member for it; see CP-SPEC-003 §F.4
+refused: not-supported-at-tier — as_of
+   as_of: 400 not_supported_at_tier — reconstructing the spread as it stood on a past date requires ledger time-travel and arrives at Tier 3 with covenant-in-force-as-of. This tier serves the spread as it stands, with every figure naming the filing that asserted it.
 ```
+
+The first line is the SDK's verdict, returned as data by the tier step of
+`refuse_request` before the product's own code runs; the second is the detail
+the class declaration carries for the parameter, printed beneath it.
 
 ```
 make -s example-cp-03 PRINCIPAL=PRIN-KYC-004

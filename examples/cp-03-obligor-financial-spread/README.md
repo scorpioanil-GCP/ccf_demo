@@ -99,13 +99,23 @@ crash, but it is also not a success, so `make` reports `Error 1`:
 make -s example-cp-03 AS_OF=2026-03-31
 ```
 
-> `assembly refused: 400 reconstructing the spread as it stood on a past date requires ledger time-travel and arrives at Tier 3 with covenant-in-force-as-of.`
+```
+refused: not-supported-at-tier — as_of
+   as_of: 400 not_supported_at_tier — reconstructing the spread as it stood on a past date requires ledger time-travel and arrives at Tier 3 with covenant-in-force-as-of. This tier serves the spread as it stands, with every figure naming the filing that asserted it.
+```
+
+The first line is the SDK's verdict, returned as data by the tier step of
+`refuse_request` before the product's own code runs; the second is the detail
+the class declaration carries for the parameter, printed beneath it. Both lines
+are stdout, and the program exits 1.
 
 ```
 make -s example-cp-03 PRINCIPAL=PRIN-KYC-004
 ```
 
-> `assembly refused: obligor '549300D0WZR1VI2QGB24' is not available (404); §D.2 fails closed rather than returning an empty payload.`
+```
+assembly refused: obligor '549300D0WZR1VI2QGB24' is not available (404); §D.2 fails closed rather than returning an empty payload. A spread with no lines would read as 'this company reported no financials', which is a claim about the world rather than about the request
+```
 
 The second is the interesting one. `PRIN-KYC-004` holds nine jurisdiction
 grants; none of them reaches any obligor in this estate. It receives **exactly
