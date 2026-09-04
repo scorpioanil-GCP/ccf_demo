@@ -210,6 +210,34 @@ class AnchorUnresolvable:
 
 
 @dataclass(frozen=True)
+class AnchorAmbiguous:
+    """§D.2 step 1 resolved the LEI to MORE THAN ONE node — returned as DATA.
+
+    The spine branches on it exactly as it branches on ``None``: before the
+    graph is touched, before anything is ingested, before any envelope is
+    built. The assembler seam turns it into the SDK kind
+    ``ccf.products.request.AnchorAmbiguityRefusal`` and RETURNS that through
+    the D-60 channel, so a door carries it as ``anchor-ambiguity-refusal``.
+
+    **Why neither of the two nearby answers is this one** (`D-IMPL-245` (4),
+    Dave: *"Not 404, and definitely not 'serve with a finding'"*). A 404 says
+    *nothing resolved*, which is false — two things did. Serving one candidate
+    with a finding attached would let ambiguity in E flow downstream as merely
+    another finding, and the whitepaper's E-dimension invariant is that when
+    the anchor is ambiguous, everything attached to it is unreliable. *"Ambiguity
+    should therefore fail closed as typed ambiguity data."*
+
+    No HTTP status field: cp-04 ships no HTTP door and the SDK kind carries
+    none. ``candidates`` is every IRI that answered, sorted and distinct, so
+    the refusal names the collision rather than a row-order winner.
+    """
+
+    anchor: str
+    candidates: tuple[str, ...]
+    reason: str = "anchor-ambiguous"
+
+
+@dataclass(frozen=True)
 class ParameterNotSupported:
     """Standard §2.4's declared-but-inert refusal — `400`, returned as data.
 
@@ -791,7 +819,7 @@ def assemble_and_serve(
     max_depth: Any,
     role: str | None = None,
     unsupported: Mapping[str, str] | None = None,
-) -> Assembled | ProductRequestViolation | AnchorUnresolvable | ParameterNotSupported | Any:
+) -> Assembled | ProductRequestViolation | AnchorUnresolvable | AnchorAmbiguous | ParameterNotSupported | Any:
     """Answer one question, end to end, against ``root`` as scratch space.
 
     The steps run in the order the specification's section D fixes them and the
@@ -818,6 +846,14 @@ def assemble_and_serve(
         scenario = read(booted, request, max_depth=max_depth, role=role)
         if scenario is None:
             return AnchorUnresolvable(anchor=request.subject)
+
+        # MORE THAN ONE NODE ANSWERED TO THE ANCHOR. Returned as the typed value
+        # it arrived as — never a 404, never one candidate with a finding
+        # (`D-IMPL-245` (4)) — and before the graph is touched, exactly as the
+        # ``None`` case above. The class is this module's own, so the branch
+        # is a real ``isinstance`` rather than a duck-typed attribute probe.
+        if isinstance(scenario, AnchorAmbiguous):
+            return scenario
 
         # Checked before the graph is touched, so a question this class does not
         # answer costs nothing and returns a reason rather than an approximation.

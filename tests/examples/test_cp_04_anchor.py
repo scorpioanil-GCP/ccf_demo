@@ -32,6 +32,7 @@ down addresses into the fixture and the SDK's own constants, never figures.
 
 from __future__ import annotations
 
+import json
 import pathlib
 import tempfile
 from typing import Any, Iterator, Mapping
@@ -40,9 +41,19 @@ import pytest
 
 from ccf.agents.assembler import AssemblyOutcome
 from ccf.graph.backends.fluree import DEFAULT_BRANCH
+from ccf.products.request import AnchorAmbiguityRefusal
+from ccf.products.refusal import REFUSAL_KINDS
 
 from .cp_04_seed import ledger_for, schema_for, seed
-from .test_cp_04_debt import _load
+from .test_cp_04_debt import (
+    LEI_PREDICATE,
+    ROW_LESS_MEMBER,
+    _document,
+    _fixture_body,
+    _perturbed_ledger,
+    _set_lei,
+)
+from .test_cp_04_two_callers import Refused, _load, drive, tool_arguments, tool_call
 
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres]
 
@@ -208,3 +219,195 @@ def test_the_served_outcome_names_the_module_assembler_version(
         " implementation; 1.0.0 would make two implementations share one name,"
         " and am.3 rules never 1.0.2"
     )
+
+
+# ---------------------------------------------------------------------------
+# Criterion 19 — an ambiguous anchor is refused as typed ambiguity data.
+# ---------------------------------------------------------------------------
+
+#: The envelope kind the SDK names for the refusal (`src/ccf/products/refusal.py`
+#: `REFUSAL_KINDS`), read off the mapping rather than spelled at the assertion.
+AMBIGUITY_KIND = REFUSAL_KINDS[AnchorAmbiguityRefusal]
+
+#: The one door operation this module drives.
+AMBIGUOUS_ASK = "mcp-tool(the demonstration anchor on the perturbed ledger)"
+
+
+def _anchor_lei_and_iri(deployment: Any) -> tuple[str, str]:
+    """The demonstration anchor's LEI (the request subject) and its fixture IRI.
+
+    Read FROM the fixture by the LEI the shipped request carries, and refused
+    loudly when the fixture holds no such document or more than one: a
+    perturbation aimed at an anchor the fixture does not carry would build an
+    estate with ONE binding for the LEI, and every assertion below would then
+    be true of an unambiguous estate — the shape of a test that cannot fail.
+    """
+    lei = str(deployment.demonstration_request().subject)
+    holders = [
+        str(document["@id"])
+        for document in _fixture_body()["insert"]
+        if any(str(value) == lei for value in (document.get(LEI_PREDICATE) or ()))
+    ]
+    assert len(holders) == 1, (
+        f"the committed fixture holds {len(holders)} document(s) carrying the"
+        f" demonstration anchor's LEI {lei!r}: {holders}; this module's"
+        " perturbation needs exactly ONE so that the second binding is the one"
+        " it plants"
+    )
+    return lei, holders[0]
+
+
+@pytest.fixture(scope="module")
+def ambiguous_estate(
+    fluree_url: str, postgres_dsn: str, baseline: tuple[str, str]
+) -> tuple[str, str, str]:
+    """A ledger where ONE second node carries the anchor's LEI; the baseline schema.
+
+    The inverse of `test_cp_04_debt.py::resolving_estate`: that estate gives a
+    row-less member a NEW LEI, this one gives it the ANCHOR's. Two nodes then
+    answer the anchor's SELECT, which is the collision the committed fixture
+    does not carry (`test_cp_04_seams.py::lei_identity_violations` refuses one
+    there). The Postgres schema is the baseline's: the refusal is pre-assembly,
+    so the attribute store is never reached, and an LEI edit in Fluree moves no
+    attribute row.
+
+    Returns ``(ledger, schema, anchor_iri)``.
+    """
+    _, schema = baseline
+    deployment = _load("deployment")
+    anchor_lei, anchor_iri = _anchor_lei_and_iri(deployment)
+    assert anchor_iri != ROW_LESS_MEMBER, (
+        "the perturbation target IS the anchor; the collision would be one node"
+    )
+    # `_document` refuses a miss, so a perturbation applied to nothing fails here.
+    _document(_fixture_body(), ROW_LESS_MEMBER)
+    ledger = _perturbed_ledger(
+        fluree_url, lambda body: _set_lei(body, ROW_LESS_MEMBER, anchor_lei)
+    )
+    return ledger, schema, anchor_iri
+
+
+def test_cft_g18_an_ambiguous_anchor_is_refused_as_typed_ambiguity_data(
+    ambiguous_estate: tuple[str, str, str],
+    fluree_url: str,
+    postgres_dsn: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`CFT-G18`: two nodes answer the anchor's LEI → `AnchorAmbiguityRefusal`, as data.
+
+    `D-IMPL-245` (4), Dave: *"AnchorAmbiguityRefusal. Not 404, and definitely
+    not 'serve with a finding'."* The seam RETURNS the SDK kind — never raises
+    it — carrying the anchor and EXACTLY the two candidate IRIs (a set, never a
+    count), and nothing is served: no observed vessel, no payload, no address.
+    Sabotage: restore `resolve_anchor`'s first-binding return, so the shared
+    LEI serves whichever node the store lists first.
+    """
+    ledger, schema, anchor_iri = ambiguous_estate
+    _point_at(
+        monkeypatch, fluree_url=fluree_url, ledger=ledger, dsn=postgres_dsn, schema=schema
+    )
+    deployment = _load("deployment")
+    request = deployment.demonstration_request()
+    outcome, seen = _assemble_keeping_the_return(request=request)
+
+    assert isinstance(outcome, AnchorAmbiguityRefusal), (
+        "an anchor carried by TWO nodes was not refused as typed ambiguity data;"
+        f" the seam returned {type(outcome).__name__}: {outcome!r}"[:900]
+    )
+    assert outcome.anchor == request.subject
+    assert outcome.candidates == frozenset({anchor_iri, ROW_LESS_MEMBER}), (
+        "the refusal must name EXACTLY the two colliding nodes:"
+        f" got {sorted(outcome.candidates)}"
+    )
+    assert not any(
+        getattr(entry, "served", None) is not None for entry in seen
+    ), "a vessel was SERVED beside the ambiguity refusal — ambiguity flowed downstream"
+    assert REFUSAL_KINDS[type(outcome)] == AMBIGUITY_KIND
+    # The detail names the count and the rule; which candidates THIS principal
+    # may see is the audit plane's account and must not appear here.
+    assert str(len(outcome.candidates)) in outcome.detail
+    for word in ("entitle", "principal", "visible", "grant"):
+        assert word not in outcome.detail.casefold(), (
+            f"the refusal detail discloses visibility via {word!r}: {outcome.detail}"
+        )
+
+
+def test_cft_g18_b_the_tool_carries_the_ambiguity_as_a_governed_refusal(
+    ambiguous_estate: tuple[str, str, str],
+    fluree_url: str,
+    postgres_dsn: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`CFT-G18` over the MCP door: the envelope's `kind` is the SDK's, the door stays up.
+
+    The SHIPPED door (`server/serve.py::door`) is driven through the SHIPPED
+    tool. `AnchorAmbiguityRefusal` is a member of `REFUSAL_KINDS`, so
+    `door_refusal` translates the value the assembler returned into the one
+    refusal envelope with no edit to `transport.py` or `server/compose.py` —
+    which is what this leg measures. The door must not be torn down by the
+    refusal (a `Refused` here would be the CR-01 symptom), and the outcome the
+    tool returns must carry the kind by name and both colliding IRIs.
+    """
+    ledger, schema, anchor_iri = ambiguous_estate
+    _point_at(
+        monkeypatch, fluree_url=fluree_url, ledger=ledger, dsn=postgres_dsn, schema=schema
+    )
+    deployment = _load("deployment")
+    serve = _load("serve")
+    tenant = deployment.tenant_id()
+    request = deployment.demonstration_request()
+
+    with tempfile.TemporaryDirectory(prefix="cp04-anchor-door-") as scratch:
+        with serve.door(root=pathlib.Path(scratch)) as opened:
+            results = drive(
+                opened,
+                {AMBIGUOUS_ASK: tool_call(tool_arguments(tenant=tenant, typed=request))},
+            )
+
+    result = results[AMBIGUOUS_ASK]
+    assert not isinstance(result, Refused), (
+        "the ambiguous anchor took the door DOWN instead of answering with a"
+        f" governed refusal: {result.reason[:1000]}"
+    )
+    is_error, text = result
+    outcome = json.loads(text)
+    refusal = outcome.get("refusal")
+    assert refusal is not None, (
+        f"the door SERVED on an ambiguous anchor (isError={is_error}): {text[:1000]}"
+    )
+    assert refusal["kind"] == AMBIGUITY_KIND, (
+        f"the door refused under kind {refusal['kind']!r}, not {AMBIGUITY_KIND!r}"
+        f" (isError={is_error}): {text[:1000]}"
+    )
+    assert outcome.get("product_json") is None, "a vessel rode beside the refusal"
+    for iri in (anchor_iri, ROW_LESS_MEMBER):
+        assert iri in text, f"the envelope does not name the candidate {iri}: {text[:1000]}"
+    # The envelope is a RETURN VALUE, not a raised tool error: measured against
+    # `mcp==1.28.1`, the egress door renders a refusal as the outcome the tool
+    # returns (`runtime/ccf_runtime/mcp/egress.py`, "A refusal, as the return
+    # value rather than a raise"), so `isError` carries no governed meaning here
+    # and is recorded, not asserted.
+    assert isinstance(is_error, bool)
+
+
+def test_the_ambiguity_gate_measures_the_perturbation_and_not_the_estate(
+    baseline: tuple[str, str],
+    fluree_url: str,
+    postgres_dsn: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Control: the SAME request on the UNPERTURBED estate is SERVED.
+
+    Without this, a seam that refused every anchor as ambiguous would keep
+    the gate above green forever. The committed fixture has no shared LEI, so
+    the demonstration request resolves to one node and assembles.
+    """
+    ledger, schema = baseline
+    _point_at(
+        monkeypatch, fluree_url=fluree_url, ledger=ledger, dsn=postgres_dsn, schema=schema
+    )
+    outcome, seen = _assemble_keeping_the_return()
+    assert isinstance(outcome, AssemblyOutcome), (
+        f"the unperturbed estate was REFUSED: {type(outcome).__name__} {outcome!r}"[:600]
+    )
+    assert any(getattr(entry, "served", None) is not None for entry in seen)

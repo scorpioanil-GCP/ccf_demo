@@ -53,7 +53,11 @@ from typing import Any, Protocol, cast
 
 from ccf.agents.assembler import NO_CONSULTATIONS, AssemblyOutcome
 from ccf.agents.errors import AssemblyRefused
-from ccf.products.request import ProductRequest, ProductRequestViolation
+from ccf.products.request import (
+    AnchorAmbiguityRefusal,
+    ProductRequest,
+    ProductRequestViolation,
+)
 from ccf.projection.plan import Perspective
 
 import deployment
@@ -155,14 +159,17 @@ class FamilyTreeAssembler:
         request: ProductRequest,
         perspective: Perspective,
         tenant_id: str,
-    ) -> AssemblyOutcome | ProductRequestViolation:
+    ) -> AssemblyOutcome | ProductRequestViolation | AnchorAmbiguityRefusal:
         """Assemble one answer to ``request`` for ``perspective``.
 
         Returns:
             The :class:`~ccf.agents.assembler.AssemblyOutcome`, or a
             :class:`~ccf.products.request.ProductRequestViolation` RETURNED as
             data when the question does not conform to the declared contract
-            (D-60).
+            (D-60), or an
+            :class:`~ccf.products.request.AnchorAmbiguityRefusal` RETURNED as
+            data when the anchor LEI resolves to more than one node
+            (`D-IMPL-245` (4), `CFT-G18`) — the same channel, never a raise.
 
         Raises:
             AssemblyRefused: ``tenant_id`` or ``perspective`` disagrees with what
@@ -233,6 +240,33 @@ class FamilyTreeAssembler:
         # `src/ccf/products/request.py::refuse_request` step 2 (`_refuse_tier`) — as a
         # `ProductRequestViolation(reason="not-supported-at-tier")` returned as DATA
         # through the branch above (`24.5-L-12`/`L-13`); this seam has no branch of its own.
+
+        # AMBIGUITY IN E FAILS CLOSED AS TYPED DATA, AND THE DOOR CARRIES IT
+        # (`D-IMPL-245` (4), `CFT-G18`). More than one node answered to the
+        # anchor's LEI. Dave: *"Debt must not become a substitute vocabulary
+        # for policy refusal, and ambiguity in E must not be allowed downstream
+        # as merely another finding."* A 404 would say nothing resolved, which
+        # is false; serving whichever candidate the store listed first, with a
+        # finding attached, would let the collision flow on as one more row in
+        # `findings`. So the SDK kind is RETURNED — it is in `REFUSAL_KINDS`,
+        # so `transport.py` and `server/compose.py` hand it to the door as
+        # `anchor-ambiguity-refusal` without an edit — and never raised.
+        #
+        # THE CANDIDATES ARE THE IRIs THE KIND CARRIES BY DESIGN; the detail
+        # names the count and the rule and NOTHING about which of them this
+        # principal may see. Visibility is the audit plane's account, not the
+        # caller's (the same line `_not_available` draws).
+        if isinstance(assembled, produce.AnchorAmbiguous):
+            return AnchorAmbiguityRefusal(
+                anchor=assembled.anchor,
+                candidates=frozenset(assembled.candidates),
+                detail=(
+                    f"anchor {assembled.anchor!r} resolves to"
+                    f" {len(assembled.candidates)} nodes; §D.2 step 1 fails"
+                    " closed on ambiguity rather than choosing one of them"
+                    " (D-IMPL-245 (4))"
+                ),
+            )
 
         # AN UNRESOLVABLE ANCHOR IS A DIFFERENT KIND OF THING. A
         # `ProductRequestViolation` says *this class does not answer that

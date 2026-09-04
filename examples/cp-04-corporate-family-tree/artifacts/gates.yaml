@@ -75,6 +75,17 @@
 # that module's own comment-only check would then demand the very id the
 # withdrawal forbids.
 #
+# SEVENTEEN DECLARED GATES AS OF 2026-09-03 (Phase 24.5.1, `D-IMPL-245` (4);
+# criterion 19 as amended, `24.5.1-CRITERIA-LOCK.md` Amendment 1): `CFT-G01`
+# through `CFT-G16` and `CFT-G18`. `CFT-G18` is the AMBIGUOUS-ANCHOR gate —
+# an anchor LEI carried by more than one node is refused as typed ambiguity
+# data — and it is NOT a restatement of withdrawn criterion 41 / ontology
+# role 1, which stays withdrawn and claimed by no gate. The withdrawn
+# seventeenth id is still declared here under no name at all; a withdrawn id
+# is never re-minted, so `CFT-G18` is the next free id, not a re-mint. The
+# ruling block above is preserved as written: sixteen was the roster on the
+# day it was ruled, and this note is the dated record of the one addition.
+#
 # `role: load`. A gate roster is a declaration of obligations, parsed and handed
 # back; it is not something the fabric is PERMITTED to do.
 
@@ -968,3 +979,57 @@ declaration:
           files.
         date: "2026-09-01"
         commit: "8ecd22f"
+
+    # ---- Phase 24.5.1: the ambiguous anchor (`D-IMPL-245` (4)) --------------
+    # `criterion: 19` is PHASE 24.5.1's ROADMAP criterion 19 (as amended by
+    # `24.5.1-CRITERIA-LOCK.md` Amendment 1), NOT a Phase 24.4 criterion — the
+    # sixteen rows above name 24.4's 25 through 40. A gate addition is PATCH
+    # class by the Standard's change-class table (§14), so the product lane's
+    # `semver`/`schema_version` in `ccf_config.yaml` do not move (`D-IMPL-245`
+    # (1), criterion 3), and this roster's own `semver: "1.0.0"` does not move
+    # either: it is the artifact's SCHEMA lane, and the schema is unchanged.
+    - id: CFT-G18
+      criterion: 19
+      statement: >-
+        An anchor LEI that resolves to MORE THAN ONE node is refused as typed
+        ambiguity data — `AnchorAmbiguityRefusal` carrying the anchor and every
+        candidate IRI — never a 404 (which says nothing resolved), never one
+        candidate served with a finding, never a coin flip on row order.
+      test: tests/examples/test_cp_04_anchor.py::test_cft_g18_an_ambiguous_anchor_is_refused_as_typed_ambiguity_data
+      sabotage: >-
+        restore `resolve_anchor`'s first-binding return so a shared LEI serves
+        whichever node the store lists first.
+      observed_red:
+        result: >-
+          RED, under its own id, on a PERTURBED ledger — the committed fixture
+          carries no shared LEI (and `test_cp_04_seams.py` refuses one), so
+          the estate was built by `_perturbed_ledger` with the row-less member
+          `SubSupermicroKk` given the demonstration anchor's LEI: two nodes
+          answer one SELECT. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/deployment.py::resolve_anchor`
+          — the collect-every-binding block replaced by the shipped
+          `for row in rows: found = _binding(row, "s"); if found is not None:
+          return found`. THE COIN LANDED ON THE OTHER NODE: the store listed
+          `SubSupermicroKk` first, the walk ran from it, and the family it
+          reached served only `US-DE`, so the closed-world guard refused —
+          observed "ccf.agents.errors.AssemblyRefused: artifacts/source-vocabulary.yaml
+          declares jurisdiction(s) ['NL'] that no member of this family
+          serves … the observed set is ['US-DE']" in place of the typed
+          refusal, and the door leg observed "json.decoder.JSONDecodeError"
+          because the raise crossed as a torn tool error rather than an
+          envelope. Both `test_cft_g18_*` node ids FAILED (2 failed, 1 passed
+          — the unperturbed-estate control stayed green, so the gate measures
+          the perturbation and not the estate). A SECOND sabotage, one
+          candidate dropped from the frozenset at
+          `examples/cp-04-corporate-family-tree/assembler.py`
+          (`candidates=frozenset(assembled.candidates[1:])`), was RED on set
+          equality — "the refusal must name EXACTLY the two colliding nodes:
+          got ['http://example.org/fibo/SuperMicroComputerInc']" — and on the
+          door leg "the envelope does not name the candidate
+          http://example.org/fibo/SubSupermicroKk". Each restored by `cp` and
+          `cmp` clean; 5 passed after. The expectation (the two IRIs) is read
+          from the fixture `tests/examples/fixtures/cp_04_family_fluree.json`
+          by the LEI the shipped request carries; the sabotages edit
+          `deployment.py` and `assembler.py`. Different files.
+        date: "2026-09-03"
+        commit: "7a89d0f5"
