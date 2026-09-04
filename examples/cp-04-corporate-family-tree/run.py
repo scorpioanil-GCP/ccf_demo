@@ -259,13 +259,21 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = client.ask(parameters, as_of=asked_at)
         except AssemblyRefused as refused:
-            # RAISED RATHER THAN RETURNED, AND THAT IS A RECORDED SDK-SURFACE
-            # GAP RATHER THAN A CHOICE (spec §F.4). `RefusalEnvelope` carries a
-            # CLOSED set of refusal kinds with no member for
-            # `not_supported_at_tier` and none for an over-ceiling depth, so
-            # these two cannot cross the wire as values. Translating them into a
-            # kind that does exist would report the wrong reason, which is the
+            # THE ONE CONDITION THIS RUNG SIGNALS BY EXCEPTION IS A DEPTH
+            # ABOVE THE DECLARED CEILING, AND THAT IS A RECORDED SDK-SURFACE
+            # GAP RATHER THAN A CHOICE (spec §F.4). `deployment.DepthOutOfBounds`
+            # is this example's own type; the SDK does not know it, so
+            # `ccf.products.refusal::REFUSAL_KINDS` declares no envelope that
+            # names it and `assembler.py` raises. Translating it into a kind
+            # that does exist would report the wrong reason, which is the
             # flattening the envelope exists to prevent.
+            #
+            # A DECLARED-BUT-INERT PARAMETER NO LONGER ARRIVES HERE. Since
+            # `24.5-L-12`/`L-13` the SDK's own tier step
+            # (`src/ccf/products/request.py::_refuse_tier`) returns a
+            # `ProductRequestViolation` whose reason is `not-supported-at-tier`,
+            # and `assembler.py` hands that back as DATA through its governed
+            # branch — `CFT-G06` is the declared gate that exercises it.
             print(f"assembly refused: {refused}", file=sys.stderr)
             return 1
 

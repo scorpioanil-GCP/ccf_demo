@@ -46,8 +46,10 @@ constructs no `DoorOutcome` of its own. A governed refusal that has a refusal
 the assembler **raises** propagates: `AssemblyRefused` is not in
 `ccf.products.refusal::REFUSAL_KINDS`, so there is no envelope for it, and
 synthesizing one here would report a refusal in a vocabulary the fabric does not
-have. That gap is the same one §F.4 records for `not_supported_at_tier` — the
-fourth rung in a row to meet it — and this file works within it rather than
+have. That gap is now a narrow one: since `24.5-L-12`/`L-13` a declared-but-inert
+parameter crosses as a `ProductRequestViolation` value, so the depth ceiling's
+`deployment.DepthOutOfBounds` is the one condition left on this rung for which
+the fabric declares no envelope — and this file works within that rather than
 papering over it.
 """
 
