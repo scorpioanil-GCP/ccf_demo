@@ -3,8 +3,23 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-04T12:05:00.000Z"
+last_updated: "2026-09-04T21:40:00.000Z"
 last_activity: >-
+  **PHASE 24.6 PLANNING IN PROGRESS — LEDGER BUILT, CRITERIA NOT LOCKED, FIVE ITEMS OPEN FOR DAVE (2026-09-04,
+  /gsd-plan-phase 24.6, branch `phase-24.6`).** Dave reviewed CONTEXT/RULINGS remotely and ruled GO with four
+  amendments (`D-IMPL-253` am.2: D-01 provenance generalized, D-12 emptiness alone does not determine Debt,
+  D-15 classification rule is his and mechanical, D-27 consumer-observational equivalence) and three planning
+  disciplines (am.3: exhaustive ledger before criteria; criteria test architectural properties — same request +
+  same governed state + same asked_at → same determination/authority/disclosure/replayable response; order
+  preserved). Research `b8dafc93` measured the tree at `1022ad59`: 21 carry rows, 28 raise sites (22 governed /
+  1 failure / 5 AMBIGUOUS in cp-04 `deployment.py`), both doors traced, 71 SDK test functions on the
+  re-derivation surface, 8 CONTEXT contradictions (appended note). Pattern map `8ae0b570`. **`24.6-LEDGER.md`:
+  21 rows L-01..L-21, every B-01..B-14 / LC-01..05 / 245(a)(b) with a disposition in Dave's words or `OPEN`.**
+  **OPEN FOR DAVE before criteria lock (§H):** (1) fence over the 18 cp-00..03 governed raise sites; (2) what
+  evidence establishes a legitimately empty universe (SDK ships no number); (3) LC-04/LC-05 deferred by ruling;
+  (4) republish cp-01 or generator only; (5) the five AMBIGUOUS sites as two questions. CLAUDE.md invariants vs
+  `D-IMPL-254`: no contradiction measured. **Next: Dave rules §H → criteria locked one per line + digest →
+  planner → checker.** Next free id `D-IMPL-255`. Hand-edited; no `state.*` or `roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 IS DISCUSSED (2026-09-04, /gsd-discuss-phase 24.6).** First question ruled before the menu: `D-IMPL-252` —
   24.6 is the SDK gap phase, NOT cp-05 (cp-05 is the rung after, number unassigned); ROADMAP entry written by hand at
   `501fd70a`. Then 28 rulings in prose with numbered options (menus declined; format switched at Dave's request),
