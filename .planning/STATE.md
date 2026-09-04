@@ -3,8 +3,21 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-04T07:45:00.000Z"
+last_updated: "2026-09-04T12:05:00.000Z"
 last_activity: >-
+  **PHASE 24.6 IS DISCUSSED (2026-09-04, /gsd-discuss-phase 24.6).** First question ruled before the menu: `D-IMPL-252` —
+  24.6 is the SDK gap phase, NOT cp-05 (cp-05 is the rung after, number unassigned); ROADMAP entry written by hand at
+  `501fd70a`. Then 28 rulings in prose with numbered options (menus declined; format switched at Dave's request),
+  recorded verbatim at `D-IMPL-253` and mapped D-01..D-28 in `24.6-CONTEXT.md`: policy-constraint layer as its own
+  Control Plane artifact with provenance on every parameter; defaults on the request contract; `debt_ceiling` renamed,
+  `tolerance-exceeded` kind; computed-empty served (empty fabric IS computed — hw1 negative test re-derived); every
+  refusal gets a full five-dimension replay record; `RefusalEnvelope` extended additively; identity refusal returned
+  for governed determinations only; doors: no known refusal → 500, standing MCP resource body is the shell, no tool
+  error for governed denial; cp-04: 6 deleted as bound, 100 is technical, findings carry depth/cost, lane → 1.1.0,
+  republish in-phase; whole B-01..B-14 roster through the phase; no suppression-silent kind; whitepaper untouched.
+  **Pattern for design: internal truth / governing authority / permitted disclosure are three representations.**
+  NO criteria yet (`D-GATE-19` — at planning, one per line, before Wave 1). **Next: `/gsd-plan-phase 24.6`.**
+  Next free id `D-IMPL-254`. Hand-edited; no `state.*` or `roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.5.1 IS CLOSED — `D-GATE-24.5.1` (Dave, 2026-09-04), disposition option 3.** The pause below ended
   with `D-IMPL-251` (the delivery boundary: refusal of fulfillment, not of response; C1=A C2=B C3=B C4=A C5=B;
   policy-constraint layer → 24.6) and `D-IMPL-240` am.2 / `D-IMPL-242` am.1. Closed on the implemented and
@@ -1177,6 +1190,13 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**PHASE 24.6 IS DISCUSSED — `D-IMPL-252` (not a product rung) and `D-IMPL-253` (28 rulings), Dave, 2026-09-04.**
+Context at `.planning/phases/24.6-sdk-gap-phase-the-delivery-boundary-realized-refusal-as-a-go/24.6-CONTEXT.md`;
+alternatives in `24.6-DISCUSSION-LOG.md`. `src/`+`runtime/` OPEN; `examples/` only where an SDK change makes a rung
+stale (cp-04). The ledger (B-01..B-14 + `LC-01..05` + two `D-IMPL-245` rows) is the FIRST deliverable, no code
+before it. Criteria at planning (`D-GATE-19`). Next id `D-IMPL-254`. **Resume with `/gsd-plan-phase 24.6`.**
+The paragraph below is the record as it stood before this sitting.
 
 **PHASE 24.5 IS COMMISSIONED — `D-IMPL-235` (Dave, 2026-09-02) — AND NOTHING OF IT IS BUILT.** It is the
 comprehensive SDK gap catch-up for cp-00 through cp-04: ledger sitting first (no code), fix-rows clustered
