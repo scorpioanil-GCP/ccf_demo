@@ -3181,7 +3181,7 @@ Plans:
 - [x] 24.5.1-02-PLAN.md — cp-01/02/03 code and tests: dead `ParameterNotSupported` machinery deleted, `ASSEMBLER_VERSION` 1.0.1 with a pin test, the `assembled by` line, `CPR-G08` refuses through one `_not_available` (D-08), `OFS-G06`'s spelling line inverted
 - [ ] 24.5.1-03-PLAN.md — cp-01/02/03 prose, §F.4 closure notes, transcripts diffed then re-pinned, pages rebuilt
 - [x] 24.5.1-04-PLAN.md — hw1: `runner/signal-batch.yaml` + `runner/seed.py`, seeded parity, the negative module, `consume.py` key suffix, README narrowed and re-captured byte for byte, the seed target
-- [ ] 24.5.1-05-PLAN.md — cp-04 code and tests: `ledger_t` on name AND branch, `AnchorAmbiguityRefusal` as data with ~~`CFT-G17`~~ `CFT-G18` (amended 2026-09-03 with criterion 19; `CFT-G17` stays withdrawn) (D-09), dead branch deleted, one PATCH bump, the declaration test reconciled
+- [x] 24.5.1-05-PLAN.md — cp-04 code and tests: `ledger_t` on name AND branch, `AnchorAmbiguityRefusal` as data with ~~`CFT-G17`~~ `CFT-G18` (amended 2026-09-03 with criterion 19; `CFT-G17` stays withdrawn) (D-09), dead branch deleted, one PATCH bump, the declaration test reconciled
 - [ ] 24.5.1-06-PLAN.md — cp-04 recorded lies, README/summary/spec, `CFT-G16` live, transcript diffed then re-pinned, page built
 - [ ] 24.5.1-07-PLAN.md — close prep: every instrument at close with controls, the four foreground chunks and both legs (criterion 23's measured half)
 - [ ] 24.5.1-08-PLAN.md — pages republished (cp-04 first publish), the §3.1 panel packet, the `D-GATE-24.5.1` draft, `RETIREMENT-COUPLINGS.md` last
