@@ -85,14 +85,15 @@ make -s example-cp-01
 | # | What was asked | What came back | Completeness | Seal | Stopped? |
 |---|---|---|---|---|---|
 | 1 | The counterparty | The full record | `0.29` — fine | `ab2e1a62…` | no |
-| 2 | The same, by a different person | **Nothing, and no reason given** | `1.00` — **fail closed** | `1f37263d…` | no |
+| 2 | The same, by a different person | **Refused — in the same words as an identifier that does not exist** | — | — | **yes** |
 | 3 | A counterparty whose LEI lapsed | Nothing, **and why** | `0.29` — fine | `d22e96ad…` | no |
 | 4 | The same, asking for it anyway | The record, flagged `LAPSED` | `0.29` — fine | `a0d5d11c…` | no |
 | 5 | An identifier that doesn't exist | **A 404, not an empty record** | — | — | **yes** |
 | 6 | "As of last January" | **Refused — this product cannot do that** | — | — | **yes** |
 | 7 | A private borrower with no LEI | **Refused — a known defect, documented** | — | — | **yes** |
 
-**Four different seals for the same counterparty, at the same instant.** That is
+**Three different seals for the same counterparty, at the same instant — and one
+refusal with no seal at all, because there is no answer to seal.** That is
 the single most important line in the table, and the section on the seal says
 why it matters to an auditor.
 
@@ -187,30 +188,23 @@ whichever address happened to get loaded.
 
 ---
 
-## Run 2 — the same question, asked by someone else
+## Run 2 — the same question, asked by someone who cannot see it
 
 ```bash
 make -s example-cp-01 PRINCIPAL=PRIN-KYC-004
 ```
 
-```json
-{
-  "counterparty": null,
-  "perspective_role": "analyst"
-}
 ```
-
+assembly refused: counterparty '529900E95812SYWMCE44' is not available (404); §D.2 step 1 fails closed rather than returning an empty payload
 ```
-   context debt D_c   1.0000  ->  fail_closed
-   principal          PRIN-KYC-004   sees 9 jurisdiction(s)
-   content address    1f37263d83a9dfe68532ace42d0071644356ed1be7ae3712a88343edb36d137c
-```
-*(three lines lifted verbatim from the summary block; the rest is as Run 1)*
+*(the whole of stdout; the program exits 1, so `make` reports `Error 1`)*
 
 This analyst's entitlements cover nine European jurisdictions. The counterparty
 is Delaware. **So it was removed from the data this person can see *before* the
 answer was assembled** — not filtered out of a result afterwards. The product
-did not withhold a record it was holding. It never held one.
+did not withhold a record it was holding. It never held one — and with nothing
+to serve, it refuses, in exactly the words Run 5 prints for an identifier that
+does not exist.
 
 > ### What you'd have missed
 >
@@ -222,10 +216,13 @@ did not withhold a record it was holding. It never held one.
 > not a hypothetical failure mode; it is the most common one in an entitled
 > data estate.
 >
-> **`completeness 1.0000 → fail closed` is what makes those two answers
-> different.** The system is not saying *"nothing matched."* It is saying
-> **"I could not see enough to answer you, and I will not pretend
-> otherwise."**
+> **The refusal is what stops that.** The system is not handing back an empty
+> record that reads as *"nothing matched."* It is stopping the process — and it
+> stops it in the same words it uses for a counterparty that does not exist, so
+> an analyst who is not entitled to a record cannot learn, by asking, that there
+> is a record to be entitled to. Policy exclusion is not a data-quality event
+> and is not scored as one: there is no completeness figure here to mistake for
+> a data problem.
 
 ### How it works
 
@@ -235,11 +232,13 @@ permissible subgraph *for* the full graph. There is no withheld set left over to
 leak a count from — which is why the payload can carry no marker without anyone
 having to remember to remove one.
 
-`D_c` reaching `1.0000` is the same mechanism seen from the other end: with no
-entity in the view, `FreshnessScorer` has an empty sequence and refuses it by
-design, so the assembly returns the maximum debt rather than inventing a score
-for nothing. **Fail-closed is a consequence of the shape, not a branch somebody
-wrote.**
+The refusal is the assembler reading that shape. A payload whose `counterparty`
+is empty and which carries no `excluded` block is the signature of a record the
+Policy step removed — the caller-requested exclusion of Run 3 always carries
+one — and the assembler raises for it through the same function `Resolve` uses
+for an unknown anchor, `assembler.py::_not_available`, so there is no second
+wording to drift. **Nothing about the principal or the entitlement reaches the
+text**, and the test behind `CPR-G04` reads the refusal for exactly those words.
 
 One implementation detail worth naming for anyone extending this: the grant in
 `principal_jurisdiction` is a **prefix** (`US` covers `US-DE`, `US-MD`), and
@@ -251,11 +250,12 @@ unexpanded matches nothing and empties the view for everyone.
 
 | Field | Entitled analyst | Unentitled analyst |
 |---|---|---|
-| the counterparty | full record | **nothing** |
+| the counterparty | full record | **nothing — a refusal, not a payload** |
 | freshness ceiling | `1 day` | **gone** |
 | signal class | `vendor_identity` | **gone** |
+| the seal | `ab2e1a62…` | **none — there is no answer to seal** |
 
-**Three things disappear, not one.** A system that blanks the name but leaves
+**Everything disappears, not one field.** A system that blanks the name but leaves
 the metadata standing has just told an unentitled person what *kind* of thing
 they were not allowed to see — and in a bank, the existence of a file is often
 the sensitive fact. Suppression that stops at the headline value is not
@@ -288,13 +288,13 @@ make -s example-cp-01 ANCHOR=549300TRW1LZMDJZAQ78
 
 ### Two silences, and only one of them explains itself
 
-Runs 2 and 3 both return nothing. **Run 3 says why; Run 2 refuses to.** That
-asymmetry is designed, not accidental:
+Runs 2 and 3 both come back with no counterparty. **Run 3 says why; Run 2
+refuses outright and says nothing.** That asymmetry is designed, not accidental:
 
 | | Run 2 — not entitled | Run 3 — lapsed registration |
 |---|---|---|
-| explanation | **none** | `registration-lapsed` |
-| completeness | `1.00` — fail closed | `0.29` — fine |
+| explanation | **none** — a refusal indistinguishable from *"no such counterparty"* | `registration-lapsed` |
+| completeness | none — no product is served | `0.29` — fine |
 | why the difference | explaining would leak: *"you may not see it"* confirms it exists | the analyst **is** entitled to it; it was excluded by a setting they may change |
 
 ### Completeness measures what could not be seen — not what was withheld
@@ -343,13 +343,24 @@ make -s example-cp-01 ANCHOR=549300TRW1LZMDJZAQ78 INCLUDE_LAPSED=1
 Five fields, excerpted from the full record it returns:
 
 ```json
-{
-  "entity_status": "ACTIVE",
-  "headquarters_address": { "city": "Parsippany-Troy Hills", "country": "US", "region": "US-NJ" },
-  "legal_address": { "city": "Wilmington", "country": "US", "region": "US-DE" },
-  "legal_name": "B&G Foods, Inc.",
-  "registration_status": "LAPSED"
-}
+[… the `counterparty` record, excerpted at its own indentation …]
+    "entity_status": "ACTIVE",
+    "headquarters_address": {
+      "city": "Parsippany-Troy Hills",
+      "country": "US",
+      "region": "US-NJ"
+    },
+[…]
+    "legal_address": {
+      "city": "Wilmington",
+      "country": "US",
+      "region": "US-DE"
+    },
+[…]
+    "legal_name": "B&G Foods, Inc.",
+[…]
+    "registration_status": "LAPSED",
+[…]
 ```
 
 ```
@@ -410,13 +421,13 @@ make -s example-cp-01 ANCHOR=NOSUCHENTITY0000000
 ```
 
 ```
-assembly refused: anchor 'NOSUCHENTITY0000000' resolved to no entity through
-either identity authority (404); §D.2 step 1 fails closed rather than returning
-an empty payload
+assembly refused: counterparty 'NOSUCHENTITY0000000' is not available (404); §D.2 step 1 fails closed rather than returning an empty payload
 ```
 
 **"No such counterparty" and "a counterparty we hold nothing on" are different
-answers.** A system that returns an empty record for both has destroyed the
+answers.** Compare this line with Run 2's: the same words, subject for subject.
+That is deliberate — a caller probing identifiers must not be able to learn
+which counterparties this estate covers from which ones it declines to name. A system that returns an empty record for both has destroyed the
 difference — and onboarding is precisely where that difference decides whether
 you open a second file on an existing client.
 
@@ -427,14 +438,14 @@ make -s example-cp-01 AS_OF=2026-01-01T00:00:00+00:00
 ```
 
 ```
-assembly refused: 400 not_supported_at_tier: as_of — declared by this class and
-always refused (Standard §2.4). This verdict is raised rather than returned
-because ProductRequestViolation.reason is a closed Literal with no member for
-it; see CP-SPEC-001 §F.4
+refused: not-supported-at-tier — as_of
+   as_of: 400 not_supported_at_tier — not_supported_at_tier
 ```
 
-The first sentence is the one that matters to a reader; the second is the
-product reporting an SDK limitation against itself, which is covered below.
+The first line is the SDK's verdict, returned as data by the tier step of
+`refuse_request` before the product's own code runs; the second is the detail
+the class declaration carries for the parameter, printed beneath it. Both lines
+are stdout, and the program exits 1.
 
 **The "as of" parameter exists in the contract so you can discover it, and is
 always refused so nobody can rely on it in a dispute.**
@@ -466,7 +477,8 @@ Two different mechanisms, and the difference is worth having.
 
 **The unknown identifier** is `Resolve` failing closed. `deployment.read()`
 returns `None`, the spine turns that into an `AnchorUnresolvable` **value**, and
-the assembler raises it only at the Protocol boundary. A caller holding the spine
+the assembler raises it only at the Protocol boundary — through the same
+`_not_available` text Run 2's Policy-removed record takes. A caller holding the spine
 gets it as data; a caller going through `ContextAssemblerProtocol` gets an
 exception, because that Protocol's return channel carries contract verdicts and
 existence is not one.
@@ -476,7 +488,9 @@ existence is not one.
 parameter this deployment stops supporting, or starts, is a change to that
 document rather than to any module. Standard §2.4 wants both halves: the
 parameter is **discoverable** because the contract declares it, and it **fails
-loudly** rather than succeeding quietly against current state.
+loudly** rather than succeeding quietly against current state. The verdict
+comes back as a value, `not-supported-at-tier` — a member of the SDK's refusal
+vocabulary — so the client branches on data rather than catching an exception.
 
 ---
 
@@ -484,22 +498,24 @@ loudly** rather than succeeding quietly against current state.
 
 | Situation | How it responds | Returned as | Stops? |
 |---|---|---|---|
-| Not entitled | silence, completeness `1.00` | **an answer** | no |
+| Not entitled | refused, in the words an unknown identifier gets | an error | **yes** |
 | Lapsed registration | nothing, plus the reason and the override | **an answer** | no |
 | Unknown identifier | `404` | an error | **yes** |
 | Unsupported as-of date | refused by contract | an error | **yes** |
 | Private borrower, no LEI | freshness gate — **a known defect** | an error | **yes** |
 
-The first two come back as **ordinary answers a system can act on** — a bad
-question and a missing counterparty are not broken plumbing, and a downstream
-process can branch on them without error handling.
+The lapsed registration comes back as an **ordinary answer a system can act
+on** — an exclusion the caller asked for is not broken plumbing, and a
+downstream process can branch on it without error handling. The other four stop.
 
-*(Technical note: the split between the two groups is not entirely by design.
-The refusal type has no code for "this product does not support that
-parameter", so that case has to be raised rather than returned. It is recorded
-in the specification's §F.4, which carries eight findings raised by building
-this product. They are not uniformly defects — item 7 is a correction to a
-mis-reading of the standard — and none of them blocked the build.)*
+*(Technical note: the unsupported `as_of` is refused as DATA — the SDK's refusal
+vocabulary carries `not-supported-at-tier`, and the tier step of `refuse_request`
+returns it before the product's own code runs — while the identity and policy
+refusals are raised at the Protocol boundary, whose return channel carries
+contract verdicts and not existence. The specification's §F.4 carries eight
+findings raised by building this product. They are not uniformly defects — item
+7 is a correction to a mis-reading of the standard — none of them blocked the
+build, and finding 5 is closed by a dated note.)*
 
 ---
 
@@ -508,7 +524,7 @@ mis-reading of the standard — and none of them blocked the build.)*
 | Run | Seal |
 |---|---|
 | 1 — baseline | `ab2e1a62…` |
-| 2 — different person asking | `1f37263d…` |
+| 2 — different person asking | **no seal — refused** |
 | 3 — lapsed, excluded | `d22e96ad…` |
 | 4 — lapsed, included | `a0d5d11c…` |
 
@@ -522,10 +538,12 @@ Three consequences, and they are why it is worth computing:
    diffing two documents. *"Is this the number the system gave us in August?"*
    becomes a yes or a no, not an investigation.
 2. **Who asked is auditable, not merely logged.** Run 2 differs from Run 1 by
-   the person asking and nothing else — and it is a **different sealed answer**
-   with its own audit record, not the same answer with a view over it. When a
-   control question is *"what did this analyst actually see?"*, that is the
-   thing you can answer.
+   the person asking and nothing else — and it is a **refusal with its own
+   audit record**, not the same answer with a view over it: the product is
+   assembled and its replay record written before the refusal, so the record
+   holds who asked and that a record was withheld, while the caller is told
+   nothing. When a control question is *"what did this analyst actually
+   see?"*, that is the thing you can answer.
 3. **A setting that changed nothing is detectable.** Run 3 against Run 4 proves
    the override worked: had it been ignored, the two seals would match. **A
    control you cannot see failing is not a control.**
@@ -585,10 +603,8 @@ make -s example-cp-01 ANCHOR=CLI-000101
 ```
 
 ```
-RuntimeError: the three validation gates refused this product: gate='ttl-bounds'
-detail='expires_at 2026-02-24T00:00:00+00:00 is outside (now, now + MAX_TTL] =
-(2026-08-16T12:00:00+00:00, 2026-08-17T12:00:00+00:00] (INV-CH7-48)'
-[… two timestamp fields elided …] max_ttl_seconds=86400
+[… the traceback elided; this is the last line of stderr …]
+RuntimeError: the three validation gates refused this product: gate='ttl-bounds' detail='expires_at 2026-02-24T00:00:00+00:00 is outside (now, now + MAX_TTL] = (2026-08-16T12:00:00+00:00, 2026-08-17T12:00:00+00:00] (INV-CH7-48)' expires_at=datetime.datetime(2026, 2, 24, 0, 0, tzinfo=datetime.timezone.utc) now=datetime.datetime(2026, 8, 16, 12, 0, tzinfo=datetime.timezone.utc) max_ttl_seconds=86400
 ```
 
 In plain terms: **this counterparty's data was last refreshed in February, and
@@ -636,9 +652,9 @@ agreement date rather than a vendor file date, and the same mechanism refuses
 
 A query returns rows. **A Context Product returns rows, plus who is entitled to
 rely on them, plus how long they stay good, plus how complete the answer is,
-plus a seal that proves it reproduces — and it refuses, in five
-distinguishable ways, rather than handing you something that merely looks like
-an answer.**
+plus a seal that proves it reproduces — and it refuses, in five ways, two of
+them deliberately indistinguishable, rather than handing you something that
+merely looks like an answer.**
 
 And the engineering claim underneath it: **none of that is written in code.** The
 expiry is an artifact, the half-lives are an artifact, the entitlements are a
