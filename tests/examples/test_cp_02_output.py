@@ -855,7 +855,7 @@ def test_the_served_outcome_names_the_module_assembler_version(seeded: str) -> N
     """The Protocol's return names this module's assembler identity, pinned at `1.0.1`.
 
     `D-IMPL-245` am.1: an assembler materially corrected in 24.5.1 bumps PATCH to
-    `1.0.1` — the dead `ParameterNotSupported` branch was deleted from this rung's
+    `1.0.1` — the dead compatibility branch for the inert parameter was deleted from this rung's
     `assembler.py`, so the implementation changed — and am.3: never `1.0.2`.
     `_serve` discards the Protocol's return (`governed`) for the spine's captured
     value, so the seam is constructed here the same way and `governed` is KEPT.
