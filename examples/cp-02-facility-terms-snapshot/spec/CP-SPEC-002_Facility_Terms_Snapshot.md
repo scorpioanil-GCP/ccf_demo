@@ -924,6 +924,14 @@ claims the SDK runs a gate it does not run.**
   request parameter (§B.4) and the refusal is raised by the deployment, returning
   **`409` with the debt block** — *not* a `200` with a warning. `[TBC — this build,
   phase P7]`.
+
+  **SUPERSEDED, 2026-09-03 (Phase 24.5.1, `D-IMPL-245` (3)).** When measured, no rung
+  of the ladder tested `debt_tolerance` against anything and no 409 was wired.
+  `24.5-L-14` shipped the mechanism: `src/ccf/products/gates.py::effective_debt_ceiling`
+  resolves a CLASS-declared ceiling that a request may only tighten (`D-IMPL-240` (3)),
+  and a breach is a `DeclaredObligationRefusal`, which the HTTP door renders as 409
+  (`runtime/ccf_runtime/http_api/routes/product.py::build_router`). This product declares no
+  ceiling, so nothing in its behavior moved; the `[TBC]` stands as written.
 - **Suppression silence.** Not a shipped gate; realized **structurally** by the step
   ordering at §D.2. Proven by product-specific gate `FTS-G04` rather than asserted —
   and this product is the first with a **zero-visible principal** to prove it against.
@@ -1214,7 +1222,7 @@ defined rather than markers.
 | 9 | `payload_hash` value | §D.4 | this build | P6 |
 | 10 | Replay fixture `FTS-R01`, **three** hashes | §D.5 | this build | P6 |
 | 11 | Schema artifact + `extra=forbid` CI binding | §D.6 | this build | P6 |
-| 12 | Debt-gate `409` behavior | §D.7 | this build | P7 |
+| 12 | Debt-gate `409` behavior — **SUPERSEDED 2026-09-03** (Phase 24.5.1, `D-IMPL-245` (3)): the mechanism exists since `24.5-L-14` (`src/ccf/products/gates.py::effective_debt_ceiling`; `DeclaredObligationRefusal` → HTTP 409 at `runtime/ccf_runtime/http_api/routes/product.py::build_router`); cp-02 declares no ceiling, so its behavior is unchanged — see §D.7's debt-gate note | §D.7 | this build | P7 |
 | 13 | Sabotage result for each of the nine gates | §D.7 | this build | P7 |
 | 14 | Counterfactual fixture `FTS-F01` — the two-`asked_at` comparison | §A | this build | P7 |
 | 15 | `λ_c` measured against read frequency | §E.1 | this build | P8 |
@@ -1349,6 +1357,13 @@ something to act on:**
    gate is over *entities*, not facilities, and the populations differ — but the cheapest
    discharge may now be a cross-reference rather than new data. **For Dave to scope**, not
    for this document to close.
+
+   **NOTE, 2026-09-03 (Phase 24.5.1, `D-IMPL-245` (4), D-08).** Rung 01's row 20 is now
+   answered by ruling rather than by data: `CPR-G08` REFUSES a principal whose grant
+   matches no entity, with the same suppression-silent shape this specification's
+   finding 9 established for facilities — one text through one function,
+   indistinguishable from the nonexistent case. The data request itself is not
+   withdrawn by this note; that is Dave's (`D-IMPL-227`).
 8. **The canonical encoder refuses a float, and this is the SECOND document format it
    has been met from.** `src/ccf/contracts/canonical.py::_normalize` rejects a Python
    `float` — *"not bit-stable across platforms"* — and the first run of this example
