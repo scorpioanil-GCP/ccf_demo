@@ -348,14 +348,15 @@ def fixture_lei_roster() -> frozenset[str]:
 def fixture_lei_bearing_nodes(document: Mapping[str, Any] | None = None) -> list[list[str]]:
     """Every LEI-bearing node of a fixture, as its list of carried LEI values.
 
-    **The population `resolve_anchor` silently depends on.**
+    **The population `resolve_anchor` depends on.**
     ``examples/cp-04-corporate-family-tree/deployment.py::resolve_anchor``
-    returns the FIRST binding a `SELECT ?s WHERE { ?s <lei> "…" }` yields, with
-    no `ORDER BY` and no uniqueness check, so two nodes carrying one LEI would
-    make family selection nondeterministic — the anchor, and therefore the whole
-    served tree, would depend on the store's row order. What makes that
-    unreachable on this estate is a property `expected.yaml` states in a
-    COMMENT: *"1:1 — no node carries two, no LEI is shared"*.
+    collects EVERY binding a `SELECT ?s WHERE { ?s <lei> "…" }` yields and
+    refuses more than one as `AnchorAmbiguityRefusal` (`CFT-G18`), so two
+    nodes carrying one LEI would turn the default question into a refusal —
+    the anchor, and therefore the whole served tree, would not be served at
+    all. What keeps the committed fixture on the served path is a property
+    `expected.yaml` states in a COMMENT: *"1:1 — no node carries two, no LEI
+    is shared"*.
 
     :func:`fixture_lei_roster` holds `census.lei_coverage.nodes_carrying_lei`
     against the distinct VALUES, which catches a duplicate that leaves the node
@@ -420,9 +421,9 @@ def lei_identity_violations(
     if shared:
         violations.append(
             f"LEI(s) {shared[:3]} are carried by more than one node"
-            f" ({len(shared)} in all). `resolve_anchor` returns the FIRST"
-            " binding of an unordered SELECT, so a shared LEI makes the anchor —"
-            " and the whole served family — depend on the store's row order"
+            f" ({len(shared)} in all). `resolve_anchor` refuses a shared LEI as"
+            " `AnchorAmbiguityRefusal` (`CFT-G18`), so a shared LEI in the"
+            " COMMITTED fixture would turn the default question into a refusal"
         )
     return violations
 
@@ -1755,8 +1756,9 @@ def door_violations(
             f"CFT-G13 (a): the product resource template {PRODUCT_URI_TEMPLATE!r}"
             f" is not enumerable — templates are {list(templates)}. The resource"
             " IS registered and IS enumerable; a door that hid it would be"
-            " claiming a tool-only shape `build_egress_server` cannot express"
-            " (`D-34`)"
+            " claiming a tool-only shape `build_egress_server` CAN express since"
+            " `24.5-L-09` (`expose_product_resource=False`) and this door does"
+            " not choose (`D-34` closed; the resource stays by ruling)"
         )
     if resources:
         violations.append(
@@ -3050,14 +3052,15 @@ def test_the_cycle_step_check_refuses_a_recipe_with_no_such_step() -> None:
 
 
 def test_the_lei_identity_check_refuses_a_shared_lei() -> None:
-    """**Positive control.** Two nodes, one LEI — the anchor becomes a coin flip.
+    """**Positive control.** Two nodes, one LEI — the anchor is ambiguous.
 
     ``examples/cp-04-corporate-family-tree/deployment.py::resolve_anchor``
-    returns the first binding of an unordered SELECT. What keeps that
-    deterministic is an estate property, and the 2026-09-01 close panel found
-    that nothing asserted it: the precondition compared distinct VALUES against
-    the declared node count, which a duplicate ACCOMPANIED BY AN EXTRA NODE
-    satisfies exactly.
+    refuses a shared LEI as `AnchorAmbiguityRefusal` (`CFT-G18`), so a shared
+    LEI in the committed fixture would turn the default question into a
+    refusal. What keeps the fixture on the served path is an estate property,
+    and the 2026-09-01 close panel found that nothing asserted it: the
+    precondition compared distinct VALUES against the declared node count,
+    which a duplicate ACCOMPANIED BY AN EXTRA NODE satisfies exactly.
     """
     carried = [["A"], ["B"], ["B"]]
     violations = lei_identity_violations(

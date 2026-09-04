@@ -31,20 +31,24 @@ Limb (a), MEASURED at a client rather than read off the registration call: the
 resource is enumerable in `resources/templates/list` as
 `ccf-product://{tenant}/{product_class}/{version}`, and `resources/list` is
 EMPTY — a parameterized URI registers as a resource TEMPLATE. Criterion 37's
-amended wording names `resources/list`; the substance is unchanged and `D-34` is
-unchanged, and `compose.py` records the refinement in full.
+amended wording names `resources/list`; the substance is unchanged (that
+refinement did not touch `D-34`), and `compose.py` records it in full.
 
-The first limb is not a choice this deployment made.
-`runtime/ccf_runtime/mcp/egress.py::build_egress_server` registers its product
-resource **unconditionally** and gates only the tool behind
-`expose_product_tool`, so that builder can be resource-only or
-resource-plus-tool and **cannot be tool-only**. Dave ruled it at Gate 1, in as
-many words: *"A listing that includes the resource is the SDK. Criterion 37 as
-written ('no resource is exposed') is false against this tree."* The criterion
-was amended to say what is true rather than left asserting something false, and
-the gap is **`D-34`** — RECORDED, not closed (`D-IMPL-225` amendment 1). `D-04`
-of `24-CONTEXT.md` governs: a minor phase records SDK gaps, and **no file under
-`src/` or `runtime/` is touched by this plan** (criterion 49).
+The first limb is a choice this deployment makes. Since `24.5-L-09`,
+`runtime/ccf_runtime/mcp/egress.py::build_egress_server` takes
+`expose_product_resource` (default `True`) beside `expose_product_tool`, so
+that builder CAN be tool-only. This door KEEPS its resource registered and
+enumerable and refuses a read of it by name — a product RULING, not an SDK
+limit: switching this rung to a tool-only door is a design change for its next
+rebuild, not a correction (`D-IMPL-245`'s deferred list), so `CFT-G13` limb (a)
+measures a choice. When this door was built the builder registered the resource
+unconditionally and Dave ruled at Gate 1, in as many words: *"A listing that
+includes the resource is the SDK. Criterion 37 as written ('no resource is
+exposed') is false against this tree."* The criterion was amended to say what
+was true then; the gap it recorded, **`D-34`** (`D-IMPL-225` amendment 1), was
+closed by `24.5-L-09`. `D-04` of `24-CONTEXT.md` governed that phase: a minor
+phase records SDK gaps, and no file under `src/` or `runtime/` was touched
+(criterion 49); this door passes no `expose_product_resource` flag at all.
 
 What the door does control is limb (b), and `compose.py::build_resolver` is
 where it lives: `request is None` is the resource path, and the resolver refuses
@@ -241,8 +245,9 @@ def door(*, root: Path) -> Iterator[Door]:
         ),
         perspective_resolver=resolve_perspective,
         # THE SECOND SURFACE, AND THE ONLY ONE THAT SERVES. The resource beside
-        # it is registered unconditionally by the builder and refuses in
-        # `compose.py::build_resolver`.
+        # it is registered by the builder's default (`expose_product_resource`
+        # is True unless a door says otherwise, `24.5-L-09`), kept by ruling,
+        # and refuses in `compose.py::build_resolver`.
         expose_product_tool=True,
         product_tool_description=str(values["tool_description"]),
     )
