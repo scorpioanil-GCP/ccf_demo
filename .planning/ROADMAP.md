@@ -61,6 +61,7 @@ and the upgraded examples.
 - [x] **Phase 24.4: Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal and Ontology, and the Ladder's First MCP Door** (INSERTED) - `cp-04`, rung 04 and the FIRST of Tier 2. The first product that opens more than one store (Fluree for edges and ontology, Postgres for attributes), the first that traverses a graph, the first exercising three ontology roles (role 1 STRUCK 2026-08-31, Dave), and the first on the ladder reachable over MCP. **Forty-nine Success Criteria LOCKED 2026-08-31 before planning** (`D-GATE-19`), of which sixteen require a named product gate to be **observed RED under a named sabotage** — criterion 41 and `CFT-G17` are WITHDRAWN in place — a gate never seen red is not evidence that it runs. `artifacts/gates.yaml` is the ladder's **first machine-readable gate declaration** (`D-IMPL-224`); the coverage CHECKER and the cp-00/cp-01 backfill are **Phase 24.5**, not this phase. **`D-26`..`D-31` are RECORDED as SDK gaps and NONE is closed** — no file under `src/` is modified (`D-04` of `24-CONTEXT.md`). *(Checklist bullet added 2026-08-31 at planning; the phase had a detail section and no bullet here.)*
 - [x] **Phase 24.5: SDK Gap Catch-Up — Every Gap the Ladder Found in cp-00 through cp-04, Ledgered, Ruled and Closed** (INSERTED, `D-IMPL-235`) - The comprehensive SDK gap fix Dave commissioned 2026-09-02 (*"I want to remedy the sdk gaps and not wait until we have 50 to close"*). A catch-up over EVERY rung shipped so far, not a remedy for 24.4 alone. **First deliverable is a LEDGER SITTING, no code** — one roster of every gap by id, classified SDK / estate / product-tier, each ruled fix / won't-fix / later — and that roster is the phase's fence. `src/` and `runtime/` OPEN; examples closed except where a changed call shape forces a touch. Close by re-running cp-01..04: a rung whose limitation-asserting gates flip RED gets a versioned rebuild, the rest stay. **DIRECTION BANKED, NOT DISCUSSED** — criteria are written at the discuss sitting (`D-GATE-19`). One ruling open: whether `D-IMPL-224` is amendable if `24.4-D-31` becomes a fix-row.
 - [x] **Phase 24.5.1: The Return Trip — cp-01, cp-02, cp-03 and hw1 Re-versioned on the Fixed SDK, Every Recorded Lie Corrected** (INSERTED, `D-IMPL-244`; **CLOSED 2026-09-04, `D-GATE-24.5.1`, option 3 — cp-04 depth semantics superseded by `D-IMPL-251`, carried to 24.6**) - The ONE rebuild follow-on `D-GATE-24.5` opened because the flip roster was non-empty (criterion 26 of 24.5; `D-IMPL-235` forbids a `.1`…`.9` per gap, not one rebuild phase). Examples OPEN, `src/` and `runtime/` CLOSED. Dave, 2026-09-03: *"the work requirement of going back and fixing stale prose is related to the SDK fixes … have phase 24.5.1 to finish the corrections then start phase 24.6 on context product development."* **DIRECTION BANKED, NOT DISCUSSED** — criteria at the discuss sitting (`D-GATE-19`).
+- [ ] **Phase 24.6: SDK Gap Phase — The Delivery Boundary Realized: Refusal as a Governed Response, the Policy-Constraint Layer, and Every Item Carried from 24.5.1** (INSERTED, `D-IMPL-252`) - Dave, 2026-09-04: *"Phase 24.6 will not introduce a new context product. It will address the gaps in what the SDK covers."* Opened by `D-IMPL-251` (the delivery boundary) and `D-GATE-24.5.1` (carry roster B-01..B-14). `src/` and `runtime/` OPEN for the first time since 24.5; `examples/` open only where an SDK change makes a rung stale (cp-04 rebuild and republish, B-01). cp-05 is the rung AFTER this phase closes; its number is not assigned (`D-IMPL-252` (5)). **DIRECTION BANKED, NOT DISCUSSED** — criteria at the discuss sitting (`D-GATE-19`).
 
 ## Phase Details
 
@@ -3105,7 +3106,7 @@ Plans:
 SDK and, by its own rule, touched no product version, README, seal or page; three rungs' limitation
 gates flipped under the fix and were rewritten, and a roster of GREEN tests and prose now assert or
 describe holes that are closed. This phase re-versions those rungs, rebuilds hello-world, and
-corrects every recorded lie — so that cp-05 (Phase 24.6) is built on a ladder whose every rung
+corrects every recorded lie — so that cp-05 (~~Phase 24.6~~ **the rung after 24.6 — `D-IMPL-252`, 2026-09-04: 24.6 is the SDK gap phase, not cp-05**) is built on a ladder whose every rung
 agrees with the SDK.
 
 ~~**STATUS: DIRECTION BANKED 2026-09-03 (`D-IMPL-244`), NOT DISCUSSED, NOT PLANNED.** Success criteria are NOT written here; `D-GATE-19` binds them to the discuss sitting, which reads `.planning/phases/24.5.1-the-return-trip/.continue-here.md` first.~~ **STRICKEN 2026-09-03 at planning: DISCUSSED 2026-09-03 (`D-IMPL-245`, four rulings; `24.5.1-CONTEXT.md`); research measured the tree (`24.5.1-RESEARCH.md`) and three contradictions were put to Dave and ruled as `D-IMPL-245` amendments 1–3 (assembler version is TRANSCRIPT evidence, replay carries none; hw1 seeded by an example-local pre-boot seed program; cp-04's identical dead branch deleted too). Success criteria LOCKED below at planning, BEFORE any plan and BEFORE Wave 1 (`D-GATE-19`).**
@@ -3186,6 +3187,89 @@ Plans:
 - [x] 24.5.1-07-PLAN.md — close prep: every instrument at close with controls, the four foreground chunks and both legs (criterion 23's measured half)
 - [x] 24.5.1-08-PLAN.md — pages republished (~~cp-04 first publish~~ **cp-04 replaced in place — `P-1`, `D-IMPL-250`**), the §3.1 panel packet, the `D-GATE-24.5.1` draft, `RETIREMENT-COUPLINGS.md` last
 
+### Phase 24.6: SDK Gap Phase — The Delivery Boundary Realized: Refusal as a Governed Response, the Policy-Constraint Layer, and Every Item Carried from 24.5.1 (INSERTED)
+
+**Goal:** make the SDK deliver what `D-IMPL-251` ruled. *"CCF refusal is refusal of fulfillment,
+not refusal of response"* — every valid invocation of the delivery surface returns a governed
+Context Product response; a refusal is the shell form of that response and participates in
+identity, policy, contract and Decision Replay; exceptions are reserved for the fabric's own
+failure to reach a determination. Today the SDK raises where it should return (C4), refuses at a
+measured default as if it were a ceiling (C5), lets a product class withhold on its own debt
+preference (C1), refuses computed-empty results (C3), and converts governed refusals into MCP
+`ToolError` prose and HTTP `500` at two doors. This phase closes those, formalizes the
+policy-constraint layer as its own artifact type with a `PolicyConstraintResolver`, and carries
+every item `D-GATE-24.5.1` named — then rebuilds and republishes cp-04 on the new semantics.
+
+**STATUS: DIRECTION BANKED 2026-09-04 (`D-IMPL-252`), NOT DISCUSSED, NOT PLANNED.** Success
+criteria are NOT written here; `D-GATE-19` binds them to the discuss sitting.
+
+**Why this phase, in Dave's words (2026-09-04).** *"Phase 24.6 will not introduce a new context
+product. It will address the gaps in what the SDK covers."* And at the 24.5.1 gate: *"Do not reopen
+24.5.1 for another example-local patch. D-IMPL-251 changed the architectural boundary, not merely
+the wording of cp-04. … the correct repair spans request semantics, example behavior, and the
+runtime refusal model. That belongs in 24.6, where those seams can be changed coherently."*
+
+**Not a product rung.** `D-IMPL-244`'s "24.6 = cp-05" is superseded on that point by
+`D-IMPL-252`. cp-05 enters discussion only after `D-GATE-24.6` with no fix rows open
+(`D-IMPL-235` (5)); its number is assigned then, not here.
+
+**Fence.** `src/` and `runtime/` OPEN (first time since 24.5). `examples/` and `tests/examples/`
+open ONLY where an SDK change makes a rung's behavior, prose, transcript or page stale — the named
+case is cp-04 (B-01: rebuild, re-pin, republish in place; re-resolve the artifact id from the
+gallery immediately before publishing, `D-IMPL-250`). The 24.5.1 discipline stands: *"Back-correct
+examples to the SDK that now exists; do not back-correct history, and do not implement the next SDK
+inside an example."* Historical CP-SPEC findings and dated records get appended supersession notes,
+never rewrites.
+
+**First deliverable: the LEDGER, not code.** Built from the carry roster in `D-GATE-24.5.1` — NOT
+re-derived — each row with its measurement at the phase base and a disposition in Dave's words only
+(`D-IMPL-227`):
+
+- **B-01** cp-04 depth semantics under C5 — `resolve_max_depth` stops refusing at 6,
+  `DepthOutOfBounds` and both raises go, requested/actual depth and cost exposed; prose, rebuild,
+  republish (subsumes panel `R-2`, `CR-01`).
+- **B-02** C4 — `AssemblyRefused` becomes a shell refusal; `24.5-L-11` superseded; MCP `ToolError`
+  prose retired.
+- **B-03** the HTTP door's `500` for an unrecognized refusal kind, incl. `anchor-ambiguity-refusal`
+  (`LC-03`).
+- **B-04** C1 — `effective_debt_ceiling` / the declared-obligations debt half reshaped to the three
+  debt concepts (`D-IMPL-240` am.2).
+- **B-05** C2 — `TOLERANCE_EXCEEDED` shell on the caller's own tolerance, with disclosable debt.
+- **B-06** C3 — `_refuse_empty_results` → served computed-empty with trust evidence; hw1's negative
+  test and the two 24.5 SDK tests re-derived (`D-IMPL-242` am.1). *"Zero results is not zero
+  knowledge."*
+- **B-07** the policy-constraint layer and `PolicyConstraintResolver` — a DESIGN SITTING with
+  alternatives: constraint vocabulary, precedence (policy boundary > caller value > product
+  default), applicability, temporal effectivity, conflict resolution, replay pinning.
+- **B-08** `RefusalEnvelope` as the shell form of a Context Product response; replay participation.
+- **B-09** criterion-15-class instrument holes — `deployment.py` outside the universe (`R-3`),
+  phrase-specific pattern (`R-4`), hw1 outside (`R-6`).
+- **B-10** `CP04_IDS` derived from `gates.yaml`, not hand-patched (`R-5`).
+- **B-11** cp-01 `build_page.py` hardcoded counts (`CR-02`, UNVERIFIED — measure first).
+- **B-12** cp-01 `ccf_config.yaml:166-168` stale SDK claim (`CR-03`).
+- **B-13** `CR-04` triage (likely rejected: the loop at `produce.py:870` is unreachable behind
+  `refuse_request` at `:860`).
+- **B-14** `LC-01..LC-05` (`.planning/phases/24.5.1-the-return-trip/24.5.1-LEDGER-CANDIDATES.md`),
+  incl. `D-GATE-24.5` R1.
+
+Plus the two rows `D-IMPL-245` opened by name: assembler identity and version into the Decision
+Replay record and `build_replay_record` (am.1, = `LC-01`); a suppression-silent refusal kind, if one
+is needed to make unauthorized indistinguishable from unavailable (D-08 — 24.5.1 shaped it by
+sameness and opened no row; the sitting decides whether a kind is owed).
+
+**Canonical refs:** `docs/DECISIONS.md` (`D-IMPL-251`, `D-GATE-24.5.1`, `D-IMPL-252`, `D-IMPL-245`,
+`D-IMPL-240` am.2, `D-IMPL-242` am.1, `D-IMPL-235`), `docs/CCF_Whitepaper_1-2.md` §6.3, §7.6,
+§7.7, §7.8, §8.7.3, `.planning/phases/24.5.1-the-return-trip/24.5.1-LEDGER-CANDIDATES.md`,
+`.planning/phases/24.5.1-the-return-trip/24.5.1-CLOSE-REVIEWS.md`,
+`.planning/phases/24.5.1-the-return-trip/24.5.1-REVIEW.md`.
+
+**Whitepaper fidelity note (`D-IMPL-251`):** the sentence *"CCF refusal is refusal of fulfillment,
+not refusal of response"* is not in the whitepaper today; until it lands there it is cited as
+SDK-defined under CLAUDE.md §11, not as whitepaper-derived.
+
+**Plans:** none — the discuss sitting authors the criteria, then `/gsd-plan-phase 24.6`.
+
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -3227,7 +3311,8 @@ Plans:
 | 24.3. Credit Spreading — Obligor Financial Spread (cp-03), Gate 2 | 5/5 steps + close-panel fixes | **Complete — `D-GATE-24.3` APPROVED** (Dave). Commits `294cb63`..`e350cde` on `main`. All FOURTEEN gates built and every one observed RED; they did not exist at phase start. Close panel (codex + cursor; gemini absent, no key) found a PRODUCT defect — the restatement key was hard-coded against its own artifact and hid four real corrections. Nine blocking findings fixed in-phase, four advisory carried, one of the executor's own suspicions rejected. `D-IMPL-222` ruled inside the phase. **`cp-02` still has no phase (`D-IMPL-221`), carried** | 2026-08-31 |
 | 24.4. Corporate Family Tree (cp-04) — First Multi-Store Product, Fluree Traversal & Ontology, and the Ladder's First MCP Door | 14/14 plans + FIX-01..05 | **Complete — `D-GATE-24.4` APPROVED** (Dave). Commits `bde7660`..`14edd82` on `main`, merged `--no-ff`. Five-check eval held on live fixtures; sixteen gates `CFT-G01`..`G16` every one observed RED, `CFT-G17` withdrawn; `--role` kept on measurement (two seals, 22 vs 0 detailed). Close panel on the shipped tree: 5 blocking fixed under sabotage, 6 rejected with evidence; single-agent review: CR-01/WR-05/WR-01 fixed, CR-02's 409 claim removed from all three artifacts. `src/`+`runtime/` 0 files; twelve gaps `24.4-D-26`..`D-37` recorded, none closed. Pytest 4664/45/1 — the 1 carved by `D-IMPL-234`, NOT suite-green; cp-01/02/03 exemption claims unruled. 17 deferred rows | 2026-09-01 |
 | 24.5. SDK Gap Catch-Up — cp-00 through cp-04, Ledgered, Ruled and Closed | **CLOSED** — `D-GATE-24.5` approved (Dave, 2026-09-03) at `17a1de3f`; 18/18 plans; CR-01 (`D-IMPL-243`), WR-02 (`24.5-FIX-02`) and panel R3 (`24.5-FIX-03`) fixed in-phase; R1/R2/R4 carried by ruling; `24.5.1` opened and owns hw1 (`D-IMPL-242`); merged `--no-ff` to `main` | **Direction banked** (`D-IMPL-235`, 2026-09-02). Ledger sitting first, no code; `src/`+`runtime/` OPEN; close by re-running cp-01..04. Criteria at the discuss sitting (`D-GATE-19`). Open: `D-IMPL-224` amendable? | — |
-| 24.5.1. The Return Trip — cp-01/02/03 and hw1 re-versioned, recorded lies corrected | 0/8 plans | **Planned** (2026-09-03): discussed (`D-IMPL-245` + am.1-3), 24 criteria LOCKED at `3f51b184` (digest `580d785f…`), 8 plans in 5 waves. Examples OPEN, `src/`+`runtime/` CLOSED. | — |
+| 24.5.1. The Return Trip — cp-01/02/03 and hw1 re-versioned, recorded lies corrected | 8/8 plans | **CLOSED** — `D-GATE-24.5.1` approved (Dave, 2026-09-04, option 3): closed on its implemented and reviewed state; §3.1 panel and single-agent review ran on the shipped tree; `R-1` fixed in-phase, three findings rejected, `R-2`/`R-3`/`CR-01`/`CR-03` carried to 24.6 by ruling; `D-IMPL-251` supersedes cp-04's depth-6 semantics; cp-01/02/03 replaced in place at `@1.0.1`, cp-04 replaced in place (`P-1`, `D-IMPL-250`); merged `--no-ff` to `main` at `cd5a1bbb` | 2026-09-04 (`D-GATE-24.5.1`) |
+| 24.6. SDK Gap Phase — the delivery boundary realized, policy-constraint layer, carries from 24.5.1 | 0/? | **Direction banked** (`D-IMPL-252`, 2026-09-04). NOT a product rung. Ledger from B-01..B-14 first, no code; `src/`+`runtime/` OPEN; cp-04 rebuilt and republished on the new semantics. Criteria at the discuss sitting (`D-GATE-19`). | — |
 
 ## Coverage
 
