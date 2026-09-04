@@ -17,7 +17,7 @@ last_activity: >-
   republish in-phase; whole B-01..B-14 roster through the phase; no suppression-silent kind; whitepaper untouched.
   **Pattern for design: internal truth / governing authority / permitted disclosure are three representations.**
   NO criteria yet (`D-GATE-19` — at planning, one per line, before Wave 1). **Next: `/gsd-plan-phase 24.6`.**
-  Next free id `D-IMPL-254`. Hand-edited; no `state.*` or `roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
+  Next free id `D-IMPL-255` (`D-IMPL-254` = the Determination → Authority → Disclosure → Delivery invariant; `24.6-RULINGS.md` verbatim). Hand-edited; no `state.*` or `roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.5.1 IS CLOSED — `D-GATE-24.5.1` (Dave, 2026-09-04), disposition option 3.** The pause below ended
   with `D-IMPL-251` (the delivery boundary: refusal of fulfillment, not of response; C1=A C2=B C3=B C4=A C5=B;
   policy-constraint layer → 24.6) and `D-IMPL-240` am.2 / `D-IMPL-242` am.1. Closed on the implemented and
@@ -1195,7 +1195,7 @@ are in `D-IMPL-147`.
 Context at `.planning/phases/24.6-sdk-gap-phase-the-delivery-boundary-realized-refusal-as-a-go/24.6-CONTEXT.md`;
 alternatives in `24.6-DISCUSSION-LOG.md`. `src/`+`runtime/` OPEN; `examples/` only where an SDK change makes a rung
 stale (cp-04). The ledger (B-01..B-14 + `LC-01..05` + two `D-IMPL-245` rows) is the FIRST deliverable, no code
-before it. Criteria at planning (`D-GATE-19`). Next id `D-IMPL-254`. **Resume with `/gsd-plan-phase 24.6`.**
+before it. Criteria at planning (`D-GATE-19`). Next id `D-IMPL-255`. **Resume with `/gsd-plan-phase 24.6`.**
 The paragraph below is the record as it stood before this sitting.
 
 **PHASE 24.5 IS COMMISSIONED — `D-IMPL-235` (Dave, 2026-09-02) — AND NOTHING OF IT IS BUILT.** It is the
