@@ -821,9 +821,19 @@ def test_every_product_door_entitles_after_it_authenticates(
     module = importlib.import_module(module_name)
     source = inspect.getsource(module)
 
-    assert "entitled_perspective(" in source, (
+    # Either spelling of the ONE shared decision. `entitled_perspective` is
+    # the resolution order; `govern_entitlement` (`24.6-08`) is that order plus
+    # the replay and disclosure `D-IMPL-256` puts on the same side of the
+    # delivery boundary, and it CALLS `entitled_perspective`. A door reaching
+    # either is reaching the shared definition of "entitled"; a door reaching
+    # neither has its own, which is the drift this asserts against. The doors
+    # move to the governed step one plan at a time (`24.6-09` HTTP, `24.6-10`
+    # and `24.6-16` MCP), so both spellings are live in the tree meanwhile.
+    assert (
+        "entitled_perspective(" in source or "govern_entitlement(" in source
+    ), (
         f"{module_name} serves a product without reaching the shared"
-        " entitlement decision (15.5-06)"
+        " entitlement decision (15.5-06; 24.6-08)"
     )
     assert "from ccf_runtime.authz.product_entitlement import" in source, (
         f"{module_name} does not import the shared seams; three doors with"

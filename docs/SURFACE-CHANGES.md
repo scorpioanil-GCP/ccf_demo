@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**956 entries**, of which **714** name a public Python surface.
+**965 entries**, of which **723** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-473 entries — 434 public Python surface, 39 not public Python API.
+478 entries — 439 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -8624,6 +8624,98 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
 
+#### ccf_runtime.http_api.refusal_status.STATUS_REQUEST
+
+- Surface: ccf_runtime.http_api.refusal_status.STATUS_REQUEST
+- Public surface: true
+- Change type: added
+- Before: absent — the route spelled `status_code=400` at one branch
+- After: `Final[int] = 400`, the **request class**: the request as posed is not
+  acceptable. Three kinds — `product-request-violation`,
+  `payload-schema-violation`, `constraint-refusal`
+- Why: D-18 asks for class-based mapping, and a class with a name is a class a
+  reviewer can argue with; three bare integers scattered across a table are
+  not. This door already answered `400` for its own two request-shape refusals,
+  so a resolver's verdict on the same request joins the family it belongs to
+- Migration: none. A new public constant
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.http_api.refusal_status.STATUS_UNAVAILABLE
+
+- Surface: ccf_runtime.http_api.refusal_status.STATUS_UNAVAILABLE
+- Public surface: true
+- Change type: added
+- Before: absent — a nonexistent subject reached `404` through
+  `ProductNotServable` and an unauthorized one reached `403`, and those were
+  different code paths carrying different bodies
+- After: `Final[int] = 404`, the **unavailable class**. One kind:
+  `subject-unavailable`, at every disclosure level and for both internal causes
+- Why: Q18, *"suppression-safe policy may deliberately map externally to a less
+  revealing class"*. `403` would tell an unauthorized principal that the
+  subject exists, which is the first of the six channels amendment 2 (4) lists
+- Migration: none. A new public constant
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.http_api.refusal_status.STATUS_FULFILLMENT_WITHHELD
+
+- Surface: ccf_runtime.http_api.refusal_status.STATUS_FULFILLMENT_WITHHELD
+- Public surface: true
+- Change type: added
+- Before: absent — the route spelled `status_code=409` at one branch
+- After: `Final[int] = 409`, the **fulfillment-withheld class**: the question
+  was well posed and the fabric would not deliver an answer to it. Nineteen
+  kinds — every gate refusal, every peering admission refusal, the tolerance
+  shell, the mixing rule, the assembly determination, the anchor ambiguity, the
+  policy-resolution conflict and the mount refusal
+- Why: the state of the resource conflicts with fulfilling the request, which
+  is what `409` means. The shell carries the numbers; the status carries none
+  of them, per Q18's *"the response body and disclosure policy must be
+  authoritative, not HTTP status"*
+- Migration: none. A new public constant
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.http_api.refusal_status.STATUS_BY_KIND
+
+- Surface: ccf_runtime.http_api.refusal_status.STATUS_BY_KIND
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[Mapping[str, int]]`, 23 rows — one per member of
+  `ccf.products.refusal.REFUSAL_KINDS` — over three status classes: `400` the
+  request class (3 kinds), `404` the unavailable class (1 kind), `409` the
+  fulfillment-withheld class (19 kinds). Built by **class**, through
+  `REFUSAL_KINDS`, so no kind token is spelled in the module at all
+- Why: keyed by class rather than by token because a table of kind strings
+  would be a second spelling of a vocabulary `REFUSAL_KINDS` already owns; the
+  two would agree on the day they were written and drift on the first rename.
+  Keyed by class, a renamed token moves both sides at once and a deleted class
+  is an `ImportError` rather than an orphaned row
+- Migration: none. A new public constant
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.http_api.refusal_status.status_for
+
+- Surface: ccf_runtime.http_api.refusal_status.status_for
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `status_for(kind: str) -> int`, raising `KeyError` for a token the
+  vocabulary does not hold
+- Why: a function of the **disclosed** kind and of nothing else — not of the
+  internal cause, not of the disclosure level, not of the principal. That is
+  what makes the suppression property structural rather than disciplined:
+  there is no argument here that could carry the difference between *you may
+  not* and *there is no such thing* (Q18's *"suppression-safe policy may
+  deliberately map externally to a less revealing class"*)
+- Migration: none. A caller that must not raise tests
+  `kind in STATUS_BY_KIND` first, which is what the shipped route does
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -9252,7 +9344,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-359 entries — 176 public Python surface, 183 not public Python API.
+361 entries — 178 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -12910,6 +13002,55 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
 
+#### ccf_runtime.http_api.app.create_app — `refusal_recorder=`
+
+- Surface: ccf_runtime.http_api.app.create_app
+- Public surface: true
+- Change type: reshaped
+- Before: `create_app(deps, *, auth=None, authorizer=None,
+  product_entitlement=None, perspective_resolver=None,
+  acknowledge_insecure_default=False)`
+- After: a keyword-only `refusal_recorder: RefusalRecorderProtocol | None =
+  None` between `perspective_resolver` and `acknowledge_insecure_default`.
+  **Required whenever `product_entitlement` is bound**: construction calls
+  `ccf_runtime.authz.delivery_boundary.recorded_boundary` and an entitling door
+  with no conforming recorder raises `UnrecordableDeliveryBoundaryError`
+  instead of building. Bound without `product_entitlement` it is accepted and
+  inert
+- Why: `D-IMPL-256` (2), Dave: *"a door configured to make governed
+  determinations without the ability to record them is not a valid governed
+  door."* There is deliberately no warn-and-serve posture and no per-request
+  refusal — a door that failed closed only on denial would make auditability
+  contingent on outcome, and would reopen the unauthorized/nonexistent
+  observational difference as a *misconfiguration*
+- Migration: **breaking for one configuration.** A deployment binding
+  `product_entitlement=` must now also bind `refusal_recorder=`. The SDK ships
+  `ccf.products.resolver.ReplayRefusalRecorder` over the same artifact store
+  the governed resolver already holds, and
+  `ccf.products.resolver.build_governed_resolver` constructs one. Every other
+  configuration — including the `D-IMPL-73` acknowledged-insecure default —
+  builds exactly as before
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.http_api.routes.product.build_router — `refusal_recorder=`
+
+- Surface: ccf_runtime.http_api.routes.product.build_router
+- Public surface: true
+- Change type: reshaped
+- Before: `build_router(deps, *, entitlement_source=None,
+  perspective_resolver=None)`
+- After: a keyword-only `refusal_recorder: RefusalRecorderProtocol | None =
+  None`, refused at construction on the same terms as `create_app`'s
+- Why: `create_app` is not the only way to build an entitling product router,
+  and the posture belongs to *a door that entitles* rather than to one
+  builder. The message names whichever builder was actually called, which is
+  the one an operator has to fix
+- Migration: as `create_app`'s. A caller building the router directly with
+  `entitlement_source=` binds the recorder too
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -15313,7 +15454,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-117 entries — 97 public Python surface, 20 not public Python API.
+119 entries — 99 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -17580,6 +17721,57 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   entitlement policy discloses at `minimal`
 
 *Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.http_api.routes.product — the entitlement refusal body
+
+- Surface: ccf_runtime.http_api.routes.product
+- Public surface: true
+- Change type: behavior
+- Before: an entitlement refusal answered `403` with
+  `{"detail": {"error_code", "message"}}` — a **second** body shape at a door
+  whose fabric refusals used `{"kind", "refusal_type", "refusal"}`, and a
+  message naming the product class the caller may not have
+- After: `404` with the uniform envelope body, `kind ==
+  "subject-unavailable"`. The route calls
+  `ccf_runtime.authz.delivery_boundary.govern_entitlement` and **encodes what
+  it returns**: it holds no `except ProductEntitlementRefused`, mints no replay
+  record, discloses nothing and reads no clock
+- Why: three of the six leak channels `D-IMPL-253` amendment 2 (4) names —
+  transport status, body schema, message text — were open at this door, and a
+  `403` tells an unauthorized principal that the subject exists. The typed
+  codes (`ERROR_PRINCIPAL_NOT_ENTITLED`, `ERROR_PRODUCT_CLASS_UNENTITLED`,
+  `ERROR_PRODUCT_ROLE_UNGRANTED`) are unchanged and still the contract — they
+  are now **internal truth**, recorded in the denial's replay record, and Q27's
+  *"Don't destroy audit truth merely to achieve external suppression
+  silence"* is why they are recorded rather than dropped
+- Migration: **breaking for a client that reads this door's `403`.** A client
+  branching on `response.status_code == 403` or on
+  `response.json()["detail"]["error_code"]` for `GET /product/...` reads `404`
+  and `response.json()["kind"]` instead. The `403` for *tenant* authorization
+  on the HITL routes (`ERROR_TENANT_UNAUTHORIZED`) is unaffected, as is the
+  `401` for authentication
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.http_api.routes.product — every other kind's status
+
+- Surface: ccf_runtime.http_api.routes.product
+- Public surface: true
+- Change type: behavior
+- Before: twenty-one of the twenty-three refusal kinds reached
+  `ccf.products.door.served_answer`, which raised `TypeError`: no response at
+  all, an opaque `500`. The module docstring said so, and said the remaining
+  kinds *"wait for their ruling"*
+- After: every kind answers its status class carrying the whole disclosed
+  envelope in the one body shape. `500` is reached only by a `kind` **absent**
+  from `REFUSAL_KINDS` — a value this SDK did not mint claiming to be a
+  refusal, which is an invariant violation and should look like one
+- Why: the ruling arrived (D-18)
+- Migration: a client that treated a `500` from this door as *"the fabric
+  refused in a way HTTP could not express"* now receives `400`, `404` or `409`
+  with a typed body. Nothing that previously succeeded changes
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
 
 ### Not public Python API
 
