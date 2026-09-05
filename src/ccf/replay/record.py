@@ -62,6 +62,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING, Final
 
@@ -118,10 +119,28 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     # the runtime needs it.
     from ccf.products.provenance import EffectiveRequest
 
+    # 24.6-07: typing-only, and this one is NOT a discipline choice — it is
+    # forced, and measured. Dimension 5 admits the refusal VALUE
+    # (`D-IMPL-253` Q13), and `ccf.products.refusal` imports
+    # `ccf.agents.errors`, whose package `__init__` imports `ccf.agents.agent`,
+    # which reads two names out of *this* module. So `refusal` → this module
+    # is a real cycle in the import order that starts at `refusal`, and even
+    # the bottom-import idiom below cannot close it: entering at `refusal`
+    # reaches this module before `refusal` has bound a single name.
+    # The three values are therefore imported inside the two function bodies
+    # that need them (`_refusal_names`), which run long after both modules
+    # have finished loading.
+    from ccf.products.refusal import RefusalEnvelope
+
 __all__ = [
     "MODE_1_MODEL_VERSION",
     "NO_ADAPTER",
+    "NO_ASSEMBLER",
+    "NO_DISCLOSURE_DECISION",
+    "NO_FABRIC_READ",
+    "NO_PRODUCT_ADDRESS",
     "NO_REQUEST_RESOLUTION",
+    "NO_ROLE_RESOLVED",
     "NO_ASSEMBLY_REFUSAL",
     "NO_AGENT_DEFINITION",
     "FalseAssemblyRefusalClaimError",
@@ -217,6 +236,55 @@ NO_ADAPTER = "no-adapter"
 #: same artifact, which is the repudiation failure mode every sentinel in this
 #: module exists to close.
 NO_REQUEST_RESOLUTION = "no-request-resolution"
+
+#: Dimension 1's watermark when the decision read **no** graph state at all
+#: (24.6-07; ``D-IMPL-253`` Q13). A positive claim in the
+#: :data:`NO_HITL_ACTIONS` voice, and the one this phase most needed: a refusal
+#: reached before the graph is touched has no store watermark, and an empty
+#: string or an omitted dimension would say *the state was empty* or *the state
+#: was dropped* — three different facts collapsed into one. **"There is none"**
+#: is what this asserts, and :meth:`ContextFabricSnapshot.unread` is the only
+#: way to say it.
+NO_FABRIC_READ = "no-fabric-read"
+
+#: Dimension 4's assembler value when no
+#: :class:`~ccf.agents.assembler.ContextAssemblerProtocol` produced the
+#: decision (24.6-07; CLAUDE.md §6.2, ``D-IMPL-253`` Q16, ``D-IMPL-245``
+#: amendment 1). A positive claim in the :data:`NO_AGENT_DEFINITION` voice:
+#: every fabric-direct decision — the reference resolver holds no assembler —
+#: *asserts* that none was in force rather than leaving a field for a reader to
+#: interpret. A decision made by no assembler and one whose caller dropped the
+#: assembler's identity would otherwise be the same artifact.
+NO_ASSEMBLER = "no-assembler"
+
+#: Dimension 5's disclosure value when no disclosure decision was applied
+#: (24.6-07; ``D-IMPL-254``'s Disclosure layer, filled by ``24.6-08``). A
+#: positive claim in the :data:`NO_WORKFLOW_TRACE` voice: *"nothing decided
+#: what of this determination may cross a consumer boundary"* — which is the
+#: internal, undisclosed form, and is what every record written before the
+#: Disclosure layer existed was saying.
+NO_DISCLOSURE_DECISION = "no-disclosure-decision"
+
+#: Dimension 5's content address when the decision produced **no product**
+#: (24.6-07; ``D-IMPL-253`` Q13). A positive claim rather than an empty string:
+#: an address is a ``sha256`` and every real one is 64 hex characters, so a
+#: reader that met ``""`` would be left deciding whether the decision produced
+#: nothing or the address was lost. A refusal produced nothing, and this says
+#: so — which is also why :attr:`ContentGenerationPath.product_content_address`
+#: stays a **required** field and gains no ``None``.
+NO_PRODUCT_ADDRESS = "no-product-address"
+
+#: Dimension 4's ``role`` when the decision was reached before any Π role was
+#: resolved (24.6-07; ``D-IMPL-256`` (1)). A door-level entitlement denial is
+#: decided *at* the delivery boundary — before the resolver runs, and therefore
+#: before a perspective's role is established — so the record must say the role
+#: was never resolved rather than invent one or leave the required field blank.
+#:
+#: **A positive claim in an existing required field, and not a new field.** The
+#: alternative — ``role: str | None`` — would make every reader of dimension 4
+#: handle a null, for one caller's benefit, and would change the shape of a
+#: field 40-odd call sites already write.
+NO_ROLE_RESOLVED = "no-role-resolved"
 
 
 class ContextFabricSnapshot(CCFContract):
@@ -331,6 +399,53 @@ class ContextFabricSnapshot(CCFContract):
             touched_relationships=touched_relationships,
             source_attestation=source_attestation,
             store_snapshot_pin=store_snapshot_pin,
+        )
+
+    @classmethod
+    def unread(
+        cls, *, tenant_id: str, temporal_boundary: datetime
+    ) -> "ContextFabricSnapshot":
+        """Dimension 1 for a decision that read **no** graph state (24.6-07).
+
+        ``D-IMPL-253`` Q13 (Dave: *"Refusal is itself a decision and deserves
+        the same five-dimensional replay model. Do not create second-class
+        replay."*). A refusal reached before the graph is touched — a
+        request-conformity verdict, a constraint refusal, a door-level
+        entitlement denial — still has a dimension 1, and what that dimension
+        must say is *there is none*.
+
+        It is a **named constructor** rather than a set of arguments a caller
+        assembles, for :meth:`build`'s reason and one more of its own. The
+        shared reason: the snapshot id is derived rather than assigned, so the
+        only way to produce a truthful one is to hand the state to a
+        constructor. Its own: *"nothing was read"* has exactly one spelling
+        here, and a caller that reached for :meth:`build` with an empty
+        watermark and empty tuples would produce a **different** and false
+        claim — that the graph was read and found empty.
+
+        The id is ``content_hash`` over that positive claim, so two unread
+        refusals at one instant for one tenant share an id — which is correct:
+        the dimension identifies the state a decision drew from, and those two
+        decisions drew from the same nothing. What distinguishes them is
+        dimension 5, where the refusal itself is recorded.
+
+        Args:
+            tenant_id: The tenant the determination was made under.
+            temporal_boundary: The instant it was made against — the question's
+                own ``asked_at``, or a delivery boundary's determination
+                instant.
+
+        Returns:
+            The dimension-1 snapshot asserting :data:`NO_FABRIC_READ`, with
+            empty touched sets and no attestation: nothing was read, so
+            nothing attested and nothing was touched.
+        """
+        return cls.build(
+            tenant_id=tenant_id,
+            temporal_boundary=temporal_boundary,
+            store_watermark=NO_FABRIC_READ,
+            touched_entities=(),
+            touched_relationships=(),
         )
 
 
@@ -518,6 +633,26 @@ class PerspectiveConditioning(CCFContract):
             extend the same field with no further contract change — a
             workflow execution id followed by the calling agent identities,
             in delegation order, exactly as the field always admitted.
+        assembler_id: Which
+            :class:`~ccf.agents.assembler.ContextAssemblerProtocol` produced
+            the decision, and ``assembler_version`` at which version
+            (24.6-07). **Dimension 4 and not a sixth block**, on
+            ``D-IMPL-253`` Q16's ruling (Dave: *"Perspective Conditioning is
+            the better home for assembler identity/version given the existing
+            model."*) and on CLAUDE.md §6.2's own placement of agent identity
+            and version here. ``D-IMPL-245`` amendment 1 deferred the carriage
+            to this phase; before it an assembler's identity travelled only in
+            its own transcript, so *"which assembler produced this?"* was
+            answerable from no dimension at all.
+
+            :data:`NO_ASSEMBLER` on both is the positive claim that none was in
+            force — the SDK's reference resolver holds no assembler, so it
+            passes neither and the record asserts so rather than going quiet.
+            Hash-transparent at that sentinel (``D-IMPL-243``): every record
+            written before this extension keeps its content address, byte for
+            byte.
+        assembler_version: The assembler's own version lane. See
+            ``assembler_id``.
     """
 
     principal_id: str
@@ -527,6 +662,12 @@ class PerspectiveConditioning(CCFContract):
     archetype_composition: tuple[str, ...] = ()
     grant_set_hash: str = NO_GRANTS_SET_HASH
     delegation_chain: tuple[str, ...] = (NO_AGENT_DEFINITION,)
+    assembler_id: str = Field(
+        default=NO_ASSEMBLER, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    assembler_version: str = Field(
+        default=NO_ASSEMBLER, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("delegation_chain")
     @classmethod
@@ -717,12 +858,38 @@ class ContentGenerationPath(CCFContract):
     by AST at each phase that touches this builder rather than carried
     forward. It read *32 across 28* when plan 15.5-13 wrote it and that was
     true then; it is corrected here rather than left to rot (D-65).
+
+    **The disclosure decision extends this dimension as of 24.6-07**
+    (``D-IMPL-254``) through ``disclosure_decision``, under the same
+    sentinel-default discipline as everything above it. It is here rather than
+    on dimension 2 because it is a fact about *how the content that crossed
+    came to be* rather than about which bindings were in force: Policy sets
+    what **may** cross (dimension 2's regime), and this records which level was
+    actually **applied** to produce the statement a consumer saw. Without it,
+    replay can reconstruct the determination and not *"why the consumer saw the
+    particular response it saw"* — which ``D-IMPL-254`` names as one of the
+    four mistakes the four-layer separation exists to prevent.
+
+    :data:`NO_DISCLOSURE_DECISION` is the positive assertion *nothing decided
+    what may cross* — the internal, undisclosed form. ``24.6-08`` is the plan
+    that fills it; this one gives it the slot and the sentinel, so no record
+    written before that plan moves.
+
+    ``product_content_address`` stays **required**, and a decision that
+    produced no product carries :data:`NO_PRODUCT_ADDRESS` there. A ``None``
+    would make every reader of this dimension handle a null for the refusal
+    case's benefit, and would say *the address is unknown* where the true claim
+    is *there is no product to address*.
     """
 
     plan_id: str
     operator_plan: tuple[str, ...]
     steps: tuple[ExecutionStep, ...]
     product_content_address: str
+    disclosure_decision: str = Field(
+        default=NO_DISCLOSURE_DECISION,
+        json_schema_extra={HASH_TRANSPARENT_KEY: True},
+    )
     workflow_step_sequence: str = NO_WORKFLOW_TRACE
     assembly_refusal: str = NO_ASSEMBLY_REFUSAL
     graph_query_sequence: tuple[str, ...] = NO_GRAPH_QUERIES
@@ -750,12 +917,63 @@ class DecisionReplayRecord(CCFContract):
     content_generation_path: ContentGenerationPath
 
 
+def _refusal_names() -> tuple[type[CCFContract], Mapping[type[CCFContract], str], str]:
+    """``(RefusalEnvelope, REFUSAL_KINDS, NO_REPLAY_REFERENCE)``, imported late.
+
+    A function-local import, and the reason is a measured cycle rather than a
+    preference (see the ``TYPE_CHECKING`` block at the top of this module):
+    :mod:`ccf.products.refusal` reaches :mod:`ccf.agents.agent`, which reads
+    :data:`NO_GRANTS_SET_HASH` and :class:`PerspectiveConditioning` out of
+    here. Entering the tree at ``refusal`` therefore reaches this module before
+    ``refusal`` has bound any name, which even the bottom-import idiom at the
+    end of this file cannot survive.
+
+    Named once rather than repeated at three call sites, so the reason is
+    stated once and the three cannot drift into importing different things.
+    """
+    from ccf.products.refusal import (
+        NO_REPLAY_REFERENCE,
+        REFUSAL_KINDS,
+        RefusalEnvelope,
+    )
+
+    return RefusalEnvelope, REFUSAL_KINDS, NO_REPLAY_REFERENCE
+
+
+def _is_refusal_value(outcome: object) -> bool:
+    """``outcome`` is a governed refusal this record can carry (24.6-07).
+
+    Three admissible shapes, and the widening is the whole of ``D-IMPL-253``
+    Q13's *"do not create second-class replay"*:
+
+    * a :class:`~ccf.products.refusal.RefusalEnvelope` — **any** of the
+      shipped :data:`~ccf.products.refusal.REFUSAL_KINDS`, since the envelope
+      is the one shape every one of them crosses in;
+    * a bare refusal value of any of those kinds, which is what an assembler
+      or a gate returns before a door envelopes it;
+    * a :class:`~ccf.products.request.ProductRequestViolation` — already
+      covered by the line above, and named here because it is the **legacy**
+      form D-60 shipped and the one every record written before ``24.6-07``
+      carries.
+
+    Membership is by exact type against ``REFUSAL_KINDS``, never
+    ``isinstance``, for :func:`~ccf.products.refusal.envelope_for`'s reason: an
+    ``isinstance`` chain would admit an unknown subclass as its nearest known
+    ancestor and record the wrong kind — a well-formed audit record carrying a
+    false answer.
+    """
+    envelope_class, kinds, _ = _refusal_names()
+    if isinstance(outcome, envelope_class):
+        return True
+    return isinstance(outcome, CCFContract) and type(outcome) in kinds
+
+
 def mint_assembly_refusal(
-    outcome: "AssemblyOutcome | ProductRequestViolation",
+    outcome: "AssemblyOutcome | ProductRequestViolation | RefusalEnvelope | CCFContract",
     *,
     claimed: str | None = None,
 ) -> str:
-    """Derive dimension 5's assembler-seam block from what the assembler returned.
+    """Derive dimension 5's refusal block from the governed refusal itself.
 
     **The block is DERIVED from the value, never hand-claimed.** An adopter's
     assembler calls this with whatever
@@ -764,11 +982,21 @@ def mint_assembly_refusal(
     those bytes verbatim rather than reconstructing them, exactly as it does
     for ``hitl_actions`` and ``workflow_step_sequence``.
 
+    **Widened in 24.6-07** (``24.6-L-08``, ``D-IMPL-253`` Q13) from *the one
+    refusal the assembler seam can produce* to **any**
+    :data:`~ccf.products.refusal.REFUSAL_KINDS` member and to the
+    :class:`~ccf.products.refusal.RefusalEnvelope` that carries it. That is
+    what closes the hole :func:`build_replay_record`'s own docstring recorded
+    as open for phase 24.1.1: Reading A wanted the refusal **value** to travel
+    into the builder rather than a pre-serialized block, and this is that
+    reading, arriving with the ruling that asked for it.
+
     Args:
-        outcome: What the assembler returned — an
-            :class:`~ccf.agents.assembler.AssemblyOutcome`, or a
-            :class:`~ccf.products.request.ProductRequestViolation` when the
-            question did not conform to its declared contract (D-60).
+        outcome: What the seam produced — an
+            :class:`~ccf.agents.assembler.AssemblyOutcome`, a
+            :class:`~ccf.products.refusal.RefusalEnvelope`, or any bare refusal
+            value :data:`~ccf.products.refusal.REFUSAL_KINDS` names. Anything
+            else is *not a refusal*, which is a valid answer here.
         claimed: The block the caller intends to record, when it wants that
             intention checked against ``outcome``. ``None`` — the default —
             asks for no check and simply derives.
@@ -781,11 +1009,12 @@ def mint_assembly_refusal(
         FalseAssemblyRefusalClaimError: ``claimed`` contradicts ``outcome`` in
             either direction.
     """
-    if isinstance(outcome, ProductRequestViolation):
+    if _is_refusal_value(outcome):
         if claimed is not None and claimed == NO_ASSEMBLY_REFUSAL:
+            reason = getattr(outcome, "reason", type(outcome).__name__)
             raise FalseAssemblyRefusalClaimError(
-                "the assembler returned a governed refusal"
-                f" ({outcome.reason!r}) while the caller asserted"
+                "the seam returned a governed refusal"
+                f" ({reason!r}) while the caller asserted"
                 f" {NO_ASSEMBLY_REFUSAL!r}; a decision that was refused and a"
                 " decision whose caller dropped the refusal would otherwise be"
                 " the same artifact"
@@ -793,7 +1022,7 @@ def mint_assembly_refusal(
         return canonical_bytes(outcome).decode("utf-8")
     if claimed is not None and claimed != NO_ASSEMBLY_REFUSAL:
         raise FalseAssemblyRefusalClaimError(
-            "the caller asserted a governed refusal while the assembler"
+            "the caller asserted a governed refusal while the seam"
             " returned an outcome; asserting a refusal that did not happen"
             " corrupts dimension 5 exactly as dropping one does"
         )
@@ -805,21 +1034,40 @@ def _admissible_refusal_block(block: str) -> str:
 
     A hand-written block that merely *looks* like a refusal is the flattening
     :func:`~ccf.products.refusal.envelope_for` exists to forbid, so the builder
-    admits only the positive sentinel or a value that round-trips as a
-    :class:`~ccf.products.request.ProductRequestViolation` — the one refusal
-    the assembler seam can produce (D-60).
+    admits only the positive sentinel or a value that round-trips as one of the
+    two governed shapes:
+
+    * a :class:`~ccf.products.refusal.RefusalEnvelope` — the shell form every
+      shipped refusal kind crosses in, and what ``24.6-07`` records for every
+      refusal the delivery boundary reaches;
+    * a :class:`~ccf.products.request.ProductRequestViolation` — the **legacy**
+      form D-60 shipped, still admitted so every record written before
+      ``24.6-07`` still round-trips.
+
+    The two cannot be confused: both are ``extra=forbid`` and neither's
+    required field set is a subset of the other's, so a block validates as at
+    most one of them. The envelope is tried first because it is what the tree
+    now mints; the violation is the fallback, which is what makes this a
+    widening rather than a replacement.
     """
     if block == NO_ASSEMBLY_REFUSAL:
         return block
+    envelope_class, _, _ = _refusal_names()
+    refusal: CCFContract
     try:
-        violation = ProductRequestViolation.model_validate_json(block)
-    except ValueError as invalid:
-        raise ValueError(
-            "assembly_refusal must be either the positive sentinel"
-            f" {NO_ASSEMBLY_REFUSAL!r} or the canonical serialization of a"
-            " governed refusal the assembler seam produced; the value given is"
-            f" neither ({invalid})"
-        ) from invalid
+        refusal = envelope_class.model_validate_json(block)
+    except ValueError as not_an_envelope:
+        try:
+            refusal = ProductRequestViolation.model_validate_json(block)
+        except ValueError as invalid:
+            raise ValueError(
+                "assembly_refusal must be either the positive sentinel"
+                f" {NO_ASSEMBLY_REFUSAL!r} or the canonical serialization of a"
+                " governed refusal — a `RefusalEnvelope`, or the legacy"
+                " `ProductRequestViolation` D-60 shipped; the value given is"
+                f" neither (as an envelope: {not_an_envelope}; as a violation:"
+                f" {invalid})"
+            ) from invalid
     # RE-CANONICALIZED, not returned verbatim. Validating that a block *parses*
     # and then storing the caller's own bytes would let one refusal land as a
     # FAMILY of blocks — reorder the keys, change the whitespace, and dimension
@@ -827,17 +1075,56 @@ def _admissible_refusal_block(block: str) -> str:
     # VALUE, so the value is what is re-serialized here. The close panel found
     # this: the refusal message claimed "canonical serialization" while the
     # check proved only "parses", which is shape-checked and identity-claimed.
-    return canonical_bytes(violation).decode("utf-8")
+    return canonical_bytes(refusal).decode("utf-8")
+
+
+def _conditioned(
+    conditioning: PerspectiveConditioning,
+    *,
+    assembler_id: str | None,
+    assembler_version: str | None,
+) -> PerspectiveConditioning:
+    """Dimension 4 with the assembler in force stamped onto it (24.6-07).
+
+    ``D-IMPL-253`` Q16; CLAUDE.md §6.2. Returned **unchanged** when neither
+    value was supplied, so the extension is inert for every caller written
+    before it — the two fields keep their :data:`NO_ASSEMBLER` defaults and
+    the conditioning is the same object, not a re-validated copy of it.
+
+    ``model_copy`` rather than reconstruction: an ``agent_conditioning`` a
+    caller serialized from its own construction-time identity must keep every
+    field it carried, and re-listing them here would be a transcription that
+    silently drops the next field somebody adds.
+    """
+    if assembler_id is None and assembler_version is None:
+        return conditioning
+    return conditioning.model_copy(
+        update={
+            "assembler_id": (
+                assembler_id if assembler_id is not None else NO_ASSEMBLER
+            ),
+            "assembler_version": (
+                assembler_version
+                if assembler_version is not None
+                else NO_ASSEMBLER
+            ),
+        }
+    )
 
 
 def build_replay_record(
     *,
-    execution: ExecutionResult,
-    product: ContextProductContract,
+    execution: ExecutionResult | None,
+    product: ContextProductContract | None,
     perspective: Perspective,
     policy_bindings: tuple[PolicyBinding, ...],
     assembly_mode: AssemblyMode,
     recorded_at: datetime,
+    refusal: "RefusalEnvelope | None" = None,
+    tenant_id: str | None = None,
+    assembler_id: str | None = None,
+    assembler_version: str | None = None,
+    disclosure: str | None = None,
     agent_conditioning: PerspectiveConditioning | None = None,
     harness_trace: HarnessTrace | None = None,
     hitl_actions: str | None = None,
@@ -889,16 +1176,65 @@ def build_replay_record(
     that sentinel or a value that round-trips as a
     :class:`~ccf.products.request.ProductRequestViolation`.
 
-    **What this does NOT close, stated rather than implied.** A caller that
-    never calls :func:`mint_assembly_refusal` and hand-passes the sentinel
-    while holding a refusal still produces a well-formed, FALSE record. The
-    shape check above stops a *fabricated* block; it does not stop a
-    *truthful-looking silence*, and
+    **What this did NOT close, and what 24.6-07 closed.** A caller that never
+    calls :func:`mint_assembly_refusal` and hand-passes the sentinel while
+    holding a refusal still produces a well-formed, FALSE record on the
+    *served* path. The shape check above stops a *fabricated* block; it does
+    not stop a *truthful-looking silence*, and
     :class:`FalseAssemblyRefusalClaimError` reaches only callers that ask for
-    the check. Closing it needs the refusal VALUE to travel in here rather
-    than a pre-serialized block — Reading A's shape, refused for phase 24.1.1
-    because it pulls :mod:`ccf.replay.serve` and :mod:`ccf.products.resolver`
-    in. Criterion 9 is therefore discharged AS RULED and not absolutely.
+    the check. Phase 24.1.1 recorded that closing it needs the refusal VALUE to
+    travel in here rather than a pre-serialized block — Reading A's shape,
+    refused then because it pulls :mod:`ccf.replay.serve` and
+    :mod:`ccf.products.resolver` in. ``D-IMPL-253`` Q13 asked for exactly that
+    reading, and ``refusal`` below is it: on the refusal path the value
+    arrives, this builder mints the block itself, and there is no silence for a
+    caller to pass. The **served** path's residual stands unchanged.
+
+    ``refusal`` is the 24.6-07 refusal path (``24.6-L-08``; ``D-IMPL-253``
+    Q13 — Dave: *"Refusal is itself a decision and deserves the same
+    five-dimensional replay model. Do not create second-class replay."*).
+    **Exactly one** of ``product`` and ``refusal`` is passed, and passing
+    ``product`` requires an ``execution``; the guard is at the top of the body
+    rather than in a docstring, because a record carrying both or neither is
+    not a record of anything.
+
+    What a refusal outcome does to each dimension:
+
+    1. With no ``execution`` — a refusal reached before the graph was touched
+       — dimension 1 is :meth:`ContextFabricSnapshot.unread`, carrying the
+       positive :data:`NO_FABRIC_READ` claim. With one — a gate or tolerance
+       refusal, which has a real execution behind it — dimension 1 is built
+       **exactly** as a served product's, because the same state was read.
+    2. Unchanged: the bindings, the resolution and the adapter are facts about
+       the governed inputs, and a refusal has the same ones a fulfillment
+       would have had.
+    3. Unchanged.
+    4. ``role`` may be :data:`NO_ROLE_RESOLVED` — a delivery-boundary denial is
+       reached before a perspective's role is established.
+    5. ``product_content_address`` is :data:`NO_PRODUCT_ADDRESS`, ``steps`` is
+       empty, ``plan_id`` comes from the execution or asserts
+       :data:`NO_FABRIC_READ`, ``debt`` comes from the refusal's own permitted
+       evidence when it carries any, and ``assembly_refusal`` is the envelope
+       **as it stood before it learned its own address**: the recorded shell
+       always carries :data:`~ccf.products.refusal.NO_REPLAY_REFERENCE`,
+       because a record whose content address covered a reference to itself
+       could not be content-addressed at all.
+
+    ``tenant_id`` is required exactly when there is no ``product`` to read it
+    off; supplying it beside a product is refused rather than silently
+    preferred, because two sources for one fact is how a record comes to
+    disagree with the vessel it describes.
+
+    ``assembler_id`` / ``assembler_version`` are the ``D-IMPL-245`` amendment 1
+    carriage (``D-IMPL-253`` Q16; CLAUDE.md §6.2), threaded onto dimension 4
+    for a **served and a refused** outcome alike — which assembler produced
+    the decision is the same question either way. ``None`` yields the positive
+    :data:`NO_ASSEMBLER` claim, and every field the builder wrote before this
+    extension is byte-for-byte what it was.
+
+    ``disclosure`` is the Disclosure layer's own record (``D-IMPL-254``),
+    threaded onto dimension 5. ``None`` yields
+    :data:`NO_DISCLOSURE_DECISION`. ``24.6-08`` is the plan that passes it.
 
     ``workflow_step_sequence`` is the I.4 workflow seam (CLAUDE.md §8.1),
     threaded into dimension 5 the same way: the workflow engine's
@@ -1003,12 +1339,52 @@ def build_replay_record(
     :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`, so every call site
     written before this extension is byte-for-byte what it was.
     """
-    return DecisionReplayRecord(
-        tenant_id=product.tenant_id,
-        recorded_at=recorded_at,
-        context_fabric_snapshot=ContextFabricSnapshot.build(
-            tenant_id=product.tenant_id,
-            temporal_boundary=product.temporal_boundary,
+    # 24.6-07: the outcome guard, at the top and before anything is derived. A
+    # record carrying both halves would describe two decisions and a record
+    # carrying neither would describe none, so both are unrepresentable rather
+    # than merely discouraged — the `DoorOutcome._exactly_one_half` posture,
+    # applied where the record is minted.
+    if (product is None) == (refusal is None):
+        raise ValueError(
+            "build_replay_record records exactly one outcome: a `product`"
+            " (a fulfilled decision) or a `refusal` (a governed no), never"
+            " both and never neither. A refusal is a decision and deserves the"
+            " same five dimensions (`D-IMPL-253` Q13), which is why it is an"
+            " outcome here rather than an annotation on a product record"
+        )
+    if product is not None and execution is None:
+        raise ValueError(
+            "a fulfilled decision is recorded from the execution that produced"
+            " it: dimensions 1 and 5 are derived from `execution`, and a"
+            " product recorded without one would carry an invented fabric"
+            " snapshot and an empty generation path. Only a refusal may be"
+            " recorded with no execution, and only when the fabric genuinely"
+            " read nothing"
+        )
+    if product is not None and tenant_id is not None:
+        raise ValueError(
+            "`tenant_id` is read off the product when there is one, so passing"
+            " both is two sources for one fact — which is how a record comes"
+            " to disagree with the vessel it describes. Pass `tenant_id` only"
+            " on the refusal path, where there is no vessel to read it from"
+        )
+    if product is None and tenant_id is None:
+        raise ValueError(
+            "a refusal carries no vessel, so the tenant the determination was"
+            " made under has to be stated: pass `tenant_id`"
+        )
+
+    _, _, no_replay_reference = _refusal_names()
+    recorded_tenant = product.tenant_id if product is not None else tenant_id
+    assert recorded_tenant is not None  # the four guards above establish this
+    boundary = (
+        product.temporal_boundary if product is not None else recorded_at
+    )
+
+    if execution is not None:
+        snapshot = ContextFabricSnapshot.build(
+            tenant_id=recorded_tenant,
+            temporal_boundary=boundary,
             store_watermark=execution.state_watermark(),
             touched_entities=execution.touched_entities(),
             touched_relationships=execution.touched_relationships(),
@@ -1017,11 +1393,25 @@ def build_replay_record(
             # exactly where the attestation goes and for the same reason —
             # replay resolves this pin, never the head now.
             store_snapshot_pin=execution.store_snapshot_pin,
-        ),
+        )
+    else:
+        # 24.6-07: nothing was read, and dimension 1 SAYS so. Never
+        # `build(...)` with an empty watermark — that would claim the graph
+        # was read and found empty, which is a different and false fact.
+        snapshot = ContextFabricSnapshot.unread(
+            tenant_id=recorded_tenant, temporal_boundary=boundary
+        )
+
+    return DecisionReplayRecord(
+        tenant_id=recorded_tenant,
+        recorded_at=recorded_at,
+        context_fabric_snapshot=snapshot,
         policy_bindings=PolicyBindingsSnapshot(
             bindings=policy_bindings,
             hitl_actions=hitl_actions if hitl_actions is not None else NO_HITL_ACTIONS,
-            survivor_cap=execution.survivor_cap,
+            survivor_cap=(
+                execution.survivor_cap if execution is not None else None
+            ),
             graph_adapter=adapter.name if adapter is not None else NO_ADAPTER,
             graph_adapter_version=(
                 adapter.version if adapter is not None else NO_ADAPTER
@@ -1050,46 +1440,112 @@ def build_replay_record(
             if harness_trace is not None
             else NO_HARNESS_TRACE,
         ),
-        perspective_conditioning=agent_conditioning
-        or PerspectiveConditioning(
-            principal_id=perspective.principal_id,
-            role=perspective.role,
-            delegation_chain=(perspective.principal_id,),
+        # 24.6-07: dimension 4 is the caller's conditioning, then the
+        # assembler's identity stamped onto it. A `model_copy` rather than two
+        # construction branches, so an `agent_conditioning` a caller
+        # serialized keeps every field it carried and gains only what this
+        # extension adds — CLAUDE.md §6.2 puts agent identity here, and
+        # `D-IMPL-253` Q16 puts the assembler's beside it.
+        perspective_conditioning=_conditioned(
+            agent_conditioning
+            or PerspectiveConditioning(
+                principal_id=perspective.principal_id,
+                role=perspective.role,
+                delegation_chain=(perspective.principal_id,),
+            ),
+            assembler_id=assembler_id,
+            assembler_version=assembler_version,
         ),
         content_generation_path=ContentGenerationPath(
-            plan_id=execution.plan_id,
-            operator_plan=tuple(step.operator_key for step in execution.steps),
-            steps=execution.steps,
-            product_content_address=content_hash(product),
+            # 24.6-07: a refusal reached before any plan ran has no plan, and
+            # the same positive claim dimension 1 makes is the honest one
+            # here — nothing was read, so nothing was planned over it.
+            plan_id=execution.plan_id if execution is not None else NO_FABRIC_READ,
+            operator_plan=(
+                tuple(step.operator_key for step in execution.steps)
+                if execution is not None
+                else ()
+            ),
+            steps=execution.steps if execution is not None else (),
+            # 24.6-07: a refusal produced nothing to address, and says so.
+            product_content_address=(
+                content_hash(product)
+                if product is not None
+                else NO_PRODUCT_ADDRESS
+            ),
+            disclosure_decision=(
+                disclosure if disclosure is not None else NO_DISCLOSURE_DECISION
+            ),
             workflow_step_sequence=workflow_step_sequence
             if workflow_step_sequence is not None
             else NO_WORKFLOW_TRACE,
-            assembly_refusal=_admissible_refusal_block(assembly_refusal)
-            if assembly_refusal is not None
-            else NO_ASSEMBLY_REFUSAL,
-            graph_query_sequence=tuple(
-                content_hash(query) for query in execution.executed_queries
+            # 24.6-07: on the refusal path the VALUE arrives and this builder
+            # mints the block — Reading A's shape, which is what closes the
+            # truthful-looking-silence hole the served path still carries. The
+            # recorded shell is the shell BEFORE it learned its own address:
+            # a record whose content address covered a reference to itself
+            # could not be content-addressed at all.
+            assembly_refusal=(
+                mint_assembly_refusal(
+                    refusal.model_copy(
+                        update={"replay_reference": no_replay_reference}
+                    )
+                )
+                if refusal is not None
+                else (
+                    _admissible_refusal_block(assembly_refusal)
+                    if assembly_refusal is not None
+                    else NO_ASSEMBLY_REFUSAL
+                )
+            ),
+            graph_query_sequence=(
+                tuple(content_hash(query) for query in execution.executed_queries)
+                if execution is not None
+                else NO_GRAPH_QUERIES
             ),
             # D-IMPL-100: read off the product, not off a parameter. The
             # product is already here, so no call site moves — and a record
             # pinning a debt its product does not carry cannot be constructed.
-            debt=product.debt,
+            #
+            # 24.6-07: on the refusal path the same reasoning reaches one step
+            # further out — the assessment is read off the refusal's own
+            # PERMITTED evidence, so a record pinning a debt the shell does
+            # not carry is equally unrepresentable.
+            debt=(
+                product.debt
+                if product is not None
+                else (
+                    refusal.evidence.debt
+                    if refusal is not None and refusal.evidence is not None
+                    else None
+                )
+            ),
             # D-IMPL-118: read off the product for debt's reason, and carried
             # at all for a harder one — the carrier is a top-level vessel
             # field, so `(record, projection)` cannot rebuild it from anywhere
             # else and every replay would diverge without this line.
-            debt_evidence=product.debt_evidence,
+            debt_evidence=(
+                product.debt_evidence if product is not None else NO_DEBT_EVIDENCE
+            ),
             # D-IMPL-117 gap 2, under the same D-IMPL-118 placement and for
             # the same two reasons: read off the product so no call site
             # moves, and carried at all because a top-level vessel field is
             # reconstructible from nowhere else.
-            source_refresh_recency=product.source_refresh_recency,
+            source_refresh_recency=(
+                product.source_refresh_recency
+                if product is not None
+                else NO_SOURCE_REFRESH_RECENCY
+            ),
             # D-IMPL-117 gap 3, under the same D-IMPL-118 placement, and
             # carried for a reason the other two do not have: without this
             # line a rehydrator's only route to the value is the deployment's
             # CURRENT debt profile, which would answer "what was this decision
             # obliged to do?" with today's binding (D-IMPL-26).
-            obligation_in_force=product.obligation_in_force,
+            obligation_in_force=(
+                product.obligation_in_force
+                if product is not None
+                else NO_OBLIGATION_IN_FORCE
+            ),
             # D-IMPL-111 limb (b): the question, verbatim. A parameter and not
             # a derivation — the answer does not contain the question that was
             # asked, and inferring one from the other is what DI-15.5-07

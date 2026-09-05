@@ -86,10 +86,14 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Final
 
+from pydantic import Field, field_validator
+
 from ccf.agents.errors import AssemblyRefusal
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import canonical_bytes
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_bytes
 from ccf.graph.product_source import ProductMountRefusal
+from ccf.graph.protocols import StoreSnapshotPin
+from ccf.halflife.assessment import DebtAssessment
 from ccf.peering.admission import (
     AdmissionRefusal,
     ContractRefusal,
@@ -100,7 +104,7 @@ from ccf.peering.admission import (
 )
 from ccf.products.composition import MixingRefusal
 from ccf.products.constraints import ConstraintRefusal, PolicyResolutionConflict
-from ccf.products.contract import ProductLineage
+from ccf.products.contract import ComputedEmptyFinding, ProductLineage
 from ccf.products.gates import (
     AttestationRefusal,
     DeclaredObligationRefusal,
@@ -112,6 +116,7 @@ from ccf.products.gates import (
     TTLRefusal,
 )
 from ccf.products.payload import PayloadSchemaViolation
+from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.request import AnchorAmbiguityRefusal, ProductRequestViolation
 
 __ccf_mode__ = "algorithmic"
@@ -119,11 +124,30 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "NON_PRODUCT_REFUSALS",
     "NON_VALUE_VIOLATIONS",
+    "NO_REPLAY_REFERENCE",
     "REFUSAL_KINDS",
     "RefusalEnvelope",
+    "RefusalEvidence",
     "RequestIdentity",
+    "ResourceRequestIdentity",
     "envelope_for",
 ]
+
+
+#: :attr:`RefusalEnvelope.replay_reference`'s value when the shell was produced
+#: by a seam that minted no Decision Replay record (``24.6-07``; ``D-IMPL-253``
+#: Q13, ``D-IMPL-256``). A positive claim in the voice
+#: :data:`~ccf.replay.record.NO_HITL_ACTIONS` uses: *"the seam that produced
+#: this shell recorded no decision"* is asserted, never inferred from silence —
+#: a refusal minted before this seam existed and a refusal whose reference was
+#: dropped in transit would otherwise be the same artifact, which is the
+#: repudiation failure mode the sentinel discipline exists to close.
+#:
+#: It is also what the **recorded** shell carries, always: the record's
+#: dimension 5 holds the envelope as it stood *before* it learned its own
+#: address, because a record whose content address covered a reference to
+#: itself could not be content-addressed at all.
+NO_REPLAY_REFERENCE: Final[str] = "no-replay-reference"
 
 
 class RequestIdentity(CCFContract):
@@ -152,6 +176,142 @@ class RequestIdentity(CCFContract):
     product_version: str | None
     parameters: Mapping[str, Any]
     temporal_boundary: datetime | None
+
+
+class RefusalEvidence(CCFContract):
+    """What the fabric is PERMITTED to show of the search behind a refusal.
+
+    **SDK-defined, not whitepaper-derived** (CLAUDE.md §11); the ruling of
+    record is ``D-IMPL-253`` Q13 (Dave: *"Refusal is itself a decision and
+    deserves the same five-dimensional replay model. Do not create
+    second-class replay."*) with ``D-IMPL-254``'s four layers —
+    Determination → Authority → Disclosure → Delivery.
+
+    It is the **internal** form. What of it crosses a consumer boundary is the
+    Disclosure layer's decision and nobody else's: the fabric preserves the
+    governed truth, Policy decides what may cross, and the shell expresses only
+    the permitted statement. This type therefore states the search and applies
+    no filter of its own — a filter here would be a second place disclosure is
+    decided, and two places deciding one thing is how audit truth gets
+    destroyed to achieve suppression silence.
+
+    Attributes:
+        operators_invoked: The operator set the execution behind this refusal
+            resolved. Empty is a real answer only for a refusal reached before
+            any plan ran, and such a refusal carries no evidence at all — the
+            envelope's ``None`` says that, not an empty set here.
+        plan_id: The plan the execution ran.
+        store_snapshot_pin: The substrate head the reads ran against —
+            :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN` when the
+            substrate exposes none. **Required**, with no default: a search
+            that ran read *something*, and a pin defaulted here would let a
+            caller build evidence that quietly claims a substrate exposed no
+            head when in fact the caller forgot to say.
+        debt: The Context Debt measured over what the question assembled
+            (whitepaper §7.7), when one was measured. ``None`` is the positive
+            *no assessment was made* — a gate refusal reached before scoring,
+            or a candidate the deployment's scorer declined to assess.
+        computed_empty: The search behind an empty answer
+            (``24.6-05``, ``D-IMPL-255`` (2)), when the execution recorded one.
+            ``None`` is *no operator returned empty*, the claim every product
+            assembled before that field existed was already making.
+    """
+
+    operators_invoked: frozenset[str]
+    plan_id: str
+    store_snapshot_pin: StoreSnapshotPin
+    # Two optional members on a brand-new model, so there is no earlier
+    # generation for either to be a boundary against and ``True`` is the only
+    # coherent declaration (``D-IMPL-243`` amendment 1; the
+    # `ccf.products.provenance` precedent, 24.6-01). A refusal reached with no
+    # assessment and one reached with no empty operator each render without
+    # the key they have nothing to say under.
+    debt: DebtAssessment | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    computed_empty: ComputedEmptyFinding | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+
+class ResourceRequestIdentity(CCFContract):
+    """The identity a DELIVERY-BOUNDARY denial is recorded under.
+
+    **SDK-defined, not whitepaper-derived** (CLAUDE.md §11, §8.3); the ruling
+    of record is ``D-IMPL-256`` (1) — ``24.6-CONTEXT.md`` D-34 — in Dave's own
+    words: *"No fulfilled Context Product does not mean no Decision Replay."*
+    A standing resource, a tool call and an HTTP route are three transport
+    shapes of one governed act, and a denial at any of them is a determination
+    the fabric reached. Recording only the shapes that happen to carry a
+    :class:`~ccf.products.request.ProductRequest` would be *"a replay hole
+    based on transport shape"*.
+
+    **Five questions a delivery-boundary denial must answer, and where each is
+    answered.** This type carries two of them and names the other three so a
+    reader is not left to hunt:
+
+    ==================================== ====================================
+    Question                             Answered by
+    ==================================== ====================================
+    what resource was requested          :attr:`surface` and :attr:`address`
+    at what instant                      :attr:`determined_at`
+    by whom / under which perspective    replay dimension 4
+    under which policy                   replay dimension 2
+    why fulfillment was refused          replay dimension 5, and this shell's
+                                         own ``kind``/``reason``/``detail``
+    ==================================== ====================================
+
+    It **names no subject and no principal**, deliberately. Every value here is
+    something the caller itself supplied or the deployment itself declared, so
+    the identity is retained on the recorded internal shell and on a disclosed
+    shell alike: telling a caller the address it just asked for reveals nothing
+    it did not already know. Who asked is dimension 4's, and dimension 4 is not
+    a consumer-facing surface.
+
+    Attributes:
+        surface: Which delivery boundary decided — the door's own mechanism
+            token, defined **once** beside the governed step that mints these
+            (``runtime/ccf_runtime/authz/delivery_boundary.py``) and never as a
+            literal at a door. Three doors spelling one surface three ways is
+            three vocabularies in the audit record.
+        address: What was requested — the product URI a standing resource
+            names, or the route path an HTTP caller asked for. What the caller
+            addressed, never what the fabric resolved it to.
+        tenant_id: The tenant the determination was made under, established by
+            the calling surface and never claimed by the caller's body.
+        determined_at: The instant the entitlement determination was reached,
+            read from the deployment's own declared clock — the **same**
+            instant the replay record's ``recorded_at`` carries, so the shell
+            and its record cannot disagree about when the fabric decided.
+
+    Raises:
+        ValueError: ``determined_at`` carries no UTC offset. ``D-IMPL-38``
+            admits no implicit UTC anywhere in the fabric: the canonical
+            serializer refuses a naive instant rather than guessing an offset,
+            and a determination instant whose offset is the deciding host's
+            local configuration is an instant that replays differently on a
+            different host.
+    """
+
+    surface: str
+    address: str
+    tenant_id: str
+    determined_at: datetime
+
+    @field_validator("determined_at")
+    @classmethod
+    def _instant_is_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError(
+                f"determined_at {value.isoformat()!r} carries no UTC offset,"
+                " and a naive instant cannot cross this seam — the canonical"
+                " serializer refuses it rather than guessing an offset, so the"
+                " same denial would be recorded at a different instant on"
+                " every host (D-IMPL-38). Attach an explicit timezone:"
+                " `datetime(..., tzinfo=UTC)`, or `value.replace(tzinfo=UTC)`"
+                " if the instant is already UTC"
+            )
+        return value
 
 
 class RefusalEnvelope(CCFContract):
@@ -210,6 +370,55 @@ class RefusalEnvelope(CCFContract):
             gate refusal has a candidate contract behind it and therefore a
             real, non-empty answer. ``None`` here is the positive assertion
             *there was none*, not *it was dropped*.
+
+    **Six members joined additively in** ``24.6-07`` (``24.6-L-08``;
+    ``D-IMPL-253`` Q13/Q14 — Dave: *"Extend* :class:`RefusalEnvelope`
+    *additively. We already decided it is effectively the shell form of the
+    governed response; another wrapper buys little."*). Each is
+    sentinel-defaulted and **hash-transparent at its sentinel**
+    (``D-IMPL-243``), so a shell minted before ``24.6-07`` renders
+    byte-identically and no envelope's content address moves:
+
+    ``policy_bindings``
+        The identity and version of every Control Plane artifact that governed
+        this refusal — the policy bundle, the constraints in force at the
+        question's instant, and the entitlement policy when one decided
+        anything. :class:`~ccf.products.provenance.ProvenanceSource` rather
+        than a pin pair, because a source with no version lane (a request's own
+        identity, a backend capability) is a real governing input and minting
+        an artifact lane for it would be the fake artifact ``D-IMPL-253``
+        amendment 2 (1) forbids. The empty tuple is *nothing governed
+        version-bearingly*, which is what every shell said before the field
+        existed.
+    ``replay_reference``
+        The decision record's address —
+        :attr:`~ccf.artifacts.protocol.ArtifactRef.uri`.
+        :data:`NO_REPLAY_REFERENCE` is the positive claim that the seam which
+        produced this shell minted none. The **recorded** shell always carries
+        the sentinel; only the returned one learns its own address.
+    ``evidence``
+        What the fabric is permitted to show of the search behind the refusal.
+        The Disclosure layer (``D-IMPL-254``) is the only thing that fills or
+        empties it for a consumer; a refusal reached before any plan ran
+        carries ``None``, which is *there was no search*.
+    ``provenance``
+        The Authority layer's own record — which authority set each
+        parameter's value, which constraint bounded it, and whether an override
+        was entitled (``D-IMPL-253`` Q1/Q6). Carried whole rather than
+        collapsed, for Q1's reason: *"do not collapse authority after
+        resolution."*
+    ``disclosure``
+        Which disclosure level was applied to produce this shell. ``None`` is
+        the **internal, undisclosed** form — the shell as the fabric recorded
+        it, before Policy decided what may cross a consumer boundary.
+    ``resource``
+        The :class:`ResourceRequestIdentity` of a **delivery-boundary** denial
+        (``D-IMPL-256`` (1)). ``None`` on a refusal that answered a question:
+        a resolver's own refusals carry their question in :attr:`request`, and
+        a second identity for the same fact would be two spellings of one
+        claim. Retained on the recorded internal shell and on a disclosed shell
+        alike — it names no subject, and the address is what the caller itself
+        asked for.
     """
 
     kind: str
@@ -219,6 +428,24 @@ class RefusalEnvelope(CCFContract):
     fields: Mapping[str, str]
     request: RequestIdentity
     pre_assembly_lineage: ProductLineage | None
+    policy_bindings: tuple[ProvenanceSource, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    replay_reference: str = Field(
+        default=NO_REPLAY_REFERENCE, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    evidence: RefusalEvidence | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    provenance: EffectiveRequest | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    disclosure: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    resource: ResourceRequestIdentity | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 #: Every refusal type the fabric ships, mapped to the token that names it on
@@ -419,6 +646,10 @@ def envelope_for(
     *,
     request: RequestIdentity,
     pre_assembly_lineage: ProductLineage | None = None,
+    policy_bindings: tuple[ProvenanceSource, ...] = (),
+    evidence: RefusalEvidence | None = None,
+    provenance: EffectiveRequest | None = None,
+    resource: ResourceRequestIdentity | None = None,
 ) -> RefusalEnvelope:
     """Translate any shipped refusal into the one envelope, losing nothing.
 
@@ -444,11 +675,25 @@ def envelope_for(
         pre_assembly_lineage: The partial lineage that existed at the point of
             refusal, when one did. Must be ``None`` for a refusal the fabric
             reaches before touching the graph.
+        policy_bindings: Every Control Plane source that governed this refusal,
+            by identity and version (``24.6-07``). The empty tuple is the
+            positive *nothing version-bearing governed it*.
+        evidence: What the fabric is permitted to show of the search behind the
+            refusal, when there was one.
+        provenance: The Authority layer's resolution record, when the question
+            reached that layer.
+        resource: The resource-request identity of a delivery-boundary denial
+            (``D-IMPL-256`` (1)); ``None`` on a refusal that answered a
+            question.
 
     Returns:
         The envelope, carrying the kind, the promoted members, every remaining
-        declared field canonically rendered, the request, and the lineage or
-        its explicit absence.
+        declared field canonically rendered, the request, the lineage or its
+        explicit absence, and the four governance members above. The replay
+        reference is **not** among this function's arguments: a shell learns
+        its own address only from the seam that appended its record
+        (:class:`~ccf.products.resolver.ReplayRefusalRecorder`), so an envelope
+        this function returns always carries :data:`NO_REPLAY_REFERENCE`.
 
     Raises:
         TypeError: ``refusal`` is not an instance of a type this module
@@ -517,4 +762,8 @@ def envelope_for(
         fields=fields,
         request=request,
         pre_assembly_lineage=pre_assembly_lineage,
+        policy_bindings=policy_bindings,
+        evidence=evidence,
+        provenance=provenance,
+        resource=resource,
     )

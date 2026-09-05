@@ -363,6 +363,37 @@ _MARKED_IN_THE_TREE = frozenset(
         # below hashes a config at the sentinel against the same document
         # without the key.
         "ccf.controlplane.artifacts.DeploymentConfig.policy_constraints",
+        # 24.6-07: the refusal shell's six governance members (``24.6-L-08``,
+        # ``D-IMPL-253`` Q13/Q14, ``D-IMPL-256`` (1)). Each sentinel is what
+        # every shell minted before this row was already saying — nothing
+        # version-bearing governed it, no record was minted, no search is
+        # shown, no resolution was recorded, no disclosure was applied, and it
+        # was not a delivery-boundary denial — so a 24.5-shaped envelope must
+        # render byte-identically. Measured by
+        # `test_a_refusal_shell_at_its_sentinels_hashes_as_it_did` below, not
+        # asserted.
+        "ccf.products.refusal.RefusalEnvelope.policy_bindings",
+        "ccf.products.refusal.RefusalEnvelope.replay_reference",
+        "ccf.products.refusal.RefusalEnvelope.evidence",
+        "ccf.products.refusal.RefusalEnvelope.provenance",
+        "ccf.products.refusal.RefusalEnvelope.disclosure",
+        "ccf.products.refusal.RefusalEnvelope.resource",
+        # 24.6-07: the two optional members of the permitted-evidence bundle
+        # (``24.6-L-08``). A brand-new model — the ``ccf.products.provenance``
+        # precedent above — so there is no earlier generation for either to be
+        # a boundary against, and ``True`` is the only coherent declaration: a
+        # refusal reached with no assessment, and one reached with no empty
+        # operator, each render without the key they have nothing to say under.
+        "ccf.products.refusal.RefusalEvidence.debt",
+        "ccf.products.refusal.RefusalEvidence.computed_empty",
+        # 24.6-07: the assembler in force on replay dimension 4
+        # (``D-IMPL-253`` Q16, ``D-IMPL-245`` amendment 1) and the disclosure
+        # decision on dimension 5 (``D-IMPL-254``). All three are silent at
+        # their sentinels, which is why the golden `13bd250` record still
+        # replays — `tests/replay/test_golden_13bd250.py` measures it.
+        "ccf.replay.record.PerspectiveConditioning.assembler_id",
+        "ccf.replay.record.PerspectiveConditioning.assembler_version",
+        "ccf.replay.record.ContentGenerationPath.disclosure_decision",
     }
 )
 
@@ -625,6 +656,68 @@ def test_a_product_with_no_finding_hashes_as_it_did() -> None:
     )
     assert content_hash(carrying) != content_hash(silent)
     assert b"computed_empty" in canonical_bytes(carrying)
+
+
+def test_a_refusal_shell_at_its_sentinels_hashes_as_it_did() -> None:
+    """``24.6-07``: the six shell members are additive by measurement.
+
+    `RefusalEnvelope` is not in the base-digest table above — it had no marked
+    field until this row — so the claim is measured here, in the form that
+    matters: **a shell carrying none of the six hashes exactly as the same
+    shell hashed before the fields existed**, which is what keeps every
+    envelope that has already crossed a door byte-identical on the wire.
+
+    The "before" side is rendered by hand with the six new keys removed, on
+    `test_a_config_naming_no_constraints_hashes_as_it_did`'s reasoning: the
+    canonical form renders fields and never a class name. The positive control
+    is the second half — a shell that DOES carry a reference moves, and the key
+    appears in its bytes — and the third is that all six are absent from the
+    silent bytes, enumerated rather than sampled.
+    """
+    from datetime import UTC, datetime
+
+    from ccf.products.refusal import (
+        NO_REPLAY_REFERENCE,
+        RefusalEnvelope,
+        RequestIdentity,
+    )
+
+    at = datetime(2026, 3, 15, tzinfo=UTC)
+    silent = RefusalEnvelope(
+        kind="product-request-violation",
+        reason="missing-required-parameter",
+        key="revenue_threshold",
+        detail="the question omitted a parameter the class declares required",
+        fields={"declared_keys": '["revenue_threshold"]'},
+        request=RequestIdentity(
+            product_id="fixture.product",
+            product_version="1.0.0",
+            parameters={},
+            temporal_boundary=at,
+        ),
+        pre_assembly_lineage=None,
+    )
+    added = (
+        "policy_bindings",
+        "replay_reference",
+        "evidence",
+        "provenance",
+        "disclosure",
+        "resource",
+    )
+    before = {
+        name: getattr(silent, name)
+        for name in RefusalEnvelope.model_fields
+        if name not in added
+    }
+    assert content_hash(silent) == content_hash(before)
+    for name in added:
+        assert name.encode() not in canonical_bytes(silent), name
+
+    carrying = silent.model_copy(update={"replay_reference": "ccf-artifact://r/1"})
+    assert content_hash(carrying) != content_hash(silent)
+    assert b"replay_reference" in canonical_bytes(carrying)
+    assert silent.replay_reference == NO_REPLAY_REFERENCE
 
 
 def test_a_config_naming_no_constraints_hashes_as_it_did() -> None:

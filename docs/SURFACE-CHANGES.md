@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**908 entries**, of which **666** name a public Python surface.
+**924 entries**, of which **682** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-443 entries — 404 public Python surface, 39 not public Python API.
+452 entries — 413 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -8108,6 +8108,161 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
 
+#### ccf.products.refusal.RefusalEvidence
+
+- Surface: ccf.products.refusal.RefusalEvidence
+- Public surface: true
+- Change type: added
+- Before: absent — a refusal carried nothing about the search behind it
+- After: `RefusalEvidence(operators_invoked: frozenset[str], plan_id: str,
+  store_snapshot_pin: StoreSnapshotPin, debt: DebtAssessment | None = None,
+  computed_empty: ComputedEmptyFinding | None = None)`. `store_snapshot_pin`
+  has **no** default: a search that ran read something, and a defaulted pin
+  would let a caller build evidence quietly claiming the substrate exposed no
+  head when the caller merely forgot to say
+- Why: `D-IMPL-254`'s four layers. This is the **internal** form — what may
+  cross a consumer boundary is the Disclosure layer's decision, and a filter
+  here would be a second place that is decided
+- Migration: none — a new type
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.products.refusal.ResourceRequestIdentity
+
+- Surface: ccf.products.refusal.ResourceRequestIdentity
+- Public surface: true
+- Change type: added
+- Before: absent — a governed denial at a delivery boundary that carried no
+  `ProductRequest` had no identity to be recorded under, so it was recorded not
+  at all
+- After: `ResourceRequestIdentity(surface: str, address: str, tenant_id: str,
+  determined_at: datetime)`, refusing a naive `determined_at` by name
+  (`D-IMPL-38`). It names no subject and no principal — every value is what the
+  caller itself supplied or the deployment itself declared — so it is retained
+  on the recorded internal shell and on a disclosed shell alike
+- Why: `D-IMPL-256` (1), Dave: *"The request identity for a standing resource
+  may be a different request form, but it still needs enough identity to
+  answer: what resource was requested, by whom/perspective, at what instant,
+  under which policy, and why fulfillment was refused. Otherwise we would have
+  just created a replay hole based on transport shape."*
+- Migration: none — a new type. The `surface` token is defined once beside the
+  governed delivery-boundary step (plan `24.6-08`), never as a literal at a door
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.products.refusal.NO_REPLAY_REFERENCE
+
+- Surface: ccf.products.refusal.NO_REPLAY_REFERENCE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-replay-reference"` — the positive claim that the seam which
+  produced a shell minted no record. It is also what the **recorded** shell
+  always carries: a record whose content address covered a reference to itself
+  could not be content-addressed at all
+- Why: a shell minted before this seam existed and a shell whose reference was
+  dropped in transit would otherwise be the same artifact, which is the
+  repudiation failure mode every sentinel in the record module exists to close
+- Migration: none — a new constant
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.NO_FABRIC_READ
+
+- Surface: ccf.replay.record.NO_FABRIC_READ
+- Public surface: true
+- Change type: added
+- Before: absent — dimension 1 had no way to say the decision read no state
+- After: `"no-fabric-read"`, dimension 1's `store_watermark` when nothing was
+  read, and dimension 5's `plan_id` when nothing was planned over it
+- Why: an empty string or an omitted dimension would say *the state was empty*
+  or *the state was dropped* — three different facts collapsed into one
+- Migration: none — a new constant
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.NO_ASSEMBLER
+
+- Surface: ccf.replay.record.NO_ASSEMBLER
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-assembler"`, dimension 4's value for both assembler fields when no
+  `ContextAssemblerProtocol` produced the decision
+- Why: a decision made by no assembler and one whose caller dropped the
+  assembler's identity would otherwise be the same artifact
+- Migration: none — a new constant
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.NO_DISCLOSURE_DECISION
+
+- Surface: ccf.replay.record.NO_DISCLOSURE_DECISION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-disclosure-decision"`, dimension 5's value when nothing decided
+  what of a determination may cross a consumer boundary — the internal,
+  undisclosed form
+- Why: `D-IMPL-254`'s Disclosure layer needs a positive *nothing was applied*,
+  which is what every record written before that layer existed was saying
+- Migration: none — a new constant
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.NO_PRODUCT_ADDRESS
+
+- Surface: ccf.replay.record.NO_PRODUCT_ADDRESS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-product-address"`, dimension 5's `product_content_address` when
+  the decision produced no product
+- Why: an address is a `sha256` and every real one is 64 hex characters, so a
+  reader that met `""` would be left deciding whether the decision produced
+  nothing or the address was lost. The field therefore stays **required** and
+  gains no `None`
+- Migration: none — a new constant
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.NO_ROLE_RESOLVED
+
+- Surface: ccf.replay.record.NO_ROLE_RESOLVED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-role-resolved"`, dimension 4's `role` when a determination was
+  reached before any Π role was established — a door-level entitlement denial
+  is decided *at* the delivery boundary, before the resolver runs
+- Why: a positive claim in an existing **required** field, and not a new field:
+  `role: str | None` would make every reader of dimension 4 handle a null for
+  one caller's benefit and would change the shape of a field 40-odd call sites
+  already write
+- Migration: none — a new constant
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.serve.record_refusal
+
+- Surface: ccf.replay.serve.record_refusal
+- Public surface: true
+- Change type: added
+- Before: absent — `serve()` was the only append path and it is typed to a
+  `ServableProduct`
+- After: `record_refusal(*, record, replay_writer) -> ArtifactRef`. The **same**
+  writer over the same store appending the same record — which is the substance
+  of *"do not create second-class replay"*. It returns an `ArtifactRef` rather
+  than a `DeliveryCapability` because a refusal has nothing for a capability to
+  authorize, and what the caller needs is the address the shell will carry
+- Why: `D-IMPL-253` Q13 with `D-IMPL-256`'s invariant: *"Every governed
+  determination that crosses a CCF delivery boundary — fulfilled or refused,
+  tool or resource, authorized or denied — must reach the replay writer before
+  the response is released."*
+- Migration: none — a new function
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -8736,7 +8891,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-346 entries — 163 public Python surface, 183 not public Python API.
+353 entries — 170 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -12141,6 +12296,143 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   honest place for it, but is worth knowing before upgrading
 
 *Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.refusal.RefusalEnvelope — six additive members
+
+- Surface: ccf.products.refusal.RefusalEnvelope
+- Public surface: true
+- Change type: reshaped
+- Before: seven fields — `kind`, `reason`, `key`, `detail`, `fields`, `request`,
+  `pre_assembly_lineage`
+- After: thirteen. The six added are `policy_bindings: tuple[ProvenanceSource,
+  ...] = ()`, `replay_reference: str = NO_REPLAY_REFERENCE`, `evidence:
+  RefusalEvidence | None = None`, `provenance: EffectiveRequest | None = None`,
+  `disclosure: str | None = None` and `resource: ResourceRequestIdentity | None
+  = None`. Every one is hash-transparent at its sentinel, so a shell that
+  carries none of them is byte-identical to a 24.5 shell
+- Why: `D-IMPL-253` Q14, Dave: *"Extend `RefusalEnvelope` additively. We already
+  decided it is effectively the shell form of the governed response; another
+  wrapper buys little."* A refusal that is a decision needs the governance
+  facts a decision has — which policy governed it, where its record landed,
+  what search stands behind it, what authority resolved the question, what
+  disclosure was applied, and which delivery boundary decided
+- Migration: none for a producer. A consumer decoding a `DoorOutcome` gets the
+  six members with no edit — `extra=forbid` holds on both sides and producer and
+  consumer ship together
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.products.refusal.envelope_for
+
+- Surface: ccf.products.refusal.envelope_for
+- Public surface: true
+- Change type: reshaped
+- Before: `envelope_for(refusal, *, request, pre_assembly_lineage=None)`
+- After: four keyword-only pass-throughs added —
+  `policy_bindings=()`, `evidence=None`, `provenance=None`, `resource=None`.
+  Every existing call is unchanged. `replay_reference` is deliberately **not**
+  among them: a shell learns its own address only from the seam that appended
+  its record
+- Why: the four governance members are facts the caller holds and the refusal
+  value does not, exactly as `request` and `pre_assembly_lineage` already were
+- Migration: none
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.build_replay_record — the refusal outcome
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: `execution: ExecutionResult` and `product: ContextProductContract`
+  were required; a decision that produced no product could not be recorded
+- After: both are `| None`, and five keyword-only parameters join —
+  `refusal: RefusalEnvelope | None = None`, `tenant_id: str | None = None`,
+  `assembler_id: str | None = None`, `assembler_version: str | None = None`,
+  `disclosure: str | None = None`. **Exactly one** of `product` and `refusal` is
+  passed, a `product` requires an `execution`, and `tenant_id` is required
+  exactly when there is no product to read it off — all four refused at the top
+  of the body rather than documented
+- Why: `D-IMPL-253` Q13. This also closes the hole this function's own docstring
+  recorded as open for phase 24.1.1: Reading A wanted the refusal **value** to
+  travel in rather than a pre-serialized block, and on the refusal path it now
+  does — the builder mints the block itself and there is no silence for a caller
+  to pass. The served path's residual stands unchanged and is still stated there
+- Migration: every existing call site is byte-for-byte unchanged. A deployment
+  recording a refusal passes `refusal=` and `tenant_id=` and omits `product`
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.ContextFabricSnapshot.unread
+
+- Surface: ccf.replay.record.ContextFabricSnapshot
+- Public surface: true
+- Change type: reshaped
+- Before: one named constructor, `build(...)`
+- After: a second, `unread(*, tenant_id, temporal_boundary)`, carrying
+  `store_watermark=NO_FABRIC_READ` and empty touched sets. A named constructor
+  rather than a set of arguments: *"nothing was read"* has exactly one spelling,
+  and a caller reaching for `build` with an empty watermark would produce a
+  **different** and false claim — that the graph was read and found empty
+- Why: `D-IMPL-253` Q13 — dimension 1 for a pre-assembly refusal must say
+  positively that there is none
+- Migration: none
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.PerspectiveConditioning — the assembler in force
+
+- Surface: ccf.replay.record.PerspectiveConditioning
+- Public surface: true
+- Change type: reshaped
+- Before: seven fields
+- After: nine — `assembler_id: str = NO_ASSEMBLER` and `assembler_version: str
+  = NO_ASSEMBLER`, both hash-transparent at the sentinel
+- Why: `D-IMPL-253` Q16, Dave: *"Perspective Conditioning is the better home for
+  assembler identity/version given the existing model."* CLAUDE.md §6.2 places
+  agent identity and version on dimension 4; `D-IMPL-245` amendment 1 deferred
+  the carriage to this phase. Before it, an assembler's identity travelled only
+  in its own transcript, so *"which assembler produced this?"* was answerable
+  from no dimension at all
+- Migration: none. Every record written before this extension keeps its content
+  address
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.ContentGenerationPath — the disclosure decision
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: twelve fields
+- After: thirteen — `disclosure_decision: str = NO_DISCLOSURE_DECISION`,
+  hash-transparent at the sentinel. Dimension 5 and not dimension 2: Policy sets
+  what **may** cross (dimension 2's regime), and this records which level was
+  actually **applied** to produce the statement a consumer saw
+- Why: `D-IMPL-254` — without it, replay can reconstruct the determination and
+  not *"why the consumer saw the particular response it saw"*
+- Migration: none. Plan `24.6-08` is what fills it; this row gives it the slot
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.mint_assembly_refusal — widened to the whole vocabulary
+
+- Surface: ccf.replay.record.mint_assembly_refusal
+- Public surface: true
+- Change type: reshaped
+- Before: `outcome: AssemblyOutcome | ProductRequestViolation` — the one refusal
+  the assembler seam could produce (`D-60`)
+- After: any `REFUSAL_KINDS` member, and the `RefusalEnvelope` that carries one.
+  Membership is by **exact type**, never `isinstance`: an `isinstance` chain
+  would admit an unknown subclass as its nearest known ancestor and record the
+  wrong kind, which is a well-formed audit record carrying a false answer
+- Why: `D-IMPL-253` Q13. A dimension 5 that could carry one refusal kind and not
+  the other twenty-one is second-class replay by construction
+- Migration: none — a widening. `_admissible_refusal_block` widens with it and
+  still admits the legacy `ProductRequestViolation` block, re-canonicalized from
+  the value so one refusal cannot land as a family of blocks
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
 
 ### Not public Python API
 

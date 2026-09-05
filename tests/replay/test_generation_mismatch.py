@@ -191,20 +191,30 @@ def stored(tmp_path: Path) -> tuple[FileArtifactStore, str]:
 def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent() -> None:
     """Amendment 1's measurement, re-measured: a roster, not a count.
 
-    Seventeen fields are absent from the bytes: the fifteen, none keyed, and
-    two marked ``True`` — ``context_fabric_snapshot.store_snapshot_pin``
+    Twenty fields are absent from the bytes: the fifteen, none keyed, and
+    five marked ``True`` — ``context_fabric_snapshot.store_snapshot_pin``
     (24.5's row 5), which the first specification already excluded and which
-    the amendment therefore did not count, and
-    ``policy_bindings.request_resolution`` (``24.6-03``), which joins that
-    side and **not** the fifteen: a keyed field is one whose absence at its
-    sentinel is silence by declaration, which is exactly why it is not a
-    generation boundary.
+    the amendment therefore did not count; ``policy_bindings.request_resolution``
+    (``24.6-03``); and ``24.6-07``'s three, the assembler in force on
+    dimension 4 (``D-IMPL-253`` Q16) and the disclosure decision on
+    dimension 5 (``D-IMPL-254``). Every one of the five joins that side and
+    **not** the fifteen: a keyed field is one whose absence at its sentinel is
+    silence by declaration, which is exactly why it is not a generation
+    boundary.
+
+    ``THE_FIFTEEN`` is unchanged by ``24.6-07``, and that is the load-bearing
+    half of this assertion — the lineage a pre-extension record replays past
+    is a closed historical fact, and a row that grew it would be a row that
+    made an old record refuse.
     """
     absent = _absent_fields(DecisionReplayRecord, json.loads(PRE_CHANGE_CANONICAL))
     assert tuple(name for name, key in absent if key is None) == THE_FIFTEEN
     assert tuple(name for name, key in absent if key is True) == (
         "context_fabric_snapshot.store_snapshot_pin",
         "policy_bindings.request_resolution",
+        "perspective_conditioning.assembler_id",
+        "perspective_conditioning.assembler_version",
+        "content_generation_path.disclosure_decision",
     )
     assert not [name for name, key in absent if key is False]
 
