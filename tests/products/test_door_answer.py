@@ -80,7 +80,7 @@ from ccf.products.door import (
     door_question,
 )
 from ccf.products.gates import GATE_EMPTY_OPERATOR, EmptyOperatorRefusal
-from ccf.products.refusal import RefusalEnvelope
+from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.products.request import ProductRequest
 
 from tests.client.conftest import (
@@ -535,7 +535,19 @@ def test_a_refused_outcome_carries_the_echo_and_nothing_of_the_served_half(
     assert parsed.request == asked
     assert parsed.product_json is None
     assert parsed.content_address is None
-    assert parsed.replay_ref is None
+    # 24.6-07: the refused half carries the replay reference its OWN envelope
+    # carries. Until this row it carried `None` unconditionally, on the
+    # reasoning that nothing was delivered so no append authorized anything —
+    # which was about delivery and quietly denied `D-IMPL-253` Q13's *"refusal
+    # is itself a decision"*. Rule 4 still stands: a refusal is not a
+    # content-addressed artifact and carries no `content_address`.
+    assert isinstance(a_refusal_value, RefusalEnvelope)
+    assert parsed.replay_ref == a_refusal_value.replay_reference
+    assert parsed.replay_ref is not None, (
+        "the fixture deployment's own resolver minted a record for this"
+        " refusal, so the door must report where it landed; `None` here would"
+        " mean the seam recorded nothing, which is the state 24.6-07 corrected"
+    )
     assert parsed.refusal is not None
     assert parsed.refusal.request.parameters == {}, (
         "the refusal names the question that *caused* it — the fixture's"
@@ -646,6 +658,13 @@ def test_door_question_raises_on_text_that_is_not_a_well_formed_question() -> No
 #
 # Five, counted rather than assumed: the two originals raised seven times
 # between them and two of those were the same rule said in different words.
+#
+# STILL five after `24.6-07`. Rule 5 was INVERTED, not removed: it said a
+# refused outcome carries no replay reference, and it now says a refused
+# outcome carries the one its own envelope carries (`D-IMPL-253` Q13). Three
+# assertions cover it rather than one — the raise, the admission, and the
+# sentinel's translation — because a validator that refused every refused
+# outcome would satisfy the raise alone and be useless.
 # `test_codec.py::test_control_a_wire_outcome_with_both_halves_or_neither_is_refused`
 # parametrized only rules 1 and 2, which is
 # exactly why 3, 4 and 5 had no coverage anywhere in the tree before this file.
@@ -721,15 +740,81 @@ def test_rule_4_a_refused_outcome_carrying_a_content_address_is_refused(
         )
 
 
-def test_rule_5_a_refused_outcome_carrying_a_replay_reference_is_refused(
+def test_rule_5_a_refused_outcome_disagreeing_with_its_envelope_is_refused(
     a_refusal_value: object,
 ) -> None:
-    """Nothing was delivered, so no replay append authorized anything."""
-    with pytest.raises(ValidationError, match="no replay reference"):
+    """The rule, INVERTED in ``24.6-07`` (``D-IMPL-253`` Q13).
+
+    It read *"a refused outcome carries no replay reference: nothing was
+    delivered, so no replay append authorized anything."* True about delivery,
+    and quietly false about decisions: a refusal is now recorded before its
+    shell leaves the resolver, so it has a record and the door reports where it
+    landed. What the rule guards instead is **agreement** — a refused outcome
+    whose ``replay_ref`` disagrees with its own envelope would be two answers
+    to *"which record authorized this?"*.
+    """
+    with pytest.raises(ValidationError, match="replay reference"):
         DoorOutcome(
             request=_echo(),
             product_json=None,
             content_address=None,
-            replay_ref="artifact://replay/1",
+            replay_ref="artifact://replay/one-nobody-minted",
             refusal=a_refusal_value,  # type: ignore[arg-type]
+        )
+
+
+def test_rule_5_a_refused_outcome_carrying_its_envelopes_reference_is_admitted(
+    a_refusal_value: object,
+) -> None:
+    """The other half, without which the inversion above would pass vacuously.
+
+    A validator that refused *every* refused outcome would satisfy the raise
+    above and be useless. This is the control: the reference the envelope
+    actually carries is admitted, and it is not the sentinel — so the pair
+    measures agreement rather than presence.
+    """
+    assert isinstance(a_refusal_value, RefusalEnvelope)
+    assert a_refusal_value.replay_reference != NO_REPLAY_REFERENCE
+    outcome = DoorOutcome(
+        request=_echo(),
+        product_json=None,
+        content_address=None,
+        replay_ref=a_refusal_value.replay_reference,
+        refusal=a_refusal_value,
+    )
+    assert outcome.replay_ref == a_refusal_value.replay_reference
+
+
+def test_rule_5_a_refusal_that_minted_no_record_carries_none(
+    a_refusal_value: object,
+) -> None:
+    """The sentinel translates to ``None`` on the wire, in one place.
+
+    Two vocabularies meet at this seam — the envelope's positive
+    ``no-replay-reference`` string and the outcome's ``None`` — and
+    ``ccf.products.door::_replay_ref_of`` is the single translation both the
+    validator and :func:`door_answer` read. A door that reconciled them twice
+    could emit an outcome its own validator refuses.
+    """
+    assert isinstance(a_refusal_value, RefusalEnvelope)
+    unrecorded = a_refusal_value.model_copy(
+        update={"replay_reference": NO_REPLAY_REFERENCE}
+    )
+    outcome = DoorOutcome(
+        request=_echo(),
+        product_json=None,
+        content_address=None,
+        replay_ref=None,
+        refusal=unrecorded,
+    )
+    assert outcome.replay_ref is None
+    # And the sentinel string itself is NOT admitted as a wire reference: it is
+    # the contract's way of saying "none", not an address anything resolves.
+    with pytest.raises(ValidationError, match="replay reference"):
+        DoorOutcome(
+            request=_echo(),
+            product_json=None,
+            content_address=None,
+            replay_ref=NO_REPLAY_REFERENCE,
+            refusal=unrecorded,
         )

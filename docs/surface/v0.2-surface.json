@@ -5537,6 +5537,8 @@
       "GovernedResolver",
       "ProductNotResolvable",
       "ProjectionPlanFactoryProtocol",
+      "RefusalRecorderProtocol",
+      "ReplayRefusalRecorder",
       "ResolverOutcome",
       "ServedProductResolverProtocol",
       "build_governed_resolver"
@@ -5552,7 +5554,7 @@
       },
       "GovernedResolver": {
         "kind": "class",
-        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int') -> None"
+        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', refusal_recorder: 'RefusalRecorderProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int') -> None"
       },
       "ProductNotResolvable": {
         "kind": "class",
@@ -5561,6 +5563,14 @@
       "ProjectionPlanFactoryProtocol": {
         "kind": "class",
         "shape": "(*, required: 'tuple[str, ...]', request: 'ProductRequest') -> 'ProjectionPlan'"
+      },
+      "RefusalRecorderProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "ReplayRefusalRecorder": {
+        "kind": "class",
+        "shape": "(*, artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', tenant_id: 'str', assembly_mode: 'AssemblyMode', policy_bundle_pin: 'PolicyBinding | None' = None) -> None"
       },
       "ResolverOutcome": {
         "kind": "constant",

@@ -91,6 +91,7 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.products.contract import ContextProductContract
 from ccf.products.gates import ServableProduct
 from ccf.products.refusal import (
+    NO_REPLAY_REFERENCE,
     REFUSAL_KINDS,
     RefusalEnvelope,
     RequestIdentity,
@@ -289,6 +290,28 @@ class WireRequest(CCFContract):
         )
 
 
+def _replay_ref_of(refusal: RefusalEnvelope | None) -> str | None:
+    """A refusal's replay reference on the wire, or ``None`` at the sentinel.
+
+    ``24.6-07``; ``D-IMPL-253`` Q13. Two vocabularies meet here and neither is
+    wrong in its own place: the envelope says *"no record was minted"* with the
+    positive :data:`~ccf.products.refusal.NO_REPLAY_REFERENCE` string, because
+    a contract field that went quiet could not distinguish that from a dropped
+    value; :attr:`DoorOutcome.replay_ref` says it with ``None``, because that
+    field has meant *"this deployment's resolver returned no reference"* since
+    it shipped and a served outcome uses ``None`` for exactly that.
+
+    Translating in **one** place is what stops the two from being reconciled
+    twice, differently — the rule-5 validator and :func:`door_answer` both read
+    this function, so a door cannot emit an outcome its own validator refuses.
+    """
+    if refusal is None:
+        return None
+    if refusal.replay_reference == NO_REPLAY_REFERENCE:
+        return None
+    return refusal.replay_reference
+
+
 class DoorOutcome(CCFContract):
     """One wire answer from a door: a served vessel, or a refusal.
 
@@ -344,15 +367,22 @@ class DoorOutcome(CCFContract):
             and claims ``sha256`` of those same bytes, so the value the decoder
             recomputes against is the **producer's** and the recomputation has
             an operand the consumer did not produce.
-        replay_ref: The versioned URI of the replay record whose successful
-            append authorized this delivery
+        replay_ref: The versioned URI of the replay record this outcome's
+            decision was written into
             (:attr:`~ccf.artifacts.protocol.ArtifactRef.uri`), or ``None``.
             ``None`` is the honest report that **this deployment's resolver
             returned no reference** — the narrower
             :class:`~ccf.products.gates.ServableProduct` shape carries none —
-            rather than a reference that was dropped in transit. A refusal
-            carries none: nothing was delivered, so no append authorized
-            anything.
+            rather than a reference that was dropped in transit.
+
+            **On a refusal it is the envelope's own** ``replay_reference``
+            (``24.6-07``; ``D-IMPL-253`` Q13, rule 5 below). Until this row a
+            refusal carried none, on the reasoning that nothing was delivered
+            so no append authorized anything. That reasoning was about
+            *delivery*, and the rule it produced quietly asserted the thing
+            Dave's ruling denies: *"Refusal is itself a decision and deserves
+            the same five-dimensional replay model."* A refusal is now recorded
+            before its shell leaves the resolver, and the door reports where.
         refusal: The governed "no", with its kind unflattened, or ``None`` on a
             served outcome.
     """
@@ -407,12 +437,16 @@ class DoorOutcome(CCFContract):
                 "a refused `DoorOutcome` carries no content address — a refusal"
                 " is a governed answer, not a content-addressed artifact"
             )
-        if refused and self.replay_ref is not None:
+        if refused and self.replay_ref != _replay_ref_of(self.refusal):
             raise ValueError(
-                "a refused `DoorOutcome` carries no replay reference: nothing"
-                " was delivered, so no replay append authorized anything and a"
-                " reference here would name a decision record for a decision"
-                " that was not made"
+                "a refused `DoorOutcome` carries the replay reference its own"
+                f" envelope carries — {_replay_ref_of(self.refusal)!r} — and"
+                f" this one carries {self.replay_ref!r}. A refusal IS a"
+                " decision and has a decision record (`D-IMPL-253` Q13), so"
+                " the door reports where that record landed rather than"
+                " inventing one or dropping it; two references for one"
+                " decision would be two answers to `which record authorized"
+                " this?`"
             )
         return self
 
@@ -648,7 +682,11 @@ def door_answer(
                 request=echo,
                 product_json=None,
                 content_address=None,
-                replay_ref=None,
+                # 24.6-07: where the refusal's own decision record landed. The
+                # door REPORTS it and mints nothing — replay belongs to the
+                # governed determination, never to a transport that noticed a
+                # refusal (`D-IMPL-256`).
+                replay_ref=_replay_ref_of(refusal),
                 refusal=refusal,
             )
         )

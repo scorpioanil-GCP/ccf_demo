@@ -1373,6 +1373,16 @@ def build_replay_record(
             "a refusal carries no vessel, so the tenant the determination was"
             " made under has to be stated: pass `tenant_id`"
         )
+    if refusal is not None and assembly_refusal is not None:
+        raise ValueError(
+            "`refusal` and `assembly_refusal` are two spellings of one"
+            " dimension-5 fact and this call supplies both. `refusal` is the"
+            " VALUE, from which this builder mints the block itself;"
+            " `assembly_refusal` is the pre-serialized block the assembler"
+            " seam has passed since D-60. Accepting both would mean silently"
+            " preferring one, and a caller whose block was dropped would have"
+            " no way to tell. Pass the value"
+        )
 
     _, _, no_replay_reference = _refusal_names()
     recorded_tenant = product.tenant_id if product is not None else tenant_id

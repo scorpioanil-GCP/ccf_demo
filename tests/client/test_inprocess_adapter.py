@@ -272,17 +272,28 @@ def test_a_question_the_class_does_not_answer_is_a_refused_result(
 ) -> None:
     """`D-07`. A refusal is the fabric working, so it is a value and not a raise.
 
-    And the six guarded fields raise on a refused result rather than reading as
+    And the guarded fields raise on a refused result rather than reading as
     ``None``: a caller who skipped the ``refused`` branch is told so, instead of
     recording an absent payload as an answer.
+
+    **``replay_ref`` left that group in ``24.6-07``** and is asserted the other
+    way below. It was guarded on the premise that a replay record exists only
+    after all three gates passed; ``D-IMPL-253`` Q13 makes a refusal a recorded
+    decision, so a refused result HAS an address and guarding it would be
+    refusing to report an audit trail that exists.
     """
     result = _client(seeded_root).ask(parameters={})
 
     assert result.refused
     assert result.refusal.kind == "product-request-violation"
-    for field in ("payload", "debt", "content_address", "replay_ref"):
+    for field in ("payload", "debt", "content_address", "lineage", "expires_at"):
         with pytest.raises(RefusedResultError):
             getattr(result, field)
+    # The inversion, in the same test so the two cannot drift apart: the
+    # deployment's own resolver minted a record for this refusal, and the
+    # client reads its address on the same accessor a served result uses.
+    assert result.replay_ref is not None
+    assert result.replay_ref == result.refusal.replay_reference
 
 
 # ---------------------------------------------------------------------------

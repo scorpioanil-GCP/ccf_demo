@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**924 entries**, of which **682** name a public Python surface.
+**929 entries**, of which **687** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-452 entries — 413 public Python surface, 39 not public Python API.
+454 entries — 415 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -8263,6 +8263,58 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
 
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — nothing named the seam, so each caller would have reached
+  the replay writer its own way
+- After: a `@runtime_checkable` Protocol with one member,
+  `record(envelope, *, perspective, recorded_at, request=None,
+  execution=None, policy_bindings=(), assembler_id=None,
+  assembler_version=None, resolution=None) -> RefusalEnvelope`. It appends
+  first and returns the shell with its own address on it. It takes an
+  **already-resolved** `Perspective` rather than a `principal_id` and a
+  `role`, because `15.5-RESEARCH.md` Pitfall 3 forbids a `principal_id`
+  parameter anywhere under `ccf/products`, `ccf/projection` or `ccf/replay` —
+  entitlement is decided at the door and everything below receives identity
+  already resolved. A boundary denying before any Π role was resolved passes
+  `NO_ROLE_RESOLVED` as the role: a positive claim the **door** makes, rather
+  than a `None` this seam would interpret on the door's behalf
+- Why: `D-IMPL-256`, Dave: *"make sure the architecture does not accidentally
+  make the transport responsible for minting replay. The sequence should
+  conceptually remain: request → identity/policy → determination → replay →
+  disclosure shaping → transport encoding … Replay belongs to the governed
+  determination, not to HTTP or MCP."* One named seam is what lets the
+  resolver, the governed delivery-boundary step and an assembler's wrappers
+  hold one recorder over one store
+- Migration: none — a new Protocol
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.products.resolver.ReplayRefusalRecorder
+
+- Surface: ccf.products.resolver.ReplayRefusalRecorder
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the reference implementation — a frozen, keyword-only dataclass over
+  `artifact_store`, `replay_record_class`, `tenant_id`, `assembly_mode` and an
+  optional `policy_bundle_pin`. It composes exactly two shipped things and
+  invents nothing: `build_replay_record` with the refusal as its outcome, and
+  `record_refusal` over the **same** `ReplayWriter` class the served path uses
+- Why: CLAUDE.md §11 — a reference implementation ships beside every Protocol.
+  The sameness is the substance of *"do not create second-class replay"*: a
+  second writer, or a second record shape, would be exactly that. It holds a
+  store and no graph handle, so the ArtifactStore never becomes a second writer
+  to the graph (CLAUDE.md §7.4, §10)
+- Migration: none — a new class. `build_governed_resolver` selects it with no
+  argument, so a deployment reaching the fabric through that helper gets a
+  governed refusal path without naming anything
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -8891,7 +8943,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-353 entries — 170 public Python surface, 183 not public Python API.
+354 entries — 171 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -12434,6 +12486,29 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
 
+#### ccf.products.resolver.GovernedResolver — the recorder field
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: reshaped
+- Before: fifteen constructor arguments, three refusal branches, none of which
+  appended a record
+- After: sixteen — `refusal_recorder: RefusalRecorderProtocol`, with **no
+  default**, and all three refusal branches route through it before returning
+  their shell. The served branch is unchanged except that it now also passes
+  the assembler's identity (`None` here, since this composition holds no
+  assembler) and reads its applied policy bindings from one derivation shared
+  with the refusal branches
+- Why: `D-IMPL-253` Q13. No default for every other argument's reason and for
+  one of its own: a resolver that defaulted its recorder into existence would
+  be deciding, on its own authority, where a deployment's audit records land
+- Migration: **breaking for a deployment that constructs `GovernedResolver`
+  directly.** Pass a `refusal_recorder`; `ReplayRefusalRecorder` over the same
+  store and artifact class the resolver already has is the reference wiring.
+  A deployment using `build_governed_resolver` is unaffected
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -14837,7 +14912,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-112 entries — 92 public Python surface, 20 not public Python API.
+114 entries — 94 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -16999,6 +17074,48 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   *"then an applicable tolerance may cause the shell response."*
 
 *Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.door.DoorOutcome — rule 5 inverted
+
+- Surface: ccf.products.door.DoorOutcome
+- Public surface: true
+- Change type: behavior
+- Before: rule 5 refused a refused outcome that carried any `replay_ref`:
+  *"nothing was delivered, so no replay append authorized anything."*
+- After: rule 5 requires a refused outcome's `replay_ref` to **equal** the one
+  its own envelope carries — the sentinel translating to `None` through one
+  shared helper both the validator and `door_answer` read. The five-rule count
+  is unchanged; rule 4 (no `content_address` on a refusal) stands
+- Why: `D-IMPL-253` Q13. The old reasoning was about *delivery* and the rule it
+  produced quietly asserted what the ruling denies. A refusal is recorded
+  before its shell leaves the resolver, and the door reports where
+- Migration: a consumer that asserted `replay_ref is None` on a refused outcome
+  asserts equality with `refusal.replay_reference` instead. A door emits the
+  reference; it mints nothing
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.client.result.GUARDED_FIELDS and PRE_ASSEMBLY_FIELDS
+
+- Surface: ccf.client.result.GUARDED_FIELDS
+- Public surface: true
+- Change type: behavior
+- Before: six guarded names including `replay_ref`, which raised
+  `RefusedResultError` on a refused `Result`
+- After: five. `replay_ref` moved to `PRE_ASSEMBLY_FIELDS` and is readable on
+  either half, on the same accessor, returning `None` when the producer
+  published none
+- Why: the membership rested on a premise this row removes, verbatim from the
+  constant's own docstring: *"`replay_ref` exists only after the replay record
+  was written, which is strictly after all three gates passed."* The second
+  clause is now false, and guarding the field would be refusing to report an
+  audit trail that exists. The other five are untouched and no guard was
+  weakened
+- Migration: a caller that wrapped `result.replay_ref` in a
+  `try/except RefusedResultError` no longer needs to; the `except` clause
+  simply stops firing. Nothing that read it on a served result changes
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
 
 ### Not public Python API
 

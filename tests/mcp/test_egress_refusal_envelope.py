@@ -80,7 +80,17 @@ from ccf.products.entitlement import (
     product_entitlement_key,
 )
 from ccf.products.gates import TTLRefusal
-from ccf.products.refusal import RefusalEnvelope, RequestIdentity
+from ccf.graph.protocols import NO_STORE_SNAPSHOT_PIN
+from ccf.products.provenance import EffectiveRequest, ProvenanceSource
+from ccf.products.refusal import (
+    NO_REPLAY_REFERENCE,
+    RefusalEnvelope,
+    RefusalEvidence,
+    RequestIdentity,
+    ResourceRequestIdentity,
+    envelope_for,
+)
+from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
@@ -391,6 +401,63 @@ def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
             " did not; the fixture, not the door, is what failed"
         )
         return violation
+
+    return resolve
+
+
+def _refusing_and_recording(
+    declared: ProductRequestContract, *, store: Any, tenant: str
+) -> Callable[..., object]:
+    """:func:`_refusing`, minting the refusal's decision record (``24.6-07``).
+
+    ``D-IMPL-253`` Q13 made a refusal a recorded decision, so a resolver that
+    returned a bare value and appended nothing is no longer what a governed
+    seam does. This one runs the same shared comparison and then hands the
+    verdict through the ONE minting seam
+    (:class:`~ccf.products.resolver.ReplayRefusalRecorder`), which is what a
+    real deployment's :class:`~ccf.products.resolver.GovernedResolver` does on
+    every refusal branch.
+
+    It returns the **envelope** rather than the bare value, because that is
+    what a shell carrying its own replay reference has to be — and
+    ``door_refusal`` passes an envelope through untouched, so the two doors
+    below compare exactly what the resolver produced.
+    """
+    recorder = ReplayRefusalRecorder(
+        artifact_store=store,
+        replay_record_class=REPLAY_ARTIFACT_CLASS,
+        tenant_id=tenant,
+        assembly_mode="algorithmic",
+    )
+
+    def resolve(
+        *,
+        tenant: str,
+        product_class: str,
+        version: str,
+        perspective: Perspective,
+        request: ProductRequest | None,
+    ) -> object:
+        assert request is not None
+        violation = refuse_request(request=request, declared=declared)
+        assert violation is not None, (
+            "this leg's caller was built to violate the declared surface and"
+            " did not; the fixture, not the door, is what failed"
+        )
+        return recorder.record(
+            envelope_for(
+                violation,
+                request=RequestIdentity(
+                    product_id=product_class,
+                    product_version=version,
+                    parameters=request.parameters,
+                    temporal_boundary=request.asked_at,
+                ),
+            ),
+            perspective=perspective,
+            recorded_at=request.asked_at,
+            request=request,
+        )
 
     return resolve
 
@@ -780,10 +847,28 @@ def test_the_mcp_refusal_is_field_identical_to_the_in_process_one(
     carried, and re-validated. Field-identity is therefore a statement about
     the **crossing** rather than about two implementations happening to agree,
     which is the only form of it a parity suite can lean on.
+
+    **The resolver MINTS as of ``24.6-07``**, and that is what puts
+    ``replay_reference`` inside this comparison rather than beside it.
+    :func:`assert_refusals_identical` derives its field list from
+    :class:`~ccf.products.refusal.RefusalEnvelope` itself, so the six members
+    this row added are compared with no edit — but a fixture resolver that
+    minted nothing would compare six sentinels and prove nothing about them.
+    Both references are asserted **non-sentinel** below for that reason.
+
+    They are also the **same** address, and that is a property rather than a
+    coincidence: one resolver, two calls at one ``asked_at``, no clock read
+    anywhere on the path, and a content-addressed store. Two identical
+    determinations converge on one record — which is what makes *"which record
+    authorized this?"* have one answer whichever door a caller came through.
     """
     address = assembled.address
     declared = _contract(address)
-    resolver = _refusing(declared)
+    resolver = _refusing_and_recording(
+        declared,
+        store=FileArtifactStore(root=tmp_path / "refusal-records"),
+        tenant=address.tenant,
+    )
 
     in_process = resolver(
         tenant=address.tenant,
@@ -805,26 +890,36 @@ def test_the_mcp_refusal_is_field_identical_to_the_in_process_one(
     )
 
     assert is_error is False, text
-    over_the_wire = _decode(text).refusal
+    decoded = _decode(text)
+    over_the_wire = decoded.refusal
     assert over_the_wire is not None
-    assert_refusals_identical(
-        door_refusal(
-            in_process,
-            asked=ProductRequest(
-                schema_name=address.product_class,
-                schema_version=address.version,
-                subject=SUBJECT,
-                intent=INTENT,
-                freshness=FRESHNESS,
-                asked_at=ASKED_AT,
-                parameters={},
-            ),
-            product_class=address.product_class,
-            version=address.version,
-        )
-        or pytest.fail("the in-process leg produced no refusal"),
-        over_the_wire,
-    )
+    in_process_envelope = door_refusal(
+        in_process,
+        asked=ProductRequest(
+            schema_name=address.product_class,
+            schema_version=address.version,
+            subject=SUBJECT,
+            intent=INTENT,
+            freshness=FRESHNESS,
+            asked_at=ASKED_AT,
+            parameters={},
+        ),
+        product_class=address.product_class,
+        version=address.version,
+    ) or pytest.fail("the in-process leg produced no refusal")
+    assert_refusals_identical(in_process_envelope, over_the_wire)
+
+    # 24.6-07: the replay reference is INSIDE that identity, and non-sentinel
+    # on both sides. Asserted explicitly because a comparison of two sentinels
+    # would pass and prove nothing about the field.
+    for side, envelope in (
+        ("in process", in_process_envelope),
+        ("over MCP", over_the_wire),
+    ):
+        assert envelope.replay_reference != NO_REPLAY_REFERENCE, side
+    assert in_process_envelope.replay_reference == over_the_wire.replay_reference
+    # And the door reports it, translated to the outcome's own vocabulary.
+    assert decoded.replay_ref == over_the_wire.replay_reference
 
 
 def test_the_mcp_door_carries_the_replay_reference(
@@ -985,6 +1080,80 @@ def test_the_identity_assertion_fires_on_a_dropped_kind(
 
     with pytest.raises(AssertionError, match="kind"):
         assert_refusals_identical(honest, flattened)
+
+
+@pytest.mark.parametrize(
+    "member",
+    [
+        "replay_reference",
+        "policy_bindings",
+        "evidence",
+        "provenance",
+        "disclosure",
+        "resource",
+    ],
+)
+def test_the_identity_assertion_fires_on_each_member_24_6_07_added(
+    assembled: Any, member: str
+) -> None:
+    """Each of the six is genuinely compared, one at a time (``24.6-07``).
+
+    :func:`assert_refusals_identical` derives its field list from the type, so
+    the six joined the comparison with no edit — and *"joined with no edit"* is
+    the kind of claim that is easy to assert and easy to be wrong about. Six
+    planted differences, one per member, are what turn it into a measurement.
+
+    Parametrized rather than folded into one test because a single assertion
+    over six planted differences passes when **one** of them is caught.
+    """
+    honest = RefusalEnvelope(
+        kind="ttl-refusal",
+        reason="ttl",
+        key=None,
+        detail="expires_at fell outside the window",
+        fields={"max_ttl_seconds": "3600"},
+        request=_identity(assembled.address),
+        pre_assembly_lineage=None,
+    )
+    planted: dict[str, Any] = {
+        "replay_reference": "ccf-artifact://a/replay/1",
+        "policy_bindings": (
+            ProvenanceSource(kind="artifact", identity="policy.bundle", version="v1"),
+        ),
+        "evidence": RefusalEvidence(
+            operators_invoked=frozenset({"traversal.neighbors"}),
+            plan_id="plan-1",
+            store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
+        ),
+        "provenance": EffectiveRequest(
+            parameters=(),
+            guidance=(),
+            overrides=(),
+            applied=(),
+            asked_at=ASKED_AT,
+        ),
+        "disclosure": "minimal",
+        "resource": ResourceRequestIdentity(
+            surface="fixture-surface",
+            address="ccf-product://fixture/1.0.0",
+            tenant_id=assembled.address.tenant,
+            determined_at=ASKED_AT,
+        ),
+    }
+    assert set(planted) == set(
+        RefusalEnvelope.model_fields
+    ) - {
+        "kind",
+        "reason",
+        "key",
+        "detail",
+        "fields",
+        "request",
+        "pre_assembly_lineage",
+    }, "the planted set must be exactly the six this row added"
+    divergent = honest.model_copy(update={member: planted[member]})
+    with pytest.raises(AssertionError, match=member):
+        assert_refusals_identical(honest, divergent)
 
 
 def test_the_boundary_assertion_fires_on_a_renderer_that_envelopes_governance(
