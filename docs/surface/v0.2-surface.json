@@ -1063,12 +1063,18 @@
         "kind": "contract",
         "shape": {
           "detail": "<class 'str'>",
+          "disclosure": "str | None",
+          "evidence": "ccf.products.refusal.RefusalEvidence | None",
           "fields": "collections.abc.Mapping[str, str]",
           "key": "str | None",
           "kind": "<class 'str'>",
+          "policy_bindings": "tuple[ccf.products.provenance.ProvenanceSource, ...]",
           "pre_assembly_lineage": "ccf.products.contract.ProductLineage | None",
+          "provenance": "ccf.products.provenance.EffectiveRequest | None",
           "reason": "<class 'str'>",
-          "request": "<class 'ccf.products.refusal.RequestIdentity'>"
+          "replay_reference": "<class 'str'>",
+          "request": "<class 'ccf.products.refusal.RequestIdentity'>",
+          "resource": "ccf.products.refusal.ResourceRequestIdentity | None"
         }
       },
       "Result": {
@@ -5362,9 +5368,12 @@
     "__all__": [
       "NON_PRODUCT_REFUSALS",
       "NON_VALUE_VIOLATIONS",
+      "NO_REPLAY_REFERENCE",
       "REFUSAL_KINDS",
       "RefusalEnvelope",
+      "RefusalEvidence",
       "RequestIdentity",
+      "ResourceRequestIdentity",
       "envelope_for"
     ],
     "exports": {
@@ -5376,6 +5385,10 @@
         "kind": "constant",
         "shape": "frozenset"
       },
+      "NO_REPLAY_REFERENCE": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "REFUSAL_KINDS": {
         "kind": "constant",
         "shape": "dict"
@@ -5384,12 +5397,28 @@
         "kind": "contract",
         "shape": {
           "detail": "<class 'str'>",
+          "disclosure": "str | None",
+          "evidence": "ccf.products.refusal.RefusalEvidence | None",
           "fields": "collections.abc.Mapping[str, str]",
           "key": "str | None",
           "kind": "<class 'str'>",
+          "policy_bindings": "tuple[ccf.products.provenance.ProvenanceSource, ...]",
           "pre_assembly_lineage": "ccf.products.contract.ProductLineage | None",
+          "provenance": "ccf.products.provenance.EffectiveRequest | None",
           "reason": "<class 'str'>",
-          "request": "<class 'ccf.products.refusal.RequestIdentity'>"
+          "replay_reference": "<class 'str'>",
+          "request": "<class 'ccf.products.refusal.RequestIdentity'>",
+          "resource": "ccf.products.refusal.ResourceRequestIdentity | None"
+        }
+      },
+      "RefusalEvidence": {
+        "kind": "contract",
+        "shape": {
+          "computed_empty": "ccf.products.contract.ComputedEmptyFinding | None",
+          "debt": "ccf.halflife.assessment.DebtAssessment | None",
+          "operators_invoked": "frozenset[str]",
+          "plan_id": "<class 'str'>",
+          "store_snapshot_pin": "<class 'ccf.graph.protocols.StoreSnapshotPin'>"
         }
       },
       "RequestIdentity": {
@@ -5401,9 +5430,18 @@
           "temporal_boundary": "datetime.datetime | None"
         }
       },
+      "ResourceRequestIdentity": {
+        "kind": "contract",
+        "shape": {
+          "address": "<class 'str'>",
+          "determined_at": "<class 'datetime.datetime'>",
+          "surface": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
       "envelope_for": {
         "kind": "function",
-        "shape": "(refusal: 'object', *, request: 'RequestIdentity', pre_assembly_lineage: 'ProductLineage | None' = None) -> 'RefusalEnvelope'"
+        "shape": "(refusal: 'object', *, request: 'RequestIdentity', pre_assembly_lineage: 'ProductLineage | None' = None, policy_bindings: 'tuple[ProvenanceSource, ...]' = (), evidence: 'RefusalEvidence | None' = None, provenance: 'EffectiveRequest | None' = None, resource: 'ResourceRequestIdentity | None' = None) -> 'RefusalEnvelope'"
       }
     }
   },
@@ -5499,6 +5537,8 @@
       "GovernedResolver",
       "ProductNotResolvable",
       "ProjectionPlanFactoryProtocol",
+      "RefusalRecorderProtocol",
+      "ReplayRefusalRecorder",
       "ResolverOutcome",
       "ServedProductResolverProtocol",
       "build_governed_resolver"
@@ -5514,7 +5554,7 @@
       },
       "GovernedResolver": {
         "kind": "class",
-        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int') -> None"
+        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', refusal_recorder: 'RefusalRecorderProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int') -> None"
       },
       "ProductNotResolvable": {
         "kind": "class",
@@ -5523,6 +5563,14 @@
       "ProjectionPlanFactoryProtocol": {
         "kind": "class",
         "shape": "(*, required: 'tuple[str, ...]', request: 'ProductRequest') -> 'ProjectionPlan'"
+      },
+      "RefusalRecorderProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "ReplayRefusalRecorder": {
+        "kind": "class",
+        "shape": "(*, artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', tenant_id: 'str', assembly_mode: 'AssemblyMode', policy_bundle_pin: 'PolicyBinding | None' = None) -> None"
       },
       "ResolverOutcome": {
         "kind": "constant",
@@ -5825,13 +5873,18 @@
       "ModelVersionRecord",
       "NO_ADAPTER",
       "NO_AGENT_DEFINITION",
+      "NO_ASSEMBLER",
       "NO_ASSEMBLY_REFUSAL",
+      "NO_DISCLOSURE_DECISION",
+      "NO_FABRIC_READ",
       "NO_GRANTS_SET_HASH",
       "NO_GRAPH_QUERIES",
       "NO_HARNESS",
       "NO_HARNESS_TRACE",
       "NO_HITL_ACTIONS",
+      "NO_PRODUCT_ADDRESS",
       "NO_REQUEST_RESOLUTION",
+      "NO_ROLE_RESOLVED",
       "NO_WORKFLOW_TRACE",
       "PerspectiveConditioning",
       "PolicyBinding",
@@ -5846,6 +5899,7 @@
           "assembly_refusal": "<class 'str'>",
           "debt": "ccf.halflife.assessment.DebtAssessment | None",
           "debt_evidence": "tuple[ccf.halflife.assessment.DebtEvidencePointer, ...]",
+          "disclosure_decision": "<class 'str'>",
           "graph_query_sequence": "tuple[str, ...]",
           "obligation_in_force": "<class 'str'>",
           "operator_plan": "tuple[str, ...]",
@@ -5917,7 +5971,19 @@
         "kind": "constant",
         "shape": "str"
       },
+      "NO_ASSEMBLER": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "NO_ASSEMBLY_REFUSAL": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "NO_DISCLOSURE_DECISION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "NO_FABRIC_READ": {
         "kind": "constant",
         "shape": "str"
       },
@@ -5941,7 +6007,15 @@
         "kind": "constant",
         "shape": "str"
       },
+      "NO_PRODUCT_ADDRESS": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "NO_REQUEST_RESOLUTION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "NO_ROLE_RESOLVED": {
         "kind": "constant",
         "shape": "str"
       },
@@ -5955,6 +6029,8 @@
           "agent_definition_hash": "<class 'str'>",
           "agent_definition_uri": "<class 'str'>",
           "archetype_composition": "tuple[str, ...]",
+          "assembler_id": "<class 'str'>",
+          "assembler_version": "<class 'str'>",
           "delegation_chain": "tuple[str, ...]",
           "grant_set_hash": "<class 'str'>",
           "principal_id": "<class 'str'>",
@@ -5982,11 +6058,11 @@
       },
       "build_replay_record": {
         "kind": "function",
-        "shape": "(*, execution: 'ExecutionResult', product: 'ContextProductContract', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, resolution: \"'EffectiveRequest | None'\" = None) -> 'DecisionReplayRecord'"
+        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, resolution: \"'EffectiveRequest | None'\" = None) -> 'DecisionReplayRecord'"
       },
       "mint_assembly_refusal": {
         "kind": "function",
-        "shape": "(outcome: \"'AssemblyOutcome | ProductRequestViolation'\", *, claimed: 'str | None' = None) -> 'str'"
+        "shape": "(outcome: \"'AssemblyOutcome | ProductRequestViolation | RefusalEnvelope | CCFContract'\", *, claimed: 'str | None' = None) -> 'str'"
       }
     }
   },
@@ -5998,6 +6074,7 @@
       "QueryPinWriter",
       "ReplayWriter",
       "ServedProduct",
+      "record_refusal",
       "serve"
     ],
     "exports": {
@@ -6027,6 +6104,10 @@
           "product": "<class 'ccf.products.contract.ContextProductContract'>",
           "replay_ref": "<class 'ccf.artifacts.protocol.ArtifactRef'>"
         }
+      },
+      "record_refusal": {
+        "kind": "function",
+        "shape": "(*, record: 'DecisionReplayRecord', replay_writer: 'ReplayWriter') -> 'ArtifactRef'"
       },
       "serve": {
         "kind": "function",

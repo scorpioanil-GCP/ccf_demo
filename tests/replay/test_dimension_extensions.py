@@ -388,6 +388,28 @@ def _violation() -> Any:
     )
 
 
+def _envelope() -> Any:
+    """The same refusal in the shell form ``24.6-07`` records.
+
+    ``D-IMPL-253`` Q13/Q14: the envelope is *"effectively the shell form of the
+    governed response"*, so it is what dimension 5 now carries for every
+    refusal the delivery boundary reaches. The bare violation below stays the
+    LEGACY form — still minted, still admitted — which is what makes this a
+    widening rather than a replacement.
+    """
+    from ccf.products.refusal import RequestIdentity, envelope_for
+
+    return envelope_for(
+        _violation(),
+        request=RequestIdentity(
+            product_id="declared.class",
+            product_version="1.0.0",
+            parameters={},
+            temporal_boundary=BOUNDARY,
+        ),
+    )
+
+
 def test_a_decision_that_met_no_refusal_asserts_so_rather_than_being_silent() -> None:
     """The positive sentinel, in the ``NO_HITL_ACTIONS`` voice."""
     record = _build()
@@ -403,11 +425,97 @@ def test_the_block_is_minted_from_the_assemblers_return_value() -> None:
     assert block != NO_ASSEMBLY_REFUSAL
 
 
+def test_the_block_is_minted_from_the_shell_form_too() -> None:
+    """``24.6-07``: the mint widened from one kind to the whole vocabulary.
+
+    ``D-IMPL-253`` Q13 — *"do not create second-class replay"* — and a
+    dimension 5 that could carry one refusal kind and not the other
+    twenty-one is second-class replay by construction.
+    """
+    envelope = _envelope()
+    block = mint_assembly_refusal(envelope)
+    assert block == canonical_bytes(envelope).decode("utf-8")
+    assert block != NO_ASSEMBLY_REFUSAL
+
+
+#: The three kinds the shared fixture builder in ``tests/client/test_codec.py``
+#: cannot construct today, named rather than counted.
+#:
+#: Its generic ``_sample_value`` knows ``str`` and returns ``"x"`` for a
+#: ``ProvenanceSource``, a ``Decimal`` and a ``DebtAssessment``, which are the
+#: annotations these three declare. That is the pre-existing failure logged as
+#: ``deferred-items.md`` D-1 by plan ``24.6-05`` and it is **not** this row's:
+#: the three are excluded here by name so the exclusion cannot silently widen,
+#: and the assertion is a subset rather than an equality so that fixing D-1
+#: makes this test cover MORE rather than go red.
+_UNBUILDABLE_BY_THE_SHARED_FIXTURE: frozenset[str] = frozenset(
+    {"tolerance-exceeded", "constraint-refusal", "policy-resolution-conflict"}
+)
+
+
+def test_every_shipped_refusal_kind_the_fixture_can_build_can_be_minted() -> None:
+    """The widening, over the vocabulary rather than over a sample.
+
+    Enumerated from :data:`~ccf.products.refusal.REFUSAL_KINDS` itself rather
+    than transcribed, so a kind added next year is covered without an edit —
+    the discipline `tests/products/test_refusal_envelope.py` already applies to
+    the envelope.
+    """
+    from ccf.products.refusal import REFUSAL_KINDS
+
+    from tests.client.test_codec import a_refusal_outcome
+
+    minted: dict[str, str] = {}
+    unbuildable: set[str] = set()
+    for refusal_type, kind in REFUSAL_KINDS.items():
+        try:
+            envelope = a_refusal_outcome(refusal_type).refusal
+        except Exception:
+            unbuildable.add(kind)
+            continue
+        assert envelope is not None
+        minted[kind] = mint_assembly_refusal(envelope)
+        assert minted[kind] != NO_ASSEMBLY_REFUSAL, kind
+
+    assert unbuildable <= _UNBUILDABLE_BY_THE_SHARED_FIXTURE, (
+        "a kind the shared fixture builder used to construct has stopped"
+        f" being constructible: {sorted(unbuildable)}"
+    )
+    assert set(minted) == set(REFUSAL_KINDS.values()) - unbuildable
+    assert len(minted) == len(REFUSAL_KINDS) - len(unbuildable)
+
+
 def test_a_supplied_refusal_block_lands_on_dimension_5_verbatim() -> None:
     """Recorded as the caller minted it, not re-serialized by the builder."""
     block = mint_assembly_refusal(_violation())
     record = _build(assembly_refusal=block)
     assert record.content_generation_path.assembly_refusal == block
+
+
+def test_a_shell_form_block_lands_on_dimension_5_the_same_way() -> None:
+    """``24.6-07``: the envelope form is admitted beside the legacy one.
+
+    Both are minted from the VALUE and re-canonicalized from it, so neither can
+    land as a family of blocks — and a block validates as at most one of the
+    two, because both are ``extra=forbid`` and neither's required field set is
+    a subset of the other's.
+    """
+    block = mint_assembly_refusal(_envelope())
+    record = _build(assembly_refusal=block)
+    assert record.content_generation_path.assembly_refusal == block
+
+
+def test_the_legacy_violation_block_is_still_admissible() -> None:
+    """The widening is a widening: every record written before ``24.6-07``
+    carries the ``ProductRequestViolation`` form, and it still round-trips."""
+    from ccf.products.request import ProductRequestViolation
+
+    block = mint_assembly_refusal(_violation())
+    record = _build(assembly_refusal=block)
+    rehydrated = ProductRequestViolation.model_validate_json(
+        record.content_generation_path.assembly_refusal
+    )
+    assert rehydrated == _violation()
 
 
 def test_a_false_no_refusal_claim_is_refused_at_write_time() -> None:
@@ -468,3 +576,39 @@ def test_one_refusal_admits_exactly_one_block() -> None:
         assert record.content_generation_path.assembly_refusal == canonical, (
             "one refusal must have exactly one recorded form"
         )
+
+
+def test_one_shell_admits_exactly_one_block_too() -> None:
+    """The same property, for the form ``24.6-07`` added.
+
+    Asserted separately rather than folded into the parametrization above,
+    because the widening added a second admissible shape and a
+    re-canonicalization that held for one and not the other would leave
+    exactly half the vocabulary able to land as a family of blocks.
+    """
+    canonical = mint_assembly_refusal(_envelope())
+    scrambled = json.dumps(
+        {k: json.loads(canonical)[k] for k in reversed(list(json.loads(canonical)))},
+        separators=(",", ":"),
+    )
+    assert scrambled != canonical
+    record = _build(assembly_refusal=scrambled)
+    assert record.content_generation_path.assembly_refusal == canonical
+
+
+def test_a_refusal_extends_dimensions_four_and_five_without_a_sixth_block() -> None:
+    """``24.6-07``'s three record fields land inside existing dimensions.
+
+    INV-CH7-80 makes the five dimensions inviolate, and this row added three
+    fields — two on dimension 4 and one on dimension 5. A sixth block would be
+    a whitepaper-fidelity defect, not an option.
+    """
+    from ccf.replay.record import ContentGenerationPath, PerspectiveConditioning
+
+    dimensions = set(DecisionReplayRecord.model_fields) - {"tenant_id", "recorded_at"}
+    assert dimensions == FIVE_DIMENSIONS
+    for name in ("assembler_id", "assembler_version"):
+        assert name not in DecisionReplayRecord.model_fields
+        assert name in PerspectiveConditioning.model_fields
+    assert "disclosure_decision" not in DecisionReplayRecord.model_fields
+    assert "disclosure_decision" in ContentGenerationPath.model_fields

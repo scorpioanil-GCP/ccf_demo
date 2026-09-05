@@ -48,6 +48,7 @@ from __future__ import annotations
 import ast
 import builtins
 import importlib
+import inspect
 import json
 import os
 import shutil
@@ -63,16 +64,20 @@ from pydantic import ValidationError
 
 from ccf.agents.errors import AssemblyRefusal, AssemblyRefused
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import canonical_bytes
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_bytes
 
 from ccf.products.refusal import (
     NON_PRODUCT_REFUSALS,
     NON_VALUE_VIOLATIONS,
+    NO_REPLAY_REFERENCE,
     REFUSAL_KINDS,
     RefusalEnvelope,
+    RefusalEvidence,
     RequestIdentity,
+    ResourceRequestIdentity,
     envelope_for,
 )
+from ccf.graph.protocols import NO_STORE_SNAPSHOT_PIN
 from ccf.graph.product_source import GATE_PRODUCT_MOUNT, ProductMountRefusal
 from ccf.peering.admission import (
     AdmissionRefusal,
@@ -1517,3 +1522,193 @@ def test_the_cold_and_warm_runs_agree_on_the_enumeration() -> None:
     )
     assert completed.returncode == 0, completed.stderr
     assert json.loads(completed.stdout) == warm
+
+
+# ---------------------------------------------------------------------------
+# 24.6-07 — the six governance members, and the delivery-boundary identity
+# ---------------------------------------------------------------------------
+
+
+#: The envelope's whole declared shape, as a roster in declaration order.
+#:
+#: A roster and never a count, on the "verify rosters, not counts" discipline:
+#: a right count with a wrong member audits clean forever. The first seven are
+#: Amendment 1 §A's; the last six joined in ``24.6-07`` (``24.6-L-08``,
+#: ``D-IMPL-253`` Q13/Q14 — *"Extend* ``RefusalEnvelope`` *additively"*; the
+#: sixth is ``D-IMPL-256`` (1)'s delivery-boundary identity).
+THE_ENVELOPE_MEMBERS: tuple[str, ...] = (
+    "kind",
+    "reason",
+    "key",
+    "detail",
+    "fields",
+    "request",
+    "pre_assembly_lineage",
+    "policy_bindings",
+    "replay_reference",
+    "evidence",
+    "provenance",
+    "disclosure",
+    "resource",
+)
+
+#: Exactly the six that joined in ``24.6-07``. Each must be hash-transparent,
+#: which is what keeps a 24.5-shaped shell byte-identical
+#: (``tests/contracts/test_hash_transparency.py`` measures the bytes; this
+#: names the members).
+THE_SIX_ADDED: tuple[str, ...] = THE_ENVELOPE_MEMBERS[7:]
+
+
+def _identity_value() -> RequestIdentity:
+    """The ``request_identity`` fixture's value, callable from a helper.
+
+    The module's fixture is the shape every earlier test uses; these tests
+    build their subjects inside helpers, and a fixture cannot be called from
+    one — so the value is named once here rather than restated per test.
+    """
+    return RequestIdentity(
+        product_id="test.product",
+        product_version="1.0.0",
+        parameters={"subject-slot": "s-1"},
+        temporal_boundary=_INSTANT,
+    )
+
+
+def _a_violation() -> ProductRequestViolation:
+    return ProductRequestViolation(
+        reason="missing-required-parameter",
+        key="revenue_threshold",
+        detail="fixture",
+        declared_type="d",
+        presented_type="p",
+        declared_keys=frozenset({"revenue_threshold"}),
+        presented_keys=frozenset(),
+    )
+
+
+def test_the_envelope_declares_the_original_seven_plus_the_six_added() -> None:
+    assert tuple(RefusalEnvelope.model_fields) == THE_ENVELOPE_MEMBERS
+    assert THE_ENVELOPE_MEMBERS[:7] == (
+        "kind",
+        "reason",
+        "key",
+        "detail",
+        "fields",
+        "request",
+        "pre_assembly_lineage",
+    )
+    assert len(THE_SIX_ADDED) == 6
+
+
+@pytest.mark.parametrize("member", THE_SIX_ADDED)
+def test_every_added_member_is_hash_transparent(member: str) -> None:
+    """``D-IMPL-243``: silence at the sentinel equals yesterday, member by
+    member. Asserted one at a time rather than in aggregate, because a
+    property asserted over a set passes when one member survives and licenses
+    the rest."""
+    extra = RefusalEnvelope.model_fields[member].json_schema_extra
+    assert isinstance(extra, dict)
+    assert extra.get(HASH_TRANSPARENT_KEY) is True
+
+
+@pytest.mark.parametrize("member", THE_SIX_ADDED)
+def test_every_added_member_defaults_to_its_positive_sentinel(member: str) -> None:
+    """A shell built the 24.5 way asserts each of the six rather than going
+    quiet about it — the ``NO_HITL_ACTIONS`` voice, six members over."""
+    envelope = envelope_for(_a_violation(), request=_identity_value())
+    expected: dict[str, Any] = {
+        "policy_bindings": (),
+        "replay_reference": NO_REPLAY_REFERENCE,
+        "evidence": None,
+        "provenance": None,
+        "disclosure": None,
+        "resource": None,
+    }
+    assert getattr(envelope, member) == expected[member]
+
+
+def test_the_added_members_are_envelope_fields_and_not_promoted_fields() -> None:
+    """The promoted set is unchanged by ``24.6-07``.
+
+    ``fields`` carries what the *refusal type* declared; the six carry what the
+    *envelope* knows about the decision. A member that leaked into ``fields``
+    would make a governance fact read as something the refusal itself said.
+    """
+    envelope = envelope_for(_a_violation(), request=_identity_value())
+    assert set(envelope.fields) == {
+        "declared_type",
+        "presented_type",
+        "declared_keys",
+        "presented_keys",
+    }
+    assert not set(envelope.fields) & set(THE_SIX_ADDED)
+
+
+def test_envelope_for_carries_the_four_governance_members_it_is_given() -> None:
+    """``envelope_for`` passes them through; it computes none of them.
+
+    ``replay_reference`` is deliberately **not** among its arguments: a shell
+    learns its own address only from the seam that appended its record, so an
+    envelope this function returns always carries the sentinel.
+    """
+    source = ProvenanceSource(kind="artifact", identity="policy.bundle", version="v1")
+    evidence = RefusalEvidence(
+        operators_invoked=frozenset({"traversal.neighbors"}),
+        plan_id="plan-1",
+        store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
+    )
+    resource = ResourceRequestIdentity(
+        surface="fixture-surface",
+        address="ccf-product://fixture/1.0.0",
+        tenant_id="tenant-a",
+        determined_at=datetime(2026, 3, 1, tzinfo=UTC),
+    )
+    envelope = envelope_for(
+        _a_violation(),
+        request=_identity_value(),
+        policy_bindings=(source,),
+        evidence=evidence,
+        resource=resource,
+    )
+    assert envelope.policy_bindings == (source,)
+    assert envelope.evidence == evidence
+    assert envelope.resource == resource
+    assert envelope.replay_reference == NO_REPLAY_REFERENCE
+    assert "replay_reference" not in inspect.signature(envelope_for).parameters
+
+
+def test_a_naive_determination_instant_is_refused_by_name() -> None:
+    """``D-IMPL-38``: no implicit UTC anywhere in the fabric.
+
+    A determination instant whose offset is the deciding host's local
+    configuration is an instant that replays differently on a different host.
+    """
+    with pytest.raises(ValidationError) as caught:
+        ResourceRequestIdentity(
+            surface="fixture-surface",
+            address="ccf-product://fixture/1.0.0",
+            tenant_id="tenant-a",
+            determined_at=datetime(2026, 3, 1),
+        )
+    assert "no UTC offset" in str(caught.value)
+
+
+def test_an_aware_determination_instant_is_admitted() -> None:
+    """The control: the refusal above is about the offset and nothing else."""
+    identity = ResourceRequestIdentity(
+        surface="fixture-surface",
+        address="ccf-product://fixture/1.0.0",
+        tenant_id="tenant-a",
+        determined_at=datetime(2026, 3, 1, tzinfo=UTC),
+    )
+    assert identity.determined_at.utcoffset() is not None
+
+
+def test_the_evidence_bundle_requires_the_head_its_search_ran_against() -> None:
+    """No default on ``store_snapshot_pin``: a search that ran read something,
+    and a defaulted pin would let a caller build evidence that silently claims
+    the substrate exposed no head when the caller merely forgot to say."""
+    with pytest.raises(ValidationError):
+        RefusalEvidence(  # type: ignore[call-arg]
+            operators_invoked=frozenset({"o"}), plan_id="plan-1"
+        )

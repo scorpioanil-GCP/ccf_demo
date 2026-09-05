@@ -325,6 +325,26 @@ NAMED_SINCE_THE_SWEEP: tuple[str, ...] = (
     # amendment 1). `None` = "no operator returned empty", which every
     # pre-phase product already said.
     "ccf.products.contract.ContextProductContract.computed_empty",
+    # 24.6-07, the refusal shell's six governance members (`24.6-L-08`,
+    # `D-IMPL-253` Q13/Q14) and the resource-request identity of a
+    # delivery-boundary denial (`D-IMPL-256` (1)).
+    "ccf.products.refusal.RefusalEnvelope.policy_bindings",
+    "ccf.products.refusal.RefusalEnvelope.replay_reference",
+    "ccf.products.refusal.RefusalEnvelope.evidence",
+    "ccf.products.refusal.RefusalEnvelope.provenance",
+    "ccf.products.refusal.RefusalEnvelope.disclosure",
+    "ccf.products.refusal.RefusalEnvelope.resource",
+    # 24.6-07, the two optional members of the permitted-evidence bundle. A
+    # brand-new model, so there is no earlier generation to be a boundary
+    # against and `True` is the only coherent declaration.
+    "ccf.products.refusal.RefusalEvidence.debt",
+    "ccf.products.refusal.RefusalEvidence.computed_empty",
+    # 24.6-07, the assembler in force on replay dimension 4 (`D-IMPL-253`
+    # Q16, `D-IMPL-245` am.1) and the disclosure decision on dimension 5
+    # (`D-IMPL-254`).
+    "ccf.replay.record.PerspectiveConditioning.assembler_id",
+    "ccf.replay.record.PerspectiveConditioning.assembler_version",
+    "ccf.replay.record.ContentGenerationPath.disclosure_decision",
 )
 
 

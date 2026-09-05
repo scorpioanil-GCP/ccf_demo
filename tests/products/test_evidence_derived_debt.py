@@ -94,7 +94,7 @@ from ccf.products.debt_scorer import (
 )
 from ccf.products.entitlement import product_entitlement_key
 from ccf.products.request import ProductRequest
-from ccf.products.resolver import GovernedResolver
+from ccf.products.resolver import GovernedResolver, ReplayRefusalRecorder
 from ccf.projection.plan import ProjectionOutput
 from ccf.replay.serve import ServedProduct
 
@@ -710,6 +710,16 @@ def _ask_the_empty_fabric(booted: Any, *, completeness: Any | None = None) -> An
             entitlement_key=product_entitlement_key(tenant_id=TENANT),
         ),
         capabilities=(),
+        # 24.6-07: the one minting seam, over the same store this resolver
+        # serves from. The four required inputs and no bundle pin — this
+        # fixture holds none, and `None` means the record's bindings are
+        # exactly the caller's tuple.
+        refusal_recorder=ReplayRefusalRecorder(
+            artifact_store=store,
+            replay_record_class=REPLAY_RECORD_CLASS,
+            tenant_id=TENANT,
+            assembly_mode="algorithmic",
+        ),
         artifact_store=store,
         replay_record_class=REPLAY_RECORD_CLASS,
         query_pin_class=QUERY_PIN_CLASS,

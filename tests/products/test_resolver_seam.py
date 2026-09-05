@@ -70,11 +70,18 @@ from ccf.products.contract import ContextProductContract
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
-from ccf.products.refusal import RefusalEnvelope
+from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.products.request import ProductRequest
+from ccf.replay.record import (
+    NO_FABRIC_READ,
+    NO_PRODUCT_ADDRESS,
+    DecisionReplayRecord,
+    PolicyBinding,
+)
 from ccf.products.resolver import (
     GovernedResolver,
     ProductNotResolvable,
+    ReplayRefusalRecorder,
     ServedProductResolverProtocol,
 )
 from ccf.projection.plan import Perspective, ProjectionOutput
@@ -402,32 +409,17 @@ def _boot(
 
 
 def _resolver(booted: _Booted, **overrides: Any) -> GovernedResolver:
-    """The wiring a deployment writes once, with per-test variation."""
-    arguments: dict[str, Any] = {
-        "fabric": booted.fabric,
-        "control_plane": booted.control_plane,
-        "product_class_key": PRODUCT_CLASS_KEY,
-        "request_contract_key": REQUEST_CONTRACT_KEY,
-        "operator_parameter_keys": (TRAVERSAL_KEY,),
-        "policy_bundle_key": POLICY_BUNDLE_KEY,
-        "plan_factory": _plan_factory,
-        "debt_scorer": _debt_scorer,
-        # 24.6-03: the Authority layer's two inputs. The reference resolver
-        # over this fixture's own registry — which holds no policy constraint
-        # and no entitlement policy, so it resolves defaults and caller values
-        # and nothing else — and no technical capability, which is what a
-        # SQLite-backed deployment reports.
-        "constraint_resolver": ReferencePolicyConstraintResolver(
-            control_plane=booted.control_plane,
-            entitlement_key=product_entitlement_key(tenant_id=TENANT),
-        ),
-        "capabilities": (),
-        "artifact_store": booted.store,
-        "replay_record_class": REPLAY_RECORD_CLASS,
-        "query_pin_class": QUERY_PIN_CLASS,
-        "max_ttl_seconds": MAX_TTL_SECONDS,
-        "product_ttl_seconds": PRODUCT_TTL_SECONDS,
-    }
+    """The wiring a deployment writes once, with per-test variation.
+
+    **Reads** :func:`_arguments` **rather than restating it** (``24.6-07``).
+    The two were duplicate literals, and the exhaustiveness assertion below
+    (``test_the_argument_enumeration_is_exhaustive``) reads only the second —
+    so a field added to the resolver and to one copy would have left the other
+    stale, which is exactly what happened to both when the recorder joined.
+    One dict is the same discipline ``_boot``'s own docstring already states
+    for the two fixtures.
+    """
+    arguments = _arguments(booted)
     arguments.update(overrides)
     return GovernedResolver(**arguments)
 
@@ -660,14 +652,41 @@ def test_a_gate_refusal_keeps_the_gates_own_typed_fields(booted: _Booted) -> Non
     assert outcome.pre_assembly_lineage is not None
 
 
-def test_a_gate_refusal_serves_nothing(booted: _Booted) -> None:
-    """No replay record is appended for a product that was never admitted."""
+def test_a_gate_refusal_serves_nothing_and_records_everything(
+    booted: _Booted,
+) -> None:
+    """No product is delivered — and the decision IS recorded (``24.6-07``).
+
+    **This assertion is the inverse of the one it replaces**, and the
+    inversion is the row. It read *"no replay record is appended for a product
+    that was never admitted"*, which was true of the composition and false of
+    ``D-IMPL-253`` Q13: *"Refusal is itself a decision and deserves the same
+    five-dimensional replay model. Do not create second-class replay."* A
+    product that was never admitted is still a determination the fabric
+    reached, and the thing it must not produce is a **delivery**, not a record.
+
+    Both halves are asserted because neither implies the other: a composition
+    could record and still hand back a servable shape, and one could return the
+    shell and quietly append nothing — which is the state this row corrected.
+    """
     resolver = _resolver(booted, product_ttl_seconds=MAX_TTL_SECONDS + 1)
     outcome = _ask(resolver, _request())
 
     assert isinstance(outcome, RefusalEnvelope)
-    assert not (booted.root / "artifacts").exists() or not list(
-        (booted.root / "artifacts").rglob("*.json")
+    assert not isinstance(outcome, ServedProduct)
+    # The decision is recorded, and the shell names where.
+    assert outcome.replay_reference != NO_REPLAY_REFERENCE
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    # A gate refusal has a real execution behind it, so dimension 1 is built
+    # exactly as a served product's would be — the graph WAS read.
+    assert record.context_fabric_snapshot.store_watermark != NO_FABRIC_READ
+    # And dimension 5 says positively that no product came of it.
+    assert record.content_generation_path.product_content_address == (
+        NO_PRODUCT_ADDRESS
     )
 
 
@@ -726,6 +745,11 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     "query_pin_class",
     "constraint_resolver",
     "capabilities",
+    # 24.6-07: the one minting seam (`D-IMPL-253` Q13). No default, for every
+    # other argument's reason — and for one of its own: a resolver that
+    # defaulted its recorder into existence would be a delivery boundary that
+    # decided, on its own authority, where a deployment's audit records land.
+    "refusal_recorder",
     "max_ttl_seconds",
     "product_ttl_seconds",
 )
@@ -829,6 +853,26 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
             entitlement_key=product_entitlement_key(tenant_id=TENANT),
         ),
         "capabilities": (),
+        # 24.6-07: the one seam every governed refusal this composition
+        # produces reaches the replay writer through (`D-IMPL-253` Q13). The
+        # SAME store the served path writes to — one writer, one store, and no
+        # second writer to the graph — with the four required inputs and no
+        # bundle pin, which is the shape a door-side helper wires too.
+        "refusal_recorder": ReplayRefusalRecorder(
+            artifact_store=booted.store,
+            replay_record_class=REPLAY_RECORD_CLASS,
+            tenant_id=TENANT,
+            assembly_mode="algorithmic",
+            # The bundle the manifest put in force, read the way
+            # `build_governed_resolver` reads it — so this fixture wires the
+            # recorder the way the shipped helper does rather than a simpler
+            # way that would leave dimension 2 thinner on the refusal path
+            # than on the served one.
+            policy_bundle_pin=PolicyBinding(
+                key=POLICY_BUNDLE_KEY,
+                version=booted.fabric.pins.version_for(POLICY_BUNDLE_KEY),
+            ),
+        ),
         "artifact_store": booted.store,
         "replay_record_class": REPLAY_RECORD_CLASS,
         "query_pin_class": QUERY_PIN_CLASS,
