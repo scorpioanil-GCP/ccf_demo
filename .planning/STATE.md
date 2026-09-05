@@ -3,8 +3,16 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-05T21:20:00.000Z"
+last_updated: "2026-09-05T21:50:00.000Z"
 last_activity: >-
+  **cp-04 SDK GAP LEDGER BUILT AND APPROVED — `D-IMPL-262` (2026-09-05 14:50 MST, `main`, pushed).** Built after the merge from
+  evidence only (36 rows: 3 OPEN, 11 FIXED-24.5, 2 FIXED-24.5→24.6, 11 FIXED-24.6, 4 ESTATE, 5 NOT-A-GAP); NO code, example, test,
+  config, transcript or publication changed. Dave read it end to end: G-14 requirement corrected in his words (default 3, 6 was the
+  measured ceiling-in-error, max 100); G-26 RULED fix (enumerated `ArgumentDomain`, not Policy `allowed_set`, not a validation
+  language); G-28 RULED SDK defect for the next TRAVERSAL-owning phase, not bundled; G-33 RULED SDK gap under his conditional replay
+  invariant. Scope by SDK ownership: request/replay hardening = G-26 + G-33; traversal = G-28; no cp-04 edits or reruns during
+  either; ESTATE rows left alone. **Phase numbers NOT assigned — the open question for Dave** (and where cp-05 sits). No ROADMAP
+  entry until he numbers them. Next free id `D-IMPL-263`. Hand-edited; no `state.*`/`roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 CLOSED — `D-GATE-24.6` APPROVED AS-IS; `D-IMPL-261` RESETS THE EXAMPLE LIFECYCLE (2026-09-05 14:20 MST, `phase-24.6`).**
   Dave, at the resume sitting: the examples are probes, not repair targets; the 48-hour loop was cp-04 republished three times with a
   panel/review/correction cycle after each. Ruled: `D-IMPL-261` (his rule verbatim, five paragraphs; cp-00..cp-04 FROZEN as diagnostic
