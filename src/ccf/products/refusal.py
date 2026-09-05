@@ -22,7 +22,7 @@ carries — before any door is changed.
 The two ruled constraints
 -------------------------
 **(a) Every refusal kind crosses without flattening.** The fabric declares
-twenty-two of them: the ``GateRefusal`` hierarchy
+twenty-three of them: the ``GateRefusal`` hierarchy
 (:mod:`ccf.products.gates`, including the declared-obligations refusal of
 ``24.5-L-14`` / ``24.5-L-26`` and the empty-operator gate's returned-empty
 half of ``24.5-L-24``), the peering-admission refusals that derive from it
@@ -33,8 +33,11 @@ anchor-ambiguity refusal beside them (:mod:`ccf.products.request`,
 ``24.5-L-16``), the two constraint-layer determinations
 (:mod:`ccf.products.constraints`, ``24.6-L-07``), the assembly mixing refusal
 (:mod:`ccf.products.composition`),
-and the assembly-time refusal returned as a value
-(:mod:`ccf.agents.errors`, ``24.5-L-11``). If the envelope lost *which
+the assembly-time refusal returned as a value
+(:mod:`ccf.agents.errors`, ``24.5-L-11``, narrowed by ``24.6-L-02``),
+and the one canonical outcome a nonexistent subject and an unauthorized
+principal share (:class:`SubjectUnavailableRefusal`, ``24.6-L-21``). If the
+envelope lost *which
 kind* a refusal was, a client's ``refusal.reason`` would become mush and the
 auditable-refusal guarantee would die at the seam. So ``kind`` is a required
 member sourced from :data:`REFUSAL_KINDS`, and every field a refusal type
@@ -59,11 +62,13 @@ worded over the vocabulary.
 
 What is deliberately **not** here
 ---------------------------------
-* **Entitlement verdicts.** :class:`~ccf.products.entitlement.ProductEntitlementViolation`
-  and its sibling are ``LookupError`` subclasses — *exceptions raised at a
-  door*, not values returned by the fabric. Contract-level principal and
-  entitlement handling at the client seam is deferred, so they are out of this
-  envelope's vocabulary and are recorded in :data:`NON_VALUE_VIOLATIONS`.
+* **Entitlement verdicts, as exceptions.**
+  :class:`~ccf.products.entitlement.ProductEntitlementViolation` and its
+  sibling are ``LookupError`` subclasses — *exceptions raised inside the authz
+  module*, not values returned by the fabric — so they are out of this
+  envelope's vocabulary and are recorded in :data:`NON_VALUE_VIOLATIONS`. The
+  governed determination a delivery boundary makes from one **is** in the
+  vocabulary, as :class:`SubjectUnavailableRefusal` (``24.6-L-21``).
 * **Control Plane, harness and composition verdicts.** Four further
   contracts in the walked name families exist under ``src/`` — a registration
   verdict, a harness effect-capture verdict, a skilling-governance verdict, and
@@ -84,7 +89,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 from pydantic import Field, field_validator
 
@@ -130,6 +135,7 @@ __all__ = [
     "RefusalEvidence",
     "RequestIdentity",
     "ResourceRequestIdentity",
+    "SubjectUnavailableRefusal",
     "envelope_for",
 ]
 
@@ -176,6 +182,72 @@ class RequestIdentity(CCFContract):
     product_version: str | None
     parameters: Mapping[str, Any]
     temporal_boundary: datetime | None
+
+
+class SubjectUnavailableRefusal(CCFContract):
+    """The ONE outcome a nonexistent subject and an unauthorized one share.
+
+    **SDK-defined, not whitepaper-derived** (CLAUDE.md §11); the rulings of
+    record are ``D-IMPL-253`` Q27 and its amendment 2 (4), with
+    ``D-IMPL-254``'s four layers. Dave, Q27, verbatim:
+
+        *"No special suppression-silent kind. However, this requires a
+        canonical externally observable refusal outcome that both nonexistent
+        and unauthorized anchors can share. Disclosure policy controls
+        permitted detail. Internally/replay, the governed cause may be retained
+        if policy permits, while the consumer-visible shell remains
+        indistinguishable. Don't destroy audit truth merely to achieve external
+        suppression silence."*
+
+    And amendment 2 (4), which is why indistinguishability is a property of the
+    **disclosure step** rather than of this type:
+
+        *"Unauthorized and nonexistent subjects must be consumer-observationally
+        equivalent at the same disclosure level: same transport status, kind,
+        external reason, body schema/field presence and permitted disclosure
+        behavior. Internal truth/replay may differ according to policy."*
+
+    So this type is the **internal** value and states the whole truth. What of
+    it crosses a consumer boundary is :func:`~ccf.products.disclosure.disclose`'s
+    decision and nobody else's; at the safe default that function replaces
+    :attr:`cause` with ``"undisclosed"`` while the record keeps what the fabric
+    actually determined.
+
+    **There is deliberately no ``subject`` field.** Naming the subject on the
+    shell is itself a leak channel — telling a caller *which* entity it may not
+    see is telling it the entity exists — and a field that a disclosure step
+    had to remember to blank is a field that will one day cross. It cannot be
+    set, so it cannot leak. The question that was asked is on
+    :attr:`RefusalEnvelope.request`, which is what the caller supplied and
+    already knows.
+
+    Attributes:
+        cause: What the fabric actually determined. ``"nonexistent"`` — no such
+            subject resolved; ``"unauthorized"`` — a subject the principal may
+            not receive; ``"undisclosed"`` — the disclosure step withheld which
+            of the two it was. The third is not a determination the fabric ever
+            reaches; it is the value a **disclosed** shell carries, so that the
+            withheld case has a positive spelling rather than an absence a
+            reader must interpret.
+        detail: The human-readable statement. Internally this is the fabric's
+            own sentence; at ``minimal`` the disclosure step replaces it with
+            the one external sentence
+            :data:`~ccf.products.disclosure.EXTERNAL_STATEMENTS` holds for this
+            kind — the *same* sentence for both causes.
+        error_code: The typed code the determination carried, when one did —
+            a door's own vocabulary
+            (:mod:`ccf_runtime.http_api.errors`), retained internally so an
+            operator reading an audit record can tell an absent policy from a
+            refused role. ``None`` is the positive *no code was carried*, and
+            it is also what a disclosed shell carries at every level below
+            ``full``: a code is as fine-grained a leak as prose.
+    """
+
+    cause: Literal["nonexistent", "unauthorized", "undisclosed"]
+    detail: str
+    error_code: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class RefusalEvidence(CCFContract):
@@ -522,10 +594,21 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     PolicyResolutionConflict: "policy-resolution-conflict",
     # The assembly-time mixing rule, which is not a fourth gate.
     MixingRefusal: "mixing-refusal",
-    # The assembly-time refusal returned as a value — the exception of the
-    # same name stays a raise (24.5-L-11). A second channel beside
-    # `AssemblyRefused`, never a translation of it: no door catches the raise.
+    # The assembly-time refusal returned as a value. `24.6-L-02` narrowed the
+    # exception of the same name to invariant/configuration/runtime failures
+    # (`D-IMPL-253` amendment 2 (3)), so the SDK's own assembler now RETURNS
+    # this for the two identity determinations it makes. Still a second channel
+    # beside `AssemblyRefused` and never a translation of it: no door catches
+    # the raise, because a raise now means the fabric could not determine
+    # anything at all.
     AssemblyRefusal: "assembly-refusal",
+    # The one canonical outcome a nonexistent subject and an unauthorized
+    # principal SHARE (24.6-L-21, `D-IMPL-253` Q27 + amendment 2 (4)). There is
+    # deliberately no second, suppression-silent kind: two kinds would be the
+    # distinction Q27 forbids, visible on the wire. `subject-unavailable` is
+    # not a substring of any shipped token and none is a substring of it, which
+    # the closure gate checks rather than the eye.
+    SubjectUnavailableRefusal: "subject-unavailable",
 }
 
 #: ``…Refusal``-named contracts under ``src/`` that are **not** product
@@ -556,8 +639,16 @@ NON_PRODUCT_REFUSALS: Final[frozenset[str]] = frozenset(
 #:
 #: * ``TrustPolicyViolation`` — raised on a peering-trust lookup.
 #: * ``SnapshotScopeViolation`` — raised on a replay-snapshot scope miss.
-#: * ``ProductEntitlementViolation`` — raised at a door; contract-level
-#:   principal and entitlement handling at the client seam is deferred.
+#: * ``ProductEntitlementViolation`` — raised inside
+#:   :mod:`ccf_runtime.authz.product_entitlement`, and it stays a raise there:
+#:   an entitlement source must not be able to hand a delivery path a verdict
+#:   it can treat as "not sure". What crosses a consumer boundary is not this
+#:   exception but the governed determination the delivery boundary makes from
+#:   it — :class:`SubjectUnavailableRefusal` with ``cause="unauthorized"``,
+#:   minted and disclosed by ``runtime/ccf_runtime/authz/delivery_boundary.py``
+#:   (``24.6-L-21``, ``D-IMPL-256``). So it is outside this envelope's
+#:   vocabulary because it is an exception, not because entitlement is
+#:   deferred: it no longer is.
 #: * ``SingleWriterViolation`` — the single-writer invariant firing
 #:   (CLAUDE.md §10).
 #: * ``WebhookEndpointConflict`` — raised when two HITL webhook registrations
@@ -620,12 +711,20 @@ NON_VALUE_VIOLATIONS: Final[frozenset[str]] = frozenset(
 #: request* is being resolved, which is strictly before an operator plan is
 #: built, so a lineage offered with either would claim evidence that could not
 #: exist yet.
+#:
+#: :class:`SubjectUnavailableRefusal` joined in ``24.6-L-21``. A subject that
+#: does not resolve is settled before the graph is walked, and an unauthorized
+#: one is settled at the delivery boundary before any plan exists — and the two
+#: must be **observationally equivalent** (``D-IMPL-253`` amendment 2 (4)), so
+#: admitting a lineage on one of the two causes would be a leak channel rather
+#: than extra information.
 _PRE_ASSEMBLY_REFUSALS: Final[frozenset[type[CCFContract]]] = frozenset(
     {
         ProductRequestViolation,
         AnchorAmbiguityRefusal,
         ConstraintRefusal,
         PolicyResolutionConflict,
+        SubjectUnavailableRefusal,
     }
 )
 

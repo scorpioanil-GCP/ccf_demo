@@ -73,8 +73,13 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from pydantic import model_validator
 
 from ccf.agents.agent import Agent
-from ccf.agents.errors import AssemblyRefusal, AssemblyRefused
+from ccf.agents.errors import (
+    ASSEMBLY_REASON_TENANT_MISMATCH,
+    ASSEMBLY_REASON_UNDECLARED_ROLE,
+    AssemblyRefusal,
+)
 from ccf.products.request import (
+    AnchorAmbiguityRefusal,
     ProductRequestContract,
     ProductRequestViolation,
     refuse_request,
@@ -107,6 +112,16 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     # ``ProductRequest`` stays here because it appears only in annotations,
     # which ``from __future__ import annotations`` leaves unevaluated.
     from ccf.products.request import ProductRequest
+
+    # ``SubjectUnavailableRefusal`` is here for exactly the reason the positive
+    # control above measured: a module-level ``from ccf.products.refusal
+    # import ...`` in this file breaks **15** modules, because
+    # ``ccf.products.refusal`` closes its own cycle at the top rather than at
+    # the bottom (``D-IMPL-56``). It appears only in the Protocol's return
+    # annotation, which ``from __future__ import annotations`` leaves as a
+    # string — so mypy over ``src``/``runtime`` sees the union and the import
+    # graph does not.
+    from ccf.products.refusal import SubjectUnavailableRefusal
 
 __ccf_mode__ = "algorithmic"
 
@@ -295,7 +310,13 @@ class ContextAssemblerProtocol(Protocol):
         request: ProductRequest,
         perspective: Perspective,
         tenant_id: str,
-    ) -> AssemblyOutcome | ProductRequestViolation | AssemblyRefusal:
+    ) -> (
+        AssemblyOutcome
+        | ProductRequestViolation
+        | AssemblyRefusal
+        | AnchorAmbiguityRefusal
+        | SubjectUnavailableRefusal
+    ):
         """Assemble one answer to ``request`` for ``perspective``.
 
         Reads no clock: the instant is ``request.asked_at``, supplied by the
@@ -315,13 +336,36 @@ class ContextAssemblerProtocol(Protocol):
         :class:`~ccf.agents.errors.AssemblyRefused` and having the verdict
         reach a client as ``ToolError`` prose.
 
-        **The boundary between the two channels, in one sentence:** a
-        *governed* refusal — this question does not conform to the contract it
-        addresses — is DATA and returns here, while an *identity* disagreement
-        — this question was asked of the wrong tenant, or under a role this
-        agent was not declared for — stays
-        :class:`~ccf.agents.errors.AssemblyRefused`, because it says the caller
-        reached the wrong agent rather than that the answer is a refusal.
+        **The boundary between the two channels, in one sentence** — rewritten
+        in ``24.6-L-02`` / ``24.6-L-16`` under ``D-IMPL-253`` amendment 2 (3),
+        which supersedes the identity/conformity split this paragraph used to
+        draw: *if the fabric has enough information to reach a valid governed
+        determination, return data; if it cannot reliably reach one because an
+        internal invariant, configuration or runtime condition has failed,
+        raise* :class:`~ccf.agents.errors.AssemblyRefused`. A tenant that is not
+        the agent's and a role it was not declared under are both
+        determinations — the fabric holds both sides and knows which two
+        disagreed — so they RETURN, as
+        :class:`~ccf.agents.errors.AssemblyRefusal` carrying
+        :data:`~ccf.agents.errors.ASSEMBLY_REASON_TENANT_MISMATCH` or
+        :data:`~ccf.agents.errors.ASSEMBLY_REASON_UNDECLARED_ROLE`.
+
+        **The union is the set of** :data:`~ccf.products.refusal.REFUSAL_KINDS`
+        **members reachable at this seam**, listed rather than implied so mypy
+        over ``src``/``runtime`` checks it and a reader is not left to infer
+        it (LC-02): the assembly outcome itself,
+        :class:`~ccf.products.request.ProductRequestViolation` (the question
+        does not conform to its declared contract),
+        :class:`~ccf.agents.errors.AssemblyRefusal` (the assembler's own
+        determination, including the two identity tokens above),
+        :class:`~ccf.products.request.AnchorAmbiguityRefusal` (an anchor that
+        resolves to more than one entity — ``24.5-L-16``, and absent from this
+        annotation until now), and
+        :class:`~ccf.products.refusal.SubjectUnavailableRefusal` (the one
+        canonical outcome a nonexistent subject and an unauthorized principal
+        share, ``24.6-L-21``). Every member is a value the door translates
+        through :func:`~ccf.products.refusal.envelope_for`; none is an
+        exception.
 
         Return types are covariant, so an implementation that only ever
         succeeds keeps ``-> AssemblyOutcome`` and stays conforming; nothing in
@@ -399,18 +443,25 @@ class DeterministicAssembler:
         request: ProductRequest,
         perspective: Perspective,
         tenant_id: str,
-    ) -> AssemblyOutcome | ProductRequestViolation:
+    ) -> AssemblyOutcome | ProductRequestViolation | AssemblyRefusal:
         """Return the governed outcome for ``request`` under ``perspective``.
 
-        Two refusals, both raised rather than repaired and both naming each
-        side, in the
+        **Three refusals, and all three RETURN** (``24.6-L-02``;
+        ``D-IMPL-253`` amendment 2 (3)). Two are identity determinations — a
+        tenant that is not this agent's, a role it was not declared under —
+        and each names both sides, in the
         :func:`~ccf.deployment.binder.refuse_operator_set_divergence` posture:
         an assembler does not choose which of two disagreeing statements is
-        right, because only the deployment's author knows which was meant.
+        right, because only the deployment's author knows which was meant. It
+        does, however, *know which two disagreed*, which is what makes each a
+        governed determination rather than a failure, so each is an
+        :class:`~ccf.agents.errors.AssemblyRefusal` carrying the SDK's own
+        token. Nothing here raises
+        :class:`~ccf.agents.errors.AssemblyRefused`; that class is now for the
+        case where no determination can be reached at all.
 
-        **A third refusal, and it RETURNS rather than raises** (D-60): when
-        this assembler was constructed with a ``request_contract`` and the
-        question does not conform to it, the
+        The third is D-60's: when this assembler was constructed with a
+        ``request_contract`` and the question does not conform to it, the
         :class:`~ccf.products.request.ProductRequestViolation` is the return
         value. **Ordered AFTER the two identity checks on purpose** — a
         question asked of the wrong agent is not a question about a contract's
@@ -420,32 +471,37 @@ class DeterministicAssembler:
         parameters ordering exists to prevent.
 
         Returns:
-            The :class:`AssemblyOutcome`, or a
+            The :class:`AssemblyOutcome`; an
+            :class:`~ccf.agents.errors.AssemblyRefusal` when ``tenant_id`` is
+            not the declared agent's tenant
+            (:data:`~ccf.agents.errors.ASSEMBLY_REASON_TENANT_MISMATCH`) or
+            ``perspective`` is not the axis-3 role it was declared under
+            (:data:`~ccf.agents.errors.ASSEMBLY_REASON_UNDECLARED_ROLE`); or a
             :class:`~ccf.products.request.ProductRequestViolation` when a
             declared contract was supplied and the question does not conform.
-
-        Raises:
-            AssemblyRefused: ``tenant_id`` is not the declared agent's tenant,
-                or ``perspective`` is not the axis-3 role it was declared
-                under. Identity, not conformity — see the Protocol's own
-                boundary sentence.
         """
         declared = self.agent.definition
         if tenant_id != declared.tenant:
-            raise AssemblyRefused(
-                f"assembly for tenant {tenant_id!r} was asked of an agent"
-                f" declared for tenant {declared.tenant!r} (question:"
-                f" {request.schema_name!r}@{request.schema_version!r}); an"
-                " agent assembles for its own tenant and no other"
-                " (CLAUDE.md §6.2)"
+            return AssemblyRefusal(
+                reason=ASSEMBLY_REASON_TENANT_MISMATCH,
+                detail=(
+                    f"assembly for tenant {tenant_id!r} was asked of an agent"
+                    f" declared for tenant {declared.tenant!r} (question:"
+                    f" {request.schema_name!r}@{request.schema_version!r}); an"
+                    " agent assembles for its own tenant and no other"
+                    " (CLAUDE.md §6.2)"
+                ),
             )
         if perspective.role != declared.perspective.role:
-            raise AssemblyRefused(
-                f"assembly under role {perspective.role!r} was asked of an"
-                f" agent declared under role {declared.perspective.role!r}"
-                f" (question: {request.schema_name!r}); axis 3 is channel-1"
-                " identity, so a different perspective is a different agent"
-                " (CLAUDE.md §6.2)"
+            return AssemblyRefusal(
+                reason=ASSEMBLY_REASON_UNDECLARED_ROLE,
+                detail=(
+                    f"assembly under role {perspective.role!r} was asked of an"
+                    f" agent declared under role {declared.perspective.role!r}"
+                    f" (question: {request.schema_name!r}); axis 3 is channel-1"
+                    " identity, so a different perspective is a different agent"
+                    " (CLAUDE.md §6.2)"
+                ),
             )
         if self.request_contract is not None:
             violation = refuse_request(

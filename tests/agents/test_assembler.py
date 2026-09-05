@@ -14,7 +14,10 @@ already declares the ``context_assembly`` archetype.
 
 from __future__ import annotations
 
+import importlib.util
 import inspect
+import sys
+import types
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -43,7 +46,10 @@ from ccf.agents.definitions import (
     PromptArtifact,
 )
 from ccf.agents.errors import (
+    ASSEMBLY_REASON_TENANT_MISMATCH,
+    ASSEMBLY_REASON_UNDECLARED_ROLE,
     AgentDefinitionError,
+    AssemblyRefusal,
     AssemblyRefused,
     SkillNotBound,
 )
@@ -372,37 +378,249 @@ def test_the_outcome_is_a_returned_value_not_a_write(
         assert forbidden not in source, forbidden
 
 
-def test_the_assembler_refuses_a_tenant_that_is_not_its_own(
+ASSEMBLER_PATH = Path(__file__).parent.parent.parent / "src/ccf/agents/assembler.py"
+ASSEMBLER_SOURCE = ASSEMBLER_PATH.read_bytes()
+
+#: The import line the sabotage below widens, so the scratch copy can name the
+#: exception it puts back. Asserted present before mutating, so a reformatted
+#: import block turns the sabotage red rather than into a silent no-op.
+_IMPORT_ANCHOR = """from ccf.agents.errors import (
+    ASSEMBLY_REASON_TENANT_MISMATCH,"""
+
+
+def _scratch_assembler(
+    tmp_path: Path, *, name: str, token: str
+) -> types.ModuleType:
+    """A copy of ``assembler.py`` whose determination for ``token`` RAISES again.
+
+    The inversion ``24.6-L-02`` asks for. It puts an unreachable ``raise
+    AssemblyRefused`` in front of the return that ``D-IMPL-253`` amendment 2
+    (3) turned into a determination, so a tree in which the old channel came
+    back — by revert, by merge, by someone reading ``24.5-L-11``'s superseded
+    paragraph — is RED here.
+
+    The needle is asserted to appear **exactly once** first, so a rename or a
+    reflow makes the control fail loudly rather than mutate nothing. The module
+    is registered in ``sys.modules`` before execution because it declares a
+    dataclass and, under ``from __future__ import annotations``, ``dataclasses``
+    resolves string annotations through ``sys.modules[cls.__module__]``
+    (``24.6-02`` deviation 9).
+    """
+    source = ASSEMBLER_SOURCE.decode("utf-8")
+    needle = f"            return AssemblyRefusal(\n                reason={token},"
+    assert source.count(needle) == 1, (
+        f"the determination for {token} is not where the sabotage looks"
+    )
+    assert source.count(_IMPORT_ANCHOR) == 1
+    mutated = source.replace(
+        _IMPORT_ANCHOR, _IMPORT_ANCHOR + "\n    AssemblyRefused,"
+    ).replace(needle, f"            raise AssemblyRefused({token})\n" + needle)
+    assert mutated != source
+
+    path = tmp_path / f"{name}.py"
+    path.write_text(mutated, encoding="utf-8")
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:  # pragma: no cover - a broken scratch is a red test
+        sys.modules.pop(name, None)
+        raise
+    return module
+
+
+def test_the_assembler_returns_a_determination_for_a_tenant_that_is_not_its_own(
     registry: ControlPlaneRegistry,
 ) -> None:
+    """``24.6-L-02``. The fabric holds both tenants, so it can DETERMINE.
+
+    ``D-IMPL-253`` amendment 2 (3), Dave: *"If the fabric has enough
+    information to reach a valid governed determination, return data."* It has
+    the asked-for tenant and the declared one and knows exactly which two
+    disagreed, so this is data — and the token is the SDK's own, because this
+    is the SDK's own assembler making the determination.
+    """
     agent = _assembler_agent(registry)
     assembler = DeterministicAssembler(agent=agent, projection=_projection())
-    with pytest.raises(AssemblyRefused) as refusal:
+
+    outcome = assembler.assemble(
+        request=_request(agent),
+        perspective=_perspective(agent),
+        tenant_id=agent.definition.perspective.role,
+    )
+
+    assert isinstance(outcome, AssemblyRefusal), type(outcome)
+    assert outcome.reason == ASSEMBLY_REASON_TENANT_MISMATCH
+    assert outcome.reason == "tenant-mismatch"
+    # The prose the raise carried is carried unchanged, both sides named.
+    assert agent.definition.tenant in outcome.detail
+    assert agent.definition.perspective.role in outcome.detail
+
+
+def test_sabotage_raising_the_tenant_determination_again_is_red(
+    tmp_path: Path, registry: ControlPlaneRegistry
+) -> None:
+    """Put the raise back and the return predicate above fails."""
+    scratch = _scratch_assembler(
+        tmp_path,
+        name="assembler_raising_tenant_again",
+        token="ASSEMBLY_REASON_TENANT_MISMATCH",
+    )
+    agent = _assembler_agent(registry)
+    assembler = scratch.DeterministicAssembler(
+        agent=agent, projection=_projection()
+    )
+
+    with pytest.raises(AssemblyRefused):
         assembler.assemble(
             request=_request(agent),
             perspective=_perspective(agent),
             tenant_id=agent.definition.perspective.role,
         )
-    assert agent.definition.tenant in str(refusal.value)
-    assert agent.definition.perspective.role in str(refusal.value)
+
+    # And the REAL module still returns, for the same inputs.
+    outcome = DeterministicAssembler(
+        agent=agent, projection=_projection()
+    ).assemble(
+        request=_request(agent),
+        perspective=_perspective(agent),
+        tenant_id=agent.definition.perspective.role,
+    )
+    assert isinstance(outcome, AssemblyRefusal)
 
 
-def test_the_assembler_refuses_a_perspective_it_was_not_declared_under(
+def test_the_assembler_returns_a_determination_for_an_undeclared_role(
     registry: ControlPlaneRegistry,
 ) -> None:
+    """``24.6-L-02``, the second of D-15's two named examples."""
     agent = _assembler_agent(registry)
     assembler = DeterministicAssembler(agent=agent, projection=_projection())
     foreign = Perspective(
         principal_id=agent.definition.tenant, role=agent.definition.name
     )
-    with pytest.raises(AssemblyRefused) as refusal:
-        assembler.assemble(
+
+    outcome = assembler.assemble(
+        request=_request(agent),
+        perspective=foreign,
+        tenant_id=agent.definition.tenant,
+    )
+
+    assert isinstance(outcome, AssemblyRefusal), type(outcome)
+    assert outcome.reason == ASSEMBLY_REASON_UNDECLARED_ROLE
+    assert outcome.reason == "undeclared-role"
+    assert agent.definition.perspective.role in outcome.detail
+    assert agent.definition.name in outcome.detail
+
+
+def test_sabotage_raising_the_role_determination_again_is_red(
+    tmp_path: Path, registry: ControlPlaneRegistry
+) -> None:
+    """The same inversion on the second determination.
+
+    Two sabotages rather than one parametrized over both, because a single
+    control that caught one determination could stand for a tree in which only
+    the other had been reverted.
+    """
+    scratch = _scratch_assembler(
+        tmp_path,
+        name="assembler_raising_role_again",
+        token="ASSEMBLY_REASON_UNDECLARED_ROLE",
+    )
+    agent = _assembler_agent(registry)
+    foreign = Perspective(
+        principal_id=agent.definition.tenant, role=agent.definition.name
+    )
+
+    with pytest.raises(AssemblyRefused):
+        scratch.DeterministicAssembler(
+            agent=agent, projection=_projection()
+        ).assemble(
             request=_request(agent),
             perspective=foreign,
             tenant_id=agent.definition.tenant,
         )
-    assert agent.definition.perspective.role in str(refusal.value)
-    assert agent.definition.name in str(refusal.value)
+
+    outcome = DeterministicAssembler(
+        agent=agent, projection=_projection()
+    ).assemble(
+        request=_request(agent),
+        perspective=foreign,
+        tenant_id=agent.definition.tenant,
+    )
+    assert isinstance(outcome, AssemblyRefusal)
+
+
+def test_no_sabotage_edits_the_real_source_tree() -> None:
+    """The controls above mutate copies under ``tmp_path``.
+
+    ``assembler.py`` on disk is byte-identical, it raises ``AssemblyRefused``
+    nowhere, and the exception class it no longer raises is still exported by
+    :mod:`ccf.agents.errors` — the positive half, so "the sabotage adds
+    something" is measured rather than assumed.
+    """
+    assert ASSEMBLER_PATH.read_bytes() == ASSEMBLER_SOURCE
+    source = ASSEMBLER_SOURCE.decode("utf-8")
+    assert "raise AssemblyRefused" not in source
+    assert "return AssemblyRefusal(" in source
+    assert AssemblyRefused.__name__ == "AssemblyRefused"
+
+
+def test_a_genuine_invariant_failure_still_raises_and_nothing_converts_it(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """``D-IMPL-253`` Q15's second half, as a control.
+
+    Dave: *"retain exceptions for actual configuration/invariant
+    contradictions ... Don't mechanically convert every existing
+    AssemblyRefused call merely because it currently uses that class."*
+
+    A deployment assembler that cannot reach a determination at all raises,
+    the raise escapes the seam untouched — no SDK code catches it — and the
+    class's own boundary sentence says so. Without this, the two conversions
+    above would read as *every* ``AssemblyRefused`` becoming data.
+    """
+
+    @dataclass(frozen=True)
+    class _CorruptedDeploymentAssembler:
+        """Conforms structurally; its own declaration contradicts itself."""
+
+        @property
+        def assembler_id(self) -> str:
+            return "deployment-assembler"
+
+        @property
+        def assembler_version(self) -> str:
+            return "1.0.0"
+
+        def assemble(
+            self,
+            *,
+            request: ProductRequest,
+            perspective: Perspective,
+            tenant_id: str,
+        ) -> AssemblyOutcome:
+            raise AssemblyRefused(
+                "this deployment's declaration names two different anchor"
+                " vocabularies for one class; neither is authoritative"
+            )
+
+    agent = _assembler_agent(registry)
+    assembler = _CorruptedDeploymentAssembler()
+    assert isinstance(assembler, ContextAssemblerProtocol)
+
+    with pytest.raises(AssemblyRefused) as caught:
+        assembler.assemble(
+            request=_request(agent),
+            perspective=_perspective(agent),
+            tenant_id=agent.definition.tenant,
+        )
+    assert "neither is authoritative" in str(caught.value)
+
+    # The boundary is stated on the class rather than left to this test.
+    assert "reach a valid governed determination" in (AssemblyRefused.__doc__ or "")
+    assert "24.5-L-11" in (AssemblyRefused.__doc__ or "")
 
 
 # --- axis 2's emission side ---------------------------------------------------
@@ -991,6 +1209,11 @@ def test_the_protocol_return_type_names_the_governed_refusal(
     )
     assert "AssemblyOutcome" in annotation, annotation
     assert "ProductRequestViolation" in annotation, annotation
+    # `24.6-L-02` / LC-02: the union names every REFUSAL_KINDS member the seam
+    # may return, so the annotation is the roster rather than a sample of it.
+    assert "AssemblyRefusal" in annotation, annotation
+    assert "AnchorAmbiguityRefusal" in annotation, annotation
+    assert "SubjectUnavailableRefusal" in annotation, annotation
 
 
 def test_identity_is_judged_before_contract_conformity(
@@ -1014,10 +1237,13 @@ def test_identity_is_judged_before_contract_conformity(
     )
 
     # BOTH wrong at once: a foreign tenant AND a non-conforming question.
-    with pytest.raises(AssemblyRefused) as caught:
-        assembler.assemble(
-            request=non_conforming,
-            perspective=_perspective(agent),
-            tenant_id="not-this-agents-tenant",
-        )
-    assert "tenant" in str(caught.value)
+    outcome = assembler.assemble(
+        request=non_conforming,
+        perspective=_perspective(agent),
+        tenant_id="not-this-agents-tenant",
+    )
+    # The identity determination wins, and it is the one that is REPORTED —
+    # `24.6-L-02` changed the channel, never the ordering.
+    assert isinstance(outcome, AssemblyRefusal), type(outcome)
+    assert outcome.reason == ASSEMBLY_REASON_TENANT_MISMATCH
+    assert "tenant" in outcome.detail

@@ -506,6 +506,8 @@
   },
   "ccf.agents.errors": {
     "__all__": [
+      "ASSEMBLY_REASON_TENANT_MISMATCH",
+      "ASSEMBLY_REASON_UNDECLARED_ROLE",
       "AgentConstructionError",
       "AgentDefinitionError",
       "AssemblyRefusal",
@@ -518,6 +520,14 @@
       "SkillNotBound"
     ],
     "exports": {
+      "ASSEMBLY_REASON_TENANT_MISMATCH": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ASSEMBLY_REASON_UNDECLARED_ROLE": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "AgentConstructionError": {
         "kind": "class",
         "shape": "type"
@@ -5374,6 +5384,7 @@
       "RefusalEvidence",
       "RequestIdentity",
       "ResourceRequestIdentity",
+      "SubjectUnavailableRefusal",
       "envelope_for"
     ],
     "exports": {
@@ -5437,6 +5448,14 @@
           "determined_at": "<class 'datetime.datetime'>",
           "surface": "<class 'str'>",
           "tenant_id": "<class 'str'>"
+        }
+      },
+      "SubjectUnavailableRefusal": {
+        "kind": "contract",
+        "shape": {
+          "cause": "typing.Literal['nonexistent', 'unauthorized', 'undisclosed']",
+          "detail": "<class 'str'>",
+          "error_code": "str | None"
         }
       },
       "envelope_for": {

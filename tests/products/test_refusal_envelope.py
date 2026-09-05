@@ -75,6 +75,7 @@ from ccf.products.refusal import (
     RefusalEvidence,
     RequestIdentity,
     ResourceRequestIdentity,
+    SubjectUnavailableRefusal,
     envelope_for,
 )
 from ccf.graph.protocols import NO_STORE_SNAPSHOT_PIN
@@ -708,6 +709,64 @@ def test_envelope_for_anchor_ambiguity_refusal(
             refusal, request=request_identity, pre_assembly_lineage=partial_lineage
         )
     assert "AnchorAmbiguityRefusal" in str(caught.value)
+
+
+def test_envelope_for_subject_unavailable(
+    request_identity: RequestIdentity, partial_lineage: ProductLineage
+) -> None:
+    """``24.6-L-21``: the ONE outcome two different causes share.
+
+    ``D-IMPL-253`` Q27 with amendment 2 (4). The type declares no ``reason``
+    and no ``key``, so ``reason`` falls back to the kind token — which is what
+    makes the two causes report the same reason on the wire before disclosure
+    is even consulted. ``cause`` and ``error_code`` are the promoted-nothing
+    remainder and cross in ``fields`` by name; **no ``subject`` field exists**,
+    because naming the subject is itself the leak the kind exists to close.
+
+    And it is a pre-assembly kind: an unauthorized principal is settled at the
+    delivery boundary before any plan exists, so a lineage offered with it is
+    refused with the type named.
+    """
+    refusal = SubjectUnavailableRefusal(
+        cause="nonexistent",
+        detail="no entity resolved for the anchor this question named",
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[SubjectUnavailableRefusal]
+    assert envelope.kind == "subject-unavailable"
+    assert envelope.reason == "subject-unavailable"
+    assert envelope.key is None
+    assert envelope.detail == refusal.detail
+    assert set(envelope.fields) == {"cause", "error_code"}
+    assert envelope.fields["cause"] == '"nonexistent"'
+    assert envelope.fields["error_code"] == "null"
+    assert envelope.pre_assembly_lineage is None
+
+    # The type cannot name a subject, so a disclosure step never has to
+    # remember to blank one.
+    assert "subject" not in SubjectUnavailableRefusal.model_fields
+
+    # The unauthorized cause crosses through the SAME translation, reporting
+    # the same kind, the same reason and the same field KEYS. What differs is
+    # only the two values disclosure governs.
+    unauthorized = envelope_for(
+        SubjectUnavailableRefusal(
+            cause="unauthorized",
+            detail="this principal may not receive that class",
+            error_code="product_class_unentitled",
+        ),
+        request=request_identity,
+    )
+    assert unauthorized.kind == envelope.kind
+    assert unauthorized.reason == envelope.reason
+    assert set(unauthorized.fields) == set(envelope.fields)
+
+    with pytest.raises(ValueError) as caught:
+        envelope_for(
+            refusal, request=request_identity, pre_assembly_lineage=partial_lineage
+        )
+    assert "SubjectUnavailableRefusal" in str(caught.value)
 
 
 # --- properties of the translation itself -----------------------------------

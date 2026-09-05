@@ -386,6 +386,14 @@ _MARKED_IN_THE_TREE = frozenset(
         # operator, each render without the key they have nothing to say under.
         "ccf.products.refusal.RefusalEvidence.debt",
         "ccf.products.refusal.RefusalEvidence.computed_empty",
+        # 24.6-08: the typed code a subject-unavailable determination carried
+        # (``24.6-L-21``). Same argument as the two above — a brand-new model,
+        # no earlier generation — and the field is also what a DISCLOSED shell
+        # carries at every level below ``full``, so it must render absent
+        # rather than as an explicit null: a rendered `"error_code": null` and
+        # a rendered `"error_code": "product_class_unentitled"` differ in
+        # shape, and shape is a leak channel (``D-IMPL-253`` am.2 (4)).
+        "ccf.products.refusal.SubjectUnavailableRefusal.error_code",
         # 24.6-07: the assembler in force on replay dimension 4
         # (``D-IMPL-253`` Q16, ``D-IMPL-245`` amendment 1) and the disclosure
         # decision on dimension 5 (``D-IMPL-254``). All three are silent at

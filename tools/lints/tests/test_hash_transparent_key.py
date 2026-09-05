@@ -339,6 +339,10 @@ NAMED_SINCE_THE_SWEEP: tuple[str, ...] = (
     # against and `True` is the only coherent declaration.
     "ccf.products.refusal.RefusalEvidence.debt",
     "ccf.products.refusal.RefusalEvidence.computed_empty",
+    # 24.6-08, the typed code a subject-unavailable determination carried
+    # (`24.6-L-21`). Brand-new model, and the field a disclosed shell blanks
+    # below `full` — so it renders absent rather than as an explicit null.
+    "ccf.products.refusal.SubjectUnavailableRefusal.error_code",
     # 24.6-07, the assembler in force on replay dimension 4 (`D-IMPL-253`
     # Q16, `D-IMPL-245` am.1) and the disclosure decision on dimension 5
     # (`D-IMPL-254`).

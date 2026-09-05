@@ -120,6 +120,17 @@ ALLOWED_CCF_PREFIXES = (
 #:   reaches no fabric layer at all: its own ``ccf`` imports are the products
 #:   contract, the payload comparison, the skill argument schema and the
 #:   Control Plane registry — every one of them already at or above L6.
+#: * ``ccf.products.refusal`` supplies ``SubjectUnavailableRefusal``
+#:   (``24.6-L-02`` / ``24.6-L-21``, ``D-IMPL-253`` amendment 2 (3)), and it is
+#:   bound under ``TYPE_CHECKING`` only. ``D-IMPL-253`` narrowed
+#:   ``AssemblyRefused`` to invariant failures, which means the Protocol's
+#:   return annotation has to name the refusal VALUES the seam may return —
+#:   LC-02's own complaint — and one of them lives in the delivery-contract
+#:   module. The symbol bound is a frozen ``CCFContract`` with three scalar
+#:   fields and no capability, exactly as the three above; claim 4 below still
+#:   asserts this module names none of
+#:   :data:`FABRIC_CAPABILITY_NAMES`, so admitting the module that holds the
+#:   refusal vocabulary does not admit reaching for anything it imports.
 #:
 #: The widening is bounded rather than trusted: claim 4 asserts these modules
 #: name none of :data:`FABRIC_CAPABILITY_NAMES`, so admitting the module that
@@ -129,6 +140,7 @@ MODULE_CCF_PREFIXES: dict[str, tuple[str, ...]] = {
     "assembler.py": (
         "ccf.projection.acquisition",
         "ccf.projection.plan",
+        "ccf.products.refusal",
         "ccf.products.request",
     ),
 }

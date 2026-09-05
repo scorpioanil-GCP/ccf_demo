@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**929 entries**, of which **687** name a public Python surface.
+**934 entries**, of which **692** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-454 entries — 415 public Python surface, 39 not public Python API.
+457 entries — 418 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -8315,6 +8315,54 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
 
+#### ccf.agents.errors.ASSEMBLY_REASON_TENANT_MISMATCH
+
+- Surface: ccf.agents.errors.ASSEMBLY_REASON_TENANT_MISMATCH
+- Public surface: true
+- Change type: added
+- Before: absent — the SDK fixed exactly one `AssemblyRefusal.reason` token,
+  `"assembly-refused"`, minted by `AssemblyRefused.as_refusal`
+- After: `ASSEMBLY_REASON_TENANT_MISMATCH: Final[str] = "tenant-mismatch"`
+- Why: `D-IMPL-253` amendment 2 (3) names tenant mismatch as a governed
+  determination. The SDK's own assembler is what makes it, so the SDK fixes the
+  token; a deployment's assembler keeps its own vocabulary (CINV-01)
+- Migration: none. A new public constant
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.agents.errors.ASSEMBLY_REASON_UNDECLARED_ROLE
+
+- Surface: ccf.agents.errors.ASSEMBLY_REASON_UNDECLARED_ROLE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ASSEMBLY_REASON_UNDECLARED_ROLE: Final[str] = "undeclared-role"`
+- Why: the second of the two determinations `D-IMPL-253` amendment 2 (3) names
+  by name
+- Migration: none. A new public constant
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.refusal.SubjectUnavailableRefusal
+
+- Surface: ccf.products.refusal.SubjectUnavailableRefusal
+- Public surface: true
+- Change type: added
+- Before: absent. A nonexistent subject and an unauthorized principal had no
+  shared outcome, so the fabric had no way to answer both indistinguishably
+- After: `SubjectUnavailableRefusal(cause: Literal["nonexistent",
+  "unauthorized", "undisclosed"], detail: str, error_code: str | None = None)`,
+  mapped to the wire token `subject-unavailable` and a member of the
+  pre-assembly set. **There is deliberately no `subject` field**
+- Why: `D-IMPL-253` Q27, Dave: *"No special suppression-silent kind. However,
+  this requires a canonical externally observable refusal outcome that both
+  nonexistent and unauthorized anchors can share."* Naming the subject on the
+  shell is itself a leak channel, so the type cannot name one
+- Migration: `REFUSAL_KINDS` goes from 22 members to 23. A consumer switching
+  exhaustively on the token gains one case
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -14912,7 +14960,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-114 entries — 94 public Python surface, 20 not public Python API.
+116 entries — 96 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -17116,6 +17164,46 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   simply stops firing. Nothing that read it on a served result changes
 
 *Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.agents.assembler.ContextAssemblerProtocol — the seam's refusal union
+
+- Surface: ccf.agents.assembler.ContextAssemblerProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `-> AssemblyOutcome | ProductRequestViolation | AssemblyRefusal`,
+  with a boundary sentence saying an identity disagreement *"stays
+  `AssemblyRefused`"*
+- After: `-> AssemblyOutcome | ProductRequestViolation | AssemblyRefusal |
+  AnchorAmbiguityRefusal | SubjectUnavailableRefusal`, with the boundary
+  rewritten to Dave's rule. The union is now the set of `REFUSAL_KINDS` members
+  reachable at this seam, listed rather than implied
+- Why: LC-02 measured that `AnchorAmbiguityRefusal` was returnable at this seam
+  and absent from the annotation; `24.6-L-21` adds the shared
+  subject-unavailable outcome beside it. Return types are covariant, so no
+  conforming implementation moves
+- Migration: none for an implementation. A caller that exhaustively matched the
+  three-member union gains two members it did not have to handle before
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.agents.assembler.DeterministicAssembler — the two identity determinations
+
+- Surface: ccf.agents.assembler.DeterministicAssembler
+- Public surface: true
+- Change type: behavior
+- Before: raised `AssemblyRefused` for a foreign tenant and for an undeclared
+  role
+- After: returns `AssemblyRefusal(reason=ASSEMBLY_REASON_TENANT_MISMATCH, ...)`
+  and `AssemblyRefusal(reason=ASSEMBLY_REASON_UNDECLARED_ROLE, ...)`. The prose
+  each raise carried is carried unchanged as `detail`; the ordering — identity
+  before contract conformity — is unchanged
+- Why: `D-IMPL-253` amendment 2 (3). The fabric holds both tenants and both
+  roles and knows exactly which two disagreed, so each is a determination
+- Migration: a caller that wrapped `assemble` in `except AssemblyRefused` for
+  these two conditions now receives a value instead. That is the point: a
+  returned refusal cannot be swallowed by a bare `except`
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
 
 ### Not public Python API
 
