@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**884 entries**, of which **642** name a public Python surface.
+**895 entries**, of which **653** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-437 entries — 398 public Python surface, 39 not public Python API.
+439 entries — 400 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -7987,6 +7987,53 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
 
+#### ccf.products.gates.ToleranceExceededRefusal
+
+- Surface: ccf.products.gates.ToleranceExceededRefusal
+- Public surface: true
+- Change type: added
+- Before: absent. An over-tolerance product was a `DeclaredObligationRefusal`
+  carrying two rendered strings and no statement of who set the number
+- After: a `CCFContract` — deliberately **not** a `GateRefusal` — with
+  `authority`, `source`, `tolerance`, `observed: Decimal | None`,
+  `breakdown: DebtAssessment | None` and `detail`. It declares neither `gate`
+  nor `reason`, so `envelope_for` reports the kind token as the envelope's
+  reason
+- Why: `D-IMPL-253` Q10, Dave: *"`tolerance-exceeded` is right. Preserve which
+  authority established the tolerance. I would not make the shell itself imply
+  that Debt is invalid; the product was constructible, but fulfillment was
+  withheld because an applicable declared tolerance was exceeded."* The word
+  `invalid` appears nowhere in the type, the function or the detail text, and a
+  test greps for its absence
+- Migration: a consumer that branched on `declared-obligation-refusal` with
+  `obligation == "debt-ceiling"` branches on kind `tolerance-exceeded` instead
+  and reads `authority` / `tolerance` / `observed` rather than two rendered
+  strings
+- Related: `observed=None` is the positive *no assessment was produced* — the
+  retired half's `observed="no-assessment"` string, typed
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.gates.refuse_over_tolerance
+
+- Surface: ccf.products.gates.refuse_over_tolerance
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(product: ServableProduct, *, tolerance: EffectiveParameter | None) ->
+  ToleranceExceededRefusal | None`. It takes an **admitted** product and a
+  **resolved** parameter, never a candidate and never a bare number, so it can
+  neither be reached before the gates nor fold a second time
+- Why: `24.6-L-05`. The three authorities are folded exactly once, upstream, by
+  `resolve_effective_request`; a second fold here would be the scalar collapse
+  `D-IMPL-254` removed and the place a class preference could re-acquire what
+  C1 took from it
+- Migration: a deployment composing its own serve path calls this after
+  `run_gates` and envelopes a non-`None` result with the candidate's lineage;
+  the governed resolver already does
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -8615,7 +8662,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-333 entries — 150 public Python surface, 183 not public Python API.
+341 entries — 158 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -11792,6 +11839,155 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
 
+#### ccf.products.contract.ServeObligations.debt_ceiling → .default_debt_tolerance
+
+- Surface: ccf.products.contract.ServeObligations
+- Public surface: true
+- Change type: reshaped
+- Before: `debt_ceiling: Decimal | None` — the class's `D_c` ceiling. A request
+  could only *tighten* it; a request could not create one; the declared-obligations
+  gate refused an over-ceiling product by name, and the HTTP door answered `409`
+- After: `default_debt_tolerance: Decimal | None` — the class's *declared
+  default* tolerance, applied only when the caller states none, with authority
+  `default` and the product-class artifact's pin as its source. No gate reads
+  it. A caller's **looser** value is honored
+- Why: `D-IMPL-251` C1=A, Dave: *"A product class cannot independently withhold
+  otherwise deliverable context because its own debt preference was exceeded …
+  The class value can be a declared/default tolerance characteristic, but it is
+  not itself a policy boundary."* And `D-IMPL-253` Q9 on the name: *"Rename it."*
+  — keeping the old name *"after changing its authority would perpetuate the
+  conceptual error we just fixed."*
+- Migration: an authored `ccf.product-class` document renames the key under
+  `serve_obligations`. `extra=forbid` means the old key is refused at parse
+  rather than silently ignored, which is the intended failure — a deployment
+  that meant a ceiling has to decide whether it meant a default (leave it on the
+  class), a caller-owned tolerance (declare the argument on the request contract)
+  or governance (author a `ccf.policy-constraint`)
+- Related: `docs/schemas/ccf.product-class.json` regenerated;
+  `ProductClassDeclaration.serve_obligations`'s docstring follows
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.gates.DeclaredObligationRefusal.obligation
+
+- Surface: ccf.products.gates.DeclaredObligationRefusal
+- Public surface: true
+- Change type: reshaped
+- Before: `Literal["debt-ceiling", "lineage-inputs"]`
+- After: `Literal["lineage-inputs"]` — the debt half of
+  `_refuse_declared_obligations` is deleted, both of its returns with it
+- Why: the comparison it made belongs after admission, not inside a gate
+  (`D-IMPL-251`: refusal of **fulfillment**, not of response). A consumer that
+  branched on `"debt-ceiling"` now finds the case under
+  `tolerance-exceeded` instead, with the authority that set the number
+- Migration: constructing the retired token is a `ValidationError`, asserted as
+  a control in `tests/products/test_refusal_envelope.py`
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.gates.run_gates — `debt_tolerance` removed
+
+- Surface: ccf.products.gates.run_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `debt_tolerance: Decimal | None = None`, folded with the class's
+  ceiling by `min` inside the declared-obligations step
+- After: absent. The runner reads Context Debt nowhere at all
+- Why: `24.6-L-04`. Every shipped call site passed the `None` default except the
+  governed resolver's, which now calls `refuse_over_tolerance` after the gates
+- Migration: drop the keyword; a caller that passed a tolerance moves the
+  comparison after `run_gates` via `refuse_over_tolerance`
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.gates.run_federated_gates — `debt_tolerance` removed
+
+- Surface: ccf.products.gates.run_federated_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `debt_tolerance: Decimal | None = None`, on the local runner's
+  wording and through the same shared step
+- After: absent. A federated candidate over the consuming class's declared
+  figure is now ADMITTED; withholding it is the consuming layer's call
+- Why: `24.6-L-04`, and the factoring the two runners share — one reading of
+  what a class declared, so the retirement reaches both at once
+- Migration: as on `run_gates`
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS — `tolerance-exceeded`
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: reshaped
+- Before: 22 kinds
+- After: 23. `ToleranceExceededRefusal: "tolerance-exceeded"`, post-assembly —
+  a candidate existed, so it is **not** in `_PRE_ASSEMBLY_REFUSALS` and the
+  resolver passes `pre_assembly_lineage=candidate.lineage`
+- Why: the closed vocabulary is closed by set equality against the tree; a new
+  `…Refusal` class in `src/` is red until it is named here
+- Migration: none for a consumer that reads `envelope.kind` as an opaque token;
+  a consumer that enumerates kinds gains one
+- Related: no shipped token is a substring of `tolerance-exceeded` and it is a
+  substring of none, checked by the closure gate rather than by eye
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.constraints.resolve_effective_request — `class_defaults` / `class_source`
+
+- Surface: ccf.products.constraints.resolve_effective_request
+- Public surface: true
+- Change type: reshaped
+- Before: defaults came from `ProductRequestContract.defaults` alone
+- After: `class_defaults: Mapping[str, Any] | None = None` and
+  `class_source: ProvenanceSource | None = None`. The product CLASS's declared
+  characteristics are applied first and the request CONTRACT's defaults win for
+  the same name; each defaulted value records the pin of the document that
+  declared it
+- Why: `24.6-L-04` — the class's default tolerance has to reach the resolution
+  as a *default with provenance*, not as a number folded downstream
+- Migration: none. Both default to `None`, which normalizes to an empty mapping,
+  so every call site written before this pair resolves exactly as it did
+- Related: a non-empty `class_defaults` with `class_source=None` raises
+  `ValueError` (a default with no provenance); so does a class default naming a
+  parameter the request contract does not declare as an argument — a class
+  characteristic a caller cannot state would be a ceiling wearing a default's
+  name, which is what C1=A took away
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.constraints.PolicyConstraintResolver — `class_defaults` / `class_source`
+
+- Surface: ccf.products.constraints.PolicyConstraintResolver
+- Public surface: true
+- Change type: reshaped
+- Before: `resolve(...)` took the request, the contract and its pin, the
+  perspective, the intent, the tenant and the capabilities
+- After: the same, plus the two optional `class_defaults` / `class_source`
+  keywords, so a conforming resolver can be handed what the product class
+  declares without a second seam
+- Why: `24.6-L-04`. The class's declaration is read by the layer that holds it
+  (the governed resolver), and the seam carries it rather than re-reading it
+- Migration: none for a conforming implementation that accepts keyword
+  arguments it does not use; an implementation that wants the behavior forwards
+  both to `resolve_effective_request`
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.constraints.ReferencePolicyConstraintResolver — `class_defaults` / `class_source`
+
+- Surface: ccf.products.constraints.ReferencePolicyConstraintResolver
+- Public surface: true
+- Change type: reshaped
+- Before: as the Protocol
+- After: as the Protocol; it forwards both to `resolve_effective_request`
+  unchanged, doing nothing with them itself
+- Why: the fetch and the decision stay split — the reference does I/O, and the
+  pure function decides
+- Migration: none
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -14164,7 +14360,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-109 entries — 89 public Python surface, 20 not public Python API.
+110 entries — 90 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -16259,6 +16455,26 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none. A consumer enumerating `kind` sees a twentieth
 
 *Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
+#### ccf.products.resolver.GovernedResolver.__call__
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the resolved tolerance was narrowed to a number and threaded into
+  `run_gates`, which folded it with the class's ceiling
+- After: the class's declared default joins the resolution as `class_defaults`
+  with the product-class pin as `class_source`; `run_gates` receives no
+  tolerance; and an admitted `ServableProduct` is held to
+  `effective.parameter("debt_tolerance")` by `refuse_over_tolerance`, whose
+  refusal is enveloped with the candidate's lineage
+- Why: the ruled sequence, one step further along: Determination → Authority →
+  Disclosure → Delivery (`D-IMPL-254`), with the delivery decision made where
+  the product it withholds already exists
+- Migration: none at the call seam — the resolver's own signature and return
+  union are unchanged. A caller sees one more possible `RefusalEnvelope` kind
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
 
 ### Not public Python API
 

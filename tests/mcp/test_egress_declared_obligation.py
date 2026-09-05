@@ -1,7 +1,13 @@
 """The MCP door carries the declared-obligation kind with no runtime edit.
 
-Ledger row ``24.5-L-14`` (door half), the MCP mirror of criterion 21's typed
-``409``; CLAUDE.md §7.1 (MCP as egress) and §8.3. The HTTP door maps ONE
+Ledger rows ``24.5-L-26`` and ``24.6-L-04`` (door half), the MCP mirror of the
+HTTP door's typed ``409``; CLAUDE.md §7.1 (MCP as egress) and §8.3.
+
+**Re-derived at ``24.6-04``**: the kind under test carried a debt half when
+this module was written, and that is the half it exercised. The half is
+retired (``D-IMPL-251`` C1=A), so what travels below is the LINEAGE
+obligation. Nothing about the door changed, which is the module's own claim
+restated — it carries what the vocabulary carries. The HTTP door maps ONE
 refusal kind to a status (plan ``24.5-14``, ``routes/product.py``); the MCP
 tool has no status to map to and needs none — its refusal channel is the
 :class:`~ccf.products.door.DoorOutcome` return value Wave 2 shipped
@@ -44,9 +50,10 @@ from test_egress_refusal_envelope import (
     _identity,
 )
 
-#: What the gate said, rendered as it crosses the wire. Test vocabulary.
-DECLARED = "0.25"
-OBSERVED = "0.61"
+#: What the gate said, rendered as it crosses the wire: the obliged payload
+#: member and the state the candidate carried it in. Test vocabulary.
+DECLARED = "inputs"
+OBSERVED = "absent"
 
 #: The kind under test, read from the mapping — one spelling in the tree.
 KIND = REFUSAL_KINDS[DeclaredObligationRefusal]
@@ -63,14 +70,15 @@ def assembled(tmp_path_factory: pytest.TempPathFactory) -> Any:
 
 
 def _refusal() -> DeclaredObligationRefusal:
-    """What the declared-obligations gate returns for an over-ceiling product."""
+    """What the declared-obligations gate returns for a dropped lineage member."""
     return DeclaredObligationRefusal(
         gate=GATE_DECLARED_OBLIGATIONS,
         detail=(
-            f"product carries D_c {OBSERVED}, over the effective ceiling"
-            f" {DECLARED} — the Standard §9's 409"
+            f"product declares a lineage obligation on payload member"
+            f" {DECLARED!r}, which is {OBSERVED} — every served line must name"
+            " what it was computed from (24.5-L-26)"
         ),
-        obligation="debt-ceiling",
+        obligation="lineage-inputs",
         declared=DECLARED,
         observed=OBSERVED,
     )
@@ -104,7 +112,7 @@ def _assert_declared_obligation_kind(
     assert set(refusal.fields) == {"obligation", "declared", "observed"}
     # Envelope fields arrive in the SDK's one canonical form — a string
     # quoted — so the value is decoded, never compared to a bare literal.
-    assert json.loads(refusal.fields["obligation"]) == "debt-ceiling"
+    assert json.loads(refusal.fields["obligation"]) == "lineage-inputs"
     assert json.loads(refusal.fields["declared"]) == DECLARED
     assert json.loads(refusal.fields["observed"]) == OBSERVED
     assert refusal.request == _identity(address)

@@ -109,6 +109,7 @@ from ccf.products.gates import (
     GateRefusal,
     LineageAttributionRefusal,
     LineageMismatchRefusal,
+    ToleranceExceededRefusal,
     TTLRefusal,
 )
 from ccf.products.payload import PayloadSchemaViolation
@@ -233,11 +234,15 @@ class RefusalEnvelope(CCFContract):
 REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     # The three-gate family (whitepaper §7.6), the additive attestation
     # gate beside it, and the ONE structural declared-obligations gate
-    # D-IMPL-237 licenses (24.5-L-14, 24.5-L-26) — the kind the HTTP door
-    # maps to the Standard's 409. The empty-operator gate's two halves are
-    # two kinds (24.5-L-24): a product that DECLARED no operators, and an
-    # operator that RETURNED an empty set. `empty-result-refusal` was chosen
-    # over `empty-operator-result-refusal` because neither of the pair is a
+    # D-IMPL-237 licenses — the kind the HTTP door maps to 409. As of
+    # 24.6-04 that gate carries ONE obligation (`lineage-inputs`, 24.5-L-26):
+    # the debt half and the 409 DEBT route it served are retired, because a
+    # class's debt figure is a default tolerance rather than an obligation
+    # (`D-IMPL-251` C1=A). The kind and its 409 mapping stand for the lineage
+    # obligation. The empty-operator gate's two halves are two kinds
+    # (24.5-L-24): a product that DECLARED no operators, and an operator that
+    # RETURNED an empty set. `empty-result-refusal` was chosen over
+    # `empty-operator-result-refusal` because neither of the pair is a
     # substring of the other under the closure gate's rule, and the shorter
     # name reads as what it is.
     GateRefusal: "gate-refusal",
@@ -248,6 +253,16 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     TTLRefusal: "ttl-refusal",
     AttestationRefusal: "attestation-refusal",
     DeclaredObligationRefusal: "declared-obligation-refusal",
+    # Beside it and deliberately NOT of it (24.6-L-05, `D-IMPL-251` C2=B):
+    # `tolerance-exceeded` is not a gate token and `ToleranceExceededRefusal`
+    # is not a `GateRefusal`. The gates admitted the product; an applicable
+    # declared tolerance — the class's default, the caller's own value or a
+    # policy constraint — then withheld its fulfillment, and the shell carries
+    # which authority set it. The token is post-assembly (a candidate existed,
+    # so it is NOT in `_PRE_ASSEMBLY_REFUSALS`), and no shipped token is a
+    # substring of it or it of them. Which door class it maps to is plan 09's
+    # question; the DEBT half of the 409 route retired with the gate half.
+    ToleranceExceededRefusal: "tolerance-exceeded",
     # The peering-admission family, which derives from the gate family rather
     # than paralleling it (CLAUDE.md §7.2).
     AdmissionRefusal: "admission-refusal",

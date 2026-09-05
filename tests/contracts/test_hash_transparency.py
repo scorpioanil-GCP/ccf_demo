@@ -297,7 +297,10 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.controlplane.artifacts.HalfLifeEntry.half_life_seconds",
         "ccf.controlplane.artifacts.ProductClassDeclaration.serve_obligations",
         "ccf.products.contract.RegisteredProductClass.serve_obligations",
-        "ccf.products.contract.ServeObligations.debt_ceiling",
+        # 24.6-04: renamed under `D-IMPL-253` Q9 and `D-IMPL-251` C1=A —
+        # same field, same sentinel, same hash posture, a name that says
+        # default rather than ceiling.
+        "ccf.products.contract.ServeObligations.default_debt_tolerance",
         "ccf.products.contract.ServeObligations.lineage_inputs_at",
         "ccf.products.request.ProductRequestContract.unsupported_arguments",
         # 24.6-01: the fifth declaration key (``24.6-L-07``, ``D-IMPL-253``

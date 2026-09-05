@@ -1,41 +1,49 @@
-"""The ONE structural declared-obligations gate, proven on both obligations — ledger rows ``24.5-L-14`` and ``24.5-L-26``.
+"""The ONE structural declared-obligations gate, and the tolerance step that is NOT one — ``24.5-L-26``, ``24.6-L-04``, ``24.6-L-05``.
 
 ``D-IMPL-237`` amended ``D-IMPL-224`` for exactly one thing: the SDK may ship
-ONE serve-time gate mechanism in ``src/`` for the debt ceiling and the lineage
-obligation. ``D-IMPL-238`` reads ``D-IMPL-102`` limb 3 as *no PAYLOAD gate* —
-structural gates may join ``run_gates``. ``D-IMPL-240`` (3) shapes the ceiling:
-**the class declares it; a request may tighten it, never loosen it; an
-undeclared class is unaffected.** This module measures each of those sentences
-against :mod:`ccf.products.gates` on every run.
+ONE serve-time gate mechanism in ``src/``. ``D-IMPL-238`` reads ``D-IMPL-102``
+limb 3 as *no PAYLOAD gate* — structural gates may join ``run_gates``.
+
+**Re-derived at ``24.6-04``, and the shape of the subject changed.** This
+module measured two obligations under one gate. ``D-IMPL-251`` C1=A ruled that
+a product class's debt figure is a *default tolerance characteristic* and not a
+policy boundary — *"a product class cannot independently withhold otherwise
+deliverable context because its own debt preference was exceeded"* — and C2=B
+ruled that a caller's own tolerance is *"enforced as requested"*. So the gate
+now carries ONE obligation (lineage), and the debt comparison moved out of it
+entirely, into :func:`~ccf.products.gates.refuse_over_tolerance` over a product
+the gates have already ADMITTED. ``D-IMPL-240`` (3)'s *"a request may tighten,
+never loosen"* is SUPERSEDED and the tests that asserted it are inverted below,
+by name, rather than deleted.
 
 What is proven, and by which test:
 
-* **Criterion 21, the debt half** (``L-14``): within → served; over → refused
-  by name (``declared-obligations``, ``debt-ceiling``, both numbers carried);
-  an undeclared class serves at any ``D_c`` whatever the request says; a
-  request tightens; a loosening request is refused by name — the product it
-  would have admitted is held to the class's number; a class that declares a
-  ceiling cannot be served unmeasured.
-* **Criterion 22, the lineage half** (``L-26``): a declared member that is
+* **The tolerance step** (``24.6-L-05``): within → delivered; over → withheld
+  by name (``tolerance-exceeded``, the authority and both numbers carried);
+  no applicable tolerance → delivered at any ``D_c``; a caller's LOOSER
+  tolerance is honored over a class default (the inversion); an applicable
+  tolerance withholds an unassessed product with ``observed=None``.
+* **The lineage obligation** (``24.5-L-26``): a declared member that is
   absent or empty is refused by name; present → served; an undeclared class
   is unaffected on the same payload; the federated runner carries the same
   step; and — limb 3 — a named member holding garbage still serves, because
   presence and non-emptiness are all that is read.
-* **Criterion 21's sabotage**, written as a predicate-inversion control on a
-  scratch candidate (the tree is never edited by a test): a within-tolerance
-  product forced over its ceiling fails the *served* predicate naming the
-  gate.
+* **The tolerance step's sabotage**, written as a predicate-inversion control
+  on a scratch candidate (the tree is never edited by a test): a
+  within-tolerance product forced over fails the *delivered* predicate naming
+  ``tolerance-exceeded``.
 * **The token census**: both runners' ``GATE_*`` references are collected
   from their SOURCE (the body and one level of ``_refuse_*`` /
   ``refuse_attestation`` helpers, by AST — docstrings do not count) and
   judged by SET EQUALITY against ``D-IMPL-238``'s five plus
   ``declared-obligations``; arrivals and departures reported separately in
   the ``tests/products/test_gate_two_call_shape.py::_roster_problems`` shape.
-  A planted token proves the collector is not vacuous. Plan ``24.5-15``
-  amends this census when ``empty-operator-result`` joins.
+  A planted token proves the collector is not vacuous. The roster is
+  UNCHANGED by ``24.6-04``: the tolerance step is not a gate, and an AST
+  assertion below proves it is called in the resolver and in neither runner.
 
 Memory backend, network-free. Every key, name and number below is this
-module's own (CINV-01 reaches ``tests/``): the ceilings are test-owned
+module's own (CINV-01 reaches ``tests/``): the tolerances are test-owned
 proportions, never a product's, and no number here lives in ``src/``.
 """
 
@@ -72,6 +80,7 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import (
+    DEBT_TOLERANCE_PARAMETER,
     GATE_DECLARED_OBLIGATIONS,
     GATE_EMPTY_OPERATOR,
     GATE_EMPTY_OPERATOR_RESULT,
@@ -82,9 +91,17 @@ from ccf.products.gates import (
     DeclaredObligationRefusal,
     GateRefusal,
     ServableProduct,
+    ToleranceExceededRefusal,
+    refuse_over_tolerance,
     run_federated_gates,
     run_gates,
 )
+from ccf.products.provenance import (
+    Authority,
+    EffectiveParameter,
+    ProvenanceSource,
+)
+from ccf.products.refusal import REFUSAL_KINDS
 
 TENANT = "tenant-fixture"
 NOW = datetime(2026, 3, 2, 12, 0, 0, tzinfo=UTC)
@@ -97,15 +114,24 @@ CANDIDATE_TTL_SECONDS = 600
 SCHEMA_NAME = "fixture.declared-obligations"
 SCHEMA_VERSION = "1.0.0"
 
-#: The test's own proportions. The class ceiling, a D_c under it, one over it,
-#: a request that tightens below the within-value, a request looser than the
-#: class, and a D_c an undeclared class must still serve.
-DECLARED_CEILING = Decimal("0.5")
+#: The test's own proportions. The class's DEFAULT tolerance, a D_c under it,
+#: one over it, a caller tightening below the within-value, a caller looser
+#: than the class default, and a D_c a class declaring nothing must still
+#: deliver.
+DECLARED_DEFAULT = Decimal("0.5")
 WITHIN = Decimal("0.3")
 OVER = Decimal("0.7")
 TIGHTER = Decimal("0.2")
 LOOSER = Decimal("0.9")
 ANY_DEBT = Decimal("0.99")
+
+#: The test's own provenance vocabulary for the three authorities. Fixture
+#: identities: nothing here is resolved, and nothing here lives in `src/`.
+CLASS_ARTIFACT_KEY = "fixture/product-class"
+CLASS_ARTIFACT_VERSION = "fixture-class-version"
+POLICY_ARTIFACT_KEY = "fixture/policy-constraint"
+POLICY_ARTIFACT_VERSION = "fixture-policy-version"
+REQUEST_IDENTITY = "fixture-request-identity"
 
 #: The member the lineage obligation names, and three payloads against it.
 OBLIGED_MEMBER = "inputs"
@@ -201,7 +227,6 @@ def _serve(
     *,
     registry: ControlPlaneRegistry,
     product_class: RegisteredProductClass,
-    debt_tolerance: Decimal | None = None,
 ) -> ServableProduct | GateRefusal:
     return run_gates(
         candidate,
@@ -209,7 +234,6 @@ def _serve(
         now=NOW,
         registry=registry,
         product_class=product_class,
-        debt_tolerance=debt_tolerance,
     )
 
 
@@ -218,7 +242,6 @@ def _serve_federated(
     *,
     registry: ControlPlaneRegistry,
     product_class: RegisteredProductClass,
-    debt_tolerance: Decimal | None = None,
 ) -> ServableProduct | GateRefusal:
     return run_federated_gates(
         candidate,
@@ -226,8 +249,63 @@ def _serve_federated(
         now=NOW,
         registry=registry,
         product_class=product_class,
-        debt_tolerance=debt_tolerance,
     )
+
+
+def _tolerance(
+    value: Decimal, *, authority: Authority
+) -> EffectiveParameter:
+    """One resolved tolerance, as the Authority layer would have produced it.
+
+    The three authorities carry three provenance shapes, and the shape is not
+    decoration: an ``artifact`` source must name a version and a ``request``
+    source must not (``ccf.products.provenance``). Building the parameter here
+    rather than reaching into the resolver keeps this module a test of
+    :func:`~ccf.products.gates.refuse_over_tolerance` — the resolution itself
+    is proven end to end in ``tests/products/test_tolerance_exceeded.py``.
+    """
+    if authority == "caller":
+        source = ProvenanceSource(
+            kind="request", identity=REQUEST_IDENTITY, version=None
+        )
+    elif authority == "policy":
+        source = ProvenanceSource(
+            kind="artifact",
+            identity=POLICY_ARTIFACT_KEY,
+            version=POLICY_ARTIFACT_VERSION,
+        )
+    else:
+        source = ProvenanceSource(
+            kind="artifact",
+            identity=CLASS_ARTIFACT_KEY,
+            version=CLASS_ARTIFACT_VERSION,
+        )
+    return EffectiveParameter(
+        name=DEBT_TOLERANCE_PARAMETER,
+        value=value,
+        authority=authority,
+        source=source,
+    )
+
+
+def _deliver(
+    candidate: ContextProductContract,
+    *,
+    registry: ControlPlaneRegistry,
+    product_class: RegisteredProductClass,
+    tolerance: EffectiveParameter | None = None,
+) -> ServableProduct | GateRefusal | ToleranceExceededRefusal:
+    """Gates, then the tolerance step — the resolver's own order, in miniature.
+
+    The two are composed here rather than inside ``run_gates`` because that is
+    exactly the ``24.6-04`` change: the gates decide whether the product may
+    exist, and this decides whether the product that does exist is delivered.
+    """
+    gated = _serve(candidate, registry=registry, product_class=product_class)
+    if not isinstance(gated, ServableProduct):
+        return gated
+    withheld = refuse_over_tolerance(gated, tolerance=tolerance)
+    return gated if withheld is None else withheld
 
 
 def _assert_served(outcome: ServableProduct | GateRefusal) -> ServableProduct:
@@ -236,6 +314,40 @@ def _assert_served(outcome: ServableProduct | GateRefusal) -> ServableProduct:
         f"expected a served product; refused by gate {outcome.gate!r}: "
         f"{outcome.detail}"
     )
+    return outcome
+
+
+def _assert_delivered(
+    outcome: ServableProduct | GateRefusal | ToleranceExceededRefusal,
+) -> ServableProduct:
+    """The DELIVERED predicate — gates admitted it AND no tolerance withheld it.
+
+    Distinct from :func:`_assert_served` on purpose: its failure message names
+    whichever of the two said no, so a reader of a red run knows immediately
+    whether the product failed to exist or failed to be delivered.
+    """
+    if isinstance(outcome, ToleranceExceededRefusal):
+        raise AssertionError(
+            "expected a delivered product; fulfillment was withheld by"
+            f" tolerance-exceeded ({outcome.authority} tolerance"
+            f" {outcome.tolerance}, observed {outcome.observed}):"
+            f" {outcome.detail}"
+        )
+    return _assert_served(outcome)
+
+
+def _assert_withheld(
+    outcome: ServableProduct | GateRefusal | ToleranceExceededRefusal,
+    *,
+    authority: str,
+) -> ToleranceExceededRefusal:
+    """The withheld predicate: `tolerance-exceeded`, and by whose authority."""
+    assert isinstance(outcome, ToleranceExceededRefusal), (
+        "expected fulfillment to be withheld by tolerance-exceeded; got "
+        f"{type(outcome).__name__}"
+    )
+    assert REFUSAL_KINDS[ToleranceExceededRefusal] == "tolerance-exceeded"
+    assert outcome.authority == authority
     return outcome
 
 
@@ -257,10 +369,21 @@ def registry() -> ControlPlaneRegistry:
 
 
 @pytest.fixture
-def ceiling_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
-    """A class declaring a ``D_c`` ceiling and no lineage member."""
+def default_tolerance_class(
+    registry: ControlPlaneRegistry,
+) -> RegisteredProductClass:
+    """A class declaring a DEFAULT ``D_c`` tolerance and no lineage member.
+
+    The gate reads nothing off it any more (``24.6-04``); the number reaches
+    the delivery decision only as a resolved default, which is why every test
+    below that uses this fixture also builds the ``default``-authority
+    tolerance explicitly.
+    """
     return _class(
-        registry, serve_obligations=ServeObligations(debt_ceiling=DECLARED_CEILING)
+        registry,
+        serve_obligations=ServeObligations(
+            default_debt_tolerance=DECLARED_DEFAULT
+        ),
     )
 
 
@@ -284,22 +407,34 @@ def undeclared_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
 # --- the declaration seat: a proportion, declared as data, carried to serve ---
 
 
-def test_a_ceiling_outside_the_unit_interval_is_refused_at_declaration() -> None:
-    """``D_c`` is a proportion; a ceiling outside ``[0, 1]`` refuses everything or nothing and is refused where the author can fix it."""
+def test_a_default_tolerance_outside_the_unit_interval_is_refused_at_declaration() -> None:
+    """``D_c`` is a proportion; a default tolerance outside ``[0, 1]`` withholds everything or nothing and is refused where the author can fix it."""
     for bad in (Decimal("1.5"), Decimal("-0.1")):
-        with pytest.raises(ValidationError, match="24.5-L-14"):
-            ServeObligations(debt_ceiling=bad)
-    assert ServeObligations(debt_ceiling=Decimal("0")).debt_ceiling == Decimal("0")
-    assert ServeObligations(debt_ceiling=Decimal("1")).debt_ceiling == Decimal("1")
+        with pytest.raises(ValidationError, match="24.6-L-04"):
+            ServeObligations(default_debt_tolerance=bad)
+    assert (
+        ServeObligations(default_debt_tolerance=Decimal("0")).default_debt_tolerance
+        == Decimal("0")
+    )
+    assert (
+        ServeObligations(default_debt_tolerance=Decimal("1")).default_debt_tolerance
+        == Decimal("1")
+    )
     assert ServeObligations() == NO_SERVE_OBLIGATIONS
-    assert NO_SERVE_OBLIGATIONS.debt_ceiling is None
+    assert NO_SERVE_OBLIGATIONS.default_debt_tolerance is None
     assert NO_SERVE_OBLIGATIONS.lineage_inputs_at == frozenset()
+    # The renamed field is the same field, not a second one beside it
+    # (`D-IMPL-253` Q9): the old name is not a member of the model at all.
+    assert set(ServeObligations.model_fields) == {
+        "default_debt_tolerance",
+        "lineage_inputs_at",
+    }
 
 
-def test_the_authored_declaration_carries_both_obligations_to_the_registered_class(
+def test_the_authored_declaration_carries_both_members_to_the_registered_class(
     registry: ControlPlaneRegistry,
 ) -> None:
-    """The artifact an adopter writes names the ceiling and the member; registration forwards both (the resolver's ``_register`` shape).
+    """The artifact an adopter writes names the default tolerance and the member; registration forwards both (the resolver's ``_register`` shape).
 
     The NUMBER is in the document, never in ``src/``: the declaration below is
     the only place ``0.5`` is authored on this path.
@@ -314,14 +449,14 @@ def test_the_authored_declaration_carries_both_obligations_to_the_registered_cla
             "max_ttl_key": MAX_TTL_KEY,
             "required_operator_keys": sorted(OPERATORS),
             "serve_obligations": {
-                "debt_ceiling": str(DECLARED_CEILING),
+                "default_debt_tolerance": str(DECLARED_DEFAULT),
                 "lineage_inputs_at": [OBLIGED_MEMBER],
             },
         },
         PRODUCT_CLASS,
     )
     assert isinstance(parsed, ProductClassDeclaration)
-    assert parsed.serve_obligations.debt_ceiling == DECLARED_CEILING
+    assert parsed.serve_obligations.default_debt_tolerance == DECLARED_DEFAULT
     assert parsed.serve_obligations.lineage_inputs_at == frozenset({OBLIGED_MEMBER})
 
     registered = _class(registry, serve_obligations=parsed.serve_obligations)
@@ -345,23 +480,27 @@ def test_the_authored_declaration_carries_both_obligations_to_the_registered_cla
     assert silent.serve_obligations == NO_SERVE_OBLIGATIONS
 
 
-def test_the_resolver_threads_the_effective_ceiling_and_no_principal() -> None:
-    """``GovernedResolver`` resolves the tolerance BEFORE it reads the graph, threads what it resolved to ``run_gates``, and hands no principal to any debt path.
+def test_the_resolver_resolves_then_gates_then_withholds_and_hands_no_principal() -> None:
+    """``GovernedResolver`` resolves BEFORE it reads the graph, gates, and only then holds an admitted product to the tolerance — with no principal on that path.
 
     Read by AST off :mod:`ccf.products.resolver` so the key link
-    (``resolver → constraint_resolver.resolve → run_gates``) is measured, not
-    remembered — and so a future edit that reads the perspective into the
-    tolerance goes RED here (``D-IMPL-105``, threat ``T-24.5-34``).
+    (``resolver → constraint_resolver.resolve → run_gates →
+    refuse_over_tolerance``) is measured, not remembered — and so a future edit
+    that reads the perspective into the tolerance goes RED here
+    (``D-IMPL-105``, threat ``T-24.5-34``).
 
-    **Re-derived at ``24.6-03``, not weakened.** It previously measured the
-    ``24.5-L-14`` ceiling helper's call and its two keywords; that function is
-    deleted (``C-06``), and its name survives in this module only inside the
-    assertion below that proves the deletion, and the fold it performed now happens inside the
-    Authority layer with the authority that set each value recorded
-    (``D-IMPL-254``). So the same three properties are measured at the new
-    shape: the resolution happens exactly once, it happens **before** the
-    graph is read and before the gates run, and nothing about the principal
-    reaches the tolerance the gate is given.
+    **Re-derived at ``24.6-04``, not weakened.** At ``24.6-03`` it measured a
+    ``debt_tolerance`` keyword on the ``run_gates`` call; that keyword is gone
+    with the gate's debt half (``24.6-L-04``), so the same three properties are
+    measured at the new shape, plus a fourth the new shape makes checkable:
+
+    1. the resolution happens exactly once;
+    2. it happens **before** the graph is read and before the gates run;
+    3. nothing about the principal or the perspective reaches the tolerance
+       the delivery decision is given;
+    4. the tolerance step runs **after** the gates — a product is withheld
+       only once it is known to exist (``D-IMPL-251``: refusal of fulfillment,
+       not of response).
     """
     tree = ast.parse(inspect.getsource(resolver_module))
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
@@ -381,13 +520,22 @@ def test_the_resolver_threads_the_effective_ceiling_and_no_principal() -> None:
     (resolution,) = resolutions
     assert ast.unparse(resolution.func) == "self.constraint_resolver.resolve"
     resolved_keywords = {kw.arg for kw in resolution.keywords}
-    assert {"request", "declared", "declared_source", "capabilities"} <= (
-        resolved_keywords
-    )
+    assert {
+        "request",
+        "declared",
+        "declared_source",
+        "capabilities",
+        # 24.6-04: the class's declared default reaches the resolution as a
+        # default with its own pin, and never as a ceiling folded downstream.
+        "class_defaults",
+        "class_source",
+    } <= resolved_keywords
 
-    # Ordering, by position in the module's own source: the resolution precedes
-    # the graph read and the gates. A resolution that ran after the read would
-    # have bounded a question the engine had already answered.
+    # Ordering, by position in the module's own source: resolution, then the
+    # graph read, then the gates, then the tolerance step. A resolution that
+    # ran after the read would have bounded a question the engine had already
+    # answered; a tolerance step that ran before the gates would withhold a
+    # product nobody had established could exist.
     reads = [
         c for c in calls if ast.unparse(c.func).endswith("handle.reader.as_of")
     ]
@@ -395,79 +543,102 @@ def test_the_resolver_threads_the_effective_ceiling_and_no_principal() -> None:
     gate_calls = [c for c in calls if _named(c) == "run_gates"]
     assert len(gate_calls) == 1
     (gate_call,) = gate_calls
-    assert resolution.lineno < reads[0].lineno < gate_call.lineno
+    withholds = [c for c in calls if _named(c) == "refuse_over_tolerance"]
+    assert len(withholds) == 1, "the delivery decision is made in one place"
+    (withhold,) = withholds
+    assert resolution.lineno < reads[0].lineno < gate_call.lineno < withhold.lineno
 
+    # The gate no longer receives a tolerance at all.
     gate_keywords = {kw.arg: ast.unparse(kw.value) for kw in gate_call.keywords}
-    assert gate_keywords.get("debt_tolerance") == "debt_tolerance"
-    tolerance = [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Assign)
-        and "debt_tolerance" in {t.id for t in node.targets if isinstance(t, ast.Name)}
-    ]
-    assert len(tolerance) == 1, "the threaded tolerance is derived in one place"
+    assert "debt_tolerance" not in gate_keywords
+
+    # And what the delivery decision IS given carries no principal: the whole
+    # call, keywords included, unparsed and scanned.
+    withheld_source = ast.unparse(withhold)
+    assert "tolerance=" in withheld_source
     for forbidden in ("perspective", "principal"):
-        assert forbidden not in ast.unparse(tolerance[0]), forbidden
+        assert forbidden not in withheld_source, forbidden
 
     assert "serve_obligations" in source, "_register forwards the declaration's obligations"
 
 
-# --- criterion 21: the debt ceiling (24.5-L-14) -----------------------------
+# --- 24.6-L-05: the tolerance step, over an ADMITTED product ----------------
 
 
-def test_a_product_within_its_declared_ceiling_serves(
-    registry: ControlPlaneRegistry, ceiling_class: RegisteredProductClass
+def test_a_product_within_the_default_tolerance_is_delivered(
+    registry: ControlPlaneRegistry,
+    default_tolerance_class: RegisteredProductClass,
 ) -> None:
-    """Within tolerance → served; the gate is silent when the obligation holds."""
-    served = _assert_served(
-        _serve(
+    """Within the applicable tolerance -> delivered; the step is silent when the observation holds."""
+    delivered = _assert_delivered(
+        _deliver(
             _candidate(debt=WITHIN, payload=PAYLOAD_WITH_MEMBER),
             registry=registry,
-            product_class=ceiling_class,
+            product_class=default_tolerance_class,
+            tolerance=_tolerance(DECLARED_DEFAULT, authority="default"),
         )
     )
-    assert served.product.debt is not None
-    assert served.product.debt.debt == WITHIN <= DECLARED_CEILING
+    assert delivered.product.debt is not None
+    assert delivered.product.debt.debt == WITHIN <= DECLARED_DEFAULT
 
 
-def test_a_product_over_its_declared_ceiling_is_refused_by_name(
-    registry: ControlPlaneRegistry, ceiling_class: RegisteredProductClass
+def test_a_product_over_the_default_tolerance_is_withheld_by_name(
+    registry: ControlPlaneRegistry,
+    default_tolerance_class: RegisteredProductClass,
 ) -> None:
-    """Over → :class:`DeclaredObligationRefusal` naming the gate, the obligation and both numbers."""
-    refusal = _assert_declared_obligation_refusal(
-        _serve(
-            _candidate(debt=OVER, payload=PAYLOAD_WITH_MEMBER),
-            registry=registry,
-            product_class=ceiling_class,
-        ),
-        obligation="debt-ceiling",
-    )
-    assert refusal.declared == str(DECLARED_CEILING)
-    assert refusal.observed == str(OVER)
-    assert Decimal(refusal.observed) > Decimal(refusal.declared)
-    # The Standard's §9 sentence travels in the prose; the door maps the kind.
-    assert "409" in refusal.detail
+    """Over -> :class:`ToleranceExceededRefusal` naming the authority, the tolerance and the observation.
 
-
-def test_an_undeclared_class_serves_at_any_debt(
-    registry: ControlPlaneRegistry, undeclared_class: RegisteredProductClass
-) -> None:
-    """The control (``D-10``, ``D-IMPL-240`` (3)): no ceiling declared → unaffected, whatever the request says."""
-    candidate = _candidate(debt=ANY_DEBT, payload=PAYLOAD_WITHOUT_MEMBER)
-    _assert_served(_serve(candidate, registry=registry, product_class=undeclared_class))
-    # A request cannot CREATE a ceiling: the tightest request in this module
-    # still serves a D_c of 0.99 under an undeclared class.
+    The gate is NOT what says no: the candidate passes every gate, including
+    the declared-obligations gate, and the product exists before the tolerance
+    is consulted. The assertion below on ``_serve`` measures exactly that, so
+    a reader cannot mistake this for the retired 409 path.
+    """
+    candidate = _candidate(debt=OVER, payload=PAYLOAD_WITH_MEMBER)
+    # The product IS constructible — the ruling's own sentence, measured.
     _assert_served(
-        _serve(
+        _serve(candidate, registry=registry, product_class=default_tolerance_class)
+    )
+
+    withheld = _assert_withheld(
+        _deliver(
             candidate,
             registry=registry,
-            product_class=undeclared_class,
-            debt_tolerance=TIGHTER,
-        )
+            product_class=default_tolerance_class,
+            tolerance=_tolerance(DECLARED_DEFAULT, authority="default"),
+        ),
+        authority="default",
     )
-    # And an unassessed product under an undeclared class serves as it always did.
-    _assert_served(
-        _serve(
+    assert withheld.tolerance == DECLARED_DEFAULT
+    assert withheld.observed == OVER
+    assert withheld.observed > withheld.tolerance
+    assert withheld.breakdown is not None
+    assert withheld.breakdown == candidate.debt
+    assert withheld.source.kind == "artifact"
+    assert withheld.source.identity == CLASS_ARTIFACT_KEY
+    # D-IMPL-253 Q10's semantic caution, as a grep: the shell says fulfillment
+    # was withheld and never that the Debt was invalid.
+    assert "fulfillment was withheld" in withheld.detail
+    assert "invalid" not in withheld.detail
+
+
+def test_no_applicable_tolerance_delivers_at_any_debt(
+    registry: ControlPlaneRegistry, undeclared_class: RegisteredProductClass
+) -> None:
+    """The control: nothing declared a tolerance -> delivered, whatever ``D_c`` is.
+
+    ``None`` is not a permissive default; it is the absence of any declaration
+    to enforce, which is what a class with no opinion, a caller who said
+    nothing and a deployment with no constraint jointly mean.
+    """
+    candidate = _candidate(debt=ANY_DEBT, payload=PAYLOAD_WITHOUT_MEMBER)
+    _assert_delivered(
+        _deliver(candidate, registry=registry, product_class=undeclared_class)
+    )
+    # And an unassessed product with no applicable tolerance is delivered too:
+    # a missing assessment only matters when something is holding the product
+    # to a number.
+    _assert_delivered(
+        _deliver(
             _candidate(debt=None, payload=PAYLOAD_WITHOUT_MEMBER),
             registry=registry,
             product_class=undeclared_class,
@@ -475,75 +646,175 @@ def test_an_undeclared_class_serves_at_any_debt(
     )
 
 
-def test_a_request_may_tighten_the_ceiling_and_never_loosen_it(
-    registry: ControlPlaneRegistry, ceiling_class: RegisteredProductClass
+def test_a_callers_tolerance_is_enforced_as_requested_tighter_or_looser(
+    registry: ControlPlaneRegistry,
+    default_tolerance_class: RegisteredProductClass,
 ) -> None:
-    """``D-IMPL-240`` (3): declared 0.5, candidate 0.3 — tolerance 0.2 refuses; tolerance 0.9 serves and the ceiling stays 0.5."""
+    """``D-IMPL-251`` C2=B: the caller's number is honored AS REQUESTED, in both directions.
+
+    **This test supersedes ``D-IMPL-240`` (3)'s "a request may tighten, never
+    loosen".** That sentence is amended (``D-IMPL-240`` amendment 2): the
+    consumer owns fitness, so a caller asking for 0.9 gets 0.9 and a caller
+    asking for 0.2 gets 0.2 — the class's 0.5 is a default and fills an
+    omission only. Both halves are asserted here, and the looser half is the
+    one that would have been RED before this plan.
+    """
     within = _candidate(debt=WITHIN, payload=PAYLOAD_WITH_MEMBER)
 
-    tightened = _assert_declared_obligation_refusal(
-        _serve(
+    tightened = _assert_withheld(
+        _deliver(
             within,
             registry=registry,
-            product_class=ceiling_class,
-            debt_tolerance=TIGHTER,
+            product_class=default_tolerance_class,
+            tolerance=_tolerance(TIGHTER, authority="caller"),
         ),
-        obligation="debt-ceiling",
+        authority="caller",
     )
-    assert tightened.declared == str(TIGHTER), "the request's tighter number is the effective ceiling"
-    assert tightened.observed == str(WITHIN)
+    assert tightened.tolerance == TIGHTER
+    assert tightened.observed == WITHIN
+    assert tightened.source.kind == "request"
+    assert tightened.source.version is None
 
-    _assert_served(
-        _serve(
+    # Looser than the observation: delivered. The class's own 0.5 does not
+    # stand against it, and 0.3 <= 0.9.
+    assert TIGHTER < WITHIN < DECLARED_DEFAULT < LOOSER
+    _assert_delivered(
+        _deliver(
             within,
             registry=registry,
-            product_class=ceiling_class,
-            debt_tolerance=LOOSER,
+            product_class=default_tolerance_class,
+            tolerance=_tolerance(LOOSER, authority="caller"),
         )
     )
 
 
-def test_a_loosening_request_is_refused_by_name_the_class_ceiling_stands(
-    registry: ControlPlaneRegistry, ceiling_class: RegisteredProductClass
+def test_a_looser_caller_tolerance_delivers_what_the_class_default_would_have_withheld(
+    registry: ControlPlaneRegistry,
+    default_tolerance_class: RegisteredProductClass,
 ) -> None:
-    """A request asking for 0.9 against a class ceiling of 0.5 does not admit a D_c of 0.7.
+    """The INVERSION (``D-IMPL-251`` C1=A): a product over the class's default is delivered when the caller asked for more.
 
-    The loosening is refused by name: the product the looser request would
-    have admitted is refused by ``declared-obligations``, and ``declared``
-    reports the CLASS's number, not the request's — the class's ceiling is
-    the floor of strictness (``D-IMPL-240`` (3); threat ``T-24.5-33``).
+    This test asserted the opposite until ``24.6-04``, under the name
+    ``test_a_loosening_request_is_refused_by_name_the_class_ceiling_stands``:
+    a request asking 0.9 against a class figure of 0.5 did NOT admit a ``D_c``
+    of 0.7, because the class figure was the floor of strictness. Dave: *"the
+    class shouldn't override me merely because its author thought .20 was
+    generally preferable"*. So the product is delivered, and the pair below
+    proves the class default is still live — it withholds the SAME product
+    when the caller states nothing.
     """
-    over_class_under_request = _candidate(debt=OVER, payload=PAYLOAD_WITH_MEMBER)
-    assert DECLARED_CEILING < OVER < LOOSER
+    over_class_under_caller = _candidate(debt=OVER, payload=PAYLOAD_WITH_MEMBER)
+    assert DECLARED_DEFAULT < OVER < LOOSER
 
-    refusal = _assert_declared_obligation_refusal(
-        _serve(
-            over_class_under_request,
+    _assert_delivered(
+        _deliver(
+            over_class_under_caller,
             registry=registry,
-            product_class=ceiling_class,
-            debt_tolerance=LOOSER,
-        ),
-        obligation="debt-ceiling",
+            product_class=default_tolerance_class,
+            tolerance=_tolerance(LOOSER, authority="caller"),
+        )
     )
-    assert refusal.declared == str(DECLARED_CEILING)
-    assert refusal.declared != str(LOOSER)
-    assert refusal.observed == str(OVER)
+
+    # The control that keeps the assertion above from being vacuous: the same
+    # product, the same class, the class's own default in force -> withheld.
+    withheld = _assert_withheld(
+        _deliver(
+            over_class_under_caller,
+            registry=registry,
+            product_class=default_tolerance_class,
+            tolerance=_tolerance(DECLARED_DEFAULT, authority="default"),
+        ),
+        authority="default",
+    )
+    assert withheld.tolerance == DECLARED_DEFAULT
 
 
-def test_a_declared_ceiling_refuses_an_unassessed_product(
-    registry: ControlPlaneRegistry, ceiling_class: RegisteredProductClass
+def test_a_policy_tolerance_withholds_under_the_same_kind(
+    registry: ControlPlaneRegistry,
+    default_tolerance_class: RegisteredProductClass,
 ) -> None:
-    """``debt=None`` under a declared ceiling → refused ``no-assessment``: a class that declares a ceiling cannot be served unmeasured."""
-    refusal = _assert_declared_obligation_refusal(
-        _serve(
-            _candidate(debt=None, payload=PAYLOAD_WITH_MEMBER),
+    """The third authority: a policy bound produces the SAME kind, with ``authority == 'policy'``.
+
+    ``D-IMPL-251``'s three debt concepts are three authorities and ONE shell
+    (``D-IMPL-253`` Q10: *"preserve which authority established the
+    tolerance"*). A second kind for governance would make a consumer branch on
+    the wrong axis — what changed is who set the number, not what happened.
+    """
+    withheld = _assert_withheld(
+        _deliver(
+            _candidate(debt=WITHIN, payload=PAYLOAD_WITH_MEMBER),
             registry=registry,
-            product_class=ceiling_class,
+            product_class=default_tolerance_class,
+            tolerance=_tolerance(TIGHTER, authority="policy"),
         ),
-        obligation="debt-ceiling",
+        authority="policy",
     )
-    assert refusal.observed == "no-assessment"
-    assert refusal.declared == str(DECLARED_CEILING)
+    assert withheld.source.kind == "artifact"
+    assert withheld.source.identity == POLICY_ARTIFACT_KEY
+    assert withheld.source.version == POLICY_ARTIFACT_VERSION
+    assert REFUSAL_KINDS[type(withheld)] == "tolerance-exceeded"
+
+
+def test_an_applicable_tolerance_withholds_an_unassessed_product(
+    registry: ControlPlaneRegistry,
+    default_tolerance_class: RegisteredProductClass,
+) -> None:
+    """``debt=None`` under an applicable tolerance -> withheld with ``observed=None``.
+
+    ``None`` is the positive *no assessment was produced* — the retired half's
+    ``observed="no-assessment"`` string, typed. An unmeasured product is
+    neither within a tolerance nor over it, so the tolerance cannot be shown to
+    be met; reporting the observation as ``0`` would claim a measurement nobody
+    made.
+    """
+    candidate = _candidate(debt=None, payload=PAYLOAD_WITH_MEMBER)
+    # It is constructible: the gates admit an unassessed product.
+    _assert_served(
+        _serve(candidate, registry=registry, product_class=default_tolerance_class)
+    )
+
+    withheld = _assert_withheld(
+        _deliver(
+            candidate,
+            registry=registry,
+            product_class=default_tolerance_class,
+            tolerance=_tolerance(DECLARED_DEFAULT, authority="default"),
+        ),
+        authority="default",
+    )
+    assert withheld.observed is None
+    assert withheld.breakdown is None
+    assert withheld.tolerance == DECLARED_DEFAULT
+    assert "cannot be shown to be met" in withheld.detail
+    assert "invalid" not in withheld.detail
+
+
+def test_the_gate_sequence_reads_no_debt_at_all(
+    registry: ControlPlaneRegistry,
+    default_tolerance_class: RegisteredProductClass,
+) -> None:
+    """``24.6-L-04``: neither runner consults ``D_c``, whatever the class declares.
+
+    The deletion, measured as behavior rather than as an absent line: a
+    candidate whose ``D_c`` is 0.99 under a class declaring 0.5 passes both
+    gate sequences. Before ``24.6-04`` both refused it by name.
+    """
+    over = _candidate(debt=ANY_DEBT, payload=PAYLOAD_WITH_MEMBER)
+    _assert_served(
+        _serve(over, registry=registry, product_class=default_tolerance_class)
+    )
+    _assert_served(
+        _serve_federated(
+            over, registry=registry, product_class=default_tolerance_class
+        )
+    )
+    # And the source of the deletion, by name: the shared helper takes no
+    # tolerance, so there is no keyword a caller could re-thread.
+    assert "debt_tolerance" not in inspect.signature(run_gates).parameters
+    assert "debt_tolerance" not in inspect.signature(run_federated_gates).parameters
+    assert "debt_tolerance" not in inspect.signature(
+        gates_module._refuse_declared_obligations
+    ).parameters
 
 
 # --- criterion 22: the lineage obligation (24.5-L-26) -----------------------
@@ -611,11 +882,18 @@ def test_an_undeclared_lineage_obligation_is_unaffected(
 def test_the_federated_runner_carries_the_same_step(
     registry: ControlPlaneRegistry,
 ) -> None:
-    """``run_federated_gates`` runs the identical step after TTL: both halves, same refusal, same control."""
+    """``run_federated_gates`` runs the identical step after TTL: same obligation, same refusal, same control.
+
+    **Re-derived at ``24.6-04``**: the class below still declares a default
+    tolerance, and the federated runner now ignores it exactly as the local one
+    does. What both runners still share is the lineage obligation, which is
+    the whole point of the factoring — two runners, one reading of what a class
+    obliged.
+    """
     both = _class(
         registry,
         serve_obligations=ServeObligations(
-            debt_ceiling=DECLARED_CEILING,
+            default_debt_tolerance=DECLARED_DEFAULT,
             lineage_inputs_at=frozenset({OBLIGED_MEMBER}),
         ),
     )
@@ -631,27 +909,28 @@ def test_the_federated_runner_carries_the_same_step(
     assert dropped.declared == OBLIGED_MEMBER
     assert dropped.observed == "absent"
 
-    over = _assert_declared_obligation_refusal(
+    # A federated candidate over the class's declared default is ADMITTED: the
+    # consuming class's figure is a default, not an admission boundary
+    # (`D-IMPL-251` C1=A). Withholding it, if a tolerance applies, is the
+    # consuming layer's call and not this sequence's.
+    _assert_served(
         _serve_federated(
             _candidate(debt=OVER, payload=PAYLOAD_WITH_MEMBER),
             registry=registry,
             product_class=both,
-        ),
-        obligation="debt-ceiling",
+        )
     )
-    assert over.declared == str(DECLARED_CEILING)
-    assert over.observed == str(OVER)
 
-    # The debt half precedes the lineage half, a fixed order, in both runners.
-    first = _assert_declared_obligation_refusal(
+    # The lineage obligation still refuses regardless of the debt carried.
+    over_and_dropped = _assert_declared_obligation_refusal(
         _serve_federated(
             _candidate(debt=OVER, payload=PAYLOAD_WITHOUT_MEMBER),
             registry=registry,
             product_class=both,
         ),
-        obligation="debt-ceiling",
+        obligation="lineage-inputs",
     )
-    assert first.obligation == "debt-ceiling"
+    assert over_and_dropped.observed == "absent"
 
     _assert_served(
         _serve_federated(
@@ -701,27 +980,50 @@ def test_no_payload_shape_is_read(
     )
 
 
-# --- criterion 21's sabotage, as a predicate-inversion control ---------------
+# --- the tolerance step's sabotage, as a predicate-inversion control --------
 
 
-def test_forcing_a_within_tolerance_product_over_is_red_naming_the_gate(
-    registry: ControlPlaneRegistry, ceiling_class: RegisteredProductClass
+def test_forcing_a_within_tolerance_product_over_is_red_naming_the_step(
+    registry: ControlPlaneRegistry,
+    default_tolerance_class: RegisteredProductClass,
 ) -> None:
-    """A within-tolerance candidate forced over its ceiling fails the served predicate, naming ``declared-obligations``.
+    """A within-tolerance candidate forced over fails the DELIVERED predicate, naming ``tolerance-exceeded``.
 
-    The predicate-inversion control the criterion asks for: the SAME predicate
-    that passes on the within candidate fails on a ``model_copy`` of it whose
-    ``debt`` is over the ceiling, and the failure message names the gate. The
-    tree is never edited; the forced candidate is a scratch value.
+    The predicate-inversion control, kept in shape from ``24.5-13`` and
+    re-pointed at what now decides: the SAME predicate that passes on the
+    within candidate fails on a ``model_copy`` of it whose ``debt`` is over the
+    tolerance, and the failure message names the step. The tree is never
+    edited; the forced candidate is a scratch value.
+
+    The gate token is asserted absent from the message on purpose: if the
+    delivery decision were ever folded back into the gate, this would report
+    ``declared-obligations`` and the test would still be green on a message
+    check that only looked for *a* name.
     """
+    tolerance = _tolerance(DECLARED_DEFAULT, authority="default")
     within = _candidate(debt=WITHIN, payload=PAYLOAD_WITH_MEMBER)
-    _assert_served(_serve(within, registry=registry, product_class=ceiling_class))
+    _assert_delivered(
+        _deliver(
+            within,
+            registry=registry,
+            product_class=default_tolerance_class,
+            tolerance=tolerance,
+        )
+    )
 
     forced = within.model_copy(update={"debt": _assessment(OVER)})
-    assert forced.debt is not None and forced.debt.debt > DECLARED_CEILING
+    assert forced.debt is not None and forced.debt.debt > DECLARED_DEFAULT
 
-    with pytest.raises(AssertionError, match=GATE_DECLARED_OBLIGATIONS):
-        _assert_served(_serve(forced, registry=registry, product_class=ceiling_class))
+    with pytest.raises(AssertionError, match="tolerance-exceeded") as raised:
+        _assert_delivered(
+            _deliver(
+                forced,
+                registry=registry,
+                product_class=default_tolerance_class,
+                tolerance=tolerance,
+            )
+        )
+    assert GATE_DECLARED_OBLIGATIONS not in str(raised.value)
 
 
 # --- the token census: both runners, by set equality ------------------------
@@ -835,6 +1137,54 @@ def test_both_runners_register_exactly_the_recorded_tokens() -> None:
         GATE_DECLARED_OBLIGATIONS,
     }
     assert len(RUN_GATES_TOKENS | RUN_FEDERATED_GATES_TOKENS) == 7
+
+
+def test_the_tolerance_step_joined_neither_runner(
+) -> None:
+    """``24.6-04`` added a refusal and NO gate: ``refuse_over_tolerance`` is called in the resolver and in neither runner.
+
+    ``D-IMPL-237`` licenses one serve-time gate mechanism and ``D-IMPL-238``
+    records its membership by name, so *"this is not a gate"* is a claim that
+    has to be measured rather than asserted in a docstring. The census above
+    measures the tokens; this measures the CALL, by AST, on both sides:
+
+    * the two runners' bodies and their one level of ``_refuse_*`` helpers
+      contain no call to it — the same collection the token census walks, so
+      a step smuggled into a helper is caught too;
+    * :mod:`ccf.products.resolver` does call it, which is the positive control:
+      an AST scan that found it nowhere would pass the first half vacuously.
+    """
+    for runner in (run_gates, run_federated_gates):
+        source = inspect.getsource(runner)
+        bodies = [source] + [
+            inspect.getsource(getattr(gates_module, helper))
+            for helper in sorted(_helper_names_called_in(source))
+        ]
+        for body in bodies:
+            calls = {
+                node.func.id
+                for node in ast.walk(ast.parse(textwrap.dedent(body)))
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            }
+            assert "refuse_over_tolerance" not in calls, (
+                f"{runner.__name__} reaches the tolerance step; withholding"
+                " fulfillment is not a gate (D-IMPL-237, D-IMPL-251 C1/C2)"
+            )
+
+    # The positive control: the scan finds it where it does live.
+    resolver_calls = {
+        node.func.id
+        for node in ast.walk(ast.parse(inspect.getsource(resolver_module)))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    assert "refuse_over_tolerance" in resolver_calls
+
+    # And the kind is not a gate token by construction, not by convention.
+    assert not issubclass(ToleranceExceededRefusal, GateRefusal)
+    assert "gate" not in ToleranceExceededRefusal.model_fields
+    assert REFUSAL_KINDS[ToleranceExceededRefusal] not in (
+        RUN_GATES_TOKENS | RUN_FEDERATED_GATES_TOKENS
+    )
 
 
 def test_the_census_sees_a_planted_token_and_a_departure() -> None:

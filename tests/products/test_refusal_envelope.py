@@ -59,6 +59,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from ccf.agents.errors import AssemblyRefusal, AssemblyRefused
 from ccf.contracts.base import CCFContract
@@ -100,9 +101,11 @@ from ccf.products.gates import (
     GateRefusal,
     LineageAttributionRefusal,
     LineageMismatchRefusal,
+    ToleranceExceededRefusal,
     TTLRefusal,
 )
 from ccf.products.payload import PayloadSchemaViolation
+from ccf.products.provenance import ProvenanceSource
 from ccf.products.request import AnchorAmbiguityRefusal, ProductRequestViolation
 
 #: The real source root the shipped assertions read. The sabotage controls read
@@ -337,16 +340,22 @@ def test_envelope_for_declared_obligation_refusal(
 ) -> None:
     """The ONE structural declared-obligations gate names which obligation and both sides.
 
-    ``24.5-L-14`` / ``24.5-L-26`` (``D-IMPL-237``). The gate token is the
-    promoted ``reason``, the three fields the kind declares cross intact, and
-    the kind is the one the HTTP door maps to the Standard's ``409``.
+    ``24.5-L-26`` (``D-IMPL-237``). The gate token is the promoted ``reason``,
+    the three fields the kind declares cross intact, and the kind is the one
+    the HTTP door maps to ``409``.
+
+    **Re-derived at ``24.6-04``, and it can no longer be written the old way.**
+    The obligation was ``debt-ceiling`` here until the debt half retired
+    (``D-IMPL-251`` C1=A); ``obligation`` is now a single-member ``Literal``
+    and the control below proves it — the retired token is not merely unused,
+    it is unconstructible.
     """
     refusal = DeclaredObligationRefusal(
         gate=GATE_DECLARED_OBLIGATIONS,
-        detail="the product's D_c is over the ceiling its class declared",
-        obligation="debt-ceiling",
-        declared="0.5",
-        observed="0.7",
+        detail="a payload member the class obliges is absent",
+        obligation="lineage-inputs",
+        declared="inputs",
+        observed="absent",
     )
     envelope = envelope_for(refusal, request=request_identity)
 
@@ -355,9 +364,73 @@ def test_envelope_for_declared_obligation_refusal(
     assert envelope.reason == GATE_DECLARED_OBLIGATIONS == "declared-obligations"
     assert envelope.key is None
     assert set(envelope.fields) == {"obligation", "declared", "observed"}
-    assert envelope.fields["obligation"] == '"debt-ceiling"'
-    assert envelope.fields["declared"] == '"0.5"'
-    assert envelope.fields["observed"] == '"0.7"'
+    assert envelope.fields["obligation"] == '"lineage-inputs"'
+    assert envelope.fields["declared"] == '"inputs"'
+    assert envelope.fields["observed"] == '"absent"'
+
+    # The retired half, as a control: the token the debt path carried is not
+    # a member of the vocabulary any more, so a caller cannot file one.
+    with pytest.raises(ValidationError):
+        DeclaredObligationRefusal(
+            gate=GATE_DECLARED_OBLIGATIONS,
+            detail="the retired half",
+            obligation="debt-ceiling",  # type: ignore[arg-type]
+            declared="0.5",
+            observed="0.7",
+        )
+
+
+def test_envelope_for_tolerance_exceeded(
+    request_identity: RequestIdentity,
+) -> None:
+    """The withheld-fulfillment shell: no gate token, the kind IS the reason.
+
+    ``24.6-L-05``, ``D-IMPL-251`` C2=B, ``D-IMPL-253`` Q10. Three things this
+    asserts that no other per-kind test can:
+
+    * the promotion fallback — the type declares neither ``gate`` nor
+      ``reason``, so :func:`envelope_for` reports the KIND as the reason, and
+      that branch is reached by nothing else in the vocabulary today;
+    * the authority survives the crossing, because *"preserve which authority
+      established the tolerance"* is the ruling and a shell that lost it would
+      be a well-formed envelope carrying the wrong answer;
+    * the shell never says the Debt was invalid.
+    """
+    refusal = ToleranceExceededRefusal(
+        authority="caller",
+        source=ProvenanceSource(
+            kind="request", identity="request-fixture", version=None
+        ),
+        tolerance=Decimal("0.20"),
+        observed=Decimal("0.31"),
+        breakdown=None,
+        detail=(
+            "the product was constructible; fulfillment was withheld because"
+            " an applicable declared tolerance (caller) of 0.20 was exceeded"
+            " by the observed Context Debt 0.31"
+        ),
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[ToleranceExceededRefusal]
+    assert envelope.kind == "tolerance-exceeded"
+    # No `gate` and no `reason` on the type: the kind is the most specific
+    # true thing that can be said about why, and `envelope_for` says it.
+    assert envelope.reason == envelope.kind
+    assert not issubclass(ToleranceExceededRefusal, GateRefusal)
+    assert envelope.key is None
+    assert set(envelope.fields) == {
+        "authority",
+        "source",
+        "tolerance",
+        "observed",
+        "breakdown",
+    }
+    assert envelope.fields["authority"] == '"caller"'
+    assert envelope.fields["tolerance"] == '"0.20"'
+    assert envelope.fields["observed"] == '"0.31"'
+    assert "invalid" not in envelope.detail
+    assert "fulfillment was withheld" in envelope.detail
 
 
 def test_envelope_for_attestation_refusal(

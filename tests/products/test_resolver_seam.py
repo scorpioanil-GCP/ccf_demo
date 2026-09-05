@@ -321,7 +321,9 @@ def booted_with_ceiling(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     product_class = copy.deepcopy(
         next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY)
     )
-    product_class["serve_obligations"] = {"debt_ceiling": CEILING_DECLARED}
+    product_class["serve_obligations"] = {
+        "default_debt_tolerance": CEILING_DECLARED
+    }
     request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
     request_contract["declaration"]["arguments"]["properties"][
         DEBT_TOLERANCE_PARAMETER

@@ -4766,7 +4766,7 @@
       },
       "resolve_effective_request": {
         "kind": "function",
-        "shape": "(*, request: 'ProductRequest', declared: 'ProductRequestContract', declared_source: 'ProvenanceSource', constraints: 'tuple[PinnedConstraint, ...]', capabilities: 'tuple[TechnicalCapability, ...]', capability_bindings: 'Mapping[str, str]', verified_overrides: 'tuple[OverrideRecord, ...]', perspective: 'Perspective', tenant: 'str') -> 'EffectiveRequest | ConstraintRefusal | PolicyResolutionConflict | ProductRequestViolation'"
+        "shape": "(*, request: 'ProductRequest', declared: 'ProductRequestContract', declared_source: 'ProvenanceSource', constraints: 'tuple[PinnedConstraint, ...]', capabilities: 'tuple[TechnicalCapability, ...]', capability_bindings: 'Mapping[str, str]', verified_overrides: 'tuple[OverrideRecord, ...]', perspective: 'Perspective', tenant: 'str', class_defaults: 'Mapping[str, Any] | None' = None, class_source: 'ProvenanceSource | None' = None) -> 'EffectiveRequest | ConstraintRefusal | PolicyResolutionConflict | ProductRequestViolation'"
       }
     }
   },
@@ -4911,7 +4911,7 @@
       "ServeObligations": {
         "kind": "contract",
         "shape": {
-          "debt_ceiling": "decimal.Decimal | None",
+          "default_debt_tolerance": "decimal.Decimal | None",
           "lineage_inputs_at": "frozenset[str]"
         }
       },
@@ -4925,7 +4925,7 @@
       },
       "register_product_class": {
         "kind": "function",
-        "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', ttl_anchor: 'TTLAnchor', assembly_mode: 'AssemblyMode', max_ttl_key: 'str', max_ttl_version: 'str', accepted_policy_binding_modes: 'frozenset[PolicyBindingMode]' = frozenset({'assembly-stamped'}), accepted_lineage_modes: 'frozenset[LineageMode]' = frozenset({'graph-supplied'}), freshness_sla: 'FreshnessSLA' = FreshnessSLA(max_age_seconds_by_signal={}), discovery: 'ProductDiscovery' = ProductDiscovery(domain='not-discoverable', intents=frozenset(), capabilities=frozenset(), audiences=frozenset()), addressability: 'ProductAddress' = ProductAddress(address_template='not-addressable'), constituent_validity_floors: 'ConstituentValidityFloors' = ConstituentValidityFloors(min_validity_seconds_by_signal={}), payload_schema_key: 'str' = 'no-payload-schema', payload_schema_version: 'str' = 'no-payload-schema', request_contract_key: 'str' = 'no-request-contract', request_contract_version: 'str' = 'no-request-contract', serve_obligations: 'ServeObligations' = ServeObligations(debt_ceiling=None, lineage_inputs_at=frozenset())) -> 'RegisteredProductClass'"
+        "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', ttl_anchor: 'TTLAnchor', assembly_mode: 'AssemblyMode', max_ttl_key: 'str', max_ttl_version: 'str', accepted_policy_binding_modes: 'frozenset[PolicyBindingMode]' = frozenset({'assembly-stamped'}), accepted_lineage_modes: 'frozenset[LineageMode]' = frozenset({'graph-supplied'}), freshness_sla: 'FreshnessSLA' = FreshnessSLA(max_age_seconds_by_signal={}), discovery: 'ProductDiscovery' = ProductDiscovery(domain='not-discoverable', intents=frozenset(), capabilities=frozenset(), audiences=frozenset()), addressability: 'ProductAddress' = ProductAddress(address_template='not-addressable'), constituent_validity_floors: 'ConstituentValidityFloors' = ConstituentValidityFloors(min_validity_seconds_by_signal={}), payload_schema_key: 'str' = 'no-payload-schema', payload_schema_version: 'str' = 'no-payload-schema', request_contract_key: 'str' = 'no-request-contract', request_contract_version: 'str' = 'no-request-contract', serve_obligations: 'ServeObligations' = ServeObligations(default_debt_tolerance=None, lineage_inputs_at=frozenset())) -> 'RegisteredProductClass'"
       }
     }
   },
@@ -5077,7 +5077,9 @@
       "ServableProduct",
       "ServableProductNotAModel",
       "TTLRefusal",
+      "ToleranceExceededRefusal",
       "refuse_attestation",
+      "refuse_over_tolerance",
       "run_federated_gates",
       "run_gates"
     ],
@@ -5102,7 +5104,7 @@
           "declared": "<class 'str'>",
           "detail": "<class 'str'>",
           "gate": "<class 'str'>",
-          "obligation": "typing.Literal['debt-ceiling', 'lineage-inputs']",
+          "obligation": "typing.Literal['lineage-inputs']",
           "observed": "<class 'str'>"
         }
       },
@@ -5202,17 +5204,32 @@
           "now": "<class 'datetime.datetime'>"
         }
       },
+      "ToleranceExceededRefusal": {
+        "kind": "contract",
+        "shape": {
+          "authority": "typing.Literal['default', 'caller', 'policy', 'technical']",
+          "breakdown": "ccf.halflife.assessment.DebtAssessment | None",
+          "detail": "<class 'str'>",
+          "observed": "decimal.Decimal | None",
+          "source": "<class 'ccf.products.provenance.ProvenanceSource'>",
+          "tolerance": "<class 'decimal.Decimal'>"
+        }
+      },
       "refuse_attestation": {
         "kind": "function",
         "shape": "(*, attestation: 'SourceAttestation | None', product_class: 'RegisteredProductClass') -> 'AttestationRefusal | None'"
       },
+      "refuse_over_tolerance": {
+        "kind": "function",
+        "shape": "(product: 'ServableProduct', *, tolerance: 'EffectiveParameter | None') -> 'ToleranceExceededRefusal | None'"
+      },
       "run_federated_gates": {
         "kind": "function",
-        "shape": "(candidate: 'ContextProductContract', *, attested_address: 'str', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', debt_tolerance: 'Decimal | None' = None, empty_results: 'frozenset[str] | None' = None) -> 'ServableProduct | GateRefusal'"
+        "shape": "(candidate: 'ContextProductContract', *, attested_address: 'str', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', empty_results: 'frozenset[str] | None' = None) -> 'ServableProduct | GateRefusal'"
       },
       "run_gates": {
         "kind": "function",
-        "shape": "(candidate: 'ContextProductContract', *, engine_resolved: 'frozenset[str]', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', source_attestation: 'SourceAttestation | None' = None, debt_tolerance: 'Decimal | None' = None, empty_results: 'frozenset[str] | None' = None) -> 'ServableProduct | GateRefusal'"
+        "shape": "(candidate: 'ContextProductContract', *, engine_resolved: 'frozenset[str]', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', source_attestation: 'SourceAttestation | None' = None, empty_results: 'frozenset[str] | None' = None) -> 'ServableProduct | GateRefusal'"
       }
     }
   },

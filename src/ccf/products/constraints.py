@@ -13,8 +13,13 @@ The sequence, and it is fixed
 -----------------------------
 
 1. **Apply defaults.** A parameter the caller omitted takes what the class
-   declared for omission (``ProductRequestContract.defaults``), with authority
-   ``default`` and the contract's own artifact pin as its source.
+   declared for omission, with authority ``default`` and the declaring
+   document's own artifact pin as its source. Two documents may declare one:
+   the product CLASS's characteristics (``ServeObligations``, reaching this
+   function as ``class_defaults`` — today only the default debt tolerance,
+   ``24.6-L-04``) and the request CONTRACT's own ``defaults``, which win for
+   the same name because they speak about that one parameter of that one
+   surface.
 2. **Overlay caller values.** A parameter the caller stated takes the caller's
    value with authority ``caller`` and the request's identity as its source.
    The caller's own values are never rewritten in place — they survive on
@@ -663,6 +668,8 @@ def resolve_effective_request(
     verified_overrides: tuple[OverrideRecord, ...],
     perspective: Perspective,
     tenant: str,
+    class_defaults: Mapping[str, Any] | None = None,
+    class_source: ProvenanceSource | None = None,
 ) -> EffectiveRequest | ConstraintRefusal | PolicyResolutionConflict | ProductRequestViolation:
     """The one resolution: defaults, caller, policy, capability, validation.
 
@@ -719,6 +726,21 @@ def resolve_effective_request(
         perspective: Who is asking and in what capacity; its ``role`` is the
             applicability axis.
         tenant: The tenant this resolution is for.
+        class_defaults: Defaults the **product class** declares rather than the
+            request contract — today exactly one, the class's
+            :attr:`~ccf.products.contract.ServeObligations.default_debt_tolerance`
+            (``24.6-L-04``, ``D-IMPL-251`` C1=A: a class figure is a default
+            characteristic and never a policy boundary). Optional, defaulting
+            to ``None``, which normalizes to an empty mapping — never a mutable
+            default — so every call site written before this pair existed
+            resolves exactly as it did. The **request contract's** defaults win
+            for the same name: a contract that states what omission means for a
+            parameter has said it more specifically than a class-wide
+            characteristic.
+        class_source: The pin those defaults were read from. Required whenever
+            ``class_defaults`` is non-empty: a value with no provenance is the
+            collapse ``D-IMPL-253`` Q1 forbids, and a default nobody can
+            resolve later is worse than no default.
 
     Returns:
         The :class:`~ccf.products.provenance.EffectiveRequest` — every
@@ -730,6 +752,10 @@ def resolve_effective_request(
         conformity comparison returns over the effective values.
 
     Raises:
+        ValueError: ``class_defaults`` is non-empty and ``class_source`` is
+            ``None`` — a declared default with no artifact behind it — or it
+            names a parameter ``declared`` does not declare as an argument,
+            which would be a class-imposed ceiling rather than a default.
         LookupError: ``capability_bindings`` names a capability token no member
             of ``capabilities`` supplies. Under ``D-IMPL-253`` amendment 2 (3)
             this is a configuration failure — the fabric cannot reach a valid
@@ -741,13 +767,57 @@ def resolve_effective_request(
             against.
     """
     _require_aware(request.asked_at)
+    class_declared: Mapping[str, Any] = (
+        {} if class_defaults is None else class_defaults
+    )
+    if class_declared and class_source is None:
+        raise ValueError(
+            "class_defaults were supplied with no class_source: a default the"
+            " fabric applies must name the artifact that declared it, or the"
+            f" resolution records a value ({sorted(class_declared)}) nobody"
+            " can resolve later (D-IMPL-253 Q1, amendment 2 (1))"
+        )
     request_source = ProvenanceSource(
         kind="request", identity=content_hash(request), version=None
     )
 
     # 1. Defaults, then 2. the caller's overlay. A default is what omission
     #    means, not a competitor to a value the caller actually stated.
+    #
+    #    Two declarations of what omission means, and they are ordered: the
+    #    product CLASS's characteristic first (`24.6-L-04`), then the request
+    #    CONTRACT's, which wins for the same name because a contract speaks
+    #    about one parameter of one class's surface and a class characteristic
+    #    speaks about the class. Each carries its own pin, so the resolution
+    #    says which document a defaulted value came out of.
     effective: dict[str, EffectiveParameter] = {}
+    for name, value in class_declared.items():
+        if name not in declared.arguments.properties:
+            # A class characteristic the caller has no way to state is not a
+            # default — it is a ceiling wearing a default's name, which is
+            # exactly what `D-IMPL-251` C1=A took away from a product class.
+            # It is also unanswerable: step 5 holds every effective value to
+            # the declared surface, so folding it in would refuse the request
+            # as `undeclared-parameter` and report a caller's mistake for a
+            # deployment's. Raised rather than returned, on the
+            # `capability_bindings` precedent: the fabric cannot reach a valid
+            # governed determination (`D-IMPL-253` amendment 2 (3)).
+            raise ValueError(
+                f"the product class declares a default for {name!r}, which"
+                f" its request contract ({declared.schema_name}"
+                f" @{declared.schema_version}) does not declare as an"
+                " argument; a caller who cannot state the parameter cannot"
+                " accept a product the default would withhold, so the default"
+                " would be a class-imposed ceiling (D-IMPL-251 C1=A). Declare"
+                " the argument on the request contract, or remove the class"
+                " default"
+            )
+        if name in request.parameters:
+            continue
+        assert class_source is not None  # guarded above; narrows for mypy
+        effective[name] = EffectiveParameter(
+            name=name, value=value, authority="default", source=class_source
+        )
     for name, value in declared.defaults.items():
         if name in request.parameters:
             continue
@@ -764,6 +834,11 @@ def resolve_effective_request(
     # applied": the contract WAS consulted, and its pin is what an examiner
     # resolves that claim against.
     applied: set[ProvenanceSource] = {declared_source}
+    if class_declared:
+        # The class declaration was consulted, so its pin is evidence whether
+        # or not the caller left the parameter for it to fill.
+        assert class_source is not None  # guarded above; narrows for mypy
+        applied.add(class_source)
 
     # 3. Policy constraints. Re-checked for applicability here, so the purity
     #    of this function is not also a trust assumption about its caller.
@@ -1112,6 +1187,8 @@ class PolicyConstraintResolver(Protocol):
         intent: str,
         tenant: str,
         capabilities: tuple[TechnicalCapability, ...],
+        class_defaults: Mapping[str, Any] | None = None,
+        class_source: ProvenanceSource | None = None,
     ) -> (
         EffectiveRequest
         | ConstraintRefusal
@@ -1136,6 +1213,13 @@ class PolicyConstraintResolver(Protocol):
             tenant: The tenant this resolution is for.
             capabilities: The backend limits in force, read off the substrate
                 by the caller — this seam reads no store.
+            class_defaults: Defaults the product CLASS declares, with
+                ``class_source`` as their pin. Optional and ``None``-defaulted
+                so a caller that has no class declaration in hand resolves
+                exactly as before; see
+                :func:`resolve_effective_request` for the ordering against the
+                request contract's own defaults (``24.6-L-04``).
+            class_source: The artifact pin ``class_defaults`` were read from.
 
         Returns:
             The :class:`~ccf.products.provenance.EffectiveRequest`, or the
@@ -1214,6 +1298,8 @@ class ReferencePolicyConstraintResolver:
         intent: str,
         tenant: str,
         capabilities: tuple[TechnicalCapability, ...],
+        class_defaults: Mapping[str, Any] | None = None,
+        class_source: ProvenanceSource | None = None,
     ) -> (
         EffectiveRequest
         | ConstraintRefusal
@@ -1263,6 +1349,8 @@ class ReferencePolicyConstraintResolver:
             ),
             perspective=perspective,
             tenant=tenant,
+            class_defaults=class_defaults,
+            class_source=class_source,
         )
 
     # --- the override half (D-IMPL-253 Q7) ---------------------------------

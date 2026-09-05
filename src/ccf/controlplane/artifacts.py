@@ -1058,18 +1058,20 @@ class ProductClassDeclaration(VersionedArtifact):
             ``15.5-15``, carrying the typed request and the authorized
             perspective together rather than reshaping 24 files twice.
 
-        serve_obligations: What this class obliges the serve path to enforce
-            (``24.5-L-14``, ``24.5-L-26``). An obligation is a STRUCTURAL
-            declaration the serve path enforces through the ONE gate
-            mechanism ``D-IMPL-237`` licenses
-            (:data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`): it names
-            a ``D_c`` ceiling and payload MEMBERS, never a payload shape —
-            ``D-IMPL-238`` reads ``D-IMPL-102`` limb 3 as *no payload gate*.
-            Products do not declare gate TYPES; they declare obligations
-            under the one type the SDK ships. The ceiling's number is this
-            document's to author (the class declares the cap's presence; a
-            request may only tighten it, ``D-IMPL-240`` (3)); the SDK holds
-            no number. Defaults to
+        serve_obligations: What this class declares about serving
+            (``24.5-L-14``, ``24.5-L-26``, ``24.6-L-04``). Two members of two
+            different kinds. The *obligation* — the payload MEMBERS the class
+            names — is a STRUCTURAL declaration the serve path enforces
+            through the ONE gate mechanism ``D-IMPL-237`` licenses
+            (:data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`): members,
+            never a payload shape — ``D-IMPL-238`` reads ``D-IMPL-102`` limb 3
+            as *no payload gate*. Products do not declare gate TYPES; they
+            declare obligations under the one type the SDK ships. The
+            *default* — ``default_debt_tolerance`` — is not enforced by any
+            gate: it is the tolerance that applies when the caller states
+            none, and a caller's own value is honored as requested
+            (``D-IMPL-251`` C1/C2, ``D-IMPL-240`` amendment 2). Its number is
+            this document's to author; the SDK holds no number. Defaults to
             :data:`~ccf.products.contract.NO_SERVE_OBLIGATIONS`.
             Hash-transparent at that sentinel (``D-IMPL-243``): a
             declaration obliging nothing is every pre-phase declaration,

@@ -128,6 +128,7 @@ between a candidate and its content address.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
@@ -168,6 +169,7 @@ from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import (
     DEBT_TOLERANCE_PARAMETER,
     ServableProduct,
+    refuse_over_tolerance,
     run_gates,
 )
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
@@ -708,7 +710,13 @@ class GovernedResolver:
            the execution.** A claim copied out of the execution record is not a
            claim, it is a transcript — and Gate 2 then has two independently
            authored sets to hold to strict equality.
-        7. **The gates run**, and their refusal is returned as a value.
+        7. **The gates run**, and their refusal is returned as a value. An
+           ADMITTED product is then held to the applicable tolerance —
+           default, caller or policy — and withheld by name if it is exceeded
+           (:func:`~ccf.products.gates.refuse_over_tolerance`, ``24.6-L-05``).
+           That step is deliberately after the gates and deliberately not one
+           of them: a gate decides whether a product may exist, and this
+           decides whether a product that does exist is delivered.
         8. **The record is built, then persisted, and only a completed append
            yields a delivery.** No branch here reaches a served product without
            a recorded decision, because :func:`~ccf.replay.serve.serve` has
@@ -786,6 +794,21 @@ class GovernedResolver:
             intent=request.intent,
             tenant=self.fabric.tenant_id,
             capabilities=self.capabilities,
+            # 24.6-04: the product class's own declared characteristic reaches
+            # the resolution as a DEFAULT and never as a ceiling (`D-IMPL-251`
+            # C1=A). The key is omitted when the class declares nothing, so a
+            # class with no opinion contributes no authority — rather than an
+            # authority whose value happens to be `None`.
+            class_defaults=self._class_defaults(declaration),
+            class_source=ProvenanceSource(
+                kind="artifact",
+                identity=self.product_class_key,
+                # The declaration's content address, minted the way
+                # `ControlPlaneRegistry.register` mints one (`D-IMPL-26`), so
+                # the pin recorded beside a defaulted value resolves to the
+                # exact bytes that declared it.
+                version=content_hash(declaration),
+            ),
         )
         if isinstance(
             resolved,
@@ -850,16 +873,6 @@ class GovernedResolver:
             debt=self.debt_scorer(view=execution.view),
         )
 
-        # 24.6-03, INTERIM until 24.6-04 retires the gate's debt half: the
-        # tolerance the gate is held to is the one the Authority layer
-        # RESOLVED — the class's declaration, the caller's request and the
-        # policy constraints in force, folded once, upstream, with the
-        # authority that set it recorded (`D-IMPL-254`). Nothing is re-folded
-        # here, because a second fold would be the scalar defect this phase
-        # removed. Nothing about the principal or the perspective reaches this
-        # path (`D-IMPL-105`).
-        tolerance = effective.parameter(DEBT_TOLERANCE_PARAMETER)
-        debt_tolerance = tolerance.value if tolerance is not None else None
         gated = run_gates(
             candidate,
             engine_resolved=execution.operators_invoked,
@@ -867,7 +880,6 @@ class GovernedResolver:
             registry=self.control_plane,
             product_class=registered,
             source_attestation=execution.source_attestation,
-            debt_tolerance=debt_tolerance,
             # 24.5-L-24: the engine's own record of which operators returned
             # an empty set, so the empty-operator gate's second half can
             # refuse by name. Only the governed resolver threads it; the
@@ -880,6 +892,24 @@ class GovernedResolver:
             # saying it has no lineage would be a different and false claim.
             return envelope_for(
                 gated, request=identity, pre_assembly_lineage=candidate.lineage
+            )
+
+        # 24.6-04, the delivery boundary: the gates ADMITTED this product, and
+        # only now is it held to the one applicable tolerance — the class's
+        # default, the caller's own value or a policy's, folded exactly once
+        # upstream by the Authority layer with the authority that set it
+        # recorded (`D-IMPL-254`). Nothing is folded here, because a second
+        # fold is the scalar collapse this phase removed and the place a class
+        # preference could re-acquire the power `D-IMPL-251` C1 took from it.
+        # The product was constructible; what is withheld is fulfillment.
+        # Nothing about the principal or the perspective reaches this
+        # comparison (`D-IMPL-105`): D_c is entitlement-neutral, as assessed.
+        withheld = refuse_over_tolerance(
+            gated, tolerance=effective.parameter(DEBT_TOLERANCE_PARAMETER)
+        )
+        if withheld is not None:
+            return envelope_for(
+                withheld, request=identity, pre_assembly_lineage=candidate.lineage
             )
 
         record = build_replay_record(
@@ -947,6 +977,30 @@ class GovernedResolver:
     def _declaration(self) -> ProductClassDeclaration:
         """The Control Plane claim: what this product says produced it."""
         return self._artifact(self.product_class_key, ProductClassDeclaration)
+
+    def _class_defaults(
+        self, declaration: ProductClassDeclaration
+    ) -> Mapping[str, object]:
+        """What the product CLASS declares about omission — today one name.
+
+        ``24.6-L-04``, ``D-IMPL-251`` C1=A. The class's
+        :attr:`~ccf.products.contract.ServeObligations.default_debt_tolerance`
+        is a declared *characteristic*, so it reaches the Authority layer as a
+        default under the SDK's own parameter name
+        (:data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER`) — never as a
+        ceiling this layer folds.
+
+        The key is **omitted** when the class declares nothing, rather than
+        present at ``None``. A mapping carrying ``{"debt_tolerance": None}``
+        would record an authority that established a non-value, and the
+        resolution's own comparisons would then have to ask whether a resolved
+        value means anything. Absence is what "this class has no opinion"
+        looks like.
+        """
+        tolerance = declaration.serve_obligations.default_debt_tolerance
+        if tolerance is None:
+            return {}
+        return {DEBT_TOLERANCE_PARAMETER: tolerance}
 
     def _request_contract(
         self, declaration: ProductClassDeclaration

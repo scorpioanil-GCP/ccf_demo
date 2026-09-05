@@ -282,7 +282,10 @@ THE_SEVEN: tuple[str, ...] = (
     "ccf.assembly.worker.ResolvedEntity.resolved_by",
     "ccf.controlplane.artifacts.HalfLifeEntry.half_life_seconds",
     "ccf.operators.params.TraversalDescendantsParameters.admitted_entity_classes",
-    "ccf.products.contract.ServeObligations.debt_ceiling",
+    # 24.6-04: the same field under its new name (`D-IMPL-253` Q9). It was
+    # one of amendment 2's seven; a rename does not move it to the roster of
+    # what came after.
+    "ccf.products.contract.ServeObligations.default_debt_tolerance",
     "ccf.products.contract.ServeObligations.lineage_inputs_at",
     "ccf.projection.engine.ExecutionResult.empty_results",
     "ccf.projection.engine.ExecutionResult.store_snapshot_pin",

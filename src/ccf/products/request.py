@@ -193,16 +193,15 @@ __all__ = [
 #:
 #: The sixth, ``not-a-proportion``, is the one verdict that reads a presented
 #: VALUE rather than a name or a type: the Standard's universal
-#: :data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER` is a ``D_c`` ceiling
-#: and ``D_c`` is a proportion (whitepaper §7.7.4), so a declared, honored,
-#: well-typed number outside ``[0, 1]`` — or not finite — is not a tolerance
-#: at all. It is refused here, in the contract-refusal family, so it can never
-#: reach the debt gate as a "tightening" and coerce every serve into a ``409``
-#: whose ``declared`` names a number no class declared (``24.5-REVIEW.md``
-#: WR-02, Dave, 2026-09-02). The interval is
-#: the one :class:`~ccf.products.contract.ServeObligations` holds the CLASS's
-#: ceiling to at declaration (``24.5-L-14``): the request boundary and the
-#: class boundary read the same interval.
+#: :data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER` states a ``D_c``
+#: tolerance and ``D_c`` is a proportion (whitepaper §7.7.4), so a declared,
+#: honored, well-typed number outside ``[0, 1]`` — or not finite — is not a
+#: tolerance at all. It is refused here, in the contract-refusal family, so it
+#: can never reach a resolution and stand as the number an admitted product is
+#: withheld against (``24.5-REVIEW.md`` WR-02, Dave, 2026-09-02). The interval
+#: is the one :class:`~ccf.products.contract.ServeObligations` holds the
+#: CLASS's declared default to (``24.5-L-14``, ``24.6-L-04``): the request
+#: boundary and the class boundary read the same interval.
 ProductRequestViolationReason = Literal[
     "undeclared-parameter",
     "missing-required-parameter",
@@ -945,13 +944,13 @@ def _refuse_tolerance(
     only ever judges a number's magnitude: ``bool`` (an ``int`` to Python,
     not to the contract) and non-numbers are the payload comparison's to
     name, and a parameter the declaration does not carry never reaches here.
-    The interval ``[0, 1]`` is the one the class's own ceiling is held to
-    (:class:`~ccf.products.contract.ServeObligations`, ``24.5-L-14``); the
-    parameter NAME is the SDK's mechanism vocabulary
+    The interval ``[0, 1]`` is the one the class's own declared default is
+    held to (:class:`~ccf.products.contract.ServeObligations`, ``24.5-L-14``,
+    ``24.6-L-04``); the parameter NAME is the SDK's mechanism vocabulary
     (:data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER`); the number is the
-    caller's. Nothing about the class's *ceiling* is read — a request cannot
-    create one and this step does not need one: a value that is not a
-    proportion is not a tolerance under any class.
+    caller's. Nothing the class declared is read here, and this step needs
+    nothing from it: a value that is not a proportion is not a tolerance under
+    any class.
     """
     # Imported at call time for the same DEF-17-02 reason `refuse_payload` is:
     # `ccf.products.gates` reaches `ccf.products.contract`, which is on the
@@ -979,9 +978,9 @@ def _refuse_tolerance(
         detail=(
             f"{key}: {presented} is not a proportion — D_c is a proportion "
             "(whitepaper §7.7.4), so a tolerance must lie in [0, 1]; the "
-            "class's ceiling is held to the same interval at declaration "
-            "(24.5-L-14), and a request may only tighten it, never state a "
-            "number that is not a ceiling at all"
+            "class's declared default is held to the same interval at "
+            "declaration (24.5-L-14, 24.6-L-04), and a caller states a "
+            "tolerance or none, never a number that is not a tolerance at all"
         ),
     )
 

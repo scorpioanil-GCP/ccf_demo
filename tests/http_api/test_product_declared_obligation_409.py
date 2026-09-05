@@ -1,8 +1,18 @@
 """The product door's first typed refusal status — ``409`` for ONE kind.
 
-Ledger row ``24.5-L-14`` (door half), ROADMAP Phase 24.5 criterion 21,
-``D-IMPL-237``; CLAUDE.md §8.3 (the HTTP API skeleton); the Standard §9's
-*"Debt gate exceeded → 409 with the debt block"*.
+Ledger rows ``24.5-L-26`` and ``24.6-L-04`` (door half), ``D-IMPL-237``;
+CLAUDE.md §8.3 (the HTTP API skeleton).
+
+**Re-derived at ``24.6-04``, and the subject narrowed.** The kind under test
+carried two obligations when this module was written, and the one exercised
+here was the debt half — a ``D_c`` over a class-declared ceiling, the
+Standard §9's *"Debt gate exceeded → 409 with the debt block"*. That half is
+retired (``D-IMPL-251`` C1=A: a class figure is a default tolerance, not an
+admission boundary), so the kind now carries the LINEAGE obligation alone and
+that is what travels through the door below. **The mapping is unchanged**: the
+door still answers ``409`` for ``declared-obligation-refusal``, and what a
+``tolerance-exceeded`` shell maps to is a later plan's question, not this
+module's.
 
 What this module measures, and what it deliberately does not:
 
@@ -32,9 +42,8 @@ scratch copy of the route module loaded under another name; the shipped
 module is byte-compared before and after and never opened for writing.
 
 Tenant, principal, class and role names here are test deployment vocabulary;
-the SDK ships none of it (CINV-01). The two decimal strings are what a
-declared ceiling and an observed ``D_c`` look like on the wire, not numbers
-the SDK holds anywhere.
+the SDK ships none of it (CINV-01). The two rendered strings are what an
+obliged payload member and its observed state look like on the wire.
 """
 
 from __future__ import annotations
@@ -103,10 +112,10 @@ ABSENT_CLASS = "declared-obligation.absent-class"
 #: A class the grant does NOT permit — the ``403`` leg.
 UNENTITLED_CLASS = "declared-obligation.unentitled-class"
 
-#: What the gate said, rendered as it crosses the wire: the effective ceiling
-#: and the candidate's ``D_c``, both decimal strings. Test vocabulary.
-DECLARED = "0.25"
-OBSERVED = "0.61"
+#: What the gate said, rendered as it crosses the wire: the payload member the
+#: class obliges, and the state the candidate carried it in. Test vocabulary.
+DECLARED = "inputs"
+OBSERVED = "absent"
 
 #: The kind this plan maps, read from the mapping and never spelled here as a
 #: second literal that could drift from the tree's one spelling.
@@ -149,14 +158,14 @@ def assert_declared_obligation_answered_409(
         raise AssertionError(
             f"a {KIND!r} reached the product door and no response came back;"
             f" {type(escaped).__name__ if escaped else 'nothing'} escaped"
-            f" instead ({escaped}). Criterion 21 (24.5-L-14) is a typed 409"
-            " for this one kind, not an opaque 500"
+            f" instead ({escaped}). This kind (24.5-L-26) is a typed 409, not"
+            " an opaque 500"
         )
     if status != 409:
         raise AssertionError(
             f"a {KIND!r} reached the product door and the door answered"
-            f" {status}, not 409 (24.5-L-14, criterion 21; the Standard §9:"
-            " 'Debt gate exceeded → 409 with the debt block')"
+            f" {status}, not 409 (24.5-L-26; the declared-obligations gate is"
+            " the one kind this door maps to a typed status)"
         )
     if not isinstance(body, Mapping) or body.get("kind") != KIND:
         raise AssertionError(
@@ -183,14 +192,15 @@ def assert_declared_obligation_answered_409(
 
 
 def _refusal() -> DeclaredObligationRefusal:
-    """What the declared-obligations gate returns for an over-ceiling product."""
+    """What the declared-obligations gate returns for a dropped lineage member."""
     return DeclaredObligationRefusal(
         gate=GATE_DECLARED_OBLIGATIONS,
         detail=(
-            f"product carries D_c {OBSERVED}, over the effective ceiling"
-            f" {DECLARED} — the Standard §9's 409"
+            f"product declares a lineage obligation on payload member"
+            f" {DECLARED!r}, which is {OBSERVED} — every served line must name"
+            " what it was computed from (24.5-L-26)"
         ),
-        obligation="debt-ceiling",
+        obligation="lineage-inputs",
         declared=DECLARED,
         observed=OBSERVED,
     )
@@ -417,7 +427,7 @@ def test_a_declared_obligation_refusal_answers_409_with_the_envelope(
 
     What would fail here: a door that still reached ``served_answer`` for
     this kind (an escaped ``TypeError``), one that answered some other
-    status, one that carried the debt block alone rather than the envelope
+    status, one that carried the typed fields alone rather than the envelope
     — the ``declared``/``observed`` pair, the request identity and the
     pre-assembly lineage all travel — or one that spelled the kind by a
     literal that had drifted from ``REFUSAL_KINDS``.
@@ -438,10 +448,10 @@ def test_a_declared_obligation_refusal_answers_409_with_the_envelope(
     assert refusal == json.loads(canonical_bytes(envelope))
     assert refusal["reason"] == GATE_DECLARED_OBLIGATIONS
     # Envelope fields arrive in the SDK's one canonical form: a string is
-    # quoted, so a presented "0.25" stays distinguishable from a presented
-    # 0.25 after the crossing.
-    assert refusal["fields"]["obligation"] == '"debt-ceiling"'
-    assert json.loads(refusal["fields"]["obligation"]) == "debt-ceiling"
+    # quoted, so a presented "inputs" stays distinguishable from a bare
+    # identifier after the crossing.
+    assert refusal["fields"]["obligation"] == '"lineage-inputs"'
+    assert json.loads(refusal["fields"]["obligation"]) == "lineage-inputs"
     assert json.loads(refusal["fields"]["declared"]) == DECLARED
     assert json.loads(refusal["fields"]["observed"]) == OBSERVED
     assert refusal["request"]["product_id"] == fabric.product_address.product_class

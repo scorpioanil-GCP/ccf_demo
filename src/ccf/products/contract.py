@@ -527,37 +527,55 @@ NO_REQUEST_CONTRACT = "no-request-contract"
 
 
 class ServeObligations(CCFContract):
-    """What a product class obliges the serve path to enforce — declared as data.
+    """What a product class declares about serving — one obligation and one default.
 
     SDK-defined per CLAUDE.md §11; whitepaper §7.6 (the delivery contract and
     its validation gates) and §7.7.4–§7.7.8 (Context Debt gating Forced LLM
-    and Fail-Closed behavior). Ledger rows ``24.5-L-14`` (the debt ceiling)
-    and ``24.5-L-26`` (the per-attribute lineage obligation), licensed by
-    ``D-IMPL-237`` — the ONE structural serve-time gate mechanism the SDK
-    ships — and shaped by ``D-IMPL-240`` (3). In one sentence: **the class
-    declares the ceiling, a request may tighten it, and serve refuses
-    over-ceiling by name** (:data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`).
+    and Fail-Closed behavior). Ledger rows ``24.5-L-14`` and ``24.6-L-04`` (the
+    debt figure) and ``24.5-L-26`` (the per-attribute lineage obligation).
 
-    Both members are *obligations*, never gate types: a product class does
-    not declare a new kind of gate (``D-IMPL-224`` stands), it declares what
-    the one shipped gate holds it to. And both are read as **structure** —
-    a number against a number, the presence of a named member — never as a
-    payload shape (``D-IMPL-238`` reads ``D-IMPL-102`` limb 3 as *no payload
-    gate*).
+    **The two members are no longer the same kind of thing, and that is the
+    point** (``D-IMPL-251`` C1=A, recorded as ``D-IMPL-240`` amendment 2).
+    ``lineage_inputs_at`` is an *obligation*: the one structural serve-time
+    gate ``D-IMPL-237`` licenses holds the product to it and refuses by name
+    (:data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`).
+    ``default_debt_tolerance`` is a *default*: Dave's *"a product class cannot
+    independently withhold otherwise deliverable context because its own debt
+    preference was exceeded"* — the class value *"can be a declared/default
+    tolerance characteristic, but it is not itself a policy boundary"*.
+
+    **The three debt concepts, which this field is exactly one of**
+    (``D-IMPL-240`` amendment 2):
+
+    1. the product's own figure — *informative*, and applied only as a
+       **default** when the caller states no tolerance (worked case 2);
+    2. the consumer's declared ``debt_tolerance`` — enforced **as requested**,
+       looser or tighter, because the consumer owns fitness (``C2=B``);
+    3. an applicable regulatory or enterprise policy constraint — enforced as
+       **governance**, through :mod:`ccf.products.constraints` and never
+       through this artifact (*"policy limits are not placed in product-class
+       registration"*).
+
+    All three reach one place: the Authority layer resolves them into one
+    :class:`~ccf.products.provenance.EffectiveParameter` carrying the
+    authority that established it, and
+    :func:`~ccf.products.gates.refuse_over_tolerance` holds an already-admitted
+    product to it. Nothing here is a ceiling and nothing here is folded with
+    ``min``.
 
     Attributes:
-        debt_ceiling: The class's ``D_c`` ceiling, a proportion in ``[0, 1]``
-            (the interval :class:`~ccf.halflife.assessment.DebtAssessment`
-            already holds ``debt`` to). ``None`` is the positive sentinel
-            *this class declares no ceiling* — the only value under which the
-            debt half of the gate is silent, and what every class registered
-            before this field existed was asserting. The NUMBER is the
-            deployment's to author in its product-class artifact; the SDK
-            ships no default and no threshold (CINV-01, CLAUDE.md §11). A
-            request's ``debt_tolerance`` may only *lower* the effective
-            ceiling — resolved as of ``24.6-03`` by the Authority layer
-            (:mod:`ccf.products.constraints`), with the authority that set it
-            recorded — and it can neither create one nor raise one.
+        default_debt_tolerance: The class's declared ``D_c`` tolerance, a
+            proportion in ``[0, 1]`` (the interval
+            :class:`~ccf.halflife.assessment.DebtAssessment` already holds
+            ``debt`` to). ``None`` is the positive sentinel *this class
+            declares no default* — under which no tolerance applies unless a
+            caller or a policy states one. It is the effective tolerance ONLY
+            when the caller omits ``debt_tolerance``, and it is then recorded
+            with authority ``default`` and this artifact's pin as its source.
+            A caller's *looser* value is honored, because a class preference
+            is not governance. The NUMBER is the deployment's to author in its
+            product-class artifact; the SDK ships no default and no threshold
+            (CINV-01, CLAUDE.md §11).
         lineage_inputs_at: The TOP-LEVEL payload members that must be present
             and non-empty at serve — the class's per-attribute lineage
             obligation (``24.5-L-26``; the SDK's declared form of what cp-03
@@ -566,39 +584,52 @@ class ServeObligations(CCFContract):
             obliges is the class's to say, and what those members contain is
             never read here.
 
+    **The name moved with the meaning** (``D-IMPL-253`` Q9). Dave: *"Rename
+    it."* — keeping the previous name, which called this figure a ceiling,
+    *"after changing its authority would perpetuate the conceptual error we
+    just fixed."* The field is the same field, renamed at ``24.6-04``; its
+    hash posture and its sentinel are unchanged. The previous name is spelled
+    nowhere in ``src/``, ``runtime/``, ``tools/`` or ``tests/``, so a reader
+    grepping for it finds only the dated records that made it.
+
     Both fields are hash-transparent at their sentinels under ``D-IMPL-243``
     amendment 2 (Dave: *"``ServeObligations``' two fields at empty True —
     empty ≡ pre-phase 'nothing enforced'"*): a model absent at ``13bd250``
     whose empty form obliges nothing is omitted member-by-member at that
-    value, so a class declaring a ceiling and no lineage obligation renders
-    the ceiling alone.
+    value, so a class declaring a tolerance and no lineage obligation renders
+    the tolerance alone.
     """
 
-    debt_ceiling: Decimal | None = Field(
+    default_debt_tolerance: Decimal | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     lineage_inputs_at: frozenset[str] = Field(
         default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
-    @field_validator("debt_ceiling")
+    @field_validator("default_debt_tolerance")
     @classmethod
-    def _ceiling_is_a_proportion(cls, value: Decimal | None) -> Decimal | None:
+    def _default_tolerance_is_a_proportion(
+        cls, value: Decimal | None
+    ) -> Decimal | None:
         if value is not None and not (Decimal(0) <= value <= Decimal(1)):
             raise ValueError(
-                "debt_ceiling must lie in [0, 1]: D_c is a proportion "
-                "(whitepaper §7.7.4), so a ceiling outside that interval "
-                "either refuses everything or nothing (24.5-L-14)"
+                "default_debt_tolerance must lie in [0, 1]: D_c is a "
+                "proportion (whitepaper §7.7.4), so a tolerance outside that "
+                "interval either withholds everything or nothing "
+                "(24.5-L-14, 24.6-L-04)"
             )
         return value
 
 
-#: A class that declares no serve obligation — no debt ceiling, no lineage
-#: member. The positive assertion every product class registered before
-#: ``24.5-L-14`` / ``24.5-L-26`` existed was already making, so every
+#: A class that declares nothing about serving — no default debt tolerance,
+#: no lineage member. The positive assertion every product class registered
+#: before ``24.5-L-14`` / ``24.5-L-26`` existed was already making, so every
 #: pre-phase registration and every pre-phase ``run_gates`` call site says
-#: exactly what it always said (``D-10``, additive; ``D-IMPL-240`` (3): "a
-#: class declaring no ceiling is unaffected").
+#: exactly what it always said (``D-10``, additive; ``D-IMPL-240`` amendment
+#: 2: a class declaring no tolerance contributes no default, and a request
+#: under such a class is bounded by a caller's or a policy's value or by
+#: nothing at all).
 NO_SERVE_OBLIGATIONS = ServeObligations()
 
 
