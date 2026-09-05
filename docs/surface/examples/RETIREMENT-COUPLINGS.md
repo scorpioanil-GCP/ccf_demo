@@ -228,8 +228,8 @@ Rows by coupling shape:
 | `runtime/ccf_runtime/mcp/experience.py` | 483 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 74 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/request.py` | 412 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/request.py` | 775 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 505 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 897 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/cli/test_schema_export.py` | 60 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
 | `tests/client/conformance/suite.py` | 380 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 413 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
