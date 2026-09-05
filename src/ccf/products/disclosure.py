@@ -7,9 +7,9 @@ suppression posture, so what a *consumer* may learn from a refusal has no
 whitepaper shape. This module is the CCF SDK's extension, ruled in
 ``D-IMPL-253`` Q17 and Q27 with amendment 2 (4), and framed by ``D-IMPL-254``.
 
-The architectural invariant, in Dave's own text (``D-IMPL-254``, recorded as
-SDK architecture under CLAUDE.md §11 — the whitepaper is deliberately **not**
-edited, ``D-IMPL-253`` Q28):
+The architectural invariant, in Dave's own text. It is
+SDK-defined under CLAUDE.md §11 and not whitepaper-derived (``D-IMPL-254``;
+the whitepaper is deliberately **not** edited, ``D-IMPL-253`` Q28):
 
     *"Internal truth, governing authority, and permitted disclosure are
     distinct concerns. The fabric preserves the governed truth of why a

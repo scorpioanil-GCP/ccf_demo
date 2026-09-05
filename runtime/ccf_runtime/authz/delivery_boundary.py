@@ -20,7 +20,8 @@ And the sequence principle it turns on, verbatim:
     reappears somewhere else."*
 
 **This module is the delivery-boundary DETERMINATION step of ``D-IMPL-254``'s
-Authority layer, and replay belongs here.** A transport calls
+Authority layer, and replay belongs here** — SDK-defined under CLAUDE.md §11
+and ``D-IMPL-256``, not whitepaper-derived. A transport calls
 :func:`govern_entitlement` and **encodes what it returns**. It does not catch
 :class:`~ccf_runtime.authz.product_entitlement.ProductEntitlementRefused`, does
 not build a shell, does not read a clock and does not mint a record. The one
