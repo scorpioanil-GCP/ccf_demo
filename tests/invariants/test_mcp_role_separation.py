@@ -815,15 +815,35 @@ def test_every_product_door_entitles_after_it_authenticates(
     ``auth``; the HTTP route sits behind ``create_app``'s ``auth=`` hook and
     therefore asserts the composition it actually depends on — reading the
     verified grant off the request through the shared, fail-closed helper.
+
+    **Two spellings of "reaches the shared decision" since ``D-IMPL-256``, and
+    the claim is unchanged by admitting the second.** A door reaches it either
+    directly, through
+    :func:`~ccf_runtime.authz.product_entitlement.entitled_perspective`, or
+    through :func:`~ccf_runtime.authz.delivery_boundary.govern_entitlement` —
+    the ONE governed delivery-boundary step, whose *own* single ``except`` is
+    the one place that refusal is caught and which reaches
+    ``entitled_perspective`` itself. Dave's sequence principle moved the catch
+    one layer further from the transport (*"Replay belongs to the governed
+    determination, not to HTTP or MCP"*), so a door that named the decision
+    directly after that ruling would be the shape the ruling rejects. What is
+    still refused here is a door that reaches **neither** — three doors with
+    three readings of "entitled" is the drift this asserts against, and that is
+    what it still asserts.
     """
     import importlib
 
     module = importlib.import_module(module_name)
     source = inspect.getsource(module)
 
-    assert "entitled_perspective(" in source, (
+    reached = [
+        seam
+        for seam in ("entitled_perspective(", "govern_entitlement(")
+        if seam in source
+    ]
+    assert reached, (
         f"{module_name} serves a product without reaching the shared"
-        " entitlement decision (15.5-06)"
+        " entitlement decision, by either spelling (15.5-06, `D-IMPL-256`)"
     )
     assert "from ccf_runtime.authz.product_entitlement import" in source, (
         f"{module_name} does not import the shared seams; three doors with"

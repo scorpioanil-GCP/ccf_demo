@@ -5109,7 +5109,7 @@
       },
       "door_refusal": {
         "kind": "function",
-        "shape": "(resolved: 'object', *, asked: 'ProductRequest | None', product_class: 'str', version: 'str') -> 'RefusalEnvelope | None'"
+        "shape": "(resolved: 'object', *, asked: 'ProductRequest | None', identity: 'RequestIdentity | None' = None, product_class: 'str', version: 'str') -> 'RefusalEnvelope | None'"
       },
       "served_answer": {
         "kind": "function",
@@ -8320,6 +8320,7 @@
   "ccf_runtime.mcp.egress": {
     "__all__": [
       "AddressedQuestion",
+      "CCF_FAILURE_PREFIX",
       "MAX_ADDRESS_QUESTION_BYTES",
       "NaiveAskedAtRefused",
       "PRODUCT_ADDRESS_TEMPLATE",
@@ -8343,6 +8344,10 @@
           "request": "<class 'str'>",
           "subject": "<class 'str'>"
         }
+      },
+      "CCF_FAILURE_PREFIX": {
+        "kind": "constant",
+        "shape": "str"
       },
       "MAX_ADDRESS_QUESTION_BYTES": {
         "kind": "constant",
@@ -8378,7 +8383,7 @@
       },
       "build_egress_server": {
         "kind": "function",
-        "shape": "(*, server_name: 'str', resolver: 'ProductResolverProtocol', token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', expose_product_resource: 'bool' = True, expose_product_tool: 'bool' = False, product_tool_description: 'str | None' = None) -> 'FastMCP'"
+        "shape": "(*, server_name: 'str', resolver: 'ProductResolverProtocol', token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol | None' = None, expose_product_resource: 'bool' = True, expose_product_tool: 'bool' = False, product_tool_description: 'str | None' = None) -> 'FastMCP'"
       },
       "parse_product_address": {
         "kind": "function",

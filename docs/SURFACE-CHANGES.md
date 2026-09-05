@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**956 entries**, of which **714** name a public Python surface.
+**962 entries**, of which **720** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-473 entries — 434 public Python surface, 39 not public Python API.
+474 entries — 435 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -8624,6 +8624,27 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
 
+#### ccf_runtime.mcp.egress.CCF_FAILURE_PREFIX
+
+- Surface: ccf_runtime.mcp.egress.CCF_FAILURE_PREFIX
+- Public surface: true
+- Change type: added
+- Before: absent. A `ToolError` from this door carried whatever prose the
+  raised exception carried, wrapped by FastMCP as `Error executing tool <name>:
+  <message>`
+- After: `CCF_FAILURE_PREFIX: Final[str] = "ccf-runtime-failure"`. A `ToolError`
+  now means **CCF or its runtime failed** and its whole message is
+  `ccf-runtime-failure:<32 hex>`; the id is written to the module's logger
+  beside the traceback, and no exception text crosses
+- Why: `D-IMPL-253` Q20 and `T-24.6-34`. A client that must string-parse a
+  server's wording has no channel, and the wording is where a store path, a
+  query, a tenant or a principal leaks. The id is a join to the server log, so
+  an operator can still be asked about the exact failure
+- Migration: a consumer that matched on exception prose from this door matches
+  nothing now. Match on the prefix and quote the id
+
+*Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -9252,7 +9273,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-359 entries — 176 public Python surface, 183 not public Python API.
+361 entries — 178 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -12910,6 +12931,59 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
 
+#### ccf.products.door.door_refusal — the `identity=` keyword
+
+- Surface: ccf.products.door.door_refusal
+- Public surface: true
+- Change type: reshaped
+- Before: `door_refusal(resolved, *, asked, product_class, version)`. A bare
+  refusal value arriving on a surface that carried no question raised
+  `ValueError` — *"there is no question for the refusal envelope to name"*
+- After: `door_refusal(resolved, *, asked, identity=None, product_class,
+  version)`. `identity` is a `RequestIdentity | None`, used exactly when
+  `asked` is `None`. The `ValueError` survives for the case where neither is
+  given, with its message re-derived to name the new way out
+- Why: `D-IMPL-253` D-19. The MCP standing resource is three path segments with
+  no query surface, so it holds no `ProductRequest` at all — and that raise was
+  the reason it had no refusal channel and answered a governed "no" as a
+  transport error. The door still invents nothing: it states the two positive
+  facts its own surface establishes, `parameters={}` and
+  `temporal_boundary=None`, and never a subject, an intent or a freshness
+  figure (CINV-01)
+- Migration: none. Additive and defaulted; every existing call is unchanged
+
+*Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
+
+#### ccf_runtime.mcp.egress.build_egress_server — the `refusal_recorder=` keyword
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: reshaped
+- Before: five required seams — `server_name`, `resolver`, `token_verifier`,
+  `auth_settings`, `entitlement_source`, `perspective_resolver` — and no
+  recorder
+- After: `refusal_recorder: RefusalRecorderProtocol | None = None`, checked at
+  construction through
+  `ccf_runtime.authz.delivery_boundary::recorded_boundary` before any handler
+  is registered. `None` or a non-conforming object raises
+  `UnrecordableDeliveryBoundaryError`, which names this builder and the keyword
+- Why: `D-IMPL-256` (2), Dave: *"a door configured to make governed
+  determinations without the ability to record them is not a valid governed
+  door."* This builder **always** entitles, so there is no recorder-less
+  configuration of it — no warning, no serve-but-fail-on-denial posture, and
+  nothing that would make auditability contingent on outcome. The keyword is
+  spelled with a `None` default rather than made positionally required so the
+  omission is refused by the ONE typed error the three builders share, whose
+  message names where to fix it
+- Migration: **breaking for any deployment that builds this door.** Pass the
+  recorder your resolver already holds —
+  `build_egress_server(..., refusal_recorder=composed.resolver.refusal_recorder)`
+  for a `GovernedResolver`, or a `ReplayRefusalRecorder` constructed over the
+  same artifact store, artifact class, tenant and assembly mode. Pre-1.0, there
+  is no deprecation window
+
+*Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -15313,7 +15387,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-117 entries — 97 public Python surface, 20 not public Python API.
+120 entries — 100 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -17580,6 +17654,84 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   entitlement policy discloses at `minimal`
 
 *Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.mcp.egress — the standing resource's refusal channel
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: the resource body was `canonical_bytes(servable.product)` over
+  whatever the resolver returned. A returned `RefusalEnvelope` has no
+  `.product`, so a governed "no" was an `AttributeError` reaching the client as
+  a resource error — indistinguishable from *not found*. The tool's own
+  docstring recorded the asymmetry as deliberate: *"The resource beside this
+  tool is deliberately unchanged… it has no envelope and no header"*
+- After: the body is the vessel **or** the shell's canonical bytes, told apart
+  by the top-level `kind` key. Both refusal sources reach it: the door's own
+  entitlement denial, already recorded and disclosed by the governed step, and
+  a resolver's governed "no", translated through `door_refusal` — the same
+  function both other doors use
+- Why: `D-IMPL-253` D-19. A shell carries the kind, the permitted statement,
+  and the address of its own decision record; a not-found carries none of the
+  three
+- Migration: a consumer that treated any non-vessel body as an error should
+  read `kind` first. The two shapes cannot validate as each other — both are
+  `extra=forbid` with disjoint required fields
+
+*Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
+
+#### ccf_runtime.mcp.egress — both entitlement paths through the governed step
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: each handler called
+  `ccf_runtime.authz.product_entitlement::entitled_perspective` directly, and a
+  denial **raised** `ProductEntitlementRefused` — reaching an MCP client as
+  `isError` prose carrying the typed `error_code` and, with it, the fact that
+  the subject exists and is merely closed to that caller
+- After: both handlers call
+  `ccf_runtime.authz.delivery_boundary::govern_entitlement` and **encode what
+  it returns**. An entitled `Perspective` continues to the resolver; a denial
+  comes back as an already-recorded, already-disclosed `RefusalEnvelope` of
+  kind `subject-unavailable` at the principal's disclosure level. The tool
+  emits it as `DoorOutcome` bytes with `isError` false; the resource emits its
+  canonical bytes. `egress.py` holds no `except ProductEntitlementRefused`,
+  calls no recorder, discloses nothing and reads no clock
+- Why: `D-IMPL-253` Q20 and Q27, `D-27` amendment 2 (4), and `D-IMPL-256`'s
+  sequence principle — *"Replay belongs to the governed determination, not to
+  HTTP or MCP"* (criterion 36). An unauthorized principal and a nonexistent
+  subject are now one external statement at the same disclosure level; the
+  internal cause (`unauthorized`) and the typed `error_code` survive on the
+  replay record, where an examiner can still tell them apart
+- Migration: a consumer that detected a denial by catching an MCP tool error
+  now receives an answer. Read `DoorOutcome.refusal`
+
+*Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
+
+#### ccf_runtime.mcp.egress — the resource-path denial is recorded under a resource identity
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: a denial on the standing-resource path produced no replay record at
+  all — the *silent second class* `D-IMPL-253` Q13 names, and a replay hole
+  that existed purely because of the transport's shape
+- After: the denial is minted by the governed step at the entitlement source's
+  determination instant, under a
+  `ccf.products.refusal::ResourceRequestIdentity` carrying
+  `surface="mcp-resource"`, the product URI the caller addressed, the tenant,
+  and `determined_at` — which equals the record's `recorded_at`. The shell's
+  `replay_reference` resolves to that record; dimension 4 carries the principal
+  with `NO_ROLE_RESOLVED`, and dimension 2 carries the policy that decided
+- Why: `D-IMPL-256` (1), Dave: *"the request identity for a standing resource
+  may be a different request form, but it still needs enough identity to
+  answer: what resource was requested, by whom/perspective, at what instant,
+  under which policy, and why fulfillment was refused."* D-34: *no fulfilled
+  Context Product does not mean no Decision Replay*
+- Migration: none for a caller. A deployment gains records it did not have
+
+*Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
 
 ### Not public Python API
 
