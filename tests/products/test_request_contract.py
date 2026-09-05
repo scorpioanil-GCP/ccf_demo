@@ -995,16 +995,20 @@ def test_from_declared_refuses_a_malformed_unsupported_arguments(
     assert "unsupported_arguments" in str(raised.value)
 
 
-def test_the_reason_vocabulary_has_six_members_tier_then_proportion() -> None:
-    """``24.5-L-12``: the fifth member, in the vocabulary's hyphenated spelling; ``24.5-WR-02``: the sixth, appended after it."""
+def test_the_reason_vocabulary_has_eight_members_tier_proportion_then_domain() -> None:
+    """``24.5-L-12``: the fifth member, in the vocabulary's hyphenated spelling;
+    ``24.5-WR-02``: the sixth, appended after it; ``D-IMPL-259``: the two
+    domain verdicts, appended after that — appended, never inserted, so a
+    reader of an older record's reason meets the same roster prefix."""
     import typing
 
     from ccf.products.request import ProductRequestViolationReason
 
     members = typing.get_args(ProductRequestViolationReason)
-    assert len(members) == 6
-    assert members[-2] == "not-supported-at-tier"
-    assert members[-1] == "not-a-proportion"
+    assert len(members) == 8
+    assert members[-4] == "not-supported-at-tier"
+    assert members[-3] == "not-a-proportion"
+    assert members[-2:] == ("below-minimum", "above-maximum")
 
 
 # --- (g) the tolerance interval: a request number that is not a proportion ---
@@ -1428,3 +1432,220 @@ def test_the_module_holds_no_default_value_of_its_own() -> None:
     assert '_KEY_DEFAULTS = "defaults"' in source
     assert source.count('_KEY_DEFAULTS = "defaults"') == 1
     assert DEFAULTED_PARAMETER not in source
+
+
+# ---------------------------------------------------------------------------
+# The seventh declaration key — a parameter's valid DOMAIN (`D-IMPL-259`).
+# ---------------------------------------------------------------------------
+# Dave, 2026-09-05: *"cp-04 `max_depth` has a declared request-contract
+# minimum of 1 … Requests below 1 … are governed request-validity refusals
+# returned as data; values 1–100 are valid and are never clamped."* And the
+# scoping: *"don't turn `1` into a Policy Constraint. It is simply the
+# parameter's valid domain."* What is asserted here is the declaration
+# surface, its refusals, and the domain step of `refuse_request`. The numbers
+# are the fixture's, never the SDK's (CINV-01).
+
+from ccf.products.request import ArgumentDomain  # noqa: E402
+
+DOMAINED_PARAMETER = "optional_leaf"
+DOMAIN_FLOOR = 1
+DOMAIN_CEILING = 9
+
+
+def _domained(**overrides: Any) -> ProductRequestContract:
+    fields: dict[str, Any] = {
+        "argument_domains": {DOMAINED_PARAMETER: ArgumentDomain(minimum=DOMAIN_FLOOR)}
+    }
+    fields.update(overrides)
+    return _contract(**fields)
+
+
+def test_a_contract_declaring_a_domain_round_trips() -> None:
+    contract = _domained()
+    assert contract.argument_domains[DOMAINED_PARAMETER].minimum == DOMAIN_FLOOR
+    assert contract.argument_domains[DOMAINED_PARAMETER].maximum is None
+    assert (
+        ProductRequestContract.model_validate_json(contract.model_dump_json())
+        == contract
+    )
+
+
+def test_the_empty_domain_mapping_is_omitted_from_the_canonical_bytes() -> None:
+    """`D-IMPL-243`'s compatibility claim, for the seventh key: a contract
+    declaring no domain is byte-identical to one built before the key existed,
+    so no committed request contract's content address moves."""
+    from ccf.contracts.canonical import canonical_bytes
+
+    silent = _contract()
+    assert b"argument_domains" not in canonical_bytes(silent)
+    assert canonical_bytes(silent) == canonical_bytes(_contract(argument_domains={}))
+    assert b"argument_domains" in canonical_bytes(_domained())
+
+
+def test_from_declared_reads_the_optional_seventh_key() -> None:
+    declaration = dict(_declared().declaration)
+    declaration["argument_domains"] = {DOMAINED_PARAMETER: {"minimum": DOMAIN_FLOOR}}
+    contract = ProductRequestContract.from_declared(_declared(declaration=declaration))
+    assert contract.argument_domains[DOMAINED_PARAMETER] == ArgumentDomain(
+        minimum=DOMAIN_FLOOR
+    )
+
+
+def test_a_declaration_without_domains_still_parses() -> None:
+    assert dict(ProductRequestContract.from_declared(_declared()).argument_domains) == {}
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    [[DOMAINED_PARAMETER], "optional_leaf", {DOMAINED_PARAMETER: 1}, {4: {"minimum": 1}}],
+)
+def test_from_declared_refuses_a_malformed_argument_domains(malformed: Any) -> None:
+    declaration = dict(_declared().declaration)
+    declaration["argument_domains"] = malformed
+    with pytest.raises(ValueError) as raised:
+        ProductRequestContract.from_declared(_declared(declaration=declaration))
+    assert "argument_domains" in str(raised.value)
+
+
+def test_a_domain_with_neither_end_is_refused() -> None:
+    with pytest.raises(ValueError) as raised:
+        ArgumentDomain()
+    assert "neither" in str(raised.value)
+
+
+def test_an_inverted_domain_is_refused() -> None:
+    with pytest.raises(ValueError) as raised:
+        ArgumentDomain(minimum=DOMAIN_CEILING, maximum=DOMAIN_FLOOR)
+    assert "exceeds" in str(raised.value)
+
+
+def test_a_domain_over_an_undeclared_parameter_is_refused_naming_it() -> None:
+    with pytest.raises(ValueError) as raised:
+        _contract(argument_domains={"never_declared": ArgumentDomain(minimum=1)})
+    assert "never_declared" in str(raised.value)
+
+
+def test_a_domain_over_a_parameter_without_magnitude_is_refused_naming_it() -> None:
+    """A domain over a string bounds nothing; the type has no magnitude."""
+    with pytest.raises(ValueError) as raised:
+        _contract(argument_domains={"required_leaf": ArgumentDomain(minimum=1)})
+    assert "required_leaf" in str(raised.value)
+    assert "magnitude" in str(raised.value)
+
+
+def test_a_domain_over_an_inert_parameter_is_refused_naming_it() -> None:
+    with pytest.raises(ValueError) as raised:
+        _contract(
+            unsupported_arguments={INERT_PARAMETER: INERT_REASON},
+            argument_domains={INERT_PARAMETER: ArgumentDomain(minimum=1)},
+        )
+    assert INERT_PARAMETER in str(raised.value)
+
+
+def test_a_default_outside_its_own_domain_is_refused_at_declaration() -> None:
+    """`D-IMPL-258` (5)'s rule one key over: the class contradicting itself
+    fails where the author can fix it, never in front of a caller who omitted
+    the parameter."""
+    with pytest.raises(ValueError) as raised:
+        _domained(defaults={DOMAINED_PARAMETER: DOMAIN_FLOOR - 1})
+    assert DOMAINED_PARAMETER in str(raised.value)
+    assert "outside their own domain" in str(raised.value)
+
+
+def test_a_default_inside_its_domain_is_admitted() -> None:
+    contract = _domained(defaults={DOMAINED_PARAMETER: DOMAIN_FLOOR})
+    assert contract.defaults[DOMAINED_PARAMETER] == DOMAIN_FLOOR
+
+
+def test_a_value_below_the_declared_minimum_is_refused_by_name() -> None:
+    """The boundary control Dave asked for: `0` refuses."""
+    verdict = refuse_request(
+        request=_request(parameters={"required_leaf": "v", DOMAINED_PARAMETER: DOMAIN_FLOOR - 1}),
+        declared=_domained(),
+    )
+    assert verdict is not None
+    assert verdict.reason == "below-minimum"
+    assert verdict.key == DOMAINED_PARAMETER
+    assert verdict.declared_type == "integer"
+    assert verdict.presented_type == "int"
+    assert str(DOMAIN_FLOOR) in verdict.detail
+    assert "D-IMPL-259" in verdict.detail
+
+
+def test_a_value_at_the_declared_minimum_is_admitted() -> None:
+    """The other half: `1` serves. Inclusive, as the ruling's *"1–100 are
+    valid"* reads."""
+    assert (
+        refuse_request(
+            request=_request(parameters={"required_leaf": "v", DOMAINED_PARAMETER: DOMAIN_FLOOR}),
+            declared=_domained(),
+        )
+        is None
+    )
+
+
+def test_a_value_above_a_declared_maximum_is_refused_by_name() -> None:
+    declared = _contract(
+        argument_domains={
+            DOMAINED_PARAMETER: ArgumentDomain(minimum=DOMAIN_FLOOR, maximum=DOMAIN_CEILING)
+        }
+    )
+    verdict = refuse_request(
+        request=_request(parameters={"required_leaf": "v", DOMAINED_PARAMETER: DOMAIN_CEILING + 1}),
+        declared=declared,
+    )
+    assert verdict is not None
+    assert verdict.reason == "above-maximum"
+    assert (
+        refuse_request(
+            request=_request(parameters={"required_leaf": "v", DOMAINED_PARAMETER: DOMAIN_CEILING}),
+            declared=declared,
+        )
+        is None
+    )
+
+
+def test_an_omitted_domained_parameter_is_not_judged_by_the_domain() -> None:
+    """The domain judges what was ASKED; omission is the defaults' business
+    (`D-IMPL-253` Q2), and the default is held to the domain at declaration."""
+    assert (
+        refuse_request(request=_request(), declared=_domained()) is None
+    )
+
+
+def test_a_mistyped_domained_parameter_is_the_payload_comparisons_verdict() -> None:
+    """Order is load-bearing: a string where an integer was declared is
+    `type-mismatch`, never a magnitude verdict about a value with none."""
+    verdict = refuse_request(
+        request=_request(parameters={"required_leaf": "v", DOMAINED_PARAMETER: "zero"}),
+        declared=_domained(),
+    )
+    assert verdict is not None
+    assert verdict.reason == "type-mismatch"
+
+
+def test_the_domain_step_is_deterministic_over_domained_names() -> None:
+    """Two offenders, one verdict, the same one on every run: sorted order."""
+    arguments = _arguments()
+    second = SkillArgumentProperty(type="number", description="a second number")
+    schema = SkillArgumentSchema(
+        properties={**dict(arguments.properties), "another": second},
+        required=arguments.required,
+    )
+    declared = _contract(
+        arguments=schema,
+        argument_domains={
+            DOMAINED_PARAMETER: ArgumentDomain(minimum=DOMAIN_FLOOR),
+            "another": ArgumentDomain(minimum=DOMAIN_FLOOR),
+        },
+    )
+    verdicts = {
+        refuse_request(
+            request=_request(
+                parameters={"required_leaf": "v", DOMAINED_PARAMETER: 0, "another": 0}
+            ),
+            declared=declared,
+        ).key  # type: ignore[union-attr]
+        for _ in range(5)
+    }
+    assert verdicts == {"another"}

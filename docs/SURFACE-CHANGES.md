@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**978 entries**, of which **735** name a public Python surface.
+**983 entries**, of which **740** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-481 entries — 441 public Python surface, 40 not public Python API.
+482 entries — 442 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -8768,6 +8768,28 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
 
+#### ccf.products.request.ArgumentDomain
+
+- Surface: ccf.products.request.ArgumentDomain
+- Public surface: true
+- Change type: added
+- Before: absent. A numeric parameter's valid domain had no place on the request
+  contract; the one rung that needed a floor (cp-04, `max_depth ≥ 1`) held it in an
+  example-local `argument_bounds` block that plan 24.6-13 deleted together with the
+  bound of 6 it shared a key with — and the floor went with it, so `max_depth=0` was
+  served as a one-node family (measured 2026-09-05, seal `d7180a0c…`)
+- After: a frozen contract with `minimum: Decimal | None` and `maximum: Decimal | None`,
+  inclusive on both ends, refusing at construction a domain naming neither end, a
+  non-finite end, or an inverted pair; `refuses(value)` names which end a value misses
+- Why: Dave, `D-IMPL-259`: a request-validity boundary belongs on the request contract,
+  is not a policy constraint, and must be held by the SDK's own validation rather than
+  by a deployment's bounds check
+- Migration: none for existing declarations. A deployment that wants a floor or a
+  domain ceiling declares `argument_domains: {<parameter>: {minimum: …, maximum: …}}`
+  on its request contract
+
+*Recorded by `24.6-14-the-request-contract-declares-a-parameter-domain.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -9421,7 +9443,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-365 entries — 182 public Python surface, 183 not public Python API.
+367 entries — 184 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -13198,6 +13220,40 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
 
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: reshaped
+- Before: six declaration keys — `schema_name`, `schema_version`, `arguments`,
+  `unsupported_arguments`, `defaults`, `capability_bindings`
+- After: a seventh, `argument_domains: Mapping[str, ArgumentDomain]`, read by
+  `from_declared` on the same terms as the fifth and sixth (absent → the empty mapping,
+  a malformed value → `ValueError` naming the key), and held by a validator that refuses,
+  naming every offender together, a domain over an undeclared parameter, over a parameter
+  whose type has no magnitude, over a declared-and-always-refused parameter, and a
+  declared default that lies outside its own domain (`D-IMPL-258` (5)'s rule one key
+  over: a self-contradicting class fails at declaration, never in front of a caller)
+- Why: as above
+- Migration: none. `ccf schema export` and `docs/schemas/ccf.product-request-contract.json`
+  carry the key as optional
+
+*Recorded by `24.6-14-the-request-contract-declares-a-parameter-domain.md`.*
+
+#### ccf.products.request.ProductRequestViolation
+
+- Surface: ccf.products.request.ProductRequestViolation
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` over the six-member Literal
+- After: `reason` over the eight-member Literal; a domain refusal reads the domained
+  parameter's name at `key`, carries the declared type, the presented type, and a
+  `detail` naming the value, the end it missed and the limit
+- Why: as above
+- Migration: none beyond the reason roster above
+
+*Recorded by `24.6-14-the-request-contract-declares-a-parameter-domain.md`.*
+
 #### ccf_runtime.mcp.experience.build_experience_server
 
 - Surface: ccf_runtime.mcp.experience.build_experience_server
@@ -15642,7 +15698,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-125 entries — 105 public Python surface, 20 not public Python API.
+127 entries — 107 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -18098,6 +18154,44 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller. A deployment gains records it did not have
 
 *Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
+
+#### ccf.products.request.ProductRequestViolationReason
+
+- Surface: ccf.products.request.ProductRequestViolationReason
+- Public surface: true
+- Change type: behavior
+- Before: six members, ending `not-supported-at-tier`, `not-a-proportion`
+- After: eight — `below-minimum` and `above-maximum` APPENDED after `not-a-proportion`,
+  never inserted, so every older record's reason meets the same roster prefix
+- Why: the two verdicts the domain step can reach
+- Migration: a consumer switching on the reason meets two new values; both arrive
+  through the existing `product-request-violation` kind, so a door mapping by kind
+  (HTTP `400`, MCP shell) needs nothing — `tests/http_api/test_product_request_violation_400.py`
+  carries `below-minimum` as a control
+
+*Recorded by `24.6-14-the-request-contract-declares-a-parameter-domain.md`.*
+
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: behavior
+- Before: four steps — address, tier, payload, tolerance interval
+- After: five — the domain step runs LAST, over sorted domained names, after the payload
+  comparison has said each parameter is declared, honored and well-typed and after the
+  interval step; a mistyped domained parameter is still `type-mismatch`, an omitted one
+  is the defaults' business and is not judged (the default is held to the domain at
+  declaration instead). Because `ccf.products.constraints.resolve_effective_request`
+  runs this function over the EFFECTIVE request (its step 5), a caller's value below a
+  declared floor is refused there as `below-minimum` with no deployment code involved
+- Why: as above
+- Migration: none for a caller inside every declared domain. cp-04: `max_depth=0` now
+  answers `refused: below-minimum — max_depth` (program exit 1) where it served a
+  one-node family for the eight hours between plan 13 and this ruling; relative to the
+  last published lane (`1.0.x`, floor 1 by the old bounds) the floor is unchanged, so
+  the request-contract lane stays `1.1.0`
+
+*Recorded by `24.6-14-the-request-contract-declares-a-parameter-domain.md`.*
 
 #### ccf_runtime.mcp.experience.build_experience_server — the three entitlement paths
 

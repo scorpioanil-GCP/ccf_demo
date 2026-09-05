@@ -5526,6 +5526,7 @@
   "ccf.products.request": {
     "__all__": [
       "AnchorAmbiguityRefusal",
+      "ArgumentDomain",
       "NO_REQUEST_CONTRACT",
       "PRODUCT_REQUEST_CONTRACT",
       "ProductRequest",
@@ -5544,6 +5545,13 @@
           "anchor": "<class 'str'>",
           "candidates": "frozenset[str]",
           "detail": "<class 'str'>"
+        }
+      },
+      "ArgumentDomain": {
+        "kind": "contract",
+        "shape": {
+          "maximum": "decimal.Decimal | None",
+          "minimum": "decimal.Decimal | None"
         }
       },
       "NO_REQUEST_CONTRACT": {
@@ -5570,6 +5578,7 @@
       "ProductRequestContract": {
         "kind": "contract",
         "shape": {
+          "argument_domains": "collections.abc.Mapping[str, ccf.products.request.ArgumentDomain]",
           "arguments": "<class 'ccf.skills.catalog.SkillArgumentSchema'>",
           "capability_bindings": "collections.abc.Mapping[str, str]",
           "defaults": "collections.abc.Mapping[str, typing.Any]",
@@ -5588,12 +5597,12 @@
           "key": "<class 'str'>",
           "presented_keys": "frozenset[str]",
           "presented_type": "str | None",
-          "reason": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion']"
+          "reason": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum']"
         }
       },
       "ProductRequestViolationReason": {
         "kind": "function",
-        "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion']"
+        "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum']"
       },
       "refuse_request": {
         "kind": "function",

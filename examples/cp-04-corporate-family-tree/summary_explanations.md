@@ -322,7 +322,7 @@ parameter, and the README says so.
 
 ---
 
-## Run 5 — a depth that is served, and the three refusals
+## Run 5 — a depth that is served, and the four refusals
 
 ### The output
 
@@ -337,6 +337,14 @@ Excerpt — served, with the gap visible.
    depth applied      8   requested, 3 reached — a depth this estate cannot exhibit is SERVED
    nodes returned     22
    content address    2607d522bcfe0821f635dd86b2d4af08b9a6d0973ed64af11ea7df4fce95fd9d
+```
+
+```
+make -s example-cp-04 MAX_DEPTH=0
+```
+
+```
+refused: below-minimum — max_depth
 ```
 
 ```
@@ -363,11 +371,11 @@ make -s example-cp-04 LEI=000000000000000000ZZ
 refused: subject-unavailable
 ```
 
-The three refusals exit non-zero, and each is one line on stderr with stdout
+The four refusals exit non-zero, and each is one line on stderr with stdout
 empty. A refusal is not a crash, but it is also not a success. The line prints
-the reason and the parameter it names; the kind — `constraint-refusal`,
-`not-supported-at-tier`, `subject-unavailable` — travels on the envelope the
-program branched on.
+the reason and the parameter it names; the kind — `product-request-violation`,
+`constraint-refusal`, `not-supported-at-tier`, `subject-unavailable` — travels
+on the envelope the program branched on.
 
 ### What you'd have missed
 
@@ -376,6 +384,13 @@ the walk reaches three, and the finding says both. Refusing that request would
 have told a caller who wanted "the whole group" that they asked wrongly; a
 served answer with `requested_depth: 8` beside `depth_reached: 3` tells them the
 group is smaller than their question.
+
+**A depth of zero is not a question this product answers, and the contract says
+so.** A zero-hop family is the anchor alone — a lookup wearing a walk's name.
+The floor of `1` is declared on the request contract as the parameter's valid
+domain, beside its type, and the SDK refuses below it by name. It is not a
+policy: nobody is being denied anything; the question is malformed for this
+product, the way a negative tolerance is.
 
 **The dangerous outcome of a depth beyond the backend is not the refusal — it is
 the clamp.** A system that takes `max_depth=101`, walks a hundred, and returns a
@@ -401,7 +416,12 @@ gap is visible in the contract rather than discovered in an audit.
 ### How it works
 
 Every one of these is declared, and none is a condition written in a module.
-The depth's hard limit is the substrate's own capability, bound to `max_depth`
+The depth's floor is the parameter's valid domain, declared under
+`argument_domains` on the request contract in **`ccf_config.yaml`** and held by
+the SDK's own request validation (`src/ccf/products/request.py::refuse_request`,
+the domain step) as a `product-request-violation` returned as data — deleting
+the declaration is the sabotage, and `0` was served before it existed. The
+depth's hard limit is the substrate's own capability, bound to `max_depth`
 under `capability_bindings` in **`ccf_config.yaml`** and resolved by the SDK
 (`src/ccf/products/constraints.py::resolve_effective_request`) into a
 `constraint-refusal` carrying the bound with authority `technical`. The `as_of`
@@ -423,7 +443,7 @@ estate cannot exhibit is refused instead of served; gate **`CFT-G06`** fails if
 | **Content address** | a tamper-evident seal on one answer | `sha256` over the canonical bytes of the served product |
 | **Context debt** (`D_c`) | how far short of ideal this answer falls | a composite of freshness, completeness and semantic consistency, `0`–`1`; advisory at every rung of this ladder |
 | **Half-life** (`λ_c`) | how fast a fact of this kind goes stale | a per-signal-class decay rate; ownership edges decay on an acquisition-and-restructuring cadence |
-| **Max depth** | how far out from the company you asked to look | a request parameter that travels into the content address; absent, the declared default `3`; above the backend's capability, refused by name |
+| **Max depth** | how far out from the company you asked to look | a request parameter that travels into the content address; absent, the declared default `3`; below the declared floor of `1`, refused as malformed; above the backend's capability, refused by name |
 | **Depth reached / cost** | how far the walk actually got, and what it took | the `traversal` finding — requested depth, depth reached, nodes visited and edges walked, all structural counts and never a clock |
 | **Perspective / role** | which reader this answer was shaped for | a projection conditioned on a FIBO class axis, not on a list of who may see what |
 | **Finding** | something about this family worth telling you | a typed record beside the tree, carrying a roster and — for a cycle — the edge that closes it |
@@ -443,6 +463,7 @@ This is the section that separates a demonstration from a guarantee.
 | Only the six declared family predicates enter | the closed predicate vocabulary | `CFT-G02` |
 | A depth above the backend's capability is refused by name and answered at no narrower depth; a depth the estate cannot exhibit is served with the gap visible | `capability_bindings` in `ccf_config.yaml`, resolved against the substrate's declared capability | `CFT-G03` |
 | An absent depth takes the *declared* default | `request_contract.defaults`, applied by the SDK's resolution | `CFT-G04` |
+| A depth below the declared floor of 1 is refused as a malformed question, never served as a one-node family | `request_contract.argument_domains`, held by the SDK's `refuse_request` | `test_the_floor_is_the_sdks_verdict_over_the_declaration_and_needs_no_store` and the two live boundary asks in `tests/examples/test_cp_04_traversal.py` (a test, not a gate id — see the README) |
 | Two depths are two answers, on the roster and not the seal alone | the walk bound | `CFT-G05` |
 | An as-of date is refused, never silently honored | `unsupported_arguments` | `CFT-G06` |
 | A cycle is reported with its exact roster | the assembler's detector | `CFT-G07` |

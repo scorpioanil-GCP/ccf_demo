@@ -280,6 +280,25 @@ request_contract:
   defaults:
     max_depth: 3
 
+  # THE DECLARED FLOOR — `D-IMPL-259` (Dave, 2026-09-05): *"cp-04 `max_depth`
+  # has a declared request-contract minimum of 1 … `1` is the minimum
+  # meaningful supported request."* This is the parameter's VALID DOMAIN and
+  # nothing more — in his words, *"don't turn `1` into a Policy Constraint"* —
+  # so it sits beside `type` and `required` as part of the request contract:
+  # no artifact pin, no authority, no substrate. The SDK's own request
+  # validation (`src/ccf/products/request.py::refuse_request`, the domain
+  # step) holds a caller to it and returns a `product-request-violation` with
+  # reason `below-minimum` AS DATA; nothing in this deployment's code reads or
+  # applies the number (CINV-01), and the old example-local bounds check is
+  # not resurrected. The MAXIMUM stays what it is below: the backend's
+  # technical capability, read off the substrate, never a number authored
+  # here. Before this key, `max_depth=0` was SERVED as a one-node family — the
+  # deleted `argument_bounds` block had carried the floor together with the
+  # 6, and the floor went with it (measured 2026-09-05, seal `d7180a0c…`).
+  argument_domains:
+    max_depth:
+      minimum: 1
+
   # WHICH DECLARED PARAMETER A TECHNICAL CAPABILITY BOUNDS — the SDK's
   # mechanism token, and never its value (`D-IMPL-253` Q21). The number the
   # token resolves to is read off the substrate in force at resolution time

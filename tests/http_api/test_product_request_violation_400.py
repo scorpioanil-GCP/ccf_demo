@@ -17,7 +17,7 @@ the envelope as the body in the ``409``'s shape.
 
 The mapping is by KIND, read from :data:`~ccf.products.refusal.REFUSAL_KINDS`
 and never spelled as a second literal, so every reason the vocabulary
-carries — all six — arrives as ``400`` through one branch. The ``409`` is
+carries — all eight, the two ``D-IMPL-259`` domain verdicts included — arrives as ``400`` through one branch. The ``409`` is
 asserted unchanged in ``test_product_declared_obligation_409.py``, which this
 module shares its door with rather than restating it.
 
@@ -75,6 +75,7 @@ def _envelope(fabric: Fabric, reason: str, key: str) -> RefusalEnvelope:
     ("reason", "key"),
     [
         ("not-a-proportion", "debt_tolerance"),
+        ("below-minimum", "max_depth"),
         ("not-supported-at-tier", "as_of"),
         ("undeclared-parameter", "colour"),
         ("missing-required-parameter", "debt_tolerance"),

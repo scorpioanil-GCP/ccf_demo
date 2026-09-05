@@ -2136,3 +2136,81 @@ def test_report_reads_the_deepest_integer_depth_not_the_sentinel() -> None:
         run._report(result, args=args, asked_at=datetime(2026, 9, 1, tzinfo=UTC))
     out = captured.getvalue()
     assert "deepest node       5 hop(s)" in out, out
+
+
+# ---------------------------------------------------------------------------
+# The declared floor — `D-IMPL-259` (Dave, 2026-09-05), plan 24.6-14.
+# ---------------------------------------------------------------------------
+# *"cp-04 `max_depth` has a declared request-contract minimum of 1 … Requests
+# below 1 … are governed request-validity refusals returned as data; values
+# 1–100 are valid …"* The floor is the parameter's valid
+# DOMAIN on the request contract (`ccf_config.yaml::request_contract.
+# argument_domains`), held by the SDK's own `refuse_request` — not a policy
+# constraint, not a capability, and not the deleted example-local bounds check.
+# Two boundary controls, as ruled: `0` refuses, `1` serves.
+
+
+def test_the_floor_is_the_sdks_verdict_over_the_declaration_and_needs_no_store() -> None:
+    """The declaration says 1; the SDK refuses 0 and admits 1; nothing here reads a store.
+
+    Sabotaged by deleting `argument_domains` from `ccf_config.yaml`: the
+    contract then declares no domain and `0` is admitted — which is exactly
+    the served one-node family measured on 2026-09-05 before the ruling.
+    """
+    from ccf.products.request import refuse_request
+
+    deployment = _load("deployment")
+    declared = deployment.request_contract()
+    domain = declared.argument_domains.get(deployment.PARAM_MAX_DEPTH)
+    assert domain is not None, "cp-04 declares no domain for max_depth (D-IMPL-259)"
+    assert domain.minimum == 1
+    assert domain.maximum is None, (
+        "the maximum is the backend's technical capability, never a declared "
+        "number (D-IMPL-253 Q21)"
+    )
+    below = refuse_request(
+        request=deployment.demonstration_request(max_depth=0), declared=declared
+    )
+    assert below is not None
+    assert below.reason == "below-minimum"
+    assert below.key == deployment.PARAM_MAX_DEPTH
+    assert (
+        refuse_request(
+            request=deployment.demonstration_request(max_depth=1), declared=declared
+        )
+        is None
+    )
+
+
+@pytest.fixture(scope="module")
+def below_the_declared_floor(estate: tuple[str, str]) -> Asked:
+    """One ask BELOW the declared floor — `max_depth=0`, the boundary's outside."""
+    return ask(asked_as="max_depth=0 (below the declared floor)", max_depth=0)
+
+
+@pytest.fixture(scope="module")
+def at_the_declared_floor(estate: tuple[str, str]) -> Asked:
+    """One ask AT the declared floor — `max_depth=1`, inclusive."""
+    return ask(asked_as="max_depth=1 (at the declared floor)", max_depth=1)
+
+
+def test_below_the_declared_floor_is_refused_as_data_and_no_tree_is_returned(
+    below_the_declared_floor: Asked,
+) -> None:
+    """`0` refuses — through the shipped caller, as a typed envelope, with no tree."""
+    asked = below_the_declared_floor
+    assert asked.payload is None, (
+        f"{asked.asked_as} was SERVED — a one-node family came back, which is the"
+        " pre-ruling behavior measured on 2026-09-05"
+    )
+    assert asked.envelope is not None, asked.refusal
+    assert asked.envelope.kind == "product-request-violation", asked.envelope
+    assert asked.envelope.reason == "below-minimum", asked.envelope
+    assert asked.envelope.key == _load("deployment").PARAM_MAX_DEPTH
+
+
+def test_at_the_declared_floor_is_served(at_the_declared_floor: Asked) -> None:
+    """`1` serves — inclusive, as *"values 1–100 are valid"* reads."""
+    asked = at_the_declared_floor
+    assert asked.payload is not None, f"{asked.asked_as} was REFUSED: {asked.refusal!r}"
+    assert asked.depth_applied == 1

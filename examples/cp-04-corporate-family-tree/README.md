@@ -24,17 +24,22 @@ data says about the members that have a record. Neither store holds the answer;
 the assembly does.
 
 **A walk instead of a lookup, and the depth is part of the answer's identity.**
-`max_depth` is the parameter this rung exists for. Four properties ride on it
+`max_depth` is the parameter this rung exists for. Five properties ride on it
 and each is gated separately: absent, it takes the **declared default of 3**,
 read from `ccf_config.yaml`'s `request_contract.defaults` by the SDK's own
-request resolution rather than invented at serve time; a depth **this estate
-cannot exhibit is served** — asked 8, the walk reaches 3, and the payload's
-`traversal` finding carries the depth requested beside the depth reached; a
-depth above the **backend's technical capability** (100 here, read off the
-substrate in force, authority `technical`) is **refused by name** as
-`constraint-refusal` and answered at no narrower depth; and **two depths are
-two content addresses**, because they are two answers to two different
-questions. A silent clamp is the failure this rung is most exposed to — the
+request resolution rather than invented at serve time; below the **declared
+minimum of 1** — the parameter's valid domain, declared under
+`request_contract.argument_domains` and held by the SDK's request validation —
+it is refused as `below-minimum`, because a zero-hop family is not a question
+this product answers; a depth **this estate cannot exhibit is served** — asked
+8, the walk reaches 3, and the payload's `traversal` finding carries the depth
+requested beside the depth reached; a depth above the **backend's technical
+capability** (100 here, read off the substrate in force, authority
+`technical`) is **refused by name** as `constraint-refusal` and answered at no
+narrower depth; and **two depths are two content addresses**, because they are
+two answers to two different questions. Three numbers, three kinds of
+statement: `3` is what omission means, `1` is where the valid domain begins,
+`100` is what the backend can do — and only the first two are authored here. A silent clamp is the failure this rung is most exposed to — the
 request says 101, the walk does 100, the payload looks fine and the seal greens.
 
 **Ontology load-bearing in three places, not one.** The class chain is *served*,
@@ -131,14 +136,29 @@ the run asks the question declared in `artifacts/question.yaml`.
 | `make -s example-cp-04 ROLE=credit-officer` | the default perspective, named explicitly. Identical to the default run, `fad6e55d…` |
 | `make -s example-cp-04 LEI=549300F16C4PEFXU0S92` | a second anchor **inside the same family**. **Served** as a one-member family (`1 node(s) visited, 0 edge(s) walked`) carrying an `idle_jurisdictions` finding that names `US-DE`, the declared jurisdiction no member of *this* family serves; seals to `9865568d…`. See below |
 
-**6 · Three variations exit non-zero, and that is correct.** A refusal is not a
+**6 · Four variations exit non-zero, and that is correct.** A refusal is not a
 crash, but it is also not a success, so `make` reports `Error 1`. The program's
 own exit code is `1`; `make`'s is `2`, which is make's status for a failed
 recipe rather than anything this program chose. Each refusal is one line on
-**stderr** — stdout is empty — and the three blocks below quote that line byte
+**stderr** — stdout is empty — and the four blocks below quote that line byte
 for byte from a 2026-09-05 capture. The line prints the refusal's *reason* and
 the parameter it names; the *kind* travels on the envelope the program branched
 on, and each kind is named beneath its block.
+
+```
+make -s example-cp-04 MAX_DEPTH=0
+```
+
+> `refused: below-minimum — max_depth`
+
+That is the `product-request-violation` kind — the request is not a well-formed
+question of this class. The floor of `1` is the parameter's valid domain,
+declared on the request contract in `ccf_config.yaml` under `argument_domains`
+and held by the SDK's own `refuse_request`; it is not a policy constraint, and
+no module in this example reads the number. Deleting the declaration is the
+sabotage that makes `tests/examples/test_cp_04_traversal.py::test_the_floor_is_the_sdks_verdict_over_the_declaration_and_needs_no_store`
+go red — and it was watched going red, because before the floor was declared
+this ask was served as a one-node family.
 
 ```
 make -s example-cp-04 MAX_DEPTH=101
@@ -203,7 +223,7 @@ Swapping the anchor to a family with a wider jurisdiction footprint is therefore
 an **artifact edit as well as a parameter**, and the failure names the values
 the document does not declare.
 
-A fourth refusal is not one command away, because the committed estate cannot
+A fifth refusal is not one command away, because the committed estate cannot
 exhibit it: an LEI carried by **more than one node** is refused as
 `AnchorAmbiguityRefusal` (`CFT-G18`, `D-IMPL-245` (4)) — never a coin flip on the
 store's row order, never a 404, never a served family with a finding.
@@ -301,7 +321,7 @@ not replayed, and the most likely reason is that the ledger moved.
 | `artifacts/expected.yaml` | what the served product must contain, **declared rather than derived from a run**, plus the census of the estate and three deliberately wrong methods with the numbers each would have produced |
 | `artifacts/gates.yaml` | the **seventeen** product gates as data (`CFT-G18`, the ambiguous anchor, since 2026-09-03), each with the sabotage applied to it and the observed red recorded |
 | `backends.yaml` | the two store bindings — four environment variable names and their remedy strings, and nothing else |
-| `ccf_config.yaml` | the product class, the two operators, the request contract, the depth default and the capability binding that bounds it, and the declared-but-inert parameters |
+| `ccf_config.yaml` | the product class, the two operators, the request contract, the depth default, the declared floor and the capability binding that bounds it above, and the declared-but-inert parameters |
 | `deployment.py` | everything domain-specific: the ledger queries, the tables, the columns, the estate's vocabulary. Makes no fabric call |
 | `produce.py` | the fabric's call spine. Names no table, no column and no domain word |
 | `projection.py` | the perspective — the FIBO class axis that separates the two roles |
