@@ -297,6 +297,15 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.assembly.worker.RelationshipResolutionRule.predicate_key",
         "ccf.assembly.worker.RelationshipResolutionRule.subject_rule",
         "ccf.assembly.worker.RelationshipResolutionRule.object_rule",
+        # 24.6-01: the Authority layer's value (``24.6-L-07``, ``D-IMPL-253``
+        # Q1). Three optional members on three brand-new models, so there is
+        # no earlier generation to be a boundary against — ``True`` is the
+        # only coherent declaration: a bound with no policy behind it, a
+        # parameter nothing bounded, and an override attempt that found no
+        # grant each render without the key they have nothing to say under.
+        "ccf.products.provenance.ParameterBound.policy_id",
+        "ccf.products.provenance.EffectiveParameter.bound",
+        "ccf.products.provenance.OverrideRecord.grant_source",
     }
 )
 

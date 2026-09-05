@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**843 entries**, of which **601** name a public Python surface.
+**850 entries**, of which **608** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-410 entries — 371 public Python surface, 39 not public Python API.
+417 entries — 378 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -7454,6 +7454,132 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none. A consumer matching on `GateRefusal` subclasses sees a seventh
 
 *Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
+#### ccf.products.provenance.Authority
+
+- Surface: ccf.products.provenance.Authority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["default", "caller", "policy", "technical"]` — the four
+  authorities the worked cases produce: a product's declaration, the caller's
+  own question, a Control Plane policy constraint, and the backend capability
+  in force
+- Why: `D-IMPL-253` Q1. Case 4 has a `caller` value inside a `technical` bound,
+  which is why the authority is recorded per value *and* per bound rather than
+  once per parameter
+- Migration: none — a new name
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.provenance.AUTHORITIES
+
+- Surface: ccf.products.provenance.AUTHORITIES
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[frozenset[str]]`, derived from the `Literal` with
+  `get_args` rather than restated, so the vocabulary cannot drift into two
+  spellings. Closed by set equality in
+  `tests/products/test_provenance_semantics.py`
+- Why: `D-IMPL-253` Q1; the `SKILL_TYPES` precedent for a `Literal` and its
+  by-value twin
+- Migration: none — a new name
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.provenance.ProvenanceSource
+
+- Surface: ccf.products.provenance.ProvenanceSource
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ProvenanceSource(CCFContract)` with `kind: Literal["artifact",
+  "request", "capability"]`, `identity: str`, `version: str | None` (no
+  default). A `model_validator` refuses an `artifact` source carrying no
+  version and refuses a version on either of the other two kinds
+- Why: `D-IMPL-253` amendment 2 (1), Dave: *"Do not create fake artifacts just
+  to satisfy a uniform provenance schema."* A caller value's provenance is the
+  request identity and a technical maximum's is a backend capability; neither
+  has a version lane, and the validator is what makes the manufactured-artifact
+  path unrepresentable rather than merely discouraged
+- Migration: none — a new type
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.provenance.ParameterBound
+
+- Surface: ccf.products.provenance.ParameterBound
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ParameterBound(CCFContract)` with `operator: str`, `value: Any`,
+  `authority: Authority`, `source: ProvenanceSource`, and `policy_id: str |
+  None = None` marked hash-transparent (`D-IMPL-243`). `value` refuses a float
+  at construction, recursively through containers
+- Why: `24.6-L-07`. `operator` is a plain `str` and not
+  `ConstraintOperator` deliberately: a technical bound is not a policy
+  constraint and does not come from that artifact class, so typing it against
+  the policy vocabulary would claim a relationship the `technical` authority
+  does not have
+- Migration: none — a new type
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.provenance.EffectiveParameter
+
+- Surface: ccf.products.provenance.EffectiveParameter
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `EffectiveParameter(CCFContract)` with `name`, `value`, `authority`,
+  `source`, and `bound: ParameterBound | None = None` marked hash-transparent.
+  The triple the four cases force, plus the bound when one applied
+- Why: `D-IMPL-253` Q1. Case 3's caller value survives on
+  `RequestIdentity.parameters` and is never overwritten here — the fabric must
+  be able to say *"you asked for .30 and policy P bounds you to .20"*, not
+  *"you asked for .20"*
+- Migration: none — a new type
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.provenance.OverrideRecord
+
+- Surface: ccf.products.provenance.OverrideRecord
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `OverrideRecord(CCFContract)` with `policy_id`, `policy_version`,
+  `principal_id`, `entitled: bool`, `honored: bool`, and `grant_source:
+  ProvenanceSource | None = None` marked hash-transparent
+- Why: `D-IMPL-253` Q7 with Dave's addition — *"Naming the policy is necessary
+  but not sufficient authority to override it."* `entitled` and `honored` are
+  two facts and are recorded as two: an unentitled attempt is a thing that
+  happened and must be recordable, which one boolean would lose
+- Migration: none — a new type
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.provenance.EffectiveRequest
+
+- Surface: ccf.products.provenance.EffectiveRequest
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `EffectiveRequest(CCFContract)` with `parameters`, `guidance`,
+  `overrides`, `applied` (all tuples, all required) and `asked_at: datetime`,
+  plus `values()` (name to effective value, the engine's view) and
+  `parameter(name)`. A `model_validator` refuses two records for one parameter
+  name
+- Why: `D-IMPL-253` Q1 and Q6. `asked_at` is a **field**, never a clock read, so
+  constraint effectivity is evaluated at a reproducible instant — *"otherwise
+  replay of the same historical decision can resolve a different policy."*
+  `guidance` is carried beside the parameters rather than inside them so that a
+  reader cannot mistake non-refusing `preferred` guidance for a boundary that
+  decided something (Q5)
+- Migration: none — a new type
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
 
 ### Not public Python API
 

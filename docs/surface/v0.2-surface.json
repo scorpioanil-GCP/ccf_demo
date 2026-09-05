@@ -5118,6 +5118,76 @@
       }
     }
   },
+  "ccf.products.provenance": {
+    "__all__": [
+      "AUTHORITIES",
+      "Authority",
+      "EffectiveParameter",
+      "EffectiveRequest",
+      "OverrideRecord",
+      "ParameterBound",
+      "ProvenanceSource"
+    ],
+    "exports": {
+      "AUTHORITIES": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
+      "Authority": {
+        "kind": "function",
+        "shape": "typing.Literal['default', 'caller', 'policy', 'technical']"
+      },
+      "EffectiveParameter": {
+        "kind": "contract",
+        "shape": {
+          "authority": "typing.Literal['default', 'caller', 'policy', 'technical']",
+          "bound": "ccf.products.provenance.ParameterBound | None",
+          "name": "<class 'str'>",
+          "source": "<class 'ccf.products.provenance.ProvenanceSource'>",
+          "value": "typing.Any"
+        }
+      },
+      "EffectiveRequest": {
+        "kind": "contract",
+        "shape": {
+          "applied": "tuple[ccf.products.provenance.ProvenanceSource, ...]",
+          "asked_at": "<class 'datetime.datetime'>",
+          "guidance": "tuple[ccf.products.provenance.ParameterBound, ...]",
+          "overrides": "tuple[ccf.products.provenance.OverrideRecord, ...]",
+          "parameters": "tuple[ccf.products.provenance.EffectiveParameter, ...]"
+        }
+      },
+      "OverrideRecord": {
+        "kind": "contract",
+        "shape": {
+          "entitled": "<class 'bool'>",
+          "grant_source": "ccf.products.provenance.ProvenanceSource | None",
+          "honored": "<class 'bool'>",
+          "policy_id": "<class 'str'>",
+          "policy_version": "<class 'str'>",
+          "principal_id": "<class 'str'>"
+        }
+      },
+      "ParameterBound": {
+        "kind": "contract",
+        "shape": {
+          "authority": "typing.Literal['default', 'caller', 'policy', 'technical']",
+          "operator": "<class 'str'>",
+          "policy_id": "str | None",
+          "source": "<class 'ccf.products.provenance.ProvenanceSource'>",
+          "value": "typing.Any"
+        }
+      },
+      "ProvenanceSource": {
+        "kind": "contract",
+        "shape": {
+          "identity": "<class 'str'>",
+          "kind": "typing.Literal['artifact', 'request', 'capability']",
+          "version": "str | None"
+        }
+      }
+    }
+  },
   "ccf.products.refusal": {
     "__all__": [
       "NON_PRODUCT_REFUSALS",
