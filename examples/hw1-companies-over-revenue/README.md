@@ -156,13 +156,23 @@ command's stdout on the seeded copy and compares it to the fenced block under
 found, so a comparison that could pass on anything is caught before it passes on
 this.
 
-**The empty-fabric refusal is a separate, negative conformance test.**
-`tests/examples/test_hw1_empty_fabric_refusal.py` runs both documented commands
-against the *unseeded* copy and requires each to exit 1 and print the identical
-line `refused: empty-operator-result` — the fabric refusing by name, the same
-way on both transports. It is a useful conformance test and a poor primary
-teaching experience, which is why it is no longer what a clean checkout shows
-you first (`D-IMPL-245`).
+**The empty fabric is a separate, negative conformance test — and it is
+served, not refused.** `tests/examples/test_hw1_empty_fabric_refusal.py` keeps
+its name and runs both documented commands against the *unseeded* copy. Each
+exits 0 and prints the same bytes as the other: `0 of 0 assembled`, a content
+address, and a `D_c` of `0.0000` routing to `ok`. An operator that evaluates an
+empty graph has computed something, so the answer is a computed-empty product
+rather than a refusal (`D-IMPL-253` Q11/Q12) — *zero results is not zero
+knowledge*. The search behind that zero rides on the product as
+`computed_empty`: which operators ran, which of them returned nothing, and the
+store head they read against. The `D_c` comes from that evidence and never from
+the row count; this deployment declares completeness and semantic consistency as
+`1` in `deployment/binding.yaml`, so the figure is `0`. Where a tolerance is
+declared and the measured `D_c` exceeds it, the answer is a `tolerance-exceeded`
+shell instead — hw1 declares none, in either the product class or the request
+contract. Two transports agreeing on an empty answer is a useful conformance
+test and a poor primary teaching experience, which is why it is not what a clean
+checkout shows you first (`D-IMPL-245`).
 
 **What *is* proven always-on underneath all of that** is the thing a reader
 actually depends on — the **client contract**. The four-name surface, the
