@@ -791,9 +791,16 @@ def test_the_debt_tolerance_contract_claims_no_unenforced_409() -> None:
     `24.6-03`, when the resolution moved into the Authority layer) and
     `DeclaredObligationRefusal`, which
     `runtime/ccf_runtime/http_api/routes/product.py::retrieve` maps to HTTP
-    `409` — for a class that DECLARES a ceiling. cp-04 declares none
-    (`D-IMPL-240` (3)), so the artifact prose this test reads stays advisory
-    and every assertion below is unchanged.
+    `409`.
+
+    **2026-09-04 (Phase 24.6, plan `24.6-04`), re-cited.** The ceiling is now
+    a class's `default_debt_tolerance` — informative, and applied only when the
+    caller states no tolerance (`D-IMPL-251` C1=A). cp-04 declares none, so
+    nothing about it is bounded by its class; a caller's own `debt_tolerance`
+    would be enforced as requested and, if exceeded, answered by the
+    `tolerance-exceeded` shell rather than by the `409` family. The artifact
+    prose this test reads stays advisory and every assertion below is
+    unchanged.
     """
     import dataclasses
 

@@ -801,20 +801,21 @@ def refuse_over_tolerance(
     """
     if tolerance is None:
         return None
-    limit = tolerance.value
-    if not isinstance(limit, Decimal):
-        # The request boundary refuses a non-proportion by name before a
-        # resolution exists (`24.5-REVIEW.md` WR-02), and the Control Plane
-        # reads a constraint's number as a `Decimal`. A value that is neither
-        # is a wiring failure rather than a governed determination, so it
-        # raises rather than silently comparing something that is not a
-        # proportion (`D-IMPL-253` amendment 2 (3)).
+    presented = tolerance.value
+    if isinstance(presented, bool) or not isinstance(presented, (int, Decimal)):
+        # The same reading of "is this a number" that the request boundary
+        # applies (`ccf.products.request::_refuse_tolerance`): `bool` is an
+        # `int` to Python and not to the contract, and a `float` never reaches
+        # a resolution at all because `EffectiveParameter` refuses one at
+        # construction. Anything else is a wiring failure rather than a
+        # governed determination, so it raises (`D-IMPL-253` amendment 2 (3)).
         raise TypeError(
             f"the effective {tolerance.name!r} resolved to"
-            f" {type(limit).__name__}, which is not a Decimal proportion; a"
-            " tolerance the fabric cannot compare against D_c is a"
+            f" {type(presented).__name__}, which is not a numeric proportion;"
+            " a tolerance the fabric cannot compare against D_c is a"
             " configuration failure, not a governed determination"
         )
+    limit = Decimal(presented)
     assessment = product.product.debt
     if assessment is None:
         return ToleranceExceededRefusal(
