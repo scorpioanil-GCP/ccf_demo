@@ -3321,7 +3321,7 @@ Plans:
 - [x] 24.6-11-PLAN.md — delivery is deterministic for fulfilled and refused responses; the `D-IMPL-254` invariant enforced with its four sabotages rostered; the `D-IMPL-256` delivery-boundary replay invariant over the whole surface — no transport mints, discloses or catches (C-26, C-27, C-36)
 - [x] 24.6-12-PLAN.md — the present-tense sweep codified with a derived universe; `CP04_IDS` derived; cp-01 captions computed and two comments superseded; cp-04's dead loop deleted (C-28, C-29, C-30, C-31; L-09..L-13)
 - [x] 24.6-13-PLAN.md — cp-04 on the delivery boundary: the bound of 6 deleted, depth 8 served, the technical limit refused by name, twelve sites executed, depth and cost in findings, lane 1.1.0, seals re-hashed live (C-17, C-32, C-33, C-34; L-01, L-02)
-- [ ] 24.6-14-PLAN.md — cp-04 prose present tense, CP-SPEC-004 §B.4.1 superseded, transcript diffed and re-pinned; cp-01 page rebuilt; both ids re-resolved; the one publish checkpoint (C-20, C-30, C-34; L-01, L-11, L-12, L-15)
+- [x] 24.6-14-PLAN.md — cp-04 prose present tense, CP-SPEC-004 §B.4.1 superseded, transcript diffed and re-pinned; cp-01 page rebuilt; both ids re-resolved; the one publish checkpoint (C-20, C-30, C-34; L-01, L-11, L-12, L-15)
 - [ ] 24.6-15-PLAN.md — close evidence: every instrument with its control, the four foreground chunks and both legs, the five lock instruments, the sabotage roster, the panel packet inlined; panel and review owed after Dave's build evaluation (C-01, C-02, C-35; L-14, L-18, L-19)
 - [x] 24.6-16-PLAN.md — the experience server's three entitlement paths through the governed step, shelled and recorded; `build_experience_server` refuses at construction without a recorder; the door's own no-mint gate and bound-door loop (C-25, C-36; L-03)
 

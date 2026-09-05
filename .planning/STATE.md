@@ -3,8 +3,25 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-05T11:10:00.000Z"
+last_updated: "2026-09-05T12:20:00.000Z"
 last_activity: >-
+  **PHASE 24.6 EXECUTING — waves 1–11 of 12 done; plan 14 COMPLETE, both pages PUBLISHED IN PLACE (2026-09-05 05:20 MST, resumed session on `phase-24.6`).**
+  Wave 11 (plan 14, `autonomous: false`): cp-04's transcript captured on the shared estate (Dave: Fluree up on `192.168.4.76:8090`, 4.1.4;
+  `fibo-v2` at `t=5296`), diffed hunk by hunk (6 hunks, each attributed: `@1.0.2`, lane `1.1.0`, depth/cost lines, findings roster, policy
+  version off `booted.pins`) and re-pinned at `5f0c4d5a`; README/summary/CP-SPEC-004 §B.4/§B.4.1 present tense; cp-01 diff EMPTY, page byte-identical;
+  `24.6-PUBLICATION.md` at `fd81cb45`. **At the checkpoint Dave ruled `D-IMPL-259`:** publish approved CONDITIONAL on the F-3 fix — `MAX_DEPTH=0`
+  was served (plan 13 deleted `argument_bounds`, the floor of 1 went with the 6) → a floor of 1 declared ON THE REQUEST CONTRACT through the SDK
+  (`ArgumentDomain`, `ProductRequestContract.argument_domains`, `below-minimum`/`above-maximum`, domain step LAST in `refuse_request`), NOT a
+  Policy Constraint and NOT the old example-local check; shipped at `958a12e0` (sabotages: declaration deleted → 1 red, domain step removed → 4 red;
+  112 request-contract tests; 39 live traversal tests, `0` refused as data / `1` served; re-capture byte-identical; one throwaway `cp04-*` branch on `ccf`).
+  Premise corrections flagged in `D-IMPL-259`, not absorbed: the declared default is **3** (Dave wrote "remains 6"); above 100 stays `constraint-refusal`.
+  F-1 (replay-carriage sentence on cp-01/02/03): Dave — leave them alone, carry as measured/unresolved. Published by the orchestrator on Dave's written
+  approval (*"Publish both pages in place at the two re-resolved IDs"*): cp-04 `f20ed519-…` (sha `708d1134…`, page names `958a12e0`), cp-01 `6edeeba9-…`
+  (sha `1a24c649…`); the publish tool refused each until the live copy was read in full; post-publish gallery: only the two rungs dated today, decoys
+  `c0f12122-…`/`ee54f990-…` untouched. Record at `4f1e88b1`; `24.6-14-SUMMARY.md`; plan 14 ticked BY HAND; digest `c0fdc4f4…` reproduced (36/0/control
+  fires); `RETIREMENT-COUPLINGS.md` regenerated last. **Next:** wave 12 (plan 15, close evidence) incl. `make leg-fluree`/`leg-postgres` in full
+  against the shared estate (plan 13 F-2), the PRE-PHASE `gate-tools` red (plan 12 F-1) and the 258-FIXES F-1/F-2 still for Dave; then Dave's build
+  evaluation BEFORE panel/review. Next free id `D-IMPL-260`. Hand-edited; no `state.*`/`roadmap.*` writer ran; not pushed. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 EXECUTING — waves 1–10 of 12 done plus the `D-IMPL-258` fix MERGED (2026-09-05 04:10 MST, resumed session on `phase-24.6`).**
   The 258 fix (limbs (2) and (5)) was found complete but UNCOMMITTED in its worktree at session start; verified there (1951 passed,
   the one red = the clean-tree guard, uncommitted files), committed `41bb1907`, merged `--no-ff` as `ea1af296` onto plan 13's tip, generated
@@ -1298,6 +1315,16 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**PHASE 24.6 IS EXECUTING — waves 1–11 of 12 done (plans 01–14, 16), 2026-09-05 05:20 MST, on `phase-24.6` at the commit
+carrying this line; NOT pushed.** Criteria locked at 36 (`24.6-CRITERIA-LOCK.md`, Amendment 3 digest `c0fdc4f4…` reproduces).
+Mid-phase rulings: `D-IMPL-256` (before Wave 1), `D-IMPL-257` (Wave 5, fence widened narrowly for citation maintenance),
+`D-IMPL-258` (Wave 10, five findings; fix merged `ea1af296`), `D-IMPL-259` (Wave 11, cp-04 `max_depth` floor of 1 on the request
+contract; shipped `958a12e0`). Both rung pages are PUBLISHED IN PLACE: cp-04 `f20ed519-…`, cp-01 `6edeeba9-…` (`24.6-PUBLICATION.md`).
+Open for Dave: plan 13 F-2 (full `leg-fluree`/`leg-postgres` on the shared estate), plan 12 F-1 (PRE-PHASE `gate-tools` red),
+258-FIXES F-1/F-2, `D-IMPL-259`'s two flagged readings (default 3; above-100 stays `constraint-refusal`). Next id `D-IMPL-260`.
+**Resume with `/gsd-execute-phase 24.6` at wave 12 (plan 15, close evidence); then Dave's build evaluation BEFORE panel/review.**
+The paragraphs below are the record as it stood at earlier sittings.
 
 **PHASE 24.6 IS DISCUSSED — `D-IMPL-252` (not a product rung) and `D-IMPL-253` (28 rulings), Dave, 2026-09-04.**
 Context at `.planning/phases/24.6-sdk-gap-phase-the-delivery-boundary-realized-refusal-as-a-go/24.6-CONTEXT.md`;
