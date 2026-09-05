@@ -85,7 +85,6 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
-from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.claims import RelationshipClaim
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.entitlement import (
@@ -94,6 +93,7 @@ from ccf.products.entitlement import (
     ProductEntitlementPolicy,
     product_entitlement_key,
 )
+from ccf.products.refusal import REFUSAL_KINDS
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.projection.plan import Perspective
@@ -149,7 +149,9 @@ class ComposedDoor:
     refusal_recorder: ReplayRefusalRecorder
 
 
-def build_resolver(*, root: Path) -> Callable[..., Any]:
+def build_resolver(
+    *, root: Path, refusal_recorder: ReplayRefusalRecorder
+) -> Callable[..., Any]:
     """The deployment's assemble-and-gate path, over one scratch directory.
 
     ``root`` is scratch space for each assembly's per-run SQLite L3 and its
@@ -159,11 +161,19 @@ def build_resolver(*, root: Path) -> Callable[..., Any]:
     inside it, so two asks of the same question build two separate graphs from
     the same two estates and must still agree byte for byte.
 
+    ``refusal_recorder`` is the ONE recorder `compose` constructed, handed in
+    rather than built here: the door's entitlement denials and the assembler's
+    own refusals are recorded by one recorder over one store, so a caller
+    cannot tell from the audit plane which layer said no (`D-IMPL-256`,
+    criterion 36). It is a required keyword with no default, which is what
+    makes a resolver that could refuse without recording unbuildable rather
+    than merely discouraged.
+
     Returns:
         A callable conforming to
         `runtime/ccf_runtime/mcp/egress.py::ProductResolverProtocol` — five
         keyword arguments, and either a served product or a governed refusal
-        returned as data.
+        returned as data, already recorded and already disclosed.
     """
 
     def resolve(
@@ -191,24 +201,30 @@ def build_resolver(*, root: Path) -> Callable[..., Any]:
         Returns:
             The `ccf.replay.serve.py::ServedProduct` the assembly produced —
             the vessel and the replay reference the door publishes beside it —
-            or a `ccf.products.request.py::ProductRequestViolation`, which is
-            one of `ccf.products.refusal.py::REFUSAL_KINDS` and therefore
-            crosses the wire as a governed refusal rather than as an error.
+            or an already-recorded, already-disclosed
+            `ccf.products.refusal.py::RefusalEnvelope` for every governed
+            determination the assembler returns. The SDK's door passes an
+            envelope through `ccf.products.door::door_refusal` unchanged, so
+            the shell a consumer receives is the one the recorder disclosed and
+            not a second rendering of it.
 
         Raises:
             ProductNotServable: ``request`` is ``None``. **The resource path.**
                 This class is parameterized and there is no standing answer for
                 a parameter-free read to serve.
-            ccf.agents.errors.AssemblyRefused: identity, contract or existence —
-                a foreign tenant, an undeclared role, an over-ceiling depth, a
-                declared-but-inert parameter, or an anchor that resolves to no
-                family. Propagated rather than translated, for the reason
-                `transport.py` records at length: `AssemblyRefused` is not in
-                `ccf.products.refusal.py::REFUSAL_KINDS`, so there is no
-                envelope to translate it into, and synthesizing one would report
-                a refusal in a vocabulary the fabric does not have. **This is
-                the same SDK-surface gap the in-process caller meets**, so both
-                callers meet it identically rather than the door hiding it.
+            ccf.agents.errors.AssemblyRefused: an INVARIANT FAILURE inside the
+                deployment — never a verdict about the caller (`24.6-L-02`,
+                `D-IMPL-255` (5)). It reaches an MCP client as an opaque
+                `ccf-runtime-failure:<id>` (plan `24.6-10`), which is what a
+                condition the fabric could not determine an answer to should
+                look like from outside.
+
+                SUPERSEDED 2026-09-04: this entry listed a foreign tenant, an
+                undeclared role, an over-bound depth, a declared-but-inert
+                parameter and an unresolvable anchor as reaching it, and called
+                that an SDK-surface gap because the closed refusal vocabulary
+                named none of them. Every one of the five is a governed
+                determination now and is RETURNED as a typed envelope.
         """
         if request is None:
             raise ProductNotServable(
@@ -250,7 +266,8 @@ def build_resolver(*, root: Path) -> Callable[..., Any]:
             )
 
         seen: list[Any] = []
-        outcome = assembler.FamilyTreeAssembler(
+        typed = _typed(request)
+        product = assembler.FamilyTreeAssembler(
             config=deployment.CONFIG,
             root=root,
             connection=deployment.connection(root=root),
@@ -258,13 +275,41 @@ def build_resolver(*, root: Path) -> Callable[..., Any]:
             plan_class=projection.plan_class(),
             claims=claims,
             observer=seen.append,
-        ).assemble(
-            request=_typed(request),
+        )
+        outcome = product.assemble(
+            request=typed,
             # FORWARDED. The perspective this door's entitlement authorized is
             # the perspective the assembly runs under.
             perspective=perspective,
             tenant_id=deployment.tenant_id(),
         )
+
+        # EVERY GOVERNED DETERMINATION THE ASSEMBLER RETURNS IS MINTED HERE,
+        # THROUGH THE DOOR's OWN RECORDER (criterion 36, `D-IMPL-256`). This is
+        # the ONE place cp-04 wraps the assembler into a resolver for the MCP
+        # door, so it is the one place the refusal can be recorded before the
+        # response is released — and the recorder is the same instance the
+        # door's entitlement denials go through, over the same
+        # `FileArtifactStore` `produce.py::_serve` writes.
+        #
+        # The deployment ENCODES and does not decide: `deployment.py` builds
+        # the envelope through the SDK's own `envelope_for` and hands it to the
+        # SDK's own recorder, which discloses, writes and returns the shell.
+        # ON THE EXACT TYPE, NEVER `isinstance` — the discipline
+        # `ccf.products.refusal::envelope_for` states at its own head: an
+        # `isinstance` chain would translate an unknown subclass as its nearest
+        # known ancestor and report that ancestor's kind. Reading the SDK's
+        # closed vocabulary rather than listing types here also means a kind
+        # added to it needs no edit in this file.
+        if type(outcome) in REFUSAL_KINDS:
+            return deployment.record_refusal(
+                outcome,
+                recorder=refusal_recorder,
+                request=typed,
+                perspective=perspective,
+                assembler_id=product.assembler_id,
+                assembler_version=product.assembler_version,
+            )
 
         # `seen` is this call's own observer log and never a shared history, so
         # there is no previous question's vessel for an empty produce to hand
@@ -346,7 +391,10 @@ def compose(*, root: Path) -> ComposedDoor:
     """
     control_plane = ControlPlaneRegistry()
     declared = deployment.config()[deployment.KEY_PRODUCT_CLASS]
-    perspective = deployment.perspective()
+    # The DECLARED default, with no caller role in play — so the only way it
+    # can fail is the authoring error `deployment.py::perspective` exits on,
+    # and this composition has no governed refusal to branch on.
+    perspective = deployment.declared_perspective()
     control_plane.register_typed(
         product_entitlement_key(tenant_id=deployment.tenant_id()),
         ProductEntitlementPolicy(
@@ -373,26 +421,28 @@ def compose(*, root: Path) -> ComposedDoor:
         control_plane=control_plane,
         clock=lambda: datetime.now(UTC),
     )
+    # CONSTRUCTED BEFORE THE RESOLVER AND HANDED IN — one instance, not two.
+    # The door's entitlement denials and the assembler's own refusals are
+    # recorded by this recorder, over the store `produce.py::_serve` writes, so
+    # cp-04's audit plane has one writer whichever layer said no. The
+    # construction lives in `deployment.py` rather than here because it is the
+    # audit plane's shape rather than this door's wiring, and `transport.py`
+    # reaches the same constructor — two spellings of it would be two audit
+    # planes that happen to agree today.
+    #
+    # The posture is read through the ONE entitlement source above, so a
+    # denial and the shell a caller sees are decided under one reading of one
+    # policy.
+    refusal_recorder = deployment.refusal_recorder(
+        root=root,
+        disclosure_level_for=entitlement_source.disclosure_level_for,
+    )
     return ComposedDoor(
         tenant_id=deployment.tenant_id(),
         principal_id=perspective.principal_id,
         role=perspective.role,
         control_plane=control_plane,
-        resolver=build_resolver(root=root),
+        resolver=build_resolver(root=root, refusal_recorder=refusal_recorder),
         entitlement_source=entitlement_source,
-        refusal_recorder=ReplayRefusalRecorder(
-            # The store `produce.py::_serve` writes, named from the same
-            # deployment constant rather than spelled here — never a second
-            # store, or a denial and the product it was denied against would be
-            # filed in two places.
-            artifact_store=FileArtifactStore(
-                root=root / deployment.ARTIFACT_STORE_DIRNAME
-            ),
-            replay_record_class=deployment.REPLAY_RECORD_CLASS,
-            tenant_id=deployment.tenant_id(),
-            # Off `ccf_config.yaml`, never a literal (CLAUDE.md §6.4).
-            assembly_mode=str(declared["assembly_mode"]),  # type: ignore[arg-type]
-            # The posture in force, read through the ONE source above.
-            disclosure_level_for=entitlement_source.disclosure_level_for,
-        ),
+        refusal_recorder=refusal_recorder,
     )

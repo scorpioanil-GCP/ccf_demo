@@ -113,7 +113,9 @@ is unreadable without it:
    :func:`served_jurisdictions` reads each member's STORED value or ``None``,
    never the anchor's, and :func:`refuse_open_jurisdiction_world` closes that
    world in **both** directions, so neither a dropped row nor a quietly added
-   one can ship. The 20 members carrying no row surface as an
+   one goes unreported — the dropped row RAISES (the estate serves what the
+   declaration does not carry) and the added one is RETURNED as an
+   ``idle_jurisdictions`` finding naming it (`24.6-L-02`, `D-33`). The 20 members carrying no row surface as an
    ``unresolved_jurisdiction`` finding carrying their ROSTER — never as a count
    and never as ``len(findings) > 0``, which is the discipline ``D-13`` fixed
    for cycles.
@@ -152,7 +154,7 @@ import os
 import re
 import uuid
 from collections import defaultdict
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -163,19 +165,33 @@ import httpx
 import psycopg
 import yaml
 
-from ccf.agents.errors import AssemblyRefused
+from ccf.agents.errors import (
+    ASSEMBLY_REASON_UNDECLARED_ROLE,
+    AssemblyRefusal,
+    AssemblyRefused,
+)
 from ccf.assembly.worker import EntityResolutionSpec
 from ccf.contracts.claims import LineageEntry, RelationshipClaim
 from ccf.controlplane.artifacts import (
+    DEPLOYMENT_CONFIG,
     DebtProfile,
+    DeclaredArtifact,
+    DeploymentConfig,
     HalfLifeTable,
     OperatorParametersArtifact,
     PerspectiveArtifact,
     ProductClassDeclaration,
+    load_artifact,
 )
+from ccf.artifacts.file_store import FileArtifactStore
+from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import BootedFabric
-from ccf.graph.backends.fluree import DEFAULT_BRANCH
+from ccf.deployment.config import derive_deployment
+from ccf.graph.backends.fluree import DEFAULT_BRANCH, MAX_DEPTH_CEILING
+from ccf.products.provenance import ProvenanceSource
+from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestContract
+from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.projection.plan import Perspective
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
@@ -215,6 +231,11 @@ KEY_TENANT = "tenant_id"
 KEY_PERSPECTIVE = "default_perspective"
 KEY_PRODUCT_CLASS = "product_class"
 KEY_REQUEST_CONTRACT = "request_contract"
+#: The two keys a materialised section is identified by — the adopter-owned
+#: class id every section declares, and the schema name a product class
+#: carries. Named rather than spelled at each read (CINV-01).
+KEY_CLASS_ID = "class_id"
+KEY_SCHEMA_NAME = "schema_name"
 KEY_OPERATORS = "operators"
 KEY_TRAVERSAL_OPERATOR = "traversal.typed-neighborhood"
 KEY_POLICY_OPERATOR = "policy.principal-subgraph"
@@ -325,6 +346,19 @@ DIRECTION_OBJECT_TO_SUBJECT = "object_to_subject"
 FINDING_OWNERSHIP_CYCLE = "ownership_cycle"
 FINDING_DUPLICATE_ENTITY = "duplicate_entity_pair"
 
+#: The walk ran and reached nothing — a DETERMINATION, served with the
+#: product rather than raised (`D-33`, `D-IMPL-255` (5)). The roster is
+#: empty because there is nothing to name, which is what this finding says.
+FINDING_COMPUTED_EMPTY_WALK = "computed_empty_walk"
+
+#: A DECLARED served jurisdiction that no member of THIS family serves.
+#: Over the estate it is the idle-row shape `D-IMPL-228` refused; over one
+#: family it is an ordinary fact about which of the declared values this
+#: answer exhibits, so it is a determination the payload carries rather
+#: than a refusal (`D-33`: *"Declared jurisdiction with no member serving
+#: it -> Governed determination -> return"*).
+FINDING_IDLE_JURISDICTIONS = "idle_jurisdictions"
+
 PARAM_INTENT = "intent"
 PARAM_MAX_DEPTH = "max_depth"
 
@@ -341,11 +375,13 @@ PARAM_DEBT_TOLERANCE = "debt_tolerance"
 #: under `parameters:` — see :func:`demonstration_request`.
 PARAM_LEI = "lei"
 
-KEY_ARGUMENT_DEFAULTS = "argument_defaults"
-KEY_ARGUMENT_BOUNDS = "argument_bounds"
+#: The SDK's own declaration key for what omission means
+#: (`src/ccf/products/request.py::ProductRequestContract.from_declared`). Named
+#: here so this module reads the same key the SDK reads rather than a spelling
+#: of its own — `24.6-L-01` moved `argument_defaults` onto it, and
+#: the key naming the deleted bound went with the bound (`D-IMPL-253` Q21).
+KEY_DEFAULTS = "defaults"
 KEY_UNSUPPORTED = "unsupported_arguments"
-KEY_MINIMUM = "minimum"
-KEY_MAXIMUM = "maximum"
 KEY_DEPTH_LIMIT = "depth_limit"
 KEY_RELATIONSHIP_TYPES = "relationship_types"
 KEY_SEED_ENTITY_CLASSES = "seed_entity_classes"
@@ -436,7 +472,7 @@ def tenant_id() -> str:
     return str(config()[KEY_TENANT])
 
 
-def perspective(role: str | None = None) -> Perspective:
+def perspective(role: str | None = None) -> Perspective | AssemblyRefusal:
     """The role-conditioning this product is served under.
 
     ``principal_id`` here is the DEFAULT and not the rule. Whether the calling
@@ -450,8 +486,24 @@ def perspective(role: str | None = None) -> Perspective:
     claim is that two roles see the same family differently, and a product that
     could only be asked as one of them could not exhibit it. The roster is
     ``artifacts/source-vocabulary.yaml::perspective_conditioning.roles``; an
-    undeclared role raises here rather than being served a default view, which
-    is the shape a silently-widened perspective takes.
+    undeclared role is REFUSED rather than served a default view, which is the
+    shape a silently-widened perspective takes.
+
+    **THE UNDECLARED ROLE IS A GOVERNED DETERMINATION AND IS RETURNED**
+    (``24.6-L-02``, ``D-IMPL-255`` (5)). The fabric knows both the role that
+    was asked and the roster it conditions on, so it can reach a valid
+    determination and says so as a value: an
+    :class:`~ccf.agents.errors.AssemblyRefusal` carrying the SDK's own
+    :data:`~ccf.agents.errors.ASSEMBLY_REASON_UNDECLARED_ROLE` token, which is
+    in ``ccf.products.refusal::REFUSAL_KINDS`` and therefore crosses either
+    door as ``assembly-refusal`` without a translation. SUPERSEDED 2026-09-04:
+    this raised ``AssemblyRefused`` so ``FastMCP`` would envelope it as a
+    governed ``isError`` (CR-01, 2026-09-01) — a channel narrowed to invariant
+    failure since, and one this condition is not.
+
+    The ``SystemExit`` below is untouched and is a DIFFERENT subject: its
+    complaint is about ``ccf_config.yaml``, not about a caller, and no request
+    can trigger it.
     """
     declared = config()[KEY_PERSPECTIVE]
     roles = declared_roles()
@@ -464,18 +516,43 @@ def perspective(role: str | None = None) -> Perspective:
         )
     chosen = default if role is None else role
     if chosen not in roles:
-        # SERVE-PATH REFUSAL — the subject is the CALLER's `role`, reached per
-        # request. `AssemblyRefused` (a `ValueError`) rather than `SystemExit`,
-        # so `FastMCP` envelopes it as a governed `isError` instead of the
-        # process-lifetime `BaseException` that tears the door down (CR-01,
-        # 2026-09-01; `assembler.py::FamilyTreeAssembler.assemble` already
-        # refuses this same undeclared-role condition with `AssemblyRefused`).
-        raise AssemblyRefused(
-            f"role {chosen!r} is not declared by this deployment; the declared"
-            f" roles are {list(roles)}. An undeclared role served a default"
-            f" view is a perspective widened by omission"
+        # SERVE-PATH DETERMINATION — the subject is the CALLER's `role`,
+        # reached per request. The reason token is the SDK's, reused rather
+        # than re-spelled: the condition is the one D-15 names, and a
+        # deployment inventing a second spelling of it would make one fact two
+        # vocabularies (CINV-01 permits the deployment its own tokens; it does
+        # not require one where the SDK already has the right word).
+        return AssemblyRefusal(
+            reason=ASSEMBLY_REASON_UNDECLARED_ROLE,
+            detail=(
+                f"role {chosen!r} is not declared by this deployment; the"
+                f" declared roles are {list(roles)}. An undeclared role served"
+                f" a default view is a perspective widened by omission"
+            ),
         )
     return Perspective(principal_id=str(declared["principal_id"]), role=chosen)
+
+
+def declared_perspective() -> Perspective:
+    """The DECLARED DEFAULT perspective, with no caller role in play.
+
+    A separate entry from :func:`perspective` because the two have different
+    failure modes and only one of them is a governed determination: this one
+    takes no caller input, so the only way it can fail is the authoring error
+    the ``SystemExit`` above names, and a composition that had to branch on a
+    refusal it cannot receive would be reading a possibility into its own
+    wiring.
+    """
+    conditioned = perspective()
+    if isinstance(conditioned, AssemblyRefusal):  # pragma: no cover
+        raise SystemExit(
+            "the DECLARED default perspective was refused as an undeclared"
+            f" role: {conditioned.detail}. The guard above should have made"
+            " this unreachable, so reaching it means ccf_config.yaml and"
+            " artifacts/source-vocabulary.yaml disagree in a way that guard"
+            " does not see"
+        )
+    return conditioned
 
 
 # ---------------------------------------------------------------------------
@@ -511,33 +588,272 @@ def seed_entity_classes() -> tuple[str, ...]:
     return tuple(str(name) for name in declared[KEY_SEED_ENTITY_CLASSES])
 
 
-def declared_depth_ceiling() -> int:
-    """The ceiling, from ``request_contract.argument_bounds``.
+@dataclass(frozen=True)
+class GraphLegCapability:
+    """What the graph leg is technically able to walk — SDK-defined, read here.
 
-    Measured rather than picked: walking all 83 roots, the deepest tree
-    anywhere in this estate is depth 6, which ``PSC-0124`` attains — one of
-    seven roots that do, so this is never phrased as *the* deepest root. A
-    ceiling of 6 truncates no tree in this estate.
+    Conforms structurally to
+    ``src/ccf/graph/protocols.py::TraversalDepthCapability`` (SDK-defined per
+    CLAUDE.md §11; ``D-IMPL-253`` Q21). It exists so the technical limit can
+    reach the request as an authority rather than as a number this deployment
+    typed: ``src/ccf/products/constraints.py::resolve_effective_request`` reads
+    it, records the bound with ``authority == "technical"`` and a
+    ``capability``-kind provenance source, and refuses an over-capability depth
+    **by name**.
+
+    **THE VALUE IS THE SDK ADAPTER's, NOT THIS DEPLOYMENT's.**
+    :data:`~ccf.graph.backends.fluree.MAX_DEPTH_CEILING` is the bound the
+    Fluree adapter's own injection surface carries, imported rather than
+    restated: a number written here would be exactly the authored ceiling
+    ``D-IMPL-253`` Q21 took away (CLAUDE.md §6.4, CINV-01).
+
+    **AND THE STORE IS NOT CONSTRUCTED TO ASK IT.** cp-04 reads its graph leg
+    over the Fluree HTTP query route directly (:func:`walk_from_anchor`) rather
+    than through ``FlureeGraphStore``, because that store BOOTSTRAPS a ledger
+    at construction and this estate is read-only to this repository. So the
+    capability is reported by this small value beside the leg it describes,
+    which is the Protocol's own posture: *"a consumer asks
+    ``isinstance(store, TraversalDepthCapability)``"*, and structural
+    conformance is what the Protocol is for.
+
+    Attributes:
+        ledger: The ledger this capability is reported for. Credential-free —
+            it is a NAME, never the URL, which carries a host and may carry
+            userinfo.
     """
-    bounds = config()[KEY_REQUEST_CONTRACT][KEY_ARGUMENT_BOUNDS][PARAM_MAX_DEPTH]
-    return int(bounds[KEY_MAXIMUM])
+
+    ledger: str
+
+    @property
+    def max_traversal_depth(self) -> int:
+        """The deepest traversal this substrate translates natively."""
+        return MAX_DEPTH_CEILING
+
+    @property
+    def capability_identity(self) -> str:
+        """What an examiner resolves a technical bound from this leg by."""
+        return f"fluree/{self.ledger}"
 
 
-def declared_depth_floor() -> int:
-    bounds = config()[KEY_REQUEST_CONTRACT][KEY_ARGUMENT_BOUNDS][PARAM_MAX_DEPTH]
-    return int(bounds[KEY_MINIMUM])
+def traversal_depth_capability() -> GraphLegCapability:
+    """The graph leg's traversal capability, named by the ledger it reads."""
+    return GraphLegCapability(ledger=graph_source().ledger)
 
 
 def declared_depth_default() -> int:
     """The DECLARED default — ``CFT-G04``'s whole subject.
 
-    Read from ``request_contract.argument_defaults`` and never invented here.
-    The gate is sabotaged by defaulting at serve time instead of reading the
-    declaration, and a default living in this module would make that sabotage
-    indistinguishable from the shipped code.
+    Read from ``request_contract.defaults`` — the SDK's own declaration key
+    since ``24.6-L-07`` — and never invented here. The gate is sabotaged by
+    defaulting at serve time instead of reading the declaration, and a default
+    living in this module would make that sabotage indistinguishable from the
+    shipped code.
+
+    **NOTHING IN THIS MODULE APPLIES IT.** The value is read for the report and
+    for the two documents' agreement check; what actually resolves an omitted
+    ``max_depth`` is
+    ``src/ccf/products/constraints.py::resolve_effective_request``, over the
+    same declaration, so a defaulted value arrives carrying the authority
+    ``default`` and this document's pin.
     """
-    declared = config()[KEY_REQUEST_CONTRACT][KEY_ARGUMENT_DEFAULTS]
+    declared = config()[KEY_REQUEST_CONTRACT][KEY_DEFAULTS]
     return int(declared[PARAM_MAX_DEPTH])
+
+
+def refusal_recorder(
+    *,
+    root: Path,
+    disclosure_level_for: Callable[..., Any] | None = None,
+) -> ReplayRefusalRecorder:
+    """The ONE recorder every governed refusal this deployment returns is minted through.
+
+    ``D-IMPL-256`` (2), Dave: *"a door configured to make governed
+    determinations without the ability to record them is not a valid governed
+    door."* Criterion 36 makes it structural — *"every governed determination
+    that crosses a CCF delivery boundary, fulfilled or refused, must reach the
+    replay writer before the response is released."*
+
+    **ONE CONSTRUCTOR RATHER THAN ONE PER CALLER, AND THAT IS DELIBERATE.**
+    ``server/compose.py`` and ``transport.py`` restate the assembly's
+    COLLABORATOR wiring on purpose, with a test comparing what the two produce.
+    A recorder is not that: it is the audit plane's shape — which store, which
+    record class, which tenant, which assembly mode — and two spellings of it
+    would be two audit planes that happen to agree today. The store is the one
+    ``produce.py::_serve`` writes (``root / ARTIFACT_STORE_DIRNAME``), never a
+    second store, or a denial and the product it was denied against would be
+    filed in two places.
+
+    Args:
+        root: The per-run scratch root the assembly writes its artifacts under.
+        disclosure_level_for: How this recorder reads the disclosure posture in
+            force. The MCP door passes its entitlement source's reader, so the
+            denial and the shell a caller sees are decided under one reading of
+            one policy. ``None`` — the in-process caller, which registers no
+            entitlement policy — leaves the SDK's own safe default: a recorder
+            with no Control Plane to ask discloses at ``minimal``.
+
+    Returns:
+        The recorder, constructed exactly as
+        ``ccf.products.resolver::build_governed_resolver`` builds its own.
+    """
+    declared = config()[KEY_PRODUCT_CLASS]
+    if disclosure_level_for is None:
+        return ReplayRefusalRecorder(
+            artifact_store=FileArtifactStore(root=root / ARTIFACT_STORE_DIRNAME),
+            replay_record_class=REPLAY_RECORD_CLASS,
+            tenant_id=tenant_id(),
+            # Off `ccf_config.yaml`, never a literal (CLAUDE.md §6.4).
+            assembly_mode=str(declared["assembly_mode"]),
+        )
+    return ReplayRefusalRecorder(
+        artifact_store=FileArtifactStore(root=root / ARTIFACT_STORE_DIRNAME),
+        replay_record_class=REPLAY_RECORD_CLASS,
+        tenant_id=tenant_id(),
+        assembly_mode=str(declared["assembly_mode"]),
+        disclosure_level_for=disclosure_level_for,
+    )
+
+
+def record_refusal(
+    refusal: Any,
+    *,
+    recorder: ReplayRefusalRecorder,
+    request: ProductRequest,
+    perspective: Perspective,
+    assembler_id: str,
+    assembler_version: str,
+) -> RefusalEnvelope:
+    """Envelope one returned refusal, mint its record, hand back the shell.
+
+    **THE DEPLOYMENT ENCODES; IT DOES NOT DECIDE** (criterion 36). Everything
+    substantive here is the SDK's: ``ccf.products.refusal::envelope_for``
+    translates the value into the one envelope, and
+    ``ccf.products.resolver::ReplayRefusalRecorder.record`` discloses, writes
+    the five-dimension record and returns the disclosed shell with its address
+    attached. Nothing in this deployment calls ``disclose``, builds a replay
+    record for a refusal, or reaches the recorder from a transport.
+
+    **THE INSTANT IS THE REQUEST's**, never a clock: a record minted at
+    ``request.asked_at`` replays through the same code path it was decided on.
+
+    **NO POLICY BUNDLE PIN TRAVELS, AND THAT IS MEASURED RATHER THAN
+    FORGOTTEN.** ``produce.py::_record`` pins the bundle at
+    ``booted.pins.version_for(...)`` — a content hash minted by REGISTRATION,
+    which only exists once a fabric has been booted. Every refusal this
+    function mints is reached BEFORE the boot, so there is no version to pin,
+    and pinning the key at a version nobody resolved would be the manufactured
+    artifact ``D-IMPL-253`` amendment 2 (1) refuses. The empty tuple the SDK
+    defaults to is the honest statement.
+
+    Args:
+        refusal: Any value in ``ccf.products.refusal::REFUSAL_KINDS``.
+        recorder: The one recorder, from :func:`refusal_recorder`.
+        request: The question this refusal answers.
+        perspective: Who asked, and in what capacity. An undeclared role
+            resolves to ``ccf.replay.record::NO_ROLE_RESOLVED`` at the caller,
+            because a role the deployment does not condition on is not a
+            capacity it can record someone as holding.
+        assembler_id: The build that made the determination.
+        assembler_version: Its version — dimension 4 carries the same pair on a
+            refused decision as on a fulfilled one.
+
+    Returns:
+        The DISCLOSED envelope, carrying a resolvable ``replay_reference``.
+    """
+    envelope = envelope_for(
+        refusal,
+        request=RequestIdentity(
+            product_id=request.schema_name,
+            product_version=request.schema_version,
+            parameters=request.parameters,
+            temporal_boundary=request.asked_at,
+        ),
+    )
+    return recorder.record(
+        envelope,
+        perspective=perspective,
+        recorded_at=request.asked_at,
+        request=request,
+        assembler_id=assembler_id,
+        assembler_version=assembler_version,
+    )
+
+
+def request_contract() -> ProductRequestContract:
+    """The DECLARED request contract, read WITHOUT booting a fabric.
+
+    The effective request is resolved before the assembly starts — before a
+    store is opened, before the graph exists — so the contract that says what
+    omission means and which capability bounds which parameter has to be
+    readable at that point. It is derived through the SDK's OWN derivation
+    (``ccf.deployment.config::derive_deployment``) rather than by lifting the
+    section out of ``ccf_config.yaml`` here: the loader strips the four
+    override keys before materialising a document, and a second, hand-written
+    strip in this module would be a second answer to *what is in this
+    artifact* — the thing whose two copies would silently disagree.
+
+    ``tests/examples/test_cp_04_seams.py`` holds this equal, field for field,
+    to the contract the BOOTED fabric registers, so the pre-boot read and the
+    registered artifact cannot drift.
+    """
+    return ProductRequestContract.from_declared(
+        cast(Any, _derived_artifact(KEY_REQUEST_CONTRACT))
+    )
+
+
+def request_contract_source() -> ProvenanceSource:
+    """The pin a value defaulted from the request contract is recorded under.
+
+    ``kind="artifact"`` with the manifest key this deployment registers the
+    contract under and the document's own lane. Version-bearing because replay
+    resolves an exact version and never "latest" (`D-IMPL-26`): a defaulted
+    ``max_depth`` in a replay record has to name the document that declared it.
+    """
+    return ProvenanceSource(
+        kind="artifact",
+        identity=KEY_REQUEST_CONTRACT,
+        version=str(_derived_artifact(KEY_REQUEST_CONTRACT).semver),
+    )
+
+
+def product_class_id() -> str:
+    """The class an applicability comparison is made against — the schema name."""
+    return str(config()[KEY_PRODUCT_CLASS][KEY_SCHEMA_NAME])
+
+
+def policy_constraint_plane() -> ControlPlaneRegistry:
+    """The Control Plane a constraint resolution reads — DELIBERATELY EMPTY.
+
+    ``D-22`` (Dave, 2026-09-04): *"Do not manufacture a fake policy just to
+    demonstrate the feature. SDK-level tests are the right proof until a real
+    product needs a policy constraint."* This deployment has no policy
+    constraint to declare, so the plane it resolves against holds none, and the
+    resolution records that nothing version-bearing bounded the request — which
+    is a claim about this product and not a gap in the machinery. The SDK's own
+    ``tests/products/test_policy_constraints.py`` is where a populated plane is
+    exercised.
+
+    A fresh registry per call rather than a module-level one, on this module's
+    standing posture: nothing here holds live state between requests.
+    """
+    return ControlPlaneRegistry()
+
+
+def _derived_artifact(key: str) -> DeclaredArtifact:
+    """One materialised section of ``ccf_config.yaml``, by manifest key.
+
+    Through the SDK's own two calls — ``load_artifact`` against
+    ``DEPLOYMENT_CONFIG`` and then ``derive_deployment`` — so what this reads
+    is exactly what the boot would register, minus the registration. The
+    materialised document IS the envelope (``class_id``/``semver``/
+    ``declaration``), so nothing is reassembled here either.
+    """
+    parsed = cast(
+        DeploymentConfig,
+        load_artifact(CONFIG.read_text(encoding="utf-8"), DEPLOYMENT_CONFIG),
+    )
+    derived = derive_deployment(parsed, config_filename=CONFIG.name)
+    return DeclaredArtifact.model_validate(derived.documents[key])
 
 
 def unsupported_arguments() -> Mapping[str, str]:
@@ -1051,9 +1367,9 @@ def walk_from_anchor(
     source: GraphSource | None = None,
     ceiling: int | None = None,
 ) -> tuple[SourceTriple, ...]:
-    """The anchor's reachable component, BOUNDED BY THE DECLARED CEILING.
+    """The anchor's reachable component, BOUNDED BY THE SUBSTRATE's CAPABILITY.
 
-    **The ceiling bounds the INGEST; the caller's ``max_depth`` is applied
+    **The capability bounds the INGEST; the caller's ``max_depth`` is applied
     later, at L4.** Stating the split as a comment rather than leaving it to be
     inferred, because the alternative looks like an optimization and is a
     defect: bounding this read by the caller's depth instead would take depth
@@ -1062,6 +1378,17 @@ def walk_from_anchor(
     is exactly what ``CFT-G05`` forbids, and it is the reason
     :func:`traversal_parameters` exists.
 
+    SUPERSEDED 2026-09-04 (24.6-L-01, D-IMPL-253 Q21): the default bound was
+    the deleted request-contract maximum — so the ingest was bounded by a
+    measurement of how deep this estate GOES rather than by anything about the
+    substrate.
+    It is now the graph leg's own technical capability
+    (:func:`traversal_depth_capability`). **Measured on the demonstration
+    anchor before the change was made**: the walk collects 28 triples over 22
+    nodes at either bound, because the anchor's component is exhausted long
+    before both — so nothing this deployment serves moved, and the ingest now
+    stops where the substrate stops rather than where a request bound used to.
+
     Cycle-safe by construction: a node already assigned a depth is never
     re-queued, so the walk terminates inside cycle 1 rather than running
     forever. An edge back to an already-known node is still RECORDED — the
@@ -1069,7 +1396,11 @@ def walk_from_anchor(
     make the headline finding undetectable while every node count stayed right.
     """
     resolved = source or graph_source()
-    bound = ceiling if ceiling is not None else declared_depth_ceiling()
+    bound = (
+        ceiling
+        if ceiling is not None
+        else traversal_depth_capability().max_traversal_depth
+    )
     directions = family_predicate_directions()
     iris = family_predicate_iris()
     forward = {
@@ -1825,7 +2156,7 @@ def mint_family_membership(
 
 def refuse_unminted_membership(
     minted: Mapping[str, str], *, nodes: Sequence[str]
-) -> None:
+) -> tuple[Finding, ...]:
     """Every admitted node carries a membership value — asserted, not assumed.
 
     **The claim this function exists to stop being an assumption** is that
@@ -1835,21 +2166,42 @@ def refuse_unminted_membership(
     after the construction has changed underneath it. So it is checked against
     the node set the walk produced, on every run.
 
-    Refuses an empty node set for the same reason
-    :func:`refuse_open_jurisdiction_world` does: over no nodes this would pass
-    by having nothing to compare, and a check that cannot fail is not a check.
+    Returns the findings this check produced — empty when it produced none, so
+    a caller splices unconditionally.
+
+    **THE TWO OUTCOMES ARE DIFFERENT KINDS OF THING, AND ``D-33`` SPLITS THEM**
+    (``D-IMPL-255`` (5); Dave: *"'The answer is empty' is a determination. 'The
+    authoritative inputs required to know whether the answer is valid
+    contradict one another or violate a required invariant' is a failure."*).
+    An empty node set is a **determination**: the walk ran and reached nothing,
+    which is an answer, and it is RETURNED as a computed-empty finding. A node
+    the walk admitted that this deployment's own minting step did not cover is
+    a **failure**: the two authoritative inputs — what was admitted and what
+    was minted — contradict each other, so it RAISES.
     """
     if not nodes:
-        # SERVE-PATH REFUSAL — the subject is the served family's walk, reached
-        # per request. `AssemblyRefused` (a `ValueError`) rather than
-        # `SystemExit` so the MCP door envelopes it as a governed `isError`
-        # rather than tearing down on a `BaseException` (CR-01, 2026-09-01).
-        raise AssemblyRefused(
-            "the walk admitted no node at all, so the membership minting has"
-            " nothing to be held against; refusing a check that cannot fail"
+        # SERVE-PATH DETERMINATION — the walk ran over the anchor's component
+        # and reached nothing. There is nothing to hold the minting against
+        # because there is nothing to hold, which is an ANSWER about this
+        # family rather than a defect in the fabric, and it travels as a
+        # finding on the payload (D-33; `D-IMPL-242` am.1's computed-empty
+        # posture, applied at this deployment's own guard).
+        return (
+            Finding(
+                type=FINDING_COMPUTED_EMPTY_WALK,
+                predicate=None,
+                members=(),
+                closing_edge=None,
+            ),
         )
     missing = sorted(uri for uri in nodes if not minted.get(uri))
     if missing:
+        # INVARIANT FAILURE — RAISED (D-33, `D-IMPL-255` (5)): *"The
+        # authoritative inputs required to know whether the answer is valid
+        # contradict one another or violate a required invariant."* This
+        # deployment's minting step admitted these nodes and then did not
+        # cover them; no governed determination is reachable from a
+        # contradiction inside the fabric's own step.
         raise AssemblyRefused(
             f"{len(missing)} node(s) the walk admitted carry no"
             f" {membership_attribute()!r}: {missing[:5]}. `PolicyFilter._admits`"
@@ -1857,6 +2209,7 @@ def refuse_unminted_membership(
             f" one, so these would be deleted from the payload rather than"
             f" reported (`D-IMPL-229`)"
         )
+    return ()
 
 
 def refuse_declared_family_scope() -> None:
@@ -1994,8 +2347,21 @@ def unresolved_members(served: Mapping[str, str | None]) -> tuple[str, ...]:
 
 def refuse_open_jurisdiction_world(
     served: Mapping[str, str | None]
-) -> tuple[str, ...]:
+) -> tuple[tuple[str, ...], tuple[Finding, ...]]:
     """Hold the declared SERVED set to what the payload exhibits, both ways.
+
+    Returns the observed set together with the findings the check produced —
+    so a caller sees what it ran against rather than taking a bare pass, and
+    splices the findings unconditionally.
+
+    **THE FOUR BRANCHES ARE NOT ONE KIND OF THING, AND ``D-33`` SPLITS THEM**
+    (``D-IMPL-255`` (5)). Two are determinations and are RETURNED: an empty
+    served set (the walk resolved no member — an answer), and a declared
+    jurisdiction no member of THIS family serves (a fact about which declared
+    values this answer exhibits). Two are failures and RAISE: served members
+    none of which carries a jurisdiction, and a served jurisdiction outside the
+    declared closed set — in each the authoritative inputs contradict one
+    another or violate the closed world ``D-IMPL-228`` declared.
 
     **CLOSED WORLD, the same discipline ``artifacts/gates.yaml`` carries.**
     `D-IMPL-228` ruled the set closed and `D-IMPL-229` moved it off the
@@ -2018,14 +2384,18 @@ def refuse_open_jurisdiction_world(
     no jurisdiction, and reading their `None` into the observed set would put a
     null token inside a closed world — which `D-IMPL-229` refuses by name.
 
-    Returns the observed set, so a caller can see what the check ran against
-    rather than taking a bare pass.
+    The three named sabotages, and what each meets here (`24.6-L-02` re-split
+    the last of the three under `D-33`):
 
-    The three named sabotages, and each is REFUSED here:
-
-    * drop `NL` — `SuperMicroComputerBV` serves a value nobody declared;
-    * drop `US-DE` — the anchor does;
-    * add `US-NY` **as if it were in-family** — a declared row serving nothing.
+    * drop `NL` — `SuperMicroComputerBV` serves a value nobody declared: an
+      undeclared observation, and a RAISE;
+    * drop `US-DE` — the anchor does: the same, and a RAISE;
+    * add `US-NY` **as if it were in-family** — a declared row serving nothing:
+      a DETERMINATION now, returned as an `idle_jurisdictions` finding naming
+      the idle rows. The sabotage is still visible — the finding appears where
+      there was none — and it is visible in the payload rather than as a
+      refusal, because a family exhibiting fewer values than the estate
+      declares is not a contradiction about this family.
     """
     declared = set(declared_served_jurisdictions())
     observed = {value for value in served.values() if value is not None}
@@ -2035,20 +2405,46 @@ def refuse_open_jurisdiction_world(
             " jurisdiction set; a closed world over nothing is not a narrower"
             " claim, it is an absent one"
         )
-    # THE FOUR BRANCHES BELOW ARE SERVE-PATH REFUSALS — their subject is the
-    # SERVED FAMILY (the caller's anchor's observed jurisdictions), reached per
-    # request. `AssemblyRefused` (a `ValueError`) rather than `SystemExit`, so
-    # the MCP door envelopes them as a governed `isError` instead of tearing
-    # down on a `BaseException` (CR-01, 2026-09-01). The `not declared` branch
-    # above stays `SystemExit`: its subject is `artifacts/source-vocabulary.yaml`
-    # declaring an EMPTY set — a deployment-authoring error no request triggers.
+    # THE FOUR BRANCHES BELOW ARE SPLIT BY `D-33`, TWO AND TWO — their subject
+    # is the SERVED FAMILY (the caller's anchor's observed jurisdictions),
+    # reached per request. Two are governed determinations and are RETURNED;
+    # two are invariant/configuration failures and RAISE `AssemblyRefused`,
+    # whose meaning `24.6-L-02` narrowed to exactly that. The `not declared`
+    # branch above stays `SystemExit`: its subject is
+    # `artifacts/source-vocabulary.yaml` declaring an EMPTY set — a
+    # deployment-authoring error no request triggers, and it is what ties the
+    # `not observed` raise below to a DECLARED requirement.
     if not served:
-        raise AssemblyRefused(
-            "no family member was resolved at all, so the declared jurisdiction"
-            " set has nothing to be held against; refusing a check that cannot"
-            " fail"
+        # SERVE-PATH DETERMINATION (D-33: *"Legitimately empty served set ->
+        # Governed determination -> return"*). No member resolved, so the
+        # observed set is empty and there is nothing to hold the declaration
+        # against. That is an ANSWER about this family, and the empty tuple
+        # states it — with the computed-empty finding beside it, so the
+        # emptiness is a claim rather than a silence.
+        return (
+            (),
+            (
+                Finding(
+                    type=FINDING_COMPUTED_EMPTY_WALK,
+                    predicate=None,
+                    members=(),
+                    closing_edge=None,
+                ),
+            ),
         )
     if not observed:
+        # INVARIANT FAILURE — RAISED (D-33, `D-IMPL-255` (5)): *"The
+        # authoritative inputs required to know whether the answer is valid
+        # contradict one another or violate a required invariant."* Members
+        # were served and the closed world they are held to is asserted over
+        # nothing. **AND THE RAISE IS TIED TO THE DECLARED REQUIREMENT AND NOT
+        # TO THE ABSENCE OF A JURISDICTION.** `D-33` is explicit that this is
+        # never *"missing jurisdiction always raises"*: the branch is reachable
+        # only where `artifacts/source-vocabulary.yaml` DECLARES a served set,
+        # because the `not declared` guard above exits first when it declares
+        # none. `tests/examples/test_cp_04_traversal.py::
+        # test_the_missing_jurisdiction_raise_is_tied_to_the_declared_requirement`
+        # asserts both branches over a scratch copy of that artifact.
         raise AssemblyRefused(
             f"{len(served)} member(s) were served and NONE carries a"
             f" jurisdiction, so the declared set {sorted(declared)} is held"
@@ -2057,6 +2453,12 @@ def refuse_open_jurisdiction_world(
         )
     undeclared = sorted(observed - declared)
     if undeclared:
+        # INVARIANT FAILURE — RAISED (D-33, `D-IMPL-255` (5)): *"The
+        # authoritative inputs required to know whether the answer is valid
+        # contradict one another or violate a required invariant."* Two
+        # authoritative pieces of fabric state disagree — the estate serves a
+        # value the declared closed world does not carry — and no governed
+        # determination is reachable from a contradiction.
         raise AssemblyRefused(
             f"family members serve jurisdiction(s) {undeclared} that"
             f" artifacts/source-vocabulary.yaml does not declare. The declared"
@@ -2066,13 +2468,26 @@ def refuse_open_jurisdiction_world(
         )
     idle = sorted(declared - observed)
     if idle:
-        raise AssemblyRefused(
-            f"artifacts/source-vocabulary.yaml declares jurisdiction(s) {idle}"
-            f" that no member of this family serves. The declared set is the"
-            f" family's OBSERVED set; a row that never fires is how an idle"
-            f" gate looks, and the observed set is {sorted(observed)}."
+        # SERVE-PATH DETERMINATION (D-33: *"Declared jurisdiction with no
+        # member serving it -> Governed determination -> return"*). The
+        # declaration is the estate's observed set and this is ONE FAMILY, so a
+        # declared value this family does not exhibit is an ordinary fact about
+        # the answer. `D-IMPL-228`'s nine-row fiction was about the ESTATE's
+        # own declaration and is unchanged; what moved is that a family which
+        # exhibits fewer values than the estate declares is no longer refused
+        # for it. The roster travels; a count would not say WHICH.
+        return (
+            tuple(sorted(observed)),
+            (
+                Finding(
+                    type=FINDING_IDLE_JURISDICTIONS,
+                    predicate=None,
+                    members=tuple(idle),
+                    closing_edge=None,
+                ),
+            ),
         )
-    return tuple(sorted(observed))
+    return tuple(sorted(observed)), ()
 
 
 # ---------------------------------------------------------------------------
@@ -2139,72 +2554,27 @@ def declared_roles() -> tuple[str, ...]:
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class DepthOutOfBounds:
-    """``max_depth`` above the declared ceiling — REFUSED BY NAME, NEVER CLAMPED.
-
-    **A clamp would be a different program, not a nearby one.** The request
-    says 8, the walk does 6, the payload looks fine and the content address
-    greens — a wrong answer to a question nobody asked, returned with no error.
-    ``CFT-G03`` is sabotaged by replacing this refusal with a silent clamp,
-    which is precisely the sabotage a count-based check would not see.
-
-    Returned AS DATA, on the ``ProductRequestViolation`` model: a refusal is an
-    answer about the request, and raising would make the caller's error
-    handling the place the contract lives.
-    """
-
-    parameter: str
-    requested: int
-    minimum: int
-    maximum: int
-
-
-def resolve_max_depth(
-    parameters: Mapping[str, Any],
-) -> int | DepthOutOfBounds:
-    """The depth this request walks at — declared default, declared bounds.
-
-    **Absent takes the DECLARED default** read from
-    ``request_contract.argument_defaults`` (``D-08``, ``CFT-G04``). There is no
-    serve-time default in this function and no literal depth anywhere in this
-    module: the value a missing parameter resolves to is a property of the
-    Control Plane document, and a default living here would make the gate's own
-    sabotage — defaulting at serve time — indistinguishable from shipped code.
-
-    **Over the ceiling is refused by name** (``D-07``, ``CFT-G03``). There is no
-    branch below that clamps, and the absence is the point.
-    """
-    minimum = declared_depth_floor()
-    maximum = declared_depth_ceiling()
-    if PARAM_MAX_DEPTH not in parameters or parameters[PARAM_MAX_DEPTH] is None:
-        return declared_depth_default()
-    # REFUSE A NON-INTEGER BY NAME, NEVER COERCE (WR-01, 2026-09-01). `int(...)`
-    # raised an uncaught `ValueError` on `"six"` and silently coerced `6.9 -> 6`
-    # and `True -> 1` for a non-CLI caller (run.py's argparse types --max-depth
-    # as int, so the CLI is shielded; the MCP door's JSON arguments are not).
-    # `AssemblyRefused` (a `ValueError`) so the door envelopes it as a governed
-    # `isError` rather than surfacing interpreter prose — a clamp or a truncation
-    # answers a question nobody asked, with no error, which this rung's own
-    # `max_depth` docstrings forbid. `bool` is excluded before `int` because
-    # `bool` is an `int` subclass and `True` must not read as depth 1.
-    requested_raw = parameters[PARAM_MAX_DEPTH]
-    if isinstance(requested_raw, bool) or not isinstance(requested_raw, int):
-        raise AssemblyRefused(
-            f"400 {PARAM_MAX_DEPTH} must be an integer; got {requested_raw!r}"
-            f" ({type(requested_raw).__name__}). REFUSED BY NAME, never"
-            f" coerced — a float truncated or a bool read as 1 answers a"
-            f" question nobody asked, with no error."
-        )
-    requested = requested_raw
-    if requested < minimum or requested > maximum:
-        return DepthOutOfBounds(
-            parameter=PARAM_MAX_DEPTH,
-            requested=requested,
-            minimum=minimum,
-            maximum=maximum,
-        )
-    return requested
+# SUPERSEDED 2026-09-04 (24.6-L-01, D-IMPL-253 Q21, D-IMPL-251 C5). Two symbols stood here: a frozen dataclass carrying a requested depth against a declared `minimum`/`maximum`, and the resolver that produced it. Their docstrings promised the refusal was BY NAME AND NEVER CLAMPED, and that an absent depth took the DECLARED default.
+#
+# Both properties survive; they are just no longer this deployment's to
+# implement. Dave, C5: *"6 is measurement/default history; 100 is the genuine
+# technical capability boundary."*
+#
+# WHERE EACH BRANCH WENT, so a reader is not left looking for a deletion:
+#
+# * absent -> the declared default, resolved by
+#   `src/ccf/products/constraints.py::resolve_effective_request` reading
+#   `request_contract.defaults`, and recorded with authority `default` and
+#   this document's own pin;
+# * non-integer -> refused by name: the SDK's own
+#   `src/ccf/products/request.py::refuse_request` already returns
+#   `ProductRequestViolation(reason="type-mismatch")` as DATA, which is what
+#   made the raise here a second, narrower spelling of one rule;
+# * over the bound this ruling deleted -> **nothing**. That bound is gone,
+#   and a depth this estate cannot exhibit is SERVED;
+# * over the SUBSTRATE's capability -> `ConstraintRefusal` with
+#   `bound.authority == "technical"`, carrying the bound that refused it,
+#   returned by the same SDK resolution (see :func:`traversal_depth_capability`).
 
 
 def traversal_parameters(
@@ -2627,7 +2997,7 @@ def source_read(
 
     The order is: resolve the anchor — and hand an AMBIGUOUS anchor back as
     the typed value it resolved to, before any walk, ingest or envelope
-    (`D-IMPL-245` (4)) — walk to the DECLARED CEILING, read the node facts,
+    (`D-IMPL-245` (4)) — walk to the SUBSTRATE's CAPABILITY, read the node facts,
     batch-resolve the attributes, mint the membership, read the served
     jurisdictions, then close the jurisdiction world. The minting runs before
     any envelope is built, because a member's membership is part of the claim
@@ -2681,11 +3051,17 @@ def source_read(
     # other, and nothing fills one from the anchor.
     admitted = tuple(sorted(facts))
     membership = mint_family_membership(nodes=admitted, anchor_lei=subject)
-    refuse_unminted_membership(membership, nodes=admitted)
+    # THE TWO GUARDS RETURN WHAT THEY DETERMINED (`24.6-L-02`, `D-33`). Each
+    # hands back the findings it produced — empty when it produced none — and
+    # each still RAISES on the contradictions `D-33` classes as failures. The
+    # findings are spliced into the roster the payload serves, so a
+    # determination arrives as an answer the consumer can read rather than as
+    # an absence they have to infer.
+    membership_findings = refuse_unminted_membership(membership, nodes=admitted)
     jurisdictions = served_jurisdictions(
         nodes=admitted, node_leis=node_leis, rows=attribute_rows.rows
     )
-    observed = refuse_open_jurisdiction_world(jurisdictions)
+    observed, jurisdiction_findings = refuse_open_jurisdiction_world(jurisdictions)
 
     envelopes, by_envelope = build_envelopes(
         tenant=tenant,
@@ -2699,6 +3075,8 @@ def source_read(
         *surface_duplicate_pairs(
             {uri: node.label for uri, node in facts.items() if node.label}
         ),
+        *membership_findings,
+        *jurisdiction_findings,
     )
     return FamilySourceRead(
         anchor_uri=anchor_uri,
@@ -2830,24 +3208,29 @@ class FamilyScenario:
         **WHAT THE PAYLOAD DOES WITH IT.** ``projection.py`` serves the node set
         the OPERATOR returned — the fabric's answer, never re-filtered
         afterwards — and carries each member's TRUE directed generation beside
-        it, read at the declared CEILING so every served node has one. A member
-        whose generation exceeds ``max_depth_applied`` is the gap made visible
-        rather than hidden.
+        it, read at the substrate's own traversal CAPABILITY so every served
+        node has one. A member whose generation exceeds ``max_depth_applied``
+        is the gap made visible rather than hidden.
         """
         return self.edges.reach(self.anchor_uri, depth_limit=self.max_depth)
 
     @property
     def generation_by_node(self) -> Mapping[str, int]:
-        """Directed parent-to-child generation from the anchor, at the CEILING.
+        """Directed parent-to-child generation from the anchor, at the capability.
 
-        **Bounded by the DECLARED CEILING and not by the caller's depth**, so
+        **Bounded by the SUBSTRATE's traversal capability and not by the
+        caller's depth** (``24.6-L-01``, ``D-IMPL-253`` Q21 — it was the bound
+        that ruling deleted), so
         the map is total over everything the ingest admitted — including a node
         the undirected L4 walk serves earlier than the directed tree places it
         (see :attr:`depth_by_node`). A projection reading a depth-bounded map
         would meet a ``KeyError`` on exactly that node, at exactly the depth the
         gap appears.
         """
-        return self.edges.reach(self.anchor_uri, depth_limit=declared_depth_ceiling())
+        return self.edges.reach(
+            self.anchor_uri,
+            depth_limit=traversal_depth_capability().max_traversal_depth,
+        )
 
     @property
     def expires_at(self) -> datetime:
@@ -2881,15 +3264,20 @@ def read(
     *,
     max_depth: int,
     role: str | None = None,
-) -> FamilyScenario | produce.AnchorAmbiguous | None:
+) -> FamilyScenario | produce.AnchorAmbiguous | AssemblyRefusal | None:
     """Name this deployment's artifact keys and read this question's values.
 
-    ``max_depth`` is resolved by :func:`resolve_max_depth` **before** this
-    function, and that is a deliberate split rather than an awkward signature:
-    an over-ceiling depth is a **400** carried as a
-    :class:`DepthOutOfBounds` and an unresolvable anchor is a **404** carried as
-    ``None``, and one return type cannot hold both without the caller having to
-    tell them apart by inspection. The refusals stay distinguishable.
+    ``max_depth`` is an INTEGER by the time it reaches here, resolved
+    **before** this function by the SDK's own
+    ``src/ccf/products/constraints.py::resolve_effective_request`` — defaults,
+    then the caller, then the substrate's traversal capability — and a value
+    that resolution refused never becomes a call to this function at all
+    (``24.6-L-01``). SUPERSEDED 2026-09-04: this paragraph named a deleted
+    a deleted depth-resolving function and a deleted over-bound refusal type
+    as the reason the split existed. The split stands and its reason has not changed: an
+    unresolvable anchor is a **404** carried as ``None``, and a governed
+    refusal about the REQUEST is settled before a store is opened, so one
+    return type never has to hold both.
 
     Returns ``None`` when the anchor resolves to nothing. *An anchor that
     resolves to no entity is never an empty payload* — an empty family reads as
@@ -2898,6 +3286,14 @@ def read(
     spine refuses on it as typed data, the same way it refuses on ``None``.
     """
     artifacts = booted.artifacts
+    # THE CALLER's ROLE IS CONDITIONED FIRST, AND AN UNDECLARED ONE IS
+    # RETURNED (`24.6-L-02`, D-15). The assembler settled identity before this
+    # function ran, so a refusal here is a deployment reached by some other
+    # caller; either way it is a determination the fabric can make and it
+    # travels as a value.
+    conditioned = perspective(role)
+    if isinstance(conditioned, AssemblyRefusal):
+        return conditioned
     read_source = source_read(
         booted.tenant_id, at=asked.asked_at, subject=asked.subject
     )
@@ -2949,7 +3345,7 @@ def read(
         perspective=cast(
             PerspectiveArtifact,
             cast(Any, artifacts[KEY_PERSPECTIVE]).model_copy(
-                update={"role": perspective(role).role}
+                update={"role": conditioned.role}
             ),
         ),
         # TWO entries, so a two-operator registry — this is the rung where the

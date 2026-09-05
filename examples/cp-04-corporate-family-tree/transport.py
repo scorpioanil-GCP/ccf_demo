@@ -41,18 +41,28 @@ once and the content address is `sha256` of those same bytes.
 
 **WHAT THIS ADAPTER DOES NOT DO IS AS LOAD-BEARING AS WHAT IT DOES.** It reads
 no member of the request to decide anything, it builds no `Result`, and it
-constructs no `DoorOutcome` of its own. A governed refusal that has a refusal
-*value* — a `ProductRequestViolation` — crosses as a refusal envelope. A refusal
-the assembler **raises** propagates: `AssemblyRefused` is not in
-`ccf.products.refusal::REFUSAL_KINDS`, so there is no envelope for it, and
-synthesizing one here would report a refusal in a vocabulary the fabric does not
-have. That gap is now a narrow one: since `24.5-L-12`/`L-13` a declared-but-inert
-parameter crosses as a `ProductRequestViolation` value. What is left on this rung
-are the two depth refusals — a non-integer `max_depth`, which
-`deployment.py::resolve_max_depth` raises by name (`WR-01`), and an over-ceiling
-depth, which the same function returns as `deployment.DepthOutOfBounds` for
-`assembler.py` to raise — and the fabric declares no envelope for either. This
-file works within that rather than papering over it.
+constructs no `DoorOutcome` of its own. **Every governed determination the
+assembler reaches is a VALUE**, and the SDK's closed refusal vocabulary names
+every one of them — `product-request-violation`, `anchor-ambiguity-refusal`,
+`assembly-refusal`, `subject-unavailable`, `constraint-refusal` and
+`policy-resolution-conflict` — so each crosses as a refusal envelope with no
+translation and no vocabulary invented here. What this file adds beside the
+crossing is the MINT: each of those values is recorded through the SDK's
+`ccf.products.resolver::ReplayRefusalRecorder` before it is returned, so a
+refusal is a decision with a record and not a well-formed answer with nothing
+behind it (`D-IMPL-256`, criterion 36).
+
+A raised `ccf.agents.errors::AssemblyRefused` still propagates, and its meaning
+is what `24.6-L-02` narrowed it to: an INVARIANT FAILURE inside the deployment,
+which is not a governed determination at all and therefore has no envelope by
+construction rather than by omission. `run.py` reports it as a CCF runtime
+failure and exits 2.
+
+SUPERSEDED 2026-09-04 (`24.6-L-01`, `24.6-L-02`): this paragraph recorded an SDK-surface gap — that a raised refusal was *"not in REFUSAL_KINDS"*, that the fabric *"declares no envelope"* for the two depth conditions, and that this file *"works within that rather than papering over it"*.
+The gap is closed. A non-integer `max_depth` is a `product-request-violation`
+returned by the SDK's own request step, and a depth over the substrate's
+traversal capability is a `constraint-refusal` returned by the SDK's own
+constraint resolution; neither raises and neither is this example's own type.
 """
 
 from __future__ import annotations
@@ -63,10 +73,15 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from ccf.agents.errors import AssemblyRefusal
 from ccf.contracts.canonical import canonical_bytes
 from ccf.contracts.claims import RelationshipClaim
 from ccf.products.door import WireRequest, door_answer, door_question
+from ccf.products.refusal import REFUSAL_KINDS
 from ccf.products.request import ProductRequest
+from ccf.products.resolver import ReplayRefusalRecorder
+from ccf.projection.plan import Perspective
+from ccf.replay.record import NO_ROLE_RESOLVED
 
 import assembler
 import deployment
@@ -112,14 +127,35 @@ class FamilyTreeInProcessAdapter:
     #: rather than through a widened return type.
     seen: list[Any] = field(default_factory=list)
 
+    @property
+    def refusal_recorder(self) -> ReplayRefusalRecorder:
+        """Where a governed refusal this caller receives is RECORDED.
+
+        Criterion 36, `D-IMPL-256`: *"every governed determination that crosses
+        a CCF delivery boundary — fulfilled or refused — must reach the replay
+        writer before the response is released."* The in-process caller is such
+        a boundary, so it mints exactly as the MCP door does, over the same
+        store `produce.py::_serve` writes and through the same constructor in
+        `deployment.py` — the audit plane's shape stated once.
+
+        **NO DISCLOSURE READER IS PASSED, AND THAT IS THE HONEST WIRING.** This
+        caller registers no entitlement policy — there is no door, no
+        principal to entitle and no grant to read a posture off — so the SDK's
+        own safe default stands: a recorder with no Control Plane to ask
+        discloses at `minimal`. Passing a reader that consulted nothing would
+        be a policy this deployment does not have.
+        """
+        return deployment.refusal_recorder(root=self.root)
+
     def ask(self, request: WireRequest) -> bytes:
         """Encode the question, hand it to the door half, return its bytes.
 
         Raises:
-            ccf.agents.errors.AssemblyRefused: the assembler refused on
-                identity, contract or existence. Propagated rather than
-                translated — see this module's docstring for why there is no
-                envelope to translate it into.
+            ccf.agents.errors.AssemblyRefused: an INVARIANT FAILURE inside the
+                deployment — never a verdict about the question (`24.6-L-02`).
+                Propagated rather than translated: a condition the fabric could
+                not determine an answer to has no governed shell by
+                construction, and `run.py` reports it as a CCF runtime failure.
         """
         asked_at = request.temporal_boundary or datetime.now(UTC)
         return self._door(
@@ -224,15 +260,44 @@ class FamilyTreeInProcessAdapter:
             claims=claims,
             observer=self.seen.append,
         )
+        conditioned = deployment.perspective(self.role)
+        if isinstance(conditioned, AssemblyRefusal):
+            # THE CALLER NAMED A ROLE THIS DEPLOYMENT DOES NOT CONDITION ON, so
+            # there is no assembly to run and no capacity to record them as
+            # holding. `NO_ROLE_RESOLVED` is the SDK's positive statement for
+            # exactly that, and the principal is still known — this deployment
+            # answers as one.
+            return deployment.record_refusal(
+                conditioned,
+                recorder=self.refusal_recorder,
+                request=typed,
+                perspective=Perspective(
+                    principal_id=deployment.declared_perspective().principal_id,
+                    role=NO_ROLE_RESOLVED,
+                ),
+                assembler_id=product.assembler_id,
+                assembler_version=product.assembler_version,
+            )
         outcome = product.assemble(
             request=typed,
-            perspective=deployment.perspective(self.role),
+            perspective=conditioned,
             tenant_id=deployment.tenant_id(),
         )
-        # A GOVERNED REFUSAL RETURNED AS DATA CROSSES AS A REFUSAL (`D-60`).
-        # `ProductRequestViolation` is one of `REFUSAL_KINDS`, so `door_answer`
-        # envelopes it with the question it was refused against.
-        #
+        # EVERY GOVERNED DETERMINATION IS MINTED BEFORE IT CROSSES (criterion
+        # 36). This is the ONE place cp-04 wraps the assembler into a resolver
+        # for the in-process caller, so it is the one place the record can be
+        # written before the response is released; `door_answer` then envelopes
+        # what comes back with the question it was refused against.
+        if type(outcome) in REFUSAL_KINDS:
+            return deployment.record_refusal(
+                outcome,
+                recorder=self.refusal_recorder,
+                request=typed,
+                perspective=conditioned,
+                assembler_id=product.assembler_id,
+                assembler_version=product.assembler_version,
+            )
+
         # THE INDEX IS TAKEN BEFORE THE CALL AND NOT AFTER. `seen` is the
         # adapter's whole history, so a bare `seen[-1]` would hand the door the
         # PREVIOUS question's vessel whenever this one produced none — a stale

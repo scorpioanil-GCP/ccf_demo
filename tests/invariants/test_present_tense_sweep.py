@@ -232,25 +232,24 @@ class KnownDebt(NamedTuple):
     occurrences: int
 
 
-#: cp-04's surviving supersessions, MEASURED at ``24.6-12`` and DECLARED here
-#: rather than derived from the run they excuse — a table computed from today's
-#: violations would excuse tomorrow's as well. Plan ``24.6-13`` rebuilds cp-04
-#: under D-21/D-15 and deletes this table and its markers in the same commit
-#: that fixes the prose: every row below is ``xfail(strict=True)``, so a fixed
-#: site turns RED here until the row goes.
+#: cp-04's surviving supersessions, MEASURED and DECLARED here rather than
+#: derived from the run they excuse — a table computed from today's violations
+#: would excuse tomorrow's as well. Every row is ``xfail(strict=True)``, so a
+#: fixed site turns RED here until the row goes, which is the property that
+#: makes this a schedule rather than a silencer.
+#:
+#: SHRUNK 2026-09-05 by ``24.6-13``, which rebuilt cp-04's BEHAVIOR under D-21
+#: and D-15: the nine rows naming ``assembler.py``, ``deployment.py``,
+#: ``produce.py``, ``run.py``, ``transport.py`` and ``server/compose.py`` were
+#: removed in the commit that made them false, after each was watched XPASSing
+#: (9 strict xfails turned RED, plus this table's own equality — 10 failures
+#: over 826 passes). What is left is the two DOCUMENT rows: ``README.md`` and
+#: ``summary_explanations.md`` are plan ``24.6-14``'s prose fence, not this
+#: plan's, and the four ``tests/examples`` rows go with the tests they describe.
 CP04_KNOWN_DEBT: tuple[KnownDebt, ...] = (
     KnownDebt("examples/cp-04-corporate-family-tree/README.md", "declared ceiling of 6", 1),
     KnownDebt("examples/cp-04-corporate-family-tree/README.md", "never clamped", 2),
-    KnownDebt("examples/cp-04-corporate-family-tree/assembler.py", "never clamped", 2),
-    KnownDebt("examples/cp-04-corporate-family-tree/deployment.py", "never clamped", 1),
-    KnownDebt("examples/cp-04-corporate-family-tree/produce.py", "never clamped", 2),
-    KnownDebt("examples/cp-04-corporate-family-tree/run.py", "declares no envelope", 1),
-    KnownDebt("examples/cp-04-corporate-family-tree/run.py", "never clamped", 3),
-    KnownDebt("examples/cp-04-corporate-family-tree/run.py", "the SDK knows neither", 1),
-    KnownDebt("examples/cp-04-corporate-family-tree/server/compose.py", "not in REFUSAL_KINDS", 1),
     KnownDebt("examples/cp-04-corporate-family-tree/summary_explanations.md", "never clamped", 4),
-    KnownDebt("examples/cp-04-corporate-family-tree/transport.py", "declares no envelope", 1),
-    KnownDebt("examples/cp-04-corporate-family-tree/transport.py", "not in REFUSAL_KINDS", 1),
     KnownDebt("tests/examples/test_cp_04_payload.py", "not in REFUSAL_KINDS", 1),
     KnownDebt("tests/examples/test_cp_04_traversal.py", "never clamped", 1),
     KnownDebt("tests/examples/test_cp_04_traversal.py", "not in REFUSAL_KINDS", 1),

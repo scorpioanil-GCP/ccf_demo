@@ -180,9 +180,14 @@ declaration:
         payload looks fine and the content address greens.
       observed_red:
         result: >-
-          RED, under its own id, on BOTH limbs. Sabotage applied to
-          `examples/cp-04-corporate-family-tree/deployment.py::resolve_max_depth` — the `DepthOutOfBounds`
-          return replaced by `min(max(requested, minimum), maximum)`. Observed —
+          RED, under its own id, on BOTH limbs. Sabotage applied to the
+          depth-resolving function that stood in
+          `examples/cp-04-corporate-family-tree/deployment.py` at the time —
+          its out-of-bounds return replaced by
+          `min(max(requested, minimum), maximum)`. (That function and its
+          refusal type were deleted by `24.6-L-01`, so they are named in prose
+          here rather than cited; this record is a snapshot of the tree as it
+          stood on the date below.) Observed —
           "CFT-G03: max_depth=7 was ANSWERED rather than refused — a tree came
           back, walked at max_depth_applied=6 over 22 members" and "and the
           answer was CLAMPED to the declared ceiling 6." This is the
@@ -208,7 +213,10 @@ declaration:
         result: >-
           RED, under its own id — and RED ONLY on the control limb, which is the
           whole reason the control lives inside the gate. Sabotage applied to
-          `examples/cp-04-corporate-family-tree/deployment.py::resolve_max_depth` — `declared_depth_default()`
+          the depth-resolving function that stood in
+          `examples/cp-04-corporate-family-tree/deployment.py` at the time (it
+          was deleted by `24.6-L-01`; this record is a snapshot of the tree as
+          it stood on the date below) — `declared_depth_default()`
           replaced by the literal `3`, a serve-time default equal to the shipped
           declaration. THE PLAIN LIMB PASSED UNDER THE SABOTAGE: a missing
           max_depth still walked at 3, exactly as a number-only check would have
