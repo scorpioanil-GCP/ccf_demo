@@ -580,6 +580,39 @@ def test_two_denials_that_differ_only_in_cause_are_indistinguishable(
     assert set(undeclared.fields) == set(unentitled_class.fields)
     assert undeclared.fields == unentitled_class.fields
 
+    # `D-IMPL-258` (2): the third door, on the one leg its fixture can reach.
+    # These are two ENTITLEMENT determinations under two different registered
+    # policies, so before the ruling each shell pinned its own policy at its
+    # own version and the pair was distinguishable by the pin alone. Both are
+    # normalized below `full` now, so neither shell says which policy decided.
+    #
+    # **The nonexistent leg is not reachable at this fixture and is not
+    # faked.** This door's three paths all produce `cause="unauthorized"`
+    # (``24.6-16``); the unauthorized-versus-nonexistent pair is measured where
+    # both causes exist — at the HTTP door and at the MCP egress door, which is
+    # the pair Dave's *"prove equivalence at HTTP and MCP"* names.
+    assert undeclared.policy_bindings == ()
+    assert unentitled_class.policy_bindings == ()
+
+    # And the audit plane keeps what the shells no longer show — the vacuity
+    # guard for the two assertions above, which a door that had simply stopped
+    # pinning anything would also satisfy. Both determinations DID pin an
+    # entitlement policy; only the disclosed shells are empty.
+    #
+    # Measured, not assumed: the two pins are the same artifact at the same
+    # version here, because the two doors register policies whose content is
+    # identical — the class each grant permits is a request-side fact at this
+    # fixture. So this pair proves the suppression is a disclosure act rather
+    # than an erasure; it cannot prove the *pin* was a channel, and the
+    # unauthorized-versus-nonexistent pairs at the two product doors are where
+    # that is proved.
+    internal_undeclared = door.internal(door.record_at(undeclared.replay_reference))
+    internal_unentitled = other.internal(
+        other.record_at(unentitled_class.replay_reference)
+    )
+    assert internal_undeclared.policy_bindings, internal_undeclared
+    assert internal_unentitled.policy_bindings, internal_unentitled
+
 
 # --- (2) the construction-time check -----------------------------------------
 

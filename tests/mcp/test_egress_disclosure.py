@@ -261,12 +261,15 @@ class _World:
             self.store.get(content_address=self.store.resolve_uri(uri=uri))
         )
 
-    def internal_cause(self, uri: str) -> str:
+    def internal_envelope(self, uri: str) -> RefusalEnvelope:
+        """The determination as the fabric recorded it, before disclosure."""
         record = self.record_at(uri)
-        internal = RefusalEnvelope.model_validate_json(
+        return RefusalEnvelope.model_validate_json(
             record.content_generation_path.assembly_refusal
         )
-        return json.loads(internal.fields["cause"])
+
+    def internal_cause(self, uri: str) -> str:
+        return json.loads(self.internal_envelope(uri).fields["cause"])
 
     def resolves(self, uri: str) -> bool:
         try:
@@ -388,12 +391,34 @@ class Answer:
             store the door wrote to — the *"replay reference behavior"* channel,
             which is about behavior rather than value: the two references
             legitimately differ and that difference is excluded.
+        text: The bytes the door actually put on the wire, kept as text.
+            Carried because *key presence* is a channel amendment 2 (4) names
+            explicitly, and a parsed :class:`RefusalEnvelope` cannot report it:
+            ``model_dump`` re-materializes every member at its default whether
+            the rendering carried the key or not, so a presence divergence is
+            invisible to a comparison made over the parsed model
+            (``D-IMPL-258`` (2)).
     """
 
     is_error: bool
     outcome: DoorOutcome | None
     refusal: RefusalEnvelope
     resolves: bool
+    text: str
+
+
+def wire_shell(answer: Answer) -> dict[str, Any]:
+    """The refusal shell exactly as it was rendered, keys and all.
+
+    The tool path nests the shell inside a
+    :class:`~ccf.products.door.DoorOutcome`; the resource path's body **is**
+    the shell. Both are read from :attr:`Answer.text` rather than from the
+    parsed model, for the reason that attribute records.
+    """
+    document = json.loads(answer.text)
+    shell = document.get("refusal", document)
+    assert isinstance(shell, dict), answer.text
+    return shell
 
 
 def _tool_answer(world: _World, address: ProductAddress) -> Answer:
@@ -405,6 +430,7 @@ def _tool_answer(world: _World, address: ProductAddress) -> Answer:
         outcome=outcome,
         refusal=outcome.refusal,
         resolves=world.resolves(outcome.refusal.replay_reference),
+        text=text,
     )
 
 
@@ -416,6 +442,7 @@ def _resource_answer(world: _World, address: ProductAddress) -> Answer:
         outcome=None,
         refusal=shell,
         resolves=world.resolves(shell.replay_reference),
+        text=text,
     )
 
 
@@ -495,6 +522,17 @@ def observational_equivalence_violations(*, a: Answer, b: Answer) -> list[str]:
         if a.refusal.fields[key] != b.refusal.fields[key]:
             violations.append(f"fields.{key}")
 
+    # (8) `policy_bindings` — ruled in `D-IMPL-258` (2), where `24.6-10`'s F-1
+    # left it open. BOTH halves, because Dave named both: *"If unauthorized and
+    # nonexistent subjects differ in `policy_bindings` by either key presence
+    # or value, then they are not consumer-observationally equivalent."* The
+    # presence half is read off the rendered bytes rather than the parsed
+    # model, which reports every member whether the wire carried it or not.
+    if a.refusal.policy_bindings != b.refusal.policy_bindings:
+        violations.append("refusal.policy_bindings")
+    if ("policy_bindings" in wire_shell(a)) != ("policy_bindings" in wire_shell(b)):
+        violations.append("refusal.policy_bindings.presence")
+
     return sorted(violations)
 
 
@@ -511,27 +549,37 @@ def _allowed_to_differ(level: str) -> list[str]:
     value replaced — at both levels.
 
     At `full` the internal truth crosses by policy, and what crosses is
-    **exactly the members that table names**: three, not the one the plan
-    anticipated. `cause` is the discriminator itself; `error_code` is present
-    on the entitlement denial and absent on the nonexistent one; `detail` is
-    the two determinations' own sentences. Derived by reading the shipped table
-    and mapping each member to the channel it lands on, rather than
-    transcribed — so a member leaving that table, or a new kind joining it,
-    changes this expectation without an edit here, and a member the table names
-    that does NOT actually differ at `full` fails the equality below.
+    **exactly the members that table names**: four since ``D-IMPL-258`` (2)
+    added ``policy_bindings``. `cause` is the discriminator itself;
+    `error_code` is present on the entitlement denial and absent on the
+    nonexistent one; `detail` is the two determinations' own sentences; and
+    `policy_bindings` is the member the ruling normalizes **below** `full` and
+    leaves alone at it. Derived by reading the shipped table and mapping each
+    member to the channel it lands on, rather than transcribed — so a member
+    leaving that table, or a new kind joining it, changes this expectation
+    without an edit here, and a member the table names that does NOT actually
+    differ at `full` fails the equality below.
     """
     if level != "full":
         return []
     members = INDISTINGUISHABLE_BELOW_FULL[
         REFUSAL_KINDS[SubjectUnavailableRefusal]
     ]
-    # `cause` and `error_code` are `fields` keys on this kind; `detail` is a
-    # top-level envelope member. The channel names follow the same split the
-    # comparison function uses.
-    return sorted(
-        f"fields.{member}" if member != "detail" else f"refusal.{member}"
-        for member in members
-    )
+    # Three shapes of channel name, and the split is read off the shipped
+    # types rather than spelled: a WHOLE member of the envelope lands on
+    # `refusal.<member>` and — when one side renders the key and the other
+    # does not — on `refusal.<member>.presence` too; `detail` is a whole
+    # member with no presence half, because it is required and always
+    # rendered; everything else is a `fields` key.
+    names: list[str] = []
+    for member in members:
+        if member == "detail":
+            names.append(f"refusal.{member}")
+        elif member in RefusalEnvelope.model_fields:
+            names.extend((f"refusal.{member}", f"refusal.{member}.presence"))
+        else:
+            names.append(f"fields.{member}")
+    return sorted(names)
 
 
 @pytest.mark.parametrize("level", sorted(DISCLOSURE_LEVELS))
@@ -587,44 +635,88 @@ def test_the_two_denials_differ_in_the_record_at_every_level(
     assert world.internal_cause(nonexistent.refusal.replay_reference) == "nonexistent"
 
 
-def test_what_policy_bindings_cross_at_each_level_is_measured_and_stated(
+def test_the_policy_binding_channel_is_closed_below_full(
     assembled: Any, tmp_path: Path
 ) -> None:
-    """`policy_bindings` is NOT touched by disclosure, and this says so out loud.
+    """`policy_bindings` cannot tell the two subjects apart below `full`.
 
-    ``24.6-08-SUMMARY.md`` **F-2**, open for Dave: the enumeration of what
-    ``minimal`` withholds names detail, fields, evidence, provenance, lineage,
-    cause and error_code — and **not** ``policy_bindings``. So a refused
-    consumer can read which Control Plane artifacts governed the refusal, at
-    which versions, at every level.
+    The inversion of ``24.6-10``'s measurement, under ``D-IMPL-258`` (2), Dave:
+    *"the externally disclosed* ``RefusalEnvelope`` *must normalize/suppress
+    that field so unauthorized and nonexistent cases have the same observable
+    policy-binding shape at the same disclosure level; the control should prove
+    equivalence at HTTP and MCP."* This is the MCP half; the HTTP half is
+    ``tests/http_api/test_product_disclosure.py``.
 
-    Measured here rather than asserted away, because F-2 says the two paths
-    *"will meet at one door in plans 09/10, and that is where the control test
-    for amendment 2 (4) lives."* They meet here, and what is measured is: the
-    member survives at all three levels, and on this fixture the entitlement
-    denial carries a binding while the resolver-minted nonexistent refusal
-    carries none — because this fixture's resolver pins nothing, not because
-    the mechanism withholds anything.
+    Two measurements per level, on both surfaces the door has:
 
-    **That divergence is excluded from the equivalence gate above and is
-    reported here instead.** In a real deployment the resolver's own refusals
-    carry the policy-bundle pin ``build_governed_resolver`` gives its recorder,
-    so the two would carry bindings of the same shape and the channel would
-    close — but *whether a Control Plane key and version may reach a refused
-    consumer at all* is a ruling nobody has made, and this test exists so it is
-    a measurement in the record rather than a discovery at close.
+    * the **count** of bindings each shell carries, which is the value half;
+    * whether the rendered bytes carry the ``policy_bindings`` key at all,
+      which is the presence half — the one a consumer can read without reading
+      a value.
+
+    Below `full` both are identical for the two subjects. At `full` internal
+    truth crosses by policy and the entitlement denial's pin is visible, which
+    is also this test's vacuity guard: a fixture where neither side ever
+    carried a binding would make the two closed levels pass for free.
+
+    What would fail here: the ``policy_bindings`` row leaving
+    :data:`~ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL` (the sabotage
+    of record), or a normalization applied on one surface and not the other.
     """
-    measured: dict[str, tuple[int, int]] = {}
+    counts: dict[str, tuple[int, int]] = {}
+    keys: dict[str, tuple[bool, bool]] = {}
+    resource_keys: dict[str, tuple[bool, bool]] = {}
     for level in sorted(DISCLOSURE_LEVELS):
         world = _World(tmp_path / level, address=assembled.address, level=level)
-        unauthorized = _tool_answer(world, _unentitled(assembled.address))
+        unentitled = _unentitled(assembled.address)
+        unauthorized = _tool_answer(world, unentitled)
         nonexistent = _tool_answer(world, assembled.address)
-        measured[level] = (
+        counts[level] = (
             len(unauthorized.refusal.policy_bindings),
             len(nonexistent.refusal.policy_bindings),
         )
+        keys[level] = (
+            "policy_bindings" in wire_shell(unauthorized),
+            "policy_bindings" in wire_shell(nonexistent),
+        )
+        resource_keys[level] = (
+            "policy_bindings" in wire_shell(_resource_answer(world, unentitled)),
+            "policy_bindings"
+            in wire_shell(_resource_answer(world, assembled.address)),
+        )
 
-    assert measured == {"full": (1, 0), "minimal": (1, 0), "reasoned": (1, 0)}, measured
+    assert counts == {
+        "full": (1, 0),
+        "minimal": (0, 0),
+        "reasoned": (0, 0),
+    }, counts
+    assert keys == {
+        "full": (True, False),
+        "minimal": (False, False),
+        "reasoned": (False, False),
+    }, keys
+    assert resource_keys == keys, resource_keys
+
+
+def test_the_record_keeps_the_bindings_the_shell_no_longer_shows(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """``D-IMPL-258`` (2)'s other half: the audit plane keeps what governed it.
+
+    Dave: *"replay/internal determination may retain the actual policy bindings
+    that produced the decision."* So the closure above must be a disclosure act
+    and not an erasure. Without this, a door that simply stopped pinning the
+    entitlement policy would pass every consumer-side assertion in this module
+    — and would be the *"destroy audit truth merely to achieve external
+    suppression silence"* Q27 forbids.
+    """
+    world = _World(tmp_path, address=assembled.address, level="minimal")
+    unauthorized = _tool_answer(world, _unentitled(assembled.address))
+
+    assert unauthorized.refusal.policy_bindings == ()
+    internal = world.internal_envelope(unauthorized.refusal.replay_reference)
+    assert internal.policy_bindings, internal
+    assert all(source.version for source in internal.policy_bindings), internal
 
 
 # ---------------------------------------------------------------------------
@@ -666,6 +758,11 @@ def test_the_status_control_fires(
         outcome=honest.outcome,
         refusal=honest.refusal,
         resolves=honest.resolves,
+        # The wire text is the honest one: every control here plants its
+        # divergence on the PARSED model, and the only channel read off
+        # the bytes is `policy_bindings.presence`, which no control here
+        # touches (`D-IMPL-258` (2)).
+        text=honest.text,
     )
 
     assert "is_error" in observational_equivalence_violations(a=diverged, b=other)
@@ -696,6 +793,11 @@ def test_the_evidence_presence_control_fires(
             }
         ),
         resolves=honest.resolves,
+        # The wire text is the honest one: every control here plants its
+        # divergence on the PARSED model, and the only channel read off
+        # the bytes is `policy_bindings.presence`, which no control here
+        # touches (`D-IMPL-258` (2)).
+        text=honest.text,
     )
 
     assert "refusal.evidence.presence" in observational_equivalence_violations(
@@ -721,6 +823,11 @@ def test_the_field_set_control_fires(
         outcome=honest.outcome,
         refusal=honest.refusal.model_copy(update={"fields": thinner}),
         resolves=honest.resolves,
+        # The wire text is the honest one: every control here plants its
+        # divergence on the PARSED model, and the only channel read off
+        # the bytes is `policy_bindings.presence`, which no control here
+        # touches (`D-IMPL-258` (2)).
+        text=honest.text,
     )
 
     assert "refusal.fields.keys" in observational_equivalence_violations(
@@ -745,6 +852,11 @@ def test_the_sentinel_versus_reference_control_fires(
             update={"replay_reference": NO_REPLAY_REFERENCE}
         ),
         resolves=False,
+        # The wire text is the honest one: every control here plants its
+        # divergence on the PARSED model, and the only channel read off
+        # the bytes is `policy_bindings.presence`, which no control here
+        # touches (`D-IMPL-258` (2)).
+        text=honest.text,
     )
 
     violations = observational_equivalence_violations(a=diverged, b=other)

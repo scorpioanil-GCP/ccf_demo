@@ -216,6 +216,7 @@ from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
     ProductRequestViolation,
+    refuse_undeclared_class_default,
 )
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
@@ -903,6 +904,29 @@ def _artifact_on(
             f" resolver reads it as {expected.__name__}"
         )
     return artifact
+
+
+def _request_contract_on(
+    fabric: BootedFabric, *, key: str
+) -> ProductRequestContract:
+    """One request contract off ``fabric``, however the manifest authored it.
+
+    Module-level for :func:`_artifact_on`'s reason, which
+    :func:`build_governed_resolver` now needs a second time: the
+    ``D-IMPL-258`` (5) check runs at boot, *before* a resolver exists, and it
+    must read the contract exactly as :meth:`GovernedResolver._request_contract`
+    will read it at request time. Two transcriptions of one manifest key are
+    two chances to disagree about what a class's request surface is, and the
+    check whose whole subject is that surface is the worst place to disagree.
+
+    Raises:
+        ProductNotResolvable: the key names no artifact, or names one that is
+            neither a declared artifact nor a request contract.
+    """
+    artifact = fabric.artifacts.get(key)
+    if isinstance(artifact, DeclaredArtifact):
+        return ProductRequestContract.from_declared(artifact)
+    return _artifact_on(fabric, key=key, expected=ProductRequestContract)
 
 
 def _capabilities_of(fabric: BootedFabric) -> tuple[TechnicalCapability, ...]:
@@ -1616,11 +1640,12 @@ class GovernedResolver:
         the named constructor for exactly that, and calling it here is the SDK
         doing the transcription once instead of every adopter doing it. A
         deployment that already holds a typed contract passes straight through.
+
+        Delegates to :func:`_request_contract_on` for :meth:`_artifact`'s
+        reason: the read this resolver performs at request time and the one
+        :func:`build_governed_resolver` performs at boot are the same read.
         """
-        artifact = self.fabric.artifacts.get(self.request_contract_key)
-        if isinstance(artifact, DeclaredArtifact):
-            return ProductRequestContract.from_declared(artifact)
-        return self._artifact(self.request_contract_key, ProductRequestContract)
+        return _request_contract_on(self.fabric, key=self.request_contract_key)
 
     def _operator_parameters(self) -> dict[str, OperatorParametersArtifact]:
         """The adopter-side idiom: name your own keys, no type filtering."""
@@ -1832,11 +1857,35 @@ def build_governed_resolver(
             already reserves for one — and never a governed refusal, because
             nobody asked a question yet.
         ProductNotResolvable: ``half_life_key`` or ``debt_profile_key`` names no
-            artifact on the booted fabric, or names one of another class.
+            artifact on the booted fabric, or names one of another class; or
+            ``product_class_key`` / ``request_contract_key`` does.
+        ProductClassRegistrationError: the product class declares a default for
+            a parameter its request contract does not declare as an argument —
+            an internally inconsistent declaration, refused at boot under
+            ``D-IMPL-258`` (5) rather than in front of a caller.
         ValueError: a declared factor lies outside ``[0, 1]``. Raised by
             :class:`~ccf.products.debt_scorer.DeclaredFactor`, where the value
             was authored, rather than three frames later.
     """
+    # `D-IMPL-258` (5), FIRST, before any other wiring decision: a product class
+    # whose declared default names a parameter its own request contract does not
+    # expose is an internally inconsistent declaration, and Dave ruled that it
+    # *"should fail registration/configuration/boot validation, not produce a
+    # shell to a caller."* This is the boot half; registration's half is in
+    # `ccf.products.contract.register_product_class`. It runs first because a
+    # deployment that cannot answer coherently should not get as far as choosing
+    # a debt scorer, and because a failure here names the two documents that
+    # disagree rather than whatever fell over later.
+    boot_declaration = _artifact_on(
+        fabric, key=product_class_key, expected=ProductClassDeclaration
+    )
+    refuse_undeclared_class_default(
+        schema_name=boot_declaration.schema_name,
+        schema_version=boot_declaration.schema_version,
+        serve_obligations=boot_declaration.serve_obligations,
+        declared=_request_contract_on(fabric, key=request_contract_key),
+    )
+
     # Keyed by name rather than zipped against :data:`DEBT_SCORER_INPUTS`
     # positionally: a positional pairing goes on running after somebody reorders
     # the constant, and reports the wrong argument in both refusals below.

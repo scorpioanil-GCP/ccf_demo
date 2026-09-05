@@ -52,6 +52,15 @@ harder to notice than a prose one. Every withheld value becomes the canonical
 rendering of :data:`WITHHELD`, which is a positive statement rather than an
 empty string a reader would have to interpret.
 
+The rule that keeps the two clauses consistent is *the same treatment on both
+sides at one level*, not *the same key set as the internal shell*. A **whole
+member** the table names for a kind is normalized to its own declared sentinel
+(``D-IMPL-258`` (2)) — which the canonical rendering may then omit — and it is
+normalized for **every** determination of that kind, so both subjects lose the
+key together and neither shell's shape says which one it is. A member replaced
+for one cause and not the other is the channel; a member normalized for both
+is the closure of it.
+
 The permitted set is mechanism, and the rule is stated once
 -----------------------------------------------------------
 :data:`PERMITTED_AT_MINIMAL` says, per shipped kind, which of the refusal's own
@@ -76,6 +85,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Final, Literal
+
+from pydantic_core import PydanticUndefined
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
@@ -340,7 +351,8 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
 
 
 #: Per kind, the members that stay withheld at **every level below** ``full`` —
-#: the envelope's own ``detail`` and any of the refusal's declared fields.
+#: the envelope's own ``detail``, any of the refusal's declared fields, and any
+#: **whole member of the envelope** that is sentinel-defaulted.
 #:
 #: ``D-IMPL-253`` Q27, Dave: *"Internally/replay, the governed cause may be
 #: retained if policy permits, while the consumer-visible shell remains
@@ -350,11 +362,28 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
 #: The distinction may cross only at ``full``, which is a policy saying in a
 #: versioned artifact that this reader may see internal truth.
 #:
+#: ``policy_bindings`` joined the entry in ``D-IMPL-258`` (2), Dave: *"If
+#: unauthorized and nonexistent subjects differ in* ``policy_bindings`` *by
+#: either key presence or value, then they are not consumer-observationally
+#: equivalent… replay/internal determination may retain the actual policy
+#: bindings that produced the decision; the externally disclosed*
+#: ``RefusalEnvelope`` *must normalize/suppress that field so unauthorized and
+#: nonexistent cases have the same observable policy-binding shape at the same
+#: disclosure level."* An entitlement denial pins the policy that decided it
+#: and an assembler's nonexistent-subject determination pins nothing, so the
+#: member differed in **value** and — because the canonical rendering omits an
+#: empty tuple — in **key presence** too. Normalizing it to its own declared
+#: empty form below ``full`` closes both halves at once, for every kind that
+#: names it, and the internal envelope the replay record holds is untouched:
+#: what changed is what may cross, never what the fabric determined.
+#:
 #: One entry today, and it is a table rather than a branch so that a second kind
 #: with the same property has a place to be declared rather than a condition to
 #: be added.
 INDISTINGUISHABLE_BELOW_FULL: Final[Mapping[str, frozenset[str]]] = {
-    "subject-unavailable": frozenset({"detail", "cause", "error_code"}),
+    "subject-unavailable": frozenset(
+        {"detail", "cause", "error_code", "policy_bindings"}
+    ),
 }
 
 
@@ -396,6 +425,45 @@ class DisclosureDecision(CCFContract):
     internal_kind: str
     external_kind: str
     withheld: tuple[str, ...]
+
+
+def _withheld_whole_member(envelope: RefusalEnvelope, member: str) -> object:
+    """What a withheld **whole member** of the shell becomes.
+
+    Read off the member's own declaration rather than spelled here, so the
+    sentinel a field declares and the form a withheld one takes cannot drift:
+    :attr:`~ccf.products.refusal.RefusalEnvelope.policy_bindings` declares the
+    empty tuple as *nothing governed version-bearingly*, and that is exactly
+    what *this disclosure level says nothing about what governed it* has to
+    look like for the two ``D-IMPL-258`` (2) subjects to share one shape.
+
+    Args:
+        envelope: The shell whose member is being withheld — read for its
+            class, never for its values.
+        member: The member name, from
+            :data:`INDISTINGUISHABLE_BELOW_FULL`.
+
+    Returns:
+        The member's declared sentinel.
+
+    Raises:
+        ValueError: the member declares no sentinel. A required member has no
+            *nothing* to become, so withholding it whole would put a made-up
+            value on the wire — and inventing one is the fake artifact
+            ``D-IMPL-253`` amendment 2 (1) forbids. Declare a sentinel on the
+            field, or withhold the member's own entries instead.
+    """
+    field = type(envelope).model_fields[member]
+    empty = field.get_default(call_default_factory=True)
+    if empty is PydanticUndefined:
+        raise ValueError(
+            f"{member!r} is named in INDISTINGUISHABLE_BELOW_FULL as a whole"
+            " member of the refusal shell, but it declares no sentinel, so"
+            " there is no form of it that says 'nothing'. Give the field a"
+            " declared empty value, or name the entries it carries rather than"
+            " the member (D-IMPL-258 (2))"
+        )
+    return empty
 
 
 def _withheld_rendering() -> str:
@@ -447,10 +515,13 @@ def disclose(
         be indistinguishable from one nothing had decided about.
 
     Raises:
-        ValueError: ``level`` is not one of :data:`DISCLOSURE_LEVELS`, or the
-            envelope's kind is not one this module holds a statement for. Both
-            are refused rather than defaulted to ``minimal``: a level nobody
-            declared and a kind with no external sentence are deployment
+        ValueError: ``level`` is not one of :data:`DISCLOSURE_LEVELS`; or the
+            envelope's kind is not one this module holds a statement for; or
+            :data:`INDISTINGUISHABLE_BELOW_FULL` names a whole member of the
+            shell that declares no sentinel (see
+            :func:`_withheld_whole_member`). All three are refused rather than
+            defaulted to ``minimal``: a level nobody declared, a kind with no
+            external sentence and a member with no *nothing* are deployment
             defects, and quietly answering them with the safe default would
             hide the defect behind correct-looking behaviour.
     """
@@ -497,6 +568,28 @@ def disclose(
         # D-17: detail withheld at minimal
         update["detail"] = EXTERNAL_STATEMENTS[kind]
 
+    # Whole members of the ENVELOPE that the table names for this kind.
+    # `detail` has its own step above and every other name the table carries
+    # today is a key in `fields`, handled below; what is left is a member of
+    # the shell itself, and a withheld one becomes the value its own
+    # declaration already calls "nothing" (`D-IMPL-258` (2)).
+    #
+    # A member normalized here has its key REMOVED from the canonical
+    # rendering rather than kept — the empty tuple is hash-transparent at its
+    # sentinel — and that is the shape the ruling asks for rather than an
+    # exception to the keep-the-key rule above: the same member is normalized
+    # on BOTH sides at one level, so the two shells are identical in presence
+    # and in value. A per-cause replacement is what would have made the shape
+    # a channel; a uniform one is what closes it.
+    members = type(envelope).model_fields
+    for member in sorted(indistinguishable):
+        if member == "detail" or member not in members:
+            continue
+        empty = _withheld_whole_member(envelope, member)
+        if getattr(envelope, member) != empty:
+            withheld.add(member)
+        update[member] = empty
+
     # `fields` — every KEY is kept and only the VALUE is replaced, so the
     # shell's shape is identical for every internal cause at one level
     # (`D-IMPL-253` amendment 2 (4)).
@@ -518,10 +611,15 @@ def disclose(
     # The three whole-member disclosures. Each is internal by construction —
     # the permitted evidence of the search, the Authority layer's resolution,
     # and the partial lineage that existed at the point of refusal — and none
-    # crosses at `minimal`. `replay_reference`, `policy_bindings`, `request`
-    # and `resource` are deliberately untouched: the first is the address of
-    # the record this determination produced, and the other three are what the
-    # caller itself supplied or the deployment itself declared.
+    # crosses at `minimal`. `replay_reference`, `request` and `resource` are
+    # deliberately untouched: the first is the address of the record this
+    # determination produced, and the other two are what the caller itself
+    # supplied or the deployment itself declared. `policy_bindings` is
+    # untouched HERE and normalized above for the kinds
+    # `INDISTINGUISHABLE_BELOW_FULL` names it for — per kind rather than at
+    # this level, because `D-IMPL-258` (2) is a ruling about the two subjects
+    # that share one kind and not about what every refusal may say about the
+    # policy that governed it.
     if level == DISCLOSURE_MINIMAL:
         for member in ("evidence", "provenance", "pre_assembly_lineage"):
             if getattr(envelope, member) is not None:

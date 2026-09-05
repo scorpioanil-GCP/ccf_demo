@@ -106,28 +106,45 @@ NONEXISTENT_ERROR_CODE = "anchor-unresolvable"
 #: member added there changes what this module expects without an edit.
 PERMITTED_AT_FULL = INDISTINGUISHABLE_BELOW_FULL[SUBJECT_UNAVAILABLE]
 
-#: The ONE channel this phase has no ruling for, named so it can be excluded
-#: from the ruled measurement and asserted separately.
+#: The two violation names the ``policy_bindings`` member can land on — its
+#: value, and its key presence in the rendered shell.
 #:
-#: ``24.6-08`` finding F-2, open: *"a `reasoned` disclosure crosses
-#: `policy_bindings` to the consumer, and nobody has ruled whether a Control
-#: Plane key and version may reach a consumer."* This module is where the two
-#: subjects meet at one door, which is where F-2 said the question would
-#: become concrete — and it does: the entitlement determination pins the policy
-#: that decided it (D-34) and an assembler's nonexistent-subject determination
-#: pins nothing, so the member differs in **value** and, because the canonical
-#: rendering omits an empty tuple, in **presence** too.
+#: ``24.6-08`` finding F-2 flagged this member as an unruled channel and
+#: ``24.6-09`` measured it open at this door. **It is now RULED**
+#: (``D-IMPL-258`` (2), Dave): *"the externally disclosed* ``RefusalEnvelope``
+#: *must normalize/suppress that field so unauthorized and nonexistent cases
+#: have the same observable policy-binding shape at the same disclosure
+#: level; the control should prove equivalence at HTTP and MCP."* So below
+#: ``full`` these two names must NOT appear at all, which is why they are no
+#: longer excluded from the equivalence gate below that level.
 #:
-#: Excluded from the ruled measurement rather than silently tolerated: see
-#: :func:`test_the_unruled_policy_binding_channel_is_measured_and_named`, which
-#: asserts its exact state so that ANY change — a ruling applied, a fixture
-#: rigged, the member withheld — turns red and forces a re-read.
-UNRULED_CHANNEL = ("policy_bindings", "schema.refusal:policy_bindings")
+#: They are still named, for one job: at ``full`` the disclosure policy has
+#: said internal truth may cross, and the member is not normalized there. The
+#: gate at ``full`` therefore measures the ruled members and this pair is
+#: measured — and stated — separately, by
+#: :func:`test_the_policy_binding_channel_is_closed_below_full`.
+POLICY_BINDING_CHANNEL = ("policy_bindings", "schema.refusal:policy_bindings")
+
+#: The members of :data:`PERMITTED_AT_FULL` that are WHOLE members of the shell
+#: rather than keys inside its ``fields`` — ``detail`` excepted, which has its
+#: own violation name. Derived from the shipped type, so a fifth member added
+#: to the table lands on the right side of this split without an edit here.
+WHOLE_MEMBERS_AT_FULL = frozenset(
+    member
+    for member in PERMITTED_AT_FULL
+    if member != "detail" and member in RefusalEnvelope.model_fields
+)
 
 
-def ruled_channels(violations: list[str]) -> list[str]:
-    """``violations`` minus the one channel Dave has not ruled on."""
-    return [name for name in violations if name not in UNRULED_CHANNEL]
+def without_policy_bindings(violations: list[str]) -> list[str]:
+    """``violations`` minus the ``policy_bindings`` pair.
+
+    Used at ``full`` only. Below ``full`` the pair must be absent outright, so
+    excluding it there would be teaching the gate to accept the leak — which
+    ``D-IMPL-258`` (2) names by name: *"The allowlist would merely teach the
+    invariant test to accept the leak."*
+    """
+    return [name for name in violations if name not in POLICY_BINDING_CHANNEL]
 
 
 # ---------------------------------------------------------------------------
@@ -586,13 +603,18 @@ def test_unauthorized_and_nonexistent_are_observationally_equivalent(
 ) -> None:
     """The D-27 control, per level, over every channel at once.
 
-    At ``minimal`` and ``reasoned`` there is nothing to report. At ``full`` the
-    only differences are the members
+    At ``minimal`` and ``reasoned`` there is nothing to report **on any
+    channel, ``policy_bindings`` included** — that member is normalized below
+    ``full`` under ``D-IMPL-258`` (2), so the gate no longer excludes it and no
+    allowlist stands between the leak and this assertion.
+
+    At ``full`` the only differences are the members
     :data:`~ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL` declares for
-    this kind — ``cause``, ``detail`` and ``error_code`` — which is disclosure
-    **by policy** rather than a leak, and the expectation is derived from that
-    table rather than spelled, so a fourth member added there moves this test
-    with it.
+    this kind, which is disclosure **by policy** rather than a leak, and the
+    expectation is derived from that table rather than spelled, so a fifth
+    member added there moves this test with it. The whole-member half of that
+    table (``policy_bindings``) lands on two violation names of its own and is
+    measured by :func:`test_the_policy_binding_channel_is_closed_below_full`.
 
     What would fail here: any of the eight channels diverging where the ruling
     says it must not; a status that differed by cause; a second body shape; the
@@ -606,62 +628,98 @@ def test_unauthorized_and_nonexistent_are_observationally_equivalent(
         a=unauthorized, b=nonexistent, governed=governed
     )
 
-    measured = ruled_channels(violations)
     if level == "full":
         expected = sorted(
             {
                 "detail" if member == "detail" else f"fields.{member}"
-                for member in PERMITTED_AT_FULL
+                for member in PERMITTED_AT_FULL - WHOLE_MEMBERS_AT_FULL
             }
         )
-        assert measured == expected, measured
+        assert without_policy_bindings(violations) == expected, violations
     else:
-        assert measured == [], measured
+        assert violations == [], violations
 
 
 @pytest.mark.parametrize("level", LEVELS)
-def test_the_unruled_policy_binding_channel_is_measured_and_named(
+def test_the_policy_binding_channel_is_closed_below_full(
     fabric: Fabric, tmp_path: pathlib.Path, level: DisclosureLevel
 ) -> None:
-    """``policy_bindings`` distinguishes the two subjects — at EVERY level.
+    """``policy_bindings`` cannot tell the two subjects apart below ``full``.
 
-    This is ``24.6-08`` finding F-2 arriving where F-2 said it would. It is
-    measured here rather than fixed, because what may cross a consumer
-    boundary is a disclosure-policy ruling and nobody has made it; the fix — a
-    fourth member in
-    :data:`~ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL` — is one
-    table entry and no code, and it is not this plan's to make.
+    The inversion of ``24.6-09``'s measurement, under ``D-IMPL-258`` (2). Dave:
+    *"replay/internal determination may retain the actual policy bindings that
+    produced the decision; the externally disclosed* ``RefusalEnvelope`` *must
+    normalize/suppress that field so unauthorized and nonexistent cases have
+    the same observable policy-binding shape at the same disclosure level."*
 
-    Two distinguishable facts, from one cause:
+    Both halves of the old channel, asserted directly rather than only through
+    the comparison, so the control does not depend on the comparator being
+    right:
 
-    * **value** — the entitlement determination pins the policy that decided it
-      (D-34); the assembler's nonexistent determination pins nothing;
-    * **presence** — the canonical rendering omits an empty tuple, so the key
-      itself is absent from one shell and present in the other. That is the
-      *body schema/field presence* channel amendment 2 (4) names, and it is
-      the more serious half: a consumer does not have to read a value to read
-      it.
+    * **value** — neither shell carries a binding below ``full``;
+    * **presence** — the key is absent from **both** rendered bodies, because
+      the member is normalized to its own declared empty tuple and the
+      canonical rendering omits it at that sentinel. Identical on both sides is
+      the property the ruling asks for; a key kept on one side and dropped on
+      the other was the leak.
 
-    What would fail here: a ruling applied (the channel closes and this goes
-    red, which is the point — it forces the expectation to be re-derived), a
-    fixture rigged to feed the same bindings into both sides, or the member
-    quietly disappearing from the shell.
+    At ``full`` the member is **not** normalized and this test states what it
+    does instead, because ``full`` is a policy saying in a versioned artifact
+    that this reader may see internal truth — and neither widening nor
+    narrowing ``full`` was ruled.
+
+    What would fail here: the ``policy_bindings`` row leaving
+    :data:`~ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL` (the sabotage
+    of record for this fix), a disclosure step that normalized one side only,
+    or a fixture rigged so the two sides never carried different bindings to
+    begin with — which the ``full`` leg refuses by asserting they do.
     """
     governed, unauthorized, nonexistent = _pair(fabric, tmp_path, level=level)
 
     violations = observational_equivalence_violations(
         a=unauthorized, b=nonexistent, governed=governed
     )
+    named = sorted(name for name in violations if name in POLICY_BINDING_CHANNEL)
 
-    assert sorted(name for name in violations if name in UNRULED_CHANNEL) == sorted(
-        UNRULED_CHANNEL
-    ), violations
+    if level == "full":
+        # Internal truth crosses whole here, and the two determinations really
+        # do pin different things — which is also the vacuity guard for the two
+        # legs above: a fixture where both sides pinned nothing would make
+        # `minimal` and `reasoned` pass for free.
+        assert named == sorted(POLICY_BINDING_CHANNEL), violations
+        assert unauthorized.body["refusal"]["policy_bindings"]
+        assert "policy_bindings" not in nonexistent.body["refusal"]
+        return
 
-    # And the two facts, stated directly rather than only through the
-    # comparison, so the finding does not depend on the comparison being right.
-    assert "policy_bindings" in unauthorized.body["refusal"]
+    assert named == [], violations
+    assert "policy_bindings" not in unauthorized.body["refusal"]
     assert "policy_bindings" not in nonexistent.body["refusal"]
-    assert unauthorized.body["refusal"]["policy_bindings"]
+
+
+@pytest.mark.parametrize("level", LEVELS)
+def test_the_record_keeps_the_bindings_the_shell_no_longer_shows(
+    fabric: Fabric, tmp_path: pathlib.Path, level: DisclosureLevel
+) -> None:
+    """The other half of ``D-IMPL-258`` (2): internal truth is NOT destroyed.
+
+    Dave: *"replay/internal determination may retain the actual policy bindings
+    that produced the decision."* So the suppression above must be a disclosure
+    act and not an erasure — the entitlement determination's own record still
+    names the policy that decided it, at its version, at every level.
+
+    What would fail here: closing the channel by never pinning the policy at
+    all, which would pass every consumer-side assertion in this module and
+    would be exactly the *"destroy audit truth merely to achieve external
+    suppression silence"* Q27 forbids.
+    """
+    governed, unauthorized, _ = _pair(fabric, tmp_path, level=level)
+
+    record = governed.record_at(unauthorized.body["refusal"]["replay_reference"])
+    assert isinstance(record, DecisionReplayRecord)
+    internal = governed.internal(record)
+
+    assert internal.policy_bindings, internal
+    assert all(source.version for source in internal.policy_bindings), internal
 
 
 @pytest.mark.parametrize("level", LEVELS)

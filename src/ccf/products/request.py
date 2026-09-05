@@ -108,6 +108,7 @@ from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.products.contract import (
     NO_REQUEST_CONTRACT,
     ProductClassRegistrationError,
+    ServeObligations,
 )
 
 # `ccf.skills.catalog` is imported at the BOTTOM of this module, on the
@@ -160,6 +161,7 @@ __all__ = [
     "ProductRequestViolationReason",
     "refuse_request",
     "refuse_request_contract_pin",
+    "refuse_undeclared_class_default",
     "request_seeds",
 ]
 
@@ -1121,7 +1123,7 @@ def refuse_request_contract_pin(
     schema_version: str,
     request_contract_key: str,
     request_contract_version: str,
-) -> None:
+) -> ProductRequestContract | None:
     """Raise unless a class's request-contract pin resolves to its own contract.
 
     The registration-time half, in the ``MAX_TTL`` voice and for the ``MAX_TTL``
@@ -1136,6 +1138,14 @@ def refuse_request_contract_pin(
     payload schema pinned onto the wrong product class is undetectable. A
     :class:`ProductRequestContract` names the class and the lane it serves, so
     that mis-wiring is caught here.
+
+    Returns:
+        The contract this pin resolved to, or ``None`` when the class declares
+        none. Returned rather than discarded since ``D-IMPL-258`` (5), so the
+        declaration-versus-contract check
+        (:func:`refuse_undeclared_class_default`) reads the contract this
+        function already resolved. Two reads of one key are two chances to
+        disagree about what a class's request surface is.
 
     Raises:
         ProductClassRegistrationError: the pin is half-declared; or it names
@@ -1158,7 +1168,7 @@ def refuse_request_contract_pin(
             f"{NO_REQUEST_CONTRACT!r} or neither is (D-IMPL-98, D-IMPL-26)"
         )
     if not declared_key:
-        return
+        return None
     try:
         artifact = registry.resolve(
             request_contract_key, request_contract_version
@@ -1192,6 +1202,109 @@ def refuse_request_contract_pin(
             "wrong class is refused at wiring time rather than validating one "
             "class's questions against another's declaration (D-IMPL-98)"
         )
+    return artifact
+
+
+def refuse_undeclared_class_default(
+    *,
+    schema_name: str,
+    schema_version: str,
+    serve_obligations: ServeObligations,
+    declared: ProductRequestContract | None,
+) -> None:
+    """Raise unless every class default names a parameter the contract exposes.
+
+    **SDK-defined** (CLAUDE.md §11); the ruling of record is ``D-IMPL-258``
+    (5), Dave: *"Under Q2, a product default is part of the request contract.
+    Therefore a default naming a parameter the contract does not expose is a
+    malformed/internally inconsistent declaration. That should fail
+    registration/configuration/boot validation, not produce a shell to a
+    caller. … Default for undeclared parameter → configuration/invariant
+    failure. Caller outside a valid declared constraint → governed shell."*
+
+    **Why a class default is not a ceiling** (``D-IMPL-251`` C1=A, ``24.6-L-04``).
+    A default is what *omission* means, so it presupposes a counterfactual: a
+    caller who could have stated the parameter and did not. A class
+    characteristic the caller has **no way to state** has no counterfactual —
+    it is a ceiling wearing a default's name, which is exactly the power C1=A
+    took away from a product class. Neither of the two alternatives is
+    tenable: folding the value in anyway refuses every request as
+    ``undeclared-parameter``, reporting a deployment's mistake as a caller's
+    on a path the caller cannot fix; dropping it silently leaves a class
+    believing it declared a tolerance it never applies.
+
+    **Why it runs here rather than at resolution.** ``24.6-04`` put this
+    refusal in :func:`~ccf.products.constraints.resolve_effective_request`,
+    which reaches it once per *request* — so a self-contradicting Control Plane
+    served every other class happily and failed the moment somebody asked a
+    question. `D-IMPL-258` (5) moves it to the two moments a declaration is
+    taken up: registration
+    (:func:`~ccf.products.contract.register_product_class`) and boot
+    (:func:`~ccf.products.resolver.build_governed_resolver`). The resolution
+    -time raise is retained as an unreachable invariant guard for callers of
+    the pure function, which cannot assume its caller booted through either.
+
+    Args:
+        schema_name: The class whose declaration is being taken up.
+        schema_version: Its own semver lane, for the message.
+        serve_obligations: What the class declares about serving. Read for its
+            defaults only; the lineage obligation is a different kind of thing
+            and is not this function's subject.
+        declared: The class's request contract, or ``None`` when it pins none.
+            ``None`` **returns without refusing**, and the scoping is
+            deliberate rather than lenient: Dave's sentence is *"a default
+            naming a parameter the contract does not expose"*, which
+            presupposes a contract. A class that pins none is the
+            pre-``D-IMPL-98`` posture — nothing validates a question against a
+            declared surface, so nothing can refuse one as
+            ``undeclared-parameter``, and the failure mode this check exists to
+            prevent does not arise. Whether that posture should also be refused
+            is a wider rule than the one ruled, and it is put to Dave in
+            ``24.6-D-IMPL-258-FIXES.md`` rather than decided here.
+
+    Raises:
+        ProductClassRegistrationError: the class declares a default for a
+            parameter its request contract does not declare as an argument.
+            The shipped registration error is reused rather than a new type
+            added, for :func:`refuse_request_contract_pin`'s reason: a class
+            whose governance configuration is malformed fails for one reason
+            from the adopter's point of view.
+    """
+    # Function-local for `_refuse_tolerance`'s reason, spelled there:
+    # `ccf.products.gates` reaches `ccf.products.contract`, which is on the
+    # path back to this module through the replay record. One name, needed
+    # once per class registration and never in a request path.
+    from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
+
+    if declared is None:
+        return
+
+    # The class's declared defaults, by the parameter name each reaches the
+    # Authority layer under. One entry today; a mapping rather than a check so
+    # a second declared default has a place to be listed rather than a branch
+    # to be added — the shape `INDISTINGUISHABLE_BELOW_FULL` uses for the same
+    # reason.
+    class_defaults: Mapping[str, object | None] = {
+        DEBT_TOLERANCE_PARAMETER: serve_obligations.default_debt_tolerance,
+    }
+    exposed = frozenset(declared.arguments.properties)
+    undeclared = sorted(
+        name
+        for name, value in class_defaults.items()
+        if value is not None and name not in exposed
+    )
+    if not undeclared:
+        return
+    raise ProductClassRegistrationError(
+        f"product class {schema_name!r} at lane {schema_version!r} declares a"
+        f" default for {undeclared}, and its request contract"
+        f" ({declared.schema_name!r} @{declared.schema_version}) declares"
+        f" {sorted(exposed)} as its arguments. A caller who cannot state the"
+        " parameter cannot accept a product the default would withhold, so the"
+        " default would be a class-imposed ceiling (D-IMPL-251 C1=A) rather"
+        " than a default. Declare the argument on the request contract, or"
+        " remove the class default (D-IMPL-258 (5))"
+    )
 
 
 # Imported at the bottom, deliberately (D-IMPL-56, as applied by

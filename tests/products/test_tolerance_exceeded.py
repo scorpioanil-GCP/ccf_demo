@@ -532,19 +532,31 @@ def test_the_request_contracts_own_default_wins_over_the_class_characteristic(
 
 
 def test_a_class_default_the_contract_does_not_declare_is_refused() -> None:
-    """A characteristic a caller cannot state is a ceiling wearing a default's name.
+    """The surviving invariant guard: this pure function still refuses the pair.
 
-    ``D-IMPL-251`` C1=A took from a product class the power to withhold context
-    over its own preference. A default on a parameter the request contract does
-    not declare as an argument would hand it straight back: the caller has no
-    way to accept a product the default withholds. It is also unanswerable —
-    the resolution's closed-world comparison runs over the EFFECTIVE values, so
-    folding the name in would refuse the request as ``undeclared-parameter``
-    and report a deployment's mistake as a caller's.
+    A characteristic a caller cannot state is a ceiling wearing a default's
+    name. ``D-IMPL-251`` C1=A took from a product class the power to withhold
+    context over its own preference, and a default on a parameter the request
+    contract does not declare as an argument would hand it straight back: the
+    caller has no way to accept a product the default withholds. It is also
+    unanswerable — the resolution's closed-world comparison runs over the
+    EFFECTIVE values, so folding the name in would refuse the request as
+    ``undeclared-parameter`` and report a deployment's mistake as a caller's.
 
     Raised rather than returned, on the ``capability_bindings`` precedent: the
     fabric cannot reach a valid governed determination
     (``D-IMPL-253`` amendment 2 (3)).
+
+    **Unreachable through the SDK's own wiring since ``D-IMPL-258`` (5)**, and
+    kept anyway. Dave moved the refusal to declaration time — registration and
+    boot, proved in ``tests/products/test_class_default_declaration.py`` — so a
+    class that contradicts its own contract never becomes servable and this
+    branch never sees one through the shipped seams. It stays because
+    :func:`~ccf.products.constraints.resolve_effective_request` is a **public
+    pure function over its arguments**: it cannot assume its caller booted
+    through either seam, and silently folding in a default its own argument
+    says is undeclared would be the silent repair this codebase refuses
+    everywhere. This test is what keeps the last line a line.
     """
     contract = ProductRequestContract(
         semver="1.0.0",
