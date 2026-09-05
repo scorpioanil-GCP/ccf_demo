@@ -78,15 +78,27 @@ _NAME_FORM_ROSTER = (
 
 FORMS = ("docstring", "name")
 
-#: The cp-04 ids, as a roster, so the real-tree control names what it
-#: expects rather than counting. Sixteen (``CFT-G01..G16``) held Dave's
-#: 2026-08-31 ruling; ``CFT-G18`` joined on 2026-09-03 under Phase 24.5.1
-#: criterion 19 as amended (CRITERIA-LOCK Amendment 1; ``D-IMPL-245`` (4),
-#: the ambiguous-anchor refusal), and this roster was amended in-phase by
-#: Dave's ruling at ``D-IMPL-248`` — the one ``tools/`` edit of that phase.
-#: ``CFT-G17`` is the id Dave WITHDREW and stays a phantom: it is never
-#: re-minted, so the roster is seventeen ids with a hole at 17.
-CP04_IDS = frozenset(f"CFT-G{n:02d}" for n in range(1, 17)) | {"CFT-G18"}
+#: The cp-04 ids, READ FROM THE ARTIFACT that declares them (``24.6-L-10``,
+#: B-10). It was a hand-typed comprehension — ``CFT-G01..G16`` plus
+#: ``CFT-G18``, with a hole at the id Dave WITHDREW — and a hand-typed roster
+#: audits clean with a wrong member forever: the real-tree control below
+#: compares what the modules claim against THIS set, so a set that had drifted
+#: from ``gates.yaml`` would report agreement between two wrong things.
+#: Deriving it means the control compares the tree against the declaration,
+#: which is the comparison it was always meant to be.
+#:
+#: Sixteen ids held Dave's 2026-08-31 ruling; ``CFT-G18`` joined on 2026-09-03
+#: under Phase 24.5.1 criterion 19 as amended (CRITERIA-LOCK Amendment 1;
+#: ``D-IMPL-245`` (4), the ambiguous-anchor refusal) by Dave's ruling at
+#: ``D-IMPL-248`` — the one ``tools/`` edit of that phase. That history is why
+#: the hole at 17 is asserted BY NAME below rather than inferred from a range.
+CP04_IDS = frozenset(
+    gate["id"] for gate in yaml.safe_load(CP04_ROSTER.read_text(encoding="utf-8"))["declaration"]["gates"]
+)
+
+#: ``CFT-G17`` is the withdrawn id and is never re-minted; ``CFT-G99`` never
+#: existed. Both are named only in meta-test docstrings, which is why they are
+#: visible under the docstring form and absent under cp-04's declared name form.
 CP04_PHANTOMS = frozenset({"CFT-G17", "CFT-G99"})
 
 
@@ -602,6 +614,36 @@ def test_test_modules_follow_the_rung_number(tmp_path: pathlib.Path) -> None:
 
 def test_the_real_cp_04_convention_parses_as_the_name_form() -> None:
     assert declared_convention(load_roster(CP04_ROSTER)) == "name"
+
+
+def test_cp04_ids_are_derived_from_the_artifact(tmp_path: pathlib.Path) -> None:
+    """``24.6-L-10``: the roster is read, and the read is live.
+
+    Three claims, because "derived" on its own is a word rather than a
+    property. It read something (non-empty, and ``CFT-G01`` by name — the
+    ``tests/deployment/test_class_lookup.py::test_the_sdk_artifact_classes_were_actually_discovered``
+    idiom). It excludes the withdrawn id by name rather than by arithmetic.
+    And removing an id from a COPY of the artifact changes what the same
+    derivation produces, so the constant cannot be a cached literal wearing a
+    ``yaml.safe_load`` for decoration.
+    """
+    assert CP04_IDS, "the derivation read no gate at all"
+    assert "CFT-G01" in CP04_IDS, sorted(CP04_IDS)
+    assert "CFT-G17" not in CP04_IDS, (
+        "CFT-G17 is the id Dave withdrew; a roster that re-mints it has been"
+        " regenerated from a range rather than read from the declaration"
+    )
+    assert CP04_PHANTOMS.isdisjoint(CP04_IDS), sorted(CP04_PHANTOMS & CP04_IDS)
+
+    document = yaml.safe_load(CP04_ROSTER.read_text(encoding="utf-8"))
+    dropped = document["declaration"]["gates"][0]["id"]
+    document["declaration"]["gates"] = document["declaration"]["gates"][1:]
+    copy = tmp_path / "gates.yaml"
+    copy.write_text(yaml.safe_dump(document), encoding="utf-8")
+    rederived = frozenset(
+        gate["id"] for gate in yaml.safe_load(copy.read_text(encoding="utf-8"))["declaration"]["gates"]
+    )
+    assert rederived == CP04_IDS - {dropped}, sorted(rederived ^ (CP04_IDS - {dropped}))
 
 
 def test_the_real_cp_04_tree_is_clean() -> None:
