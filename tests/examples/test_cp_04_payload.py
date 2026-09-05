@@ -384,10 +384,12 @@ def ask(
     the adapter hands the spine, which is how `CFT-G16`'s mechanism control
     drives ONE mutated class chain through the SHIPPED projection.
 
-    A refusal the assembler RAISES is caught and returned as data —
-    ``AssemblyRefused`` is not in ``ccf.products.refusal::REFUSAL_KINDS`` and has
-    no envelope, which `transport.py`'s own docstring records as an SDK-surface
-    gap rather than papering over. A refusal it RETURNS arrives on the `Result`.
+    Every governed determination this rung reaches arrives on the `Result` as a
+    typed envelope (`24.6-L-01`, `24.6-L-02`). A raised
+    ``ccf.agents.errors::AssemblyRefused`` is still caught and rendered as
+    text, and its meaning is now narrow: an INVARIANT FAILURE inside the
+    deployment, never a verdict about the question. Catching it keeps one
+    broken assembly from taking this module down with it.
     """
     from ccf.client.client import ProductClient
 
@@ -772,7 +774,12 @@ def test_the_inert_check_refuses_a_refusal_beside_a_served_product() -> None:
         asked_as="as_of refused and served",
         payload=None,
         content_address=None,
-        refusal="AssemblyRefused: 400 not_supported_at_tier: as_of",
+        # The shell's rendered form, not an exception's. The two controls
+        # below fed exception PROSE until `24.6-L-02` narrowed that channel to
+        # invariant failure; a refusal about the request is a value now, and a
+        # control feeding the retired form would be planting an input the
+        # fabric can no longer produce.
+        refusal="product-request-violation: 400 not_supported_at_tier: as_of",
         observed=("Assembled",),
         served_vessels=("Assembled",),
     )
@@ -789,7 +796,7 @@ def test_the_inert_check_refuses_a_refusal_that_names_nothing() -> None:
         asked_as="a refusal naming nothing",
         payload=None,
         content_address=None,
-        refusal="AssemblyRefused: something went wrong",
+        refusal="product-request-violation: something went wrong",
         observed=("ParameterNotSupported",),
         served_vessels=(),
     )

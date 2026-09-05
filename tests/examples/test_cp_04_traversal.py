@@ -90,19 +90,23 @@ nobody has watched fail.
 from __future__ import annotations
 
 import importlib
+import json
 import pathlib
 import re
 import sys
 import tempfile
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Iterator, Mapping, Sequence
+from types import SimpleNamespace
+from typing import Any, Final, Iterator, Mapping, Sequence
 
 import pytest
 import yaml
 
 from ccf.agents.errors import AssemblyRefused
 from ccf.halflife.assessment import DebtAssessment, DebtFactors, DebtSignal
+from ccf.products.constraints import ConstraintRefusal
+from ccf.products.refusal import REFUSAL_KINDS
 
 from .cp_04_seed import ledger_for, schema_for, seed
 
@@ -247,6 +251,63 @@ def local_name(iri: str) -> str:
     return iri.rsplit("/", 1)[-1]
 
 
+#: A SHALLOWER question than the declared default, chosen by the CALLER.
+#:
+#: It is written here rather than read from a declaration because since
+#: `24.6-L-01` there is nothing to read: `D-IMPL-253` Q21 deleted the request
+#: contract's depth bounds, and what depth a caller asks for is the caller's.
+#: One hop is the shallowest walk that is still a walk, and it is far enough
+#: from the declared default of 3 that the two served ROSTERS differ rather
+#: than only the two echoes — which is what `CFT-G05`'s content limb needs.
+SHALLOW_DEPTH: Final[int] = 1
+
+#: A depth DEEPER THAN ANY TREE IN THIS ESTATE, and therefore the request
+#: `D-IMPL-251` C5 is about: under the deleted bound of 6 it was refused for
+#: exhibiting nothing; it is SERVED now, with `depth_reached` reporting what
+#: the walk actually found. Measured: the deepest tree in this estate is 6
+#: (seven roots attain it), and the demonstration anchor's component is
+#: exhausted at 3.
+UNEXHIBITED_DEPTH: Final[int] = 8
+
+#: The SDK's own kind token, read from the vocabulary rather than spelled
+#: twice: a test that typed the string would agree with itself about the
+#: vocabulary while disagreeing with the fabric.
+CONSTRAINT_REFUSAL_KIND: Final[str] = REFUSAL_KINDS[ConstraintRefusal]
+
+#: The two provenance words `ProvenanceSource` and `ParameterBound` declare as
+#: `Literal`s. They are spelled here because a `Literal`'s members are not
+#: enumerable as values without reaching into `typing`, and each is asserted
+#: against the shipped annotation by
+#: :func:`test_the_provenance_vocabulary_this_module_spells_is_the_shipped_one`
+#: — so a rename is a red build here rather than a check that stops matching.
+CAPABILITY_SOURCE_KIND: Final[str] = "capability"
+TECHNICAL_AUTHORITY: Final[str] = "technical"
+
+#: The parameter and finding type this module reads, both from the deployment
+#: that declares them. Loaded lazily inside the functions that need them,
+#: because importing the example at module scope needs its environment.
+
+
+def traversal_finding(asked: "Asked") -> Mapping[str, Any]:
+    """The `D-23` row of one served payload's finding roster.
+
+    Read out of the payload the consumer received, never recomputed: the whole
+    point of putting depth and cost in the findings is that they are part of
+    the answer rather than something a reader has to reconstruct.
+    """
+    assert asked.payload is not None, f"{asked.asked_as} served no payload"
+    rows = [
+        dict(row)
+        for row in asked.payload["findings"]
+        if row["type"] == _load("projection").FINDING_TRAVERSAL
+    ]
+    assert len(rows) == 1, (
+        f"{asked.asked_as} carries {len(rows)} traversal findings, not 1 —"
+        f" the roster is {[row['type'] for row in asked.payload['findings']]}"
+    )
+    return rows[0]
+
+
 # ---------------------------------------------------------------------------
 # One ask, reduced to what these five gates read.
 # ---------------------------------------------------------------------------
@@ -283,6 +344,17 @@ class Asked:
     #: would force each of them to author one — which is the shape that makes a
     #: control agree with the thing it is controlling.
     debt: DebtAssessment | None = None
+
+    #: The refusal ENVELOPE itself, when one came back. Carried beside the text
+    #: because `24.6-L-01` made the refusal a typed governed determination: the
+    #: bound that refused, its AUTHORITY and the capability identity behind it
+    #: are typed members, and a check reading only the rendered string would be
+    #: asserting a sentence rather than a decision.
+    #:
+    #: Sentinel-defaulted for the same reason `debt` is: the hand-built values
+    #: the positive controls construct have no envelope to supply, and a
+    #: required field would force each control to author one.
+    envelope: Any | None = None
 
     @property
     def nodes(self) -> tuple[Mapping[str, Any], ...]:
@@ -333,10 +405,13 @@ def ask(
     the demonstration question always names its depth and the DECLARED DEFAULT
     is never reached along that path.
 
-    A refusal the assembler RAISES is caught and returned as data —
-    ``AssemblyRefused`` is not in ``ccf.products.refusal::REFUSAL_KINDS`` and has
-    no envelope, which `transport.py`'s own docstring records as a gap rather
-    than papering over. A refusal it RETURNS arrives on the `Result`.
+    Every governed determination this rung reaches arrives on the `Result` as
+    a typed envelope (`24.6-L-01`, `24.6-L-02`). A raised
+    ``ccf.agents.errors::AssemblyRefused`` is still caught and rendered as
+    text, and its meaning is now narrow: an INVARIANT FAILURE inside the
+    deployment, never a verdict about the question. Catching it here keeps one
+    broken assembly from taking the module down with it, so the gate that
+    failed reports rather than erroring.
     """
     from ccf.client.client import ProductClient
 
@@ -366,7 +441,7 @@ def ask(
     if result.refused:
         return Asked(
             asked_as=asked_as, payload=None, content_address=None,
-            refusal=str(result.refusal),
+            refusal=str(result.refusal), envelope=result.refusal,
         )
     return Asked(
         asked_as=asked_as,
@@ -428,25 +503,49 @@ def at_the_declared_default_again(estate: tuple[str, str]) -> Asked:
 
 
 @pytest.fixture(scope="module")
-def at_the_declared_floor(estate: tuple[str, str]) -> Asked:
-    """One ask at the declared FLOOR — a second, shallower question.
+def at_the_shallow_depth(estate: tuple[str, str]) -> Asked:
+    """One ask at :data:`SHALLOW_DEPTH` — a second, shallower question.
 
-    The floor rather than an interesting-looking number: it is read from the
-    declaration, and it is the depth furthest from the default, which is what
-    makes the two served rosters differ rather than merely the two echoes.
+    SUPERSEDED 2026-09-04 (`24.6-L-01`): this fixture asked at the DECLARED FLOOR, read from the request contract's `argument_bounds`.
+    There is no declared floor any more — `D-IMPL-253` Q21 deleted the bound —
+    and a caller's depth was never the declaration's to fix. The value is the
+    caller's now, and it is named at :data:`SHALLOW_DEPTH` with its reason.
     """
-    deployment = _load("deployment")
-    floor = deployment.declared_depth_floor()
-    return ask(asked_as=f"max_depth={floor} (the declared floor)", max_depth=floor)
+    return ask(
+        asked_as=f"max_depth={SHALLOW_DEPTH} (a shallower question)",
+        max_depth=SHALLOW_DEPTH,
+    )
 
 
 @pytest.fixture(scope="module")
-def above_the_declared_ceiling(estate: tuple[str, str]) -> Asked:
-    """One ask ABOVE the declared ceiling — the request that must be refused."""
+def above_the_technical_capability(estate: tuple[str, str]) -> Asked:
+    """One ask ABOVE the substrate's own traversal capability.
+
+    The request that must be refused BY NAME, and the ONE depth on this rung
+    that still is. The number is read off the capability the deployment
+    reports rather than written here, so a substrate with a different bound
+    moves this fixture with it.
+    """
     deployment = _load("deployment")
-    over = deployment.declared_depth_ceiling() + 1
+    over = deployment.traversal_depth_capability().max_traversal_depth + 1
     return ask(
-        asked_as=f"max_depth={over} (above the declared ceiling)", max_depth=over
+        asked_as=f"max_depth={over} (above the technical capability)",
+        max_depth=over,
+    )
+
+
+@pytest.fixture(scope="module")
+def at_a_depth_the_estate_cannot_exhibit(estate: tuple[str, str]) -> Asked:
+    """One ask at :data:`UNEXHIBITED_DEPTH` — SERVED, not refused.
+
+    The whole content of `D-IMPL-251` C5 in one fixture. This depth is deeper
+    than any tree in this estate, and under the deleted bound of 6 it was a
+    refusal; the walk simply reaches what it reaches and the payload reports
+    both numbers.
+    """
+    return ask(
+        asked_as=f"max_depth={UNEXHIBITED_DEPTH} (deeper than this estate goes)",
+        max_depth=UNEXHIBITED_DEPTH,
     )
 
 
@@ -468,7 +567,7 @@ def redeclared_default(text: str, *, want: int) -> tuple[str, int]:
     inside = False
     hits = 0
     for line in text.splitlines(keepends=True):
-        if re.match(r"^\s{2}argument_defaults:\s*$", line):
+        if re.match(r"^\s{2}defaults:\s*$", line):
             inside = True
             rewritten.append(line)
             continue
@@ -501,7 +600,7 @@ def under_a_redeclared_default(
     vacuous.
     """
     deployment = _load("deployment")
-    want = deployment.declared_depth_floor()
+    want = SHALLOW_DEPTH
     text, hits = redeclared_default(
         deployment.CONFIG.read_text(encoding="utf-8"), want=want
     )
@@ -533,7 +632,7 @@ def under_a_redeclared_default(
 
 
 def test_the_seed_carries_what_these_five_gates_need(
-    at_the_declared_default: Asked, at_the_declared_floor: Asked
+    at_the_declared_default: Asked, at_the_shallow_depth: Asked
 ) -> None:
     """Without this, a green gate could be a true statement about nothing.
 
@@ -572,15 +671,18 @@ def test_the_seed_carries_what_these_five_gates_need(
         f" configured {sorted(deployment.declared_relationship_types())}"
     )
 
-    floor = deployment.declared_depth_floor()
     default = deployment.declared_depth_default()
-    ceiling = deployment.declared_depth_ceiling()
-    assert floor < default < ceiling, (
-        f"the declared depth range is floor={floor} default={default}"
-        f" ceiling={ceiling}; CFT-G03, CFT-G04 and CFT-G05 each need three"
-        " distinct values to be able to tell their subjects apart"
+    capability = deployment.traversal_depth_capability().max_traversal_depth
+    assert SHALLOW_DEPTH < default < UNEXHIBITED_DEPTH < capability, (
+        f"the four depths these gates read are shallow={SHALLOW_DEPTH}"
+        f" default={default} unexhibited={UNEXHIBITED_DEPTH}"
+        f" capability={capability}, and they must be strictly increasing:"
+        " CFT-G03 needs a depth ABOVE the capability that is not merely deep,"
+        " the served-deep limb needs a depth deeper than this estate goes but"
+        " still WITHIN the capability, and CFT-G04 and CFT-G05 each need to"
+        " tell the default apart from both"
     )
-    assert at_the_declared_floor.roster != at_the_declared_default.roster, (
+    assert at_the_shallow_depth.roster != at_the_declared_default.roster, (
         "the ask at the declared floor and the ask at the declared default"
         " served the SAME member roster, so CFT-G05's content limb could not"
         " distinguish a walk that reads max_depth from one that ignores it"
@@ -901,20 +1003,44 @@ def test_the_predicate_check_refuses_an_edgeless_tree() -> None:
 
 
 # ---------------------------------------------------------------------------
-# CFT-G03 — above the declared ceiling is REFUSED BY NAME, never clamped.
+# CFT-G03 — above the substrate's TECHNICAL capability is REFUSED BY NAME.
+#
+# SUPERSEDED 2026-09-04 (`24.6-L-01`, `D-IMPL-251` C5): this heading read "above the declared ceiling is REFUSED BY NAME, never clamped".
+# The bound it named was a measurement of how deep this estate goes and is
+# deleted; what is refused now is a depth above the SUBSTRATE's own capability,
+# with authority `technical`, and the promise not to answer a narrower question
+# than the one asked survives whole.
 # ---------------------------------------------------------------------------
 
 
-def refusal_violations(
-    asked: Asked, *, requested: int, ceiling: int, floor: int
-) -> list[str]:
-    """Every way an over-ceiling ask fails `CFT-G03`.
+def _bound(asked: Asked) -> Mapping[str, Any]:
+    """The refusing bound off the envelope, as a mapping. Empty when absent."""
+    if asked.envelope is None:
+        return {}
+    raw = dict(getattr(asked.envelope, "fields", {}) or {}).get("bound")
+    if raw is None:
+        return {}
+    return dict(json.loads(raw)) if isinstance(raw, str) else dict(raw)
 
-    **Both limbs, and the second is the one a count-based check cannot see.** A
-    clamp raises nothing and returns a perfectly well-formed tree: the request
-    says 7, the walk does 6, the payload looks fine and the content address
-    greens. So the gate asserts that NO tree came back at all, and names the
-    clamp explicitly when the tree it got was walked at the ceiling.
+
+def refusal_violations(
+    asked: Asked, *, requested: int, capability: int, identity: str
+) -> list[str]:
+    """Every way an over-capability ask fails `CFT-G03`.
+
+    **Three limbs, and the second is the one a count-based check cannot see.**
+    A clamp raises nothing and returns a perfectly well-formed tree: the
+    request says 101, the walk does 100, the payload looks fine and the content
+    address greens. So the gate asserts that NO tree came back at all, and
+    names the clamp explicitly when the tree it got was walked at the
+    capability.
+
+    **The third limb is the one `24.6-L-01` adds.** A refusal is not enough:
+    the fabric has to say WHICH AUTHORITY refused and on what evidence, because
+    a policy bound and a substrate bound are different facts about a request
+    and a consumer that cannot tell them apart cannot act on either. So the
+    bound is read as a typed member — `authority`, `value` and the capability
+    identity its `source` names — rather than out of a rendered sentence.
     """
     violations: list[str] = []
     if asked.payload is not None:
@@ -923,11 +1049,12 @@ def refusal_violations(
             f" a tree came back, walked at max_depth_applied="
             f"{asked.depth_applied!r} over {len(asked.nodes)} members"
         )
-        if asked.depth_applied == ceiling:
+        if asked.depth_applied == capability:
             violations.append(
-                f"CFT-G03: and the answer was CLAMPED to the declared ceiling"
-                f" {ceiling}. A clamp is a different program rather than a"
-                " nearby one: it answers a question nobody asked, with no error"
+                f"CFT-G03: and the answer was CLAMPED to the technical"
+                f" capability {capability}. A clamp is a different program"
+                " rather than a nearby one: it answers a question nobody"
+                " asked, with no error"
             )
         return violations
     if not asked.refusal:
@@ -936,52 +1063,120 @@ def refusal_violations(
             " refusal, so nothing was observed at all"
         )
         return violations
-    if str(ceiling) not in asked.refusal:
+    kind = getattr(asked.envelope, "kind", None)
+    if kind != CONSTRAINT_REFUSAL_KIND:
         violations.append(
-            f"CFT-G03: the refusal does not name the declared ceiling"
-            f" {ceiling} — {asked.refusal!r}. A refusal that does not name what"
-            " it refused against cannot be told from a refusal for another"
-            " reason"
+            f"CFT-G03: the refusal came back as {kind!r} rather than"
+            f" {CONSTRAINT_REFUSAL_KIND!r}. A refusal in the wrong vocabulary"
+            " reports the wrong reason, which is the flattening the closed"
+            " envelope exists to prevent"
         )
-    if str(requested) not in asked.refusal:
+    max_depth = _load("deployment").PARAM_MAX_DEPTH
+    if getattr(asked.envelope, "key", None) != max_depth:
         violations.append(
-            f"CFT-G03: the refusal does not name the requested depth"
-            f" {requested} — {asked.refusal!r}, so it is not demonstrably about"
-            " this request"
+            f"CFT-G03: the refusal names key"
+            f" {getattr(asked.envelope, 'key', None)!r} rather than"
+            f" {max_depth!r}, so it is not demonstrably about the depth"
         )
-    if str(floor) not in asked.refusal:
+    bound = _bound(asked)
+    if not bound:
         violations.append(
-            f"CFT-G03: the refusal does not name the declared floor {floor} —"
-            f" {asked.refusal!r}; the bounds are a range and a refusal naming"
-            " half of it names half of the contract"
+            "CFT-G03: the refusal carries NO bound at all, so a consumer"
+            " learns that they were refused and not what the boundary was"
+        )
+        return violations
+    if bound.get("authority") != TECHNICAL_AUTHORITY:
+        violations.append(
+            f"CFT-G03: the bound claims authority {bound.get('authority')!r}"
+            f" rather than {TECHNICAL_AUTHORITY!r}. A substrate limit reported"
+            " as policy would have the deployment answering for a decision it"
+            " did not make"
+        )
+    if str(bound.get("value")) != str(capability):
+        violations.append(
+            f"CFT-G03: the bound's value is {bound.get('value')!r} where the"
+            f" substrate reports {capability}; the refusal is held against a"
+            " number nothing measured"
+        )
+    source = dict(bound.get("source") or {})
+    if source.get("identity") != identity:
+        violations.append(
+            f"CFT-G03: the bound's source identity is"
+            f" {source.get('identity')!r} rather than {identity!r}, so an"
+            " examiner cannot resolve WHICH substrate refused"
+        )
+    if source.get("kind") != CAPABILITY_SOURCE_KIND:
+        violations.append(
+            f"CFT-G03: the bound's source kind is {source.get('kind')!r}"
+            f" rather than {CAPABILITY_SOURCE_KIND!r} — a capability minted as"
+            " an artifact is the manufactured provenance D-IMPL-253"
+            " amendment 2 (1) refuses"
         )
     return violations
 
 
-def test_cft_g03_max_depth_above_the_ceiling_is_refused_by_name(
-    above_the_declared_ceiling: Asked,
+def test_cft_g03_max_depth_above_the_technical_ceiling_is_refused_by_name(
+    above_the_technical_capability: Asked,
 ) -> None:
-    """`CFT-G03` (criterion 27). Above the declared ceiling is REFUSED BY NAME.
+    """`CFT-G03` (criterion 27). Above the TECHNICAL capability is REFUSED BY NAME.
 
-    Two limbs held together: the refusal happened and it names the declared
-    bounds, AND no tree was returned. The second limb is what distinguishes a
-    refusal from a silent clamp — a check that only inspected the returned tree
-    could not tell them apart, because a clamp returns a tree that looks right.
+    Three limbs held together: the refusal happened as a `constraint-refusal`
+    naming `max_depth`, it carries the bound that refused it with authority
+    `technical` and the substrate identity behind it, AND no tree was returned.
+    The last limb is what distinguishes a refusal from a silent clamp — a check
+    that only inspected the returned tree could not tell them apart, because a
+    clamp returns a tree that looks right.
 
-    Sabotaged by replacing the refusal with a silent clamp to the ceiling.
+    Sabotaged by replacing the refusal with a silent clamp to the capability.
     """
     deployment = _load("deployment")
-    ceiling = deployment.declared_depth_ceiling()
+    capability = deployment.traversal_depth_capability()
     violations = refusal_violations(
-        above_the_declared_ceiling,
-        requested=ceiling + 1,
-        ceiling=ceiling,
-        floor=deployment.declared_depth_floor(),
+        above_the_technical_capability,
+        requested=capability.max_traversal_depth + 1,
+        capability=capability.max_traversal_depth,
+        identity=capability.capability_identity,
     )
     assert not violations, (
-        f"CFT-G03 failed against {above_the_declared_ceiling.asked_as}:\n"
+        f"CFT-G03 failed against {above_the_technical_capability.asked_as}:\n"
         + "\n".join(violations)
     )
+
+
+def test_a_depth_the_estate_cannot_exhibit_is_served(
+    at_a_depth_the_estate_cannot_exhibit: Asked,
+) -> None:
+    """`D-IMPL-251` C5's other half, and the one that used to be a refusal.
+
+    A depth deeper than any tree in this estate is an ORDINARY QUESTION with an
+    ordinary answer. Under the deleted bound of 6 this request was refused for
+    exhibiting nothing, which is a statement about the estate wearing the shape
+    of a statement about the request. It is served now, and the two numbers
+    that make it legible — what was asked and what was reached — travel in the
+    payload rather than being left to be inferred from a member count.
+    """
+    asked = at_a_depth_the_estate_cannot_exhibit
+    assert asked.payload is not None, (
+        f"a depth of {UNEXHIBITED_DEPTH} was REFUSED — {asked.refusal!r}. That"
+        " is the bound `D-IMPL-251` C5 deleted returning under another name"
+    )
+    assert asked.depth_applied == UNEXHIBITED_DEPTH, (
+        f"the payload reports max_depth_applied={asked.depth_applied!r} for a"
+        f" request at {UNEXHIBITED_DEPTH}; a served depth that does not echo"
+        " the asked depth is a clamp with the error suppressed"
+    )
+    finding = traversal_finding(asked)
+    assert finding["requested_depth"] == UNEXHIBITED_DEPTH, finding
+    assert 0 < finding["depth_reached"] <= UNEXHIBITED_DEPTH, (
+        f"depth_reached={finding['depth_reached']!r} is not a depth this walk"
+        f" could have reached at {UNEXHIBITED_DEPTH}"
+    )
+    assert finding["depth_reached"] < UNEXHIBITED_DEPTH, (
+        "the estate exhibited the full requested depth, so this ask is no"
+        " longer the 'deeper than anything here' case it exists to be —"
+        " raise UNEXHIBITED_DEPTH and re-measure"
+    )
+    assert asked.roster, "a served answer with no members proves nothing"
 
 
 def test_the_refusal_check_refuses_a_silent_clamp() -> None:
@@ -991,29 +1186,75 @@ def test_the_refusal_check_refuses_a_silent_clamp() -> None:
         payload={
             "nodes": [{"uri": "x://a", "type_chain": []}],
             "edges": [],
-            "max_depth_applied": 6,
+            "max_depth_applied": 100,
         },
         content_address="deadbeef",
         refusal=None,
     )
-    violations = refusal_violations(clamped, requested=7, ceiling=6, floor=1)
+    violations = refusal_violations(
+        clamped, requested=101, capability=100, identity="fluree/x"
+    )
     assert violations, "a clamped answer was reported as a refusal"
     assert any("CLAMPED" in entry for entry in violations), violations
 
 
-def test_the_refusal_check_refuses_a_refusal_that_names_nothing() -> None:
-    """**Positive control.** *It raised* is not *it refused by name*."""
-    vague = Asked(
-        asked_as="a refusal naming nothing",
+def test_the_refusal_check_refuses_a_refusal_that_names_no_authority() -> None:
+    """**Positive control.** *It refused* is not *this authority refused*.
+
+    The shell below is well formed, carries the right kind and the right key,
+    and states a bound — and claims the bound was POLICY's. A deployment
+    reporting a substrate limit as a policy decision would have an examiner
+    looking for a Control Plane artifact that never existed, so the check has
+    to read the authority rather than the presence of a bound.
+    """
+    mislabeled = Asked(
+        asked_as="a refusal claiming the wrong authority",
         payload=None,
         content_address=None,
-        refusal="AssemblyRefused: something went wrong",
+        refusal="constraint-refusal",
+        envelope=SimpleNamespace(
+            kind="constraint-refusal",
+            key="max_depth",
+            fields={
+                "bound": json.dumps(
+                    {
+                        "authority": "policy",
+                        "operator": "maximum",
+                        "value": "100",
+                        "source": {
+                            "kind": "artifact",
+                            "identity": "some-policy",
+                            "version": "1.0.0",
+                        },
+                    }
+                )
+            },
+        ),
     )
-    violations = refusal_violations(vague, requested=7, ceiling=6, floor=1)
-    assert violations, "a refusal naming neither bound was accepted as by-name"
-    assert any("does not name the declared ceiling" in entry for entry in violations), (
-        violations
+    violations = refusal_violations(
+        mislabeled, requested=101, capability=100, identity="fluree/x"
     )
+    assert violations, "a policy-labelled substrate bound was accepted"
+    assert any("claims authority" in entry for entry in violations), violations
+    assert any("source kind" in entry for entry in violations), violations
+
+
+def test_the_refusal_check_refuses_a_refusal_that_carries_no_bound() -> None:
+    """**Positive control.** A refusal with no bound tells a consumer nothing."""
+    bare = Asked(
+        asked_as="a refusal naming no bound",
+        payload=None,
+        content_address=None,
+        refusal="constraint-refusal",
+        envelope=SimpleNamespace(
+            kind="constraint-refusal", key="max_depth", fields={}
+        ),
+    )
+    violations = refusal_violations(
+        bare, requested=101, capability=100, identity="fluree/x"
+    )
+    assert violations, "a bound-less refusal was accepted as by-name"
+    assert any("NO bound at all" in entry for entry in violations), violations
 
 
 # ---------------------------------------------------------------------------
@@ -1090,7 +1331,7 @@ def test_cft_g04_a_missing_max_depth_takes_the_declared_default(
         absent=at_the_declared_default,
         redeclared=under_a_redeclared_default,
         declared_default=deployment.declared_depth_default(),
-        scratch_default=deployment.declared_depth_floor(),
+        scratch_default=SHALLOW_DEPTH,
     )
     assert not violations, "CFT-G04 failed:\n" + "\n".join(violations)
 
@@ -1303,7 +1544,7 @@ def debt_movement_violations(
 
 
 def test_cft_g05_depth_is_part_of_product_identity(
-    at_the_declared_floor: Asked,
+    at_the_shallow_depth: Asked,
     at_the_declared_default: Asked,
     at_the_declared_default_again: Asked,
 ) -> None:
@@ -1319,17 +1560,258 @@ def test_cft_g05_depth_is_part_of_product_identity(
     ``examples/cp-04-corporate-family-tree/produce.py::_agreement``.
     """
     violations = identity_violations(
-        shallow=at_the_declared_floor,
+        shallow=at_the_shallow_depth,
         deep=at_the_declared_default,
         repeat=at_the_declared_default_again,
     ) + debt_movement_violations(
         asks={
-            "at_the_declared_floor": at_the_declared_floor,
+            "at_the_shallow_depth": at_the_shallow_depth,
             "at_the_declared_default": at_the_declared_default,
         },
         pinned=declared_debt_by_depth(),
     )
     assert not violations, "CFT-G05 failed:\n" + "\n".join(violations)
+
+
+def test_requested_depth_is_identity_even_where_it_changes_nothing_served(
+    at_the_declared_default: Asked,
+    at_a_depth_the_estate_cannot_exhibit: Asked,
+) -> None:
+    """`CFT-G05`, extended by `24.6-L-01` to the case that used to be a refusal.
+
+    **THE SHARPEST FORM OF `D-09` THIS ESTATE CAN EXHIBIT.** Depth 3 and depth 8
+    serve the SAME members — the anchor's component is exhausted at 3 — and they
+    are still TWO PRODUCTS, because they answer two different questions and the
+    requested depth is part of what was asked. A build that sealed them
+    identically would be saying *you asked about 8 and I am giving you the
+    answer to 3*, which is the clamp with the request thrown away instead of
+    the answer.
+
+    It is only assertable at all because depth 8 is served: under the deleted
+    bound of 6 there was no second product to compare.
+    """
+    default = at_the_declared_default
+    deep = at_a_depth_the_estate_cannot_exhibit
+    assert default.payload is not None and deep.payload is not None, (
+        f"one of the two asks was refused — {default.refusal!r} /"
+        f" {deep.refusal!r}"
+    )
+    assert default.roster == deep.roster, (
+        "the two asks served DIFFERENT rosters, so this test is no longer"
+        " about the case it exists for (identical content, different"
+        " question). Re-measure: the estate may have grown deeper"
+    )
+    assert default.content_address != deep.content_address, (
+        f"depth {default.depth_applied!r} and depth {deep.depth_applied!r}"
+        f" served the SAME content address {default.content_address!r} over an"
+        " identical roster. Requested depth left the product's identity, so a"
+        " consumer holding this seal cannot tell which question it answers"
+    )
+    assert (
+        traversal_finding(default)["requested_depth"]
+        != traversal_finding(deep)["requested_depth"]
+    ), "the two payloads report the same requested depth"
+
+
+def test_findings_carry_depth_and_structural_cost_and_no_clock(
+    at_the_declared_default: Asked,
+) -> None:
+    """`D-23`. Depth and cost are in the FINDINGS, and neither is a duration.
+
+    Four numbers — requested depth, depth reached, nodes visited, edges walked
+    — each a structural count of a walk that already ran. **And the negative
+    half is the one that matters for a content-addressed payload**: a wall
+    clock in addressed content makes every run a different product, so the
+    canonical bytes are greped for a duration token and for any RFC3339 instant
+    outside the three fields that legitimately carry one.
+
+    Sabotaged by putting an elapsed time in the cost block: the payload still
+    looks informative and the seal stops reproducing.
+    """
+    from ccf.contracts.canonical import canonical_bytes
+
+    asked = at_the_declared_default
+    finding = traversal_finding(asked)
+    for key in ("requested_depth", "depth_reached"):
+        assert isinstance(finding[key], int), f"{key} is {finding[key]!r}"
+    cost = dict(finding["cost"])
+    assert sorted(cost) == ["edges_walked", "nodes_visited"], cost
+    for key, value in cost.items():
+        assert isinstance(value, int) and value > 0, f"{key} is {value!r}"
+    assert cost["nodes_visited"] >= len(asked.roster), (
+        f"the walk reports visiting {cost['nodes_visited']} nodes while"
+        f" serving {len(asked.roster)}; the ingest is the superset of what is"
+        " served, so a cost below the served count is not this walk's"
+    )
+
+    assert asked.payload is not None
+    text = canonical_bytes(asked.payload).decode("utf-8")
+    for token in ("elapsed", "duration", "seconds", "perf_counter", "took_ms"):
+        assert token not in text.casefold(), (
+            f"the addressed payload carries {token!r}. A wall-clock figure in"
+            " content-addressed bytes makes every run a different product,"
+            " which is what D-23 rules out by asking for STRUCTURAL cost"
+        )
+    instants = re.findall(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", text)
+    assert not instants, (
+        f"the addressed payload carries the instant(s) {instants}; this"
+        " product's payload names none, and the three fields that do carry"
+        " instants — graph_snapshot_at, temporal_boundary, expires_at — are on"
+        " the VESSEL rather than inside the payload"
+    )
+
+
+def test_the_missing_jurisdiction_raise_is_tied_to_the_declared_requirement(
+    tmp_path: pathlib.Path,
+) -> None:
+    """`D-33`, site #25 — and what the ruling explicitly does NOT say.
+
+    Dave, `D-IMPL-255` (5): *"Required jurisdiction missing from served data ->
+    Invariant/configuration failure -> raise"* — and the criterion is tied to
+    the DECLARED requirement, **never** to *"missing jurisdiction always
+    raises"*. The two readings are indistinguishable from the raise alone, so
+    both branches are asserted here:
+
+    * with the SHIPPED declaration and a served set whose members carry no
+      jurisdiction, the guard RAISES — a declared closed world held against an
+      empty observation is the vacuous pass it exists to refuse;
+    * with a scratch `artifacts/source-vocabulary.yaml` declaring an EMPTY
+      served set, the SAME served data reaches ``SystemExit`` instead, on the
+      guard ABOVE — the authoring error, whose subject is the document rather
+      than the request, and which no request can trigger.
+
+    So the raise is a consequence of a requirement this deployment DECLARED,
+    and a deployment that declared none would never reach it. That is what
+    makes *"missing jurisdiction always raises"* provably not what the code
+    says.
+    """
+    deployment = _load("deployment")
+
+    served_without_jurisdictions = {"x://a": None, "x://b": None}
+
+    with pytest.raises(AssemblyRefused) as raised:
+        deployment.refuse_open_jurisdiction_world(served_without_jurisdictions)
+    assert "NONE carries a" in str(raised.value), str(raised.value)
+    declared = list(deployment.declared_served_jurisdictions())
+    assert declared, "the shipped document declares no served set at all"
+    assert str(sorted(declared)) in str(raised.value), (
+        "the refusal does not name the DECLARED set it was held against, so it"
+        f" does not show the requirement it depends on — {raised.value}"
+    )
+
+    document = yaml.safe_load(
+        deployment.SOURCE_VOCABULARY.read_text(encoding="utf-8")
+    )
+    block = document["declaration"][deployment.VOCAB_ENTITLEMENT]
+    assert block[deployment.VOCAB_SERVED_JURISDICTIONS] == declared, (
+        "the scratch rewrite is about to empty a key it did not find carrying"
+        " the shipped values, so the control would prove nothing"
+    )
+    block[deployment.VOCAB_SERVED_JURISDICTIONS] = []
+    scratch = tmp_path / "source-vocabulary.yaml"
+    scratch.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+
+    patch = pytest.MonkeyPatch()
+    patch.setattr(deployment, "SOURCE_VOCABULARY", scratch)
+    try:
+        assert deployment.declared_served_jurisdictions() == (), (
+            "the scratch document still declares a served set"
+        )
+        with pytest.raises(SystemExit) as exited:
+            deployment.refuse_open_jurisdiction_world(served_without_jurisdictions)
+        assert "EMPTY served" in str(exited.value), str(exited.value)
+    finally:
+        patch.undo()
+
+
+def test_the_jurisdiction_determinations_are_returned_not_raised() -> None:
+    """`D-33`'s other two rows at site #24 and #27 — both RETURN.
+
+    An empty served set is *the walk resolved no member*, and a declared
+    jurisdiction no member of THIS family serves is *this family exhibits fewer
+    values than the estate declares*. Neither is a contradiction between
+    authoritative inputs, so neither raises: each comes back as the observed
+    tuple plus a finding that NAMES what it found. The roster rather than a
+    count, on `D-13`'s discipline — a count could not say WHICH row was idle.
+    """
+    deployment = _load("deployment")
+    declared = deployment.declared_served_jurisdictions()
+    assert len(declared) >= 2, (
+        "this control needs at least two declared values so one can be idle"
+        " while another fires"
+    )
+
+    observed, findings = deployment.refuse_open_jurisdiction_world({})
+    assert observed == ()
+    assert [row.type for row in findings] == [
+        deployment.FINDING_COMPUTED_EMPTY_WALK
+    ], findings
+
+    fires, idle = declared[0], declared[1]
+    observed, findings = deployment.refuse_open_jurisdiction_world(
+        {"x://a": fires, "x://b": None}
+    )
+    assert observed == (fires,)
+    assert [row.type for row in findings] == [
+        deployment.FINDING_IDLE_JURISDICTIONS
+    ], findings
+    assert findings[0].members == tuple(sorted(set(declared) - {fires})), (
+        "the idle finding does not name the declared rows this family did not"
+        f" exhibit — it carries {findings[0].members}"
+    )
+    assert idle in findings[0].members
+
+
+def test_the_unminted_membership_split_follows_d_33() -> None:
+    """`D-33` at sites #22 and #23 — one determination, one failure.
+
+    An empty node set is an ANSWER (the walk reached nothing) and comes back as
+    a computed-empty finding. A node the walk ADMITTED that this deployment's
+    own minting step did not cover is a CONTRADICTION between two authoritative
+    inputs, and raises. Both directions, because the raise alone cannot show
+    that the other branch is not one.
+    """
+    deployment = _load("deployment")
+
+    findings = deployment.refuse_unminted_membership({}, nodes=())
+    assert [row.type for row in findings] == [
+        deployment.FINDING_COMPUTED_EMPTY_WALK
+    ], findings
+
+    assert deployment.refuse_unminted_membership(
+        {"x://a": "fam"}, nodes=("x://a",)
+    ) == ()
+
+    with pytest.raises(AssemblyRefused) as raised:
+        deployment.refuse_unminted_membership({"x://a": "fam"}, nodes=("x://a", "x://b"))
+    assert "carry no" in str(raised.value), str(raised.value)
+
+
+def test_the_provenance_vocabulary_this_module_spells_is_the_shipped_one() -> None:
+    """**Control.** The two spelled provenance words are the fabric's own.
+
+    `CAPABILITY_SOURCE_KIND` and `TECHNICAL_AUTHORITY` are string literals in
+    this module because their types are `Literal`s rather than enumerable
+    values. A literal that stopped matching the shipped annotation would make
+    `CFT-G03`'s authority limb pass against anything, so the annotations are
+    read back and the two words asserted to be members.
+    """
+    import typing
+
+    from ccf.products.provenance import ParameterBound, ProvenanceSource
+
+    kinds = typing.get_args(ProvenanceSource.model_fields["kind"].annotation)
+    assert CAPABILITY_SOURCE_KIND in kinds, (
+        f"{CAPABILITY_SOURCE_KIND!r} is not one of ProvenanceSource's declared"
+        f" kinds {kinds}"
+    )
+    authorities = typing.get_args(
+        ParameterBound.model_fields["authority"].annotation
+    )
+    assert authorities, "ParameterBound.authority is not a Literal any more"
+    assert TECHNICAL_AUTHORITY in authorities, (
+        f"{TECHNICAL_AUTHORITY!r} is not one of {authorities}"
+    )
 
 
 def test_the_identity_check_refuses_an_address_that_never_moves() -> None:
@@ -1496,9 +1978,9 @@ def test_the_debt_limb_refuses_a_value_off_its_pin() -> None:
         )
         for name, values in pins.items()
     }
-    moved = pins["at_the_declared_floor"]
-    asks["at_the_declared_floor"] = _asked_with_debt(
-        asked_as="at_the_declared_floor",
+    moved = pins["at_the_shallow_depth"]
+    asks["at_the_shallow_depth"] = _asked_with_debt(
+        asked_as="at_the_shallow_depth",
         depth=int(moved["max_depth_applied"]),
         debt=str(Decimal(moved["context_debt"]) / 2),
         agreement=str(moved["semantic_consistency"]),

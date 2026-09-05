@@ -304,8 +304,24 @@ declaration:
     # sabotageable. Drop `NL` and `SuperMicroComputerBV` serves a value nobody
     # declared; drop `US-DE` and the anchor does; add `US-NY` as if it were
     # in-family and a declared row fires on nothing.
-    # `deployment.py::refuse_open_jurisdiction_world` refuses all three, so the
+    # `deployment.py::refuse_open_jurisdiction_world` catches all three, so the
     # closed world is a gate rather than a convention.
+    #
+    # SUPERSEDED 2026-09-05 (`24.6-L-02`, `D-33`): the sentence above read "refuses all three".
+    # The first two are refusals still — the estate serving a value this set
+    # does not carry is a contradiction between two authoritative inputs, and
+    # it RAISES. The third is a DETERMINATION now: a declared row this FAMILY
+    # does not exhibit is an ordinary fact about this answer, and it comes back
+    # as an `idle_jurisdictions` finding naming the idle rows. The sabotage is
+    # as visible either way — the finding appears where there was none.
+    #
+    # AND THE EMPTINESS OF THIS SET IS A THIRD THING AGAIN. Declaring NO served
+    # jurisdiction is a deployment-authoring error no request can trigger, and
+    # it exits rather than refusing or determining anything. That distinction is
+    # what ties the missing-jurisdiction raise to a DECLARED requirement rather
+    # than to a missing value:
+    # `tests/examples/test_cp_04_traversal.py::test_the_missing_jurisdiction_raise_is_tied_to_the_declared_requirement`
+    # asserts both branches over a scratch copy of this document.
     served_jurisdictions:
       - NL
       - US-DE

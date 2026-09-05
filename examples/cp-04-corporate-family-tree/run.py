@@ -361,7 +361,6 @@ def _report(result: Result, *, args: argparse.Namespace, asked_at: datetime) -> 
         (row for row in findings if row["type"] == projection.FINDING_TRAVERSAL),
         None,
     )
-    capability = deployment.traversal_depth_capability()
     debt = result.debt
 
     print("\nWhat a plain SELECT would not have told you:")
@@ -371,6 +370,11 @@ def _report(result: Result, *, args: argparse.Namespace, asked_at: datetime) -> 
           f" from {_local(anchor['type_chain'][0])}")
     print(f"   depth asked        {asked_depth}")
     if traversal is not None:
+        # READ ONLY WHERE THERE IS SOMETHING TO SAY ABOUT IT. The capability is
+        # a property of the substrate this deployment reaches, so asking for it
+        # needs the two graph-leg variables; a reporter that asked
+        # unconditionally would refuse to render a payload it was handed.
+        capability = deployment.traversal_depth_capability()
         cost = traversal["cost"]
         print(f"   depth applied      {traversal['requested_depth']}"
               f"   requested, {traversal['depth_reached']} reached"

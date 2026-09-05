@@ -21,10 +21,14 @@ wrong on the tree Phase 24.5.1 started from (`24.5.1-RESEARCH.md` §D16, §D17):
   ambiguous case is a PERTURBED ledger built here from the fixture, with the
   perturbation plumbing ``test_cp_04_debt.py`` already ships.
 
-And one identity fact: the assembler that carries both corrections is
-``1.0.1`` — `D-IMPL-245` am.1 (a PATCH for a corrected implementation, printed
-as TRANSCRIPT evidence, never a replay claim) and am.3 (ONE bump for both
-changes, and a PATCH only).
+And one identity fact: the assembler that carries the corrections is
+``1.0.2`` — `D-IMPL-245` am.1 (a PATCH for a corrected implementation) and am.3
+(ONE bump per phase, and a PATCH only), moved to its 24.6 value by `D-25`.
+
+SUPERSEDED 2026-09-05 (`24.6-L-01`, `24.6-L-15`): the paragraph above pinned ``1.0.1`` and called that identity TRANSCRIPT evidence, *"never a replay claim"*, because Decision Replay carried no assembler identity.
+It carries one now: `produce.py::_record` passes `assembler_id` and
+`assembler_version` into `build_replay_record`, so dimension 4 answers *which
+build made this decision* for a fulfilled outcome and for a refused one alike.
 
 Every number and every roster below is measured at run time; the module writes
 down addresses into the fixture and the SDK's own constants, never figures.
@@ -182,7 +186,7 @@ def _assemble_keeping_the_return(
 
 
 # ---------------------------------------------------------------------------
-# Criterion 4 — the corrected implementation names itself `1.0.1`, once.
+# Criterion 4 — the corrected implementation names itself `1.0.2`, once.
 # ---------------------------------------------------------------------------
 
 
@@ -192,16 +196,19 @@ def test_the_served_outcome_names_the_module_assembler_version(
     postgres_dsn: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The Protocol's return names this module's assembler identity, pinned at `1.0.1`.
+    """The Protocol's return names this module's assembler identity, pinned at `1.0.2`.
 
-    `D-IMPL-245` am.1: an assembler materially corrected in 24.5.1 bumps PATCH
-    to `1.0.1` — this rung's `resolve_anchor` now fails closed on ambiguity as
-    typed data, and its dead `ParameterNotSupported` branches are gone from
-    `assembler.py` (24.5.1) and `produce.py` (`24.6-L-13`); the class stays as a
-    payload-test control — and am.3:
-    ONE bump for both changes, and a PATCH only. The transcript line `assembled by`
-    carries this identity as evidence; Decision Replay carries none of it
-    today (am.1), and no claim that it does is made here.
+    `D-25`: *"cp-04 versions — product lane MINOR -> 1.1.0; assembler PATCH if
+    its own interface remains compatible."* It does: every value a `1.0.1`
+    caller could receive is still returned and none changed shape; what
+    `24.6-L-01`/`L-02` added is three more members, each standing where a raise
+    stood. An additive widening is PATCH, and `D-IMPL-245` am.3's ONE bump per
+    phase is spent on it.
+
+    The transcript line `assembled by` carries this identity, and since
+    `24.6-L-15` so does replay dimension 4 —
+    `tests/examples/test_cp_04_seams.py::test_replay_carries_the_assembler_identity_for_fulfilled_and_refused`
+    is the check that reads it there.
     """
     ledger, schema = baseline
     _point_at(
@@ -216,10 +223,15 @@ def test_the_served_outcome_names_the_module_assembler_version(
     )
     assert outcome.assembler_id == assembler.ASSEMBLER_ID
     assert outcome.assembler_version == assembler.ASSEMBLER_VERSION
-    assert assembler.ASSEMBLER_VERSION == "1.0.1", (
-        "the pin is D-IMPL-245 am.1's PATCH identity for the corrected"
-        " implementation; 1.0.0 would make two implementations share one name,"
-        " and am.3 rules never 1.0.2"
+    assert assembler.ASSEMBLER_VERSION == "1.0.2", (
+        "the pin is D-25's PATCH identity: a previously refused valid request"
+        " now produces a product — MINOR on the PRODUCT lane, which moved to"
+        " 1.1.0 — while the assembler's own return set widened ADDITIVELY, so"
+        " every value a 1.0.1 caller could receive it can still receive, and"
+        " that is PATCH. SUPERSEDED 2026-09-05 (`24.6-L-01`): this pin was 1.0.1 and its message said `am.3 rules never 1.0.2`."
+        " `D-IMPL-245` am.3 rules ONE bump per phase and PATCH only; it does"
+        " not fix which patch number, and 24.6 is a different phase from the"
+        " one that reasoning was written in."
     )
 
 

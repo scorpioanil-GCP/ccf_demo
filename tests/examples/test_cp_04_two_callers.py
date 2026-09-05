@@ -92,6 +92,7 @@ import asyncio
 import importlib
 import json
 import pathlib
+import re
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -106,8 +107,15 @@ from pydantic import AnyUrl
 from ccf.contracts.canonical import canonical_bytes
 from ccf.mcp.client import run_with_session
 from ccf.mcp.errors import McpServerUnreachable
+from ccf.products.constraints import ConstraintRefusal
 from ccf.products.door import PRODUCT_REQUEST_TOOL, WireRequest
-from ccf_runtime.mcp.egress import PRODUCT_URI_TEMPLATE, product_uri
+from ccf.products.refusal import REFUSAL_KINDS, SubjectUnavailableRefusal
+from ccf.products.request import ProductRequestViolation
+from ccf_runtime.mcp.egress import (
+    CCF_FAILURE_PREFIX,
+    PRODUCT_URI_TEMPLATE,
+    product_uri,
+)
 
 from .cp_04_seed import ledger_for, schema_for, seed
 
@@ -137,6 +145,18 @@ TIMEOUT_SECONDS = 600
 #: an ADDRESS into the declared bounds rather than as a figure: the assertion is
 #: that two depths are two answers, never that either has a particular size.
 PLANTED_DEPTH = 1
+
+#: A depth deeper than any tree in this estate — the request `D-IMPL-251` C5
+#: turned from a refusal into a product. Measured: the deepest tree anywhere in
+#: this estate is 6, and the demonstration anchor's component is exhausted at 3.
+UNEXHIBITED_DEPTH = 8
+
+#: The SDK's own kind tokens, read from the closed vocabulary rather than
+#: spelled here: a test that typed them would agree with itself about the
+#: vocabulary while disagreeing with the fabric.
+CONSTRAINT_REFUSAL_KIND = REFUSAL_KINDS[ConstraintRefusal]
+PRODUCT_REQUEST_VIOLATION_KIND = REFUSAL_KINDS[ProductRequestViolation]
+SUBJECT_UNAVAILABLE_KIND = REFUSAL_KINDS[SubjectUnavailableRefusal]
 
 
 def _load(name: str) -> Any:
@@ -360,6 +380,8 @@ def _client_factory(app: Any, token: str | None) -> Callable[[], httpx.AsyncClie
 def drive(
     door: Any,
     operations: Mapping[str, Callable[[ClientSession], Awaitable[Any]]],
+    *,
+    credential: str | None = None,
 ) -> dict[str, Any]:
     """Drive EVERY surface of ONE door, in ONE lifespan, on ONE credential.
 
@@ -381,6 +403,12 @@ def drive(
     by raising and the tool surface refuses by returning, and a driver that let
     the first take down the second would make the two unobservable together.
 
+    ``credential`` drives the door as somebody OTHER than the principal this
+    boot minted for. Defaulted to the boot's own credential so every existing
+    caller is unchanged; supplied, it is how an ENTITLEMENT denial is observed
+    at all, because a door driven only by the one principal its grant names can
+    never reach the deny branch.
+
     Returns:
         One entry per operation — its return value, or, when it refused,
         ``Refused`` carrying the door's own flattened reason.
@@ -395,7 +423,9 @@ def drive(
                     results[name] = await run_with_session(
                         url=f"{BASE_URL}/mcp",
                         operation=operation,
-                        http_client_factory=_client_factory(app, door.credential),
+                        http_client_factory=_client_factory(
+                            app, door.credential if credential is None else credential
+                        ),
                     )
                 except McpServerUnreachable as refused:
                     results[name] = Refused(reason=_flatten(refused))
@@ -404,6 +434,23 @@ def drive(
         return results
 
     return asyncio.run(go())
+
+
+def _refusal_of(text: str) -> Mapping[str, Any]:
+    """The refusal SHELL out of one door outcome, as a mapping.
+
+    The product tool answers with the door's own outcome document — a served
+    product under `product_json`, a governed determination under `refusal` —
+    and reading the shell through this one function rather than off the top
+    level is what keeps a kind assertion from passing over a served answer that
+    simply has no `kind` key.
+    """
+    outcome = json.loads(text)
+    refusal = outcome.get("refusal")
+    assert refusal is not None, (
+        f"the door outcome carries no refusal at all: {text[:1000]}"
+    )
+    return dict(refusal)
 
 
 @dataclass(frozen=True)
@@ -548,7 +595,15 @@ def tool_answer(name: str, result: Any) -> Answer:
 #: The names the door's five surfaces are driven under, in one lifespan.
 DEMONSTRATION_ASK = "mcp-tool(demonstration depth)"
 PLANTED_ASK = f"mcp-tool(max_depth={PLANTED_DEPTH})"
-OVER_CEILING_ASK = "mcp-tool(over the ceiling)"
+# SUPERSEDED 2026-09-04 (`24.6-L-01`): the constant below was `OVER_CEILING_ASK` and it named an ask aimed at the declared ceiling of 6.
+#: The one depth this rung still refuses — above the SUBSTRATE's traversal
+#: capability, with authority `technical`.
+OVER_CAPABILITY_ASK = "mcp-tool(over the technical capability)"
+
+#: A depth DEEPER THAN ANY TREE IN THIS ESTATE, asked over the DOOR. Under the
+#: deleted bound it was refused; it is served now, and the door must be the
+#: same contract as the in-process caller about that.
+UNEXHIBITED_ASK = f"mcp-tool(max_depth={UNEXHIBITED_DEPTH})"
 RESOURCE_READ = "resource-read"
 ENUMERATE = "enumerate"
 
@@ -574,8 +629,9 @@ def surfaces(estate: tuple[str, str]) -> dict[str, Any]:
     demonstration = deployment.demonstration_request()
     planted = deployment.demonstration_request(max_depth=PLANTED_DEPTH)
     over = deployment.demonstration_request(
-        max_depth=deployment.declared_depth_ceiling() + 1
+        max_depth=deployment.traversal_depth_capability().max_traversal_depth + 1
     )
+    deep = deployment.demonstration_request(max_depth=UNEXHIBITED_DEPTH)
     uri = product_uri(
         tenant=tenant,
         product_class=demonstration.schema_name,
@@ -594,8 +650,11 @@ def surfaces(estate: tuple[str, str]) -> dict[str, Any]:
                     PLANTED_ASK: tool_call(
                         tool_arguments(tenant=tenant, typed=planted)
                     ),
-                    OVER_CEILING_ASK: tool_call(
+                    OVER_CAPABILITY_ASK: tool_call(
                         tool_arguments(tenant=tenant, typed=over)
+                    ),
+                    UNEXHIBITED_ASK: tool_call(
+                        tool_arguments(tenant=tenant, typed=deep)
                     ),
                 },
             )
@@ -980,29 +1039,88 @@ def test_cft_g13_c_the_tool_serves_on_a_client_supplied_lei_and_max_depth(
     )
 
 
-def test_the_tool_refuses_an_over_ceiling_depth_rather_than_clamping_it(
+def test_the_tool_refuses_an_over_capability_depth_rather_than_clamping_it(
     surfaces: dict[str, Any],
 ) -> None:
     """`CFT-G03`, over the door. The second surface must not be the weaker one.
 
-    Above the declared ceiling is refused BY NAME on the in-process caller, and
-    a door that clamped instead would be a serving path with a different
-    contract behind it — the request says 8, the walk does 6, the payload looks
-    fine and the address greens.
+    Above the substrate's traversal capability is refused BY NAME on the
+    in-process caller, and a door that clamped instead would be a serving path
+    with a different contract behind it — the request says 101, the walk does
+    100, the payload looks fine and the address greens.
+
+    **AND THE REFUSAL IS AN ANSWER, NOT AN ERROR** (`24.6-L-02`, `D-20`). A
+    governed determination never reaches an MCP client as a tool error:
+    `isError` is `False` and the body carries the `constraint-refusal` shell
+    with the bound that refused it. `ToolError` is reserved for a CCF runtime
+    failure and carries an opaque id.
     """
     deployment = _load("deployment")
-    ceiling = deployment.declared_depth_ceiling()
-    result = surfaces[OVER_CEILING_ASK]
-    text = result.reason if isinstance(result, Refused) else result[1]
-    refused = isinstance(result, Refused) or bool(result[0])
-    assert refused, (
-        f"the door served an over-ceiling max_depth={ceiling + 1} instead of"
-        f" refusing it: {str(text)[:1500]}"
+    capability = deployment.traversal_depth_capability()
+    result = surfaces[OVER_CAPABILITY_ASK]
+    assert not isinstance(result, Refused), (
+        "the over-capability ask took the door DOWN rather than answering:"
+        f" {result.reason[:1000]}"
     )
-    assert "never clamped" in str(text), (
-        "the door refused for some other reason than the declared bounds:"
-        f" {str(text)[:1000]}"
+    is_error, text = result
+    assert not is_error, (
+        "a governed refusal reached the client as a TOOL ERROR. `D-20`:"
+        " ToolError is reserved for CCF/runtime failure, and a determination"
+        f" the fabric made is an answer: {text[:1000]}"
     )
+    # THE TOOL ANSWERS WITH A DOOR OUTCOME AND THE SHELL SITS UNDER `refusal`.
+    # Read through the envelope rather than off the top level: a check that
+    # matched the top-level document would pass over a served product too.
+    body = _refusal_of(text)
+    assert body.get("kind") == CONSTRAINT_REFUSAL_KIND, (
+        f"the door answered with kind {body.get('kind')!r} rather than"
+        f" {CONSTRAINT_REFUSAL_KIND!r}: {text[:1000]}"
+    )
+    assert body.get("key") == deployment.PARAM_MAX_DEPTH, body
+    bound = body.get("fields", {}).get("bound")
+    bound = json.loads(bound) if isinstance(bound, str) else bound
+    assert bound, f"the door's refusal carries no bound at all: {text[:1000]}"
+    assert bound["authority"] == "technical", bound
+    assert str(bound["value"]) == str(capability.max_traversal_depth), bound
+    assert bound["source"]["identity"] == capability.capability_identity, bound
+    assert "nodes" not in text, (
+        "a tree came back beside the refusal, which is what a clamp looks like"
+        f" when the error is left in: {text[:1000]}"
+    )
+
+
+def test_the_tool_serves_a_depth_the_estate_cannot_exhibit(
+    surfaces: dict[str, Any],
+) -> None:
+    """`D-IMPL-251` C5 over the DOOR — the second surface is not the stricter one.
+
+    A depth deeper than any tree here is an ordinary question. The door serves
+    it, echoes the depth asked, and carries the depth actually reached in the
+    findings — so a consumer who asked for 8 and got a 3-deep tree can see that
+    the estate, and not the fabric, is what stopped there.
+    """
+    result = surfaces[UNEXHIBITED_ASK]
+    assert not isinstance(result, Refused), (
+        f"the deep ask took the door down: {result.reason[:1000]}"
+    )
+    is_error, text = result
+    assert not is_error, (
+        f"the door REFUSED max_depth={UNEXHIBITED_DEPTH}, which is the bound"
+        f" `D-IMPL-251` C5 deleted returning under another name: {text[:1000]}"
+    )
+    payload = json.loads(json.loads(text)["product_json"])["payload"]
+    assert int(payload["max_depth_applied"]) == UNEXHIBITED_DEPTH, payload[
+        "max_depth_applied"
+    ]
+    projection = _load("projection")
+    rows = [
+        row
+        for row in payload["findings"]
+        if row["type"] == projection.FINDING_TRAVERSAL
+    ]
+    assert len(rows) == 1, [row["type"] for row in payload["findings"]]
+    assert rows[0]["requested_depth"] == UNEXHIBITED_DEPTH, rows[0]
+    assert 0 < rows[0]["depth_reached"] < UNEXHIBITED_DEPTH, rows[0]
 
 
 # ---------------------------------------------------------------------------
@@ -1088,6 +1206,23 @@ def test_a_serve_path_refusal_is_a_governed_error_and_the_door_survives(
         "a family serving a jurisdiction outside the declared closed set was"
         f" SERVED rather than refused: {text[:1000]}"
     )
+    # AND IT IS AN INVARIANT FAILURE, NOT A GOVERNED DETERMINATION
+    # (`24.6-L-02`, `D-33`, plan `24.6-10`). Two authoritative pieces of fabric
+    # state disagree — the estate serves a value the declared closed world does
+    # not carry — so there is no valid governed answer to return, and the door
+    # says exactly that: an OPAQUE failure id and no prose. A consumer who
+    # could read the contradiction's text would be reading the estate's shape
+    # off an error message.
+    assert text.startswith(f"{CCF_FAILURE_PREFIX}:"), (
+        "an invariant failure reached the client as something other than"
+        f" {CCF_FAILURE_PREFIX}:<id>: {text[:1000]}"
+    )
+    assert re.fullmatch(rf"{CCF_FAILURE_PREFIX}:[0-9a-f]+", text.strip()), (
+        f"the failure id carries more than an id: {text[:1000]}"
+    )
+    assert "jurisdiction" not in text, (
+        f"the opaque failure leaked the contradiction's prose: {text[:1000]}"
+    )
 
     # THE DOOR STAYED UP. The next call, in the SAME lifespan, serves — which it
     # cannot do if the prior refusal had torn the session/server down.
@@ -1121,18 +1256,26 @@ def _non_integer_depth_request(deployment: Any, value: Any) -> Any:
 def test_a_non_integer_max_depth_is_refused_by_name_and_the_door_survives(
     estate: tuple[str, str],
 ) -> None:
-    """**WR-01 (2026-09-01).** A non-integer `max_depth` is refused by name.
+    """**WR-01 (2026-09-01), re-derived by `24.6-L-01`.** A non-integer
+    `max_depth` is refused BY NAME, as an ANSWER.
 
-    `deployment.py::resolve_max_depth` did `int(parameters[PARAM_MAX_DEPTH])`,
-    which raised an uncaught `ValueError` on `"six"` for a non-CLI caller and
-    silently coerced `6.9 -> 6` / `True -> 1`. run.py's argparse types
-    `--max-depth` as int, so the CLI is shielded; the MCP door's JSON arguments
-    are not. The depth is now refused BY NAME with a governed `isError`, and the
-    door answers the next call.
+    The original defect: the deployment's own depth resolver did
+    `int(parameters[max_depth])`, which raised an uncaught `ValueError` on
+    `"six"` for a non-CLI caller and silently coerced `6.9 -> 6` / `True -> 1`.
+    `run.py`'s argparse types `--max-depth` as `int`, so the CLI is shielded;
+    the MCP door's JSON arguments are not.
 
-    Sabotage: restoring `int(...)` without the type guard makes the door return
-    interpreter prose (or coerce), which this asserts against by requiring the
-    refusal to name the parameter and the integer requirement.
+    SUPERSEDED 2026-09-04: WR-01's fix was a type guard in the deployment raising `AssemblyRefused`, which the door surfaced as `isError=True` prose a consumer had to string-parse.
+    That guard is deleted with the rest of the deployment's depth resolution.
+    The SDK's own request step
+    (`src/ccf/products/request.py::refuse_request`) already returns a
+    `ProductRequestViolation(reason="type-mismatch")` as DATA for exactly this
+    condition, so the refusal is now a typed shell with `isError=False` — the
+    second, narrower spelling of one rule is gone rather than kept in parallel.
+
+    Sabotage: coercing the value before the request reaches the contract makes
+    the door SERVE a walk at a depth the caller did not ask for, which the
+    `is_error`/kind assertions below refuse.
     """
     deployment = _load("deployment")
     serve = _load("serve")
@@ -1160,10 +1303,26 @@ def test_a_non_integer_max_depth_is_refused_by_name_and_the_door_survives(
         f" governed error (WR-01): {refused.reason[:1000]}"
     )
     is_error, text = refused
-    assert is_error, f"a non-integer max_depth was SERVED rather than refused: {text[:1000]}"
-    assert "max_depth must be an integer" in text, (
-        "the door refused a non-integer max_depth for some other reason than its"
-        f" type — WR-01 asks for a refusal that names the parameter: {text[:1000]}"
+    assert not is_error, (
+        "a governed refusal reached the client as a TOOL ERROR (`D-20`):"
+        f" {text[:1000]}"
+    )
+    body = _refusal_of(text)
+    assert body.get("kind") == PRODUCT_REQUEST_VIOLATION_KIND, (
+        f"the door answered with kind {body.get('kind')!r} rather than"
+        f" {PRODUCT_REQUEST_VIOLATION_KIND!r}: {text[:1000]}"
+    )
+    assert body.get("reason") == "type-mismatch", (
+        "the door refused a non-integer max_depth for some other reason than"
+        f" its type — WR-01 asks for a refusal that names it: {text[:1000]}"
+    )
+    assert body.get("key") == deployment.PARAM_MAX_DEPTH, (
+        f"the refusal names key {body.get('key')!r} rather than the depth"
+        f" parameter: {text[:1000]}"
+    )
+    assert "nodes" not in text, (
+        "a tree came back beside the refusal, which is what a coercion looks"
+        f" like when the refusal is left in: {text[:1000]}"
     )
 
     after = results[POST_REFUSAL_ASK]
@@ -1171,6 +1330,158 @@ def test_a_non_integer_max_depth_is_refused_by_name_and_the_door_survives(
         f"the door did not stay up after a non-integer max_depth: {after.reason[:1000]}"
     )
     assert not after[0], f"the door refused a valid ask after a non-integer depth: {after[1][:1000]}"
+
+
+# ---------------------------------------------------------------------------
+# The DOOR's entitlement denial — recorded, disclosed, and not an error.
+# ---------------------------------------------------------------------------
+
+UNENTITLED_ASK = "mcp-tool(a verified but unentitled principal)"
+
+#: A principal this deployment's entitlement policy does not name. Verified —
+#: it holds a real credential this boot minted — and entitled to nothing, which
+#: is the ONLY way the deny branch is reachable: an unverified caller is
+#: refused by the authentication middleware before a handler body runs, and the
+#: boot's own principal is entitled to everything the door serves.
+UNENTITLED_PRINCIPAL = "PRIN-NOT-GRANTED"
+
+
+def test_an_unentitled_principal_gets_a_recorded_shell_and_not_an_error() -> None:
+    """`D-34`/`D-IMPL-256` (1) and criterion 36, at cp-04's OWN door.
+
+    Three things together, and each is a different failure if it is missing:
+
+    * the denial is an ANSWER (`is_error` False) carrying the ONE canonical
+      `subject-unavailable` shell that a nonexistent subject and an
+      unauthorized principal share (`D-27`) — a tool error would make the
+      denial distinguishable on the wire from a served-then-refused product;
+    * the shell carries a REFERENCE that is not the sentinel — *"no fulfilled
+      Context Product does not mean no Decision Replay"*;
+    * that reference RESOLVES, in the store `produce.py::_serve` writes, to a
+      record whose dimension-1 resource identity names the `mcp-tool` surface
+      and this tenant. A well-formed response with nothing behind it is what
+      the checker found three times.
+
+    **NO STORE IS TOUCHED AND THAT IS WHY THIS TEST HAS NO LEG MARKER.** The
+    entitlement decision happens at the delivery boundary, before the resolver
+    runs, so neither system of record is opened — which is itself part of the
+    claim: a caller who may not have the product does not cause a read of the
+    estate.
+
+    The binding this rests on is plan `24.6-10`'s (`serve.py` passes
+    `refusal_recorder=composed.refusal_recorder`); the test lands here because
+    this module is the one that drives cp-04's own door.
+    """
+    import json as _json
+
+    from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.artifacts.protocol import parse_artifact_uri
+    from ccf.products.refusal import NO_REPLAY_REFERENCE
+    from ccf.replay.record import NO_PRODUCT_ADDRESS
+    from ccf_runtime.authz.delivery_boundary import SURFACE_MCP_TOOL
+
+    deployment = _load("deployment")
+    serve = _load("serve")
+    tenant = deployment.tenant_id()
+    typed = deployment.demonstration_request()
+
+    with tempfile.TemporaryDirectory(prefix="cp04-unentitled-") as scratch:
+        root = pathlib.Path(scratch)
+        with serve.door(root=root) as opened:
+            # A SECOND VERIFIED CREDENTIAL, for a principal the grant does not
+            # name. `FileTokenSource` re-reads on every lookup precisely so a
+            # test can add one between calls, which its own docstring says.
+            tokens = root / serve.TOKEN_FILE
+            table = _json.loads(tokens.read_text(encoding="utf-8"))
+            stranger = "stranger-" + "0" * 24
+            table[stranger] = {
+                "client_id": UNENTITLED_PRINCIPAL,
+                "scopes": [opened.scope],
+            }
+            tokens.write_text(_json.dumps(table), encoding="utf-8")
+
+            results = drive(
+                opened,
+                {
+                    UNENTITLED_ASK: tool_call(
+                        tool_arguments(tenant=tenant, typed=typed)
+                    )
+                },
+                credential=stranger,
+            )
+
+        answered = results[UNENTITLED_ASK]
+        assert not isinstance(answered, Refused), (
+            "the unentitled ask took the door DOWN rather than answering it:"
+            f" {answered.reason[:1000]}"
+        )
+        is_error, text = answered
+        assert not is_error, (
+            "a governed denial reached the client as a TOOL ERROR (`D-20`):"
+            f" {text[:1000]}"
+        )
+        body = _refusal_of(text)
+        assert body.get("kind") == SUBJECT_UNAVAILABLE_KIND, (
+            f"the door denied with kind {body.get('kind')!r} rather than the"
+            f" shared {SUBJECT_UNAVAILABLE_KIND!r}: {text[:1000]}"
+        )
+        reference = body.get("replay_reference")
+        assert reference and reference != NO_REPLAY_REFERENCE, (
+            "the denial carries no replay reference, so a decision crossed the"
+            f" boundary with no record behind it: {text[:1000]}"
+        )
+
+        store = FileArtifactStore(root=root / deployment.ARTIFACT_STORE_DIRNAME)
+        name = parse_artifact_uri(reference)
+        record = _json.loads(
+            store.get(content_address=name.artifact_version).decode("utf-8")
+        )
+        assert record["tenant_id"] == tenant, record["tenant_id"]
+        path = record["content_generation_path"]
+        assert path["product_content_address"] == NO_PRODUCT_ADDRESS, path[
+            "product_content_address"
+        ]
+        internal = path.get("assembly_refusal")
+        assert internal, (
+            "the record carries no refusal at all, so it says a decision"
+            f" happened without saying what it was: {sorted(path)}"
+        )
+        internal = _json.loads(internal) if isinstance(internal, str) else internal
+        # THE RECORD HOLDS THE INTERNAL DETERMINATION, NOT THE SHELL. The
+        # consumer saw `cause: undisclosed`; the audit plane sees what the
+        # fabric actually determined, which is `D-IMPL-253` Q27's *"don't
+        # destroy audit truth merely to achieve external suppression silence."*
+        fields = internal.get("fields") or {}
+        cause = fields.get("cause")
+        cause = _json.loads(cause) if isinstance(cause, str) else cause
+        assert cause == "unauthorized", (
+            f"the RECORD discloses cause {cause!r}; a record that kept only the"
+            " shell's `undisclosed` would have destroyed the audit truth the"
+            " disclosure step exists to preserve"
+        )
+        resource = internal.get("resource")
+        resource = (
+            _json.loads(resource) if isinstance(resource, str) else resource
+        )
+        assert resource, (
+            "the record names no resource-request identity, so it cannot say"
+            f" WHAT was asked for by whom: {sorted(internal)}"
+        )
+        assert resource.get("surface") == SURFACE_MCP_TOOL, resource
+        assert resource.get("tenant_id") == tenant, resource
+        assert resource.get("address"), resource
+        assert resource.get("determined_at"), (
+            "the resource identity names no instant, so the denial cannot be"
+            f" placed in time: {resource}"
+        )
+        # BY WHOM is dimension 4's, not the resource identity's — the resource
+        # says WHAT was asked for and on which surface, and the perspective
+        # says who asked. Read where each actually lives rather than expecting
+        # one block to carry both.
+        assert (
+            record["perspective_conditioning"]["principal_id"]
+            == UNENTITLED_PRINCIPAL
+        ), record["perspective_conditioning"]
 
 
 # ---------------------------------------------------------------------------

@@ -153,6 +153,7 @@ import importlib
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -164,6 +165,11 @@ import psycopg
 import pytest
 import yaml
 
+from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import parse_artifact_uri
+from ccf.products.constraints import ConstraintRefusal
+from ccf.products.refusal import NO_REPLAY_REFERENCE, REFUSAL_KINDS
+from ccf.replay.record import NO_PRODUCT_ADDRESS
 from ccf_runtime.mcp.egress import PRODUCT_URI_TEMPLATE, product_uri
 from tools.lints import matches_module
 from tools.lints.algorithmic import LLM_MODULES
@@ -3095,3 +3101,245 @@ def test_the_lei_identity_check_accepts_the_compliant_shape() -> None:
     assert not lei_identity_violations(
         [["A"], ["B"], ["C"]], declared_nodes=3, declared_values=3
     )
+
+
+# ---------------------------------------------------------------------------
+# C-20 — replay dimension 4 names WHICH BUILD made the decision, fulfilled or
+# refused, and the refusal's reference RESOLVES.
+# ---------------------------------------------------------------------------
+
+
+def _resolved_record(root: pathlib.Path, reference: str) -> Mapping[str, Any]:
+    """One replay record, out of the store `produce.py::_serve` writes.
+
+    The SAME store, resolved by the reference the shell carries — never a
+    directory walk. A test that scanned for *a* record would pass against a
+    reference pointing nowhere, which is exactly the sentinel failure this
+    check exists to catch.
+    """
+    deployment = _load("deployment")
+    store = FileArtifactStore(root=root / deployment.ARTIFACT_STORE_DIRNAME)
+    name = parse_artifact_uri(reference)
+    return dict(
+        json.loads(store.get(content_address=name.artifact_version).decode("utf-8"))
+    )
+
+
+def _refused_over_capability(
+    root: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> Any:
+    """One ask above the substrate's traversal capability, through the shipped caller.
+
+    **NO STORE IS OPENED AND THAT IS THE POINT.** The effective request is
+    resolved before the assembly starts, so a depth the substrate cannot walk
+    is refused before either system of record is contacted — the two graph
+    variables are set because the CAPABILITY names its leg by ledger, not
+    because anything connects.
+    """
+    from ccf.client.client import ProductClient
+
+    monkeypatch.setenv("CCF_CP_04_FLUREE_URL", "http://fluree.invalid")
+    monkeypatch.setenv("CCF_CP_04_FLUREE_LEDGER", "unopened")
+    deployment = _load("deployment")
+    transport = _load("transport")
+    over = deployment.traversal_depth_capability().max_traversal_depth + 1
+    typed = deployment.demonstration_request(max_depth=over)
+    parameters = {
+        name: (value if isinstance(value, (str, int, bool)) else format(value, "f"))
+        for name, value in typed.parameters.items()
+    }
+    client = ProductClient(
+        product_id=transport.declared_product_id(),
+        adapter=transport.FamilyTreeInProcessAdapter(root=root),
+    )
+    return client.ask(parameters, as_of=typed.asked_at)
+
+
+def test_a_refused_outcome_carries_the_assembler_identity_and_resolves(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """C-20's refused half. A refusal is a DECISION and it has a record.
+
+    `D-IMPL-256` and criterion 36: *"every governed determination that crosses
+    a CCF delivery boundary — fulfilled or refused — must reach the replay
+    writer before the response is released."* So a refused consumer holds a
+    reference that RESOLVES, in the store the served path writes, to a record
+    whose dimension 4 names the build that refused them and whose dimension 5
+    says positively that no product was produced.
+
+    **The store half is the one worth reading.** A shell carrying a
+    well-formed-looking reference that resolves to nothing is indistinguishable
+    from a recorded one by inspection, which is why the record is fetched and
+    read rather than the reference merely checked for shape.
+    """
+    assembler = _load("assembler")
+    result = _refused_over_capability(tmp_path, monkeypatch)
+
+    assert result.refused, f"the over-capability ask was SERVED: {result.payload}"
+    shell = result.refusal
+    assert shell.kind == REFUSAL_KINDS[ConstraintRefusal], shell.kind
+    assert shell.replay_reference, "the shell carries no replay reference at all"
+    assert shell.replay_reference != NO_REPLAY_REFERENCE, (
+        "the shell carries the NO-RECORD sentinel, which is the positive claim"
+        " that the seam that produced it recorded nothing — a governed"
+        " determination crossed a delivery boundary with no audit behind it"
+    )
+
+    record = _resolved_record(tmp_path, shell.replay_reference)
+    conditioning = record["perspective_conditioning"]
+    assert conditioning["assembler_id"] == assembler.ASSEMBLER_ID, conditioning
+    assert conditioning["assembler_version"] == assembler.ASSEMBLER_VERSION, (
+        conditioning
+    )
+    path = record["content_generation_path"]
+    assert path["product_content_address"] == NO_PRODUCT_ADDRESS, path[
+        "product_content_address"
+    ]
+    internal = path.get("assembly_refusal")
+    assert internal, f"the record names no refusal: {sorted(path)}"
+    internal = json.loads(internal) if isinstance(internal, str) else internal
+    assert internal["kind"] == REFUSAL_KINDS[ConstraintRefusal], internal
+
+
+def test_a_wrapper_that_skips_the_recorder_leaves_the_sentinel(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """**Sabotage, on a scratch copy.** Skip the mint and the reference is the sentinel.
+
+    The scratch `transport.py` returns the assembler's refusal BARE — well
+    formed, right kind, right key, right bound, and no record behind it. That
+    is the shape the delivery-boundary checker found three times, and it is
+    invisible to every assertion except the one that reads the reference.
+
+    Edited in a SCRATCH COPY of the example rather than on the tree, so this
+    control runs in CI forever without a shipped file ever being wrong.
+    """
+    from ccf.client.client import ProductClient
+
+    scratch = tmp_path / "example"
+    shutil.copytree(EXAMPLE, scratch, ignore=shutil.ignore_patterns("__pycache__"))
+    module = scratch / "transport.py"
+    text = module.read_text(encoding="utf-8")
+    needle = "        if type(outcome) in REFUSAL_KINDS:\n"
+    assert text.count(needle) == 1, (
+        "the shipped transport no longer has the branch this sabotage removes,"
+        " so the control would be editing nothing"
+    )
+    module.write_text(
+        text.replace(needle, "        if type(outcome) in REFUSAL_KINDS:\n            return outcome\n"),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("CCF_CP_04_FLUREE_URL", "http://fluree.invalid")
+    monkeypatch.setenv("CCF_CP_04_FLUREE_LEDGER", "unopened")
+    monkeypatch.syspath_prepend(str(scratch / "server"))
+    monkeypatch.syspath_prepend(str(scratch))
+    for name in ("deployment", "produce", "projection", "assembler", "transport"):
+        sys.modules.pop(name, None)
+    try:
+        import deployment as scratch_deployment  # noqa: PLC0415
+        import transport as scratch_transport  # noqa: PLC0415
+
+        assert pathlib.Path(scratch_transport.__file__).parent == scratch, (
+            "the scratch copy did not shadow the shipped module, so this"
+            " control would be sabotaging nothing"
+        )
+        over = (
+            scratch_deployment.traversal_depth_capability().max_traversal_depth + 1
+        )
+        typed = scratch_deployment.demonstration_request(max_depth=over)
+        parameters = {
+            name: (
+                value if isinstance(value, (str, int, bool)) else format(value, "f")
+            )
+            for name, value in typed.parameters.items()
+        }
+        client = ProductClient(
+            product_id=scratch_transport.declared_product_id(),
+            adapter=scratch_transport.FamilyTreeInProcessAdapter(
+                root=tmp_path / "run"
+            ),
+        )
+        result = client.ask(parameters, as_of=typed.asked_at)
+    finally:
+        for name in ("deployment", "produce", "projection", "assembler", "transport"):
+            sys.modules.pop(name, None)
+
+    assert result.refused, "the sabotaged wrapper served a product"
+    assert result.refusal.replay_reference == NO_REPLAY_REFERENCE, (
+        "the sabotaged wrapper's refusal still carries a reference"
+        f" ({result.refusal.replay_reference!r}), so this control is not"
+        " measuring the mint"
+    )
+
+
+def test_replay_carries_the_assembler_identity_for_fulfilled_and_refused(
+    estate: tuple[str, str], tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """C-20 whole: ONE recorder, ONE store, the SAME pair on dimension 4.
+
+    The two halves are asserted TOGETHER rather than in two modules, because
+    the claim is not *a refusal has a record* and *a product has a record* — it
+    is that they are the same audit plane. `D-IMPL-253` Q13, in Dave's words:
+    *"Refusal is itself a decision and deserves the same five-dimensional
+    replay model. Do not create second-class replay."* Two recorders that
+    agreed today would satisfy each half separately and satisfy neither
+    together.
+
+    Both records are resolved out of the SAME `FileArtifactStore` — the one
+    `produce.py::_serve` writes — under one scratch root, which is the concrete
+    form of *"never a second store, or a denial and the product it was denied
+    against would be filed in two places."*
+    """
+    from ccf.client.client import ProductClient
+
+    deployment = _load("deployment")
+    transport = _load("transport")
+    assembler = _load("assembler")
+    root = tmp_path / "one-store"
+    root.mkdir()
+
+    adapter = transport.FamilyTreeInProcessAdapter(root=root)
+    client = ProductClient(
+        product_id=transport.declared_product_id(), adapter=adapter
+    )
+    typed = deployment.demonstration_request()
+    parameters = {
+        name: (value if isinstance(value, (str, int, bool)) else format(value, "f"))
+        for name, value in typed.parameters.items()
+    }
+    served = client.ask(parameters, as_of=typed.asked_at)
+    assert not served.refused, f"the demonstration ask was refused: {served.refusal}"
+    assert served.replay_ref, "the served product carries no replay reference"
+
+    over = deployment.traversal_depth_capability().max_traversal_depth + 1
+    refused = client.ask(
+        {**parameters, deployment.PARAM_MAX_DEPTH: over}, as_of=typed.asked_at
+    )
+    assert refused.refused, "the over-capability ask was SERVED"
+
+    fulfilled_record = _resolved_record(root, str(served.replay_ref))
+    refused_record = _resolved_record(root, str(refused.refusal.replay_reference))
+
+    for label, record in (
+        ("fulfilled", fulfilled_record),
+        ("refused", refused_record),
+    ):
+        conditioning = record["perspective_conditioning"]
+        assert conditioning["assembler_id"] == assembler.ASSEMBLER_ID, (
+            f"the {label} record's dimension 4 names assembler"
+            f" {conditioning['assembler_id']!r}"
+        )
+        assert conditioning["assembler_version"] == assembler.ASSEMBLER_VERSION, (
+            f"the {label} record's dimension 4 names version"
+            f" {conditioning['assembler_version']!r} where the module is"
+            f" {assembler.ASSEMBLER_VERSION!r}"
+        )
+
+    assert fulfilled_record["content_generation_path"][
+        "product_content_address"
+    ] not in (None, NO_PRODUCT_ADDRESS), fulfilled_record["content_generation_path"]
+    assert (
+        refused_record["content_generation_path"]["product_content_address"]
+        == NO_PRODUCT_ADDRESS
+    ), refused_record["content_generation_path"]

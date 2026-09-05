@@ -238,22 +238,23 @@ class KnownDebt(NamedTuple):
 #: fixed site turns RED here until the row goes, which is the property that
 #: makes this a schedule rather than a silencer.
 #:
-#: SHRUNK 2026-09-05 by ``24.6-13``, which rebuilt cp-04's BEHAVIOR under D-21
-#: and D-15: the nine rows naming ``assembler.py``, ``deployment.py``,
-#: ``produce.py``, ``run.py``, ``transport.py`` and ``server/compose.py`` were
-#: removed in the commit that made them false, after each was watched XPASSing
-#: (9 strict xfails turned RED, plus this table's own equality — 10 failures
-#: over 826 passes). What is left is the two DOCUMENT rows: ``README.md`` and
-#: ``summary_explanations.md`` are plan ``24.6-14``'s prose fence, not this
-#: plan's, and the four ``tests/examples`` rows go with the tests they describe.
+#: SHRUNK 2026-09-05 by ``24.6-13``, in two steps and never in one:
+#:
+#: * the nine rows naming ``assembler.py``, ``deployment.py``, ``produce.py``,
+#:   ``run.py``, ``transport.py`` and ``server/compose.py`` went with the
+#:   BEHAVIOR rebuild, after each was watched XPASSing — 9 strict xfails turned
+#:   RED, plus this table's own equality: 10 failures over 826 passes;
+#: * the four ``tests/examples`` rows went with the tests they describe, again
+#:   after being watched XPASSing — 4 strict xfails turned RED, plus the
+#:   equality, over 834 passes.
+#:
+#: What is left is the two DOCUMENT rows. ``README.md`` and
+#: ``summary_explanations.md`` are plan ``24.6-14``'s prose fence rather than
+#: this plan's, and their counts are re-measured here rather than carried.
 CP04_KNOWN_DEBT: tuple[KnownDebt, ...] = (
     KnownDebt("examples/cp-04-corporate-family-tree/README.md", "declared ceiling of 6", 1),
     KnownDebt("examples/cp-04-corporate-family-tree/README.md", "never clamped", 2),
     KnownDebt("examples/cp-04-corporate-family-tree/summary_explanations.md", "never clamped", 4),
-    KnownDebt("tests/examples/test_cp_04_payload.py", "not in REFUSAL_KINDS", 1),
-    KnownDebt("tests/examples/test_cp_04_traversal.py", "never clamped", 1),
-    KnownDebt("tests/examples/test_cp_04_traversal.py", "not in REFUSAL_KINDS", 1),
-    KnownDebt("tests/examples/test_cp_04_two_callers.py", "never clamped", 1),
 )
 
 #: The pairs alone, for the parametrization's marker lookup.

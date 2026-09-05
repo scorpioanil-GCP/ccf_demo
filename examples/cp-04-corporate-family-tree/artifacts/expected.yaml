@@ -79,13 +79,24 @@
 #
 # `role: load`. An expectation is not something the fabric is permitted to do.
 
-semver: "1.0.0"
+# SUPERSEDED 2026-09-05 (`24.6-L-01`): this document's own lane was `1.0.0`.
+# It moves to `1.1.0` because its DECLARED SHAPE changed — the payload's
+# finding roster gained a `traversal` row with three keys the four-key shape
+# does not describe — and because both content-address pins were re-derived
+# against a payload that is not the one this document was written for. A
+# document whose expectations changed under an unmoved lane is a document a
+# reader cannot date.
+semver: "1.1.0"
 class_id: cp-04.expected
 
 declaration:
   # --- The contract envelope. Follows from §B.1 and `ccf_config.yaml`. ------
   product: reference.corporate-family
-  semantic_version: "1.0.0"
+  # THE PRODUCT LANE, MINOR (`D-25`): a previously refused valid request — a
+  # depth this estate cannot exhibit — now produces a product, which is a real
+  # additive capability a consumer can see. Held equal to `ccf_config.yaml`'s
+  # two `schema_version` lines by the seams module.
+  semantic_version: "1.1.0"
   assembly_mode: 1
   determinism_class: deterministic
   ttl_anchor: from_entity_freshness
@@ -813,9 +824,24 @@ declaration:
   # has been read.
   # Re-sealed 2026-09-02 under `D-IMPL-240` (1): `24.5-L-02` added `ProductLineage.store_snapshot_pin`, which is inside every content address by construction; the two addresses moved for that cause and no other; `CFT-G16` is on the 24.5 flip roster by id.
   # Restored 2026-09-02 under `D-IMPL-240` amendment 1: that re-seal was computed over a RENDERED SENTINEL (`NO_STORE_SNAPSHOT_PIN` — this product never carried a real pin), and `D-IMPL-243`'s hash transparency omits the sentinel, so the two addresses returned to their pre-phase values, measured live on the Fluree leg.
+  # RE-SEALED 2026-09-05 (`24.6-L-01`), for the ONE named cause `D-IMPL-240`
+  # amendment 1 requires: `D-23` added the depth-and-cost `traversal` finding
+  # to the payload's finding roster, so the addressed bytes changed and both
+  # seals moved with them. Read off the shipped caller against the LIVE estate
+  # (Fluree ledger `fibo-v2`, PostgreSQL schema `ccf_v2`), one run per role,
+  # and copied from the program's own `content address` line — never computed
+  # here.
+  #
+  #   credit-officer  205ae065…  ->  fad6e55d…
+  #   kyc-analyst     838afbb0…  ->  79733117…
+  #
+  # THE TWO ARE STILL DIFFERENT AND THE DETAILED COUNTS STILL 22 AND 0, which
+  # is the whole content of the pin: a re-seal that collapsed the two would
+  # have made the role cosmetic while every roster stayed green, which is the
+  # regression Dave asked these values to stand against.
   perspective_content_addresses:
-    credit-officer: "205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498"
-    kyc-analyst: "838afbb037a8ca820a2854b1ac7eedd296262508ce00d747369bf48ee6077ea8"
+    credit-officer: "fad6e55da2c0e6276b69d9a053e4eff155e5c3266b68f3fffb873b0c5e754fc7"
+    kyc-analyst: "79733117121056fe40c6c095e4f7ff7ec6be33b884676fa4e60b38d43979bac8"
 
   # ---- `D_c` at two depths — the close-panel Finding 1 pin ----------------
   #
@@ -882,7 +908,13 @@ declaration:
       max_depth_applied: 3
       semantic_consistency: "0.9090909090909090909090909091"
       context_debt: "0.0909090909090909090909090909"
-    at_the_declared_floor:
+    # RENAMED 2026-09-05 (`24.6-L-01`): this row was `at_the_declared_floor`.
+    # `D-IMPL-253` Q21 deleted the request contract's depth bounds, so there is
+    # no declared floor to name; the DEPTH IS UNCHANGED at 1 and so are both
+    # figures below, which is why nothing here was re-measured. It is now the
+    # caller's own shallower question, `tests/examples/
+    # test_cp_04_traversal.py::SHALLOW_DEPTH`.
+    at_the_shallow_depth:
       max_depth_applied: 1
       semantic_consistency: "0.9"
       context_debt: "0.1"
