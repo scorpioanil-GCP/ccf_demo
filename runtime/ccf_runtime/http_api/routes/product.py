@@ -528,7 +528,7 @@ def build_router(
         disclosure shaping* — and hands back either the entitled perspective or
         a shell that is **already recorded and already disclosed**. This
         function encodes that return and does nothing else: it holds no
-        ``except ProductEntitlementRefused``, calls no recorder, discloses
+        ``except`` clause for that refusal, calls no recorder, discloses
         nothing and reads no clock (``D-IMPL-98``). A denial is rendered
         through :func:`_refusal_response` — the *same* function a gate refusal
         goes through — which is what makes an unauthorized principal and a
