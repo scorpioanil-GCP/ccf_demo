@@ -5,16 +5,19 @@ milestone_name: Performance, Documentation & Demonstration
 status: executing
 last_updated: "2026-09-05T01:20:00.000Z"
 last_activity: >-
-  **PHASE 24.6 EXECUTING — waves 1–3 of 12 done (plans 01, 02, 03), 2026-09-04 evening, `/gsd-execute-phase 24.6` on `phase-24.6`.**
-  Executors on the main tree one at a time (Opus, per CLAUDE.md §3); multi-plan waves 6/8/9 will use worktrees. ROADMAP plan
-  ticks and this file are hand-edited; no `state.*`/`roadmap.*` writer ran. **Open for Dave (carried, not fixed):** `make lint` is
-  RED with 6 `cite03-node-id` findings naming the deleted `effective_debt_ceiling` helper (formerly in `src/ccf/products/gates.py`; a `::` cite to it is itself a finding, so this note names it in prose) — 2 in `CP-SPEC-004`
-  (plan 14 rewrites that page in-phase) and 4 in `CP-SPEC-001/002/003`, which the criteria fence closes (`examples/` open only for
-  cp-04, hw1, cp-01's narrow publication correction); three options measured in `24.6-03-SUMMARY.md` §Findings, none picked.
-  Plan 03 also kept the gate's debt half INLINED as a named INTERIM (the plan's literal line would have let a request loosen or
-  create a class ceiling); plan 04 closes it. Plans 01/02 findings: stale `c3224bb4` digest in every plan's output block (tree is
-  right at `014dcd64`); `…Conflict` name family added to the vocabulary walk; `NON_PRODUCT_REFUSALS`/`NON_VALUE_VIOLATIONS` now
-  hold Conflict members. Next: wave 4 (plan 04). PRIOR HEAD FOLLOWS.
+  **PHASE 24.6 EXECUTING — waves 1–5 of 12 done (plans 01–05), 2026-09-04 21:50 MST, `/gsd-execute-phase 24.6` on `phase-24.6`.**
+  Executors on the main tree one at a time (Opus, CLAUDE.md §3); waves 6/8/9 (06‖07, 09‖10‖16, 11‖12) use worktrees. ROADMAP ticks
+  and this file hand-edited; no `state.*`/`roadmap.*` writer ran. **`D-IMPL-257` (Dave, 21:40): fence widened NARROWLY** for the
+  citation maintenance the phase's own deletions caused — the four stranded `effective_debt_ceiling` cites in CP-SPEC-001/002/003
+  recast to what governs now (CRITERIA-LOCK Amendment 3, digest re-pinned `c0fdc4f4…`; `014dcd64…` is now a control); the
+  orchestrator extended the stated principle to two sites plan 05 stranded after the ruling (cp-01 `:1266`, fragment `24.5-15`)
+  and fixed cp-04's two inside the existing fence — flagged in `D-IMPL-257`. **`make lint` rc 0.** Not done by the principle's
+  second half: the cp-01/02/03 config/spec prose saying a breach "refuses with 409" (behavior prose; plan 09 assigns the status).
+  Open for Dave from the summaries: plan 04 F-1 (a class default the contract does not expose is REFUSED as a disguised ceiling);
+  plan 05's `restored_surfaces` allowance in `tests/test_surface_completeness.py` (residual stated, one-line revert offered);
+  plan 02's `…Conflict` family and Conflict members in `NON_PRODUCT_REFUSALS`/`NON_VALUE_VIOLATIONS`; stale `c3224bb4` digest in
+  every plan's output block (tree right). Expected red until plan 06: `tests/examples/test_hw1_empty_fabric_refusal.py`. Pre-existing,
+  not ours: 3 `tests/client/test_codec.py` failures (in `deferred-items.md`). Next: wave 6 (06‖07). Next free id `D-IMPL-258`. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 IS PLANNED UNDER `D-IMPL-256` — 16 plans, 12 waves, criteria 36 (2026-09-04 evening, branch
   `phase-24.6`, pushed).** Dave ruled the three delivery-boundary questions BEFORE Wave 1 rather than at close:
   (1) MCP standing-resource denials are RECORDED under a resource-request identity at the determination instant;
