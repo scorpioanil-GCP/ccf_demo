@@ -1,37 +1,41 @@
-"""The empty-operator gate's two halves, by name — ledger row ``24.5-L-24``.
+"""The empty-operator gate's ONE half — and the finding that replaced the other.
 
-Two assertions shared the name ``empty-operator-guard``: the SDK's — a product
-that DECLARED no operators (whitepaper §7.6, INV-CH7-46) — and the Standard's
-— an operator that RETURNED an empty set, which nothing in ``src/`` said a
-word about while cp-00's ``IH-G07`` and cp-01's ``CPR-G08`` carried it as
-product gates. ``D-IMPL-238``'s second sentence unlocked exactly that half.
-This module measures, on every run, that the two halves are two NAMED
-structural gates in :mod:`ccf.products.gates`, adjacent in both runners with
-the declared half first, each refusing by its own token — and that each is
-provably red under its own sabotage.
+Ledger row ``24.6-L-06``; ``D-IMPL-242`` **amendment 1** with ``D-IMPL-253``
+Q11/Q12 and ``D-IMPL-255`` (2).
 
-What is proven, and by which test (criterion 23):
+Two assertions once shared the name ``empty-operator-guard``: the SDK's — a
+product that DECLARED no operators (whitepaper §7.6, INV-CH7-46) — and the
+Standard's — an operator that RETURNED an empty set. ``24.5-L-24`` split them
+into two named gates and this phase retires the second one. Dave, Q12: *"An
+operator successfully evaluating an empty graph did compute something. Calling
+it uncomputed conflates absence of input with absence of execution. Serve
+computed-empty with the evidence-derived Debt."*
 
-* **The declared half** refuses a product with ``operators_invoked == ∅`` by
-  ``empty-operator-guard`` — :func:`ccf.products.gates._refuse_empty_operators`,
-  which this row did not edit.
-* **The returned half** refuses a product one of whose operators returned an
-  empty set by ``empty-operator-result`` — a NEW name for an assertion that
-  had none, read from the engine's own record and never from the payload
-  (``D-IMPL-238`` limb 3).
-* **The two are distinguishable by name**: two tokens, two kinds, neither a
-  substring of the other, so a consumer branching on ``gate`` reads WHICH
-  half fired without parsing ``detail``.
-* **The compatibility posture** (``D-10``): ``empty_results=None`` — every
-  pre-phase call site — is *not observed* and passes; the empty set is the
-  engine's positive *no operator returned empty* and passes too.
-* **Both runners carry both halves**, in the same order.
-* **Two sabotages, each RED naming its own token**, run on a scratch COPY of
-  ``gates.py`` under ``tmp_path`` — never the tree — with the real module's
-  bytes asserted unchanged afterward. The declared half's early return is
-  removed in one copy; the returned half's step is removed in the other. In
-  each, the predicate that should have seen the refusal fails naming the
-  token it expected, which is the "RED naming itself" the ledger row asks for.
+This module is the ``24.5-L-24`` module re-derived under that ruling. **Every
+sabotage is kept and one is inverted**: what used to prove the returned half
+fires now proves it cannot be put back.
+
+What is proven, and by which test:
+
+* **The declared half still refuses** a product with ``operators_invoked == ∅``
+  by ``empty-operator-guard`` — :func:`ccf.products.gates._refuse_empty_operators`,
+  which neither this row nor the last one edited. It is the **control**: the
+  retirement is of one specific assertion and not of the gate.
+* **A computed-empty product is SERVED with its search attached** — the finding
+  (:class:`~ccf.products.contract.ComputedEmptyFinding`) names the operators
+  that returned empty, every operator invoked, the plan and the store head, so
+  a consumer reading an empty payload sees the search rather than silence.
+* **The retired half is gone by name**: no token, no kind, no keyword. The
+  census in ``tests/products/test_structural_gates.py`` judges the roster; this
+  asserts the vocabulary is closed against the retired names.
+* **The declared half runs first when both would apply**: a product declaring
+  no operators is refused even while carrying a finding.
+* **Both runners serve it**, in the same order, local and federated.
+* **The sabotage that RESTORES the refusal is RED** — the three-line step is
+  inserted into a scratch COPY of ``gates.py`` under ``tmp_path``, never the
+  tree, after asserting the insertion anchor appears once per runner; the
+  served-empty predicate then fails naming the restored token. The declared
+  half's own sabotage is byte-identical to the one ``24.5-L-24`` shipped.
 
 Every domain value — the operator key, the TTL figures, the bundle version —
 is this module's own fixture vocabulary, never an SDK value (CINV-01).
@@ -51,10 +55,12 @@ import pytest
 
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.graph.protocols import NO_STORE_SNAPSHOT_PIN, StoreSnapshotPin
 from ccf.products import gates as gates_module
 from ccf.products import resolver as resolver_module
 from ccf.products.contract import (
     NO_SERVE_OBLIGATIONS,
+    ComputedEmptyFinding,
     ContextProductContract,
     MaxTTL,
     ProductLineage,
@@ -63,10 +69,7 @@ from ccf.products.contract import (
 )
 from ccf.products.gates import (
     GATE_EMPTY_OPERATOR,
-    GATE_EMPTY_OPERATOR_RESULT,
     EmptyOperatorRefusal,
-    EmptyResultRefusal,
-    GateRefusal,
     ServableProduct,
     run_federated_gates,
     run_gates,
@@ -85,6 +88,17 @@ MAX_TTL_SECONDS = 3600
 CANDIDATE_TTL_SECONDS = 600
 SCHEMA_NAME = "fixture.empty-operator-halves"
 SCHEMA_VERSION = "1.0.0"
+PLAN_ID = "fixture.plan"
+
+#: A store head this module authors, so the finding's pin is provably the one
+#: it was built with rather than the sentinel by accident.
+FIXTURE_PIN = StoreSnapshotPin(substrate="fixture", pin="fixture-head-1")
+
+#: The two retired names, spelled ONCE, here, so every assertion about their
+#: absence reads from one place — and so this module is the only file in
+#: `tests/` that has to spell them at all.
+RETIRED_GATE_TOKEN = "empty-operator-result"
+RETIRED_REFUSAL_KIND = "empty-result-refusal"
 
 #: The real module's source, read once at import. The sabotages below mutate
 #: COPIES of it; the last test asserts the bytes on disk are still these.
@@ -109,12 +123,38 @@ def _class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
     )
 
 
-def _candidate(*, operators: frozenset[str]) -> ContextProductContract:
-    """A candidate that passes every gate but the empty-operator halves."""
+def _finding(
+    *,
+    returned_empty: frozenset[str],
+    invoked: frozenset[str] = OPERATORS,
+    emptiness: str = "attested",
+) -> ComputedEmptyFinding:
+    """The finding the governed resolver writes, built here by hand.
+
+    Hand-built rather than driven through an execution: this module's subject
+    is what the GATES do with a computed-empty candidate, and
+    ``tests/products/test_evidence_derived_debt.py`` is where the finding is
+    proved to arrive from a real execution.
+    """
+    return ComputedEmptyFinding(
+        operators_returned_empty=returned_empty,
+        operators_invoked=invoked,
+        plan_id=PLAN_ID,
+        store_snapshot_pin=FIXTURE_PIN,
+        emptiness=emptiness,  # type: ignore[arg-type]
+    )
+
+
+def _candidate(
+    *,
+    operators: frozenset[str],
+    computed_empty: ComputedEmptyFinding | None = None,
+) -> ContextProductContract:
+    """A candidate that passes every gate but the declared empty-operator half."""
     return ContextProductContract(
         schema_name=SCHEMA_NAME,
         schema_version=SCHEMA_VERSION,
-        plan_id="fixture.plan",
+        plan_id=PLAN_ID,
         tenant_id=TENANT,
         temporal_boundary=BOUNDARY,
         expires_at=NOW + timedelta(seconds=CANDIDATE_TTL_SECONDS),
@@ -126,6 +166,7 @@ def _candidate(*, operators: frozenset[str]) -> ContextProductContract:
         ),
         payload={"value": 1},
         debt=None,
+        computed_empty=computed_empty,
     )
 
 
@@ -135,7 +176,6 @@ def _serve(
     *,
     registry: ControlPlaneRegistry,
     product_class: RegisteredProductClass,
-    empty_results: frozenset[str] | None = None,
 ) -> object:
     """Run ``runner.run_gates`` — the real module or a scratch copy of it."""
     return runner.run_gates(
@@ -144,7 +184,6 @@ def _serve(
         now=NOW,
         registry=registry,
         product_class=product_class,
-        empty_results=empty_results,
     )
 
 
@@ -158,12 +197,27 @@ def _assert_refused_by(outcome: object, token: str) -> object:
     return outcome
 
 
-def _assert_served(outcome: ServableProduct | GateRefusal) -> ServableProduct:
-    assert isinstance(outcome, ServableProduct), (
-        f"expected a served product; refused by gate {outcome.gate!r}: "
-        f"{outcome.detail}"
+def _assert_served(outcome: object) -> ServableProduct:
+    """The served predicate, by NAME rather than by identity.
+
+    ``type(...).__name__`` rather than ``isinstance``: a sabotaged scratch copy
+    of ``gates.py`` defines its own ``ServableProduct``, and an identity check
+    would fail against the copy for the wrong reason — reporting a class
+    identity mismatch where the subject is whether the product was served.
+    """
+    assert type(outcome).__name__ == "ServableProduct", (
+        f"expected a served product; refused by gate "
+        f"{getattr(outcome, 'gate', None)!r}: "
+        f"{getattr(outcome, 'detail', outcome)}"
     )
-    return outcome
+    return outcome  # type: ignore[return-value]
+
+
+def _served_product(outcome: object) -> ContextProductContract:
+    """The product inside a served result, whichever module minted it."""
+    product = getattr(_assert_served(outcome), "product", None)
+    assert isinstance(product, ContextProductContract)
+    return product
 
 
 @pytest.fixture
@@ -176,13 +230,18 @@ def product_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
     return _class(registry)
 
 
-# --- the two halves, by name --------------------------------------------------
+# --- the half that stays: the control ----------------------------------------
 
 
 def test_the_declared_half_refuses_a_product_that_declares_no_operators(
     registry: ControlPlaneRegistry, product_class: RegisteredProductClass
 ) -> None:
-    """``operators_invoked == ∅`` → ``EmptyOperatorRefusal``, gate ``empty-operator-guard`` (INV-CH7-46)."""
+    """``operators_invoked == ∅`` → ``EmptyOperatorRefusal``, gate ``empty-operator-guard`` (INV-CH7-46).
+
+    The control for the whole row: what ``24.6-05`` retires is one specific
+    assertion about a RETURNED empty set, not the guard, and a run in which
+    this test also went green-by-absence would be evidence of the wrong thing.
+    """
     outcome = _serve(
         gates_module,
         _candidate(operators=frozenset()),
@@ -193,71 +252,104 @@ def test_the_declared_half_refuses_a_product_that_declares_no_operators(
     refusal = _assert_refused_by(outcome, GATE_EMPTY_OPERATOR)
     assert isinstance(refusal, EmptyOperatorRefusal)
     assert refusal.gate == "empty-operator-guard"
-    assert not isinstance(refusal, EmptyResultRefusal)
 
 
-def test_the_returned_half_refuses_an_operator_that_returned_an_empty_set(
+# --- the half that went: served, with its search ------------------------------
+
+
+def test_an_operator_that_returned_empty_is_served_with_its_search_attached(
     registry: ControlPlaneRegistry, product_class: RegisteredProductClass
 ) -> None:
-    """``empty_results={key}`` → ``EmptyResultRefusal``, gate ``empty-operator-result``, the key named."""
+    """The inversion, stated positively: computed-empty SERVES, and the finding rides on the product.
+
+    This is the test that read ``empty_results={key}`` → ``EmptyResultRefusal``
+    before ``D-IMPL-242`` amendment 1.
+    """
+    finding = _finding(returned_empty=frozenset({OPERATOR_KEY}))
+
     outcome = _serve(
         gates_module,
-        _candidate(operators=OPERATORS),
+        _candidate(operators=OPERATORS, computed_empty=finding),
         registry=registry,
         product_class=product_class,
-        empty_results=frozenset({OPERATOR_KEY}),
     )
 
-    refusal = _assert_refused_by(outcome, GATE_EMPTY_OPERATOR_RESULT)
-    assert isinstance(refusal, EmptyResultRefusal)
-    assert refusal.gate == "empty-operator-result"
-    assert refusal.operator_key == OPERATOR_KEY
-    assert refusal.empty_operators == frozenset({OPERATOR_KEY})
-    assert OPERATOR_KEY in refusal.detail
-    assert not isinstance(refusal, EmptyOperatorRefusal)
+    product = _served_product(outcome)
+    assert product.computed_empty is not None
+    assert product.computed_empty.operators_returned_empty == frozenset({OPERATOR_KEY})
+    # The whole search, not only the empty part of it.
+    assert product.computed_empty.operators_invoked == OPERATORS
+    assert product.computed_empty.plan_id == PLAN_ID
+    assert product.computed_empty.store_snapshot_pin == FIXTURE_PIN
+    assert product.computed_empty.emptiness == "attested"
 
 
-def test_the_returned_half_names_the_first_key_in_sorted_order_and_carries_all(
+def test_every_operator_that_returned_empty_is_carried(
     registry: ControlPlaneRegistry, product_class: RegisteredProductClass
 ) -> None:
-    """Two operators returned empty: ``operator_key`` is the sorted first; both are carried."""
+    """Two operators returned empty: both are named, and the invoked set says out of how many."""
     outcome = _serve(
         gates_module,
-        _candidate(operators=OPERATORS),
+        _candidate(
+            operators=OPERATORS,
+            computed_empty=_finding(returned_empty=OPERATORS),
+        ),
         registry=registry,
         product_class=product_class,
-        empty_results=OPERATORS,
     )
 
-    refusal = _assert_refused_by(outcome, GATE_EMPTY_OPERATOR_RESULT)
-    assert isinstance(refusal, EmptyResultRefusal)
-    assert refusal.operator_key == min(OPERATORS)
-    assert refusal.empty_operators == OPERATORS
+    product = _served_product(outcome)
+    assert product.computed_empty is not None
+    assert product.computed_empty.operators_returned_empty == OPERATORS
+    assert product.computed_empty.operators_invoked == OPERATORS
 
 
-def test_the_two_halves_are_distinguishable_by_name() -> None:
-    """Two tokens, two kinds; neither token is a substring of the other."""
-    assert GATE_EMPTY_OPERATOR != GATE_EMPTY_OPERATOR_RESULT
-    assert GATE_EMPTY_OPERATOR not in GATE_EMPTY_OPERATOR_RESULT
-    assert GATE_EMPTY_OPERATOR_RESULT not in GATE_EMPTY_OPERATOR
-    assert REFUSAL_KINDS[EmptyOperatorRefusal] != REFUSAL_KINDS[EmptyResultRefusal]
-    assert REFUSAL_KINDS[EmptyResultRefusal] == "empty-result-refusal"
-    # Two types, related only through the family base — neither derives from
-    # the other, so an `isinstance` on one never matches the other.
-    assert not issubclass(EmptyResultRefusal, EmptyOperatorRefusal)
-    assert not issubclass(EmptyOperatorRefusal, EmptyResultRefusal)
+def test_the_retired_half_is_gone_by_name() -> None:
+    """No token, no kind, no keyword — the retired half is unreachable, not merely unused.
+
+    ``24.5-L-24``'s test here asserted the two halves were distinguishable by
+    name. Under ``D-IMPL-242`` amendment 1 there is one half, so what is
+    measurable is that the other one's names are gone from the surface — which
+    is the honest re-derivation of "distinguishable" when one of the pair no
+    longer exists.
+    """
+    assert not hasattr(gates_module, "GATE_EMPTY_OPERATOR_RESULT")
+    assert not hasattr(gates_module, "EmptyResultRefusal")
+    assert not hasattr(gates_module, "_refuse_empty_results")
+    assert RETIRED_GATE_TOKEN not in {
+        getattr(gates_module, name)
+        for name in dir(gates_module)
+        if name.startswith("GATE_")
+    }
+    assert RETIRED_REFUSAL_KIND not in set(REFUSAL_KINDS.values())
+    # The keyword is off both runners, so a caller cannot even offer the
+    # observation the retired half read.
+    for runner in (run_gates, run_federated_gates):
+        assert "empty_results" not in inspect.signature(runner).parameters
+    # The control: the half that STAYS is still exported under its own name.
+    assert gates_module.GATE_EMPTY_OPERATOR == "empty-operator-guard"
+    assert REFUSAL_KINDS[EmptyOperatorRefusal] == "empty-operator-refusal"
 
 
-def test_the_declared_half_runs_first_when_both_would_fire(
+def test_the_declared_half_still_runs_first_when_both_would_apply(
     registry: ControlPlaneRegistry, product_class: RegisteredProductClass
 ) -> None:
-    """Adjacent, declared half first: a product declaring nothing is refused by the guard even with an emptiness record."""
+    """A product declaring nothing is refused even while carrying a finding.
+
+    A finding cannot rescue a product computed by nothing: the finding says
+    *these operators ran and found nothing*, and a product that declares no
+    operators is asserting that none ran (INV-CH7-46).
+    """
     outcome = _serve(
         gates_module,
-        _candidate(operators=frozenset()),
+        _candidate(
+            operators=frozenset(),
+            computed_empty=_finding(
+                returned_empty=frozenset({OPERATOR_KEY}), invoked=frozenset()
+            ),
+        ),
         registry=registry,
         product_class=product_class,
-        empty_results=frozenset({OPERATOR_KEY}),
     )
 
     _assert_refused_by(outcome, GATE_EMPTY_OPERATOR)
@@ -266,40 +358,24 @@ def test_the_declared_half_runs_first_when_both_would_fire(
 # --- the compatibility posture ------------------------------------------------
 
 
-def test_an_unobserved_execution_passes_the_returned_half(
+def test_a_product_with_no_finding_serves_and_says_so(
     registry: ControlPlaneRegistry, product_class: RegisteredProductClass
 ) -> None:
-    """``empty_results=None`` — every pre-phase call site — is *not observed* and serves."""
+    """``computed_empty=None`` — every pre-phase product — is *no operator returned empty*."""
     outcome = _serve(
         gates_module,
         _candidate(operators=OPERATORS),
         registry=registry,
         product_class=product_class,
-        empty_results=None,
     )
 
-    _assert_served(outcome)  # type: ignore[arg-type]
+    assert _served_product(outcome).computed_empty is None
 
 
-def test_no_empty_result_passes(
+def test_a_call_site_written_before_the_field_existed_reads_as_it_did(
     registry: ControlPlaneRegistry, product_class: RegisteredProductClass
 ) -> None:
-    """The empty set — the engine's positive *no operator returned empty* — serves."""
-    outcome = _serve(
-        gates_module,
-        _candidate(operators=OPERATORS),
-        registry=registry,
-        product_class=product_class,
-        empty_results=frozenset(),
-    )
-
-    _assert_served(outcome)  # type: ignore[arg-type]
-
-
-def test_the_default_is_not_observed(
-    registry: ControlPlaneRegistry, product_class: RegisteredProductClass
-) -> None:
-    """A call site written before the keyword existed reads exactly as it did."""
+    """The default is the positive assertion, and the gates never read it."""
     outcome = run_gates(
         _candidate(operators=OPERATORS),
         engine_resolved=OPERATORS,
@@ -308,16 +384,32 @@ def test_the_default_is_not_observed(
         product_class=product_class,
     )
 
-    _assert_served(outcome)
+    assert _served_product(outcome).computed_empty is None
+
+
+def test_the_findings_absence_is_the_only_way_to_say_nothing_returned_empty() -> None:
+    """A finding naming no operator is refused at construction.
+
+    Two spellings of one claim would put two content addresses on one product
+    (``24.6-L-06``), and the sentinel this field carries is ``None``.
+    """
+    with pytest.raises(ValueError, match="at least one operator"):
+        ComputedEmptyFinding(
+            operators_returned_empty=frozenset(),
+            operators_invoked=OPERATORS,
+            plan_id=PLAN_ID,
+            store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
+            emptiness="attested",
+        )
 
 
 # --- the federated runner -----------------------------------------------------
 
 
-def test_the_federated_runner_carries_both_halves(
+def test_the_federated_runner_serves_computed_empty_and_keeps_the_declared_half(
     registry: ControlPlaneRegistry, product_class: RegisteredProductClass
 ) -> None:
-    """Both halves, same order, on ``run_federated_gates``; ``None`` passes there too."""
+    """Across a Peering too: the declared half refuses, and a peer's computed-empty product serves."""
     declared_nothing = _candidate(operators=frozenset())
     outcome = run_federated_gates(
         declared_nothing,
@@ -326,100 +418,149 @@ def test_the_federated_runner_carries_both_halves(
         registry=registry,
         product_class=product_class,
     )
-    assert isinstance(_assert_refused_by(outcome, GATE_EMPTY_OPERATOR), EmptyOperatorRefusal)
+    assert isinstance(
+        _assert_refused_by(outcome, GATE_EMPTY_OPERATOR), EmptyOperatorRefusal
+    )
 
-    candidate = _candidate(operators=OPERATORS)
+    candidate = _candidate(
+        operators=OPERATORS,
+        computed_empty=_finding(returned_empty=frozenset({OPERATOR_KEY})),
+    )
     outcome = run_federated_gates(
         candidate,
         attested_address=content_hash(candidate),
         now=NOW,
         registry=registry,
         product_class=product_class,
-        empty_results=frozenset({OPERATOR_KEY}),
     )
-    refusal = _assert_refused_by(outcome, GATE_EMPTY_OPERATOR_RESULT)
-    assert isinstance(refusal, EmptyResultRefusal)
-    assert refusal.operator_key == OPERATOR_KEY
+    product = _served_product(outcome)
+    assert product.computed_empty is not None
+    assert product.computed_empty.operators_returned_empty == frozenset({OPERATOR_KEY})
 
-    # The returned half precedes attributability: a mismatched address is
-    # never reached when an operator returned empty.
+    # And the finding is INSIDE the attested address: a peer that recorded a
+    # search signed that record with the rest of the product.
     outcome = run_federated_gates(
         candidate,
         attested_address="not-the-candidate-address",
         now=NOW,
         registry=registry,
         product_class=product_class,
-        empty_results=frozenset({OPERATOR_KEY}),
     )
-    _assert_refused_by(outcome, GATE_EMPTY_OPERATOR_RESULT)
-
-    # And the compatibility default.
-    outcome = run_federated_gates(
-        candidate,
-        attested_address=content_hash(candidate),
-        now=NOW,
-        registry=registry,
-        product_class=product_class,
-    )
-    _assert_served(outcome)
+    _assert_refused_by(outcome, gates_module.GATE_LINEAGE_ATTRIBUTABILITY)
 
 
-# --- the key link: the governed resolver threads the engine's record ------------
+# --- the key link: the resolver writes the finding, and reads nothing else -----
 
 
 def test_the_resolver_threads_the_engines_emptiness_record() -> None:
-    """The plan's key link, read by AST: ``run_gates(..., empty_results=execution.empty_results)``.
+    """The plan's key link, read by AST, in its inverted form.
 
-    The seeded seam fixture (``tests/products/test_resolver_seam.py``) proves
-    the success leg still serves; it cannot prove the threading is PRESENT,
-    because a resolver that dropped the keyword would serve that fixture just
-    the same. This reads the reference resolver's one ``run_gates`` call and
-    asserts the keyword is there and carries the execution's own field —
-    the source the returned half is allowed to read (``D-IMPL-238`` limb 3).
+    ``24.5-L-24``'s version asserted the resolver passed
+    ``empty_results=execution.empty_results`` INTO ``run_gates``. Under
+    ``D-IMPL-242`` amendment 1 the same record goes somewhere else, and both
+    halves of that have to be measured: the keyword is **gone** from the gate
+    call, and the finding is **built** on the candidate. Asserting only the
+    first would pass for a resolver that dropped the record entirely.
     """
     source = textwrap.dedent(inspect.getsource(resolver_module.GovernedResolver))
-    calls = [
+    tree = ast.parse(source)
+
+    gate_calls = [
         node
-        for node in ast.walk(ast.parse(source))
+        for node in ast.walk(tree)
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Name)
         and node.func.id == "run_gates"
     ]
-    assert len(calls) == 1, "the governed resolver runs the gates exactly once"
-    keywords = {keyword.arg: keyword.value for keyword in calls[0].keywords}
-    assert "empty_results" in keywords, (
-        "the resolver no longer threads `empty_results` into `run_gates`; the"
-        " returned half of the empty-operator gate (empty-operator-result)"
-        " has nothing to read on the governed path"
+    assert len(gate_calls) == 1, "the governed resolver runs the gates exactly once"
+    assert "empty_results" not in {kw.arg for kw in gate_calls[0].keywords}, (
+        "the resolver still threads `empty_results` into `run_gates`; the"
+        " returned half of the empty-operator gate is retired"
+        " (`D-IMPL-242` amendment 1) and the gates read no emptiness record"
     )
-    value = keywords["empty_results"]
-    assert isinstance(value, ast.Attribute) and value.attr == "empty_results"
-    assert isinstance(value.value, ast.Name) and value.value.id == "execution"
+
+    product_calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "ContextProductContract"
+    ]
+    assert len(product_calls) == 1, "the resolver builds one candidate"
+    keywords = {kw.arg: kw.value for kw in product_calls[0].keywords}
+    assert "computed_empty" in keywords, (
+        "the resolver no longer writes `computed_empty` onto the candidate;"
+        " a served empty answer has lost its search (24.6-L-06)"
+    )
+    built = keywords["computed_empty"]
+    assert isinstance(built, ast.Call)
+    assert isinstance(built.func, ast.Attribute) and built.func.attr == "of"
+    assert isinstance(built.func.value, ast.Name)
+    assert built.func.value.id == "ComputedEmptyFinding"
+    # And it is built from the EXECUTION — the engine's own record, which is
+    # the only source this finding is allowed to have (`D-IMPL-238` limb 3).
+    assert [
+        node.id for node in ast.walk(built) if isinstance(node, ast.Name)
+    ].count("execution") >= 1
 
 
 # --- the sabotages, on scratch copies -------------------------------------------
 
 #: The declared half's early return, as it appears in BOTH runners. The
-#: sabotage removes it from the FIRST occurrence — `run_gates`.
+#: sabotage removes it from the FIRST occurrence — `run_gates`. Byte-identical
+#: to the string `24.5-L-24` shipped: the half it guards did not move.
 DECLARED_HALF = (
     "    empty = _refuse_empty_operators(candidate)\n"
     "    if empty is not None:\n"
     "        return empty\n"
 )
 
-#: The returned half's step, as it appears in BOTH runners.
+#: The RETURNED half, as it stood before `24.6-05` deleted it — kept here as
+#: the thing a sabotage puts BACK. The inversion of `24.5-L-24`'s sabotage: it
+#: removed this step and watched the refusal disappear; this restores it and
+#: watches the served product disappear.
 RETURNED_HALF = (
-    "    returned_empty = _refuse_empty_results(candidate, empty_results=empty_results)\n"
+    "    returned_empty = _refuse_empty_results(candidate)\n"
     "    if returned_empty is not None:\n"
     "        return returned_empty\n"
 )
 
+#: The refusal the restored step returns. Written here, in the sabotage, rather
+#: than left in `src/` — which is the point: the assertion no longer exists in
+#: the tree, so a control that wants to see it fire has to supply it.
+RESTORED_REFUSAL = f'''
 
-def _scratch_gates(tmp_path: pathlib.Path, *, name: str, remove: str) -> types.ModuleType:
-    """A copy of ``gates.py`` with ``remove`` deleted from its first runner, loaded under ``name``."""
+def _refuse_empty_results(candidate):
+    if not candidate.computed_empty:
+        return None
+    return GateRefusal(
+        gate="{RETIRED_GATE_TOKEN}",
+        detail="an empty assembled set fails closed",
+    )
+
+'''
+
+
+def _scratch_gates(
+    tmp_path: pathlib.Path, *, name: str, remove: str = "", insert_after: str = ""
+) -> types.ModuleType:
+    """A copy of ``gates.py`` mutated at its FIRST runner, loaded under ``name``.
+
+    Exactly one of ``remove`` / ``insert_after`` is applied, and in either case
+    the anchor is asserted to appear **twice** first — once per runner — so a
+    sabotage cannot silently become a no-op because the text it looks for moved
+    or was reworded.
+    """
     source = GATES_SOURCE.decode("utf-8")
-    assert source.count(remove) == 2, "the step must appear once per runner"
-    mutated = source.replace(remove, "", 1)
+    if remove:
+        assert source.count(remove) == 2, "the step must appear once per runner"
+        mutated = source.replace(remove, "", 1)
+    else:
+        assert source.count(insert_after) == 2, (
+            "the insertion anchor must appear once per runner"
+        )
+        mutated = source.replace(insert_after, insert_after + RETURNED_HALF, 1)
+        mutated += RESTORED_REFUSAL
     assert mutated != source
     path = tmp_path / f"{name}.py"
     path.write_text(mutated, encoding="utf-8")
@@ -436,7 +577,9 @@ def test_sabotage_removing_the_declared_half_is_red_naming_empty_operator_guard(
     product_class: RegisteredProductClass,
 ) -> None:
     """With the declared half gone, the declared test's predicate fails naming ``empty-operator-guard``."""
-    scratch = _scratch_gates(tmp_path, name="gates_without_declared_half", remove=DECLARED_HALF)
+    scratch = _scratch_gates(
+        tmp_path, name="gates_without_declared_half", remove=DECLARED_HALF
+    )
 
     outcome = _serve(
         scratch,
@@ -459,41 +602,61 @@ def test_sabotage_removing_the_declared_half_is_red_naming_empty_operator_guard(
     )
 
 
-def test_sabotage_removing_the_returned_half_is_red_naming_empty_operator_result(
+def test_sabotage_restoring_the_returned_half_refusal_is_red(
     tmp_path: pathlib.Path,
     registry: ControlPlaneRegistry,
     product_class: RegisteredProductClass,
 ) -> None:
-    """With the returned half gone, the returned test's predicate fails naming ``empty-operator-result``."""
-    scratch = _scratch_gates(tmp_path, name="gates_without_returned_half", remove=RETURNED_HALF)
+    """Put the retired refusal back and the served-empty predicate fails naming its token.
+
+    The inversion ``24.6-L-06`` asks for. It proves the served-empty property
+    is load-bearing rather than incidental: a tree in which the returned half
+    came back — by revert, by merge, by someone reading the Standard's
+    sentence without the amendment — is red here, and red **naming the token
+    it should not carry**.
+    """
+    scratch = _scratch_gates(
+        tmp_path,
+        name="gates_with_the_returned_half_restored",
+        insert_after=DECLARED_HALF,
+    )
 
     outcome = _serve(
         scratch,
-        _candidate(operators=OPERATORS),
+        _candidate(
+            operators=OPERATORS,
+            computed_empty=_finding(returned_empty=frozenset({OPERATOR_KEY})),
+        ),
         registry=registry,
         product_class=product_class,
-        empty_results=frozenset({OPERATOR_KEY}),
     )
 
-    # The sabotaged copy SERVES the product an operator computed nothing for.
-    assert type(outcome).__name__ == "ServableProduct"
-    with pytest.raises(AssertionError, match=GATE_EMPTY_OPERATOR_RESULT):
-        _assert_refused_by(outcome, GATE_EMPTY_OPERATOR_RESULT)
-    # And the real module refuses it.
-    _assert_refused_by(
+    # The sabotaged copy REFUSES the product the fabric computed.
+    assert getattr(outcome, "gate", None) == RETIRED_GATE_TOKEN
+    with pytest.raises(AssertionError, match=RETIRED_GATE_TOKEN):
+        _assert_served(outcome)
+    # And the real module serves it, with the finding intact.
+    served = _served_product(
         _serve(
             gates_module,
-            _candidate(operators=OPERATORS),
+            _candidate(
+                operators=OPERATORS,
+                computed_empty=_finding(returned_empty=frozenset({OPERATOR_KEY})),
+            ),
             registry=registry,
             product_class=product_class,
-            empty_results=frozenset({OPERATOR_KEY}),
-        ),
-        GATE_EMPTY_OPERATOR_RESULT,
+        )
     )
+    assert served.computed_empty is not None
 
 
 def test_no_sabotage_edits_the_real_source_tree() -> None:
     """The controls above mutate copies under ``tmp_path``; ``gates.py`` on disk is byte-identical."""
     assert GATES_PATH.read_bytes() == GATES_SOURCE
-    assert DECLARED_HALF in GATES_SOURCE.decode("utf-8")
-    assert RETURNED_HALF in GATES_SOURCE.decode("utf-8")
+    source = GATES_SOURCE.decode("utf-8")
+    assert DECLARED_HALF in source
+    # The positive half of the same claim: the restored step is NOT in the
+    # tree, so the sabotage above is genuinely adding something rather than
+    # re-adding something that never left.
+    assert RETURNED_HALF not in source
+    assert "def _refuse_empty_results(" not in source

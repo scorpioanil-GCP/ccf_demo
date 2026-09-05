@@ -1,12 +1,20 @@
-"""``ExecutionResult.empty_results`` — the engine's own record of which operators returned nothing (``24.5-L-24``).
+"""``ExecutionResult.empty_results`` — the engine's own record of which operators returned nothing (``24.5-L-24``, ``24.6-L-06``).
 
-The returned-empty half of the empty-operator gate
-(:data:`ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT`) reads an observation
-that only the thing that ran the plan can make: which operator's output view
-carried zero entities AND zero relationships. :meth:`ProjectionEngine.execute`
-computes it ALWAYS — one inspection of each :class:`~ccf.operators.base.OperatorOutput`
-as it is produced — so the empty set is the engine's positive *no operator
-returned empty*, never a sentinel for absence.
+The record is an observation only the thing that ran the plan can make: which
+operator's output view carried zero entities AND zero relationships.
+:meth:`ProjectionEngine.execute` computes it ALWAYS — one inspection of each
+:class:`~ccf.operators.base.OperatorOutput` as it is produced — so the empty
+set is the engine's positive *no operator returned empty*, never a sentinel
+for absence.
+
+**What reads it moved at ``24.6-05``** (``D-IMPL-242`` amendment 1,
+``D-IMPL-253`` Q11/Q12). It used to feed a refusal — the returned half of the
+empty-operator gate. It now feeds a FINDING on the served product,
+:class:`~ccf.products.contract.ComputedEmptyFinding`, because an operator that
+ran and returned nothing computed something. The engine's half of this row did
+not change at all, which is the point of measuring it here: the record is the
+same record, and the assertions below are the same assertions, with the one
+consumer swapped.
 
 What is proven, and where:
 
@@ -66,8 +74,7 @@ from ccf.operators.params import (
     TemporalAsOfParameters,
 )
 from ccf.operators.registry import OperatorRegistry
-from ccf.products.gates import GATE_EMPTY_OPERATOR_RESULT, EmptyResultRefusal
-from ccf.products.gates import _refuse_empty_results
+from ccf.products.contract import ComputedEmptyFinding
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective
 from ccf.similarity.protocol import TokenOverlapIndex
@@ -305,7 +312,7 @@ def test_only_the_in_process_operator_that_returned_empty_is_recorded(
 def test_a_pushed_segments_empty_answer_is_recorded_against_every_operator_in_it(
     fabric: _Fabric,
 ) -> None:
-    """Policy (admitting nothing) and Temporal push as ONE segment; both are named, and the refusal names the sorted first."""
+    """Policy (admitting nothing) and Temporal push as ONE segment; both are named, and the finding carries both."""
     params = fabric.control["operator_parameters"]
     registry = OperatorRegistry()
     registry.register(_policy_filter(fabric, permitted_version=NO_SUCH_VERSION))
@@ -322,22 +329,15 @@ def test_a_pushed_segments_empty_answer_is_recorded_against_every_operator_in_it
     assert len(execution.executed_queries) == 1, "one pushed segment, one query"
     assert execution.empty_results == frozenset({PolicyFilter.key, TemporalAsOf.key})
 
-    # The gate's half reads exactly this record: first key in sorted order,
-    # every key carried.
-    refusal = _refuse_empty_results(
-        _any_candidate(fabric, execution), empty_results=execution.empty_results
-    )
-    assert isinstance(refusal, EmptyResultRefusal)
-    assert refusal.gate == GATE_EMPTY_OPERATOR_RESULT
-    assert refusal.operator_key == min(execution.empty_results)
-    assert refusal.empty_operators == execution.empty_results
-
-
-def _any_candidate(fabric: _Fabric, execution: ExecutionResult) -> Any:
-    """A candidate contract for the refusal to name; only ``schema_name`` is read."""
-    from tests.integration.test_proto_quickstart import _candidate, _product_class
-
-    return _candidate(fabric, execution, _product_class(fabric))
+    # The finding reads exactly this record, and now carries the whole search
+    # rather than a first-offender key: which operators returned empty, and
+    # every operator that was invoked (24.6-L-06).
+    finding = ComputedEmptyFinding.of(execution, emptiness="attested")
+    assert finding is not None
+    assert finding.operators_returned_empty == execution.empty_results
+    assert finding.operators_invoked == execution.operators_invoked
+    assert finding.plan_id == execution.plan_id
+    assert finding.store_snapshot_pin == execution.store_snapshot_pin
 
 
 # --- 5: the compatibility default --------------------------------------------
@@ -348,3 +348,23 @@ def test_a_result_built_without_the_field_carries_the_empty_set() -> None:
     assert ExecutionResult.model_fields["empty_results"].default == frozenset()
     assert "empty_results" in ExecutionResult.model_fields
     assert list(ExecutionResult.model_fields)[-1] == "empty_results"
+
+
+def test_an_execution_where_nothing_returned_empty_yields_no_finding(
+    fabric: _Fabric,
+) -> None:
+    """The absence of the finding is how *no operator returned empty* is said.
+
+    The mirror of the assertion above, on the consumer side: ``None`` rather
+    than a finding naming nothing, so a served product that found rows renders
+    exactly as it did before ``24.6-05`` (measured in
+    ``tests/contracts/test_hash_transparency.py``).
+    """
+    registry = OperatorRegistry()
+    registry.register(_policy_filter(fabric, permitted_version=fabric.policy_version))
+
+    execution = _execute(fabric, registry, (PolicyFilter.key,))
+
+    assert execution.view.entities, "the fixture's own version must admit something"
+    assert execution.empty_results == frozenset()
+    assert ComputedEmptyFinding.of(execution, emptiness="attested") is None

@@ -77,6 +77,7 @@ from ccf.products import resolver as resolver_module
 from ccf.products.debt_scorer import (
     DECLARED_FACTOR_SCORER_ID,
     DECLARED_FACTOR_SCORER_VERSION,
+    ExecutionEvidence,
 )
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import (
@@ -250,7 +251,13 @@ class _InertScorer:
     def __init__(self, **_ignored: Any) -> None:
         pass
 
-    def __call__(self, *, view: GraphView) -> DebtAssessment:
+    def __call__(
+        self, *, view: GraphView, evidence: ExecutionEvidence | None = None
+    ) -> DebtAssessment:
+        # `evidence` accepted and unread: 24.6-05 widened the seam
+        # (`AssemblyDebtScorerProtocol`), and a stand-in that did not accept
+        # the keyword would fail on the seam rather than on the selection this
+        # class exists to test.
         return DebtAssessment(
             debt=Decimal("0"),
             signal=DebtSignal.OK,
@@ -273,8 +280,14 @@ OVERRIDE_SCORER_VERSION = "7.7.7"
 OVERRIDE_FRESHNESS = Decimal("0.125")
 
 
-def _override_scorer(*, view: GraphView) -> DebtAssessment:
-    """A deployment's own scorer, pinning itself under its own identity."""
+def _override_scorer(
+    *, view: GraphView, evidence: ExecutionEvidence | None = None
+) -> DebtAssessment:
+    """A deployment's own scorer, pinning itself under its own identity.
+
+    Accepts ``evidence`` and reads none: 24.6-05 widened the seam, and this
+    scorer's subject is that the OVERRIDE was selected, not what it measured.
+    """
     return DebtAssessment(
         debt=Decimal(1) - OVERRIDE_FRESHNESS,
         signal=DebtSignal.FORCED_LLM,

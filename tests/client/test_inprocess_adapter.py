@@ -597,31 +597,77 @@ def test_an_explicit_as_of_reaches_the_deployment(seeded_root: Path) -> None:
     nothing — which is a different answer from the pinned boundary's, and that
     difference is the whole observable proof the boundary crossed the seam.
 
-    What "assembles nothing" looks like moved in ``24.5-L-24``. It used to be
-    a SERVED product carrying ``"assembled": 0`` with the scorer's ``D_c`` of
-    1 routing to ``fail_closed`` — advisory, a number about a graph that said
-    nothing. The returned-empty half of the empty-operator gate
-    (:data:`ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT`) now makes that
-    fail-closed structural on the governed path: the one operator returned an
-    empty set, so the fabric REFUSES by name rather than serving an empty
-    answer, and the refusal — not a payload — is what carries the boundary
-    across the seam. The pinned boundary beside it is the positive control:
-    the same question, an instant the rows exist at, serves every row.
+    What "assembles nothing" looks like has moved twice. Before ``24.5-L-24``
+    it was a SERVED product carrying ``"assembled": 0`` with the scorer's
+    ``D_c`` of 1 routing to ``fail_closed``. ``24.5-L-24`` made it a REFUSAL by
+    name. ``24.6-05`` makes it a served product again, and for a reason rather
+    than by reversion (``D-IMPL-242`` amendment 1, ``D-IMPL-253`` Q11/Q12): the
+    operator RAN against the boundary the caller named and truthfully found
+    nothing there, which is a computed answer. What is served now is what
+    neither earlier form had — an empty payload **with its search attached**,
+    :class:`~ccf.products.contract.ComputedEmptyFinding` naming the operators
+    that returned empty, the plan and the store head.
+
+    The pinned boundary beside it is the positive control: the same question,
+    an instant the rows exist at, serves every row and carries NO finding.
+    Without it a green run here would be satisfied by a deployment that served
+    empty at every instant.
     """
     before = datetime(2020, 1, 1, tzinfo=UTC)
 
     result = _client(seeded_root).ask(parameters={THRESHOLD: 20}, as_of=before)
 
     assert result.temporal_boundary == before
-    assert result.refused
-    assert result.refusal is not None
-    assert result.refusal.reason == "empty-operator-result"
-    assert result.refusal.kind == "empty-result-refusal"
+    assert result.refused is False
+    assert result.refusal is None
+    assert result.payload["assembled"] == 0
+
+    # The finding itself, read off the vessel that crossed the wire. The
+    # adapter is driven directly because `Result` exposes no accessor for it
+    # and adding one is a client-surface change this row is fenced away from —
+    # so the product is read where it demonstrably arrived, through the one
+    # decoder, rather than through a private attribute.
+    adapter = InProcessAdapter(str(seeded_root))
+    decoded = decode_outcome(
+        adapter.ask(
+            request := WireRequest(
+                product_id=_product_id(seeded_root),
+                parameters={THRESHOLD: 20},
+                temporal_boundary=before,
+            )
+        ),
+        sent=request,
+    )
+    assert decoded.vessel is not None
+    finding = decoded.vessel.computed_empty
+    assert finding is not None, (
+        "an empty answer crossed the seam with no record of the search behind"
+        " it (24.6-L-06)"
+    )
+    assert finding.operators_returned_empty
+    assert finding.operators_returned_empty <= finding.operators_invoked
+    assert finding.plan_id == decoded.vessel.plan_id
 
     served = _client(seeded_root).ask(parameters={THRESHOLD: 20}, as_of=_PINNED)
     assert not served.refused
     assert served.temporal_boundary == _PINNED
     assert served.payload["assembled"] == len(SEEDED_ROWS)
+
+    pinned = decode_outcome(
+        adapter.ask(
+            pinned_request := WireRequest(
+                product_id=_product_id(seeded_root),
+                parameters={THRESHOLD: 20},
+                temporal_boundary=_PINNED,
+            )
+        ),
+        sent=pinned_request,
+    )
+    assert pinned.vessel is not None
+    assert pinned.vessel.computed_empty is None, (
+        "the positive control found rows and still recorded a computed-empty"
+        " finding — the finding is not reading the execution"
+    )
 
 
 def test_reset_boot_cache_is_not_part_of_the_client_surface() -> None:

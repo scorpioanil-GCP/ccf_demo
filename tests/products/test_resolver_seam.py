@@ -67,6 +67,7 @@ from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 from ccf.products.constraints import ReferencePolicyConstraintResolver
 from ccf.products.contract import ContextProductContract
+from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
 from ccf.products.refusal import RefusalEnvelope
@@ -201,8 +202,16 @@ def _plan_factory(
     return _ThresholdProjection(required=required, request=request)
 
 
-def _debt_scorer(*, view: GraphView) -> DebtAssessment:
-    """A fixture scorer. What debt is measured over is deployment policy."""
+def _debt_scorer(
+    *, view: GraphView, evidence: ExecutionEvidence | None = None
+) -> DebtAssessment:
+    """A fixture scorer. What debt is measured over is deployment policy.
+
+    ``evidence`` is accepted and unread: ``24.6-05`` widened
+    :class:`~ccf.products.resolver.AssemblyDebtScorerProtocol` so a scorer is
+    told what the execution observed about its own search (``D-IMPL-255``
+    (2)), and the governed resolver always passes it.
+    """
     return DebtAssessment(
         debt=Decimal("0"),
         signal=DebtSignal.OK,
@@ -369,17 +378,16 @@ def _boot(
         registry=control_plane,
         connection={"database_path": str(tmp_path / "resolver-seam.sqlite3")},
     )
-    # 24.5-L-24: the fixture ingests the deployment's OWN signal batch (the
-    # one `acct-1` envelope `tests/deployment` ships, an hour before
-    # `ASKED_AT`) so the traversal has something to assemble. Until the
-    # empty-operator gate's returned-empty half existed, this fixture served
-    # over an EMPTY fabric — `"assembled": 0` — which
-    # `ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT` now refuses by name
-    # through the governed resolver. The seam under test is the composition
-    # (assemble → gate → serve, and its refusal legs), not emptiness; the
-    # success leg stays a success leg by carrying one entity, and the
-    # refusal legs below force the gate they name on a candidate that
-    # passed the two empty-operator halves.
+    # 24.5-L-24, kept under 24.6-L-06: the fixture ingests the deployment's
+    # OWN signal batch (the one `acct-1` envelope `tests/deployment` ships, an
+    # hour before `ASKED_AT`) so the traversal has something to assemble. This
+    # fixture once served over an EMPTY fabric — `"assembled": 0` — which
+    # 24.5-L-24 turned into a refusal and 24.6-05 turns back into a served
+    # computed-empty product (`D-IMPL-242` amendment 1). The seeding stays
+    # either way, and for the reason it was always the right fixture: the seam
+    # under test is the composition (assemble → gate → serve, and its refusal
+    # legs), not emptiness. A success leg that assembled nothing would be
+    # testing the empty case wearing the success case's name.
     for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
         fabric.handle.worker.ingest(envelope)
     try:
@@ -596,14 +604,15 @@ def test_an_answerable_question_yields_a_served_product(booted: _Booted) -> None
 
 
 def test_the_success_leg_assembles_the_fixtures_own_entity(booted: _Booted) -> None:
-    """The positive control for the seeded fixture (``24.5-L-24``).
+    """The positive control for the seeded fixture (``24.5-L-24``, ``24.6-L-06``).
 
     The success leg is a success leg because the traversal assembled the ONE
-    entity the deployment's own signal batch carries — not because the
-    returned-empty half of the empty-operator gate was bypassed. A fixture
-    that went green with ``"assembled": 0`` would mean the resolver stopped
-    threading ``execution.empty_results`` into ``run_gates``, which is the
-    one repair this seeding must never stand in for.
+    entity the deployment's own signal batch carries. Since ``24.6-05`` an
+    empty assembly is SERVED rather than refused, which makes this control
+    more load-bearing than it was, not less: a fixture that quietly went green
+    with ``"assembled": 0`` would now serve, and every assertion about the
+    success leg would be an assertion about the empty case. The count is what
+    tells the two apart.
     """
     outcome = _ask(_resolver(booted), _request())
 

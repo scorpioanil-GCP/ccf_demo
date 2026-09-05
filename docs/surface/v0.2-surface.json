@@ -4773,6 +4773,7 @@
   "ccf.products.contract": {
     "__all__": [
       "AssemblyMode",
+      "ComputedEmptyFinding",
       "ConstituentValidityFloors",
       "ContextProductContract",
       "FreshnessSLA",
@@ -4798,6 +4799,16 @@
         "kind": "function",
         "shape": "typing.Literal['algorithmic', 'llm_packaged', 'swarm_assembled']"
       },
+      "ComputedEmptyFinding": {
+        "kind": "contract",
+        "shape": {
+          "emptiness": "typing.Literal['attested', 'unattested']",
+          "operators_invoked": "frozenset[str]",
+          "operators_returned_empty": "frozenset[str]",
+          "plan_id": "<class 'str'>",
+          "store_snapshot_pin": "<class 'ccf.graph.protocols.StoreSnapshotPin'>"
+        }
+      },
       "ConstituentValidityFloors": {
         "kind": "contract",
         "shape": {
@@ -4807,6 +4818,7 @@
       "ContextProductContract": {
         "kind": "contract",
         "shape": {
+          "computed_empty": "ccf.products.contract.ComputedEmptyFinding | None",
           "debt": "ccf.halflife.assessment.DebtAssessment | None",
           "debt_evidence": "tuple[ccf.halflife.assessment.DebtEvidencePointer, ...]",
           "expires_at": "<class 'datetime.datetime'>",
@@ -4934,7 +4946,10 @@
       "AssemblyDebtScorer",
       "DECLARED_FACTOR_SCORER_ID",
       "DECLARED_FACTOR_SCORER_VERSION",
-      "DeclaredFactor"
+      "DeclaredFactor",
+      "EvidenceAwareFactorScorer",
+      "ExecutionEvidence",
+      "emptiness_of"
     ],
     "exports": {
       "AssemblyDebtScorer": {
@@ -4952,6 +4967,24 @@
       "DeclaredFactor": {
         "kind": "class",
         "shape": "(value: 'Decimal') -> None"
+      },
+      "EvidenceAwareFactorScorer": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "ExecutionEvidence": {
+        "kind": "contract",
+        "shape": {
+          "operators_invoked": "frozenset[str]",
+          "operators_returned_empty": "frozenset[str]",
+          "queries_executed": "<class 'int'>",
+          "source_attestation": "ccf.graph.protocols.SourceAttestation | None",
+          "store_snapshot_pin": "<class 'ccf.graph.protocols.StoreSnapshotPin'>"
+        }
+      },
+      "emptiness_of": {
+        "kind": "function",
+        "shape": "(evidence: 'ExecutionEvidence') -> \"Literal['attested', 'unattested']\""
       }
     }
   },
@@ -5061,10 +5094,8 @@
       "DEBT_TOLERANCE_PARAMETER",
       "DeclaredObligationRefusal",
       "EmptyOperatorRefusal",
-      "EmptyResultRefusal",
       "GATE_DECLARED_OBLIGATIONS",
       "GATE_EMPTY_OPERATOR",
-      "GATE_EMPTY_OPERATOR_RESULT",
       "GATE_LINEAGE_ATTRIBUTABILITY",
       "GATE_LINEAGE_EQUALITY",
       "GATE_SOURCE_ATTESTATION",
@@ -5115,24 +5146,11 @@
           "gate": "<class 'str'>"
         }
       },
-      "EmptyResultRefusal": {
-        "kind": "contract",
-        "shape": {
-          "detail": "<class 'str'>",
-          "empty_operators": "frozenset[str]",
-          "gate": "<class 'str'>",
-          "operator_key": "<class 'str'>"
-        }
-      },
       "GATE_DECLARED_OBLIGATIONS": {
         "kind": "constant",
         "shape": "str"
       },
       "GATE_EMPTY_OPERATOR": {
-        "kind": "constant",
-        "shape": "str"
-      },
-      "GATE_EMPTY_OPERATOR_RESULT": {
         "kind": "constant",
         "shape": "str"
       },
@@ -5225,11 +5243,11 @@
       },
       "run_federated_gates": {
         "kind": "function",
-        "shape": "(candidate: 'ContextProductContract', *, attested_address: 'str', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', empty_results: 'frozenset[str] | None' = None) -> 'ServableProduct | GateRefusal'"
+        "shape": "(candidate: 'ContextProductContract', *, attested_address: 'str', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass') -> 'ServableProduct | GateRefusal'"
       },
       "run_gates": {
         "kind": "function",
-        "shape": "(candidate: 'ContextProductContract', *, engine_resolved: 'frozenset[str]', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', source_attestation: 'SourceAttestation | None' = None, empty_results: 'frozenset[str] | None' = None) -> 'ServableProduct | GateRefusal'"
+        "shape": "(candidate: 'ContextProductContract', *, engine_resolved: 'frozenset[str]', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', source_attestation: 'SourceAttestation | None' = None) -> 'ServableProduct | GateRefusal'"
       }
     }
   },
@@ -5488,7 +5506,7 @@
     "exports": {
       "AssemblyDebtScorerProtocol": {
         "kind": "class",
-        "shape": "(*, view: 'GraphView') -> 'DebtAssessment'"
+        "shape": "(*, view: 'GraphView', evidence: 'ExecutionEvidence | None' = None) -> 'DebtAssessment'"
       },
       "DEBT_SCORER_INPUTS": {
         "kind": "constant",

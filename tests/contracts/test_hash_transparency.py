@@ -302,6 +302,13 @@ _MARKED_IN_THE_TREE = frozenset(
         # default rather than ceiling.
         "ccf.products.contract.ServeObligations.default_debt_tolerance",
         "ccf.products.contract.ServeObligations.lineage_inputs_at",
+        # 24.6-05: the search behind an empty answer (`24.6-L-06`,
+        # `D-IMPL-242` amendment 1). `None` is "no operator returned empty",
+        # which is what every product assembled before the field existed was
+        # saying — so a pre-phase product's `canonical_bytes` must be
+        # byte-identical, and `test_a_product_with_no_finding_hashes_as_it_did`
+        # below measures exactly that rather than asserting it.
+        "ccf.products.contract.ContextProductContract.computed_empty",
         "ccf.products.request.ProductRequestContract.unsupported_arguments",
         # 24.6-01: the fifth declaration key (``24.6-L-07``, ``D-IMPL-253``
         # Q2). The empty mapping is "this class declares no default", which is
@@ -554,6 +561,70 @@ def test_the_descendants_twin_at_a_non_sentinel_admission_moves_its_hash() -> No
     assert content_hash(admitting) != content_hash(silent)
     assert b"admitted_entity_classes" in canonical_bytes(admitting)
     assert b"admitted_entity_classes" not in canonical_bytes(silent)
+
+
+def test_a_product_with_no_finding_hashes_as_it_did() -> None:
+    """``24.6-05``: the computed-empty finding is additive by measurement.
+
+    `ContextProductContract` is not in the base-digest table above — it had no
+    marked field until this row — so the claim is measured here, in the form
+    that matters: **a product with no computed-empty finding hashes exactly as
+    the same product hashed before the field existed**, which is what keeps
+    every served product's content address, and the golden `13bd250` replay
+    record that resolves one, intact.
+
+    The "before" side is rendered by hand with the new key removed, on
+    `test_a_config_naming_no_constraints_hashes_as_it_did`'s reasoning: the
+    canonical form renders fields and never a class name. The positive control
+    is the second half — a product that DOES carry a finding moves, and the
+    key appears in its bytes.
+    """
+    from datetime import UTC, datetime
+
+    from ccf.graph.protocols import NO_STORE_SNAPSHOT_PIN
+    from ccf.products.contract import (
+        ComputedEmptyFinding,
+        ContextProductContract,
+        ProductLineage,
+    )
+
+    at = datetime(2026, 3, 15, tzinfo=UTC)
+    silent = ContextProductContract(
+        schema_name="fixture.product",
+        schema_version="1.0.0",
+        plan_id="fixture.plan",
+        tenant_id="fixture-tenant",
+        temporal_boundary=at,
+        expires_at=at,
+        ttl_anchor="from_decision",
+        lineage=ProductLineage(
+            operators_invoked=frozenset({"o"}),
+            policy_bundle_versions=frozenset({"v"}),
+            graph_snapshot_at=at,
+        ),
+        payload={"value": 1},
+    )
+    before = {
+        name: getattr(silent, name)
+        for name in ContextProductContract.model_fields
+        if name != "computed_empty"
+    }
+    assert content_hash(silent) == content_hash(before)
+    assert b"computed_empty" not in canonical_bytes(silent)
+
+    carrying = silent.model_copy(
+        update={
+            "computed_empty": ComputedEmptyFinding(
+                operators_returned_empty=frozenset({"o"}),
+                operators_invoked=frozenset({"o"}),
+                plan_id="fixture.plan",
+                store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
+                emptiness="attested",
+            )
+        }
+    )
+    assert content_hash(carrying) != content_hash(silent)
+    assert b"computed_empty" in canonical_bytes(carrying)
 
 
 def test_a_config_naming_no_constraints_hashes_as_it_did() -> None:

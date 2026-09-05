@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**895 entries**, of which **653** name a public Python surface.
+**908 entries**, of which **666** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-439 entries — 400 public Python surface, 39 not public Python API.
+443 entries — 404 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -8034,6 +8034,80 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
 
+#### ccf.products.contract.ComputedEmptyFinding
+
+- Surface: ccf.products.contract.ComputedEmptyFinding
+- Public surface: true
+- Change type: added
+- Before: absent — an operator that returned an empty set produced a refusal and
+  no product existed to carry anything
+- After: `ComputedEmptyFinding(operators_returned_empty: frozenset[str],
+  operators_invoked: frozenset[str], plan_id: str, store_snapshot_pin:
+  StoreSnapshotPin, emptiness: Literal["attested", "unattested"])`, with
+  `ComputedEmptyFinding.of(execution, *, emptiness)` returning `None` when
+  nothing returned empty. A finding naming no operator is refused at
+  construction, because the absence of the finding is how *no operator returned
+  empty* is said
+- Why: `D-IMPL-253` Q12, Dave: *"An operator successfully evaluating an empty
+  graph did compute something. Calling it uncomputed conflates absence of input
+  with absence of execution. Serve computed-empty with the evidence-derived
+  Debt."* A consumer reading an empty payload must see the search, not silence
+- Migration: none — a new type
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.debt_scorer.ExecutionEvidence
+
+- Surface: ccf.products.debt_scorer.ExecutionEvidence
+- Public surface: true
+- Change type: added
+- Before: absent — a debt scorer saw a `GraphView` and nothing about the search
+  that produced it
+- After: `ExecutionEvidence(queries_executed: int, operators_invoked:
+  frozenset[str], operators_returned_empty: frozenset[str], source_attestation:
+  SourceAttestation | None, store_snapshot_pin: StoreSnapshotPin)` with
+  `ExecutionEvidence.of(execution)`. It carries **no row count**, deliberately
+- Why: `D-IMPL-255` (2) — Debt must be derivable from *"declared consultation
+  universe/set; source attestation of coverage/completeness; freshness and other
+  available evidence"*, and none of that was reachable at the scoring seam
+- Migration: none — a new type
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.debt_scorer.EvidenceAwareFactorScorer
+
+- Surface: ccf.products.debt_scorer.EvidenceAwareFactorScorer
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `runtime_checkable` Protocol declaring
+  `score_with_evidence(observations, *, now, evidence) -> Decimal`, an
+  **optional companion** to `DebtFactorScorerProtocol`. A `C`/`S` scorer that
+  implements it is asked through it when the caller supplied evidence; one that
+  does not is called exactly as before
+- Why: `D-IMPL-255` (2). Two seams rather than one widened seam, so no existing
+  factor scorer has to grow a parameter it does not read
+- Migration: none — opt in by implementing the method
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.debt_scorer.emptiness_of
+
+- Surface: ccf.products.debt_scorer.emptiness_of
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `emptiness_of(evidence) -> Literal["attested", "unattested"]`.
+  `"attested"` requires a query to have executed AND a source attestation to
+  exist AND neither of its two modes to be `"none"`
+- Why: `D-IMPL-255` (2), the refinement: *"do not let 'unattested emptiness'
+  itself secretly become the new Debt = 1 shortcut. It is a finding about
+  evidence quality."* The SDK ships **no number** here — no minimum query count,
+  no coverage fraction. No scorer the SDK ships reads this function's answer
+- Migration: none — a new function
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -8662,7 +8736,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-341 entries — 158 public Python surface, 183 not public Python API.
+346 entries — 163 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -11988,6 +12062,86 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
 
+#### ccf.products.contract.ContextProductContract.computed_empty
+
+- Surface: ccf.products.contract.ContextProductContract
+- Public surface: true
+- Change type: reshaped
+- Before: eleven fields; an empty operator result never reached a product
+- After: a twelfth, `computed_empty: ComputedEmptyFinding | None = None`,
+  hash-transparent at `None` under `D-IMPL-243`. `None` is the positive *no
+  operator returned empty*, which is what every product assembled before this
+  field existed was in fact saying
+- Why: `24.6-L-06`. The emptiness has to travel with the answer or the answer is
+  silence
+- Migration: none for a producer. A consumer that branched on the
+  `empty-result-refusal` envelope reads `product.computed_empty` instead, and
+  gets strictly more: the operators, the plan, the store head and the evidence
+  classification
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.gates.run_gates — `empty_results` removed
+
+- Surface: ccf.products.gates.run_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `empty_results: frozenset[str] | None = None`, read by the returned
+  half
+- After: absent. The runner reads no emptiness record at all
+- Why: `24.6-L-06`. Every shipped call site but the governed resolver's passed
+  the `None` default
+- Migration: drop the keyword; the observation goes onto the product as a
+  finding instead
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.gates.run_federated_gates — `empty_results` removed
+
+- Surface: ccf.products.gates.run_federated_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `empty_results: frozenset[str] | None = None`
+- After: absent; the sequence is four steps rather than five
+- Why: as above, and across a Peering the finding travels inside the attested
+  bytes the peer signed
+- Migration: drop the keyword
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.debt_scorer.AssemblyDebtScorer.__call__ — `evidence` keyword
+
+- Surface: ccf.products.debt_scorer.AssemblyDebtScorer
+- Public surface: true
+- Change type: reshaped
+- Before: `__call__(self, *, view: GraphView) -> DebtAssessment`
+- After: `__call__(self, *, view: GraphView, evidence: ExecutionEvidence | None
+  = None) -> DebtAssessment`
+- Why: the evidence has to reach the deployment's scorers, and the reference
+  adapter is what carries it there
+- Migration: none for a caller — the keyword is optional
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.resolver.AssemblyDebtScorerProtocol — `evidence` keyword
+
+- Surface: ccf.products.resolver.AssemblyDebtScorerProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `__call__(self, *, view: GraphView) -> DebtAssessment`
+- After: `__call__(self, *, view: GraphView, evidence: ExecutionEvidence | None
+  = None) -> DebtAssessment`
+- Why: `D-IMPL-255` (2). The governed resolver always passes it, rather than
+  deciding per scorer whether to tell the truth about the search — two seams
+  wearing one name would be the silent-repair this codebase refuses
+- Migration: **breaking for a deployment's own scorer.** A conforming callable
+  written before `24.6-05` must accept the keyword; it is free to ignore it.
+  `runtime_checkable` `isinstance` does not check signatures, so the failure is
+  a `TypeError` at the first governed serve rather than at boot — which is the
+  honest place for it, but is worth knowing before upgrading
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -14257,7 +14411,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 Surfaces that no longer exist. Each entry names what replaces it.
 
-5 entries — 5 public Python surface, 0 not public Python API.
+7 entries — 7 public Python surface, 0 not public Python API.
 
 ### Public Python surface
 
@@ -14356,11 +14510,42 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 *Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
 
+#### ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT — removed
+
+- Surface: ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT
+- Public surface: true
+- Change type: removed
+- Before: `"empty-operator-result"`, the second half of the empty-operator gate
+  on both runners (`24.5-L-24`)
+- After: absent. `run_gates` registers five tokens and `run_federated_gates`
+  four; six distinct across the two, judged by set equality with the departure
+  reported by name
+- Why: `D-IMPL-242` amendment 1 supersedes the ruling that created it
+- Migration: a consumer branching on this gate token branches on
+  `product.computed_empty` instead
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.gates.EmptyResultRefusal — removed
+
+- Surface: ccf.products.gates.EmptyResultRefusal
+- Public surface: true
+- Change type: removed
+- Before: `EmptyResultRefusal(GateRefusal)` with `operator_key` and
+  `empty_operators`, mapped to the kind `empty-result-refusal`
+- After: absent from `ccf.products.gates` and from `REFUSAL_KINDS`, which is 22
+  members. The refusal vocabulary's closure gate re-equates at 22
+- Why: `D-IMPL-242` amendment 1 — there is no refusal to name
+- Migration: the information the refusal carried is strictly a subset of
+  `ComputedEmptyFinding`'s, on a product that now exists
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
 ## Behavior changes
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-110 entries — 90 public Python surface, 20 not public Python API.
+112 entries — 92 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -16475,6 +16660,53 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   union are unchanged. A caller sees one more possible `RefusalEnvelope` kind
 
 *Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.debt_scorer.AssemblyDebtScorer.__call__ — the zero-observation branch removed
+
+- Surface: ccf.products.debt_scorer.AssemblyDebtScorer
+- Public surface: true
+- Change type: behavior
+- Before: a view carrying no entity record returned `DebtFactors(0, 0, 0)` —
+  `D_c = 1`, routing to `FAIL_CLOSED` — with no scorer pins, from the row count
+  and nothing else
+- After: no branch on cardinality. `F` is the multiplicative identity `1` over
+  an empty observation set (nothing observed has decayed — an algebraic
+  identity, not a domain figure) and carries **no freshness pin**, because no
+  scorer produced it; `C` and `S` are the deployment's scorers' own answers and
+  keep their pins. A deployment with `DeclaredFactor("1")` for both and an empty
+  view now reports `D_c = 0`
+- Why: `D-IMPL-255` (2), and `D-IMPL-253` Q11: *"zero Debt is legitimate when
+  complete evidence establishes that zero really is the answer."*
+- Migration: **a deployment relying on the old fail-closed-on-empty behavior
+  must now declare it.** The way to say *"an empty assembly is a completeness
+  shortfall"* is a completeness scorer that says so — which is where that
+  judgement always belonged, since `C` is deployment knowledge (`D-IMPL-38`).
+  An `EvidenceAwareFactorScorer` is the shipped way to base it on the search
+  rather than on the row count
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.resolver.GovernedResolver — the candidate carries the finding
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the resolver threaded `empty_results=execution.empty_results` into
+  `run_gates`, where a non-empty set was refused by name
+- After: it builds `computed_empty=ComputedEmptyFinding.of(execution,
+  emptiness=emptiness_of(ExecutionEvidence.of(execution)))` onto the candidate,
+  and passes `evidence=ExecutionEvidence.of(execution)` to the debt scorer. The
+  `run_gates` call carries no emptiness record
+- Why: `24.6-L-06`. The record did not disappear; its consumer moved from the
+  gate to the product and to the scoring seam
+- Migration: a governed serve that used to come back as a refusal envelope of
+  kind `empty-result-refusal` now comes back as a served product with an empty
+  payload and a finding. An admitted computed-empty product may still be
+  **withheld** by `refuse_over_tolerance` if its evidence-derived Debt exceeds
+  an applicable tolerance (`24.6-L-05`) — which is Dave's Q12 sentence:
+  *"then an applicable tolerance may cause the shell response."*
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
 
 ### Not public Python API
 

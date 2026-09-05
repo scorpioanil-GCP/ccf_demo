@@ -89,7 +89,6 @@ from ccf.products.provenance import ParameterBound, ProvenanceSource
 from ccf.products.gates import (
     GATE_DECLARED_OBLIGATIONS,
     GATE_EMPTY_OPERATOR,
-    GATE_EMPTY_OPERATOR_RESULT,
     GATE_LINEAGE_ATTRIBUTABILITY,
     GATE_LINEAGE_EQUALITY,
     GATE_SOURCE_ATTESTATION,
@@ -97,7 +96,6 @@ from ccf.products.gates import (
     AttestationRefusal,
     DeclaredObligationRefusal,
     EmptyOperatorRefusal,
-    EmptyResultRefusal,
     GateRefusal,
     LineageAttributionRefusal,
     LineageMismatchRefusal,
@@ -240,36 +238,6 @@ def test_envelope_for_empty_operator_refusal(
     assert envelope.kind != REFUSAL_KINDS[GateRefusal]
     assert envelope.reason == GATE_EMPTY_OPERATOR
     assert envelope.fields == {}
-
-
-def test_envelope_for_empty_result_refusal(
-    request_identity: RequestIdentity,
-) -> None:
-    """Gate 1's second half names which operator returned nothing, and all of them.
-
-    ``24.5-L-24``. The two halves of the empty-operator gate are two kinds
-    with two gate tokens: this one's promoted ``reason`` is
-    ``empty-operator-result``, never ``empty-operator-guard``, so a consumer
-    reads WHICH half fired without parsing ``detail``. The two declared
-    fields cross intact.
-    """
-    refusal = EmptyResultRefusal(
-        gate=GATE_EMPTY_OPERATOR_RESULT,
-        detail="operator 'op-a' returned an empty set",
-        operator_key="op-a",
-        empty_operators=frozenset({"op-a", "op-b"}),
-    )
-    envelope = envelope_for(refusal, request=request_identity)
-
-    assert envelope.kind == REFUSAL_KINDS[EmptyResultRefusal]
-    assert envelope.kind == "empty-result-refusal"
-    assert envelope.kind != REFUSAL_KINDS[EmptyOperatorRefusal]
-    assert envelope.reason == GATE_EMPTY_OPERATOR_RESULT == "empty-operator-result"
-    assert envelope.reason != GATE_EMPTY_OPERATOR
-    assert envelope.key is None
-    assert set(envelope.fields) == {"operator_key", "empty_operators"}
-    assert envelope.fields["operator_key"] == '"op-a"'
-    assert envelope.fields["empty_operators"] == '["op-a","op-b"]'
 
 
 def test_envelope_for_lineage_mismatch_refusal(

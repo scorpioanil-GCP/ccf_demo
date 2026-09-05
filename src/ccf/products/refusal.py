@@ -105,7 +105,6 @@ from ccf.products.gates import (
     AttestationRefusal,
     DeclaredObligationRefusal,
     EmptyOperatorRefusal,
-    EmptyResultRefusal,
     GateRefusal,
     LineageAttributionRefusal,
     LineageMismatchRefusal,
@@ -239,15 +238,16 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     # the debt half and the 409 DEBT route it served are retired, because a
     # class's debt figure is a default tolerance rather than an obligation
     # (`D-IMPL-251` C1=A). The kind and its 409 mapping stand for the lineage
-    # obligation. The empty-operator gate's two halves are two kinds
-    # (24.5-L-24): a product that DECLARED no operators, and an operator that
-    # RETURNED an empty set. `empty-result-refusal` was chosen over
-    # `empty-operator-result-refusal` because neither of the pair is a
-    # substring of the other under the closure gate's rule, and the shorter
-    # name reads as what it is.
+    # obligation. The empty-operator gate briefly had two kinds (24.5-L-24) —
+    # a product that DECLARED no operators, and an operator that RETURNED an
+    # empty set. As of 24.6-05 it has ONE: `D-IMPL-242` amendment 1 with
+    # `D-IMPL-253` Q11/Q12 rules that an operator which ran and found nothing
+    # COMPUTED, so it is served with its search recorded on the product
+    # (`ccf.products.contract.ComputedEmptyFinding`) and there is no kind to
+    # name. `empty-operator-refusal` keeps the one meaning it always had:
+    # a product computed by nothing (INV-CH7-46).
     GateRefusal: "gate-refusal",
     EmptyOperatorRefusal: "empty-operator-refusal",
-    EmptyResultRefusal: "empty-result-refusal",
     LineageMismatchRefusal: "lineage-mismatch-refusal",
     LineageAttributionRefusal: "lineage-attribution-refusal",
     TTLRefusal: "ttl-refusal",

@@ -48,6 +48,29 @@ under its own :class:`~ccf.halflife.assessment.ScorerPin`, and an examiner
 reading the record can tell a declared factor from a measured one without
 reading any code.
 
+Cardinality never determines Context Debt
+----------------------------------------
+``D-IMPL-255`` (2), Dave, verbatim: **"Cardinality never determines Context
+Debt. Evidence determines Context Debt."** Until ``24.6-05`` this module had
+the shortcut that ruling forbids — a view carrying no entity record returned
+``F = C = S = 0``, hence ``D_c = 1``, hence ``FAIL_CLOSED``, from the *count*
+of rows and from nothing else. It is gone. What replaces it is not a different
+constant but a different *question*: over an empty observation set the
+deployment's own completeness and consistency scorers are asked what the
+evidence supports, and they are handed the execution's evidence
+(:class:`ExecutionEvidence`) when they can read it
+(:class:`EvidenceAwareFactorScorer`). Freshness over nothing is the
+multiplicative identity, for the reason :meth:`AssemblyDebtScorer.__call__`
+states.
+
+Dave's refinement, also verbatim: *"do not let 'unattested emptiness' itself
+secretly become the new Debt = 1 shortcut. It is a finding about evidence
+quality."* So :func:`emptiness_of` classifies evidence and **no scorer this
+module ships reads its answer**. The classification is written by the governed
+resolver onto
+:attr:`~ccf.products.contract.ContextProductContract.computed_empty`, where a
+consumer reads it beside the Debt rather than inside it.
+
 Algorithmic module (CINV-03). Nothing here reads a clock, calls a model, or
 holds a graph handle: the decision instant arrives on the view, and the view
 arrives from the caller.
@@ -59,9 +82,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
+from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable
-from ccf.graph.protocols import GraphView
+from ccf.graph.protocols import GraphView, SourceAttestation, StoreSnapshotPin
 from ccf.halflife.assessment import (
     NO_SCORER_PINS,
     DebtAssessment,
@@ -71,6 +96,9 @@ from ccf.halflife.assessment import (
 from ccf.halflife.debt import DebtFactorScorerProtocol, FreshnessScorer, assess_debt
 from ccf.halflife.decay import Observation
 
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from ccf.projection.engine import ExecutionResult
+
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
@@ -78,6 +106,9 @@ __all__ = [
     "DECLARED_FACTOR_SCORER_VERSION",
     "AssemblyDebtScorer",
     "DeclaredFactor",
+    "EvidenceAwareFactorScorer",
+    "ExecutionEvidence",
+    "emptiness_of",
 ]
 
 #: Identity of :class:`DeclaredFactor`, pinned into replay beside the value it
@@ -100,6 +131,132 @@ DECLARED_FACTOR_SCORER_VERSION = "1.0.0"
 #: outside ``[0, 1]`` at construction, so these are the interval's own bounds.
 _ZERO = Decimal(0)
 _UNIT = Decimal(1)
+
+
+class ExecutionEvidence(CCFContract):
+    """What one execution can say about the search behind its answer.
+
+    SDK-defined (CLAUDE.md §11); ruling of record ``D-IMPL-255`` (2), ledger
+    row ``24.6-L-06``. Whitepaper §7.7 for what the Debt this feeds is.
+
+    **A narrow, deliberately factual bundle.** It carries what the projection
+    engine already observed and nothing derived: how many queries actually
+    issued, which operators were invoked, which of them returned nothing, what
+    the source attested about itself, and the store head the reads ran
+    against. No count of rows appears here, because a row count is the
+    cardinality the ruling removes from this computation, and a field for it
+    would be an invitation to put it back.
+
+    It is passed to a deployment's ``C`` and ``S`` scorers that declare
+    themselves able to read it (:class:`EvidenceAwareFactorScorer`). The SDK
+    ships no scorer that consumes it: what *this* evidence implies about
+    completeness is deployment knowledge, exactly as ``C`` itself always was
+    (``D-IMPL-38``).
+
+    Attributes:
+        queries_executed: How many graph queries the execution actually
+            issued, in the engine's own count
+            (:attr:`~ccf.projection.engine.ExecutionResult.executed_queries`).
+            Zero is the positive *nothing was asked*, which is the difference
+            between a search that found nothing and a search that never ran.
+        operators_invoked: The engine-resolved operator set.
+        operators_returned_empty: Those of them whose output view carried zero
+            entities and zero relationships.
+        source_attestation: What the source attested at the read seam, or
+            ``None`` — the positive *the reader reported no attestation*.
+        store_snapshot_pin: The substrate head the reads ran against, or
+            :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN`.
+    """
+
+    queries_executed: int
+    operators_invoked: frozenset[str]
+    operators_returned_empty: frozenset[str]
+    source_attestation: SourceAttestation | None
+    store_snapshot_pin: StoreSnapshotPin
+
+    @classmethod
+    def of(cls, execution: "ExecutionResult") -> "ExecutionEvidence":
+        """Read the evidence off one :class:`~ccf.projection.engine.ExecutionResult`.
+
+        ``execution`` is read structurally and the projection engine is
+        imported only under :data:`typing.TYPE_CHECKING`: this module is an
+        algorithmic leaf and importing the engine to read five attributes off
+        it would couple scoring to execution machinery for no gain.
+        """
+        return cls(
+            queries_executed=len(execution.executed_queries),
+            operators_invoked=frozenset(execution.operators_invoked),
+            operators_returned_empty=frozenset(execution.empty_results),
+            source_attestation=execution.source_attestation,
+            store_snapshot_pin=execution.store_snapshot_pin,
+        )
+
+
+def emptiness_of(evidence: ExecutionEvidence) -> Literal["attested", "unattested"]:
+    """Classify the QUALITY of the evidence behind an empty answer.
+
+    SDK-defined (CLAUDE.md §11); ``D-IMPL-255`` (2). This is the whole of what
+    the SDK is willing to say about *"what establishes a legitimately empty
+    universe"*: that a query was actually issued, and that the source it went
+    to attested something about how its answers acquire policy binding and
+    lineage. It ships **no number** — no minimum query count, no coverage
+    fraction, no threshold — because those are the deployment's
+    (``D-IMPL-255`` (2): the declared consultation set and the source
+    attestation are the deployment's to declare).
+
+    ``"attested"`` requires all three, and each is a distinct failure:
+
+    * at least one query executed — a plan that asked nothing learned nothing;
+    * a source attestation exists — a reader that attests nothing has told us
+      nothing about its own coverage;
+    * neither attested mode is ``"none"`` — tier 3
+      (:class:`~ccf.graph.protocols.SourceAttestation`'s unattested tier) is
+      *expressible* precisely so a source can say it attests nothing, and
+      taking that as attestation would read the word as its opposite.
+
+    Otherwise ``"unattested"``, which is a statement about evidence and
+    **never a Debt**. Dave, ``D-IMPL-255`` (2): *"do not let 'unattested
+    emptiness' itself secretly become the new Debt = 1 shortcut. It is a
+    finding about evidence quality."* Nothing in :class:`AssemblyDebtScorer`
+    calls this function; the governed resolver writes its answer onto
+    :attr:`~ccf.products.contract.ContextProductContract.computed_empty`.
+    """
+    attestation = evidence.source_attestation
+    if evidence.queries_executed < 1 or attestation is None:
+        return "unattested"
+    if attestation.policy_binding == "none" or attestation.lineage == "none":
+        return "unattested"
+    return "attested"
+
+
+@runtime_checkable
+class EvidenceAwareFactorScorer(Protocol):
+    """A ``C`` or ``S`` scorer that can also read the execution's evidence.
+
+    SDK-defined (CLAUDE.md §11); ``D-IMPL-255`` (2). An **optional companion**
+    to :class:`~ccf.halflife.debt.DebtFactorScorerProtocol` rather than a
+    replacement for it: a deployment scorer that implements only ``score``
+    keeps working unchanged and is called exactly as it always was, and one
+    that also implements :meth:`score_with_evidence` is handed the evidence
+    when the caller has any.
+
+    Two seams rather than one widened seam, because the widened seam would
+    force every existing conforming scorer to grow a parameter it does not
+    read, and because ``isinstance`` against this Protocol is how
+    :class:`AssemblyDebtScorer` decides which call to make — a decision that
+    has to be structural, since a scorer is a deployment's object and the SDK
+    has no registry of them.
+    """
+
+    def score_with_evidence(
+        self,
+        observations: Sequence[Observation],
+        *,
+        now: datetime,
+        evidence: ExecutionEvidence,
+    ) -> Decimal:
+        """Return this scorer's factor in ``[0, 1]``, given the evidence."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -223,19 +380,16 @@ class AssemblyDebtScorer:
     ``asked_at`` — so the figure re-computes identically at replay time through
     the same code path (whitepaper §7.10 determinism).
 
-    **The empty assembly fails closed.** A view carrying no entity record scores
-    every factor at zero, which is ``D_c = 1``, and carries **no scorer pin**:
-    nothing measured anything, so naming a scorer as the producer of those
-    zeroes would be a false record.
-    :meth:`~ccf.halflife.debt.FreshnessScorer.score` refuses an empty sequence
-    by design — *"the fabric retrieved nothing" is a coverage statement* — so
-    there is no "call it anyway" branch to take, and reporting a confident
-    number about a graph that said nothing is the precise failure the
-    fail-closed posture exists to prevent. ``S`` is zero rather than one for the
-    same reason: over zero sources the fraction is undefined, and an undefined
-    fraction reported as perfect agreement is that laundering again. It does not
-    move ``D_c``, which the multiplicative form has already driven to one
-    (INV-CH7-62).
+    **The empty assembly is scored from evidence, not from its emptiness**
+    (``24.6-05``, ledger row ``24.6-L-06``; ``D-IMPL-255`` (2)). This paragraph
+    previously read *"the empty assembly fails closed"* and described a branch
+    that scored every factor at zero, which is ``D_c = 1``, from the row count
+    alone. That branch is deleted. Dave: **"Cardinality never determines
+    Context Debt. Evidence determines Context Debt."** — and its mirror,
+    *"Zero source entities is not automatically high Debt."* What the empty
+    case gets now is the same computation every other case gets, over the
+    evidence it actually has; see :meth:`__call__` for the three factors one
+    at a time.
 
     **The routing band stays the profile's.** This scorer never overrides
     :class:`~ccf.controlplane.artifacts.DebtProfile`'s thresholds, so a profile
@@ -264,8 +418,60 @@ class AssemblyDebtScorer:
     completeness: DebtFactorScorerProtocol
     semantic_consistency: DebtFactorScorerProtocol
 
-    def __call__(self, *, view: GraphView) -> DebtAssessment:
+    def __call__(
+        self, *, view: GraphView, evidence: ExecutionEvidence | None = None
+    ) -> DebtAssessment:
         """Assess ``D_c`` over the graph state ``view`` carries.
+
+        **There is no branch on how many rows the view carries**
+        (``D-IMPL-255`` (2), ``24.6-L-06``). The three factors are computed one
+        at a time, each from what is available to it:
+
+        * ``F`` — :class:`~ccf.halflife.debt.FreshnessScorer` over the
+          observations, when there are any. Over an empty observation set F is
+          the multiplicative **identity** ``1``: nothing was observed, so
+          nothing has decayed, and ``D_c = 1 − F·C·S`` is a product whose
+          identity element is one. This is an algebraic identity and not a
+          domain figure (CINV-01) — the same standing this module's ``[0, 1]``
+          endpoints have, and the same reasoning
+          :func:`~ccf.halflife.debt.context_debt` applies to its own leading
+          ``1``. It is emphatically **not** a claim that the assembly was
+          fresh: the claim about an empty answer lives on the product's
+          :class:`~ccf.products.contract.ComputedEmptyFinding`, and no factor
+          here encodes it. Because no scorer produced that identity, **no
+          freshness pin is recorded** for it — naming
+          :class:`~ccf.halflife.debt.FreshnessScorer` as the producer of a
+          value it never computed would be the false record the pins exist to
+          prevent (:data:`~ccf.halflife.assessment.NO_SCORER_PINS`' own
+          reasoning). ``C`` and ``S`` keep their pins in every case, because
+          the deployment's scorers did answer.
+        * ``C`` and ``S`` — the deployment's scorers, always asked. When a
+          scorer satisfies :class:`EvidenceAwareFactorScorer` **and** the
+          caller supplied ``evidence``, it is asked through
+          ``score_with_evidence`` and receives the execution's evidence —
+          queries executed, operators invoked and returned empty, source
+          attestation, snapshot pin. Otherwise it is asked exactly as it
+          always was. A :class:`DeclaredFactor` answers the same either way,
+          which is what "declared" means.
+
+        A deployment scorer that cannot score an empty sequence raises, and
+        that raise is **the deployment's and is surfaced**, never caught here:
+        the SDK substituting a number for a scorer that declined to produce
+        one would be the laundering this whole ruling removes.
+
+        ``emptiness`` never enters this computation. It is written on the
+        product's finding by the governed resolver, from
+        :func:`emptiness_of`, and read by **no scorer the SDK ships**
+        (``D-IMPL-255`` (2): *"do not let 'unattested emptiness' itself
+        secretly become the new Debt = 1 shortcut"*).
+
+        Args:
+            view: The composed post-operator view whose rows are scored.
+            evidence: What the execution observed about its own search, when
+                the caller has it. ``None`` — the default, and every call site
+                written before ``24.6-05`` — means *no evidence was supplied*,
+                under which every scorer is asked through the plain
+                :class:`~ccf.halflife.debt.DebtFactorScorerProtocol` seam.
 
         Raises:
             ccf.halflife.decay.MissingHalfLife: an entity class in the view has
@@ -278,41 +484,63 @@ class AssemblyDebtScorer:
                 :func:`~ccf.halflife.decay.freshness`'s own reasoning.
         """
         observations = self._observations(view)
-        if not observations:
-            return assess_debt(
-                DebtFactors(
-                    freshness=_ZERO,
-                    completeness=_ZERO,
-                    semantic_consistency=_ZERO,
-                ),
-                profile=self.profile,
-                scorers=NO_SCORER_PINS,
-            )
+        # D-30: no cardinality branch
         freshness_scorer = FreshnessScorer(
             table=self.table, risk_sensitivity=self.profile.risk_sensitivity
         )
-        scorers: tuple[DebtFactorScorerProtocol, ...] = (
-            freshness_scorer,
-            self.completeness,
-            self.semantic_consistency,
+        # Begins at the positive `nothing declared itself the producer of
+        # these factors` and grows by one entry per scorer that actually
+        # answered — so a factor that no scorer produced is unpinned by
+        # construction rather than by a second branch.
+        pins: list[ScorerPin] = list(NO_SCORER_PINS)
+        if observations:
+            freshness = freshness_scorer.score(observations, now=view.as_of)
+            pins.append(ScorerPin.of(freshness_scorer, factor="freshness"))
+        else:
+            freshness = _UNIT
+        pins.append(ScorerPin.of(self.completeness, factor="completeness"))
+        pins.append(
+            ScorerPin.of(self.semantic_consistency, factor="semantic_consistency")
         )
         return assess_debt(
             DebtFactors(
-                freshness=freshness_scorer.score(observations, now=view.as_of),
-                completeness=self.completeness.score(
-                    observations, now=view.as_of
+                freshness=freshness,
+                completeness=self._factor(
+                    self.completeness, observations, now=view.as_of, evidence=evidence
                 ),
-                semantic_consistency=self.semantic_consistency.score(
-                    observations, now=view.as_of
+                semantic_consistency=self._factor(
+                    self.semantic_consistency,
+                    observations,
+                    now=view.as_of,
+                    evidence=evidence,
                 ),
             ),
             profile=self.profile,
-            scorers=(
-                ScorerPin.of(scorers[0], factor="freshness"),
-                ScorerPin.of(scorers[1], factor="completeness"),
-                ScorerPin.of(scorers[2], factor="semantic_consistency"),
-            ),
+            scorers=tuple(pins),
         )
+
+    @staticmethod
+    def _factor(
+        scorer: DebtFactorScorerProtocol,
+        observations: Sequence[Observation],
+        *,
+        now: datetime,
+        evidence: ExecutionEvidence | None,
+    ) -> Decimal:
+        """Ask ``scorer`` for its factor, through the richer seam when it has one.
+
+        The choice is structural — ``isinstance`` against
+        :class:`EvidenceAwareFactorScorer` — because a scorer is a
+        deployment's object and this module keeps no registry of them. Both
+        conditions are required: a scorer that can read evidence is still
+        asked the plain question when the caller supplied none, because a
+        fabricated empty evidence bundle would be a claim nobody made.
+        """
+        if evidence is not None and isinstance(scorer, EvidenceAwareFactorScorer):
+            return scorer.score_with_evidence(
+                observations, now=now, evidence=evidence
+            )
+        return scorer.score(observations, now=now)
 
     @staticmethod
     def _observations(view: GraphView) -> tuple[Observation, ...]:

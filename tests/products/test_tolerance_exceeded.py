@@ -74,6 +74,7 @@ from ccf.controlplane.artifacts import (
 )
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
+from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.constraints import (
     ReferencePolicyConstraintResolver,
     resolve_effective_request,
@@ -137,7 +138,14 @@ PERSPECTIVE = Perspective(principal_id="principal-fixture", role="role-fixture")
 def _scorer(debt: Decimal) -> Any:
     """A deployment-owned debt scorer measuring exactly ``debt``."""
 
-    def score(*, view: GraphView) -> DebtAssessment:
+    def score(
+        *, view: GraphView, evidence: ExecutionEvidence | None = None
+    ) -> DebtAssessment:
+        # `evidence` accepted and unread (24.6-05): this module's subject is
+        # the RESOLUTION of a tolerance, so the debt is supplied rather than
+        # measured — but the seam the resolver calls through now carries the
+        # execution's evidence, and a scorer that refused it would fail here
+        # for a reason that has nothing to do with tolerance.
         return DebtAssessment(
             debt=debt,
             signal=DebtSignal.OK,

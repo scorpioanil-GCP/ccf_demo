@@ -222,7 +222,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field, field_validator
 
@@ -245,6 +245,9 @@ from ccf.halflife.assessment import (
     SourceRefreshRecency,
 )
 
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from ccf.projection.engine import ExecutionResult
+
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
@@ -256,6 +259,7 @@ __all__ = [
     "NO_VALIDITY_FLOORS",
     "UNMEASURED_FRESHNESS_SLA",
     "AssemblyMode",
+    "ComputedEmptyFinding",
     "ConstituentValidityFloors",
     "ContextProductContract",
     "FreshnessSLA",
@@ -774,6 +778,120 @@ class ProductLineage(CCFContract):
     )
 
 
+class ComputedEmptyFinding(CCFContract):
+    """The search behind an empty answer — SDK-defined (CLAUDE.md §11).
+
+    Whitepaper §7.6 for the vessel this rides on; the finding itself is an SDK
+    extension and its ruling of record is ``D-IMPL-242`` **amendment 1** with
+    ``D-IMPL-253`` Q11/Q12 and ``D-IMPL-255`` (2) (ledger row ``24.6-L-06``).
+
+    **An operator that ran and returned nothing computed something.** Until
+    ``24.6-05`` that observation was a refusal — the returned half of the
+    empty-operator gate, ``empty-operator-result`` — which conflated *absence
+    of input* with *absence of execution*. Dave: *"An operator successfully
+    evaluating an empty graph did compute something. Calling it uncomputed
+    conflates absence of input with absence of execution. Serve computed-empty
+    with the evidence-derived Debt."* So the emptiness is served, and it is
+    served **with its search attached**: a consumer reading an empty payload
+    sees what ran, what it ran over and where, rather than silence.
+
+    Only the DECLARED half of gate 1 still refuses
+    (:func:`~ccf.products.gates._refuse_empty_operators`, INV-CH7-46): a
+    product computed by nothing was not computed at all.
+
+    **``emptiness`` is a statement about EVIDENCE QUALITY and never about
+    Debt** (``D-IMPL-255`` (2): *"Cardinality never determines Context Debt.
+    Evidence determines Context Debt"*, and *"do not let 'unattested
+    emptiness' itself secretly become the new Debt = 1 shortcut"*). It is
+    written here by the resolver from :func:`~ccf.products.debt_scorer.emptiness_of`
+    and it is read by no scorer the SDK ships. A consumer weighing an empty
+    answer reads it beside ``debt``; nothing in the fabric turns it into a
+    number.
+
+    Attributes:
+        operators_returned_empty: Every operator key whose output view carried
+            zero entities and zero relationships, as the engine observed it
+            (:attr:`~ccf.projection.engine.ExecutionResult.empty_results`).
+            Never empty on a constructed finding — the absence of the finding
+            is how *no operator returned empty* is said, so a finding naming
+            nothing would be a second spelling of ``None``.
+        operators_invoked: Every operator the execution invoked, so the
+            emptiness is legible as a fraction of the search rather than as a
+            bare list: one empty operator out of four is a different fact from
+            four out of four.
+        plan_id: The projection plan that ran. The question's own identity
+            travels on the vessel; this is the interpretation's.
+        store_snapshot_pin: The substrate head the execution read against
+            (``24.5-L-02``), so an examiner can re-issue the same search
+            against the same state.
+            :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN` is the positive
+            *this reader exposes no native pin*.
+        emptiness: ``"attested"`` when a query actually executed against a
+            source attesting coverage, ``"unattested"`` otherwise. The
+            classification is :func:`~ccf.products.debt_scorer.emptiness_of`'s
+            and the vocabulary is closed here.
+
+    Hash-transparent **only at its absence** on the vessel: see
+    :attr:`ContextProductContract.computed_empty`. The finding itself declares
+    no optional member, because every member is a fact about a search that did
+    happen.
+    """
+
+    operators_returned_empty: frozenset[str]
+    operators_invoked: frozenset[str]
+    plan_id: str
+    store_snapshot_pin: StoreSnapshotPin
+    emptiness: Literal["attested", "unattested"]
+
+    @field_validator("operators_returned_empty")
+    @classmethod
+    def _a_finding_names_at_least_one_operator(
+        cls, value: frozenset[str]
+    ) -> frozenset[str]:
+        if not value:
+            raise ValueError(
+                "a computed-empty finding names at least one operator that "
+                "returned empty; the ABSENCE of the finding "
+                "(`ContextProductContract.computed_empty is None`) is how "
+                "`no operator returned empty` is said, and a second spelling "
+                "of it would make two products with the same search hash "
+                "differently (24.6-L-06)"
+            )
+        return value
+
+    @classmethod
+    def of(
+        cls,
+        execution: "ExecutionResult",
+        *,
+        emptiness: Literal["attested", "unattested"],
+    ) -> "ComputedEmptyFinding | None":
+        """The finding for ``execution``, or ``None`` when nothing returned empty.
+
+        ``None`` rather than an empty finding, for the reason the validator
+        above states: the two would be the same claim written two ways, and
+        one of them is what every product assembled before this field existed
+        already says.
+
+        ``execution`` is read structurally and this module imports the
+        projection engine only under :data:`typing.TYPE_CHECKING`:
+        :mod:`ccf.projection.engine` imports *this* module, so a runtime
+        import would be a cycle — and the five attributes read here are the
+        engine's own record, which is the only source this finding is allowed
+        to have (``D-IMPL-238`` limb 3: operator keys and the execution
+        record, never the payload).
+        """
+        if not execution.empty_results:
+            return None
+        return cls(
+            operators_returned_empty=frozenset(execution.empty_results),
+            operators_invoked=frozenset(execution.operators_invoked),
+            plan_id=execution.plan_id,
+            store_snapshot_pin=execution.store_snapshot_pin,
+            emptiness=emptiness,
+        )
+
+
 class ContextProductContract(CCFContract):
     """The typed unit L6 delivers — and the only thing an agent may consume.
 
@@ -838,6 +956,24 @@ class ContextProductContract(CCFContract):
             that sentinel or a declared reference and refuses a blank — the
             third state that asserts neither and would reproduce inside this
             product's content address as if it did.
+        computed_empty: The search behind an empty answer
+            (:class:`ComputedEmptyFinding`; ``24.6-L-06``, ``D-IMPL-242``
+            amendment 1). A **fourth sibling of** ``debt`` under the same
+            ruled placement, and a fact of a different kind from the three
+            beside it: those describe how much of a decay or coverage budget
+            was spent, while this names *which operators ran and returned
+            nothing*, over which plan and which store head. ``None`` is the
+            positive assertion *no operator returned empty* — which is what
+            every product assembled before this field existed was in fact
+            saying, and what a product whose operators all returned rows says
+            now. **Hash-transparent at ``None``** under ``D-IMPL-243``: a
+            product with no such finding renders exactly as it did before the
+            field existed, so no content address moved and the golden
+            ``13bd250`` record still replays.
+
+            The finding is EVIDENCE, never a verdict: nothing in the SDK reads
+            ``computed_empty.emptiness`` back into ``debt``
+            (``D-IMPL-255`` (2)).
     """
 
     schema_name: str
@@ -853,6 +989,9 @@ class ContextProductContract(CCFContract):
     debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
     source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
     obligation_in_force: ObligationInForce = NO_OBLIGATION_IN_FORCE
+    computed_empty: ComputedEmptyFinding | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 def register_product_class(

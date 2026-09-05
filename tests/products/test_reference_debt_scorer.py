@@ -49,10 +49,15 @@ assertion is load-bearing for.
     A scorer that drops its pins, and one that pins a *different* identity —
     both must fail, because replay resolving the scorer installed today rather
     than the one in force is the substitution the replay plane prevents.
-``test_control_empty_assembly_fires``
-    **The empty case.** A scorer that reports a confident number about a graph
-    that said nothing — the defect ``17-06`` shipped in its own fixture and
-    caught before merge.
+``test_control_empty_assembly_fires`` / ``..._cardinality_leg_fires`` /
+``..._pin_leg_fires``
+    **The empty case, re-derived at ``24.6-05``** (ledger row ``24.6-L-06``,
+    ``D-IMPL-255`` (2)). The empty assembly no longer fails closed on
+    cardinality: F is the multiplicative identity, C and S are the
+    deployment's scorers' own answers, and the freshness pin is absent because
+    nothing produced it. Three controls, one per claim — including one that
+    reproduces the exact branch this row DELETED (every factor at zero from
+    the row count) and watches it fail.
 ``test_control_uncalibrated_class_fires``
     **The unresolvable case.** A scorer that substitutes a decay rate for an
     entity class with no declared ``λ_c``, instead of raising
@@ -320,31 +325,61 @@ def assert_pins_identify_the_scorers(
     )
 
 
-def assert_empty_assembly_fails_closed(
-    subject: Subject, *, empty: GraphView
+def assert_empty_assembly_is_scored_from_evidence(
+    subject: Subject, *, empty: GraphView, declared: Decimal
 ) -> None:
-    """A view that assembled nothing yields maximal debt and no pin.
+    """A view that assembled nothing is scored from evidence, never from its emptiness.
 
-    Three separate claims, each asserted on its own: ``D_c`` is one, every
-    factor is zero, and **no scorer is named as the producer** — because none
-    ran, and pinning one would be a false record.
+    ``24.6-05``, ledger row ``24.6-L-06``. This assertion previously read
+    *"an empty assembly yields maximal debt and no pin"* — ``D_c = 1`` from
+    the row count alone. ``D-IMPL-255`` (2) removes exactly that: **"Cardinality
+    never determines Context Debt. Evidence determines Context Debt."**
+
+    Three separate claims, each asserted on its own, because the controls
+    below break one at a time:
+
+    1. **F is the multiplicative identity**, not zero. Nothing was observed, so
+       nothing has decayed; ``D_c = 1 − F·C·S`` and the identity element of a
+       product is one. Reporting zero would be a coverage claim wearing
+       freshness's name.
+    2. **C and S are exactly what the deployment's scorers returned**, and the
+       Debt is the algebra over them. ``declared`` is the fixture's own
+       figure and the expected Debt is COMPUTED from it — never a literal, so
+       a test that started agreeing with a constant instead of with the
+       scorers would fail.
+    3. **No freshness pin, and C/S pinned.** No scorer produced the identity,
+       so naming :class:`~ccf.halflife.debt.FreshnessScorer` as its producer
+       would be the false record every pin here exists to prevent — while the
+       two scorers that DID answer are named, because they did.
     """
     assessment = subject(view=empty)
-    assert assessment.debt == Decimal(1), (
-        f"an empty assembly reported D_c={assessment.debt}, not 1 — a"
-        " confident number about a graph that said nothing"
-    )
     factors = assessment.factors
-    assert (
-        factors.freshness,
-        factors.completeness,
-        factors.semantic_consistency,
-    ) == (Decimal(0), Decimal(0), Decimal(0)), (
-        f"an empty assembly reported non-zero factors: {factors}"
+    assert factors.freshness == Decimal(1), (
+        f"an empty assembly reported F={factors.freshness}, not the identity"
+        " 1 — nothing was observed, so nothing has decayed, and a lower F is"
+        " a coverage claim wearing freshness's name (D-IMPL-255 (2))"
     )
-    assert assessment.scorers == (), (
-        "an empty assembly named a scorer as the producer of factors nothing"
-        f" measured: {assessment.scorers}"
+    assert (factors.completeness, factors.semantic_consistency) == (
+        declared,
+        declared,
+    ), (
+        "an empty assembly did not report the deployment's own C and S:"
+        f" {factors} against a declared {declared}"
+    )
+    expected = Decimal(1) - (Decimal(1) * declared * declared)
+    assert assessment.debt == expected, (
+        f"an empty assembly reported D_c={assessment.debt}, not the {expected}"
+        " its own factors compose to — a number from the row count rather"
+        " than from the evidence (D-IMPL-255 (2))"
+    )
+    pinned = {pin.factor for pin in assessment.scorers}
+    assert "freshness" not in pinned, (
+        "an empty assembly named a scorer as the producer of a freshness"
+        f" figure nothing measured: {assessment.scorers}"
+    )
+    assert pinned == {"completeness", "semantic_consistency"}, (
+        "an empty assembly dropped the pins of the two scorers that DID"
+        f" answer: {assessment.scorers}"
     )
 
 
@@ -431,7 +466,9 @@ def test_the_honest_scorer_satisfies_every_assertion() -> None:
     assert_pins_identify_the_scorers(
         subject(view=YOUNG), expected=EXPECTED_PINS
     )
-    assert_empty_assembly_fails_closed(subject, empty=EMPTY)
+    assert_empty_assembly_is_scored_from_evidence(
+        subject, empty=EMPTY, declared=Decimal(1)
+    )
     assert_refuses_an_uncalibrated_class(subject, uncalibrated=UNCALIBRATED_VIEW)
     assert_measures_the_rows_it_is_handed(subject, whole=WHOLE, subset=SUBSET)
 
@@ -658,28 +695,63 @@ def test_control_misidentified_pins_fire() -> None:
 
 
 def test_control_empty_assembly_fires() -> None:
-    """The empty case. A confident number about a graph that said nothing."""
-    with pytest.raises(AssertionError, match="an empty assembly reported"):
-        assert_empty_assembly_fails_closed(constant_scorer, empty=EMPTY)
+    """The empty case. A number about a graph that said nothing, from nowhere.
+
+    ``constant_scorer`` reports ``F = 0.5`` whatever it is handed, which is
+    exactly the shape the ruling forbids in the other direction too: a figure
+    that does not come from the evidence. It fails the identity claim.
+    """
+    with pytest.raises(AssertionError, match="an empty assembly reported F="):
+        assert_empty_assembly_is_scored_from_evidence(
+            constant_scorer, empty=EMPTY, declared=Decimal(1)
+        )
+
+
+def test_control_empty_assembly_cardinality_leg_fires() -> None:
+    """The empty case, the leg this row exists for: the retired shortcut itself.
+
+    A subject that does what :class:`~ccf.products.debt_scorer.AssemblyDebtScorer`
+    did before ``24.6-05`` — every factor at zero, hence ``D_c = 1``, from the
+    row count alone. It must fail, and it does: this is the control proving
+    the assertion above would have caught the branch that was deleted.
+    """
+
+    def cardinality_scorer(*, view: GraphView, **_: object) -> DebtAssessment:
+        return assess_debt(
+            DebtFactors(
+                freshness=Decimal(0),
+                completeness=Decimal(0),
+                semantic_consistency=Decimal(0),
+            ),
+            profile=profile(),
+        )
+
+    with pytest.raises(AssertionError, match="an empty assembly reported F="):
+        assert_empty_assembly_is_scored_from_evidence(
+            cardinality_scorer, empty=EMPTY, declared=Decimal(1)
+        )
 
 
 def test_control_empty_assembly_pin_leg_fires() -> None:
-    """The empty case, second leg: right number, wrong record.
+    """The empty case, third leg: right numbers, wrong record.
 
-    A subject that reaches ``D_c = 1`` and *still* names a producer for the
-    zeroes it did not measure. Asserted separately because the three claims in
-    :func:`assert_empty_assembly_fails_closed` are three, and a control that
-    only broke the first would leave the other two unwatched.
+    A subject that reports the honest factors and *still* names
+    :class:`~ccf.halflife.debt.FreshnessScorer` as the producer of an identity
+    it never computed. Asserted separately because the claims in
+    :func:`assert_empty_assembly_is_scored_from_evidence` are several, and a
+    control that only broke the first would leave the others unwatched.
     """
 
-    def pinning_on_empty(*, view: GraphView) -> DebtAssessment:
+    def pinning_on_empty(*, view: GraphView, **_: object) -> DebtAssessment:
         honest = scorer()(view=view)
         return honest.model_copy(
             update={"scorers": scorer()(view=YOUNG).scorers}
         )
 
     with pytest.raises(AssertionError, match="named a scorer as the producer"):
-        assert_empty_assembly_fails_closed(pinning_on_empty, empty=EMPTY)
+        assert_empty_assembly_is_scored_from_evidence(
+            pinning_on_empty, empty=EMPTY, declared=Decimal(1)
+        )
 
 
 def test_control_uncalibrated_class_fires() -> None:

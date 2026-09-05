@@ -321,6 +321,10 @@ NAMED_SINCE_THE_SWEEP: tuple[str, ...] = (
     "ccf.products.entitlement.ProductEntitlementGrant.overridable_policies",
     # 24.6-03, the resolution pinned into replay dimension 2 (`D-IMPL-254`).
     "ccf.replay.record.PolicyBindingsSnapshot.request_resolution",
+    # 24.6-05, the search behind an empty answer (`24.6-L-06`, `D-IMPL-242`
+    # amendment 1). `None` = "no operator returned empty", which every
+    # pre-phase product already said.
+    "ccf.products.contract.ContextProductContract.computed_empty",
 )
 
 

@@ -149,13 +149,19 @@ from ccf.deployment import BootedFabric, build_operator_registry
 from ccf.graph.protocols import GraphView, TraversalDepthCapability
 from ccf.halflife.debt import DebtAssessment
 from ccf.products.contract import (
+    ComputedEmptyFinding,
     ContextProductContract,
     MaxTTL,
     ProductLineage,
     RegisteredProductClass,
     register_product_class,
 )
-from ccf.products.debt_scorer import AssemblyDebtScorer, DeclaredFactor
+from ccf.products.debt_scorer import (
+    AssemblyDebtScorer,
+    DeclaredFactor,
+    ExecutionEvidence,
+    emptiness_of,
+)
 from ccf.products.constraints import (
     CAPABILITY_TRAVERSAL_DEPTH,
     ConstraintRefusal,
@@ -435,9 +441,29 @@ class AssemblyDebtScorerProtocol(Protocol):
 
     It takes the *view* rather than the payload because debt is measured
     against the assembly, not declared beside it.
+
+    **``evidence`` joined the seam at ``24.6-05``** (``24.6-L-06``,
+    ``D-IMPL-255`` (2)). ``D_c`` may not be derived from how many rows came
+    back — *"Cardinality never determines Context Debt. Evidence determines
+    Context Debt."* — so a conforming scorer is handed what the execution
+    observed about its own search: queries issued, operators invoked and
+    returned empty, source attestation, snapshot pin. It is keyword-only with
+    a ``None`` default, which is *no evidence was supplied*; a scorer is free
+    to ignore it, and the shipped reference passes it on to the deployment's
+    ``C``/``S`` scorers that declare themselves able to read it
+    (:class:`~ccf.products.debt_scorer.EvidenceAwareFactorScorer`).
+    **A deployment scorer written before ``24.6-05`` must accept the keyword**
+    — the governed resolver always passes it, because a resolver that decided
+    per-scorer whether to tell the truth about the search would be two seams
+    wearing one name.
     """
 
-    def __call__(self, *, view: GraphView) -> DebtAssessment:
+    def __call__(
+        self,
+        *,
+        view: GraphView,
+        evidence: ExecutionEvidence | None = None,
+    ) -> DebtAssessment:
         """Assess ``D_c`` over the graph state this question assembled."""
         ...
 
@@ -870,7 +896,21 @@ class GovernedResolver:
                 store_snapshot_pin=execution.store_snapshot_pin,
             ),
             payload=execution.projection.payload,
-            debt=self.debt_scorer(view=execution.view),
+            # 24.6-05 (`24.6-L-06`, `D-IMPL-255` (2)): the scorer is told what
+            # the execution observed about its own search, so that D_c is
+            # derived from evidence rather than from how many rows came back.
+            debt=self.debt_scorer(
+                view=execution.view, evidence=ExecutionEvidence.of(execution)
+            ),
+            # 24.6-05 (`D-IMPL-242` amendment 1, `D-IMPL-253` Q11/Q12): an
+            # operator that RAN and returned nothing computed something, so
+            # its emptiness is served as a finding rather than refused on
+            # cardinality. `None` when no operator returned empty — the claim
+            # every product made before this field existed.
+            computed_empty=ComputedEmptyFinding.of(
+                execution,
+                emptiness=emptiness_of(ExecutionEvidence.of(execution)),
+            ),
         )
 
         gated = run_gates(
@@ -880,11 +920,6 @@ class GovernedResolver:
             registry=self.control_plane,
             product_class=registered,
             source_attestation=execution.source_attestation,
-            # 24.5-L-24: the engine's own record of which operators returned
-            # an empty set, so the empty-operator gate's second half can
-            # refuse by name. Only the governed resolver threads it; the
-            # engine-level call site keeps the compatibility default.
-            empty_results=execution.empty_results,
         )
         if not isinstance(gated, ServableProduct):
             # A refusal is a value, and it travels with the lineage the
