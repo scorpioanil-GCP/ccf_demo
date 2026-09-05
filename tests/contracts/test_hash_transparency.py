@@ -411,6 +411,16 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.replay.record.PerspectiveConditioning.assembler_id",
         "ccf.replay.record.PerspectiveConditioning.assembler_version",
         "ccf.replay.record.ContentGenerationPath.disclosure_decision",
+        # 24.6-14: the seventh declaration key (``D-IMPL-259``) — a parameter's
+        # valid domain, and the two optional ends of one. Silent at the empty
+        # mapping and at an absent end, so no committed request contract's
+        # content address moves. Added by 24.6-15 at close: plan 14 ticked the
+        # twin roster in `tools/lints/tests/test_hash_transparent_key.py` and
+        # missed this one, which is exactly the arrival this set-equality test
+        # exists to report.
+        "ccf.products.request.ProductRequestContract.argument_domains",
+        "ccf.products.request.ArgumentDomain.minimum",
+        "ccf.products.request.ArgumentDomain.maximum",
     }
 )
 
