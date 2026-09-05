@@ -216,9 +216,14 @@ def govern_entitlement(
     1. ``determined_at = entitlement_source.clock()`` — read **once**, before
        the determination, because it is the instant *of* the determination. No
        other clock is read in this module and no wall-clock call appears in it
-       at all, so the audit event the source appends and the replay record
-       minted below carry the same instant by construction rather than by two
-       reads that happen to agree.
+       at all. The replay record minted below is stamped from this read; the
+       ``authz_decision`` audit event the source appends inside its own
+       ``authorize`` is stamped from a SECOND read of the same clock, so the
+       two agree exactly under a pinned clock and to within one read under a
+       wall clock. Carrying this instant INTO ``authorize`` is a Protocol
+       change recorded as a carried finding at the Phase 24.6 close, not a
+       claim this docstring makes. (Its earlier text claimed *"the same
+       instant by construction"*, which was false.)
     2. :func:`~ccf_runtime.authz.product_entitlement.entitled_perspective` runs
        the one resolution order every door runs. An entitled request returns
        the perspective and **writes nothing**: a fulfilled decision is the

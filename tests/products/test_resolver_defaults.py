@@ -1038,3 +1038,32 @@ def _uncalibrated_key(booted: _Booted) -> str:
         f" {ENTITY_CLASS!r}, so this control has nothing uncalibrated to point"
         " at and would pass while proving nothing"
     )
+
+
+def test_the_disclosure_reader_treats_only_a_missing_key_as_no_policy() -> None:
+    """`(minimal, None)` means *no policy is registered* — and only that.
+
+    Phase 24.6 close panel: the reader caught EVERY exception from the registry
+    and answered `(minimal, None)`, so a registry that failed to read its policy
+    would have been recorded as a tenant that registered none — a false
+    provenance claim on replay dimension 5. Minimal is still the safe level; the
+    claim about WHY is what must be true.
+    """
+    from ccf.controlplane.registry import ControlPlaneMissing
+    from ccf.products.disclosure import DISCLOSURE_MINIMAL
+
+    class _Missing:
+        def resolve_latest(self, key: str) -> tuple[str, object]:
+            raise ControlPlaneMissing(key)
+
+    class _Broken:
+        def resolve_latest(self, key: str) -> tuple[str, object]:
+            raise RuntimeError("the registry's storage is unreachable")
+
+    missing = resolver_module._disclosure_reader(_Missing())  # type: ignore[arg-type]
+    assert missing(tenant="t", principal_id="p") == (DISCLOSURE_MINIMAL, None)
+
+    broken = resolver_module._disclosure_reader(_Broken())  # type: ignore[arg-type]
+    with pytest.raises(RuntimeError, match="unreachable"):
+        broken(tenant="t", principal_id="p")
+

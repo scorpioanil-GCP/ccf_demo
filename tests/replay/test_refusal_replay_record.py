@@ -218,7 +218,10 @@ def test_the_store_grew_by_exactly_one_record(booted: _Booted) -> None:
     # more. Without this the delta above could be produced by a lister that
     # happened to find exactly one file for an unrelated reason.
     other = _ask(resolver, _request(parameters={THRESHOLD_PARAMETER: 1}))
-    assert isinstance(other, RefusalEnvelope) or other is not None
+    # The counter counts RECORDS, served or refused: what the control needs is
+    # that a second question produced an outcome at all. (Phase 24.6 close
+    # panel: the earlier `isinstance(...) or other is not None` could not fail.)
+    assert other is not None
     assert len(_stored_addresses(booted) - after) >= 1
 
 
@@ -767,7 +770,9 @@ def test_the_evidence_bundle_is_the_executions_own_facts(booted: _Booted) -> Non
     assert internal.evidence.store_snapshot_pin == (
         record.context_fabric_snapshot.store_snapshot_pin
     )
-    assert internal.evidence.store_snapshot_pin != NO_STORE_SNAPSHOT_PIN or True
+    # The equality above IS the claim: the evidence carries the pin dimension 1
+    # recorded, whatever it is. (Phase 24.6 close panel: a `!= … or True` limb
+    # that could not fail stood here and is deleted rather than kept.)
     # A search DID run here, so the disclosure decision names the evidence it
     # withheld — the positive half of the test above.
     decision = DisclosureDecision.model_validate_json(

@@ -3737,3 +3737,26 @@ def test_the_module_docstring_names_the_three_temporal_axes() -> None:
     for phrase in TEMPORAL_AXIS_PHRASES:
         mutated = docstring.replace(phrase, "")
         assert _axes_named(mutated) == [phrase], (phrase, _axes_named(mutated))
+
+
+def test_a_pinned_body_cannot_have_its_pin_overridden_by_the_body() -> None:
+    """The transaction pin is the LAST key rendered, so `**body` cannot win it.
+
+    Phase 24.6 close panel: `{"from": pin, **body}` let a body carrying its
+    own `from` replace the pin the caller measured against — one pin recorded
+    at the method boundary, another sent to the server. Pure: no server.
+    """
+    import json
+
+    from ccf.graph.backends.fluree import _pinned_query_body
+
+    rendered = json.loads(
+        _pinned_query_body(
+            {"from": "somewhere-else@t:999", "select": ["?s"]},
+            ledger="ledger",
+            pin_t=7,
+        )
+    )
+    assert rendered["from"] == "ledger@t:7", rendered
+    assert rendered["select"] == ["?s"]
+

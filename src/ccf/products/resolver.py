@@ -663,12 +663,18 @@ def _disclosure_reader(
         key = product_entitlement_key(tenant_id=tenant)
         try:
             version, resolved = control_plane.resolve_latest(key)
-        except Exception:
+        except LookupError:
             # Deny-by-default in the disclosure dimension: a tenant with no
             # registered entitlement policy discloses minimally. The exception
-            # type is the registry's (`ControlPlaneMissing`), and catching it
-            # structurally rather than by name keeps this module free of a
-            # second import of the registry's error vocabulary.
+            # type is the registry's (`ControlPlaneMissing`, a `LookupError`),
+            # and catching it structurally rather than by name keeps this
+            # module free of a second import of the registry's error
+            # vocabulary. ONLY the lookup failure is "no policy": a registry
+            # that failed for any other reason propagates, because answering
+            # `(minimal, None)` for it would record *no policy is registered*
+            # as the disclosure's provenance when the truth is that the policy
+            # could not be read — a false claim in replay dimension 5, found by
+            # the Phase 24.6 close panel.
             return DISCLOSURE_MINIMAL, None
         if not isinstance(resolved, ProductEntitlementPolicy):
             raise TypeError(

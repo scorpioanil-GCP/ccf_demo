@@ -114,7 +114,35 @@ FORBIDDEN_CALLS = frozenset(
 #: use it, and the call check alone would miss a bare ``disclose(envelope)`` —
 #: a ``Name`` call rather than an ``Attribute`` one.
 FORBIDDEN_IMPORTS = frozenset(
-    {"ReplayWriter", "record_refusal", "build_replay_record", "disclose"}
+    {
+        "ReplayWriter",
+        "record_refusal",
+        "build_replay_record",
+        "disclose",
+        # Phase 24.6 close panel: the second spelling of the Disclosure layer
+        # was importable bare while its attribute form was banned.
+        "disclose_only",
+    }
+)
+
+#: What a transport must never call as a bare NAME. The attribute walk sees
+#: `recorder.record(` and `disclosure.disclose(`; a module that imported the
+#: function and called it bare — `disclose(shell)` — is an `ast.Name` call,
+#: which the Phase 24.6 close panel found the attribute walk could not see.
+#: `record` is not here: a bare `record(` is any local function of that name,
+#: and the minting seam is only ever reached as a method.
+FORBIDDEN_NAME_CALLS = frozenset(
+    {"disclose", "disclose_only", "record_refusal", "write_replay_record", "build_replay_record"}
+)
+
+#: What a transport must never import AS A MODULE. `import ccf.replay.record`
+#: hands the module every name in it, so `ccf.replay.record.build_replay_record(`
+#: would pass an import ban keyed on names and an attribute ban that did not
+#: list the builder (Phase 24.6 close panel). `from ccf.replay.record import
+#: DecisionReplayRecord` — a read-side type — is not this: it is a `from`
+#: import of a name the roster above does not forbid.
+FORBIDDEN_MODULES = frozenset(
+    {"ccf.replay.record", "ccf.replay.serve", "ccf.products.disclosure"}
 )
 
 #: What a transport must never CATCH. The typed entitlement decision is
@@ -150,9 +178,15 @@ def _violations_in(source: str, *, where: str) -> list[str]:
         if (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
-            and node.func.attr in FORBIDDEN_CALLS
+            and node.func.attr in FORBIDDEN_CALLS | {"build_replay_record"}
         ):
             found.append(f"{where}:{node.lineno} calls .{node.func.attr}(")
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in FORBIDDEN_NAME_CALLS
+        ):
+            found.append(f"{where}:{node.lineno} calls {node.func.id}( bare")
         elif isinstance(node, ast.ImportFrom):
             for alias in node.names:
                 if alias.name in FORBIDDEN_IMPORTS:
@@ -161,6 +195,10 @@ def _violations_in(source: str, *, where: str) -> list[str]:
             for alias in node.names:
                 if alias.name.rsplit(".", 1)[-1] in FORBIDDEN_IMPORTS:
                     found.append(f"{where}:{node.lineno} imports {alias.name}")
+                elif alias.name in FORBIDDEN_MODULES:
+                    found.append(
+                        f"{where}:{node.lineno} imports the module {alias.name}"
+                    )
         elif isinstance(node, ast.ExceptHandler) and node.type is not None:
             for name in ast.walk(node.type):
                 if isinstance(name, ast.Name) and name.id == FORBIDDEN_HANDLER:
@@ -440,6 +478,53 @@ def test_a_disclosure_call_in_a_transport_is_reported(
         "imports disclose" in entry for entry in import_violations
     ), import_violations
 
+    assert _violations_in(source, where="experience.py") == []
+
+
+def test_a_bare_name_call_and_a_module_import_in_a_transport_are_reported(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The two spellings the Phase 24.6 close panel found the walk could not see.
+
+    (1) `from ccf.products.disclosure import disclose_only` then a BARE
+    `disclose_only(shell, …)` — an `ast.Name` call, invisible to an attribute
+    walk, and `disclose_only` was not on the import roster either.
+    (2) `import ccf.replay.record` then `ccf.replay.record.build_replay_record(`
+    — a module import that passes a name-keyed import ban, and a builder the
+    attribute ban did not list. Both are planted in a scratch copy of a real
+    door and both must be reported; the real door reports nothing.
+    """
+    source = _door_source("runtime/ccf_runtime/mcp/experience.py")
+    anchor = (
+        "        if isinstance(decided, RefusalEnvelope):\n"
+        '            return canonical_bytes(decided).decode("utf-8")\n'
+    )
+    planted = _plant(
+        source,
+        needle=anchor,
+        replacement=(
+            "        if isinstance(decided, RefusalEnvelope):\n"
+            "            shell = disclose_only(decided, level=\"minimal\")  # SABOTAGE\n"
+            "            ccf.replay.record.build_replay_record(shell)  # SABOTAGE\n"
+            '            return canonical_bytes(shell).decode("utf-8")\n'
+        ),
+    ).replace(
+        "from __future__ import annotations",
+        "from __future__ import annotations\n\n"
+        "import ccf.replay.record  # SABOTAGE\n"
+        "from ccf.products.disclosure import disclose_only  # SABOTAGE",
+        1,
+    )
+    root = _scratch_tree(
+        tmp_path, name="experience-name-form", source=planted, filename="experience.py"
+    )
+    violations, _roster = transport_mint_violations(root)
+    assert any("calls disclose_only( bare" in entry for entry in violations), violations
+    assert any("imports disclose_only" in entry for entry in violations), violations
+    assert any("imports the module ccf.replay.record" in entry for entry in violations), (
+        violations
+    )
+    assert any("calls .build_replay_record(" in entry for entry in violations), violations
     assert _violations_in(source, where="experience.py") == []
 
 

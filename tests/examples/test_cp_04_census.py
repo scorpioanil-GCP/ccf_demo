@@ -84,7 +84,16 @@ def _load(name: str) -> Any:
         while str(EXAMPLE) in sys.path:
             sys.path.remove(str(EXAMPLE))
         sys.path.insert(0, str(EXAMPLE))
-    family = ("deployment", "produce", "assembler", "run")
+    family = (
+        "deployment",
+        "produce",
+        "projection",
+        "assembler",
+        "transport",
+        "run",
+        "compose",
+        "serve",
+    )
     for cached_name in family:
         cached = sys.modules.get(cached_name)
         if cached is None:

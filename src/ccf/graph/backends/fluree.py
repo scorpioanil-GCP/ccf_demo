@@ -789,7 +789,10 @@ def _pinned_query_body(
         raise ValueError(
             f"a transaction pin is a non-negative int; got {pin_t!r}"
         )
-    return json.dumps({"from": f"{ledger}@t:{pin_t}", **body})
+    # The pin LAST, so a body that carried its own `from` cannot override the
+    # transaction the caller pinned (Phase 24.6 close panel: the reverse order
+    # let `**body` win, which would have measured one pin and sent another).
+    return json.dumps({**body, "from": f"{ledger}@t:{pin_t}"})
 
 
 def _pinned_select(
