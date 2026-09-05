@@ -430,7 +430,10 @@ class ContextFabricSnapshot(CCFContract):
         dimension 5, where the refusal itself is recorded.
 
         Args:
-            tenant_id: The tenant the determination was made under.
+            tenant_id: The tenant whose door (and recorder) made the
+                determination. The tenant the caller ADDRESSED can differ and
+                rides on the refusal's resource identity and on the policy pin
+                dimension 2 names (`D-IMPL-253` D-34).
             temporal_boundary: The instant it was made against — the question's
                 own ``asked_at``, or a delivery boundary's determination
                 instant.

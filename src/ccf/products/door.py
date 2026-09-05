@@ -85,8 +85,10 @@ reconstruct both the determination and the disclosure decision."*
 **This module is the Delivery layer.** It is the shape a door puts on a wire
 and nothing more: it decides nothing, discloses nothing and records nothing.
 What it carries has already been determined, already been resolved against its
-authorities, and already been disclosed by
-:func:`~ccf.products.disclosure.disclose`.
+authorities, and — when the reference resolver produced it — already been
+disclosed by :func:`~ccf.products.disclosure.disclose`. A BARE refusal value a
+non-reference resolver hands :func:`door_refusal` is enveloped here undisclosed
+and unrecorded, which is the carried finding P-A of the Phase 24.6 close.
 
 This module is algorithmic (CINV-03): pure functions over typed values, no
 I/O, no clock, no LLM dependency ever.

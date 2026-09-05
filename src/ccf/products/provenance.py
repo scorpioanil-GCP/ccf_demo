@@ -336,7 +336,9 @@ class OverrideRecord(CCFContract):
             exercise this override.
         honored: Whether the override actually took effect. An unentitled
             attempt is recorded with ``entitled=False`` and ``honored=False``
-            rather than omitted.
+            rather than omitted — on a request that RESOLVES; a request the
+            resolution refuses discards the records with the resolution
+            (Phase 24.6 close, a carried finding).
         grant_source: Where the entitlement was established, when it was, and
             ``None`` when no entitlement was found. Hash-transparent at
             ``None`` (``D-IMPL-243``).

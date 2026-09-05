@@ -285,8 +285,12 @@ class ProductRequest(CCFContract):
             declared grant
             (:attr:`~ccf.products.entitlement.ProductEntitlementGrant.overridable_policies`)
             — *"otherwise anyone who knows a policy ID could bypass it"*. Both
-            facts, entitled and honored, land in the replay record whichever
-            way they came out.
+            facts, entitled and honored, land in the replay record when the
+            request RESOLVES (on the recorded
+            :class:`~ccf.products.provenance.EffectiveRequest`); a request the
+            resolution REFUSES carries no resolution today, so the attempt is
+            not on that record (Phase 24.6 close, a carried finding against
+            criterion 10).
 
             It belongs on the request because **a request carrying an override
             is a different question**: it is content-addressed with the rest of

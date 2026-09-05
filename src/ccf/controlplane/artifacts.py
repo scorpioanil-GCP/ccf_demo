@@ -560,8 +560,11 @@ class PolicyConstraint(VersionedArtifact):
         effective_from: The instant this constraint begins to apply.
         effective_until: The instant it stops applying, or ``None`` for a
             constraint with no stated end. Hash-transparent at ``None``.
-        reason: The declared justification or citation, carried into a refusal
-            shell subject to disclosure policy (``D-IMPL-254``).
+        reason: The declared justification or citation. Recorded on the
+            artifact and resolvable from its pin; NOT carried into a refusal
+            shell or the refusal's replay record today — the constraint's
+            ``bound`` travels, its ``reason`` does not (Phase 24.6 close, a
+            carried finding). A shell that quotes it is a later phase's.
         priority: Ordering among comparable constraints. ``0`` — the default —
             is the positive assertion that this constraint claims no ordering.
             Hash-transparent at ``0``.

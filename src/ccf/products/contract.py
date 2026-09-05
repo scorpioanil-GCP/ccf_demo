@@ -593,8 +593,9 @@ class ServeObligations(CCFContract):
     *"after changing its authority would perpetuate the conceptual error we
     just fixed."* The field is the same field, renamed at ``24.6-04``; its
     hash posture and its sentinel are unchanged. The previous name is spelled
-    nowhere in ``src/``, ``runtime/``, ``tools/`` or ``tests/``, so a reader
-    grepping for it finds only the dated records that made it.
+    nowhere in ``src/``, ``runtime/`` or ``tools/``; under ``tests/`` it appears
+    only in the assertions that assert its ABSENCE, so a reader grepping for it
+    finds those and the dated records that made it.
 
     Both fields are hash-transparent at their sentinels under ``D-IMPL-243``
     amendment 2 (Dave: *"``ServeObligations``' two fields at empty True —
