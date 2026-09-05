@@ -163,9 +163,20 @@ request_contract:
         # CURRENT STATE, so it is declared here and REFUSED at the door with
         # `not_supported_at_tier`. It must never silently succeed against
         # current state: "a parameter that appears to work and does not will be
-        # relied on in a dispute." The refusal is the spine's, because the
-        # request contract can express a TYPE but not an unsupported-ness —
-        # recorded as an SDK-surface finding at §F.4. Gate `CPR-G05`.
+        # relied on in a dispute." Gate `CPR-G05`.
+        #
+        # SUPERSEDED 2026-09-04 (24.6-L-12) — the historical sentence, kept
+        # verbatim because a rewrite would hide that this was once true:
+        #   "The refusal is the spine's, because the request contract can
+        #   express a TYPE but not an unsupported-ness — recorded as an
+        #   SDK-surface finding at §F.4."
+        # WHAT IS TRUE NOW: the request contract DOES express unsupported-ness.
+        # `ProductRequestContract.unsupported_arguments` carries exactly this
+        # declaration, and the SDK's tier step reads it and returns
+        # `not-supported-at-tier` as DATA before any product branch runs
+        # (`24.5-L-13`). The refusal is still the spine's — it is now DECLARED
+        # rather than merely implemented, which is the half §2.4 cares about.
+        # The §F.4 finding is closed.
         type: string
         description: >-
           The instant to reconstruct as of. NOT SUPPORTED AT THIS TIER — always
@@ -182,13 +193,20 @@ request_contract:
   #
   # The JSON-Schema `arguments` block above can express a TYPE but not an
   # unsupported-ness, so the fact that `as_of` must be REFUSED rather than
-  # honoured is declared here and enforced by the spine at the door. It is NOT
+  # honored is declared here and enforced by the spine at the door. It is NOT
   # a constant in `produce.py`: a parameter this deployment stops supporting,
   # or starts, is a change to this document.
   #
-  # Recorded as an SDK-surface finding at spec §F.4 — a request contract that
-  # cannot say "declared and always refused" pushes the one thing Standard §2.4
-  # cares about out of the artifact and into code.
+  # SUPERSEDED 2026-09-04 (24.6-L-12) — the historical sentence, kept
+  # verbatim:
+  #   "Recorded as an SDK-surface finding at spec §F.4 — a request contract
+  #   that cannot say 'declared and always refused' pushes the one thing
+  #   Standard §2.4 cares about out of the artifact and into code."
+  # WHAT IS TRUE NOW: the request contract CAN say it, and this block is where
+  # it says it. `ProductRequestContract.unsupported_arguments` is the SDK's
+  # own field (`24.5-L-13`); the declaration below is read by the spine's tier
+  # step, not by product code. The one thing §2.4 cares about is in the
+  # artifact. The §F.4 finding is closed.
   unsupported_arguments:
     as_of: not_supported_at_tier
 

@@ -200,24 +200,30 @@ class ExecutionResult(CCFContract):
             reads as absent — the copy on the product lineage carries the
             same tick.
         empty_results: The operator keys whose output view carried zero
-            entities AND zero relationships (ledger row ``24.5-L-24``) —
-            the Standard's *an operator returned an empty set*, observed by
-            the thing that ran it. Computed ALWAYS by
+            entities AND zero relationships (ledger rows ``24.5-L-24`` and
+            ``24.6-L-06``) — the Standard's *an operator returned an empty
+            set*, observed by the thing that ran it. Computed ALWAYS by
             :meth:`ProjectionEngine.execute`, one inspection of each
             operator's :class:`~ccf.operators.base.OperatorOutput` view as
             it is produced, so the empty set is the engine's positive
             assertion *no operator returned empty* and not a sentinel for
-            absence — an engine execution always observes this. The
-            governed resolver threads it to
-            :func:`~ccf.products.gates.run_gates` as ``empty_results``,
-            where the second half of the empty-operator gate
-            (:data:`~ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT`) refuses
-            a non-empty set by name; a result built by hand without the
-            field carries the empty set and passes. Hash-transparent at the
-            empty set under ``D-IMPL-243`` amendment 2, on the same footing
-            as ``store_snapshot_pin``: never content-hashed, the mark is
-            inert until the model is, and the empty set then reads as
-            absent.
+            absence — an engine execution always observes this.
+
+            **What reads it moved at ``24.6-05``** (``D-IMPL-242``
+            amendment 1): the record used to be threaded into the gates,
+            where a returned-empty half refused a non-empty set by name.
+            An operator that ran and returned nothing COMPUTED, so the
+            governed resolver now builds
+            :class:`~ccf.products.contract.ComputedEmptyFinding` from this
+            field onto the served product, and passes the same record to the
+            debt scorer inside
+            :class:`~ccf.products.debt_scorer.ExecutionEvidence`. This
+            field, and how it is computed, did not change.
+
+            Hash-transparent at the empty set under ``D-IMPL-243``
+            amendment 2, on the same footing as ``store_snapshot_pin``:
+            never content-hashed, the mark is inert until the model is, and
+            the empty set then reads as absent.
     """
 
     plan_id: str

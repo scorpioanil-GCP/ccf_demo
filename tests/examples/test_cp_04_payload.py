@@ -110,6 +110,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import json
 import pathlib
 import sys
 import tempfile
@@ -120,6 +121,12 @@ import pytest
 import yaml
 
 from ccf.agents.errors import AssemblyRefused
+from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import parse_artifact_uri
+from ccf.products.disclosure import DISCLOSURE_MINIMAL, EXTERNAL_STATEMENTS
+from ccf.products.refusal import NO_REPLAY_REFERENCE, REFUSAL_KINDS
+from ccf.products.request import ProductRequestViolation
+from ccf_runtime.http_api.refusal_status import status_for
 
 from .cp_04_seed import ledger_for, schema_for, seed
 
@@ -183,7 +190,16 @@ def _load(name: str) -> Any:
         while str(EXAMPLE) in sys.path:
             sys.path.remove(str(EXAMPLE))
         sys.path.insert(0, str(EXAMPLE))
-    family = ("deployment", "produce", "projection", "assembler", "transport", "run")
+    family = (
+        "deployment",
+        "produce",
+        "projection",
+        "assembler",
+        "transport",
+        "run",
+        "compose",
+        "serve",
+    )
     for cached_name in family:
         cached = sys.modules.get(cached_name)
         if cached is None:
@@ -332,6 +348,11 @@ class Asked:
     #: roster rather than a flag: `CFT-G06`'s second limb is that the assembly
     #: served nothing, and the names say what it served if it did.
     served_vessels: tuple[str, ...]
+    #: The five-dimension replay record the refusal's `replay_reference`
+    #: resolves to in the run's own store, or ``None`` when the ask was
+    #: answered or the reference did not resolve. `CFT-G06`'s Control Plane
+    #: limb reads it: the declared prose is the AUDIT plane's (`24.6-08`).
+    record: Mapping[str, Any] | None = None
 
     @property
     def nodes(self) -> tuple[Mapping[str, Any], ...]:
@@ -384,10 +405,12 @@ def ask(
     the adapter hands the spine, which is how `CFT-G16`'s mechanism control
     drives ONE mutated class chain through the SHIPPED projection.
 
-    A refusal the assembler RAISES is caught and returned as data —
-    ``AssemblyRefused`` is not in ``ccf.products.refusal::REFUSAL_KINDS`` and has
-    no envelope, which `transport.py`'s own docstring records as an SDK-surface
-    gap rather than papering over. A refusal it RETURNS arrives on the `Result`.
+    Every governed determination this rung reaches arrives on the `Result` as a
+    typed envelope (`24.6-L-01`, `24.6-L-02`). A raised
+    ``ccf.agents.errors::AssemblyRefused`` is still caught and rendered as
+    text, and its meaning is now narrow: an INVARIANT FAILURE inside the
+    deployment, never a verdict about the question. Catching it keeps one
+    broken assembly from taking this module down with it.
     """
     from ccf.client.client import ProductClient
 
@@ -432,6 +455,9 @@ def ask(
                     payload=None,
                     address=None,
                     refusal=str(result.refusal),
+                    record=_refusal_record(
+                        pathlib.Path(scratch), str(result.refusal.replay_reference)
+                    ),
                 )
             return _asked(
                 asked_as=asked_as,
@@ -451,6 +477,7 @@ def _asked(
     payload: Mapping[str, Any] | None,
     address: str | None,
     refusal: str | None,
+    record: Mapping[str, Any] | None = None,
 ) -> Asked:
     """Fold one ask and what the assembly's own observer saw into a value.
 
@@ -473,7 +500,29 @@ def _asked(
         refusal=refusal,
         observed=observed,
         served_vessels=served,
+        record=record,
     )
+
+
+def _refusal_record(root: pathlib.Path, reference: str) -> Mapping[str, Any] | None:
+    """The replay record one refusal's `replay_reference` resolves to, or ``None``.
+
+    Out of the SAME `FileArtifactStore` `produce.py::_serve` writes, under the
+    run's own scratch root, by the reference the shell carries — never a
+    directory walk. ``None`` for the sentinel or an unresolvable reference, so
+    the gate reading it can say *no record* rather than raising here.
+    """
+    if not reference or reference == NO_REPLAY_REFERENCE:
+        return None
+    deployment = _load("deployment")
+    store = FileArtifactStore(root=root / deployment.ARTIFACT_STORE_DIRNAME)
+    try:
+        name = parse_artifact_uri(reference)
+        return dict(
+            json.loads(store.get(content_address=name.artifact_version).decode("utf-8"))
+        )
+    except Exception:  # noqa: BLE001 — an unresolvable reference is the gate's finding
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -694,24 +743,73 @@ def inert_parameter_violations(
             " so nothing was observed at all"
         )
         return violations
-    if str(status) not in asked.refusal:
+    kind = REFUSAL_KINDS[ProductRequestViolation]
+    # THE STATUS IS THE DOOR'S, NOT THE SHELL'S. `400` is what the HTTP door
+    # maps this KIND to (`runtime/ccf_runtime/http_api/refusal_status.py`,
+    # `24.6-09`); the in-process shell carries a kind and no status, so the
+    # declaration is held against the map the door reads.
+    if f"kind={kind!r}" not in asked.refusal:
         violations.append(
-            f"CFT-G06: the refusal does not name the status {status} —"
-            f" {asked.refusal!r}. Standard section 9 requires a DISTINCT"
+            f"CFT-G06: the refusal is not a {kind!r} — {asked.refusal!r}. A"
+            " declared-but-inert parameter is refused at the request contract,"
+            " never by the assembler's own code"
+        )
+    if status_for(kind) != status:
+        violations.append(
+            f"CFT-G06: the HTTP door maps {kind!r} to {status_for(kind)}, not"
+            f" the declared {status}. Standard section 9 requires a DISTINCT"
             " condition, and a refusal that does not carry its status cannot be"
             " told from any other 'no'"
         )
-    if reason not in asked.refusal:
+    # THE REASON IS THE SDK'S TOKEN; THE DECLARED PROSE IS THE AUDIT PLANE'S.
+    # The tier step of `refuse_request` answers `not-supported-at-tier`
+    # (`24.5-L-12`/`L-13`), and since `24.6-08` the shell a caller receives
+    # is DISCLOSED at `minimal` unless a policy says otherwise: `detail` is the
+    # kind's external statement and the Control Plane's own prose — which
+    # would tell a caller what this deployment declares and why — crosses
+    # only at `full` and always into the replay record. **Re-derived at the
+    # 24.6 close (F-C (ii))**: the pre-phase limb read the declared prose off
+    # the shell, which the ruled shell no longer carries.
+    if "reason='not-supported-at-tier'" not in asked.refusal:
         violations.append(
-            f"CFT-G06: the refusal does not carry the DECLARED reason"
-            f" {reason[:60]!r}… — {asked.refusal!r}. The reason is Control Plane"
-            " state; a refusal wording its own would leave the declaration"
+            f"CFT-G06: the refusal does not carry the tier reason —"
+            f" {asked.refusal!r}. The reason is the SDK's own verdict, returned"
+            " as data; a refusal wording its own would leave the declaration"
             " meaning nothing"
         )
-    if parameter not in asked.refusal:
+    if f"key={parameter!r}" not in asked.refusal:
         violations.append(
             f"CFT-G06: the refusal does not name {parameter!r} —"
             f" {asked.refusal!r}, so it is not demonstrably about this parameter"
+        )
+    if f"disclosure={DISCLOSURE_MINIMAL!r}" not in asked.refusal:
+        violations.append(
+            f"CFT-G06: the shell was not disclosed at {DISCLOSURE_MINIMAL!r} —"
+            f" {asked.refusal!r}; this deployment declares no higher level"
+        )
+    if EXTERNAL_STATEMENTS[kind] not in asked.refusal:
+        violations.append(
+            f"CFT-G06: the shell's detail is not the kind's external statement"
+            f" {EXTERNAL_STATEMENTS[kind]!r} — {asked.refusal!r}"
+        )
+    if reason in asked.refusal:
+        violations.append(
+            f"CFT-G06: the shell carries the Control Plane's declared prose"
+            f" {reason[:60]!r}… at {DISCLOSURE_MINIMAL!r} — {asked.refusal!r}."
+            " Disclosure leaked what only the replay record may carry below"
+            " `full` (`D-IMPL-254`)"
+        )
+    if asked.record is None:
+        violations.append(
+            f"CFT-G06: the refusal's replay_reference resolved to NO record;"
+            " a governed refusal that reached the caller without reaching the"
+            " replay writer is the hole `D-IMPL-256` closes"
+        )
+    elif reason not in json.dumps(asked.record, sort_keys=True):
+        violations.append(
+            f"CFT-G06: the replay record does not carry the declared reason"
+            f" {reason[:60]!r}…; the audit plane, not the shell, is where the"
+            " Control Plane's prose must survive (`D-IMPL-253` Q13)"
         )
     return violations
 
@@ -721,9 +819,12 @@ def test_cft_g06_as_of_is_refused_not_supported_at_tier(
 ) -> None:
     """`CFT-G06` (criterion 30). The declared-but-inert parameter is refused.
 
-    Three limbs held together: the refusal happened and it names the status, the
-    declared reason and the parameter; no payload came back; and the assembly
-    served no vessel. The third is what a check reading only the reason string
+    Held together: the refusal happened, it is the request contract's own
+    kind, the door maps that kind to the declared status, it carries the tier
+    reason and the parameter; the shell is disclosed at `minimal` with the
+    kind's external statement and WITHOUT the Control Plane's prose, which the
+    replay record carries instead; no payload came back; and the assembly
+    served no vessel. The last is what a check reading only the reason string
     cannot see.
 
     Sabotaged by silently honoring it.
@@ -741,6 +842,52 @@ def test_cft_g06_as_of_is_refused_not_supported_at_tier(
         f"CFT-G06 failed against {asked_with_as_of.asked_as}:\n"
         + "\n".join(violations)
     )
+
+
+def test_the_inert_check_refuses_a_shell_that_leaks_the_declared_prose() -> None:
+    """**Sabotage control.** The Control Plane's prose crossing at `minimal`."""
+    kind = REFUSAL_KINDS[ProductRequestViolation]
+    leaking = Asked(
+        asked_as="as_of refused, prose leaked",
+        payload=None,
+        content_address=None,
+        refusal=(
+            f"kind={kind!r} reason='not-supported-at-tier' key='as_of'"
+            f" detail='{EXTERNAL_STATEMENTS[kind]}' disclosure='minimal'"
+            " not_supported_at_tier. Reconstructing the family as of a past date"
+        ),
+        observed=("ProductRequestViolation",),
+        served_vessels=(),
+        record={"content_generation_path": {"detail": "not_supported_at_tier. Reconstructing"}},
+    )
+    violations = inert_parameter_violations(
+        leaking,
+        parameter="as_of",
+        reason="not_supported_at_tier. Reconstructing",
+        status=400,
+    )
+    assert any("Disclosure leaked" in entry for entry in violations), violations
+
+
+def test_the_inert_check_refuses_a_refusal_with_no_replay_record() -> None:
+    """**Sabotage control.** A shell whose reference reaches no record."""
+    kind = REFUSAL_KINDS[ProductRequestViolation]
+    unrecorded = Asked(
+        asked_as="as_of refused, unrecorded",
+        payload=None,
+        content_address=None,
+        refusal=(
+            f"kind={kind!r} reason='not-supported-at-tier' key='as_of'"
+            f" detail='{EXTERNAL_STATEMENTS[kind]}' disclosure='minimal'"
+        ),
+        observed=("ProductRequestViolation",),
+        served_vessels=(),
+        record=None,
+    )
+    violations = inert_parameter_violations(
+        unrecorded, parameter="as_of", reason="not_supported_at_tier.", status=400
+    )
+    assert any("NO record" in entry for entry in violations), violations
 
 
 def test_the_inert_check_refuses_a_silently_honored_parameter() -> None:
@@ -772,7 +919,12 @@ def test_the_inert_check_refuses_a_refusal_beside_a_served_product() -> None:
         asked_as="as_of refused and served",
         payload=None,
         content_address=None,
-        refusal="AssemblyRefused: 400 not_supported_at_tier: as_of",
+        # The shell's rendered form, not an exception's. The two controls
+        # below fed exception PROSE until `24.6-L-02` narrowed that channel to
+        # invariant failure; a refusal about the request is a value now, and a
+        # control feeding the retired form would be planting an input the
+        # fabric can no longer produce.
+        refusal="product-request-violation: 400 not_supported_at_tier: as_of",
         observed=("Assembled",),
         served_vessels=("Assembled",),
     )
@@ -789,15 +941,16 @@ def test_the_inert_check_refuses_a_refusal_that_names_nothing() -> None:
         asked_as="a refusal naming nothing",
         payload=None,
         content_address=None,
-        refusal="AssemblyRefused: something went wrong",
+        refusal="product-request-violation: something went wrong",
         observed=("ParameterNotSupported",),
         served_vessels=(),
     )
     violations = inert_parameter_violations(
         vague, parameter="as_of", reason="not_supported_at_tier", status=400
     )
-    assert violations, "a refusal naming neither status nor reason was accepted"
-    assert any("does not name the status" in entry for entry in violations), violations
+    assert violations, "a refusal naming neither kind nor reason was accepted"
+    assert any("does not carry the tier reason" in entry for entry in violations), violations
+    assert any("does not name 'as_of'" in entry for entry in violations), violations
 
 
 # ---------------------------------------------------------------------------

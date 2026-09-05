@@ -170,6 +170,9 @@ def serve(root: Path) -> None:
                 clock=lambda: datetime.now(UTC),
             ),
             perspective_resolver=resolve_perspective,
+            # A denial at this door is a recorded decision, appended by the
+            # resolver's own writer (`D-IMPL-253` Q13, `D-IMPL-256`).
+            refusal_recorder=composed.resolver.refusal_recorder,
             expose_product_tool=True,
             product_tool_description=str(door["tool_description"]),
         )

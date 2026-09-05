@@ -31,7 +31,8 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.approval_gate import ApprovalSinkAdapter
 from ccf.hitl.transport import InMemoryHitlTransport
-from ccf.products.gates import ServableProduct
+from ccf.products.refusal import RefusalEnvelope
+from ccf.replay.serve import ServedProduct
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective
 from ccf.skills.catalog import SkillCatalog
@@ -86,7 +87,7 @@ def _no_products_resolver(
     version: str,
     perspective: Perspective,
     request: ProductRequest | None,
-) -> ServableProduct:
+) -> ServedProduct | RefusalEnvelope:
     """The egress seam with nothing assembled — every request is a miss.
 
     Carries the widened ``D-IMPL-108`` signature — the authorized

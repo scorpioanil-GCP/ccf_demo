@@ -112,6 +112,85 @@ def _partitions() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     return public, non_public
 
 
+def _export_shapes(document: dict[str, Any]) -> dict[str, Any]:
+    """Every fully-qualified export a surface document records, with its shape."""
+    return {
+        f"{module}.{name}": shape
+        for module, entry in document.items()
+        for name, shape in entry["exports"].items()
+    }
+
+
+def restored_surfaces() -> set[str]:
+    """Names the log ``reshaped`` **back to the shape the baseline froze**.
+
+    The mirror of :func:`short_lived_surfaces`, for a reshape rather than a
+    birth. A name whose signature a plan changed and a later plan changed back
+    appears in **no** partition of ``diff(baseline, live)``: it is in both
+    documents and its shape is the same in both, so there is nothing for the
+    diff to report. The record is honest and complete — every fragment along the
+    way claims ``reshaped``, and each was true when it was written — and the diff
+    simply cannot see a round trip.
+
+    ``ccf.products.gates.run_federated_gates`` is the first such name.
+    ``24.5-13`` gave it ``debt_tolerance`` and ``24.5-15`` gave it
+    ``empty_results``; ``24.6-04`` retired the first (``D-IMPL-251`` C1=A) and
+    ``24.6-05`` the second (``D-IMPL-242`` amendment 1), which returned the
+    signature to its Phase-15 form character for character.
+
+    **Derived, never listed**, on :func:`short_lived_surfaces`' reasoning: a
+    hand-maintained allowance rots and invites editing to silence a failure.
+
+    **Two conditions, and the second is what keeps this from being a hole.**
+    The shape condition alone would admit a fragment that claimed ``reshaped``
+    for a name nothing ever touched — a false claim, which the gate used to
+    catch. So a name also needs **at least two** ``reshaped`` claims against it:
+    a signature cannot return to the baseline's without having left it, and
+    leaving and returning are two claims by two plans. One fragment claiming a
+    reshape that never happened still fails, exactly as before.
+
+    An empty result is the ordinary state and admits nothing.
+    """
+    public, _ = _partitions()
+    baseline: dict[str, Any] = json.loads(
+        _FROZEN_BASELINE.read_text(encoding="utf-8")
+    )
+    return restored_from(
+        public,
+        frozen_shapes=_export_shapes(baseline),
+        live_shapes=_export_shapes(build_surface()),
+    )
+
+
+def restored_from(
+    entries: list[dict[str, object]],
+    *,
+    frozen_shapes: dict[str, Any],
+    live_shapes: dict[str, Any],
+) -> set[str]:
+    """The derivation :func:`restored_surfaces` performs, over supplied inputs.
+
+    Pure and parameterized so the controls below can hand it a fabricated log
+    and watch it refuse — the discipline this module applies everywhere else:
+    an allowance nobody has seen decline something is an allowance nobody has
+    tested.
+    """
+    claims: dict[str, int] = {}
+    for entry in entries:
+        if str(entry["Change type"]) != "reshaped":
+            continue
+        name = str(entry["Surface"])
+        claims[name] = claims.get(name, 0) + 1
+    return {
+        name
+        for name, count in claims.items()
+        if count >= 2
+        and name in frozen_shapes
+        and name in live_shapes
+        and frozen_shapes[name] == live_shapes[name]
+    }
+
+
 def short_lived_surfaces() -> set[str]:
     """Names **born and buried inside** the frozen-baseline window.
 
@@ -235,6 +314,15 @@ def test_every_public_log_entry_has_a_matching_diff_line() -> None:
     change. Any other public entry with no diff line is a defect, not a
     tolerance.
 
+    **A second pair is reconciled the same way: `reshaped` claimed for a name
+    whose signature a later plan reshaped BACK to the baseline's own.** See
+    :func:`restored_surfaces`. The round trip leaves the name in no partition
+    of the diff at all, and the admission is not a tolerance: membership in
+    that set *is* the measurement that the two documents agree about the name,
+    so a name whose shape genuinely differs cannot enter it. Assertion 2 still
+    holds the other direction, so a plan that reshapes a name and leaves it
+    reshaped is unaffected.
+
     **One direction pair is reconciled rather than failed: `reshaped` claimed
     for a name the frozen baseline shows as `added`.** The baseline is frozen at
     *Phase 15 start* and never rewritten, so a name Phase 15 introduced can only
@@ -254,6 +342,7 @@ def test_every_public_log_entry_has_a_matching_diff_line() -> None:
     failures: list[str] = []
     public, _ = _partitions()
     short_lived = short_lived_surfaces()
+    restored = restored_surfaces()
 
     for entry in public:
         change_type = str(entry["Change type"])
@@ -263,6 +352,8 @@ def test_every_public_log_entry_has_a_matching_diff_line() -> None:
         if change_type == "reshaped" and name in difference["added"]:
             continue
         if name in short_lived and change_type in {"added", "removed"}:
+            continue
+        if change_type == "reshaped" and name in restored:
             continue
         if name not in difference[change_type]:
             elsewhere = [
@@ -363,6 +454,137 @@ def test_the_short_lived_check_fires_on_a_name_older_than_the_baseline() -> None
         assert_short_lived_names_are_absent_from_both_sides({frozen[0]})
 
     assert "in the frozen baseline" in str(fired.value)
+
+
+def assert_restored_names_have_the_baselines_own_shape(names: set[str]) -> None:
+    """The check that makes :func:`restored_surfaces` an allowance, not a hole.
+
+    A name is admitted there because the two surface documents agree about its
+    shape. That agreement is checkable, and this checks it independently of the
+    derivation: a name missing from either document, or carrying a different
+    shape in the two, is not a round trip and admitting it would let a real
+    reshape pass unclaimed.
+
+    Takes ``names`` as a **parameter** so the controls below can hand this
+    function a divergent subject and be watched failing — the discipline this
+    module already applies to the short-lived pair.
+    """
+    baseline: dict[str, Any] = json.loads(
+        _FROZEN_BASELINE.read_text(encoding="utf-8")
+    )
+    frozen_shapes = _export_shapes(baseline)
+    live_shapes = _export_shapes(build_surface())
+
+    offenders = []
+    for name in sorted(names):
+        if name not in frozen_shapes:
+            offenders.append(f"{name} — absent from the frozen baseline")
+        elif name not in live_shapes:
+            offenders.append(f"{name} — absent from the live surface")
+        elif frozen_shapes[name] != live_shapes[name]:
+            offenders.append(
+                f"{name} — the two documents disagree about its shape:"
+                f" {frozen_shapes[name]} vs {live_shapes[name]}"
+            )
+    assert not offenders, (
+        "these names are admitted from the diff cross-check as reshaped back"
+        " to the baseline's own signature — but they are not restored:"
+        f" {offenders}"
+    )
+
+
+def test_a_restored_name_has_the_baselines_own_shape() -> None:
+    """The honest subject: every derived restored name really is a round trip."""
+    assert_restored_names_have_the_baselines_own_shape(restored_surfaces())
+
+
+def test_the_restored_check_fires_on_a_name_whose_shape_actually_moved() -> None:
+    """CONTROL — a name the two documents genuinely disagree about.
+
+    Fed to the **shipped** assertion. Without it the reconciliation in
+    :func:`test_every_public_log_entry_has_a_matching_diff_line` would rest on
+    a check nobody had seen refuse anything.
+    """
+    baseline: dict[str, Any] = json.loads(
+        _FROZEN_BASELINE.read_text(encoding="utf-8")
+    )
+    frozen_shapes = _export_shapes(baseline)
+    live_shapes = _export_shapes(build_surface())
+    moved = sorted(
+        name
+        for name, shape in live_shapes.items()
+        if name in frozen_shapes and frozen_shapes[name] != shape
+    )
+    assert moved, (
+        "no name in the tree has a shape different from the baseline's — this"
+        " control has no subject"
+    )
+
+    with pytest.raises(AssertionError) as fired:
+        assert_restored_names_have_the_baselines_own_shape({moved[0]})
+
+    assert "disagree about its shape" in str(fired.value)
+
+
+def test_the_restored_check_fires_on_a_name_the_baseline_never_had() -> None:
+    """CONTROL — a name added after the freeze, so `restored` is meaningless for it."""
+    baseline: dict[str, Any] = json.loads(
+        _FROZEN_BASELINE.read_text(encoding="utf-8")
+    )
+    frozen_shapes = _export_shapes(baseline)
+    live_only = sorted(
+        name for name in _export_shapes(build_surface()) if name not in frozen_shapes
+    )
+    assert live_only, "every live name predates the baseline — no subject"
+
+    with pytest.raises(AssertionError) as fired:
+        assert_restored_names_have_the_baselines_own_shape({live_only[0]})
+
+    assert "absent from the frozen baseline" in str(fired.value)
+
+
+def test_the_restored_check_admits_nothing_on_an_empty_set() -> None:
+    """CONTROL — **the empty case**, stated rather than left to inference."""
+    assert_restored_names_have_the_baselines_own_shape(set())
+
+
+def test_a_single_reshape_claim_is_not_a_round_trip() -> None:
+    """CONTROL — the derivation refuses a lone `reshaped` claim for an unmoved name.
+
+    The hole the second condition closes, watched closing. A fragment that
+    claimed a reshape which never happened would satisfy the shape comparison
+    trivially — the name IS identical in both documents, because nothing
+    touched it — and the reconciliation would silence a false record. One claim
+    is refused; two are admitted. Both legs asserted, so the rule is measured
+    rather than described.
+    """
+    shapes = {"pkg.mod.name": {"kind": "function", "shape": "()"}}
+    one = [
+        {"Surface": "pkg.mod.name", "Change type": "reshaped", "Public surface": True}
+    ]
+
+    assert (
+        restored_from(one, frozen_shapes=shapes, live_shapes=shapes) == set()
+    ), "a single reshape claim was admitted as a round trip"
+    assert restored_from(
+        one * 2, frozen_shapes=shapes, live_shapes=shapes
+    ) == {"pkg.mod.name"}
+
+
+def test_the_derivation_refuses_a_name_whose_shape_moved() -> None:
+    """CONTROL — two claims are not enough when the shapes disagree."""
+    two = [
+        {"Surface": "pkg.mod.name", "Change type": "reshaped", "Public surface": True}
+    ] * 2
+
+    assert (
+        restored_from(
+            two,
+            frozen_shapes={"pkg.mod.name": {"shape": "(a)"}},
+            live_shapes={"pkg.mod.name": {"shape": "(a, b)"}},
+        )
+        == set()
+    )
 
 
 def test_the_short_lived_check_admits_nothing_on_an_empty_set() -> None:

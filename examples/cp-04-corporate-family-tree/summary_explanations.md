@@ -67,22 +67,26 @@ make -s example-cp-04
 ```
 
 Excerpt — the closing summary. The full run also prints the served product
-itself: 22 members, their edges, their FIBO class chains and three findings.
+itself: 22 members, their edges, their FIBO class chains and four findings — the
+fourth, `traversal`, is the row behind the `depth applied` and `what it cost`
+lines below.
 
 ```
 What a plain SELECT would not have told you:
    asked as of        2026-08-31T12:00:00+00:00
    anchor             54930022CZO1N2UGVW07  SUPER MICRO COMPUTER, INC.
    ...its class chain 7 FIBO classes, from Corporation
-   depth asked        absent -> the DECLARED default 3, read from ccf_config.yaml::request_contract.argument_defaults
-   depth applied      3   (ceiling 6; over it is refused by name, never clamped)
+   depth asked        absent -> the DECLARED default 3, read from ccf_config.yaml's request_contract defaults by the SDK's own resolution
+   depth applied      3   requested, 3 reached — a depth this estate cannot exhibit is SERVED
+   ...what it cost    22 node(s) visited, 25 edge(s) walked — STRUCTURAL counts, so two runs of one question seal identically
+   ...the hard limit  100, the backend's capability (authority technical, source fluree/fibo-v2); over it the request is refused by name and answered at no narrower depth
    deepest node       3 hop(s) out — an undirected NEIGHBORHOOD, not a directed descendant tree (D-36)
    nodes returned     22
    ...resolved in the attribute store    2
    ...resolved to NO row                 20   — STILL IN THE TREE. A member with no LEI is a member
    jurisdictions      ['NL', 'US-DE']   — SERVED and asserted, never a permission key
    perspective role   credit-officer   (class axis Corporation, 22 member(s) detailed)
-   findings           3
+   findings           4
      - ownership_cycle: 3 member(s)
          CycCalderIndustrialNv
          CycThornburyCapitalLtd
@@ -141,9 +145,9 @@ three-member roster with one member swapped in from the other cycle, which a
 identifier is dropped from the tree or from the roster — which, in this family,
 is exactly the twenty that resolve to no reference row.
 
-The `assembled by` line names the assembler implementation that produced this run (`cp-04.corporate-family-tree@1.0.1`) — transcript evidence, read off the program's own stdout.
+The `assembled by` line names the assembler implementation that produced this run (`cp-04.corporate-family-tree@1.0.2`) — transcript evidence, read off the program's own stdout.
 
-Replay carriage of that identity is a Phase 24.6 ledger row (`D-IMPL-245` amendment 1); the transcript is the evidence the example can carry today.
+Decision Replay carries the same identity: the assembler id and version land under Perspective Conditioning for fulfilled **and** refused decisions, which `tests/examples/test_cp_04_seams.py::test_replay_carries_the_assembler_identity_for_fulfilled_and_refused` proves. The transcript line is evidence beside the record, not the only carrier.
 
 ---
 
@@ -159,14 +163,14 @@ Excerpt — the lines that differ from Run 1.
 
 ```
    depth asked        1   (named by the caller)
-   depth applied      1   (ceiling 6; over it is refused by name, never clamped)
+   depth applied      1   requested, 1 reached — a depth this estate cannot exhibit is SERVED
    deepest node       1 hop(s) out — an undirected NEIGHBORHOOD, not a directed descendant tree (D-36)
    nodes returned     20
    ...resolved to NO row                 18   — STILL IN THE TREE. A member with no LEI is a member
    perspective role   credit-officer   (class axis Corporation, 20 member(s) detailed)
    context debt D_c   0.1000  ->  ok
    ...decomposed      F=1  C=1  S=0.9
-   content address    56c1d54d180b696259dbaa5ee8f7cc6ebee935ae4579e110e644925d1ae47e60
+   content address    7163d0a1b5b7b9cdd1a6b8c63dd11b970c7d4048f2e8c1f7dbef4884b3ab4e2d
 ```
 
 ### What you'd have missed
@@ -181,7 +185,7 @@ acquisition.
 **The consequence is a cache, and it is the reason the depth is inside the
 seal.** A system that stored answers under the company's identifier alone could
 hand a one-hop answer back to a caller who asked for three. Here it cannot: the
-two answers seal to `56c1d54d…` and `205ae065…`, so they are different objects
+two answers seal to `7163d0a1…` and `fad6e55d…`, so they are different objects
 in any store that addresses by content.
 
 **AND THE DEBT MOVES WITH THE DEPTH, which it did not until 2026-09-01.** `D_c`
@@ -195,16 +199,21 @@ with the question. That is what gate **`CFT-G05`**'s third limb now holds, again
 two figures pinned in `artifacts/expected.yaml`.
 
 **The dangerous version of this is not a wrong depth — it is a silent one.** Ask
-for eight and the run refuses (Run 5). A build that quietly clamped eight to the
-ceiling of six would return a payload that looks entirely healthy, seals
-cleanly, and answers a question nobody asked.
+for eight and the run serves the three hops this family has and says so in the
+`traversal` finding (Run 5). Ask for more than the backend can walk and it
+refuses by name. A build that quietly clamped that request to the backend's
+capability would return a payload that looks entirely healthy, seals cleanly,
+and answers a question nobody asked.
 
 ### How it works
 
-The default of `3` and the bounds `1..6` are Control Plane values in
-**`ccf_config.yaml`**, read by **`run.py`** and interpolated into its own help
-text — so a config edit moves the walk *and* the documentation together, and
-neither number is typed into any module. Gate **`CFT-G05`** asserts that two
+The default of `3` is a Control Plane value under `request_contract.defaults`
+in **`ccf_config.yaml`**, applied by the SDK's own request resolution, so a
+defaulted depth arrives carrying the authority `default` and the declaration's
+pin rather than a number some module substituted. The hard limit is not a number
+in this deployment at all: `capability_bindings` names the SDK's
+`traversal-depth` token, and the value is read off the substrate at resolution
+time. Neither number is typed into any module. Gate **`CFT-G05`** asserts that two
 depths produce two answers, and asserts it **on the member roster** and **on the
 measured debt** rather than on the seal alone, because the seal moves on its own:
 the applied depth is echoed into the payload, so a seal-only check passes its own
@@ -226,7 +235,7 @@ Excerpt.
 
 ```
    perspective role   kyc-analyst   (class axis Corporation, 0 member(s) detailed)
-   content address    838afbb037a8ca820a2854b1ac7eedd296262508ce00d747369bf48ee6077ea8
+   content address    79733117121056fe40c6c095e4f7ff7ec6be33b884676fa4e60b38d43979bac8
 ```
 
 ### What you'd have missed
@@ -240,7 +249,7 @@ an answer in the ontology, not in a routing table somebody edited.
 
 **And the two seal differently, which is what makes the flag able to fail.** A
 perspective that changed the presentation and left the seal identical would be
-decoration — a switch that cannot fail. `205ae065…` and `838afbb0…` are
+decoration — a switch that cannot fail. `fad6e55d…` and `79733117…` are
 different addresses, so the difference survives into the audit record and into
 any cache.
 
@@ -254,7 +263,7 @@ rather than leaving a switch in place that no longer does anything.
 
 ---
 
-## Run 4 — a second anchor, refused in both directions
+## Run 4 — a second anchor, served with the idle declaration named
 
 ### The output
 
@@ -262,41 +271,58 @@ rather than leaving a switch in place that no longer does anything.
 make -s example-cp-04 LEI=549300F16C4PEFXU0S92
 ```
 
+Excerpt — the lines that differ from Run 1.
+
 ```
-assembly refused: artifacts/source-vocabulary.yaml declares jurisdiction(s) ['US-DE'] that no member of this family serves. The declared set is the family's OBSERVED set; a row that never fires is how an idle gate looks, and the observed set is ['NL'].
+   anchor             549300F16C4PEFXU0S92  SUPER MICRO COMPUTER B.V.
+   depth applied      3   requested, 0 reached — a depth this estate cannot exhibit is SERVED
+   ...what it cost    1 node(s) visited, 0 edge(s) walked — STRUCTURAL counts, so two runs of one question seal identically
+   nodes returned     1
+   jurisdictions      ['NL']   — SERVED and asserted, never a permission key
+   findings           3
+     - idle_jurisdictions: 1 member(s)
+         US-DE
+     - unresolved_jurisdiction: 0 member(s)
+   content address    9865568d5abc560e38766644406938a5fd61190fba377c123ff354072adfabe7
 ```
 
-(The whole of stderr before make's own error line; stdout is empty and the
-program exits 1.) Anchoring on a larger group is refused the other way, naming
-the jurisdictions that group serves and this document does not declare.
+A one-member family, served, with a finding that names the declared jurisdiction
+this family never exhibits. Anchoring on a larger group whose members serve a
+jurisdiction the document does *not* declare fails the other way — as a runtime
+failure, not a served answer — naming the values the document does not declare.
 
 ### What you'd have missed
 
-**The served vocabulary is closed in both directions, and that is the stricter
-half of the promise.** Most systems check that nothing *unknown* comes out.
-This one also checks that nothing *declared* goes unused. A jurisdiction code
-sitting in the configuration that no member of the family ever exhibits is a
-rule that fires on nothing — which looks identical to a rule that is working
-right up until the day it should have caught something.
+**The served vocabulary is closed, and the two directions are treated
+differently on purpose.** Most systems check that nothing *unknown* comes out;
+here a served jurisdiction outside the declared set is a contradiction among the
+deployment's own inputs, and the fabric refuses to reach an answer at all. The
+other direction — a jurisdiction code sitting in the configuration that no
+member of *this* family exhibits — is a fact about this family, not a broken
+deployment, so it is served as a finding: a rule that fired on nothing is named
+rather than left looking like a rule that is working.
 
 **For a banker, the consequence is about the value in the box, not the box.** A
 family whose members serve a jurisdiction nobody declared is the case where a
-reporting or screening rule silently has no opinion. The refusal names which
-direction failed and which codes were involved, so the fix is a one-line
-document edit rather than an investigation.
+reporting or screening rule silently has no opinion, and that is the case that
+fails loudly. A declared code that this family never touched is reported beside
+the answer, so nobody reads the configuration as evidence of coverage.
 
 ### How it works
 
-The closed set lives in **`artifacts/source-vocabulary.yaml`**, and
-**`deployment.py`** refuses both an undeclared value and an unfired declaration.
-Because the declared set is *this family's observed set*, both declared rows
-fire and neither is idle — which is what makes each of them sabotageable at all.
+The closed set lives in **`artifacts/source-vocabulary.yaml`**. **`deployment.py`**
+still raises on an undeclared served value — an invariant failure that reaches
+the command line as `CCF runtime failure` with exit 2 — and, since Phase 24.6,
+returns the observed set together with an `idle_jurisdictions` finding for a
+declared value that never fired. Because the demonstration family's declared
+set is *its observed set*, both declared rows fire under the default anchor and
+neither is idle — which is what makes each of them sabotageable at all.
 Swapping the demonstration anchor is therefore an artifact edit as well as a
 parameter, and the README says so.
 
 ---
 
-## Run 5 — the two refusals
+## Run 5 — a depth that is served, and the four refusals
 
 ### The output
 
@@ -304,8 +330,29 @@ parameter, and the README says so.
 make -s example-cp-04 MAX_DEPTH=8
 ```
 
+Excerpt — served, with the gap visible.
+
 ```
-assembly refused: 400 max_depth=8 is outside the declared bounds 1..6. REFUSED BY NAME, never clamped — a clamped depth answers a question nobody asked, with no error
+   depth asked        8   (named by the caller)
+   depth applied      8   requested, 3 reached — a depth this estate cannot exhibit is SERVED
+   nodes returned     22
+   content address    2607d522bcfe0821f635dd86b2d4af08b9a6d0973ed64af11ea7df4fce95fd9d
+```
+
+```
+make -s example-cp-04 MAX_DEPTH=0
+```
+
+```
+refused: below-minimum — max_depth
+```
+
+```
+make -s example-cp-04 MAX_DEPTH=101
+```
+
+```
+refused: bound-exceeded — max_depth
 ```
 
 ```
@@ -316,16 +363,47 @@ make -s example-cp-04 AS_OF=2026-03-31
 refused: not-supported-at-tier — as_of
 ```
 
-Both exit non-zero, and each refusal is one line on stderr with stdout empty. A
-refusal is not a crash, but it is also not a success.
+```
+make -s example-cp-04 LEI=000000000000000000ZZ
+```
+
+```
+refused: subject-unavailable
+```
+
+The four refusals exit non-zero, and each is one line on stderr with stdout
+empty. A refusal is not a crash, but it is also not a success. The line prints
+the reason and the parameter it names; the kind — `product-request-violation`,
+`constraint-refusal`, `not-supported-at-tier`, `subject-unavailable` — travels
+on the envelope the program branched on.
 
 ### What you'd have missed
 
-**The dangerous outcome of an out-of-range depth is not the refusal — it is the
-clamp.** A system that takes `max_depth=8`, walks six, and returns a healthy
-payload has answered a narrower question than the one asked, with nothing in the
-output saying so. Every downstream conclusion inherits a group boundary that was
-never requested. Here the caller finds out at the moment of asking.
+**A depth the family cannot fill is an answer, not an error.** Asked for eight,
+the walk reaches three, and the finding says both. Refusing that request would
+have told a caller who wanted "the whole group" that they asked wrongly; a
+served answer with `requested_depth: 8` beside `depth_reached: 3` tells them the
+group is smaller than their question.
+
+**A depth of zero is not a question this product answers, and the contract says
+so.** A zero-hop family is the anchor alone — a lookup wearing a walk's name.
+The floor of `1` is declared on the request contract as the parameter's valid
+domain, beside its type, and the SDK refuses below it by name. It is not a
+policy: nobody is being denied anything; the question is malformed for this
+product, the way a negative tolerance is.
+
+**The dangerous outcome of a depth beyond the backend is not the refusal — it is
+the clamp.** A system that takes `max_depth=101`, walks a hundred, and returns a
+healthy payload has answered a narrower question than the one asked, with
+nothing in the output saying so. Every downstream conclusion inherits a group
+boundary that was never requested. Here the caller finds out at the moment of
+asking, and the refusal carries the bound and the authority that set it — the
+backend's own capability, not a number somebody typed.
+
+**And a company the ledger does not carry is a governed answer, not an
+exception.** `subject-unavailable` is a determination the fabric made and
+recorded; at the doors it is disclosed in the same shell an unentitled caller
+receives, so the response cannot be used to learn which companies exist.
 
 **And the dangerous outcome of an as-of date is acceptance.** *"Show me this
 group as it stood at last year's annual review"* is a reasonable question and
@@ -337,15 +415,24 @@ gap is visible in the contract rather than discovered in an audit.
 
 ### How it works
 
-Both refusals are declared in **`ccf_config.yaml`** — the depth bounds under
-`argument_bounds`, the refused parameter under `unsupported_arguments` — and
-neither is a condition written in a module. They travel differently: the
-`as_of` verdict is the SDK's, returned as data by the tier step of
-`refuse_request` (`src/ccf/products/request.py::_refuse_tier`, `24.5-L-12`/`L-13`)
-before the product's own code runs, and printed as the reason plus the parameter
-it names; the over-ceiling depth is refused by the assembler by name. Gate
-**`CFT-G03`** fails if an over-ceiling depth is clamped instead of refused; gate
-**`CFT-G06`** fails if `as_of` is silently honored.
+Every one of these is declared, and none is a condition written in a module.
+The depth's floor is the parameter's valid domain, declared under
+`argument_domains` on the request contract in **`ccf_config.yaml`** and held by
+the SDK's own request validation (`src/ccf/products/request.py::refuse_request`,
+the domain step) as a `product-request-violation` returned as data — deleting
+the declaration is the sabotage, and `0` was served before it existed. The
+depth's hard limit is the substrate's own capability, bound to `max_depth`
+under `capability_bindings` in **`ccf_config.yaml`** and resolved by the SDK
+(`src/ccf/products/constraints.py::resolve_effective_request`) into a
+`constraint-refusal` carrying the bound with authority `technical`. The `as_of`
+verdict is the SDK's too, returned as data by the tier step of `refuse_request`
+(`src/ccf/products/request.py::_refuse_tier`, `24.5-L-12`/`L-13`) before the
+product's own code runs, from the declaration under `unsupported_arguments`.
+The missing anchor is the assembler's own determination, returned as a
+`subject-unavailable` refusal rather than raised. Gate **`CFT-G03`** fails if a
+depth above the capability is clamped instead of refused, or if a depth the
+estate cannot exhibit is refused instead of served; gate **`CFT-G06`** fails if
+`as_of` is silently honored.
 
 ---
 
@@ -356,7 +443,8 @@ it names; the over-ceiling depth is refused by the assembler by name. Gate
 | **Content address** | a tamper-evident seal on one answer | `sha256` over the canonical bytes of the served product |
 | **Context debt** (`D_c`) | how far short of ideal this answer falls | a composite of freshness, completeness and semantic consistency, `0`–`1`; advisory at every rung of this ladder |
 | **Half-life** (`λ_c`) | how fast a fact of this kind goes stale | a per-signal-class decay rate; ownership edges decay on an acquisition-and-restructuring cadence |
-| **Max depth** | how far out from the company you asked to look | a request parameter, bounded `1..6`, that travels into the content address |
+| **Max depth** | how far out from the company you asked to look | a request parameter that travels into the content address; absent, the declared default `3`; below the declared floor of `1`, refused as malformed; above the backend's capability, refused by name |
+| **Depth reached / cost** | how far the walk actually got, and what it took | the `traversal` finding — requested depth, depth reached, nodes visited and edges walked, all structural counts and never a clock |
 | **Perspective / role** | which reader this answer was shaped for | a projection conditioned on a FIBO class axis, not on a list of who may see what |
 | **Finding** | something about this family worth telling you | a typed record beside the tree, carrying a roster and — for a cycle — the edge that closes it |
 | **Ontology / FIBO class chain** | what kind of thing each member is | the served `type_chain`, so a consuming agent needs no second lookup |
@@ -373,8 +461,9 @@ This is the section that separates a demonstration from a guarantee.
 |---|---|---|
 | Every member carries a known FIBO class | the served class chain | `CFT-G01` |
 | Only the six declared family predicates enter | the closed predicate vocabulary | `CFT-G02` |
-| An over-ceiling depth is refused, never clamped | `argument_bounds` in `ccf_config.yaml` | `CFT-G03` |
-| An absent depth takes the *declared* default | `argument_defaults`, read at serve time | `CFT-G04` |
+| A depth above the backend's capability is refused by name and answered at no narrower depth; a depth the estate cannot exhibit is served with the gap visible | `capability_bindings` in `ccf_config.yaml`, resolved against the substrate's declared capability | `CFT-G03` |
+| An absent depth takes the *declared* default | `request_contract.defaults`, applied by the SDK's resolution | `CFT-G04` |
+| A depth below the declared floor of 1 is refused as a malformed question, never served as a one-node family | `request_contract.argument_domains`, held by the SDK's `refuse_request` | `test_the_floor_is_the_sdks_verdict_over_the_declaration_and_needs_no_store` and the two live boundary asks in `tests/examples/test_cp_04_traversal.py` (a test, not a gate id — see the README) |
 | Two depths are two answers, on the roster and not the seal alone | the walk bound | `CFT-G05` |
 | An as-of date is refused, never silently honored | `unsupported_arguments` | `CFT-G06` |
 | A cycle is reported with its exact roster | the assembler's detector | `CFT-G07` |
@@ -407,11 +496,16 @@ from a design document.
 
 The default run is pinned: asked as of `2026-08-31T12:00:00+00:00`, serving
 content address
-`205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498`. The census
+`fad6e55da2c0e6276b69d9a053e4eff155e5c3266b68f3fffb873b0c5e754fc7`. The census
 behind every figure was read at ledger transaction `5112` on 2026-08-31, and
-that is the transaction the documentation page names; the transcript was
+that is the transaction the documentation page names. The transcript was
 re-captured on 2026-09-03 with the ledger head at `5296` and reproduced byte for
-byte, the one new line being `assembled by`. **The product reproduces
+byte, the one new line being `assembled by`; it was re-captured again on
+2026-09-05 with the head still at `5296`, measured before and after the run,
+and every changed line is this rung's own rebuild — the `traversal` finding,
+the depth and cost lines, the assembler version, the policy bundle's content
+version and the seal, which moved from `205ae065…` because the payload gained a
+finding and not because the estate moved. **The product reproduces
 byte-identical against a quiescent ledger for that run.** That sentence is the
 whole of the claim and no stronger one appears anywhere in this example.
 

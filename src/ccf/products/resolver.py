@@ -119,6 +119,24 @@ No boundary is crossed to achieve any of this: nothing imported below leaves
 ``ccf``. ``tests/invariants/test_src_does_not_import_runtime.py`` asserts that
 for the whole tree rather than for this module's good intentions.
 
+**Determination → Authority → Disclosure → Delivery** — the architectural
+invariant of ``D-IMPL-254``, SDK-defined under CLAUDE.md §11 and not
+whitepaper-derived (the whitepaper is deliberately not edited, ``D-IMPL-253``
+Q28). Dave's text: *"Internal truth, governing authority, and permitted
+disclosure are distinct concerns. The fabric preserves the governed truth of
+why a determination was reached; Policy determines what of that truth may cross
+the consumer boundary; the response shell expresses only the permitted
+disclosure. Decision Replay preserves sufficient governed evidence to
+reconstruct both the determination and the disclosure decision."*
+
+**This module is where the four layers meet, and it is the only place they
+do.** :class:`GovernedResolver` resolves the request against its authorities
+(Authority), assembles and gates it (Determination), and hands every governed
+"no" to :class:`ReplayRefusalRecorder` — the one seam that records the internal
+truth and returns the shell :func:`~ccf.products.disclosure.disclose` permitted
+(Disclosure). What a door does with that shell is Delivery, and a door decides
+nothing.
+
 This module is algorithmic (CINV-03): no LLM client on this path, ever. The
 gate sequence and the replay append are the algorithmic half of the
 Algorithmic ⇄ Semantic Alternation (whitepaper §7.6.6), and a model call
@@ -128,8 +146,9 @@ between a candidate and its content address.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import timedelta
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Final, Protocol, TypeVar, runtime_checkable
 
@@ -143,33 +162,72 @@ from ccf.controlplane.artifacts import (
     ProductClassDeclaration,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.deployment import BootedFabric, build_operator_registry
-from ccf.graph.protocols import GraphView
+from ccf.graph.protocols import GraphView, TraversalDepthCapability
 from ccf.halflife.debt import DebtAssessment
 from ccf.products.contract import (
+    AssemblyMode,
+    ComputedEmptyFinding,
     ContextProductContract,
     MaxTTL,
     ProductLineage,
     RegisteredProductClass,
     register_product_class,
 )
-from ccf.products.debt_scorer import AssemblyDebtScorer, DeclaredFactor
+from ccf.products.debt_scorer import (
+    AssemblyDebtScorer,
+    DeclaredFactor,
+    ExecutionEvidence,
+    emptiness_of,
+)
+from ccf.products.constraints import (
+    CAPABILITY_TRAVERSAL_DEPTH,
+    ConstraintRefusal,
+    PolicyConstraintResolver,
+    PolicyResolutionConflict,
+    ReferencePolicyConstraintResolver,
+    TechnicalCapability,
+    _ConstraintSource,
+)
+from ccf.products.disclosure import (
+    DISCLOSURE_MINIMAL,
+    DisclosureLevel,
+    disclose,
+)
+from ccf.products.entitlement import (
+    ProductEntitlementPolicy,
+    product_entitlement_key,
+)
 from ccf.products.gates import (
     DEBT_TOLERANCE_PARAMETER,
     ServableProduct,
-    effective_debt_ceiling,
+    refuse_over_tolerance,
     run_gates,
 )
-from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
+from ccf.products.provenance import EffectiveRequest, ProvenanceSource
+from ccf.products.refusal import (
+    RefusalEnvelope,
+    RefusalEvidence,
+    RequestIdentity,
+    envelope_for,
+)
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
-    refuse_request,
+    ProductRequestViolation,
+    refuse_undeclared_class_default,
 )
-from ccf.projection.engine import ProjectionEngine
+from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
 from ccf.replay.record import PolicyBinding, build_replay_record
-from ccf.replay.serve import QueryPinWriter, ReplayWriter, ServedProduct, serve
+from ccf.replay.serve import (
+    QueryPinWriter,
+    ReplayWriter,
+    ServedProduct,
+    record_refusal,
+    serve,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -179,6 +237,8 @@ __all__ = [
     "GovernedResolver",
     "ProductNotResolvable",
     "ProjectionPlanFactoryProtocol",
+    "RefusalRecorderProtocol",
+    "ReplayRefusalRecorder",
     "ResolverOutcome",
     "ServedProductResolverProtocol",
     "build_governed_resolver",
@@ -422,11 +482,398 @@ class AssemblyDebtScorerProtocol(Protocol):
 
     It takes the *view* rather than the payload because debt is measured
     against the assembly, not declared beside it.
+
+    **``evidence`` joined the seam at ``24.6-05``** (``24.6-L-06``,
+    ``D-IMPL-255`` (2)). ``D_c`` may not be derived from how many rows came
+    back — *"Cardinality never determines Context Debt. Evidence determines
+    Context Debt."* — so a conforming scorer is handed what the execution
+    observed about its own search: queries issued, operators invoked and
+    returned empty, source attestation, snapshot pin. It is keyword-only with
+    a ``None`` default, which is *no evidence was supplied*; a scorer is free
+    to ignore it, and the shipped reference passes it on to the deployment's
+    ``C``/``S`` scorers that declare themselves able to read it
+    (:class:`~ccf.products.debt_scorer.EvidenceAwareFactorScorer`).
+    **A deployment scorer written before ``24.6-05`` must accept the keyword**
+    — the governed resolver always passes it, because a resolver that decided
+    per-scorer whether to tell the truth about the search would be two seams
+    wearing one name.
     """
 
-    def __call__(self, *, view: GraphView) -> DebtAssessment:
+    def __call__(
+        self,
+        *,
+        view: GraphView,
+        evidence: ExecutionEvidence | None = None,
+    ) -> DebtAssessment:
         """Assess ``D_c`` over the graph state this question assembled."""
         ...
+
+
+@runtime_checkable
+class RefusalRecorderProtocol(Protocol):
+    """The ONE seam through which a governed refusal reaches the replay writer.
+
+    **SDK-defined** (CLAUDE.md §11); the rulings of record are ``D-IMPL-253``
+    Q13 (*"Refusal is itself a decision and deserves the same five-dimensional
+    replay model. Do not create second-class replay."*) and ``D-IMPL-256``,
+    whose invariant this seam exists to make structural rather than
+    conventional:
+
+        *"Every governed determination that crosses a CCF delivery boundary —
+        fulfilled or refused, tool or resource, authorized or denied — must
+        reach the replay writer before the response is released. A delivery
+        boundary unable to satisfy that invariant is unavailable, not partially
+        governed."*
+
+    **Why a seam and not a function.** Four callers mint through it and they do
+    not share a caller's shape: this module's own three refusal branches, the
+    governed delivery-boundary step every entitling door calls
+    (``runtime/ccf_runtime/authz/delivery_boundary.py``), and an assembler's
+    own wrappers. A Protocol is what lets all four hold *one* recorder — one
+    :class:`~ccf.replay.serve.ReplayWriter`, over one artifact store — while a
+    deployment that files records elsewhere substitutes its own by conforming.
+
+    **What must NOT happen here, stated because it is the failure this seam
+    prevents.** ``D-IMPL-256`` again, in Dave's words: *"make sure the
+    architecture does not accidentally make the transport responsible for
+    minting replay. The sequence should conceptually remain: request →
+    identity/policy → determination → replay → disclosure shaping → transport
+    encoding, not: request → determination → HTTP/MCP → transport notices
+    refusal → writes replay. Replay belongs to the governed determination, not
+    to HTTP or MCP."* No module under ``runtime/ccf_runtime/http_api/`` or
+    ``runtime/ccf_runtime/mcp/`` calls this seam; the governed step does, and
+    the transports encode what it returns.
+
+    ``@runtime_checkable`` so a delivery boundary can assert conformance at the
+    point it is handed one rather than discovering a shape mismatch inside a
+    determination it has already made. The check is structural and covers the
+    presence of ``record``, not its signature; the signature is mypy's job.
+    """
+
+    def record(
+        self,
+        envelope: RefusalEnvelope,
+        *,
+        perspective: Perspective,
+        recorded_at: datetime,
+        request: ProductRequest | None = None,
+        execution: ExecutionResult | None = None,
+        policy_bindings: tuple[PolicyBinding, ...] = (),
+        assembler_id: str | None = None,
+        assembler_version: str | None = None,
+        resolution: EffectiveRequest | None = None,
+    ) -> RefusalEnvelope:
+        """Append ``envelope``'s decision record, then return it with its address.
+
+        The ordering is the whole mechanism and it is not negotiable: the
+        record is appended **first**, and the shell the caller gets back is the
+        one the append produced an address for. A caller that received a shell
+        has, by construction, a recorded decision behind it.
+
+        Args:
+            envelope: The governed "no", as the determination produced it. Its
+                :attr:`~ccf.products.refusal.RefusalEnvelope.replay_reference`
+                is expected to be the sentinel; whatever it carries, the
+                **recorded** shell carries the sentinel, because a record whose
+                content address covered a reference to itself could not be
+                content-addressed at all.
+            perspective: Whose viewpoint the determination was reached under,
+                **already resolved** — dimension 4, recorded verbatim.
+
+                It is a :class:`~ccf.projection.plan.Perspective` rather than a
+                ``principal_id`` and a ``role``, and that is a structural
+                requirement rather than a convenience: ``15.5-RESEARCH.md``
+                Pitfall 3 forbids a ``principal_id`` **parameter** anywhere
+                under ``ccf/products``, ``ccf/projection`` or ``ccf/replay``,
+                and ``tests/invariants/test_mcp_role_separation.py`` walks the
+                three trees for one. Entitlement is decided at the door and
+                everything below receives an already-resolved perspective; a
+                seam that took the two halves apart would be assembling
+                identity one layer too low.
+
+                A delivery boundary that denies before any Π role is resolved
+                passes :data:`~ccf.replay.record.NO_ROLE_RESOLVED` as the role
+                — a positive claim the **door** makes, rather than a ``None``
+                this seam would have to interpret on the door's behalf.
+            recorded_at: The determination's own instant. For a resolver
+                refusal that is the question's ``asked_at``; for a
+                delivery-boundary denial it is the deployment's declared
+                entitlement clock, and it is the **same** instant the
+                envelope's
+                :attr:`~ccf.products.refusal.ResourceRequestIdentity.determined_at`
+                carries — the shell and its record cannot disagree about when
+                the fabric decided.
+            request: The typed question, when there was one. ``None`` for a
+                standing-resource denial, which is a governed request in a
+                different request form (``D-IMPL-256`` (1)).
+            execution: The execution behind the refusal, when the graph was
+                read. ``None`` makes dimension 1 the positive *unread* claim.
+            policy_bindings: Control Plane pins in force, beyond whatever the
+                recorder was constructed with.
+            assembler_id: The assembler in force, and ``assembler_version`` its
+                lane — dimension 4 (``D-IMPL-253`` Q16).
+            resolution: The Authority layer's record, when the question reached
+                that layer — dimension 2 (``D-IMPL-253`` Q1/Q6).
+
+        Returns:
+            The same envelope with its
+            :attr:`~ccf.products.refusal.RefusalEnvelope.replay_reference` set
+            to where the record landed.
+
+        Raises:
+            Exception: whatever the artifact store raises, deliberately
+                uncaught. A failure to record is a failure to respond.
+        """
+        ...
+
+
+def _disclosure_reader(
+    control_plane: ControlPlaneProtocol,
+) -> Callable[..., tuple[DisclosureLevel, ProvenanceSource | None]]:
+    """A :attr:`ReplayRefusalRecorder.disclosure_level_for` over one registry.
+
+    ``24.6-L-16``; ``D-IMPL-253`` Q17. Resolves the tenant's
+    :class:`~ccf.products.entitlement.ProductEntitlementPolicy` under
+    :func:`~ccf.products.entitlement.product_entitlement_key`, reads the
+    principal's own override when the grant declares one, and falls back to the
+    tenant's level. **No registered policy is
+    :data:`~ccf.products.disclosure.DISCLOSURE_MINIMAL` with a ``None``
+    source** — the safe default, and the ``None`` says positively that no
+    policy set it rather than leaving a reader to guess.
+
+    Read **per call**, with no cache and no TTL, on
+    :class:`~ccf_runtime.authz.product_entitlement.ControlPlaneProductEntitlementSource`'s
+    own reasoning (D-07): a posture tightened in the Control Plane must govern
+    the next determination.
+
+    A near-miss is refused rather than interpreted, in that source's shape too:
+    an artifact under the key that is not a policy, or one whose own
+    ``tenant_id`` is not the tenant it was found under, raises. Disclosing
+    under a policy that names another tenant is exactly the elevation
+    ``T-24.6-29`` describes.
+
+    The returned closure is keyword-permissive for the reason
+    :func:`_minimal_disclosure` is: naming ``principal_id`` as a parameter
+    under ``ccf/products`` is what ``15.5-RESEARCH.md`` Pitfall 3 forbids.
+    """
+
+    def read(**asked: object) -> tuple[DisclosureLevel, ProvenanceSource | None]:
+        tenant = str(asked["tenant"])
+        principal = str(asked["principal_id"])
+        key = product_entitlement_key(tenant_id=tenant)
+        try:
+            version, resolved = control_plane.resolve_latest(key)
+        except LookupError:
+            # Deny-by-default in the disclosure dimension: a tenant with no
+            # registered entitlement policy discloses minimally. The exception
+            # type is the registry's (`ControlPlaneMissing`, a `LookupError`),
+            # and catching it structurally rather than by name keeps this
+            # module free of a second import of the registry's error
+            # vocabulary. ONLY the lookup failure is "no policy": a registry
+            # that failed for any other reason propagates, because answering
+            # `(minimal, None)` for it would record *no policy is registered*
+            # as the disclosure's provenance when the truth is that the policy
+            # could not be read — a false claim in replay dimension 5, found by
+            # the Phase 24.6 close panel.
+            return DISCLOSURE_MINIMAL, None
+        if not isinstance(resolved, ProductEntitlementPolicy):
+            raise TypeError(
+                f"artifact under {key!r} is not a ProductEntitlementPolicy"
+                f" (got {type(resolved).__name__}); the disclosure level is"
+                " read from the tenant's own entitlement policy and a"
+                " near-miss is refused, never interpreted"
+            )
+        if resolved.tenant_id != tenant:
+            raise ValueError(
+                f"policy under {key!r} declares tenant {resolved.tenant_id!r},"
+                f" not {tenant!r}; disclosing under another tenant's policy is"
+                " the elevation the tenant-scoped key exists to prevent"
+            )
+        source = ProvenanceSource(kind="artifact", identity=key, version=version)
+        grant = resolved.principals.get(principal)
+        if grant is not None and grant.disclosure_level is not None:
+            return grant.disclosure_level, source
+        return resolved.disclosure_level, source
+
+    return read
+
+
+def _minimal_disclosure(
+    **_read: object,
+) -> tuple[DisclosureLevel, ProvenanceSource | None]:
+    """The posture a recorder with nothing to ask can honestly report.
+
+    ``D-IMPL-253`` Q17: *"Suppression silence should be policy-controlled, with
+    minimal disclosure as the safe default."* A recorder constructed without a
+    Control Plane reader cannot resolve any tenant's policy, so
+    :data:`~ccf.products.disclosure.DISCLOSURE_MINIMAL` is not a fallback here —
+    it is the only true answer, and the ``None`` source says positively that no
+    policy set it.
+
+    Keyword-permissive so it satisfies the seam's shape without naming the two
+    keywords: a default that declared ``principal_id`` would put that parameter
+    under ``ccf/products``, which ``15.5-RESEARCH.md`` Pitfall 3 forbids and
+    ``tests/invariants/test_mcp_role_separation.py`` fails on.
+    """
+    return DISCLOSURE_MINIMAL, None
+
+
+@dataclass(frozen=True, kw_only=True)
+class ReplayRefusalRecorder:
+    """The SDK's reference :class:`RefusalRecorderProtocol` — one writer, one store.
+
+    **SDK-defined** (CLAUDE.md §11), and the reference implementation CLAUDE.md
+    §11 requires beside every Protocol. It composes exactly two shipped things
+    and invents nothing: :func:`~ccf.replay.record.build_replay_record` with
+    the refusal as its outcome, and :func:`~ccf.replay.serve.record_refusal`
+    over a :class:`~ccf.replay.serve.ReplayWriter` — the **same** writer class
+    the served path uses, over the store the deployment already handed its
+    resolver. That sameness is the substance of *"do not create second-class
+    replay"*: a second writer, or a second record shape, would be exactly that.
+
+    It is also why the ArtifactStore never becomes a second writer to the graph
+    (CLAUDE.md §7.4, §10): this type holds a store and no graph handle, and
+    nothing below reaches one.
+
+    Attributes:
+        artifact_store: Where the record lands. A substrate reached *through*
+            mechanism.
+        replay_record_class: The artifact class replay records are filed under.
+            Deployment vocabulary, supplied rather than assumed.
+        tenant_id: The tenant every determination this recorder writes was made
+            under. A refusal carries no vessel to read it off, so it is stated
+            once here rather than at each call — a recorder is bound to a
+            deployment exactly as its resolver is.
+        assembly_mode: The mode dimension 3 records.
+            :func:`~ccf.replay.record.build_replay_record` takes it with no
+            default, so it is held here rather than defaulted into existence.
+        policy_bundle_pin: The bundle in force, prepended to every record's
+            bindings. ``None`` — the default — means the record's bindings are
+            **exactly** the caller's tuple, which is the honest posture for a
+            recorder wired by a delivery boundary that holds no bundle key.
+        disclosure_level_for: How this recorder reads the posture in force
+            (``24.6-L-16``; ``D-IMPL-253`` Q17). Called as
+            ``(tenant=..., principal_id=...)`` and returning the level with the
+            Control Plane source that set it.
+
+            **Keyed by principal, not by**
+            :class:`~ccf.projection.plan.Perspective`: a delivery-boundary
+            denial has a principal and no resolved role at all
+            (``NO_ROLE_RESOLVED``), and it must disclose under the same reader
+            a resolver refusal for that principal would. A signature that
+            needed a role would have made the two paths disclose differently,
+            which is the observational difference ``D-IMPL-253`` amendment 2
+            (4) forbids.
+
+            The default is :func:`_minimal_disclosure`, which reads nothing and
+            answers ``(DISCLOSURE_MINIMAL, None)``. A recorder wired with no
+            Control Plane to ask cannot resolve a policy, and the safe default
+            is the only coherent answer — asserted here rather than left to a
+            caller to remember. :func:`build_governed_resolver` supplies a
+            reader over the deployment's own registry.
+    """
+
+    artifact_store: ArtifactStoreProtocol
+    replay_record_class: str
+    tenant_id: str
+    assembly_mode: AssemblyMode
+    policy_bundle_pin: PolicyBinding | None = None
+    # A `default_factory` rather than a bare `default`, and the reason is a
+    # measurement rather than a style: a function object's `repr` carries its
+    # memory address, and `docs/surface/v0.2-surface.json` renders this
+    # dataclass's `__init__` signature — so a plain default would put
+    # `<function _minimal_disclosure at 0x…>` in a committed manifest, which is
+    # a different document on every run. `dataclasses` renders a factory's
+    # default as the stable `<factory>` sentinel.
+    # (`tests/test_surface_shape_capture.py::test_the_serialized_manifest_carries_no_memory_addresses`.)
+    disclosure_level_for: Callable[
+        ..., tuple[DisclosureLevel, ProvenanceSource | None]
+    ] = field(default_factory=lambda: _minimal_disclosure)
+
+    def record(
+        self,
+        envelope: RefusalEnvelope,
+        *,
+        perspective: Perspective,
+        recorded_at: datetime,
+        request: ProductRequest | None = None,
+        execution: ExecutionResult | None = None,
+        policy_bindings: tuple[PolicyBinding, ...] = (),
+        assembler_id: str | None = None,
+        assembler_version: str | None = None,
+        resolution: EffectiveRequest | None = None,
+    ) -> RefusalEnvelope:
+        """Disclose, append the INTERNAL truth, then hand back the shell.
+
+        See :meth:`RefusalRecorderProtocol.record` for the argument contract.
+
+        **The order is the architecture** (``D-IMPL-254``). The record is built
+        from the **internal** envelope — the determination as the fabric
+        reached it, whole — together with the
+        :class:`~ccf.products.disclosure.DisclosureDecision` that produced the
+        shell; what is returned is the **disclosed** envelope with its address
+        attached. So replay reconstructs both *what was determined* and *why
+        the consumer saw the particular response it saw*, which is the pair
+        ``D-IMPL-254`` requires and which recording only the shell would lose.
+
+        Dave, ``D-IMPL-253`` Q27: *"Don't destroy audit truth merely to achieve
+        external suppression silence."* Recording the disclosed form would be
+        exactly that.
+
+        There is **one** entry to this seam and there is deliberately no
+        disclose-without-recording entry beside it: ``D-IMPL-256`` (1) makes
+        every delivery-boundary denial hold an instant, so a caller that wanted
+        a disclosed shell without a record would be asking for the replay hole
+        the ruling closed. The name that shape would have carried is spelled
+        nowhere in ``src/``, so the grep that proves its absence is a clean
+        zero (the ``24.6-04`` precedent for a retired identifier). **No caller of this seam calls**
+        :func:`~ccf.products.disclosure.disclose` **itself** — the resolver's
+        own branches, the governed delivery-boundary step and an assembler's
+        wrappers all reach disclosure only through here, so one determination
+        cannot be disclosed twice by two readings of the policy.
+        """
+        level, disclosure_policy = self.disclosure_level_for(
+            tenant=self.tenant_id, principal_id=perspective.principal_id
+        )
+        disclosed, decision = disclose(
+            envelope, level=level, policy=disclosure_policy
+        )
+        record = build_replay_record(
+            execution=execution,
+            product=None,
+            refusal=envelope,
+            # Recorded verbatim: identity is resolved at the door and this seam
+            # constructs none of it (Pitfall 3).
+            perspective=perspective,
+            policy_bindings=(
+                *(
+                    (self.policy_bundle_pin,)
+                    if self.policy_bundle_pin is not None
+                    else ()
+                ),
+                *policy_bindings,
+            ),
+            assembly_mode=self.assembly_mode,
+            recorded_at=recorded_at,
+            tenant_id=self.tenant_id,
+            assembler_id=assembler_id,
+            assembler_version=assembler_version,
+            # Dimension 5's own record of the Disclosure layer, pre-serialized
+            # in the SDK's one canonical form — the `hitl_actions` and
+            # `workflow_step_sequence` discipline: a block the layer that made
+            # the decision produced, recorded verbatim rather than rebuilt here.
+            disclosure=canonical_bytes(decision).decode("utf-8"),
+            resolution=resolution,
+            request=request,
+        )
+        reference = record_refusal(
+            record=record,
+            replay_writer=ReplayWriter(
+                store=self.artifact_store,
+                artifact_class=self.replay_record_class,
+            ),
+        )
+        return disclosed.model_copy(update={"replay_reference": reference.uri})
 
 
 def _artifact_on(
@@ -463,6 +910,67 @@ def _artifact_on(
             f" resolver reads it as {expected.__name__}"
         )
     return artifact
+
+
+def _request_contract_on(
+    fabric: BootedFabric, *, key: str
+) -> ProductRequestContract:
+    """One request contract off ``fabric``, however the manifest authored it.
+
+    Module-level for :func:`_artifact_on`'s reason, which
+    :func:`build_governed_resolver` now needs a second time: the
+    ``D-IMPL-258`` (5) check runs at boot, *before* a resolver exists, and it
+    must read the contract exactly as :meth:`GovernedResolver._request_contract`
+    will read it at request time. Two transcriptions of one manifest key are
+    two chances to disagree about what a class's request surface is, and the
+    check whose whole subject is that surface is the worst place to disagree.
+
+    Raises:
+        ProductNotResolvable: the key names no artifact, or names one that is
+            neither a declared artifact nor a request contract.
+    """
+    artifact = fabric.artifacts.get(key)
+    if isinstance(artifact, DeclaredArtifact):
+        return ProductRequestContract.from_declared(artifact)
+    return _artifact_on(fabric, key=key, expected=ProductRequestContract)
+
+
+def _capabilities_of(fabric: BootedFabric) -> tuple[TechnicalCapability, ...]:
+    """The technical limits the booted fabric can be asked for, if any.
+
+    ``D-IMPL-253`` Q21. Structural, on the
+    :class:`~ccf.graph.protocols.SnapshotPinnable` idiom: whatever the boot
+    handed back is *asked* whether it reports a traversal ceiling, and a
+    substrate that reports none contributes nothing — no flag, no stub, and no
+    number invented on its behalf.
+
+    **What this reaches today, measured rather than assumed.**
+    :class:`~ccf.boot.FabricHandle` exposes a *reader*, and the two ceilinged
+    backends declare their bound on the *store*, which the handle deliberately
+    does not carry. So for every shipped boot path this derives the empty tuple
+    — the honest answer, since nothing the resolver is handed can report a
+    ceiling — and a deployment that holds its store passes ``capabilities``
+    explicitly to :func:`build_governed_resolver` or to
+    :class:`GovernedResolver`. The walk is written over both objects so that a
+    handle or reader which later reports one is picked up with no edit here.
+
+    Duplicate identities are collapsed, so a handle and its reader that are the
+    same object — or two objects reporting one substrate — contribute one bound
+    rather than two identical ones.
+    """
+    found: dict[tuple[str, str], TechnicalCapability] = {}
+    for candidate in (fabric.handle, getattr(fabric.handle, "reader", None)):
+        if not isinstance(candidate, TraversalDepthCapability):
+            continue
+        capability = TechnicalCapability(
+            capability=CAPABILITY_TRAVERSAL_DEPTH,
+            maximum=Decimal(candidate.max_traversal_depth),
+            identity=candidate.capability_identity,
+        )
+        found.setdefault(
+            (capability.capability, capability.identity), capability
+        )
+    return tuple(found[key] for key in sorted(found))
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -560,6 +1068,23 @@ class GovernedResolver:
         policy_bundle_key: The key whose pinned version becomes the admitted
             bundle version and the product's policy binding.
         plan_factory: How this deployment builds Π for one question.
+        constraint_resolver: How this deployment resolves a question's
+            parameters against every authority that bounds them — the class's
+            declared defaults, the caller's values, the Control Plane's policy
+            constraints in force at ``asked_at``, and the substrate's technical
+            capabilities (``D-IMPL-253`` Q8). No default here for the reason
+            ``debt_scorer`` has none: this class is the auditable, defaultless
+            composition, and :func:`build_governed_resolver` is where the SDK's
+            own :class:`~ccf.products.constraints.ReferencePolicyConstraintResolver`
+            is chosen.
+        capabilities: The technical limits in force, read off the substrate by
+            whoever wired this resolver. Supplied rather than discovered here,
+            because the fabric hands back a *reader* and the ceiling is a
+            property of the *store* — and because a resolver that went looking
+            for capabilities would be deciding, on its own authority, which
+            substrate facts govern a question. The empty tuple is the positive
+            statement that no technical bound applies, which is every
+            deployment on a store that declares none.
         debt_scorer: How this deployment measures ``D_c`` over an assembly.
             :class:`~ccf.products.debt_scorer.AssemblyDebtScorer` is the shipped
             reference, and **it is what** :func:`build_governed_resolver`
@@ -570,6 +1095,19 @@ class GovernedResolver:
             the auditable, defaultless composition, and the helper is where the
             SDK's own reference is chosen. See the module docstring for the
             measurement that split them.
+        refusal_recorder: The ONE seam through which every governed refusal
+            this composition produces reaches the replay writer
+            (``24.6-07``; ``D-IMPL-253`` Q13, ``D-IMPL-256``). No default here
+            for ``debt_scorer``'s reason — this class is the auditable,
+            defaultless composition, and :func:`build_governed_resolver` is
+            where the SDK's own :class:`ReplayRefusalRecorder` is chosen over
+            the store and tenant this resolver was already handed.
+
+            It is a **field** and not a method because three other callers mint
+            through it: the governed delivery-boundary step every entitling
+            door calls, and an assembler's own wrappers. One resolver, one
+            recorder, one writer, one store — which is what makes *"no second
+            writer"* a fact about the wiring rather than a rule people follow.
         artifact_store: Where the replay record and the executed queries' bytes
             land. A substrate reached *through* this mechanism, never a second
             writer to the graph (CLAUDE.md §7.4).
@@ -592,6 +1130,9 @@ class GovernedResolver:
     policy_bundle_key: str
     plan_factory: ProjectionPlanFactoryProtocol
     debt_scorer: AssemblyDebtScorerProtocol
+    constraint_resolver: PolicyConstraintResolver
+    capabilities: tuple[TechnicalCapability, ...]
+    refusal_recorder: RefusalRecorderProtocol
     artifact_store: ArtifactStoreProtocol
     replay_record_class: str
     query_pin_class: str
@@ -615,9 +1156,19 @@ class GovernedResolver:
         1. **The address is checked first.** A call for a tenant or a class
            this resolver was never wired to serve is a mis-wiring, and it
            raises rather than being reported as a governed "no".
-        2. **The request is checked before the graph is touched.** A question
-           this class does not answer costs nothing and comes back with a
-           reason rather than an approximation.
+        2. **The question is RESOLVED before the graph is touched, and the
+           resolution is what is checked.** The class's declared defaults are
+           applied, the caller's values overlaid, the policy constraints in
+           force at ``asked_at`` resolved with their provenance, the technical
+           capabilities held against them — and only then is the *effective*
+           request checked against the declared surface. The order is ruled
+           (``D-IMPL-253`` Q8; ``D-IMPL-254`` — this is the **Authority**
+           layer's place in Determination → Authority → Disclosure →
+           Delivery), and it is the whole reason a default can mean something:
+           a parameter the caller omitted reaches the closed-world comparison
+           as the value the class declared, rather than as an omission. A
+           question this class does not answer still costs nothing and still
+           comes back with a reason rather than an approximation.
         3. **The graph is read at the boundary the question named.** The
            instant is ``request.asked_at`` — supplied by a caller at serve time
            and by replay at replay time, through this same code path, which is
@@ -630,11 +1181,28 @@ class GovernedResolver:
            the execution.** A claim copied out of the execution record is not a
            claim, it is a transcript — and Gate 2 then has two independently
            authored sets to hold to strict equality.
-        7. **The gates run**, and their refusal is returned as a value.
+        7. **The gates run**, and their refusal is returned as a value. An
+           ADMITTED product is then held to the applicable tolerance —
+           default, caller or policy — and withheld by name if it is exceeded
+           (:func:`~ccf.products.gates.refuse_over_tolerance`, ``24.6-L-05``).
+           That step is deliberately after the gates and deliberately not one
+           of them: a gate decides whether a product may exist, and this
+           decides whether a product that does exist is delivered.
         8. **The record is built, then persisted, and only a completed append
            yields a delivery.** No branch here reaches a served product without
            a recorded decision, because :func:`~ccf.replay.serve.serve` has
            none to offer.
+        9. **And every refusal is recorded the same way, first** (``24.6-07``;
+           ``D-IMPL-253`` Q13). All three refusal branches — the resolution
+           verdict, the gate refusal, the withheld fulfillment — go through
+           :meth:`_record_refusal` into the one
+           :class:`RefusalRecorderProtocol`, which appends through the **same**
+           :class:`~ccf.replay.serve.ReplayWriter` over the same store and then
+           hands back the shell with its own address on it. A shell that left
+           this method has a recorded decision behind it, by construction and
+           not by review: the append happens before the return, and a store
+           failure propagates out of it with no branch reaching a returned
+           shell.
 
         Registration is content-addressed, so a second call registers identical
         content to an identical version; the audit log carries both attempts,
@@ -647,7 +1215,11 @@ class GovernedResolver:
                 disappeared since registration — a broken deployment, which
                 this seam reports differently from a bad question.
             Exception: whatever the artifact store raises, deliberately
-                uncaught. A failure to record is a failure to serve.
+                uncaught. A failure to record is a failure to serve — and as of
+                ``24.6-07`` a failure to *refuse*, on the same posture: a
+                governed "no" released without its record is a determination
+                with no audit, and ``D-IMPL-256`` refuses to make auditability
+                contingent on the outcome.
         """
         declaration = self._declaration()
         if tenant != self.fabric.tenant_id:
@@ -687,15 +1259,73 @@ class GovernedResolver:
 
         # THE DOOR, and this composition is the resolver standing at it. The
         # comparison the two shipped doors cannot make, because neither holds
-        # the registered class it compares against (`D-IMPL-121`).
-        violation = refuse_request(
-            request=request, declared=self._request_contract(declaration)
+        # the registered class it compares against (`D-IMPL-121`) — and, as of
+        # `24.6-03`, the Control Plane read no door could make either.
+        declared = self._request_contract(declaration)
+        resolved = self.constraint_resolver.resolve(
+            product_class=product_class,
+            request=request,
+            declared=declared,
+            declared_source=ProvenanceSource(
+                kind="artifact",
+                identity=self.request_contract_key,
+                # The version the registry assigns this content, minted the way
+                # `ControlPlaneRegistry.register` mints it — a content address
+                # (`D-IMPL-26`). So the pin this resolution records and the pin
+                # `_register` mints below are the same pin by construction,
+                # rather than two reads that could disagree.
+                version=content_hash(declared),
+            ),
+            perspective=perspective,
+            intent=request.intent,
+            tenant=self.fabric.tenant_id,
+            capabilities=self.capabilities,
+            # 24.6-04: the product class's own declared characteristic reaches
+            # the resolution as a DEFAULT and never as a ceiling (`D-IMPL-251`
+            # C1=A). The key is omitted when the class declares nothing, so a
+            # class with no opinion contributes no authority — rather than an
+            # authority whose value happens to be `None`.
+            class_defaults=self._class_defaults(declaration),
+            class_source=ProvenanceSource(
+                kind="artifact",
+                identity=self.product_class_key,
+                # The declaration's content address, minted the way
+                # `ControlPlaneRegistry.register` mints one (`D-IMPL-26`), so
+                # the pin recorded beside a defaulted value resolves to the
+                # exact bytes that declared it.
+                version=content_hash(declaration),
+            ),
         )
-        if violation is not None:
-            # No lineage: a request-conformity verdict is reached before the
-            # graph is touched and *has* none. `envelope_for` refuses one here,
-            # which is what makes the assembly-boundary split structural.
-            return envelope_for(violation, request=identity)
+        if isinstance(
+            resolved,
+            (ConstraintRefusal, PolicyResolutionConflict, ProductRequestViolation),
+        ):
+            # No lineage: every one of these is reached while the effective
+            # request is still being built, which is strictly before the graph
+            # is touched. `envelope_for` refuses a lineage here, which is what
+            # makes the assembly-boundary split structural.
+            #
+            # 24.6-07: and no execution, so dimension 1 says positively that
+            # nothing was read. The bundle pin is the recorder's; nothing else
+            # governed this, because the resolution that would have produced
+            # the pins is what failed.
+            return self._record_refusal(
+                envelope=envelope_for(resolved, request=identity),
+                execution=None,
+                request=request,
+                perspective=perspective,
+            )
+        effective = resolved
+        # The engine answers the EFFECTIVE question — defaults applied, policy
+        # bounds in force. It is a SIBLING of the caller's request and never a
+        # replacement: `identity.parameters` and the request that lands in
+        # replay dimension 5 both keep what the caller supplied, so a refusal
+        # can still say "you asked for X and policy P bounds you to Y", and the
+        # resolution that turned one into the other is dimension 2's
+        # (`D-IMPL-253` Q1 — *"do not collapse authority after resolution"*).
+        effective_request = request.model_copy(
+            update={"parameters": dict(effective.values())}
+        )
 
         view = self.fabric.handle.reader.as_of(
             tenant_id=self.fabric.tenant_id, at=request.asked_at
@@ -710,7 +1340,7 @@ class GovernedResolver:
         execution = ProjectionEngine(
             reader=self.fabric.handle.reader, registry=operators
         ).execute(
-            plan=self.plan_factory(required=required, request=request),
+            plan=self.plan_factory(required=required, request=effective_request),
             perspective=perspective,
             tenant_id=self.fabric.tenant_id,
             temporal_boundary=request.asked_at,
@@ -736,17 +1366,23 @@ class GovernedResolver:
                 store_snapshot_pin=execution.store_snapshot_pin,
             ),
             payload=execution.projection.payload,
-            debt=self.debt_scorer(view=execution.view),
+            # 24.6-05 (`24.6-L-06`, `D-IMPL-255` (2)): the scorer is told what
+            # the execution observed about its own search, so that D_c is
+            # derived from evidence rather than from how many rows came back.
+            debt=self.debt_scorer(
+                view=execution.view, evidence=ExecutionEvidence.of(execution)
+            ),
+            # 24.6-05 (`D-IMPL-242` amendment 1, `D-IMPL-253` Q11/Q12): an
+            # operator that RAN and returned nothing computed something, so
+            # its emptiness is served as a finding rather than refused on
+            # cardinality. `None` when no operator returned empty — the claim
+            # every product made before this field existed.
+            computed_empty=ComputedEmptyFinding.of(
+                execution,
+                emptiness=emptiness_of(ExecutionEvidence.of(execution)),
+            ),
         )
 
-        # 24.5-L-14 (D-IMPL-240 (3)): the class declares the ceiling; the
-        # request may only tighten it; an undeclared class is unaffected
-        # whatever the request says. Nothing about the principal or the
-        # perspective reaches this path (D-IMPL-105).
-        debt_tolerance = effective_debt_ceiling(
-            declared=registered.serve_obligations.debt_ceiling,
-            requested=request.parameters.get(DEBT_TOLERANCE_PARAMETER),
-        )
         gated = run_gates(
             candidate,
             engine_resolved=execution.operators_invoked,
@@ -754,19 +1390,72 @@ class GovernedResolver:
             registry=self.control_plane,
             product_class=registered,
             source_attestation=execution.source_attestation,
-            debt_tolerance=debt_tolerance,
-            # 24.5-L-24: the engine's own record of which operators returned
-            # an empty set, so the empty-operator gate's second half can
-            # refuse by name. Only the governed resolver threads it; the
-            # engine-level call site keeps the compatibility default.
-            empty_results=execution.empty_results,
+        )
+        # 24.6-03/24.6-07: every source the resolution consulted, by exact
+        # `(key, version)`. Derived ONCE and shared by the served record and
+        # every refusal record below — two derivations would let a refused
+        # decision and a fulfilled one disagree about what governed them.
+        applied = self._applied_bindings(effective)
+        # 24.6-07: what the fabric is PERMITTED to show of the search behind a
+        # post-assembly refusal. The candidate's own facts, read off the same
+        # execution the served product would have been recorded from — never
+        # re-derived, so a refusal shell cannot describe a different search
+        # from the one that ran.
+        evidence = RefusalEvidence(
+            operators_invoked=execution.operators_invoked,
+            plan_id=execution.plan_id,
+            store_snapshot_pin=execution.store_snapshot_pin,
+            debt=candidate.debt,
+            computed_empty=candidate.computed_empty,
         )
         if not isinstance(gated, ServableProduct):
             # A refusal is a value, and it travels with the lineage the
             # candidate claimed — a gate refusal has a candidate behind it, so
             # saying it has no lineage would be a different and false claim.
-            return envelope_for(
-                gated, request=identity, pre_assembly_lineage=candidate.lineage
+            return self._record_refusal(
+                envelope=envelope_for(
+                    gated,
+                    request=identity,
+                    pre_assembly_lineage=candidate.lineage,
+                    policy_bindings=effective.applied,
+                    evidence=evidence,
+                    provenance=effective,
+                ),
+                execution=execution,
+                request=request,
+                perspective=perspective,
+                policy_bindings=applied,
+                resolution=effective,
+            )
+
+        # 24.6-04, the delivery boundary: the gates ADMITTED this product, and
+        # only now is it held to the one applicable tolerance — the class's
+        # default, the caller's own value or a policy's, folded exactly once
+        # upstream by the Authority layer with the authority that set it
+        # recorded (`D-IMPL-254`). Nothing is folded here, because a second
+        # fold is the scalar collapse this phase removed and the place a class
+        # preference could re-acquire the power `D-IMPL-251` C1 took from it.
+        # The product was constructible; what is withheld is fulfillment.
+        # Nothing about the principal or the perspective reaches this
+        # comparison (`D-IMPL-105`): D_c is entitlement-neutral, as assessed.
+        withheld = refuse_over_tolerance(
+            gated, tolerance=effective.parameter(DEBT_TOLERANCE_PARAMETER)
+        )
+        if withheld is not None:
+            return self._record_refusal(
+                envelope=envelope_for(
+                    withheld,
+                    request=identity,
+                    pre_assembly_lineage=candidate.lineage,
+                    policy_bindings=effective.applied,
+                    evidence=evidence,
+                    provenance=effective,
+                ),
+                execution=execution,
+                request=request,
+                perspective=perspective,
+                policy_bindings=applied,
+                resolution=effective,
             )
 
         record = build_replay_record(
@@ -775,10 +1464,23 @@ class GovernedResolver:
             perspective=perspective,
             policy_bindings=(
                 PolicyBinding(key=self.policy_bundle_key, version=policy_version),
+                *applied,
             ),
             assembly_mode=registered.assembly_mode,
             recorded_at=request.asked_at,
             request=request,
+            # 24.6-07: the assembler in force, on the served path and on every
+            # refusal path alike (`D-IMPL-253` Q16). This resolver holds no
+            # `ContextAssemblerProtocol` — it composes assemble → gate → serve
+            # itself — so it passes `None` and lets dimension 4's
+            # `NO_ASSEMBLER` sentinel say exactly that, rather than inventing
+            # an identity for a collaborator that does not exist. A resolver
+            # that DOES hold one wires its own id and version here.
+            assembler_id=self._assembler_id(),
+            assembler_version=self._assembler_version(),
+            # 24.6-03: what was resolved, and on whose authority — dimension 2,
+            # beside the versions it was resolved from (`D-IMPL-254`).
+            resolution=effective,
         )
         return serve(
             product=gated,
@@ -791,6 +1493,105 @@ class GovernedResolver:
             ),
             executed_queries=execution.executed_queries,
         )
+
+    # --- the one minting seam ----------------------------------------------
+
+    def _record_refusal(
+        self,
+        *,
+        envelope: RefusalEnvelope,
+        execution: ExecutionResult | None,
+        request: ProductRequest,
+        perspective: Perspective,
+        policy_bindings: tuple[PolicyBinding, ...] = (),
+        resolution: EffectiveRequest | None = None,
+    ) -> RefusalEnvelope:
+        """Mint this refusal's decision record, then return the addressed shell.
+
+        ``24.6-07``; ``D-IMPL-253`` Q13. A **thin** call into
+        :attr:`refusal_recorder` and nothing else — every governed refusal this
+        composition produces goes through here, and nothing in ``src/`` calls
+        :func:`~ccf.replay.serve.record_refusal` except the recorder itself.
+
+        The instant is ``request.asked_at`` for the reason nothing in this
+        module reads a clock: the caller supplies it at serve time and replay
+        supplies it at replay time, through this same code path.
+
+        Raises:
+            Exception: whatever the artifact store raises, deliberately
+                uncaught. *A failure to record is a failure to serve* — and
+                24.6-07 extends that sentence to a governed "no": a refusal
+                released without its record is a determination with no audit,
+                which is the repudiation `D-IMPL-256` refuses to make
+                contingent on the outcome.
+        """
+        return self.refusal_recorder.record(
+            envelope,
+            perspective=perspective,
+            recorded_at=request.asked_at,
+            request=request,
+            execution=execution,
+            policy_bindings=policy_bindings,
+            assembler_id=self._assembler_id(),
+            assembler_version=self._assembler_version(),
+            resolution=resolution,
+        )
+
+    def _applied_bindings(
+        self, effective: EffectiveRequest
+    ) -> tuple[PolicyBinding, ...]:
+        """Every source the resolution consulted, by exact ``(key, version)``.
+
+        ``24.6-03``: the constraint artifacts in force at ``asked_at``, the
+        request contract's own pin, and the entitlement policy when an override
+        was verified against it.
+
+        Sources with no version lane (the request's own identity, a backend
+        capability) are **not** bindings: :class:`PolicyBinding` is a Control
+        Plane pin, and minting a lane for a capability is the fake artifact
+        ``D-IMPL-253`` amendment 2 (1) forbids. They travel whole inside
+        ``request_resolution``.
+
+        Derived once and shared by the served record and every refusal record,
+        because two derivations would let a refused decision and a fulfilled
+        one disagree about what governed them (``24.6-07``).
+        """
+        return (
+            *(
+                PolicyBinding(key=source.identity, version=source.version)
+                for source in effective.applied
+                if source.kind == "artifact" and source.version is not None
+            ),
+            *(
+                PolicyBinding(
+                    key=override.grant_source.identity,
+                    version=override.grant_source.version,
+                )
+                for override in effective.overrides
+                if override.grant_source is not None
+                and override.grant_source.version is not None
+            ),
+        )
+
+    def _assembler_id(self) -> str | None:
+        """The assembler in force, for replay dimension 4 — ``None`` here.
+
+        ``D-IMPL-253`` Q16 with ``D-IMPL-245`` amendment 1. This composition
+        holds no :class:`~ccf.agents.assembler.ContextAssemblerProtocol`: it
+        *is* the assembly, composing engine → gates → serve itself. So it
+        passes ``None`` and the record's :data:`~ccf.replay.record.NO_ASSEMBLER`
+        sentinel makes that a positive claim rather than a silence.
+
+        A method rather than an inline ``None`` so the two call sites — served
+        and refused — read the same answer from one place, and so a resolver
+        that later does hold an assembler has one line to change rather than
+        two that could drift.
+        """
+        return None
+
+    def _assembler_version(self) -> str | None:
+        """The assembler's lane. ``None`` here; see :meth:`_assembler_id`."""
+        return None
 
     # --- reading what the manifest put in force ----------------------------
 
@@ -809,6 +1610,30 @@ class GovernedResolver:
         """The Control Plane claim: what this product says produced it."""
         return self._artifact(self.product_class_key, ProductClassDeclaration)
 
+    def _class_defaults(
+        self, declaration: ProductClassDeclaration
+    ) -> Mapping[str, object]:
+        """What the product CLASS declares about omission — today one name.
+
+        ``24.6-L-04``, ``D-IMPL-251`` C1=A. The class's
+        :attr:`~ccf.products.contract.ServeObligations.default_debt_tolerance`
+        is a declared *characteristic*, so it reaches the Authority layer as a
+        default under the SDK's own parameter name
+        (:data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER`) — never as a
+        ceiling this layer folds.
+
+        The key is **omitted** when the class declares nothing, rather than
+        present at ``None``. A mapping carrying ``{"debt_tolerance": None}``
+        would record an authority that established a non-value, and the
+        resolution's own comparisons would then have to ask whether a resolved
+        value means anything. Absence is what "this class has no opinion"
+        looks like.
+        """
+        tolerance = declaration.serve_obligations.default_debt_tolerance
+        if tolerance is None:
+            return {}
+        return {DEBT_TOLERANCE_PARAMETER: tolerance}
+
     def _request_contract(
         self, declaration: ProductClassDeclaration
     ) -> ProductRequestContract:
@@ -821,11 +1646,12 @@ class GovernedResolver:
         the named constructor for exactly that, and calling it here is the SDK
         doing the transcription once instead of every adopter doing it. A
         deployment that already holds a typed contract passes straight through.
+
+        Delegates to :func:`_request_contract_on` for :meth:`_artifact`'s
+        reason: the read this resolver performs at request time and the one
+        :func:`build_governed_resolver` performs at boot are the same read.
         """
-        artifact = self.fabric.artifacts.get(self.request_contract_key)
-        if isinstance(artifact, DeclaredArtifact):
-            return ProductRequestContract.from_declared(artifact)
-        return self._artifact(self.request_contract_key, ProductRequestContract)
+        return _request_contract_on(self.fabric, key=self.request_contract_key)
 
     def _operator_parameters(self) -> dict[str, OperatorParametersArtifact]:
         """The adopter-side idiom: name your own keys, no type filtering."""
@@ -898,6 +1724,8 @@ def build_governed_resolver(
     declared_completeness: Decimal | None = None,
     declared_semantic_consistency: Decimal | None = None,
     debt_scorer: AssemblyDebtScorerProtocol | None = None,
+    constraint_resolver: PolicyConstraintResolver | None = None,
+    capabilities: tuple[TechnicalCapability, ...] | None = None,
 ) -> GovernedResolver:
     """Build a :class:`GovernedResolver`, selecting the SDK's reference scorer.
 
@@ -992,6 +1820,39 @@ def build_governed_resolver(
         declared_completeness: The ``C`` this deployment asserts, in ``[0, 1]``.
         declared_semantic_consistency: The ``S`` it asserts, in ``[0, 1]``.
         debt_scorer: A conforming scorer that **overrides** the reference.
+        constraint_resolver: A conforming resolver that **overrides** the
+            reference. When omitted, the SDK selects
+            :class:`~ccf.products.constraints.ReferencePolicyConstraintResolver`
+            over the same Control Plane this fabric booted against, keyed to
+            this tenant's entitlement policy through
+            :func:`~ccf.products.entitlement.product_entitlement_key` — so a
+            deployment that registered one gets its overrides verified without
+            naming anything, and a deployment that registered none entitles no
+            override, which is deny-by-default rather than an error. Unlike the
+            debt scorer this default needs **no material**: the resolver reads
+            what the deployment already registered, so there is no pair of
+            argument shapes here and none is refused (``24.6-03``).
+        capabilities: The technical limits in force. When omitted they are
+            derived structurally from what the boot handed back
+            (:func:`_capabilities_of`), which is the empty tuple for every
+            shipped boot path — the handle carries a reader and the ceiling is
+            the store's. Pass them explicitly to bound a parameter by a
+            substrate limit; the binding that says *which* parameter is the
+            request contract's (``capability_bindings``).
+
+    **The refusal recorder is selected here too, and it takes no argument**
+    (``24.6-07``; ``D-IMPL-253`` Q13). :class:`ReplayRefusalRecorder` needs the
+    store, the artifact class and the tenant — all three already arguments —
+    plus the assembly mode and the bundle pin, both read off what the manifest
+    put in force. So unlike the debt scorer there is no pair of argument shapes
+    here and none is refused: a deployment reaching the fabric through this
+    seam gets a governed refusal path without naming anything, and the
+    ``D-IMPL-256`` invariant *"a delivery boundary unable to reach the replay
+    writer is unavailable, not partially governed"* holds by wiring.
+
+    A deployment that files its refusal records elsewhere constructs
+    :class:`GovernedResolver` directly with its own
+    :class:`RefusalRecorderProtocol`.
 
     Returns:
         The composed resolver, ready to be handed to a delivery surface.
@@ -1002,16 +1863,98 @@ def build_governed_resolver(
             already reserves for one — and never a governed refusal, because
             nobody asked a question yet.
         ProductNotResolvable: ``half_life_key`` or ``debt_profile_key`` names no
-            artifact on the booted fabric, or names one of another class.
+            artifact on the booted fabric, or names one of another class; or
+            ``product_class_key`` / ``request_contract_key`` does.
+        ProductClassRegistrationError: the product class declares a default for
+            a parameter its request contract does not declare as an argument —
+            an internally inconsistent declaration, refused at boot under
+            ``D-IMPL-258`` (5) rather than in front of a caller.
         ValueError: a declared factor lies outside ``[0, 1]``. Raised by
             :class:`~ccf.products.debt_scorer.DeclaredFactor`, where the value
             was authored, rather than three frames later.
     """
+    # `D-IMPL-258` (5), FIRST, before any other wiring decision: a product class
+    # whose declared default names a parameter its own request contract does not
+    # expose is an internally inconsistent declaration, and Dave ruled that it
+    # *"should fail registration/configuration/boot validation, not produce a
+    # shell to a caller."* This is the boot half; registration's half is in
+    # `ccf.products.contract.register_product_class`. It runs first because a
+    # deployment that cannot answer coherently should not get as far as choosing
+    # a debt scorer, and because a failure here names the two documents that
+    # disagree rather than whatever fell over later.
+    boot_declaration = _artifact_on(
+        fabric, key=product_class_key, expected=ProductClassDeclaration
+    )
+    refuse_undeclared_class_default(
+        schema_name=boot_declaration.schema_name,
+        schema_version=boot_declaration.schema_version,
+        serve_obligations=boot_declaration.serve_obligations,
+        declared=_request_contract_on(fabric, key=request_contract_key),
+    )
+
     # Keyed by name rather than zipped against :data:`DEBT_SCORER_INPUTS`
     # positionally: a positional pairing goes on running after somebody reorders
     # the constant, and reports the wrong argument in both refusals below.
     # `tests/products/test_resolver_defaults.py::test_the_named_inputs_are_this_helper_s_own_optional_parameters`
     # holds the constant and this signature to each other in both directions.
+    resolution_seam: PolicyConstraintResolver
+    if constraint_resolver is not None:
+        resolution_seam = constraint_resolver
+    elif isinstance(control_plane, _ConstraintSource):
+        resolution_seam = ReferencePolicyConstraintResolver(
+            control_plane=control_plane,
+            entitlement_key=product_entitlement_key(tenant_id=fabric.tenant_id),
+        )
+    else:
+        # Structural, and checked rather than assumed: the reference resolver
+        # needs a read surface `ControlPlaneProtocol` does not promise —
+        # `keys_of_class`, `versions` and `peek`, which are how "what is in
+        # force at this instant" is answered without reaching for the latest
+        # version. The shipped `ControlPlaneRegistry` has all three. A plane
+        # that does not is a wiring fact the caller can fix two ways, and both
+        # are named.
+        raise TypeError(
+            "this call supplies no `constraint_resolver`, and the Control"
+            f" Plane it was given ({type(control_plane).__name__}) does not"
+            " offer the read surface the SDK's reference resolver needs:"
+            " `keys_of_class`, `versions`, `peek` and `resolve`. Pass a"
+            " conforming `PolicyConstraintResolver`, or a Control Plane that"
+            " can be asked which constraints are in force"
+        )
+    technical = (
+        _capabilities_of(fabric) if capabilities is None else capabilities
+    )
+
+    # 24.6-07: the SDK's own refusal recorder, over the store and tenant this
+    # call already supplies. It is selected here for `debt_scorer`'s reason —
+    # `GovernedResolver` is the auditable, defaultless composition and this
+    # helper is where the SDK chooses its own reference — and it needs no
+    # material a deployment is entitled to decide: the store, the artifact
+    # class and the tenant are already arguments, and the assembly mode and
+    # bundle pin are read off what the manifest put in force.
+    #
+    # Both are read HERE rather than per call, deliberately: a recorder is
+    # bound to a deployment exactly as its resolver is, and a mode or a pin
+    # re-read at each refusal could describe a deployment that had changed
+    # since the determination it is recording.
+    recorder = ReplayRefusalRecorder(
+        artifact_store=artifact_store,
+        replay_record_class=replay_record_class,
+        tenant_id=fabric.tenant_id,
+        assembly_mode=_artifact_on(
+            fabric, key=product_class_key, expected=ProductClassDeclaration
+        ).assembly_mode,
+        policy_bundle_pin=PolicyBinding(
+            key=policy_bundle_key,
+            version=fabric.pins.version_for(policy_bundle_key),
+        ),
+        # 24.6-08: the posture in force, read from the deployment's own
+        # registry per call for `ControlPlaneProductEntitlementSource`'s reason
+        # (no cache, no TTL — a level changed in the Control Plane governs the
+        # next determination, not the one after a process restart).
+        disclosure_level_for=_disclosure_reader(control_plane),
+    )
+
     declared: dict[str, object | None] = {
         "half_life_key": half_life_key,
         "debt_profile_key": debt_profile_key,
@@ -1043,6 +1986,9 @@ def build_governed_resolver(
             policy_bundle_key=policy_bundle_key,
             plan_factory=plan_factory,
             debt_scorer=debt_scorer,
+            constraint_resolver=resolution_seam,
+            capabilities=technical,
+            refusal_recorder=recorder,
             artifact_store=artifact_store,
             replay_record_class=replay_record_class,
             query_pin_class=query_pin_class,
@@ -1088,6 +2034,9 @@ def build_governed_resolver(
                 value=declared_semantic_consistency
             ),
         ),
+        constraint_resolver=resolution_seam,
+        capabilities=technical,
+        refusal_recorder=recorder,
         artifact_store=artifact_store,
         replay_record_class=replay_record_class,
         query_pin_class=query_pin_class,

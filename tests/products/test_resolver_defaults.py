@@ -77,6 +77,7 @@ from ccf.products import resolver as resolver_module
 from ccf.products.debt_scorer import (
     DECLARED_FACTOR_SCORER_ID,
     DECLARED_FACTOR_SCORER_VERSION,
+    ExecutionEvidence,
 )
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import (
@@ -250,7 +251,13 @@ class _InertScorer:
     def __init__(self, **_ignored: Any) -> None:
         pass
 
-    def __call__(self, *, view: GraphView) -> DebtAssessment:
+    def __call__(
+        self, *, view: GraphView, evidence: ExecutionEvidence | None = None
+    ) -> DebtAssessment:
+        # `evidence` accepted and unread: 24.6-05 widened the seam
+        # (`AssemblyDebtScorerProtocol`), and a stand-in that did not accept
+        # the keyword would fail on the seam rather than on the selection this
+        # class exists to test.
         return DebtAssessment(
             debt=Decimal("0"),
             signal=DebtSignal.OK,
@@ -273,8 +280,14 @@ OVERRIDE_SCORER_VERSION = "7.7.7"
 OVERRIDE_FRESHNESS = Decimal("0.125")
 
 
-def _override_scorer(*, view: GraphView) -> DebtAssessment:
-    """A deployment's own scorer, pinning itself under its own identity."""
+def _override_scorer(
+    *, view: GraphView, evidence: ExecutionEvidence | None = None
+) -> DebtAssessment:
+    """A deployment's own scorer, pinning itself under its own identity.
+
+    Accepts ``evidence`` and reads none: 24.6-05 widened the seam, and this
+    scorer's subject is that the OVERRIDE was selected, not what it measured.
+    """
     return DebtAssessment(
         debt=Decimal(1) - OVERRIDE_FRESHNESS,
         signal=DebtSignal.FORCED_LLM,
@@ -877,17 +890,38 @@ def test_the_named_inputs_are_this_helper_s_own_optional_parameters() -> None:
 
     ``Ellipsis`` is not used as the sentinel: the check is *"defaults to
     ``None``"*, which is exactly the property that makes an argument optional
-    here, and ``debt_scorer`` is excluded by name because it is the alternative
-    to the four rather than one of them.
+    here.
+
+    **The exclusions are named, and their presence is asserted** (re-derived at
+    ``24.6-03``). Three optional parameters are not debt-scorer material:
+    ``debt_scorer``, which is the alternative to the four rather than one of
+    them, and the Authority layer's ``constraint_resolver`` and
+    ``capabilities``, which the helper defaults from the deployment it was
+    handed rather than from supplied material. Excluding them by a named tuple
+    whose members must each *be* in the signature is what keeps the exclusion
+    from silently widening: a typo would drop a name out of the comparison and
+    leave this test green, so the typo is what fails instead.
     """
     import inspect
 
+    not_debt_scorer_material = (
+        "debt_scorer",
+        "constraint_resolver",
+        "capabilities",
+    )
+    parameters = inspect.signature(build_governed_resolver).parameters
+    for name in not_debt_scorer_material:
+        assert name in parameters, (
+            f"{name!r} is excluded from this comparison but is not a parameter"
+            " of the helper — an exclusion that names nothing silently widens"
+            " what the comparison covers"
+        )
+        assert parameters[name].default is None, name
+
     optional = tuple(
         name
-        for name, parameter in inspect.signature(
-            build_governed_resolver
-        ).parameters.items()
-        if parameter.default is None and name != "debt_scorer"
+        for name, parameter in parameters.items()
+        if parameter.default is None and name not in not_debt_scorer_material
     )
 
     assert optional == DEBT_SCORER_INPUTS, (
@@ -1004,3 +1038,32 @@ def _uncalibrated_key(booted: _Booted) -> str:
         f" {ENTITY_CLASS!r}, so this control has nothing uncalibrated to point"
         " at and would pass while proving nothing"
     )
+
+
+def test_the_disclosure_reader_treats_only_a_missing_key_as_no_policy() -> None:
+    """`(minimal, None)` means *no policy is registered* — and only that.
+
+    Phase 24.6 close panel: the reader caught EVERY exception from the registry
+    and answered `(minimal, None)`, so a registry that failed to read its policy
+    would have been recorded as a tenant that registered none — a false
+    provenance claim on replay dimension 5. Minimal is still the safe level; the
+    claim about WHY is what must be true.
+    """
+    from ccf.controlplane.registry import ControlPlaneMissing
+    from ccf.products.disclosure import DISCLOSURE_MINIMAL
+
+    class _Missing:
+        def resolve_latest(self, key: str) -> tuple[str, object]:
+            raise ControlPlaneMissing(key)
+
+    class _Broken:
+        def resolve_latest(self, key: str) -> tuple[str, object]:
+            raise RuntimeError("the registry's storage is unreachable")
+
+    missing = resolver_module._disclosure_reader(_Missing())  # type: ignore[arg-type]
+    assert missing(tenant="t", principal_id="p") == (DISCLOSURE_MINIMAL, None)
+
+    broken = resolver_module._disclosure_reader(_Broken())  # type: ignore[arg-type]
+    with pytest.raises(RuntimeError, match="unreachable"):
+        broken(tenant="t", principal_id="p")
+

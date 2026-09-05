@@ -92,58 +92,86 @@ byte-untouched.
 **The declared-obligations gate (Phase 24.5 Wave 2, ``D-IMPL-237``).** The
 ONE structural serve-time gate mechanism the SDK ships beyond the five tokens
 ``D-IMPL-238`` records: after every universal gate above has passed, both
-runners hold the candidate to what its product class *declared* in
-:class:`~ccf.products.contract.ServeObligations` — a ``D_c`` ceiling
-(ledger row ``24.5-L-14``; whitepaper §7.7.4–§7.7.8, where Context Debt gates
-Forced LLM and Fail-Closed behavior) and a per-attribute lineage obligation
-(ledger row ``24.5-L-26``). It runs LAST because it is the only *declared*
-gate: every universal gate precedes it, and a class that declares nothing
+runners hold the candidate to the per-attribute lineage obligation its
+product class *declared* in
+:class:`~ccf.products.contract.ServeObligations` (ledger row ``24.5-L-26``).
+It runs LAST because it is the only *declared* gate: every universal gate
+precedes it, and a class that obliges nothing
 (:data:`~ccf.products.contract.NO_SERVE_OBLIGATIONS`) never reaches a
-comparison. The ceiling is class-declared and a request may only TIGHTEN it
-(``D-IMPL-240`` (3), :func:`effective_debt_ceiling`); the lineage half reads
-the presence and non-emptiness of a NAMED payload member and nothing else —
-it is a structural gate, never a payload gate (``D-IMPL-238`` reading
-``D-IMPL-102`` limb 3). ``_GATE_TOKEN``, :class:`_ServableProductMeta` and
-:class:`GateBypassError` are untouched by it: the new step returns a refusal
+comparison. It reads the presence and non-emptiness of a NAMED payload member
+and nothing else — a structural gate, never a payload gate (``D-IMPL-238``
+reading ``D-IMPL-102`` limb 3). ``_GATE_TOKEN``, :class:`_ServableProductMeta`
+and :class:`GateBypassError` are untouched by it: the step returns a refusal
 before the token is minted, exactly as the four before it do.
 
-**The empty-operator gate's two halves, by name (Phase 24.5 Wave 2, ledger
-row ``24.5-L-24``; ``D-IMPL-238`` second sentence).** Two assertions shared
-the name ``empty-operator-guard``: the SDK's — a product that DECLARED no
-operators (INV-CH7-46) — and the Standard's — an operator that RETURNED an
-empty set, which nothing in ``src/`` said anything about while cp-00's
-``IH-G07`` and cp-01's ``CPR-G08`` carried it as product gates. They are now
-two named structural gates, adjacent in both runners with the declared half
-first: :data:`GATE_EMPTY_OPERATOR` (:func:`_refuse_empty_operators`,
-unchanged) and :data:`GATE_EMPTY_OPERATOR_RESULT`
-(:func:`_refuse_empty_results`, :class:`EmptyResultRefusal`). The returned
-half reads the engine's own record,
-:attr:`~ccf.projection.engine.ExecutionResult.empty_results`, threaded as a
-keyword-only ``empty_results`` whose ``None`` default is *not observed* and
-passes — the same compatibility posture as ``source_attestation``, so every
-pre-phase call site is byte-identical. It is not a second mechanism and not
-a payload gate: it reads operator keys, never the payload (limb 3).
+**The tolerance step is not a gate (Phase 24.6, ``24.6-L-05``,
+``D-IMPL-251`` C1/C2).** This gate carried a debt half until ``24.6-04``: a
+class-declared ``D_c`` ceiling folded with the request's tolerance by ``min``.
+It is gone. A class's debt figure is a *default* tolerance, not an obligation
+and not a policy boundary, so it can no longer withhold context from a caller
+who asked for more; and the comparison that does withhold — an applicable
+declared tolerance against an observed ``D_c`` — belongs *after* admission,
+where the product it withholds already exists. :class:`ToleranceExceededRefusal`
+and :func:`refuse_over_tolerance` are that comparison (whitepaper §7.7.4–§7.7.8,
+where Context Debt gates Forced LLM and Fail-Closed behavior). No token of it
+joins either runner: ``D-IMPL-237``'s one gate mechanism and ``D-IMPL-238``'s
+membership-by-name are untouched.
+
+**The empty-operator gate has ONE half again, and that is a ruling (Phase
+24.6, ledger row ``24.6-L-06``; ``D-IMPL-242`` amendment 1, ``D-IMPL-253``
+Q11/Q12).** Two assertions once shared the name ``empty-operator-guard``: the
+SDK's — a product that DECLARED no operators (INV-CH7-46) — and the
+Standard's — an operator that RETURNED an empty set. ``24.5-L-24`` split them
+into two named gates. ``24.6-05`` retires the second one entirely.
+
+The declared half STAYS, unchanged (:data:`GATE_EMPTY_OPERATOR`,
+:func:`_refuse_empty_operators`): a product computed by nothing is not
+servable, and no evidence can make it so.
+
+The returned half is SUPERSEDED. Dave, ruling Q12: *"An operator successfully
+evaluating an empty graph did compute something. Calling it uncomputed
+conflates absence of input with absence of execution. Serve computed-empty
+with the evidence-derived Debt; then an applicable tolerance may cause the
+shell response."* So the returned half's token, its refusal type and the
+keyword by which both runners read the engine's record
+(:attr:`~ccf.projection.engine.ExecutionResult.empty_results`) are gone —
+spelled here as what they were rather than by name, so a reader grepping this
+module for the retired identifiers finds none. The emptiness now travels as a
+FINDING on the served product
+(:class:`~ccf.products.contract.ComputedEmptyFinding`, written by the
+governed resolver), and what a consumer does about it is governed by Context
+Debt — which is derived from evidence and never from cardinality
+(``D-IMPL-255`` (2): *"Cardinality never determines Context Debt. Evidence
+determines Context Debt."*). An admitted computed-empty product may still be
+withheld by :func:`refuse_over_tolerance`, which is the tolerance decision
+above and not a gate.
 
 This module holds no TTL values and no thresholds (CLAUDE.md §11, CINV-01):
-the ceiling's number is the deployment's, authored on the product class.
-Algorithmic module (CINV-03).
+a tolerance's number is the deployment's, the caller's or a policy's, never
+this module's. Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
 
 from collections.abc import Sized
 from datetime import datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Final, Literal, Never
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph.protocols import SourceAttestation
+from ccf.halflife.assessment import DebtAssessment
 from ccf.products.contract import (
     ContextProductContract,
     MaxTTL,
     RegisteredProductClass,
+)
+from ccf.products.provenance import (
+    Authority,
+    EffectiveParameter,
+    ProvenanceSource,
 )
 
 __ccf_mode__ = "algorithmic"
@@ -152,7 +180,6 @@ __all__ = [
     "DEBT_TOLERANCE_PARAMETER",
     "GATE_DECLARED_OBLIGATIONS",
     "GATE_EMPTY_OPERATOR",
-    "GATE_EMPTY_OPERATOR_RESULT",
     "GATE_LINEAGE_ATTRIBUTABILITY",
     "GATE_LINEAGE_EQUALITY",
     "GATE_SOURCE_ATTESTATION",
@@ -161,7 +188,6 @@ __all__ = [
     "AttestationRefusal",
     "DeclaredObligationRefusal",
     "EmptyOperatorRefusal",
-    "EmptyResultRefusal",
     "GateBypassError",
     "GateRefusal",
     "LineageAttributionRefusal",
@@ -169,21 +195,21 @@ __all__ = [
     "ServableProduct",
     "ServableProductNotAModel",
     "TTLRefusal",
-    "effective_debt_ceiling",
+    "ToleranceExceededRefusal",
     "refuse_attestation",
+    "refuse_over_tolerance",
     "run_federated_gates",
     "run_gates",
 ]
 
+# `empty-operator-guard` is the SDK's half of what was briefly a pair
+# (24.5-L-24): a product DECLARING no operators (INV-CH7-46). The Standard's
+# half — an operator RETURNING an empty set — was `empty-operator-result` for
+# one phase and is retired at 24.6-05 under `D-IMPL-242` amendment 1: an
+# operator that ran and found nothing COMPUTED, so its emptiness is a finding
+# on the served product (`ccf.products.contract.ComputedEmptyFinding`) rather
+# than a token in this roster. One gate, one token, one meaning.
 GATE_EMPTY_OPERATOR = "empty-operator-guard"
-# The empty-operator gate's two halves, separated by NAME (24.5-L-24;
-# D-IMPL-238 second sentence). ``empty-operator-guard`` is the SDK's half: a
-# product DECLARING no operators (INV-CH7-46, unchanged).
-# ``empty-operator-result`` is the Standard's half: an operator RETURNING an
-# empty set. Two tokens so a refusal names which half fired; neither is a
-# second mechanism — both are structural, both read the execution record and
-# never the payload (limb 3).
-GATE_EMPTY_OPERATOR_RESULT = "empty-operator-result"
 GATE_LINEAGE_EQUALITY = "lineage-strict-equality"
 GATE_LINEAGE_ATTRIBUTABILITY = "lineage-attributability"
 GATE_TTL_BOUNDS = "ttl-bounds"
@@ -195,24 +221,42 @@ GATE_DECLARED_OBLIGATIONS = "declared-obligations"
 
 #: The Standard's universal request parameter (``references/
 #: Context_Product_Specification_Standard_v0-3.md`` §2.4) by which a caller
-#: may TIGHTEN — never loosen — the ceiling its product class declared
-#: (``D-IMPL-240`` (3), ``24.5-L-14``). The resolver reads it off
-#: ``request.parameters`` only when the class declares a ceiling and the
-#: request contract declares the parameter; otherwise
-#: :func:`~ccf.products.request.refuse_request` has already refused it as
-#: undeclared, and an undeclared class ignores it whatever it says. That same
-#: boundary refuses a declared, well-typed number outside ``[0, 1]`` by name
-#: (``not-a-proportion``; ``24.5-REVIEW.md`` WR-02, Dave, 2026-09-02), so what
-#: reaches :func:`effective_debt_ceiling` through the governed resolver is
-#: always a proportion — a request states a tighter ceiling or none, never a
-#: number that is not a ceiling at all.
+#: states the Context Debt it is willing to be served — a parameter NAME the
+#: SDK owns and never a number.
 #:
-#: CINV-01, reasoned rather than assumed: this is a parameter NAME the SDK
-#: owns as mechanism vocabulary — on the footing of the four request axes
-#: (subject, instant, perspective, tier), which are names the SDK also owns —
-#: and never a value. No number, no threshold and no default tolerance lives
-#: here or anywhere in ``src/``; the ceiling's number is authored on the
-#: product class by the deployment, and the request's number is the caller's.
+#: **Three authorities answer to this one name** (``D-IMPL-251`` C1/C2,
+#: ``D-IMPL-240`` amendment 2, ``24.6-L-04``/``24.6-L-05``):
+#:
+#: * ``caller`` — the value on ``request.parameters``, enforced **as
+#:   requested**, looser or tighter. The consumer owns fitness.
+#: * ``default`` — the product class's
+#:   :attr:`~ccf.products.contract.ServeObligations.default_debt_tolerance`,
+#:   which fills an OMISSION and nothing else. A class preference does not
+#:   withhold context from a caller who asked for more.
+#: * ``policy`` — a ``maximum`` on this name in a Control Plane
+#:   :class:`~ccf.controlplane.artifacts.PolicyConstraint`, resolved through
+#:   :mod:`ccf.products.constraints` and enforced as governance.
+#:
+#: The fold happens exactly once, in the Authority layer, and what it produces
+#: is an :class:`~ccf.products.provenance.EffectiveParameter` carrying the
+#: authority that established the value — never a bare number, because a bare
+#: number cannot say who set it (``D-IMPL-253`` Q1). The comparison against an
+#: observed ``D_c`` is :func:`refuse_over_tolerance`, over a product the gates
+#: already admitted.
+#:
+#: The request boundary is unchanged: the parameter must be declared by the
+#: class's request contract or
+#: :func:`~ccf.products.request.refuse_request` refuses it as undeclared, and
+#: a declared, well-typed number outside ``[0, 1]`` is refused by name
+#: (``not-a-proportion``; ``24.5-REVIEW.md`` WR-02, Dave, 2026-09-02) — so
+#: what reaches a resolution is always a proportion.
+#:
+#: CINV-01, reasoned rather than assumed: this is mechanism vocabulary the SDK
+#: owns — on the footing of the four request axes (subject, instant,
+#: perspective, tier) — and never a value. No number, no threshold and no
+#: default tolerance lives here or anywhere in ``src/``; the class's number is
+#: authored in its product-class artifact, the policy's in a constraint
+#: artifact, and the request's is the caller's.
 DEBT_TOLERANCE_PARAMETER: Final[str] = "debt_tolerance"
 
 
@@ -236,35 +280,6 @@ class GateRefusal(CCFContract):
 
 class EmptyOperatorRefusal(GateRefusal):
     """Gate 1: ``operators_invoked`` was empty (INV-CH7-46)."""
-
-
-class EmptyResultRefusal(GateRefusal):
-    """Gate 1's second half: an operator RETURNED an empty set (``24.5-L-24``).
-
-    SDK-defined per CLAUDE.md §11, beside the whitepaper's INV-CH7-46 half
-    (:class:`EmptyOperatorRefusal`) and distinguishable from it by name — the
-    ``gate`` token is :data:`GATE_EMPTY_OPERATOR_RESULT`, never
-    :data:`GATE_EMPTY_OPERATOR`. The Standard's sentence for this half is the
-    one cp-00's ``IH-G07`` and cp-01's ``CPR-G08`` carried as product gates
-    before the SDK named it: *an empty assembled set fails closed*.
-
-    What it carries follows the module's refusal discipline — both what the
-    caller needs to branch on and everything the gate observed:
-
-    Attributes:
-        operator_key: The FIRST operator, in sorted key order, whose output
-            view carried zero entities and zero relationships. One name for a
-            consumer that branches on a key.
-        empty_operators: Every such operator key, so a plan in which two
-            operators returned empty is reported once, whole, and a reader
-            never re-derives the rest from ``detail``.
-
-    Observed from :attr:`~ccf.projection.engine.ExecutionResult.empty_results`,
-    the engine's own record — never from the payload (``D-IMPL-238`` limb 3).
-    """
-
-    operator_key: str
-    empty_operators: frozenset[str]
 
 
 class LineageMismatchRefusal(GateRefusal):
@@ -341,135 +356,57 @@ class AttestationRefusal(GateRefusal):
 
 
 class DeclaredObligationRefusal(GateRefusal):
-    """The declared-obligations gate: the product broke what its class declared.
+    """The declared-obligations gate: the product broke what its class obliged.
 
-    SDK-defined per CLAUDE.md §11 — whitepaper §7.6 (the validation gates)
-    and §7.7.4–§7.7.8 (Context Debt as the quantified shortfall that gates
-    Forced LLM and Fail-Closed behavior). The ONE structural mechanism
-    ``D-IMPL-237`` licenses, carrying both of the obligations it enforces
-    (ledger rows ``24.5-L-14`` and ``24.5-L-26``) under one token,
-    :data:`GATE_DECLARED_OBLIGATIONS`, so that there is one gate and not two.
-    Derives from :class:`GateRefusal` for the reason :class:`AttestationRefusal`
-    records: a product meets the fabric's one gate discipline, and the
-    ``ServableProduct | GateRefusal`` return union of :func:`run_gates` is
-    unchanged by this refusal existing. The HTTP door maps this kind to the
-    Standard's ``409`` (*"Debt gate exceeded → 409 with the debt block"*,
-    §9); this module knows nothing of status codes.
+    SDK-defined per CLAUDE.md §11 — whitepaper §7.6 (the validation gates).
+    The ONE structural mechanism ``D-IMPL-237`` licenses, under one token,
+    :data:`GATE_DECLARED_OBLIGATIONS`. Derives from :class:`GateRefusal` for
+    the reason :class:`AttestationRefusal` records: a product meets the
+    fabric's one gate discipline, and the ``ServableProduct | GateRefusal``
+    return union of :func:`run_gates` is unchanged by this refusal existing.
+    The HTTP door maps this kind to ``409``; this module knows nothing of
+    status codes.
+
+    **One obligation as of ``24.6-04``** (``24.6-L-04``, ``D-IMPL-251`` C1=A).
+    The debt half retired: a class's debt figure is a DEFAULT tolerance and not
+    an obligation, so nothing about Context Debt refuses here any more. What
+    withholds a product over an applicable tolerance is
+    :func:`refuse_over_tolerance`, which is not a gate — see its docstring for
+    why the distinction is load-bearing. The gate's membership under
+    ``D-IMPL-237``/``D-IMPL-238`` is unchanged by that move: the same token,
+    the same two runners, one fewer code path inside it.
 
     Both sides are carried, in the :class:`TTLRefusal` voice: a caller never
     re-derives either to learn what the gap was.
 
     Attributes:
-        obligation: Which declared obligation refused — ``debt-ceiling`` (the
-            candidate's ``D_c`` exceeded the effective ceiling, or the class
-            declared a ceiling and the candidate carries no assessment) or
-            ``lineage-inputs`` (a named payload member the class obliges is
-            absent or empty). Two SDK code paths under one gate, never a
-            deployment vocabulary.
-        declared: What the class declared, rendered: the effective ceiling as
-            a decimal string, or the obliged member's name.
-        observed: What the candidate carried, rendered: its ``D_c`` as a
-            decimal string, ``no-assessment``, ``absent`` or ``empty``.
+        obligation: Which declared obligation refused. One member —
+            ``lineage-inputs``, a named payload member the class obliges that
+            is absent or empty. A closed ``Literal`` rather than a free string
+            so that a second obligation is an SDK decision and never a
+            deployment's vocabulary.
+        declared: What the class declared, rendered: the obliged member's name.
+        observed: What the candidate carried, rendered: ``absent`` or
+            ``empty``.
     """
 
-    obligation: Literal["debt-ceiling", "lineage-inputs"]
+    obligation: Literal["lineage-inputs"]
     declared: str
     observed: str
-
-
-def _as_finite_decimal(requested: object) -> Decimal | None:
-    """The requested tolerance as a finite ``Decimal``, or ``None`` if it is not one.
-
-    A request parameter arrives as whatever the door parsed — ``Decimal``,
-    ``int`` or ``float`` — and a value that is none of those, or is a ``bool``
-    (which Python counts as an ``int``), or is not finite, is not a
-    tolerance and is ignored rather than refused: the class's ceiling is the
-    floor of strictness and stands on its own.
-    """
-    if isinstance(requested, bool) or not isinstance(requested, (Decimal, int, float)):
-        return None
-    try:
-        value = requested if isinstance(requested, Decimal) else Decimal(str(requested))
-    except InvalidOperation:
-        return None
-    return value if value.is_finite() else None
-
-
-def effective_debt_ceiling(
-    *, declared: Decimal | None, requested: object
-) -> Decimal | None:
-    """The ceiling the gate holds a product to — class-declared, request-tightened.
-
-    ``D-IMPL-240`` (3), Dave's selection among three: *the class declares, a
-    request may tighten*. Pure over its two arguments; no I/O, no clock.
-
-    * ``declared is None`` → ``None``. An undeclared class is unaffected
-      whatever the request says: a request cannot CREATE a ceiling, because a
-      ceiling is class governance and a caller is not the class.
-    * ``requested`` absent, or not a finite number → ``declared``. The class's
-      ceiling stands.
-    * otherwise → ``min(declared, requested)``. A request may only tighten. A
-      looser request is *ignored, not refused*: the class's ceiling is the
-      floor of strictness, and a caller asking for less strictness than the
-      class grants is asking for something the class already answered — the
-      served product is then held to the class's number, which is what the
-      refusal reports as ``declared``.
-
-    A number outside ``[0, 1]`` is not a looser request; it is not a ceiling.
-    The request boundary (:func:`~ccf.products.request.refuse_request`,
-    ``not-a-proportion``) refuses it by name before the resolver computes
-    anything here (WR-02), which is what keeps ``declared`` on a refusal a
-    number some class or caller actually declared as a ceiling. This function
-    stays pure ``min`` and does not re-judge the interval: a direct caller of
-    :func:`run_gates` that bypasses the boundary is the deployment's own
-    composition, and the boundary is where the Standard's request vocabulary
-    is enforced.
-
-    :func:`run_gates` and :func:`run_federated_gates` apply this function
-    themselves against the class's declaration, so no caller — the resolver
-    included — can pass a ``debt_tolerance`` that loosens the ceiling; the
-    resolver's own call is then idempotent (``min(d, min(d, r)) == min(d, r)``).
-
-    Args:
-        declared: :attr:`~ccf.products.contract.ServeObligations.debt_ceiling`
-            of the registered class.
-        requested: The request's :data:`DEBT_TOLERANCE_PARAMETER` value, as
-            presented, or ``None``.
-
-    Returns:
-        The effective ceiling, or ``None`` when the class declares none.
-    """
-    if declared is None:
-        return None
-    tightened = _as_finite_decimal(requested)
-    if tightened is None:
-        return declared
-    return min(declared, tightened)
 
 
 def _refuse_declared_obligations(
     candidate: ContextProductContract,
     *,
     product_class: RegisteredProductClass,
-    debt_tolerance: Decimal | None,
 ) -> DeclaredObligationRefusal | None:
-    """The declared-obligations gate, shared by both sequences — one function, two obligations.
+    """The declared-obligations gate, shared by both sequences — one function, one obligation.
 
     Factored rather than duplicated for the reason gates 1 and 3 are: the two
-    runners cannot drift into two readings of what a class declared.
+    runners cannot drift into two readings of what a class obliged.
 
-    **The debt half** (``24.5-L-14``). ``ceiling`` is
-    :func:`effective_debt_ceiling` over the class's declaration and the
-    caller's ``debt_tolerance``. ``None`` — the class declares no ceiling —
-    is silent. Under a ceiling, a candidate carrying no assessment is refused
-    (``observed="no-assessment"``): a class that declares a ceiling cannot be
-    served unmeasured, since an unmeasured product is neither within nor
-    over it. A candidate whose ``D_c`` exceeds the ceiling is refused with
-    both numbers. No principal and no perspective reach this comparison
-    (``D-IMPL-105``): ``D_c`` is entitlement-neutral, as it was assessed.
-
-    **The lineage half** (``24.5-L-26``). For each member the class names in
-    ``lineage_inputs_at``, in sorted order so the named member is
+    **The lineage obligation** (``24.5-L-26``). For each member the class names
+    in ``lineage_inputs_at``, in sorted order so the named member is
     deterministic: absent or ``None`` → ``observed="absent"``; a sized value
     of length zero → ``observed="empty"``. Nothing else about the payload is
     read — presence and non-emptiness of a NAMED top-level member only. That
@@ -477,45 +414,19 @@ def _refuse_declared_obligations(
     ``D-IMPL-102`` limb 3: a payload whose named member holds anything at all
     serves, and no shape, type or schema is consulted.
 
+    **What is no longer here** (``24.6-04``, ``24.6-L-04``). The debt half — a
+    class-declared ceiling folded with the request's tolerance by ``min`` — is
+    deleted, with the ``debt_tolerance`` keyword both runners carried. A class
+    figure is a default (``D-IMPL-251`` C1=A: *"a product class cannot
+    independently withhold otherwise deliverable context because its own debt
+    preference was exceeded"*), and the tolerance comparison belongs after
+    admission rather than inside a gate.
+
     Returns:
-        ``None`` when every declared obligation holds, otherwise the refusal
-        naming the first that did not — the debt half before the lineage
-        half, a fixed order.
+        ``None`` when the declared obligation holds, otherwise the refusal
+        naming the first member that did not.
     """
     obligations = product_class.serve_obligations
-    ceiling = effective_debt_ceiling(
-        declared=obligations.debt_ceiling, requested=debt_tolerance
-    )
-    if ceiling is not None:
-        if candidate.debt is None:
-            return DeclaredObligationRefusal(
-                gate=GATE_DECLARED_OBLIGATIONS,
-                detail=(
-                    f"product {candidate.schema_name!r} carries no debt "
-                    f"assessment but its class declares a D_c ceiling of "
-                    f"{ceiling}; a class that declares a ceiling cannot be "
-                    "served unmeasured — debt gate exceeded, 409 with the debt "
-                    "block (Standard §9; 24.5-L-14)"
-                ),
-                obligation="debt-ceiling",
-                declared=str(ceiling),
-                observed="no-assessment",
-            )
-        if candidate.debt.debt > ceiling:
-            return DeclaredObligationRefusal(
-                gate=GATE_DECLARED_OBLIGATIONS,
-                detail=(
-                    f"product {candidate.schema_name!r} carries D_c "
-                    f"{candidate.debt.debt}, over the effective ceiling "
-                    f"{ceiling} its class declared (a request may tighten "
-                    "that ceiling, never loosen it — D-IMPL-240 (3)); debt "
-                    "gate exceeded, 409 with the debt block (Standard §9; "
-                    "whitepaper §7.7.4–§7.7.8; 24.5-L-14)"
-                ),
-                obligation="debt-ceiling",
-                declared=str(ceiling),
-                observed=str(candidate.debt.debt),
-            )
     for member in sorted(obligations.lineage_inputs_at):
         value = candidate.payload.get(member)
         if value is None:
@@ -752,6 +663,173 @@ class ServableProduct(metaclass=_ServableProductMeta):
         return self._product
 
 
+class ToleranceExceededRefusal(CCFContract):
+    """Fulfillment withheld: an applicable declared tolerance was exceeded.
+
+    SDK-defined per CLAUDE.md §11; whitepaper §7.7.4–§7.7.8 (Context Debt as
+    the quantified shortfall that gates Forced LLM and Fail-Closed behavior).
+    Ledger row ``24.6-L-05``; ``D-IMPL-251`` C2=B, and ``D-IMPL-253`` Q10 in
+    Dave's own words: *"``tolerance-exceeded`` is right. Preserve which
+    authority established the tolerance. I would not make the shell itself
+    imply that Debt is invalid; the product was constructible, but fulfillment
+    was withheld because an applicable declared tolerance was exceeded."*
+
+    **What the shell says, and what it deliberately does not.** It says the
+    fabric built the product and then withheld it. It does not say the Context
+    Debt was wrong, unacceptable in itself, or a defect: a measured ``D_c`` is
+    a truthful statement about the evidence, and the only thing that made it
+    dispositive here is a tolerance somebody declared. Which somebody is the
+    ``authority`` field, and it is carried precisely because a bare number
+    cannot say who set it (``D-IMPL-253`` Q1).
+
+    **This is NOT a gate.** ``D-IMPL-237`` licenses exactly one structural
+    serve-time gate mechanism and ``D-IMPL-238`` records its membership by
+    name; neither is touched by this type existing. It derives from
+    :class:`~ccf.contracts.base.CCFContract` rather than from
+    :class:`GateRefusal`, carries no ``gate`` token, and is returned by
+    :func:`refuse_over_tolerance` — a comparison over a product the gate
+    sequence has already ADMITTED, run by the layer that composes assembly and
+    delivery. The distinction is the ruling: a gate decides whether a product
+    may exist; this decides whether an existing product is delivered. Since it
+    declares neither ``gate`` nor ``reason``,
+    :func:`~ccf.products.refusal.envelope_for` reports the kind token
+    (``tolerance-exceeded``) as the envelope's reason — *the most specific true
+    thing that can be said about why*.
+
+    Attributes:
+        authority: Who established the tolerance —
+            :data:`~ccf.products.provenance.Authority`, in practice
+            ``default`` (the product class's
+            :attr:`~ccf.products.contract.ServeObligations.default_debt_tolerance`,
+            applied because the caller stated none), ``caller`` (the value on
+            the request, honored as asked) or ``policy`` (a Control Plane
+            constraint bounding this parameter). Not narrowed to those three:
+            the Authority layer owns the vocabulary and this shell reports what
+            it resolved.
+        source: Where that authority's statement came from — the product-class
+            artifact pin, the request's own identity, or the constraint
+            artifact's ``(key, version)``. An examiner resolves the tolerance
+            from this rather than taking the number on trust.
+        tolerance: The applicable tolerance, the value the observation was
+            compared against.
+        observed: The product's Context Debt, or ``None`` when the product
+            carries no assessment at all. ``None`` is a positive statement —
+            *no assessment was produced* — and not a zero: an unmeasured
+            product is neither within an applicable tolerance nor over it, and
+            reporting it as ``0`` would claim a measurement nobody made.
+        breakdown: The full :class:`~ccf.halflife.assessment.DebtAssessment`
+            behind ``observed`` — the factors, the signal and the scorers in
+            force — so a consumer can see *why* the debt is what it is rather
+            than re-deriving it, or ``None`` when there was no assessment.
+            This is the *"debt information that can safely be disclosed"* of
+            ``D-IMPL-251`` C2; what of it actually crosses a door is the
+            disclosure layer's decision, not this type's.
+        detail: The sentence an operator reads in a log. It states that
+            fulfillment was withheld and never that the Debt was wrong.
+    """
+
+    authority: Authority
+    source: ProvenanceSource
+    tolerance: Decimal
+    observed: Decimal | None
+    breakdown: DebtAssessment | None
+    detail: str
+
+
+def refuse_over_tolerance(
+    product: ServableProduct,
+    *,
+    tolerance: EffectiveParameter | None,
+) -> ToleranceExceededRefusal | None:
+    """Hold an ADMITTED product to the one applicable tolerance, or serve it.
+
+    SDK-defined per CLAUDE.md §11; whitepaper §7.7.4–§7.7.8. Ledger row
+    ``24.6-L-05``, realizing ``D-IMPL-251`` C1=A and C2=B through
+    ``D-IMPL-253`` Q10.
+
+    **The argument is a resolved parameter, never a number.** The three debt
+    authorities — the class's default, the caller's declared tolerance, an
+    applicable policy constraint — are folded exactly once, upstream, by
+    :func:`~ccf.products.constraints.resolve_effective_request`, and what
+    arrives here is the single
+    :class:`~ccf.products.provenance.EffectiveParameter` that fold produced.
+    This function performs no fold of its own: a second fold is precisely the
+    scalar collapse ``D-IMPL-254`` removed, and it would also be the place a
+    class preference could quietly re-acquire the power ``C1`` took from it.
+
+    **Not a gate** — see :class:`ToleranceExceededRefusal`. The product has
+    already passed :func:`run_gates`; it exists, it is servable, and what is
+    decided here is fulfillment.
+
+    Args:
+        product: The gate-admitted product. Taking a
+            :class:`ServableProduct` rather than a candidate contract is the
+            sequencing made structural: this comparison cannot be reached by a
+            caller who has not run the gates, because it has nothing to pass.
+        tolerance: The resolved tolerance for
+            :data:`DEBT_TOLERANCE_PARAMETER`, or ``None`` when no authority
+            stated one. ``None`` serves at any Debt — not a permissive
+            default but the absence of any declaration to enforce, which is
+            what a class declaring no default, a caller stating nothing and a
+            deployment registering no constraint jointly mean.
+
+    Returns:
+        ``None`` when the product is delivered — no applicable tolerance, or
+        an observed ``D_c`` at or under it — otherwise the
+        :class:`ToleranceExceededRefusal` naming the authority, the tolerance
+        and what was observed.
+    """
+    if tolerance is None:
+        return None
+    presented = tolerance.value
+    if isinstance(presented, bool) or not isinstance(presented, (int, Decimal)):
+        # The same reading of "is this a number" that the request boundary
+        # applies (`ccf.products.request::_refuse_tolerance`): `bool` is an
+        # `int` to Python and not to the contract, and a `float` never reaches
+        # a resolution at all because `EffectiveParameter` refuses one at
+        # construction. Anything else is a wiring failure rather than a
+        # governed determination, so it raises (`D-IMPL-253` amendment 2 (3)).
+        raise TypeError(
+            f"the effective {tolerance.name!r} resolved to"
+            f" {type(presented).__name__}, which is not a numeric proportion;"
+            " a tolerance the fabric cannot compare against D_c is a"
+            " configuration failure, not a governed determination"
+        )
+    limit = Decimal(presented)
+    assessment = product.product.debt
+    if assessment is None:
+        return ToleranceExceededRefusal(
+            authority=tolerance.authority,
+            source=tolerance.source,
+            tolerance=limit,
+            observed=None,
+            breakdown=None,
+            detail=(
+                f"the product was constructible; fulfillment was withheld"
+                f" because an applicable declared tolerance"
+                f" ({tolerance.authority}) of {limit} cannot be shown to be"
+                " met — the product carries no Context Debt assessment, so"
+                " the observation the tolerance speaks about was never made"
+                " (whitepaper §7.7.4–§7.7.8; 24.6-L-05)"
+            ),
+        )
+    if assessment.debt <= limit:
+        return None
+    return ToleranceExceededRefusal(
+        authority=tolerance.authority,
+        source=tolerance.source,
+        tolerance=limit,
+        observed=assessment.debt,
+        breakdown=assessment,
+        detail=(
+            f"the product was constructible; fulfillment was withheld because"
+            f" an applicable declared tolerance ({tolerance.authority}) of"
+            f" {limit} was exceeded by the observed Context Debt"
+            f" {assessment.debt} (whitepaper §7.7.4–§7.7.8; 24.6-L-05)"
+        ),
+    )
+
+
 def run_gates(
     candidate: ContextProductContract,
     *,
@@ -760,8 +838,6 @@ def run_gates(
     registry: ControlPlaneProtocol,
     product_class: RegisteredProductClass,
     source_attestation: SourceAttestation | None = None,
-    debt_tolerance: Decimal | None = None,
-    empty_results: frozenset[str] | None = None,
 ) -> ServableProduct | GateRefusal:
     """Run the canonical gate sequence over ``candidate``.
 
@@ -788,32 +864,27 @@ def run_gates(
             :data:`GATE_SOURCE_ATTESTATION` gate returns an
             :class:`AttestationRefusal` naming the failing dimension, and
             no :class:`ServableProduct` exists (D-09).
-        debt_tolerance: The request's tolerance (``24.5-L-14``,
-            ``D-IMPL-240`` (3)), which may only TIGHTEN the ceiling
-            ``product_class.serve_obligations`` declares —
-            :func:`effective_debt_ceiling` takes the minimum here, so no
-            caller can loosen it. ``None`` — the default, and every
-            pre-phase call site — means *the class's ceiling stands*; and a
-            class that declares no ceiling is unaffected whatever is passed.
-        empty_results: The operator keys whose output view carried zero
-            entities and zero relationships, as the engine observed them
-            (``24.5-L-24``; :attr:`~ccf.projection.engine.ExecutionResult.empty_results`).
-            The governed resolver passes ``execution.empty_results``.
-            ``None`` — the default, and every pre-phase call site — means
-            *not observed* and passes, on the ``source_attestation``
-            compatibility posture; the empty set is the engine's positive
-            *no operator returned empty* and passes too. A non-empty set is
-            refused by name (:data:`GATE_EMPTY_OPERATOR_RESULT`).
 
     Returns:
         A :class:`ServableProduct` when every gate passes, otherwise the
         refusal of the *first* gate that did not. The order is: the
-        empty-operator gate's two halves, adjacent and declared half first
-        (``empty-operator-guard``, then ``empty-operator-result`` —
-        ``24.5-L-24``), lineage strict equality, TTL bounds, source
-        attestation, then — LAST, because every universal gate precedes a
-        declared one — the :data:`GATE_DECLARED_OBLIGATIONS` step, which is
-        silent for a class that declares nothing (``D-IMPL-237``).
+        empty-operator guard (``empty-operator-guard`` — the DECLARED half,
+        and since ``24.6-05`` the only one: an operator that ran and returned
+        nothing is served with a
+        :class:`~ccf.products.contract.ComputedEmptyFinding` rather than
+        refused, ``D-IMPL-242`` amendment 1), lineage strict equality, TTL
+        bounds, source attestation, then — LAST, because every universal gate
+        precedes a declared one — the :data:`GATE_DECLARED_OBLIGATIONS` step,
+        which is silent for a class that obliges nothing (``D-IMPL-237``).
+
+        A product this sequence admits may still be **withheld**: an
+        applicable declared tolerance is held against its observed Context
+        Debt by :func:`refuse_over_tolerance`, after admission, in the caller
+        that composes this sequence (``24.6-L-05``). That is a fulfillment
+        decision over a product that exists, not a gate, and no token of it
+        joins the sequence above. A computed-empty product reaches that
+        comparison like any other: its Debt is what the deployment's scorers
+        derived from the evidence, never a figure this module chose.
 
     Raises:
         ccf.controlplane.registry.ControlPlaneMissing: the pinned MAX_TTL has
@@ -828,10 +899,6 @@ def run_gates(
     empty = _refuse_empty_operators(candidate)
     if empty is not None:
         return empty
-
-    returned_empty = _refuse_empty_results(candidate, empty_results=empty_results)
-    if returned_empty is not None:
-        return returned_empty
 
     if declared != engine_resolved:
         return LineageMismatchRefusal(
@@ -859,7 +926,7 @@ def run_gates(
         return attestation
 
     obligation = _refuse_declared_obligations(
-        candidate, product_class=product_class, debt_tolerance=debt_tolerance
+        candidate, product_class=product_class
     )
     if obligation is not None:
         return obligation
@@ -874,8 +941,6 @@ def run_federated_gates(
     now: datetime,
     registry: ControlPlaneProtocol,
     product_class: RegisteredProductClass,
-    debt_tolerance: Decimal | None = None,
-    empty_results: frozenset[str] | None = None,
 ) -> ServableProduct | GateRefusal:
     """Run the federated form of the gate sequence over ``candidate``.
 
@@ -941,25 +1006,26 @@ def run_federated_gates(
 
     1. **empty-operator guard** — unchanged from the local path, and fully
        meaningful across a boundary: a product declaring no operators was
-       computed by nothing, whoever signed it (INV-CH7-46).
-    2. **empty-operator result** — the guard's second half, by name
-       (``24.5-L-24``): an operator RETURNED an empty set. Adjacent to the
-       declared half, as locally. The consumer ran no engine, so the
-       observation arrives only if the caller threads ``empty_results``;
-       ``None`` (the default, every pre-phase call site) is *not observed*
-       and passes.
-    3. **attributability** — ``content_hash(candidate) == attested_address``.
-    4. **TTL bounds** — the same INV-CH7-48 bound against the same pinned
+       computed by nothing, whoever signed it (INV-CH7-46). Its briefly-lived
+       second half (``empty-operator-result``, ``24.5-L-24``) is retired here
+       as locally (``D-IMPL-242`` amendment 1): a peer's product whose
+       operators returned nothing was computed, and if the peer recorded the
+       search it travels on the product as a
+       :class:`~ccf.products.contract.ComputedEmptyFinding`.
+    2. **attributability** — ``content_hash(candidate) == attested_address``.
+    3. **TTL bounds** — the same INV-CH7-48 bound against the same pinned
        MAX_TTL a locally assembled product is held to. Expiry is a property of
        the product and the consumer's clock and needs nothing the consumer
        lacks.
-    5. **declared obligations** — the same :data:`GATE_DECLARED_OBLIGATIONS`
+    4. **declared obligations** — the same :data:`GATE_DECLARED_OBLIGATIONS`
        step :func:`run_gates` runs last, against the consuming class's own
-       :class:`~ccf.products.contract.ServeObligations` (``24.5-L-14``,
-       ``24.5-L-26``; ``D-IMPL-237``). A federated candidate carries ``debt``
-       too, so the debt half applies where the consuming class declares a
-       ceiling; the lineage half applies as declared. Last, for the reason it
-       is last locally: every universal gate precedes a declared one.
+       :class:`~ccf.products.contract.ServeObligations` (``24.5-L-26``;
+       ``D-IMPL-237``). The lineage obligation applies as declared. Last, for
+       the reason it is last locally: every universal gate precedes a declared
+       one. As locally, an admitted federated product may still be withheld
+       over an applicable tolerance by :func:`refuse_over_tolerance`, which is
+       the consuming layer's call and not a step of this sequence
+       (``24.6-L-05``).
 
     Args:
         candidate: The product as the peer declares it, parsed from the bytes
@@ -971,17 +1037,11 @@ def run_federated_gates(
         now: The evaluation instant, supplied by the caller.
         registry: Control Plane the MAX_TTL is resolved from.
         product_class: The registered class carrying the pinned MAX_TTL — and,
-            since ``24.5-L-14``, the serve obligations step 4 reads.
-        debt_tolerance: As on :func:`run_gates`: may only tighten the class's
-            declared ceiling; ``None`` (the default, every pre-phase call
-            site) leaves the class's ceiling standing.
-        empty_results: As on :func:`run_gates` (``24.5-L-24``): the operator
-            keys observed to have returned empty, or ``None`` — the default
-            and every pre-phase call site — for *not observed*, which passes.
+            since ``24.5-L-14``, the serve obligations the last step reads.
 
     Returns:
         A :class:`ServableProduct` when every gate passes, otherwise the
-        refusal of the *first* gate that did not, in the five-step order
+        refusal of the *first* gate that did not, in the four-step order
         above.
 
     Raises:
@@ -994,10 +1054,6 @@ def run_federated_gates(
     empty = _refuse_empty_operators(candidate)
     if empty is not None:
         return empty
-
-    returned_empty = _refuse_empty_results(candidate, empty_results=empty_results)
-    if returned_empty is not None:
-        return returned_empty
 
     candidate_address = content_hash(candidate)
     if candidate_address != attested_address:
@@ -1022,7 +1078,7 @@ def run_federated_gates(
         return ttl
 
     obligation = _refuse_declared_obligations(
-        candidate, product_class=product_class, debt_tolerance=debt_tolerance
+        candidate, product_class=product_class
     )
     if obligation is not None:
         return obligation
@@ -1046,51 +1102,6 @@ def _refuse_empty_operators(
             f"product {candidate.schema_name!r} declares no operators; a "
             "product computed by nothing is not servable (INV-CH7-46)"
         ),
-    )
-
-
-def _refuse_empty_results(
-    candidate: ContextProductContract,
-    *,
-    empty_results: frozenset[str] | None,
-) -> EmptyResultRefusal | None:
-    """Gate 1's second half, shared by both sequences: an operator returned nothing.
-
-    Ledger row ``24.5-L-24`` (``D-IMPL-238`` second sentence). The two halves
-    of the empty-operator gate are two assertions that shared one name:
-    :func:`_refuse_empty_operators` refuses a product that DECLARED no
-    operators (the SDK's half, INV-CH7-46), and this function refuses a
-    product one of whose operators RETURNED an empty set (the Standard's
-    half). They are adjacent in both runners, declared half first, and each
-    names itself.
-
-    ``empty_results`` is the engine's observation
-    (:attr:`~ccf.projection.engine.ExecutionResult.empty_results`), threaded
-    by the governed resolver as a keyword. ``None`` means *not observed* —
-    a caller built before the observation existed, or a federated candidate
-    whose engine ran in another fabric — and PASSES: the compatibility
-    posture :func:`refuse_attestation` documents, so every pre-phase call
-    site is byte-identical in behavior. The empty set is the engine's
-    positive assertion that no operator returned empty, and passes too. A
-    non-empty set refuses, naming the first key in sorted order and carrying
-    all of them.
-
-    Reads operator keys from the execution and nothing from the payload
-    (``D-IMPL-238`` limb 3): a payload that happens to be empty is the
-    product's business; an operator that produced nothing is the fabric's.
-    """
-    if empty_results is None or not empty_results:
-        return None
-    ordered = sorted(empty_results)
-    return EmptyResultRefusal(
-        gate=GATE_EMPTY_OPERATOR_RESULT,
-        detail=(
-            f"product {candidate.schema_name!r}: operator {ordered[0]!r} "
-            f"returned an empty set (all such operators: {ordered}); an "
-            "empty assembled set fails closed (24.5-L-24)"
-        ),
-        operator_key=ordered[0],
-        empty_operators=frozenset(empty_results),
     )
 
 

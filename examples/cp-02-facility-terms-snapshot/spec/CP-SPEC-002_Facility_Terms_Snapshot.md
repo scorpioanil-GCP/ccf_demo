@@ -927,7 +927,7 @@ claims the SDK runs a gate it does not run.**
 
   **SUPERSEDED, 2026-09-03 (Phase 24.5.1, `D-IMPL-245` (3)).** When measured, no rung
   of the ladder tested `debt_tolerance` against anything and no 409 was wired.
-  `24.5-L-14` shipped the mechanism: `src/ccf/products/gates.py::effective_debt_ceiling`
+  `24.5-L-14` shipped the mechanism: the `effective_debt_ceiling` helper then in `src/ccf/products/gates.py` (DELETED 2026-09-04 by Phase 24.6 plans 03/04 under `D-IMPL-251` C1=A — a class may not hold a ceiling; what governs now: the class declares at most a DEFAULT, `default_debt_tolerance` on `src/ccf/products/contract.py::ServeObligations`, filling an omission only; the caller's `debt_tolerance` is honored as requested; the one fold is `src/ccf/products/constraints.py::resolve_effective_request`; a breach withholds fulfillment as the `tolerance-exceeded` shell from `src/ccf/products/gates.py::refuse_over_tolerance`, carrying the authority that set the tolerance; the debt half of `DeclaredObligationRefusal` and its `409` are retired, the new kind's HTTP status being assigned by class at the door in 24.6 plan 09 — `D-IMPL-257`)
   resolves a CLASS-declared ceiling that a request may only tighten (`D-IMPL-240` (3)),
   and a breach is a `DeclaredObligationRefusal`, which the HTTP door renders as 409
   (`runtime/ccf_runtime/http_api/routes/product.py::build_router`). This product declares no
@@ -1222,7 +1222,7 @@ defined rather than markers.
 | 9 | `payload_hash` value | §D.4 | this build | P6 |
 | 10 | Replay fixture `FTS-R01`, **three** hashes | §D.5 | this build | P6 |
 | 11 | Schema artifact + `extra=forbid` CI binding | §D.6 | this build | P6 |
-| 12 | Debt-gate `409` behavior — **SUPERSEDED 2026-09-03** (Phase 24.5.1, `D-IMPL-245` (3)): the mechanism exists since `24.5-L-14` (`src/ccf/products/gates.py::effective_debt_ceiling`; `DeclaredObligationRefusal` → HTTP 409 at `runtime/ccf_runtime/http_api/routes/product.py::build_router`); cp-02 declares no ceiling, so its behavior is unchanged — see §D.7's debt-gate note | §D.7 | this build | P7 |
+| 12 | Debt-gate `409` behavior — **SUPERSEDED 2026-09-03** (Phase 24.5.1, `D-IMPL-245` (3)): the mechanism exists since `24.5-L-14` (the `effective_debt_ceiling` helper then in `src/ccf/products/gates.py` (DELETED 2026-09-04 by Phase 24.6 plans 03/04 under `D-IMPL-251` C1=A — a class may not hold a ceiling; what governs now: the class declares at most a DEFAULT, `default_debt_tolerance` on `src/ccf/products/contract.py::ServeObligations`, filling an omission only; the caller's `debt_tolerance` is honored as requested; the one fold is `src/ccf/products/constraints.py::resolve_effective_request`; a breach withholds fulfillment as the `tolerance-exceeded` shell from `src/ccf/products/gates.py::refuse_over_tolerance`, carrying the authority that set the tolerance; the debt half of `DeclaredObligationRefusal` and its `409` are retired, the new kind's HTTP status being assigned by class at the door in 24.6 plan 09 — `D-IMPL-257`); `DeclaredObligationRefusal` → HTTP 409 at `runtime/ccf_runtime/http_api/routes/product.py::build_router`); cp-02 declares no ceiling, so its behavior is unchanged — see §D.7's debt-gate note | §D.7 | this build | P7 |
 | 13 | Sabotage result for each of the nine gates | §D.7 | this build | P7 |
 | 14 | Counterfactual fixture `FTS-F01` — the two-`asked_at` comparison | §A | this build | P7 |
 | 15 | `λ_c` measured against read frequency | §E.1 | this build | P8 |

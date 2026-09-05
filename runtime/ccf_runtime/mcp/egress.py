@@ -73,6 +73,20 @@ live in :mod:`ccf_runtime.authz.product_entitlement` — one definition of
 owns, because the role-separation invariant forbids the doors importing each
 other.
 
+**And since ``24.6-10`` this door reaches that decision through the governed
+delivery-boundary step, not directly** (``D-IMPL-256``;
+:mod:`ccf_runtime.authz.delivery_boundary`). Both handlers call
+:func:`~ccf_runtime.authz.delivery_boundary.govern_entitlement` and **encode
+what it returns**: an entitled :class:`~ccf.projection.plan.Perspective`
+continues to the resolver, and a denial comes back as an already-recorded,
+already-disclosed :class:`~ccf.products.refusal.RefusalEnvelope`. Nothing in
+this module catches
+:class:`~ccf_runtime.authz.product_entitlement.ProductEntitlementRefused`,
+calls a recorder, discloses, or reads a clock — *"Replay belongs to the
+governed determination, not to HTTP or MCP"* (criterion 36) — and a third
+required seam, ``refusal_recorder``, joins the two above at construction so a
+door that could deny unrecorded is never built (``D-IMPL-256`` (2)).
+
 **Two surfaces, and what distinguishes them (``D-IMPL-126``; this extends
 ``D-IMPL-108`` rather than contradicting it).** The resource answers *the
 class's standing answer*: three path segments, no query surface, and therefore
@@ -93,9 +107,12 @@ deny-by-default, this module's stated posture, applied to exposure.
 
 **The tool is not the weaker path, and that is structural.** It runs the same
 :func:`~ccf_runtime.authz.product_entitlement.verified_grant` then
-:func:`~ccf_runtime.authz.product_entitlement.entitled_perspective` sequence
-with the identical arguments the resource passes, ``requested_role=None``
-included; it **binds and forwards** the perspective that call returned rather
+:func:`~ccf_runtime.authz.delivery_boundary.govern_entitlement` sequence — the
+ONE governed delivery-boundary step, which runs the shared entitlement
+resolution and, on a denial, mints and discloses before it returns
+(``D-IMPL-256``) — with the identical arguments the resource passes,
+``requested_role=None`` included; it **binds and forwards** the perspective
+that call returned rather
 than re-deriving one (``DI-15.5-03``, below, is exactly that defect); it takes
 no ``role`` parameter, so it is narrower than the resource beside it rather
 than wider; and it addresses its request from its own path arguments, so a
@@ -129,14 +146,17 @@ from __future__ import annotations
 
 import base64
 import binascii
+import logging
 import re
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Final, Protocol, runtime_checkable
+from uuid import uuid4
 
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import ValidationError, field_validator
 
 from ccf.contracts.base import CCFContract
@@ -146,20 +166,31 @@ from ccf.products.door import (
     WireRequest,
     door_answer,
     door_question,
+    door_refusal,
+    served_answer,
 )
-from ccf.products.gates import ServableProduct
+from ccf.products.refusal import RefusalEnvelope, RequestIdentity
+from ccf.replay.serve import ServedProduct
 from ccf.products.request import ProductRequest
+from ccf.products.resolver import RefusalRecorderProtocol
 from ccf.projection.plan import Perspective
+from ccf_runtime.authz.delivery_boundary import (
+    SURFACE_MCP_RESOURCE,
+    SURFACE_MCP_TOOL,
+    govern_absence,
+    govern_entitlement,
+    recorded_boundary,
+)
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
     ProductEntitlementSourceProtocol,
-    entitled_perspective,
     verified_grant,
 )
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "CCF_FAILURE_PREFIX",
     "MAX_ADDRESS_QUESTION_BYTES",
     "PRODUCT_ADDRESS_TEMPLATE",
     "PRODUCT_REQUEST_TOOL",
@@ -174,6 +205,21 @@ __all__ = [
     "product_address",
     "product_uri",
 ]
+
+#: This module's logger. The traceback of a fabric failure lands here and
+#: nowhere a client can read — see :func:`_opaque_failure`.
+_LOGGER = logging.getLogger(__name__)
+
+#: What a CCF/runtime failure is called on the wire, and the whole of what a
+#: client learns about it (``D-IMPL-253`` Q20, ``24.6-L-03``).
+#:
+#: A tool error carries ``ccf-runtime-failure:<id>`` and no exception prose.
+#: The reason is the same one that made a governed refusal a return value: a
+#: client cannot string-parse a server's wording, and a server's wording is
+#: where the internals leak. The id is the join to the server log, which holds
+#: the traceback; a consumer quoting the id gets an operator to the exact
+#: failure without the failure ever having crossed.
+CCF_FAILURE_PREFIX: Final[str] = "ccf-runtime-failure"
 
 #: The L6 egress scheme. Live products only — see the module docstring on why
 #: this is not the artifact scheme.
@@ -303,10 +349,17 @@ class ProductNotServable(LookupError):
 
     Raised by a deployment's resolver, not by this module. A ``LookupError``
     because it is an absence — the counterpart of
-    :class:`ccf.mcp.errors.McpResourceAbsent` on the client side. Discriminating
-    it structurally *at the client* needs a typed signal on the wire, which is
-    the artifact server's contract (06-RESEARCH.md Pitfall 2) and not something
-    an egress read of a live product needs today.
+    :class:`ccf.mcp.errors.McpResourceAbsent` on the client side.
+
+    **It does not cross a door as itself** (``D-IMPL-260`` P-C). Each of the
+    three product doors catches exactly this type around its resolver call
+    and hands it to
+    :func:`~ccf_runtime.authz.delivery_boundary.govern_absence`, which mints
+    the same ``subject-unavailable`` determination the assembler reaches for a
+    subject nothing resolves, records it, discloses it, and returns the
+    common shell — so *there is no such class* and *there is no such subject*
+    are one recorded outcome to a consumer. Any other exception a resolver
+    raises is a runtime failure and stays one.
     """
 
 
@@ -395,28 +448,32 @@ class ProductResolverProtocol(Protocol):
     door"*. Both were blocked on the same missing parameters, so both were
     added together rather than reshaping the same call sites twice.
 
-    **THE DECLARED RETURN TYPE IS UNCHANGED, AND THE TOOL NOW TOLERATES TWO
-    MORE SHAPES** (``D-IMPL-148`` Addendum A). Widening this Protocol's return
-    type would reshape all three product doors and is a fourth door's worth of
-    work that nothing has ruled — :mod:`ccf.products.resolver` records the same
-    divergence from its own side. So the annotation below still says
-    :class:`~ccf.products.gates.ServableProduct`, while the *tool* handler
-    accepts, through :mod:`ccf.products.door`, whichever of these a deployment's
-    resolver actually returns:
+    **THE RETURN TYPE IS THE PROVABLE GOVERNED RESULT, AND NOTHING ELSE
+    CROSSES** (``D-IMPL-260`` P-A, Dave: *"the boundary must accept only a
+    typed/provable governed result proving determination, replay and
+    disclosure completed; a nonconforming resolver result must not cross"*).
+    Until that ruling this annotation said
+    :class:`~ccf.products.gates.ServableProduct` and the doors tolerated a
+    wider set — ``D-IMPL-148`` Addendum A's *"named divergence"* — which let
+    a served vessel cross with no replay behind it and a bare refusal cross
+    undisclosed and unrecorded. A resolver now returns exactly one of:
 
-    * :class:`~ccf.products.gates.ServableProduct` — served, and **no replay
-      reference**, because this vessel carries none;
-    * :class:`~ccf.replay.serve.ServedProduct` — served, with the reference,
-      which is what :class:`~ccf.products.resolver.GovernedResolver` returns and
-      what makes the reference reach a consumer at all;
-    * :class:`~ccf.products.refusal.RefusalEnvelope`, or any bare refusal value
-      :data:`~ccf.products.refusal.REFUSAL_KINDS` names — the governed "no",
+    * :class:`~ccf.replay.serve.ServedProduct` — served, with the reference of
+      the record :func:`~ccf.replay.serve.serve` appended before it returned;
+    * :class:`~ccf.products.refusal.RefusalEnvelope` as
+      :class:`~ccf.products.resolver.ReplayRefusalRecorder` returns it —
+      recorded, disclosed, carrying its replay reference — the governed "no",
       returned rather than raised.
 
-    Anything else is a wiring defect and raises ``TypeError``; it is never
-    reported to a caller as a refusal the fabric made. The **resource** handler
-    is unchanged and reads ``.product`` off what it was handed, as it always
-    has.
+    A bare :class:`~ccf.products.gates.ServableProduct`, a bare refusal value,
+    an envelope at the sentinel reference or with ``disclosure=None``, or any
+    other shape is refused by :mod:`ccf.products.door` as
+    :class:`~ccf.products.door.UngovernedResolverResult` — a wiring defect,
+    reaching a caller as this door's opaque runtime failure and never as a
+    refusal the fabric made. Both handlers read the answer through the same
+    two functions (:func:`~ccf.products.door.door_refusal` then
+    :func:`~ccf.products.door.served_answer`), so the tool and the resource
+    cannot disagree about what a served answer or a refusal is.
 
     **TWO REFUSALS THIS DOOR DOES NOT CALL, AND YOUR RESOLVER MUST.** The SDK
     ships both comparisons complete and tested, and no shipped door invokes
@@ -463,8 +520,8 @@ class ProductResolverProtocol(Protocol):
         version: str,
         perspective: Perspective,
         request: ProductRequest | None,
-    ) -> ServableProduct:
-        """Return the gate-admitted product at that address, under ``perspective``.
+    ) -> ServedProduct | RefusalEnvelope:
+        """Return the served product at that address, under ``perspective``, or the governed refusal.
 
         Keyword-only, so a signature of same-typed strings cannot be called
         with the tenant and the class transposed.
@@ -681,6 +738,42 @@ def _refuse_naive(asked_at: datetime) -> None:
         )
 
 
+def _opaque_failure(exc: BaseException) -> ToolError:
+    """Log the fabric's own failure under a fresh id; return the opaque error.
+
+    ``D-IMPL-253`` Q20, Dave's line of record: *"Governed determination →
+    governed response. Technical/runtime failure → transport error."* This is
+    the second half. A ``ToolError`` at this door now means **CCF or its
+    runtime failed** and it carries ``ccf-runtime-failure:<id>`` — no message,
+    no type name, no traceback.
+
+    **Why an id rather than the exception's text.** A client that must
+    string-parse a server's prose has no channel at all, and the prose is
+    exactly where a store path, a query, a tenant or a principal leaks
+    (``T-24.6-34``). The id is a join: it is written to this module's logger
+    beside the full traceback, so an operator asked about
+    ``ccf-runtime-failure:2f1c…`` finds the one failure it names.
+
+    **The id is not deterministic and does not need to be.** It identifies an
+    *occurrence*, not a decision — a decision's identity is its replay record,
+    which a failure by definition does not have.
+
+    Args:
+        exc: What the fabric raised. Never rendered to the caller.
+
+    Returns:
+        The ``ToolError`` the handler raises. Returned rather than raised so
+        the ``raise ... from exc`` at the call site keeps the original cause on
+        the server-side chain.
+    """
+    failure_id = uuid4().hex
+    _LOGGER.exception(
+        "the L6 egress door failed: %s:%s", CCF_FAILURE_PREFIX, failure_id,
+        exc_info=exc,
+    )
+    return ToolError(f"{CCF_FAILURE_PREFIX}:{failure_id}")
+
+
 def build_egress_server(
     *,
     server_name: str,
@@ -689,6 +782,7 @@ def build_egress_server(
     auth_settings: AuthSettings,
     entitlement_source: ProductEntitlementSourceProtocol,
     perspective_resolver: PerspectiveResolverProtocol,
+    refusal_recorder: RefusalRecorderProtocol | None = None,
     expose_product_resource: bool = True,
     expose_product_tool: bool = False,
     product_tool_description: str | None = None,
@@ -715,6 +809,25 @@ def build_egress_server(
     governance, and an optional seam would make deny-by-default a
     deployment's choice. There is no inert configuration of this builder.
 
+    **``refusal_recorder`` joins them, and a door without one is not built**
+    (``D-IMPL-256`` (2), ``24.6-10``). Every denial this door makes is a
+    *recorded decision*, appended by the deployment's own
+    :class:`~ccf.products.resolver.ReplayRefusalRecorder` — the same writer,
+    over the same store, that the resolver's own refusals already use, so a
+    denial at the door and a refusal from the fabric are one record form and
+    not two. Because this builder **always** entitles, the check runs at
+    construction: :func:`~ccf_runtime.authz.delivery_boundary.recorded_boundary`
+    is the first thing this function does, and an absent or non-conforming
+    recorder raises
+    :class:`~ccf_runtime.authz.delivery_boundary.UnrecordableDeliveryBoundaryError`
+    before a single handler is registered. There is therefore no recorder-less
+    configuration of this door to measure a residual channel at — no warning,
+    no serve-but-fail-on-denial posture, and nothing that would make
+    auditability contingent on outcome. The keyword is spelled with a ``None``
+    default rather than made positionally required so that the omission is
+    refused by the ONE typed error the three builders share, whose message
+    names this builder and the keyword, rather than by a bare ``TypeError``.
+
     **The parameterised tool is opt-in, and it takes two arguments rather
     than one** (``D-IMPL-126``). ``expose_product_tool`` defaults to ``False``
     and ``product_tool_description`` to ``None``; either without the other
@@ -740,6 +853,13 @@ def build_egress_server(
             (:class:`~ccf_runtime.authz.product_entitlement.ControlPlaneProductEntitlementSource`
             is the reference implementation, resolving the tenant's policy
             per call and auditing both outcomes).
+        refusal_recorder: The ONE minting seam every denial at this door is
+            appended through
+            (:class:`~ccf.products.resolver.RefusalRecorderProtocol`; the SDK's
+            reference is :class:`~ccf.products.resolver.ReplayRefusalRecorder`,
+            which a deployment already holds on its
+            :class:`~ccf.products.resolver.GovernedResolver`). Required in
+            substance and defaulted in spelling — see above.
         perspective_resolver: The deployment's role-derivation seam. This
             surface's URI carries three segments and no role among them, so
             the resolver is called with ``requested_role=None`` and derives
@@ -769,6 +889,11 @@ def build_egress_server(
             ``expose_product_tool`` is ``True``.
 
     Raises:
+        UnrecordableDeliveryBoundaryError: ``refusal_recorder`` is absent or
+            does not conform. Checked **first**, before the two exposure rules
+            below, because this door always entitles and a door that could deny
+            unrecorded must not reach the point of having surfaces to argue
+            about (``D-IMPL-256`` (2)).
         ValueError: ``expose_product_resource`` and ``expose_product_tool``
             are both ``False`` — a door with neither surface answers nothing
             (D-03); or ``expose_product_tool`` and
@@ -780,6 +905,9 @@ def build_egress_server(
         library that picked an interface would be picking an exposure surface
         (T-06-14).
     """
+    recorder = recorded_boundary(
+        refusal_recorder=refusal_recorder, builder="build_egress_server"
+    )
     if not expose_product_resource and not expose_product_tool:
         raise ValueError(
             "expose_product_resource=False together with"
@@ -825,6 +953,40 @@ def build_egress_server(
             content address and the A2A signature are computed over, so a consumer
             that hashes what it received gets the address the producer would.
 
+            **This body now carries two shapes, and the top-level ``kind`` key
+            tells them apart** (``D-IMPL-253`` D-19, ``24.6-L-03``). The
+            declared ``mime_type`` is unchanged — both are canonical JSON — but
+            what is inside is either the **vessel** or the
+            :class:`~ccf.products.refusal.RefusalEnvelope` that stands instead
+            of one. Until this row the resource had no refusal channel at all:
+            a governed "no" reached it as a resolver return with no ``.product``
+            and left as a transport error, and a client could not tell that from
+            *not found*. Dave's line on why that was not acceptable:
+            **not-found would destroy the distinction and replayability**. A
+            shell carries the kind, the permitted statement, and the address of
+            its own decision record; a not-found carries none of the three.
+
+            **Both refusal sources land in this one channel.** The door's own
+            entitlement denial arrives from
+            :func:`~ccf_runtime.authz.delivery_boundary.govern_entitlement`
+            **already recorded and already disclosed**, and this handler encodes
+            it; a resolver's governed "no" arrives as the resolver's return and
+            is translated by :func:`~ccf.products.door.door_refusal` through the
+            same function both other doors use.
+
+            **This handler reads no clock, mints nothing, and discloses
+            nothing** (criterion 36: *replay belongs to the governed
+            determination, not to HTTP or MCP*). The instant on the denial's
+            record is the deployment's own declared entitlement clock, read
+            **once** inside the governed step (``D-IMPL-98``,
+            ``D-IMPL-256`` (1)), and the identity it is recorded under is a
+            :class:`~ccf.products.refusal.ResourceRequestIdentity` naming this
+            surface and the URI the caller addressed — which is what makes a
+            resource-path denial answer *what resource, by whom, at what
+            instant, under which policy, and why*, exactly as a tool-path denial
+            does. ``D-34``: *no fulfilled Context Product does not mean no
+            Decision Replay*.
+
             **Where the resolved perspective goes** (``DI-15.5-03``, closed by
             ``D-IMPL-108``). It is forwarded. The perspective this door's
             entitlement authorized is the perspective the deployment's
@@ -846,23 +1008,64 @@ def build_egress_server(
             never hold) and reading a clock for ``asked_at`` — which is precisely
             the literal-instead-of-argument defect ``D-IMPL-98`` exists to remove,
             reintroduced one layer up.
+
+            **And it is why the refusal's identity is ``identity=`` rather than
+            a manufactured question.** The shell names the two facts this
+            surface genuinely establishes — no parameters were supplied, and no
+            temporal boundary was asked for — and invents nothing else.
             """
-            perspective = entitled_perspective(
+            decided = govern_entitlement(
                 grant=verified_grant(),
                 tenant=tenant,
                 product_class=product_class,
+                product_version=version,
                 requested_role=None,
+                parameters={},
+                asked_at=None,
+                surface=SURFACE_MCP_RESOURCE,
+                address=product_uri(
+                    tenant=tenant, product_class=product_class, version=version
+                ),
                 entitlement_source=entitlement_source,
                 perspective_resolver=perspective_resolver,
+                refusal_recorder=recorder,
             )
-            servable = resolver(
-                tenant=tenant,
-                product_class=product_class,
-                version=version,
-                perspective=perspective,
-                request=None,
-            )
-            return canonical_bytes(servable.product).decode("utf-8")
+            if isinstance(decided, RefusalEnvelope):
+                return canonical_bytes(decided).decode("utf-8")
+            try:
+                resolved = resolver(
+                    tenant=tenant,
+                    product_class=product_class,
+                    version=version,
+                    perspective=decided,
+                    request=None,
+                )
+            except ProductNotServable as absent:
+                # `D-IMPL-260` P-C: the typed absence is a governed
+                # determination, recorded and disclosed at the boundary, and
+                # crosses as the common shell — never as a transport error.
+                return canonical_bytes(
+                    govern_absence(
+                        grant=verified_grant(),
+                        tenant=tenant,
+                        product_class=product_class,
+                        product_version=version,
+                        parameters={},
+                        asked_at=None,
+                        surface=SURFACE_MCP_RESOURCE,
+                        address=product_uri(
+                            tenant=tenant, product_class=product_class, version=version
+                        ),
+                        perspective=decided,
+                        absent=absent,
+                        entitlement_source=entitlement_source,
+                        refusal_recorder=recorder,
+                    )
+                ).decode("utf-8")
+            refusal = door_refusal(resolved)
+            if refusal is not None:
+                return canonical_bytes(refusal).decode("utf-8")
+            return canonical_bytes(served_answer(resolved).product).decode("utf-8")
 
     def _answer_question(
         question: WireRequest,
@@ -874,8 +1077,20 @@ def build_egress_server(
         intent: str,
         freshness: str,
         asked_at: datetime,
+        surface: str,
+        address: str,
     ) -> bytes:
         """The one body both the tool and the address answer through.
+
+        ``surface`` and ``address`` are the CALLING surface's own identity —
+        the tool names itself and the standing product URI; the address
+        resource names itself and the ``/q/`` URI the caller read — and they
+        travel into the governed step so a denial is recorded under the
+        resource that was actually requested (``D-IMPL-256`` (1), criterion
+        24: *what resource*). Phase 24.6 close panel: until this parameter,
+        one shared body stamped every denial as a tool denial at the standing
+        address, so a denial on the address surface was recorded against a
+        resource nobody read.
 
         Factored out of the tool so the two surfaces **cannot drift**
         (``24.5-L-08``; the ``test_both_callers_…`` discipline cp-04 already
@@ -890,6 +1105,25 @@ def build_egress_server(
         :func:`~ccf.products.door.door_question` — the text the tool's
         ``request`` argument carried, or the text the address's decoded body
         carried — so the echo is the door's parse on both surfaces (``C-01``).
+
+        **Three outcomes, and exactly one of them is a transport error**
+        (``D-IMPL-253`` Q19/Q20; ``24.6-L-03``). A served vessel and a governed
+        "no" — the fabric's *or this door's own entitlement denial* — are both
+        :class:`~ccf.products.door.DoorOutcome` bytes with ``isError`` false.
+        Only a **failure** of CCF or its runtime raises, and it raises
+        :class:`~mcp.server.fastmcp.exceptions.ToolError` carrying the opaque
+        id :func:`_opaque_failure` minted. The ``except`` tuple below is named
+        rather than bare precisely so that reading is checkable: a
+        :class:`~ccf.products.refusal.RefusalEnvelope` is a **return value**, so
+        no governed determination can enter that branch at all.
+
+        **The** :class:`~ccf.products.request.ProductRequest` **is built before
+        the entitlement decision**, and that is ordering rather than
+        rearrangement: nothing about constructing it consults governance, and
+        having it in hand is what lets a denial leave through
+        :func:`~ccf.products.door.door_answer` — the **one** emission site —
+        rather than through a second hand-built outcome that could disagree
+        with it about the echo or the reference.
         """
         _refuse_naive(asked_at)
         if question.product_id != product_class:
@@ -914,14 +1148,6 @@ def build_egress_server(
                 " crosses this pipe twice precisely so the two can be"
                 " compared (C-18)"
             )
-        perspective = entitled_perspective(
-            grant=verified_grant(),
-            tenant=tenant,
-            product_class=product_class,
-            requested_role=None,
-            entitlement_source=entitlement_source,
-            perspective_resolver=perspective_resolver,
-        )
         asked = ProductRequest(
             schema_name=product_class,
             schema_version=version,
@@ -949,20 +1175,57 @@ def build_egress_server(
             # them — it is a refusal to hold two.
             parameters=dict(question.parameters),
         )
-        resolved = resolver(
+        decided = govern_entitlement(
+            grant=verified_grant(),
             tenant=tenant,
             product_class=product_class,
-            version=version,
-            perspective=perspective,
-            request=asked,
+            product_version=version,
+            requested_role=None,
+            parameters=asked.parameters,
+            asked_at=asked_at,
+            surface=surface,
+            address=address,
+            entitlement_source=entitlement_source,
+            perspective_resolver=perspective_resolver,
+            refusal_recorder=recorder,
         )
-        return door_answer(
-            resolved,
-            echo=question,
-            resolved_request=asked,
-            product_class=product_class,
-            version=version,
-        )
+        if isinstance(decided, RefusalEnvelope):
+            # The denial is ALREADY a recorded, disclosed decision (Q13: no
+            # second-class replay). `door_answer` passes an envelope through
+            # untouched and reports where its record landed, so the denial and
+            # a fabric refusal leave this door in one shape through one site.
+            return door_answer(decided, echo=question, resolved_request=asked)
+        try:
+            resolved: object
+            try:
+                resolved = resolver(
+                    tenant=tenant,
+                    product_class=product_class,
+                    version=version,
+                    perspective=decided,
+                    request=asked,
+                )
+            except ProductNotServable as absent:
+                # `D-IMPL-260` P-C: the typed absence is a governed
+                # determination — recorded, disclosed, and leaving through the
+                # one emission site like every other refusal this tool answers.
+                resolved = govern_absence(
+                    grant=verified_grant(),
+                    tenant=tenant,
+                    product_class=product_class,
+                    product_version=version,
+                    parameters=asked.parameters,
+                    asked_at=asked_at,
+                    surface=surface,
+                    address=address,
+                    perspective=decided,
+                    absent=absent,
+                    entitlement_source=entitlement_source,
+                    refusal_recorder=recorder,
+                )
+            return door_answer(resolved, echo=question, resolved_request=asked)
+        except (ValueError, TypeError, LookupError, OSError) as exc:
+            raise _opaque_failure(exc) from exc
 
     if expose_product_tool:
 
@@ -1007,9 +1270,10 @@ def build_egress_server(
             never be.
 
             **The order below is the security property**, in
-            :func:`~ccf_runtime.authz.product_entitlement
-            .entitled_perspective`'s own phrasing, and it is the *identical*
-            order and the identical call the resource makes:
+            :func:`~ccf_runtime.authz.delivery_boundary.govern_entitlement`'s
+            own phrasing — *request → identity/policy → determination → replay
+            → disclosure shaping → transport encoding* — and it is the
+            *identical* order and the identical call the resource makes:
 
             1. A timezone-naive ``asked_at`` is refused first, before any
                governance is consulted, because it is a malformed argument
@@ -1021,15 +1285,23 @@ def build_egress_server(
                reads the in-flight verified identity. That it is readable
                inside a **tool** handler is shipped fact, not assumption:
                ``hitl_server.py``'s authority tool does exactly this.
-            3. :func:`~ccf_runtime.authz.product_entitlement
-               .entitled_perspective` with the argument list the resource
-               passes, ``requested_role=None`` included.
-            4. **Its return value is bound and forwarded.** ``DI-15.5-03`` is
-               the recorded defect where this very door *resolved an entitled
-               perspective and then discarded it*; a new door that entitled
-               correctly and then constructed its own would reproduce it
-               exactly, and outcome parity against the resource would not
-               see the difference. Never re-derived, never reconstructed.
+            3. :func:`~ccf_runtime.authz.delivery_boundary.govern_entitlement`
+               with the argument list the resource passes,
+               ``requested_role=None`` included — the ONE governed step, which
+               reaches the shared entitlement decision and, on a denial, mints
+               the five-dimension record and applies the disclosure policy
+               before returning (``D-IMPL-256``). This handler holds no
+               ``except`` for that denial and calls no recorder: replay belongs
+               to the determination, not to MCP.
+            4. **Its return value is bound and forwarded**, on both branches.
+               ``DI-15.5-03`` is the recorded defect where this very door
+               *resolved an entitled perspective and then discarded it*; a new
+               door that entitled correctly and then constructed its own would
+               reproduce it exactly, and outcome parity against the resource
+               would not see the difference. Never re-derived, never
+               reconstructed — and a returned
+               :class:`~ccf.products.refusal.RefusalEnvelope` is encoded, never
+               re-enveloped.
 
             **The request's address is this door's, never the caller's.**
             ``schema_name`` and ``schema_version`` are bound to the
@@ -1234,29 +1506,52 @@ def build_egress_server(
             :func:`~ccf_runtime.http_api.routes.canonical_response` already
             records for its own header.
 
-            **The resource beside this tool is deliberately unchanged.** It has
-            no envelope and no header, its body *is* the vessel, and it carries
-            no request — so it has no sibling channel for a reference and no
-            question for a refusal envelope to name. Giving it one means making
-            it a different resource, which is not what either ruling asked for.
+            **The resource beside this tool now has a refusal channel too, and
+            the 24.5 asymmetry this paragraph recorded is superseded**
+            (``D-IMPL-253`` Q19, ``D-IMPL-256``; ``24.6-L-03``). It read: *"The
+            resource beside this tool is deliberately unchanged. It has no
+            envelope and no header, its body is the vessel, and it carries no
+            request — so it has no sibling channel for a reference and no
+            question for a refusal envelope to name."* The middle clause was
+            the defect rather than the design: with no channel, a governed "no"
+            reached a client as a transport error indistinguishable from *not
+            found*, which — Dave — **would destroy the distinction and
+            replayability**. The resource's body is now the vessel **or** the
+            shell, told apart by the top-level ``kind`` key; the reference
+            rides *inside* the envelope, which is where a refusal's reference
+            has lived since ``24.6-07``, so no sibling channel was needed after
+            all. What the resource still does not carry is a *question*, and it
+            still does not invent one — it states the identity its own surface
+            establishes and nothing more.
 
-            **A governance refusal is still raised and never enveloped.**
-            ``ProductEntitlementRefused`` is decided *before* the resolver is
-            reached, and entitlement at the client seam is on the v0 not-list;
-            rendering it as a fabric refusal would say "the fabric answered no"
-            about a caller the fabric never answered at all. The line is drawn
-            here and asserted in
-            ``tests/mcp/test_egress_refusal_envelope.py``.
+            **A governance refusal is now a governed response, not a raise, and
+            it is recorded before it is disclosed** (``D-IMPL-253`` Q20,
+            ``D-IMPL-256``; ``24.6-L-03``). This paragraph read: *"A governance
+            refusal is still raised and never enveloped… rendering it as a
+            fabric refusal would say 'the fabric answered no' about a caller the
+            fabric never answered at all."* Dave's ruling reframes the premise:
+            an entitlement denial **is** a governed determination — one the
+            fabric genuinely made — and it shares the one canonical outcome a
+            nonexistent subject also carries, ``subject-unavailable``, so that
+            *you may not* and *there is no such thing* are one external
+            statement at the principal's disclosure level (``D-27`` amendment 2
+            (4), ``D-IMPL-253`` Q27). The determination, its record and its
+            disclosure all happen in
+            :func:`~ccf_runtime.authz.delivery_boundary.govern_entitlement`
+            before this handler sees anything; this door **encodes** and decides
+            nothing. What the old paragraph was right about survives in the
+            audit plane: the internal cause is ``unauthorized`` and the typed
+            ``error_code`` is on the record, so an examiner can still tell the
+            two apart even though a consumer cannot.
 
             Raises:
-                NaiveAskedAtRefused: ``asked_at`` carries no UTC offset.
-                ProductEntitlementRefused: the caller is not entitled to this
-                    class, or not to the resolved role. Deliberately raised
-                    rather than enveloped — see above.
-                ProductNotServable: the resolver has no product there.
-                TypeError: the resolver answered with neither a served shape nor
-                    a refusal this envelope translates — a wiring defect, and
-                    never reported to a caller as a governed "no".
+                NaiveAskedAtRefused: ``asked_at`` carries no UTC offset — a
+                    malformed argument, refused before any governance runs.
+                ToolError: **CCF or its runtime failed.** The message is
+                    ``ccf-runtime-failure:<id>`` and nothing else
+                    (:data:`CCF_FAILURE_PREFIX`); the server log holds that id
+                    beside the traceback. A governed determination — served or
+                    refused, entitled or denied — never arrives this way.
             """
             _refuse_naive(asked_at)
             asked_wire = door_question(request)
@@ -1278,6 +1573,10 @@ def build_egress_server(
                 intent=intent,
                 freshness=freshness,
                 asked_at=asked_at,
+                surface=SURFACE_MCP_TOOL,
+                address=product_uri(
+                    tenant=tenant, product_class=product_class, version=version
+                ),
             ).decode("utf-8")
 
         @server.resource(PRODUCT_ADDRESS_TEMPLATE, mime_type=PRODUCT_MIME_TYPE)
@@ -1314,15 +1613,14 @@ def build_egress_server(
             temporal boundary against ``asked_at`` — run inside
             :func:`_answer_question`, identically for both surfaces.
             """
+            addressed_uri = PRODUCT_ADDRESS_TEMPLATE.format(
+                tenant=tenant,
+                product_class=product_class,
+                version=version,
+                q=q,
+            )
             parsed_tenant, parsed_class, parsed_version, addressed = (
-                parse_product_address(
-                    PRODUCT_ADDRESS_TEMPLATE.format(
-                        tenant=tenant,
-                        product_class=product_class,
-                        version=version,
-                        q=q,
-                    )
-                )
+                parse_product_address(addressed_uri)
             )
             asked_wire = door_question(addressed.request)
             return _answer_question(
@@ -1334,6 +1632,10 @@ def build_egress_server(
                 intent=addressed.intent,
                 freshness=addressed.freshness,
                 asked_at=addressed.asked_at,
+                # This surface's OWN identity: a denial here was read at the
+                # address, not at the tool and not at the standing URI.
+                surface=SURFACE_MCP_RESOURCE,
+                address=addressed_uri,
             ).decode("utf-8")
 
     return server

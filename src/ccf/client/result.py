@@ -21,8 +21,17 @@ whatever pre-assembly lineage the refusal itself carries. Everything that only
 exists **after** a successful assembly is absent, and reading it raises
 (``D-08``). The two groups are named in :data:`PRE_ASSEMBLY_FIELDS` and
 :data:`GUARDED_FIELDS`, and ``tests/client/test_result_guard.py`` asserts the
-two partition this class's public properties exactly — so a seventh property
-cannot appear next year on neither side of the boundary.
+two partition this class's public properties exactly — so a property cannot
+appear next year on neither side of the boundary.
+
+**One member crossed that boundary in ``24.6-07``, and it is worth reading as a
+correction rather than as a widening.** ``replay_ref`` was guarded because a
+replay record was thought to exist only after all three gates passed.
+``D-IMPL-253`` Q13 — *"Refusal is itself a decision and deserves the same
+five-dimensional replay model. Do not create second-class replay."* — makes
+that false: a refusal is recorded before its shell leaves the resolver. So the
+address is readable on either half, and the guard no longer refuses to report
+an audit trail that exists.
 
 The inversion, stated once
 --------------------------
@@ -91,7 +100,7 @@ __all__ = ["GUARDED_FIELDS", "PRE_ASSEMBLY_FIELDS", "Refusal", "Result"]
 Refusal = RefusalEnvelope
 
 
-#: The six fields that exist only after a successful assembly, and which a
+#: The five fields that exist only after a successful assembly, and which a
 #: refused :class:`Result` therefore refuses to hand over (``D-08``).
 #:
 #: Read by the guard itself — :meth:`Result._served_or_raise` enumerates this
@@ -102,21 +111,38 @@ Refusal = RefusalEnvelope
 #: **Why each is here**, from ``17-RESEARCH.md`` §3.3: ``payload``, ``debt``,
 #: ``lineage`` and ``expires_at`` are members of a vessel that does not exist
 #: until assembly succeeded; ``content_address`` is a function of the whole
-#: vessel and so exists only once the vessel does; and ``replay_ref`` exists
-#: only after the replay record was written, which is strictly after all three
-#: gates passed.
+#: vessel and so exists only once the vessel does.
+#:
+#: **``replay_ref`` left this tuple in ``24.6-07``, and the reason is that its
+#: membership rested on a premise this project has since removed.** The premise
+#: was, verbatim: *"``replay_ref`` exists only after the replay record was
+#: written, which is strictly after all three gates passed."* The first clause
+#: is still true and the second is not — ``D-IMPL-253`` Q13 (*"Refusal is
+#: itself a decision and deserves the same five-dimensional replay model. Do
+#: not create second-class replay."*) makes a refusal a recorded decision, so a
+#: refused result has a record and guarding its address would be refusing to
+#: report an audit trail that exists. The same inversion is applied at
+#: :class:`~ccf.products.door.DoorOutcome`'s rule 5, on the same reasoning and
+#: in the same row.
 GUARDED_FIELDS: Final[tuple[str, ...]] = (
     "payload",
     "debt",
     "content_address",
-    "replay_ref",
     "lineage",
     "expires_at",
 )
 
-#: The fields that existed **before** assembly and are readable on either half
-#: (``D-09``), so a refusal stays auditable: the branch itself, the refusal, and
-#: the request identity that was refused.
+#: The fields readable on **either** half (``D-09``), so a refusal stays
+#: auditable: the branch itself, the refusal, the request identity that was
+#: refused, and — since ``24.6-07`` — the address of the decision record.
+#:
+#: The name says *pre-assembly* and five of the six are; ``replay_ref`` is the
+#: one that is not, and it is named here rather than in a third tuple because
+#: what these two tuples actually partition is *what a refused result may
+#: read*. A third group would make the guard's own enumeration
+#: (:data:`GUARDED_FIELDS`, which its message reads) stop being the answer to
+#: *"which names must I branch before reading?"*, which is the one question the
+#: message exists to answer.
 #:
 #: The pre-assembly *lineage* is not among them because it rides on the refusal
 #: — ``result.refusal.pre_assembly_lineage`` — where the distinction between
@@ -128,6 +154,7 @@ PRE_ASSEMBLY_FIELDS: Final[tuple[str, ...]] = (
     "product_id",
     "parameters",
     "temporal_boundary",
+    "replay_ref",
 )
 
 
@@ -135,17 +162,22 @@ PRE_ASSEMBLY_FIELDS: Final[tuple[str, ...]] = (
 class _Served:
     """The post-assembly half, bundled so it is present or absent as a unit.
 
-    Private, and a bundle rather than three optional attributes on
-    :class:`Result`, for one reason: with three optionals a guard has to be
+    Private, and a bundle rather than two optional attributes on
+    :class:`Result`, for one reason: with two optionals a guard has to be
     written — and remembered — once per field, and the typechecker cannot
-    narrow any of them from ``self._refusal is None``. One optional bundle
+    narrow either of them from ``self._refusal is None``. One optional bundle
     makes "the vessel exists" a single fact, and every guarded property reads
     it through the one function that checks that fact.
+
+    It carried a third member until ``24.6-07``. ``replay_ref`` moved onto
+    :class:`Result` itself when a refusal became a recorded decision — the
+    address is readable on either half now, so a bundle that exists exactly
+    when the vessel does is the wrong place to keep it, and leaving it here
+    unread would be dead private state nothing can reach.
     """
 
     vessel: ContextProductContract
     content_address: str
-    replay_ref: str | None
 
 
 class Result:
@@ -179,9 +211,10 @@ class Result:
             :class:`~ccf.client.wire.WireOutcome` records: a refusal is a
             governed answer, not a content-addressed artifact.
         replay_ref: The replay record's reference, when the producer emitted
-            one. ``None`` on a served result is *the producer published none*,
-            which is a fact about that deployment rather than about this
-            result.
+            one. ``None`` is *the producer published none*, which is a fact
+            about that deployment rather than about this result. Carried on
+            **either** half as of ``24.6-07``: a refusal is a recorded
+            decision (``D-IMPL-253`` Q13), so it has an address too.
         refusal: The governed "no", or ``None`` on a served result.
 
     Raises:
@@ -192,7 +225,14 @@ class Result:
             mean" and they would not all write the same one.
     """
 
-    __slots__ = ("_parameters", "_product_id", "_refusal", "_served", "_temporal")
+    __slots__ = (
+        "_parameters",
+        "_product_id",
+        "_refusal",
+        "_replay_ref",
+        "_served",
+        "_temporal",
+    )
 
     def __init__(
         self,
@@ -226,6 +266,10 @@ class Result:
         self._parameters = parameters
         self._temporal = temporal_boundary
         self._refusal = refusal
+        # 24.6-07: held on the result itself and not only inside `_Served`,
+        # because a refusal is now a recorded decision too and its address is
+        # readable on either half.
+        self._replay_ref = replay_ref
         self._served: _Served | None = None
         if vessel is not None:
             # Checked here rather than beside the other two so the narrowing is
@@ -240,7 +284,6 @@ class Result:
             self._served = _Served(
                 vessel=vessel,
                 content_address=content_address,
-                replay_ref=replay_ref,
             )
 
     # ------------------------------------------------------------------
@@ -282,6 +325,27 @@ class Result:
     def temporal_boundary(self) -> datetime | None:
         """The instant asked against, or ``None`` for the server's own."""
         return self._temporal
+
+    @property
+    def replay_ref(self) -> str | None:
+        """The replay record this decision was written into, when there is one.
+
+        **Readable on either half as of ``24.6-07``**, and on the same
+        accessor: ``D-IMPL-253`` Q13 makes a refusal a decision with a
+        five-dimension record, so a refused result has an address and guarding
+        it would be refusing to report an audit trail that exists. ``None`` is
+        *the producer published none* — a fact about that deployment rather
+        than about this result — which is what it has always meant on a served
+        result and what the refusal shell's own
+        :data:`~ccf.products.refusal.NO_REPLAY_REFERENCE` sentinel is
+        translated to at the door.
+
+        It sits with the pre-assembly members rather than the guarded ones for
+        that reason; see :data:`PRE_ASSEMBLY_FIELDS` for why the two tuples
+        partition *what a refused result may read* rather than *when a value
+        came into existence*.
+        """
+        return self._replay_ref
 
     # ------------------------------------------------------------------
     # Post-assembly — guarded, one property per name in GUARDED_FIELDS
@@ -332,11 +396,6 @@ class Result:
         :class:`~ccf.client.errors.TransportError` rather than a result.
         """
         return self._served_or_raise("content_address").content_address
-
-    @property
-    def replay_ref(self) -> str | None:
-        """The replay record this decision was written into, when there is one."""
-        return self._served_or_raise("replay_ref").replay_ref
 
     @property
     def lineage(self) -> ProductLineage:

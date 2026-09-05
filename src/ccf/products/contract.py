@@ -222,7 +222,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field, field_validator
 
@@ -245,6 +245,9 @@ from ccf.halflife.assessment import (
     SourceRefreshRecency,
 )
 
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from ccf.projection.engine import ExecutionResult
+
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
@@ -256,6 +259,7 @@ __all__ = [
     "NO_VALIDITY_FLOORS",
     "UNMEASURED_FRESHNESS_SLA",
     "AssemblyMode",
+    "ComputedEmptyFinding",
     "ConstituentValidityFloors",
     "ContextProductContract",
     "FreshnessSLA",
@@ -527,36 +531,55 @@ NO_REQUEST_CONTRACT = "no-request-contract"
 
 
 class ServeObligations(CCFContract):
-    """What a product class obliges the serve path to enforce — declared as data.
+    """What a product class declares about serving — one obligation and one default.
 
     SDK-defined per CLAUDE.md §11; whitepaper §7.6 (the delivery contract and
     its validation gates) and §7.7.4–§7.7.8 (Context Debt gating Forced LLM
-    and Fail-Closed behavior). Ledger rows ``24.5-L-14`` (the debt ceiling)
-    and ``24.5-L-26`` (the per-attribute lineage obligation), licensed by
-    ``D-IMPL-237`` — the ONE structural serve-time gate mechanism the SDK
-    ships — and shaped by ``D-IMPL-240`` (3). In one sentence: **the class
-    declares the ceiling, a request may tighten it, and serve refuses
-    over-ceiling by name** (:data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`).
+    and Fail-Closed behavior). Ledger rows ``24.5-L-14`` and ``24.6-L-04`` (the
+    debt figure) and ``24.5-L-26`` (the per-attribute lineage obligation).
 
-    Both members are *obligations*, never gate types: a product class does
-    not declare a new kind of gate (``D-IMPL-224`` stands), it declares what
-    the one shipped gate holds it to. And both are read as **structure** —
-    a number against a number, the presence of a named member — never as a
-    payload shape (``D-IMPL-238`` reads ``D-IMPL-102`` limb 3 as *no payload
-    gate*).
+    **The two members are no longer the same kind of thing, and that is the
+    point** (``D-IMPL-251`` C1=A, recorded as ``D-IMPL-240`` amendment 2).
+    ``lineage_inputs_at`` is an *obligation*: the one structural serve-time
+    gate ``D-IMPL-237`` licenses holds the product to it and refuses by name
+    (:data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`).
+    ``default_debt_tolerance`` is a *default*: Dave's *"a product class cannot
+    independently withhold otherwise deliverable context because its own debt
+    preference was exceeded"* — the class value *"can be a declared/default
+    tolerance characteristic, but it is not itself a policy boundary"*.
+
+    **The three debt concepts, which this field is exactly one of**
+    (``D-IMPL-240`` amendment 2):
+
+    1. the product's own figure — *informative*, and applied only as a
+       **default** when the caller states no tolerance (worked case 2);
+    2. the consumer's declared ``debt_tolerance`` — enforced **as requested**,
+       looser or tighter, because the consumer owns fitness (``C2=B``);
+    3. an applicable regulatory or enterprise policy constraint — enforced as
+       **governance**, through :mod:`ccf.products.constraints` and never
+       through this artifact (*"policy limits are not placed in product-class
+       registration"*).
+
+    All three reach one place: the Authority layer resolves them into one
+    :class:`~ccf.products.provenance.EffectiveParameter` carrying the
+    authority that established it, and
+    :func:`~ccf.products.gates.refuse_over_tolerance` holds an already-admitted
+    product to it. Nothing here is a ceiling and nothing here is folded with
+    ``min``.
 
     Attributes:
-        debt_ceiling: The class's ``D_c`` ceiling, a proportion in ``[0, 1]``
-            (the interval :class:`~ccf.halflife.assessment.DebtAssessment`
-            already holds ``debt`` to). ``None`` is the positive sentinel
-            *this class declares no ceiling* — the only value under which the
-            debt half of the gate is silent, and what every class registered
-            before this field existed was asserting. The NUMBER is the
-            deployment's to author in its product-class artifact; the SDK
-            ships no default and no threshold (CINV-01, CLAUDE.md §11). A
-            request's ``debt_tolerance`` may only *lower* the effective
-            ceiling (:func:`~ccf.products.gates.effective_debt_ceiling`); it
-            can neither create one nor raise one.
+        default_debt_tolerance: The class's declared ``D_c`` tolerance, a
+            proportion in ``[0, 1]`` (the interval
+            :class:`~ccf.halflife.assessment.DebtAssessment` already holds
+            ``debt`` to). ``None`` is the positive sentinel *this class
+            declares no default* — under which no tolerance applies unless a
+            caller or a policy states one. It is the effective tolerance ONLY
+            when the caller omits ``debt_tolerance``, and it is then recorded
+            with authority ``default`` and this artifact's pin as its source.
+            A caller's *looser* value is honored, because a class preference
+            is not governance. The NUMBER is the deployment's to author in its
+            product-class artifact; the SDK ships no default and no threshold
+            (CINV-01, CLAUDE.md §11).
         lineage_inputs_at: The TOP-LEVEL payload members that must be present
             and non-empty at serve — the class's per-attribute lineage
             obligation (``24.5-L-26``; the SDK's declared form of what cp-03
@@ -565,39 +588,53 @@ class ServeObligations(CCFContract):
             obliges is the class's to say, and what those members contain is
             never read here.
 
+    **The name moved with the meaning** (``D-IMPL-253`` Q9). Dave: *"Rename
+    it."* — keeping the previous name, which called this figure a ceiling,
+    *"after changing its authority would perpetuate the conceptual error we
+    just fixed."* The field is the same field, renamed at ``24.6-04``; its
+    hash posture and its sentinel are unchanged. The previous name is spelled
+    nowhere in ``src/``, ``runtime/`` or ``tools/``; under ``tests/`` it appears
+    only in the assertions that assert its ABSENCE, so a reader grepping for it
+    finds those and the dated records that made it.
+
     Both fields are hash-transparent at their sentinels under ``D-IMPL-243``
     amendment 2 (Dave: *"``ServeObligations``' two fields at empty True —
     empty ≡ pre-phase 'nothing enforced'"*): a model absent at ``13bd250``
     whose empty form obliges nothing is omitted member-by-member at that
-    value, so a class declaring a ceiling and no lineage obligation renders
-    the ceiling alone.
+    value, so a class declaring a tolerance and no lineage obligation renders
+    the tolerance alone.
     """
 
-    debt_ceiling: Decimal | None = Field(
+    default_debt_tolerance: Decimal | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     lineage_inputs_at: frozenset[str] = Field(
         default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
-    @field_validator("debt_ceiling")
+    @field_validator("default_debt_tolerance")
     @classmethod
-    def _ceiling_is_a_proportion(cls, value: Decimal | None) -> Decimal | None:
+    def _default_tolerance_is_a_proportion(
+        cls, value: Decimal | None
+    ) -> Decimal | None:
         if value is not None and not (Decimal(0) <= value <= Decimal(1)):
             raise ValueError(
-                "debt_ceiling must lie in [0, 1]: D_c is a proportion "
-                "(whitepaper §7.7.4), so a ceiling outside that interval "
-                "either refuses everything or nothing (24.5-L-14)"
+                "default_debt_tolerance must lie in [0, 1]: D_c is a "
+                "proportion (whitepaper §7.7.4), so a tolerance outside that "
+                "interval either withholds everything or nothing "
+                "(24.5-L-14, 24.6-L-04)"
             )
         return value
 
 
-#: A class that declares no serve obligation — no debt ceiling, no lineage
-#: member. The positive assertion every product class registered before
-#: ``24.5-L-14`` / ``24.5-L-26`` existed was already making, so every
+#: A class that declares nothing about serving — no default debt tolerance,
+#: no lineage member. The positive assertion every product class registered
+#: before ``24.5-L-14`` / ``24.5-L-26`` existed was already making, so every
 #: pre-phase registration and every pre-phase ``run_gates`` call site says
-#: exactly what it always said (``D-10``, additive; ``D-IMPL-240`` (3): "a
-#: class declaring no ceiling is unaffected").
+#: exactly what it always said (``D-10``, additive; ``D-IMPL-240`` amendment
+#: 2: a class declaring no tolerance contributes no default, and a request
+#: under such a class is bounded by a caller's or a policy's value or by
+#: nothing at all).
 NO_SERVE_OBLIGATIONS = ServeObligations()
 
 
@@ -742,6 +779,120 @@ class ProductLineage(CCFContract):
     )
 
 
+class ComputedEmptyFinding(CCFContract):
+    """The search behind an empty answer — SDK-defined (CLAUDE.md §11).
+
+    Whitepaper §7.6 for the vessel this rides on; the finding itself is an SDK
+    extension and its ruling of record is ``D-IMPL-242`` **amendment 1** with
+    ``D-IMPL-253`` Q11/Q12 and ``D-IMPL-255`` (2) (ledger row ``24.6-L-06``).
+
+    **An operator that ran and returned nothing computed something.** Until
+    ``24.6-05`` that observation was a refusal — the returned half of the
+    empty-operator gate, ``empty-operator-result`` — which conflated *absence
+    of input* with *absence of execution*. Dave: *"An operator successfully
+    evaluating an empty graph did compute something. Calling it uncomputed
+    conflates absence of input with absence of execution. Serve computed-empty
+    with the evidence-derived Debt."* So the emptiness is served, and it is
+    served **with its search attached**: a consumer reading an empty payload
+    sees what ran, what it ran over and where, rather than silence.
+
+    Only the DECLARED half of gate 1 still refuses
+    (:func:`~ccf.products.gates._refuse_empty_operators`, INV-CH7-46): a
+    product computed by nothing was not computed at all.
+
+    **``emptiness`` is a statement about EVIDENCE QUALITY and never about
+    Debt** (``D-IMPL-255`` (2): *"Cardinality never determines Context Debt.
+    Evidence determines Context Debt"*, and *"do not let 'unattested
+    emptiness' itself secretly become the new Debt = 1 shortcut"*). It is
+    written here by the resolver from :func:`~ccf.products.debt_scorer.emptiness_of`
+    and it is read by no scorer the SDK ships. A consumer weighing an empty
+    answer reads it beside ``debt``; nothing in the fabric turns it into a
+    number.
+
+    Attributes:
+        operators_returned_empty: Every operator key whose output view carried
+            zero entities and zero relationships, as the engine observed it
+            (:attr:`~ccf.projection.engine.ExecutionResult.empty_results`).
+            Never empty on a constructed finding — the absence of the finding
+            is how *no operator returned empty* is said, so a finding naming
+            nothing would be a second spelling of ``None``.
+        operators_invoked: Every operator the execution invoked, so the
+            emptiness is legible as a fraction of the search rather than as a
+            bare list: one empty operator out of four is a different fact from
+            four out of four.
+        plan_id: The projection plan that ran. The question's own identity
+            travels on the vessel; this is the interpretation's.
+        store_snapshot_pin: The substrate head the execution read against
+            (``24.5-L-02``), so an examiner can re-issue the same search
+            against the same state.
+            :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN` is the positive
+            *this reader exposes no native pin*.
+        emptiness: ``"attested"`` when a query actually executed against a
+            source attesting coverage, ``"unattested"`` otherwise. The
+            classification is :func:`~ccf.products.debt_scorer.emptiness_of`'s
+            and the vocabulary is closed here.
+
+    Hash-transparent **only at its absence** on the vessel: see
+    :attr:`ContextProductContract.computed_empty`. The finding itself declares
+    no optional member, because every member is a fact about a search that did
+    happen.
+    """
+
+    operators_returned_empty: frozenset[str]
+    operators_invoked: frozenset[str]
+    plan_id: str
+    store_snapshot_pin: StoreSnapshotPin
+    emptiness: Literal["attested", "unattested"]
+
+    @field_validator("operators_returned_empty")
+    @classmethod
+    def _a_finding_names_at_least_one_operator(
+        cls, value: frozenset[str]
+    ) -> frozenset[str]:
+        if not value:
+            raise ValueError(
+                "a computed-empty finding names at least one operator that "
+                "returned empty; the ABSENCE of the finding "
+                "(`ContextProductContract.computed_empty is None`) is how "
+                "`no operator returned empty` is said, and a second spelling "
+                "of it would make two products with the same search hash "
+                "differently (24.6-L-06)"
+            )
+        return value
+
+    @classmethod
+    def of(
+        cls,
+        execution: "ExecutionResult",
+        *,
+        emptiness: Literal["attested", "unattested"],
+    ) -> "ComputedEmptyFinding | None":
+        """The finding for ``execution``, or ``None`` when nothing returned empty.
+
+        ``None`` rather than an empty finding, for the reason the validator
+        above states: the two would be the same claim written two ways, and
+        one of them is what every product assembled before this field existed
+        already says.
+
+        ``execution`` is read structurally and this module imports the
+        projection engine only under :data:`typing.TYPE_CHECKING`:
+        :mod:`ccf.projection.engine` imports *this* module, so a runtime
+        import would be a cycle — and the five attributes read here are the
+        engine's own record, which is the only source this finding is allowed
+        to have (``D-IMPL-238`` limb 3: operator keys and the execution
+        record, never the payload).
+        """
+        if not execution.empty_results:
+            return None
+        return cls(
+            operators_returned_empty=frozenset(execution.empty_results),
+            operators_invoked=frozenset(execution.operators_invoked),
+            plan_id=execution.plan_id,
+            store_snapshot_pin=execution.store_snapshot_pin,
+            emptiness=emptiness,
+        )
+
+
 class ContextProductContract(CCFContract):
     """The typed unit L6 delivers — and the only thing an agent may consume.
 
@@ -806,6 +957,24 @@ class ContextProductContract(CCFContract):
             that sentinel or a declared reference and refuses a blank — the
             third state that asserts neither and would reproduce inside this
             product's content address as if it did.
+        computed_empty: The search behind an empty answer
+            (:class:`ComputedEmptyFinding`; ``24.6-L-06``, ``D-IMPL-242``
+            amendment 1). A **fourth sibling of** ``debt`` under the same
+            ruled placement, and a fact of a different kind from the three
+            beside it: those describe how much of a decay or coverage budget
+            was spent, while this names *which operators ran and returned
+            nothing*, over which plan and which store head. ``None`` is the
+            positive assertion *no operator returned empty* — which is what
+            every product assembled before this field existed was in fact
+            saying, and what a product whose operators all returned rows says
+            now. **Hash-transparent at ``None``** under ``D-IMPL-243``: a
+            product with no such finding renders exactly as it did before the
+            field existed, so no content address moved and the golden
+            ``13bd250`` record still replays.
+
+            The finding is EVIDENCE, never a verdict: nothing in the SDK reads
+            ``computed_empty.emptiness`` back into ``debt``
+            (``D-IMPL-255`` (2)).
     """
 
     schema_name: str
@@ -821,6 +990,9 @@ class ContextProductContract(CCFContract):
     debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
     source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
     obligation_in_force: ObligationInForce = NO_OBLIGATION_IN_FORCE
+    computed_empty: ComputedEmptyFinding | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 def register_product_class(
@@ -900,7 +1072,10 @@ def register_product_class(
             ``(max_ttl_key, max_ttl_version)``, or the artifact there is not a
             :class:`MaxTTL`; or the payload-schema pin is half-declared, names
             nothing registered, or names an artifact that is not a payload
-            schema.
+            schema; or ``serve_obligations`` declares a default for a
+            parameter the class's request contract does not declare as an
+            argument (``D-IMPL-258`` (5) —
+            :func:`~ccf.products.request.refuse_undeclared_class_default`).
     """
     try:
         artifact = registry.resolve(max_ttl_key, max_ttl_version)
@@ -929,14 +1104,28 @@ def register_product_class(
     # here would close the cycle directly rather than through the skills
     # catalog. The resolution happens once per class registration, at wiring
     # time, so the deferral costs nothing.
-    from ccf.products.request import refuse_request_contract_pin
+    from ccf.products.request import (
+        refuse_request_contract_pin,
+        refuse_undeclared_class_default,
+    )
 
-    refuse_request_contract_pin(
+    declared = refuse_request_contract_pin(
         registry=registry,
         schema_name=schema_name,
         schema_version=schema_version,
         request_contract_key=request_contract_key,
         request_contract_version=request_contract_version,
+    )
+    # `D-IMPL-258` (5): a default naming a parameter the request contract does
+    # not expose is a malformed declaration, and it fails HERE — where the
+    # author can still fix it — rather than producing a shell to a caller. The
+    # contract is the one the pin refusal just resolved, so the two checks
+    # cannot disagree about what this class's request surface is.
+    refuse_undeclared_class_default(
+        schema_name=schema_name,
+        schema_version=schema_version,
+        serve_obligations=serve_obligations,
+        declared=declared,
     )
     return RegisteredProductClass(
         schema_name=schema_name,

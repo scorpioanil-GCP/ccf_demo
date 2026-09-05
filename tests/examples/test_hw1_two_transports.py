@@ -35,11 +35,11 @@ can make is now the SUCCESSFUL one: the answer, the measured ``D_c`` routing to
 ``forced_llm``, the content address, the replay reference and the expiry the
 README says the example demonstrates.
 
-Two transports returning the same governed *refusal* on an empty fabric is
+Two transports returning the same governed *answer* on an empty fabric is
 still a useful conformance claim, and it did not go away: it moved to
 ``test_hw1_empty_fabric_refusal.py``, which runs both legs against the UNSEEDED
-copy (``D-IMPL-245`` (2); the refusal is ``empty-operator-result`` by name,
-``D-IMPL-242``). Dave's framing of the split: transport parity on a refusal is
+copy and requires each to SERVE one computed-empty product (``D-IMPL-245`` (2);
+``D-IMPL-253`` Q12). Dave's framing of the split: this parity claim is
 *"a useful conformance test, but a poor primary teaching experience."*
 
 What is compared, and why it is the whole of stdout

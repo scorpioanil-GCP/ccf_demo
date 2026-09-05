@@ -6,17 +6,19 @@ CLAUDE.md §7.3. The envelope under test is
 
 **What these tests enforce, and why each shape was chosen.**
 
-1. **Per kind, one at a time.** Every one of the twenty kinds gets its own
+1. **Per kind, one at a time.** Every one of the twenty-two kinds gets its own
    assertion. Deliberately *not* one parameterized assertion over the mapping
    with an ``any()`` inside: a property asserted in aggregate passes when one
-   member survives and licenses the seventeen that do not, which is this
-   project's recurring defect class rather than a hypothetical one.
+   member survives and licenses the rest, which is this project's recurring
+   defect class rather than a hypothetical one.
 
 2. **The vocabulary is closed by set equality against a structural walk of the
-   tree**, over **both** the ``…Refusal`` and ``…Violation`` name families,
-   partitioned by resolved base. Nothing enters the vocabulary by name. A
-   refusal type added to ``src/`` and translated nowhere fails the build and
-   demands a ruling — it does not ship untranslated with the gate green.
+   tree**, over all three of the ``…Refusal``, ``…Violation`` and ``…Conflict``
+   name families (:data:`NAME_FAMILIES`), partitioned by resolved base. Nothing
+   enters the vocabulary by name. A refusal type added to ``src/`` and
+   translated nowhere fails the build and demands a ruling — it does not ship
+   untranslated with the gate green. The third family joined in ``24.6-L-07``
+   rather than exempting one member: see :data:`NAME_FAMILIES` for why.
 
 3. **The walk is import-order independent, and that is its whole design
    constraint.** ``type.__subclasses__`` reports only what the interpreter has
@@ -46,28 +48,37 @@ from __future__ import annotations
 import ast
 import builtins
 import importlib
+import inspect
 import json
 import os
 import shutil
 import subprocess
 import sys
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from ccf.agents.errors import AssemblyRefusal, AssemblyRefused
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_bytes
 
 from ccf.products.refusal import (
     NON_PRODUCT_REFUSALS,
     NON_VALUE_VIOLATIONS,
+    NO_REPLAY_REFERENCE,
     REFUSAL_KINDS,
     RefusalEnvelope,
+    RefusalEvidence,
     RequestIdentity,
+    ResourceRequestIdentity,
+    SubjectUnavailableRefusal,
     envelope_for,
 )
+from ccf.graph.protocols import NO_STORE_SNAPSHOT_PIN
 from ccf.graph.product_source import GATE_PRODUCT_MOUNT, ProductMountRefusal
 from ccf.peering.admission import (
     AdmissionRefusal,
@@ -78,11 +89,12 @@ from ccf.peering.admission import (
     SignatureRefusal,
 )
 from ccf.products.composition import MixingRefusal
+from ccf.products.constraints import ConstraintRefusal, PolicyResolutionConflict
 from ccf.products.contract import ProductLineage
+from ccf.products.provenance import ParameterBound, ProvenanceSource
 from ccf.products.gates import (
     GATE_DECLARED_OBLIGATIONS,
     GATE_EMPTY_OPERATOR,
-    GATE_EMPTY_OPERATOR_RESULT,
     GATE_LINEAGE_ATTRIBUTABILITY,
     GATE_LINEAGE_EQUALITY,
     GATE_SOURCE_ATTESTATION,
@@ -90,13 +102,14 @@ from ccf.products.gates import (
     AttestationRefusal,
     DeclaredObligationRefusal,
     EmptyOperatorRefusal,
-    EmptyResultRefusal,
     GateRefusal,
     LineageAttributionRefusal,
     LineageMismatchRefusal,
+    ToleranceExceededRefusal,
     TTLRefusal,
 )
 from ccf.products.payload import PayloadSchemaViolation
+from ccf.products.provenance import ProvenanceSource
 from ccf.products.request import AnchorAmbiguityRefusal, ProductRequestViolation
 
 #: The real source root the shipped assertions read. The sabotage controls read
@@ -135,9 +148,11 @@ def partial_lineage() -> ProductLineage:
 
 # --- one assertion per kind -------------------------------------------------
 #
-# Twenty functions, each naming its kind. The coverage test below derives the
-# expected names from REFUSAL_KINDS and reads the actual ones out of this
-# file's own AST, so a kind added to the mapping with no test here fails.
+# One function per kind, each naming its kind. The coverage test below derives
+# the expected names from REFUSAL_KINDS and reads the actual ones out of this
+# file's own AST, so a kind added to the mapping with no test here fails. The
+# count is deliberately not restated here: it would be a second, unchecked copy
+# of a number the mapping already holds.
 
 
 def test_envelope_for_product_request_violation(
@@ -160,13 +175,18 @@ def test_envelope_for_product_request_violation(
     assert envelope.key == "amount"
     assert envelope.detail == refusal.detail
     # Every typed field survives except the three promoted above. `reason` and
-    # `key` were promoted; `detail` was promoted; four remain.
+    # `key` were promoted; `detail` was promoted; four conformity members
+    # remain, plus the override attempts a refused resolution carries
+    # (`D-IMPL-260` P-I) — rendered even when empty, so field presence is one
+    # shape for every violation of this kind.
     assert set(envelope.fields) == {
         "declared_type",
         "presented_type",
         "declared_keys",
         "presented_keys",
+        "overrides",
     }
+    assert envelope.fields["overrides"] == "[]"
     assert envelope.fields["declared_type"] == '"integer"'
     assert envelope.fields["presented_type"] == '"str"'
     assert envelope.fields["declared_keys"] == '["amount","currency"]'
@@ -229,36 +249,6 @@ def test_envelope_for_empty_operator_refusal(
     assert envelope.kind != REFUSAL_KINDS[GateRefusal]
     assert envelope.reason == GATE_EMPTY_OPERATOR
     assert envelope.fields == {}
-
-
-def test_envelope_for_empty_result_refusal(
-    request_identity: RequestIdentity,
-) -> None:
-    """Gate 1's second half names which operator returned nothing, and all of them.
-
-    ``24.5-L-24``. The two halves of the empty-operator gate are two kinds
-    with two gate tokens: this one's promoted ``reason`` is
-    ``empty-operator-result``, never ``empty-operator-guard``, so a consumer
-    reads WHICH half fired without parsing ``detail``. The two declared
-    fields cross intact.
-    """
-    refusal = EmptyResultRefusal(
-        gate=GATE_EMPTY_OPERATOR_RESULT,
-        detail="operator 'op-a' returned an empty set",
-        operator_key="op-a",
-        empty_operators=frozenset({"op-a", "op-b"}),
-    )
-    envelope = envelope_for(refusal, request=request_identity)
-
-    assert envelope.kind == REFUSAL_KINDS[EmptyResultRefusal]
-    assert envelope.kind == "empty-result-refusal"
-    assert envelope.kind != REFUSAL_KINDS[EmptyOperatorRefusal]
-    assert envelope.reason == GATE_EMPTY_OPERATOR_RESULT == "empty-operator-result"
-    assert envelope.reason != GATE_EMPTY_OPERATOR
-    assert envelope.key is None
-    assert set(envelope.fields) == {"operator_key", "empty_operators"}
-    assert envelope.fields["operator_key"] == '"op-a"'
-    assert envelope.fields["empty_operators"] == '["op-a","op-b"]'
 
 
 def test_envelope_for_lineage_mismatch_refusal(
@@ -329,16 +319,22 @@ def test_envelope_for_declared_obligation_refusal(
 ) -> None:
     """The ONE structural declared-obligations gate names which obligation and both sides.
 
-    ``24.5-L-14`` / ``24.5-L-26`` (``D-IMPL-237``). The gate token is the
-    promoted ``reason``, the three fields the kind declares cross intact, and
-    the kind is the one the HTTP door maps to the Standard's ``409``.
+    ``24.5-L-26`` (``D-IMPL-237``). The gate token is the promoted ``reason``,
+    the three fields the kind declares cross intact, and the kind is the one
+    the HTTP door maps to ``409``.
+
+    **Re-derived at ``24.6-04``, and it can no longer be written the old way.**
+    The obligation was ``debt-ceiling`` here until the debt half retired
+    (``D-IMPL-251`` C1=A); ``obligation`` is now a single-member ``Literal``
+    and the control below proves it — the retired token is not merely unused,
+    it is unconstructible.
     """
     refusal = DeclaredObligationRefusal(
         gate=GATE_DECLARED_OBLIGATIONS,
-        detail="the product's D_c is over the ceiling its class declared",
-        obligation="debt-ceiling",
-        declared="0.5",
-        observed="0.7",
+        detail="a payload member the class obliges is absent",
+        obligation="lineage-inputs",
+        declared="inputs",
+        observed="absent",
     )
     envelope = envelope_for(refusal, request=request_identity)
 
@@ -347,9 +343,73 @@ def test_envelope_for_declared_obligation_refusal(
     assert envelope.reason == GATE_DECLARED_OBLIGATIONS == "declared-obligations"
     assert envelope.key is None
     assert set(envelope.fields) == {"obligation", "declared", "observed"}
-    assert envelope.fields["obligation"] == '"debt-ceiling"'
-    assert envelope.fields["declared"] == '"0.5"'
-    assert envelope.fields["observed"] == '"0.7"'
+    assert envelope.fields["obligation"] == '"lineage-inputs"'
+    assert envelope.fields["declared"] == '"inputs"'
+    assert envelope.fields["observed"] == '"absent"'
+
+    # The retired half, as a control: the token the debt path carried is not
+    # a member of the vocabulary any more, so a caller cannot file one.
+    with pytest.raises(ValidationError):
+        DeclaredObligationRefusal(
+            gate=GATE_DECLARED_OBLIGATIONS,
+            detail="the retired half",
+            obligation="debt-ceiling",  # type: ignore[arg-type]
+            declared="0.5",
+            observed="0.7",
+        )
+
+
+def test_envelope_for_tolerance_exceeded(
+    request_identity: RequestIdentity,
+) -> None:
+    """The withheld-fulfillment shell: no gate token, the kind IS the reason.
+
+    ``24.6-L-05``, ``D-IMPL-251`` C2=B, ``D-IMPL-253`` Q10. Three things this
+    asserts that no other per-kind test can:
+
+    * the promotion fallback — the type declares neither ``gate`` nor
+      ``reason``, so :func:`envelope_for` reports the KIND as the reason, and
+      that branch is reached by nothing else in the vocabulary today;
+    * the authority survives the crossing, because *"preserve which authority
+      established the tolerance"* is the ruling and a shell that lost it would
+      be a well-formed envelope carrying the wrong answer;
+    * the shell never says the Debt was invalid.
+    """
+    refusal = ToleranceExceededRefusal(
+        authority="caller",
+        source=ProvenanceSource(
+            kind="request", identity="request-fixture", version=None
+        ),
+        tolerance=Decimal("0.20"),
+        observed=Decimal("0.31"),
+        breakdown=None,
+        detail=(
+            "the product was constructible; fulfillment was withheld because"
+            " an applicable declared tolerance (caller) of 0.20 was exceeded"
+            " by the observed Context Debt 0.31"
+        ),
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[ToleranceExceededRefusal]
+    assert envelope.kind == "tolerance-exceeded"
+    # No `gate` and no `reason` on the type: the kind is the most specific
+    # true thing that can be said about why, and `envelope_for` says it.
+    assert envelope.reason == envelope.kind
+    assert not issubclass(ToleranceExceededRefusal, GateRefusal)
+    assert envelope.key is None
+    assert set(envelope.fields) == {
+        "authority",
+        "source",
+        "tolerance",
+        "observed",
+        "breakdown",
+    }
+    assert envelope.fields["authority"] == '"caller"'
+    assert envelope.fields["tolerance"] == '"0.20"'
+    assert envelope.fields["observed"] == '"0.31"'
+    assert "invalid" not in envelope.detail
+    assert "fulfillment was withheld" in envelope.detail
 
 
 def test_envelope_for_attestation_refusal(
@@ -656,6 +716,64 @@ def test_envelope_for_anchor_ambiguity_refusal(
     assert "AnchorAmbiguityRefusal" in str(caught.value)
 
 
+def test_envelope_for_subject_unavailable(
+    request_identity: RequestIdentity, partial_lineage: ProductLineage
+) -> None:
+    """``24.6-L-21``: the ONE outcome two different causes share.
+
+    ``D-IMPL-253`` Q27 with amendment 2 (4). The type declares no ``reason``
+    and no ``key``, so ``reason`` falls back to the kind token — which is what
+    makes the two causes report the same reason on the wire before disclosure
+    is even consulted. ``cause`` and ``error_code`` are the promoted-nothing
+    remainder and cross in ``fields`` by name; **no ``subject`` field exists**,
+    because naming the subject is itself the leak the kind exists to close.
+
+    And it is a pre-assembly kind: an unauthorized principal is settled at the
+    delivery boundary before any plan exists, so a lineage offered with it is
+    refused with the type named.
+    """
+    refusal = SubjectUnavailableRefusal(
+        cause="nonexistent",
+        detail="no entity resolved for the anchor this question named",
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[SubjectUnavailableRefusal]
+    assert envelope.kind == "subject-unavailable"
+    assert envelope.reason == "subject-unavailable"
+    assert envelope.key is None
+    assert envelope.detail == refusal.detail
+    assert set(envelope.fields) == {"cause", "error_code"}
+    assert envelope.fields["cause"] == '"nonexistent"'
+    assert envelope.fields["error_code"] == "null"
+    assert envelope.pre_assembly_lineage is None
+
+    # The type cannot name a subject, so a disclosure step never has to
+    # remember to blank one.
+    assert "subject" not in SubjectUnavailableRefusal.model_fields
+
+    # The unauthorized cause crosses through the SAME translation, reporting
+    # the same kind, the same reason and the same field KEYS. What differs is
+    # only the two values disclosure governs.
+    unauthorized = envelope_for(
+        SubjectUnavailableRefusal(
+            cause="unauthorized",
+            detail="this principal may not receive that class",
+            error_code="product_class_unentitled",
+        ),
+        request=request_identity,
+    )
+    assert unauthorized.kind == envelope.kind
+    assert unauthorized.reason == envelope.reason
+    assert set(unauthorized.fields) == set(envelope.fields)
+
+    with pytest.raises(ValueError) as caught:
+        envelope_for(
+            refusal, request=request_identity, pre_assembly_lineage=partial_lineage
+        )
+    assert "SubjectUnavailableRefusal" in str(caught.value)
+
+
 # --- properties of the translation itself -----------------------------------
 
 
@@ -710,6 +828,131 @@ def test_envelope_for_raises_on_a_refusal_subclass_not_in_the_vocabulary(
     with pytest.raises(TypeError) as caught:
         envelope_for(refusal, request=request_identity)
     assert "UnregisteredRefusal" in str(caught.value)
+
+
+def test_envelope_for_constraint_refusal(
+    request_identity: RequestIdentity,
+) -> None:
+    """A technical limit refused BY NAME: the bound crosses with its authority.
+
+    ``24.6-L-07`` (``D-IMPL-253`` Q21). The kind's own ``reason`` is promoted,
+    the parameter is promoted as ``key``, and the two remaining declared
+    members — the bound and what was actually asked for — cross in ``fields``.
+    The bound is what makes the refusal readable: a consumer learns that the
+    boundary was the *substrate's* and not a policy's without parsing prose.
+    """
+    bound = ParameterBound(
+        operator="maximum",
+        value=Decimal(100),
+        authority="technical",
+        source=ProvenanceSource(
+            kind="capability", identity="test-store", version=None
+        ),
+    )
+    refusal = ConstraintRefusal(
+        reason="bound-exceeded",
+        key="depth",
+        detail="the requested depth exceeds the technical maximum",
+        bound=bound,
+        requested=101,
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[ConstraintRefusal]
+    assert envelope.kind == "constraint-refusal"
+    assert envelope.reason == "bound-exceeded"
+    assert envelope.key == "depth"
+    # `overrides` rides beside the bound (`D-IMPL-260` P-I), rendered even
+    # when nothing was attempted so the shell's shape is one shape.
+    assert set(envelope.fields) == {"bound", "requested", "overrides"}
+    assert envelope.fields["overrides"] == "[]"
+    assert envelope.fields["requested"] == "101"
+    assert envelope.fields["bound"] == canonical_bytes(bound).decode("utf-8")
+    assert '"authority":"technical"' in envelope.fields["bound"]
+
+
+def test_a_constraint_refusal_is_offered_no_lineage(
+    request_identity: RequestIdentity, partial_lineage: ProductLineage
+) -> None:
+    """The constraint layer resolves before an operator plan exists.
+
+    Separate from the per-kind test above so neither assertion stands in for
+    the other: one is about what crosses, this is about what may not be
+    attached.
+    """
+    refusal = ConstraintRefusal(
+        reason="required-absent",
+        key="depth",
+        detail="an applicable constraint requires this parameter",
+        bound=ParameterBound(
+            operator="required",
+            value=None,
+            authority="policy",
+            source=ProvenanceSource(
+                kind="artifact", identity="constraint-key", version="1.0.0"
+            ),
+            policy_id="policy-a",
+        ),
+        requested=None,
+    )
+    with pytest.raises(ValueError) as caught:
+        envelope_for(
+            refusal, request=request_identity, pre_assembly_lineage=partial_lineage
+        )
+    assert "ConstraintRefusal" in str(caught.value)
+
+
+def test_envelope_for_policy_resolution_conflict(
+    request_identity: RequestIdentity,
+) -> None:
+    """Both sides of an irreconcilable policy set cross, by pin.
+
+    ``24.6-L-07`` (``D-IMPL-253`` Q4: *"If constraints are irreconcilable,
+    return a governed shell identifying a policy-resolution conflict"*). The
+    shell's whole substance is that neither constraint was dropped, so the
+    assertion is on ``conflicting`` carrying both sources with their versions —
+    a conflict reporting one side would be priority erasing a hard constraint
+    wearing a different name.
+    """
+    conflicting = (
+        ProvenanceSource(kind="artifact", identity="ceiling-key", version="1.0.0"),
+        ProvenanceSource(kind="artifact", identity="floor-key", version="2.0.0"),
+    )
+    refusal = PolicyResolutionConflict(
+        key="depth",
+        detail="the applicable ceiling lies below the applicable floor",
+        conflicting=conflicting,
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[PolicyResolutionConflict]
+    assert envelope.kind == "policy-resolution-conflict"
+    assert envelope.reason == "policy-resolution-conflict"
+    assert envelope.key == "depth"
+    assert set(envelope.fields) == {"conflicting", "overrides"}
+    assert envelope.fields["conflicting"] == canonical_bytes(conflicting).decode(
+        "utf-8"
+    )
+    assert '"identity":"ceiling-key"' in envelope.fields["conflicting"]
+    assert '"identity":"floor-key"' in envelope.fields["conflicting"]
+
+
+def test_a_policy_resolution_conflict_is_offered_no_lineage(
+    request_identity: RequestIdentity, partial_lineage: ProductLineage
+) -> None:
+    """A conflict is reached while the effective request is still being built."""
+    refusal = PolicyResolutionConflict(
+        key="depth",
+        detail="the applicable admitted sets share no member",
+        conflicting=(
+            ProvenanceSource(kind="artifact", identity="a-key", version="1.0.0"),
+        ),
+    )
+    with pytest.raises(ValueError) as caught:
+        envelope_for(
+            refusal, request=request_identity, pre_assembly_lineage=partial_lineage
+        )
+    assert "PolicyResolutionConflict" in str(caught.value)
 
 
 def test_pre_assembly_refusal_rejects_a_lineage(
@@ -821,8 +1064,23 @@ def test_no_aggregate_assertion_stands_in_for_a_per_kind_one() -> None:
 # taken as a parameter rather than a ``__subclasses__()`` reading.
 
 
+#: The name suffixes the structural walk treats as refusal-shaped.
+#:
+#: ``Conflict`` joined in ``24.6-L-07`` and it is not cosmetic: the constraint
+#: layer's governed shell for two irreconcilable policy constraints is
+#: :class:`~ccf.products.constraints.PolicyResolutionConflict`, which is a
+#: refusal in every sense but its name — and the two-family walk could not see
+#: it, so the vocabulary equality below would have compared a mapping that
+#: named it against a tree that did not. Widening the walk keeps the gate's
+#: property ("nothing enters the vocabulary by name") rather than exempting one
+#: member from it, and it means a future ``…Conflict`` shell cannot ship
+#: untranslated either. The cost is that three pre-existing ``…Conflict``
+#: classes now have to be placed, which they are, in the two allowlists.
+NAME_FAMILIES = ("Refusal", "Violation", "Conflict")
+
+
 def discover_refusal_types(root: Path) -> dict[str, tuple[str, str]]:
-    """Every ``…Refusal``/``…Violation`` class under ``root``, by resolved base.
+    """Every ``…Refusal``/``…Violation``/``…Conflict`` class under ``root``, by resolved base.
 
     Reads no imports and executes no module, so it answers the same thing under
     a narrow ``pytest`` invocation as under the full suite.
@@ -871,7 +1129,7 @@ def discover_refusal_types(root: Path) -> dict[str, tuple[str, str]]:
             bases_by_name.setdefault(node.name, set()).update(
                 ast.unparse(base).rsplit(".", 1)[-1] for base in node.bases
             )
-            if node.name.endswith(("Refusal", "Violation")):
+            if node.name.endswith(NAME_FAMILIES):
                 located[node.name] = f"{path.relative_to(root)}:{node.lineno}"
 
     def ancestors_of(name: str) -> set[str]:
@@ -1331,3 +1589,194 @@ def test_the_cold_and_warm_runs_agree_on_the_enumeration() -> None:
     )
     assert completed.returncode == 0, completed.stderr
     assert json.loads(completed.stdout) == warm
+
+
+# ---------------------------------------------------------------------------
+# 24.6-07 — the six governance members, and the delivery-boundary identity
+# ---------------------------------------------------------------------------
+
+
+#: The envelope's whole declared shape, as a roster in declaration order.
+#:
+#: A roster and never a count, on the "verify rosters, not counts" discipline:
+#: a right count with a wrong member audits clean forever. The first seven are
+#: Amendment 1 §A's; the last six joined in ``24.6-07`` (``24.6-L-08``,
+#: ``D-IMPL-253`` Q13/Q14 — *"Extend* ``RefusalEnvelope`` *additively"*; the
+#: sixth is ``D-IMPL-256`` (1)'s delivery-boundary identity).
+THE_ENVELOPE_MEMBERS: tuple[str, ...] = (
+    "kind",
+    "reason",
+    "key",
+    "detail",
+    "fields",
+    "request",
+    "pre_assembly_lineage",
+    "policy_bindings",
+    "replay_reference",
+    "evidence",
+    "provenance",
+    "disclosure",
+    "resource",
+)
+
+#: Exactly the six that joined in ``24.6-07``. Each must be hash-transparent,
+#: which is what keeps a 24.5-shaped shell byte-identical
+#: (``tests/contracts/test_hash_transparency.py`` measures the bytes; this
+#: names the members).
+THE_SIX_ADDED: tuple[str, ...] = THE_ENVELOPE_MEMBERS[7:]
+
+
+def _identity_value() -> RequestIdentity:
+    """The ``request_identity`` fixture's value, callable from a helper.
+
+    The module's fixture is the shape every earlier test uses; these tests
+    build their subjects inside helpers, and a fixture cannot be called from
+    one — so the value is named once here rather than restated per test.
+    """
+    return RequestIdentity(
+        product_id="test.product",
+        product_version="1.0.0",
+        parameters={"subject-slot": "s-1"},
+        temporal_boundary=_INSTANT,
+    )
+
+
+def _a_violation() -> ProductRequestViolation:
+    return ProductRequestViolation(
+        reason="missing-required-parameter",
+        key="revenue_threshold",
+        detail="fixture",
+        declared_type="d",
+        presented_type="p",
+        declared_keys=frozenset({"revenue_threshold"}),
+        presented_keys=frozenset(),
+    )
+
+
+def test_the_envelope_declares_the_original_seven_plus_the_six_added() -> None:
+    assert tuple(RefusalEnvelope.model_fields) == THE_ENVELOPE_MEMBERS
+    assert THE_ENVELOPE_MEMBERS[:7] == (
+        "kind",
+        "reason",
+        "key",
+        "detail",
+        "fields",
+        "request",
+        "pre_assembly_lineage",
+    )
+    assert len(THE_SIX_ADDED) == 6
+
+
+@pytest.mark.parametrize("member", THE_SIX_ADDED)
+def test_every_added_member_is_hash_transparent(member: str) -> None:
+    """``D-IMPL-243``: silence at the sentinel equals yesterday, member by
+    member. Asserted one at a time rather than in aggregate, because a
+    property asserted over a set passes when one member survives and licenses
+    the rest."""
+    extra = RefusalEnvelope.model_fields[member].json_schema_extra
+    assert isinstance(extra, dict)
+    assert extra.get(HASH_TRANSPARENT_KEY) is True
+
+
+@pytest.mark.parametrize("member", THE_SIX_ADDED)
+def test_every_added_member_defaults_to_its_positive_sentinel(member: str) -> None:
+    """A shell built the 24.5 way asserts each of the six rather than going
+    quiet about it — the ``NO_HITL_ACTIONS`` voice, six members over."""
+    envelope = envelope_for(_a_violation(), request=_identity_value())
+    expected: dict[str, Any] = {
+        "policy_bindings": (),
+        "replay_reference": NO_REPLAY_REFERENCE,
+        "evidence": None,
+        "provenance": None,
+        "disclosure": None,
+        "resource": None,
+    }
+    assert getattr(envelope, member) == expected[member]
+
+
+def test_the_added_members_are_envelope_fields_and_not_promoted_fields() -> None:
+    """The promoted set is unchanged by ``24.6-07``.
+
+    ``fields`` carries what the *refusal type* declared; the six carry what the
+    *envelope* knows about the decision. A member that leaked into ``fields``
+    would make a governance fact read as something the refusal itself said.
+    """
+    envelope = envelope_for(_a_violation(), request=_identity_value())
+    assert set(envelope.fields) == {
+        "declared_type",
+        "presented_type",
+        "declared_keys",
+        "presented_keys",
+        "overrides",
+    }
+    assert not set(envelope.fields) & set(THE_SIX_ADDED)
+
+
+def test_envelope_for_carries_the_four_governance_members_it_is_given() -> None:
+    """``envelope_for`` passes them through; it computes none of them.
+
+    ``replay_reference`` is deliberately **not** among its arguments: a shell
+    learns its own address only from the seam that appended its record, so an
+    envelope this function returns always carries the sentinel.
+    """
+    source = ProvenanceSource(kind="artifact", identity="policy.bundle", version="v1")
+    evidence = RefusalEvidence(
+        operators_invoked=frozenset({"traversal.neighbors"}),
+        plan_id="plan-1",
+        store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
+    )
+    resource = ResourceRequestIdentity(
+        surface="fixture-surface",
+        address="ccf-product://fixture/1.0.0",
+        tenant_id="tenant-a",
+        determined_at=datetime(2026, 3, 1, tzinfo=UTC),
+    )
+    envelope = envelope_for(
+        _a_violation(),
+        request=_identity_value(),
+        policy_bindings=(source,),
+        evidence=evidence,
+        resource=resource,
+    )
+    assert envelope.policy_bindings == (source,)
+    assert envelope.evidence == evidence
+    assert envelope.resource == resource
+    assert envelope.replay_reference == NO_REPLAY_REFERENCE
+    assert "replay_reference" not in inspect.signature(envelope_for).parameters
+
+
+def test_a_naive_determination_instant_is_refused_by_name() -> None:
+    """``D-IMPL-38``: no implicit UTC anywhere in the fabric.
+
+    A determination instant whose offset is the deciding host's local
+    configuration is an instant that replays differently on a different host.
+    """
+    with pytest.raises(ValidationError) as caught:
+        ResourceRequestIdentity(
+            surface="fixture-surface",
+            address="ccf-product://fixture/1.0.0",
+            tenant_id="tenant-a",
+            determined_at=datetime(2026, 3, 1),
+        )
+    assert "no UTC offset" in str(caught.value)
+
+
+def test_an_aware_determination_instant_is_admitted() -> None:
+    """The control: the refusal above is about the offset and nothing else."""
+    identity = ResourceRequestIdentity(
+        surface="fixture-surface",
+        address="ccf-product://fixture/1.0.0",
+        tenant_id="tenant-a",
+        determined_at=datetime(2026, 3, 1, tzinfo=UTC),
+    )
+    assert identity.determined_at.utcoffset() is not None
+
+
+def test_the_evidence_bundle_requires_the_head_its_search_ran_against() -> None:
+    """No default on ``store_snapshot_pin``: a search that ran read something,
+    and a defaulted pin would let a caller build evidence that silently claims
+    the substrate exposed no head when the caller merely forgot to say."""
+    with pytest.raises(ValidationError):
+        RefusalEvidence(  # type: ignore[call-arg]
+            operators_invoked=frozenset({"o"}), plan_id="plan-1"
+        )

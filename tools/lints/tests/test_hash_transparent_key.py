@@ -282,7 +282,10 @@ THE_SEVEN: tuple[str, ...] = (
     "ccf.assembly.worker.ResolvedEntity.resolved_by",
     "ccf.controlplane.artifacts.HalfLifeEntry.half_life_seconds",
     "ccf.operators.params.TraversalDescendantsParameters.admitted_entity_classes",
-    "ccf.products.contract.ServeObligations.debt_ceiling",
+    # 24.6-04: the same field under its new name (`D-IMPL-253` Q9). It was
+    # one of amendment 2's seven; a rename does not move it to the roster of
+    # what came after.
+    "ccf.products.contract.ServeObligations.default_debt_tolerance",
     "ccf.products.contract.ServeObligations.lineage_inputs_at",
     "ccf.projection.engine.ExecutionResult.empty_results",
     "ccf.projection.engine.ExecutionResult.store_snapshot_pin",
@@ -300,6 +303,83 @@ def test_the_seven_are_declared_true_and_outside_the_roster() -> None:
         assert name in at_head, name
         assert at_head[name].declared is True, name
         assert name not in roster, name
+
+
+#: Fields added AFTER amendment 2's sweep, ``module.Class.field``, all
+#: ``True``. Named rather than left to the universe check below, on the
+#: "verify rosters, not counts" discipline: the universe check would pass just
+#: as happily if one of these silently lost its key and another gained one.
+#: `THE_SEVEN` above is a CLOSED historical record of the sweep and is not
+#: extended — a field added later was never one of its seven.
+NAMED_SINCE_THE_SWEEP: tuple[str, ...] = (
+    # 24.6-01, the fifth declaration key (`24.6-L-07`, `D-IMPL-253` Q2).
+    "ccf.products.request.ProductRequestContract.defaults",
+    # 24.6-03, the sixth declaration key (`D-IMPL-253` Q21), the request's
+    # override list and the grant that entitles one (Q7).
+    "ccf.products.request.ProductRequestContract.capability_bindings",
+    "ccf.products.request.ProductRequest.policy_overrides",
+    "ccf.products.entitlement.ProductEntitlementGrant.overridable_policies",
+    # 24.6-03, the resolution pinned into replay dimension 2 (`D-IMPL-254`).
+    "ccf.replay.record.PolicyBindingsSnapshot.request_resolution",
+    # 24.6-05, the search behind an empty answer (`24.6-L-06`, `D-IMPL-242`
+    # amendment 1). `None` = "no operator returned empty", which every
+    # pre-phase product already said.
+    "ccf.products.contract.ContextProductContract.computed_empty",
+    # 24.6-07, the refusal shell's six governance members (`24.6-L-08`,
+    # `D-IMPL-253` Q13/Q14) and the resource-request identity of a
+    # delivery-boundary denial (`D-IMPL-256` (1)).
+    "ccf.products.refusal.RefusalEnvelope.policy_bindings",
+    "ccf.products.refusal.RefusalEnvelope.replay_reference",
+    "ccf.products.refusal.RefusalEnvelope.evidence",
+    "ccf.products.refusal.RefusalEnvelope.provenance",
+    "ccf.products.refusal.RefusalEnvelope.disclosure",
+    "ccf.products.refusal.RefusalEnvelope.resource",
+    # 24.6-07, the two optional members of the permitted-evidence bundle. A
+    # brand-new model, so there is no earlier generation to be a boundary
+    # against and `True` is the only coherent declaration.
+    "ccf.products.refusal.RefusalEvidence.debt",
+    "ccf.products.refusal.RefusalEvidence.computed_empty",
+    # 24.6-08, the typed code a subject-unavailable determination carried
+    # (`24.6-L-21`). Brand-new model, and the field a disclosed shell blanks
+    # below `full` — so it renders absent rather than as an explicit null.
+    "ccf.products.refusal.SubjectUnavailableRefusal.error_code",
+    # 24.6-08, the disclosure posture in force (`24.6-L-16`, `D-IMPL-253`
+    # Q17): `minimal` on the tenant policy, `None` on the per-principal
+    # override. Silent at both sentinels, so no registered policy's content
+    # address moves.
+    "ccf.products.entitlement.ProductEntitlementPolicy.disclosure_level",
+    "ccf.products.entitlement.ProductEntitlementGrant.disclosure_level",
+    # 24.6-07, the assembler in force on replay dimension 4 (`D-IMPL-253`
+    # Q16, `D-IMPL-245` am.1) and the disclosure decision on dimension 5
+    # (`D-IMPL-254`).
+    "ccf.replay.record.PerspectiveConditioning.assembler_id",
+    "ccf.replay.record.PerspectiveConditioning.assembler_version",
+    "ccf.replay.record.ContentGenerationPath.disclosure_decision",
+    # 24.6-14, the seventh declaration key (`D-IMPL-259`): a parameter's valid
+    # domain, and the two optional ends of one. Silent at the empty mapping
+    # and at an absent end, so no committed request contract's address moves.
+    "ccf.products.request.ProductRequestContract.argument_domains",
+    "ccf.products.request.ArgumentDomain.minimum",
+    "ccf.products.request.ArgumentDomain.maximum",
+)
+
+
+def test_the_fields_named_since_the_sweep_declare_true_and_are_outside_the_roster() -> (
+    None
+):
+    at_head = _at_head()
+    roster = base_roster.load()
+    for name in NAMED_SINCE_THE_SWEEP:
+        assert name in at_head, name
+        assert at_head[name].declared is True, name
+        assert name not in roster, name
+
+
+def test_the_two_tree_rosters_are_disjoint() -> None:
+    """`THE_SEVEN` is the sweep's record and `NAMED_SINCE_THE_SWEEP` is what
+    came after; a name in both would mean one of the two is lying about when
+    the field arrived."""
+    assert not set(THE_SEVEN) & set(NAMED_SINCE_THE_SWEEP)
 
 
 def test_every_field_new_since_base_declares_the_key() -> None:

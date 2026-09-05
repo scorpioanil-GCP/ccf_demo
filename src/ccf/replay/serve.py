@@ -73,6 +73,7 @@ __all__ = [
     "QueryPinWriter",
     "ReplayWriter",
     "ServedProduct",
+    "record_refusal",
     "serve",
 ]
 
@@ -243,6 +244,17 @@ def serve(
 ) -> ServedProduct:
     """Record the decision, then deliver the product — in that order, always.
 
+    **A refusal is recorded by the same writer, through**
+    :func:`record_refusal`, **and delivered as a shell by the resolver rather
+    than as a product** (``24.6-07``, ``D-IMPL-253`` Q13). The ordering
+    sentence above is the whole seam and it does not weaken for a governed
+    "no": the append happens first there too, and a shell that left the
+    resolver before its record was appended would be a decision with no audit.
+    What differs is only that there is nothing to deliver — so that path calls
+    the writer directly and never reaches
+    :meth:`DeliveryCapability.deliver`, which is typed to a
+    :class:`~ccf.products.gates.ServableProduct` a refusal does not have.
+
     **The 15.2-08 pin ordering** (D-11, T-15.2-28): when the seam is handed
     the executed queries, their canonical bytes are persisted **before** the
     replay-record append, so no moment exists at which an appended record
@@ -286,3 +298,56 @@ def serve(
             tenant_id=record.tenant_id, queries=executed_queries
         )
     return replay_writer.write_replay_record(record=record).deliver(product)
+
+
+def record_refusal(
+    *, record: DecisionReplayRecord, replay_writer: ReplayWriter
+) -> ArtifactRef:
+    """Append a refusal's decision record; return where it landed (24.6-07).
+
+    **SDK-defined** (CLAUDE.md §11); the ruling of record is ``D-IMPL-253``
+    Q13 (Dave: *"Refusal is itself a decision and deserves the same
+    five-dimensional replay model. Do not create second-class replay."*) with
+    ``D-IMPL-256``'s invariant: *"Every governed determination that crosses a
+    CCF delivery boundary — fulfilled or refused, tool or resource, authorized
+    or denied — must reach the replay writer before the response is
+    released."*
+
+    :func:`serve`'s half for a determination that produced no product. It is
+    the **same** :class:`ReplayWriter`, over the same artifact store, appending
+    the same :class:`~ccf.replay.record.DecisionReplayRecord` — which is the
+    substance of *"do not create second-class replay"*: a second writer, or a
+    second record shape, would be exactly that.
+
+    **Why this returns an** :class:`~ccf.artifacts.protocol.ArtifactRef`
+    **rather than a** :class:`DeliveryCapability`. The capability exists
+    because a served product must be unreachable without a completed append,
+    and it is typed to a :class:`~ccf.products.gates.ServableProduct` for that
+    reason. A refusal has none, so there is nothing for a capability to
+    authorize; what the caller needs is the **address**, because
+    :attr:`~ccf.products.refusal.RefusalEnvelope.replay_reference` is where it
+    goes. Minting a capability nobody could spend, in order to look
+    symmetrical, would be ceremony — and the ordering property is preserved by
+    the same mechanism either way: this function appends, and a store failure
+    propagates out of it with no branch reaching a returned shell.
+
+    Args:
+        record: The five-dimension record of the refusal, built by
+            :func:`~ccf.replay.record.build_replay_record` with the refusal as
+            its outcome.
+        replay_writer: The deployment's own writer — the same one its served
+            path uses, over the same store.
+
+    Returns:
+        The reference the append produced. Its
+        :attr:`~ccf.artifacts.protocol.ArtifactRef.uri` is what the returned
+        shell carries; the **recorded** shell inside the record carries the
+        sentinel, because a record cannot contain its own address.
+
+    Raises:
+        Exception: whatever the store raises, deliberately uncaught — the
+            :meth:`ReplayWriter.write_replay_record` posture: a failure to
+            record is a failure to respond, and a governed "no" released
+            without its record is the repudiation this module exists to close.
+    """
+    return replay_writer.write_replay_record(record=record).replay_ref

@@ -16,11 +16,15 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from typing import Final
+
 from ccf.contracts.base import CCFContract
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "ASSEMBLY_REASON_TENANT_MISMATCH",
+    "ASSEMBLY_REASON_UNDECLARED_ROLE",
     "AgentConstructionError",
     "AgentDefinitionError",
     "AssemblyRefusal",
@@ -32,6 +36,23 @@ __all__ = [
     "PromptValidationError",
     "SkillNotBound",
 ]
+
+
+#: :attr:`AssemblyRefusal.reason` for a question addressed to an agent declared
+#: for a different tenant (``24.6-L-02``; ``D-IMPL-253`` amendment 2 (3), which
+#: names tenant mismatch as a governed determination: the fabric holds both
+#: tenants and knows exactly which two disagreed). An SDK token because the
+#: SDK's own :class:`~ccf.agents.assembler.DeterministicAssembler` is what
+#: makes this determination; a deployment's assembler keeps its own vocabulary.
+ASSEMBLY_REASON_TENANT_MISMATCH: Final[str] = "tenant-mismatch"
+
+#: :attr:`AssemblyRefusal.reason` for a question asked under a role the agent
+#: was not declared under (``24.6-L-02``; ``D-IMPL-253`` amendment 2 (3), which
+#: names undeclared role beside tenant mismatch). Axis 3 is channel-1 identity,
+#: so a different perspective is a different agent — but *which* two roles
+#: disagreed is something the fabric knows, which is what makes it a
+#: determination rather than a failure.
+ASSEMBLY_REASON_UNDECLARED_ROLE: Final[str] = "undeclared-role"
 
 
 class AgentDefinitionError(ValueError):
@@ -126,29 +147,51 @@ class FalseGrantClaimError(ValueError):
 
 
 class AssemblyRefused(ValueError):
-    """An assembly was refused at the producer seam (D-IMPL-97 ruling 2).
+    """An assembler could not reach a valid governed determination at all.
 
-    Raised — never repaired — when what an assembler was asked to do disagrees
-    with what its declared agent says it is: a tenant that is not the agent's,
-    or a perspective that is not the axis-3 role it was declared under. Both
-    are channel-1 identity, so the disagreement describes a *different agent*
-    rather than a recoverable argument, and choosing which side was meant is
-    the deployment author's call, never the SDK's.
+    Raised — never repaired — when an internal invariant, a configuration
+    contradiction or a runtime condition leaves the assembler unable to
+    determine anything: a corrupted declaration, two authoritative inputs that
+    disagree about what is true, a substrate that did not answer. It is the
+    *failure* channel, and it is deliberately narrow.
+
+    **The boundary, in Dave's words** (``D-IMPL-253`` amendment 2 (3), recorded
+    at ``24.6-RULINGS.md`` §4; the layers are ``D-IMPL-254``'s):
+
+        *"If the fabric has enough information to reach a valid governed
+        determination, return data. If it cannot reliably reach a governed
+        determination because an internal invariant/configuration/runtime
+        condition has failed, raise."*
+
+    **``24.5-L-11``'s framing is SUPERSEDED by that rule** (``24.6-L-02``,
+    ``24.6-L-16``). This class used to say it was *"kept as a raise, and not
+    retyped"* for channel-1 identity — a tenant that is not the agent's, a
+    perspective that is not the axis-3 role it was declared under. Those two
+    are outcomes the fabric **can** determine: it holds both tenants and both
+    roles and knows exactly which pair disagreed, so under the rule above they
+    are governed determinations and they RETURN, as
+    :class:`AssemblyRefusal` carrying
+    :data:`ASSEMBLY_REASON_TENANT_MISMATCH` or
+    :data:`ASSEMBLY_REASON_UNDECLARED_ROLE`. The SDK's own
+    :class:`~ccf.agents.assembler.DeterministicAssembler` returns them, and
+    ``src/`` raises this class nowhere.
+
+    **It is not converted mechanically, and that half of the ruling is as
+    load-bearing as the first** (``D-IMPL-253`` Q15: *"Don't mechanically
+    convert every existing AssemblyRefused call merely because it currently
+    uses that class."*). A deployment that raises this for a genuine
+    invariant failure is right to, and no door catches it: a raised
+    ``AssemblyRefused`` still reaches a client as the protocol-native error,
+    which is what a broken deployment should look like. Returning it as data
+    would hide the break behind a governed "no".
 
     The sibling of :class:`ConsumptionRefused` on the other face of the fabric:
-    that one refuses a product an agent may not read, this one refuses an
-    assembly an agent may not perform (CLAUDE.md §6.2; §6.1).
+    that one refuses a product an agent may not read, this one says an assembly
+    could not be determined at all (CLAUDE.md §6.2; §6.1).
 
-    **Kept as a raise, and not retyped** (``24.5-L-11``; the reasoning is
-    ``docs/surface-changes/24.1.1-03-a-refusal-returns-as-data.md``). The
-    value form is :class:`AssemblyRefusal`, a *second channel* beside this
-    one: an assembler that wants its refusal to reach a client as a typed
-    verdict **returns** that value, and an assembler that has caught its own
-    raise can convert it with :meth:`as_refusal`. **No door converts between
-    the two.** The MCP tool handler does not catch this exception; a raised
-    ``AssemblyRefused`` still reaches a client as the protocol-native error,
-    exactly as a governance refusal does — governance and identity stay
-    raises, and the decision is recorded here so it is not re-derived.
+    The value form is :class:`AssemblyRefusal`, and :meth:`as_refusal` is the
+    conversion an assembler that has caught **its own** raise may perform. The
+    SDK performs none on anyone's behalf.
     """
 
     def as_refusal(self) -> AssemblyRefusal:
@@ -193,8 +236,13 @@ class AssemblyRefusal(CCFContract):
 
     Attributes:
         reason: The assembler's own token for why. A closed vocabulary is the
-            deployment's to declare (CINV-01); the SDK fixes only the one
-            token :meth:`AssemblyRefused.as_refusal` mints.
+            deployment's to declare (CINV-01); the SDK fixes **three** tokens
+            and no more — the conversion token :meth:`AssemblyRefused.as_refusal`
+            mints, and the two identity determinations the SDK's own
+            :class:`~ccf.agents.assembler.DeterministicAssembler` makes
+            (:data:`ASSEMBLY_REASON_TENANT_MISMATCH`,
+            :data:`ASSEMBLY_REASON_UNDECLARED_ROLE`, ``24.6-L-02``). The
+            examples' reasons stay the examples'.
         detail: The human-readable statement, for an operator reading a log.
     """
 

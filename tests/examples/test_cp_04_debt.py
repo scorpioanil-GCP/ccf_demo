@@ -48,9 +48,9 @@ pair lives where depth is the subject, pinned as data at
 attribute shortfall reaches the consumer as the roster finding and as
 `attributes: null` on each member, and is deliberately **not** folded into `S`.
 Folding it in gives `S = 2/22` and `D_c ≈ 0.909`. Since `24.5-L-14` the SDK
-enforces a class-DECLARED debt ceiling
-(`src/ccf/products/gates.py::effective_debt_ceiling`, `D-IMPL-240` (3)) and a
-request's `debt_tolerance` may only TIGHTEN it; cp-04 declares no ceiling, so
+enforces a class-DECLARED debt ceiling (`D-IMPL-240` (3); the helper that
+resolved it was deleted in `24.6-03`, when the fold moved into the Authority
+layer) and a request's `debt_tolerance` may only TIGHTEN it; cp-04 declares no ceiling, so
 `0.909` would not `409` here — it would be SERVED, a false debt figure riding
 the tree criteria 12 and 33 exist to protect. That is why this assertion
 exists, and the reason is unchanged. Dave: *"Don't raise tolerance to 0.95 and
@@ -166,7 +166,16 @@ def _load(name: str) -> Any:
         while str(EXAMPLE) in sys.path:
             sys.path.remove(str(EXAMPLE))
         sys.path.insert(0, str(EXAMPLE))
-    family = ("deployment", "produce", "projection", "assembler", "transport", "run")
+    family = (
+        "deployment",
+        "produce",
+        "projection",
+        "assembler",
+        "transport",
+        "run",
+        "compose",
+        "serve",
+    )
     for cached_name in family:
         cached = sys.modules.get(cached_name)
         if cached is None:
@@ -666,8 +675,8 @@ def test_the_attribute_boundary_moves_the_roster_and_not_the_debt(
     is served as data (`D-IMPL-229`'s roster finding and `attributes: null`) and
     is deliberately not folded into `S`. A build that folded it in would move
     `D_c` here and serve `0.909` on the demonstration question — cp-04 declares
-    no class ceiling (`src/ccf/products/gates.py::effective_debt_ceiling`,
-    `24.5-L-14`), so nothing would `409`; the false figure would simply reach
+    no class ceiling (`24.5-L-14`; the resolution moved into the Authority
+    layer at `24.6-03`), so nothing would `409`; the false figure would simply reach
     the consumer where the product is supposed to answer.
     """
     ledger, schema = baseline
@@ -699,8 +708,8 @@ def test_the_attribute_boundary_moves_the_roster_and_not_the_debt(
         " appeared. D-IMPL-230 ruled SERVE: the attribute shortfall reaches the"
         " consumer as the roster finding and as `attributes: null`, and is NOT"
         " folded into S. Folding it in gives S = 2/22 and D_c ~ 0.909 — SERVED,"
-        " not 409ed: cp-04 declares no class ceiling (effective_debt_ceiling,"
-        " 24.5-L-14), so the false figure would reach the consumer"
+        " not 409ed: cp-04 declares no class ceiling (24.5-L-14), so the false"
+        " figure would reach the consumer"
     )
 
 
@@ -787,12 +796,20 @@ def test_the_debt_tolerance_contract_claims_no_unenforced_409() -> None:
     of shipped behavior and is left alone.
 
     **2026-09-03 (Phase 24.5.1), the history above dated.** Phase 24.5 wired
-    it: `24.5-L-14` added `src/ccf/products/gates.py::effective_debt_ceiling`
-    and `DeclaredObligationRefusal`, which
+    it: `24.5-L-14` added the class-declared ceiling fold (deleted at
+    `24.6-03`, when the resolution moved into the Authority layer) and
+    `DeclaredObligationRefusal`, which
     `runtime/ccf_runtime/http_api/routes/product.py::retrieve` maps to HTTP
-    `409` — for a class that DECLARES a ceiling. cp-04 declares none
-    (`D-IMPL-240` (3)), so the artifact prose this test reads stays advisory
-    and every assertion below is unchanged.
+    `409`.
+
+    **2026-09-04 (Phase 24.6, plan `24.6-04`), re-cited.** The ceiling is now
+    a class's `default_debt_tolerance` — informative, and applied only when the
+    caller states no tolerance (`D-IMPL-251` C1=A). cp-04 declares none, so
+    nothing about it is bounded by its class; a caller's own `debt_tolerance`
+    would be enforced as requested and, if exceeded, answered by the
+    `tolerance-exceeded` shell rather than by the `409` family. The artifact
+    prose this test reads stays advisory and every assertion below is
+    unchanged.
     """
     import dataclasses
 

@@ -181,6 +181,17 @@ class FreshnessScorer:
     perfect freshness would launder a source outage into a low-debt reading —
     the precise failure the fail-closed posture exists to prevent.
 
+    **That contract is unchanged, and it is why the assembly scorer does not
+    call this method on an empty sequence** (``24.6-05``, ledger row
+    ``24.6-L-06``).
+    :meth:`~ccf.products.debt_scorer.AssemblyDebtScorer.__call__` uses the
+    multiplicative identity for F over zero observations and records **no
+    freshness pin**, precisely so that no caller can read that identity as this
+    scorer's answer. The two are consistent: a *measurement* over nothing is
+    undefined and raises here; the *identity element* of ``1 − F·C·S`` is an
+    algebraic fact and belongs to the fold, not to a scorer. Where the coverage
+    statement belongs is C, which is the deployment's (``D-IMPL-38``).
+
     Attributes:
         table: The resolved, versioned λ_c table.
         risk_sensitivity: The decision class's Freshness Budget multiplier.

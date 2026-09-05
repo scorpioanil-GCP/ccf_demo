@@ -24,18 +24,28 @@ one assembler, two callers. The `hw1-*` trees prove a different one, *"same
 supplies its adapter in code rather than resolving one from a binding, so it does
 not re-prove it (`D-IMPL-225`).
 
-**`--max-depth` IS THE FLAG THIS RUNG EXISTS FOR.** Three properties ride on it
-and each is gated separately: above the ceiling is **refused by name and never
-clamped**; absent takes the **declared** default; and two depths are **two
-content addresses**, because they are two answers to two different questions. A
-silent clamp is the fourteen-idle-gates class arriving through a parameter — the
-request says 8, the walk does 6, the payload looks fine and the address greens.
+**`--max-depth` IS THE FLAG THIS RUNG EXISTS FOR.** Four properties ride on it
+and each is gated separately: absent takes the **declared** default; a depth
+this estate cannot exhibit is **served**, with the depth reached carried beside
+the depth asked; a depth above the **backend's technical capability** is refused
+by name with authority `technical` and answered at no narrower depth; and two
+depths are **two content addresses**, because they are two answers to two
+different questions.
 
-**NEITHER THRESHOLD IS TYPED INTO THIS FILE.** The default and the ceiling are
-Control Plane values in `ccf_config.yaml`, read here and interpolated into the
-help text. A copy of either in an argparse default or in a help string is the
-No-Hardcoding Rule firing (CLAUDE.md §6.4), and it is the same defect twice
-over: a config edit would move the walk and leave the help text lying about it.
+SUPERSEDED 2026-09-04 (`24.6-L-01`, `D-IMPL-251` C5): the first property read *"above the ceiling is refused by name and never clamped"*.
+The ceiling it named was a measurement of how deep this estate goes, so a
+request at 8 was refused for exhibiting nothing rather than for exceeding
+anything; it is served now. What survives whole is the refusal to answer a
+narrower question than the one asked — it applies where there is a genuine
+limit.
+
+**NEITHER FIGURE IS TYPED INTO THIS FILE.** The default is Control Plane state
+in `ccf_config.yaml`; the technical limit is the graph leg's own capability,
+read off the substrate through `ccf.graph.protocols::TraversalDepthCapability`.
+Both are interpolated into the help text and neither is written here. A copy of
+either in an argparse default or in a help string is the No-Hardcoding Rule
+firing (CLAUDE.md §6.4), and it is the same defect twice over: an edit would
+move the walk and leave the help text lying about it.
 
 **THE WALK IS A NEIGHBORHOOD, NOT A DIRECTED DESCENDANT TREE**, and nothing this
 file prints says otherwise (`D-36`). `TraversalNeighborhood` adds both
@@ -88,6 +98,7 @@ from ccf.client.result import Result  # noqa: E402
 from ccf.client.wire import TransportAdapter  # noqa: E402
 
 import deployment  # noqa: E402
+import projection  # noqa: E402  (its finding-type token, never a literal here)
 import transport  # noqa: E402
 import assembler  # noqa: E402  (loaded by transport; its constants name the implementation that ran HERE)
 
@@ -100,10 +111,13 @@ def _parser() -> argparse.ArgumentParser:
     arguments. A request parameter is the CALLER's; a build tool and a command
     line are request channels, not deployment configuration.
     """
-    # READ FROM THE DOCUMENT, INTERPOLATED INTO THE HELP. Not restated.
-    floor = deployment.declared_depth_floor()
-    ceiling = deployment.declared_depth_ceiling()
+    # READ FROM THE DOCUMENT AND OFF THE SUBSTRATE, INTERPOLATED INTO THE
+    # HELP. Not restated. The default is Control Plane state; the technical
+    # limit is the graph leg's own capability, read through
+    # `ccf.graph.protocols::TraversalDepthCapability` — so neither number is
+    # typed into this file and a change to either moves the help text with it.
     default_depth = deployment.declared_depth_default()
+    capability = deployment.traversal_depth_capability()
     roles = deployment.declared_roles()
 
     parser = argparse.ArgumentParser(
@@ -126,11 +140,14 @@ def _parser() -> argparse.ArgumentParser:
         type=int,
         help=(
             f"how many hops of the family NEIGHBORHOOD to walk from the anchor."
-            f" Declared range {floor}..{ceiling}; omitted, the DECLARED default"
-            f" of {default_depth} applies, read from ccf_config.yaml and never"
-            f" invented at serve time. Above {ceiling} is REFUSED BY NAME and"
-            f" never clamped — a clamped depth answers a question nobody asked,"
-            f" with no error. Two depths are two content addresses."
+            f" Omitted, the DECLARED default of {default_depth} applies, read"
+            f" from ccf_config.yaml and never invented at serve time. A depth"
+            f" this estate cannot exhibit is SERVED — the findings carry the"
+            f" depth reached beside the depth asked. Above"
+            f" {capability.max_traversal_depth}, the technical capability of"
+            f" {capability.capability_identity}, the request is refused BY NAME"
+            f" with authority `technical` and is never answered at a narrower"
+            f" depth. Two depths are two content addresses."
         ),
     )
     parser.add_argument(
@@ -192,7 +209,7 @@ def _wire_parameters(args: argparse.Namespace) -> dict[str, Any]:
         # MISSING one resolves to. Both say the same number, which is exactly
         # the situation where a reader cannot tell which is operative — and
         # measured, the artifact's copy won: naming it on the wire made the
-        # contract's `argument_defaults` unreachable from here, so moving the
+        # contract's declared default unreachable from here, so moving the
         # declared default moved this file's help text and NOT its walk.
         # A caller who did not name a depth asks without one.
         _refuse_disagreeing_depth(parameters.pop(deployment.PARAM_MAX_DEPTH, None))
@@ -258,27 +275,34 @@ def main(argv: list[str] | None = None) -> int:
         )
         try:
             result = client.ask(parameters, as_of=asked_at)
-        except AssemblyRefused as refused:
-            # TWO CONDITIONS ON THIS RUNG SIGNAL BY EXCEPTION, AND THAT IS A
-            # RECORDED SDK-SURFACE GAP RATHER THAN A CHOICE (spec §F.4). A
-            # non-integer `max_depth` is refused by name inside
-            # `deployment.py::resolve_max_depth` (`WR-01`), which raises
-            # directly; a depth above the declared ceiling comes back from that
-            # same function as `deployment.DepthOutOfBounds` and is refused by
-            # `assembler.py`. BOTH are this example's own types, the SDK knows
-            # neither, and `ccf.products.refusal::REFUSAL_KINDS` therefore
-            # declares no envelope naming either. Translating them into a kind
-            # that does exist would report the wrong reason, which is the
-            # flattening the envelope exists to prevent.
+        except AssemblyRefused as failure:
+            # NOTHING ABOUT THE CALLER REACHES THIS BRANCH. `24.6-L-02`
+            # narrowed `ccf.agents.errors::AssemblyRefused` to what
+            # `D-IMPL-255` (5) leaves it — *"the authoritative inputs required
+            # to know whether the answer is valid contradict one another or
+            # violate a required invariant"* — so an exception here is an
+            # INVARIANT FAILURE inside this deployment and never a verdict
+            # about the question. Three sites in `deployment.py` can reach it:
+            # a node the walk admitted that the minting step did not cover, a
+            # served member set carrying no jurisdiction against a declared
+            # requirement, and a served jurisdiction outside the declared
+            # closed world.
             #
-            # A DECLARED-BUT-INERT PARAMETER NO LONGER ARRIVES HERE. Since
-            # `24.5-L-12`/`L-13` the SDK's own tier step
-            # (`src/ccf/products/request.py::_refuse_tier`) returns a
-            # `ProductRequestViolation` whose reason is `not-supported-at-tier`,
-            # and `assembler.py` hands that back as DATA through its governed
-            # branch — `CFT-G06` is the declared gate that exercises it.
-            print(f"assembly refused: {refused}", file=sys.stderr)
-            return 1
+            # EXIT 2, NOT 1, and the difference is the point. Exit 1 above is
+            # *the fabric answered and the answer was no*; this is *the fabric
+            # could not reach an answer*, and a runner that reported the two
+            # identically would make a broken deployment look like a governed
+            # refusal.
+            #
+            # SUPERSEDED 2026-09-04 (`24.6-L-01`, `24.6-L-02`): this comment
+            # said two depth conditions signaled by exception because they were
+            # this example's own types with no envelope in the SDK's closed
+            # vocabulary. Both are governed determinations now — a non-integer
+            # depth is a `product-request-violation` and an over-capability
+            # depth is a `constraint-refusal` — and both arrive as values on
+            # the branch below.
+            print(f"CCF runtime failure: {failure}", file=sys.stderr)
+            return 2
 
         # BRANCHED ON AS DATA. A governed refusal is the fabric working, so it
         # is a value on the result and never an exception.
@@ -327,8 +351,15 @@ def _report(result: Result, *, args: argparse.Namespace, asked_at: datetime) -> 
         else (
             f"absent -> the DECLARED default"
             f" {deployment.declared_depth_default()}, read from"
-            f" ccf_config.yaml::request_contract.argument_defaults"
+            f" ccf_config.yaml's request_contract defaults by the SDK's own"
+            f" resolution"
         )
+    )
+    # THE WALK'S OWN ROW OF THE ROSTER (`D-23`). Read off the served payload
+    # like every other figure here — never recomputed, and never timed.
+    traversal = next(
+        (row for row in findings if row["type"] == projection.FINDING_TRAVERSAL),
+        None,
     )
     debt = result.debt
 
@@ -338,9 +369,23 @@ def _report(result: Result, *, args: argparse.Namespace, asked_at: datetime) -> 
     print(f"   ...its class chain {len(anchor['type_chain'])} FIBO classes,"
           f" from {_local(anchor['type_chain'][0])}")
     print(f"   depth asked        {asked_depth}")
-    print(f"   depth applied      {payload['max_depth_applied']}"
-          f"   (ceiling {deployment.declared_depth_ceiling()};"
-          f" over it is refused by name, never clamped)")
+    if traversal is not None:
+        # READ ONLY WHERE THERE IS SOMETHING TO SAY ABOUT IT. The capability is
+        # a property of the substrate this deployment reaches, so asking for it
+        # needs the two graph-leg variables; a reporter that asked
+        # unconditionally would refuse to render a payload it was handed.
+        capability = deployment.traversal_depth_capability()
+        cost = traversal["cost"]
+        print(f"   depth applied      {traversal['requested_depth']}"
+              f"   requested, {traversal['depth_reached']} reached"
+              f" — a depth this estate cannot exhibit is SERVED")
+        print(f"   ...what it cost    {cost['nodes_visited']} node(s) visited,"
+              f" {cost['edges_walked']} edge(s) walked — STRUCTURAL counts, so"
+              f" two runs of one question seal identically")
+        print(f"   ...the hard limit  {capability.max_traversal_depth}, the"
+              f" backend's capability (authority technical, source"
+              f" {capability.capability_identity}); over it the request is"
+              f" refused by name and answered at no narrower depth")
     print(f"   deepest node       {deepest} hop(s) out — an undirected"
           f" NEIGHBORHOOD, not a directed descendant tree (D-36)")
     if not_evaluable:
@@ -364,6 +409,14 @@ def _report(result: Result, *, args: argparse.Namespace, asked_at: datetime) -> 
     for finding in findings:
         # THE ROSTER, NEVER THE COUNT (`D-13`). A finding asserted as
         # `len(findings) > 0` is a check that cannot tell which cycle it found.
+        #
+        # THE TRAVERSAL ROW IS PRINTED ABOVE, IN FULL, and is skipped here
+        # rather than rendered twice: it carries no members — it is a fact
+        # about the walk rather than about a set of them — so this loop's
+        # member-roster form would print `0 member(s)` and say nothing. It is
+        # still COUNTED in `findings`, so the count above does not move.
+        if finding["type"] == projection.FINDING_TRAVERSAL:
+            continue
         print(f"     - {finding['type']}: {len(finding['members'])} member(s)")
         for member in finding["members"]:
             print(f"         {_local(member)}")

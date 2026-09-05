@@ -65,13 +65,24 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import BootedFabric, load_and_boot
 from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
+from ccf.products.constraints import ReferencePolicyConstraintResolver
 from ccf.products.contract import ContextProductContract
+from ccf.products.debt_scorer import ExecutionEvidence
+from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
-from ccf.products.refusal import RefusalEnvelope
+from ccf.products.disclosure import DisclosureDecision
+from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.products.request import ProductRequest
+from ccf.replay.record import (
+    NO_FABRIC_READ,
+    NO_PRODUCT_ADDRESS,
+    DecisionReplayRecord,
+    PolicyBinding,
+)
 from ccf.products.resolver import (
     GovernedResolver,
     ProductNotResolvable,
+    ReplayRefusalRecorder,
     ServedProductResolverProtocol,
 )
 from ccf.projection.plan import Perspective, ProjectionOutput
@@ -199,8 +210,16 @@ def _plan_factory(
     return _ThresholdProjection(required=required, request=request)
 
 
-def _debt_scorer(*, view: GraphView) -> DebtAssessment:
-    """A fixture scorer. What debt is measured over is deployment policy."""
+def _debt_scorer(
+    *, view: GraphView, evidence: ExecutionEvidence | None = None
+) -> DebtAssessment:
+    """A fixture scorer. What debt is measured over is deployment policy.
+
+    ``evidence`` is accepted and unread: ``24.6-05`` widened
+    :class:`~ccf.products.resolver.AssemblyDebtScorerProtocol` so a scorer is
+    told what the execution observed about its own search (``D-IMPL-255``
+    (2)), and the governed resolver always passes it.
+    """
     return DebtAssessment(
         debt=Decimal("0"),
         signal=DebtSignal.OK,
@@ -314,12 +333,14 @@ def booted_with_ceiling(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     The number is authored HERE, in a test-side document, never in ``src/``
     (CINV-01): ``0.5`` is a fixture figure. This is the deployment WR-02 needs
     — a ceiling that is live, so a tolerance the boundary lets through would
-    reach ``effective_debt_ceiling`` and be visible as a ``409``.
+    reach the debt gate and be visible as a ``409``.
     """
     product_class = copy.deepcopy(
         next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY)
     )
-    product_class["serve_obligations"] = {"debt_ceiling": CEILING_DECLARED}
+    product_class["serve_obligations"] = {
+        "default_debt_tolerance": CEILING_DECLARED
+    }
     request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
     request_contract["declaration"]["arguments"]["properties"][
         DEBT_TOLERANCE_PARAMETER
@@ -365,17 +386,16 @@ def _boot(
         registry=control_plane,
         connection={"database_path": str(tmp_path / "resolver-seam.sqlite3")},
     )
-    # 24.5-L-24: the fixture ingests the deployment's OWN signal batch (the
-    # one `acct-1` envelope `tests/deployment` ships, an hour before
-    # `ASKED_AT`) so the traversal has something to assemble. Until the
-    # empty-operator gate's returned-empty half existed, this fixture served
-    # over an EMPTY fabric — `"assembled": 0` — which
-    # `ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT` now refuses by name
-    # through the governed resolver. The seam under test is the composition
-    # (assemble → gate → serve, and its refusal legs), not emptiness; the
-    # success leg stays a success leg by carrying one entity, and the
-    # refusal legs below force the gate they name on a candidate that
-    # passed the two empty-operator halves.
+    # 24.5-L-24, kept under 24.6-L-06: the fixture ingests the deployment's
+    # OWN signal batch (the one `acct-1` envelope `tests/deployment` ships, an
+    # hour before `ASKED_AT`) so the traversal has something to assemble. This
+    # fixture once served over an EMPTY fabric — `"assembled": 0` — which
+    # 24.5-L-24 turned into a refusal and 24.6-05 turns back into a served
+    # computed-empty product (`D-IMPL-242` amendment 1). The seeding stays
+    # either way, and for the reason it was always the right fixture: the seam
+    # under test is the composition (assemble → gate → serve, and its refusal
+    # legs), not emptiness. A success leg that assembled nothing would be
+    # testing the empty case wearing the success case's name.
     for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
         fabric.handle.worker.ingest(envelope)
     try:
@@ -390,22 +410,17 @@ def _boot(
 
 
 def _resolver(booted: _Booted, **overrides: Any) -> GovernedResolver:
-    """The wiring a deployment writes once, with per-test variation."""
-    arguments: dict[str, Any] = {
-        "fabric": booted.fabric,
-        "control_plane": booted.control_plane,
-        "product_class_key": PRODUCT_CLASS_KEY,
-        "request_contract_key": REQUEST_CONTRACT_KEY,
-        "operator_parameter_keys": (TRAVERSAL_KEY,),
-        "policy_bundle_key": POLICY_BUNDLE_KEY,
-        "plan_factory": _plan_factory,
-        "debt_scorer": _debt_scorer,
-        "artifact_store": booted.store,
-        "replay_record_class": REPLAY_RECORD_CLASS,
-        "query_pin_class": QUERY_PIN_CLASS,
-        "max_ttl_seconds": MAX_TTL_SECONDS,
-        "product_ttl_seconds": PRODUCT_TTL_SECONDS,
-    }
+    """The wiring a deployment writes once, with per-test variation.
+
+    **Reads** :func:`_arguments` **rather than restating it** (``24.6-07``).
+    The two were duplicate literals, and the exhaustiveness assertion below
+    (``test_the_argument_enumeration_is_exhaustive``) reads only the second —
+    so a field added to the resolver and to one copy would have left the other
+    stale, which is exactly what happened to both when the recorder joined.
+    One dict is the same discipline ``_boot``'s own docstring already states
+    for the two fixtures.
+    """
+    arguments = _arguments(booted)
     arguments.update(overrides)
     return GovernedResolver(**arguments)
 
@@ -431,6 +446,46 @@ def _ask(resolver: GovernedResolver, request: ProductRequest | None) -> Any:
         version=PRODUCT_VERSION,
         perspective=PERSPECTIVE,
         request=request,
+    )
+
+
+def _internal(booted: _Booted, shell: RefusalEnvelope) -> RefusalEnvelope:
+    """The INTERNAL envelope behind a disclosed shell, read from its own record.
+
+    ``24.6-08``. As of ``D-IMPL-253`` Q17 the seam returns the shell Policy
+    permitted, while the record holds what the fabric actually determined
+    (``D-IMPL-254``: *"Don't destroy audit truth merely to achieve external
+    suppression silence."*). A test about internal truth therefore reads it
+    from the record, and a test about the shell reads the shell — which is a
+    stronger pair than either alone, because the two must agree about the
+    determination and disagree about what crossed.
+
+    Resolution IS part of the assertion: the store refuses bytes that do not
+    hash to the address asked for.
+    """
+    assert shell.replay_reference != NO_REPLAY_REFERENCE, (
+        "a shell with no record cannot have an internal form to read; the seam"
+        " mints before it returns (D-IMPL-256)"
+    )
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=shell.replay_reference)
+        )
+    )
+    return RefusalEnvelope.model_validate_json(
+        record.content_generation_path.assembly_refusal
+    )
+
+
+def _disclosure(booted: _Booted, shell: RefusalEnvelope) -> DisclosureDecision:
+    """The :class:`DisclosureDecision` dimension 5 recorded for ``shell``."""
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=shell.replay_reference)
+        )
+    )
+    return DisclosureDecision.model_validate_json(
+        record.content_generation_path.disclosure_decision
     )
 
 
@@ -493,11 +548,19 @@ def test_a_tolerance_that_is_not_a_proportion_is_refused_at_the_boundary_not_as_
     """WR-02 (Dave, 2026-09-02): a negative ``debt_tolerance`` is refused BY NAME at the boundary and never coerces the serve into a ``409``.
 
     The class declares a ceiling and the fixture scorer measures ``D_c = 0``,
-    so before this ruling ``-1`` reached ``effective_debt_ceiling`` as a
+    so before this ruling ``-1`` reached the debt gate as a
     "tightening", every product was refused ``declared-obligation-refusal``
     and ``declared`` read ``"-1"`` — a number no class declared. Now the
     request-conformity verdict names the parameter, carries no lineage
     (the graph was never touched), and the ``409`` family is never reached.
+
+    **Re-derived at ``24.6-03``, and the verdict travels one step further
+    back.** The conformity comparison now runs inside the resolution, over the
+    EFFECTIVE request — defaults applied, policy bounds in force — rather than
+    over the caller's raw parameters. Nothing about this case moves: the class
+    declares no default for the tolerance and no constraint is registered here,
+    so the effective value is the caller's ``-1``, and the interval refusal
+    names it before the graph is touched exactly as before.
 
     Sabotage: restore acceptance of ``-1`` in ``refuse_request`` and this
     goes RED on the first assertion with ``kind == "declared-obligation-refusal"``.
@@ -524,6 +587,12 @@ def test_a_proportion_tolerance_still_reaches_the_live_ceiling(
     served leg proves the boundary let a proportion through; the ceiling
     itself is proven live by the sibling structural-gate tests, and by the
     fact that a bypassed boundary turns the test above into a ``409``.
+
+    **Re-derived at ``24.6-03``:** the number now reaches the gate as the
+    *effective* tolerance — resolved with authority ``caller``, since no
+    constraint is registered in this deployment — rather than as a raw request
+    parameter the gate folds. The observable outcome is the same, which is the
+    point: the sequence changed, the answer did not.
     """
     outcome = _ask(
         _resolver(booted_with_ceiling),
@@ -568,14 +637,15 @@ def test_an_answerable_question_yields_a_served_product(booted: _Booted) -> None
 
 
 def test_the_success_leg_assembles_the_fixtures_own_entity(booted: _Booted) -> None:
-    """The positive control for the seeded fixture (``24.5-L-24``).
+    """The positive control for the seeded fixture (``24.5-L-24``, ``24.6-L-06``).
 
     The success leg is a success leg because the traversal assembled the ONE
-    entity the deployment's own signal batch carries — not because the
-    returned-empty half of the empty-operator gate was bypassed. A fixture
-    that went green with ``"assembled": 0`` would mean the resolver stopped
-    threading ``execution.empty_results`` into ``run_gates``, which is the
-    one repair this seeding must never stand in for.
+    entity the deployment's own signal batch carries. Since ``24.6-05`` an
+    empty assembly is SERVED rather than refused, which makes this control
+    more load-bearing than it was, not less: a fixture that quietly went green
+    with ``"assembled": 0`` would now serve, and every assertion about the
+    success leg would be an assertion about the empty case. The count is what
+    tells the two apart.
     """
     outcome = _ask(_resolver(booted), _request())
 
@@ -615,22 +685,65 @@ def test_a_gate_refusal_keeps_the_gates_own_typed_fields(booted: _Booted) -> Non
     )
 
     assert isinstance(outcome, RefusalEnvelope)
+    # Field PRESENCE is identical whatever disclosure withheld (`D-IMPL-253`
+    # amendment 2 (4)): every key the gate declared is on the shell, and only
+    # the VALUES a policy did not permit are replaced.
     assert "expires_at" in outcome.fields
     assert "max_ttl_seconds" in outcome.fields
+    # The declared ceiling survives at `minimal` — a caller can act on it.
     assert str(MAX_TTL_SECONDS) in outcome.fields["max_ttl_seconds"]
-    # A gate refusal has a candidate behind it, so it has a real lineage — and
-    # carrying it is what keeps the pre/post-assembly split structural.
-    assert outcome.pre_assembly_lineage is not None
+
+    # The INTERNAL determination, read from the record the shell points at
+    # (`24.6-08`). A gate refusal has a candidate behind it, so it has a real
+    # lineage — and carrying it is what keeps the pre/post-assembly split
+    # structural. The fixture registers no entitlement policy, so the shell
+    # discloses at the safe default and the lineage does not cross.
+    internal = _internal(booted, outcome)
+    assert internal.pre_assembly_lineage is not None
+    assert set(internal.fields) == set(outcome.fields)
+    # The gate's own measurement is retained internally and withheld on the
+    # shell, which is the whole shape of `D-IMPL-254`.
+    assert internal.fields["expires_at"] != outcome.fields["expires_at"]
+    assert internal.disclosure is None
+    assert outcome.pre_assembly_lineage is None
+    assert outcome.disclosure == "minimal"
 
 
-def test_a_gate_refusal_serves_nothing(booted: _Booted) -> None:
-    """No replay record is appended for a product that was never admitted."""
+def test_a_gate_refusal_serves_nothing_and_records_everything(
+    booted: _Booted,
+) -> None:
+    """No product is delivered — and the decision IS recorded (``24.6-07``).
+
+    **This assertion is the inverse of the one it replaces**, and the
+    inversion is the row. It read *"no replay record is appended for a product
+    that was never admitted"*, which was true of the composition and false of
+    ``D-IMPL-253`` Q13: *"Refusal is itself a decision and deserves the same
+    five-dimensional replay model. Do not create second-class replay."* A
+    product that was never admitted is still a determination the fabric
+    reached, and the thing it must not produce is a **delivery**, not a record.
+
+    Both halves are asserted because neither implies the other: a composition
+    could record and still hand back a servable shape, and one could return the
+    shell and quietly append nothing — which is the state this row corrected.
+    """
     resolver = _resolver(booted, product_ttl_seconds=MAX_TTL_SECONDS + 1)
     outcome = _ask(resolver, _request())
 
     assert isinstance(outcome, RefusalEnvelope)
-    assert not (booted.root / "artifacts").exists() or not list(
-        (booted.root / "artifacts").rglob("*.json")
+    assert not isinstance(outcome, ServedProduct)
+    # The decision is recorded, and the shell names where.
+    assert outcome.replay_reference != NO_REPLAY_REFERENCE
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    # A gate refusal has a real execution behind it, so dimension 1 is built
+    # exactly as a served product's would be — the graph WAS read.
+    assert record.context_fabric_snapshot.store_watermark != NO_FABRIC_READ
+    # And dimension 5 says positively that no product came of it.
+    assert record.content_generation_path.product_content_address == (
+        NO_PRODUCT_ADDRESS
     )
 
 
@@ -687,6 +800,13 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     "artifact_store",
     "replay_record_class",
     "query_pin_class",
+    "constraint_resolver",
+    "capabilities",
+    # 24.6-07: the one minting seam (`D-IMPL-253` Q13). No default, for every
+    # other argument's reason — and for one of its own: a resolver that
+    # defaulted its recorder into existence would be a delivery boundary that
+    # decided, on its own authority, where a deployment's audit records land.
+    "refusal_recorder",
     "max_ttl_seconds",
     "product_ttl_seconds",
 )
@@ -780,6 +900,36 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         "policy_bundle_key": POLICY_BUNDLE_KEY,
         "plan_factory": _plan_factory,
         "debt_scorer": _debt_scorer,
+        # 24.6-03: the Authority layer's two inputs. The reference resolver
+        # over this fixture's own registry — which holds no policy constraint
+        # and no entitlement policy, so it resolves defaults and caller values
+        # and nothing else — and no technical capability, which is what a
+        # SQLite-backed deployment reports.
+        "constraint_resolver": ReferencePolicyConstraintResolver(
+            control_plane=booted.control_plane,
+            entitlement_key=product_entitlement_key(tenant_id=TENANT),
+        ),
+        "capabilities": (),
+        # 24.6-07: the one seam every governed refusal this composition
+        # produces reaches the replay writer through (`D-IMPL-253` Q13). The
+        # SAME store the served path writes to — one writer, one store, and no
+        # second writer to the graph — with the four required inputs and no
+        # bundle pin, which is the shape a door-side helper wires too.
+        "refusal_recorder": ReplayRefusalRecorder(
+            artifact_store=booted.store,
+            replay_record_class=REPLAY_RECORD_CLASS,
+            tenant_id=TENANT,
+            assembly_mode="algorithmic",
+            # The bundle the manifest put in force, read the way
+            # `build_governed_resolver` reads it — so this fixture wires the
+            # recorder the way the shipped helper does rather than a simpler
+            # way that would leave dimension 2 thinner on the refusal path
+            # than on the served one.
+            policy_bundle_pin=PolicyBinding(
+                key=POLICY_BUNDLE_KEY,
+                version=booted.fabric.pins.version_for(POLICY_BUNDLE_KEY),
+            ),
+        ),
         "artifact_store": booted.store,
         "replay_record_class": REPLAY_RECORD_CLASS,
         "query_pin_class": QUERY_PIN_CLASS,

@@ -50,6 +50,7 @@ from pydantic import AnyUrl
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.mcp.client import SyncMcpBridge, run_with_session
 from ccf.mcp.errors import McpServerUnreachable
+from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.skills.toolsurface import render_tool_surface
 from ccf_runtime.http_api.errors import ERROR_PRODUCT_POLICY_ABSENT
 
@@ -105,13 +106,25 @@ def _read_resource_outcome(
     version: str,
     token: str = DEV_TOKEN,
 ) -> tuple[bool, str]:
-    """Read the product resource; return ``(refused, detail-or-body)``.
+    """Read the product resource; return ``(refused, body)``.
 
-    The tool leg reports a refusal as ``isError`` with the message in the
-    content, the resource leg reports it by raising through the transport.
-    Normalising the two here is what lets one parametrization drive both
-    surfaces on one scenario; without it a parity test would be comparing two
-    shapes rather than two decisions.
+    Both legs now report a governed refusal the same way — as the shell's
+    canonical bytes in the response body (``D-IMPL-256`` (3)); the tool's
+    ``isError`` is False on a denial and the resource no longer raises through
+    the transport at all. So ``refused`` here is *the body decodes as a*
+    :class:`~ccf.products.refusal.RefusalEnvelope`, which is a claim about
+    what the door decided rather than about how the transport reported it.
+
+    **Validated, never sniffed** (the ``_decode`` precedent in
+    ``tests/mcp/test_egress_refusal_envelope.py``). A served product and a
+    shell share one ``mime_type``; the discriminator is the top-level ``kind``
+    key, and the full model validation behind it is what makes a
+    half-shell-shaped body a failure rather than a refusal.
+
+    **Nothing catches a transport error here any more.** The three scenarios
+    this drives are all governed determinations, so a raise would be a defect
+    — and letting it escape makes the test error loudly instead of quietly
+    reporting ``refused=True`` for the wrong reason.
     """
     from ccf_runtime.mcp.experience import experience_product_uri
 
@@ -127,16 +140,17 @@ def _read_resource_outcome(
             if isinstance(contents, TextResourceContents)
         )
 
-    try:
-        return False, bridge.run(
-            run_with_session(
-                url=url,
-                operation=operation,
-                http_client_factory=lambda: authorized_http_client(token),
-            )
+    body = bridge.run(
+        run_with_session(
+            url=url,
+            operation=operation,
+            http_client_factory=lambda: authorized_http_client(token),
         )
-    except McpServerUnreachable as refused:
-        return True, _causes(refused)
+    )
+    if "kind" not in json.loads(body):
+        return False, body
+    RefusalEnvelope.model_validate_json(body)
+    return True, body
 
 
 def _list_tool_names(bridge: SyncMcpBridge, url: str) -> set[str]:
@@ -187,6 +201,41 @@ def _call_tool(
             http_client_factory=lambda: authorized_http_client(token),
         )
     )
+
+
+def _governed_denial(body: str, *, withheld: tuple[str, ...] = ()) -> RefusalEnvelope:
+    """Decode one governed denial off the wire, asserting what it may say.
+
+    ``D-IMPL-256`` (3) turned all three entitlement paths into governed
+    responses, so every denial assertion in this file now reads the same four
+    facts and one leak list. Sharing them here rather than restating them per
+    test is what keeps a future divergence between the two surfaces a failure:
+    a helper that checked less on one leg would be exactly the asymmetry
+    ``D-IMPL-128`` ruled against.
+
+    ``withheld`` names the tokens that must NOT appear anywhere in the body —
+    the internal ``error_code`` the audit plane still keeps, and any prose that
+    would let a caller tell a nonexistent subject from an unauthorized one
+    (``D-IMPL-253`` amendment 2 (4), the message-text channel). The
+    corresponding *presence* assertion lives in-process in
+    ``tests/mcp/test_experience_refusal_channels.py``, because a child's audit
+    log is not readable from this process.
+    """
+    shell = RefusalEnvelope.model_validate_json(body)
+    assert shell.kind == "subject-unavailable", shell.kind
+    # The one canonical outcome a nonexistent subject and an unauthorized
+    # principal share, with the internal cause withheld at the safe default.
+    assert shell.fields["cause"] == '"undisclosed"', shell.fields
+    # Criterion 36: the denial is a recorded decision, not merely a shaped one.
+    assert shell.replay_reference != NO_REPLAY_REFERENCE
+    # `D-IMPL-260` P-J: the resource identity is normalized below `full` — the
+    # key is absent from the wire — and the child's record keeps it (asserted
+    # on the record at the in-process door, `tests/mcp/test_experience_refusal_channels.py`).
+    assert shell.resource is None
+    assert "resource" not in body
+    for token in withheld:
+        assert token not in body, f"{token} crossed the wire"
+    return shell
 
 
 # --- the structural claims the module docstring makes -----------------------
@@ -304,6 +353,12 @@ def test_an_allowlist_excluded_tool_is_never_registered(
 # --- builder fail-fast validation (D-01/D-03/D-05; Dave, 2026-08-02) --------
 
 
+#: The tenant the construction-time recorder is bound to. Test deployment
+#: vocabulary, and never reached: a construction-time test makes no
+#: determination, and `_in_process_door` rebinds the recorder to its own.
+BUILDER_KWARGS_TENANT = "tenant-construction-time-only"
+
+
 def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
     """Minimal valid arguments for :func:`build_experience_server`.
 
@@ -315,6 +370,7 @@ def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
     from mcp.server.auth.settings import AuthSettings
     from pydantic import AnyHttpUrl
 
+    from ccf.artifacts.file_store import FileArtifactStore
     from ccf.controlplane.registry import ControlPlaneRegistry
     from ccf_runtime.authz.product_entitlement import (
         ControlPlaneProductEntitlementSource,
@@ -329,11 +385,17 @@ def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
         RESOURCE_SERVER_URL,
         SCOPE,
         SERVER_NAME,
+        experience_refusal_recorder,
         write_token_file,
     )
 
     def unreachable(*args: Any, **kwargs: Any) -> Any:  # pragma: no cover
         raise AssertionError("a construction-time test calls no seam")
+
+    entitlement_source = ControlPlaneProductEntitlementSource(
+        control_plane=ControlPlaneRegistry(),
+        clock=lambda: ENTITLEMENT_AUDIT_INSTANT,
+    )
 
     return {
         "server_name": SERVER_NAME,
@@ -355,11 +417,18 @@ def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
         # deliberately not `unreachable` — a construction-time test never
         # reaches them either, but a builder that quietly accepted `None`
         # here would produce a front door answering every verified caller.
-        "entitlement_source": ControlPlaneProductEntitlementSource(
-            control_plane=ControlPlaneRegistry(),
-            clock=lambda: ENTITLEMENT_AUDIT_INSTANT,
-        ),
+        "entitlement_source": entitlement_source,
         "perspective_resolver": unreachable,
+        # `D-IMPL-256` (2): required on the same terms as the two seams above
+        # and for a stronger reason — this builder ALWAYS entitles, so there
+        # is no configuration of it that makes no governed determination. The
+        # child's own wiring, not a second copy of it; `_in_process_door`
+        # replaces it with one bound to that test's own tenant and reader.
+        "refusal_recorder": experience_refusal_recorder(
+            store=FileArtifactStore(root=tmp_path / "builder-kwargs-replay"),
+            tenant=BUILDER_KWARGS_TENANT,
+            disclosure_level_for=entitlement_source.disclosure_level_for,
+        ),
     }
 
 
@@ -433,11 +502,27 @@ def _in_process_door(
             principal_id=grant.client_id, role=proposed_role
         )
 
+    from ccf.artifacts.file_store import FileArtifactStore
+
+    from crossproc.servers.mcp_experience_child import (
+        experience_refusal_recorder,
+    )
+
     kwargs = _builder_kwargs(tmp_path)
-    kwargs["entitlement_source"] = ControlPlaneProductEntitlementSource(
+    source = ControlPlaneProductEntitlementSource(
         control_plane=registry, clock=lambda: AUDIT_INSTANT
     )
+    kwargs["entitlement_source"] = source
     kwargs["perspective_resolver"] = resolve_perspective
+    # The recorder follows the source it records for (`D-IMPL-256` (2)): this
+    # door's denials are made under THIS test's tenant and disclosed under
+    # THIS registry's policy, so a recorder still bound to `_builder_kwargs`'
+    # placeholder would disclose against a tenant nothing here registered.
+    kwargs["refusal_recorder"] = experience_refusal_recorder(
+        store=FileArtifactStore(root=tmp_path / "in-process-replay"),
+        tenant=tenant,
+        disclosure_level_for=source.disclosure_level_for,
+    )
     return build_experience_server(
         tool_allowlist=frozenset({GET_CONTEXT_TOOL}),
         context_provider=context_provider,
@@ -861,7 +946,15 @@ def test_the_front_door_imports_the_seams_rather_than_re_declaring_them() -> Non
 
     source = inspect.getsource(experience)
     assert "from ccf_runtime.authz.product_entitlement import" in source
-    assert "entitled_perspective" in source
+    # `24.6-16`: the seam this door imports is now the GOVERNED step one layer
+    # up (`D-IMPL-256` (3)) — it no longer runs the resolution order itself,
+    # so `entitled_perspective` is the wrong needle and its absence is the
+    # positive claim that determination, replay and disclosure happen in one
+    # place. Both halves are asserted: the step is imported, and the order it
+    # wraps is not re-run here.
+    assert "from ccf_runtime.authz.delivery_boundary import" in source
+    assert "govern_entitlement(" in source
+    assert "entitled_perspective(" not in source
     assert "class PerspectiveResolverProtocol" not in source
     assert "class ProductEntitlementSourceProtocol" not in source
     assert "require_schema" not in source
@@ -902,6 +995,15 @@ def test_a_verified_but_undeclared_principal_is_refused_at_the_front_door(
     caller is verified — and the principal is simply not one the tenant's
     policy declares. Without this case the round-trip test above would pass
     against a door that gated on nothing at all.
+
+    **Re-derived by ``24.6-16`` (``D-IMPL-256`` (3)).** Until this row the
+    refusal reached the client by raising through the transport and carried
+    ``ERROR_PRINCIPAL_NOT_ENTITLED`` in its prose. Both were the defect: a
+    governed *"you may not"* is a determination, so it crosses as the shell
+    with a resolvable replay reference, and the internal error code stays in
+    the audit plane. The typed-constant assertion therefore **inverts** — the
+    token is asserted ABSENT from the wire — and the decision it used to stand
+    for is asserted by the shell instead.
     """
     import httpx
 
@@ -928,20 +1030,23 @@ def test_a_verified_but_undeclared_principal_is_refused_at_the_front_door(
             if isinstance(contents, TextResourceContents)
         )
 
-    with pytest.raises(McpServerUnreachable) as refused:
-        bridge.run(
-            run_with_session(
-                url=url,
-                operation=operation,
-                http_client_factory=lambda: httpx.AsyncClient(
-                    headers={"Authorization": f"Bearer {UNENTITLED_TOKEN}"}
-                ),
-            )
+    body = bridge.run(
+        run_with_session(
+            url=url,
+            operation=operation,
+            http_client_factory=lambda: httpx.AsyncClient(
+                headers={"Authorization": f"Bearer {UNENTITLED_TOKEN}"}
+            ),
         )
+    )
 
-    # The typed constant, not the prose: the same vocabulary the HTTP door
-    # renders as a 403 body (D-08 — one vocabulary, two renderings).
-    assert ERROR_PRINCIPAL_NOT_ENTITLED in _causes(refused.value)
+    shell = _governed_denial(body, withheld=(ERROR_PRINCIPAL_NOT_ENTITLED,))
+    # The identity the ruling requires — what was addressed, on which surface —
+    # is on the child's RECORD and not on this wire below `full` (`D-IMPL-260`
+    # P-J); the addressed URI must not cross beside the refusal.
+    assert shell.resource is None
+    # And it is not the served vessel wearing a refusal's name.
+    assert body != canonical_bytes(assembled.servable.product).decode("utf-8")
 
 
 @with_child
@@ -953,8 +1058,14 @@ def test_a_class_outside_the_grant_is_refused_at_the_front_door(
     The entitled principal asks for a class the child's policy does not name.
     What would fail here: a door that checked only that the principal exists,
     which is authentication wearing an entitlement's name.
+
+    **Re-derived by ``24.6-16``.** The class the caller named is still on the
+    wire — but on the shell's ``resource.address``, which is the URI the
+    caller itself supplied and therefore reveals nothing it did not already
+    know (``ResourceRequestIdentity``'s own reasoning). What has left the wire
+    is the entitlement's typed ``error_code``, which is now asserted absent.
     """
-    import httpx
+    import httpx  # noqa: F401  (kept: the sibling legs present raw credentials)
 
     from ccf_runtime.http_api.errors import ERROR_PRODUCT_CLASS_UNENTITLED
     from ccf_runtime.mcp.experience import experience_product_uri
@@ -977,21 +1088,25 @@ def test_a_class_outside_the_grant_is_refused_at_the_front_door(
             if isinstance(contents, TextResourceContents)
         )
 
-    with pytest.raises(McpServerUnreachable) as refused:
-        bridge.run(
-            run_with_session(
-                url=url,
-                operation=operation,
-                http_client_factory=authorized_http_client,
-            )
+    body = bridge.run(
+        run_with_session(
+            url=url,
+            operation=operation,
+            http_client_factory=authorized_http_client,
         )
+    )
 
-    detail = _causes(refused.value)
-    assert ERROR_PRODUCT_CLASS_UNENTITLED in detail
-    # The refusal names the class, and it is the entitlement speaking rather
-    # than the resolver: an unentitled class must never reach the resolver's
-    # own "no such product" path.
-    assert "-not-this-one" in detail
+    shell = _governed_denial(body, withheld=(ERROR_PRODUCT_CLASS_UNENTITLED,))
+    # The entitlement spoke, not the resolver: an unentitled class must never
+    # reach the resolver's own "no such product" path, and the resolver's
+    # refusal is an `ExperienceProductNotServable` that produces no shell.
+    # The declared operand it was decided against is the shell's REQUEST
+    # identity — the question, which crosses at every level — while the
+    # resource identity is on the record and not on the wire below `full`
+    # (`D-IMPL-260` P-J).
+    assert shell.resource is None
+    assert "-not-this-one" in shell.request.product_id
+    assert "ExperienceProductNotServable" not in body
 
 
 # --- the tools are entitled too, not merely authenticated (D-IMPL-128) ------
@@ -1013,17 +1128,21 @@ def test_a_verified_but_undeclared_principal_is_refused_by_the_context_tool(
     tenant, entity=entity)``, which reached Context Product assembly with no
     grant check at all and served this caller a product.
 
-    The typed constant, not the prose (D-08): the refusal has to be the
-    entitlement's, in the same vocabulary the resource path and the HTTP door
-    already speak.
+    **Re-derived by ``24.6-16`` (``D-IMPL-256`` (3)).** The refusal is still
+    the entitlement's and it is still not the provider's — what changed is the
+    channel. ``isError`` is now False, because a governed determination is a
+    response rather than a transport failure, and the typed ``error_code``
+    stays in the audit plane. The tool's address is the deployment-declared
+    one, which is what a tool with a wire ``tenant`` and a declared class has.
     """
     from ccf_runtime.http_api.errors import ERROR_PRINCIPAL_NOT_ENTITLED
-    from ccf_runtime.mcp.experience import GET_CONTEXT_TOOL
+    from ccf_runtime.mcp.experience import GET_CONTEXT_TOOL, _tool_address
 
     from crossproc.servers.mcp_experience_child import UNENTITLED_TOKEN
 
     url = f"http://127.0.0.1:{child_server_port}/mcp"
     world = build_world()
+    consumed = world.definition.context_contract.consumes[0]
 
     is_error, body = _call_tool(
         bridge,
@@ -1033,8 +1152,20 @@ def test_a_verified_but_undeclared_principal_is_refused_by_the_context_tool(
         token=UNENTITLED_TOKEN,
     )
 
-    assert is_error, body
-    assert ERROR_PRINCIPAL_NOT_ENTITLED in body
+    assert not is_error, body
+    shell = _governed_denial(body, withheld=(ERROR_PRINCIPAL_NOT_ENTITLED,))
+    # Decided against the tool's declared address — recorded, and not on the
+    # wire below `full` (`D-IMPL-260` P-J; the per-path record assertion is
+    # `tests/mcp/test_experience_refusal_channels.py`).
+    assert shell.resource is None
+    assert _tool_address(
+        tool=GET_CONTEXT_TOOL,
+        tenant=world.tenant,
+        product_class=consumed.product_class,
+    ) not in body
+    # A version-less tool records a version-less request identity — a positive
+    # claim, not a gap: this tool addresses a class, never a lane.
+    assert shell.request.product_version is None
 
 
 @with_child
@@ -1059,29 +1190,39 @@ def test_a_foreign_tenant_is_refused_by_the_context_tool(
     ``LookupError`` from the provider cannot produce it. The companion
     discriminator — that the provider was never entered at all — is asserted
     in the counter test below.
+
+    **The discriminator changed with the channel (``24.6-16``), and it is now
+    stronger.** The typed ``ERROR_PRODUCT_POLICY_ABSENT`` no longer crosses,
+    so it can no longer be what tells the two refusals apart. What tells them
+    apart is the *shape*: a governed determination answers ``isError`` False
+    with a shell carrying a resolvable replay reference, and the provider's
+    ``ExperienceProductNotServable`` cannot produce either — it is a
+    ``ToolError`` with prose. A test that could previously be satisfied by the
+    right token in the wrong exception's message now cannot be.
     """
     from ccf_runtime.http_api.errors import ERROR_PRODUCT_POLICY_ABSENT
     from ccf_runtime.mcp.experience import GET_CONTEXT_TOOL
 
     url = f"http://127.0.0.1:{child_server_port}/mcp"
     world = build_world()
+    foreign = f"{world.tenant}-not-this-one"
 
     is_error, body = _call_tool(
         bridge,
         url,
         GET_CONTEXT_TOOL,
-        {
-            "tenant": f"{world.tenant}-not-this-one",
-            "entity": "hollis-industrial",
-        },
+        {"tenant": foreign, "entity": "hollis-industrial"},
     )
 
-    assert is_error, body
-    assert ERROR_PRODUCT_POLICY_ABSENT in body
-    # And it is the entitlement speaking, not the provider: the provider's
-    # own refusal is an ExperienceProductNotServable and says neither of
-    # these things.
-    assert "ExperienceProductNotServable" not in body
+    assert not is_error, body
+    shell = _governed_denial(
+        body,
+        withheld=(ERROR_PRODUCT_POLICY_ABSENT, "ExperienceProductNotServable"),
+    )
+    # Decided against the tenant the CALLER named — the sharper half of
+    # `D-IMPL-128`, readable off the RECORDED identity; the wire carries no
+    # resource identity below `full` (`D-IMPL-260` P-J).
+    assert shell.resource is None
 
 
 @with_child
@@ -1098,6 +1239,11 @@ def test_the_lineage_tool_is_entitled_against_its_declared_address(
 
     Both legs in one test on purpose: a refusal assertion with no companion
     serve assertion is satisfied by a door that refuses everyone.
+
+    **Re-derived by ``24.6-16``.** The denial is now a governed response with
+    a resolvable replay reference rather than a tool error carrying the typed
+    code, and the serve leg is unchanged — which is what makes the pair still
+    a pair: both bodies parse, and the ``kind`` key is what tells them apart.
     """
     from ccf_runtime.http_api.errors import ERROR_PRINCIPAL_NOT_ENTITLED
     from ccf_runtime.mcp.experience import GET_LINEAGE_TOOL
@@ -1109,12 +1255,19 @@ def test_the_lineage_tool_is_entitled_against_its_declared_address(
     is_error, body = _call_tool(
         bridge, url, GET_LINEAGE_TOOL, {}, token=UNENTITLED_TOKEN
     )
-    assert is_error, body
-    assert ERROR_PRINCIPAL_NOT_ENTITLED in body
+    assert not is_error, body
+    shell = _governed_denial(body, withheld=(ERROR_PRINCIPAL_NOT_ENTITLED,))
+    assert shell.resource is None  # `D-IMPL-260` P-J; the surface is on the record
+    # A tool with no wire arguments records the empty parameter set as a
+    # statement of fact, and it is decided under the DECLARED tenant.
+    assert shell.request.parameters == {}
+    assert shell.request.product_version is None
 
     is_error, served = _call_tool(bridge, url, GET_LINEAGE_TOOL, {})
     assert not is_error, served
     assert json.loads(served)["operators_invoked"]
+    # The two bodies are told apart by the shell's own key, never by isError.
+    assert "kind" not in json.loads(served)
 
 
 @pytest.mark.parametrize(
@@ -1143,6 +1296,17 @@ def test_the_tool_and_the_resource_decide_one_scenario_alike(
     tool takes its class from the deployment, so that scenario has no wire
     representation on it and is driven in-process below against the operand
     the tool actually carries.
+
+    **What the parity is now ON (``24.6-16``, ``D-IMPL-256`` (3)).** Before
+    this row the two surfaces were compared on the typed ``error_code`` in
+    their refusal prose. That code no longer crosses either surface, and the
+    parity it stood for has moved up to the thing that actually matters: both
+    doors answer one scenario with the **same governed shell** — the same
+    kind, the same withheld cause, each with its own resolvable record. That
+    is a stronger claim than the old one, because two doors could agree on an
+    error code while disagreeing about whether the decision was recorded at
+    all — which is precisely the standing-resource/tool asymmetry the ruling
+    exists to close.
     """
     from ccf_runtime.http_api.errors import (
         ERROR_PRINCIPAL_NOT_ENTITLED,
@@ -1159,21 +1323,28 @@ def test_the_tool_and_the_resource_decide_one_scenario_alike(
     token = DEV_TOKEN
     tenant = assembled.address.tenant
     expected: str | None = None
+    withheld: tuple[str, ...] = ()
     if scenario == "an-undeclared-principal":
         token = UNENTITLED_TOKEN
-        expected = ERROR_PRINCIPAL_NOT_ENTITLED
+        expected = "subject-unavailable"
+        withheld = (ERROR_PRINCIPAL_NOT_ENTITLED,)
     elif scenario == "a-foreign-tenant":
         tenant = f"{assembled.address.tenant}-not-this-one"
-        expected = ERROR_PRODUCT_POLICY_ABSENT
+        expected = "subject-unavailable"
+        withheld = (ERROR_PRODUCT_POLICY_ABSENT,)
 
     if surface == "the-get-context-tool":
-        refused, detail = _call_tool(
+        is_error, detail = _call_tool(
             bridge,
             url,
             GET_CONTEXT_TOOL,
             {"tenant": tenant, "entity": "hollis-industrial"},
             token=token,
         )
+        # Neither outcome is a transport error any more: a governed "no" is a
+        # response. `isError` staying False on a denial IS the ruling.
+        assert not is_error, detail
+        refused = "kind" in json.loads(detail)
     else:
         refused, detail = _read_resource_outcome(
             bridge,
@@ -1194,7 +1365,8 @@ def test_the_tool_and_the_resource_decide_one_scenario_alike(
         )
     else:
         assert refused, detail
-        assert expected in detail
+        shell = _governed_denial(detail, withheld=withheld)
+        assert shell.kind == expected
 
 
 @with_child
@@ -1299,6 +1471,12 @@ def test_a_refused_context_call_never_reaches_the_provider(
     at all — including one wired to nothing. So the same counter is asserted
     to move across a served call in the same test, which is what makes the
     unchanged assertion mean something.
+
+    **Re-derived by ``24.6-16``:** the denial no longer raises, so the call
+    returns the governed shell. The counter claim is untouched and is now the
+    *only* thing that could have moved — which sharpens it, because before,
+    "an exception escaped" was itself a reason the provider might not have
+    been reached.
     """
     from ccf.projection.plan import Perspective
 
@@ -1324,12 +1502,11 @@ def test_a_refused_context_call_never_reaches_the_provider(
     )
 
     before = len(calls)
-    with pytest.raises(Exception) as refused:
-        _call_in_process(
-            server,
-            {"tenant": f"{world.tenant}-not-this-one", "entity": "any"},
-        )
-    assert ERROR_PRODUCT_POLICY_ABSENT in _causes(refused.value)
+    refused = _call_in_process(
+        server,
+        {"tenant": f"{world.tenant}-not-this-one", "entity": "any"},
+    )
+    _governed_denial(refused, withheld=(ERROR_PRODUCT_POLICY_ABSENT,))
     assert len(calls) == before, "a refused call reached the provider"
 
     _call_in_process(server, {"tenant": world.tenant, "entity": "any"})
@@ -1446,6 +1623,11 @@ def test_a_deployment_declared_class_outside_the_grant_is_refused(
     built against a class outside the grant. Expressing it that way rather
     than substituting a weaker check is the point: each surface is driven on
     the operand it really has.
+
+    **Re-derived by ``24.6-16``:** a governed denial returns rather than
+    raising, and the unentitled class is now read off the shell's request
+    identity — the deployment-declared operand this tool was decided against —
+    while the typed ``error_code`` is asserted absent from the wire.
     """
     from ccf.projection.plan import Perspective
     from ccf_runtime.http_api.errors import ERROR_PRODUCT_CLASS_UNENTITLED
@@ -1469,12 +1651,14 @@ def test_a_deployment_declared_class_outside_the_grant_is_refused(
         proposed_role=role,
     )
 
-    with pytest.raises(Exception) as refused:
-        _call_in_process(server, {"tenant": world.tenant, "entity": "any"})
+    body = _call_in_process(server, {"tenant": world.tenant, "entity": "any"})
 
-    detail = _causes(refused.value)
-    assert ERROR_PRODUCT_CLASS_UNENTITLED in detail
-    assert "-not-this-one" in detail
+    shell = _governed_denial(body, withheld=(ERROR_PRODUCT_CLASS_UNENTITLED,))
+    # The declared operand is the shell's request identity — the question,
+    # which crosses at every level; the resource identity is recorded and not
+    # disclosed below `full` (`D-IMPL-260` P-J).
+    assert shell.resource is None
+    assert "-not-this-one" in shell.request.product_id
 
 
 def test_a_gated_tool_without_its_declared_address_is_refused(

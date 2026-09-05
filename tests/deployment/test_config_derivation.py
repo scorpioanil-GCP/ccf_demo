@@ -51,8 +51,10 @@ import pytest
 
 from ccf.controlplane.artifacts import (
     DEPLOYMENT_CONFIG,
+    POLICY_CONSTRAINT,
     DeploymentConfig,
     ManifestEntry,
+    PolicyConstraint,
     parse_artifact,
 )
 from ccf.deployment import config as config_module
@@ -235,6 +237,76 @@ def test_operator_class_ids_are_built_not_enumerated() -> None:
     """
     source = inspect.getsource(config_module)
     assert source.count("ccf.operator-parameters") == 1
+
+
+# --- 4b. policy_constraints: one entry per label ------------------------------
+
+
+def test_policy_constraints_section_derives_one_entry_per_label() -> None:
+    """`24.6-L-07`, `D-IMPL-253` Q3: *"A policy constraint has independent
+    identity, version, effectivity and authority and should not disappear
+    inside another bundle."* One manifest entry per label is what that means
+    mechanically — the `operators` precedent, applied to a second dynamically
+    keyed section. Each derived document validates as a `PolicyConstraint`.
+    """
+    config = _minimal(
+        policy_constraints={
+            "tolerance-ceiling": {
+                "policy_id": "fixture-regime",
+                "applies_to": {"product_class": "fixture.product"},
+                "parameter": "fixture_parameter",
+                "operator": "maximum",
+                "value": "0.2",
+                "source_authority": "fixture-authority",
+                "effective_from": "2026-01-01T00:00:00Z",
+                "reason": "fixture reason",
+            },
+            "depth-floor": {
+                "policy_id": "fixture-regime",
+                "applies_to": {},
+                "parameter": "fixture_depth",
+                "operator": "minimum",
+                "value": "1",
+                "source_authority": "fixture-authority",
+                "effective_from": "2026-01-01T00:00:00Z",
+                "reason": "fixture reason",
+            },
+        }
+    )
+    derived = derive_deployment(config)
+
+    keys = [
+        entry.key
+        for entry in derived.manifest.artifacts
+        if entry.class_id == "ccf.policy-constraint"
+    ]
+    assert sorted(keys) == [
+        "policy_constraints.depth-floor",
+        "policy_constraints.tolerance-ceiling",
+    ]
+
+    for key in keys:
+        entry = _entry_by_key(derived, key)
+        assert entry.class_id == "ccf.policy-constraint"
+        assert entry.role == "register"
+        assert entry.registration == "typed"
+        document = derived.documents[key]
+        assert document["semver"] == config.semver
+        parsed = parse_artifact(document, POLICY_CONSTRAINT)
+        assert isinstance(parsed, PolicyConstraint)
+        assert parsed.policy_id == "fixture-regime"
+
+
+def test_a_config_naming_no_policy_constraints_derives_none() -> None:
+    """The positive control for the section above, and the compatibility
+    claim: a config written before this section existed derives exactly the
+    entries it always did."""
+    derived = derive_deployment(_minimal())
+    assert not [
+        entry
+        for entry in derived.manifest.artifacts
+        if entry.class_id == "ccf.policy-constraint"
+    ]
 
 
 # --- 5, 6. path and semver -----------------------------------------------------

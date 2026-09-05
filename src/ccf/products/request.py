@@ -99,15 +99,17 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.artifact_base import ArtifactClass, VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
+from ccf.products.provenance import OverrideRecord
 from ccf.products.contract import (
     NO_REQUEST_CONTRACT,
     ProductClassRegistrationError,
+    ServeObligations,
 )
 
 # `ccf.skills.catalog` is imported at the BOTTOM of this module, on the
@@ -151,6 +153,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing-only, and deliberately so
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "ArgumentDomain",
     "NO_REQUEST_CONTRACT",
     "PRODUCT_REQUEST_CONTRACT",
     "AnchorAmbiguityRefusal",
@@ -160,6 +163,7 @@ __all__ = [
     "ProductRequestViolationReason",
     "refuse_request",
     "refuse_request_contract_pin",
+    "refuse_undeclared_class_default",
     "request_seeds",
 ]
 
@@ -193,16 +197,15 @@ __all__ = [
 #:
 #: The sixth, ``not-a-proportion``, is the one verdict that reads a presented
 #: VALUE rather than a name or a type: the Standard's universal
-#: :data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER` is a ``D_c`` ceiling
-#: and ``D_c`` is a proportion (whitepaper §7.7.4), so a declared, honored,
-#: well-typed number outside ``[0, 1]`` — or not finite — is not a tolerance
-#: at all. It is refused here, in the contract-refusal family, so it can never
-#: reach :func:`~ccf.products.gates.effective_debt_ceiling` as a "tightening"
-#: and coerce every serve into a ``409`` whose ``declared`` names a number no
-#: class declared (``24.5-REVIEW.md`` WR-02, Dave, 2026-09-02). The interval is
-#: the one :class:`~ccf.products.contract.ServeObligations` holds the CLASS's
-#: ceiling to at declaration (``24.5-L-14``): the request boundary and the
-#: class boundary read the same interval.
+#: :data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER` states a ``D_c``
+#: tolerance and ``D_c`` is a proportion (whitepaper §7.7.4), so a declared,
+#: honored, well-typed number outside ``[0, 1]`` — or not finite — is not a
+#: tolerance at all. It is refused here, in the contract-refusal family, so it
+#: can never reach a resolution and stand as the number an admitted product is
+#: withheld against (``24.5-REVIEW.md`` WR-02, Dave, 2026-09-02). The interval
+#: is the one :class:`~ccf.products.contract.ServeObligations` holds the
+#: CLASS's declared default to (``24.5-L-14``, ``24.6-L-04``): the request
+#: boundary and the class boundary read the same interval.
 ProductRequestViolationReason = Literal[
     "undeclared-parameter",
     "missing-required-parameter",
@@ -210,6 +213,8 @@ ProductRequestViolationReason = Literal[
     "class-mismatch",
     "not-supported-at-tier",
     "not-a-proportion",
+    "below-minimum",
+    "above-maximum",
 ]
 
 #: How :func:`~ccf.products.payload.refuse_payload`'s reasons read on the
@@ -273,6 +278,35 @@ class ProductRequest(CCFContract):
             slot. Required with no default: an empty mapping is expressible and
             says *this question needs nothing beyond its four axes*, which is a
             statement rather than an omission.
+        policy_overrides: The policy identifiers this question asks to be
+            resolved *without* — an explicit, recorded exception rather than a
+            silent one (``D-IMPL-253`` Q7). **Naming a policy is not authority
+            to override it**: the resolver additionally establishes that the
+            principal is entitled to exercise the override, against the
+            declared grant
+            (:attr:`~ccf.products.entitlement.ProductEntitlementGrant.overridable_policies`)
+            — *"otherwise anyone who knows a policy ID could bypass it"*. Both
+            facts, entitled and honored, land in the replay record whichever
+            way the resolution goes: on the recorded
+            :class:`~ccf.products.provenance.EffectiveRequest` when the request
+            RESOLVES, and on the refusal's own ``overrides`` member — carried
+            into the record's internal envelope — when the resolution REFUSES
+            (``D-IMPL-260`` P-I, criterion 10: *"the refusal path must preserve
+            the attempted override and the entitlement result in replay"*).
+
+            It belongs on the request because **a request carrying an override
+            is a different question**: it is content-addressed with the rest of
+            the question, so two callers asking the same thing with and without
+            an override do not pin identically. Hash-transparent at the empty
+            tuple (``D-IMPL-243``): asking for no exception is what every
+            request written before this field asked, so the field is omitted
+            from the canonical form at that value and no committed request's
+            content address moves.
+
+            The SDK names no policy here — the identifiers are the
+            deployment's own (CINV-01). This field asserts nothing about *who*
+            is asking; the principal is resolved at the door from a verified
+            grant, exactly as before.
     """
 
     schema_name: str
@@ -282,6 +316,96 @@ class ProductRequest(CCFContract):
     freshness: str
     asked_at: datetime
     parameters: Mapping[str, Any]
+    policy_overrides: tuple[str, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+
+class ArgumentDomain(CCFContract):
+    """The valid domain of one declared numeric parameter — the seventh key.
+
+    **SDK-defined** (CLAUDE.md §11); the ruling of record is ``D-IMPL-259``
+    (Dave, 2026-09-05): *"cp-04 ``max_depth`` has a declared request-contract
+    minimum of 1 … Requests below 1 … are governed request-validity refusals
+    returned as data; values 1–100 are valid and are never clamped."* And the
+    scoping sentence that puts the type HERE rather than in the constraint
+    layer: *"don't turn ``1`` into a Policy Constraint. It is simply the
+    parameter's valid domain."*
+
+    **What this is and is not.** A domain is part of the *request contract*
+    — a statement of which numbers are meaningful questions of this class —
+    in the same register as ``type`` and ``required``. It is not a policy
+    constraint (no artifact pin, no priority, no comparability fold, no
+    authority — ``ccf.products.constraints`` never reads it) and it is not a
+    technical capability (no substrate, no identity — the number a backend
+    can walk is read off the backend through ``capability_bindings``). Both of
+    those bound a request *after* it is well-formed; a domain says what
+    well-formed means for a number, so it is judged where ``type`` is judged,
+    by :func:`refuse_request`, and a value outside it is a
+    :class:`ProductRequestViolation` — ``below-minimum`` or ``above-maximum``
+    — returned as data, never a substituted number.
+
+    **Inclusive on both ends**, because a boundary a caller may ask for and a
+    boundary a caller may not are two different declarations and the shorter
+    one to write is the one the ruling used (*"values 1–100 are valid"*).
+    Either end may be absent; a domain naming neither is refused at
+    construction, because a domain that admits everything is not a
+    declaration but a key with nothing under it.
+
+    Attributes:
+        minimum: The smallest value a caller may ask for, or ``None`` when the
+            domain is unbounded below. Held as a :class:`~decimal.Decimal` for
+            the reason :class:`~ccf.products.contract.ServeObligations` holds
+            its tolerance as one: a float boundary that is not the number the
+            author wrote is a boundary nobody declared.
+        maximum: The largest, or ``None`` when unbounded above. Declared
+            rarely in practice — a ceiling a backend imposes is a capability,
+            not a domain (``D-IMPL-253`` Q21) — but the type is symmetric so a
+            genuine domain ceiling (*"a percentage"*, *"a calendar month"*)
+            has a place to be declared rather than a policy to be faked.
+    """
+
+    minimum: Decimal | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    maximum: Decimal | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @model_validator(mode="after")
+    def _at_least_one_end_and_in_order(self) -> "ArgumentDomain":
+        """Refuse an empty domain and an inverted one, by name."""
+        if self.minimum is None and self.maximum is None:
+            raise ValueError(
+                "an argument domain declares a minimum, a maximum or both; a "
+                "domain with neither admits every number and is a key with "
+                "nothing under it (D-IMPL-259)"
+            )
+        for name, value in (("minimum", self.minimum), ("maximum", self.maximum)):
+            if value is not None and not value.is_finite():
+                raise ValueError(
+                    f"an argument domain's {name} must be a finite number, "
+                    f"not {value} (D-IMPL-259)"
+                )
+        if (
+            self.minimum is not None
+            and self.maximum is not None
+            and self.minimum > self.maximum
+        ):
+            raise ValueError(
+                f"an argument domain's minimum {self.minimum} exceeds its "
+                f"maximum {self.maximum}; no number satisfies it, so no request "
+                "could ever be well-formed under it (D-IMPL-259)"
+            )
+        return self
+
+    def refuses(self, value: Decimal) -> ProductRequestViolationReason | None:
+        """Which end ``value`` misses, or ``None`` when it lies inside."""
+        if self.minimum is not None and value < self.minimum:
+            return "below-minimum"
+        if self.maximum is not None and value > self.maximum:
+            return "above-maximum"
+        return None
 
 
 class ProductRequestContract(VersionedArtifact):
@@ -334,6 +458,56 @@ class ProductRequestContract(VersionedArtifact):
             the empty mapping (``D-IMPL-243``): nothing declared-refused is
             every pre-phase contract, so the field is omitted from the
             canonical form at that value and a non-empty mapping is rendered.
+        defaults: The value each parameter takes **when the caller omits it**.
+            A default is not a competitor to a value the caller supplied; it is
+            what omission *means* for this product (``D-IMPL-253`` Q2, Dave:
+            *"Product defaults belong on the request contract. They define what
+            omission means for that product."*). The empty mapping is the
+            positive assertion that this class declares no default, which is
+            what every declaration written before this field said and still
+            says. The values live here, in the artifact, so that no spine code
+            carries them (CLAUDE.md §6.4; ledger row ``24.6-L-07``): a number
+            in code is a number no examiner can trace to a decision anyone made
+            (CINV-01). Hash-transparent at the empty mapping (``D-IMPL-243``):
+            declaring nothing is every pre-phase contract, so the field is
+            omitted from the canonical form at that value and a non-empty
+            mapping is rendered.
+
+            **The SDK applies a default BEFORE validation, not after** — plan
+            ``24.6-03``'s resolver step, which is what makes an omitted
+            parameter reach the closed-world comparison as the value the class
+            declared. The resolved value is recorded with authority
+            ``default`` and this artifact's own pin as its source
+            (:class:`~ccf.products.provenance.EffectiveParameter`), which is
+            the whole reason omission has to mean something *declared*: a
+            default applied from code could not be pinned, and a decision made
+            under it could not be replayed.
+
+            A default is refused at declaration when its name is not a declared
+            argument, when it names a parameter this class always refuses, or
+            when its value does not satisfy the declared argument's own type —
+            all three named together in one message, because a default for a
+            parameter the class does not honor would widen the closed request
+            world by omission, which is the one thing this artifact exists to
+            keep shut.
+        capability_bindings: Which declared parameter each **technical**
+            capability bounds — parameter name to the SDK's own capability
+            token (``D-IMPL-253`` Q21, Dave: *"100 is the genuine technical
+            capability boundary"*). The binding is the declaration's statement
+            that *this* parameter is the one a substrate limit applies to; the
+            limit itself is never here and never anywhere in an artifact — it
+            is read off the backend at resolution time as a
+            :class:`~ccf.products.constraints.TechnicalCapability`, because a
+            number the deployment authored would be a technical bound nobody
+            measured (CINV-01).
+
+            Refused at declaration when a binding names a parameter this class
+            does not declare, or a token the SDK does not define — both named
+            together, on the ``defaults`` message's discipline. The empty
+            mapping is the positive assertion that no parameter of this class
+            is bounded by a capability, and it is hash-transparent at that
+            value (``D-IMPL-243``), which is what every contract written before
+            this field said and still says.
     """
 
     schema_name: str
@@ -342,6 +516,178 @@ class ProductRequestContract(VersionedArtifact):
     unsupported_arguments: Mapping[str, str] = Field(
         default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    defaults: Mapping[str, Any] = Field(
+        default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    capability_bindings: Mapping[str, str] = Field(
+        default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    argument_domains: Mapping[str, ArgumentDomain] = Field(
+        default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @model_validator(mode="after")
+    def _every_domain_bounds_a_declared_number_the_default_respects(
+        self,
+    ) -> "ProductRequestContract":
+        """Refuse a domain the class cannot hold a caller to, naming every offender.
+
+        Four ways a declared domain is not one (``D-IMPL-259``), checked
+        together on the defaults validator's precedent: a name the class never
+        declared; a name declared with a type that has no magnitude (a domain
+        over a string bounds nothing, and ``bool`` is not a number to this
+        contract); a name the class declares and **always refuses** (a domain
+        over an inert parameter describes questions the tier step never lets
+        through); and a declared default that lies outside the domain — the
+        class contradicting itself, which fails HERE, where the author can
+        still fix it, rather than in front of a caller who omitted the
+        parameter (``D-IMPL-258`` (5)'s rule, one key over).
+        """
+        if not self.argument_domains:
+            return self
+
+        undeclared = sorted(
+            name
+            for name in self.argument_domains
+            if name not in self.arguments.properties
+        )
+        inert = sorted(
+            name
+            for name in self.argument_domains
+            if name in self.unsupported_arguments
+        )
+        unmeasurable = sorted(
+            name
+            for name in self.argument_domains
+            if name in self.arguments.properties
+            and not _has_magnitude(self.arguments.properties[name].type)
+        )
+        contradicted = sorted(
+            name
+            for name, domain in self.argument_domains.items()
+            if name in self.defaults
+            and name not in undeclared
+            and name not in unmeasurable
+            and _as_decimal(self.defaults[name]) is not None
+            and domain.refuses(_as_decimal(self.defaults[name])) is not None  # type: ignore[arg-type]
+        )
+        if not (undeclared or inert or unmeasurable or contradicted):
+            return self
+        raise ValueError(
+            f"the request contract for {self.schema_name!r} at class lane "
+            f"{self.schema_version!r} declares argument domains it cannot "
+            f"hold a caller to: {undeclared} are not declared arguments, "
+            f"{unmeasurable} are declared with a type that has no magnitude "
+            f"(a domain bounds integer and number only), {inert} are "
+            f"declared and always refused, and {contradicted} carry a declared "
+            "default outside their own domain — a class that would refuse the "
+            "value it fills in for an omission contradicts itself, and that "
+            "fails at declaration rather than in front of a caller "
+            "(D-IMPL-259, D-IMPL-258 (5))"
+        )
+
+    @model_validator(mode="after")
+    def _every_capability_binding_names_a_parameter_and_a_token(
+        self,
+    ) -> "ProductRequestContract":
+        """Refuse a binding onto an undeclared parameter or an unknown token.
+
+        Two ways a binding is not one (``24.6-L-07``; ``D-IMPL-253`` Q21),
+        named together for the reason the defaults message names three
+        together. The token vocabulary is read from
+        :mod:`ccf.products.constraints` through a function-local import — the
+        :func:`~ccf.products.payload.refuse_payload` precedent above — because
+        that module imports this one, and one reading of *what a capability
+        token is* is what keeps a declaration and a resolution from disagreeing
+        about it.
+        """
+        if not self.capability_bindings:
+            return self
+
+        from ccf.products.constraints import _CAPABILITY_TOKENS
+
+        undeclared = sorted(
+            name
+            for name in self.capability_bindings
+            if name not in self.arguments.properties
+        )
+        unknown = sorted(
+            {
+                token
+                for token in self.capability_bindings.values()
+                if token not in _CAPABILITY_TOKENS
+            }
+        )
+        if not (undeclared or unknown):
+            return self
+        raise ValueError(
+            f"the request contract for {self.schema_name!r} at class lane "
+            f"{self.schema_version!r} declares capability bindings it cannot "
+            f"honor: {undeclared} are not declared arguments and {unknown} are "
+            f"not capability tokens this SDK defines "
+            f"({sorted(_CAPABILITY_TOKENS)}); a binding onto a parameter the "
+            "class does not declare bounds nothing, and a binding onto a token "
+            "no backend can supply is a wiring failure the resolver would meet "
+            "at request time instead (24.6-L-07, D-IMPL-253 Q21)"
+        )
+
+    @model_validator(mode="after")
+    def _every_default_is_a_parameter_this_class_honors(
+        self,
+    ) -> "ProductRequestContract":
+        """Refuse a default the class cannot honor, naming every offender at once.
+
+        Three ways a declared default is not one, checked together
+        (``24.6-L-07``): a name the class never declared, a name the class
+        declares and **always refuses**, and a value the declared argument's
+        own type would reject. An author fixing a declaration one exception at
+        a time is the papercut :meth:`from_declared` already exists to close,
+        so the exhaustive message is the behavior here too and not a nicety.
+
+        The type check is :func:`~ccf.products.payload.refuse_payload` over
+        ``arguments`` narrowed to the one name, never a second reading of
+        "conforms": one function decides what a declared parameter accepts, so
+        a default and a caller's value cannot be judged by two rules. The name
+        is bound at call time for the same ``DEF-17-02`` reason
+        :func:`refuse_request` binds it there.
+        """
+        if not self.defaults:
+            return self
+
+        from ccf.products.payload import refuse_payload
+
+        undeclared = sorted(
+            name for name in self.defaults if name not in self.arguments.properties
+        )
+        inert = sorted(
+            name for name in self.defaults if name in self.unsupported_arguments
+        )
+        mistyped = sorted(
+            name
+            for name in self.defaults
+            if name not in undeclared
+            and name not in inert
+            and refuse_payload(
+                payload={name: self.defaults[name]},
+                declared=SkillArgumentSchema(
+                    properties={name: self.arguments.properties[name]},
+                    required=(),
+                ),
+            )
+            is not None
+        )
+        if not (undeclared or inert or mistyped):
+            return self
+        raise ValueError(
+            f"the request contract for {self.schema_name!r} at class lane "
+            f"{self.schema_version!r} declares defaults it cannot honor: "
+            f"{undeclared} are not declared arguments, {inert} are declared "
+            f"and always refused, and {mistyped} do not satisfy the declared "
+            "argument's own type; every offender is named here rather than one "
+            "per exception, so the document is fixed in one pass — a default "
+            "for a parameter the class does not honor would widen the closed "
+            "request world by omission (24.6-L-07, D-IMPL-98, D-IMPL-253 Q2)"
+        )
 
     @classmethod
     def from_declared(cls, artifact: DeclaredArtifact) -> ProductRequestContract:
@@ -418,14 +764,32 @@ class ProductRequestContract(VersionedArtifact):
         The four ladder configs already carried the key as an uninterpreted
         sibling — the SDK reading it is the change, not the artifacts.
 
+        **The optional fifth key** (``24.6-L-07``). ``defaults`` is read on
+        exactly the same terms, and for the same reason: a declaration written
+        before it existed parses unchanged, and the empty mapping it lands at
+        is the positive assertion that the class declares no default rather
+        than a value nobody chose.
+
+        **The optional sixth key** (``24.6-L-07``, ``D-IMPL-253`` Q21).
+        ``capability_bindings`` is read on the same terms again: absent means
+        no parameter of this class is bounded by a technical capability, which
+        is what every declaration written before the key said.
+
         Raises:
             ValueError: the declaration is missing one or more of the three
                 required keys, **named together in one message**. An adopter
                 fixing a declaration one ``KeyError`` at a time is the papercut
                 this method exists to close, so the exhaustive message is the
                 behaviour and not a nicety. Also raised, in the same one-error
-                shape, when ``unsupported_arguments`` is present but is not a
-                mapping of parameter name to reason prose.
+                    shape, when ``unsupported_arguments`` is present but is not a
+                mapping of parameter name to reason prose, and when
+                ``defaults`` is present but is not a mapping keyed by parameter
+                name, and when ``capability_bindings`` is present but is not a
+                mapping of parameter name to capability token. A default naming
+                a parameter the class does not honor, and a binding naming a
+                parameter or a token the class cannot honor, are refused by the
+                contract's own validators rather than here — each in one
+                message naming every offender.
         """
         declaration = artifact.declaration
         missing = tuple(
@@ -453,6 +817,44 @@ class ProductRequestContract(VersionedArtifact):
                 "the four ladder configs already author (Standard §2.4, "
                 "24.5-L-13)"
             )
+        defaults = declaration.get(_KEY_DEFAULTS, {})
+        if not isinstance(defaults, Mapping) or not all(
+            isinstance(name, str) for name in defaults
+        ):
+            raise ValueError(
+                f"the declared artifact {artifact.class_id!r} at lane "
+                f"{artifact.semver!r} carries {_KEY_DEFAULTS!r} as "
+                f"{type(defaults).__name__}, and it must be a mapping of "
+                "parameter name to the value the class takes when the caller "
+                "omits that parameter (24.6-L-07, D-IMPL-253 Q2)"
+            )
+        bindings = declaration.get(_KEY_CAPABILITY_BINDINGS, {})
+        if not isinstance(bindings, Mapping) or not all(
+            isinstance(name, str) and isinstance(token, str)
+            for name, token in bindings.items()
+        ):
+            raise ValueError(
+                f"the declared artifact {artifact.class_id!r} at lane "
+                f"{artifact.semver!r} carries {_KEY_CAPABILITY_BINDINGS!r} as "
+                f"{type(bindings).__name__}, and it must be a mapping of "
+                "parameter name to the capability token that bounds it — the "
+                "token names WHICH capability applies and never its value "
+                "(24.6-L-07, D-IMPL-253 Q21)"
+            )
+        domains = declaration.get(_KEY_ARGUMENT_DOMAINS, {})
+        if not isinstance(domains, Mapping) or not all(
+            isinstance(name, str) and isinstance(domain, Mapping)
+            for name, domain in domains.items()
+        ):
+            raise ValueError(
+                f"the declared artifact {artifact.class_id!r} at lane "
+                f"{artifact.semver!r} carries {_KEY_ARGUMENT_DOMAINS!r} as "
+                f"{type(domains).__name__}, and it must be a mapping of "
+                "parameter name to a mapping carrying `minimum` and/or "
+                "`maximum` — the parameter's valid domain, which is part of "
+                "the request contract and neither a policy constraint nor a "
+                "technical capability (D-IMPL-259)"
+            )
         return cls(
             semver=artifact.semver,
             schema_name=declaration[_KEY_SCHEMA_NAME],
@@ -461,6 +863,12 @@ class ProductRequestContract(VersionedArtifact):
                 declaration[_KEY_ARGUMENTS]
             ),
             unsupported_arguments=dict(unsupported),
+            defaults=dict(defaults),
+            capability_bindings=dict(bindings),
+            argument_domains={
+                name: ArgumentDomain.model_validate(dict(domain))
+                for name, domain in domains.items()
+            },
         )
 
 
@@ -472,6 +880,62 @@ _KEY_ARGUMENTS = "arguments"
 #: names a parameter; the parameters a class refuses are read from the artifact
 #: at :meth:`ProductRequestContract.from_declared` and nowhere else.
 _KEY_UNSUPPORTED_ARGUMENTS = "unsupported_arguments"
+
+#: The optional fifth declaration key (``24.6-L-07``, ``D-IMPL-253`` Q2). A key
+#: NAME of the artifact, like the four above — not a parameter and not a value.
+#: Nothing in this module names a parameter or carries a default; what a class
+#: takes when a caller omits something is read from the artifact at
+#: :meth:`ProductRequestContract.from_declared` and nowhere else (CINV-01).
+_KEY_DEFAULTS = "defaults"
+
+#: The optional sixth declaration key (``24.6-L-07``, ``D-IMPL-253`` Q21). A
+#: key NAME again, and the value under it is a *capability token* — which
+#: capability bounds a parameter — never the bound. The number a backend can
+#: technically do is the backend's, read off it at resolution time; a ceiling
+#: authored in an artifact would be a technical bound nobody measured
+#: (CINV-01).
+_KEY_CAPABILITY_BINDINGS = "capability_bindings"
+
+#: The optional seventh declaration key (``D-IMPL-259``). A key NAME, and the
+#: value under it is a parameter's VALID DOMAIN — the numbers that are
+#: meaningful questions of this class — which is part of the request
+#: contract in the same register as ``type`` and ``required``. Not a policy
+#: constraint and not a capability: no artifact pin, no authority, no
+#: substrate. Nothing in this module carries a boundary value (CINV-01); what a
+#: class admits is read from the artifact at
+#: :meth:`ProductRequestContract.from_declared` and nowhere else.
+_KEY_ARGUMENT_DOMAINS = "argument_domains"
+
+def _has_magnitude(type_name: str) -> bool:
+    """Is ``type_name`` one of the two declared JSON Schema types with a magnitude?
+
+    ``integer`` and ``number``, and not ``boolean`` — ``bool`` is an ``int``
+    to Python and not to this contract, the reading :func:`_refuse_tolerance`
+    already takes. Spelled inside a function rather than as a module-level
+    collection on purpose: this module's own guard
+    (``tests/products/test_request_contract.py::_string_collection_constants``)
+    reads any module-level set of string literals as a spine-held parameter
+    set, which is the CINV-01 shape it exists to refuse. These two are JSON
+    Schema's names, the SDK's own vocabulary, and the function keeps them
+    where the guard can tell the difference.
+    """
+    return type_name in {"integer", "number"}
+
+
+def _as_decimal(value: object) -> Decimal | None:
+    """The value as a :class:`~decimal.Decimal`, or ``None`` when it has no magnitude.
+
+    One reading for a caller's value and a declared default, so the domain
+    step and the declaration validator cannot judge the same number by two
+    rules. ``bool`` is refused on purpose (see :func:`_has_magnitude`), and a
+    float is refused because :mod:`ccf.contracts.canonical` refuses it first:
+    a boundary compared to a float is a comparison the contract could never
+    address.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, Decimal)):
+        return None
+    return Decimal(value)
+
 
 #: The three keys a request-contract declaration carries, in the order
 #: :meth:`ProductRequestContract.from_declared` reports them missing. They are
@@ -523,12 +987,13 @@ class ProductRequestViolation(CCFContract):
     re-derives either to learn what the gap was.
 
     Attributes:
-        reason: Which of the six ways the request missed.
+        reason: Which of the eight ways the request missed.
         key: Where. A parameter reads by name, a nested member reads
             ``parent.member`` and an element of a declared list reads
             ``parent[].member``; a class mismatch reads the field that
             disagreed; a tier refusal reads the inert parameter's name; a
-            proportion refusal reads the tolerance parameter's name.
+            proportion refusal reads the tolerance parameter's name; a
+            domain refusal reads the domained parameter's name.
         declared_type: The JSON Schema type declared at ``key`` — or, for a
             class mismatch, the value the **contract** declares. ``None`` when
             neither applies, which includes a tier refusal: an inert parameter
@@ -550,6 +1015,16 @@ class ProductRequestViolation(CCFContract):
             it carries the parameter name, the presented value and the
             interval, so a caller reads which number missed and what it had
             to be.
+        overrides: Every override the request attempted, with its entitlement
+            result, when this violation was reached by
+            :func:`~ccf.products.constraints.resolve_effective_request` —
+            the validation pass runs over the EFFECTIVE values after the
+            attempts were verified, and a refused request must not lose them
+            (``D-IMPL-260`` P-I, criterion 10). Empty on a violation reached
+            before any resolution — request-contract conformity at the door —
+            and empty when nothing was attempted. Hash-transparent at the
+            empty tuple, so no violation written before the member existed
+            moves.
     """
 
     reason: ProductRequestViolationReason
@@ -559,6 +1034,9 @@ class ProductRequestViolation(CCFContract):
     declared_keys: frozenset[str]
     presented_keys: frozenset[str]
     detail: str
+    overrides: tuple[OverrideRecord, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class AnchorAmbiguityRefusal(CCFContract):
@@ -700,13 +1178,13 @@ def _refuse_tolerance(
     only ever judges a number's magnitude: ``bool`` (an ``int`` to Python,
     not to the contract) and non-numbers are the payload comparison's to
     name, and a parameter the declaration does not carry never reaches here.
-    The interval ``[0, 1]`` is the one the class's own ceiling is held to
-    (:class:`~ccf.products.contract.ServeObligations`, ``24.5-L-14``); the
-    parameter NAME is the SDK's mechanism vocabulary
+    The interval ``[0, 1]`` is the one the class's own declared default is
+    held to (:class:`~ccf.products.contract.ServeObligations`, ``24.5-L-14``,
+    ``24.6-L-04``); the parameter NAME is the SDK's mechanism vocabulary
     (:data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER`); the number is the
-    caller's. Nothing about the class's *ceiling* is read — a request cannot
-    create one and this step does not need one: a value that is not a
-    proportion is not a tolerance under any class.
+    caller's. Nothing the class declared is read here, and this step needs
+    nothing from it: a value that is not a proportion is not a tolerance under
+    any class.
     """
     # Imported at call time for the same DEF-17-02 reason `refuse_payload` is:
     # `ccf.products.gates` reaches `ccf.products.contract`, which is on the
@@ -734,17 +1212,67 @@ def _refuse_tolerance(
         detail=(
             f"{key}: {presented} is not a proportion — D_c is a proportion "
             "(whitepaper §7.7.4), so a tolerance must lie in [0, 1]; the "
-            "class's ceiling is held to the same interval at declaration "
-            "(24.5-L-14), and a request may only tighten it, never state a "
-            "number that is not a ceiling at all"
+            "class's declared default is held to the same interval at "
+            "declaration (24.5-L-14, 24.6-L-04), and a caller states a "
+            "tolerance or none, never a number that is not a tolerance at all"
         ),
     )
+
+
+def _refuse_domain(
+    *, request: ProductRequest, declared: ProductRequestContract
+) -> ProductRequestViolation | None:
+    """Does every presented number lie inside its declared domain?
+
+    The domain step (``D-IMPL-259``). Runs LAST, after the payload comparison
+    has said each parameter is declared, honored and well-typed and after the
+    interval step has judged the tolerance, so this function only ever judges
+    a declared number's magnitude against the class's own declaration of what
+    numbers are meaningful. Names are read in sorted order so the first
+    verdict is the same verdict on every run — the replay property every
+    comparison in this package carries.
+
+    Nothing here clamps and nothing here reads a policy or a capability: a
+    value below the floor is refused with the floor named, exactly as a
+    caller's value above a technical capability is refused by
+    :mod:`ccf.products.constraints` with the capability named — two
+    boundaries, two vocabularies, one posture (*"never clamped"*).
+    """
+    for key in sorted(declared.argument_domains):
+        if key not in request.parameters:
+            continue
+        presented = request.parameters[key]
+        value = _as_decimal(presented)
+        if value is None:
+            continue
+        domain = declared.argument_domains[key]
+        reason = domain.refuses(value)
+        if reason is None:
+            continue
+        limit = domain.minimum if reason == "below-minimum" else domain.maximum
+        edge = "below the declared minimum" if reason == "below-minimum" else "above the declared maximum"
+        property_ = declared.arguments.properties.get(key)
+        return ProductRequestViolation(
+            reason=reason,
+            key=key,
+            declared_type=None if property_ is None else property_.type,
+            presented_type=type(presented).__name__,
+            declared_keys=frozenset(declared.arguments.properties),
+            presented_keys=frozenset(request.parameters),
+            detail=(
+                f"{key}: {presented} lies {edge} {limit} of this class's "
+                "request contract — the parameter's valid domain, declared "
+                "beside its type and refused by name rather than substituted "
+                "(D-IMPL-259)"
+            ),
+        )
+    return None
 
 
 def refuse_request(
     *, request: ProductRequest, declared: ProductRequestContract
 ) -> ProductRequestViolation | None:
-    """The one request-conformity comparison — address, then tier, then parameters, then the tolerance interval.
+    """The one request-conformity comparison — address, then tier, then parameters, then the tolerance interval, then the declared domains.
 
     **The order is fixed and load-bearing** (``24.5-L-13``): address first,
     the tier step second, the payload comparison third, the interval step
@@ -791,14 +1319,16 @@ def refuse_request(
     Returns:
         ``None`` when the request is addressed to this contract, presents no
         parameter the contract declares inert, matches its declared
-        parameters at every level, and presents no tolerance outside the unit
-        interval; otherwise the
+        parameters at every level, presents no tolerance outside the unit
+        interval, and presents no number outside its declared domain;
+        otherwise the
         :class:`ProductRequestViolation` naming the first failure — address
         first, then the tier step over sorted presented names, then the fixed
         undeclared-then-missing-then-mistyped order
         :func:`~ccf.products.payload.refuse_payload` imposes over sorted names,
-        then the interval step — carrying both sides of the comparison that
-        failed.
+        then the interval step, then the domain step (:func:`_refuse_domain`,
+        ``D-IMPL-259``) over sorted domained names — carrying both sides of
+        the comparison that failed.
     """
     # Imported at call time, not at module scope (DEF-17-02). `ccf.products.
     # payload` reaches `ccf.skills.catalog` at its own top, and that reaches
@@ -822,7 +1352,10 @@ def refuse_request(
     )
     if parameters is not None:
         return _translate(parameters)
-    return _refuse_tolerance(request=request, declared=declared)
+    tolerance = _refuse_tolerance(request=request, declared=declared)
+    if tolerance is not None:
+        return tolerance
+    return _refuse_domain(request=request, declared=declared)
 
 
 def request_seeds(request: ProductRequest | None) -> frozenset[str] | None:
@@ -877,7 +1410,7 @@ def refuse_request_contract_pin(
     schema_version: str,
     request_contract_key: str,
     request_contract_version: str,
-) -> None:
+) -> ProductRequestContract | None:
     """Raise unless a class's request-contract pin resolves to its own contract.
 
     The registration-time half, in the ``MAX_TTL`` voice and for the ``MAX_TTL``
@@ -892,6 +1425,14 @@ def refuse_request_contract_pin(
     payload schema pinned onto the wrong product class is undetectable. A
     :class:`ProductRequestContract` names the class and the lane it serves, so
     that mis-wiring is caught here.
+
+    Returns:
+        The contract this pin resolved to, or ``None`` when the class declares
+        none. Returned rather than discarded since ``D-IMPL-258`` (5), so the
+        declaration-versus-contract check
+        (:func:`refuse_undeclared_class_default`) reads the contract this
+        function already resolved. Two reads of one key are two chances to
+        disagree about what a class's request surface is.
 
     Raises:
         ProductClassRegistrationError: the pin is half-declared; or it names
@@ -914,7 +1455,7 @@ def refuse_request_contract_pin(
             f"{NO_REQUEST_CONTRACT!r} or neither is (D-IMPL-98, D-IMPL-26)"
         )
     if not declared_key:
-        return
+        return None
     try:
         artifact = registry.resolve(
             request_contract_key, request_contract_version
@@ -948,6 +1489,109 @@ def refuse_request_contract_pin(
             "wrong class is refused at wiring time rather than validating one "
             "class's questions against another's declaration (D-IMPL-98)"
         )
+    return artifact
+
+
+def refuse_undeclared_class_default(
+    *,
+    schema_name: str,
+    schema_version: str,
+    serve_obligations: ServeObligations,
+    declared: ProductRequestContract | None,
+) -> None:
+    """Raise unless every class default names a parameter the contract exposes.
+
+    **SDK-defined** (CLAUDE.md §11); the ruling of record is ``D-IMPL-258``
+    (5), Dave: *"Under Q2, a product default is part of the request contract.
+    Therefore a default naming a parameter the contract does not expose is a
+    malformed/internally inconsistent declaration. That should fail
+    registration/configuration/boot validation, not produce a shell to a
+    caller. … Default for undeclared parameter → configuration/invariant
+    failure. Caller outside a valid declared constraint → governed shell."*
+
+    **Why a class default is not a ceiling** (``D-IMPL-251`` C1=A, ``24.6-L-04``).
+    A default is what *omission* means, so it presupposes a counterfactual: a
+    caller who could have stated the parameter and did not. A class
+    characteristic the caller has **no way to state** has no counterfactual —
+    it is a ceiling wearing a default's name, which is exactly the power C1=A
+    took away from a product class. Neither of the two alternatives is
+    tenable: folding the value in anyway refuses every request as
+    ``undeclared-parameter``, reporting a deployment's mistake as a caller's
+    on a path the caller cannot fix; dropping it silently leaves a class
+    believing it declared a tolerance it never applies.
+
+    **Why it runs here rather than at resolution.** ``24.6-04`` put this
+    refusal in :func:`~ccf.products.constraints.resolve_effective_request`,
+    which reaches it once per *request* — so a self-contradicting Control Plane
+    served every other class happily and failed the moment somebody asked a
+    question. `D-IMPL-258` (5) moves it to the two moments a declaration is
+    taken up: registration
+    (:func:`~ccf.products.contract.register_product_class`) and boot
+    (:func:`~ccf.products.resolver.build_governed_resolver`). The resolution
+    -time raise is retained as an unreachable invariant guard for callers of
+    the pure function, which cannot assume its caller booted through either.
+
+    Args:
+        schema_name: The class whose declaration is being taken up.
+        schema_version: Its own semver lane, for the message.
+        serve_obligations: What the class declares about serving. Read for its
+            defaults only; the lineage obligation is a different kind of thing
+            and is not this function's subject.
+        declared: The class's request contract, or ``None`` when it pins none.
+            ``None`` **returns without refusing**, and the scoping is
+            deliberate rather than lenient: Dave's sentence is *"a default
+            naming a parameter the contract does not expose"*, which
+            presupposes a contract. A class that pins none is the
+            pre-``D-IMPL-98`` posture — nothing validates a question against a
+            declared surface, so nothing can refuse one as
+            ``undeclared-parameter``, and the failure mode this check exists to
+            prevent does not arise. Whether that posture should also be refused
+            is a wider rule than the one ruled, and it is put to Dave in
+            ``24.6-D-IMPL-258-FIXES.md`` rather than decided here.
+
+    Raises:
+        ProductClassRegistrationError: the class declares a default for a
+            parameter its request contract does not declare as an argument.
+            The shipped registration error is reused rather than a new type
+            added, for :func:`refuse_request_contract_pin`'s reason: a class
+            whose governance configuration is malformed fails for one reason
+            from the adopter's point of view.
+    """
+    # Function-local for `_refuse_tolerance`'s reason, spelled there:
+    # `ccf.products.gates` reaches `ccf.products.contract`, which is on the
+    # path back to this module through the replay record. One name, needed
+    # once per class registration and never in a request path.
+    from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
+
+    if declared is None:
+        return
+
+    # The class's declared defaults, by the parameter name each reaches the
+    # Authority layer under. One entry today; a mapping rather than a check so
+    # a second declared default has a place to be listed rather than a branch
+    # to be added — the shape `INDISTINGUISHABLE_BELOW_FULL` uses for the same
+    # reason.
+    class_defaults: Mapping[str, object | None] = {
+        DEBT_TOLERANCE_PARAMETER: serve_obligations.default_debt_tolerance,
+    }
+    exposed = frozenset(declared.arguments.properties)
+    undeclared = sorted(
+        name
+        for name, value in class_defaults.items()
+        if value is not None and name not in exposed
+    )
+    if not undeclared:
+        return
+    raise ProductClassRegistrationError(
+        f"product class {schema_name!r} at lane {schema_version!r} declares a"
+        f" default for {undeclared}, and its request contract"
+        f" ({declared.schema_name!r} @{declared.schema_version}) declares"
+        f" {sorted(exposed)} as its arguments. A caller who cannot state the"
+        " parameter cannot accept a product the default would withhold, so the"
+        " default would be a class-imposed ceiling (D-IMPL-251 C1=A) rather"
+        " than a default. Declare the argument on the request contract, or"
+        " remove the class default (D-IMPL-258 (5))"
+    )
 
 
 # Imported at the bottom, deliberately (D-IMPL-56, as applied by

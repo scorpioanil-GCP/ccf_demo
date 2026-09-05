@@ -78,6 +78,8 @@ from collections.abc import Mapping
 from pydantic import Field, field_validator
 
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
+from ccf.products.disclosure import DISCLOSURE_MINIMAL, DisclosureLevel
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 
 __ccf_mode__ = "algorithmic"
@@ -114,10 +116,16 @@ class PrincipalNotEntitled(ProductEntitlementViolation):
 class ProductEntitlementGrant(CCFContract):
     """What one principal may receive, and as whom.
 
-    Two declared sets, neither with a default. Empty is expressible and means
-    exactly what it says — this principal may receive nothing of that kind —
-    because a grant that quietly defaulted to "anything" would be the bypass
-    this contract exists to make unreachable.
+    Three declared sets. The two that say what a principal may *receive* carry
+    no default; the third, which says what it may *override*, defaults to the
+    empty set. Empty means exactly what it says in every case — this principal
+    may receive, or override, nothing of that kind — because a grant that
+    quietly defaulted to "anything" would be the bypass this contract exists to
+    make unreachable. The asymmetry is deliberate and runs the safe way: an
+    author who forgets to state what may be received has stated nothing and
+    must say so, while an author who says nothing about overrides has granted
+    none (``D-IMPL-243`` then keeps every pre-existing policy's content address
+    intact).
 
     Attributes:
         permitted_schema_names: The Context Product classes this principal may
@@ -130,10 +138,50 @@ class ProductEntitlementGrant(CCFContract):
             that perspective's strings land verbatim in replay dimension 4,
             which is why the grant belongs upstream of it rather than inside
             it.
+        overridable_policies: The policy identifiers this principal may ask to
+            be resolved *without* (``D-IMPL-253`` Q7, Dave: *"Naming the policy
+            is necessary but not sufficient authority to override it. The
+            resolver must also establish that the caller/principal is entitled
+            to exercise that override. Otherwise anyone who knows a policy ID
+            could bypass it."*).
+
+            **It is not a bypass and could not become one.** An entry here does
+            not grant a class, a role, or a subject; it says only that *this*
+            declared principal may exercise *that* declared exception, and the
+            constraint artifact must itself declare
+            :attr:`~ccf.controlplane.artifacts.PolicyConstraint.overridable`
+            for the exception to exist at all. Two declarations, authored by
+            two different people, and an override is honored only where they
+            agree — while the attempt is recorded either way.
+
+            The empty frozenset is the default and means what it says: this
+            principal may override nothing. Hash-transparent at that value
+            (``D-IMPL-243``), so every entitlement policy written before this
+            field keeps its content address and therefore its pin.
+        disclosure_level: This principal's own disclosure posture, overriding
+            the policy's (``D-IMPL-253`` Q17; ``24.6-L-16``). ``None`` — the
+            default — is the positive *this principal has no override*, so the
+            tenant's :attr:`ProductEntitlementPolicy.disclosure_level` decides.
+
+            **It is an override in both directions**, and deliberately so: a
+            deployment may grant one reader ``full`` and hold another at
+            ``minimal`` under the same tenant policy, which is exactly the
+            information-barrier case ``D-IMPL-254`` names. What it cannot do is
+            widen anything else — a level says what a reader may learn about a
+            refusal it already received, never what it may receive.
+
+            Hash-transparent at ``None`` (``D-IMPL-243``), so every grant
+            written before this field keeps its content address.
     """
 
     permitted_schema_names: frozenset[str]
     permitted_roles: frozenset[str]
+    overridable_policies: frozenset[str] = Field(
+        default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    disclosure_level: DisclosureLevel | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     def require_schema(self, *, schema_name: str) -> None:
         """Raise unless this principal may be served that product class.
@@ -181,11 +229,31 @@ class ProductEntitlementPolicy(CCFContract):
         policy_version: This artifact's own lane. No default — see the module
             docstring.
         principals: Principal identifier to its entitlements.
+        disclosure_level: How much of a refusal's internal truth may cross this
+            tenant's consumer boundary (``D-IMPL-253`` Q17, Dave: *"Suppression
+            silence should be policy-controlled, with minimal disclosure as the
+            safe default."*; ``24.6-L-16``). Interpreted by
+            :func:`~ccf.products.disclosure.disclose`, which is the one step
+            between the fabric's internal determination and the shell.
+
+            The level lives **here** rather than in the adopter-owned ``policy``
+            section because the SDK *interprets* it: a value the SDK reads has
+            to sit in an SDK-owned, versioned artifact an examiner can resolve,
+            or replay cannot say which posture was in force.
+
+            Defaults to :data:`~ccf.products.disclosure.DISCLOSURE_MINIMAL` and
+            is hash-transparent at it (``D-IMPL-243``), so every entitlement
+            policy registered before this field keeps its content address — and
+            a deployment that never thought about disclosure gets the safe
+            posture rather than the permissive one.
     """
 
     tenant_id: str
     policy_version: str
     principals: Mapping[str, ProductEntitlementGrant] = Field(min_length=1)
+    disclosure_level: DisclosureLevel = Field(
+        default=DISCLOSURE_MINIMAL, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("policy_version")
     @classmethod

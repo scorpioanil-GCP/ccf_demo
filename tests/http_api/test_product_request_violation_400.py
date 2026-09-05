@@ -17,10 +17,17 @@ the envelope as the body in the ``409``'s shape.
 
 The mapping is by KIND, read from :data:`~ccf.products.refusal.REFUSAL_KINDS`
 and never spelled as a second literal, so every reason the vocabulary
-carries — all six — arrives as ``400`` through one branch. The ``409`` and
-DIV-4's remainder (``ttl-refusal`` still escapes) are asserted unchanged in
-``test_product_declared_obligation_409.py``, which this module shares its
-door with rather than restating it.
+carries — all eight, the two ``D-IMPL-259`` domain verdicts included — arrives as ``400`` through one branch. The ``409`` is
+asserted unchanged in ``test_product_declared_obligation_409.py``, which this
+module shares its door with rather than restating it.
+
+**Superseded in scope at ``24.6-09``, not in substance.** DIV-4's remainder is
+gone: D-18 (``D-IMPL-253`` Q18) gives every member of the vocabulary a status
+by class, so ``ttl-refusal`` no longer escapes and this ``400`` is one row of
+:data:`~ccf_runtime.http_api.refusal_status.STATUS_BY_KIND` rather than one of
+two hand-written branches. The status is read from that table here, so this
+module asserts *the row this kind has* rather than a number that happened to
+agree with it.
 """
 
 from __future__ import annotations
@@ -32,7 +39,9 @@ import pytest
 
 from ccf.products.refusal import REFUSAL_KINDS, RefusalEnvelope, envelope_for
 from ccf.products.request import ProductRequestViolation
+from ccf_runtime.http_api.refusal_status import STATUS_BY_KIND
 from tests.http_api.test_product_declared_obligation_409 import (
+    _minted,
     KIND as OBLIGATION_KIND,
     _answering,
     _ask,
@@ -67,6 +76,7 @@ def _envelope(fabric: Fabric, reason: str, key: str) -> RefusalEnvelope:
     ("reason", "key"),
     [
         ("not-a-proportion", "debt_tolerance"),
+        ("below-minimum", "max_depth"),
         ("not-supported-at-tier", "as_of"),
         ("undeclared-parameter", "colour"),
         ("missing-required-parameter", "debt_tolerance"),
@@ -82,9 +92,7 @@ def test_a_request_violation_answers_400_with_the_envelope(
     restores exactly that and watches this go RED).
     """
     answer = _ask(
-        _governed_app(
-            fabric, tmp_path, resolver=_answering(_envelope(fabric, reason, key))
-        ),
+        _minted(fabric, tmp_path, _envelope(fabric, reason, key))[0].app,
         fabric,
         query=_question(),
     )
@@ -94,7 +102,7 @@ def test_a_request_violation_answers_400_with_the_envelope(
         f" escaped instead of a response ({answer.escaped}); a request-conformity"
         " verdict is 400-family, never a door fault"
     )
-    assert answer.status == 400, answer.body
+    assert answer.status == STATUS_BY_KIND[KIND] == 400, answer.body
     body = answer.body
     assert isinstance(body, Mapping) and body.get("kind") == KIND, body
     assert body.get("refusal_type") == ProductRequestViolation.__name__
@@ -109,6 +117,14 @@ def test_a_request_violation_answers_400_with_the_envelope(
 
 
 def test_the_two_mapped_kinds_are_distinct_statuses(fabric: Fabric) -> None:
-    """``400`` and ``409`` are decided by two different kinds, never one."""
+    """``400`` and ``409`` are decided by two different kinds, never one.
+
+    Re-derived at ``24.6-09``: the second assertion pinned this kind's token as
+    a literal, which said nothing about the mapping and drifted the moment
+    D-18 made the mapping a table. It now reads the table — the two kinds are
+    distinct **and** their statuses are, which is the claim the name makes.
+    """
     assert KIND != OBLIGATION_KIND
-    assert KIND == "product-request-violation"
+    assert STATUS_BY_KIND[KIND] == 400
+    assert STATUS_BY_KIND[OBLIGATION_KIND] == 409
+    assert STATUS_BY_KIND[KIND] != STATUS_BY_KIND[OBLIGATION_KIND]

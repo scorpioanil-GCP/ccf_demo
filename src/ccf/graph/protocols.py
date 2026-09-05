@@ -79,6 +79,7 @@ __all__ = [
     "SourceAttestation",
     "StoreSnapshotPin",
     "TemporalAxis",
+    "TraversalDepthCapability",
     "TraversalDirection",
     "TraversalSpec",
     "UpsertResult",
@@ -748,6 +749,58 @@ class SnapshotPinnable(Protocol):
                 ``datetime``, an ``int``, a ``str`` offered as a pin — the
                 ``D-IMPL-88`` refusal), or was minted by another substrate.
             LookupError: ``pin`` names a state the store has not reached.
+        """
+        ...
+
+
+@runtime_checkable
+class TraversalDepthCapability(Protocol):
+    """A store that can say how deep it is technically able to walk — SDK-defined.
+
+    An SDK extension beside :class:`GraphReader`, labeled per CLAUDE.md §11;
+    the ruling is ``D-IMPL-253`` Q21 (Dave: *"6 is measurement/default history;
+    100 is the genuine technical capability boundary"*). It exists so that a
+    substrate limit can be **refused by name** one layer up, in
+    :mod:`ccf.products.constraints`, with authority ``technical`` and a
+    capability identity as its provenance — rather than authored as a number in
+    product code, which would be a bound nobody measured (CINV-01).
+
+    **Structural typing, by design**, exactly as :class:`SnapshotPinnable` is:
+    a store with no ceiling simply does not implement these two members — the
+    SQLite and Postgres reference stores answer any depth by scan-and-filter
+    and have none to report, so they stay exactly as they are with no stub to
+    add — and a consumer asks ``isinstance(store, TraversalDepthCapability)``
+    rather than reading a capability flag. Nothing on :class:`GraphReader` or
+    :class:`GraphWriter` changes (D-10: the graph Protocol gains, never
+    changes, signatures).
+
+    **This adds no refusal path to the graph seam and must not be read as
+    one.** An over-ceiling ``depth_limit`` at a backend still declines the
+    native translation and is answered by the memory-bounded fallback (`GQ-29`
+    at docs/GRAPH_QUERY_SEMANTICS.md:554; *"there is no capability negotiation
+    and no refusal path on this seam"*). What this Protocol does is let a layer
+    that *has* a governed response ask the question before the read.
+    """
+
+    @property
+    def max_traversal_depth(self) -> int:
+        """The deepest traversal this substrate can be asked for natively.
+
+        A property of the adapter's own injection surface, not of any domain
+        and not of any deployment's policy — which is why it is read off the
+        object rather than declared in an artifact.
+        """
+        ...
+
+    @property
+    def capability_identity(self) -> str:
+        """Credential-free identity of the substrate the bound belongs to.
+
+        What an examiner resolves the bound's source by: the value recorded on
+        a ``capability``-kind
+        :class:`~ccf.products.provenance.ProvenanceSource`, which has no
+        version lane because a capability is a property of the substrate in
+        force rather than a versioned document (``D-IMPL-253`` amendment 2 (1)).
         """
         ...
 

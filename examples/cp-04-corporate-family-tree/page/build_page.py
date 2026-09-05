@@ -86,7 +86,7 @@ SNAPSHOT: dict[str, str] = {
     "asked_at": "2026-08-31T12:00:00+00:00",
     "ledger_t": "5112",
     "content_address": (
-        "205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498"
+        "fad6e55da2c0e6276b69d9a053e4eff155e5c3266b68f3fffb873b0c5e754fc7"
     ),
     "anchor": "54930022CZO1N2UGVW07",
 }
@@ -143,7 +143,7 @@ BLOCKS: dict[str, tuple[str, str, str]] = {
     ),
     "gates": (
         "artifacts/gates.yaml",
-        "artifacts/gates.yaml — the sixteen gates as data, each with its observed red",
+        "artifacts/gates.yaml — the declared gates as data, each with its observed red",
         "The ladder's first machine-readable gate declaration. Every record"
         " carries the sabotage applied and the result observed under that"
         " gate's own id.",

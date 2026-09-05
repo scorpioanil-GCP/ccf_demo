@@ -23,13 +23,26 @@ relationships, so `traversal.typed-neighborhood` is a registered L4 operator
 beside it and the set is exactly two. A reader arriving from those rungs will
 expect one.
 
-**THREE REFUSALS ARE RETURNED AS DATA rather than raised.** A question this
+**FOUR REFUSALS ARE RETURNED AS DATA rather than raised** — the four values
+:func:`assemble_and_serve` can hand back beside an `Assembled`. A question this
 class does not answer is a `ProductRequestViolation`; an anchor that resolves to
-no entity is an `AnchorUnresolvable`; a `max_depth` above the declared ceiling
-is a `DepthOutOfBounds`; and a declared-but-inert parameter is a
-`ParameterNotSupported`. None is an exception, because a bad question and a
-missing company are not broken deployments, and a verdict returned as a value
-cannot be swallowed by a bare `except`.
+no entity is an `AnchorUnresolvable`; an anchor that resolves to more than one
+is an `AnchorAmbiguous`; an undeclared role reached at the deployment seam is
+an `AssemblyRefusal`. None is an exception, because a bad question, a missing
+company and a role nobody declared are not broken deployments, and a verdict
+returned as a value cannot be swallowed by a bare `except`.
+
+SUPERSEDED 2026-09-04 (`24.6-L-13`): this paragraph counted THREE and listed a
+fifth value, `ParameterNotSupported`, that the function no longer returns —
+its branch was dead by construction and is deleted. `AnchorAmbiguous`, which
+the count had omitted since 24.5.1 added it, is named above.
+
+SUPERSEDED 2026-09-04 (`24.6-L-01`, `D-IMPL-253` Q21): the fourth value was a
+depth-out-of-bounds type, described as *"a max_depth above the declared
+ceiling"*. That bound is deleted and the depth outcomes are the SDK's: a
+non-integer depth comes back as a `ProductRequestViolation` and a depth over
+the substrate's traversal capability as a `ConstraintRefusal`, both settled
+before this function is called at all.
 
 **AN EMPTY PAYLOAD IS THE DANGEROUS FAILURE ON THIS RUNG IN PARTICULAR.** An
 empty family reads as *this company has no subsidiaries*, which is a claim about
@@ -73,6 +86,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Protocol
 
+from ccf.agents.errors import AssemblyRefusal
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.claims import RelationshipClaim
 from ccf.controlplane.artifacts import (
@@ -93,6 +107,7 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates
+from ccf.products.provenance import EffectiveRequest
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
@@ -254,6 +269,15 @@ class ParameterNotSupported:
     Fluree's `@iso:` searches EVENT time, nearest-at-or-before, and is
     BACKDATABLE. Neither is what `as_of` asks, so answering with today's family
     would be the most plausible wrong answer this product could give.
+
+    **CONSTRUCTED ONLY AS A TEST CONTROL SINCE `24.5.1` am.3 / `24.6-L-13`.**
+    Nothing in this module returns it: the SDK's own tier step refuses a
+    declared-but-inert parameter as `not-supported-at-tier` data before any
+    product branch runs, and the branch that returned this class was deleted as
+    unreachable. The class is KEPT because
+    `tests/examples/test_cp_04_payload.py` constructs it to prove the payload
+    shape §2.4 asks for, and deleting the type would delete that control's
+    subject.
     """
 
     parameter: str
@@ -395,8 +419,9 @@ def _operators(
     2. **Load the policy envelope** — the shipped `PolicyFilter`, emitting
        `policy_version` and the permitted set.
     5. **Bound the walk at the caller's `max_depth`** — the shipped
-       `TraversalNeighborhood`. Over-cap is REFUSED BY NAME and never clamped,
-       upstream of here.
+       `TraversalNeighborhood`. The depth arriving here is the EFFECTIVE one,
+       resolved upstream against the substrate's traversal capability; a depth
+       over that capability was refused by name there and reaches no walk.
 
     **THIS PRODUCT DECLARES TWO** —
     `policy.principal-subgraph` and `traversal.typed-neighborhood` — and gets a
@@ -584,9 +609,21 @@ def _record(
     gated: ServableProduct,
     declared: ProductClassDeclaration,
     policy_version: str,
+    assembler_id: str,
+    assembler_version: str,
+    resolution: EffectiveRequest | None = None,
 ) -> DecisionReplayRecord:
     """The replay record, built BEFORE delivery. **After §D's ten steps**, and
     the position is the invariant rather than the sequence number.
+
+    **THE EFFECTIVE-REQUEST RESOLUTION RIDES ON DIMENSION 2** (``D-IMPL-260``
+    P-H, criterion 36's fulfilled half). ``resolution`` is the Authority
+    layer's value — every parameter with the authority that established it,
+    the bound in force, the applied pins — as ``assembler.py`` resolved it
+    before this call, and it lands as ``request_resolution`` so replay
+    re-asks the EFFECTIVE question rather than the caller's. Threaded from
+    the caller that holds it, like the assembler identity below, because this
+    module does not resolve and must not re-resolve.
 
     `policy_bindings` is built here, by the adopter, because dimension 2
     assembled by a rule nobody in the deployment wrote down is not an audit
@@ -604,6 +641,14 @@ def _record(
     observations — so `D-IMPL-88` rules it must not back a temporal axis. It is
     a fact about the READ, which is exactly why it is worth recording and
     exactly why it is not an `as_of`.
+
+    **WHO ASSEMBLED THIS, ON DIMENSION 4** (``24.6-L-15``). The pair arrives
+    from the caller that OWNS it — ``assembler.py`` holds ``ASSEMBLER_ID`` and
+    ``ASSEMBLER_VERSION`` and threads them through :func:`assemble_and_serve`
+    — rather than being imported here, because this module knows nothing about
+    that one and the import runs the other way. A fulfilled record and a
+    refused one carry the same pair, which is what makes *which build made
+    this decision* answerable from replay alone rather than from a transcript.
     """
     return build_replay_record(
         execution=execution,
@@ -615,6 +660,9 @@ def _record(
         assembly_mode=declared.assembly_mode,
         recorded_at=scenario.now,
         request=scenario.request,
+        assembler_id=assembler_id,
+        assembler_version=assembler_version,
+        resolution=resolution,
     )
 # --8<-- [end:record]
 
@@ -816,24 +864,37 @@ def assemble_and_serve(
     claims: Callable[..., Sequence[RelationshipClaim]],
     request: ProductRequest,
     root: Path,
-    max_depth: Any,
+    max_depth: int,
+    assembler_id: str,
+    assembler_version: str,
     role: str | None = None,
     unsupported: Mapping[str, str] | None = None,
-) -> Assembled | ProductRequestViolation | AnchorUnresolvable | AnchorAmbiguous | ParameterNotSupported | Any:
+    resolution: EffectiveRequest | None = None,
+) -> Assembled | ProductRequestViolation | AnchorUnresolvable | AnchorAmbiguous | AssemblyRefusal:
     """Answer one question, end to end, against ``root`` as scratch space.
 
     The steps run in the order the specification's section D fixes them and the
     seven snippet regions above are opened in that same order.
+
+    ``unsupported`` is THE DECLARED SET, FOR THE RECORD, and nothing reads it
+    here (``24.6-L-13``). It used to feed a loop below ``refuse_request`` that
+    returned :class:`ParameterNotSupported` for a declared-but-inert parameter.
+    That loop was dead by construction: ``refuse_request``'s tier step reads
+    ``declared.unsupported_arguments`` from the SAME ``ccf_config.yaml`` block
+    the caller fills this argument from, so it had already returned
+    ``not-supported-at-tier`` as data for every key the loop could match. The
+    loop is deleted and ``ParameterNotSupported`` leaves this return union; the
+    parameter stays so the call site keeps naming the declared set explicitly.
     """
     registry = ControlPlaneRegistry()
 
-    # THE DOOR IS CHECKED BEFORE THE FABRIC IS BOOTED. An over-ceiling depth is
-    # resolved by the deployment and arrives here as data — refused BY NAME and
-    # NEVER CLAMPED (`D-07`, `CFT-G03`). A silent clamp is the failure this rung
-    # is most exposed to: the request says 8, the walk does 6, the payload looks
-    # fine and the content address greens.
-    if not isinstance(max_depth, int):
-        return max_depth
+    # `max_depth` IS AN INTEGER AND THAT IS ESTABLISHED, NOT HOPED. The
+    # effective request was resolved before this call — defaults, caller,
+    # policy, then the substrate's traversal capability — and every value was
+    # held to the declared surface there, so a depth that was not an integer
+    # never reached a call to this function (`24.6-L-01`). SUPERSEDED
+    # 2026-09-04: an `isinstance` branch stood here returning the deployment's
+    # own over-bound refusal value as data.
 
     booted = _boot(config=config, connection=connection, registry=registry)
     try:
@@ -846,6 +907,12 @@ def assemble_and_serve(
         scenario = read(booted, request, max_depth=max_depth, role=role)
         if scenario is None:
             return AnchorUnresolvable(anchor=request.subject)
+
+        # AN UNDECLARED ROLE REACHED AT THE DEPLOYMENT SEAM IS A DETERMINATION
+        # AND IS RETURNED (`24.6-L-02`, D-15). It is in `REFUSAL_KINDS`, so
+        # both callers envelope it with no edit of their own.
+        if isinstance(scenario, AssemblyRefusal):
+            return scenario
 
         # MORE THAN ONE NODE ANSWERED TO THE ANCHOR. Returned as the typed value
         # it arrived as — never a 404, never one candidate with a finding
@@ -862,14 +929,6 @@ def assemble_and_serve(
         )
         if violation is not None:
             return violation
-
-        # DECLARED BUT INERT — Standard §2.4. The set comes from the
-        # deployment's own request contract, so this branch names no parameter
-        # of its own: a parameter this tier stops refusing, or starts, is an
-        # edit to `ccf_config.yaml`.
-        for name, reason in (unsupported or {}).items():
-            if name in request.parameters:
-                return ParameterNotSupported(parameter=name, reason=reason)
 
         minted = _ingest(booted, scenario=scenario, claims=claims)
 
@@ -906,6 +965,9 @@ def assemble_and_serve(
             gated=gated,
             declared=scenario.product_class,
             policy_version=policy_version,
+            assembler_id=assembler_id,
+            assembler_version=assembler_version,
+            resolution=resolution,
         )
         served, store = _serve(
             scenario=scenario,

@@ -58,9 +58,9 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import PurePosixPath, PureWindowsPath
-from typing import Any, Literal
+from typing import Any, Final, Literal, get_args
 
 import yaml
 from pydantic import Field, field_validator, model_validator
@@ -108,6 +108,7 @@ from ccf.signal.envelope import SignalEnvelope
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "CONSTRAINT_OPERATORS",
     "DEBT_PROFILE",
     "DEPLOYMENT_CONFIG",
     "DEPLOYMENT_MANIFEST",
@@ -118,6 +119,7 @@ __all__ = [
     "OPERATOR_PARAMETERS_TRAVERSAL",
     "OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS",
     "PERSPECTIVE",
+    "POLICY_CONSTRAINT",
     "PRODUCT_CLASS",
     "PROJECTION_REQUIREMENTS",
     "RESOLUTION_SPEC",
@@ -125,6 +127,8 @@ __all__ = [
     "ArtifactClass",
     "ArtifactLoadError",
     "ArtifactRole",
+    "ConstraintApplicability",
+    "ConstraintOperator",
     "DebtProfile",
     "DecayMode",
     "DeclaredArtifact",
@@ -135,6 +139,7 @@ __all__ = [
     "ManifestEntry",
     "OperatorParametersArtifact",
     "PerspectiveArtifact",
+    "PolicyConstraint",
     "PolicyFilterParametersArtifact",
     "ProductClassDeclaration",
     "ProjectionRequirements",
@@ -416,6 +421,264 @@ class DebtProfile(VersionedArtifact):
             raise ValueError(
                 "fail_closed_threshold must be at or above forced_llm_threshold:"
                 " a class cannot fail closed before it escalates"
+            )
+        return self
+
+
+#: The v0 constraint vocabulary (``D-IMPL-253`` Q5, Dave: *"maximum, minimum,
+#: allowed_set, required, preferred is a good v0 vocabulary. preferred must
+#: remain non-refusing guidance."*). Five members and no sixth. The first three
+#: are restrictiveness on three different axes — a numeric ceiling, a numeric
+#: floor, and a set intersection — which is why "most restrictive wins" is a
+#: comparison *within* a comparable family and never a fold across the
+#: vocabulary (Q4).
+ConstraintOperator = Literal[
+    "maximum", "minimum", "allowed_set", "required", "preferred"
+]
+
+#: The same five members, closed by value. Derived from the ``Literal`` rather
+#: than restated, so the vocabulary cannot drift into two spellings — the
+#: :data:`~ccf.skills.catalog.SKILL_TYPES` precedent.
+CONSTRAINT_OPERATORS: Final[frozenset[str]] = frozenset(get_args(ConstraintOperator))
+
+
+class ConstraintApplicability(CCFContract):
+    """Which requests a policy constraint reaches (SDK-defined; CLAUDE.md §11).
+
+    Whitepaper §7.8 makes the Control Plane the holder of policy; it does not
+    specify how a policy narrows to a request. ``D-IMPL-251`` names the axes
+    the resolver is given — product class, tenant, principal/perspective,
+    intent — and this is those axes as data.
+
+    **``None`` means *any*, and it is a statement rather than a gap.** A
+    constraint that names no tenant applies to every tenant, which is the
+    ordinary shape of an enterprise-wide rule; a constraint that names one
+    applies to that one. The four members are conjunctive: every axis a
+    constraint *does* name must match for the constraint to apply. Each is
+    hash-transparent at ``None`` (``D-IMPL-243``), so an applicability that
+    narrows nothing renders as the empty statement it is.
+
+    The SDK validates none of the values. A product class id, a tenant id, a
+    perspective role and an intent are all the deployment's vocabulary
+    (CLAUDE.md §6.4, CINV-01); this contract owns the four *axes* and none of
+    their content.
+
+    Attributes:
+        product_class: The product class this constraint governs, or ``None``
+            for every class.
+        tenant: The tenant it governs, or ``None`` for every tenant.
+        perspective_role: The Π role-conditioning it governs (whitepaper §7.5),
+            or ``None`` for every role.
+        intent: The request intent it governs, or ``None`` for every intent.
+    """
+
+    product_class: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    tenant: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    perspective_role: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    intent: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+
+class PolicyConstraint(VersionedArtifact):
+    """One governed boundary on one request parameter (whitepaper §7.8).
+
+    **SDK-defined, not whitepaper-derived** (CLAUDE.md §11). §7.8 makes the
+    Control Plane the place where the fabric's permitted behavior is declared
+    and the plane decisions are audited against; it does not specify a
+    parameter-level constraint artifact. ``D-IMPL-251`` and ``D-IMPL-253`` Q3
+    do, and Q3's ruling is the reason this is a class of its own: *"A policy
+    constraint has independent identity, version, effectivity and authority and
+    should not disappear inside another bundle."*
+
+    **It lives in no other bundle, and it is never a field of**
+    :class:`ProductClassDeclaration`. ``D-IMPL-251``, in Dave's words: policy
+    limits are not placed in product-class registration *"because then you lose
+    the ability to answer: is this a property of the product, or a rule imposed
+    by a particular policy regime? That distinction matters for audit, replay,
+    and reuse."* A product's own preference is a **default**, declared on
+    :class:`~ccf.products.request.ProductRequestContract`; a governed boundary
+    is this, and the two resolve independently
+    (:mod:`ccf.products.provenance` is the record that keeps them apart).
+
+    **``preferred`` is guidance the resolver never refuses on** (``D-IMPL-253``
+    Q5: *"preferred must remain non-refusing guidance"*). That property cannot
+    be a validator here — a validator sees one artifact and refusal is a
+    property of a *resolution* — so **the resolver enforces it, not this
+    class**, and it is stated here so that a reader of the vocabulary does not
+    mistake the fifth member for a fifth boundary. The same holds for
+    ``priority``, which orders comparable constraints and, per Q4, *"must never
+    erase an applicable hard constraint."*
+
+    **Effectivity is evaluated at the request's own instant, never at "now"**
+    (``D-IMPL-253`` Q6: *"otherwise replay of the same historical decision can
+    resolve a different policy"*). This class carries the window; the resolver
+    compares it against ``asked_at``. Both instants are timezone-aware because
+    :func:`load_artifact` refuses a zone-less timestamp before this contract
+    ever sees one (``D-IMPL-38``: no implicit UTC).
+
+    **This class declares shape and no content.** There is no parameter name,
+    no threshold and no policy id in this module: which parameter a regime
+    bounds, at what value, on whose authority, is the deployment's declaration
+    (CLAUDE.md §6.4, CINV-01).
+
+    Attributes:
+        policy_id: The regime this constraint belongs to. Several constraints
+            may share one ``policy_id`` and each remains its own artifact under
+            its own key with its own content-hash version — which is what
+            *"should not disappear inside another bundle"* buys.
+        applies_to: The axes this constraint narrows to.
+        parameter: The request parameter it bounds, by the name the product
+            class's request contract declares.
+        operator: Which comparison it expresses, from
+            :data:`CONSTRAINT_OPERATORS`.
+        value: The boundary's value, and the type follows the operator:
+            ``maximum``/``minimum`` take a :class:`~decimal.Decimal`,
+            ``allowed_set`` a non-empty tuple of names, ``required`` takes
+            ``None`` (the constraint is that the parameter be present at all),
+            and ``preferred`` takes a decimal or a name. A quoted number under
+            ``maximum``/``minimum`` is read as a decimal, because the operator
+            makes the numeric reading unambiguous; floats never arrive at all
+            (:func:`load_artifact` refuses them).
+        overridable: Whether an entitled principal may override this
+            constraint. ``False`` — the default — is the safe reading of
+            ``D-IMPL-251``: *"Policy constraints may not be overridden unless
+            the policy explicitly says they are overridable."* Naming the
+            policy is not sufficient authority to exercise the override; the
+            resolver must also establish entitlement (``D-IMPL-253`` Q7).
+            Hash-transparent at ``False``.
+        source_authority: Who imposed it — a regulator, a jurisdiction, an
+            enterprise body. Opaque prose the SDK never parses and never checks
+            against a permitted set, in the same voice as
+            :attr:`DebtProfile.signal_obligations`' obligation references.
+        effective_from: The instant this constraint begins to apply.
+        effective_until: The instant it stops applying, or ``None`` for a
+            constraint with no stated end. Hash-transparent at ``None``.
+        reason: The declared justification or citation. Recorded on the
+            artifact, and carried onto every
+            :class:`~ccf.products.provenance.ParameterBound` this constraint
+            establishes, so the internal resolution and the replay record name
+            why the bound was in force (``D-IMPL-260`` P-G). Whether a consumer
+            sees it is the Disclosure layer's decision: below ``full`` the
+            bound crosses without its ``reason``, ``source`` and ``policy_id``
+            (:data:`~ccf.products.disclosure.SUPPRESSED_BELOW_FULL`).
+        priority: Ordering among comparable constraints. ``0`` — the default —
+            is the positive assertion that this constraint claims no ordering.
+            Hash-transparent at ``0``.
+    """
+
+    policy_id: str
+    applies_to: ConstraintApplicability
+    parameter: str
+    operator: ConstraintOperator
+    value: Decimal | str | tuple[str, ...] | None
+    overridable: bool = Field(
+        default=False, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    source_authority: str
+    effective_from: datetime
+    effective_until: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    reason: str
+    priority: int = Field(default=0, json_schema_extra={HASH_TRANSPARENT_KEY: True})
+
+    @model_validator(mode="before")
+    @classmethod
+    def _a_numeric_operator_reads_its_value_as_a_decimal(cls, data: object) -> object:
+        """Let the operator decide how a quoted number is read.
+
+        A Control Plane document quotes its numbers, because a YAML float is
+        refused outright (:func:`_reject_floats`) — so a ceiling authored as
+        ``"0.20"`` arrives here as text. On a field typed exactly
+        :class:`~decimal.Decimal` Pydantic would parse it; on this union it
+        would stay a string, and the operator check below would then refuse a
+        document that is correct as written.
+
+        So the *operator* drives the parse, and only where the numeric reading
+        is unambiguous: ``maximum`` and ``minimum`` are comparisons on a
+        numeric axis and cannot mean anything else. ``preferred`` is left
+        alone — it admits a decimal or a name, and guessing between them would
+        be the silent repair this module refuses everywhere else. A string that
+        is not a number is left alone too, so the refusal a reader gets names
+        the operator/value disagreement rather than a decimal-parse failure.
+        """
+        if not isinstance(data, Mapping):
+            return data
+        if data.get("operator") not in ("maximum", "minimum"):
+            return data
+        value = data.get("value")
+        if not isinstance(value, str):
+            return data
+        try:
+            parsed = Decimal(value)
+        except InvalidOperation:
+            return data
+        return {**data, "value": parsed}
+
+    @model_validator(mode="after")
+    def _the_value_matches_the_operator(self) -> "PolicyConstraint":
+        if self.operator in ("maximum", "minimum"):
+            if not isinstance(self.value, Decimal):
+                raise ValueError(
+                    f"operator {self.operator!r} bounds a numeric axis and its"
+                    " value must be a decimal, quoted in the document so it"
+                    f" never parses as a float; got {type(self.value).__name__}"
+                )
+            if not self.value.is_finite():
+                raise ValueError(
+                    f"operator {self.operator!r} takes a finite value: a"
+                    " non-finite bound is not a bound"
+                )
+        elif self.operator == "allowed_set":
+            if not isinstance(self.value, tuple) or not self.value:
+                raise ValueError(
+                    "operator 'allowed_set' takes a non-empty list of names:"
+                    " an empty set admits nothing and is a constraint no"
+                    f" request can satisfy; got {type(self.value).__name__}"
+                )
+        elif self.operator == "required":
+            if self.value is not None:
+                raise ValueError(
+                    "operator 'required' constrains presence and not value, so"
+                    " it takes no value; state the value under 'maximum',"
+                    " 'minimum' or 'allowed_set' instead"
+                )
+        elif not isinstance(self.value, (Decimal, str)):
+            raise ValueError(
+                "operator 'preferred' is non-refusing guidance and takes a"
+                f" decimal or a name; got {type(self.value).__name__}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _the_effectivity_window_is_ordered(self) -> "PolicyConstraint":
+        if self.effective_until is None:
+            return self
+        try:
+            ordered = self.effective_until > self.effective_from
+        except TypeError as error:
+            # One instant states a zone and the other does not. `load_artifact`
+            # refuses a zone-less timestamp in a document, so this is only
+            # reachable by direct construction — and a window whose two ends
+            # cannot be compared is not a window, whichever end is at fault.
+            raise ValueError(
+                "effective_from and effective_until must both state a"
+                " timezone: an effectivity window whose ends cannot be"
+                " compared cannot be evaluated at a request's asked_at"
+                " (D-IMPL-38, no implicit UTC)"
+            ) from error
+        if not ordered:
+            raise ValueError(
+                "effective_until must be after effective_from: a constraint"
+                " that stops applying before it starts never applies, which is"
+                " a document nobody meant to write"
             )
         return self
 
@@ -801,18 +1064,20 @@ class ProductClassDeclaration(VersionedArtifact):
             ``15.5-15``, carrying the typed request and the authorized
             perspective together rather than reshaping 24 files twice.
 
-        serve_obligations: What this class obliges the serve path to enforce
-            (``24.5-L-14``, ``24.5-L-26``). An obligation is a STRUCTURAL
-            declaration the serve path enforces through the ONE gate
-            mechanism ``D-IMPL-237`` licenses
-            (:data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`): it names
-            a ``D_c`` ceiling and payload MEMBERS, never a payload shape —
-            ``D-IMPL-238`` reads ``D-IMPL-102`` limb 3 as *no payload gate*.
-            Products do not declare gate TYPES; they declare obligations
-            under the one type the SDK ships. The ceiling's number is this
-            document's to author (the class declares the cap's presence; a
-            request may only tighten it, ``D-IMPL-240`` (3)); the SDK holds
-            no number. Defaults to
+        serve_obligations: What this class declares about serving
+            (``24.5-L-14``, ``24.5-L-26``, ``24.6-L-04``). Two members of two
+            different kinds. The *obligation* — the payload MEMBERS the class
+            names — is a STRUCTURAL declaration the serve path enforces
+            through the ONE gate mechanism ``D-IMPL-237`` licenses
+            (:data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`): members,
+            never a payload shape — ``D-IMPL-238`` reads ``D-IMPL-102`` limb 3
+            as *no payload gate*. Products do not declare gate TYPES; they
+            declare obligations under the one type the SDK ships. The
+            *default* — ``default_debt_tolerance`` — is not enforced by any
+            gate: it is the tolerance that applies when the caller states
+            none, and a caller's own value is honored as requested
+            (``D-IMPL-251`` C1/C2, ``D-IMPL-240`` amendment 2). Its number is
+            this document's to author; the SDK holds no number. Defaults to
             :data:`~ccf.products.contract.NO_SERVE_OBLIGATIONS`.
             Hash-transparent at that sentinel (``D-IMPL-243``): a
             declaration obliging nothing is every pre-phase declaration,
@@ -1387,25 +1652,31 @@ class DeploymentConfig(VersionedArtifact):
     each section into the SDK artifact it names is a separate concern with
     its own module.
 
-    **The eight reserved section names — `product_class`, `operators`,
+    **The nine reserved section names — `product_class`, `operators`,
     `request_contract`, `resolution`, `half_life`, `debt_profile`, `policy`,
-    `default_perspective` — are the SDK's slots and nothing more.**
+    `policy_constraints`, `default_perspective` — are the SDK's slots and
+    nothing more.** `policy_constraints` is the ninth (`24.6-L-07`,
+    `D-IMPL-253` Q3): a MAPPING of label to constraint body, deriving one
+    manifest entry per key exactly as `operators` does, so that each
+    constraint keeps its own key, its own content-hash version and its own
+    effectivity window instead of disappearing inside a bundle.
     Reserving a section *name* is not a claim on an adopter's class-id
     *namespace*: the SDK still claims exactly one prefix, `ccf.`
     (`D-IMPL-84`), and `src/ccf/deployment/classes.py::resolve_artifact_class`
     — which owns that reservation — is untouched by this class.
 
-    **Two of the eight sections are reserved and uninterpreted
+    **Two of the nine sections are reserved and uninterpreted
     (`D-IMPL-136` §14.3).** `policy` and `request_contract` bodies are
     adopter-owned: the SDK knows the slot exists and which artifact it
     becomes, and validates none of what is written under it. Typing either
     body against a real contract here would be the SDK validating what it
     has ruled it does not interpret.
 
-    **The other six SDK-owned sections are typed as open mappings here too,
-    for a different reason — do not "tighten" this.** `product_class`,
+    **The other seven SDK-owned sections are typed as open mappings here
+    too, for a different reason — do not "tighten" this.** `product_class`,
     `resolution`, `half_life`, `debt_profile`, `default_perspective`, and
-    each `operators` entry's body are eventually validated against the SDK's
+    each `operators` and `policy_constraints` entry's body are eventually
+    validated against the SDK's
     own contracts (:class:`ProductClassDeclaration`, the resolution spec,
     :class:`HalfLifeTable`, :class:`DebtProfile`, :class:`PerspectiveArtifact`,
     the operator-parameter classes) — but not by *this* class. A section body
@@ -1494,6 +1765,14 @@ class DeploymentConfig(VersionedArtifact):
             the class docstring's materialisation note for why this is not
             typed as :class:`HalfLifeTable` here.
         debt_profile: The `ccf.debt-profile` section body.
+        policy_constraints: Parameter-level policy constraint bodies, keyed by
+            a label the deployment chooses. Each value is one
+            `ccf.policy-constraint` document — an open mapping here, validated
+            against :class:`PolicyConstraint` when the section is derived, the
+            same discipline `operators` follows. A mapping and not a list
+            (`D-IMPL-253` Q3): one manifest entry per key is what gives each
+            constraint its own identity, version lane and effectivity, which a
+            list under one key would collapse.
         policy: Adopter-owned and uninterpreted (`D-IMPL-136` §14.3), exactly
             as `request_contract` is. A body whose adopter content includes a
             key literally named `role` — design spec §6.2's override
@@ -1518,6 +1797,9 @@ class DeploymentConfig(VersionedArtifact):
     half_life: Mapping[str, Any] | None = None
     debt_profile: Mapping[str, Any] | None = None
     policy: Mapping[str, Any] | None = None
+    policy_constraints: Mapping[str, Mapping[str, Any]] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     default_perspective: Mapping[str, Any] | None = None
 
     @model_validator(mode="before")
@@ -1561,6 +1843,14 @@ class DeploymentConfig(VersionedArtifact):
 HALF_LIFE_TABLE = ArtifactClass(class_id="ccf.half-life-table", contract=HalfLifeTable)
 #: The decision-class debt profile class (whitepaper §7.7 CAR).
 DEBT_PROFILE = ArtifactClass(class_id="ccf.debt-profile", contract=DebtProfile)
+#: The parameter-level policy constraint class (whitepaper §7.8; SDK-defined
+#: per CLAUDE.md §11, ``D-IMPL-253`` Q3, ledger row ``24.6-L-07``). Its own
+#: class rather than a member of :data:`PRODUCT_CLASS`, so that "is this a
+#: property of the product, or a rule imposed by a policy regime?" stays an
+#: answerable question (``D-IMPL-251``).
+POLICY_CONSTRAINT = ArtifactClass(
+    class_id="ccf.policy-constraint", contract=PolicyConstraint
+)
 #: The L2 entity-resolution vocabulary class (whitepaper §7.3; D-IMPL-77).
 #:
 #: The contract lives in :mod:`ccf.assembly.worker` rather than here because the

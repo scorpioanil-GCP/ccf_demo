@@ -48,11 +48,24 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Protocol, cast
 
 from ccf.agents.assembler import NO_CONSULTATIONS, AssemblyOutcome
-from ccf.agents.errors import AssemblyRefused
+from ccf.agents.errors import (
+    ASSEMBLY_REASON_TENANT_MISMATCH,
+    ASSEMBLY_REASON_UNDECLARED_ROLE,
+    AssemblyRefusal,
+)
+from ccf.products.constraints import (
+    CAPABILITY_TRAVERSAL_DEPTH,
+    ConstraintRefusal,
+    PolicyResolutionConflict,
+    ReferencePolicyConstraintResolver,
+    TechnicalCapability,
+)
+from ccf.products.refusal import SubjectUnavailableRefusal
 from ccf.products.request import (
     AnchorAmbiguityRefusal,
     ProductRequest,
@@ -67,7 +80,28 @@ import produce
 #: travel on the outcome because a payload is only reproducible alongside the
 #: computation that produced it.
 ASSEMBLER_ID = "cp-04.corporate-family-tree"
-ASSEMBLER_VERSION = "1.0.1"
+
+#: PATCH, and the compatibility measurement D-25 asks for is the reason.
+#:
+#: `D-25`: *"cp-04 versions — product lane MINOR -> 1.1.0; assembler PATCH if
+#: its own interface remains compatible."* Measured against `1.0.1`'s return
+#: set: `AssemblyOutcome`, `ProductRequestViolation` and
+#: `AnchorAmbiguityRefusal` are ALL STILL RETURNED, none changed shape, and
+#: none changed the conditions it is returned under. What `24.6-L-01`/`L-02`
+#: added is three more members — `AssemblyRefusal`, `SubjectUnavailableRefusal`
+#: and `ConstraintRefusal` (with `PolicyResolutionConflict` beside it) — each
+#: standing where a raise stood, so a caller written against `1.0.1` that
+#: handled every value it could receive still handles every value it can
+#: receive. The union WIDENED ADDITIVELY; nothing narrowed. Under the
+#: Standard's change-class table (§14) that is PATCH on this lane, and
+#: `D-IMPL-245` am.3's *"one bump for the phase, PATCH only"* is satisfied by
+#: this single move.
+#:
+#: The PRODUCT lane moves MINOR in the same change and for a different reason
+#: (`ccf_config.yaml`): a request at depth 8 that was refused now produces a
+#: product, which is an additive capability a CONSUMER can see. Two lanes, two
+#: things versioned.
+ASSEMBLER_VERSION = "1.0.2"
 
 
 class _AssemblyState(Protocol):
@@ -159,49 +193,146 @@ class FamilyTreeAssembler:
         request: ProductRequest,
         perspective: Perspective,
         tenant_id: str,
-    ) -> AssemblyOutcome | ProductRequestViolation | AnchorAmbiguityRefusal:
+    ) -> (
+        AssemblyOutcome
+        | ProductRequestViolation
+        | AnchorAmbiguityRefusal
+        | AssemblyRefusal
+        | SubjectUnavailableRefusal
+        | ConstraintRefusal
+        | PolicyResolutionConflict
+    ):
         """Assemble one answer to ``request`` for ``perspective``.
 
+        **EVERY GOVERNED DETERMINATION THIS SEAM REACHES IS RETURNED**
+        (``24.6-L-02``, ``D-IMPL-255`` (5); Dave: *"If the fabric has enough
+        information to reach a valid governed determination, return data."*).
+        SUPERSEDED 2026-09-04: this method raised
+        ``ccf.agents.errors.AssemblyRefused`` for a foreign tenant, an
+        undeclared role, an over-bound depth and an unresolvable anchor. It
+        raises for none of them now, and the class it raised is narrowed to
+        invariant failure.
+
         Returns:
-            The :class:`~ccf.agents.assembler.AssemblyOutcome`, or a
-            :class:`~ccf.products.request.ProductRequestViolation` RETURNED as
-            data when the question does not conform to the declared contract
-            (D-60), or an
-            :class:`~ccf.products.request.AnchorAmbiguityRefusal` RETURNED as
-            data when the anchor LEI resolves to more than one node
-            (`D-IMPL-245` (4), `CFT-G18`) — the same channel, never a raise.
+            The :class:`~ccf.agents.assembler.AssemblyOutcome`, or one of six
+            governed determinations, every one of which is a member of
+            ``ccf.products.refusal::REFUSAL_KINDS`` and therefore crosses
+            either caller's door as a typed envelope with no translation:
+
+            * :class:`~ccf.products.request.ProductRequestViolation` — the
+              question does not conform to the declared contract (D-60),
+              including a ``max_depth`` that is not an integer
+              (``type-mismatch``) and a declared-but-inert parameter
+              (``not-supported-at-tier``);
+            * :class:`~ccf.products.request.AnchorAmbiguityRefusal` — the
+              anchor LEI resolves to more than one node (`D-IMPL-245` (4),
+              `CFT-G18`);
+            * :class:`~ccf.agents.errors.AssemblyRefusal` — a foreign tenant
+              or an undeclared role, carrying the SDK's own reason token;
+            * :class:`~ccf.products.refusal.SubjectUnavailableRefusal` — the
+              anchor resolves to no family;
+            * :class:`~ccf.products.constraints.ConstraintRefusal` — a value
+              the fabric may not act on, with the bound that refused it and
+              the authority that set it;
+            * :class:`~ccf.products.constraints.PolicyResolutionConflict` —
+              two applicable constraints that cannot both be satisfied.
 
         Raises:
-            AssemblyRefused: ``tenant_id`` or ``perspective`` disagrees with what
-                this deployment declares, the requested ``max_depth`` is outside
-                the declared bounds, a declared-but-inert parameter was supplied,
-                or the anchor resolved to no servable family. **Identity,
-                contract and existence only.**
+            ccf.agents.errors.AssemblyRefused: an internal invariant or
+                configuration contradiction reached during the assembly — the
+                three sites `D-33` classes as failures, all in
+                ``deployment.py``. Never a verdict about the caller.
         """
         # --- Identity, settled BEFORE anything is assembled. ---------------
         declared_tenant = deployment.tenant_id()
         if declared_tenant != tenant_id:
-            raise AssemblyRefused(
-                f"assembly for tenant {tenant_id!r} was asked of a deployment"
-                f" declared as tenant {declared_tenant!r} (question:"
-                f" {request.schema_name!r}@{request.schema_version!r}); an"
-                " assembler assembles for its own tenant and no other"
+            # A GOVERNED DETERMINATION, RETURNED. The fabric knows both
+            # tenants, so it can say which is which — and the statement is the
+            # one the raise carried, verbatim, because the channel changed and
+            # the sentence did not.
+            return AssemblyRefusal(
+                reason=ASSEMBLY_REASON_TENANT_MISMATCH,
+                detail=(
+                    f"assembly for tenant {tenant_id!r} was asked of a"
+                    f" deployment declared as tenant {declared_tenant!r}"
+                    f" (question: {request.schema_name!r}@"
+                    f"{request.schema_version!r}); an assembler assembles for"
+                    " its own tenant and no other"
+                ),
             )
         declared_roles = deployment.declared_roles()
         if perspective.role not in declared_roles:
-            raise AssemblyRefused(
-                f"assembly under role {perspective.role!r} was asked of a"
-                f" deployment that conditions on {list(declared_roles)}"
-                f" (question: {request.schema_name!r}); the perspective"
-                " conditions what Π produced, so an undeclared role served a"
-                " default view would be a perspective widened by omission"
+            return AssemblyRefusal(
+                reason=ASSEMBLY_REASON_UNDECLARED_ROLE,
+                detail=(
+                    f"assembly under role {perspective.role!r} was asked of a"
+                    f" deployment that conditions on {list(declared_roles)}"
+                    f" (question: {request.schema_name!r}); the perspective"
+                    " conditions what Π produced, so an undeclared role served"
+                    " a default view would be a perspective widened by"
+                    " omission"
+                ),
             )
 
-        # THE DEPTH IS RESOLVED BEFORE THE SPINE RUNS, and the split is
-        # deliberate rather than an awkward signature: an over-ceiling depth is a
-        # 400 and an unresolvable anchor is a 404, and one return type cannot
-        # hold both without the caller telling them apart by inspection.
-        max_depth = deployment.resolve_max_depth(request.parameters)
+        # THE EFFECTIVE REQUEST IS RESOLVED BEFORE THE SPINE RUNS, BY THE SDK
+        # (`24.6-L-01`, `D-IMPL-253` Q4–Q8/Q21). Defaults, then the caller,
+        # then policy, then technical capability, then validation — one
+        # resolution, in one place, recording `(value, authority, source)` per
+        # parameter. This deployment supplies the two things the SDK cannot
+        # know: which Control Plane the constraints live in, and what its own
+        # substrate can do.
+        #
+        # NO POLICY CONSTRAINT IS DECLARED, AND THAT IS `D-22` RATHER THAN AN
+        # OMISSION. Dave: *"Do not manufacture a fake policy just to
+        # demonstrate the feature."* The plane is empty, the resolution records
+        # that nothing version-bearing bounded this request, and the layer is
+        # proven by the SDK's own tests.
+        #
+        # THE ENTITLEMENT KEY IS `None` FOR THE SAME REASON: overrides are
+        # entitled against a grant, this class asks for none, and `None` and an
+        # absent policy are treated identically — no override is entitled,
+        # which is deny-by-default.
+        store = deployment.traversal_depth_capability()
+        effective = ReferencePolicyConstraintResolver(
+            control_plane=deployment.policy_constraint_plane(),
+            entitlement_key=None,
+        ).resolve(
+            product_class=deployment.product_class_id(),
+            request=request,
+            declared=deployment.request_contract(),
+            declared_source=deployment.request_contract_source(),
+            perspective=perspective,
+            intent=request.intent,
+            tenant=tenant_id,
+            capabilities=(
+                TechnicalCapability(
+                    capability=CAPABILITY_TRAVERSAL_DEPTH,
+                    # OFF THE SUBSTRATE, NEVER OFF A DOCUMENT AND NEVER A
+                    # LITERAL. `100` appears nowhere in this example; it is the
+                    # Fluree adapter's own bound, read through the capability.
+                    maximum=Decimal(store.max_traversal_depth),
+                    identity=store.capability_identity,
+                ),
+            ),
+        )
+        # A VALUE THE FABRIC MAY NOT ACT ON IS RETURNED WITH THE BOUND THAT
+        # SAID SO, and nothing is answered at a narrower depth. `D-IMPL-251`
+        # C5 survives here for a GENUINE limit: over the substrate's own
+        # capability the answer is `constraint-refusal` with
+        # `bound.authority == "technical"`, so a consumer learns what they
+        # asked for AND what the boundary was.
+        if isinstance(
+            effective,
+            (ConstraintRefusal, PolicyResolutionConflict, ProductRequestViolation),
+        ):
+            return effective
+        resolved_depth = effective.parameter(deployment.PARAM_MAX_DEPTH)
+        # The SDK's own step 5 held every effective value to the declared
+        # surface, so an `int` here is a fact the resolution established rather
+        # than a hope; `max_depth` is declared with a default, so the record is
+        # present whether or not the caller named one.
+        assert resolved_depth is not None
+        max_depth = cast(int, resolved_depth.value)
 
         assembled = produce.assemble_and_serve(
             config=self.config,
@@ -214,6 +345,18 @@ class FamilyTreeAssembler:
             max_depth=max_depth,
             role=perspective.role,
             unsupported=self.unsupported,
+            # WHO ASSEMBLED THIS, THREADED FROM ITS OWNER. `produce.py` builds
+            # the replay record and must not import this module — the import
+            # runs the other way — so the identity travels as two arguments
+            # rather than as a reach across the seam (`24.6-L-15`).
+            assembler_id=self.assembler_id,
+            assembler_version=self.assembler_version,
+            # THE RESOLUTION THIS ANSWER WAS MADE UNDER, FOR DIMENSION 2
+            # (`D-IMPL-260` P-H). The effective request resolved above — the
+            # caller's depth, the technical bound that admitted it, the
+            # contract pin that declared it — travels onto the fulfilled
+            # record, as the refused half already carries its determination.
+            resolution=effective,
         )
         self.observer(assembled)
 
@@ -222,19 +365,6 @@ class FamilyTreeAssembler:
         # value cannot be swallowed by a bare `except`.
         if isinstance(assembled, ProductRequestViolation):
             return assembled
-
-        # ABOVE THE CEILING IS REFUSED BY NAME AND NEVER CLAMPED (`D-07`,
-        # `CFT-G03`). The sabotage that gate names is a silent clamp, and a
-        # clamp is a different program rather than a nearby one: the request
-        # says 8, the walk does 6, the payload looks fine and the content
-        # address greens.
-        if isinstance(assembled, deployment.DepthOutOfBounds):
-            raise AssemblyRefused(
-                f"400 {assembled.parameter}={assembled.requested} is outside the"
-                f" declared bounds {assembled.minimum}..{assembled.maximum}."
-                " REFUSED BY NAME, never clamped — a clamped depth answers a"
-                " question nobody asked, with no error"
-            )
 
         # A declared-but-inert parameter is refused by the SDK's own tier step —
         # `src/ccf/products/request.py::refuse_request` step 2 (`_refuse_tier`) — as a
@@ -273,7 +403,19 @@ class FamilyTreeAssembler:
         # question*; §D.2's 404 says *this class answers it, and there is no such
         # family*.
         if isinstance(assembled, produce.AnchorUnresolvable):
-            raise AssemblyRefused(_not_available(assembled.anchor))
+            # THE ONE CANONICAL OUTCOME AN UNRESOLVABLE ANCHOR AND AN
+            # UNAUTHORIZED PRINCIPAL SHARE (`D-27`, `D-IMPL-253` Q27 with
+            # amendment 2 (4)). The kind carries the fabric's own determination
+            # — `cause="nonexistent"` — and the disclosure step decides what a
+            # consumer at their level is permitted to see of it; below `full`
+            # the two causes are indistinguishable, which is the suppression
+            # property `_not_available`'s prose used to carry alone. The type
+            # HAS NO `subject` FIELD, so naming the anchor is not something
+            # this seam could do by accident.
+            return SubjectUnavailableRefusal(
+                cause="nonexistent",
+                detail=_not_available(assembled.anchor),
+            )
 
         return AssemblyOutcome(
             payload=assembled.product.payload,

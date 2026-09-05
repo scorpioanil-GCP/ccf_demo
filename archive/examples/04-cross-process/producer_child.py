@@ -75,6 +75,7 @@ from ccf.controlplane.artifacts import (  # noqa: E402
     SignalBatch,
     load_artifact,
 )
+from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
 from ccf.deployment import (  # noqa: E402
     build_operator_registry,
@@ -100,6 +101,10 @@ from ccf.products.contract import (  # noqa: E402
 )
 from ccf.products.gates import ServableProduct, run_gates  # noqa: E402
 from ccf.products.request import ProductRequest  # noqa: E402
+from ccf.products.resolver import ReplayRefusalRecorder  # noqa: E402
+from ccf.replay.record import PolicyBinding, build_replay_record  # noqa: E402
+from ccf.replay.serve import ReplayWriter, ServedProduct  # noqa: E402
+from ccf.replay.serve import serve as serve_product  # noqa: E402
 from ccf.projection.engine import ProjectionEngine  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 
@@ -150,6 +155,12 @@ KEY_DIR_VAR = "CCF_EXAMPLE04_KEY_DIR"
 #: file — the artifact declares who may be recognised, and the credential that
 #: proves it is generated per run, exactly as the signing key is.
 EGRESS_TOKEN_VAR = "CCF_EXAMPLE04_EGRESS_TOKEN"
+
+#: The artifact class a DENIAL at this example's door is filed under
+#: (`24.6-10`, `D-IMPL-256` (2)). A deployment value: the SDK holds no default
+#: for it, and this example composes its resolver by hand rather than through
+#: `build_governed_resolver`, so it names its own.
+DOOR_REPLAY_RECORD_CLASS = "example04.door-replay-record"
 
 #: What a standalone run mints when the parent supplied nothing. Obviously
 #: synthetic and scoped to one temp directory that is deleted on exit.
@@ -265,6 +276,12 @@ class AssembledCovenantSlice(NamedTuple):
     declared_operator_keys: tuple[str, ...]
     operators_invoked: tuple[str, ...]
     now: datetime
+    #: What the fulfilled decision's replay record is built from, so the
+    #: egress resolver can SERVE the vessel — record appended, reference
+    #: carried — rather than hand a bare gated product to a door that no
+    #: longer releases one (`D-IMPL-260` P-A).
+    execution: Any
+    policy_version: str
 
 
 def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSlice:
@@ -490,6 +507,8 @@ def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSli
         declared_operator_keys=declared.required_operator_keys,
         operators_invoked=execution.operators_invoked,
         now=now,
+        execution=execution,
+        policy_version=policy_version,
     )
 
 
@@ -643,7 +662,7 @@ def main() -> None:
                 version: str,
                 perspective: Perspective,
                 request: ProductRequest | None,
-            ) -> ServableProduct:
+            ) -> ServedProduct:
                 """This deployment's assemble-and-gate path — and its bind.
 
                 Three things happen here that did not before plan `15.5-15`
@@ -701,7 +720,30 @@ def main() -> None:
                 )
                 if violation is not None:
                     raise ProductNotServable(f"{requested}: {violation.detail}")
-                return assembled.servable
+                # `D-IMPL-260` P-A: a door releases only a `ServedProduct` —
+                # the decision recorded, the reference carried. Recorded
+                # through the same store the door's own recorder writes to,
+                # so a denial and the product it was denied against are filed
+                # in one place (`D-IMPL-253` Q13).
+                return serve_product(
+                    product=assembled.servable,
+                    record=build_replay_record(
+                        execution=assembled.execution,
+                        product=assembled.servable.product,
+                        perspective=perspective,
+                        policy_bindings=(
+                            PolicyBinding(
+                                key="policy-bundle", version=assembled.policy_version
+                            ),
+                        ),
+                        assembly_mode=assembled.registered.assembly_mode,
+                        recorded_at=assembled.now,
+                    ),
+                    replay_writer=ReplayWriter(
+                        store=FileArtifactStore(root=workspace / "door-artifacts"),
+                        artifact_class=DOOR_REPLAY_RECORD_CLASS,
+                    ),
+                )
 
             def resolve_perspective(
                 *, grant: TokenGrant, tenant: str, requested_role: str | None
@@ -749,6 +791,21 @@ def main() -> None:
                     control_plane=door_registry, clock=lambda: now
                 ),
                 perspective_resolver=resolve_perspective,
+                # `24.6-10` / `D-IMPL-256` (2): a denial at this door is a
+                # recorded decision, and a door that entitles does not build
+                # without somewhere to record one. Built with the keyword list
+                # `ccf.products.resolver::build_governed_resolver` uses for its
+                # own, over this child's own workspace — this example composes
+                # its resolver by hand, so there is no `GovernedResolver` to
+                # take a recorder off.
+                refusal_recorder=ReplayRefusalRecorder(
+                    artifact_store=FileArtifactStore(
+                        root=workspace / "door-artifacts"
+                    ),
+                    replay_record_class=DOOR_REPLAY_RECORD_CLASS,
+                    tenant_id=assembled.address.tenant,
+                    assembly_mode=assembled.registered.assembly_mode,
+                ),
             )
 
             mcp_bound = socket.socket()

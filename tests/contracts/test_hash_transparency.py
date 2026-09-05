@@ -284,6 +284,12 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.graph.protocols.TraversalSpec.direction",
         "ccf.products.contract.ProductLineage.store_snapshot_pin",
         "ccf.replay.record.ContextFabricSnapshot.store_snapshot_pin",
+        # 24.6-03: the Authority layer's value in dimension 2
+        # (``D-IMPL-253`` Q1/Q6, ``D-IMPL-254``). The sentinel is the
+        # positive "no resolution was recorded" claim, so every record
+        # written before the layer existed keeps its content address —
+        # measured by `tests/replay/test_golden_13bd250.py`, not asserted.
+        "ccf.replay.record.PolicyBindingsSnapshot.request_resolution",
         "ccf.projection.engine.ExecutionResult.store_snapshot_pin",
         "ccf.projection.engine.ExecutionResult.empty_results",
         "ccf.assembly.worker.ResolvedEntity.resolved_by",
@@ -291,12 +297,143 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.controlplane.artifacts.HalfLifeEntry.half_life_seconds",
         "ccf.controlplane.artifacts.ProductClassDeclaration.serve_obligations",
         "ccf.products.contract.RegisteredProductClass.serve_obligations",
-        "ccf.products.contract.ServeObligations.debt_ceiling",
+        # 24.6-04: renamed under `D-IMPL-253` Q9 and `D-IMPL-251` C1=A —
+        # same field, same sentinel, same hash posture, a name that says
+        # default rather than ceiling.
+        "ccf.products.contract.ServeObligations.default_debt_tolerance",
         "ccf.products.contract.ServeObligations.lineage_inputs_at",
+        # 24.6-05: the search behind an empty answer (`24.6-L-06`,
+        # `D-IMPL-242` amendment 1). `None` is "no operator returned empty",
+        # which is what every product assembled before the field existed was
+        # saying — so a pre-phase product's `canonical_bytes` must be
+        # byte-identical, and `test_a_product_with_no_finding_hashes_as_it_did`
+        # below measures exactly that rather than asserting it.
+        "ccf.products.contract.ContextProductContract.computed_empty",
         "ccf.products.request.ProductRequestContract.unsupported_arguments",
+        # 24.6-01: the fifth declaration key (``24.6-L-07``, ``D-IMPL-253``
+        # Q2). The empty mapping is "this class declares no default", which is
+        # what every declaration written before the field said — so the
+        # `ProductRequestContract` digest in `_BASE_TREE_DIGESTS` below must
+        # still reproduce, and it does.
+        "ccf.products.request.ProductRequestContract.defaults",
+        # 24.6-03: the sixth declaration key (``24.6-L-07``, ``D-IMPL-253``
+        # Q21) and the request's own override list (Q7). Both are silent at
+        # their sentinels for the same compatibility reason as ``defaults``:
+        # declaring no capability binding, and asking for no exception, are
+        # what every contract and every request written before these fields
+        # said — so the ``ProductRequestContract`` digest below still
+        # reproduces, and a committed request's content address does not move.
+        "ccf.products.request.ProductRequestContract.capability_bindings",
+        "ccf.products.request.ProductRequest.policy_overrides",
+        # 24.6-03: what a principal may override (``D-IMPL-253`` Q7). The
+        # empty set is "this principal may override nothing", which is what
+        # every entitlement policy already in force says — and a policy whose
+        # content address moved would be a policy whose pin moved.
+        "ccf.products.entitlement.ProductEntitlementGrant.overridable_policies",
         "ccf.assembly.worker.RelationshipResolutionRule.predicate_key",
         "ccf.assembly.worker.RelationshipResolutionRule.subject_rule",
         "ccf.assembly.worker.RelationshipResolutionRule.object_rule",
+        # 24.6-01: the Authority layer's value (``24.6-L-07``, ``D-IMPL-253``
+        # Q1). Three optional members on three brand-new models, so there is
+        # no earlier generation to be a boundary against — ``True`` is the
+        # only coherent declaration: a bound with no policy behind it, a
+        # parameter nothing bounded, and an override attempt that found no
+        # grant each render without the key they have nothing to say under.
+        "ccf.products.provenance.ParameterBound.policy_id",
+        # 24.6 correction pass (``D-IMPL-260`` P-G): the constraint's declared
+        # reason rides on the bound it establishes. ``None`` for a technical
+        # bound, which declares no reason; transparent so no bound written
+        # before the member existed moves.
+        "ccf.products.provenance.ParameterBound.reason",
+        # 24.6 correction pass (``D-IMPL-260`` P-I, criterion 10): the override
+        # attempts a REFUSED request made ride on the refusal, as they ride on
+        # `EffectiveRequest.overrides` when the request resolves. Empty when
+        # nothing was attempted; transparent so no refusal already written
+        # moves.
+        "ccf.products.constraints.ConstraintRefusal.overrides",
+        "ccf.products.constraints.PolicyResolutionConflict.overrides",
+        "ccf.products.request.ProductRequestViolation.overrides",
+        "ccf.products.provenance.EffectiveParameter.bound",
+        "ccf.products.provenance.OverrideRecord.grant_source",
+        # 24.6-01: the policy-constraint artifact class (``24.6-L-07``,
+        # ``D-IMPL-253`` Q3). Applicability's four axes are ``None`` = *any*,
+        # so an applicability narrowing nothing renders as ``{}``; the
+        # constraint's three optional members are its own sentinels — not
+        # overridable, no stated end, no claimed ordering.
+        "ccf.controlplane.artifacts.ConstraintApplicability.product_class",
+        "ccf.controlplane.artifacts.ConstraintApplicability.tenant",
+        "ccf.controlplane.artifacts.ConstraintApplicability.perspective_role",
+        "ccf.controlplane.artifacts.ConstraintApplicability.intent",
+        "ccf.controlplane.artifacts.PolicyConstraint.overridable",
+        "ccf.controlplane.artifacts.PolicyConstraint.effective_until",
+        "ccf.controlplane.artifacts.PolicyConstraint.priority",
+        # The ninth reserved section. ``True`` and not ``False`` is
+        # load-bearing rather than stylistic: a rendered
+        # ``policy_constraints: null`` would move the content address of every
+        # `DeploymentConfig` already written, and pin identity IS content
+        # identity (`src/ccf/deployment/pins.py::ArtifactPin`). Measured, not
+        # assumed: `test_a_config_naming_no_constraints_hashes_as_it_did`
+        # below hashes a config at the sentinel against the same document
+        # without the key.
+        "ccf.controlplane.artifacts.DeploymentConfig.policy_constraints",
+        # 24.6-07: the refusal shell's six governance members (``24.6-L-08``,
+        # ``D-IMPL-253`` Q13/Q14, ``D-IMPL-256`` (1)). Each sentinel is what
+        # every shell minted before this row was already saying — nothing
+        # version-bearing governed it, no record was minted, no search is
+        # shown, no resolution was recorded, no disclosure was applied, and it
+        # was not a delivery-boundary denial — so a 24.5-shaped envelope must
+        # render byte-identically. Measured by
+        # `test_a_refusal_shell_at_its_sentinels_hashes_as_it_did` below, not
+        # asserted.
+        "ccf.products.refusal.RefusalEnvelope.policy_bindings",
+        "ccf.products.refusal.RefusalEnvelope.replay_reference",
+        "ccf.products.refusal.RefusalEnvelope.evidence",
+        "ccf.products.refusal.RefusalEnvelope.provenance",
+        "ccf.products.refusal.RefusalEnvelope.disclosure",
+        "ccf.products.refusal.RefusalEnvelope.resource",
+        # 24.6-07: the two optional members of the permitted-evidence bundle
+        # (``24.6-L-08``). A brand-new model — the ``ccf.products.provenance``
+        # precedent above — so there is no earlier generation for either to be
+        # a boundary against, and ``True`` is the only coherent declaration: a
+        # refusal reached with no assessment, and one reached with no empty
+        # operator, each render without the key they have nothing to say under.
+        "ccf.products.refusal.RefusalEvidence.debt",
+        "ccf.products.refusal.RefusalEvidence.computed_empty",
+        # 24.6-08: the typed code a subject-unavailable determination carried
+        # (``24.6-L-21``). Same argument as the two above — a brand-new model,
+        # no earlier generation — and the field is also what a DISCLOSED shell
+        # carries at every level below ``full``, so it must render absent
+        # rather than as an explicit null: a rendered `"error_code": null` and
+        # a rendered `"error_code": "product_class_unentitled"` differ in
+        # shape, and shape is a leak channel (``D-IMPL-253`` am.2 (4)).
+        "ccf.products.refusal.SubjectUnavailableRefusal.error_code",
+        # 24.6-08: the disclosure posture in force (``24.6-L-16``,
+        # ``D-IMPL-253`` Q17). Both are hash-transparent at their sentinels —
+        # ``minimal`` on the policy and ``None`` on the grant — so every
+        # entitlement policy registered before this field keeps its content
+        # address and therefore its pin, and a deployment that never thought
+        # about disclosure lands on the safe posture rather than a permissive
+        # one.
+        "ccf.products.entitlement.ProductEntitlementPolicy.disclosure_level",
+        "ccf.products.entitlement.ProductEntitlementGrant.disclosure_level",
+        # 24.6-07: the assembler in force on replay dimension 4
+        # (``D-IMPL-253`` Q16, ``D-IMPL-245`` amendment 1) and the disclosure
+        # decision on dimension 5 (``D-IMPL-254``). All three are silent at
+        # their sentinels, which is why the golden `13bd250` record still
+        # replays — `tests/replay/test_golden_13bd250.py` measures it.
+        "ccf.replay.record.PerspectiveConditioning.assembler_id",
+        "ccf.replay.record.PerspectiveConditioning.assembler_version",
+        "ccf.replay.record.ContentGenerationPath.disclosure_decision",
+        # 24.6-14: the seventh declaration key (``D-IMPL-259``) — a parameter's
+        # valid domain, and the two optional ends of one. Silent at the empty
+        # mapping and at an absent end, so no committed request contract's
+        # content address moves. Added by 24.6-15 at close: plan 14 ticked the
+        # twin roster in `tools/lints/tests/test_hash_transparent_key.py` and
+        # missed this one, which is exactly the arrival this set-equality test
+        # exists to report.
+        "ccf.products.request.ProductRequestContract.argument_domains",
+        "ccf.products.request.ArgumentDomain.minimum",
+        "ccf.products.request.ArgumentDomain.maximum",
     }
 )
 
@@ -495,3 +632,169 @@ def test_the_descendants_twin_at_a_non_sentinel_admission_moves_its_hash() -> No
     assert content_hash(admitting) != content_hash(silent)
     assert b"admitted_entity_classes" in canonical_bytes(admitting)
     assert b"admitted_entity_classes" not in canonical_bytes(silent)
+
+
+def test_a_product_with_no_finding_hashes_as_it_did() -> None:
+    """``24.6-05``: the computed-empty finding is additive by measurement.
+
+    `ContextProductContract` is not in the base-digest table above — it had no
+    marked field until this row — so the claim is measured here, in the form
+    that matters: **a product with no computed-empty finding hashes exactly as
+    the same product hashed before the field existed**, which is what keeps
+    every served product's content address, and the golden `13bd250` replay
+    record that resolves one, intact.
+
+    The "before" side is rendered by hand with the new key removed, on
+    `test_a_config_naming_no_constraints_hashes_as_it_did`'s reasoning: the
+    canonical form renders fields and never a class name. The positive control
+    is the second half — a product that DOES carry a finding moves, and the
+    key appears in its bytes.
+    """
+    from datetime import UTC, datetime
+
+    from ccf.graph.protocols import NO_STORE_SNAPSHOT_PIN
+    from ccf.products.contract import (
+        ComputedEmptyFinding,
+        ContextProductContract,
+        ProductLineage,
+    )
+
+    at = datetime(2026, 3, 15, tzinfo=UTC)
+    silent = ContextProductContract(
+        schema_name="fixture.product",
+        schema_version="1.0.0",
+        plan_id="fixture.plan",
+        tenant_id="fixture-tenant",
+        temporal_boundary=at,
+        expires_at=at,
+        ttl_anchor="from_decision",
+        lineage=ProductLineage(
+            operators_invoked=frozenset({"o"}),
+            policy_bundle_versions=frozenset({"v"}),
+            graph_snapshot_at=at,
+        ),
+        payload={"value": 1},
+    )
+    before = {
+        name: getattr(silent, name)
+        for name in ContextProductContract.model_fields
+        if name != "computed_empty"
+    }
+    assert content_hash(silent) == content_hash(before)
+    assert b"computed_empty" not in canonical_bytes(silent)
+
+    carrying = silent.model_copy(
+        update={
+            "computed_empty": ComputedEmptyFinding(
+                operators_returned_empty=frozenset({"o"}),
+                operators_invoked=frozenset({"o"}),
+                plan_id="fixture.plan",
+                store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
+                emptiness="attested",
+            )
+        }
+    )
+    assert content_hash(carrying) != content_hash(silent)
+    assert b"computed_empty" in canonical_bytes(carrying)
+
+
+def test_a_refusal_shell_at_its_sentinels_hashes_as_it_did() -> None:
+    """``24.6-07``: the six shell members are additive by measurement.
+
+    `RefusalEnvelope` is not in the base-digest table above — it had no marked
+    field until this row — so the claim is measured here, in the form that
+    matters: **a shell carrying none of the six hashes exactly as the same
+    shell hashed before the fields existed**, which is what keeps every
+    envelope that has already crossed a door byte-identical on the wire.
+
+    The "before" side is rendered by hand with the six new keys removed, on
+    `test_a_config_naming_no_constraints_hashes_as_it_did`'s reasoning: the
+    canonical form renders fields and never a class name. The positive control
+    is the second half — a shell that DOES carry a reference moves, and the key
+    appears in its bytes — and the third is that all six are absent from the
+    silent bytes, enumerated rather than sampled.
+    """
+    from datetime import UTC, datetime
+
+    from ccf.products.refusal import (
+        NO_REPLAY_REFERENCE,
+        RefusalEnvelope,
+        RequestIdentity,
+    )
+
+    at = datetime(2026, 3, 15, tzinfo=UTC)
+    silent = RefusalEnvelope(
+        kind="product-request-violation",
+        reason="missing-required-parameter",
+        key="revenue_threshold",
+        detail="the question omitted a parameter the class declares required",
+        fields={"declared_keys": '["revenue_threshold"]'},
+        request=RequestIdentity(
+            product_id="fixture.product",
+            product_version="1.0.0",
+            parameters={},
+            temporal_boundary=at,
+        ),
+        pre_assembly_lineage=None,
+    )
+    added = (
+        "policy_bindings",
+        "replay_reference",
+        "evidence",
+        "provenance",
+        "disclosure",
+        "resource",
+    )
+    before = {
+        name: getattr(silent, name)
+        for name in RefusalEnvelope.model_fields
+        if name not in added
+    }
+    assert content_hash(silent) == content_hash(before)
+    for name in added:
+        assert name.encode() not in canonical_bytes(silent), name
+
+    carrying = silent.model_copy(update={"replay_reference": "ccf-artifact://r/1"})
+    assert content_hash(carrying) != content_hash(silent)
+    assert b"replay_reference" in canonical_bytes(carrying)
+    assert silent.replay_reference == NO_REPLAY_REFERENCE
+
+
+def test_a_config_naming_no_constraints_hashes_as_it_did() -> None:
+    """``24.6-01``: the ninth reserved section is additive by measurement.
+
+    `DeploymentConfig` is not in the base-digest table above, because the
+    class predates neither this phase's field nor `13bd250`'s tree in a way
+    that table was built to answer. So the claim is measured here instead, and
+    in the form that actually matters: **a config naming no constraints hashes
+    exactly as the same config hashed before the field existed** — which is
+    what keeps every committed `ccf_config.yaml`'s pin identity intact, since
+    pin identity IS content identity
+    (`src/ccf/deployment/pins.py::ArtifactPin`).
+
+    The "before" side is built by rendering the model's fields by hand with
+    the new key removed, which is what the pre-field canonical form WAS: the
+    canonical form renders fields and never a class name, so a dict of the
+    same fields hashes as the model did. The positive control is the second
+    assertion — a config that DOES name a constraint moves.
+    """
+    from ccf.controlplane.artifacts import DeploymentConfig
+
+    silent = DeploymentConfig(
+        semver="1.0.0",
+        backend="sqlite",
+        product_class={"schema_name": "fixture.product"},
+    )
+    before = {
+        name: getattr(silent, name)
+        for name in DeploymentConfig.model_fields
+        if name != "policy_constraints"
+    }
+    assert content_hash(silent) == content_hash(before)
+
+    naming = silent.model_copy(
+        update={"policy_constraints": {"fixture": {"policy_id": "fixture-regime"}}}
+    )
+    assert content_hash(naming) != content_hash(silent)
+    assert b"policy_constraints" in canonical_bytes(naming)
+    assert b"policy_constraints" not in canonical_bytes(silent)

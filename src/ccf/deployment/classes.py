@@ -94,6 +94,7 @@ from ccf.controlplane.artifacts import (
     OPERATOR_PARAMETERS_TRAVERSAL,
     OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS,
     PERSPECTIVE,
+    POLICY_CONSTRAINT,
     PRODUCT_CLASS,
     PROJECTION_REQUIREMENTS,
     RESOLUTION_SPEC,
@@ -165,6 +166,12 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     # immediately, because `tools/dump_schemas.py` enumerates this mapping
     # and the committed schema it produces is what an adopter's editor reads.
     DEPLOYMENT_CONFIG.class_id: DEPLOYMENT_CONFIG,
+    # The parameter-level policy constraint (ledger row `24.6-L-07`,
+    # `D-IMPL-253` Q3). Manifest-addressable because a deployment registers one
+    # constraint per key: independent identity, lane and effectivity is the
+    # whole point of the class, and a class a manifest cannot name is a class
+    # no adopter can register.
+    POLICY_CONSTRAINT.class_id: POLICY_CONSTRAINT,
 }
 
 #: Every SDK-owned artifact class whose contract declares an ``artifact_version``

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**843 entries**, of which **601** name a public Python surface.
+**991 entries**, of which **748** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-410 entries — 371 public Python surface, 39 not public Python API.
+487 entries — 447 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -127,6 +127,165 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: a caller that catches `ReplayDivergence` and `ReplayUnresolvable` separately and wants the third finding names it too. The HTTP `replay` noun resolves records through `resolve_artifact` and never calls `replay()`, so no route or status code moves
 
 *Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### ccf.products.request.refuse\_undeclared\_class\_default
+
+- Surface: ccf.products.request.refuse_undeclared_class_default
+- Public surface: true
+- Change type: added
+- Before: absent. A class default naming a parameter the request contract does
+  not declare was refused at **resolution** time, per request, by
+  `ccf.products.constraints.resolve_effective_request` — a `ValueError` raised
+  in front of a caller for a deployment's authoring mistake
+- After: the check runs at **registration**, from
+  `ccf.products.contract.register_product_class`, and at **boot**, from
+  `ccf.products.resolver.build_governed_resolver`. It raises
+  `ProductClassRegistrationError` naming both remedies — declare the argument
+  on the request contract, or remove the class default
+- Why: Dave, `D-IMPL-258` (5): *"a default naming a parameter the contract does
+  not expose is a malformed/internally inconsistent declaration. That should
+  fail registration/configuration/boot validation, not produce a shell to a
+  caller."* A self-contradicting Control Plane now fails before it serves
+  anything, and the boundary the ruling draws — *configuration/invariant
+  failure* for a malformed declaration, *governed shell* for a caller outside a
+  valid declared constraint — is a boundary between two moments as well as two
+  outcomes
+- Migration: **a deployment whose product class declares
+  `ServeObligations.default_debt_tolerance` while its request contract does not
+  declare `debt_tolerance` as an argument now fails at wiring rather than at
+  the first request.** The remedy is the same one the old message named; what
+  changed is when it is heard. No shipped example declares that combination, so
+  nothing in this repository moved
+
+*Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
+
+#### ccf.products.provenance.ParameterBound
+
+- Surface: ccf.products.provenance.ParameterBound
+- Public surface: true
+- Change type: added
+- Before: five members — `operator`, `value`, `authority`, `source`,
+  `policy_id` — and a policy constraint's declared `reason` was recorded on the
+  artifact only. A refusal's replay record named the pin the bound came from
+  and not the justification that pin declared; the close review measured it
+  and the docstring on `PolicyConstraint.reason` said so in as many words
+- After: a sixth member, `reason: str | None`, hash-transparent at `None`.
+  `_bound_of` in `ccf.products.constraints` populates it from
+  `PolicyConstraint.reason` for every bound a policy establishes; a technical
+  bound read off a substrate leaves it `None`. It rides wherever the bound
+  rides — `EffectiveParameter.bound` on a fulfilled resolution,
+  `ConstraintRefusal.bound` on a refusal, and through both into the record
+- Why: `D-IMPL-260` P-G. The constraint that participated in a determination
+  is part of that determination's provenance, and *why the constraint exists*
+  is what an examiner replaying a refusal asks first. Correcting the docstring
+  to say the reason was absent was measured and refused as a substitute for
+  carrying it
+- Migration: nothing to do for a reader of existing records. A deployment that
+  renders `ParameterBound` in its own tooling sees one more optional key on
+  policy bounds from this build on; a reader that rejects unknown keys should
+  admit `reason`
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf.products.disclosure.SUPPRESSED\_BELOW\_FULL
+
+- Surface: ccf.products.disclosure.SUPPRESSED_BELOW_FULL
+- Public surface: true
+- Change type: added
+- Before: absent. `disclose` withheld `fields` values whole (the sentinel
+  `"undisclosed"` in place of the value) or passed them whole; a permitted
+  object-valued field crossed with every one of its sub-members. So a
+  `constraint-refusal` at `minimal` carried `bound.source` — an artifact pin or
+  a substrate identity — and, for a policy bound, `bound.policy_id`, while the
+  same shell normalized `policy_bindings` away. The close review measured the
+  asymmetry
+- After: a third table beside `PERMITTED_AT_MINIMAL` and
+  `INDISTINGUISHABLE_BELOW_FULL`, keyed by kind then by `fields` key, naming
+  the SUB-MEMBERS of a rendered value removed at every level below `full`:
+  `{"constraint-refusal": {"bound": {"source", "policy_id", "reason"}}}`. The
+  key `bound` stays; its rendering below `full` is the canonical rendering of
+  the bound without those three keys, for every authority alike, so a bound
+  with a policy behind it and a bound read off a substrate render with the same
+  keys. `DisclosureDecision.withheld` records the members actually removed as
+  `bound.<member>`
+- Why: `D-IMPL-260` P-F, and the same rule `D-IMPL-258` (2) applied to
+  `policy_bindings`: internal truth ≠ permitted disclosure. Which Control Plane
+  artifact or which substrate answered is fabric state in the register of the
+  policy bindings, and presence of `policy_id` or `reason` would otherwise say
+  which authority answered
+- Migration: **a refused consumer no longer learns which artifact pin or which
+  substrate set the bound, at `minimal` or `reasoned`.** A client reading
+  `refusal["fields"]["bound"]` on a `constraint-refusal` finds `source`,
+  `policy_id` and `reason` absent below `full`; `operator`, `value` and
+  `authority` are still there. A deployment that wants the pin back sets its
+  tenant's `ProductEntitlementPolicy.disclosure_level` to `full`. The
+  cp-04 door test that read the capability identity off the shell now reads it
+  off the replay record the shell's `replay_reference` resolves to
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf.products.door.UngovernedResolverResult
+
+- Surface: ccf.products.door.UngovernedResolverResult
+- Public surface: true
+- Change type: added
+- Before: absent; a mis-wired resolver result was a bare `TypeError` from
+  `served_answer` or a `ValueError` from `door_refusal`, and two of the
+  nonconforming shapes crossed as answers
+- After: a `TypeError` subclass every transport's existing runtime-failure
+  handling catches unchanged, raised by the door for every value that proves
+  no governed determination
+- Why: a class of its own so a deployment and a test can name the defect exactly
+- Migration: nothing to do; a deployment that caught `TypeError` around a door
+  call still does
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf\_runtime.authz.delivery\_boundary.govern\_absence
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_absence
+- Public surface: true
+- Change type: added
+- Before: absent. A deployment resolver's `ProductNotServable` (or the
+  experience server's `ExperienceProductNotServable`) left each door in its own
+  vocabulary — `HTTPException(404, str(absent))`, an opaque runtime failure on
+  the MCP tool, a transport error on the resources — with no record behind it
+- After: the governed determination for a class the deployment does not serve:
+  `SubjectUnavailableRefusal(cause="nonexistent")` under a
+  `ResourceRequestIdentity`, recorded and disclosed through the door's own
+  recorder, returned as the common shell. The three doors catch exactly the
+  typed absence around their resolver call and render the shell through the
+  same path as every other refusal; the HTTP status stays 404
+- Why: `D-IMPL-260` P-C, verbatim: *"an unregistered product class must reach
+  the caller as the common shell; the status may stay 404"*
+- Migration: a client that read `detail` off a 404 body finds the common
+  refusal body instead, with a `replay_reference`; the resolver's own sentence
+  is on the record. Nothing to do for a resolver — raise the same typed
+  absence
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf\_runtime.authz.product\_entitlement.ProductEntitlementRefused
+
+- Surface: ccf_runtime.authz.product_entitlement.ProductEntitlementRefused
+- Public surface: true
+- Change type: added
+- Before: `error_code`, `message`, `policy`; the delivery boundary recorded
+  replay dimension 4's role from the caller's `requested_role`, substituting
+  `NO_ROLE_RESOLVED` when none was asked — even when the resolver had
+  established a role and the source had decided under it
+- After: a fourth keyword-only member, `role: str | None = None`, set by
+  `ControlPlaneProductEntitlementSource.authorize` to the role it was handed
+  and left `None` by the subject-conflict refusal, which is reached before any
+  role of the caller's exists. The boundary records it as given and turns
+  `None` into `NO_ROLE_RESOLVED`
+- Why: `D-IMPL-260` P-D, verbatim: *"record the role that actually participated,
+  explicit absence if none was established, never a substituted default"*
+- Migration: every existing construction is unchanged (defaulted). A reader of
+  denial records sees the deciding role where it used to see the positive
+  absence on surfaces that could not ask for one
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
 
 #### ccf.deployment.classes.resolve_artifact_class
 
@@ -7455,6 +7614,1310 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
 
+#### ccf.products.provenance.Authority
+
+- Surface: ccf.products.provenance.Authority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["default", "caller", "policy", "technical"]` — the four
+  authorities the worked cases produce: a product's declaration, the caller's
+  own question, a Control Plane policy constraint, and the backend capability
+  in force
+- Why: `D-IMPL-253` Q1. Case 4 has a `caller` value inside a `technical` bound,
+  which is why the authority is recorded per value *and* per bound rather than
+  once per parameter
+- Migration: none — a new name
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.provenance.AUTHORITIES
+
+- Surface: ccf.products.provenance.AUTHORITIES
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[frozenset[str]]`, derived from the `Literal` with
+  `get_args` rather than restated, so the vocabulary cannot drift into two
+  spellings. Closed by set equality in
+  `tests/products/test_provenance_semantics.py`
+- Why: `D-IMPL-253` Q1; the `SKILL_TYPES` precedent for a `Literal` and its
+  by-value twin
+- Migration: none — a new name
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.provenance.ProvenanceSource
+
+- Surface: ccf.products.provenance.ProvenanceSource
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ProvenanceSource(CCFContract)` with `kind: Literal["artifact",
+  "request", "capability"]`, `identity: str`, `version: str | None` (no
+  default). A `model_validator` refuses an `artifact` source carrying no
+  version and refuses a version on either of the other two kinds
+- Why: `D-IMPL-253` amendment 2 (1), Dave: *"Do not create fake artifacts just
+  to satisfy a uniform provenance schema."* A caller value's provenance is the
+  request identity and a technical maximum's is a backend capability; neither
+  has a version lane, and the validator is what makes the manufactured-artifact
+  path unrepresentable rather than merely discouraged
+- Migration: none — a new type
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.provenance.ParameterBound
+
+- Surface: ccf.products.provenance.ParameterBound
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ParameterBound(CCFContract)` with `operator: str`, `value: Any`,
+  `authority: Authority`, `source: ProvenanceSource`, and `policy_id: str |
+  None = None` marked hash-transparent (`D-IMPL-243`). `value` refuses a float
+  at construction, recursively through containers
+- Why: `24.6-L-07`. `operator` is a plain `str` and not
+  `ConstraintOperator` deliberately: a technical bound is not a policy
+  constraint and does not come from that artifact class, so typing it against
+  the policy vocabulary would claim a relationship the `technical` authority
+  does not have
+- Migration: none — a new type
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.provenance.EffectiveParameter
+
+- Surface: ccf.products.provenance.EffectiveParameter
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `EffectiveParameter(CCFContract)` with `name`, `value`, `authority`,
+  `source`, and `bound: ParameterBound | None = None` marked hash-transparent.
+  The triple the four cases force, plus the bound when one applied
+- Why: `D-IMPL-253` Q1. Case 3's caller value survives on
+  `RequestIdentity.parameters` and is never overwritten here — the fabric must
+  be able to say *"you asked for .30 and policy P bounds you to .20"*, not
+  *"you asked for .20"*
+- Migration: none — a new type
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.provenance.OverrideRecord
+
+- Surface: ccf.products.provenance.OverrideRecord
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `OverrideRecord(CCFContract)` with `policy_id`, `policy_version`,
+  `principal_id`, `entitled: bool`, `honored: bool`, and `grant_source:
+  ProvenanceSource | None = None` marked hash-transparent
+- Why: `D-IMPL-253` Q7 with Dave's addition — *"Naming the policy is necessary
+  but not sufficient authority to override it."* `entitled` and `honored` are
+  two facts and are recorded as two: an unentitled attempt is a thing that
+  happened and must be recordable, which one boolean would lose
+- Migration: none — a new type
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.provenance.EffectiveRequest
+
+- Surface: ccf.products.provenance.EffectiveRequest
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `EffectiveRequest(CCFContract)` with `parameters`, `guidance`,
+  `overrides`, `applied` (all tuples, all required) and `asked_at: datetime`,
+  plus `values()` (name to effective value, the engine's view) and
+  `parameter(name)`. A `model_validator` refuses two records for one parameter
+  name
+- Why: `D-IMPL-253` Q1 and Q6. `asked_at` is a **field**, never a clock read, so
+  constraint effectivity is evaluated at a reproducible instant — *"otherwise
+  replay of the same historical decision can resolve a different policy."*
+  `guidance` is carried beside the parameters rather than inside them so that a
+  reader cannot mistake non-refusing `preferred` guidance for a boundary that
+  decided something (Q5)
+- Migration: none — a new type
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.controlplane.artifacts.ConstraintOperator
+
+- Surface: ccf.controlplane.artifacts.ConstraintOperator
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["maximum", "minimum", "allowed_set", "required",
+  "preferred"]`
+- Why: `D-IMPL-253` Q5, Dave: *"maximum, minimum, allowed_set, required,
+  preferred is a good v0 vocabulary. preferred must remain non-refusing
+  guidance."* The first three are restrictiveness on three different axes — a
+  numeric ceiling, a numeric floor and a set intersection — which is why Q4's
+  "most restrictive wins" is a comparison *within* a comparable family and
+  never a fold across the vocabulary
+- Migration: none — a new name
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.controlplane.artifacts.CONSTRAINT_OPERATORS
+
+- Surface: ccf.controlplane.artifacts.CONSTRAINT_OPERATORS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[frozenset[str]]`, derived from the `Literal` with `get_args`
+  rather than restated. Closed by set equality in
+  `tests/controlplane/test_policy_constraint_artifact.py`
+- Why: `D-IMPL-253` Q5; the `SKILL_TYPES` precedent. The *never-refuses*
+  property of `preferred` is deliberately not asserted at this plan — it is a
+  property of a resolution, and plan `24.6-02` owns it
+- Migration: none — a new name
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.controlplane.artifacts.ConstraintApplicability
+
+- Surface: ccf.controlplane.artifacts.ConstraintApplicability
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ConstraintApplicability(CCFContract)` with `product_class`, `tenant`,
+  `perspective_role` and `intent`, each `str | None = None` and each marked
+  hash-transparent. `None` means *any*; the members are conjunctive; an
+  applicability that narrows nothing renders as `{}`
+- Why: `D-IMPL-251` names the axes the resolver is given — product class,
+  tenant, principal/perspective, intent — and this is those axes as data. The
+  SDK owns the four axes and none of their content (CINV-01)
+- Migration: none — a new type
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.controlplane.artifacts.PolicyConstraint
+
+- Surface: ccf.controlplane.artifacts.PolicyConstraint
+- Public surface: true
+- Change type: added
+- Before: absent. A parameter-level policy boundary had no representation
+  anywhere in the SDK, and no artifact in `src/` carried an effectivity window
+- After: `PolicyConstraint(VersionedArtifact)` with `policy_id`, `applies_to`,
+  `parameter`, `operator`, `value`, `overridable` (default `False`),
+  `source_authority`, `effective_from`, `effective_until` (default `None`),
+  `reason` and `priority` (default `0`); the three defaulted members are
+  hash-transparent. Validators refuse a value that does not match its
+  operator, by name, and an effectivity window that closes before it opens; a
+  quoted number under `maximum`/`minimum` is read as a `Decimal`, because the
+  operator makes that reading unambiguous and a Control Plane document must
+  quote its numbers (a YAML float is refused outright). A zone-less
+  `effective_from` is refused by `load_artifact`, not re-implemented here
+- Why: `24.6-L-07`, `D-IMPL-253` Q3: *"A policy constraint has independent
+  identity, version, effectivity and authority and should not disappear inside
+  another bundle."* It is deliberately **not** a field of
+  `ProductClassDeclaration` (`D-IMPL-251`: policy limits are not placed in
+  product-class registration, *"because then you lose the ability to answer: is
+  this a property of the product, or a rule imposed by a particular policy
+  regime?"*), and a test asserts that against the field list
+- Migration: none — a new class. No deployment declares one, nothing resolves
+  one, and no shipped behavior changes at this plan
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.controlplane.artifacts.POLICY_CONSTRAINT
+
+- Surface: ccf.controlplane.artifacts.POLICY_CONSTRAINT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ArtifactClass(class_id="ccf.policy-constraint",
+  contract=PolicyConstraint)`, registered through the whole chain —
+  `SDK_ARTIFACT_CLASSES` names it, `docs/schemas/ccf.policy-constraint.json` is
+  committed, and `tests/controlplane/test_artifact_roundtrip.py` carries its
+  round-trip case
+- Why: `24.6-L-07`. A class the SDK ships that a manifest cannot address is a
+  class no adopter can register. Both anti-drift gates fired on the way in and
+  are the reason the chain is complete rather than nearly complete:
+  `test_every_exported_artifact_class_is_manifest_addressable` and
+  `test_every_sdk_artifact_class_has_a_round_trip_case` were each RED before
+  their step was taken
+- Migration: none — a new constant
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.constraints.CAPABILITY_TRAVERSAL_DEPTH
+
+- Surface: ccf.products.constraints.CAPABILITY_TRAVERSAL_DEPTH
+- Public surface: true
+- Change type: added
+- Before: absent. A technical limit had no representation in the resolution
+  path at all; the two graph backends each hold a `MAX_DEPTH_CEILING` that
+  bounds injected query text and deliberately has no refusal path
+- After: `Final[str] = "traversal-depth"` — the one capability token v0 ships
+- Why: `D-IMPL-253` Q21, Dave: *"6 is measurement/default history; 100 is the
+  genuine technical capability boundary."* A mechanism name and never a value:
+  it names *which* capability bounds a parameter, and the limit itself arrives
+  at run time as a `TechnicalCapability` (CLAUDE.md §6.4, CINV-01). The graph
+  seam keeps its no-refusal contract — refusing a depth **by name** is the
+  constraint layer's job, because only there is there a governed response to
+  put the refusal in
+- Migration: none — a new name
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.constraints.PinnedConstraint
+
+- Surface: ccf.products.constraints.PinnedConstraint
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `PinnedConstraint(CCFContract)` with `key: str`, `version: str` and
+  `constraint: PolicyConstraint`
+- Why: whitepaper §7.4 — replay resolves an *exact* version and never "latest".
+  A `PolicyConstraint` carries its own `semver` lane but not the registry key
+  it lives under, and the key is half of the pin, so a constraint that reached
+  a resolution without `(key, version)` could not be re-resolved by an
+  examiner. `version` is carried verbatim rather than re-derived: what an
+  examiner replays against is the version the resolution *asked for*
+- Migration: none — a new type
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.constraints.TechnicalCapability
+
+- Surface: ccf.products.constraints.TechnicalCapability
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `TechnicalCapability(CCFContract)` with `capability: str`, `maximum:
+  Decimal` and `identity: str`
+- Why: `D-IMPL-253` Q21 and amendment 2 (1). A capability limit is a property
+  of the substrate the fabric is executing on, so its provenance is a
+  **backend identity and never an artifact pin** — *"Do not create fake
+  artifacts just to satisfy a uniform provenance schema"* — and
+  `ProvenanceSource` refuses a version on a `capability` source structurally.
+  `identity` is the value a `BackendStore` already answers as `graph_identity`
+- Migration: none — a new type
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.constraints.ConstraintRefusal
+
+- Surface: ccf.products.constraints.ConstraintRefusal
+- Public surface: true
+- Change type: added
+- Before: absent. A value outside a policy or technical bound had no governed
+  shell; the only shipped behavior was `effective_debt_ceiling`'s silent
+  `min()`
+- After: `ConstraintRefusal(CCFContract)` with `reason:
+  Literal["bound-exceeded", "not-in-allowed-set", "required-absent"]`, `key`,
+  `detail`, `bound: ParameterBound` and `requested: Any`. Registered in
+  `ccf.products.refusal.REFUSAL_KINDS` as `constraint-refusal` and in
+  `_PRE_ASSEMBLY_REFUSALS`
+- Why: `24.6-L-07`, `D-IMPL-253` Q13 (*"Refusal is itself a decision and
+  deserves the same five-dimensional replay model"*). The bound travels whole,
+  which is what lets a technical limit be refused **by name**: a consumer
+  reads `bound.authority == "technical"` and a `capability` source without
+  parsing prose. `bound-exceeded` covers both numeric directions on purpose —
+  the direction is already in `bound.operator`, and stating it twice invites
+  the two to disagree
+- Migration: none — a new type. No code path produces one outside `tests/` at
+  this plan
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.constraints.PolicyResolutionConflict
+
+- Surface: ccf.products.constraints.PolicyResolutionConflict
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `PolicyResolutionConflict(CCFContract)` with `reason:
+  Literal["policy-resolution-conflict"]` (defaulted, marked
+  `ccf_hash_transparent: False`), `key`, `detail` and `conflicting:
+  tuple[ProvenanceSource, ...]`. Registered as `policy-resolution-conflict` and
+  in `_PRE_ASSEMBLY_REFUSALS`
+- Why: `D-IMPL-253` Q4, Dave: *"If constraints are irreconcilable, return a
+  governed shell identifying a policy-resolution conflict, subject to
+  disclosure."* This is the shell that exists **so priority never has to erase
+  anything** — the tempting resolution, letting the higher-priority constraint
+  win, is exactly what Q4 forbids. `conflicting` names every source that took
+  part, by `(key, version)`, so an examiner resolves each rather than
+  reconstructing the set from prose
+- Migration: none — a new type
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.constraints.applicable
+
+- Surface: ccf.products.constraints.applicable
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `applicable(constraint, *, product_class, tenant, perspective_role,
+  intent, asked_at) -> bool`. Every non-`None` axis of `applies_to` must equal
+  its input, conjunctively; the window is half-open (`effective_from <=
+  asked_at < effective_until`). A zone-less `asked_at` raises `TypeError`
+- Why: `D-IMPL-253` Q6, Dave: *"asked_at, absolutely. Otherwise replay of the
+  same historical decision can resolve a different policy."* Both questions —
+  the axes and the window — are answered in one place so no caller answers half
+  of one
+- Migration: none — a new name
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.constraints.resolve_effective_request
+
+- Surface: ccf.products.constraints.resolve_effective_request
+- Public surface: true
+- Change type: added
+- Before: absent. The SDK applied no defaults, read no policy constraint, and
+  folded the class ceiling and the caller's tolerance with `min()`
+- After: a pure function returning `EffectiveRequest | ConstraintRefusal |
+  PolicyResolutionConflict | ProductRequestViolation`. Five steps, fixed order:
+  defaults → caller overlay → policy constraints by comparability → technical
+  capability → the existing `refuse_request` comparison over the **effective**
+  values. Two ceilings fold to the smaller, two floors to the larger, two
+  admitted sets to their intersection; a ceiling below a floor and an empty
+  intersection are conflicts; a `maximum` beside an `allowed_set` is
+  non-comparable, so **both apply** and priority only orders which is
+  *reported*. `preferred` folds to guidance and to nothing else. An
+  `overridable` constraint is skipped only when a `verified_overrides` record
+  carries both `entitled` and `honored`
+- Why: `24.6-L-07`, `D-IMPL-253` Q1/Q4/Q5/Q7 and `D-IMPL-254`'s
+  Determination → Authority → Disclosure → Delivery. Pure over its arguments —
+  no clock, no registry, no I/O; the instant is a field of the request — for
+  the reason `refuse_request` is, and it re-checks `applicable(...)` over every
+  constraint it is handed so that purity is not also a trust assumption about
+  its caller. **A hard constraint is never dropped because another outranks
+  it**: priority orders which surviving bound is reported, and every applicable
+  hard bound is still held against the value
+- Migration: none — a new name. Nothing calls it at this plan
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.graph.protocols.TraversalDepthCapability
+
+- Surface: ccf.graph.protocols.TraversalDepthCapability
+- Public surface: true
+- Change type: added
+- Before: absent. Each of the two ceilinged backends held a `MAX_DEPTH_CEILING`
+  that bounds the one literal it injects into query text, and nothing outside
+  the adapter could ask what it was
+- After: a `@runtime_checkable` Protocol with `max_traversal_depth -> int` and
+  `capability_identity -> str`. `FlureeGraphStore` and `Neo4jGraphStore` satisfy
+  it, returning their own module's constant and their `graph_identity`; the
+  SQLite and Postgres reference stores do not and gain no stub
+- Why: `D-IMPL-253` Q21, Dave: *"6 is measurement/default history; 100 is the
+  genuine technical capability boundary."* A technical bound must be refusable
+  **by name** one layer up, with authority `technical` and a capability identity
+  as its provenance — and the alternative, a number authored in product code or
+  in an artifact, would be a bound nobody measured (CINV-01). Structural typing
+  on the `SnapshotPinnable` precedent: a consumer asks
+  `isinstance(store, TraversalDepthCapability)` rather than reading a flag
+- Migration: none — a new Protocol. An out-of-tree store that wants its ceiling
+  respected implements the two members; one that does not is unaffected
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.constraints.ConstraintEffectivityConflict
+
+- Surface: ccf.products.constraints.ConstraintEffectivityConflict
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `ValueError` raised when the Control Plane holds two authoritative
+  statements in force at one instant — two versions of one constraint key whose
+  effectivity windows both contain `asked_at`, or two versions of the
+  entitlement policy under one key while a request names an override. Named in
+  `ccf.products.refusal.NON_VALUE_VIOLATIONS`
+- Why: Dave's rule for this phase, and `D-IMPL-253` Q15's *"retain exceptions
+  for actual configuration/invariant contradictions"*. A governed "no" is a
+  determination the fabric **reached**; two contradicting authoritative inputs
+  are a state in which it cannot determine what is true, and picking one would
+  make replay of the same historical decision resolvable two ways
+- Migration: none — a new exception on a path nothing reached before
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.constraints.constraints_in_force
+
+- Surface: ccf.products.constraints.constraints_in_force
+- Public surface: true
+- Change type: added
+- Before: absent. Nothing read policy constraints out of the Control Plane
+- After: `constraints_in_force(control_plane, *, asked_at) -> tuple[PinnedConstraint, ...]`
+  — `keys_of_class` for the keys bound to `ccf.policy-constraint`, `versions`
+  for the contents under each, `peek` to examine them **unaudited**, and
+  `resolve` to read back exactly the one version in force. Ordered by key
+- Why: `D-IMPL-253` Q6, Dave: *"asked_at, absolutely. Otherwise replay of the
+  same historical decision can resolve a different policy."* The registry's
+  *latest* read is not on the surface this function takes, so it cannot be
+  reached by mistake — the `ReplayResolver` argument applied to a function.
+  `peek` is unaudited on the `WR-08` argument, verbatim: examining versions to
+  find the one in force is not a resolution, and auditing the probes would
+  record reads that never happened
+- Migration: none — a new name
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.constraints.PolicyConstraintResolver
+
+- Surface: ccf.products.constraints.PolicyConstraintResolver
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `@runtime_checkable` Protocol with `resolver_id`, `resolver_version`
+  and a keyword-only `resolve(...)` taking the product class, the request, the
+  declared contract and its pin, the perspective, the intent, the tenant and the
+  technical capabilities — returning `EffectiveRequest | ConstraintRefusal |
+  PolicyResolutionConflict | ProductRequestViolation`
+- Why: `D-IMPL-253` Q8, Dave: *"Protocol plus reference implementation. This is
+  an SDK seam likely to acquire different Control Plane backends."* Identity and
+  version are on the surface for `DebtFactorScorerProtocol`'s reason: the
+  resolver in force must be pinnable, because an effective request is only
+  reproducible alongside the resolution that produced it
+- Migration: none — a new Protocol. A deployment governing policy in an external
+  system conforms to it rather than forking anything
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.constraints.ReferencePolicyConstraintResolver
+
+- Surface: ccf.products.constraints.ReferencePolicyConstraintResolver
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen dataclass over `control_plane` and `entitlement_key: str |
+  None`. It reads what is in force at `request.asked_at`, filters by
+  applicability, verifies every name in `request.policy_overrides` against the
+  principal's `ProductEntitlementGrant.overridable_policies` at the registered
+  entitlement version, and calls `resolve_effective_request`. It is what
+  `build_governed_resolver` selects when a deployment passes none
+- Why: CLAUDE.md §11 — the reference ships beside the Protocol — and it is **the
+  v0 default, not a placeholder for one**: the Control Plane is itself
+  in-process, so what is resolved here is exactly as durable as the registry it
+  is read from. The fetch and the decision are split on purpose: this class does
+  the only I/O, and the function that decides everything stays pure and testable
+  against the four worked cases with no registry at all
+- Migration: none — a new type. `D-IMPL-253` Q7 is enforced here: naming a
+  policy is not authority to override it, and an unentitled attempt is recorded
+  rather than silently dropped
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_ID
+
+- Surface: ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_ID
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[str] = "ccf.reference.policy-constraint-resolver"`
+- Why: the `FRESHNESS_SCORER_ID` precedent — the identity a replay record pins
+  when the SDK's own resolver was the one in force
+- Migration: none — a new name
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_VERSION
+
+- Surface: ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_VERSION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[str] = "1.0.0"`
+- Why: the lane of the resolution this reference performs, versioned separately
+  from the SDK — a resolution is only reproducible alongside the version of the
+  thing that produced it
+- Migration: none — a new name
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.replay.record.NO_REQUEST_RESOLUTION
+
+- Surface: ccf.replay.record.NO_REQUEST_RESOLUTION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-request-resolution"` — dimension 2's value when no resolution was
+  recorded
+- Why: the positive-sentinel discipline every extension of this record has used
+  (`NO_HITL_ACTIONS`, `NO_ADAPTER`, `NO_WORKFLOW_TRACE`). A record written before
+  the Authority layer existed and one whose caller dropped the resolution would
+  otherwise be the same artifact — the repudiation failure mode the sentinels
+  exist to close
+- Migration: none — a new name
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.gates.ToleranceExceededRefusal
+
+- Surface: ccf.products.gates.ToleranceExceededRefusal
+- Public surface: true
+- Change type: added
+- Before: absent. An over-tolerance product was a `DeclaredObligationRefusal`
+  carrying two rendered strings and no statement of who set the number
+- After: a `CCFContract` — deliberately **not** a `GateRefusal` — with
+  `authority`, `source`, `tolerance`, `observed: Decimal | None`,
+  `breakdown: DebtAssessment | None` and `detail`. It declares neither `gate`
+  nor `reason`, so `envelope_for` reports the kind token as the envelope's
+  reason
+- Why: `D-IMPL-253` Q10, Dave: *"`tolerance-exceeded` is right. Preserve which
+  authority established the tolerance. I would not make the shell itself imply
+  that Debt is invalid; the product was constructible, but fulfillment was
+  withheld because an applicable declared tolerance was exceeded."* The word
+  `invalid` appears nowhere in the type, the function or the detail text, and a
+  test greps for its absence
+- Migration: a consumer that branched on `declared-obligation-refusal` with
+  `obligation == "debt-ceiling"` branches on kind `tolerance-exceeded` instead
+  and reads `authority` / `tolerance` / `observed` rather than two rendered
+  strings
+- Related: `observed=None` is the positive *no assessment was produced* — the
+  retired half's `observed="no-assessment"` string, typed
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.gates.refuse_over_tolerance
+
+- Surface: ccf.products.gates.refuse_over_tolerance
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(product: ServableProduct, *, tolerance: EffectiveParameter | None) ->
+  ToleranceExceededRefusal | None`. It takes an **admitted** product and a
+  **resolved** parameter, never a candidate and never a bare number, so it can
+  neither be reached before the gates nor fold a second time
+- Why: `24.6-L-05`. The three authorities are folded exactly once, upstream, by
+  `resolve_effective_request`; a second fold here would be the scalar collapse
+  `D-IMPL-254` removed and the place a class preference could re-acquire what
+  C1 took from it
+- Migration: a deployment composing its own serve path calls this after
+  `run_gates` and envelopes a non-`None` result with the candidate's lineage;
+  the governed resolver already does
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.contract.ComputedEmptyFinding
+
+- Surface: ccf.products.contract.ComputedEmptyFinding
+- Public surface: true
+- Change type: added
+- Before: absent — an operator that returned an empty set produced a refusal and
+  no product existed to carry anything
+- After: `ComputedEmptyFinding(operators_returned_empty: frozenset[str],
+  operators_invoked: frozenset[str], plan_id: str, store_snapshot_pin:
+  StoreSnapshotPin, emptiness: Literal["attested", "unattested"])`, with
+  `ComputedEmptyFinding.of(execution, *, emptiness)` returning `None` when
+  nothing returned empty. A finding naming no operator is refused at
+  construction, because the absence of the finding is how *no operator returned
+  empty* is said
+- Why: `D-IMPL-253` Q12, Dave: *"An operator successfully evaluating an empty
+  graph did compute something. Calling it uncomputed conflates absence of input
+  with absence of execution. Serve computed-empty with the evidence-derived
+  Debt."* A consumer reading an empty payload must see the search, not silence
+- Migration: none — a new type
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.debt_scorer.ExecutionEvidence
+
+- Surface: ccf.products.debt_scorer.ExecutionEvidence
+- Public surface: true
+- Change type: added
+- Before: absent — a debt scorer saw a `GraphView` and nothing about the search
+  that produced it
+- After: `ExecutionEvidence(queries_executed: int, operators_invoked:
+  frozenset[str], operators_returned_empty: frozenset[str], source_attestation:
+  SourceAttestation | None, store_snapshot_pin: StoreSnapshotPin)` with
+  `ExecutionEvidence.of(execution)`. It carries **no row count**, deliberately
+- Why: `D-IMPL-255` (2) — Debt must be derivable from *"declared consultation
+  universe/set; source attestation of coverage/completeness; freshness and other
+  available evidence"*, and none of that was reachable at the scoring seam
+- Migration: none — a new type
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.debt_scorer.EvidenceAwareFactorScorer
+
+- Surface: ccf.products.debt_scorer.EvidenceAwareFactorScorer
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `runtime_checkable` Protocol declaring
+  `score_with_evidence(observations, *, now, evidence) -> Decimal`, an
+  **optional companion** to `DebtFactorScorerProtocol`. A `C`/`S` scorer that
+  implements it is asked through it when the caller supplied evidence; one that
+  does not is called exactly as before
+- Why: `D-IMPL-255` (2). Two seams rather than one widened seam, so no existing
+  factor scorer has to grow a parameter it does not read
+- Migration: none — opt in by implementing the method
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.debt_scorer.emptiness_of
+
+- Surface: ccf.products.debt_scorer.emptiness_of
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `emptiness_of(evidence) -> Literal["attested", "unattested"]`.
+  `"attested"` requires a query to have executed AND a source attestation to
+  exist AND neither of its two modes to be `"none"`
+- Why: `D-IMPL-255` (2), the refinement: *"do not let 'unattested emptiness'
+  itself secretly become the new Debt = 1 shortcut. It is a finding about
+  evidence quality."* The SDK ships **no number** here — no minimum query count,
+  no coverage fraction. No scorer the SDK ships reads this function's answer
+- Migration: none — a new function
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.refusal.RefusalEvidence
+
+- Surface: ccf.products.refusal.RefusalEvidence
+- Public surface: true
+- Change type: added
+- Before: absent — a refusal carried nothing about the search behind it
+- After: `RefusalEvidence(operators_invoked: frozenset[str], plan_id: str,
+  store_snapshot_pin: StoreSnapshotPin, debt: DebtAssessment | None = None,
+  computed_empty: ComputedEmptyFinding | None = None)`. `store_snapshot_pin`
+  has **no** default: a search that ran read something, and a defaulted pin
+  would let a caller build evidence quietly claiming the substrate exposed no
+  head when the caller merely forgot to say
+- Why: `D-IMPL-254`'s four layers. This is the **internal** form — what may
+  cross a consumer boundary is the Disclosure layer's decision, and a filter
+  here would be a second place that is decided
+- Migration: none — a new type
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.products.refusal.ResourceRequestIdentity
+
+- Surface: ccf.products.refusal.ResourceRequestIdentity
+- Public surface: true
+- Change type: added
+- Before: absent — a governed denial at a delivery boundary that carried no
+  `ProductRequest` had no identity to be recorded under, so it was recorded not
+  at all
+- After: `ResourceRequestIdentity(surface: str, address: str, tenant_id: str,
+  determined_at: datetime)`, refusing a naive `determined_at` by name
+  (`D-IMPL-38`). It names no subject and no principal — every value is what the
+  caller itself supplied or the deployment itself declared — so it is retained
+  on the recorded internal shell and on a disclosed shell alike
+- Why: `D-IMPL-256` (1), Dave: *"The request identity for a standing resource
+  may be a different request form, but it still needs enough identity to
+  answer: what resource was requested, by whom/perspective, at what instant,
+  under which policy, and why fulfillment was refused. Otherwise we would have
+  just created a replay hole based on transport shape."*
+- Migration: none — a new type. The `surface` token is defined once beside the
+  governed delivery-boundary step (plan `24.6-08`), never as a literal at a door
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.products.refusal.NO_REPLAY_REFERENCE
+
+- Surface: ccf.products.refusal.NO_REPLAY_REFERENCE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-replay-reference"` — the positive claim that the seam which
+  produced a shell minted no record. It is also what the **recorded** shell
+  always carries: a record whose content address covered a reference to itself
+  could not be content-addressed at all
+- Why: a shell minted before this seam existed and a shell whose reference was
+  dropped in transit would otherwise be the same artifact, which is the
+  repudiation failure mode every sentinel in the record module exists to close
+- Migration: none — a new constant
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.NO_FABRIC_READ
+
+- Surface: ccf.replay.record.NO_FABRIC_READ
+- Public surface: true
+- Change type: added
+- Before: absent — dimension 1 had no way to say the decision read no state
+- After: `"no-fabric-read"`, dimension 1's `store_watermark` when nothing was
+  read, and dimension 5's `plan_id` when nothing was planned over it
+- Why: an empty string or an omitted dimension would say *the state was empty*
+  or *the state was dropped* — three different facts collapsed into one
+- Migration: none — a new constant
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.NO_ASSEMBLER
+
+- Surface: ccf.replay.record.NO_ASSEMBLER
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-assembler"`, dimension 4's value for both assembler fields when no
+  `ContextAssemblerProtocol` produced the decision
+- Why: a decision made by no assembler and one whose caller dropped the
+  assembler's identity would otherwise be the same artifact
+- Migration: none — a new constant
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.NO_DISCLOSURE_DECISION
+
+- Surface: ccf.replay.record.NO_DISCLOSURE_DECISION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-disclosure-decision"`, dimension 5's value when nothing decided
+  what of a determination may cross a consumer boundary — the internal,
+  undisclosed form
+- Why: `D-IMPL-254`'s Disclosure layer needs a positive *nothing was applied*,
+  which is what every record written before that layer existed was saying
+- Migration: none — a new constant
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.NO_PRODUCT_ADDRESS
+
+- Surface: ccf.replay.record.NO_PRODUCT_ADDRESS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-product-address"`, dimension 5's `product_content_address` when
+  the decision produced no product
+- Why: an address is a `sha256` and every real one is 64 hex characters, so a
+  reader that met `""` would be left deciding whether the decision produced
+  nothing or the address was lost. The field therefore stays **required** and
+  gains no `None`
+- Migration: none — a new constant
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.NO_ROLE_RESOLVED
+
+- Surface: ccf.replay.record.NO_ROLE_RESOLVED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-role-resolved"`, dimension 4's `role` when a determination was
+  reached before any Π role was established — a door-level entitlement denial
+  is decided *at* the delivery boundary, before the resolver runs
+- Why: a positive claim in an existing **required** field, and not a new field:
+  `role: str | None` would make every reader of dimension 4 handle a null for
+  one caller's benefit and would change the shape of a field 40-odd call sites
+  already write
+- Migration: none — a new constant
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.serve.record_refusal
+
+- Surface: ccf.replay.serve.record_refusal
+- Public surface: true
+- Change type: added
+- Before: absent — `serve()` was the only append path and it is typed to a
+  `ServableProduct`
+- After: `record_refusal(*, record, replay_writer) -> ArtifactRef`. The **same**
+  writer over the same store appending the same record — which is the substance
+  of *"do not create second-class replay"*. It returns an `ArtifactRef` rather
+  than a `DeliveryCapability` because a refusal has nothing for a capability to
+  authorize, and what the caller needs is the address the shell will carry
+- Why: `D-IMPL-253` Q13 with `D-IMPL-256`'s invariant: *"Every governed
+  determination that crosses a CCF delivery boundary — fulfilled or refused,
+  tool or resource, authorized or denied — must reach the replay writer before
+  the response is released."*
+- Migration: none — a new function
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — nothing named the seam, so each caller would have reached
+  the replay writer its own way
+- After: a `@runtime_checkable` Protocol with one member,
+  `record(envelope, *, perspective, recorded_at, request=None,
+  execution=None, policy_bindings=(), assembler_id=None,
+  assembler_version=None, resolution=None) -> RefusalEnvelope`. It appends
+  first and returns the shell with its own address on it. It takes an
+  **already-resolved** `Perspective` rather than a `principal_id` and a
+  `role`, because `15.5-RESEARCH.md` Pitfall 3 forbids a `principal_id`
+  parameter anywhere under `ccf/products`, `ccf/projection` or `ccf/replay` —
+  entitlement is decided at the door and everything below receives identity
+  already resolved. A boundary denying before any Π role was resolved passes
+  `NO_ROLE_RESOLVED` as the role: a positive claim the **door** makes, rather
+  than a `None` this seam would interpret on the door's behalf
+- Why: `D-IMPL-256`, Dave: *"make sure the architecture does not accidentally
+  make the transport responsible for minting replay. The sequence should
+  conceptually remain: request → identity/policy → determination → replay →
+  disclosure shaping → transport encoding … Replay belongs to the governed
+  determination, not to HTTP or MCP."* One named seam is what lets the
+  resolver, the governed delivery-boundary step and an assembler's wrappers
+  hold one recorder over one store
+- Migration: none — a new Protocol
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.products.resolver.ReplayRefusalRecorder
+
+- Surface: ccf.products.resolver.ReplayRefusalRecorder
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the reference implementation — a frozen, keyword-only dataclass over
+  `artifact_store`, `replay_record_class`, `tenant_id`, `assembly_mode` and an
+  optional `policy_bundle_pin`. It composes exactly two shipped things and
+  invents nothing: `build_replay_record` with the refusal as its outcome, and
+  `record_refusal` over the **same** `ReplayWriter` class the served path uses
+- Why: CLAUDE.md §11 — a reference implementation ships beside every Protocol.
+  The sameness is the substance of *"do not create second-class replay"*: a
+  second writer, or a second record shape, would be exactly that. It holds a
+  store and no graph handle, so the ArtifactStore never becomes a second writer
+  to the graph (CLAUDE.md §7.4, §10)
+- Migration: none — a new class. `build_governed_resolver` selects it with no
+  argument, so a deployment reaching the fabric through that helper gets a
+  governed refusal path without naming anything
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.agents.errors.ASSEMBLY_REASON_TENANT_MISMATCH
+
+- Surface: ccf.agents.errors.ASSEMBLY_REASON_TENANT_MISMATCH
+- Public surface: true
+- Change type: added
+- Before: absent — the SDK fixed exactly one `AssemblyRefusal.reason` token,
+  `"assembly-refused"`, minted by `AssemblyRefused.as_refusal`
+- After: `ASSEMBLY_REASON_TENANT_MISMATCH: Final[str] = "tenant-mismatch"`
+- Why: `D-IMPL-253` amendment 2 (3) names tenant mismatch as a governed
+  determination. The SDK's own assembler is what makes it, so the SDK fixes the
+  token; a deployment's assembler keeps its own vocabulary (CINV-01)
+- Migration: none. A new public constant
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.agents.errors.ASSEMBLY_REASON_UNDECLARED_ROLE
+
+- Surface: ccf.agents.errors.ASSEMBLY_REASON_UNDECLARED_ROLE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ASSEMBLY_REASON_UNDECLARED_ROLE: Final[str] = "undeclared-role"`
+- Why: the second of the two determinations `D-IMPL-253` amendment 2 (3) names
+  by name
+- Migration: none. A new public constant
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.refusal.SubjectUnavailableRefusal
+
+- Surface: ccf.products.refusal.SubjectUnavailableRefusal
+- Public surface: true
+- Change type: added
+- Before: absent. A nonexistent subject and an unauthorized principal had no
+  shared outcome, so the fabric had no way to answer both indistinguishably
+- After: `SubjectUnavailableRefusal(cause: Literal["nonexistent",
+  "unauthorized", "undisclosed"], detail: str, error_code: str | None = None)`,
+  mapped to the wire token `subject-unavailable` and a member of the
+  pre-assembly set. **There is deliberately no `subject` field**
+- Why: `D-IMPL-253` Q27, Dave: *"No special suppression-silent kind. However,
+  this requires a canonical externally observable refusal outcome that both
+  nonexistent and unauthorized anchors can share."* Naming the subject on the
+  shell is itself a leak channel, so the type cannot name one
+- Migration: `REFUSAL_KINDS` goes from 22 members to 23. A consumer switching
+  exhaustively on the token gains one case
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.disclose — the ONE step to the shell
+
+- Surface: ccf.products.disclosure.disclose
+- Public surface: true
+- Change type: added
+- Before: absent. `grep -rn "disclos" src/ccf` found only threat-model prose —
+  the fabric had no mechanism for deciding what of a refusal may cross a
+  consumer boundary, so every refusal crossed whole
+- After: `disclose(envelope, *, level, policy) -> tuple[RefusalEnvelope,
+  DisclosureDecision]`. Nothing else in `src/` writes
+  `RefusalEnvelope.disclosure`, and the one caller is
+  `ReplayRefusalRecorder.record` — measured, both greps
+- Why: `D-IMPL-253` Q17, Dave: *"Suppression silence should be
+  policy-controlled, with minimal disclosure as the safe default."* With
+  `D-IMPL-254`'s four layers, a second place deciding what may cross is how
+  audit truth gets destroyed to achieve suppression silence
+- Migration: none — a new function
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.DisclosureLevel
+
+- Surface: ccf.products.disclosure.DisclosureLevel
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["minimal", "reasoned", "full"]` — three named postures, never
+  ordered arithmetically
+- Why: the level a policy puts in force has to be a type the Control Plane
+  artifacts can declare
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.DISCLOSURE_LEVELS
+
+- Surface: ccf.products.disclosure.DISCLOSURE_LEVELS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[frozenset[str]]` — the closed vocabulary by value
+- Why: `disclose` refuses a level nobody declared rather than resolving it to
+  the safe default, which would hide the defect behind correct-looking
+  behaviour
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.DISCLOSURE_MINIMAL
+
+- Surface: ccf.products.disclosure.DISCLOSURE_MINIMAL
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[DisclosureLevel] = "minimal"` — the safe default `D-IMPL-253`
+  Q17 names, and the default of
+  `ProductEntitlementPolicy.disclosure_level`
+- Why: a deployment that never thought about disclosure must land on the safe
+  posture
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.WITHHELD
+
+- Surface: ccf.products.disclosure.WITHHELD
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[str] = "undisclosed"` — what a withheld VALUE becomes. The key
+  is always kept, so field presence never differs
+- Why: `D-IMPL-253` amendment 2 (4) requires *body schema/field presence*
+  equivalence. A removed key would make the shell's shape a channel, which is
+  harder to notice than a prose one
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.EXTERNAL_STATEMENTS
+
+- Surface: ccf.products.disclosure.EXTERNAL_STATEMENTS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[Mapping[str, str]]`, one mechanism sentence per shipped kind,
+  closed by set equality against `REFUSAL_KINDS`. The `tolerance-exceeded`
+  sentence is Dave's own (`D-IMPL-253` Q10); the `subject-unavailable` sentence
+  is the SAME sentence for both internal causes
+- Why: a shell at `minimal` still has to say something true, and the SDK owns
+  what that is — it names no tenant, principal, subject, threshold or artifact
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.PERMITTED_AT_MINIMAL
+
+- Surface: ccf.products.disclosure.PERMITTED_AT_MINIMAL
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[Mapping[str, frozenset[str]]]`, per kind, the refusal's own
+  declared fields that survive at `minimal`. One rule produced every entry: a
+  field crosses only when it states what the caller must satisfy or may do
+  next and reveals nothing about fabric state, another tenant, another
+  principal, or the existence of a subject
+- Why: mechanism, not values — SDK types and SDK field names only. A deployment
+  that wants more says so through its own policy, at `reasoned` or `full`
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL
+
+- Surface: ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[Mapping[str, frozenset[str]]]` — per kind, the members withheld
+  at **every** level below `full`. One entry today: `subject-unavailable`'s
+  `detail`, `cause` and `error_code`
+- Why: `reasoned` crosses the fabric's own prose, so without this a `reasoned`
+  shell would state which of the two causes it hit. `D-IMPL-253` Q27 permits
+  the cause to cross only where policy explicitly says so
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.DisclosureDecision
+
+- Surface: ccf.products.disclosure.DisclosureDecision
+- Public surface: true
+- Change type: added
+- Before: absent — replay dimension 5 had the slot (`24.6-07`) and nothing
+  filled it
+- After: `DisclosureDecision(level, policy, internal_kind, external_kind,
+  withheld)`, recorded on
+  `ContentGenerationPath.disclosure_decision` as canonical bytes
+- Why: `D-IMPL-254` names *"producing replay that can reconstruct the decision
+  but not why the consumer saw the particular response it saw"* as one of the
+  four mistakes the separation prevents. The record holds the internal
+  determination AND this, so the shell is derivable rather than trusted
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_entitlement
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_entitlement
+- Public surface: true
+- Change type: added
+- Before: absent. Each transport caught `ProductEntitlementRefused` itself,
+  built its own response, and minted nothing — the defect the plan checker
+  found three times: a governed determination that occurs without reaching the
+  replay writer
+- After: the ONE governed step every entitling delivery boundary calls, in
+  `D-IMPL-256`'s ruled sequence. It reads the determination instant once from
+  the source's declared clock, runs `entitled_perspective`, and on a denial
+  builds `SubjectUnavailableRefusal(cause="unauthorized")` under a
+  `ResourceRequestIdentity`, mints it and returns the disclosed shell. An
+  entitled request returns the `Perspective` and writes nothing
+- Why: `D-IMPL-256`, Dave: *"Replay belongs to the governed determination, not
+  to HTTP or MCP. That matters because otherwise the standing-resource/tool
+  asymmetry simply reappears somewhere else."* `except
+  ProductEntitlementRefused` now exists under `runtime/ccf_runtime/authz/`
+  exactly once, here
+- Migration: the transports move to this step in plans 09, 10 and 16; they are
+  unchanged by this row
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.recorded_boundary
+
+- Surface: ccf_runtime.authz.delivery_boundary.recorded_boundary
+- Public surface: true
+- Change type: added
+- Before: absent — a door could bind an entitlement source with no recorder,
+  serve authorized requests normally, and fail only on a denial
+- After: the ONE construction-time check the three builders call, returning the
+  recorder or raising. `isinstance` against the `@runtime_checkable`
+  `RefusalRecorderProtocol`; no I/O probe, because a probe would write a record
+  nobody asked for
+- Why: `D-IMPL-256` (2), Dave: *"a door configured to make governed
+  determinations without the ability to record them is not a valid governed
+  door"*, and *"Prefer fail-at-construction/boot where practical"*
+- Migration: the three builders call it in plans 09, 10 and 16
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.UnrecordableDeliveryBoundaryError
+
+- Surface: ccf_runtime.authz.delivery_boundary.UnrecordableDeliveryBoundaryError
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the one typed construction error, whose message names the builder and
+  `refusal_recorder=`
+- Why: the posture is stated on this class and nowhere else, so the three
+  builders that raise it write no prose of their own and cannot drift into
+  three explanations of one rule
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.SURFACE_HTTP_ROUTE
+
+- Surface: ccf_runtime.authz.delivery_boundary.SURFACE_HTTP_ROUTE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[str] = "http-route"` — the mechanism token
+  `ResourceRequestIdentity.surface` carries for the HTTP door
+- Why: defined once beside the step that mints them. Three doors spelling one
+  surface three ways is three vocabularies in the audit record
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.SURFACE_MCP_TOOL
+
+- Surface: ccf_runtime.authz.delivery_boundary.SURFACE_MCP_TOOL
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[str] = "mcp-tool"`
+- Why: the same reason as the HTTP token — one surface, one spelling, defined
+  beside the step that mints it
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.SURFACE_MCP_RESOURCE
+
+- Surface: ccf_runtime.authz.delivery_boundary.SURFACE_MCP_RESOURCE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[str] = "mcp-resource"`
+- Why: the same reason as the HTTP token — one surface, one spelling, defined
+  beside the step that mints it
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.authz.product_entitlement.TokenGrant — re-exported from the seam
+
+- Surface: ccf_runtime.authz.product_entitlement.TokenGrant
+- Public surface: true
+- Change type: added
+- Before: reachable only from the MCP auth module, so an adopter implementing
+  either of this module's two Protocols — both typed on it — had to reach into
+  a transport tree to name the type
+- After: re-exported from this package's `__all__`
+- Why: **the one re-export this package makes**, and it is deliberate. The
+  governed delivery-boundary step imports this module and no transport
+  (`D-IMPL-256`), and the alternative was a determination module importing a
+  transport — which is the inversion criterion 36 forbids. A second import path
+  is normally this project's defect; here it is the lesser of two
+- Migration: none. The defining module is unchanged and still exports it
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.http_api.refusal_status.STATUS_REQUEST
+
+- Surface: ccf_runtime.http_api.refusal_status.STATUS_REQUEST
+- Public surface: true
+- Change type: added
+- Before: absent — the route spelled `status_code=400` at one branch
+- After: `Final[int] = 400`, the **request class**: the request as posed is not
+  acceptable. Three kinds — `product-request-violation`,
+  `payload-schema-violation`, `constraint-refusal`
+- Why: D-18 asks for class-based mapping, and a class with a name is a class a
+  reviewer can argue with; three bare integers scattered across a table are
+  not. This door already answered `400` for its own two request-shape refusals,
+  so a resolver's verdict on the same request joins the family it belongs to
+- Migration: none. A new public constant
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.http_api.refusal_status.STATUS_UNAVAILABLE
+
+- Surface: ccf_runtime.http_api.refusal_status.STATUS_UNAVAILABLE
+- Public surface: true
+- Change type: added
+- Before: absent — a nonexistent subject reached `404` through
+  `ProductNotServable` and an unauthorized one reached `403`, and those were
+  different code paths carrying different bodies
+- After: `Final[int] = 404`, the **unavailable class**. One kind:
+  `subject-unavailable`, at every disclosure level and for both internal causes
+- Why: Q18, *"suppression-safe policy may deliberately map externally to a less
+  revealing class"*. `403` would tell an unauthorized principal that the
+  subject exists, which is the first of the six channels amendment 2 (4) lists
+- Migration: none. A new public constant
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.http_api.refusal_status.STATUS_FULFILLMENT_WITHHELD
+
+- Surface: ccf_runtime.http_api.refusal_status.STATUS_FULFILLMENT_WITHHELD
+- Public surface: true
+- Change type: added
+- Before: absent — the route spelled `status_code=409` at one branch
+- After: `Final[int] = 409`, the **fulfillment-withheld class**: the question
+  was well posed and the fabric would not deliver an answer to it. Nineteen
+  kinds — every gate refusal, every peering admission refusal, the tolerance
+  shell, the mixing rule, the assembly determination, the anchor ambiguity, the
+  policy-resolution conflict and the mount refusal
+- Why: the state of the resource conflicts with fulfilling the request, which
+  is what `409` means. The shell carries the numbers; the status carries none
+  of them, per Q18's *"the response body and disclosure policy must be
+  authoritative, not HTTP status"*
+- Migration: none. A new public constant
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.http_api.refusal_status.STATUS_BY_KIND
+
+- Surface: ccf_runtime.http_api.refusal_status.STATUS_BY_KIND
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[Mapping[str, int]]`, 23 rows — one per member of
+  `ccf.products.refusal.REFUSAL_KINDS` — over three status classes: `400` the
+  request class (3 kinds), `404` the unavailable class (1 kind), `409` the
+  fulfillment-withheld class (19 kinds). Built by **class**, through
+  `REFUSAL_KINDS`, so no kind token is spelled in the module at all
+- Why: keyed by class rather than by token because a table of kind strings
+  would be a second spelling of a vocabulary `REFUSAL_KINDS` already owns; the
+  two would agree on the day they were written and drift on the first rename.
+  Keyed by class, a renamed token moves both sides at once and a deleted class
+  is an `ImportError` rather than an orphaned row
+- Migration: none. A new public constant
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.http_api.refusal_status.status_for
+
+- Surface: ccf_runtime.http_api.refusal_status.status_for
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `status_for(kind: str) -> int`, raising `KeyError` for a token the
+  vocabulary does not hold
+- Why: a function of the **disclosed** kind and of nothing else — not of the
+  internal cause, not of the disclosure level, not of the principal. That is
+  what makes the suppression property structural rather than disciplined:
+  there is no argument here that could carry the difference between *you may
+  not* and *there is no such thing* (Q18's *"suppression-safe policy may
+  deliberately map externally to a less revealing class"*)
+- Migration: none. A caller that must not raise tests
+  `kind in STATUS_BY_KIND` first, which is what the shipped route does
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.mcp.egress.CCF_FAILURE_PREFIX
+
+- Surface: ccf_runtime.mcp.egress.CCF_FAILURE_PREFIX
+- Public surface: true
+- Change type: added
+- Before: absent. A `ToolError` from this door carried whatever prose the
+  raised exception carried, wrapped by FastMCP as `Error executing tool <name>:
+  <message>`
+- After: `CCF_FAILURE_PREFIX: Final[str] = "ccf-runtime-failure"`. A `ToolError`
+  now means **CCF or its runtime failed** and its whole message is
+  `ccf-runtime-failure:<32 hex>`; the id is written to the module's logger
+  beside the traceback, and no exception text crosses
+- Why: `D-IMPL-253` Q20 and `T-24.6-34`. A client that must string-parse a
+  server's wording has no channel, and the wording is where a store path, a
+  query, a tenant or a principal leaks. The id is a join to the server log, so
+  an operator can still be asked about the exact failure
+- Migration: a consumer that matched on exception prose from this door matches
+  nothing now. Match on the prefix and quote the id
+
+*Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
+
+#### ccf.products.request.ArgumentDomain
+
+- Surface: ccf.products.request.ArgumentDomain
+- Public surface: true
+- Change type: added
+- Before: absent. A numeric parameter's valid domain had no place on the request
+  contract; the one rung that needed a floor (cp-04, `max_depth ≥ 1`) held it in an
+  example-local `argument_bounds` block that plan 24.6-13 deleted together with the
+  bound of 6 it shared a key with — and the floor went with it, so `max_depth=0` was
+  served as a one-node family (measured 2026-09-05, seal `d7180a0c…`)
+- After: a frozen contract with `minimum: Decimal | None` and `maximum: Decimal | None`,
+  inclusive on both ends, refusing at construction a domain naming neither end, a
+  non-finite end, or an inverted pair; `refuses(value)` names which end a value misses
+- Why: Dave, `D-IMPL-259`: a request-validity boundary belongs on the request contract,
+  is not a policy constraint, and must be held by the SDK's own validation rather than
+  by a deployment's bounds check
+- Migration: none for existing declarations. A deployment that wants a floor or a
+  domain ceiling declares `argument_domains: {<parameter>: {minimum: …, maximum: …}}`
+  on its request contract
+
+*Recorded by `24.6-14-the-request-contract-declares-a-parameter-domain.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -8079,11 +9542,36 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.5-05-the-directed-descendant-walk.md`.*
 
+#### ccf_runtime.mcp.experience._tool_address
+
+- Surface: ccf_runtime.mcp.experience._tool_address
+- Public surface: false
+- Change type: added
+- Before: absent. The two gated tools were decided against a
+  *(tenant, class)* pair with no rendered address at all, because nothing
+  recorded a denial and nothing therefore needed one.
+- After: `_tool_address(*, tool, tenant, product_class) -> str`, rendering
+  `{EXPERIENCE_PRODUCT_URI_SCHEME}://{tenant}/{product_class}#{tool}` beside
+  `experience_product_uri`.
+- Why: `D-IMPL-256` (1) requires a recorded denial to answer *what resource
+  was requested*, and a tool that carries no version cannot borrow the
+  resource's three-segment form without the SDK inventing a lane the
+  deployment never named. The tool travels as a fragment so a tool address
+  cannot be misread as a product address whose version happens to be called
+  `get_context`; the scheme is composed from the module's own constant, never
+  spelled as a literal, so the front door's addresses stay distinguishable from
+  an egress or artifact address (T-06-16).
+- Migration: none — module-private, and its output appears only inside a
+  recorded `ResourceRequestIdentity.address`. An examiner filtering replay
+  records by address should expect this form for the two tool paths.
+
+*Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-320 entries — 137 public Python surface, 183 not public Python API.
+367 entries — 184 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -8098,6 +9586,23 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none for a reader of the existing five. A client switching on `reason` gains one arm
 
 *Recorded by `24.5-fix-02-the-tolerance-interval-at-the-request-boundary.md`.*
+
+#### ccf.products.request.refuse\_request\_contract\_pin
+
+- Surface: ccf.products.request.refuse_request_contract_pin
+- Public surface: true
+- Change type: reshaped
+- Before: `(*, registry, schema_name, schema_version, request_contract_key,
+  request_contract_version) -> None`
+- After: the same parameters, returning `ProductRequestContract | None` — the
+  contract it resolved, or `None` when the class pins no request contract
+- Why: the declaration-versus-contract check `D-IMPL-258` (5) asks for needs
+  the resolved contract, and this function had already resolved it. Returning
+  it costs one registry read rather than two, and two reads of one key are two
+  chances to disagree
+- Migration: none. Existing callers ignore the return value and are unaffected
+
+*Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
 
 #### ccf.assembly.worker.EntityResolutionSpec
 
@@ -10974,6 +12479,950 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
 
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: eight reserved section names; `policy_constraints` was an
+  unrecognised top-level key and was refused by name
+- After: nine. `policy_constraints: Mapping[str, Mapping[str, Any]] | None =
+  None`, marked hash-transparent, deriving **one manifest entry per label** —
+  keyed `policy_constraints.<label>`, class id fixed and never read from the
+  body — exactly as `operators` derives one per key.
+  `_RESERVED_SECTIONS["policy_constraints"] = ("ccf.policy-constraint", None)`;
+  the section is SDK-owned, so `test_exactly_two_reserved_sections_are_adopter_owned`
+  is unchanged and green. `docs/schemas/ccf.deployment-config.json` regenerated
+- Why: `24.6-L-07`, `D-IMPL-253` Q3. A mapping and not a list: one entry per
+  key is what gives each constraint its own key, its own content-hash version
+  and its own effectivity window, all three of which a list under one key would
+  collapse
+- Migration: none. A config that names no `policy_constraints:` derives exactly
+  the entries it always did, and hashes exactly as it always did — the field is
+  omitted from the canonical form at its sentinel (`D-IMPL-243`), measured in
+  `tests/contracts/test_hash_transparency.py::test_a_config_naming_no_constraints_hashes_as_it_did`
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: reshaped
+- Before: `semver`, `schema_name`, `schema_version`, `arguments`,
+  `unsupported_arguments`; `from_declared` read four declaration keys and
+  ignored every sibling. A product's default lived wherever each example put it
+  — cp-04 authors `argument_defaults:` under `request_contract:` and reads it
+  example-locally
+- After: one added field, `defaults: Mapping[str, Any] =
+  Field(default_factory=dict)` marked hash-transparent, with `_KEY_DEFAULTS =
+  "defaults"` beside `_KEY_UNSUPPORTED_ARGUMENTS`. `from_declared` reads the
+  optional **fifth** key when present and defaults to the empty mapping when
+  absent, refusing a non-mapping in the same one-error voice the four other
+  keys use. A `model_validator` refuses, **in one message naming every
+  offender**, a default whose name is not a declared argument, a default for a
+  name the class declares and always refuses, and a default whose value fails
+  `refuse_payload` against the declared argument's own type.
+  `docs/schemas/ccf.product-request-contract.json` regenerated
+- Why: `24.6-L-07`, `D-IMPL-253` Q2, Dave: *"Product defaults belong on the
+  request contract. They define what omission means for that product."* A
+  default applied from code could not be pinned, and a decision made under it
+  could not be replayed — so omission has to mean something a deployment
+  declared, resolvable to `(artifact, version)` and recorded with authority
+  `default` (`ccf.products.provenance.EffectiveParameter`). The three refusals
+  exist because a default for a parameter the class does not honor would widen
+  the closed request world by omission
+- Migration: none for a declaration lacking the key — it parses unchanged and
+  hashes unchanged (`test_the_empty_mapping_is_omitted_and_a_declared_default_is_rendered`
+  asserts byte identity with the pre-field form). **Nothing applies a default
+  at this plan**: the resolver step is `24.6-03` and cp-04's
+  `argument_defaults` key migrates in `24.6-13`
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: reshaped
+- Before: twenty kinds
+- After: twenty-two. `ConstraintRefusal: "constraint-refusal"` and
+  `PolicyResolutionConflict: "policy-resolution-conflict"`, both also in the
+  private `_PRE_ASSEMBLY_REFUSALS` set — both are reached while the effective
+  request is still being built, which is strictly before an operator plan
+  exists, so a lineage offered with either would claim evidence that could not
+  exist yet
+- Why: `24.6-L-07`. Neither token is a substring of `contract-refusal` or
+  `policy-binding-refusal`, the two shipped tokens they read closest to, and
+  the closure gate checks that rather than leaving it to the eye
+- Migration: a consumer switching exhaustively on `kind` gains two members. No
+  door produces either at this plan
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.refusal.NON_PRODUCT_REFUSALS
+
+- Surface: ccf.products.refusal.NON_PRODUCT_REFUSALS
+- Public surface: true
+- Change type: reshaped
+- Before: `{"RegistrationRefusal", "EffectRefusal", "GrantRefusal"}`
+- After: `DefaultConflict` joins — the agent-composition verdict for two
+  archetypes contributing the same default. It has been in `src/` since the
+  agent framework shipped, reaches no product seam, and changed in no way
+- Why: the exhaustiveness gate's structural walk widened from two name families
+  (`…Refusal`, `…Violation`) to three, so that
+  `PolicyResolutionConflict` — a refusal in every sense but its name — could
+  not enter the vocabulary by exemption. Widening a walk means placing
+  everything it then finds, and this is one of the three it found. The
+  alternative, exempting one member of the vocabulary from the "nothing enters
+  by name" property, would have made the gate weaker in exchange for a smaller
+  diff
+- Migration: none. The set is an allowlist read by one test
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.refusal.NON_VALUE_VIOLATIONS
+
+- Surface: ccf.products.refusal.NON_VALUE_VIOLATIONS
+- Public surface: true
+- Change type: reshaped
+- Before: four `…Violation`-named exception classes
+- After: six. `WebhookEndpointConflict` (two HITL webhook registrations
+  claiming one endpoint) and `FragmentFamilyConflict` (two projection fragments
+  claiming one family) join. Both are pre-existing `ValueError` subclasses and
+  neither changed
+- Why: the same widening as above. The constant's prose is re-voiced from
+  *"`…Violation`-named classes"* to *"`…Violation`- and `…Conflict`-named
+  classes"*, so the name the set is closed over and the name it claims to be
+  closed over stay the same name
+- Migration: none. The set is an allowlist read by one test
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.request.ProductRequest
+
+- Surface: ccf.products.request.ProductRequest
+- Public surface: true
+- Change type: reshaped
+- Before: seven fields; a request could not ask for a policy exception at all
+- After: `policy_overrides: tuple[str, ...]`, defaulted to the empty tuple and
+  hash-transparent at it
+- Why: `D-IMPL-253` Q7. An override belongs on the request because **a request
+  carrying one is a different question** — it is content-addressed with the rest
+  of the question, so two callers asking the same thing with and without an
+  exception do not pin identically. The field asserts nothing about *who* is
+  asking: the principal is still resolved at the door from a verified grant, and
+  naming a policy establishes nothing on its own
+- Migration: none required. A request written before this field parses and
+  hashes exactly as it did — the empty tuple is omitted from the canonical form,
+  so no committed request's content address moves
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: reshaped
+- Before: five declaration keys (`schema_name`, `schema_version`, `arguments`,
+  `unsupported_arguments`, `defaults`)
+- After: a sixth, `capability_bindings: Mapping[str, str]` — parameter name to
+  the SDK's own capability token — read by `from_declared` when present,
+  defaulted to the empty mapping and hash-transparent at it. A new validator
+  refuses a binding onto an undeclared parameter or an unknown token, naming
+  every offender in one message
+- Why: `D-IMPL-253` Q21. The declaration says *which* parameter a substrate
+  limit applies to; the limit itself is never in an artifact and never in code —
+  it is read off the backend at resolution time through
+  `TraversalDepthCapability`, because a ceiling somebody authored is a technical
+  bound nobody measured (CINV-01)
+- Migration: none required. A contract written before the key parses unchanged
+  and hashes unchanged, so its pin — and therefore the request surface a past
+  decision was validated against — stays resolvable
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.entitlement.ProductEntitlementGrant
+
+- Surface: ccf.products.entitlement.ProductEntitlementGrant
+- Public surface: true
+- Change type: reshaped
+- Before: two declared sets, `permitted_schema_names` and `permitted_roles`,
+  neither with a default
+- After: a third, `overridable_policies: frozenset[str]`, defaulted to the empty
+  set and hash-transparent at it
+- Why: `D-IMPL-253` Q7, Dave: *"The resolver must also establish that the
+  caller/principal is entitled to exercise that override. Otherwise anyone who
+  knows a policy ID could bypass it."* **It is not a bypass and could not become
+  one**: an entry grants no class, no role and no subject, and the constraint
+  artifact must itself declare `overridable` for the exception to exist — two
+  declarations by two authors, and an override honored only where they agree.
+  The default is the safe direction: an author who says nothing has granted
+  nothing
+- Migration: none required. Every entitlement policy already in force keeps its
+  content address and its pin, and grants no override until one is declared
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.refusal.NON_VALUE_VIOLATIONS
+
+- Surface: ccf.products.refusal.NON_VALUE_VIOLATIONS
+- Public surface: true
+- Change type: reshaped
+- Before: six names
+- After: seven. `ConstraintEffectivityConflict` joins
+- Why: the structural walk widened to the `…Conflict` name family in `24.6-02`,
+  so every class it finds must be placed. This one is an exception and not a
+  returned value, deliberately, and the allowlist is where that is recorded
+- Migration: none. The set is an allowlist read by one test
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.replay.record.PolicyBindingsSnapshot
+
+- Surface: ccf.replay.record.PolicyBindingsSnapshot
+- Public surface: true
+- Change type: reshaped
+- Before: five fields — the bindings, the HITL block, the survivor cap and the
+  three adapter fields
+- After: `request_resolution: str`, defaulted to `NO_REQUEST_RESOLUTION` and
+  hash-transparent at it. At a real resolution it carries the canonical bytes of
+  the `EffectiveRequest`, rendered from the value by the builder rather than
+  accepted as a pre-serialized block, so one resolution cannot land as a family
+  of blocks
+- Why: `D-IMPL-253` Q1/Q6 and `D-IMPL-254`. The bindings in force at decision
+  time now include *which constraint bounded which parameter, on whose
+  authority, and whether an override was entitled*; the constraint versions are
+  pinned beside it as `PolicyBinding` rows, so an examiner resolves the policy
+  that was in force **then** rather than the one in force now
+- Migration: none required. Every record written before this field keeps its
+  content address — measured by `tests/replay/test_golden_13bd250.py`, not
+  asserted — and `generation_mismatch` does not name it, because a keyed field's
+  absence at its sentinel is silence by declaration
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: thirteen keyword-only parameters
+- After: a fourteenth, `resolution: EffectiveRequest | None = None`, threaded
+  into dimension 2 exactly as `adapter` is
+- Why: the resolution happens *before* the engine runs — that is what makes it
+  able to bound the question the engine is given — so it is a parameter rather
+  than a fact read off `execution`, which has never seen it
+- Migration: none. Every existing call site is unchanged and its record is
+  byte-for-byte what it was
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: reshaped
+- Before: thirteen constructor arguments, none defaulted; `__call__` compared the
+  raw request against the declared surface, then read the graph, then folded the
+  class ceiling with `request.parameters["debt_tolerance"]`
+- After: fifteen, still none defaulted — `constraint_resolver` and
+  `capabilities` join. `__call__` now runs the ruled sequence: defaults applied,
+  caller values overlaid, the policy constraints in force at `asked_at` resolved
+  with provenance, the technical capabilities held against them, and only then
+  the *effective* request checked. The engine answers the effective question
+  while `RequestIdentity.parameters` and replay dimension 5 keep what the caller
+  supplied; dimension 2 carries the resolution and the pins it was resolved from
+- Why: `D-IMPL-253` Q8 and `D-IMPL-254` — this is the Authority layer's place in
+  the sequence. A resolution after the read would have bounded a question the
+  engine had already answered, and a default applied after validation would
+  never have been the value the class declared
+- Migration: a deployment constructing this class directly passes the two new
+  arguments; `build_governed_resolver` supplies both. A conformity refusal now
+  reaches the caller as `constraint-refusal`, `policy-resolution-conflict` or
+  `product-request-violation`, all three carrying no lineage as before
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: reshaped
+- Before: seventeen parameters, five optional
+- After: nineteen, seven optional. `constraint_resolver` defaults to
+  `ReferencePolicyConstraintResolver` over the Control Plane this fabric booted
+  against, keyed to the tenant's entitlement policy; `capabilities` defaults to
+  what the booted fabric can be asked for, which is the empty tuple on every
+  shipped boot path
+- Why: the reference is selected here for the reason the debt scorer is —
+  a deployment providing only data never has to know the Protocol exists. Unlike
+  the scorer this default needs no material, so there is no second pair of
+  argument shapes and none is refused. A Control Plane that cannot be asked
+  which constraints are in force is a `TypeError` naming both ways to fix it,
+  rather than a resolver that quietly resolves nothing
+- Migration: none required. Existing calls gain the reference resolver
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.contract.ServeObligations.debt_ceiling → .default_debt_tolerance
+
+- Surface: ccf.products.contract.ServeObligations
+- Public surface: true
+- Change type: reshaped
+- Before: `debt_ceiling: Decimal | None` — the class's `D_c` ceiling. A request
+  could only *tighten* it; a request could not create one; the declared-obligations
+  gate refused an over-ceiling product by name, and the HTTP door answered `409`
+- After: `default_debt_tolerance: Decimal | None` — the class's *declared
+  default* tolerance, applied only when the caller states none, with authority
+  `default` and the product-class artifact's pin as its source. No gate reads
+  it. A caller's **looser** value is honored
+- Why: `D-IMPL-251` C1=A, Dave: *"A product class cannot independently withhold
+  otherwise deliverable context because its own debt preference was exceeded …
+  The class value can be a declared/default tolerance characteristic, but it is
+  not itself a policy boundary."* And `D-IMPL-253` Q9 on the name: *"Rename it."*
+  — keeping the old name *"after changing its authority would perpetuate the
+  conceptual error we just fixed."*
+- Migration: an authored `ccf.product-class` document renames the key under
+  `serve_obligations`. `extra=forbid` means the old key is refused at parse
+  rather than silently ignored, which is the intended failure — a deployment
+  that meant a ceiling has to decide whether it meant a default (leave it on the
+  class), a caller-owned tolerance (declare the argument on the request contract)
+  or governance (author a `ccf.policy-constraint`)
+- Related: `docs/schemas/ccf.product-class.json` regenerated;
+  `ProductClassDeclaration.serve_obligations`'s docstring follows
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.gates.DeclaredObligationRefusal.obligation
+
+- Surface: ccf.products.gates.DeclaredObligationRefusal
+- Public surface: true
+- Change type: reshaped
+- Before: `Literal["debt-ceiling", "lineage-inputs"]`
+- After: `Literal["lineage-inputs"]` — the debt half of
+  `_refuse_declared_obligations` is deleted, both of its returns with it
+- Why: the comparison it made belongs after admission, not inside a gate
+  (`D-IMPL-251`: refusal of **fulfillment**, not of response). A consumer that
+  branched on `"debt-ceiling"` now finds the case under
+  `tolerance-exceeded` instead, with the authority that set the number
+- Migration: constructing the retired token is a `ValidationError`, asserted as
+  a control in `tests/products/test_refusal_envelope.py`
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.gates.run_gates — `debt_tolerance` removed
+
+- Surface: ccf.products.gates.run_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `debt_tolerance: Decimal | None = None`, folded with the class's
+  ceiling by `min` inside the declared-obligations step
+- After: absent. The runner reads Context Debt nowhere at all
+- Why: `24.6-L-04`. Every shipped call site passed the `None` default except the
+  governed resolver's, which now calls `refuse_over_tolerance` after the gates
+- Migration: drop the keyword; a caller that passed a tolerance moves the
+  comparison after `run_gates` via `refuse_over_tolerance`
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.gates.run_federated_gates — `debt_tolerance` removed
+
+- Surface: ccf.products.gates.run_federated_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `debt_tolerance: Decimal | None = None`, on the local runner's
+  wording and through the same shared step
+- After: absent. A federated candidate over the consuming class's declared
+  figure is now ADMITTED; withholding it is the consuming layer's call
+- Why: `24.6-L-04`, and the factoring the two runners share — one reading of
+  what a class declared, so the retirement reaches both at once
+- Migration: as on `run_gates`
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS — `tolerance-exceeded`
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: reshaped
+- Before: 22 kinds
+- After: 23. `ToleranceExceededRefusal: "tolerance-exceeded"`, post-assembly —
+  a candidate existed, so it is **not** in `_PRE_ASSEMBLY_REFUSALS` and the
+  resolver passes `pre_assembly_lineage=candidate.lineage`
+- Why: the closed vocabulary is closed by set equality against the tree; a new
+  `…Refusal` class in `src/` is red until it is named here
+- Migration: none for a consumer that reads `envelope.kind` as an opaque token;
+  a consumer that enumerates kinds gains one
+- Related: no shipped token is a substring of `tolerance-exceeded` and it is a
+  substring of none, checked by the closure gate rather than by eye
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.constraints.resolve_effective_request — `class_defaults` / `class_source`
+
+- Surface: ccf.products.constraints.resolve_effective_request
+- Public surface: true
+- Change type: reshaped
+- Before: defaults came from `ProductRequestContract.defaults` alone
+- After: `class_defaults: Mapping[str, Any] | None = None` and
+  `class_source: ProvenanceSource | None = None`. The product CLASS's declared
+  characteristics are applied first and the request CONTRACT's defaults win for
+  the same name; each defaulted value records the pin of the document that
+  declared it
+- Why: `24.6-L-04` — the class's default tolerance has to reach the resolution
+  as a *default with provenance*, not as a number folded downstream
+- Migration: none. Both default to `None`, which normalizes to an empty mapping,
+  so every call site written before this pair resolves exactly as it did
+- Related: a non-empty `class_defaults` with `class_source=None` raises
+  `ValueError` (a default with no provenance); so does a class default naming a
+  parameter the request contract does not declare as an argument — a class
+  characteristic a caller cannot state would be a ceiling wearing a default's
+  name, which is what C1=A took away
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.constraints.PolicyConstraintResolver — `class_defaults` / `class_source`
+
+- Surface: ccf.products.constraints.PolicyConstraintResolver
+- Public surface: true
+- Change type: reshaped
+- Before: `resolve(...)` took the request, the contract and its pin, the
+  perspective, the intent, the tenant and the capabilities
+- After: the same, plus the two optional `class_defaults` / `class_source`
+  keywords, so a conforming resolver can be handed what the product class
+  declares without a second seam
+- Why: `24.6-L-04`. The class's declaration is read by the layer that holds it
+  (the governed resolver), and the seam carries it rather than re-reading it
+- Migration: none for a conforming implementation that accepts keyword
+  arguments it does not use; an implementation that wants the behavior forwards
+  both to `resolve_effective_request`
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.constraints.ReferencePolicyConstraintResolver — `class_defaults` / `class_source`
+
+- Surface: ccf.products.constraints.ReferencePolicyConstraintResolver
+- Public surface: true
+- Change type: reshaped
+- Before: as the Protocol
+- After: as the Protocol; it forwards both to `resolve_effective_request`
+  unchanged, doing nothing with them itself
+- Why: the fetch and the decision stay split — the reference does I/O, and the
+  pure function decides
+- Migration: none
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.contract.ContextProductContract.computed_empty
+
+- Surface: ccf.products.contract.ContextProductContract
+- Public surface: true
+- Change type: reshaped
+- Before: eleven fields; an empty operator result never reached a product
+- After: a twelfth, `computed_empty: ComputedEmptyFinding | None = None`,
+  hash-transparent at `None` under `D-IMPL-243`. `None` is the positive *no
+  operator returned empty*, which is what every product assembled before this
+  field existed was in fact saying
+- Why: `24.6-L-06`. The emptiness has to travel with the answer or the answer is
+  silence
+- Migration: none for a producer. A consumer that branched on the
+  `empty-result-refusal` envelope reads `product.computed_empty` instead, and
+  gets strictly more: the operators, the plan, the store head and the evidence
+  classification
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.gates.run_gates — `empty_results` removed
+
+- Surface: ccf.products.gates.run_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `empty_results: frozenset[str] | None = None`, read by the returned
+  half
+- After: absent. The runner reads no emptiness record at all
+- Why: `24.6-L-06`. Every shipped call site but the governed resolver's passed
+  the `None` default
+- Migration: drop the keyword; the observation goes onto the product as a
+  finding instead
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.gates.run_federated_gates — `empty_results` removed
+
+- Surface: ccf.products.gates.run_federated_gates
+- Public surface: true
+- Change type: reshaped
+- Before: `empty_results: frozenset[str] | None = None`
+- After: absent; the sequence is four steps rather than five
+- Why: as above, and across a Peering the finding travels inside the attested
+  bytes the peer signed
+- Migration: drop the keyword
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.debt_scorer.AssemblyDebtScorer.__call__ — `evidence` keyword
+
+- Surface: ccf.products.debt_scorer.AssemblyDebtScorer
+- Public surface: true
+- Change type: reshaped
+- Before: `__call__(self, *, view: GraphView) -> DebtAssessment`
+- After: `__call__(self, *, view: GraphView, evidence: ExecutionEvidence | None
+  = None) -> DebtAssessment`
+- Why: the evidence has to reach the deployment's scorers, and the reference
+  adapter is what carries it there
+- Migration: none for a caller — the keyword is optional
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.resolver.AssemblyDebtScorerProtocol — `evidence` keyword
+
+- Surface: ccf.products.resolver.AssemblyDebtScorerProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `__call__(self, *, view: GraphView) -> DebtAssessment`
+- After: `__call__(self, *, view: GraphView, evidence: ExecutionEvidence | None
+  = None) -> DebtAssessment`
+- Why: `D-IMPL-255` (2). The governed resolver always passes it, rather than
+  deciding per scorer whether to tell the truth about the search — two seams
+  wearing one name would be the silent-repair this codebase refuses
+- Migration: **breaking for a deployment's own scorer.** A conforming callable
+  written before `24.6-05` must accept the keyword; it is free to ignore it.
+  `runtime_checkable` `isinstance` does not check signatures, so the failure is
+  a `TypeError` at the first governed serve rather than at boot — which is the
+  honest place for it, but is worth knowing before upgrading
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.refusal.RefusalEnvelope — six additive members
+
+- Surface: ccf.products.refusal.RefusalEnvelope
+- Public surface: true
+- Change type: reshaped
+- Before: seven fields — `kind`, `reason`, `key`, `detail`, `fields`, `request`,
+  `pre_assembly_lineage`
+- After: thirteen. The six added are `policy_bindings: tuple[ProvenanceSource,
+  ...] = ()`, `replay_reference: str = NO_REPLAY_REFERENCE`, `evidence:
+  RefusalEvidence | None = None`, `provenance: EffectiveRequest | None = None`,
+  `disclosure: str | None = None` and `resource: ResourceRequestIdentity | None
+  = None`. Every one is hash-transparent at its sentinel, so a shell that
+  carries none of them is byte-identical to a 24.5 shell
+- Why: `D-IMPL-253` Q14, Dave: *"Extend `RefusalEnvelope` additively. We already
+  decided it is effectively the shell form of the governed response; another
+  wrapper buys little."* A refusal that is a decision needs the governance
+  facts a decision has — which policy governed it, where its record landed,
+  what search stands behind it, what authority resolved the question, what
+  disclosure was applied, and which delivery boundary decided
+- Migration: none for a producer. A consumer decoding a `DoorOutcome` gets the
+  six members with no edit — `extra=forbid` holds on both sides and producer and
+  consumer ship together
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.products.refusal.envelope_for
+
+- Surface: ccf.products.refusal.envelope_for
+- Public surface: true
+- Change type: reshaped
+- Before: `envelope_for(refusal, *, request, pre_assembly_lineage=None)`
+- After: four keyword-only pass-throughs added —
+  `policy_bindings=()`, `evidence=None`, `provenance=None`, `resource=None`.
+  Every existing call is unchanged. `replay_reference` is deliberately **not**
+  among them: a shell learns its own address only from the seam that appended
+  its record
+- Why: the four governance members are facts the caller holds and the refusal
+  value does not, exactly as `request` and `pre_assembly_lineage` already were
+- Migration: none
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.build_replay_record — the refusal outcome
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: `execution: ExecutionResult` and `product: ContextProductContract`
+  were required; a decision that produced no product could not be recorded
+- After: both are `| None`, and five keyword-only parameters join —
+  `refusal: RefusalEnvelope | None = None`, `tenant_id: str | None = None`,
+  `assembler_id: str | None = None`, `assembler_version: str | None = None`,
+  `disclosure: str | None = None`. **Exactly one** of `product` and `refusal` is
+  passed, a `product` requires an `execution`, and `tenant_id` is required
+  exactly when there is no product to read it off — all four refused at the top
+  of the body rather than documented
+- Why: `D-IMPL-253` Q13. This also closes the hole this function's own docstring
+  recorded as open for phase 24.1.1: Reading A wanted the refusal **value** to
+  travel in rather than a pre-serialized block, and on the refusal path it now
+  does — the builder mints the block itself and there is no silence for a caller
+  to pass. The served path's residual stands unchanged and is still stated there
+- Migration: every existing call site is byte-for-byte unchanged. A deployment
+  recording a refusal passes `refusal=` and `tenant_id=` and omits `product`
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.ContextFabricSnapshot.unread
+
+- Surface: ccf.replay.record.ContextFabricSnapshot
+- Public surface: true
+- Change type: reshaped
+- Before: one named constructor, `build(...)`
+- After: a second, `unread(*, tenant_id, temporal_boundary)`, carrying
+  `store_watermark=NO_FABRIC_READ` and empty touched sets. A named constructor
+  rather than a set of arguments: *"nothing was read"* has exactly one spelling,
+  and a caller reaching for `build` with an empty watermark would produce a
+  **different** and false claim — that the graph was read and found empty
+- Why: `D-IMPL-253` Q13 — dimension 1 for a pre-assembly refusal must say
+  positively that there is none
+- Migration: none
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.PerspectiveConditioning — the assembler in force
+
+- Surface: ccf.replay.record.PerspectiveConditioning
+- Public surface: true
+- Change type: reshaped
+- Before: seven fields
+- After: nine — `assembler_id: str = NO_ASSEMBLER` and `assembler_version: str
+  = NO_ASSEMBLER`, both hash-transparent at the sentinel
+- Why: `D-IMPL-253` Q16, Dave: *"Perspective Conditioning is the better home for
+  assembler identity/version given the existing model."* CLAUDE.md §6.2 places
+  agent identity and version on dimension 4; `D-IMPL-245` amendment 1 deferred
+  the carriage to this phase. Before it, an assembler's identity travelled only
+  in its own transcript, so *"which assembler produced this?"* was answerable
+  from no dimension at all
+- Migration: none. Every record written before this extension keeps its content
+  address
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.ContentGenerationPath — the disclosure decision
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: twelve fields
+- After: thirteen — `disclosure_decision: str = NO_DISCLOSURE_DECISION`,
+  hash-transparent at the sentinel. Dimension 5 and not dimension 2: Policy sets
+  what **may** cross (dimension 2's regime), and this records which level was
+  actually **applied** to produce the statement a consumer saw
+- Why: `D-IMPL-254` — without it, replay can reconstruct the determination and
+  not *"why the consumer saw the particular response it saw"*
+- Migration: none. Plan `24.6-08` is what fills it; this row gives it the slot
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.replay.record.mint_assembly_refusal — widened to the whole vocabulary
+
+- Surface: ccf.replay.record.mint_assembly_refusal
+- Public surface: true
+- Change type: reshaped
+- Before: `outcome: AssemblyOutcome | ProductRequestViolation` — the one refusal
+  the assembler seam could produce (`D-60`)
+- After: any `REFUSAL_KINDS` member, and the `RefusalEnvelope` that carries one.
+  Membership is by **exact type**, never `isinstance`: an `isinstance` chain
+  would admit an unknown subclass as its nearest known ancestor and record the
+  wrong kind, which is a well-formed audit record carrying a false answer
+- Why: `D-IMPL-253` Q13. A dimension 5 that could carry one refusal kind and not
+  the other twenty-one is second-class replay by construction
+- Migration: none — a widening. `_admissible_refusal_block` widens with it and
+  still admits the legacy `ProductRequestViolation` block, re-canonicalized from
+  the value so one refusal cannot land as a family of blocks
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.products.resolver.GovernedResolver — the recorder field
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: reshaped
+- Before: fifteen constructor arguments, three refusal branches, none of which
+  appended a record
+- After: sixteen — `refusal_recorder: RefusalRecorderProtocol`, with **no
+  default**, and all three refusal branches route through it before returning
+  their shell. The served branch is unchanged except that it now also passes
+  the assembler's identity (`None` here, since this composition holds no
+  assembler) and reads its applied policy bindings from one derivation shared
+  with the refusal branches
+- Why: `D-IMPL-253` Q13. No default for every other argument's reason and for
+  one of its own: a resolver that defaulted its recorder into existence would
+  be deciding, on its own authority, where a deployment's audit records land
+- Migration: **breaking for a deployment that constructs `GovernedResolver`
+  directly.** Pass a `refusal_recorder`; `ReplayRefusalRecorder` over the same
+  store and artifact class the resolver already has is the reference wiring.
+  A deployment using `build_governed_resolver` is unaffected
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.products.entitlement.ProductEntitlementPolicy — the disclosure level
+
+- Surface: ccf.products.entitlement.ProductEntitlementPolicy
+- Public surface: true
+- Change type: reshaped
+- Before: three fields — `tenant_id`, `policy_version`, `principals`
+- After: four. `disclosure_level: DisclosureLevel = DISCLOSURE_MINIMAL`,
+  hash-transparent at its sentinel, so every entitlement policy registered
+  before this field keeps its content address and therefore its pin
+- Why: the level is a value the SDK **interprets**, so it has to sit in an
+  SDK-owned versioned artifact an examiner can resolve — not in the
+  adopter-owned `policy` section, which the SDK deliberately does not read
+- Migration: none. A deployment that never thought about disclosure lands on
+  the safe posture
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.entitlement.ProductEntitlementGrant — the per-principal override
+
+- Surface: ccf.products.entitlement.ProductEntitlementGrant
+- Public surface: true
+- Change type: reshaped
+- Before: three fields — `permitted_schema_names`, `permitted_roles`,
+  `overridable_policies`
+- After: four. `disclosure_level: DisclosureLevel | None = None`,
+  hash-transparent at `None`, which is the positive *this principal has no
+  override* so the tenant's level decides
+- Why: `D-IMPL-254`'s information-barrier case — one reader at `full` and
+  another at `minimal` under the same tenant policy. It widens nothing else: a
+  level says what a reader may learn about a refusal it already received
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.authz.product_entitlement.ControlPlaneProductEntitlementSource — disclosure_level_for
+
+- Surface: ccf_runtime.authz.product_entitlement.ControlPlaneProductEntitlementSource
+- Public surface: true
+- Change type: reshaped
+- Before: one public decision method, `authorize`
+- After: a second, `disclosure_level_for(*, tenant, principal_id) ->
+  tuple[DisclosureLevel, ProvenanceSource | None]` — the grant's override, else
+  the tenant policy's level, else `(DISCLOSURE_MINIMAL, None)` when no policy is
+  registered. Resolved per call, no cache, no TTL, exactly as `authorize`
+  resolves the same artifact; a near-miss raises rather than being interpreted
+- Why: a different question from `authorize`, asked of the same artifact — that
+  one decides whether the caller may receive the class, this one how much of a
+  refusal's truth may cross
+- Migration: none. An additive method
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.authz.product_entitlement.ProductEntitlementSourceProtocol — the declared clock
+
+- Surface: ccf_runtime.authz.product_entitlement.ProductEntitlementSourceProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: one member, `authorize`
+- After: two. `clock: Callable[[], datetime]` is additive — the deployment's
+  declared determination clock, injected and never read by the SDK
+  (`D-IMPL-98`). `ControlPlaneProductEntitlementSource` makes its constructor's
+  `clock` public and `_audit` reads it, so the audit event and the replay
+  record of one decision come from ONE clock
+- Why: `D-IMPL-256` (1) requires a denial to be minted *at the entitlement
+  audit's instant*. Two time sources would let the two halves of one decision
+  disagree about when the fabric decided — and would make "the door reads no
+  clock" untrue
+- Migration: **a deployment's own conforming source gains a required member.**
+  Measured: the one test stub implementing this Protocol
+  (`tests/crossproc/test_mcp_egress.py::_RecordingEntitlement`) gains it in plan
+  10 Task 3. The reference source already had the value and only renames it
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.authz.product_entitlement.ProductEntitlementRefused — the deciding pin
+
+- Surface: ccf_runtime.authz.product_entitlement.ProductEntitlementRefused
+- Public surface: true
+- Change type: reshaped
+- Before: `__init__(*, error_code, message)`
+- After: a third keyword-only `policy: ProvenanceSource | None = None` —
+  additive, so every existing construction is unchanged. `authorize` sets it on
+  every refusal it raises, from the **same** `(key, version)` its audit event
+  holds; the subject-conflict refusal carries `None` because no policy was
+  consulted
+- Why: D-34, *"under which policy"*. The pin travels from the determination
+  itself, so replay dimension 2 can never name a policy that did not decide,
+  and a second registry read can never introduce a version skew
+- Migration: none for a caller. A door reading `refused.policy` gets the pin
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.http_api.app.create_app — `refusal_recorder=`
+
+- Surface: ccf_runtime.http_api.app.create_app
+- Public surface: true
+- Change type: reshaped
+- Before: `create_app(deps, *, auth=None, authorizer=None,
+  product_entitlement=None, perspective_resolver=None,
+  acknowledge_insecure_default=False)`
+- After: a keyword-only `refusal_recorder: RefusalRecorderProtocol | None =
+  None` between `perspective_resolver` and `acknowledge_insecure_default`.
+  **Required whenever `product_entitlement` is bound**: construction calls
+  `ccf_runtime.authz.delivery_boundary.recorded_boundary` and an entitling door
+  with no conforming recorder raises `UnrecordableDeliveryBoundaryError`
+  instead of building. Bound without `product_entitlement` it is accepted and
+  inert
+- Why: `D-IMPL-256` (2), Dave: *"a door configured to make governed
+  determinations without the ability to record them is not a valid governed
+  door."* There is deliberately no warn-and-serve posture and no per-request
+  refusal — a door that failed closed only on denial would make auditability
+  contingent on outcome, and would reopen the unauthorized/nonexistent
+  observational difference as a *misconfiguration*
+- Migration: **breaking for one configuration.** A deployment binding
+  `product_entitlement=` must now also bind `refusal_recorder=`. The SDK ships
+  `ccf.products.resolver.ReplayRefusalRecorder` over the same artifact store
+  the governed resolver already holds, and
+  `ccf.products.resolver.build_governed_resolver` constructs one. Every other
+  configuration — including the `D-IMPL-73` acknowledged-insecure default —
+  builds exactly as before
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.http_api.routes.product.build_router — `refusal_recorder=`
+
+- Surface: ccf_runtime.http_api.routes.product.build_router
+- Public surface: true
+- Change type: reshaped
+- Before: `build_router(deps, *, entitlement_source=None,
+  perspective_resolver=None)`
+- After: a keyword-only `refusal_recorder: RefusalRecorderProtocol | None =
+  None`, refused at construction on the same terms as `create_app`'s
+- Why: `create_app` is not the only way to build an entitling product router,
+  and the posture belongs to *a door that entitles* rather than to one
+  builder. The message names whichever builder was actually called, which is
+  the one an operator has to fix
+- Migration: as `create_app`'s. A caller building the router directly with
+  `entitlement_source=` binds the recorder too
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf.products.door.door_refusal — the `identity=` keyword
+
+- Surface: ccf.products.door.door_refusal
+- Public surface: true
+- Change type: reshaped
+- Before: `door_refusal(resolved, *, asked, product_class, version)`. A bare
+  refusal value arriving on a surface that carried no question raised
+  `ValueError` — *"there is no question for the refusal envelope to name"*
+- After: `door_refusal(resolved, *, asked, identity=None, product_class,
+  version)`. `identity` is a `RequestIdentity | None`, used exactly when
+  `asked` is `None`. The `ValueError` survives for the case where neither is
+  given, with its message re-derived to name the new way out
+- Why: `D-IMPL-253` D-19. The MCP standing resource is three path segments with
+  no query surface, so it holds no `ProductRequest` at all — and that raise was
+  the reason it had no refusal channel and answered a governed "no" as a
+  transport error. The door still invents nothing: it states the two positive
+  facts its own surface establishes, `parameters={}` and
+  `temporal_boundary=None`, and never a subject, an intent or a freshness
+  figure (CINV-01)
+- Migration: none. Additive and defaulted; every existing call is unchanged
+
+*Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
+
+#### ccf_runtime.mcp.egress.build_egress_server — the `refusal_recorder=` keyword
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: reshaped
+- Before: five required seams — `server_name`, `resolver`, `token_verifier`,
+  `auth_settings`, `entitlement_source`, `perspective_resolver` — and no
+  recorder
+- After: `refusal_recorder: RefusalRecorderProtocol | None = None`, checked at
+  construction through
+  `ccf_runtime.authz.delivery_boundary::recorded_boundary` before any handler
+  is registered. `None` or a non-conforming object raises
+  `UnrecordableDeliveryBoundaryError`, which names this builder and the keyword
+- Why: `D-IMPL-256` (2), Dave: *"a door configured to make governed
+  determinations without the ability to record them is not a valid governed
+  door."* This builder **always** entitles, so there is no recorder-less
+  configuration of it — no warning, no serve-but-fail-on-denial posture, and
+  nothing that would make auditability contingent on outcome. The keyword is
+  spelled with a `None` default rather than made positionally required so the
+  omission is refused by the ONE typed error the three builders share, whose
+  message names where to fix it
+- Migration: **breaking for any deployment that builds this door.** Pass the
+  recorder your resolver already holds —
+  `build_egress_server(..., refusal_recorder=composed.resolver.refusal_recorder)`
+  for a `GovernedResolver`, or a `ReplayRefusalRecorder` constructed over the
+  same artifact store, artifact class, tenant and assembly mode. Pre-1.0, there
+  is no deprecation window
+
+*Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: reshaped
+- Before: six declaration keys — `schema_name`, `schema_version`, `arguments`,
+  `unsupported_arguments`, `defaults`, `capability_bindings`
+- After: a seventh, `argument_domains: Mapping[str, ArgumentDomain]`, read by
+  `from_declared` on the same terms as the fifth and sixth (absent → the empty mapping,
+  a malformed value → `ValueError` naming the key), and held by a validator that refuses,
+  naming every offender together, a domain over an undeclared parameter, over a parameter
+  whose type has no magnitude, over a declared-and-always-refused parameter, and a
+  declared default that lies outside its own domain (`D-IMPL-258` (5)'s rule one key
+  over: a self-contradicting class fails at declaration, never in front of a caller)
+- Why: as above
+- Migration: none. `ccf schema export` and `docs/schemas/ccf.product-request-contract.json`
+  carry the key as optional
+
+*Recorded by `24.6-14-the-request-contract-declares-a-parameter-domain.md`.*
+
+#### ccf.products.request.ProductRequestViolation
+
+- Surface: ccf.products.request.ProductRequestViolation
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` over the six-member Literal
+- After: `reason` over the eight-member Literal; a domain refusal reads the domained
+  parameter's name at `key`, carries the declared type, the presented type, and a
+  `detail` naming the value, the end it missed and the limit
+- Why: as above
+- Migration: none beyond the reason roster above
+
+*Recorded by `24.6-14-the-request-contract-declares-a-parameter-domain.md`.*
+
+#### ccf_runtime.mcp.experience.build_experience_server
+
+- Surface: ccf_runtime.mcp.experience.build_experience_server
+- Public surface: true
+- Change type: reshaped
+- Before: `build_experience_server(*, server_name, product_resolver, …,
+  entitlement_source, perspective_resolver, entitled_product_class=None,
+  lineage_tenant=None, tool_allowlist=None)`. A door could be stood up making
+  governed entitlement determinations with no way to record any of them, and
+  its denials raised through the transport.
+- After: one additive keyword-only parameter, `refusal_recorder:
+  RefusalRecorderProtocol | None = None`, placed after `perspective_resolver`.
+  It is checked **first** — ahead of the allowlist and provider checks —
+  through
+  `ccf_runtime.authz.delivery_boundary::recorded_boundary`, which raises
+  `UnrecordableDeliveryBoundaryError` for `None` and for a non-conforming
+  object. The three entitlement paths now call
+  `ccf_runtime.authz.delivery_boundary::govern_entitlement` and encode its
+  return.
+- Why: `D-IMPL-256` (2), Dave: *"a door configured to make governed
+  determinations without the ability to record them is not a valid governed
+  door."* This builder **always** entitles — the templated product resource is
+  not allowlist-gated, so every server it produces makes governed
+  determinations — which is why the requiredness is unconditional where every
+  other D-03 requiredness on this builder is conditional on exposure, and why
+  the check runs before them. The `None` default exists so the omission is
+  refused by the one typed error rather than by a bare `TypeError` that would
+  say nothing about why.
+- Migration: **every deployment building the experience server must now bind a
+  recorder.** Pass `refusal_recorder=` a
+  `ccf.products.resolver.RefusalRecorderProtocol` — the SDK ships
+  `ReplayRefusalRecorder`, built over the artifact store the deployment's
+  resolver already holds, so one deployment keeps one audit trail rather than
+  two. A deployment that reaches the fabric through
+  `ccf.products.resolver.build_governed_resolver` already has one at
+  `resolver.refusal_recorder`. A door built without it does not answer at all,
+  by construction — deliberately, so auditability is never contingent on
+  outcome.
+
+*Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -13243,7 +15692,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 Surfaces that no longer exist. Each entry names what replaces it.
 
-4 entries — 4 public Python surface, 0 not public Python API.
+7 entries — 7 public Python surface, 0 not public Python API.
 
 ### Public Python surface
 
@@ -13314,11 +15763,70 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 *Recorded by `17-12-binding-document-data-only.md`.*
 
+#### ccf.products.gates.effective_debt_ceiling
+
+- Surface: ccf.products.gates.effective_debt_ceiling
+- Public surface: true
+- Change type: removed
+- Before: `effective_debt_ceiling(*, declared: Decimal | None, requested: object)
+  -> Decimal | None` — the class's declared ceiling folded with the request's
+  `debt_tolerance` by `min`, returning a bare number
+- After: gone. The fold is the Authority layer's now: the effective tolerance is
+  resolved by `ccf.products.constraints.resolve_effective_request` and carried
+  as an `EffectiveParameter` with the authority that set it and the pin it came
+  from, never as a scalar. INTERIM, named in the source: the gate's debt half
+  still holds a resolved tolerance to the class's ceiling as the floor of
+  strictness — a request may tighten it and never loosen it — and `24.6-04`
+  retires that half entirely
+- Why: `C-06`; `D-IMPL-254` and `D-IMPL-253` Q1, Dave: *"We need to preserve
+  provenance of authority. Otherwise we recreate exactly the defect the scout
+  found with `min()`."* A bare number cannot say whether the ceiling in force is
+  the class's or the caller's, and that is the whole question a refusal has to
+  answer
+- Migration: a deployment calling it directly reads
+  `EffectiveRequest.parameter("debt_tolerance")`, which carries the value, the
+  authority and the bound. Behavior at the gate is unchanged in this plan: an
+  undeclared class is still unaffected whatever the request says, and a declared
+  ceiling is still tightened and never loosened
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT — removed
+
+- Surface: ccf.products.gates.GATE_EMPTY_OPERATOR_RESULT
+- Public surface: true
+- Change type: removed
+- Before: `"empty-operator-result"`, the second half of the empty-operator gate
+  on both runners (`24.5-L-24`)
+- After: absent. `run_gates` registers five tokens and `run_federated_gates`
+  four; six distinct across the two, judged by set equality with the departure
+  reported by name
+- Why: `D-IMPL-242` amendment 1 supersedes the ruling that created it
+- Migration: a consumer branching on this gate token branches on
+  `product.computed_empty` instead
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.gates.EmptyResultRefusal — removed
+
+- Surface: ccf.products.gates.EmptyResultRefusal
+- Public surface: true
+- Change type: removed
+- Before: `EmptyResultRefusal(GateRefusal)` with `operator_key` and
+  `empty_operators`, mapped to the kind `empty-result-refusal`
+- After: absent from `ccf.products.gates` and from `REFUSAL_KINDS`, which is 22
+  members. The refusal vocabulary's closure gate re-equates at 22
+- Why: `D-IMPL-242` amendment 1 — there is no refusal to name
+- Migration: the information the refusal carried is strictly a subset of
+  `ComputedEmptyFinding`'s, on a product that now exists
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
 ## Behavior changes
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-109 entries — 89 public Python surface, 20 not public Python API.
+130 entries — 110 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -13478,6 +15986,152 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller presenting a conformant request. A caller whose request is refused by the resolver's boundary now receives `400` with the envelope where it previously received a transport-level server error
 
 *Recorded by `24.5-fix-03-the-http-door-answers-400-for-a-request-violation.md`.*
+
+#### ccf.products.disclosure.INDISTINGUISHABLE\_BELOW\_FULL
+
+- Surface: ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL
+- Public surface: true
+- Change type: behavior
+- Before: `{"subject-unavailable": frozenset({"detail", "cause",
+  "error_code"})}` — three members, all of them either the envelope's `detail`
+  or a key inside the refusal's `fields`
+- After: the same entry with a fourth member, `policy_bindings`, which is a
+  **whole member of the shell** rather than a `fields` key. `disclose` now
+  normalizes such a member to the sentinel its own field declares — the empty
+  tuple, which `RefusalEnvelope.policy_bindings` already documents as *nothing
+  governed version-bearingly* — at every level below `full`
+- Why: an entitlement denial pinned the entitlement policy that decided it, at
+  its version, and an assembler's nonexistent-subject determination pinned
+  nothing. So the two D-27 subjects differed by **value** and — because the
+  canonical rendering omits an empty tuple — by **key presence** too, which is
+  the *body schema/field presence* channel `D-IMPL-253` amendment 2 (4) names
+  by name. `24.6-08` F-2 flagged it, `24.6-09` F-1 and `24.6-10` F-1 measured
+  it at each door, and `D-IMPL-258` (2) ruled it closed at the disclosure step
+  rather than allowlisted in the tests
+- Migration: **a refused consumer no longer learns which Control Plane policy
+  governed a `subject-unavailable` refusal, at `minimal` or `reasoned`.** A
+  client reading `refusal["policy_bindings"]` on that kind finds the key absent
+  below `full`; a deployment that wants the pin back sets its tenant's
+  `ProductEntitlementPolicy.disclosure_level` to `full`, which is a versioned
+  Control Plane statement that this reader may see internal truth. Nothing an
+  examiner reads moves: the internal envelope on the Decision Replay record
+  still carries the real bindings, and both door controls assert it
+
+*Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
+
+#### ccf\_runtime.http\_api.routes.product — the `403` → `404` change, recorded as breaking
+
+- Surface: ccf_runtime.http_api.routes.product
+- Public surface: true
+- Change type: behavior
+- Before: recorded in `24.6-09`'s fragment as breaking for a client reading
+  this door's `403`, without a ruling behind it
+- After: the same behavior, now **ruled and kept** under `D-IMPL-258` (3), with
+  the migration note in that fragment restated in the ruling's own four terms
+- Why: Dave: *"keep the new behavior. This is an intentional wire change
+  required by the suppression-silence ruling … I would not invent another
+  compatibility shim that resurrects the `403`."* The note is in `24.6-09`'s
+  fragment rather than duplicated here, because one surface's migration
+  guidance living in two places is how the two come to disagree
+- Migration: see `24.6-09`'s `ccf_runtime.http_api.routes.product — the
+  entitlement refusal body` entry, which now carries the four terms
+
+*Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
+
+#### ccf.products.disclosure.INDISTINGUISHABLE\_BELOW\_FULL
+
+- Surface: ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL
+- Public surface: true
+- Change type: behavior
+- Before: `{"subject-unavailable": frozenset({"detail", "cause", "error_code",
+  "policy_bindings"})}`. A delivery-boundary denial carried the
+  `ResourceRequestIdentity` it was decided against (`D-IMPL-256` (1)) on the
+  disclosed shell at every level, and an assembler's nonexistent-subject
+  determination carried none, so the key's PRESENCE told the two subjects
+  apart below `full`. The phase's own equivalence instruments excluded the
+  member on Dave's *"request identity … may legitimately differ"* rider; the
+  close review measured the channel and `D-IMPL-260` P-J ruled it closed
+- After: the same entry with a fifth member, `resource`. Below `full`,
+  `disclose` normalizes it to the member's own sentinel — `None`,
+  hash-transparent — so neither shell renders the key; the
+  `DisclosureDecision` records `resource` among what was withheld. At `full`
+  it crosses whole. The internal envelope on the Decision Replay record keeps
+  it at every level. Both equivalence instruments now compare the member
+  (value and presence) instead of excluding it
+- Why: `D-IMPL-260` P-J, and `D-IMPL-253` amendment 2 (4) by name: *body
+  schema/field presence* is a channel, and one member's presence was carrying
+  the whole distinction. Excluding it from the instrument would have been the
+  allowlist `D-IMPL-258` (2) refused for `policy_bindings`
+- Migration: **a refused consumer no longer learns what resource, on which
+  surface, at what instant a `subject-unavailable` denial was decided against,
+  at `minimal` or `reasoned`.** A client reading `refusal["resource"]` finds
+  the key absent below `full`; the `replay_reference` still resolves, and the
+  record's internal envelope carries the identity for the examiner. A
+  deployment that wants it on the wire sets its tenant's
+  `ProductEntitlementPolicy.disclosure_level` to `full`. Tests that read the
+  identity off the shell now read it off the record
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf.products.door.door\_refusal
+
+- Surface: ccf.products.door.door_refusal
+- Public surface: true
+- Change type: behavior
+- Before: `door_refusal(resolved, *, asked, identity=None, product_class,
+  version) -> RefusalEnvelope | None`. Two refusal shapes crossed: a
+  `RefusalEnvelope` passed through untouched whatever its `replay_reference`
+  or `disclosure` said, and a BARE refusal value — any type `REFUSAL_KINDS`
+  names — which the door enveloped itself, supplying the question from
+  `asked` or from the `identity` a question-less surface stated. That envelope
+  was undisclosed and unrecorded: a determination reaching a consumer with no
+  replay and no disclosure decision behind it, released by the layer
+  `D-IMPL-254` says decides nothing. The close review measured it as P-A
+- After: `door_refusal(resolved) -> RefusalEnvelope | None`. Only a
+  `RefusalEnvelope` that PROVES its governance crosses — `replay_reference`
+  other than `NO_REPLAY_REFERENCE` and `disclosure` not `None`, which is
+  exactly what `ReplayRefusalRecorder.record` returns. A bare refusal value,
+  an envelope at the sentinel, or an envelope with `disclosure=None` raises
+  `UngovernedResolverResult`; a served shape returns `None` as before. The
+  four keyword arguments are gone with the translation they fed
+- Why: `D-IMPL-260` P-A, verbatim: *"the boundary must accept only a
+  typed/provable governed result proving determination, replay and
+  disclosure completed; a nonconforming resolver result must not cross"*
+- Migration: **a deployment resolver that returned what `run_gates` gave it
+  must now record it.** Hand the bare value to the SDK's
+  `ReplayRefusalRecorder.record` (the seam `build_governed_resolver` wires,
+  and the one every door is built with) and return the envelope it hands
+  back; a question-less surface's request identity is what that seam records.
+  Callers of `door_refusal` drop `asked`, `identity`, `product_class` and
+  `version`. A resolver still returning a bare value reaches its callers as
+  the door's opaque runtime failure, never as a refusal
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf.products.door.served\_answer
+
+- Surface: ccf.products.door.served_answer
+- Public surface: true
+- Change type: behavior
+- Before: accepted `ServedProduct` and the narrower `ServableProduct`, reporting
+  `ServedAnswer(replay_ref=None)` for the second — `D-IMPL-148` Addendum A's
+  *"named divergence"* — so a gate-admitted vessel nothing had recorded was
+  served with no replay behind it
+- After: accepts `ServedProduct` only; `ServedAnswer.replay_ref` is `str`, never
+  `None`. A bare `ServableProduct` raises `UngovernedResolverResult` with a
+  message naming the fix (`ccf.replay.serve.serve`); any other shape raises the
+  same type. `door_answer(resolved, *, echo, resolved_request)` drops
+  `product_class` and `version`, which only fed the removed translation
+- Why: `D-IMPL-260` P-A — a served answer's replay reference is the proof its
+  decision was appended, and `serve` returns one only after the append
+- Migration: **a deployment resolver returning a `ServableProduct` must serve it
+  through `ccf.replay.serve.serve` first** and return the `ServedProduct`;
+  `ProductResolverProtocol` (egress) and `ExperienceProductResolverProtocol`
+  now declare `ServedProduct | RefusalEnvelope`. `DoorOutcome.replay_ref` keeps
+  its optional wire type for other producers, but every shipped door now fills
+  it on both halves
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
 
 #### ccf.controlplane.artifacts.load_artifact
 
@@ -15408,11 +18062,401 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: nineteen kinds; the gate family carried one empty-operator kind
-- After: twenty kinds; `EmptyResultRefusal: "empty-result-refusal"` in the gate family block beside `empty-operator-refusal`. `empty-result-refusal` was chosen over `empty-operator-result-refusal` because neither of the pair is a substring of the other under the closure gate's rule and the shorter name reads as what it is. `tests/products/test_refusal_envelope.py::test_envelope_for_empty_result_refusal` landed in the same commit as the kind, under the exact-name coverage rule `24.5-07` shipped; the four closure tests are green at twenty
+- After: twenty kinds; `EmptyResultRefusal: "empty-result-refusal"` in the gate family block beside `empty-operator-refusal`. `empty-result-refusal` was chosen over `empty-operator-result-refusal` because neither of the pair is a substring of the other under the closure gate's rule and the shorter name reads as what it is. `test_envelope_for_empty_result_refusal` in `tests/products/test_refusal_envelope.py` landed in the same commit (the kind and that test were RETIRED 2026-09-04 by Phase 24.6 plan 05, `24.6-L-06` — computed-empty is served; cite recast to prose under `D-IMPL-257`) as the kind, under the exact-name coverage rule `24.5-07` shipped; the four closure tests are green at twenty
 - Why: `24.5-L-24`; constraint (a) — every kind crosses without flattening, and this one crosses saying which half fired
 - Migration: none. A consumer enumerating `kind` sees a twentieth
 
 *Recorded by `24.5-15-the-empty-operator-gate-s-two-halves-by-name.md`.*
+
+#### ccf.products.resolver.GovernedResolver.__call__
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the resolved tolerance was narrowed to a number and threaded into
+  `run_gates`, which folded it with the class's ceiling
+- After: the class's declared default joins the resolution as `class_defaults`
+  with the product-class pin as `class_source`; `run_gates` receives no
+  tolerance; and an admitted `ServableProduct` is held to
+  `effective.parameter("debt_tolerance")` by `refuse_over_tolerance`, whose
+  refusal is enveloped with the candidate's lineage
+- Why: the ruled sequence, one step further along: Determination → Authority →
+  Disclosure → Delivery (`D-IMPL-254`), with the delivery decision made where
+  the product it withholds already exists
+- Migration: none at the call seam — the resolver's own signature and return
+  union are unchanged. A caller sees one more possible `RefusalEnvelope` kind
+
+*Recorded by `24.6-04-the-default-tolerance-and-the-tolerance-exceeded-shell.md`.*
+
+#### ccf.products.debt_scorer.AssemblyDebtScorer.__call__ — the zero-observation branch removed
+
+- Surface: ccf.products.debt_scorer.AssemblyDebtScorer
+- Public surface: true
+- Change type: behavior
+- Before: a view carrying no entity record returned `DebtFactors(0, 0, 0)` —
+  `D_c = 1`, routing to `FAIL_CLOSED` — with no scorer pins, from the row count
+  and nothing else
+- After: no branch on cardinality. `F` is the multiplicative identity `1` over
+  an empty observation set (nothing observed has decayed — an algebraic
+  identity, not a domain figure) and carries **no freshness pin**, because no
+  scorer produced it; `C` and `S` are the deployment's scorers' own answers and
+  keep their pins. A deployment with `DeclaredFactor("1")` for both and an empty
+  view now reports `D_c = 0`
+- Why: `D-IMPL-255` (2), and `D-IMPL-253` Q11: *"zero Debt is legitimate when
+  complete evidence establishes that zero really is the answer."*
+- Migration: **a deployment relying on the old fail-closed-on-empty behavior
+  must now declare it.** The way to say *"an empty assembly is a completeness
+  shortfall"* is a completeness scorer that says so — which is where that
+  judgement always belonged, since `C` is deployment knowledge (`D-IMPL-38`).
+  An `EvidenceAwareFactorScorer` is the shipped way to base it on the search
+  rather than on the row count
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.resolver.GovernedResolver — the candidate carries the finding
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the resolver threaded `empty_results=execution.empty_results` into
+  `run_gates`, where a non-empty set was refused by name
+- After: it builds `computed_empty=ComputedEmptyFinding.of(execution,
+  emptiness=emptiness_of(ExecutionEvidence.of(execution)))` onto the candidate,
+  and passes `evidence=ExecutionEvidence.of(execution)` to the debt scorer. The
+  `run_gates` call carries no emptiness record
+- Why: `24.6-L-06`. The record did not disappear; its consumer moved from the
+  gate to the product and to the scoring seam
+- Migration: a governed serve that used to come back as a refusal envelope of
+  kind `empty-result-refusal` now comes back as a served product with an empty
+  payload and a finding. An admitted computed-empty product may still be
+  **withheld** by `refuse_over_tolerance` if its evidence-derived Debt exceeds
+  an applicable tolerance (`24.6-L-05`) — which is Dave's Q12 sentence:
+  *"then an applicable tolerance may cause the shell response."*
+
+*Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.door.DoorOutcome — rule 5 inverted
+
+- Surface: ccf.products.door.DoorOutcome
+- Public surface: true
+- Change type: behavior
+- Before: rule 5 refused a refused outcome that carried any `replay_ref`:
+  *"nothing was delivered, so no replay append authorized anything."*
+- After: rule 5 requires a refused outcome's `replay_ref` to **equal** the one
+  its own envelope carries — the sentinel translating to `None` through one
+  shared helper both the validator and `door_answer` read. The five-rule count
+  is unchanged; rule 4 (no `content_address` on a refusal) stands
+- Why: `D-IMPL-253` Q13. The old reasoning was about *delivery* and the rule it
+  produced quietly asserted what the ruling denies. A refusal is recorded
+  before its shell leaves the resolver, and the door reports where
+- Migration: a consumer that asserted `replay_ref is None` on a refused outcome
+  asserts equality with `refusal.replay_reference` instead. A door emits the
+  reference; it mints nothing
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.client.result.GUARDED_FIELDS and PRE_ASSEMBLY_FIELDS
+
+- Surface: ccf.client.result.GUARDED_FIELDS
+- Public surface: true
+- Change type: behavior
+- Before: six guarded names including `replay_ref`, which raised
+  `RefusedResultError` on a refused `Result`
+- After: five. `replay_ref` moved to `PRE_ASSEMBLY_FIELDS` and is readable on
+  either half, on the same accessor, returning `None` when the producer
+  published none
+- Why: the membership rested on a premise this row removes, verbatim from the
+  constant's own docstring: *"`replay_ref` exists only after the replay record
+  was written, which is strictly after all three gates passed."* The second
+  clause is now false, and guarding the field would be refusing to report an
+  audit trail that exists. The other five are untouched and no guard was
+  weakened
+- Migration: a caller that wrapped `result.replay_ref` in a
+  `try/except RefusedResultError` no longer needs to; the `except` clause
+  simply stops firing. Nothing that read it on a served result changes
+
+*Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
+
+#### ccf.agents.assembler.ContextAssemblerProtocol — the seam's refusal union
+
+- Surface: ccf.agents.assembler.ContextAssemblerProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `-> AssemblyOutcome | ProductRequestViolation | AssemblyRefusal`,
+  with a boundary sentence saying an identity disagreement *"stays
+  `AssemblyRefused`"*
+- After: `-> AssemblyOutcome | ProductRequestViolation | AssemblyRefusal |
+  AnchorAmbiguityRefusal | SubjectUnavailableRefusal`, with the boundary
+  rewritten to Dave's rule. The union is now the set of `REFUSAL_KINDS` members
+  reachable at this seam, listed rather than implied
+- Why: LC-02 measured that `AnchorAmbiguityRefusal` was returnable at this seam
+  and absent from the annotation; `24.6-L-21` adds the shared
+  subject-unavailable outcome beside it. Return types are covariant, so no
+  conforming implementation moves
+- Migration: none for an implementation. A caller that exhaustively matched the
+  three-member union gains two members it did not have to handle before
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.agents.assembler.DeterministicAssembler — the two identity determinations
+
+- Surface: ccf.agents.assembler.DeterministicAssembler
+- Public surface: true
+- Change type: behavior
+- Before: raised `AssemblyRefused` for a foreign tenant and for an undeclared
+  role
+- After: returns `AssemblyRefusal(reason=ASSEMBLY_REASON_TENANT_MISMATCH, ...)`
+  and `AssemblyRefusal(reason=ASSEMBLY_REASON_UNDECLARED_ROLE, ...)`. The prose
+  each raise carried is carried unchanged as `detail`; the ordering — identity
+  before contract conformity — is unchanged
+- Why: `D-IMPL-253` amendment 2 (3). The fabric holds both tenants and both
+  roles and knows exactly which two disagreed, so each is a determination
+- Migration: a caller that wrapped `assemble` in `except AssemblyRefused` for
+  these two conditions now receives a value instead. That is the point: a
+  returned refusal cannot be swallowed by a bare `except`
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.resolver.ReplayRefusalRecorder — disclosure inside the seam
+
+- Surface: ccf.products.resolver.ReplayRefusalRecorder
+- Public surface: true
+- Change type: behavior
+- Before: `record` appended the envelope it was handed and returned that same
+  envelope with its address attached
+- After: `record` resolves the level through the new `disclosure_level_for`
+  attribute, records the **internal** envelope together with the
+  `DisclosureDecision` on replay dimension 5, and returns the **disclosed**
+  shell with its address. So a shell the seam returns is disclosed, and the
+  record holds what the fabric determined
+- Why: `D-IMPL-253` Q27, Dave: *"Don't destroy audit truth merely to achieve
+  external suppression silence."* Recording the disclosed form would be exactly
+  that; disclosing at each door would be two readings of one policy
+- Migration: **a caller reading internal truth off a returned shell now reads
+  the permitted statement instead.** Five shipped test modules were re-derived
+  to read the determination from the record and the statement from the shell,
+  which is a stronger pair than either alone. A deployment with no registered
+  entitlement policy discloses at `minimal`
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.http_api.routes.product — the entitlement refusal body
+
+- Surface: ccf_runtime.http_api.routes.product
+- Public surface: true
+- Change type: behavior
+- Before: an entitlement refusal answered `403` with
+  `{"detail": {"error_code", "message"}}` — a **second** body shape at a door
+  whose fabric refusals used `{"kind", "refusal_type", "refusal"}`, and a
+  message naming the product class the caller may not have
+- After: `404` with the uniform envelope body, `kind ==
+  "subject-unavailable"`. The route calls
+  `ccf_runtime.authz.delivery_boundary.govern_entitlement` and **encodes what
+  it returns**: it holds no `except ProductEntitlementRefused`, mints no replay
+  record, discloses nothing and reads no clock
+- Why: three of the six leak channels `D-IMPL-253` amendment 2 (4) names —
+  transport status, body schema, message text — were open at this door, and a
+  `403` tells an unauthorized principal that the subject exists. The typed
+  codes (`ERROR_PRINCIPAL_NOT_ENTITLED`, `ERROR_PRODUCT_CLASS_UNENTITLED`,
+  `ERROR_PRODUCT_ROLE_UNGRANTED`) are unchanged and still the contract — they
+  are now **internal truth**, recorded in the denial's replay record, and Q27's
+  *"Don't destroy audit truth merely to achieve external suppression
+  silence"* is why they are recorded rather than dropped
+- Migration: **BREAKING DELIVERY-SURFACE CHANGE, ruled and kept**
+  (`D-IMPL-258` (3), Dave, 2026-09-05: *"keep the new behavior. This is an
+  intentional wire change required by the suppression-silence ruling… I would
+  not invent another compatibility shim that resurrects the `403`."*). What an
+  adopter must take on, in the four terms the ruling states it in:
+  1. **a governed entitlement denial returns the same externally observable
+     status family as unavailable/nonexistent** — `404`, not `403`, because a
+     status that differed by cause is itself the leak;
+  2. **the body is the canonical refusal shell** — `{"kind", "refusal_type",
+     "refusal"}`, never the retired `{"detail": {"error_code", "message"}}`;
+  3. **internal/replay truth can still record `unauthorized`** — the typed
+     codes survive in the denial's Decision Replay record, which is what keeps
+     this a disclosure change rather than an erasure;
+  4. **no known governed outcome becomes `500`** — the invariant D-18 states,
+     and the reason the mapping is a total table rather than a set of branches.
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.http_api.routes.product — every other kind's status
+
+- Surface: ccf_runtime.http_api.routes.product
+- Public surface: true
+- Change type: behavior
+- Before: twenty-one of the twenty-three refusal kinds reached
+  `ccf.products.door.served_answer`, which raised `TypeError`: no response at
+  all, an opaque `500`. The module docstring said so, and said the remaining
+  kinds *"wait for their ruling"*
+- After: every kind answers its status class carrying the whole disclosed
+  envelope in the one body shape. `500` is reached only by a `kind` **absent**
+  from `REFUSAL_KINDS` — a value this SDK did not mint claiming to be a
+  refusal, which is an invariant violation and should look like one
+- Why: the ruling arrived (D-18)
+- Migration: a client that treated a `500` from this door as *"the fabric
+  refused in a way HTTP could not express"* now receives `400`, `404` or `409`
+  with a typed body. Nothing that previously succeeded changes
+
+*Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
+
+#### ccf_runtime.mcp.egress — the standing resource's refusal channel
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: the resource body was `canonical_bytes(servable.product)` over
+  whatever the resolver returned. A returned `RefusalEnvelope` has no
+  `.product`, so a governed "no" was an `AttributeError` reaching the client as
+  a resource error — indistinguishable from *not found*. The tool's own
+  docstring recorded the asymmetry as deliberate: *"The resource beside this
+  tool is deliberately unchanged… it has no envelope and no header"*
+- After: the body is the vessel **or** the shell's canonical bytes, told apart
+  by the top-level `kind` key. Both refusal sources reach it: the door's own
+  entitlement denial, already recorded and disclosed by the governed step, and
+  a resolver's governed "no", translated through `door_refusal` — the same
+  function both other doors use
+- Why: `D-IMPL-253` D-19. A shell carries the kind, the permitted statement,
+  and the address of its own decision record; a not-found carries none of the
+  three
+- Migration: a consumer that treated any non-vessel body as an error should
+  read `kind` first. The two shapes cannot validate as each other — both are
+  `extra=forbid` with disjoint required fields
+
+*Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
+
+#### ccf_runtime.mcp.egress — both entitlement paths through the governed step
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: each handler called
+  `ccf_runtime.authz.product_entitlement::entitled_perspective` directly, and a
+  denial **raised** `ProductEntitlementRefused` — reaching an MCP client as
+  `isError` prose carrying the typed `error_code` and, with it, the fact that
+  the subject exists and is merely closed to that caller
+- After: both handlers call
+  `ccf_runtime.authz.delivery_boundary::govern_entitlement` and **encode what
+  it returns**. An entitled `Perspective` continues to the resolver; a denial
+  comes back as an already-recorded, already-disclosed `RefusalEnvelope` of
+  kind `subject-unavailable` at the principal's disclosure level. The tool
+  emits it as `DoorOutcome` bytes with `isError` false; the resource emits its
+  canonical bytes. `egress.py` holds no `except ProductEntitlementRefused`,
+  calls no recorder, discloses nothing and reads no clock
+- Why: `D-IMPL-253` Q20 and Q27, `D-27` amendment 2 (4), and `D-IMPL-256`'s
+  sequence principle — *"Replay belongs to the governed determination, not to
+  HTTP or MCP"* (criterion 36). An unauthorized principal and a nonexistent
+  subject are now one external statement at the same disclosure level; the
+  internal cause (`unauthorized`) and the typed `error_code` survive on the
+  replay record, where an examiner can still tell them apart
+- Migration: a consumer that detected a denial by catching an MCP tool error
+  now receives an answer. Read `DoorOutcome.refusal`
+
+*Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
+
+#### ccf_runtime.mcp.egress — the resource-path denial is recorded under a resource identity
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: a denial on the standing-resource path produced no replay record at
+  all — the *silent second class* `D-IMPL-253` Q13 names, and a replay hole
+  that existed purely because of the transport's shape
+- After: the denial is minted by the governed step at the entitlement source's
+  determination instant, under a
+  `ccf.products.refusal::ResourceRequestIdentity` carrying
+  `surface="mcp-resource"`, the product URI the caller addressed, the tenant,
+  and `determined_at` — which equals the record's `recorded_at`. The shell's
+  `replay_reference` resolves to that record; dimension 4 carries the principal
+  with `NO_ROLE_RESOLVED`, and dimension 2 carries the policy that decided
+- Why: `D-IMPL-256` (1), Dave: *"the request identity for a standing resource
+  may be a different request form, but it still needs enough identity to
+  answer: what resource was requested, by whom/perspective, at what instant,
+  under which policy, and why fulfillment was refused."* D-34: *no fulfilled
+  Context Product does not mean no Decision Replay*
+- Migration: none for a caller. A deployment gains records it did not have
+
+*Recorded by `24.6-10-the-mcp-door-shells-every-governed-determination.md`.*
+
+#### ccf.products.request.ProductRequestViolationReason
+
+- Surface: ccf.products.request.ProductRequestViolationReason
+- Public surface: true
+- Change type: behavior
+- Before: six members, ending `not-supported-at-tier`, `not-a-proportion`
+- After: eight — `below-minimum` and `above-maximum` APPENDED after `not-a-proportion`,
+  never inserted, so every older record's reason meets the same roster prefix
+- Why: the two verdicts the domain step can reach
+- Migration: a consumer switching on the reason meets two new values; both arrive
+  through the existing `product-request-violation` kind, so a door mapping by kind
+  (HTTP `400`, MCP shell) needs nothing — `tests/http_api/test_product_request_violation_400.py`
+  carries `below-minimum` as a control
+
+*Recorded by `24.6-14-the-request-contract-declares-a-parameter-domain.md`.*
+
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: behavior
+- Before: four steps — address, tier, payload, tolerance interval
+- After: five — the domain step runs LAST, over sorted domained names, after the payload
+  comparison has said each parameter is declared, honored and well-typed and after the
+  interval step; a mistyped domained parameter is still `type-mismatch`, an omitted one
+  is the defaults' business and is not judged (the default is held to the domain at
+  declaration instead). Because `ccf.products.constraints.resolve_effective_request`
+  runs this function over the EFFECTIVE request (its step 5), a caller's value below a
+  declared floor is refused there as `below-minimum` with no deployment code involved
+- Why: as above
+- Migration: none for a caller inside every declared domain. cp-04: `max_depth=0` now
+  answers `refused: below-minimum — max_depth` (program exit 1) where it served a
+  one-node family for the eight hours between plan 13 and this ruling; relative to the
+  last published lane (`1.0.x`, floor 1 by the old bounds) the floor is unchanged, so
+  the request-contract lane stays `1.1.0`
+
+*Recorded by `24.6-14-the-request-contract-declares-a-parameter-domain.md`.*
+
+#### ccf_runtime.mcp.experience.build_experience_server — the three entitlement paths
+
+- Surface: ccf_runtime.mcp.experience.build_experience_server
+- Public surface: true
+- Change type: behavior
+- Before: the `context_product` resource, `get_context` and `get_lineage` each
+  called `ccf_runtime.authz.product_entitlement::entitled_perspective`
+  directly and let `ProductEntitlementRefused` raise through MCP. A denial
+  reached an external client as a transport error carrying the entitlement's
+  typed `error_code` and prose, and nothing recorded that a determination had
+  been made at all.
+- After: each path calls `govern_entitlement` and **encodes** what comes back.
+  An entitled `Perspective` continues exactly as before — forwarded to the
+  seam under `D-IMPL-108`, with `get_lineage` still dropping it in the open. A
+  `RefusalEnvelope` is returned as the response's canonical bytes: the same
+  governed shell shape the standing resource carries, told apart from the
+  product or lineage text by the top-level `kind` key. The denial is already
+  minted and already disclosed when it arrives — recorded by the governed step
+  at the entitlement source's own declared instant, under a
+  `ccf.products.refusal.ResourceRequestIdentity` (`mcp-resource` with the
+  product URI for the resource; `mcp-tool` with the tool's declared address for
+  the two tools) — so its `replay_reference` resolves to a real record.
+- Why: criterion 36, Dave: *"Every governed determination that crosses a CCF
+  delivery boundary — fulfilled or refused, tool or resource, authorized or
+  denied — must reach the replay writer before the response is released."* And
+  the sequence principle: *"Replay belongs to the governed determination, not
+  to HTTP or MCP. That matters because otherwise the standing-resource/tool
+  asymmetry simply reappears somewhere else."* This module accordingly mints
+  nothing, discloses nothing, catches nothing and reads no clock.
+- Migration: **a client that read the entitlement's error code off a transport
+  error must change.** A governed denial now arrives as a normal response
+  whose body is a `RefusalEnvelope` — `isError` is False on the tool legs and
+  the resource no longer raises — with `kind == "subject-unavailable"` and the
+  internal cause withheld at the deployment's disclosure level. The internal
+  determination, including the typed `error_code`, is in the replay record the
+  shell's `replay_reference` addresses, and the decision itself is in the
+  Control Plane's `authz_decision` audit event; neither is on the wire. A
+  client that already validated the body as a `RefusalEnvelope` — the SDK's own
+  `ccf.client.result` seam does — needs no change.
+
+*Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
 
 ### Not public Python API
 

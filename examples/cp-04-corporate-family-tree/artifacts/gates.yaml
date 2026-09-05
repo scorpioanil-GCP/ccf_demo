@@ -75,6 +75,13 @@
 # that module's own comment-only check would then demand the very id the
 # withdrawal forbids.
 #
+# EIGHTEEN DECLARED GATES AS OF 2026-09-05 (Phase 24.6 close, `D-IMPL-260`):
+# `CFT-G19` joins — depth and structural cost in the findings, `D-23`, Phase
+# 24.6's criterion 33 — carrying `criterion_phase: "24.6"`, the optional key
+# the closed roster schema grew so a criterion number can say which phase it
+# counts in (24.6's 33 and 24.4's 33 are two criteria). `CFT-G18` now names
+# its phase the same way. The dated notes below are preserved as written.
+#
 # SEVENTEEN DECLARED GATES AS OF 2026-09-03 (Phase 24.5.1, `D-IMPL-245` (4);
 # criterion 19 as amended, `24.5.1-CRITERIA-LOCK.md` Amendment 1): `CFT-G01`
 # through `CFT-G16` and `CFT-G18`. `CFT-G18` is the AMBIGUOUS-ANCHOR gate —
@@ -171,57 +178,93 @@ declaration:
     - id: CFT-G03
       criterion: 27
       statement: >-
-        max_depth above the declared ceiling of 6 is REFUSED BY NAME. Never
-        clamped.
-      test: tests/examples/test_cp_04_traversal.py::test_cft_g03_max_depth_above_the_ceiling_is_refused_by_name
+        max_depth above the BACKEND's TECHNICAL ceiling is refused BY NAME —
+        `constraint-refusal`, `bound.authority == "technical"`, carrying the
+        bound; the capability identity that refused it is on the internal
+        determination and its replay record, and crosses the door only at
+        `full` (`D-IMPL-260` P-F) — and is answered at no narrower depth. A
+        depth this estate cannot exhibit (8) is SERVED.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g03_max_depth_above_the_technical_ceiling_is_refused_by_name
       sabotage: >-
-        replace the refusal with a silent clamp to 6. This is the sabotage a
-        count-based check cannot see — the request says 8, the walk does 6, the
-        payload looks fine and the content address greens.
+        clamp to the technical ceiling instead of refusing. This is the
+        sabotage a count-based check cannot see — the request says 101, the
+        walk does 100, the payload looks fine and the content address greens.
+      # `D-23`'s FINDINGS CLAIM NOW CARRIES ITS OWN ID — `CFT-G19`, below.
+      # Through plan `24.6-13` it could not: a gate row keyed its obligation on
+      # a BARE INTEGER criterion, and Phase 24.6's criterion 33 collided with
+      # Phase 24.4's criterion 33 (this gate's neighbour `CFT-G13`), so the
+      # obligation shipped with its test and its sabotage but under no id, and
+      # the close review raised it as F-D. `D-IMPL-260` (2026-09-05) ruled it
+      # minted: the closed roster schema grew the optional `criterion_phase`
+      # key, and `tests/examples/test_cp_04_gates_declaration.py` keys its
+      # one-to-one check on the `(phase, criterion)` pair.
       observed_red:
         result: >-
-          RED, under its own id, on BOTH limbs. Sabotage applied to
-          `examples/cp-04-corporate-family-tree/deployment.py::resolve_max_depth` — the `DepthOutOfBounds`
-          return replaced by `min(max(requested, minimum), maximum)`. Observed —
-          "CFT-G03: max_depth=7 was ANSWERED rather than refused — a tree came
-          back, walked at max_depth_applied=6 over 22 members" and "and the
-          answer was CLAMPED to the declared ceiling 6." This is the
-          fourteen-idle-gates class stated concretely: the request said 7, the
-          walk did 6, the payload was well formed and the content address
-          greened. A gate inspecting only the returned tree could not have told
-          the clamp from the refusal, which is why this one asserts that NO tree
-          came back. The bounds the refusal is checked against are read from
-          `examples/cp-04-corporate-family-tree/ccf_config.yaml` through the deployment's accessors; the
-          sabotage edits `examples/cp-04-corporate-family-tree/deployment.py` and never the declaration, so the
-          two sides cannot move together.
-        date: "2026-09-01"
-        commit: "6213b86"
+          RED, under its own id, on BOTH limbs — re-observed 2026-09-05 against
+          the LIVE estate (ledger `fibo-v2`, PostgreSQL schema `ccf_v2`) after
+          `24.6-L-01` moved the gate's subject from the deleted declared bound
+          to the substrate's technical capability. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/assembler.py`: the
+          `ConstraintRefusal` branch replaced by a clamp to
+          `effective.bound.value` and a re-entry into the spine at that depth.
+          The SHIPPED predicate
+          (`tests/examples/test_cp_04_traversal.py::refusal_violations`) then
+          reported TWO violations — "max_depth=101 was ANSWERED rather than
+          refused — a tree came back, walked at max_depth_applied=100 over 22
+          members" and "and the answer was CLAMPED to the technical capability
+          100." The program itself printed `depth applied 100 requested, 3
+          reached` for a request at 101, which is the fourteen-idle-gates class
+          stated concretely: well-formed payload, greened content address, and
+          a question nobody asked. Restored by `cp` and verified `cmp`-clean;
+          the same predicate reported 0 violations afterwards and a request at
+          depth 8 came back SERVED with `requested_depth: 8, depth_reached: 3`.
+          The capability the refusal is held against is read off the graph leg
+          through `ccf.graph.protocols::TraversalDepthCapability`; the sabotage
+          edits `assembler.py` and never the substrate, so the two sides cannot
+          move together.
+        date: "2026-09-05"
+        commit: "24a8b5a3"
 
     - id: CFT-G04
       criterion: 28
       statement: >-
-        A missing max_depth takes the DECLARED default of 3 — read from the
-        declaration, never invented at serve time.
+        A missing max_depth takes the DECLARED default, read by the SDK's own
+        resolution from `ccf_config.yaml`'s `request_contract.defaults` and
+        never invented at serve time. The walk FOLLOWS the declaration: moving
+        it moves the depth applied and the members served.
       test: tests/examples/test_cp_04_traversal.py::test_cft_g04_a_missing_max_depth_takes_the_declared_default
-      sabotage: default at serve time instead of reading the declaration
+      sabotage: >-
+        default at serve time instead of letting the declaration resolve it —
+        substitute a literal for the absent parameter before the effective
+        request is resolved
       observed_red:
         result: >-
           RED, under its own id — and RED ONLY on the control limb, which is the
-          whole reason the control lives inside the gate. Sabotage applied to
-          `examples/cp-04-corporate-family-tree/deployment.py::resolve_max_depth` — `declared_depth_default()`
-          replaced by the literal `3`, a serve-time default equal to the shipped
+          whole reason the control lives inside the gate. Re-observed 2026-09-05
+          against the LIVE estate after `24.6-L-01` moved the default's
+          resolution from the deployment to the SDK. Sabotage applied to
+          `examples/cp-04-corporate-family-tree/assembler.py`: a serve-time
+          substitution of the literal `3` onto an absent `max_depth`, before
+          the effective request is resolved — a default equal to the shipped
           declaration. THE PLAIN LIMB PASSED UNDER THE SABOTAGE: a missing
-          max_depth still walked at 3, exactly as a number-only check would have
-          reported. Observed — "CFT-G04: with the declared default moved to 1, a
+          max_depth still walked at 3, exactly as a number-only check would
+          have reported. The SHIPPED predicate
+          (`tests/examples/test_cp_04_traversal.py::default_violations`) then
+          reported TWO violations — "with the declared default moved to 1, a
           missing max_depth still walked at 3. The default did not FOLLOW the
           declaration" and "moving the declared default served the IDENTICAL
           member roster (22 members)." The control moves the declaration in a
-          SCRATCH TEXT COPY of `examples/cp-04-corporate-family-tree/ccf_config.yaml` — a text rewrite, because
-          `examples/cp-04-corporate-family-tree/deployment.py::refuse_stale_vocabulary_pointer` reads that
-          document's comments and a YAML round trip would lose them — while the
-          sabotage edits `examples/cp-04-corporate-family-tree/deployment.py`. Two different files.
-        date: "2026-09-01"
-        commit: "6213b86"
+          SCRATCH TEXT COPY of
+          `examples/cp-04-corporate-family-tree/ccf_config.yaml` — a text
+          rewrite, because
+          `examples/cp-04-corporate-family-tree/deployment.py::refuse_stale_vocabulary_pointer`
+          reads that document's comments and a YAML round trip would lose them
+          — while the sabotage edits `assembler.py`. Two different files.
+          Restored by `cp` and verified `cmp`-clean; 0 violations afterwards,
+          with the shipped declaration walking at 3 and the scratch one at 1
+          over two different rosters.
+        date: "2026-09-05"
+        commit: "24a8b5a3"
 
     - id: CFT-G05
       criterion: 29
@@ -688,10 +731,12 @@ declaration:
       statement: >-
         The MCP door SERVES THROUGH THE TOOL ONLY, and the registered product
         resource REFUSES. Three parts, asserted together — (a) the resource IS
-        registered and enumerable in resources/list; (b) a resolve or read of it
-        returns ProductNotServable, or the existing refusal type, and NEVER a
-        tree; (c) the TOOL is the only path that serves, taking a
-        client-supplied lei and max_depth.
+        registered and enumerable in resources/list; (b) a resolve of it raises
+        the resolver's ProductNotServable, which the door records and answers
+        as the common `subject-unavailable` shell (`D-IMPL-260` P-C) with the
+        deployment's stated reason on the RECORD and never on the wire below
+        `full` — and NEVER a tree; (c) the TOOL is the only path that serves,
+        taking a client-supplied lei and max_depth.
       test: tests/examples/test_cp_04_seams.py::test_cft_g13_the_tool_serves_and_the_registered_resource_refuses
       sabotage: >-
         make the resolver return a payload — a resource read that yields a tree
@@ -990,6 +1035,7 @@ declaration:
     # either: it is the artifact's SCHEMA lane, and the schema is unchanged.
     - id: CFT-G18
       criterion: 19
+      criterion_phase: "24.5.1"
       statement: >-
         An anchor LEI that resolves to MORE THAN ONE node is refused as typed
         ambiguity data — `AnchorAmbiguityRefusal` carrying the anchor and every
@@ -1033,3 +1079,40 @@ declaration:
           `deployment.py` and `assembler.py`. Different files.
         date: "2026-09-03"
         commit: "7a89d0f5"
+    - id: CFT-G19
+      criterion: 33
+      # Phase 24.6's criterion 33, not Phase 24.4's (which `CFT-G13` claims):
+      # the optional key that lets one integer count in two phases' rosters.
+      criterion_phase: "24.6"
+      statement: >-
+        The findings carry the REQUESTED depth, the depth actually REACHED, and
+        the walk's cost as deterministic STRUCTURAL counts — nodes visited,
+        edges walked — and no wall-clock time appears anywhere in addressed
+        content (the canonical bytes are greped for a duration token and for
+        any RFC3339 instant outside the three vessel fields that legitimately
+        carry one). Requested depth stays part of product identity.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g19_findings_carry_depth_and_structural_cost_and_no_clock
+      sabotage: >-
+        put an elapsed time in the cost block — the payload still looks
+        informative, every run becomes a different product, and the seal stops
+        reproducing. A count-based check cannot see it; the gate greps the
+        addressed bytes.
+      observed_red:
+        result: >-
+          RED, under its own id, against the LIVE Fluree leg (ledger
+          `fibo-v2`) on 2026-09-05 at the Phase 24.6 correction pass. Sabotage
+          applied to the traversal finding's cost block in
+          `examples/cp-04-corporate-family-tree/projection.py` — `"elapsed_ms":
+          12` added beside `nodes_visited` and
+          `edges_walked`. The shipped test reported on the cost-roster limb
+          first: "AssertionError: {'edges_walked': 25, 'elapsed_ms': 12,
+          'nodes_visited': 22} … At index 1 diff: 'elapsed_ms' !=
+          'nodes_visited'" — a wall-clock member in addressed content, caught
+          before the duration-token grep it would also have failed. Restored
+          by reversing the one-line edit; `git diff` on the file then showed
+          only the test's rename (`test_findings_carry…` →
+          `test_cft_g19_findings_carry…`), and the gate was green again.
+          The two sabotages plan `24.6-13` watched RED under the unminted
+          obligation (24.6-13 SUMMARY) stand as the earlier observations.
+        date: "2026-09-05"
+        commit: "f4277b49"

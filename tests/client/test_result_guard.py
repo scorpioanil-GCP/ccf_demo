@@ -131,15 +131,23 @@ def a_served_result() -> Result:
     )
 
 
-def a_refused_result(*, refusal: RefusalEnvelope | None = None) -> Result:
-    """A result the fabric refused — the fabric working, not failing."""
+def a_refused_result(
+    *, refusal: RefusalEnvelope | None = None, replay_ref: str | None = "replay-2"
+) -> Result:
+    """A result the fabric refused — the fabric working, not failing.
+
+    It carries a replay reference by default as of ``24.6-07``, because that is
+    now the ordinary case: a refusal is a recorded decision (``D-IMPL-253``
+    Q13). ``replay_ref=None`` is still constructible and is the honest report
+    that the producing deployment published none.
+    """
     return Result(
         product_id="ccf.test-product",
         parameters=_PARAMETERS,
         temporal_boundary=_INSTANT,
         vessel=None,
         content_address=None,
-        replay_ref=None,
+        replay_ref=replay_ref,
         refusal=refusal if refusal is not None else a_request_refusal(),
     )
 
@@ -251,16 +259,46 @@ def test_refusal_is_none_on_a_served_result() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_six_fields_are_guarded_and_the_count_is_the_ruled_one() -> None:
-    """``D-08`` names six. A tuple that grew or shrank is a ruling, not a diff."""
+def test_the_guarded_fields_are_the_ruled_roster() -> None:
+    """``D-08`` named six; ``24.6-07`` makes it five, under a ruling.
+
+    A tuple that grew or shrank is a ruling and not a diff, so the change is
+    named here rather than left to be noticed. ``replay_ref`` left the group
+    because its membership rested on a premise the project removed, verbatim
+    from the constant's own docstring: *"``replay_ref`` exists only after the
+    replay record was written, which is strictly after all three gates
+    passed."* ``D-IMPL-253`` Q13 — *"Refusal is itself a decision and deserves
+    the same five-dimensional replay model. Do not create second-class
+    replay."* — makes the second clause false. The identical inversion is
+    applied at ``DoorOutcome``'s rule 5 in the same row.
+
+    The other five are untouched, and that is the load-bearing half: this row
+    reclassified exactly one name and weakened no guard.
+    """
     assert GUARDED_FIELDS == (
         "payload",
         "debt",
         "content_address",
-        "replay_ref",
         "lineage",
         "expires_at",
     )
+    assert "replay_ref" in PRE_ASSEMBLY_FIELDS
+    assert "replay_ref" not in GUARDED_FIELDS
+
+
+def test_a_refused_result_reads_its_replay_reference_rather_than_raising() -> None:
+    """The inversion's behavioral half (``24.6-07``).
+
+    The roster assertion above would pass on a `Result` that still raised — a
+    tuple is not the guard. This reads the accessor on both halves.
+    """
+    refused = a_refused_result()
+    assert refused.refused
+    assert refused.replay_ref == "replay-2"
+    # And the absence still reads as an absence rather than a raise: `None` is
+    # *the producer published none*, on either half.
+    assert a_refused_result(replay_ref=None).replay_ref is None
+    assert a_served_result().replay_ref == "replay-1"
 
 
 @pytest.mark.parametrize("field", GUARDED_FIELDS)

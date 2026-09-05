@@ -1,7 +1,13 @@
 """The MCP door carries the declared-obligation kind with no runtime edit.
 
-Ledger row ``24.5-L-14`` (door half), the MCP mirror of criterion 21's typed
-``409``; CLAUDE.md §7.1 (MCP as egress) and §8.3. The HTTP door maps ONE
+Ledger rows ``24.5-L-26`` and ``24.6-L-04`` (door half), the MCP mirror of the
+HTTP door's typed ``409``; CLAUDE.md §7.1 (MCP as egress) and §8.3.
+
+**Re-derived at ``24.6-04``**: the kind under test carried a debt half when
+this module was written, and that is the half it exercised. The half is
+retired (``D-IMPL-251`` C1=A), so what travels below is the LINEAGE
+obligation. Nothing about the door changed, which is the module's own claim
+restated — it carries what the vocabulary carries. The HTTP door maps ONE
 refusal kind to a status (plan ``24.5-14``, ``routes/product.py``); the MCP
 tool has no status to map to and needs none — its refusal channel is the
 :class:`~ccf.products.door.DoorOutcome` return value Wave 2 shipped
@@ -24,6 +30,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+import re
 from pathlib import Path
 from typing import Any
 
@@ -42,11 +49,13 @@ from test_egress_refusal_envelope import (
     _ask_mcp_door,
     _decode,
     _identity,
+    _minted,
 )
 
-#: What the gate said, rendered as it crosses the wire. Test vocabulary.
-DECLARED = "0.25"
-OBSERVED = "0.61"
+#: What the gate said, rendered as it crosses the wire: the obliged payload
+#: member and the state the candidate carried it in. Test vocabulary.
+DECLARED = "inputs"
+OBSERVED = "absent"
 
 #: The kind under test, read from the mapping — one spelling in the tree.
 KIND = REFUSAL_KINDS[DeclaredObligationRefusal]
@@ -63,14 +72,15 @@ def assembled(tmp_path_factory: pytest.TempPathFactory) -> Any:
 
 
 def _refusal() -> DeclaredObligationRefusal:
-    """What the declared-obligations gate returns for an over-ceiling product."""
+    """What the declared-obligations gate returns for a dropped lineage member."""
     return DeclaredObligationRefusal(
         gate=GATE_DECLARED_OBLIGATIONS,
         detail=(
-            f"product carries D_c {OBSERVED}, over the effective ceiling"
-            f" {DECLARED} — the Standard §9's 409"
+            f"product declares a lineage obligation on payload member"
+            f" {DECLARED!r}, which is {OBSERVED} — every served line must name"
+            " what it was computed from (24.5-L-26)"
         ),
-        obligation="debt-ceiling",
+        obligation="lineage-inputs",
         declared=DECLARED,
         observed=OBSERVED,
     )
@@ -104,7 +114,7 @@ def _assert_declared_obligation_kind(
     assert set(refusal.fields) == {"obligation", "declared", "observed"}
     # Envelope fields arrive in the SDK's one canonical form — a string
     # quoted — so the value is decoded, never compared to a bare literal.
-    assert json.loads(refusal.fields["obligation"]) == "debt-ceiling"
+    assert json.loads(refusal.fields["obligation"]) == "lineage-inputs"
     assert json.loads(refusal.fields["declared"]) == DECLARED
     assert json.loads(refusal.fields["observed"]) == OBSERVED
     assert refusal.request == _identity(address)
@@ -123,30 +133,42 @@ def test_a_declared_obligation_refusal_arrives_as_its_typed_kind(
     dropped the pre-assembly lineage a gate refusal genuinely had.
     """
     address = assembled.address
+    # Minted at `full` so the lineage the gate refusal genuinely had crosses;
+    # the door releases only what the recorder returned (`D-IMPL-260` P-A).
     is_error, text = _ask_mcp_door(
-        tmp_path, address=address, resolver=_answering(_envelope(assembled))
+        tmp_path,
+        address=address,
+        resolver=_answering(
+            _minted(tmp_path, address, _envelope(assembled), level="full")
+        ),
     )
 
     refusal = _assert_declared_obligation_kind(is_error, text, address=address)
     assert refusal.pre_assembly_lineage == assembled.servable.product.lineage
 
 
-def test_a_bare_declared_obligation_refusal_is_translated_at_the_mcp_door(
+def test_a_bare_declared_obligation_refusal_does_not_cross_the_mcp_door(
     assembled: Any, tmp_path: Path
 ) -> None:
-    """A deployment resolver returning what ``run_gates`` gave it: same kind, same fields.
+    """``D-IMPL-260`` P-A: what ``run_gates`` gave a resolver is not a governed answer yet.
 
-    The door supplies the request identity from the question it carried and
-    reports the lineage as honestly absent — the same translation the HTTP
-    door runs, through the same :func:`~ccf.products.door.door_refusal`.
+    Until this ruling the door translated the bare value itself — undisclosed,
+    unrecorded — and answered with it. It now refuses the bare value as a
+    wiring defect, which this door reports as its opaque runtime failure: no
+    kind, no type name, no prose, and never a refusal the fabric made.
     """
     address = assembled.address
     is_error, text = _ask_mcp_door(
         tmp_path, address=address, resolver=_answering(_refusal())
     )
 
-    refusal = _assert_declared_obligation_kind(is_error, text, address=address)
-    assert refusal.pre_assembly_lineage is None
+    assert is_error is True, text
+    assert re.fullmatch(
+        rf"(Error executing tool [^:\s]+: )?{egress.CCF_FAILURE_PREFIX}:[0-9a-f]{{32}}",
+        text.strip(),
+    ), text
+    assert "DeclaredObligationRefusal" not in text
+    assert KIND not in text
 
 
 def test_the_egress_module_names_neither_the_kind_nor_the_type() -> None:

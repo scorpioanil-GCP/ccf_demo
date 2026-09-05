@@ -324,6 +324,7 @@ class Fabric:
         )
         self.product_address = assembled.address
         servable = assembled.servable
+        served = assembled.served
 
         # Every call the widened D-IMPL-108 seam receives, in order — so a
         # test can assert on the *value* the door forwarded rather than only
@@ -335,6 +336,9 @@ class Fabric:
         #: test can compare served bytes against it without calling the
         #: resolver (which now requires an authorized perspective).
         self.product_servable = servable
+        #: The same vessel SERVED — its record appended, its reference carried —
+        #: which is the only served shape a door releases (`D-IMPL-260` P-A).
+        self.product_served = served
 
         def resolver(
             *,
@@ -343,7 +347,7 @@ class Fabric:
             version: str,
             perspective: Perspective,
             request: Any,
-        ) -> ServableProduct:
+        ) -> Any:
             self.resolver_calls.append((perspective, request))
             address = assembled.address
             if (tenant, product_class, version) == (
@@ -351,7 +355,7 @@ class Fabric:
                 address.product_class,
                 address.version,
             ):
-                return servable
+                return served
             raise ProductNotServable(
                 f"no gate-admitted product at {tenant}/{product_class}/"
                 f"{version}"

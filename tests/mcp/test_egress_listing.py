@@ -51,6 +51,7 @@ import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -62,7 +63,9 @@ from mcp.types import TextContent, TextResourceContents
 from pydantic import AnyHttpUrl, AnyUrl
 
 from ccf.contracts.canonical import canonical_bytes
+from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.mcp.client import run_with_session
 from ccf.mcp.errors import McpServerUnreachable
 from ccf.products.door import DoorOutcome, WireRequest, door_question
@@ -77,6 +80,7 @@ from ccf.products.request import (
     ProductRequestContract,
     refuse_request,
 )
+from ccf.products.refusal import RequestIdentity, envelope_for
 from ccf.projection.plan import Perspective
 from ccf.skills.catalog import SkillArgumentProperty, SkillArgumentSchema
 from ccf_runtime.authz.product_entitlement import (
@@ -98,11 +102,16 @@ from ccf_runtime.mcp.egress import (
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
 
 #: Test deployment vocabulary; the SDK ships none of it.
+REPLAY_ARTIFACT_CLASS = "egress-listing-replay-record"
 TOKEN = "egress-listing-token"
 PRINCIPAL = "egress-listing-caller"
 SCOPE = "ccf:egress-listing"
 ROLE = "egress-listing-role"
 SERVER_NAME = "ccf-egress-listing"
+
+#: The artifact class this module's doors file a denial under. Nothing here
+#: denies, but a door that entitles binds a recorder (`D-IMPL-256` (2)).
+REPLAY_RECORD_CLASS = "egress-fixture.replay-record"
 POLICY_VERSION = "1.0.0"
 AUDIT_INSTANT = datetime(2026, 9, 2, tzinfo=UTC)
 TOOL_DESCRIPTION = "Ask this test deployment's product class a question."
@@ -244,7 +253,15 @@ def _answering(outcome: object) -> Callable[..., object]:
 
 
 def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
-    """A resolver that runs the one shared comparison and returns its verdict."""
+    """A resolver that runs the one shared comparison and RECORDS its verdict.
+
+    `D-IMPL-260` P-A: a door releases only the shell the recorder returned, so
+    the verdict is handed through the one minting seam over a per-resolver
+    store, exactly as the SDK's own resolver does on every refusal branch.
+    """
+    store = FileArtifactStore(
+        root=Path(tempfile.mkdtemp(prefix="egress-listing-refusing-")) / "artifacts"
+    )
 
     def resolve(
         *,
@@ -260,7 +277,26 @@ def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
             "this leg's caller was built to violate the declared surface and"
             " did not; the fixture, not the door, is what failed"
         )
-        return violation
+        recorder = ReplayRefusalRecorder(
+            artifact_store=store,
+            replay_record_class=REPLAY_ARTIFACT_CLASS,
+            tenant_id=tenant,
+            assembly_mode="algorithmic",
+        )
+        return recorder.record(
+            envelope_for(
+                violation,
+                request=RequestIdentity(
+                    product_id=product_class,
+                    product_version=version,
+                    parameters=request.parameters,
+                    temporal_boundary=request.asked_at,
+                ),
+            ),
+            perspective=perspective,
+            recorded_at=request.asked_at,
+            request=request,
+        )
 
     return resolve
 
@@ -300,6 +336,24 @@ def _entitlement(address: ProductAddress) -> ControlPlaneProductEntitlementSourc
     )
 
 
+def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
+    """The ONE minting seam this module's doors bind (`D-IMPL-256` (2)).
+
+    Built with the keyword list `ccf.products.resolver::build_governed_resolver`
+    uses for its own, so a door's recorder and a resolver's are the same shape
+    over one store. Copied rather than imported from a sibling test module: two
+    suites that answer different questions should not be coupled by a fixture.
+    Nothing here denies — these doors serve — but a door that entitles does not
+    build without somewhere to record a denial, and that is the point.
+    """
+    return ReplayRefusalRecorder(
+        artifact_store=FileArtifactStore(root=root / "artifacts"),
+        replay_record_class=REPLAY_RECORD_CLASS,
+        tenant_id=tenant,
+        assembly_mode="algorithmic",
+    )
+
+
 def _server(
     root: Path,
     *,
@@ -330,6 +384,7 @@ def _server(
                 principal_id=grant.client_id, role=ROLE
             )
         ),
+        refusal_recorder=_recorder(root, tenant=address.tenant),
         expose_product_resource=expose_resource,
         expose_product_tool=True,
         product_tool_description=TOOL_DESCRIPTION,
@@ -463,7 +518,7 @@ def _enumerate(
     door = _server(
         tmp_path,
         address=assembled.address,
-        resolver=_answering(assembled.servable),
+        resolver=_answering(assembled.served),
         expose_resource=expose_resource,
         **({} if builder is None else {"builder": builder}),
     )
@@ -617,7 +672,7 @@ def test_a_surface_less_door_is_refused(assembled: Any, tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="D-03") as refused:
         build_egress_server(
             server_name=SERVER_NAME,
-            resolver=_answering(assembled.servable),  # type: ignore[arg-type]
+            resolver=_answering(assembled.served),  # type: ignore[arg-type]
             token_verifier=SourceBackedTokenVerifier(
                 source=FileTokenSource(path=_token_file(tmp_path))
             ),
@@ -632,6 +687,12 @@ def test_a_surface_less_door_is_refused(assembled: Any, tmp_path: Path) -> None:
                     principal_id=grant.client_id, role=ROLE
                 )
             ),
+            # Bound so the D-03 refusal below is the one under test. Since
+            # `D-IMPL-256` (2) the recorder check runs FIRST — deliberately, so
+            # that a door which could deny unrecorded never reaches the point
+            # of having surfaces to argue about — and an unbound door would
+            # raise the wrong `ValueError` here.
+            refusal_recorder=_recorder(tmp_path, tenant=assembled.address.tenant),
             expose_product_resource=False,
             expose_product_tool=False,
         )
@@ -646,7 +707,7 @@ def test_a_surface_less_door_is_refused(assembled: Any, tmp_path: Path) -> None:
 def _resolver_for(assembled: Any, leg: str) -> tuple[Callable[..., object], Mapping[str, Any]]:
     """The served leg and the refused leg: one resolver each, and the parameters that reach it."""
     if leg == "served":
-        return _answering(assembled.servable), CALLER_PARAMETERS
+        return _answering(assembled.served), CALLER_PARAMETERS
     # Omit the required parameter, so the resolver's own comparison refuses.
     return _refusing(_contract(assembled.address)), {}
 
@@ -772,7 +833,7 @@ def test_a_tampered_address_is_refused_by_name(assembled: Any, tmp_path: Path) -
     door = _server(
         tmp_path,
         address=address,
-        resolver=_answering(assembled.servable),
+        resolver=_answering(assembled.served),
         expose_resource=True,
     )
     results = _drive(
@@ -820,7 +881,7 @@ def test_a_plain_product_uri_does_not_match_the_address_template(
     door = _server(
         tmp_path,
         address=address,
-        resolver=_answering(assembled.servable),
+        resolver=_answering(assembled.served),
         expose_resource=expose_resource,
     )
     templates = _templates_of(door)
@@ -862,7 +923,7 @@ def test_an_address_uri_does_not_reach_the_product_handler(
     door = _server(
         tmp_path,
         address=address,
-        resolver=_answering(assembled.servable),
+        resolver=_answering(assembled.served),
         expose_resource=expose_resource,
     )
     results = _drive(

@@ -24,13 +24,23 @@ data says about the members that have a record. Neither store holds the answer;
 the assembly does.
 
 **A walk instead of a lookup, and the depth is part of the answer's identity.**
-`max_depth` is the parameter this rung exists for. Three properties ride on it
-and each is gated separately: above the declared ceiling of 6 it is **refused by
-name and never clamped**; absent, it takes the **declared default of 3** read
-from `ccf_config.yaml` rather than invented at serve time; and **two depths are
-two content addresses**, because they are two answers to two different
-questions. A silent clamp is the failure this rung is most exposed to — the
-request says 8, the walk does 6, the payload looks fine and the seal greens.
+`max_depth` is the parameter this rung exists for. Five properties ride on it
+and each is gated separately: absent, it takes the **declared default of 3**,
+read from `ccf_config.yaml`'s `request_contract.defaults` by the SDK's own
+request resolution rather than invented at serve time; below the **declared
+minimum of 1** — the parameter's valid domain, declared under
+`request_contract.argument_domains` and held by the SDK's request validation —
+it is refused as `below-minimum`, because a zero-hop family is not a question
+this product answers; a depth **this estate cannot exhibit is served** — asked
+8, the walk reaches 3, and the payload's `traversal` finding carries the depth
+requested beside the depth reached; a depth above the **backend's technical
+capability** (100 here, read off the substrate in force, authority
+`technical`) is **refused by name** as `constraint-refusal` and answered at no
+narrower depth; and **two depths are two content addresses**, because they are
+two answers to two different questions. Three numbers, three kinds of
+statement: `3` is what omission means, `1` is where the valid domain begins,
+`100` is what the backend can do — and only the first two are authored here. A silent clamp is the failure this rung is most exposed to — the
+request says 101, the walk does 100, the payload looks fine and the seal greens.
 
 **Ontology load-bearing in three places, not one.** The class chain is *served*,
 so a consuming agent knows what each member is without a second lookup. The
@@ -104,9 +114,9 @@ make -s example-cp-04
 between this target's output and the transcript published on the documentation
 page.
 
-The `assembled by` line names the assembler implementation that produced this run (`cp-04.corporate-family-tree@1.0.1`) — transcript evidence, read off the program's own stdout.
+The `assembled by` line names the assembler implementation that produced this run (`cp-04.corporate-family-tree@1.0.2`) — transcript evidence, read off the program's own stdout.
 
-Replay carriage of that identity is a Phase 24.6 ledger row (`D-IMPL-245` amendment 1); the transcript is the evidence the example can carry today.
+Decision Replay carries the same identity: the assembler id and version land under Perspective Conditioning for fulfilled **and** refused decisions, which `tests/examples/test_cp_04_seams.py::test_replay_carries_the_assembler_identity_for_fulfilled_and_refused` proves. The transcript line is evidence beside the record, not the only carrier.
 
 **4 · Without make**, spelling the interpreter explicitly:
 
@@ -119,24 +129,49 @@ the run asks the question declared in `artifacts/question.yaml`.
 
 | Command | What changes |
 |---|---|
-| `make -s example-cp-04 MAX_DEPTH=1` | one hop instead of the declared three. **20 members instead of 22**, the seal moves from `205ae065…` to `56c1d54d…`, and **`D_c` moves from `0.0909` to `0.1`** because `S` is taken over what was served — `18/20` here against `20/22` at the default. Two depths are two answers |
-| `make -s example-cp-04 MAX_DEPTH=2` | the same **22** members as the default — and still a different seal, `70df088f…`. The only payload difference is the echoed `max_depth_applied`, so this pair shows that the depth asked travels into the answer's identity; it is `MAX_DEPTH=1` that shows the walk itself moving |
-| `make -s example-cp-04 ROLE=kyc-analyst` | the other declared perspective. The same 22 members, **0 detailed instead of 22**, sealing to `838afbb0…`. The two roles sit on opposite sides of one FIBO class axis, which is why this flag can fail rather than decorate |
-| `make -s example-cp-04 ROLE=credit-officer` | the default perspective, named explicitly. Identical to the default run, `205ae065…` |
-| `make -s example-cp-04 LEI=549300F16C4PEFXU0S92` | a second anchor **inside the same family**. Refused — see below |
+| `make -s example-cp-04 MAX_DEPTH=1` | one hop instead of the declared three. **20 members instead of 22**, the seal moves from `fad6e55d…` to `7163d0a1…`, and **`D_c` moves from `0.0909` to `0.1`** because `S` is taken over what was served — `18/20` here against `20/22` at the default. Two depths are two answers |
+| `make -s example-cp-04 MAX_DEPTH=2` | the same **22** members as the default — and still a different seal, `763faf5a…`. The only payload difference is the depth echoed into `max_depth_applied` and the `traversal` finding, so this pair shows that the depth asked travels into the answer's identity; it is `MAX_DEPTH=1` that shows the walk itself moving |
+| `make -s example-cp-04 MAX_DEPTH=8` | **served, not refused.** The same 22 members, with `requested_depth: 8` beside `depth_reached: 3` in the `traversal` finding, sealing to `2607d522…`. A depth this estate cannot exhibit is an answer with the gap visible; the estate's own deepest tree (6, measured in `CP-SPEC-004` §B.4.1) is history, not a bound |
+| `make -s example-cp-04 ROLE=kyc-analyst` | the other declared perspective. The same 22 members, **0 detailed instead of 22**, sealing to `79733117…`. The two roles sit on opposite sides of one FIBO class axis, which is why this flag can fail rather than decorate |
+| `make -s example-cp-04 ROLE=credit-officer` | the default perspective, named explicitly. Identical to the default run, `fad6e55d…` |
+| `make -s example-cp-04 LEI=549300F16C4PEFXU0S92` | a second anchor **inside the same family**. **Served** as a one-member family (`1 node(s) visited, 0 edge(s) walked`) carrying an `idle_jurisdictions` finding that names `US-DE`, the declared jurisdiction no member of *this* family serves; seals to `9865568d…`. See below |
 
 **6 · Four variations exit non-zero, and that is correct.** A refusal is not a
 crash, but it is also not a success, so `make` reports `Error 1`. The program's
 own exit code is `1`; `make`'s is `2`, which is make's status for a failed
 recipe rather than anything this program chose. Each refusal is one line on
 **stderr** — stdout is empty — and the four blocks below quote that line byte
-for byte from a 2026-09-03 capture.
+for byte from a 2026-09-05 capture. The line prints the refusal's *reason* and
+the parameter it names; the *kind* travels on the envelope the program branched
+on, and each kind is named beneath its block.
 
 ```
-make -s example-cp-04 MAX_DEPTH=8
+make -s example-cp-04 MAX_DEPTH=0
 ```
 
-> `assembly refused: 400 max_depth=8 is outside the declared bounds 1..6. REFUSED BY NAME, never clamped — a clamped depth answers a question nobody asked, with no error`
+> `refused: below-minimum — max_depth`
+
+That is the `product-request-violation` kind — the request is not a well-formed
+question of this class. The floor of `1` is the parameter's valid domain,
+declared on the request contract in `ccf_config.yaml` under `argument_domains`
+and held by the SDK's own `refuse_request`; it is not a policy constraint, and
+no module in this example reads the number. Deleting the declaration is the
+sabotage that makes `tests/examples/test_cp_04_traversal.py::test_the_floor_is_the_sdks_verdict_over_the_declaration_and_needs_no_store`
+go red — and it was watched going red, because before the floor was declared
+this ask was served as a one-node family.
+
+```
+make -s example-cp-04 MAX_DEPTH=101
+```
+
+> `refused: bound-exceeded — max_depth`
+
+That is the `constraint-refusal` kind. The backend's technical capability is
+100 for this substrate (`fluree/fibo-v2`); the bound rides on the envelope with
+authority `technical`, and the request is answered at no narrower depth. The
+number is authored nowhere in this example — `ccf_config.yaml` binds `max_depth`
+to the SDK's `traversal-depth` capability token under `capability_bindings`, and
+the value is read off the substrate at resolution time.
 
 ```
 make -s example-cp-04 AS_OF=2026-03-31
@@ -155,25 +190,38 @@ under `unsupported_arguments`.
 make -s example-cp-04 LEI=000000000000000000ZZ
 ```
 
-> `assembly refused: family '000000000000000000ZZ' is not available (404); §D.2 fails closed rather than returning an empty payload. A family with no members would read as 'this company has no subsidiaries', which is a claim about the world rather than about the request`
+> `refused: subject-unavailable`
 
-```
-make -s example-cp-04 LEI=549300F16C4PEFXU0S92
-```
+An anchor the ledger does not carry is a governed determination, not an
+exception: the assembler returns a `subject-unavailable` refusal and the program
+prints it. A family with no members would read as "this company has no
+subsidiaries", which is a claim about the world rather than about the request,
+so an empty payload is not what comes back either. At the doors, the disclosed
+shell for a subject that does not exist and for a subject the caller is not
+entitled to is the same shell at the same disclosure level — the SDK's
+disclosure step normalizes the two, and the internal record keeps the truth.
 
-> `assembly refused: artifacts/source-vocabulary.yaml declares jurisdiction(s) ['US-DE'] that no member of this family serves. The declared set is the family's OBSERVED set; a row that never fires is how an idle gate looks, and the observed set is ['NL'].`
+**Three conditions are not refusals at all, and the runner says so with a
+different exit code.** A node the walk admitted that the minting step did not
+cover, a served member set carrying no jurisdiction against a declared
+requirement, and a served jurisdiction outside the closed vocabulary in
+`artifacts/source-vocabulary.yaml` are contradictions among the deployment's own
+inputs — the fabric cannot reach a valid answer. Each is an invariant failure:
+at the command line it prints `CCF runtime failure: …` and exits **2**, not 1,
+so a broken deployment never reads as a governed refusal; over the MCP door it
+arrives as an opaque tool error under a fresh id, never as a refusal shell.
 
-**The last one is the interesting one, and it is a property rather than a
-defect.** The served jurisdiction vocabulary in `artifacts/source-vocabulary.yaml`
-is **closed in both directions**: a family serving a jurisdiction the document
-does not declare is refused, and a document declaring a jurisdiction no family
-member serves is refused too. The demonstration family exhibits exactly `NL` and
-`US-DE`, so both declared rows fire and neither is idle — which is what makes
-each of them sabotageable. Swapping the anchor to a family with a different
-jurisdiction footprint is therefore an **artifact edit as well as a parameter**,
-and the refusal names which direction failed. Anchoring on Extreme Networks or
-Celanese is refused the other way, naming the jurisdictions those families serve
-that this document does not declare.
+**The closed jurisdiction vocabulary is asymmetric on purpose, since this
+phase.** A family serving a jurisdiction the document does not declare still
+fails, as the third condition above. A document declaring a jurisdiction no
+family member serves is no longer a refusal: the family is served and the row
+that never fired is reported as an `idle_jurisdictions` finding — which is what
+anchoring on `549300F16C4PEFXU0S92` shows for `US-DE`. The demonstration family
+exhibits exactly `NL` and `US-DE`, so under the default anchor both declared
+rows fire and neither is idle, which is what makes each of them sabotageable.
+Swapping the anchor to a family with a wider jurisdiction footprint is therefore
+an **artifact edit as well as a parameter**, and the failure names the values
+the document does not declare.
 
 A fifth refusal is not one command away, because the committed estate cannot
 exhibit it: an LEI carried by **more than one node** is refused as
@@ -215,6 +263,14 @@ silence, because a family whose jurisdictional footprint is *unknown* for twenty
 of twenty-two members is a different object from one whose footprint is
 `['NL', 'US-DE']`.
 
+**And a fourth finding about the walk itself.** The `traversal` row carries the
+depth requested (`3`), the depth reached (`3`) and what the walk cost —
+`22` nodes visited, `25` edges walked. All four are structural counts of a walk
+that already ran; nothing in the payload reads a clock, so two runs of one
+question seal identically. This is the row that makes a depth the estate cannot
+exhibit an *answer*: asked `8`, it reads `requested_depth: 8`, `depth_reached:
+3`, and the gap is visible rather than clamped away.
+
 **Ontology, in three load-bearing places.** *Served* — every member carries its
 FIBO class chain, so the answer explains its own vocabulary. *Projecting* — the
 perspective conditions on FIBO class, which is why `credit-officer` details 22
@@ -246,7 +302,11 @@ That sentence is the whole of the claim and no stronger one appears here. The
 qualifier is load-bearing and it was measured: the ledger's transaction counter
 moved 4,560 → 5,112 between two sittings six days apart, and 5,112 → 5,296 by the
 2026-09-03 re-capture, which reproduced the transcript byte for byte with the one
-added `assembled by` line. Quiescence is a property
+added `assembled by` line. The 2026-09-05 re-capture read the head at 5,296
+before and after the run — the ledger had not moved — and every line that
+changed is this rung's own rebuild: the `traversal` finding, the depth and cost
+report lines, the assembler version, the policy bundle's content version (its
+declaration in `ccf_config.yaml` changed) and the seal. Quiescence is a property
 of a run, never of the database. A reader whose figures differ has **re-derived**,
 not replayed, and the most likely reason is that the ledger moved.
 
@@ -261,7 +321,7 @@ not replayed, and the most likely reason is that the ledger moved.
 | `artifacts/expected.yaml` | what the served product must contain, **declared rather than derived from a run**, plus the census of the estate and three deliberately wrong methods with the numbers each would have produced |
 | `artifacts/gates.yaml` | the **seventeen** product gates as data (`CFT-G18`, the ambiguous anchor, since 2026-09-03), each with the sabotage applied to it and the observed red recorded |
 | `backends.yaml` | the two store bindings — four environment variable names and their remedy strings, and nothing else |
-| `ccf_config.yaml` | the product class, the two operators, the request contract, the depth default and bounds, and the declared-but-inert parameters |
+| `ccf_config.yaml` | the product class, the two operators, the request contract, the depth default, the declared floor and the capability binding that bounds it above, and the declared-but-inert parameters |
 | `deployment.py` | everything domain-specific: the ledger queries, the tables, the columns, the estate's vocabulary. Makes no fabric call |
 | `produce.py` | the fabric's call spine. Names no table, no column and no domain word |
 | `projection.py` | the perspective — the FIBO class axis that separates the two roles |
@@ -277,7 +337,7 @@ not replayed, and the most likely reason is that the ledger moved.
 | Whitepaper §7.3 — Context Graph | the family graph, assembled from a ledger's triples and normalized to a single parent → child orientation in one place |
 | Whitepaper §7.4 — Context Operators | **two** in the plan — Policy and Traversal. Every rung before this one declared exactly one, and the traversal is where the count moves off one |
 | Whitepaper §7.5 — Context Projection | `FamilyTreeProjection`, whose perspective conditions on FIBO class rather than on a role map |
-| Whitepaper §7.6 — Context Product Contract | the three validation gates, and the request contract that refuses an over-ceiling depth by name |
+| Whitepaper §7.6 — Context Product Contract | the three validation gates, and the request contract that refuses a depth above the backend's capability by name |
 | Whitepaper §7.7 — Half-life and Context Debt | the debt figure and its decomposition, advisory at this rung and served beside the answer |
 | Whitepaper §7.10 — Decision Replay | the replay record, addressed beside the product |
 | Whitepaper §8.3 Pattern 3 — MCP | the product tool, and a registered product resource that refuses by name because this class is parameterized |
@@ -335,15 +395,16 @@ a three-member roster with one member swapped in from the other cycle passes —
 a circuit that does not exist in the graph at all.
 
 **The snapshot.** The transcript published on the documentation page is the
-default run at commit — named on the page and in the transcript's own header —
-asked as of the pinned `2026-08-31T12:00:00+00:00`, serving content address
-`205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498`. The page's
+default run at commit — named on the page — asked as of the pinned
+`2026-08-31T12:00:00+00:00`, serving content address
+`fad6e55da2c0e6276b69d9a053e4eff155e5c3266b68f3fffb873b0c5e754fc7`. The page's
 snapshot names ledger transaction `5112`: that is `census.ledger_t_read_at`, the
 read the reviewed artifact holds from the 2026-08-31 measurement pass, and the
 program does not print the counter. The transcript itself was re-captured on
-2026-09-03 with the ledger head at `5296` — measured before and after the run —
-and reproduced byte for byte but for the `assembled by` line. Every figure in it
-came from that run.
+2026-09-05 with the ledger head at `5296` — measured before and after the run,
+and unchanged since the 2026-09-03 capture — so the seal moved from `205ae065…`
+because the payload gained the `traversal` finding, not because the estate
+moved. Every figure in it came from that run.
 
 **Eleven SDK-surface and estate gaps were raised here, in Phase 24.4, and
 recorded.** They are `D-26` through `D-36`, recorded under that phase's

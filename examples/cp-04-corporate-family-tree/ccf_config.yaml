@@ -19,7 +19,7 @@
 # runner, and not a fixture loader that pre-opens them and hands the product a
 # populated graph.
 
-semver: "1.0.0"
+semver: "1.1.0"
 tenant_id: cp-04-demo
 backend: sqlite
 
@@ -28,7 +28,7 @@ backend: sqlite
 # ---------------------------------------------------------------------------
 product_class:
   schema_name: reference.corporate-family
-  schema_version: "1.0.0"
+  schema_version: "1.1.0"
 
   # §B.1 element 3, and §B.1.2 is the argument. The expiry is a function of the
   # LATEST ASSERTION TIME AMONG THE FAMILY EDGES the payload admitted, never of
@@ -189,20 +189,23 @@ operators:
       - hasDomesticUltimateParent
 
     # REQUIRED WITH NO DEFAULT IN THE SDK SCHEMA — "a default bound is one
-    # nobody chose" (INV-CH7-24). The value here is the DECLARED CEILING, and
-    # the deployment supplies the CALLER's `max_depth` at request time, which is
-    # what puts depth into the operator parameter set's content hash and
-    # therefore into the product's identity (`CFT-G05`, `D-09`).
+    # nobody chose" (INV-CH7-24). Every request substitutes the CALLER's
+    # `max_depth` onto this key (`deployment.py::traversal_parameters`), which
+    # is what puts depth into the operator parameter set's content hash and
+    # therefore into the product's identity (`CFT-G05`, `D-09`). So the value
+    # written here is never the depth a request walks at; it is what the
+    # declaration says when nobody has asked anything yet.
     #
-    # THE CEILING IS 6 AND IT WAS MEASURED, NOT PICKED: walking all 83 roots,
-    # the deepest tree anywhere in this estate is depth 6, which `PSC-0124`
-    # attains. A ceiling of 6 truncates no tree in this estate.
-    #
-    # `PSC-0124` IS NOT THE UNIQUE DEEPEST ROOT and nothing in this deployment
-    # says it is. SEVEN roots attain depth 6 — `PSC-0018`, `PSC-0037`,
-    # `PSC-0053`, `PSC-0089`, `PSC-0124`, `PSC-0140`, `PSC-0153` — and
-    # `PSC-0037` spans 11 nodes to `PSC-0124`'s 7, so it is not even the
-    # largest.
+    # SUPERSEDED 2026-09-04 (24.6-L-01, D-IMPL-253 Q21): this paragraph called
+    # the value "THE DECLARED CEILING" and said "A ceiling of 6 truncates no
+    # tree in this estate." The estate measurement is unchanged and the word
+    # ceiling is wrong: nothing is bounded by this number. Walking all 83
+    # roots, the deepest tree anywhere in this estate is depth 6, which
+    # `PSC-0124` attains — one of SEVEN roots that do (`PSC-0018`, `PSC-0037`,
+    # `PSC-0053`, `PSC-0089`, `PSC-0124`, `PSC-0140`, `PSC-0153`), and
+    # `PSC-0037` spans 11 nodes to `PSC-0124`'s 7, so `PSC-0124` is neither
+    # the unique deepest nor the largest. The number stays as that
+    # measurement's record; the bound it used to impose is gone.
     depth_limit: 6
 
 # ---------------------------------------------------------------------------
@@ -214,7 +217,7 @@ request_contract:
   role: register
   registration: typed
   schema_name: reference.corporate-family
-  schema_version: "1.0.0"
+  schema_version: "1.1.0"
   arguments:
     properties:
       lei:
@@ -228,12 +231,15 @@ request_contract:
       max_depth:
         type: integer
         description: >-
-          how many hops from the anchor. 1 to 6. ABOVE THE CEILING IS REFUSED BY
-          NAME AND NEVER CLAMPED — a silent clamp is the failure this rung is
-          most exposed to, because the request says 8, the walk does 6, the
-          payload looks fine and the content address greens. ABSENT TAKES THE
-          DECLARED DEFAULT of 3, read from the declaration below and never
-          invented at serve time.
+          how many hops from the anchor. ABSENT TAKES THE DECLARED DEFAULT
+          below, read from the declaration and never invented at serve time. A
+          depth this estate cannot exhibit is SERVED — the walk returns what it
+          reaches and the payload's findings carry the depth actually reached
+          beside the depth requested. A depth above the BACKEND's technical
+          capability is refused BY NAME as a governed determination with
+          authority `technical`, carrying the bound that refused it, and is
+          NEVER answered at a narrower depth: the request says 101, a walk at
+          100 would look fine and the content address would green.
       debt_tolerance:
         type: number
         description: >-
@@ -264,18 +270,66 @@ request_contract:
   # `CycCalderIndustrialNv` and 3 to `CycThornburyCapitalLtd` — so the WHOLE OF
   # CYCLE 1 is visible at depth 3, and 3 is the smallest depth at which this
   # product's headline finding exists.
-  argument_defaults:
+  #
+  # THE KEY IS THE SDK's OWN `defaults`, not a name this deployment invented.
+  # `src/ccf/products/request.py::ProductRequestContract.from_declared` reads
+  # it, and `src/ccf/products/constraints.py::resolve_effective_request` is
+  # what applies it — so a defaulted value arrives carrying the authority
+  # `default` and this document's own pin, rather than as a bare number some
+  # reader in the deployment substituted.
+  defaults:
     max_depth: 3
 
-  # THE CEILING, DECLARED — `CFT-G03`. Measured at §B.4.1 against the 83-root
-  # walk. The article this specification was authored from says `int 1-5`; Dave
-  # ruled 6 on 2026-08-31 against that walk, precisely so no tree in this estate
-  # is silently truncated at the cap. The disagreement is named rather than left
-  # to read as a transcription error.
-  argument_bounds:
+  # THE DECLARED FLOOR — `D-IMPL-259` (Dave, 2026-09-05): *"cp-04 `max_depth`
+  # has a declared request-contract minimum of 1 … `1` is the minimum
+  # meaningful supported request."* This is the parameter's VALID DOMAIN and
+  # nothing more — in his words, *"don't turn `1` into a Policy Constraint"* —
+  # so it sits beside `type` and `required` as part of the request contract:
+  # no artifact pin, no authority, no substrate. The SDK's own request
+  # validation (`src/ccf/products/request.py::refuse_request`, the domain
+  # step) holds a caller to it and returns a `product-request-violation` with
+  # reason `below-minimum` AS DATA; nothing in this deployment's code reads or
+  # applies the number (CINV-01), and the old example-local bounds check is
+  # not resurrected. The MAXIMUM stays what it is below: the backend's
+  # technical capability, read off the substrate, never a number authored
+  # here. Before this key, `max_depth=0` was SERVED as a one-node family — the
+  # deleted `argument_bounds` block had carried the floor together with the
+  # 6, and the floor went with it (measured 2026-09-05, seal `d7180a0c…`).
+  argument_domains:
     max_depth:
       minimum: 1
-      maximum: 6
+
+  # WHICH DECLARED PARAMETER A TECHNICAL CAPABILITY BOUNDS — the SDK's
+  # mechanism token, and never its value (`D-IMPL-253` Q21). The number the
+  # token resolves to is read off the substrate in force at resolution time
+  # (`src/ccf/graph/protocols.py::TraversalDepthCapability`), so no depth
+  # ceiling is authored anywhere in this deployment's code or documents.
+  capability_bindings:
+    max_depth: traversal-depth
+
+  # SUPERSEDED 2026-09-04 (24.6-L-01, D-IMPL-253 Q21): this block declared
+  # an argument-bounds entry for `max_depth`, with a minimum of 1 and a
+  # maximum of 6, under the
+  # heading "THE CEILING, DECLARED — `CFT-G03`", and the paragraph beneath it
+  # read:
+  #
+  #   "Measured at §B.4.1 against the 83-root walk. The article this
+  #   specification was authored from says `int 1-5`; Dave ruled 6 on
+  #   2026-08-31 against that walk, precisely so no tree in this estate is
+  #   silently truncated at the cap. The disagreement is named rather than
+  #   left to read as a transcription error."
+  #
+  # THE MEASUREMENT STANDS AND THE BOUND DOES NOT. Walking all 83 roots, the
+  # deepest tree anywhere in this estate is depth 6, which `PSC-0124` attains —
+  # one of SEVEN roots that do (`PSC-0018`, `PSC-0037`, `PSC-0053`,
+  # `PSC-0089`, `PSC-0124`, `PSC-0140`, `PSC-0153`), so 6 is never phrased as
+  # *the* deepest root. Dave, `D-IMPL-253` Q21: *"6 is measurement/default
+  # history; 100 is the genuine technical capability boundary."* A measurement
+  # of how deep this estate GOES is not a statement about which depths a caller
+  # may ASK — the two were the same number and the same key, and a request at
+  # depth 8 was refused for exhibiting nothing rather than for exceeding
+  # anything. It is served now, and the depth actually reached travels in the
+  # payload's findings.
 
   # §B.4.3. Reconstructing the family as it stood on a past date needs ledger
   # time-travel, which arrives at Tier 3. Refusing loudly is the tier boundary

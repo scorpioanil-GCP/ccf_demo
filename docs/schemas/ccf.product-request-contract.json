@@ -1,5 +1,47 @@
 {
   "$defs": {
+    "ArgumentDomain": {
+      "additionalProperties": false,
+      "description": "The valid domain of one declared numeric parameter \u2014 the seventh key.\n\n**SDK-defined** (CLAUDE.md \u00a711); the ruling of record is ``D-IMPL-259``\n(Dave, 2026-09-05): *\"cp-04 ``max_depth`` has a declared request-contract\nminimum of 1 \u2026 Requests below 1 \u2026 are governed request-validity refusals\nreturned as data; values 1\u2013100 are valid and are never clamped.\"* And the\nscoping sentence that puts the type HERE rather than in the constraint\nlayer: *\"don't turn ``1`` into a Policy Constraint. It is simply the\nparameter's valid domain.\"*\n\n**What this is and is not.** A domain is part of the *request contract*\n\u2014 a statement of which numbers are meaningful questions of this class \u2014\nin the same register as ``type`` and ``required``. It is not a policy\nconstraint (no artifact pin, no priority, no comparability fold, no\nauthority \u2014 ``ccf.products.constraints`` never reads it) and it is not a\ntechnical capability (no substrate, no identity \u2014 the number a backend\ncan walk is read off the backend through ``capability_bindings``). Both of\nthose bound a request *after* it is well-formed; a domain says what\nwell-formed means for a number, so it is judged where ``type`` is judged,\nby :func:`refuse_request`, and a value outside it is a\n:class:`ProductRequestViolation` \u2014 ``below-minimum`` or ``above-maximum``\n\u2014 returned as data, never a substituted number.\n\n**Inclusive on both ends**, because a boundary a caller may ask for and a\nboundary a caller may not are two different declarations and the shorter\none to write is the one the ruling used (*\"values 1\u2013100 are valid\"*).\nEither end may be absent; a domain naming neither is refused at\nconstruction, because a domain that admits everything is not a\ndeclaration but a key with nothing under it.\n\nAttributes:\n    minimum: The smallest value a caller may ask for, or ``None`` when the\n        domain is unbounded below. Held as a :class:`~decimal.Decimal` for\n        the reason :class:`~ccf.products.contract.ServeObligations` holds\n        its tolerance as one: a float boundary that is not the number the\n        author wrote is a boundary nobody declared.\n    maximum: The largest, or ``None`` when unbounded above. Declared\n        rarely in practice \u2014 a ceiling a backend imposes is a capability,\n        not a domain (``D-IMPL-253`` Q21) \u2014 but the type is symmetric so a\n        genuine domain ceiling (*\"a percentage\"*, *\"a calendar month\"*)\n        has a place to be declared rather than a policy to be faked.",
+      "properties": {
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "ccf_hash_transparent": true,
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "ccf_hash_transparent": true,
+          "default": null,
+          "title": "Minimum"
+        }
+      },
+      "title": "ArgumentDomain",
+      "type": "object"
+    },
     "SkillArgumentElement": {
       "additionalProperties": false,
       "description": "An array's element spec: a primitive, or an object of members.\n\nThe *\"lists-of-objects (sufficient for the UBO owner list)\"* half of\nD-IMPL-103. An array is transparent to the depth count \u2014 a list of\nobjects is one level of nesting, not two, because the array is a\ncontainer of the object rather than a level of its own \u2014 which is why\nthis type may declare members while :class:`SkillArgumentMember` may not.\n\nIt deliberately has **no** ``items`` field, so a list of lists is not\nexpressible: that would be a second container level the ruling does not\nadmit.\n\nAttributes:\n    type: The declared JSON Schema type of one element.\n    description: What one element is.\n    properties: For an ``object``-typed element, its members. ``None`` \u2014\n        the default \u2014 is the positive statement *this element declares no\n        members*, which for a non-object type is the only coherent\n        statement and is why the field agrees with ``type``.\n    required: Which of those members must be present. A subset.",
@@ -169,10 +211,32 @@
     }
   },
   "additionalProperties": false,
-  "description": "The questions one product class answers, as a Control Plane artifact.\n\nD-IMPL-98's *\"typed request contract per product class ... in the*\n:class:`~ccf.skills.catalog.SkillArgumentSchema` *shape\"*, realized. The\nartifact is what an adopter authors; :func:`refuse_request` is what reads\nit.\n\n**It reuses the declaration machinery rather than inventing a second one.**\n``arguments`` is a :class:`~ccf.skills.catalog.SkillArgumentSchema` \u2014 the\nsame type a skill declares its arguments in and a product class declares\nits payload in \u2014 which is D-IMPL-103's ruling applied where it was written\nto apply: *\"the change is a widening, not a replacement\"*. A request\nsurface therefore gets one level of nested objects and lists-of-objects for\nfree, and gets them with the ceiling expressed structurally rather than\nvalidated.\n\n**It names the class it serves**, which the payload schema cannot: a\n:class:`~ccf.skills.catalog.SkillArgumentSchema` is a shape and knows\nnothing about what declared it. Naming the class here makes the binding\nintrinsic to the artifact, so the registration-time refusal\n(:func:`refuse_request_contract_pin`) can catch a contract pinned onto the\nwrong class \u2014 a mis-wiring no shape comparison could ever see.\n\nAttributes:\n    schema_name: The product class this is the request surface of.\n    schema_version: The class lane it is the request surface of. Not this\n        artifact's ``semver`` lane \u2014 two lanes, because they version\n        different things: how the product's schema evolved, and how this\n        declaration document evolved.\n    arguments: The parameters the class accepts beyond the four address\n        axes, declared as data. The declared world is **closed**: a\n        parameter the class did not declare is refused rather than\n        forwarded, because a parameter that reaches plan selection without\n        having been declared is an argument nobody governed.\n    unsupported_arguments: The parameters this class declares **and always\n        refuses** \u2014 the Standard's *declared-but-inert* parameter\n        (``references/Context_Product_Specification_Standard_v0-3.md``\n        \u00a72.4): part of the uniform surface, unsupported at this product's\n        tier, and therefore refused explicitly rather than allowed to\n        appear to work. Parameter name \u2192 the declared reason, as Control\n        Plane prose the deployment authors and that lands verbatim in the\n        verdict's ``detail``. The empty mapping is the positive assertion\n        that this class declares no inert parameter, which is what every\n        declaration written before this field said and still says. The set\n        lives here, in the artifact, so that no spine code carries it\n        (CLAUDE.md \u00a76.4; ledger row ``24.5-L-13``). Hash-transparent at\n        the empty mapping (``D-IMPL-243``): nothing declared-refused is\n        every pre-phase contract, so the field is omitted from the\n        canonical form at that value and a non-empty mapping is rendered.",
+  "description": "The questions one product class answers, as a Control Plane artifact.\n\nD-IMPL-98's *\"typed request contract per product class ... in the*\n:class:`~ccf.skills.catalog.SkillArgumentSchema` *shape\"*, realized. The\nartifact is what an adopter authors; :func:`refuse_request` is what reads\nit.\n\n**It reuses the declaration machinery rather than inventing a second one.**\n``arguments`` is a :class:`~ccf.skills.catalog.SkillArgumentSchema` \u2014 the\nsame type a skill declares its arguments in and a product class declares\nits payload in \u2014 which is D-IMPL-103's ruling applied where it was written\nto apply: *\"the change is a widening, not a replacement\"*. A request\nsurface therefore gets one level of nested objects and lists-of-objects for\nfree, and gets them with the ceiling expressed structurally rather than\nvalidated.\n\n**It names the class it serves**, which the payload schema cannot: a\n:class:`~ccf.skills.catalog.SkillArgumentSchema` is a shape and knows\nnothing about what declared it. Naming the class here makes the binding\nintrinsic to the artifact, so the registration-time refusal\n(:func:`refuse_request_contract_pin`) can catch a contract pinned onto the\nwrong class \u2014 a mis-wiring no shape comparison could ever see.\n\nAttributes:\n    schema_name: The product class this is the request surface of.\n    schema_version: The class lane it is the request surface of. Not this\n        artifact's ``semver`` lane \u2014 two lanes, because they version\n        different things: how the product's schema evolved, and how this\n        declaration document evolved.\n    arguments: The parameters the class accepts beyond the four address\n        axes, declared as data. The declared world is **closed**: a\n        parameter the class did not declare is refused rather than\n        forwarded, because a parameter that reaches plan selection without\n        having been declared is an argument nobody governed.\n    unsupported_arguments: The parameters this class declares **and always\n        refuses** \u2014 the Standard's *declared-but-inert* parameter\n        (``references/Context_Product_Specification_Standard_v0-3.md``\n        \u00a72.4): part of the uniform surface, unsupported at this product's\n        tier, and therefore refused explicitly rather than allowed to\n        appear to work. Parameter name \u2192 the declared reason, as Control\n        Plane prose the deployment authors and that lands verbatim in the\n        verdict's ``detail``. The empty mapping is the positive assertion\n        that this class declares no inert parameter, which is what every\n        declaration written before this field said and still says. The set\n        lives here, in the artifact, so that no spine code carries it\n        (CLAUDE.md \u00a76.4; ledger row ``24.5-L-13``). Hash-transparent at\n        the empty mapping (``D-IMPL-243``): nothing declared-refused is\n        every pre-phase contract, so the field is omitted from the\n        canonical form at that value and a non-empty mapping is rendered.\n    defaults: The value each parameter takes **when the caller omits it**.\n        A default is not a competitor to a value the caller supplied; it is\n        what omission *means* for this product (``D-IMPL-253`` Q2, Dave:\n        *\"Product defaults belong on the request contract. They define what\n        omission means for that product.\"*). The empty mapping is the\n        positive assertion that this class declares no default, which is\n        what every declaration written before this field said and still\n        says. The values live here, in the artifact, so that no spine code\n        carries them (CLAUDE.md \u00a76.4; ledger row ``24.6-L-07``): a number\n        in code is a number no examiner can trace to a decision anyone made\n        (CINV-01). Hash-transparent at the empty mapping (``D-IMPL-243``):\n        declaring nothing is every pre-phase contract, so the field is\n        omitted from the canonical form at that value and a non-empty\n        mapping is rendered.\n\n        **The SDK applies a default BEFORE validation, not after** \u2014 plan\n        ``24.6-03``'s resolver step, which is what makes an omitted\n        parameter reach the closed-world comparison as the value the class\n        declared. The resolved value is recorded with authority\n        ``default`` and this artifact's own pin as its source\n        (:class:`~ccf.products.provenance.EffectiveParameter`), which is\n        the whole reason omission has to mean something *declared*: a\n        default applied from code could not be pinned, and a decision made\n        under it could not be replayed.\n\n        A default is refused at declaration when its name is not a declared\n        argument, when it names a parameter this class always refuses, or\n        when its value does not satisfy the declared argument's own type \u2014\n        all three named together in one message, because a default for a\n        parameter the class does not honor would widen the closed request\n        world by omission, which is the one thing this artifact exists to\n        keep shut.\n    capability_bindings: Which declared parameter each **technical**\n        capability bounds \u2014 parameter name to the SDK's own capability\n        token (``D-IMPL-253`` Q21, Dave: *\"100 is the genuine technical\n        capability boundary\"*). The binding is the declaration's statement\n        that *this* parameter is the one a substrate limit applies to; the\n        limit itself is never here and never anywhere in an artifact \u2014 it\n        is read off the backend at resolution time as a\n        :class:`~ccf.products.constraints.TechnicalCapability`, because a\n        number the deployment authored would be a technical bound nobody\n        measured (CINV-01).\n\n        Refused at declaration when a binding names a parameter this class\n        does not declare, or a token the SDK does not define \u2014 both named\n        together, on the ``defaults`` message's discipline. The empty\n        mapping is the positive assertion that no parameter of this class\n        is bounded by a capability, and it is hash-transparent at that\n        value (``D-IMPL-243``), which is what every contract written before\n        this field said and still says.",
   "properties": {
+    "argument_domains": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ArgumentDomain"
+      },
+      "ccf_hash_transparent": true,
+      "title": "Argument Domains",
+      "type": "object"
+    },
     "arguments": {
       "$ref": "#/$defs/SkillArgumentSchema"
+    },
+    "capability_bindings": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "ccf_hash_transparent": true,
+      "title": "Capability Bindings",
+      "type": "object"
+    },
+    "defaults": {
+      "additionalProperties": true,
+      "ccf_hash_transparent": true,
+      "title": "Defaults",
+      "type": "object"
     },
     "schema_name": {
       "title": "Schema Name",

@@ -83,6 +83,12 @@ NOT_EVALUABLE = "NOT_EVALUABLE"
 #: member audits clean forever (`D-13`).
 FINDING_UNRESOLVED_JURISDICTION = "unresolved_jurisdiction"
 
+#: The finding `D-23` puts on the payload: what depth was asked, what depth the
+#: walk reached, and what the walk cost in STRUCTURE. Four numbers, all
+#: deterministic functions of the graph and the request, so two runs of one
+#: question produce one content address.
+FINDING_TRAVERSAL = "traversal"
+
 
 def refuse_unadmitted_anchor(anchor_uri: str, *, admitted: Collection[str]) -> None:
     """The anchor block may name only a member the operators ADMITTED.
@@ -367,6 +373,59 @@ class FamilyTreeProjection:
             "closing_edge": None,
         }
 
+    def _traversal_finding(self, served: Sequence[str]) -> Mapping[str, Any]:
+        """What was asked, what was reached, and what the walk cost — `D-23`.
+
+        Four numbers and no fifth, and each is a STRUCTURAL COUNT of a walk
+        that has already run. Nothing here re-traverses and **nothing here
+        reads a clock**: `D-23` puts requested depth, actual depth reached and
+        cost in the findings and rules out wall-clock time in addressed
+        content, because a duration is different on every run and this payload
+        is content-addressed. `tests/examples/test_cp_04_traversal.py::
+        test_cft_g19_findings_carry_depth_and_structural_cost_and_no_clock` greps the
+        canonical bytes for a duration token and for any instant outside the
+        three fields that legitimately carry one.
+
+        **`requested_depth` IS THE EFFECTIVE DEPTH AND IT IS IDENTITY** (`D-09`,
+        `CFT-G05`): it is the value `deployment.py::traversal_parameters` bound
+        onto the operator parameter set, so it is already inside the content
+        address, and this finding REPORTS it rather than introducing it. A
+        depth-3 and a depth-8 ask are two products with two addresses.
+
+        **`depth_reached` IS WHAT THE ESTATE EXHIBITED**, read off the same
+        directed generations the node blocks carry. It is what makes a depth
+        the estate cannot exhibit an ANSWER rather than a refusal: asked 8,
+        reached 3 — served, and the difference visible.
+
+        **THE COST IS THE INGEST's, not this role's view.** `nodes_visited` is
+        every node the walk admitted and `edges_walked` every distinct family
+        edge it collected; both are properties of the walk, so two roles over
+        one family report one cost, exactly as they report one member set.
+        """
+        generations = self._scenario.generation_by_node
+        reached = [
+            generations[uri]
+            for uri in served
+            if isinstance(generations.get(uri), int)
+        ]
+        return {
+            # THE FOUR ALWAYS-PRESENT KEYS FIRST, in the shape
+            # `artifacts/expected.yaml::finding_keys_always_present` declares,
+            # because this row shares a roster with the cycle and duplicate
+            # findings and a roster whose rows do not share a shape is two
+            # rosters. The three keys below are this finding's own.
+            "type": FINDING_TRAVERSAL,
+            "predicate": None,
+            "members": [],
+            "closing_edge": None,
+            "requested_depth": self._scenario.max_depth,
+            "depth_reached": max(reached, default=0),
+            "cost": {
+                "nodes_visited": len(self._scenario.facts),
+                "edges_walked": len(self._scenario.edges.by_pair),
+            },
+        }
+
     def invoke(
         self,
         *,
@@ -418,6 +477,11 @@ class FamilyTreeProjection:
             "findings": [
                 *(self._finding(finding) for finding in scenario.findings),
                 self._unresolved_finding(served),
+                # WHAT WAS ASKED, WHAT WAS REACHED, WHAT IT COST (`D-23`).
+                # In the ROSTER because that is where this payload puts facts
+                # about the answer that are not facts about a member — the
+                # place `D-13` fixed for cycles, applied to the walk itself.
+                self._traversal_finding(served),
             ],
             "max_depth_applied": scenario.max_depth,
             # THE ATTRIBUTE POLICY ADMITTED ON, RETURNED AS WELL AS FILTERED ON.

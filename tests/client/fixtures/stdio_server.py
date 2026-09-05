@@ -164,6 +164,12 @@ def serve(root: Path) -> None:
             control_plane=booted.control_plane, clock=lambda: stamped
         ),
         perspective_resolver=resolve_perspective,
+        # A denial at this door is a recorded decision, appended by the
+        # resolver's own writer over the store it already holds
+        # (`D-IMPL-253` Q13, `D-IMPL-256` (2)). This deployment composes its
+        # resolver through `_boot`, so the recorder is reachable off it and no
+        # second store is constructed here.
+        refusal_recorder=booted.resolver.refusal_recorder,
         expose_product_tool=True,
         product_tool_description=TOOL_DESCRIPTION,
     )

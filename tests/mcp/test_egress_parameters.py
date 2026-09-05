@@ -123,6 +123,7 @@ from ccf.products.entitlement import (
     ProductEntitlementPolicy,
     product_entitlement_key,
 )
+from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
@@ -153,6 +154,10 @@ PRINCIPAL = "egress-parameters-caller"
 SCOPE = "ccf:egress-parameters"
 ROLE = "egress-parameters-role"
 SERVER_NAME = "ccf-egress-parameters"
+
+#: The artifact class this module's doors file a denial under. Nothing here
+#: denies, but a door that entitles binds a recorder (`D-IMPL-256` (2)).
+REPLAY_RECORD_CLASS = "egress-fixture.replay-record"
 POLICY_VERSION = "1.0.0"
 AUDIT_INSTANT = datetime(2026, 8, 17, tzinfo=UTC)
 TOOL_DESCRIPTION = "Ask this test deployment's product class a question."
@@ -446,6 +451,24 @@ def _recording_resolver(
     return resolve
 
 
+def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
+    """The ONE minting seam this module's doors bind (`D-IMPL-256` (2)).
+
+    Built with the keyword list `ccf.products.resolver::build_governed_resolver`
+    uses for its own, so a door's recorder and a resolver's are the same shape
+    over one store. Copied rather than imported from a sibling test module: two
+    suites that answer different questions should not be coupled by a fixture.
+    Nothing here denies — these doors serve — but a door that entitles does not
+    build without somewhere to record a denial, and that is the point.
+    """
+    return ReplayRefusalRecorder(
+        artifact_store=FileArtifactStore(root=root / "artifacts"),
+        replay_record_class=REPLAY_RECORD_CLASS,
+        tenant_id=tenant,
+        assembly_mode="algorithmic",
+    )
+
+
 def _mcp_server(
     root: Path, *, servable: object, address: ProductAddress, carried: list[Any]
 ) -> Any:
@@ -467,6 +490,7 @@ def _mcp_server(
                 principal_id=grant.client_id, role=ROLE
             )
         ),
+        refusal_recorder=_recorder(root, tenant=address.tenant),
         expose_product_tool=True,
         product_tool_description=TOOL_DESCRIPTION,
     )
@@ -584,7 +608,7 @@ def _ask_mcp(assembled: Any, tmp_path: Path) -> AskDoor:
         carried: list[ProductRequest | None] = []
         server = _mcp_server(
             tmp_path,
-            servable=assembled.servable,
+            servable=assembled.served,
             address=assembled.address,
             carried=carried,
         )
@@ -622,6 +646,11 @@ def _http_app(
                 principal_id=grant.client_id, role=ROLE
             )
         ),
+        # The HTTP twin binds the same seam on the same rule
+        # (`D-IMPL-256` (2)). `create_app`'s own keyword and its
+        # construction-time check are plan `24.6-09`'s, in this same wave; this
+        # call site is plan `24.6-10`'s.
+        refusal_recorder=_recorder(root, tenant=address.tenant),
     )
 
 
@@ -659,7 +688,7 @@ def _ask_http(assembled: Any, tmp_path: Path) -> AskDoor:
         carried: list[ProductRequest | None] = []
         app = _http_app(
             root,
-            servable=assembled.servable,
+            servable=assembled.served,
             address=address,
             carried=carried,
         )
@@ -734,7 +763,7 @@ def test_a_supplied_parameter_reaches_the_resolver(
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         carried=carried,
     )
@@ -759,7 +788,7 @@ def test_an_undeclared_parameter_is_refused_by_name(
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         carried=carried,
     )
@@ -795,7 +824,7 @@ def test_a_missing_required_parameter_is_refused_by_name(
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         carried=carried,
     )
@@ -878,7 +907,7 @@ def test_neither_door_accepts_a_json_array_as_parameters(
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         carried=carried,
     )
@@ -929,7 +958,7 @@ def test_the_tool_carries_the_resources_bytes_without_re_serializing_them(
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         carried=carried,
     )
@@ -1058,7 +1087,7 @@ def _call_with(
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         carried=carried,
     )

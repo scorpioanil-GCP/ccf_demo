@@ -209,6 +209,23 @@ EXEMPT_DECLARATIONS: tuple[tuple[str, str], ...] = (
         "fnmatch's own metacharacters; closed by Python's syntax, not by a"
         " deployment's values",
     ),
+    # The five comparison operators a policy constraint may carry (Phase 24.6,
+    # `D-IMPL-253` Q5 / D-05, Dave: "maximum, minimum, allowed_set, required,
+    # preferred is a good v0 vocabulary. preferred must remain non-refusing
+    # guidance."). Each member names a fold `ccf.products.constraints` applies
+    # when it resolves a request by comparability — five SDK code paths, closed
+    # by the resolver's own shape, and no deployment can add a sixth. What a
+    # deployment supplies is the VALUE a constraint carries and the parameter it
+    # binds to, never the operator set; that is exactly the mechanism/values
+    # line this module enforces. Declared as a named module-level `Literal` so
+    # the guard sees one bound declaration to exempt by name (the `DecayMode`
+    # shape). Found RED at Phase 24.6 wave 6 by plan 06's executor, after plans
+    # 01–05 had not run this module; recorded in `24.6-06-SUMMARY.md` F-1.
+    (
+        "ConstraintOperator",
+        "D-IMPL-253 Q5 (24.6 D-05) — names five SDK comparability folds in"
+        " ccf.products.constraints, not deployment values",
+    ),
 )
 
 #: The exempted names alone, for the membership test.
