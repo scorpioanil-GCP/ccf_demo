@@ -480,11 +480,20 @@ def test_the_standing_resource_body_is_the_shell_per_kind_class(
     raises ``ProductNotServable``. The door's OWN denial on this same path is
     real and recorded, and is asserted below.
     """
-    world = _World(
-        tmp_path,
-        address=assembled.address,
-        resolver=_answering(_refusal_of(kind, assembled.address)),
-    )
+    # Minted through the door's OWN recorder, lazily — `D-IMPL-260` P-A: a
+    # door releases only what `ReplayRefusalRecorder.record` returned, and the
+    # recorder exists once the world does.
+    held: dict[str, _World] = {}
+
+    def resolve(**_: Any) -> object:
+        return held["world"].recorder.record(
+            _refusal_of(kind, assembled.address),
+            perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
+            recorded_at=DETERMINED_AT,
+        )
+
+    world = _World(tmp_path, address=assembled.address, resolver=resolve)
+    held["world"] = world
 
     body = _read_resource(world)
 
@@ -492,6 +501,7 @@ def test_the_standing_resource_body_is_the_shell_per_kind_class(
     assert shell.kind == kind
     assert shell.request.parameters == {}
     assert shell.request.temporal_boundary is None
+    assert shell.replay_reference != NO_REPLAY_REFERENCE
 
 
 def test_an_absent_class_reaches_the_caller_as_the_common_shell_on_both_surfaces(
@@ -550,7 +560,7 @@ def test_the_standing_resource_serves_the_vessel_when_the_resolver_serves(
     ``kind`` at all.
     """
     world = _World(
-        tmp_path, address=assembled.address, resolver=_answering(assembled.servable)
+        tmp_path, address=assembled.address, resolver=_answering(assembled.served)
     )
 
     body = _read_resource(world)
@@ -559,17 +569,19 @@ def test_the_standing_resource_serves_the_vessel_when_the_resolver_serves(
     assert "kind" not in json.loads(body)
 
 
-def test_a_bare_refusal_value_reaches_the_resource_through_its_own_identity(
+def test_a_bare_refusal_value_does_not_cross_the_resource(
     assembled: Any, tmp_path: Path
 ) -> None:
-    """The ``identity=`` keyword ``door_refusal`` gained, exercised end to end.
+    """``D-IMPL-260`` P-A, on the standing resource: a bare value is a wiring defect.
 
-    A deployment resolver that hands back what ``run_gates`` gave it returns a
-    **bare** value rather than an envelope, and until this row that raised at
-    the door — *"there is no question for the refusal envelope to name"* — which
-    is precisely why the standing resource had no channel. The door now states
-    the identity its own surface establishes: no parameters, no temporal
-    boundary. It still invents no subject, no intent and no freshness figure.
+    ``24.6-10`` taught the door to state this surface's own identity for a
+    bare refusal value, so the resource had a refusal channel at all. That
+    translation released an envelope nothing had recorded or disclosed, and
+    the ruling ends it: a resolver holding a bare value records it through
+    the SDK's recorder — whose request identity is what a question-less
+    surface states for itself — and returns the shell. The bare value is
+    refused at the door and the read fails as a transport error, never as a
+    shell the fabric minted.
     """
     world = _World(
         tmp_path,
@@ -581,13 +593,13 @@ def test_a_bare_refusal_value_reaches_the_resource_through_its_own_identity(
         ),
     )
 
-    shell = RefusalEnvelope.model_validate_json(_read_resource(world))
+    refused, text = _drive(world.server, _resource_operation(world.address.uri))
 
-    assert shell.kind == REFUSAL_KINDS[SubjectUnavailableRefusal]
-    assert shell.request == _identity(assembled.address)
-    # The door translated a bare value, so there is no resolver-minted record
-    # behind it: the sentinel is the positive claim, not a dropped value.
-    assert shell.replay_reference == NO_REPLAY_REFERENCE
+    assert refused is True, text
+    assert "no such subject in this fabric" not in text
+    # And nothing was minted on the way out: the door records nothing itself.
+    root = world.store.root
+    assert not root.exists() or not any(len(p.name) == 64 for p in root.iterdir())
 
 
 # ---------------------------------------------------------------------------
@@ -619,7 +631,7 @@ def test_an_entitlement_denial_on_the_tool_path_is_a_recorded_shell(
     second class* and is what a sentinel reference looks like.
     """
     world = _World(
-        tmp_path, address=assembled.address, resolver=_answering(assembled.servable)
+        tmp_path, address=assembled.address, resolver=_answering(assembled.served)
     )
     at = _unentitled(assembled.address)
 
@@ -673,7 +685,7 @@ def test_an_entitlement_denial_on_the_resource_path_is_a_recorded_shell(
     resource denial recorded thinner than a tool denial, or not at all.
     """
     world = _World(
-        tmp_path, address=assembled.address, resolver=_answering(assembled.servable)
+        tmp_path, address=assembled.address, resolver=_answering(assembled.served)
     )
     at = _unentitled(assembled.address)
     before = world.stored()
@@ -722,7 +734,7 @@ def test_an_entitlement_denial_on_the_address_surface_records_that_address(
     address surface and the address itself.
     """
     world = _World(
-        tmp_path, address=assembled.address, resolver=_answering(assembled.servable)
+        tmp_path, address=assembled.address, resolver=_answering(assembled.served)
     )
     at = _unentitled(assembled.address)
     uri = product_address(
@@ -775,7 +787,7 @@ def test_the_two_resource_shells_are_both_minted_through_the_one_recorder(
     lives only in the record.
     """
     world = _World(
-        tmp_path, address=assembled.address, resolver=_answering(assembled.servable)
+        tmp_path, address=assembled.address, resolver=_answering(assembled.served)
     )
     unauthorized = RefusalEnvelope.model_validate_json(
         _read_resource(world, address=_unentitled(assembled.address))
@@ -1019,13 +1031,13 @@ def test_a_door_that_entitles_directly_leaks_prose_red_sabotage(
     scratch = _scratch_egress(tmp_path, mutate=mutate, name="entitling_directly")
 
     world = _World(
-        tmp_path, address=assembled.address, resolver=_answering(assembled.servable)
+        tmp_path, address=assembled.address, resolver=_answering(assembled.served)
     )
     sabotaged = scratch.build_egress_server(
         **{
             **_builder_kwargs(assembled.address, tmp_path),
             "entitlement_source": world.source,
-            "resolver": _answering(assembled.servable),
+            "resolver": _answering(assembled.served),
         },
         refusal_recorder=world.recorder,
     )
@@ -1186,10 +1198,11 @@ def test_no_kind_in_the_vocabulary_is_ever_a_tool_error(
     the DOOR's branch — a refusal is a return value, so the failure wrapper
     cannot reach it (``T-24.6-37``) — and not about any type's own fields.
     """
-    world = _World(
-        tmp_path,
-        address=assembled.address,
-        resolver=_answering(
+    # Recorded through the door's own recorder, lazily (`D-IMPL-260` P-A).
+    held: dict[str, _World] = {}
+
+    def resolve(**_: Any) -> object:
+        return held["world"].recorder.record(
             RefusalEnvelope(
                 kind=kind,
                 reason=kind,
@@ -1198,9 +1211,13 @@ def test_no_kind_in_the_vocabulary_is_ever_a_tool_error(
                 fields={},
                 request=_identity(assembled.address),
                 pre_assembly_lineage=None,
-            )
-        ),
-    )
+            ),
+            perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
+            recorded_at=DETERMINED_AT,
+        )
+
+    world = _World(tmp_path, address=assembled.address, resolver=resolve)
+    held["world"] = world
 
     is_error, text = _call_tool(world)
 

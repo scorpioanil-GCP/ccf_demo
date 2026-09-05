@@ -93,6 +93,7 @@ from tests.http_api.test_product_declared_obligation_409 import (
     _entitlement_registry,
     _governed,
     _internal_envelope,
+    _minted,
     _perspective,
     _question,
     _recorder,
@@ -256,9 +257,7 @@ def test_every_kind_answers_its_row_in_the_one_body(
     disagreed with the table it was supposed to be read from.
     """
     answer = _ask(
-        _governed(
-            fabric, tmp_path, resolver=_answering(_internal_envelope(kind))
-        ).app,
+        _minted(fabric, tmp_path, _internal_envelope(kind))[0].app,
         fabric,
         query=_question(),
     )

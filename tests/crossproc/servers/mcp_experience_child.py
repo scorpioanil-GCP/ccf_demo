@@ -77,7 +77,7 @@ from ccf.products.resolver import ReplayRefusalRecorder  # noqa: E402
 from ccf.projection.engine import ExecutionResult, ExecutionStep  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 from ccf.replay.record import PolicyBinding, build_replay_record  # noqa: E402
-from ccf.replay.serve import ReplayWriter  # noqa: E402
+from ccf.replay.serve import ReplayWriter, ServedProduct  # noqa: E402
 from ccf.skills.callables import CallableRegistry  # noqa: E402
 from ccf.skills.catalog import (  # noqa: E402
     SKILL_CATALOG_ENTRY,
@@ -415,14 +415,14 @@ def build_server(
         version: str,
         perspective: Perspective,
         request: ProductRequest | None,
-    ) -> ServableProduct:
+    ) -> ServedProduct:
         """Serve exactly the one assembled address; refuse anything else."""
         requested = ProductAddress(
             tenant=tenant, product_class=product_class, version=version
         )
         if requested != assembled.address:
             raise ExperienceProductNotServable(str(requested))
-        return assembled.servable
+        return assembled.served
 
     def directory(*, tenant: str) -> tuple[ExposedAgent, ...]:
         """This deployment's one exposed agent, per tenant (T-07-21)."""

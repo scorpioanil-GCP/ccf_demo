@@ -181,13 +181,7 @@ class FamilyTreeInProcessAdapter:
             )
         typed = self._typed_request(asked, asked_at=asked_at)
         resolved = self._resolve(typed)
-        return door_answer(
-            resolved,
-            echo=asked,
-            resolved_request=typed,
-            product_class=declared,
-            version=typed.schema_version,
-        )
+        return door_answer(resolved, echo=asked, resolved_request=typed)
 
     def _typed_request(
         self, asked: WireRequest, *, asked_at: datetime

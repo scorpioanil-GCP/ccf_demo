@@ -51,6 +51,7 @@ import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +80,7 @@ from ccf.products.request import (
     ProductRequestContract,
     refuse_request,
 )
+from ccf.products.refusal import RequestIdentity, envelope_for
 from ccf.projection.plan import Perspective
 from ccf.skills.catalog import SkillArgumentProperty, SkillArgumentSchema
 from ccf_runtime.authz.product_entitlement import (
@@ -100,6 +102,7 @@ from ccf_runtime.mcp.egress import (
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
 
 #: Test deployment vocabulary; the SDK ships none of it.
+REPLAY_ARTIFACT_CLASS = "egress-listing-replay-record"
 TOKEN = "egress-listing-token"
 PRINCIPAL = "egress-listing-caller"
 SCOPE = "ccf:egress-listing"
@@ -250,7 +253,15 @@ def _answering(outcome: object) -> Callable[..., object]:
 
 
 def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
-    """A resolver that runs the one shared comparison and returns its verdict."""
+    """A resolver that runs the one shared comparison and RECORDS its verdict.
+
+    `D-IMPL-260` P-A: a door releases only the shell the recorder returned, so
+    the verdict is handed through the one minting seam over a per-resolver
+    store, exactly as the SDK's own resolver does on every refusal branch.
+    """
+    store = FileArtifactStore(
+        root=Path(tempfile.mkdtemp(prefix="egress-listing-refusing-")) / "artifacts"
+    )
 
     def resolve(
         *,
@@ -266,7 +277,26 @@ def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
             "this leg's caller was built to violate the declared surface and"
             " did not; the fixture, not the door, is what failed"
         )
-        return violation
+        recorder = ReplayRefusalRecorder(
+            artifact_store=store,
+            replay_record_class=REPLAY_ARTIFACT_CLASS,
+            tenant_id=tenant,
+            assembly_mode="algorithmic",
+        )
+        return recorder.record(
+            envelope_for(
+                violation,
+                request=RequestIdentity(
+                    product_id=product_class,
+                    product_version=version,
+                    parameters=request.parameters,
+                    temporal_boundary=request.asked_at,
+                ),
+            ),
+            perspective=perspective,
+            recorded_at=request.asked_at,
+            request=request,
+        )
 
     return resolve
 
@@ -488,7 +518,7 @@ def _enumerate(
     door = _server(
         tmp_path,
         address=assembled.address,
-        resolver=_answering(assembled.servable),
+        resolver=_answering(assembled.served),
         expose_resource=expose_resource,
         **({} if builder is None else {"builder": builder}),
     )
@@ -642,7 +672,7 @@ def test_a_surface_less_door_is_refused(assembled: Any, tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="D-03") as refused:
         build_egress_server(
             server_name=SERVER_NAME,
-            resolver=_answering(assembled.servable),  # type: ignore[arg-type]
+            resolver=_answering(assembled.served),  # type: ignore[arg-type]
             token_verifier=SourceBackedTokenVerifier(
                 source=FileTokenSource(path=_token_file(tmp_path))
             ),
@@ -677,7 +707,7 @@ def test_a_surface_less_door_is_refused(assembled: Any, tmp_path: Path) -> None:
 def _resolver_for(assembled: Any, leg: str) -> tuple[Callable[..., object], Mapping[str, Any]]:
     """The served leg and the refused leg: one resolver each, and the parameters that reach it."""
     if leg == "served":
-        return _answering(assembled.servable), CALLER_PARAMETERS
+        return _answering(assembled.served), CALLER_PARAMETERS
     # Omit the required parameter, so the resolver's own comparison refuses.
     return _refusing(_contract(assembled.address)), {}
 
@@ -803,7 +833,7 @@ def test_a_tampered_address_is_refused_by_name(assembled: Any, tmp_path: Path) -
     door = _server(
         tmp_path,
         address=address,
-        resolver=_answering(assembled.servable),
+        resolver=_answering(assembled.served),
         expose_resource=True,
     )
     results = _drive(
@@ -851,7 +881,7 @@ def test_a_plain_product_uri_does_not_match_the_address_template(
     door = _server(
         tmp_path,
         address=address,
-        resolver=_answering(assembled.servable),
+        resolver=_answering(assembled.served),
         expose_resource=expose_resource,
     )
     templates = _templates_of(door)
@@ -893,7 +923,7 @@ def test_an_address_uri_does_not_reach_the_product_handler(
     door = _server(
         tmp_path,
         address=address,
-        resolver=_answering(assembled.servable),
+        resolver=_answering(assembled.served),
         expose_resource=expose_resource,
     )
     results = _drive(

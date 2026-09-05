@@ -880,7 +880,7 @@ def test_the_builder_refuses_to_build_without_any_governance_seam(
     """
     kwargs: dict[str, Any] = {
         "server_name": LOCAL_SERVER_NAME,
-        "resolver": lambda *, tenant, product_class, version: assembled.servable,
+        "resolver": lambda *, tenant, product_class, version: assembled.served,
         "token_verifier": SourceBackedTokenVerifier(
             source=FileTokenSource(path=tmp_path / "absent.json")
         ),
@@ -931,7 +931,7 @@ def test_a_tokenless_call_never_reaches_the_entitlement_check(
     identical in a log and means something entirely different.
     """
     server, entitlement, _registry = _local_world(
-        tmp_path, servable=assembled.servable, address=assembled.address
+        tmp_path, servable=assembled.served, address=assembled.address
     )
 
     served, detail = _read_in_process(
@@ -948,7 +948,7 @@ def test_a_verified_entitled_caller_is_served_and_the_allow_is_audited(
 ) -> None:
     """The happy path, so every refusal below is a refusal of something real."""
     server, entitlement, registry = _local_world(
-        tmp_path, servable=assembled.servable, address=assembled.address
+        tmp_path, servable=assembled.served, address=assembled.address
     )
 
     served, received = _read_in_process(
@@ -1018,7 +1018,7 @@ def test_a_verified_but_undeclared_principal_is_refused(
 ) -> None:
     """Authentication is not entitlement: a real token is not a grant."""
     server, entitlement, registry = _local_world(
-        tmp_path, servable=assembled.servable, address=assembled.address
+        tmp_path, servable=assembled.served, address=assembled.address
     )
 
     served, detail = _read_in_process(
@@ -1042,7 +1042,7 @@ def test_a_principal_entitled_to_another_class_is_refused_at_the_door(
     other_class = f"{assembled.address.product_class}-not-this-one"
     server, _entitlement, registry = _local_world(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         permitted_classes=frozenset({other_class}),
     )
@@ -1082,7 +1082,7 @@ def test_a_role_the_grant_does_not_permit_is_refused_at_the_door(
     """
     server, _entitlement, registry = _local_world(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         resolved_role=LOCAL_UNGRANTED_ROLE,
     )
@@ -1119,7 +1119,7 @@ def test_a_tenant_with_no_registered_policy_is_refused_not_served(
     registry = ControlPlaneRegistry()
     server = build_egress_server(
         server_name=LOCAL_SERVER_NAME,
-        resolver=lambda *, tenant, product_class, version: assembled.servable,
+        resolver=lambda *, tenant, product_class, version: assembled.served,
         token_verifier=SourceBackedTokenVerifier(
             source=FileTokenSource(path=token_file)
         ),
@@ -1253,7 +1253,7 @@ def test_the_tool_is_never_the_weaker_path(
     plan = _governance(scenario, assembled)
     server, _entitlement, _registry = _open_world(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         **plan.world,
     )
@@ -1319,7 +1319,7 @@ def test_a_tokenless_tool_call_never_reaches_the_entitlement_check(
     identical in a log and means something entirely different.
     """
     server, entitlement, _registry = _open_world(
-        tmp_path, servable=assembled.servable, address=assembled.address
+        tmp_path, servable=assembled.served, address=assembled.address
     )
 
     is_error, detail = _call_tool_in_process(
@@ -1359,7 +1359,7 @@ def test_the_tool_forwards_the_perspective_it_resolved(
     forwarded: list[tuple[Perspective, object]] = []
     server, _entitlement, _registry = _open_world(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         permitted_roles=frozenset({role}),
         resolved_role=role,
@@ -1412,7 +1412,7 @@ def test_a_server_built_without_the_tool_arguments_advertises_no_tool(
     parameterised authorization surface it never assessed merely by upgrading.
     """
     server, _entitlement, _registry = _local_world(
-        tmp_path, servable=assembled.servable, address=assembled.address
+        tmp_path, servable=assembled.served, address=assembled.address
     )
 
     assert anyio.run(server.list_tools) == []  # type: ignore[attr-defined]
@@ -1440,7 +1440,7 @@ def test_the_tool_advertises_exactly_the_eight_argument_names(
     drifted out of it would make a partial address representable again.
     """
     server, _entitlement, _registry = _open_world(
-        tmp_path, servable=assembled.servable, address=assembled.address
+        tmp_path, servable=assembled.served, address=assembled.address
     )
 
     tools = anyio.run(server.list_tools)  # type: ignore[attr-defined]
@@ -1476,7 +1476,7 @@ def test_the_tool_handler_takes_no_role_and_no_caller_supplied_address(
     against the class's own declaration.
     """
     server, _entitlement, _registry = _open_world(
-        tmp_path, servable=assembled.servable, address=assembled.address
+        tmp_path, servable=assembled.served, address=assembled.address
     )
 
     registered = server._tool_manager.get_tool(  # type: ignore[attr-defined]
@@ -1508,7 +1508,7 @@ def test_the_tool_exposure_pair_is_supplied_together_or_not_at_all(
     with pytest.raises(ValueError, match="expose_product_tool"):
         _local_world(
             tmp_path,
-            servable=assembled.servable,
+            servable=assembled.served,
             address=assembled.address,
             **supplied,
         )
@@ -1532,12 +1532,12 @@ def test_registering_the_tool_does_not_move_what_the_resource_serves(
     opened_root.mkdir()
     closed, _e1, _r1 = _local_world(
         closed_root,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
     )
     opened, _e2, _r2 = _open_world(
         opened_root,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
     )
 
@@ -1569,7 +1569,7 @@ def test_a_naive_asked_at_is_refused_before_the_resolver_is_reached(
     forwarded: list[tuple[Perspective, object]] = []
     server, entitlement, _registry = _open_world(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         forwarded=forwarded,
     )

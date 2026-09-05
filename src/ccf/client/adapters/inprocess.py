@@ -474,13 +474,7 @@ class InProcessAdapter:
             perspective=document.perspective,
             request=typed,
         )
-        return door_answer(
-            resolved,
-            echo=asked_wire,
-            resolved_request=typed,
-            product_class=typed.schema_name,
-            version=typed.schema_version,
-        )
+        return door_answer(resolved, echo=asked_wire, resolved_request=typed)
 
 
 SCHEME_REGISTRY[SCHEME] = InProcessAdapter

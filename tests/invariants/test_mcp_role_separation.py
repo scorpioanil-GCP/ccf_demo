@@ -1220,7 +1220,7 @@ def test_the_perspective_the_egress_door_authorized_reaches_the_resolver(
     forwarded: list[tuple[Perspective, object]] = []
     server, _entitlement, _registry = _local_world(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         forwarded=forwarded,
     )

@@ -169,8 +169,8 @@ from ccf.products.door import (
     door_refusal,
     served_answer,
 )
-from ccf.products.gates import ServableProduct
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity
+from ccf.replay.serve import ServedProduct
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf.projection.plan import Perspective
@@ -448,32 +448,32 @@ class ProductResolverProtocol(Protocol):
     door"*. Both were blocked on the same missing parameters, so both were
     added together rather than reshaping the same call sites twice.
 
-    **THE DECLARED RETURN TYPE IS UNCHANGED, AND THE TOOL NOW TOLERATES TWO
-    MORE SHAPES** (``D-IMPL-148`` Addendum A). Widening this Protocol's return
-    type would reshape all three product doors and is a fourth door's worth of
-    work that nothing has ruled — :mod:`ccf.products.resolver` records the same
-    divergence from its own side. So the annotation below still says
-    :class:`~ccf.products.gates.ServableProduct`, while the *tool* handler
-    accepts, through :mod:`ccf.products.door`, whichever of these a deployment's
-    resolver actually returns:
+    **THE RETURN TYPE IS THE PROVABLE GOVERNED RESULT, AND NOTHING ELSE
+    CROSSES** (``D-IMPL-260`` P-A, Dave: *"the boundary must accept only a
+    typed/provable governed result proving determination, replay and
+    disclosure completed; a nonconforming resolver result must not cross"*).
+    Until that ruling this annotation said
+    :class:`~ccf.products.gates.ServableProduct` and the doors tolerated a
+    wider set — ``D-IMPL-148`` Addendum A's *"named divergence"* — which let
+    a served vessel cross with no replay behind it and a bare refusal cross
+    undisclosed and unrecorded. A resolver now returns exactly one of:
 
-    * :class:`~ccf.products.gates.ServableProduct` — served, and **no replay
-      reference**, because this vessel carries none;
-    * :class:`~ccf.replay.serve.ServedProduct` — served, with the reference,
-      which is what :class:`~ccf.products.resolver.GovernedResolver` returns and
-      what makes the reference reach a consumer at all;
-    * :class:`~ccf.products.refusal.RefusalEnvelope`, or any bare refusal value
-      :data:`~ccf.products.refusal.REFUSAL_KINDS` names — the governed "no",
+    * :class:`~ccf.replay.serve.ServedProduct` — served, with the reference of
+      the record :func:`~ccf.replay.serve.serve` appended before it returned;
+    * :class:`~ccf.products.refusal.RefusalEnvelope` as
+      :class:`~ccf.products.resolver.ReplayRefusalRecorder` returns it —
+      recorded, disclosed, carrying its replay reference — the governed "no",
       returned rather than raised.
 
-    Anything else is a wiring defect and raises ``TypeError``; it is never
-    reported to a caller as a refusal the fabric made. **Since ``24.6-10`` the
-    resource handler reads the same three shapes through the same two
-    functions** (:func:`~ccf.products.door.door_refusal` then
-    :func:`~ccf.products.door.served_answer`): it no longer reaches for
-    ``.product`` on whatever it was handed, which is what made a returned
-    refusal an ``AttributeError`` there rather than a governed "no"
-    (``D-IMPL-253`` D-19). Its body carries the vessel or the shell.
+    A bare :class:`~ccf.products.gates.ServableProduct`, a bare refusal value,
+    an envelope at the sentinel reference or with ``disclosure=None``, or any
+    other shape is refused by :mod:`ccf.products.door` as
+    :class:`~ccf.products.door.UngovernedResolverResult` — a wiring defect,
+    reaching a caller as this door's opaque runtime failure and never as a
+    refusal the fabric made. Both handlers read the answer through the same
+    two functions (:func:`~ccf.products.door.door_refusal` then
+    :func:`~ccf.products.door.served_answer`), so the tool and the resource
+    cannot disagree about what a served answer or a refusal is.
 
     **TWO REFUSALS THIS DOOR DOES NOT CALL, AND YOUR RESOLVER MUST.** The SDK
     ships both comparisons complete and tested, and no shipped door invokes
@@ -520,8 +520,8 @@ class ProductResolverProtocol(Protocol):
         version: str,
         perspective: Perspective,
         request: ProductRequest | None,
-    ) -> ServableProduct:
-        """Return the gate-admitted product at that address, under ``perspective``.
+    ) -> ServedProduct | RefusalEnvelope:
+        """Return the served product at that address, under ``perspective``, or the governed refusal.
 
         Keyword-only, so a signature of same-typed strings cannot be called
         with the tenant and the class transposed.
@@ -1062,18 +1062,7 @@ def build_egress_server(
                         refusal_recorder=recorder,
                     )
                 ).decode("utf-8")
-            refusal = door_refusal(
-                resolved,
-                asked=None,
-                identity=RequestIdentity(
-                    product_id=product_class,
-                    product_version=version,
-                    parameters={},
-                    temporal_boundary=None,
-                ),
-                product_class=product_class,
-                version=version,
-            )
+            refusal = door_refusal(resolved)
             if refusal is not None:
                 return canonical_bytes(refusal).decode("utf-8")
             return canonical_bytes(served_answer(resolved).product).decode("utf-8")
@@ -1205,13 +1194,7 @@ def build_egress_server(
             # second-class replay). `door_answer` passes an envelope through
             # untouched and reports where its record landed, so the denial and
             # a fabric refusal leave this door in one shape through one site.
-            return door_answer(
-                decided,
-                echo=question,
-                resolved_request=asked,
-                product_class=product_class,
-                version=version,
-            )
+            return door_answer(decided, echo=question, resolved_request=asked)
         try:
             resolved: object
             try:
@@ -1240,13 +1223,7 @@ def build_egress_server(
                     entitlement_source=entitlement_source,
                     refusal_recorder=recorder,
                 )
-            return door_answer(
-                resolved,
-                echo=question,
-                resolved_request=asked,
-                product_class=product_class,
-                version=version,
-            )
+            return door_answer(resolved, echo=question, resolved_request=asked)
         except (ValueError, TypeError, LookupError, OSError) as exc:
             raise _opaque_failure(exc) from exc
 

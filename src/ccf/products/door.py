@@ -85,10 +85,22 @@ reconstruct both the determination and the disclosure decision."*
 **This module is the Delivery layer.** It is the shape a door puts on a wire
 and nothing more: it decides nothing, discloses nothing and records nothing.
 What it carries has already been determined, already been resolved against its
-authorities, and — when the reference resolver produced it — already been
-disclosed by :func:`~ccf.products.disclosure.disclose`. A BARE refusal value a
-non-reference resolver hands :func:`door_refusal` is enveloped here undisclosed
-and unrecorded, which is the carried finding P-A of the Phase 24.6 close.
+authorities, already been disclosed by
+:func:`~ccf.products.disclosure.disclose`, and already been recorded — and
+**the door releases only what proves all of that** (``D-IMPL-260`` P-A, Dave:
+*"the boundary must accept only a typed/provable governed result proving
+determination, replay and disclosure completed; a nonconforming resolver
+result must not cross"*). A served answer is a
+:class:`~ccf.replay.serve.ServedProduct`, whose replay reference IS the proof
+its decision was appended; a refusal is a
+:class:`~ccf.products.refusal.RefusalEnvelope` carrying a real replay
+reference and a stated disclosure level, which is what
+:class:`~ccf.products.resolver.ReplayRefusalRecorder` returns and nothing else
+mints. A bare refusal value, a bare
+:class:`~ccf.products.gates.ServableProduct`, or an envelope that proves
+neither record nor disclosure is a wiring defect and is refused here as
+:class:`UngovernedResolverResult` — it never reaches a caller as a
+determination the fabric made.
 
 This module is algorithmic (CINV-03): pure functions over typed values, no
 I/O, no clock, no LLM dependency ever.
@@ -124,6 +136,7 @@ __all__ = [
     "PRODUCT_REQUEST_TOOL",
     "DoorOutcome",
     "ServedAnswer",
+    "UngovernedResolverResult",
     "WireRequest",
     "door_answer",
     "door_question",
@@ -387,11 +400,13 @@ class DoorOutcome(CCFContract):
             an operand the consumer did not produce.
         replay_ref: The versioned URI of the replay record this outcome's
             decision was written into
-            (:attr:`~ccf.artifacts.protocol.ArtifactRef.uri`), or ``None``.
-            ``None`` is the honest report that **this deployment's resolver
-            returned no reference** — the narrower
-            :class:`~ccf.products.gates.ServableProduct` shape carries none —
-            rather than a reference that was dropped in transit.
+            (:attr:`~ccf.artifacts.protocol.ArtifactRef.uri`). Optional on
+            the wire contract, which a client decodes from any producer; the
+            shipped doors always fill it since ``D-IMPL-260`` P-A, because
+            :func:`door_answer` releases only a served shape that carries one
+            and only a refusal that was recorded. A ``None`` here now says
+            *this producer is not a shipped door*, never *the reference was
+            dropped in transit*.
 
             **On a refusal it is the envelope's own** ``replay_reference``
             (``24.6-07``; ``D-IMPL-253`` Q13, rule 5 below). Until this row a
@@ -469,173 +484,167 @@ class DoorOutcome(CCFContract):
         return self
 
 
+class UngovernedResolverResult(TypeError):
+    """A resolver answered a door with a value that proves no governed determination.
+
+    ``D-IMPL-260`` P-A. The door is the Delivery layer and releases only what
+    proves that determination, replay and disclosure all completed: a
+    :class:`~ccf.replay.serve.ServedProduct` (its replay reference is the
+    appended record) or a :class:`~ccf.products.refusal.RefusalEnvelope`
+    carrying a real replay reference and a stated disclosure level (what
+    :class:`~ccf.products.resolver.ReplayRefusalRecorder` returns). Anything
+    else — a bare refusal value, a bare
+    :class:`~ccf.products.gates.ServableProduct`, an envelope at the
+    :data:`~ccf.products.refusal.NO_REPLAY_REFERENCE` sentinel or with
+    ``disclosure=None``, a value of no shipped shape — is a **wiring defect**
+    in the deployment and is refused here, so it reaches a caller as the
+    transport's opaque failure and never as a determination the fabric made.
+
+    A ``TypeError`` so every transport's existing runtime-failure handling
+    catches it unchanged; a class of its own so a deployment and a test can
+    name the defect exactly.
+    """
+
+
 @dataclass(frozen=True)
 class ServedAnswer:
     """A served vessel and the replay reference that authorized it.
 
     A plain frozen value rather than a contract, deliberately: it never crosses
-    a wire. It exists so the three shipped doors read the **two** served shapes
-    their resolvers actually return through one function instead of each
-    growing its own ``isinstance`` ladder — which is how three doors come to
-    disagree about what "served" means.
+    a wire. It exists so the three shipped doors read a served answer through
+    one function instead of each growing its own ``isinstance`` ladder — which
+    is how three doors come to disagree about what "served" means.
 
     Attributes:
         product: The gate-admitted vessel, exactly as the resolver produced it.
-        replay_ref: The replay record's versioned URI, or ``None`` when the
-            resolver answered with the narrower
-            :class:`~ccf.products.gates.ServableProduct`, which carries none.
+        replay_ref: The replay record's versioned URI — always present, because
+            the only served shape a door releases carries one (``D-IMPL-260``
+            P-A).
     """
 
     product: ContextProductContract
-    replay_ref: str | None
+    replay_ref: str
 
 
 def served_answer(resolved: object) -> ServedAnswer:
-    """Read the vessel and its replay reference off whichever served shape came back.
+    """Read the vessel and its replay reference off the one served shape a door releases.
 
-    **Two shapes reach a door, and the divergence is recorded rather than
-    incidental** (:mod:`ccf.products.resolver`, *"a named divergence"*). The two
-    ``runtime/`` seams are typed to
-    :class:`~ccf.products.gates.ServableProduct`; the ``src/``-resident
-    :class:`~ccf.products.resolver.ServedProductResolverProtocol` — which a
-    deployment may plug into a door, since the five arguments are copied
-    exactly — is typed to :class:`~ccf.replay.serve.ServedProduct`. Only the
-    second carries a replay reference, and reporting ``None`` for the first is
-    the honest answer rather than a defect: the narrower vessel has none to
-    give.
+    **One shape** (``D-IMPL-260`` P-A): :class:`~ccf.replay.serve.ServedProduct`,
+    which :func:`~ccf.replay.serve.serve` returns only after the decision's
+    record was appended — so its replay reference is the proof the door needs
+    that the determination was recorded. The narrower
+    :class:`~ccf.products.gates.ServableProduct` is the gate sequence's
+    evidence that a candidate was admitted, and nothing more: it proves no
+    record and carries no reference, so a door has nothing it may release
+    from it. Until this ruling the two ``runtime/`` seams were typed to the
+    narrower vessel and this function reported ``None`` for its reference —
+    the *"named divergence"* :mod:`ccf.products.resolver` recorded — which
+    let a served answer cross with no replay behind it.
 
     Args:
         resolved: What a deployment's resolver returned.
 
     Returns:
-        The vessel and the reference, or the reference's honest absence.
+        The vessel and the reference of the record that authorized it.
 
     Raises:
-        TypeError: ``resolved`` is neither served shape. The message names the
-            type, because a resolver answering with something else is a wiring
-            defect and never a governed "no" — reporting the two the same way
-            would let a mis-wiring read to a caller as a refusal the fabric
-            never made.
+        UngovernedResolverResult: ``resolved`` is a bare
+            :class:`~ccf.products.gates.ServableProduct` — admitted by the
+            gates, recorded by nothing — or no served shape at all. Named
+            rather than folded into a refusal: a resolver answering with
+            something else is a wiring defect and never a governed "no", and
+            reporting the two the same way would let a mis-wiring read to a
+            caller as a refusal the fabric never made.
     """
     if isinstance(resolved, ServedProduct):
         return ServedAnswer(
             product=resolved.product, replay_ref=resolved.replay_ref.uri
         )
     if isinstance(resolved, ServableProduct):
-        return ServedAnswer(product=resolved.product, replay_ref=None)
-    raise TypeError(
+        raise UngovernedResolverResult(
+            "a resolver answered a door with a bare `ServableProduct`, which the"
+            " gate sequence admitted and nothing recorded; a door releases only"
+            " a `ServedProduct`, whose replay reference proves the decision was"
+            " appended (`ccf.replay.serve.serve`) — serve the candidate through"
+            " the replay writer before answering (D-IMPL-260 P-A)"
+        )
+    raise UngovernedResolverResult(
         f"a resolver answered a door with `{type(resolved).__name__}`, which is"
-        " neither `ServableProduct` nor `ServedProduct`; a door serves what the"
-        " gate sequence admitted and has nothing to serve from any other shape"
+        " not `ServedProduct`; a door serves what the gate sequence admitted"
+        " AND the replay writer recorded, and has nothing to serve from any"
+        " other shape (D-IMPL-260 P-A)"
     )
 
 
-def door_refusal(
-    resolved: object,
-    *,
-    asked: ProductRequest | None,
-    identity: RequestIdentity | None = None,
-    product_class: str,
-    version: str,
-) -> RefusalEnvelope | None:
+def door_refusal(resolved: object) -> RefusalEnvelope | None:
     """The governed "no" a resolver answered with, or ``None`` if it served.
 
-    Two refusal shapes reach a door, and **both** are handled here rather than
-    at each door, so the three doors cannot come to disagree about what a
-    refusal is:
+    **One refusal shape crosses a door** (``D-IMPL-260`` P-A): a
+    :class:`~ccf.products.refusal.RefusalEnvelope` that PROVES its governance
+    — a replay reference other than
+    :data:`~ccf.products.refusal.NO_REPLAY_REFERENCE`, which only the seam
+    that appended its record can have set, and a stated ``disclosure`` level,
+    which only :func:`~ccf.products.disclosure.disclose` sets. That is exactly
+    what :class:`~ccf.products.resolver.ReplayRefusalRecorder` returns and what
+    :class:`~ccf.products.resolver.GovernedResolver` and the delivery boundary
+    hand a door. It is passed through **untouched**: it already carries its own
+    request identity and, where one existed, the pre-assembly lineage, and
+    re-enveloping it here would discard the lineage a gate refusal genuinely
+    had.
 
-    * a :class:`~ccf.products.refusal.RefusalEnvelope`, which is what
-      :class:`~ccf.products.resolver.GovernedResolver` returns. It already
-      carries its own :class:`~ccf.products.refusal.RequestIdentity` and, where
-      one existed, the pre-assembly lineage — so it is passed through
-      **untouched**. Re-enveloping it here would discard the lineage a gate
-      refusal genuinely had, which is the flattening
-      :mod:`ccf.products.refusal` exists to prevent.
-    * a **bare** refusal value — a :class:`~ccf.products.gates.GateRefusal`, a
-      :class:`~ccf.products.request.ProductRequestViolation`, any type
-      :data:`~ccf.products.refusal.REFUSAL_KINDS` names — which is what a
-      deployment's own resolver returns when it hands back what
-      :func:`~ccf.products.gates.run_gates` gave it. The door translates it,
-      supplying the question from the request it carried.
-
-    **No third channel exists, and that is a measurement rather than an
-    omission.** Every type in :data:`~ccf.products.refusal.REFUSAL_KINDS` is a
-    :class:`~ccf.contracts.base.CCFContract` — a *value* — so none of them can
-    be raised, and no shipped exception in the tree carries one. A door has
-    nothing to catch and translate; a resolver refusing by exception is
-    refusing in a vocabulary the envelope does not have.
-
-    **The pre-assembly lineage is ``None`` on the translated path**, and saying
-    so is not a loss the caller should have to guess at: a door holds the
-    question and the answer, never the candidate contract that was refused, so
-    the lineage a gate refusal had is reachable only from the resolver that
-    produced it. A deployment wanting it returns a
-    :class:`~ccf.products.refusal.RefusalEnvelope` — which is exactly what the
-    SDK's reference resolver does.
+    **What no longer crosses, and why.** Until this ruling a door also
+    translated a *bare* refusal value — a
+    :class:`~ccf.products.gates.GateRefusal`, a
+    :class:`~ccf.products.request.ProductRequestViolation`, any type
+    :data:`~ccf.products.refusal.REFUSAL_KINDS` names — into an envelope of its
+    own, supplying the question from the request it carried. That envelope was
+    undisclosed and unrecorded: a determination reaching a consumer with no
+    replay and no disclosure decision behind it, released by the one layer
+    ``D-IMPL-254`` says decides nothing. The same held for an envelope at the
+    sentinel reference or with ``disclosure=None`` — the internal form a
+    recorder is handed, not the shell it returns. All three are refused here
+    as :class:`UngovernedResolverResult`. A deployment resolver that holds a
+    bare refusal records it through the SDK's recorder and returns what that
+    returns; the resource surfaces, which carry no question, are what the
+    recorder's request identity exists for.
 
     Args:
         resolved: What a deployment's resolver returned.
-        asked: The question the door carried, or ``None`` when the surface has
-            no way to ask one.
-        identity: The request identity a **question-less** surface states for
-            itself, used exactly when ``asked`` is ``None`` (``24.6-10``,
-            ``D-IMPL-253`` D-19). Additive and defaulted, so every existing
-            call is unchanged.
-
-            The MCP standing resource is the case it exists for. That surface
-            is three path segments with no query surface, so it carries no
-            :class:`~ccf.products.request.ProductRequest` at all — and until
-            this row a bare refusal reaching it had nowhere to go but the
-            ``ValueError`` below, which is why the resource had no refusal
-            channel and answered a governed "no" as a transport error. The
-            door still never *manufactures* a question: what it states is the
-            two positive facts its own surface establishes — ``parameters={}``
-            (*this read supplied none*) and ``temporal_boundary=None`` (*the
-            caller deferred to the server's decision instant*) — rather than a
-            subject, an intent and a freshness figure the SDK must never hold
-            (CINV-01).
-        product_class: The class the door already resolved and entitled. Taken
-            from the door rather than from ``asked`` for the reason both doors
-            fill ``schema_name`` from their own address: a request aimed at
-            another class must be unrepresentable, not merely refused.
-        version: The class's own semver lane, on the same terms.
 
     Returns:
-        The envelope, or ``None`` when ``resolved`` is not a refusal at all.
+        The envelope, or ``None`` when ``resolved`` is not a refusal at all —
+        in which case :func:`served_answer` decides whether it is a served
+        shape.
 
     Raises:
-        ValueError: a bare refusal value arrived on a surface that carried
-            neither a question nor an ``identity`` of its own. The envelope's
-            second ruled constraint is that it carries the pre-assembly request
-            identity, and a door that manufactured one would be reporting a
-            question nobody asked as the question that was refused. A surface
-            with no query channel says what it *can* say through ``identity``;
-            one that says nothing at all still refuses here.
+        UngovernedResolverResult: a bare refusal value, or an envelope that
+            proves neither its record nor its disclosure, reached the door.
     """
     if isinstance(resolved, RefusalEnvelope):
+        if resolved.replay_reference == NO_REPLAY_REFERENCE:
+            raise UngovernedResolverResult(
+                f"a resolver answered a door with a `{resolved.kind}` envelope"
+                " carrying no replay reference; a shell whose record was never"
+                " appended is a determination with no audit, and a door"
+                " releases only what `ReplayRefusalRecorder.record` returned"
+                " (D-IMPL-260 P-A)"
+            )
+        if resolved.disclosure is None:
+            raise UngovernedResolverResult(
+                f"a resolver answered a door with a `{resolved.kind}` envelope"
+                " that no disclosure decision was taken on (`disclosure=None`"
+                " is the internal, undisclosed form); a door releases only the"
+                " shell the Disclosure layer produced (D-IMPL-260 P-A)"
+            )
         return resolved
-    if not isinstance(resolved, CCFContract) or type(resolved) not in REFUSAL_KINDS:
-        return None
-    if asked is not None:
-        stated = RequestIdentity(
-            product_id=product_class,
-            product_version=version,
-            parameters=asked.parameters,
-            temporal_boundary=asked.asked_at,
+    if isinstance(resolved, CCFContract) and type(resolved) in REFUSAL_KINDS:
+        raise UngovernedResolverResult(
+            f"a resolver answered a door with a bare `{type(resolved).__name__}`"
+            " refusal value, which proves neither a record nor a disclosure"
+            " decision; record it through `ReplayRefusalRecorder.record` and"
+            " return the envelope that seam hands back (D-IMPL-260 P-A)"
         )
-    elif identity is not None:
-        stated = identity
-    else:
-        raise ValueError(
-            f"a resolver answered with `{type(resolved).__name__}` on a surface"
-            " that carried no request and stated no `identity=`, so there is no"
-            " question for the refusal envelope to name; a door that invented"
-            " one would report a question nobody asked as the one that was"
-            " refused. Return a `RefusalEnvelope`, which carries its own request"
-            " identity — or, on a surface with no query channel, pass the"
-            " `identity=` that surface can state for itself"
-        )
-    return envelope_for(resolved, request=stated)
+    return None
 
 
 def door_question(asked_json: str) -> WireRequest:
@@ -670,8 +679,6 @@ def door_answer(
     *,
     echo: WireRequest,
     resolved_request: ProductRequest,
-    product_class: str,
-    version: str,
 ) -> bytes:
     """The canonical bytes a door puts on an envelope-carrying wire.
 
@@ -696,27 +703,25 @@ def door_answer(
     false by construction.
 
     Args:
-        resolved: What the deployment's resolver returned — a served shape or
-            a refusal, exactly as :func:`served_answer` and
-            :func:`door_refusal` already accept.
+        resolved: What the deployment's resolver returned — the served shape
+            or the recorded, disclosed refusal, exactly as
+            :func:`served_answer` and :func:`door_refusal` accept.
         echo: The question the door parsed off its own wire, via
             :func:`door_question`.
         resolved_request: The typed question the door resolved and answered
-            against, and the one :func:`door_refusal` names in a refusal's
-            request identity.
-        product_class: The class the door already resolved and entitled.
-        version: The class's own semver lane, on the same terms.
+            against. Kept as an argument so the door states, beside the echo,
+            what it actually answered — the two are different facts and the
+            outcome's temporal witness is measured against this one.
 
     Returns:
         The outcome's canonical bytes. **Bytes** rather than text, because the
         caller puts them on a wire without a second rendering.
+
+    Raises:
+        UngovernedResolverResult: ``resolved`` proves no governed determination
+            (see :func:`door_refusal` and :func:`served_answer`).
     """
-    refusal = door_refusal(
-        resolved,
-        asked=resolved_request,
-        product_class=product_class,
-        version=version,
-    )
+    refusal = door_refusal(resolved)
     if refusal is not None:
         return canonical_bytes(
             DoorOutcome(

@@ -54,6 +54,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
+import tempfile
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -72,7 +74,7 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.mcp.client import run_with_session
 from ccf.mcp.errors import McpServerUnreachable
-from ccf.products.door import DoorOutcome, door_refusal
+from ccf.products.door import DoorOutcome, UngovernedResolverResult, door_refusal
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
     ProductEntitlementGrant,
@@ -100,6 +102,7 @@ from ccf.products.request import (
     refuse_request,
 )
 from ccf.projection.plan import Perspective
+from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from ccf.skills.catalog import SkillArgumentProperty, SkillArgumentSchema
 from ccf_runtime.authz.delivery_boundary import (
@@ -119,6 +122,7 @@ from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import WireRequest
 from ccf_runtime.mcp.egress import (
+    CCF_FAILURE_PREFIX,
     PRODUCT_REQUEST_TOOL,
     build_egress_server,
     product_uri,
@@ -422,14 +426,25 @@ def _answering(outcome: object) -> Callable[..., object]:
     return resolve
 
 
-def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
-    """A resolver that runs the one shared comparison and returns its verdict.
+def _refusing(
+    declared: ProductRequestContract, *, root: Path | None = None
+) -> Callable[..., object]:
+    """A resolver that runs the one shared comparison and RECORDS its verdict.
 
     It calls :func:`~ccf.products.request.refuse_request` — the obligation
     ``ProductResolverProtocol`` puts on every resolver — so the violation these
     legs carry is one the fabric genuinely produced rather than one this module
-    hand-built to the shape it wanted to see.
+    hand-built to the shape it wanted to see. Since ``D-IMPL-260`` P-A it then
+    hands the verdict through the one minting seam, because a door releases
+    only a refusal that proves its record and its disclosure; the bare value
+    this returned before is refused at the door as a wiring defect. The store
+    is per resolver, under ``root`` when given and under a fresh temporary
+    directory otherwise — a fixture that needs to read the record back passes
+    its own root.
     """
+    store = FileArtifactStore(
+        root=(root or Path(tempfile.mkdtemp(prefix="egress-refusing-"))) / "artifacts"
+    )
 
     def resolve(
         *,
@@ -445,9 +460,60 @@ def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
             "this leg's caller was built to violate the declared surface and"
             " did not; the fixture, not the door, is what failed"
         )
-        return violation
+        recorder = ReplayRefusalRecorder(
+            artifact_store=store,
+            replay_record_class=REPLAY_ARTIFACT_CLASS,
+            tenant_id=tenant,
+            assembly_mode="algorithmic",
+        )
+        return recorder.record(
+            envelope_for(
+                violation,
+                request=RequestIdentity(
+                    product_id=product_class,
+                    product_version=version,
+                    parameters=request.parameters,
+                    temporal_boundary=request.asked_at,
+                ),
+            ),
+            perspective=perspective,
+            recorded_at=request.asked_at,
+            request=request,
+        )
 
     return resolve
+
+
+def _minted(
+    root: Path, address: ProductAddress, value: object, *, level: str = "minimal"
+) -> RefusalEnvelope:
+    """One refusal, RECORDED and DISCLOSED at ``level``, as a resolver must return it.
+
+    ``D-IMPL-260`` P-A: the door releases only what
+    :class:`~ccf.products.resolver.ReplayRefusalRecorder` hands back. A bare
+    value is enveloped with this surface's identity first; an envelope is
+    recorded as it is. The disclosure reader is a stub answering ``level``, so
+    a test that needs the whole internal envelope on the wire asks for
+    ``"full"`` and gets exactly what the recorder would return under a policy
+    declaring it.
+    """
+    recorder = ReplayRefusalRecorder(
+        artifact_store=FileArtifactStore(root=root / "artifacts"),
+        replay_record_class=REPLAY_ARTIFACT_CLASS,
+        tenant_id=address.tenant,
+        assembly_mode="algorithmic",
+        disclosure_level_for=lambda *, tenant, principal_id: (level, None),
+    )
+    envelope = (
+        value
+        if isinstance(value, RefusalEnvelope)
+        else envelope_for(value, request=_identity(address))
+    )
+    return recorder.record(
+        envelope,
+        perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
+        recorded_at=ASKED_AT,
+    )
 
 
 def _refusing_and_recording(
@@ -802,7 +868,9 @@ def test_a_tier_refusal_arrives_as_a_typed_verdict_not_tool_error_prose(
     is_error, text = _ask_mcp_door(
         tmp_path,
         address=address,
-        resolver=_refusing(_contract(address, inert={INERT_PARAMETER: INERT_REASON})),
+        resolver=_refusing(
+            _contract(address, inert={INERT_PARAMETER: INERT_REASON}), root=tmp_path
+        ),
         parameters={**CALLER_PARAMETERS, INERT_PARAMETER: "2026-08-17"},
     )
 
@@ -816,8 +884,22 @@ def test_a_tier_refusal_arrives_as_a_typed_verdict_not_tool_error_prose(
     assert outcome.refusal.kind == "product-request-violation"
     assert outcome.refusal.reason == "not-supported-at-tier"
     assert outcome.refusal.key == INERT_PARAMETER
-    assert "400 not_supported_at_tier" in outcome.refusal.detail
-    assert INERT_REASON in outcome.refusal.detail
+    # The verdict's own sentence — the Standard's status token and the
+    # declared reason prose — is on the RECORD; the wire carries the external
+    # statement at this tenant's level (`D-IMPL-260` P-A: what crosses is the
+    # recorded, disclosed shell, never the resolver's bare value).
+    store = FileArtifactStore(root=tmp_path / "artifacts")
+    record = DecisionReplayRecord.model_validate_json(
+        store.get(
+            content_address=store.resolve_uri(uri=outcome.refusal.replay_reference)
+        )
+    )
+    internal = RefusalEnvelope.model_validate_json(
+        record.content_generation_path.assembly_refusal
+    )
+    assert "400 not_supported_at_tier" in internal.detail
+    assert INERT_REASON in internal.detail
+    assert INERT_REASON not in outcome.refusal.detail
 
 
 def test_a_gate_refusal_carries_its_own_typed_fields(
@@ -832,7 +914,9 @@ def test_a_gate_refusal_carries_its_own_typed_fields(
     """
     address = assembled.address
     is_error, text = _ask_mcp_door(
-        tmp_path, address=address, resolver=_answering(_ttl_refusal())
+        tmp_path,
+        address=address,
+        resolver=_answering(_minted(tmp_path, address, _ttl_refusal())),
     )
 
     assert is_error is False, text
@@ -858,7 +942,9 @@ def test_the_envelope_carries_the_pre_assembly_request_identity(
     """
     address = assembled.address
     is_error, text = _ask_mcp_door(
-        tmp_path, address=address, resolver=_answering(_ttl_refusal())
+        tmp_path,
+        address=address,
+        resolver=_answering(_minted(tmp_path, address, _ttl_refusal())),
     )
 
     assert is_error is False, text
@@ -914,7 +1000,7 @@ def test_a_governance_refusal_is_shelled_and_is_never_a_tool_error(
     is_error, text = _ask_mcp_door(
         tmp_path,
         address=address,
-        resolver=_answering(assembled.servable),
+        resolver=_answering(assembled.served),
         classes=frozenset({"a-class-this-caller-was-never-granted"}),
     )
 
@@ -1008,20 +1094,9 @@ def test_the_mcp_refusal_is_field_identical_to_the_in_process_one(
     decoded = _decode(text)
     over_the_wire = decoded.refusal
     assert over_the_wire is not None
-    in_process_envelope = door_refusal(
-        in_process,
-        asked=ProductRequest(
-            schema_name=address.product_class,
-            schema_version=address.version,
-            subject=SUBJECT,
-            intent=INTENT,
-            freshness=FRESHNESS,
-            asked_at=ASKED_AT,
-            parameters={},
-        ),
-        product_class=address.product_class,
-        version=address.version,
-    ) or pytest.fail("the in-process leg produced no refusal")
+    in_process_envelope = door_refusal(in_process) or pytest.fail(
+        "the in-process leg produced no refusal"
+    )
     assert_refusals_identical(in_process_envelope, over_the_wire)
 
     # 24.6-07: the replay reference is INSIDE that identity, and non-sentinel
@@ -1100,16 +1175,19 @@ def test_both_doors_carry_the_same_replay_reference(
     assert_both_doors_carry_the_replay_ref(ask_mcp, ask_http)
 
 
-def test_a_resolver_that_carries_no_reference_reports_its_absence(
+def test_a_bare_vessel_does_not_cross_either_door(
     assembled: Any, tmp_path: Path
 ) -> None:
-    """Behaviour 8: ``None`` means *the resolver produced none*, on both doors.
+    """Behaviour 8, INVERTED by ``D-IMPL-260`` P-A: a bare vessel does not cross.
 
-    The narrower ``ServableProduct`` carries no reference, so a door answering
-    from one has nothing to name. Both doors say so by **omission** rather than
-    by an empty value: an empty header and an empty string would make "no
-    record was named" and "the record is named by nothing" the same
-    observation, and only one of those is a wiring defect.
+    The narrower ``ServableProduct`` carries no reference because nothing
+    recorded it, and a door that served it would release a fulfillment with no
+    replay behind it. Until this ruling both doors said so by omission and
+    served anyway; now both refuse it as the wiring defect it is — the MCP tool
+    as its opaque runtime failure, the HTTP route as the typed
+    :class:`~ccf.products.door.UngovernedResolverResult` escaping — and the
+    same vessel SERVED (``assembled.served``) crosses with its reference on
+    both, which the two behaviours above already measure.
     """
     address = assembled.address
     http_root = tmp_path / "http-absent"
@@ -1118,18 +1196,17 @@ def test_a_resolver_that_carries_no_reference_reports_its_absence(
     is_error, text = _ask_mcp_door(
         tmp_path, address=address, resolver=_answering(assembled.servable)
     )
-    response = _ask_http_door(
-        http_root, address=address, resolver=_answering(assembled.servable)
-    )
+    assert is_error is True, text
+    assert re.fullmatch(
+        rf"(Error executing tool [^:\s]+: )?{CCF_FAILURE_PREFIX}:[0-9a-f]{{32}}",
+        text.strip(),
+    ), text
+    assert "ServableProduct" not in text
 
-    assert is_error is False, text
-    assert _decode(text).replay_ref is None
-    assert response.status_code == 200, response.text
-    assert REPLAY_REF_HEADER not in response.headers
-    # The served half is untouched by the reference being absent.
-    assert response.content == canonical_bytes(assembled.servable.product)
-
-
+    with pytest.raises(UngovernedResolverResult, match="bare `ServableProduct`"):
+        _ask_http_door(
+            http_root, address=address, resolver=_answering(assembled.servable)
+        )
 def test_the_served_and_refused_shapes_cannot_validate_as_each_other(
     assembled: Any,
 ) -> None:
@@ -1292,15 +1369,7 @@ def test_the_boundary_assertion_fires_on_each_way_a_door_can_get_it_wrong(
     identity = _identity(address)
 
     with pytest.raises(AssertionError, match="nothing at all"):
-        assert_governance_is_shelled(
-            lambda refused: door_refusal(
-                refused,
-                asked=None,
-                identity=identity,
-                product_class=address.product_class,
-                version=address.version,
-            )
-        )
+        assert_governance_is_shelled(lambda refused: door_refusal(refused))
 
     def own_kind(refused: ProductEntitlementRefused) -> RefusalEnvelope:
         return RefusalEnvelope(

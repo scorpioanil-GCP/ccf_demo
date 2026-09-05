@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+import re
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +49,7 @@ from test_egress_refusal_envelope import (
     _ask_mcp_door,
     _decode,
     _identity,
+    _minted,
 )
 
 #: What the gate said, rendered as it crosses the wire: the obliged payload
@@ -131,30 +133,42 @@ def test_a_declared_obligation_refusal_arrives_as_its_typed_kind(
     dropped the pre-assembly lineage a gate refusal genuinely had.
     """
     address = assembled.address
+    # Minted at `full` so the lineage the gate refusal genuinely had crosses;
+    # the door releases only what the recorder returned (`D-IMPL-260` P-A).
     is_error, text = _ask_mcp_door(
-        tmp_path, address=address, resolver=_answering(_envelope(assembled))
+        tmp_path,
+        address=address,
+        resolver=_answering(
+            _minted(tmp_path, address, _envelope(assembled), level="full")
+        ),
     )
 
     refusal = _assert_declared_obligation_kind(is_error, text, address=address)
     assert refusal.pre_assembly_lineage == assembled.servable.product.lineage
 
 
-def test_a_bare_declared_obligation_refusal_is_translated_at_the_mcp_door(
+def test_a_bare_declared_obligation_refusal_does_not_cross_the_mcp_door(
     assembled: Any, tmp_path: Path
 ) -> None:
-    """A deployment resolver returning what ``run_gates`` gave it: same kind, same fields.
+    """``D-IMPL-260`` P-A: what ``run_gates`` gave a resolver is not a governed answer yet.
 
-    The door supplies the request identity from the question it carried and
-    reports the lineage as honestly absent — the same translation the HTTP
-    door runs, through the same :func:`~ccf.products.door.door_refusal`.
+    Until this ruling the door translated the bare value itself — undisclosed,
+    unrecorded — and answered with it. It now refuses the bare value as a
+    wiring defect, which this door reports as its opaque runtime failure: no
+    kind, no type name, no prose, and never a refusal the fabric made.
     """
     address = assembled.address
     is_error, text = _ask_mcp_door(
         tmp_path, address=address, resolver=_answering(_refusal())
     )
 
-    refusal = _assert_declared_obligation_kind(is_error, text, address=address)
-    assert refusal.pre_assembly_lineage is None
+    assert is_error is True, text
+    assert re.fullmatch(
+        rf"(Error executing tool [^:\s]+: )?{egress.CCF_FAILURE_PREFIX}:[0-9a-f]{{32}}",
+        text.strip(),
+    ), text
+    assert "DeclaredObligationRefusal" not in text
+    assert KIND not in text
 
 
 def test_the_egress_module_names_neither_the_kind_nor_the_type() -> None:

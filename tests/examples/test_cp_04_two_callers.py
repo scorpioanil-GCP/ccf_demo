@@ -519,14 +519,16 @@ def tool_call(
 def resource_read(
     uri: str,
 ) -> Callable[[ClientSession], Awaitable[str]]:
-    """Read the product resource; return the served text, or refuse.
+    """Read the product resource; return its text, or refuse.
 
-    The door's resource handler raises rather than returning a refusal envelope
-    — it has no envelope channel, which
-    `runtime/ccf_runtime/mcp/egress.py::build_egress_server` records as a
-    deliberate asymmetry between its two surfaces — so a refusal reaches the
-    client as `ccf.mcp.errors.py::McpServerUnreachable` wrapping the door's own
-    reason, and :func:`drive` turns that into a :class:`Refused`.
+    The text is the served vessel or a refusal SHELL — the resource body IS
+    the shell, with `kind` and `replay_reference` at its top level. Since
+    `D-IMPL-260` P-C the resolver's `ProductNotServable` is a governed
+    determination the door records and answers this way too, so a read of this
+    parameterized class's resource succeeds with a `subject-unavailable` shell
+    rather than failing at the transport. A transport failure still reaches
+    the client as `ccf.mcp.errors.py::McpServerUnreachable`, which
+    :func:`drive` turns into a :class:`Refused`.
     """
 
     async def operation(session: ClientSession) -> str:
@@ -613,6 +615,15 @@ ENUMERATE = "enumerate"
 RECORDS = "__records__"
 
 
+def _shell_kind(text: str) -> str | None:
+    """The `kind` of a resource body that IS a refusal shell; ``None`` otherwise."""
+    try:
+        body = json.loads(text)
+    except ValueError:
+        return None
+    return body.get("kind") if isinstance(body, dict) else None
+
+
 def _record_behind(root: pathlib.Path, result: Any) -> Mapping[str, Any] | None:
     """The replay record one door outcome's `replay_reference` resolves to.
 
@@ -625,12 +636,19 @@ def _record_behind(root: pathlib.Path, result: Any) -> Mapping[str, Any] | None:
     from ccf.artifacts.protocol import parse_artifact_uri
     from ccf.products.refusal import NO_REPLAY_REFERENCE
 
-    if isinstance(result, Refused) or not isinstance(result, tuple):
+    if isinstance(result, Refused):
         return None
-    _is_error, text = result
+    # The tool answers `(is_error, text)`; the resource read answers its text.
+    text = result[1] if isinstance(result, tuple) else result
+    if not isinstance(text, str):
+        return None
+    # Two wire shapes: the tool nests the shell under `refusal`; the resource
+    # body IS the shell, reference at the top level.
     try:
-        reference = str(json.loads(text)["refusal"]["replay_reference"])
-    except (ValueError, KeyError, TypeError):
+        body = json.loads(text)
+        shell = body.get("refusal") if isinstance(body.get("refusal"), dict) else body
+        reference = str(shell["replay_reference"])
+    except (ValueError, KeyError, TypeError, AttributeError):
         return None
     if not reference or reference == NO_REPLAY_REFERENCE:
         return None
@@ -992,17 +1010,27 @@ def test_the_listing_check_refuses_a_concrete_product_resource() -> None:
     assert any("resources/list` carries" in entry for entry in violations), violations
 
 
-def refusal_violations(*, served: bool, text: str) -> list[str]:
+def refusal_violations(
+    *, served: bool, text: str, recorded_detail: str | None
+) -> list[str]:
     """Every way a resource read fails `CFT-G13` limb (b).
 
     THE THREE THINGS THIS CHECKS ARE DIFFERENT THINGS. That the read did not
-    serve; that the refusal names the SDK's own `ProductNotServable` reason
-    rather than failing for some unrelated reason; and that **no tree came
-    back** — the last one asserted against the payload's own vocabulary, because
-    a check that only asserted *"it refused"* would be satisfied by a door that
-    was broken for a reason nobody intended, and a check that only asserted *"no
-    exception text mentions a tree"* would be satisfied by a door that served one
-    silently.
+    serve; that the refusal is for THIS deployment's stated reason rather than
+    some unrelated failure; and that **no tree came back** — the last one
+    asserted against the payload's own vocabulary, because a check that only
+    asserted *"it refused"* would be satisfied by a door that was broken for a
+    reason nobody intended, and a check that only asserted *"no exception text
+    mentions a tree"* would be satisfied by a door that served one silently.
+
+    **Where the stated reason is read, since `D-IMPL-260` P-C.** The
+    resolver's `ProductNotServable` is a governed determination now — the
+    door records it and answers the common `subject-unavailable` shell, whose
+    `detail` at this deployment's `minimal` level is the external statement.
+    So the reason is read off the RECORD the shell's reference names
+    (`recorded_detail`), and the wire is held to NOT carry it: a stated reason
+    crossing at `minimal` would be the disclosure leak the shell exists to
+    close.
     """
     violations: list[str] = []
     if served:
@@ -1012,11 +1040,17 @@ def refusal_violations(*, served: bool, text: str) -> list[str]:
             " parameterized and a resource read supplies no anchor and no depth,"
             " so anything it returned would answer a question nobody asked"
         )
-    if "PARAMETERIZED class" not in text:
+    if recorded_detail is None or "PARAMETERIZED class" not in recorded_detail:
         violations.append(
             "the resource read did not refuse for THIS deployment's stated"
             " reason. A refusal for an unrelated reason is not the refusal"
-            f" `CFT-G13` asserts. Got: {text[:600]}"
+            f" `CFT-G13` asserts. Recorded: {str(recorded_detail)[:600]}"
+        )
+    if "PARAMETERIZED class" in text:
+        violations.append(
+            "the deployment's stated reason crossed the wire at `minimal` — the"
+            " internal determination leaked into the shell (D-IMPL-260 P-C):"
+            f" {text[:600]}"
         )
     for token in ("\"nodes\"", "\"anchor\"", "\"findings\"", "type_chain"):
         if token in text:
@@ -1032,11 +1066,20 @@ def test_cft_g13_b_a_read_of_the_product_resource_refuses_and_never_serves_a_tre
 ) -> None:
     """`CFT-G13` limb (b). The registered resource refuses BY NAME."""
     read = surfaces[RESOURCE_READ]
-    served = not isinstance(read, Refused)
-    text = read if served else read.reason
-    violations = refusal_violations(served=served, text=str(text))
+    # The read SUCCEEDS with the common shell (`D-IMPL-260` P-C); "served"
+    # means the body is not a governed refusal at all.
+    text = read.reason if isinstance(read, Refused) else str(read)
+    served = _shell_kind(text) != SUBJECT_UNAVAILABLE_KIND
+    record = surfaces[RECORDS].get(RESOURCE_READ)
+    internal = (record or {}).get("content_generation_path", {}).get("assembly_refusal")
+    internal = json.loads(internal) if isinstance(internal, str) else internal
+    violations = refusal_violations(
+        served=served,
+        text=text,
+        recorded_detail=(internal or {}).get("detail") if internal else None,
+    )
     assert not violations, (
-        "\n".join(violations) + f"\n--- the read returned ---\n{str(text)[:2000]}"
+        "\n".join(violations) + f"\n--- the read returned ---\n{text[:2000]}"
     )
 
 
@@ -1052,7 +1095,9 @@ def test_the_refusal_check_refuses_a_resolver_that_returned_a_payload(
     that merely looks wrong.
     """
     served_text = canonical_bytes(in_process_answer.payload).decode("utf-8")
-    violations = refusal_violations(served=True, text=served_text)
+    violations = refusal_violations(
+        served=True, text=served_text, recorded_detail=None
+    )
     assert violations, "a resource read that SERVED A TREE was accepted as a refusal"
     assert any("must never produce" in entry for entry in violations), violations
     assert any("served" in entry for entry in violations), violations

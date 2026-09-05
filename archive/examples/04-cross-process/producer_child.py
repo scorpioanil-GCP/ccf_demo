@@ -102,6 +102,9 @@ from ccf.products.contract import (  # noqa: E402
 from ccf.products.gates import ServableProduct, run_gates  # noqa: E402
 from ccf.products.request import ProductRequest  # noqa: E402
 from ccf.products.resolver import ReplayRefusalRecorder  # noqa: E402
+from ccf.replay.record import PolicyBinding, build_replay_record  # noqa: E402
+from ccf.replay.serve import ReplayWriter, ServedProduct  # noqa: E402
+from ccf.replay.serve import serve as serve_product  # noqa: E402
 from ccf.projection.engine import ProjectionEngine  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 
@@ -273,6 +276,12 @@ class AssembledCovenantSlice(NamedTuple):
     declared_operator_keys: tuple[str, ...]
     operators_invoked: tuple[str, ...]
     now: datetime
+    #: What the fulfilled decision's replay record is built from, so the
+    #: egress resolver can SERVE the vessel — record appended, reference
+    #: carried — rather than hand a bare gated product to a door that no
+    #: longer releases one (`D-IMPL-260` P-A).
+    execution: Any
+    policy_version: str
 
 
 def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSlice:
@@ -498,6 +507,8 @@ def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSli
         declared_operator_keys=declared.required_operator_keys,
         operators_invoked=execution.operators_invoked,
         now=now,
+        execution=execution,
+        policy_version=policy_version,
     )
 
 
@@ -651,7 +662,7 @@ def main() -> None:
                 version: str,
                 perspective: Perspective,
                 request: ProductRequest | None,
-            ) -> ServableProduct:
+            ) -> ServedProduct:
                 """This deployment's assemble-and-gate path — and its bind.
 
                 Three things happen here that did not before plan `15.5-15`
@@ -709,7 +720,30 @@ def main() -> None:
                 )
                 if violation is not None:
                     raise ProductNotServable(f"{requested}: {violation.detail}")
-                return assembled.servable
+                # `D-IMPL-260` P-A: a door releases only a `ServedProduct` —
+                # the decision recorded, the reference carried. Recorded
+                # through the same store the door's own recorder writes to,
+                # so a denial and the product it was denied against are filed
+                # in one place (`D-IMPL-253` Q13).
+                return serve_product(
+                    product=assembled.servable,
+                    record=build_replay_record(
+                        execution=assembled.execution,
+                        product=assembled.servable.product,
+                        perspective=perspective,
+                        policy_bindings=(
+                            PolicyBinding(
+                                key="policy-bundle", version=assembled.policy_version
+                            ),
+                        ),
+                        assembly_mode=assembled.registered.assembly_mode,
+                        recorded_at=assembled.now,
+                    ),
+                    replay_writer=ReplayWriter(
+                        store=FileArtifactStore(root=workspace / "door-artifacts"),
+                        artifact_class=DOOR_REPLAY_RECORD_CLASS,
+                    ),
+                )
 
             def resolve_perspective(
                 *, grant: TokenGrant, tenant: str, requested_role: str | None

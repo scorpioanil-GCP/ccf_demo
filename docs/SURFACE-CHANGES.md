@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**986 entries**, of which **743** name a public Python surface.
+**991 entries**, of which **748** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-484 entries — 444 public Python surface, 40 not public Python API.
+487 entries — 447 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -221,6 +221,69 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   tenant's `ProductEntitlementPolicy.disclosure_level` to `full`. The
   cp-04 door test that read the capability identity off the shell now reads it
   off the replay record the shell's `replay_reference` resolves to
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf.products.door.UngovernedResolverResult
+
+- Surface: ccf.products.door.UngovernedResolverResult
+- Public surface: true
+- Change type: added
+- Before: absent; a mis-wired resolver result was a bare `TypeError` from
+  `served_answer` or a `ValueError` from `door_refusal`, and two of the
+  nonconforming shapes crossed as answers
+- After: a `TypeError` subclass every transport's existing runtime-failure
+  handling catches unchanged, raised by the door for every value that proves
+  no governed determination
+- Why: a class of its own so a deployment and a test can name the defect exactly
+- Migration: nothing to do; a deployment that caught `TypeError` around a door
+  call still does
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf\_runtime.authz.delivery\_boundary.govern\_absence
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_absence
+- Public surface: true
+- Change type: added
+- Before: absent. A deployment resolver's `ProductNotServable` (or the
+  experience server's `ExperienceProductNotServable`) left each door in its own
+  vocabulary — `HTTPException(404, str(absent))`, an opaque runtime failure on
+  the MCP tool, a transport error on the resources — with no record behind it
+- After: the governed determination for a class the deployment does not serve:
+  `SubjectUnavailableRefusal(cause="nonexistent")` under a
+  `ResourceRequestIdentity`, recorded and disclosed through the door's own
+  recorder, returned as the common shell. The three doors catch exactly the
+  typed absence around their resolver call and render the shell through the
+  same path as every other refusal; the HTTP status stays 404
+- Why: `D-IMPL-260` P-C, verbatim: *"an unregistered product class must reach
+  the caller as the common shell; the status may stay 404"*
+- Migration: a client that read `detail` off a 404 body finds the common
+  refusal body instead, with a `replay_reference`; the resolver's own sentence
+  is on the record. Nothing to do for a resolver — raise the same typed
+  absence
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf\_runtime.authz.product\_entitlement.ProductEntitlementRefused
+
+- Surface: ccf_runtime.authz.product_entitlement.ProductEntitlementRefused
+- Public surface: true
+- Change type: added
+- Before: `error_code`, `message`, `policy`; the delivery boundary recorded
+  replay dimension 4's role from the caller's `requested_role`, substituting
+  `NO_ROLE_RESOLVED` when none was asked — even when the resolver had
+  established a role and the source had decided under it
+- After: a fourth keyword-only member, `role: str | None = None`, set by
+  `ControlPlaneProductEntitlementSource.authorize` to the role it was handed
+  and left `None` by the subject-conflict refusal, which is reached before any
+  role of the caller's exists. The boundary records it as given and turns
+  `None` into `NO_ROLE_RESOLVED`
+- Why: `D-IMPL-260` P-D, verbatim: *"record the role that actually participated,
+  explicit absence if none was established, never a substituted default"*
+- Migration: every existing construction is unchanged (defaulted). A reader of
+  denial records sees the deciding role where it used to see the positive
+  absence on surfaces that could not ask for one
 
 *Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
 
@@ -15763,7 +15826,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-128 entries — 108 public Python surface, 20 not public Python API.
+130 entries — 110 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -16007,6 +16070,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   deployment that wants it on the wire sets its tenant's
   `ProductEntitlementPolicy.disclosure_level` to `full`. Tests that read the
   identity off the shell now read it off the record
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf.products.door.door\_refusal
+
+- Surface: ccf.products.door.door_refusal
+- Public surface: true
+- Change type: behavior
+- Before: `door_refusal(resolved, *, asked, identity=None, product_class,
+  version) -> RefusalEnvelope | None`. Two refusal shapes crossed: a
+  `RefusalEnvelope` passed through untouched whatever its `replay_reference`
+  or `disclosure` said, and a BARE refusal value — any type `REFUSAL_KINDS`
+  names — which the door enveloped itself, supplying the question from
+  `asked` or from the `identity` a question-less surface stated. That envelope
+  was undisclosed and unrecorded: a determination reaching a consumer with no
+  replay and no disclosure decision behind it, released by the layer
+  `D-IMPL-254` says decides nothing. The close review measured it as P-A
+- After: `door_refusal(resolved) -> RefusalEnvelope | None`. Only a
+  `RefusalEnvelope` that PROVES its governance crosses — `replay_reference`
+  other than `NO_REPLAY_REFERENCE` and `disclosure` not `None`, which is
+  exactly what `ReplayRefusalRecorder.record` returns. A bare refusal value,
+  an envelope at the sentinel, or an envelope with `disclosure=None` raises
+  `UngovernedResolverResult`; a served shape returns `None` as before. The
+  four keyword arguments are gone with the translation they fed
+- Why: `D-IMPL-260` P-A, verbatim: *"the boundary must accept only a
+  typed/provable governed result proving determination, replay and
+  disclosure completed; a nonconforming resolver result must not cross"*
+- Migration: **a deployment resolver that returned what `run_gates` gave it
+  must now record it.** Hand the bare value to the SDK's
+  `ReplayRefusalRecorder.record` (the seam `build_governed_resolver` wires,
+  and the one every door is built with) and return the envelope it hands
+  back; a question-less surface's request identity is what that seam records.
+  Callers of `door_refusal` drop `asked`, `identity`, `product_class` and
+  `version`. A resolver still returning a bare value reaches its callers as
+  the door's opaque runtime failure, never as a refusal
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf.products.door.served\_answer
+
+- Surface: ccf.products.door.served_answer
+- Public surface: true
+- Change type: behavior
+- Before: accepted `ServedProduct` and the narrower `ServableProduct`, reporting
+  `ServedAnswer(replay_ref=None)` for the second — `D-IMPL-148` Addendum A's
+  *"named divergence"* — so a gate-admitted vessel nothing had recorded was
+  served with no replay behind it
+- After: accepts `ServedProduct` only; `ServedAnswer.replay_ref` is `str`, never
+  `None`. A bare `ServableProduct` raises `UngovernedResolverResult` with a
+  message naming the fix (`ccf.replay.serve.serve`); any other shape raises the
+  same type. `door_answer(resolved, *, echo, resolved_request)` drops
+  `product_class` and `version`, which only fed the removed translation
+- Why: `D-IMPL-260` P-A — a served answer's replay reference is the proof its
+  decision was appended, and `serve` returns one only after the append
+- Migration: **a deployment resolver returning a `ServableProduct` must serve it
+  through `ccf.replay.serve.serve` first** and return the `ServedProduct`;
+  `ProductResolverProtocol` (egress) and `ExperienceProductResolverProtocol`
+  now declare `ServedProduct | RefusalEnvelope`. `DoorOutcome.replay_ref` keeps
+  its optional wire type for other producers, but every shipped door now fills
+  it on both halves
 
 *Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
 

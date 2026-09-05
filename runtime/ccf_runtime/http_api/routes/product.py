@@ -135,13 +135,16 @@ table in :mod:`ccf_runtime.http_api.refusal_status`, rendered in the body shape
 both branches already used. The ``409`` and the ``400`` this door answered
 before are two rows of that table and did not move.
 
-**What 500 means here, now that no governed refusal reaches it.** A
-:func:`~ccf.products.door.door_refusal` envelope whose ``kind`` is *not* in the
-vocabulary falls through to :func:`~ccf.products.door.served_answer`, which
-raises ``TypeError`` naming the shape. That is an invariant violation — a value
-this SDK did not mint claiming to be a refusal — and it should look like one. A
-*bare* refusal value on a call that posed no question is the ``ValueError``
-:func:`~ccf.products.door.door_refusal` documents, on the same footing.
+**What 500 means here, now that no governed refusal reaches it.** A value
+that proves no governed determination (``D-IMPL-260`` P-A): a bare
+:class:`~ccf.products.gates.ServableProduct` or a bare refusal value, an
+envelope with no replay reference or no disclosure decision, or an envelope
+whose ``kind`` is not in the vocabulary — the last falls through to
+:func:`~ccf.products.door.served_answer`, the rest are refused by name. Each
+raises :class:`~ccf.products.door.UngovernedResolverResult` (a ``TypeError``)
+naming the shape. That is an invariant violation — a value this SDK did not
+mint, or did not record, claiming to be an answer — and it should look like
+one rather than cross as a determination the fabric made.
 
 **The entitlement determination travels the same path** (``D-IMPL-256``,
 criterion 36; ``D-IMPL-254``'s four layers). This door used to catch
@@ -434,9 +437,7 @@ def build_router(
         # table does not hold is not a refusal this SDK minted, so it falls
         # through to `served_answer` and reaches the client as the door fault
         # it is — which is the one thing 500 is now reserved for.
-        envelope = door_refusal(
-            resolved, asked=asked, product_class=product_class, version=version
-        )
+        envelope = door_refusal(resolved)
         if envelope is not None and envelope.kind in STATUS_BY_KIND:
             return _refusal_response(envelope)
         # `D-IMPL-148` Addendum A: the reference the resolver produced reaches

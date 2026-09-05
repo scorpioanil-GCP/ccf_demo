@@ -41,6 +41,7 @@ from ccf.products.refusal import REFUSAL_KINDS, RefusalEnvelope, envelope_for
 from ccf.products.request import ProductRequestViolation
 from ccf_runtime.http_api.refusal_status import STATUS_BY_KIND
 from tests.http_api.test_product_declared_obligation_409 import (
+    _minted,
     KIND as OBLIGATION_KIND,
     _answering,
     _ask,
@@ -91,9 +92,7 @@ def test_a_request_violation_answers_400_with_the_envelope(
     restores exactly that and watches this go RED).
     """
     answer = _ask(
-        _governed_app(
-            fabric, tmp_path, resolver=_answering(_envelope(fabric, reason, key))
-        ),
+        _minted(fabric, tmp_path, _envelope(fabric, reason, key))[0].app,
         fabric,
         query=_question(),
     )

@@ -5073,6 +5073,7 @@
       "DoorOutcome",
       "PRODUCT_REQUEST_TOOL",
       "ServedAnswer",
+      "UngovernedResolverResult",
       "WireRequest",
       "door_answer",
       "door_question",
@@ -5096,7 +5097,11 @@
       },
       "ServedAnswer": {
         "kind": "class",
-        "shape": "(product: 'ContextProductContract', replay_ref: 'str | None') -> None"
+        "shape": "(product: 'ContextProductContract', replay_ref: 'str') -> None"
+      },
+      "UngovernedResolverResult": {
+        "kind": "class",
+        "shape": "type"
       },
       "WireRequest": {
         "kind": "contract",
@@ -5108,7 +5113,7 @@
       },
       "door_answer": {
         "kind": "function",
-        "shape": "(resolved: 'object', *, echo: 'WireRequest', resolved_request: 'ProductRequest', product_class: 'str', version: 'str') -> 'bytes'"
+        "shape": "(resolved: 'object', *, echo: 'WireRequest', resolved_request: 'ProductRequest') -> 'bytes'"
       },
       "door_question": {
         "kind": "function",
@@ -5116,7 +5121,7 @@
       },
       "door_refusal": {
         "kind": "function",
-        "shape": "(resolved: 'object', *, asked: 'ProductRequest | None', identity: 'RequestIdentity | None' = None, product_class: 'str', version: 'str') -> 'RefusalEnvelope | None'"
+        "shape": "(resolved: 'object') -> 'RefusalEnvelope | None'"
       },
       "served_answer": {
         "kind": "function",
@@ -7432,6 +7437,7 @@
       "SURFACE_MCP_RESOURCE",
       "SURFACE_MCP_TOOL",
       "UnrecordableDeliveryBoundaryError",
+      "govern_absence",
       "govern_entitlement",
       "recorded_boundary"
     ],
@@ -7451,6 +7457,10 @@
       "UnrecordableDeliveryBoundaryError": {
         "kind": "class",
         "shape": "type"
+      },
+      "govern_absence": {
+        "kind": "function",
+        "shape": "(*, grant: 'TokenGrant', tenant: 'str', product_class: 'str', product_version: 'str | None', parameters: 'Mapping[str, Any]', asked_at: 'datetime | None', surface: 'str', address: 'str', perspective: 'Perspective', absent: 'LookupError', entitlement_source: 'ProductEntitlementSourceProtocol', refusal_recorder: 'RefusalRecorderProtocol') -> 'RefusalEnvelope'"
       },
       "govern_entitlement": {
         "kind": "function",
@@ -7484,7 +7494,7 @@
       },
       "ProductEntitlementRefused": {
         "kind": "class",
-        "shape": "(*, error_code: 'str', message: 'str', policy: 'ProvenanceSource | None' = None) -> 'None'"
+        "shape": "(*, error_code: 'str', message: 'str', policy: 'ProvenanceSource | None' = None, role: 'str | None' = None) -> 'None'"
       },
       "ProductEntitlementSourceProtocol": {
         "kind": "class",
@@ -8433,7 +8443,7 @@
       },
       "ProductResolverProtocol": {
         "kind": "class",
-        "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', perspective: 'Perspective', request: 'ProductRequest | None') -> 'ServableProduct'"
+        "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', perspective: 'Perspective', request: 'ProductRequest | None') -> 'ServedProduct | RefusalEnvelope'"
       },
       "build_egress_server": {
         "kind": "function",
@@ -8551,7 +8561,7 @@
       },
       "ExperienceProductResolverProtocol": {
         "kind": "class",
-        "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', perspective: 'Perspective', request: 'ProductRequest | None') -> 'ServableProduct'"
+        "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', perspective: 'Perspective', request: 'ProductRequest | None') -> 'ServedProduct | RefusalEnvelope'"
       },
       "ExposedAgent": {
         "kind": "contract",

@@ -733,10 +733,12 @@ declaration:
       statement: >-
         The MCP door SERVES THROUGH THE TOOL ONLY, and the registered product
         resource REFUSES. Three parts, asserted together — (a) the resource IS
-        registered and enumerable in resources/list; (b) a resolve or read of it
-        returns ProductNotServable, or the existing refusal type, and NEVER a
-        tree; (c) the TOOL is the only path that serves, taking a
-        client-supplied lei and max_depth.
+        registered and enumerable in resources/list; (b) a resolve of it raises
+        the resolver's ProductNotServable, which the door records and answers
+        as the common `subject-unavailable` shell (`D-IMPL-260` P-C) with the
+        deployment's stated reason on the RECORD and never on the wire below
+        `full` — and NEVER a tree; (c) the TOOL is the only path that serves,
+        taking a client-supplied lei and max_depth.
       test: tests/examples/test_cp_04_seams.py::test_cft_g13_the_tool_serves_and_the_registered_resource_refuses
       sabotage: >-
         make the resolver return a payload — a resource read that yields a tree

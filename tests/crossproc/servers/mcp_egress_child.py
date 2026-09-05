@@ -70,6 +70,8 @@ from ccf.products.request import (  # noqa: E402
     refuse_request,
 )
 from ccf.projection.plan import Perspective  # noqa: E402
+from ccf.replay.record import PolicyBinding, build_replay_record  # noqa: E402
+from ccf.replay.serve import ReplayWriter, ServedProduct, serve  # noqa: E402
 from ccf_runtime.authz.product_entitlement import (  # noqa: E402
     ControlPlaneProductEntitlementSource,
 )
@@ -178,6 +180,18 @@ class AssembledProduct(NamedTuple):
     """
 
     servable: ServableProduct
+    #: The SAME vessel, served: its decision record appended through
+    #: `replay_writer` and the reference carried beside it — the only served
+    #: shape a door releases (`D-IMPL-260` P-A).
+    served: ServedProduct
+    #: The writer every answer this fixture serves is recorded through, over a
+    #: file store beside the throwaway graph.
+    replay_writer: ReplayWriter
+    #: What the decision record is built from, kept so `answer_for` can record
+    #: a per-question answer the same way the standing one was recorded.
+    execution: Any
+    policy_binding: PolicyBinding
+    tenant_id: str
     address: ProductAddress
     server_name: str
     principal_id: str
@@ -263,8 +277,28 @@ def build_servable_product(*, database_path: Path) -> AssembledProduct:
         raise AssertionError(
             f"the fixture product did not pass the gates: {gated}"
         )
+    replay_writer = ReplayWriter(
+        store=FileArtifactStore(root=database_path.parent / "fixture-replay"),
+        artifact_class=REPLAY_RECORD_CLASS,
+    )
+    policy_binding = PolicyBinding(key=keys["policy_bundle"], version=policy_version)
+    served = _served(
+        gated,
+        execution=execution,
+        principal_id=control["perspective"]["principal_id"],
+        role=control["perspective"]["role"],
+        policy_binding=policy_binding,
+        recorded_at=fabric.now,
+        tenant_id=fabric.tenant_id,
+        replay_writer=replay_writer,
+    )
     return AssembledProduct(
         servable=gated,
+        served=served,
+        replay_writer=replay_writer,
+        execution=execution,
+        policy_binding=policy_binding,
+        tenant_id=fabric.tenant_id,
         address=ProductAddress(
             tenant=fabric.tenant_id,
             product_class=product_class.schema_name,
@@ -305,9 +339,41 @@ def declared_request_contract(
     )
 
 
+def _served(
+    gated: ServableProduct,
+    *,
+    execution: Any,
+    principal_id: str,
+    role: str,
+    policy_binding: PolicyBinding,
+    recorded_at: datetime,
+    tenant_id: str,
+    replay_writer: ReplayWriter,
+) -> ServedProduct:
+    """Record the decision, then deliver — the shipped seam, not a stand-in.
+
+    `D-IMPL-260` P-A: a door releases only a `ServedProduct`, whose replay
+    reference proves the record was appended. So this fixture serves the way
+    a deployment does: the record is built from what the execution and the
+    gated product already know and appended by `ccf.replay.serve.serve`
+    before the vessel is handed back.
+    """
+    # `tenant_id` is read off the product when there is one; passing it too
+    # is two sources for one fact and the builder refuses it.
+    record = build_replay_record(
+        execution=execution,
+        product=gated.product,
+        perspective=Perspective(principal_id=principal_id, role=role),
+        policy_bindings=(policy_binding,),
+        assembly_mode="algorithmic",
+        recorded_at=recorded_at,
+    )
+    return serve(product=gated, record=record, replay_writer=replay_writer)
+
+
 def answer_for(
     assembled: AssembledProduct, request: ProductRequest
-) -> ServableProduct:
+) -> ServedProduct:
     """Gate the product that answers *this* question.
 
     The whole point of the parameterised door is that the answer depends on
@@ -342,7 +408,16 @@ def answer_for(
     )
     if not isinstance(gated, ServableProduct):
         raise AssertionError(f"the answered product did not gate: {gated}")
-    return gated
+    return _served(
+        gated,
+        execution=assembled.execution,
+        principal_id=assembled.principal_id,
+        role=assembled.role,
+        policy_binding=assembled.policy_binding,
+        recorded_at=assembled.now,
+        tenant_id=assembled.tenant_id,
+        replay_writer=assembled.replay_writer,
+    )
 
 
 def build_entitlement_registry(assembled: AssembledProduct) -> ControlPlaneRegistry:
@@ -406,7 +481,7 @@ def build_server(*, workspace: Path) -> FastMCP:
         version: str,
         perspective: Perspective,
         request: ProductRequest | None,
-    ) -> ServableProduct:
+    ) -> ServedProduct:
         """Serve exactly the one assembled address; refuse anything else.
 
         The refusal matters as much as the hit: a resolver that returned its
@@ -427,7 +502,7 @@ def build_server(*, workspace: Path) -> FastMCP:
         if requested != assembled.address:
             raise ProductNotServable(str(requested))
         if request is None:
-            return assembled.servable
+            return assembled.served
         violation = refuse_request(request=request, declared=declared)
         if violation is not None:
             raise ValueError(f"request refused: {violation.detail}")

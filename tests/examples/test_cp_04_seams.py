@@ -176,7 +176,11 @@ from tools.lints.algorithmic import LLM_MODULES
 
 from .cp_04_seed import FLUREE_FIXTURE, ledger_for, schema_for, seed
 from .test_cp_04_two_callers import (
+    RECORDS,
+    SUBJECT_UNAVAILABLE_KIND,
     Refused,
+    _record_behind,
+    _shell_kind,
     drive,
     enumeration,
     resource_read,
@@ -724,8 +728,9 @@ def surfaces(estate: tuple[str, str]) -> dict[str, Any]:
         version=demonstration.schema_version,
     )
     with tempfile.TemporaryDirectory(prefix="cp04-seams-door-") as scratch:
-        with serve.door(root=pathlib.Path(scratch)) as opened:
-            return drive(
+        root = pathlib.Path(scratch)
+        with serve.door(root=root) as opened:
+            results = drive(
                 opened,
                 {
                     ENUMERATE: enumeration(),
@@ -738,6 +743,14 @@ def surfaces(estate: tuple[str, str]) -> dict[str, Any]:
                     ),
                 },
             )
+        # The record behind each refusal, read out of the door's own store
+        # while the scratch root exists (`D-IMPL-260` P-C: the resource's
+        # refusal is a recorded determination, and its stated reason lives on
+        # the record rather than on the wire below `full`).
+        results[RECORDS] = {
+            ask: _record_behind(root, result) for ask, result in results.items()
+        }
+        return results
 
 
 # ---------------------------------------------------------------------------
@@ -1718,6 +1731,7 @@ def door_violations(
     templates: Sequence[str],
     resource_served: bool,
     resource_text: str,
+    resource_recorded_detail: str | None,
     tool_refused: bool,
     tool_text: str,
     tool_payload: Mapping[str, Any] | None,
@@ -1782,11 +1796,25 @@ def door_violations(
             " depth, so anything it returned would answer a question nobody"
             " asked"
         )
-    if "PARAMETERIZED class" not in resource_text:
+    # `D-IMPL-260` P-C: the resolver's `ProductNotServable` is a governed
+    # determination — recorded, and answered as the common shell. The stated
+    # reason is read off the RECORD; the wire is held NOT to carry it at this
+    # deployment's `minimal` level, which is the shell's whole point.
+    if (
+        resource_recorded_detail is None
+        or "PARAMETERIZED class" not in resource_recorded_detail
+    ):
         violations.append(
             "CFT-G13 (b): the resource read did not refuse for THIS"
             " deployment's stated reason. A refusal for an unrelated reason is"
-            f" not the refusal this gate asserts. Got: {resource_text[:600]}"
+            " not the refusal this gate asserts. Recorded:"
+            f" {str(resource_recorded_detail)[:600]}"
+        )
+    if "PARAMETERIZED class" in resource_text:
+        violations.append(
+            "CFT-G13 (b): the deployment's stated reason crossed the wire at"
+            " `minimal` — the internal determination leaked into the shell"
+            f" (D-IMPL-260 P-C): {resource_text[:600]}"
         )
     for token in ('"nodes"', '"anchor"', '"findings"', "type_chain"):
         if token in resource_text:
@@ -1970,6 +1998,9 @@ class DoorReading:
     templates: tuple[str, ...]
     resource_served: bool
     resource_text: str
+    #: The `detail` of the internal determination the resource refusal's
+    #: replay record holds — where the deployment's stated reason lives.
+    resource_recorded_detail: str | None
     tool_refused: bool
     tool_text: str
     tool_payload: Mapping[str, Any] | None
@@ -2005,8 +2036,14 @@ def door_reading(surfaces: dict[str, Any]) -> DoorReading:
     resources, templates = listed
 
     read = surfaces[RESOURCE_READ]
-    resource_served = not isinstance(read, Refused)
-    resource_text = str(read if resource_served else read.reason)
+    # The read SUCCEEDS with the common shell (`D-IMPL-260` P-C): "served"
+    # means the body is not a governed refusal at all.
+    resource_text = read.reason if isinstance(read, Refused) else str(read)
+    resource_served = _shell_kind(resource_text) != SUBJECT_UNAVAILABLE_KIND
+    record = surfaces[RECORDS].get(RESOURCE_READ) or {}
+    internal = record.get("content_generation_path", {}).get("assembly_refusal")
+    internal = json.loads(internal) if isinstance(internal, str) else internal
+    resource_recorded_detail = (internal or {}).get("detail") if internal else None
 
     refused, text, payload = _tool_outcome(surfaces[PLANTED_ASK])
     _default_refused, _default_text, default_payload = _tool_outcome(
@@ -2017,6 +2054,7 @@ def door_reading(surfaces: dict[str, Any]) -> DoorReading:
         templates=tuple(templates),
         resource_served=resource_served,
         resource_text=resource_text,
+        resource_recorded_detail=resource_recorded_detail,
         tool_refused=refused,
         tool_text=text,
         tool_payload=payload,
@@ -2040,6 +2078,7 @@ def test_cft_g13_the_tool_serves_and_the_registered_resource_refuses(
         templates=door_reading.templates,
         resource_served=door_reading.resource_served,
         resource_text=door_reading.resource_text,
+        resource_recorded_detail=door_reading.resource_recorded_detail,
         tool_refused=door_reading.tool_refused,
         tool_text=door_reading.tool_text,
         tool_payload=door_reading.tool_payload,
@@ -2058,7 +2097,10 @@ def _compliant_door_arguments() -> dict[str, Any]:
         "resources": [],
         "templates": [PRODUCT_URI_TEMPLATE],
         "resource_served": False,
-        "resource_text": (
+        "resource_text": json.dumps(
+            {"kind": "subject-unavailable", "disclosure": "minimal", "fields": {}}
+        ),
+        "resource_recorded_detail": (
             "this is a PARAMETERIZED class and this resource carries no"
             " parameters. Ask through the product TOOL"
         ),
@@ -3223,20 +3265,24 @@ _SCRATCH_SHADOW_FAMILY = (
 )
 
 
-def test_a_wrapper_that_skips_the_recorder_leaves_the_sentinel(
+def test_a_wrapper_that_skips_the_recorder_is_refused_at_the_door(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """**Sabotage, on a scratch copy.** Skip the mint and the reference is the sentinel.
+    """**Sabotage, on a scratch copy.** Skip the mint and the door refuses to release it.
 
     The scratch `transport.py` returns the assembler's refusal BARE — well
     formed, right kind, right key, right bound, and no record behind it. That
-    is the shape the delivery-boundary checker found three times, and it is
-    invisible to every assertion except the one that reads the reference.
+    is the shape the delivery-boundary checker found three times. Until
+    `D-IMPL-260` P-A it crossed with the sentinel reference and only the
+    assertion that read the reference could see it; now the door itself
+    refuses the bare value as `ccf.products.door::UngovernedResolverResult`, so
+    the sabotage is caught one layer earlier and nothing crosses at all.
 
     Edited in a SCRATCH COPY of the example rather than on the tree, so this
     control runs in CI forever without a shipped file ever being wrong.
     """
     from ccf.client.client import ProductClient
+    from ccf.products.door import UngovernedResolverResult
 
     scratch = tmp_path / "example"
     shutil.copytree(EXAMPLE, scratch, ignore=shutil.ignore_patterns("__pycache__"))
@@ -3282,17 +3328,11 @@ def test_a_wrapper_that_skips_the_recorder_leaves_the_sentinel(
                 root=tmp_path / "run"
             ),
         )
-        result = client.ask(parameters, as_of=typed.asked_at)
+        with pytest.raises(UngovernedResolverResult, match="bare `ConstraintRefusal`"):
+            client.ask(parameters, as_of=typed.asked_at)
     finally:
         for name in _SCRATCH_SHADOW_FAMILY:
             sys.modules.pop(name, None)
-
-    assert result.refused, "the sabotaged wrapper served a product"
-    assert result.refusal.replay_reference == NO_REPLAY_REFERENCE, (
-        "the sabotaged wrapper's refusal still carries a reference"
-        f" ({result.refusal.replay_reference!r}), so this control is not"
-        " measuring the mint"
-    )
 
 
 def test_replay_carries_the_assembler_identity_for_fulfilled_and_refused(

@@ -175,9 +175,9 @@ from mcp.server.fastmcp import FastMCP
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
-from ccf.products.gates import ServableProduct
 from ccf.products.door import door_refusal, served_answer
-from ccf.products.refusal import RefusalEnvelope, RequestIdentity
+from ccf.products.refusal import RefusalEnvelope
+from ccf.replay.serve import ServedProduct
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf.projection.plan import Perspective
@@ -381,8 +381,15 @@ class ExperienceProductResolverProtocol(Protocol):
         version: str,
         perspective: Perspective,
         request: ProductRequest | None,
-    ) -> ServableProduct:
-        """Return the gate-admitted product at that address, under ``perspective``.
+    ) -> ServedProduct | RefusalEnvelope:
+        """Return the served product at that address, under ``perspective``, or the governed refusal.
+
+        ``D-IMPL-260`` P-A: the only shapes a door releases — a
+        :class:`~ccf.replay.serve.ServedProduct` (recorded before it was
+        returned) or the recorded, disclosed
+        :class:`~ccf.products.refusal.RefusalEnvelope` the SDK's recorder
+        hands back. A bare vessel or a bare refusal value is refused at the
+        door as :class:`~ccf.products.door.UngovernedResolverResult`.
 
         Args:
             tenant: The tenant the product is addressed under.
@@ -1039,18 +1046,7 @@ def build_experience_server(
         # returned refusal crosses as its shell, a served vessel as its bytes,
         # and anything else is the wiring defect `served_answer` names rather
         # than an `AttributeError` on `.product`.
-        refusal = door_refusal(
-            resolved,
-            asked=None,
-            identity=RequestIdentity(
-                product_id=product_class,
-                product_version=version,
-                parameters={},
-                temporal_boundary=None,
-            ),
-            product_class=product_class,
-            version=version,
-        )
+        refusal = door_refusal(resolved)
         if refusal is not None:
             return canonical_bytes(refusal).decode("utf-8")
         return canonical_bytes(served_answer(resolved).product).decode("utf-8")

@@ -608,7 +608,7 @@ def _ask_mcp(assembled: Any, tmp_path: Path) -> AskDoor:
         carried: list[ProductRequest | None] = []
         server = _mcp_server(
             tmp_path,
-            servable=assembled.servable,
+            servable=assembled.served,
             address=assembled.address,
             carried=carried,
         )
@@ -688,7 +688,7 @@ def _ask_http(assembled: Any, tmp_path: Path) -> AskDoor:
         carried: list[ProductRequest | None] = []
         app = _http_app(
             root,
-            servable=assembled.servable,
+            servable=assembled.served,
             address=address,
             carried=carried,
         )
@@ -763,7 +763,7 @@ def test_a_supplied_parameter_reaches_the_resolver(
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         carried=carried,
     )
@@ -788,7 +788,7 @@ def test_an_undeclared_parameter_is_refused_by_name(
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         carried=carried,
     )
@@ -824,7 +824,7 @@ def test_a_missing_required_parameter_is_refused_by_name(
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         carried=carried,
     )
@@ -907,7 +907,7 @@ def test_neither_door_accepts_a_json_array_as_parameters(
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         carried=carried,
     )
@@ -958,7 +958,7 @@ def test_the_tool_carries_the_resources_bytes_without_re_serializing_them(
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         carried=carried,
     )
@@ -1087,7 +1087,7 @@ def _call_with(
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
         tmp_path,
-        servable=assembled.servable,
+        servable=assembled.served,
         address=assembled.address,
         carried=carried,
     )

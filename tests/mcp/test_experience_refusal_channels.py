@@ -204,7 +204,7 @@ class _Door:
             perspective: Perspective,
             request: Any,
         ) -> Any:
-            return self.assembled.servable
+            return self.assembled.served
 
         def provide_context(
             *, tenant: str, entity: str, perspective: Perspective

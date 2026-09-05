@@ -75,6 +75,7 @@ from ccf.contracts.canonical import canonical_bytes, canonical_timestamp
 from ccf.products.contract import ContextProductContract
 from ccf.products.door import (
     DoorOutcome,
+    UngovernedResolverResult,
     WireRequest,
     door_answer,
     door_question,
@@ -201,8 +202,6 @@ def _answer(resolved: object, echo: WireRequest, *, asked_at: datetime) -> DoorO
             resolved,
             echo=echo,
             resolved_request=_typed({PARAMETER: THRESHOLD}, asked_at=asked_at),
-            product_class=PRODUCT_ID,
-            version=PRODUCT_VERSION,
         )
     )
 
@@ -558,26 +557,43 @@ def test_a_refused_outcome_carries_the_echo_and_nothing_of_the_served_half(
     )
 
 
-def test_control_a_bare_refusal_takes_its_identity_from_what_the_door_resolved() -> None:
+def test_control_the_refusal_identity_assertion_is_not_vacuous(
+    served_root: Path,
+) -> None:
     """The vacuity guard for the refusal-identity assertion above.
 
     That assertion reads `parameters == {}`, and a member that is always empty
-    would satisfy it without measuring anything. The other refusal shape shows
-    it is not: `ccf.products.door::door_refusal` handles two, and on the
-    **bare** path — a `ccf.products.gates::GateRefusal` rather than a
-    `ccf.products.refusal::RefusalEnvelope` — it supplies the question from the
-    `resolved_request` the door was handed. Same door, same call, opposite
-    answer.
+    would satisfy it without measuring anything. A second refusal the
+    deployment's own gates produced — the question names a parameter the
+    contract does not declare — carries the question that was actually
+    refused, parameters and all, recorded and disclosed by the same resolver.
+    Same door, same call, opposite answer on the member.
+    """
+    asked = WireRequest(
+        product_id=PRODUCT_ID,
+        parameters={PARAMETER: THRESHOLD, "colour": "teal"},
+        temporal_boundary=None,
+    )
+    resolved = _resolved(
+        served_root,
+        _typed({PARAMETER: THRESHOLD, "colour": "teal"}, asked_at=RESOLVED_AT),
+    )
+    assert isinstance(resolved, RefusalEnvelope), resolved
 
-    This is also the measurement that answers close-review finding `WR-06`,
-    which reported that `_answer` hands `door_answer` a `resolved_request`
-    contradicting the value being rendered, and concluded the refusal's request
-    identity is therefore built from the wrong question. Measured: it is not.
-    The envelope fixture's refusal names `parameters={}` — the question that
-    was actually refused — because the envelope path never reads `asked`. The
-    contradiction is inert on the path the leg above exercises and load-bearing
-    on the path this control exercises, and both are now asserted rather than
-    either being assumed.
+    parsed = _answer(resolved, asked, asked_at=RESOLVED_AT)
+
+    assert parsed.refusal is not None
+    assert parsed.refusal.request.parameters == {PARAMETER: THRESHOLD, "colour": "teal"}
+
+
+def test_control_a_bare_refusal_does_not_cross_the_door() -> None:
+    """``D-IMPL-260`` P-A: a bare refusal value is refused by name at the door.
+
+    Until this ruling `door_refusal` translated a bare
+    `ccf.products.gates::GateRefusal` into an envelope of its own — undisclosed
+    and unrecorded — and `door_answer` put it on the wire as a determination.
+    The door is the Delivery layer and decides nothing; what it releases must
+    prove its record and its disclosure, and a bare value proves neither.
     """
     asked = WireRequest(
         product_id=PRODUCT_ID,
@@ -585,16 +601,37 @@ def test_control_a_bare_refusal_takes_its_identity_from_what_the_door_resolved()
         temporal_boundary=None,
     )
 
-    parsed = _answer(
-        EmptyOperatorRefusal(
-            gate=GATE_EMPTY_OPERATOR, detail="no operators were invoked"
-        ),
-        asked,
-        asked_at=RESOLVED_AT,
-    )
+    with pytest.raises(UngovernedResolverResult, match="bare `EmptyOperatorRefusal`"):
+        _answer(
+            EmptyOperatorRefusal(
+                gate=GATE_EMPTY_OPERATOR, detail="no operators were invoked"
+            ),
+            asked,
+            asked_at=RESOLVED_AT,
+        )
 
-    assert parsed.refusal is not None
-    assert parsed.refusal.request.parameters == {PARAMETER: THRESHOLD}
+
+def test_control_an_unrecorded_or_undisclosed_envelope_does_not_cross_the_door(
+    a_refusal_value: object,
+) -> None:
+    """The other two shapes P-A names: the sentinel reference, and ``disclosure=None``.
+
+    Both are the internal form a recorder is handed and never the shell it
+    returns. Built from the real recorded refusal by resetting one member at a
+    time, so each limb is the one member's doing.
+    """
+    assert isinstance(a_refusal_value, RefusalEnvelope)
+    asked = WireRequest(product_id=PRODUCT_ID, parameters={}, temporal_boundary=None)
+
+    unrecorded = a_refusal_value.model_copy(
+        update={"replay_reference": NO_REPLAY_REFERENCE}
+    )
+    with pytest.raises(UngovernedResolverResult, match="no replay reference"):
+        _answer(unrecorded, asked, asked_at=RESOLVED_AT)
+
+    undisclosed = a_refusal_value.model_copy(update={"disclosure": None})
+    with pytest.raises(UngovernedResolverResult, match="disclosure"):
+        _answer(undisclosed, asked, asked_at=RESOLVED_AT)
 
 
 # ---------------------------------------------------------------------------

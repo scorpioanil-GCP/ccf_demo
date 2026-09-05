@@ -76,6 +76,8 @@ from ccf.products.gates import (
     DeclaredObligationRefusal,
     TTLRefusal,
 )
+from ccf.products.door import UngovernedResolverResult
+from ccf.products.refusal import NO_REPLAY_REFERENCE
 from ccf.products.refusal import (
     REFUSAL_KINDS,
     RefusalEnvelope,
@@ -322,7 +324,7 @@ def _serving_or_absent(fabric: Fabric) -> Callable[..., object]:
             address.product_class,
             address.version,
         ):
-            return fabric.product_servable
+            return fabric.product_served
         raise ProductNotServable(
             f"no gate-admitted product at {tenant}/{product_class}/{version}"
         )
@@ -499,6 +501,44 @@ def _governed_app(
     return _governed(fabric, root, resolver=resolver).app
 
 
+def _minted(
+    fabric: Fabric,
+    root: Path,
+    envelope: RefusalEnvelope,
+    *,
+    disclosure_level: DisclosureLevel = DISCLOSURE_MINIMAL,
+) -> tuple[Governed, RefusalEnvelope]:
+    """A governed door whose resolver answers with ``envelope`` RECORDED and DISCLOSED.
+
+    ``D-IMPL-260`` P-A: a door releases only a refusal that proves its record
+    and its disclosure — what :class:`~ccf.products.resolver.ReplayRefusalRecorder`
+    returns. So a fixture that wants a refusal to cross mints it through the
+    same recorder the door is built with, exactly as the SDK's own resolver
+    does, and hands the door the shell that came back. Returns the door and
+    the shell, so a test can compare the wire against what was minted.
+    """
+    source = ControlPlaneProductEntitlementSource(
+        control_plane=_entitlement_registry(
+            fabric, disclosure_level=disclosure_level
+        ),
+        clock=lambda: DETERMINED_AT,
+    )
+    recorder = _recorder(fabric, root, source=source)
+    shell = recorder.record(
+        envelope,
+        perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
+        recorded_at=DETERMINED_AT,
+    )
+    governed = _governed(
+        fabric,
+        root,
+        resolver=_answering(shell),
+        disclosure_level=disclosure_level,
+        refusal_recorder=recorder,
+    )
+    return governed, shell
+
+
 def _question(parameters: Mapping[str, Any] = CALLER_PARAMETERS) -> str:
     """The four §6.3 axes plus the declared remainder, as this door reads them."""
     return "?" + urlencode(
@@ -592,12 +632,13 @@ def test_a_declared_obligation_refusal_answers_409_with_the_envelope(
     pre-assembly lineage all travel — or one that spelled the kind by a
     literal that had drifted from ``REFUSAL_KINDS``.
     """
-    envelope = _envelope(fabric)
-    answer = _ask(
-        _governed_app(fabric, tmp_path, resolver=_answering(envelope)),
-        fabric,
-        query=_question(),
+    # Minted at `full`, so the wire carries the whole envelope the reference
+    # resolver would have produced — lineage included — rather than the
+    # `minimal` shell (`D-IMPL-260` P-A: what crosses is what was recorded).
+    governed, envelope = _minted(
+        fabric, tmp_path, _envelope(fabric), disclosure_level="full"
     )
+    answer = _ask(governed.app, fabric, query=_question())
 
     assert_declared_obligation_answered_409(
         answer.status, answer.body, escaped=answer.escaped
@@ -619,17 +660,21 @@ def test_a_declared_obligation_refusal_answers_409_with_the_envelope(
     assert refusal["pre_assembly_lineage"] is not None
 
 
-def test_a_bare_declared_obligation_refusal_is_enveloped_at_the_door(
+def test_a_bare_declared_obligation_refusal_does_not_cross_the_door(
     fabric: Fabric, tmp_path: Path
 ) -> None:
-    """A deployment resolver returning what ``run_gates`` gave it gets the same 409.
+    """``D-IMPL-260`` P-A: a bare refusal value is a wiring defect, not a 409.
 
-    The door translates the bare value through
-    :func:`~ccf.products.door.door_refusal`, supplying the question from
-    the request it carried — so the request identity is the caller's own
-    parameters and instant, and the lineage is honestly ``None`` (the door
-    never held the candidate). What would fail here: a door that mapped
-    only pre-built envelopes and let a bare refusal fall through.
+    Until this ruling the door translated what ``run_gates`` gave a deployment
+    resolver into an envelope of its own — undisclosed, unrecorded — and
+    answered ``409`` with it. A determination reaching a consumer with no
+    replay and no disclosure decision behind it is what criterion 36 forbids,
+    so the door now refuses the bare value by name and the transport reports
+    a door fault: no response, the typed
+    :class:`~ccf.products.door.UngovernedResolverResult` escaping.
+
+    What would fail here: the pre-ruling translation returning, which would
+    answer ``409`` from a value nothing recorded.
     """
     answer = _ask(
         _governed_app(fabric, tmp_path, resolver=_answering(_refusal())),
@@ -637,35 +682,47 @@ def test_a_bare_declared_obligation_refusal_is_enveloped_at_the_door(
         query=_question(),
     )
 
-    assert_declared_obligation_answered_409(
-        answer.status, answer.body, escaped=answer.escaped
-    )
-    refusal = answer.body["refusal"]
-    assert refusal["request"] == json.loads(canonical_bytes(_identity(fabric)))
-    assert refusal["pre_assembly_lineage"] is None
+    assert answer.status is None, answer.body
+    assert isinstance(answer.escaped, UngovernedResolverResult), answer.escaped
+    assert "bare `DeclaredObligationRefusal`" in str(answer.escaped)
 
 
-def test_a_bare_refusal_on_a_call_that_posed_no_question_is_the_documented_value_error(
+def test_an_unrecorded_or_undisclosed_envelope_does_not_cross_the_door(
     fabric: Fabric, tmp_path: Path
 ) -> None:
-    """The route docstring's last sentence, measured rather than trusted.
+    """The other two shapes P-A names: the sentinel reference, and ``disclosure=None``.
 
-    With no question on the call there is no request identity for the door
-    to name, and :func:`~ccf.products.door.door_refusal` raises the
-    ``ValueError`` it documents rather than inventing one. That is the same
-    opaque outcome the pre-plan ``TypeError`` produced — no response — now
-    naming why. Not a ``409``, and deliberately not: a 409 whose request
-    identity was manufactured would report a question nobody asked.
+    Both are the INTERNAL form a recorder is handed, never the shell it
+    returns. A door that released either would be releasing a determination
+    whose record was never appended, or whose disclosure was never decided.
     """
-    answer = _ask(
-        _governed_app(fabric, tmp_path, resolver=_answering(_refusal())),
-        fabric,
-        query="",
-    )
+    internal = _envelope(fabric)
+    assert internal.replay_reference == NO_REPLAY_REFERENCE
+    assert internal.disclosure is None
+    for leg in ("unrecorded", "minted", "undisclosed"):
+        (tmp_path / leg).mkdir()
 
-    assert answer.status is None
-    assert isinstance(answer.escaped, ValueError)
-    assert "carried no request" in str(answer.escaped)
+    unrecorded = _ask(
+        _governed_app(fabric, tmp_path / "unrecorded", resolver=_answering(internal)),
+        fabric,
+        query=_question(),
+    )
+    assert unrecorded.status is None, unrecorded.body
+    assert isinstance(unrecorded.escaped, UngovernedResolverResult)
+    assert "no replay reference" in str(unrecorded.escaped)
+
+    _governed_at_full, shell = _minted(
+        fabric, tmp_path / "minted", internal, disclosure_level="full"
+    )
+    undisclosed = shell.model_copy(update={"disclosure": None})
+    answer = _ask(
+        _governed_app(fabric, tmp_path / "undisclosed", resolver=_answering(undisclosed)),
+        fabric,
+        query=_question(),
+    )
+    assert answer.status is None, answer.body
+    assert isinstance(answer.escaped, UngovernedResolverResult)
+    assert "disclosure" in str(answer.escaped)
 
 
 # ---------------------------------------------------------------------------
@@ -726,9 +783,7 @@ def test_no_known_refusal_kind_reaches_served_answer(
     row that answered ``5xx``.
     """
     answer = _ask(
-        _governed_app(
-            fabric, tmp_path, resolver=_answering(_internal_envelope(kind))
-        ),
+        _minted(fabric, tmp_path, _internal_envelope(kind))[0].app,
         fabric,
         query=_question(),
     )
@@ -761,7 +816,7 @@ def test_the_existing_refusal_statuses_are_unchanged(
     decided before the new branch is reached"* is still the claim, and a leg
     silently removed is a claim silently narrowed.
     """
-    governed = _governed_app(fabric, tmp_path, resolver=_answering(_envelope(fabric)))
+    governed = _minted(fabric, tmp_path, _envelope(fabric))[0].app
 
     # 400 — a partial §6.3 address; the door fills nothing in (D-IMPL-98).
     partial = _ask(governed, fabric, query="?" + urlencode({"subject": SUBJECT}))
@@ -891,7 +946,7 @@ def test_a_door_that_restores_the_fall_through_for_one_kind_is_red_by_name(
     scratch = _scratch_route(tmp_path, mutate=mutate)
     monkeypatch.setattr(app_module, "product", scratch)
     answer = _ask(
-        _governed_app(fabric, tmp_path, resolver=_answering(_ttl_envelope(fabric))),
+        _minted(fabric, tmp_path, _ttl_envelope(fabric))[0].app,
         fabric,
         query=_question(),
     )
@@ -900,7 +955,7 @@ def test_a_door_that_restores_the_fall_through_for_one_kind_is_red_by_name(
         # — no response at all, which is the pre-D-18 opaque 500.
         assert answer.status is None, answer.body
         assert isinstance(answer.escaped, TypeError)
-        assert "neither `ServableProduct` nor `ServedProduct`" in str(answer.escaped)
+        assert "not `ServedProduct`" in str(answer.escaped)
     else:
         assert answer.escaped is None
         assert answer.status == STATUS_BY_KIND[FALL_THROUGH_KIND]
