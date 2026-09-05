@@ -191,15 +191,20 @@ def stored(tmp_path: Path) -> tuple[FileArtifactStore, str]:
 def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent() -> None:
     """Amendment 1's measurement, re-measured: a roster, not a count.
 
-    Sixteen fields are absent from the bytes: the fifteen, none keyed, and
-    ``context_fabric_snapshot.store_snapshot_pin`` — 24.5's row 5, marked
-    ``True`` — which the first specification already excluded and which the
-    amendment therefore did not count.
+    Seventeen fields are absent from the bytes: the fifteen, none keyed, and
+    two marked ``True`` — ``context_fabric_snapshot.store_snapshot_pin``
+    (24.5's row 5), which the first specification already excluded and which
+    the amendment therefore did not count, and
+    ``policy_bindings.request_resolution`` (``24.6-03``), which joins that
+    side and **not** the fifteen: a keyed field is one whose absence at its
+    sentinel is silence by declaration, which is exactly why it is not a
+    generation boundary.
     """
     absent = _absent_fields(DecisionReplayRecord, json.loads(PRE_CHANGE_CANONICAL))
     assert tuple(name for name, key in absent if key is None) == THE_FIFTEEN
     assert tuple(name for name, key in absent if key is True) == (
         "context_fabric_snapshot.store_snapshot_pin",
+        "policy_bindings.request_resolution",
     )
     assert not [name for name, key in absent if key is False]
 

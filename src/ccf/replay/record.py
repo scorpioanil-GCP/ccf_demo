@@ -17,7 +17,13 @@ DESIGN.md §2B.5. The dimensions, and what each holds in I.1:
    I.4 (delivered; CLAUDE.md §8.2): the pre-serialized ``hitl_actions`` block
    the HITL primitives report, recorded verbatim. The D-10 survivor cap in
    force extends it as of 15.2-08: the Control-Plane-configured value is a
-   dimension-2 fact, ``None`` asserting "no cap configured".
+   dimension-2 fact, ``None`` asserting "no cap configured". The **request
+   resolution** extends it as of 24.6-03 (``D-IMPL-253`` Q1/Q6,
+   ``D-IMPL-254``): the ``EffectiveRequest`` the Authority layer produced —
+   which authority set each parameter's value, which constraint bounded it, and
+   whether an override was entitled — rendered from the value, with the
+   constraint versions pinned beside it as bindings, so an examiner resolves
+   the policy that was in force *then*.
 3. **Model Version Record** — every invoked model; literally ``"none"`` in
    Mode 1 (INV-CH7-83). A positive claim, not an omission. Harness-attributable
    values — which harness ran the loop, the model version *it* reported, its
@@ -105,9 +111,17 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     # bottom import instead (D-IMPL-56).
     from ccf.agents.assembler import AssemblyOutcome
 
+    # 24.6-03: typing-only for the same reason. `ccf.products.provenance`
+    # imports nothing but `ccf.contracts`, so a runtime import would close
+    # no cycle — but the value is only ever an annotation here, and the
+    # module's discipline is that a name reaches the runtime namespace when
+    # the runtime needs it.
+    from ccf.products.provenance import EffectiveRequest
+
 __all__ = [
     "MODE_1_MODEL_VERSION",
     "NO_ADAPTER",
+    "NO_REQUEST_RESOLUTION",
     "NO_ASSEMBLY_REFUSAL",
     "NO_AGENT_DEFINITION",
     "FalseAssemblyRefusalClaimError",
@@ -193,6 +207,16 @@ NO_GRAPH_QUERIES: Final[tuple[str, ...]] = ()
 #: dropped the pin would otherwise be the same artifact, which is the
 #: repudiation failure mode every sentinel in this module exists to close.
 NO_ADAPTER = "no-adapter"
+
+#: Dimension 2's request-resolution value when no resolution was recorded
+#: (24.6-03; ``D-IMPL-243``, ``D-IMPL-253`` Q6). A positive claim in the
+#: :data:`NO_HITL_ACTIONS` voice: *"this decision recorded no resolution of the
+#: question's parameters against the authorities that bound them"* is asserted,
+#: never inferred from silence — a record written before the Authority layer
+#: existed and one whose caller dropped the resolution would otherwise be the
+#: same artifact, which is the repudiation failure mode every sentinel in this
+#: module exists to close.
+NO_REQUEST_RESOLUTION = "no-request-resolution"
 
 
 class ContextFabricSnapshot(CCFContract):
@@ -360,6 +384,24 @@ class PolicyBindingsSnapshot(CCFContract):
     the same record: declaration order is not a fact about the decision, and a
     replay comparison that was sensitive to it would report a difference where
     there is none.
+
+    The **request resolution** extends this dimension as of 24.6-03 through
+    ``request_resolution``, under the same sentinel-default discipline as
+    ``survivor_cap`` and the adapter pin. It is a dimension-2 fact for the
+    reason the bundle version is one: the bindings in force at decision time
+    now include *which policy constraints bounded which parameter, on whose
+    authority, and whether an override was entitled* — the
+    :class:`~ccf.products.provenance.EffectiveRequest` the Authority layer
+    produced (``D-IMPL-254``), rendered as its own canonical bytes so that one
+    resolution cannot land as a family of blocks.
+
+    Recording it here rather than deriving it at replay is the whole point of
+    ``D-IMPL-253`` Q6: the constraint versions in force are pinned beside it as
+    :class:`PolicyBinding` rows, so an examiner resolves *the policy that was in
+    force then* rather than the policy that is in force now. The default is the
+    positive :data:`NO_REQUEST_RESOLUTION` claim, and it is hash-transparent at
+    that value (``D-IMPL-243``) — so every record written before the Authority
+    layer existed keeps its content address, byte for byte.
     """
 
     bindings: tuple[PolicyBinding, ...]
@@ -368,6 +410,9 @@ class PolicyBindingsSnapshot(CCFContract):
     graph_adapter: str = NO_ADAPTER
     graph_adapter_version: str = NO_ADAPTER
     graph_secret_refs: tuple[str, ...] = ()
+    request_resolution: str = Field(
+        default=NO_REQUEST_RESOLUTION, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class HarnessTrace(CCFContract):
@@ -800,6 +845,7 @@ def build_replay_record(
     assembly_refusal: str | None = None,
     adapter: AdapterPin | None = None,
     request: ProductRequest | None = None,
+    resolution: "EffectiveRequest | None" = None,
 ) -> DecisionReplayRecord:
     """Assemble the record from what the execution and the product already know.
 
@@ -896,6 +942,21 @@ def build_replay_record(
       by hand without the field, yields the ``None`` sentinel exactly as
       before.
 
+    ``resolution`` is the 24.6-03 Authority seam (``D-IMPL-253`` Q1/Q6,
+    ``D-IMPL-254``), threaded into dimension 2 exactly as ``adapter`` is: the
+    caller passes the :class:`~ccf.products.provenance.EffectiveRequest` its
+    constraint resolver produced, and this builder renders it — from the
+    **value**, with :func:`~ccf.contracts.canonical.canonical_bytes`, so one
+    resolution has one rendering. When ``None`` (every fabric-direct decision
+    and everything before this extension) dimension 2 carries the positive
+    :data:`NO_REQUEST_RESOLUTION` claim and every field the builder wrote before
+    it is byte-for-byte what it was.
+
+    It is a **parameter** and not a fact read off ``execution`` for
+    ``adapter``'s first reason: the resolution happens *before* the engine runs
+    — that is what makes it able to bound the question the engine is given — so
+    the execution object has never seen it.
+
     ``request`` is the 15.5-13 addressability seam (D-IMPL-111 limb (b)),
     threaded into dimension 5 exactly as ``adapter`` is threaded into
     dimension 2 and for the same reason: the question is a property of the
@@ -971,6 +1032,16 @@ def build_replay_record(
             # order-sensitive on something that has no order.
             graph_secret_refs=(
                 tuple(sorted(adapter.secret_refs)) if adapter is not None else ()
+            ),
+            # 24.6-03: the Authority layer's own value, rendered once from the
+            # VALUE rather than accepted as a pre-serialized block — the
+            # `_admissible_refusal_block` argument, applied where it can be
+            # applied absolutely: a resolution cannot land as a family of
+            # blocks because the caller never hands one over.
+            request_resolution=(
+                canonical_bytes(resolution).decode("utf-8")
+                if resolution is not None
+                else NO_REQUEST_RESOLUTION
             ),
         ),
         model_version=ModelVersionRecord(

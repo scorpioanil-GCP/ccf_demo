@@ -125,7 +125,7 @@ Q: which companies have revenue over 1000000000?
 and what a SELECT would not have told you:
    context debt D_c   0.4271  →  forced_llm
    content address    cbc7db84a98d5d2a5ab22bfb3adf1f5359dd6289f0f3f3ddbc6bcf2443d0d426
-   replay record      ccf-artifact://hw1-demo/hw1.replay-record/eeaa76fccd6b54b42caf3787f614fba8f9d9f411f45ad450130e1792ade7ac0f@762d8cec7688b18e2a7392f10da8e1f38011502897a7b74fe37c366420e40167
+   replay record      ccf-artifact://hw1-demo/hw1.replay-record/eeaa76fccd6b54b42caf3787f614fba8f9d9f411f45ad450130e1792ade7ac0f@8b68efaf5352bc0e666cab29b8b705a69ef51ab058e03bde1a50b777aeed4a3e
    answer expires     2026-08-01 00:10:00+00:00
 ```
 

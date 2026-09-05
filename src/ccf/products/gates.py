@@ -100,7 +100,9 @@ Forced LLM and Fail-Closed behavior) and a per-attribute lineage obligation
 gate: every universal gate precedes it, and a class that declares nothing
 (:data:`~ccf.products.contract.NO_SERVE_OBLIGATIONS`) never reaches a
 comparison. The ceiling is class-declared and a request may only TIGHTEN it
-(``D-IMPL-240`` (3), :func:`effective_debt_ceiling`); the lineage half reads
+(``D-IMPL-240`` (3); the fold that establishes it moved to
+:mod:`ccf.products.constraints` in ``24.6-03``, so what arrives here is an
+already-resolved value with its authority recorded); the lineage half reads
 the presence and non-emptiness of a NAMED payload member and nothing else —
 it is a structural gate, never a payload gate (``D-IMPL-238`` reading
 ``D-IMPL-102`` limb 3). ``_GATE_TOKEN``, :class:`_ServableProductMeta` and
@@ -133,7 +135,7 @@ from __future__ import annotations
 
 from collections.abc import Sized
 from datetime import datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Final, Literal, Never
 
 from ccf.contracts.base import CCFContract
@@ -169,7 +171,6 @@ __all__ = [
     "ServableProduct",
     "ServableProductNotAModel",
     "TTLRefusal",
-    "effective_debt_ceiling",
     "refuse_attestation",
     "run_federated_gates",
     "run_gates",
@@ -203,9 +204,9 @@ GATE_DECLARED_OBLIGATIONS = "declared-obligations"
 #: undeclared, and an undeclared class ignores it whatever it says. That same
 #: boundary refuses a declared, well-typed number outside ``[0, 1]`` by name
 #: (``not-a-proportion``; ``24.5-REVIEW.md`` WR-02, Dave, 2026-09-02), so what
-#: reaches :func:`effective_debt_ceiling` through the governed resolver is
-#: always a proportion — a request states a tighter ceiling or none, never a
-#: number that is not a ceiling at all.
+#: reaches the resolution through the governed resolver is always a proportion
+#: — a request states a tighter ceiling or none, never a number that is not a
+#: ceiling at all.
 #:
 #: CINV-01, reasoned rather than assumed: this is a parameter NAME the SDK
 #: owns as mechanism vocabulary — on the footing of the four request axes
@@ -377,76 +378,6 @@ class DeclaredObligationRefusal(GateRefusal):
     observed: str
 
 
-def _as_finite_decimal(requested: object) -> Decimal | None:
-    """The requested tolerance as a finite ``Decimal``, or ``None`` if it is not one.
-
-    A request parameter arrives as whatever the door parsed — ``Decimal``,
-    ``int`` or ``float`` — and a value that is none of those, or is a ``bool``
-    (which Python counts as an ``int``), or is not finite, is not a
-    tolerance and is ignored rather than refused: the class's ceiling is the
-    floor of strictness and stands on its own.
-    """
-    if isinstance(requested, bool) or not isinstance(requested, (Decimal, int, float)):
-        return None
-    try:
-        value = requested if isinstance(requested, Decimal) else Decimal(str(requested))
-    except InvalidOperation:
-        return None
-    return value if value.is_finite() else None
-
-
-def effective_debt_ceiling(
-    *, declared: Decimal | None, requested: object
-) -> Decimal | None:
-    """The ceiling the gate holds a product to — class-declared, request-tightened.
-
-    ``D-IMPL-240`` (3), Dave's selection among three: *the class declares, a
-    request may tighten*. Pure over its two arguments; no I/O, no clock.
-
-    * ``declared is None`` → ``None``. An undeclared class is unaffected
-      whatever the request says: a request cannot CREATE a ceiling, because a
-      ceiling is class governance and a caller is not the class.
-    * ``requested`` absent, or not a finite number → ``declared``. The class's
-      ceiling stands.
-    * otherwise → ``min(declared, requested)``. A request may only tighten. A
-      looser request is *ignored, not refused*: the class's ceiling is the
-      floor of strictness, and a caller asking for less strictness than the
-      class grants is asking for something the class already answered — the
-      served product is then held to the class's number, which is what the
-      refusal reports as ``declared``.
-
-    A number outside ``[0, 1]`` is not a looser request; it is not a ceiling.
-    The request boundary (:func:`~ccf.products.request.refuse_request`,
-    ``not-a-proportion``) refuses it by name before the resolver computes
-    anything here (WR-02), which is what keeps ``declared`` on a refusal a
-    number some class or caller actually declared as a ceiling. This function
-    stays pure ``min`` and does not re-judge the interval: a direct caller of
-    :func:`run_gates` that bypasses the boundary is the deployment's own
-    composition, and the boundary is where the Standard's request vocabulary
-    is enforced.
-
-    :func:`run_gates` and :func:`run_federated_gates` apply this function
-    themselves against the class's declaration, so no caller — the resolver
-    included — can pass a ``debt_tolerance`` that loosens the ceiling; the
-    resolver's own call is then idempotent (``min(d, min(d, r)) == min(d, r)``).
-
-    Args:
-        declared: :attr:`~ccf.products.contract.ServeObligations.debt_ceiling`
-            of the registered class.
-        requested: The request's :data:`DEBT_TOLERANCE_PARAMETER` value, as
-            presented, or ``None``.
-
-    Returns:
-        The effective ceiling, or ``None`` when the class declares none.
-    """
-    if declared is None:
-        return None
-    tightened = _as_finite_decimal(requested)
-    if tightened is None:
-        return declared
-    return min(declared, tightened)
-
-
 def _refuse_declared_obligations(
     candidate: ContextProductContract,
     *,
@@ -458,10 +389,18 @@ def _refuse_declared_obligations(
     Factored rather than duplicated for the reason gates 1 and 3 are: the two
     runners cannot drift into two readings of what a class declared.
 
-    **The debt half** (``24.5-L-14``). ``ceiling`` is
-    :func:`effective_debt_ceiling` over the class's declaration and the
-    caller's ``debt_tolerance``. ``None`` — the class declares no ceiling —
-    is silent. Under a ceiling, a candidate carrying no assessment is refused
+    **The debt half** (``24.5-L-14``, and an INTERIM as of ``24.6-03``).
+    ``debt_tolerance`` is now the tolerance the Authority layer **resolved**
+    upstream — the caller's value, or the policy's where a constraint bounded
+    it, with the authority that set it recorded (``D-IMPL-254``) — rather than
+    a raw request parameter this gate folds for the first time. What has not
+    moved is that the class's own ceiling is the floor of strictness: a
+    resolved tolerance may tighten it and never loosen it, which is why the
+    ``min`` is inlined above rather than deleted along with
+    ``24.5-L-14``'s helper. ``24.6-04`` retires this half entirely, at which
+    point the class's ceiling becomes an authority in the resolution and there
+    is one fold rather than two. ``None`` — the class declares no ceiling and
+    nothing resolved a tolerance — is silent. Under a ceiling, a candidate carrying no assessment is refused
     (``observed="no-assessment"``): a class that declares a ceiling cannot be
     served unmeasured, since an unmeasured product is neither within nor
     over it. A candidate whose ``D_c`` exceeds the ceiling is refused with
@@ -483,9 +422,19 @@ def _refuse_declared_obligations(
         half, a fixed order.
     """
     obligations = product_class.serve_obligations
-    ceiling = effective_debt_ceiling(
-        declared=obligations.debt_ceiling, requested=debt_tolerance
-    )
+    # INTERIM — 24.6-04 retires this half. The fold that used to live in
+    # 24.5-L-14's helper is inlined here, unchanged in behavior, rather than
+    # deleted with it: the class's ceiling is the FLOOR OF STRICTNESS
+    # (`D-IMPL-240` (3), threat `T-24.5-33`), and dropping that during the one
+    # wave between the resolver rewrite and the tolerance step would let a
+    # caller LOOSEN a ceiling its class declared.
+    # Both limbs are the deleted helper's, verbatim in behavior: an undeclared
+    # class is unaffected whatever the request says (a request cannot CREATE a
+    # ceiling, because a ceiling is class governance and a caller is not the
+    # class), and a declared one is tightened and never loosened.
+    ceiling = obligations.debt_ceiling
+    if ceiling is not None and debt_tolerance is not None:
+        ceiling = min(ceiling, debt_tolerance)
     if ceiling is not None:
         if candidate.debt is None:
             return DeclaredObligationRefusal(
@@ -788,13 +737,15 @@ def run_gates(
             :data:`GATE_SOURCE_ATTESTATION` gate returns an
             :class:`AttestationRefusal` naming the failing dimension, and
             no :class:`ServableProduct` exists (D-09).
-        debt_tolerance: The request's tolerance (``24.5-L-14``,
-            ``D-IMPL-240`` (3)), which may only TIGHTEN the ceiling
-            ``product_class.serve_obligations`` declares —
-            :func:`effective_debt_ceiling` takes the minimum here, so no
-            caller can loosen it. ``None`` — the default, and every
-            pre-phase call site — means *the class's ceiling stands*; and a
-            class that declares no ceiling is unaffected whatever is passed.
+        debt_tolerance: The **effective** tolerance this product is held to
+            (``24.5-L-14``, ``D-IMPL-240`` (3); resolved upstream as of
+            ``24.6-03``). It is the value the Authority layer resolved from the
+            class's declaration, the caller's request and the policy
+            constraints in force — a value with a recorded authority behind it
+            rather than a number this gate folds. ``None`` — the default, and
+            every pre-phase call site — means *the class's ceiling stands*; and
+            a class that declares no ceiling is unaffected whatever is passed.
+            INTERIM: ``24.6-04`` retires the debt half of this gate.
         empty_results: The operator keys whose output view carried zero
             entities and zero relationships, as the engine observed them
             (``24.5-L-24``; :attr:`~ccf.projection.engine.ExecutionResult.empty_results`).

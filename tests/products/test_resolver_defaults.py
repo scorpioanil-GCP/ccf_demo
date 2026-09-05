@@ -877,17 +877,38 @@ def test_the_named_inputs_are_this_helper_s_own_optional_parameters() -> None:
 
     ``Ellipsis`` is not used as the sentinel: the check is *"defaults to
     ``None``"*, which is exactly the property that makes an argument optional
-    here, and ``debt_scorer`` is excluded by name because it is the alternative
-    to the four rather than one of them.
+    here.
+
+    **The exclusions are named, and their presence is asserted** (re-derived at
+    ``24.6-03``). Three optional parameters are not debt-scorer material:
+    ``debt_scorer``, which is the alternative to the four rather than one of
+    them, and the Authority layer's ``constraint_resolver`` and
+    ``capabilities``, which the helper defaults from the deployment it was
+    handed rather than from supplied material. Excluding them by a named tuple
+    whose members must each *be* in the signature is what keeps the exclusion
+    from silently widening: a typo would drop a name out of the comparison and
+    leave this test green, so the typo is what fails instead.
     """
     import inspect
 
+    not_debt_scorer_material = (
+        "debt_scorer",
+        "constraint_resolver",
+        "capabilities",
+    )
+    parameters = inspect.signature(build_governed_resolver).parameters
+    for name in not_debt_scorer_material:
+        assert name in parameters, (
+            f"{name!r} is excluded from this comparison but is not a parameter"
+            " of the helper — an exclusion that names nothing silently widens"
+            " what the comparison covers"
+        )
+        assert parameters[name].default is None, name
+
     optional = tuple(
         name
-        for name, parameter in inspect.signature(
-            build_governed_resolver
-        ).parameters.items()
-        if parameter.default is None and name != "debt_scorer"
+        for name, parameter in parameters.items()
+        if parameter.default is None and name not in not_debt_scorer_material
     )
 
     assert optional == DEBT_SCORER_INPUTS, (

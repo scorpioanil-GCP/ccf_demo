@@ -284,6 +284,12 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.graph.protocols.TraversalSpec.direction",
         "ccf.products.contract.ProductLineage.store_snapshot_pin",
         "ccf.replay.record.ContextFabricSnapshot.store_snapshot_pin",
+        # 24.6-03: the Authority layer's value in dimension 2
+        # (``D-IMPL-253`` Q1/Q6, ``D-IMPL-254``). The sentinel is the
+        # positive "no resolution was recorded" claim, so every record
+        # written before the layer existed keeps its content address —
+        # measured by `tests/replay/test_golden_13bd250.py`, not asserted.
+        "ccf.replay.record.PolicyBindingsSnapshot.request_resolution",
         "ccf.projection.engine.ExecutionResult.store_snapshot_pin",
         "ccf.projection.engine.ExecutionResult.empty_results",
         "ccf.assembly.worker.ResolvedEntity.resolved_by",

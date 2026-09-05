@@ -65,7 +65,9 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import BootedFabric, load_and_boot
 from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
+from ccf.products.constraints import ReferencePolicyConstraintResolver
 from ccf.products.contract import ContextProductContract
+from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
@@ -400,6 +402,16 @@ def _resolver(booted: _Booted, **overrides: Any) -> GovernedResolver:
         "policy_bundle_key": POLICY_BUNDLE_KEY,
         "plan_factory": _plan_factory,
         "debt_scorer": _debt_scorer,
+        # 24.6-03: the Authority layer's two inputs. The reference resolver
+        # over this fixture's own registry — which holds no policy constraint
+        # and no entitlement policy, so it resolves defaults and caller values
+        # and nothing else — and no technical capability, which is what a
+        # SQLite-backed deployment reports.
+        "constraint_resolver": ReferencePolicyConstraintResolver(
+            control_plane=booted.control_plane,
+            entitlement_key=product_entitlement_key(tenant_id=TENANT),
+        ),
+        "capabilities": (),
         "artifact_store": booted.store,
         "replay_record_class": REPLAY_RECORD_CLASS,
         "query_pin_class": QUERY_PIN_CLASS,
@@ -687,6 +699,8 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     "artifact_store",
     "replay_record_class",
     "query_pin_class",
+    "constraint_resolver",
+    "capabilities",
     "max_ttl_seconds",
     "product_ttl_seconds",
 )
@@ -780,6 +794,16 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         "policy_bundle_key": POLICY_BUNDLE_KEY,
         "plan_factory": _plan_factory,
         "debt_scorer": _debt_scorer,
+        # 24.6-03: the Authority layer's two inputs. The reference resolver
+        # over this fixture's own registry — which holds no policy constraint
+        # and no entitlement policy, so it resolves defaults and caller values
+        # and nothing else — and no technical capability, which is what a
+        # SQLite-backed deployment reports.
+        "constraint_resolver": ReferencePolicyConstraintResolver(
+            control_plane=booted.control_plane,
+            entitlement_key=product_entitlement_key(tenant_id=TENANT),
+        ),
+        "capabilities": (),
         "artifact_store": booted.store,
         "replay_record_class": REPLAY_RECORD_CLASS,
         "query_pin_class": QUERY_PIN_CLASS,

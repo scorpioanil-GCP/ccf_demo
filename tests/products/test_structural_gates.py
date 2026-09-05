@@ -346,12 +346,21 @@ def test_the_authored_declaration_carries_both_obligations_to_the_registered_cla
 
 
 def test_the_resolver_threads_the_effective_ceiling_and_no_principal() -> None:
-    """``GovernedResolver`` computes the effective ceiling from the class and the request, passes it to ``run_gates``, and hands no principal to any debt path.
+    """``GovernedResolver`` resolves the tolerance BEFORE it reads the graph, threads what it resolved to ``run_gates``, and hands no principal to any debt path.
 
     Read by AST off :mod:`ccf.products.resolver` so the key link
-    (``resolver → run_gates`` via ``effective_debt_ceiling``) is measured, not
+    (``resolver → constraint_resolver.resolve → run_gates``) is measured, not
     remembered — and so a future edit that reads the perspective into the
-    ceiling goes RED here (``D-IMPL-105``, threat ``T-24.5-34``).
+    tolerance goes RED here (``D-IMPL-105``, threat ``T-24.5-34``).
+
+    **Re-derived at ``24.6-03``, not weakened.** It previously measured the
+    ``effective_debt_ceiling`` call and its two keywords; that function is
+    deleted (``C-06``), and the fold it performed now happens inside the
+    Authority layer with the authority that set each value recorded
+    (``D-IMPL-254``). So the same three properties are measured at the new
+    shape: the resolution happens exactly once, it happens **before** the
+    graph is read and before the gates run, and nothing about the principal
+    reaches the tolerance the gate is given.
     """
     tree = ast.parse(inspect.getsource(resolver_module))
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
@@ -360,23 +369,46 @@ def test_the_resolver_threads_the_effective_ceiling_and_no_principal() -> None:
         func = call.func
         return func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
 
-    ceiling_calls = [c for c in calls if _named(c) == "effective_debt_ceiling"]
-    assert len(ceiling_calls) == 1, "the resolver computes the effective ceiling exactly once"
-    (ceiling_call,) = ceiling_calls
-    keywords = {kw.arg: ast.unparse(kw.value) for kw in ceiling_call.keywords}
-    assert set(keywords) == {"declared", "requested"}
-    assert "serve_obligations.debt_ceiling" in keywords["declared"]
-    assert "DEBT_TOLERANCE_PARAMETER" in keywords["requested"]
-    assert "request.parameters" in keywords["requested"]
-    for forbidden in ("perspective", "principal"):
-        assert forbidden not in ast.unparse(ceiling_call), forbidden
+    source = ast.unparse(tree)
+    assert "effective_debt_ceiling" not in source, (
+        "the scalar fold is deleted; a re-introduced one is the defect"
+        " D-IMPL-254 removed, wearing the resolver's name"
+    )
 
+    resolutions = [c for c in calls if _named(c) == "resolve"]
+    assert len(resolutions) == 1, "the resolver resolves the question exactly once"
+    (resolution,) = resolutions
+    assert ast.unparse(resolution.func) == "self.constraint_resolver.resolve"
+    resolved_keywords = {kw.arg for kw in resolution.keywords}
+    assert {"request", "declared", "declared_source", "capabilities"} <= (
+        resolved_keywords
+    )
+
+    # Ordering, by position in the module's own source: the resolution precedes
+    # the graph read and the gates. A resolution that ran after the read would
+    # have bounded a question the engine had already answered.
+    reads = [
+        c for c in calls if ast.unparse(c.func).endswith("handle.reader.as_of")
+    ]
+    assert len(reads) == 1
     gate_calls = [c for c in calls if _named(c) == "run_gates"]
     assert len(gate_calls) == 1
     (gate_call,) = gate_calls
+    assert resolution.lineno < reads[0].lineno < gate_call.lineno
+
     gate_keywords = {kw.arg: ast.unparse(kw.value) for kw in gate_call.keywords}
     assert gate_keywords.get("debt_tolerance") == "debt_tolerance"
-    assert "serve_obligations" in ast.unparse(tree), "_register forwards the declaration's obligations"
+    tolerance = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and "debt_tolerance" in {t.id for t in node.targets if isinstance(t, ast.Name)}
+    ]
+    assert len(tolerance) == 1, "the threaded tolerance is derived in one place"
+    for forbidden in ("perspective", "principal"):
+        assert forbidden not in ast.unparse(tolerance[0]), forbidden
+
+    assert "serve_obligations" in source, "_register forwards the declaration's obligations"
 
 
 # --- criterion 21: the debt ceiling (24.5-L-14) -----------------------------

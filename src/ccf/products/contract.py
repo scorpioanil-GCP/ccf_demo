@@ -555,8 +555,9 @@ class ServeObligations(CCFContract):
             deployment's to author in its product-class artifact; the SDK
             ships no default and no threshold (CINV-01, CLAUDE.md §11). A
             request's ``debt_tolerance`` may only *lower* the effective
-            ceiling (:func:`~ccf.products.gates.effective_debt_ceiling`); it
-            can neither create one nor raise one.
+            ceiling — resolved as of ``24.6-03`` by the Authority layer
+            (:mod:`ccf.products.constraints`), with the authority that set it
+            recorded — and it can neither create one nor raise one.
         lineage_inputs_at: The TOP-LEVEL payload members that must be present
             and non-empty at serve — the class's per-attribute lineage
             obligation (``24.5-L-26``; the SDK's declared form of what cp-03

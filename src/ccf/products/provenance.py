@@ -84,12 +84,12 @@ restrictiveness at all; and ``preferred`` is guidance the resolver never
 refuses on (Q5). Restrictiveness is therefore a comparison *within* a
 comparable family, never a fold across authorities.
 
-The defect being ruled out has a name and a shipped instance:
-``ccf.products.gates::effective_debt_ceiling`` computes ``min(declared,
-requested)`` and returns a bare number. The result cannot say whether the
-ceiling in force is the class's or the caller's, and it collapses two
-different authorities — class governance and a consumer constraint — into one
-scalar. Dave: *"I would avoid describing the first three simply as values that
+The defect being ruled out had a name and a shipped instance: the debt
+ceiling the gate held a product to used to be computed as ``min(declared,
+requested)`` and returned as a bare number (``ccf.products.gates``, deleted in
+plan ``24.6-03``). The result could not say whether the ceiling in force was
+the class's or the caller's, and it collapsed two different authorities — class
+governance and a consumer constraint — into one scalar. Dave: *"I would avoid describing the first three simply as values that
 are always collapsed into one 'effective tolerance.' We need to preserve
 provenance of authority. Otherwise we recreate exactly the defect the scout
 found with min()."* **Any post-resolution scalar is that same defect in new

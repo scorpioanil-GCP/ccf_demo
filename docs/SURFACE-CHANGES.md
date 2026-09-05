@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**878 entries**, of which **636** name a public Python surface.
+**884 entries**, of which **642** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-436 entries — 397 public Python surface, 39 not public Python API.
+437 entries — 398 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -7970,6 +7970,23 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
 
+#### ccf.replay.record.NO_REQUEST_RESOLUTION
+
+- Surface: ccf.replay.record.NO_REQUEST_RESOLUTION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-request-resolution"` — dimension 2's value when no resolution was
+  recorded
+- Why: the positive-sentinel discipline every extension of this record has used
+  (`NO_HITL_ACTIONS`, `NO_ADAPTER`, `NO_WORKFLOW_TRACE`). A record written before
+  the Authority layer existed and one whose caller dropped the resolution would
+  otherwise be the same artifact — the repudiation failure mode the sentinels
+  exist to close
+- Migration: none — a new name
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -8598,7 +8615,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-329 entries — 146 public Python surface, 183 not public Python API.
+333 entries — 150 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -11688,6 +11705,93 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
 
+#### ccf.replay.record.PolicyBindingsSnapshot
+
+- Surface: ccf.replay.record.PolicyBindingsSnapshot
+- Public surface: true
+- Change type: reshaped
+- Before: five fields — the bindings, the HITL block, the survivor cap and the
+  three adapter fields
+- After: `request_resolution: str`, defaulted to `NO_REQUEST_RESOLUTION` and
+  hash-transparent at it. At a real resolution it carries the canonical bytes of
+  the `EffectiveRequest`, rendered from the value by the builder rather than
+  accepted as a pre-serialized block, so one resolution cannot land as a family
+  of blocks
+- Why: `D-IMPL-253` Q1/Q6 and `D-IMPL-254`. The bindings in force at decision
+  time now include *which constraint bounded which parameter, on whose
+  authority, and whether an override was entitled*; the constraint versions are
+  pinned beside it as `PolicyBinding` rows, so an examiner resolves the policy
+  that was in force **then** rather than the one in force now
+- Migration: none required. Every record written before this field keeps its
+  content address — measured by `tests/replay/test_golden_13bd250.py`, not
+  asserted — and `generation_mismatch` does not name it, because a keyed field's
+  absence at its sentinel is silence by declaration
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: thirteen keyword-only parameters
+- After: a fourteenth, `resolution: EffectiveRequest | None = None`, threaded
+  into dimension 2 exactly as `adapter` is
+- Why: the resolution happens *before* the engine runs — that is what makes it
+  able to bound the question the engine is given — so it is a parameter rather
+  than a fact read off `execution`, which has never seen it
+- Migration: none. Every existing call site is unchanged and its record is
+  byte-for-byte what it was
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: reshaped
+- Before: thirteen constructor arguments, none defaulted; `__call__` compared the
+  raw request against the declared surface, then read the graph, then folded the
+  class ceiling with `request.parameters["debt_tolerance"]`
+- After: fifteen, still none defaulted — `constraint_resolver` and
+  `capabilities` join. `__call__` now runs the ruled sequence: defaults applied,
+  caller values overlaid, the policy constraints in force at `asked_at` resolved
+  with provenance, the technical capabilities held against them, and only then
+  the *effective* request checked. The engine answers the effective question
+  while `RequestIdentity.parameters` and replay dimension 5 keep what the caller
+  supplied; dimension 2 carries the resolution and the pins it was resolved from
+- Why: `D-IMPL-253` Q8 and `D-IMPL-254` — this is the Authority layer's place in
+  the sequence. A resolution after the read would have bounded a question the
+  engine had already answered, and a default applied after validation would
+  never have been the value the class declared
+- Migration: a deployment constructing this class directly passes the two new
+  arguments; `build_governed_resolver` supplies both. A conformity refusal now
+  reaches the caller as `constraint-refusal`, `policy-resolution-conflict` or
+  `product-request-violation`, all three carrying no lineage as before
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: reshaped
+- Before: seventeen parameters, five optional
+- After: nineteen, seven optional. `constraint_resolver` defaults to
+  `ReferencePolicyConstraintResolver` over the Control Plane this fabric booted
+  against, keyed to the tenant's entitlement policy; `capabilities` defaults to
+  what the booted fabric can be asked for, which is the empty tuple on every
+  shipped boot path
+- Why: the reference is selected here for the reason the debt scorer is —
+  a deployment providing only data never has to know the Protocol exists. Unlike
+  the scorer this default needs no material, so there is no second pair of
+  argument shapes and none is refused. A Control Plane that cannot be asked
+  which constraints are in force is a `TypeError` naming both ways to fix it,
+  rather than a resolver that quietly resolves nothing
+- Migration: none required. Existing calls gain the reference resolver
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -13957,7 +14061,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 Surfaces that no longer exist. Each entry names what replaces it.
 
-4 entries — 4 public Python surface, 0 not public Python API.
+5 entries — 5 public Python surface, 0 not public Python API.
 
 ### Public Python surface
 
@@ -14027,6 +14131,34 @@ Surfaces that no longer exist. Each entry names what replaces it.
   using the in-process adapter's binding-document path
 
 *Recorded by `17-12-binding-document-data-only.md`.*
+
+#### ccf.products.gates.effective_debt_ceiling
+
+- Surface: ccf.products.gates.effective_debt_ceiling
+- Public surface: true
+- Change type: removed
+- Before: `effective_debt_ceiling(*, declared: Decimal | None, requested: object)
+  -> Decimal | None` — the class's declared ceiling folded with the request's
+  `debt_tolerance` by `min`, returning a bare number
+- After: gone. The fold is the Authority layer's now: the effective tolerance is
+  resolved by `ccf.products.constraints.resolve_effective_request` and carried
+  as an `EffectiveParameter` with the authority that set it and the pin it came
+  from, never as a scalar. INTERIM, named in the source: the gate's debt half
+  still holds a resolved tolerance to the class's ceiling as the floor of
+  strictness — a request may tighten it and never loosen it — and `24.6-04`
+  retires that half entirely
+- Why: `C-06`; `D-IMPL-254` and `D-IMPL-253` Q1, Dave: *"We need to preserve
+  provenance of authority. Otherwise we recreate exactly the defect the scout
+  found with `min()`."* A bare number cannot say whether the ceiling in force is
+  the class's or the caller's, and that is the whole question a refusal has to
+  answer
+- Migration: a deployment calling it directly reads
+  `EffectiveRequest.parameter("debt_tolerance")`, which carries the value, the
+  authority and the bound. Behavior at the gate is unchanged in this plan: an
+  undeclared class is still unaffected whatever the request says, and a declared
+  ceiling is still tightened and never loosened
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
 
 ## Behavior changes
 

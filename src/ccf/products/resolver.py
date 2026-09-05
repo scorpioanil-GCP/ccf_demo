@@ -143,8 +143,9 @@ from ccf.controlplane.artifacts import (
     ProductClassDeclaration,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.contracts.canonical import content_hash
 from ccf.deployment import BootedFabric, build_operator_registry
-from ccf.graph.protocols import GraphView
+from ccf.graph.protocols import GraphView, TraversalDepthCapability
 from ccf.halflife.debt import DebtAssessment
 from ccf.products.contract import (
     ContextProductContract,
@@ -154,17 +155,27 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.debt_scorer import AssemblyDebtScorer, DeclaredFactor
+from ccf.products.constraints import (
+    CAPABILITY_TRAVERSAL_DEPTH,
+    ConstraintRefusal,
+    PolicyConstraintResolver,
+    PolicyResolutionConflict,
+    ReferencePolicyConstraintResolver,
+    TechnicalCapability,
+    _ConstraintSource,
+)
+from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import (
     DEBT_TOLERANCE_PARAMETER,
     ServableProduct,
-    effective_debt_ceiling,
     run_gates,
 )
+from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
-    refuse_request,
+    ProductRequestViolation,
 )
 from ccf.projection.engine import ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
@@ -465,6 +476,44 @@ def _artifact_on(
     return artifact
 
 
+def _capabilities_of(fabric: BootedFabric) -> tuple[TechnicalCapability, ...]:
+    """The technical limits the booted fabric can be asked for, if any.
+
+    ``D-IMPL-253`` Q21. Structural, on the
+    :class:`~ccf.graph.protocols.SnapshotPinnable` idiom: whatever the boot
+    handed back is *asked* whether it reports a traversal ceiling, and a
+    substrate that reports none contributes nothing — no flag, no stub, and no
+    number invented on its behalf.
+
+    **What this reaches today, measured rather than assumed.**
+    :class:`~ccf.boot.FabricHandle` exposes a *reader*, and the two ceilinged
+    backends declare their bound on the *store*, which the handle deliberately
+    does not carry. So for every shipped boot path this derives the empty tuple
+    — the honest answer, since nothing the resolver is handed can report a
+    ceiling — and a deployment that holds its store passes ``capabilities``
+    explicitly to :func:`build_governed_resolver` or to
+    :class:`GovernedResolver`. The walk is written over both objects so that a
+    handle or reader which later reports one is picked up with no edit here.
+
+    Duplicate identities are collapsed, so a handle and its reader that are the
+    same object — or two objects reporting one substrate — contribute one bound
+    rather than two identical ones.
+    """
+    found: dict[tuple[str, str], TechnicalCapability] = {}
+    for candidate in (fabric.handle, getattr(fabric.handle, "reader", None)):
+        if not isinstance(candidate, TraversalDepthCapability):
+            continue
+        capability = TechnicalCapability(
+            capability=CAPABILITY_TRAVERSAL_DEPTH,
+            maximum=Decimal(candidate.max_traversal_depth),
+            identity=candidate.capability_identity,
+        )
+        found.setdefault(
+            (capability.capability, capability.identity), capability
+        )
+    return tuple(found[key] for key in sorted(found))
+
+
 @dataclass(frozen=True, kw_only=True)
 class GovernedResolver:
     """The SDK's reference composition: assemble → gate → record → serve.
@@ -560,6 +609,23 @@ class GovernedResolver:
         policy_bundle_key: The key whose pinned version becomes the admitted
             bundle version and the product's policy binding.
         plan_factory: How this deployment builds Π for one question.
+        constraint_resolver: How this deployment resolves a question's
+            parameters against every authority that bounds them — the class's
+            declared defaults, the caller's values, the Control Plane's policy
+            constraints in force at ``asked_at``, and the substrate's technical
+            capabilities (``D-IMPL-253`` Q8). No default here for the reason
+            ``debt_scorer`` has none: this class is the auditable, defaultless
+            composition, and :func:`build_governed_resolver` is where the SDK's
+            own :class:`~ccf.products.constraints.ReferencePolicyConstraintResolver`
+            is chosen.
+        capabilities: The technical limits in force, read off the substrate by
+            whoever wired this resolver. Supplied rather than discovered here,
+            because the fabric hands back a *reader* and the ceiling is a
+            property of the *store* — and because a resolver that went looking
+            for capabilities would be deciding, on its own authority, which
+            substrate facts govern a question. The empty tuple is the positive
+            statement that no technical bound applies, which is every
+            deployment on a store that declares none.
         debt_scorer: How this deployment measures ``D_c`` over an assembly.
             :class:`~ccf.products.debt_scorer.AssemblyDebtScorer` is the shipped
             reference, and **it is what** :func:`build_governed_resolver`
@@ -592,6 +658,8 @@ class GovernedResolver:
     policy_bundle_key: str
     plan_factory: ProjectionPlanFactoryProtocol
     debt_scorer: AssemblyDebtScorerProtocol
+    constraint_resolver: PolicyConstraintResolver
+    capabilities: tuple[TechnicalCapability, ...]
     artifact_store: ArtifactStoreProtocol
     replay_record_class: str
     query_pin_class: str
@@ -615,9 +683,19 @@ class GovernedResolver:
         1. **The address is checked first.** A call for a tenant or a class
            this resolver was never wired to serve is a mis-wiring, and it
            raises rather than being reported as a governed "no".
-        2. **The request is checked before the graph is touched.** A question
-           this class does not answer costs nothing and comes back with a
-           reason rather than an approximation.
+        2. **The question is RESOLVED before the graph is touched, and the
+           resolution is what is checked.** The class's declared defaults are
+           applied, the caller's values overlaid, the policy constraints in
+           force at ``asked_at`` resolved with their provenance, the technical
+           capabilities held against them — and only then is the *effective*
+           request checked against the declared surface. The order is ruled
+           (``D-IMPL-253`` Q8; ``D-IMPL-254`` — this is the **Authority**
+           layer's place in Determination → Authority → Disclosure →
+           Delivery), and it is the whole reason a default can mean something:
+           a parameter the caller omitted reaches the closed-world comparison
+           as the value the class declared, rather than as an omission. A
+           question this class does not answer still costs nothing and still
+           comes back with a reason rather than an approximation.
         3. **The graph is read at the boundary the question named.** The
            instant is ``request.asked_at`` — supplied by a caller at serve time
            and by replay at replay time, through this same code path, which is
@@ -687,15 +765,48 @@ class GovernedResolver:
 
         # THE DOOR, and this composition is the resolver standing at it. The
         # comparison the two shipped doors cannot make, because neither holds
-        # the registered class it compares against (`D-IMPL-121`).
-        violation = refuse_request(
-            request=request, declared=self._request_contract(declaration)
+        # the registered class it compares against (`D-IMPL-121`) — and, as of
+        # `24.6-03`, the Control Plane read no door could make either.
+        declared = self._request_contract(declaration)
+        resolved = self.constraint_resolver.resolve(
+            product_class=product_class,
+            request=request,
+            declared=declared,
+            declared_source=ProvenanceSource(
+                kind="artifact",
+                identity=self.request_contract_key,
+                # The version the registry assigns this content, minted the way
+                # `ControlPlaneRegistry.register` mints it — a content address
+                # (`D-IMPL-26`). So the pin this resolution records and the pin
+                # `_register` mints below are the same pin by construction,
+                # rather than two reads that could disagree.
+                version=content_hash(declared),
+            ),
+            perspective=perspective,
+            intent=request.intent,
+            tenant=self.fabric.tenant_id,
+            capabilities=self.capabilities,
         )
-        if violation is not None:
-            # No lineage: a request-conformity verdict is reached before the
-            # graph is touched and *has* none. `envelope_for` refuses one here,
-            # which is what makes the assembly-boundary split structural.
-            return envelope_for(violation, request=identity)
+        if isinstance(
+            resolved,
+            (ConstraintRefusal, PolicyResolutionConflict, ProductRequestViolation),
+        ):
+            # No lineage: every one of these is reached while the effective
+            # request is still being built, which is strictly before the graph
+            # is touched. `envelope_for` refuses a lineage here, which is what
+            # makes the assembly-boundary split structural.
+            return envelope_for(resolved, request=identity)
+        effective = resolved
+        # The engine answers the EFFECTIVE question — defaults applied, policy
+        # bounds in force. It is a SIBLING of the caller's request and never a
+        # replacement: `identity.parameters` and the request that lands in
+        # replay dimension 5 both keep what the caller supplied, so a refusal
+        # can still say "you asked for X and policy P bounds you to Y", and the
+        # resolution that turned one into the other is dimension 2's
+        # (`D-IMPL-253` Q1 — *"do not collapse authority after resolution"*).
+        effective_request = request.model_copy(
+            update={"parameters": dict(effective.values())}
+        )
 
         view = self.fabric.handle.reader.as_of(
             tenant_id=self.fabric.tenant_id, at=request.asked_at
@@ -710,7 +821,7 @@ class GovernedResolver:
         execution = ProjectionEngine(
             reader=self.fabric.handle.reader, registry=operators
         ).execute(
-            plan=self.plan_factory(required=required, request=request),
+            plan=self.plan_factory(required=required, request=effective_request),
             perspective=perspective,
             tenant_id=self.fabric.tenant_id,
             temporal_boundary=request.asked_at,
@@ -739,14 +850,16 @@ class GovernedResolver:
             debt=self.debt_scorer(view=execution.view),
         )
 
-        # 24.5-L-14 (D-IMPL-240 (3)): the class declares the ceiling; the
-        # request may only tighten it; an undeclared class is unaffected
-        # whatever the request says. Nothing about the principal or the
-        # perspective reaches this path (D-IMPL-105).
-        debt_tolerance = effective_debt_ceiling(
-            declared=registered.serve_obligations.debt_ceiling,
-            requested=request.parameters.get(DEBT_TOLERANCE_PARAMETER),
-        )
+        # 24.6-03, INTERIM until 24.6-04 retires the gate's debt half: the
+        # tolerance the gate is held to is the one the Authority layer
+        # RESOLVED — the class's declaration, the caller's request and the
+        # policy constraints in force, folded once, upstream, with the
+        # authority that set it recorded (`D-IMPL-254`). Nothing is re-folded
+        # here, because a second fold would be the scalar defect this phase
+        # removed. Nothing about the principal or the perspective reaches this
+        # path (`D-IMPL-105`).
+        tolerance = effective.parameter(DEBT_TOLERANCE_PARAMETER)
+        debt_tolerance = tolerance.value if tolerance is not None else None
         gated = run_gates(
             candidate,
             engine_resolved=execution.operators_invoked,
@@ -775,10 +888,36 @@ class GovernedResolver:
             perspective=perspective,
             policy_bindings=(
                 PolicyBinding(key=self.policy_bundle_key, version=policy_version),
+                # 24.6-03: every source the resolution consulted, by exact
+                # `(key, version)` — the constraint artifacts in force at
+                # `asked_at`, the request contract's own pin, and the
+                # entitlement policy when an override was verified against it.
+                # Sources with no version lane (the request's own identity, a
+                # backend capability) are NOT bindings: `PolicyBinding` is a
+                # Control Plane pin, and minting a lane for a capability is
+                # the fake artifact `D-IMPL-253` amendment 2 (1) forbids. They
+                # travel whole inside `request_resolution`.
+                *(
+                    PolicyBinding(key=source.identity, version=source.version)
+                    for source in effective.applied
+                    if source.kind == "artifact" and source.version is not None
+                ),
+                *(
+                    PolicyBinding(
+                        key=override.grant_source.identity,
+                        version=override.grant_source.version,
+                    )
+                    for override in effective.overrides
+                    if override.grant_source is not None
+                    and override.grant_source.version is not None
+                ),
             ),
             assembly_mode=registered.assembly_mode,
             recorded_at=request.asked_at,
             request=request,
+            # 24.6-03: what was resolved, and on whose authority — dimension 2,
+            # beside the versions it was resolved from (`D-IMPL-254`).
+            resolution=effective,
         )
         return serve(
             product=gated,
@@ -898,6 +1037,8 @@ def build_governed_resolver(
     declared_completeness: Decimal | None = None,
     declared_semantic_consistency: Decimal | None = None,
     debt_scorer: AssemblyDebtScorerProtocol | None = None,
+    constraint_resolver: PolicyConstraintResolver | None = None,
+    capabilities: tuple[TechnicalCapability, ...] | None = None,
 ) -> GovernedResolver:
     """Build a :class:`GovernedResolver`, selecting the SDK's reference scorer.
 
@@ -992,6 +1133,25 @@ def build_governed_resolver(
         declared_completeness: The ``C`` this deployment asserts, in ``[0, 1]``.
         declared_semantic_consistency: The ``S`` it asserts, in ``[0, 1]``.
         debt_scorer: A conforming scorer that **overrides** the reference.
+        constraint_resolver: A conforming resolver that **overrides** the
+            reference. When omitted, the SDK selects
+            :class:`~ccf.products.constraints.ReferencePolicyConstraintResolver`
+            over the same Control Plane this fabric booted against, keyed to
+            this tenant's entitlement policy through
+            :func:`~ccf.products.entitlement.product_entitlement_key` — so a
+            deployment that registered one gets its overrides verified without
+            naming anything, and a deployment that registered none entitles no
+            override, which is deny-by-default rather than an error. Unlike the
+            debt scorer this default needs **no material**: the resolver reads
+            what the deployment already registered, so there is no pair of
+            argument shapes here and none is refused (``24.6-03``).
+        capabilities: The technical limits in force. When omitted they are
+            derived structurally from what the boot handed back
+            (:func:`_capabilities_of`), which is the empty tuple for every
+            shipped boot path — the handle carries a reader and the ceiling is
+            the store's. Pass them explicitly to bound a parameter by a
+            substrate limit; the binding that says *which* parameter is the
+            request contract's (``capability_bindings``).
 
     Returns:
         The composed resolver, ready to be handed to a delivery surface.
@@ -1012,6 +1172,34 @@ def build_governed_resolver(
     # the constant, and reports the wrong argument in both refusals below.
     # `tests/products/test_resolver_defaults.py::test_the_named_inputs_are_this_helper_s_own_optional_parameters`
     # holds the constant and this signature to each other in both directions.
+    resolution_seam: PolicyConstraintResolver
+    if constraint_resolver is not None:
+        resolution_seam = constraint_resolver
+    elif isinstance(control_plane, _ConstraintSource):
+        resolution_seam = ReferencePolicyConstraintResolver(
+            control_plane=control_plane,
+            entitlement_key=product_entitlement_key(tenant_id=fabric.tenant_id),
+        )
+    else:
+        # Structural, and checked rather than assumed: the reference resolver
+        # needs a read surface `ControlPlaneProtocol` does not promise —
+        # `keys_of_class`, `versions` and `peek`, which are how "what is in
+        # force at this instant" is answered without reaching for the latest
+        # version. The shipped `ControlPlaneRegistry` has all three. A plane
+        # that does not is a wiring fact the caller can fix two ways, and both
+        # are named.
+        raise TypeError(
+            "this call supplies no `constraint_resolver`, and the Control"
+            f" Plane it was given ({type(control_plane).__name__}) does not"
+            " offer the read surface the SDK's reference resolver needs:"
+            " `keys_of_class`, `versions`, `peek` and `resolve`. Pass a"
+            " conforming `PolicyConstraintResolver`, or a Control Plane that"
+            " can be asked which constraints are in force"
+        )
+    technical = (
+        _capabilities_of(fabric) if capabilities is None else capabilities
+    )
+
     declared: dict[str, object | None] = {
         "half_life_key": half_life_key,
         "debt_profile_key": debt_profile_key,
@@ -1043,6 +1231,8 @@ def build_governed_resolver(
             policy_bundle_key=policy_bundle_key,
             plan_factory=plan_factory,
             debt_scorer=debt_scorer,
+            constraint_resolver=resolution_seam,
+            capabilities=technical,
             artifact_store=artifact_store,
             replay_record_class=replay_record_class,
             query_pin_class=query_pin_class,
@@ -1088,6 +1278,8 @@ def build_governed_resolver(
                 value=declared_semantic_consistency
             ),
         ),
+        constraint_resolver=resolution_seam,
+        capabilities=technical,
         artifact_store=artifact_store,
         replay_record_class=replay_record_class,
         query_pin_class=query_pin_class,

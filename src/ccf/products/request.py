@@ -197,9 +197,9 @@ __all__ = [
 #: and ``D_c`` is a proportion (whitepaper §7.7.4), so a declared, honored,
 #: well-typed number outside ``[0, 1]`` — or not finite — is not a tolerance
 #: at all. It is refused here, in the contract-refusal family, so it can never
-#: reach :func:`~ccf.products.gates.effective_debt_ceiling` as a "tightening"
-#: and coerce every serve into a ``409`` whose ``declared`` names a number no
-#: class declared (``24.5-REVIEW.md`` WR-02, Dave, 2026-09-02). The interval is
+#: reach the debt gate as a "tightening" and coerce every serve into a ``409``
+#: whose ``declared`` names a number no class declared (``24.5-REVIEW.md``
+#: WR-02, Dave, 2026-09-02). The interval is
 #: the one :class:`~ccf.products.contract.ServeObligations` holds the CLASS's
 #: ceiling to at declaration (``24.5-L-14``): the request boundary and the
 #: class boundary read the same interval.
