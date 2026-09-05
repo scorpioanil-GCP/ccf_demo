@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**956 entries**, of which **714** name a public Python surface.
+**959 entries**, of which **716** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-473 entries — 434 public Python surface, 39 not public Python API.
+474 entries — 434 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -9248,11 +9248,36 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.5-05-the-directed-descendant-walk.md`.*
 
+#### ccf_runtime.mcp.experience._tool_address
+
+- Surface: ccf_runtime.mcp.experience._tool_address
+- Public surface: false
+- Change type: added
+- Before: absent. The two gated tools were decided against a
+  *(tenant, class)* pair with no rendered address at all, because nothing
+  recorded a denial and nothing therefore needed one.
+- After: `_tool_address(*, tool, tenant, product_class) -> str`, rendering
+  `{EXPERIENCE_PRODUCT_URI_SCHEME}://{tenant}/{product_class}#{tool}` beside
+  `experience_product_uri`.
+- Why: `D-IMPL-256` (1) requires a recorded denial to answer *what resource
+  was requested*, and a tool that carries no version cannot borrow the
+  resource's three-segment form without the SDK inventing a lane the
+  deployment never named. The tool travels as a fragment so a tool address
+  cannot be misread as a product address whose version happens to be called
+  `get_context`; the scheme is composed from the module's own constant, never
+  spelled as a literal, so the front door's addresses stay distinguishable from
+  an egress or artifact address (T-06-16).
+- Migration: none — module-private, and its output appears only inside a
+  recorded `ResourceRequestIdentity.address`. An examiner filtering replay
+  records by address should expect this form for the two tool paths.
+
+*Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-359 entries — 176 public Python surface, 183 not public Python API.
+360 entries — 177 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -12910,6 +12935,47 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
 
+#### ccf_runtime.mcp.experience.build_experience_server
+
+- Surface: ccf_runtime.mcp.experience.build_experience_server
+- Public surface: true
+- Change type: reshaped
+- Before: `build_experience_server(*, server_name, product_resolver, …,
+  entitlement_source, perspective_resolver, entitled_product_class=None,
+  lineage_tenant=None, tool_allowlist=None)`. A door could be stood up making
+  governed entitlement determinations with no way to record any of them, and
+  its denials raised through the transport.
+- After: one additive keyword-only parameter, `refusal_recorder:
+  RefusalRecorderProtocol | None = None`, placed after `perspective_resolver`.
+  It is checked **first** — ahead of the allowlist and provider checks —
+  through
+  `ccf_runtime.authz.delivery_boundary::recorded_boundary`, which raises
+  `UnrecordableDeliveryBoundaryError` for `None` and for a non-conforming
+  object. The three entitlement paths now call
+  `ccf_runtime.authz.delivery_boundary::govern_entitlement` and encode its
+  return.
+- Why: `D-IMPL-256` (2), Dave: *"a door configured to make governed
+  determinations without the ability to record them is not a valid governed
+  door."* This builder **always** entitles — the templated product resource is
+  not allowlist-gated, so every server it produces makes governed
+  determinations — which is why the requiredness is unconditional where every
+  other D-03 requiredness on this builder is conditional on exposure, and why
+  the check runs before them. The `None` default exists so the omission is
+  refused by the one typed error rather than by a bare `TypeError` that would
+  say nothing about why.
+- Migration: **every deployment building the experience server must now bind a
+  recorder.** Pass `refusal_recorder=` a
+  `ccf.products.resolver.RefusalRecorderProtocol` — the SDK ships
+  `ReplayRefusalRecorder`, built over the artifact store the deployment's
+  resolver already holds, so one deployment keeps one audit trail rather than
+  two. A deployment that reaches the fabric through
+  `ccf.products.resolver.build_governed_resolver` already has one at
+  `resolver.refusal_recorder`. A door built without it does not answer at all,
+  by construction — deliberately, so auditability is never contingent on
+  outcome.
+
+*Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -15313,7 +15379,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-117 entries — 97 public Python surface, 20 not public Python API.
+118 entries — 98 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -17580,6 +17646,48 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   entitlement policy discloses at `minimal`
 
 *Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.mcp.experience.build_experience_server — the three entitlement paths
+
+- Surface: ccf_runtime.mcp.experience.build_experience_server
+- Public surface: true
+- Change type: behavior
+- Before: the `context_product` resource, `get_context` and `get_lineage` each
+  called `ccf_runtime.authz.product_entitlement::entitled_perspective`
+  directly and let `ProductEntitlementRefused` raise through MCP. A denial
+  reached an external client as a transport error carrying the entitlement's
+  typed `error_code` and prose, and nothing recorded that a determination had
+  been made at all.
+- After: each path calls `govern_entitlement` and **encodes** what comes back.
+  An entitled `Perspective` continues exactly as before — forwarded to the
+  seam under `D-IMPL-108`, with `get_lineage` still dropping it in the open. A
+  `RefusalEnvelope` is returned as the response's canonical bytes: the same
+  governed shell shape the standing resource carries, told apart from the
+  product or lineage text by the top-level `kind` key. The denial is already
+  minted and already disclosed when it arrives — recorded by the governed step
+  at the entitlement source's own declared instant, under a
+  `ccf.products.refusal.ResourceRequestIdentity` (`mcp-resource` with the
+  product URI for the resource; `mcp-tool` with the tool's declared address for
+  the two tools) — so its `replay_reference` resolves to a real record.
+- Why: criterion 36, Dave: *"Every governed determination that crosses a CCF
+  delivery boundary — fulfilled or refused, tool or resource, authorized or
+  denied — must reach the replay writer before the response is released."* And
+  the sequence principle: *"Replay belongs to the governed determination, not
+  to HTTP or MCP. That matters because otherwise the standing-resource/tool
+  asymmetry simply reappears somewhere else."* This module accordingly mints
+  nothing, discloses nothing, catches nothing and reads no clock.
+- Migration: **a client that read the entitlement's error code off a transport
+  error must change.** A governed denial now arrives as a normal response
+  whose body is a `RefusalEnvelope` — `isError` is False on the tool legs and
+  the resource no longer raises — with `kind == "subject-unavailable"` and the
+  internal cause withheld at the deployment's disclosure level. The internal
+  determination, including the typed `error_code`, is in the replay record the
+  shell's `replay_reference` addresses, and the decision itself is in the
+  Control Plane's `authz_decision` audit event; neither is on the wire. A
+  client that already validated the body as a `RefusalEnvelope` — the SDK's own
+  `ccf.client.result` seam does — needs no change.
+
+*Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
 
 ### Not public Python API
 

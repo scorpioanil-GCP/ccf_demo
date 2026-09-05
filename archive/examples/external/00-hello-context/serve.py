@@ -111,6 +111,7 @@ from ccf.products.contract import (  # noqa: E402
 )
 from ccf.products.gates import ServableProduct, run_gates  # noqa: E402
 from ccf.products.request import ProductRequest  # noqa: E402
+from ccf.products.resolver import ReplayRefusalRecorder  # noqa: E402
 from ccf.projection.engine import ProjectionEngine  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 from ccf.replay.record import (  # noqa: E402
@@ -785,13 +786,29 @@ def main() -> None:
                 ),
             )
 
+        door_entitlement = ControlPlaneProductEntitlementSource(
+            control_plane=door_control_plane, clock=lambda: door_now
+        )
+
         server = build_experience_server(
             server_name=experience["server_name"],
             product_resolver=resolve,
-            entitlement_source=ControlPlaneProductEntitlementSource(
-                control_plane=door_control_plane, clock=lambda: door_now
-            ),
+            entitlement_source=door_entitlement,
             perspective_resolver=resolve_perspective,
+            # `D-IMPL-256` (2), and this is the whole adopter migration: a door
+            # that makes governed determinations holds a recorder from
+            # construction, or it is not a governed door and is not built.
+            # Over the store this deployment already writes its replay records
+            # to, and under the same declared class — one deployment, one
+            # audit trail, never two.
+            refusal_recorder=ReplayRefusalRecorder(
+                artifact_store=store,
+                replay_record_class=governance["replay_record_class"],
+                tenant_id=assembled.address.tenant,
+                assembly_mode=assembled.record.model_version.assembly_mode,
+                policy_bundle_pin=None,
+                disclosure_level_for=door_entitlement.disclosure_level_for,
+            ),
             # The gated consumption tools' declared address (D-IMPL-128 limb
             # 1). Both are the fabric's own assembled address, never literals
             # (CLAUDE.md §6.4): the entitlement is decided against the class

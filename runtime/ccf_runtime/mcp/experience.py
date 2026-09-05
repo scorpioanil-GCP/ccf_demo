@@ -138,6 +138,25 @@ is pinned by
 which asserts the three **succeed** for an unentitled credential and whose
 inversion is the signature of the fix.
 
+**The three entitlement paths are delivery boundaries, and this module only
+encodes them** (``D-IMPL-254``; ``D-IMPL-256`` (3), Dave: *"leaving them
+untouched means 24.6 would knowingly ship another delivery seam violating the
+very architecture the phase exists to establish"*). Each of the three calls
+:func:`~ccf_runtime.authz.delivery_boundary.govern_entitlement` and encodes
+what comes back: an entitled
+:class:`~ccf.projection.plan.Perspective` continues exactly as before, and a
+:class:`~ccf.products.refusal.RefusalEnvelope` is returned as the response's
+canonical bytes — the same governed shell the standing resource carries, so an
+external MCP client reads one shape across the SDK's MCP doors and a governed
+*"you may not"* never arrives as a transport error. **Replay belongs to the
+determination step in** :mod:`ccf_runtime.authz.delivery_boundary`, which this
+module calls and never re-implements: nothing here mints a record, reads a
+clock, discloses, or catches
+:class:`~ccf_runtime.authz.product_entitlement.ProductEntitlementRefused`. The
+scope is exactly those three paths and the mechanism they need — *"not a
+general experience-server rewrite"* — so ``ToolError`` on these paths remains
+what it always was, the seams' own failures, and is not widened here.
+
 Server name, bind address, token values, tenant identifiers, agent names,
 principal identifiers, role names, and skill vocabulary are all deployment
 values supplied by the caller. This module holds none of them (CINV-01).
@@ -157,14 +176,21 @@ from mcp.server.fastmcp import FastMCP
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.gates import ServableProduct
+from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
+from ccf.products.resolver import RefusalRecorderProtocol
 from ccf.projection.plan import Perspective
 from ccf.skills.catalog import SkillCatalogEntry
 from ccf.skills.toolsurface import render_tool_surface
+from ccf_runtime.authz.delivery_boundary import (
+    SURFACE_MCP_RESOURCE,
+    SURFACE_MCP_TOOL,
+    govern_entitlement,
+    recorded_boundary,
+)
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
     ProductEntitlementSourceProtocol,
-    entitled_perspective,
     verified_grant,
 )
 
@@ -565,6 +591,33 @@ def experience_product_uri(
     )
 
 
+def _tool_address(*, tool: str, tenant: str, product_class: str) -> str:
+    """Render the address a gated *tool* was decided against.
+
+    The :attr:`~ccf.products.refusal.ResourceRequestIdentity.address` of a
+    denial on :data:`GET_CONTEXT_TOOL` or :data:`GET_LINEAGE_TOOL`
+    (``D-IMPL-256`` (1)). It sits beside :func:`experience_product_uri` for
+    that function's own reason: the server, the tests and a replay reader agree
+    what the address *is* rather than each formatting it.
+
+    Two things it deliberately does not do. It never spells a scheme as a
+    literal — it composes :data:`EXPERIENCE_PRODUCT_URI_SCHEME`, so the front
+    door's addresses stay distinguishable from an egress or artifact address
+    (T-06-16) and ``tests/invariants/test_mcp_role_separation.py`` keeps that
+    true. And it carries **no version**, because these tools carry none: a
+    version segment here would be a lane the SDK invented for an address the
+    deployment never named.
+
+    The tool travels as a fragment rather than a third path segment so a tool
+    address cannot be misread as a product address whose version happens to be
+    called ``get_context``: a resource address is three path segments with no
+    fragment, a tool address is two with one.
+    """
+    return (
+        f"{EXPERIENCE_PRODUCT_URI_SCHEME}://{tenant}/{product_class}#{tool}"
+    )
+
+
 def agent_tool_listing(agent: ExposedAgent) -> AgentToolListing:
     """Render one exposed agent's Tool listing — the pure derivation.
 
@@ -656,6 +709,7 @@ def build_experience_server(
     auth_settings: AuthSettings,
     entitlement_source: ProductEntitlementSourceProtocol,
     perspective_resolver: PerspectiveResolverProtocol,
+    refusal_recorder: RefusalRecorderProtocol | None = None,
     entitled_product_class: str | None = None,
     lineage_tenant: str | None = None,
     tool_allowlist: frozenset[str] | None = None,
@@ -690,6 +744,21 @@ def build_experience_server(
     no-op: a deployment that misspells a tool name would otherwise serve a
     surface it did not intend and learn nothing about it. Enforcement lives
     here, in mechanism, rather than in each deployment's composition.
+
+    **This door entitles, so it holds a recorder or it is not built
+    (``D-IMPL-256`` (2)).** ``refusal_recorder`` is requiredness in the same
+    D-03 voice as everything above, except that its condition is always met:
+    the templated product resource is not allowlist-gated, so *every* server
+    this builder produces makes governed determinations, and there is no
+    recorder-less configuration of it. The ``None`` default exists so the
+    omission is refused by the one typed error rather than by a bare
+    ``TypeError`` that would say nothing about why — the check runs
+    :func:`~ccf_runtime.authz.delivery_boundary.recorded_boundary` **first**,
+    ahead of the allowlist and provider checks, because it is the only one
+    whose premise is nothing at all; the posture itself is written on
+    :class:`~ccf_runtime.authz.delivery_boundary.UnrecordableDeliveryBoundaryError`
+    and nowhere else, so the three doors that raise it cannot drift into three
+    explanations of one rule.
 
     **Allowlisted implies supplied (D-03/D-04; Dave, 2026-08-02).** The
     three consumption seams and their prose are Optional parameters with
@@ -785,6 +854,12 @@ def build_experience_server(
             derives the role from the verified grant; whatever it proposes
             is checked against the principal's grant before anything is
             served.
+        refusal_recorder: The ONE minting seam every denial this door reaches
+            is recorded through (``D-IMPL-256`` (2)). Optional in the
+            signature and required in fact — see the paragraph above.
+            :class:`~ccf.products.resolver.ReplayRefusalRecorder` is the
+            reference implementation, built over the artifact store the
+            deployment's resolver already holds.
         entitled_product_class: The Context Product class the gated
             consumption tools are entitled against. A **deployment** value —
             the class the injected providers actually serve. Required when
@@ -797,6 +872,10 @@ def build_experience_server(
             :data:`EXPERIENCE_TOOLS`.
 
     Raises:
+        UnrecordableDeliveryBoundaryError: no ``refusal_recorder`` was
+            supplied, or the one supplied does not conform
+            (``D-IMPL-256`` (2)). Checked first, so a door misconfigured two
+            ways reports this one.
         ValueError: The allowlist names a tool outside
             :data:`EXPERIENCE_TOOLS` (D-01), or a tool it admits has no
             provider or no description supplied (D-03), or a gated
@@ -810,6 +889,14 @@ def build_experience_server(
         library that picked an interface would be picking an exposure
         surface (T-06-14).
     """
+    # FIRST, ahead of every other check: this builder always entitles, so the
+    # recorder's requiredness is unconditional while every check below is
+    # conditional on what the allowlist admits. A door misconfigured in two
+    # ways must report the structural defect rather than the typo.
+    recorder = recorded_boundary(
+        refusal_recorder=refusal_recorder, builder="build_experience_server"
+    )
+
     if tool_allowlist is not None:
         unknown = frozenset(tool_allowlist) - EXPERIENCE_TOOLS
         if unknown:
@@ -875,20 +962,39 @@ def build_experience_server(
         Canonical bytes, not ``model_dump_json``: the same serialization the
         content address is computed over, so a consumer that hashes what it
         received gets the address the producer would.
+
+        **A denial here is a recorded decision, and this handler only encodes
+        it** (``D-IMPL-256`` (1)/(3); criterion 36). The governed step minted
+        it at the entitlement source's own declared instant, under a
+        :class:`~ccf.products.refusal.ResourceRequestIdentity` naming this
+        surface and the URI the caller addressed, and disclosed it before
+        returning. What crosses is the shell's canonical bytes — the same
+        ``mime_type`` carrying two shapes, told apart by the top-level
+        ``kind`` key a product does not have.
         """
-        perspective = entitled_perspective(
+        decided = govern_entitlement(
             grant=verified_grant(),
             tenant=tenant,
             product_class=product_class,
+            product_version=version,
             requested_role=None,
+            parameters={},
+            asked_at=None,
+            surface=SURFACE_MCP_RESOURCE,
+            address=experience_product_uri(
+                tenant=tenant, product_class=product_class, version=version
+            ),
             entitlement_source=entitlement_source,
             perspective_resolver=perspective_resolver,
+            refusal_recorder=recorder,
         )
+        if isinstance(decided, RefusalEnvelope):
+            return canonical_bytes(decided).decode("utf-8")
         servable = product_resolver(
             tenant=tenant,
             product_class=product_class,
             version=version,
-            perspective=perspective,
+            perspective=decided,
             request=None,
         )
         return canonical_bytes(servable.product).decode("utf-8")
@@ -1014,17 +1120,41 @@ def build_experience_server(
             to diverge. And the perspective the decision authorized is
             **forwarded**, per ``D-IMPL-108``: a door that computed it and
             dropped it would be ``DI-15.5-03`` one layer down.
+
+            **A denial here is a recorded decision, and this handler only
+            encodes it** (``D-IMPL-256`` (1)/(3); criterion 36). The governed
+            step minted it at the entitlement source's own declared instant,
+            under a resource-request identity naming this tool's
+            deployment-declared address, and disclosed it before returning;
+            the shell's canonical bytes are what the tool answers, so the
+            refusal is a governed response rather than a tool error.
             """
-            perspective = entitled_perspective(
+            decided = govern_entitlement(
                 grant=verified_grant(),
                 tenant=tenant,
                 product_class=context_class,
+                # No version on the wire, and saying so is the positive claim:
+                # this tool addresses a class, not a lane.
+                product_version=None,
                 requested_role=None,
+                # What the caller supplied — the request identity's
+                # parameters, never a value this module chose.
+                parameters={"entity": entity},
+                asked_at=None,
+                surface=SURFACE_MCP_TOOL,
+                address=_tool_address(
+                    tool=GET_CONTEXT_TOOL,
+                    tenant=tenant,
+                    product_class=context_class,
+                ),
                 entitlement_source=entitlement_source,
                 perspective_resolver=perspective_resolver,
+                refusal_recorder=recorder,
             )
+            if isinstance(decided, RefusalEnvelope):
+                return canonical_bytes(decided).decode("utf-8")
             return context_seam(
-                tenant=tenant, entity=entity, perspective=perspective
+                tenant=tenant, entity=entity, perspective=decided
             )
 
     if GET_LINEAGE_TOOL in allowed:
@@ -1059,15 +1189,36 @@ def build_experience_server(
             the ``context_product`` resource serves whole, so the same policy
             that decides who may receive the class decides who may receive a
             field of it.
+
+            **A denial here is a recorded decision, and this handler only
+            encodes it** (``D-IMPL-256`` (1)/(3); criterion 36). The governed
+            step minted it at the entitlement source's own declared instant,
+            under a resource-request identity naming the address this
+            deployment declared — the only address a tool with no wire
+            arguments has — and disclosed it before returning.
             """
-            authorized = entitled_perspective(
+            authorized = govern_entitlement(
                 grant=verified_grant(),
                 tenant=lineage_address_tenant,
                 product_class=lineage_class,
+                product_version=None,
                 requested_role=None,
+                # This tool carries no wire arguments at all, so the request
+                # identity's parameters are empty as a statement of fact.
+                parameters={},
+                asked_at=None,
+                surface=SURFACE_MCP_TOOL,
+                address=_tool_address(
+                    tool=GET_LINEAGE_TOOL,
+                    tenant=lineage_address_tenant,
+                    product_class=lineage_class,
+                ),
                 entitlement_source=entitlement_source,
                 perspective_resolver=perspective_resolver,
+                refusal_recorder=recorder,
             )
+            if isinstance(authorized, RefusalEnvelope):
+                return canonical_bytes(authorized).decode("utf-8")
             # Bound, and then deliberately dropped in the open rather than
             # discarded silently: `LineageProviderProtocol` was not widened,
             # and its docstring says why. The decision is what mattered here,
