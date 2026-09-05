@@ -108,6 +108,18 @@ __all__ = [
     "PerspectiveResolverProtocol",
     "ProductEntitlementRefused",
     "ProductEntitlementSourceProtocol",
+    # Re-exported deliberately, and it is the one re-export this package makes
+    # (``24.6-08``). ``TokenGrant`` is defined in the MCP auth module, but it is
+    # part of THIS seam's published vocabulary: both Protocols above are typed
+    # on it, so an adopter implementing either already has to name it — and
+    # without this line the only way to name it is to reach into a transport
+    # tree, which is exactly the reach the delivery-boundary discipline
+    # discourages (``D-IMPL-256``; the governed step in
+    # :mod:`ccf_runtime.authz.delivery_boundary` imports this module and no
+    # transport). A second import path is normally this project's defect
+    # (24.6-01 deviation 2, 24.6-02 deviation 2); here the alternative is a
+    # determination module importing a transport, which is worse.
+    "TokenGrant",
     "UnverifiedProductCallerRefused",
     "entitled_perspective",
     "verified_grant",
@@ -128,11 +140,35 @@ class ProductEntitlementRefused(ProductEntitlementViolation):
     ``str(...)`` is the one refusal-body shape
     (:func:`~ccf_runtime.http_api.errors.refusal_detail`) rendered as JSON, so
     the MCP rendering is machine-attributable without a second contract.
+
+    ``24.6-08`` added :attr:`policy`, keyword-only and defaulted, so every
+    existing construction is unchanged.
+
+    Attributes:
+        error_code: The typed code each door renders in its own protocol.
+        message: The human-readable statement.
+        policy: The pin of the policy that **decided**, when one did
+            (``D-IMPL-253`` D-34 — *"under which policy"*). It travels from the
+            determination itself, built by
+            :meth:`ControlPlaneProductEntitlementSource.authorize` from the
+            **same** ``(key, version)`` its audit event holds, so replay
+            dimension 2 can never pin a policy that did not decide and a second
+            registry read can never introduce a version skew. ``None`` is the
+            positive *no policy was consulted*, which is the honest answer for
+            the subject-conflict refusal
+            :func:`entitled_perspective` raises before any source is asked.
     """
 
-    def __init__(self, *, error_code: str, message: str) -> None:
+    def __init__(
+        self,
+        *,
+        error_code: str,
+        message: str,
+        policy: ProvenanceSource | None = None,
+    ) -> None:
         self.error_code = error_code
         self.message = message
+        self.policy = policy
         super().__init__(
             json.dumps(
                 refusal_detail(error_code=error_code, message=message)
@@ -197,6 +233,20 @@ class ProductEntitlementSourceProtocol(Protocol):
     business only with the signature.
     """
 
+    #: The deployment's declared determination clock (``24.6-08``;
+    #: ``D-IMPL-256`` (1)). An **additive** Protocol member, and the reason it
+    #: is on the source rather than passed per call is that the audit event
+    #: this source appends and the replay record the delivery boundary mints
+    #: must be stamped from ONE clock — a second time source would let the two
+    #: halves of a single decision disagree about when the fabric decided.
+    #:
+    #: Injected, never read by the SDK (``D-IMPL-98``): nothing in ``src/`` or
+    #: in :mod:`ccf_runtime.authz.delivery_boundary` calls ``datetime.now``, so
+    #: a replay resolves the instant the determination carried rather than the
+    #: instant the replay ran. It is also what answers *"the door reads no
+    #: clock"*: the door asks its entitlement source.
+    clock: Callable[[], datetime]
+
     def authorize(
         self, *, grant: TokenGrant, tenant: str, product_class: str, role: str
     ) -> ProductEntitlementGrant:
@@ -209,7 +259,9 @@ class ProductEntitlementSourceProtocol(Protocol):
         Raises:
             ProductEntitlementRefused: the caller is not entitled to that
                 class, or not to that role, or is not declared at all, or
-                the tenant declares no policy.
+                the tenant declares no policy. The refusal carries
+                :attr:`~ProductEntitlementRefused.policy` — the pin of the
+                policy that decided — when a policy was consulted.
         """
         ...
 
@@ -228,8 +280,17 @@ class ControlPlaneProductEntitlementSource:
         control_plane: The registry the policy resolves from and whose
             ``audit_log`` every decision lands in. No default: which Control
             Plane governs a door is a composition decision.
-        clock: Time source for audit timestamps. Injected, never read — the
-            audit-module discipline.
+        clock: Time source for audit timestamps AND for the determination
+            instant a delivery boundary records against (``24.6-08``).
+            Injected, never read — the audit-module discipline (``D-IMPL-98``).
+
+            **Public** as of ``24.6-08``, because
+            :data:`ProductEntitlementSourceProtocol.clock` is now part of the
+            seam: the governed delivery-boundary step reads this ONE clock so
+            the audit event and the replay record of a single decision carry
+            the same instant. Measured before renaming — ``grep -rn '_clock'``
+            found this class's two lines and no other reader — so there is no
+            alias to keep.
     """
 
     def __init__(
@@ -239,7 +300,7 @@ class ControlPlaneProductEntitlementSource:
         clock: Callable[[], datetime],
     ) -> None:
         self._control_plane = control_plane
-        self._clock = clock
+        self.clock = clock
 
     def _audit(
         self, *, grant: TokenGrant, tenant: str, version: str, allowed: bool
@@ -250,7 +311,7 @@ class ControlPlaneProductEntitlementSource:
             key=tenant,
             version=version,
             resolved=allowed,
-            occurred_at=self._clock(),
+            occurred_at=self.clock(),
             actor=grant.client_id,
             artifact_class=PRODUCT_ENTITLEMENT_POLICY.class_id,
             authz_action_id=ACTION_PRODUCT_RETRIEVE,
@@ -263,7 +324,18 @@ class ControlPlaneProductEntitlementSource:
         """Decide, audit both outcomes, and return the grant or raise.
 
         Raises:
-            ProductEntitlementRefused: any of the four deny paths.
+            ProductEntitlementRefused: any of the four deny paths, carrying
+                :attr:`~ProductEntitlementRefused.policy` — the pin of the
+                policy that decided, from the same ``(key, version)`` the audit
+                event below is stamped from. The absent-policy path carries
+                ``None``: no artifact resolved, and
+                :class:`~ccf.products.provenance.ProvenanceSource` refuses an
+                ``artifact`` kind with no version by construction, so a
+                versionless pin is unrepresentable rather than merely
+                discouraged. Which key was consulted is still a positive claim
+                on the record — the refusal's own message names it, and the
+                key is a pure derivation from the tenant the resource identity
+                carries (:func:`~ccf.products.entitlement.product_entitlement_key`).
             TypeError: the artifact registered under the tenant's
                 entitlement key is not a ``ProductEntitlementPolicy``, **or is
                 one whose own ``tenant_id`` is not the tenant whose key it was
@@ -288,6 +360,13 @@ class ControlPlaneProductEntitlementSource:
         version = ""
         entitled: ProductEntitlementGrant | None = None
         refusal: ProductEntitlementRefused | None = None
+        # The pin of the policy that DECIDED (`24.6-08`, D-34). Read ONCE here,
+        # from the same resolution the audit event below is stamped from, so
+        # dimension 2 and the audit log cannot disagree and no second registry
+        # read can introduce a version skew. The key is derived from the
+        # `tenant` ARGUMENT — the caller-supplied tenant this source decided
+        # against — never from any deployment tenant a door happens to hold.
+        pin: ProvenanceSource | None = None
         try:
             version, resolved = self._control_plane.resolve_latest(key)
         except ControlPlaneMissing:
@@ -303,6 +382,9 @@ class ControlPlaneProductEntitlementSource:
                 ),
             )
         else:
+            pin = ProvenanceSource(
+                kind="artifact", identity=key, version=version
+            )
             if not isinstance(resolved, ProductEntitlementPolicy):
                 self._audit(
                     grant=grant, tenant=tenant, version=version, allowed=False
@@ -331,6 +413,7 @@ class ControlPlaneProductEntitlementSource:
                 refusal = ProductEntitlementRefused(
                     error_code=ERROR_PRINCIPAL_NOT_ENTITLED,
                     message=str(absent),
+                    policy=pin,
                 )
             else:
                 try:
@@ -339,6 +422,7 @@ class ControlPlaneProductEntitlementSource:
                     refusal = ProductEntitlementRefused(
                         error_code=ERROR_PRODUCT_CLASS_UNENTITLED,
                         message=str(violation),
+                        policy=pin,
                     )
                 else:
                     try:
@@ -347,6 +431,7 @@ class ControlPlaneProductEntitlementSource:
                         refusal = ProductEntitlementRefused(
                             error_code=ERROR_PRODUCT_ROLE_UNGRANTED,
                             message=str(violation),
+                            policy=pin,
                         )
         self._audit(
             grant=grant,
@@ -360,6 +445,7 @@ class ControlPlaneProductEntitlementSource:
             raise ProductEntitlementRefused(
                 error_code=ERROR_PRODUCT_POLICY_ABSENT,
                 message="no grant resolved and no refusal raised",
+                policy=pin,
             )
         return entitled
 
@@ -502,6 +588,11 @@ def entitled_perspective(
                 " conditioned subject is derived from the verified grant,"
                 " never substituted (D-IMPL-67; D-IMPL-21)"
             ),
+            # Stated rather than defaulted: this refusal is reached BEFORE any
+            # entitlement source is consulted, so no policy decided it and
+            # replay dimension 2 must carry no entitlement pin (`24.6-08`,
+            # D-34). A pin here would name a policy that never ran.
+            policy=None,
         )
     entitlement_source.authorize(
         grant=grant,

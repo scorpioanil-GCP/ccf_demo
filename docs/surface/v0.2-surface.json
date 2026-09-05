@@ -7403,12 +7403,49 @@
       }
     }
   },
+  "ccf_runtime.authz.delivery_boundary": {
+    "__all__": [
+      "SURFACE_HTTP_ROUTE",
+      "SURFACE_MCP_RESOURCE",
+      "SURFACE_MCP_TOOL",
+      "UnrecordableDeliveryBoundaryError",
+      "govern_entitlement",
+      "recorded_boundary"
+    ],
+    "exports": {
+      "SURFACE_HTTP_ROUTE": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "SURFACE_MCP_RESOURCE": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "SURFACE_MCP_TOOL": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "UnrecordableDeliveryBoundaryError": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "govern_entitlement": {
+        "kind": "function",
+        "shape": "(*, grant: 'TokenGrant', tenant: 'str', product_class: 'str', product_version: 'str | None', requested_role: 'str | None', parameters: 'Mapping[str, Any]', asked_at: 'datetime | None', surface: 'str', address: 'str', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol') -> 'Perspective | RefusalEnvelope'"
+      },
+      "recorded_boundary": {
+        "kind": "function",
+        "shape": "(*, refusal_recorder: 'object | None', builder: 'str') -> 'RefusalRecorderProtocol'"
+      }
+    }
+  },
   "ccf_runtime.authz.product_entitlement": {
     "__all__": [
       "ControlPlaneProductEntitlementSource",
       "PerspectiveResolverProtocol",
       "ProductEntitlementRefused",
       "ProductEntitlementSourceProtocol",
+      "TokenGrant",
       "UnverifiedProductCallerRefused",
       "entitled_perspective",
       "verified_grant"
@@ -7424,11 +7461,18 @@
       },
       "ProductEntitlementRefused": {
         "kind": "class",
-        "shape": "(*, error_code: 'str', message: 'str') -> 'None'"
+        "shape": "(*, error_code: 'str', message: 'str', policy: 'ProvenanceSource | None' = None) -> 'None'"
       },
       "ProductEntitlementSourceProtocol": {
         "kind": "class",
         "shape": "(*args, **kwargs)"
+      },
+      "TokenGrant": {
+        "kind": "contract",
+        "shape": {
+          "client_id": "<class 'str'>",
+          "scopes": "tuple[str, ...]"
+        }
       },
       "UnverifiedProductCallerRefused": {
         "kind": "class",
