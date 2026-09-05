@@ -248,14 +248,14 @@ class KnownDebt(NamedTuple):
 #:   after being watched XPASSing — 4 strict xfails turned RED, plus the
 #:   equality, over 834 passes.
 #:
-#: What is left is the two DOCUMENT rows. ``README.md`` and
-#: ``summary_explanations.md`` are plan ``24.6-14``'s prose fence rather than
-#: this plan's, and their counts are re-measured here rather than carried.
-CP04_KNOWN_DEBT: tuple[KnownDebt, ...] = (
-    KnownDebt("examples/cp-04-corporate-family-tree/README.md", "declared ceiling of 6", 1),
-    KnownDebt("examples/cp-04-corporate-family-tree/README.md", "never clamped", 2),
-    KnownDebt("examples/cp-04-corporate-family-tree/summary_explanations.md", "never clamped", 4),
-)
+#: The two DOCUMENT rows — ``README.md`` (``declared ceiling of 6`` ×1,
+#: ``never clamped`` ×2) and ``summary_explanations.md`` (``never clamped`` ×4)
+#: — went with plan ``24.6-14``'s prose rewrite on 2026-09-05, after being
+#: watched XPASSing: 3 strict xfails turned RED plus this table's own equality,
+#: 4 failures over 839 passes. The table is EMPTY and stays declared, so a
+#: future rung's surviving supersession has a schedule to be written into
+#: rather than a silencer to be re-invented.
+CP04_KNOWN_DEBT: tuple[KnownDebt, ...] = ()
 
 #: The pairs alone, for the parametrization's marker lookup.
 CP04_DEBT_PAIRS: frozenset[tuple[str, str]] = frozenset(

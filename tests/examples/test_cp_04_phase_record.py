@@ -884,3 +884,54 @@ def test_the_sweeps_own_module_is_excluded_from_exactly_one_half() -> None:
         "SWEEP_OWN_FILE must stay one concrete path. A glob here would let the"
         " document half go quiet over a whole tree."
     )
+
+
+# ---------------------------------------------------------------------------
+# C-20's prose half (plan 24.6-14): the two sentences that said Decision Replay
+# carried NO assembler identity are retired, for THIS rung only.
+# ---------------------------------------------------------------------------
+
+#: The retired sentences, as the README and summary carried them until
+#: 2026-09-05. Plan 24.6-13 threads `assembler_id`/`assembler_version` into the
+#: replay record for fulfilled AND refused decisions
+#: (`tests/examples/test_cp_04_seams.py::test_replay_carries_the_assembler_identity_for_fulfilled_and_refused`),
+#: so a page saying replay carries none of it states a gap that is closed.
+#: Scoped to cp-04 rather than added to the tree-wide sweep on purpose: the
+#: same sentence stands on cp-01 and cp-02, whose replay wiring this phase did
+#: not touch, and a vocabulary entry there would assert something nobody
+#: measured about those rungs. The `spec/` directory is a dated record and is
+#: not a host here.
+RETIRED_REPLAY_SENTENCES: tuple[str, ...] = (
+    "carries none of it today",
+    "is a phase 24.6 ledger row",
+    "evidence the example can carry today",
+)
+
+#: Where the retired sentences lived, and where they must not return.
+REPLAY_PROSE_HOSTS: tuple[str, ...] = (
+    "examples/cp-04-corporate-family-tree/README.md",
+    "examples/cp-04-corporate-family-tree/summary_explanations.md",
+)
+
+
+def test_the_replay_carriage_sentences_are_retired_on_this_rung() -> None:
+    """The prose says what `test_replay_carries_the_assembler_identity_for_fulfilled_and_refused` proves."""
+    survivors = []
+    for host in REPLAY_PROSE_HOSTS:
+        lowered = (REPO_ROOT / host).read_text(encoding="utf-8").lower()
+        for sentence in RETIRED_REPLAY_SENTENCES:
+            if sentence in lowered:
+                survivors.append(f"{host}: {sentence!r}")
+    assert survivors == [], "\n".join(survivors)
+
+
+def test_the_replay_carriage_guard_is_not_vacuous(tmp_path: pathlib.Path) -> None:
+    """Positive control: a copy of the README with one retired sentence planted is caught."""
+    planted = tmp_path / "README.md"
+    planted.write_text(
+        (REPO_ROOT / REPLAY_PROSE_HOSTS[0]).read_text(encoding="utf-8")
+        + "\nDecision Replay carries none of it today.\n",
+        encoding="utf-8",
+    )
+    lowered = planted.read_text(encoding="utf-8").lower()
+    assert any(sentence in lowered for sentence in RETIRED_REPLAY_SENTENCES)

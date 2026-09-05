@@ -287,7 +287,7 @@ reachable, and observed RED.
 |---|---|---|---|---|
 | `lei` | string(20), **required** | **E** — the anchor | — | Unresolvable → **404**, never an empty payload |
 | `intent` | enum, **required** | **P** — selects the policy envelope | — | Unknown intent → **400** |
-| `max_depth` | int **1–6**, optional | **R** — scope | **3, DECLARED** | Above the ceiling → **REFUSED BY NAME**, never clamped. Absent → the **declared** default, never a value invented at serve time |
+| `max_depth` | int **1–6**, optional | **R** — scope | **3, DECLARED** | Above the ceiling → **REFUSED BY NAME**, never clamped. Absent → the **declared** default, never a value invented at serve time (SUPERSEDED 2026-09-04: under `D-IMPL-253` Q21 and `D-IMPL-251` C5, applied by Phase 24.6 plan 13, the declared bound `1–6` is DELETED as a bound and kept only as the measurement §B.4.1 records; the request contract in `ccf_config.yaml` declares the default `3` under `request_contract.defaults` and binds `max_depth` to the SDK's `traversal-depth` capability token — no depth ceiling is authored in this deployment. What governs now: a depth this estate cannot exhibit is SERVED, the payload's `traversal` finding carrying `requested_depth` beside `depth_reached`; a depth above the backend's technical capability (100 for `fluree/fibo-v2`, read off the substrate at resolution time) is refused by name as `constraint-refusal` with authority `technical`, carrying the bound, and is answered at no narrower depth; absent still takes the declared default, resolved by the SDK with authority `default`. Measured live 2026-09-05: `MAX_DEPTH=8` served 22 members with `requested_depth: 8, depth_reached: 3`; `MAX_DEPTH=101` refused `bound-exceeded — max_depth`) |
 | `debt_tolerance` | float | **P** — the ceiling above which assembly refuses | `[TBC — this build]` | Breach → **409** with the debt block (SUPERSEDED 2026-09-03: since `24.5-L-14` the `409` is a CLASS-DECLARED ceiling — the `effective_debt_ceiling` helper then in `src/ccf/products/gates.py` (DELETED 2026-09-04 by Phase 24.6 plans 03/04 under `D-IMPL-251` C1=A — a class may not hold a ceiling; what governs now: the class declares at most a DEFAULT, `default_debt_tolerance` on `src/ccf/products/contract.py::ServeObligations`, filling an omission only; the caller's `debt_tolerance` is honored as requested; the one fold is `src/ccf/products/constraints.py::resolve_effective_request`; a breach withholds fulfillment as the `tolerance-exceeded` shell from `src/ccf/products/gates.py::refuse_over_tolerance`, carrying the authority that set the tolerance; the debt half of `DeclaredObligationRefusal` and its `409` are retired, the new kind's HTTP status being assigned by class at the door in 24.6 plan 09 — `D-IMPL-257`), tightened but never loosened by a request; this class declares none, so its `debt_tolerance` is advisory) |
 | `as_of` | — | **T** | — | **DECLARED-BUT-INERT. REFUSED `400 not_supported_at_tier`** |
 
@@ -332,6 +332,37 @@ declaration.
 **Depth is part of product identity** (`D-09`). Two depths are two content
 addresses, because they are two different answers to two different questions.
 **Gate `CFT-G05`** is sabotaged by making `max_depth` not change the address.
+
+> **SUPERSEDED 2026-09-04 (`D-IMPL-253` Q21, `D-IMPL-251` C5; applied by Phase
+> 24.6 plan 13, `24.6-L-01`/`24.6-L-02`).** Everything above this note stands
+> as history and is preserved verbatim: the measurement is right — the deepest
+> tree in this estate is depth 6, which `PSC-0124` attains among seven roots —
+> and the default of 3 is unchanged. What no longer holds is that 6 is a
+> **bound**. Dave, `D-IMPL-253` Q21: *"6 is measurement/default history; 100 is
+> the genuine technical capability boundary."* A measurement of how deep this
+> estate GOES is not a statement about which depths a caller may ASK. Since
+> Phase 24.6: (1) the `argument_bounds` entry for `max_depth` is deleted from
+> `ccf_config.yaml`, and no depth ceiling is authored anywhere in this
+> deployment; (2) a depth this estate cannot exhibit is **served** — the
+> payload's `traversal` finding carries `requested_depth` beside
+> `depth_reached` and the walk's structural cost, so asked 8 reads
+> `requested_depth: 8, depth_reached: 3` on the same 22 members; (3) the hard
+> limit is the **backend's technical capability**, 100 for `fluree/fibo-v2`,
+> read off the substrate at resolution time through the `traversal-depth`
+> capability token `capability_bindings` names — above it the request is
+> refused by name as `constraint-refusal` with authority `technical`, carrying
+> the bound, and answered at no narrower depth; (4) **gate `CFT-G03`'s subject
+> moved** with the bound: it now fails if a depth above the capability is
+> clamped instead of refused, or if a depth the estate cannot exhibit is
+> refused instead of served (`artifacts/gates.yaml`, rewritten and re-observed
+> red under a clamp to the capability); `D-07`'s promise — refused by name,
+> answered at no narrower depth — survives, stated of the technical limit.
+> `CFT-G04` and `CFT-G05` are unchanged in subject. The product lane moved to
+> `1.1.0` (`D-25`: a previously refused valid request now produces a product)
+> and the default run's seal from `205ae065…` to `fad6e55d…` because the
+> payload gained the `traversal` finding. The row in §B.4 above carries the
+> same note; §G.2's `CFT-G03` row and the `[TBC — this build]` payload-bound
+> sentence in §G.1 are dated records and are not rewritten here.
 
 #### B.4.2 Three parameters the article declares and this rung does not carry
 

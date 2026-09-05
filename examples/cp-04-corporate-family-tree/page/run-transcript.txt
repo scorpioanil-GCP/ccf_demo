@@ -234,6 +234,18 @@
       ],
       "predicate": null,
       "type": "unresolved_jurisdiction"
+    },
+    {
+      "closing_edge": null,
+      "cost": {
+        "edges_walked": 25,
+        "nodes_visited": 22
+      },
+      "depth_reached": 3,
+      "members": [],
+      "predicate": null,
+      "requested_depth": 3,
+      "type": "traversal"
     }
   ],
   "jurisdictions": [
@@ -802,15 +814,17 @@ What a plain SELECT would not have told you:
    asked as of        2026-08-31T12:00:00+00:00
    anchor             54930022CZO1N2UGVW07  SUPER MICRO COMPUTER, INC.
    ...its class chain 7 FIBO classes, from Corporation
-   depth asked        absent -> the DECLARED default 3, read from ccf_config.yaml::request_contract.argument_defaults
-   depth applied      3   (ceiling 6; over it is refused by name, never clamped)
+   depth asked        absent -> the DECLARED default 3, read from ccf_config.yaml's request_contract defaults by the SDK's own resolution
+   depth applied      3   requested, 3 reached — a depth this estate cannot exhibit is SERVED
+   ...what it cost    22 node(s) visited, 25 edge(s) walked — STRUCTURAL counts, so two runs of one question seal identically
+   ...the hard limit  100, the backend's capability (authority technical, source fluree/fibo-v2); over it the request is refused by name and answered at no narrower depth
    deepest node       3 hop(s) out — an undirected NEIGHBORHOOD, not a directed descendant tree (D-36)
    nodes returned     22
    ...resolved in the attribute store    2
    ...resolved to NO row                 20   — STILL IN THE TREE. A member with no LEI is a member
    jurisdictions      ['NL', 'US-DE']   — SERVED and asserted, never a permission key
    perspective role   credit-officer   (class axis Corporation, 22 member(s) detailed)
-   findings           3
+   findings           4
      - ownership_cycle: 3 member(s)
          CycCalderIndustrialNv
          CycThornburyCapitalLtd
@@ -842,10 +856,10 @@ What a plain SELECT would not have told you:
          SubSupermicroTechnologyBeijingCoLtd
    operators invoked  ['policy.principal-subgraph', 'traversal.typed-neighborhood']
    ...TWO on this rung, and one on every rung before it — the traversal is where the count moves off one
-   assembled by       cp-04.corporate-family-tree@1.0.1
+   assembled by       cp-04.corporate-family-tree@1.0.2
    context debt D_c   0.0909  ->  ok
    ...decomposed      F=1  C=1  S=0.9090909090909090909090909091
-   policy version     ['fe3f5f3426ea9d64bcf3f4f9c98ccfe348b2838c938c2e92dd2a7875a566294e']
+   policy version     ['df6a935fe974da38b4bdc9debf3bfff9b8cc11b875b233ed9b75ee10ef0956b6']
    expires at         2026-09-01T12:00:00+00:00
-   content address    205ae0658ea626982b9d2923d81a226a00899b0c43ba74bbae4dfea8a140d498
-   replay record      ccf-artifact://cp-04-demo/cp-04.replay-record/9ea7b3a55740f39cadcd63a4626c0d678c7a9cab95909b1c197d787e6e10c99b@5aaa1572fc3e91b85e454b595891370118cd33be23b1fe7d32d7f79e18b9f030
+   content address    fad6e55da2c0e6276b69d9a053e4eff155e5c3266b68f3fffb873b0c5e754fc7
+   replay record      ccf-artifact://cp-04-demo/cp-04.replay-record/317d22ffdb5d8008e5feeaa3db92ca0db6eb5e20f9f606ef14413a0d4f50b1e8@c21658665f2ddc68644f3e35221b4d5a5a8ea8b6788171124ae1f7be03e58e61
