@@ -5,7 +5,12 @@ milestone_name: Performance, Documentation & Demonstration
 status: executing
 last_updated: "2026-09-05T01:20:00.000Z"
 last_activity: >-
-  **PHASE 24.6 EXECUTING — waves 1–8 of 12 done (plans 01–10, 16), 2026-09-05 01:30 MST, `/gsd-execute-phase 24.6` on `phase-24.6`.**
+  **PHASE 24.6 EXECUTING — waves 1–9 of 12 done (plans 01–12, 16), 2026-09-05 02:20 MST, `/gsd-execute-phase 24.6` on `phase-24.6`.**
+  Wave 9 (11‖12) merged clean, no conflicts. Merged-tree check: 1981 + 2020 + 800 passed, 16 xfailed (plan 12's declared cp-04 debt
+  table, RED-when-fixed proven), 1 failed — `tools/docs_tests/test_requirement_ledger.py::test_the_uat_roster_matches_the_records_on_disk`,
+  PRE-PHASE (the 24.5 record grew `human_verification:` at `ceab40fd` 2026-09-02; roster last edited Phase 23.1; both predate `1022ad59`),
+  in `make gate-tools`, for Dave (plan 12 F-1). Plan 12 F-3: L-09's site list drifted (24 measured occurrences, 16 pairs, all cp-04) —
+  plan 13 works from the measured set. Next: wave 10 (plan 13, cp-04 rebuild).
   Single-plan waves on the main tree (Opus, CLAUDE.md §3); waves 6 and 8 in worktrees cut from the wave base, merged `--no-ff` from
   the manifest only. Wave 8 (09‖10‖16) conflicted on ONE shared test (`tests/invariants/test_mcp_role_separation.py`: all three doors
   widened the same assert to accept `govern_entitlement(`; plan 16's copy kept — it adds the transitive check) and on the three
