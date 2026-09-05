@@ -50,7 +50,9 @@ import httpx  # noqa: E402
 from mcp.server.auth.settings import AuthSettings  # noqa: E402
 from pydantic import AnyHttpUrl  # noqa: E402
 
+from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
+from ccf.products.resolver import ReplayRefusalRecorder  # noqa: E402
 from ccf.products.entitlement import (  # noqa: E402
     PRODUCT_ENTITLEMENT_POLICY,
     ProductEntitlementGrant,
@@ -107,6 +109,12 @@ POLICY_VERSION = "1.0.0"
 #: wall clock — the audit-module discipline, and it keeps the child's log
 #: reproducible.
 AUDIT_INSTANT = datetime(2026, 8, 11, tzinfo=UTC)
+
+#: Where this child's denials land, and the class they are filed under. A
+#: denial at this door is a recorded decision (`D-IMPL-253` Q13,
+#: `D-IMPL-256` (2)) and this fixture writes it to its own workspace.
+REPLAY_RECORD_CLASS = "egress-child.replay-record"
+ARTIFACT_STORE_DIRNAME = "artifacts"
 
 #: The prose this deployment's parameterised Tool advertises. A test value:
 #: the SDK ships no default description, because the words an adopter's
@@ -366,6 +374,23 @@ def build_entitlement_registry(assembled: AssembledProduct) -> ControlPlaneRegis
     return registry
 
 
+def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
+    """The ONE minting seam this child's door binds.
+
+    Built with the keyword list `ccf.products.resolver::build_governed_resolver`
+    uses for its own, so a door's recorder and a resolver's are the same shape
+    over one store — *one writer, one record form*. This fixture composes no
+    `GovernedResolver`, so there is none to take the recorder off; the tenant
+    and the record class come from the values the fixture already holds.
+    """
+    return ReplayRefusalRecorder(
+        artifact_store=FileArtifactStore(root=root / ARTIFACT_STORE_DIRNAME),
+        replay_record_class=REPLAY_RECORD_CLASS,
+        tenant_id=tenant,
+        assembly_mode="algorithmic",
+    )
+
+
 def build_server(*, workspace: Path) -> FastMCP:
     """Assemble the product and wrap it in the authenticated egress server."""
     assembled = build_servable_product(
@@ -443,6 +468,10 @@ def build_server(*, workspace: Path) -> FastMCP:
             control_plane=registry, clock=lambda: AUDIT_INSTANT
         ),
         perspective_resolver=resolve_perspective,
+        # `D-IMPL-256` (2): this door entitles, so it does not build without a
+        # recorder. The workspace is the scratch root the token file already
+        # lives in.
+        refusal_recorder=_recorder(workspace, tenant=assembled.address.tenant),
         # This deployment opts in, because the assertion it exists to support
         # is that a client can ask its own question over a real wire. A
         # deployment that says nothing gets no tool at all.

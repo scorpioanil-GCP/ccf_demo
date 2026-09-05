@@ -62,7 +62,9 @@ from mcp.types import TextContent, TextResourceContents
 from pydantic import AnyHttpUrl, AnyUrl
 
 from ccf.contracts.canonical import canonical_bytes
+from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.mcp.client import run_with_session
 from ccf.mcp.errors import McpServerUnreachable
 from ccf.products.door import DoorOutcome, WireRequest, door_question
@@ -103,6 +105,10 @@ PRINCIPAL = "egress-listing-caller"
 SCOPE = "ccf:egress-listing"
 ROLE = "egress-listing-role"
 SERVER_NAME = "ccf-egress-listing"
+
+#: The artifact class this module's doors file a denial under. Nothing here
+#: denies, but a door that entitles binds a recorder (`D-IMPL-256` (2)).
+REPLAY_RECORD_CLASS = "egress-fixture.replay-record"
 POLICY_VERSION = "1.0.0"
 AUDIT_INSTANT = datetime(2026, 9, 2, tzinfo=UTC)
 TOOL_DESCRIPTION = "Ask this test deployment's product class a question."
@@ -300,6 +306,24 @@ def _entitlement(address: ProductAddress) -> ControlPlaneProductEntitlementSourc
     )
 
 
+def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
+    """The ONE minting seam this module's doors bind (`D-IMPL-256` (2)).
+
+    Built with the keyword list `ccf.products.resolver::build_governed_resolver`
+    uses for its own, so a door's recorder and a resolver's are the same shape
+    over one store. Copied rather than imported from a sibling test module: two
+    suites that answer different questions should not be coupled by a fixture.
+    Nothing here denies — these doors serve — but a door that entitles does not
+    build without somewhere to record a denial, and that is the point.
+    """
+    return ReplayRefusalRecorder(
+        artifact_store=FileArtifactStore(root=root / "artifacts"),
+        replay_record_class=REPLAY_RECORD_CLASS,
+        tenant_id=tenant,
+        assembly_mode="algorithmic",
+    )
+
+
 def _server(
     root: Path,
     *,
@@ -330,6 +354,7 @@ def _server(
                 principal_id=grant.client_id, role=ROLE
             )
         ),
+        refusal_recorder=_recorder(root, tenant=address.tenant),
         expose_product_resource=expose_resource,
         expose_product_tool=True,
         product_tool_description=TOOL_DESCRIPTION,
@@ -632,6 +657,12 @@ def test_a_surface_less_door_is_refused(assembled: Any, tmp_path: Path) -> None:
                     principal_id=grant.client_id, role=ROLE
                 )
             ),
+            # Bound so the D-03 refusal below is the one under test. Since
+            # `D-IMPL-256` (2) the recorder check runs FIRST — deliberately, so
+            # that a door which could deny unrecorded never reaches the point
+            # of having surfaces to argue about — and an unbound door would
+            # raise the wrong `ValueError` here.
+            refusal_recorder=_recorder(tmp_path, tenant=assembled.address.tenant),
             expose_product_resource=False,
             expose_product_tool=False,
         )

@@ -87,7 +87,6 @@ import sys
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -98,10 +97,7 @@ from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
 from pydantic import AnyHttpUrl
 
-from ccf_runtime.authz.product_entitlement import (
-    ControlPlaneProductEntitlementSource,
-    TokenGrant,
-)
+from ccf_runtime.authz.product_entitlement import TokenGrant
 from ccf.projection.plan import Perspective
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
 from ccf_runtime.mcp.egress import build_egress_server
@@ -235,15 +231,16 @@ def door(*, root: Path) -> Iterator[Door]:
             resource_server_url=AnyHttpUrl(str(values["resource_server_url"])),
             required_scopes=[scope],
         ),
-        entitlement_source=ControlPlaneProductEntitlementSource(
-            control_plane=composed.control_plane,
-            # A door decision happens when it happens: the audit timestamp is a
-            # wall-clock read, never `question.asked_at`. This deployment's
-            # demonstration instant is PINNED, so binding the audit plane to it
-            # would have every decision this door ever made stamped 2026-08-31.
-            clock=lambda: datetime.now(UTC),
-        ),
+        # The ONE source, constructed at composition with this deployment's
+        # clock (`24.6-10`). It was built here until that row; it moved because
+        # the recorder beside it reads its disclosure posture through it, and
+        # two sources would read one policy twice.
+        entitlement_source=composed.entitlement_source,
         perspective_resolver=resolve_perspective,
+        # A denial at this door is a recorded decision, filed to the store
+        # `produce.py::_serve` already writes (`D-IMPL-253` Q13,
+        # `D-IMPL-256` (2)).
+        refusal_recorder=composed.refusal_recorder,
         # THE SECOND SURFACE, AND THE ONLY ONE THAT SERVES. The resource beside
         # it is registered by the builder's default (`expose_product_resource`
         # is True unless a door says otherwise, `24.5-L-09`), kept by ruling,
