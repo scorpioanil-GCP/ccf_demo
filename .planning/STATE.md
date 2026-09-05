@@ -3,8 +3,24 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-04T23:30:00.000Z"
+last_updated: "2026-09-05T00:30:00.000Z"
 last_activity: >-
+  **PHASE 24.6 IS PLANNED AND CHECKED (2026-09-04, /gsd-plan-phase 24.6, branch `phase-24.6` at `2baf78f5`).**
+  Plan checker ran three iterations: 5 blockers + 5 warnings → 1 + 2 → 0 + 3; the last three warnings applied
+  by the planner at `2baf78f5` and verified by hand (the 24.5.1 precedent), no fourth pass. The substantive
+  fixes: a `RefusalRecorderProtocol` / `ReplayRefusalRecorder` seam on `GovernedResolver` so door-level
+  entitlement denials mint a five-dimension record (Q13, am.2 (4) "replay reference behavior"); cp-04's own
+  record carries assembler identity; hw1's door bound with one keyword (inside criterion 1's fence); a door
+  that entitles WITHOUT a recorder warns at construction and fails closed on the denial branch (the 503
+  precedent) — with one residual channel at that misconfigured door stated truthfully and measured. Closing
+  gates: 15/15 plans structurally valid; same-wave overlap 0 (06‖07, 09‖10, 11‖12); no `state.*`/`roadmap.*`
+  writer in any plan; digest `c3224bb4…` reproduces; all 35 criteria and 21 ledger rows carried by plan
+  `requirements`. **Three questions for Dave land in plan 15's `## Findings for Dave` at EXECUTION, not now:**
+  (a) mint the standing-resource denial at the entitlement audit's instant or leave it unrecorded; (b) should
+  an entitling door with no recorder refuse every request instead; (c) the experience server entitles on three
+  paths with no catch — same treatment, and in which phase. **Next: Dave reviews criteria + plans; then
+  `/gsd-execute-phase 24.6` (plan 01 first; plan 14 is the publish checkpoint; panel and review after Dave's
+  build evaluation).** Next free id `D-IMPL-256`. Hand-edited; no `state.*` or `roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 IS PLANNED (2026-09-04, /gsd-plan-phase 24.6, branch `phase-24.6`).** Dave ruled the five ledger
   questions (`D-IMPL-255`); 35 criteria LOCKED one per line before any plan (`4da5a80d`, digest `eba17d45…`), then
   Amendment 1 after the planner and before Wave 1 (digest re-pinned `c3224bb4…`): criteria 1/17's "18 cp-00..03
