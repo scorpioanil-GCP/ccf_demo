@@ -3,8 +3,24 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-05T16:25:00.000Z"
+last_updated: "2026-09-05T19:20:00.000Z"
 last_activity: >-
+  **PHASE 24.6 — CORRECTION PASS UNDER `D-IMPL-260` DONE (2026-09-05 12:20 MST, `phase-24.6`, NOT pushed, NOT merged).**
+  Dave HELD the gate at 09:56 MST ("I need you to do better than this") and ruled the ten close questions as implementation
+  corrections under existing rulings — recorded verbatim as `D-IMPL-260`. Every item is fixed, measured and committed:
+  `635e8d3a` (P-I override attempts on refused requests reach the record; P-J `resource` normalized below `full`; P-D the
+  deciding role on dimension 4; P-E verified and carried; P-F `bound.source`/`policy_id`/`reason` suppressed below `full`;
+  P-G `ParameterBound.reason`), `b08c4b4d` (P-B experience resource through the door translation; P-C `govern_absence`),
+  `f4277b49` (P-A: the door releases only a `ServedProduct` or a recorded, disclosed envelope — `UngovernedResolverResult`),
+  `9d514646` (P-H cp-04's fulfilled record carries `request_resolution`; `CFT-G19` minted with `criterion_phase`, watched RED),
+  `b71bbbd8` + `118a1435` (cp-04 transcript re-pinned — one hunk, P-H — page rebuilt and REPLACED IN PLACE at `f20ed519…`,
+  live copy proven before and after; cp-01 untouched, empty diff). Final tree whole: A 2726 / B 900+90 / C 874+127 / D 1842
+  = 6559 collected; legs fluree 308, postgres 273+68, neo4j 22, mongo 24; lint 0; mypy clean; product-gates 58/58; digest
+  `c0fdc4f4…` UNMOVED (no criterion amended). ONE pre-phase gate-tools red (F-E) carried as recorded. Records:
+  `24.6-CORRECTION-PASS.md` (a section per item), CLOSE-PREP Addendum D + `D-GATE-24.6 — DRAFT, updated after the
+  correction pass`, PUBLICATION rebuild section. **Next:** Dave's APPROVE → `D-GATE-24.6` in DECISIONS.md → merge `--no-ff`
+  to `main` → push → regenerate RETIREMENT-COUPLINGS last. Next free id `D-IMPL-261`. Hand-edited; no `state.*`/`roadmap.*`
+  writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 — §3.1 CLOSE SEQUENCE COMPLETE UP TO DAVE'S GATE (2026-09-05 09:25 MST, `phase-24.6` at `026f7d36`, NOT pushed, NOT merged).**
   Build evaluation DONE (Dave: cp-01 APPROVE + F-1 carried; cp-04 APPROVE; phase APPROVE TO CLOSE subject to evidence and gates). Cross-AI
   panel RUN on a 14-bundle packet rebuilt from the fixed tree (`24.6-CLOSE-REVIEWS.md`: 42/42 runs read-proofed; 8 fixed, 9 rejected with the
@@ -1369,6 +1385,17 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**PHASE 24.6 — CORRECTION PASS DONE; OWED: DAVE'S APPROVE → `D-GATE-24.6` → MERGE → PUSH (2026-09-05 12:20 MST, `phase-24.6`).**
+The §3.1 sequence ran whole (build evaluation, cross-AI panel, single-agent review, every finding verified) and Dave HELD
+the gate for one correction pass (`D-IMPL-260`, 09:56 MST). The pass is done: ten ruled items fixed and measured with
+controls (`24.6-CORRECTION-PASS.md`), `CFT-G19` minted, the cp-04 page rebuilt from the final tree and replaced in place
+(`24.6-PUBLICATION.md`), the suite whole at 6559 collected in four proven chunks, all four legs green, lint/typecheck/
+product-gates green, the criteria digest `c0fdc4f4…` unmoved. One PRE-PHASE `gate-tools` red (F-E) is carried exactly as
+recorded and never called green. Carried by ruling into the next phase: cp-01's F-1 (measured capability difference),
+F-E, P-E's audit clock read. **Resume by presenting `24.6-CLOSE-PREP.md`'s `D-GATE-24.6 — DRAFT, updated after the
+correction pass` to Dave; on APPROVE write `D-GATE-24.6` (next id `D-IMPL-261`), merge `--no-ff` to `main`, push.**
+The paragraphs below are the record as it stood at earlier sittings.
 
 **PHASE 24.6 IS EXECUTED — all 12 waves done (plans 01–16), 2026-09-05, on `phase-24.6`; NOT pushed, NOT merged.**
 Criteria locked at 36 (`24.6-CRITERIA-LOCK.md`, Amendment 3 digest `c0fdc4f4…` reproduces on the close tree, with all
