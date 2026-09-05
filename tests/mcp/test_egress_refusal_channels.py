@@ -99,6 +99,7 @@ from ccf_runtime.mcp.egress import (
     product_uri,
 )
 
+from ccf_runtime.mcp.egress import ProductNotServable
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
 
 #: Test deployment vocabulary; the SDK ships none of it.
@@ -491,6 +492,50 @@ def test_the_standing_resource_body_is_the_shell_per_kind_class(
     assert shell.kind == kind
     assert shell.request.parameters == {}
     assert shell.request.temporal_boundary is None
+
+
+def test_an_absent_class_reaches_the_caller_as_the_common_shell_on_both_surfaces(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """``D-IMPL-260`` P-C at the egress door, tool and resource alike.
+
+    The resolver's ``ProductNotServable`` — the typed absence of a servable
+    product at an address the caller was entitled to — was an opaque runtime
+    failure on the tool and a transport error on the resource. It is a
+    governed determination now: the common ``subject-unavailable`` shell,
+    recorded and disclosed at the boundary, with the resolver's statement on
+    the record and off the wire.
+    """
+    absent = _raising(ProductNotServable("no gate-admitted product there"))
+    # One world per surface: a session manager runs once per instance.
+    world = _World(tmp_path / "tool", address=assembled.address, resolver=absent)
+
+    is_error, text = _call_tool(world)
+    assert not is_error, text
+    outcome = _decode(text)
+    assert outcome.refusal is not None
+    assert outcome.refusal.kind == "subject-unavailable"
+    assert outcome.refusal.disclosure == "minimal"
+    assert outcome.replay_ref == outcome.refusal.replay_reference != NO_REPLAY_REFERENCE
+    assert "no gate-admitted product" not in text
+    assert "ProductNotServable" not in text
+    record = world.record_at(outcome.refusal.replay_reference)
+    internal = world.internal(record)
+    assert json.loads(internal.fields["cause"]) == "nonexistent"
+    assert "no gate-admitted product there" in internal.detail
+    assert internal.resource is not None and internal.resource.surface == "mcp-tool"
+    assert record.perspective_conditioning.role == ROLE
+    assert record.policy_bindings.bindings == ()
+
+    world = _World(tmp_path / "resource", address=assembled.address, resolver=absent)
+    body = _read_resource(world)
+    shell = RefusalEnvelope.model_validate_json(body)
+    assert shell.kind == "subject-unavailable"
+    assert shell.replay_reference != NO_REPLAY_REFERENCE
+    assert "no gate-admitted product" not in body
+    resource_internal = world.internal(world.record_at(shell.replay_reference))
+    assert resource_internal.resource is not None
+    assert resource_internal.resource.surface == "mcp-resource"
 
 
 def test_the_standing_resource_serves_the_vessel_when_the_resolver_serves(

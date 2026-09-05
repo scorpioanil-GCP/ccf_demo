@@ -177,6 +177,7 @@ from ccf.projection.plan import Perspective
 from ccf_runtime.authz.delivery_boundary import (
     SURFACE_MCP_RESOURCE,
     SURFACE_MCP_TOOL,
+    govern_absence,
     govern_entitlement,
     recorded_boundary,
 )
@@ -348,10 +349,17 @@ class ProductNotServable(LookupError):
 
     Raised by a deployment's resolver, not by this module. A ``LookupError``
     because it is an absence — the counterpart of
-    :class:`ccf.mcp.errors.McpResourceAbsent` on the client side. Discriminating
-    it structurally *at the client* needs a typed signal on the wire, which is
-    the artifact server's contract (06-RESEARCH.md Pitfall 2) and not something
-    an egress read of a live product needs today.
+    :class:`ccf.mcp.errors.McpResourceAbsent` on the client side.
+
+    **It does not cross a door as itself** (``D-IMPL-260`` P-C). Each of the
+    three product doors catches exactly this type around its resolver call
+    and hands it to
+    :func:`~ccf_runtime.authz.delivery_boundary.govern_absence`, which mints
+    the same ``subject-unavailable`` determination the assembler reaches for a
+    subject nothing resolves, records it, discloses it, and returns the
+    common shell — so *there is no such class* and *there is no such subject*
+    are one recorded outcome to a consumer. Any other exception a resolver
+    raises is a runtime failure and stays one.
     """
 
 
@@ -1024,13 +1032,36 @@ def build_egress_server(
             )
             if isinstance(decided, RefusalEnvelope):
                 return canonical_bytes(decided).decode("utf-8")
-            resolved = resolver(
-                tenant=tenant,
-                product_class=product_class,
-                version=version,
-                perspective=decided,
-                request=None,
-            )
+            try:
+                resolved = resolver(
+                    tenant=tenant,
+                    product_class=product_class,
+                    version=version,
+                    perspective=decided,
+                    request=None,
+                )
+            except ProductNotServable as absent:
+                # `D-IMPL-260` P-C: the typed absence is a governed
+                # determination, recorded and disclosed at the boundary, and
+                # crosses as the common shell — never as a transport error.
+                return canonical_bytes(
+                    govern_absence(
+                        grant=verified_grant(),
+                        tenant=tenant,
+                        product_class=product_class,
+                        product_version=version,
+                        parameters={},
+                        asked_at=None,
+                        surface=SURFACE_MCP_RESOURCE,
+                        address=product_uri(
+                            tenant=tenant, product_class=product_class, version=version
+                        ),
+                        perspective=decided,
+                        absent=absent,
+                        entitlement_source=entitlement_source,
+                        refusal_recorder=recorder,
+                    )
+                ).decode("utf-8")
             refusal = door_refusal(
                 resolved,
                 asked=None,
@@ -1182,13 +1213,33 @@ def build_egress_server(
                 version=version,
             )
         try:
-            resolved = resolver(
-                tenant=tenant,
-                product_class=product_class,
-                version=version,
-                perspective=decided,
-                request=asked,
-            )
+            resolved: object
+            try:
+                resolved = resolver(
+                    tenant=tenant,
+                    product_class=product_class,
+                    version=version,
+                    perspective=decided,
+                    request=asked,
+                )
+            except ProductNotServable as absent:
+                # `D-IMPL-260` P-C: the typed absence is a governed
+                # determination — recorded, disclosed, and leaving through the
+                # one emission site like every other refusal this tool answers.
+                resolved = govern_absence(
+                    grant=verified_grant(),
+                    tenant=tenant,
+                    product_class=product_class,
+                    product_version=version,
+                    parameters=asked.parameters,
+                    asked_at=asked_at,
+                    surface=surface,
+                    address=address,
+                    perspective=decided,
+                    absent=absent,
+                    entitlement_source=entitlement_source,
+                    refusal_recorder=recorder,
+                )
             return door_answer(
                 resolved,
                 echo=question,

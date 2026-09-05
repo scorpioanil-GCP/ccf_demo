@@ -176,7 +176,8 @@ from mcp.server.fastmcp import FastMCP
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.gates import ServableProduct
-from ccf.products.refusal import RefusalEnvelope
+from ccf.products.door import door_refusal, served_answer
+from ccf.products.refusal import RefusalEnvelope, RequestIdentity
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf.projection.plan import Perspective
@@ -185,6 +186,7 @@ from ccf.skills.toolsurface import render_tool_surface
 from ccf_runtime.authz.delivery_boundary import (
     SURFACE_MCP_RESOURCE,
     SURFACE_MCP_TOOL,
+    govern_absence,
     govern_entitlement,
     recorded_boundary,
 )
@@ -307,6 +309,14 @@ class ExperienceProductNotServable(LookupError):
     Raised by a deployment's resolver, not by this module — the counterpart
     of :class:`ccf_runtime.mcp.egress.ProductNotServable` on this role's
     surface. A ``LookupError`` because it is an absence.
+
+    **It does not cross the product resource as itself** (``D-IMPL-260``
+    P-C): the handler catches exactly this type around its resolver call and
+    hands it to :func:`~ccf_runtime.authz.delivery_boundary.govern_absence`,
+    so the absence reaches the caller as the recorded, disclosed
+    ``subject-unavailable`` shell every other door answers with. The agent
+    tools that raise it for *their* absences are not product doors and keep
+    their own posture.
     """
 
 
@@ -385,7 +395,10 @@ class ExperienceProductResolverProtocol(Protocol):
                 URI template has no query surface, so it passes ``None``.
 
         Raises:
-            ExperienceProductNotServable: no such product.
+            ExperienceProductNotServable: no such product. The resource
+                handler turns it into the governed ``subject-unavailable``
+                shell (``D-IMPL-260`` P-C); it never reaches a caller as an
+                error.
         """
         ...
 
@@ -990,14 +1003,57 @@ def build_experience_server(
         )
         if isinstance(decided, RefusalEnvelope):
             return canonical_bytes(decided).decode("utf-8")
-        servable = product_resolver(
-            tenant=tenant,
+        addressed = experience_product_uri(
+            tenant=tenant, product_class=product_class, version=version
+        )
+        try:
+            resolved = product_resolver(
+                tenant=tenant,
+                product_class=product_class,
+                version=version,
+                perspective=decided,
+                request=None,
+            )
+        except ExperienceProductNotServable as absent:
+            # `D-IMPL-260` P-C: the typed absence is a governed determination,
+            # recorded and disclosed at the boundary, crossing as the common
+            # shell rather than as this transport's own error.
+            return canonical_bytes(
+                govern_absence(
+                    grant=verified_grant(),
+                    tenant=tenant,
+                    product_class=product_class,
+                    product_version=version,
+                    parameters={},
+                    asked_at=None,
+                    surface=SURFACE_MCP_RESOURCE,
+                    address=addressed,
+                    perspective=decided,
+                    absent=absent,
+                    entitlement_source=entitlement_source,
+                    refusal_recorder=recorder,
+                )
+            ).decode("utf-8")
+        # `D-IMPL-260` P-B: the SAME two translation functions the egress
+        # resource and the HTTP route read a resolver's answer through — a
+        # returned refusal crosses as its shell, a served vessel as its bytes,
+        # and anything else is the wiring defect `served_answer` names rather
+        # than an `AttributeError` on `.product`.
+        refusal = door_refusal(
+            resolved,
+            asked=None,
+            identity=RequestIdentity(
+                product_id=product_class,
+                product_version=version,
+                parameters={},
+                temporal_boundary=None,
+            ),
             product_class=product_class,
             version=version,
-            perspective=decided,
-            request=None,
         )
-        return canonical_bytes(servable.product).decode("utf-8")
+        if refusal is not None:
+            return canonical_bytes(refusal).decode("utf-8")
+        return canonical_bytes(served_answer(resolved).product).decode("utf-8")
 
     if LIST_AGENTS_TOOL in allowed:
         # D-03 applies to the agent seams on the same terms as the three

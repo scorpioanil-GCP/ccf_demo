@@ -182,6 +182,7 @@ from ccf.products.resolver import RefusalRecorderProtocol
 from ccf.projection.plan import Perspective
 from ccf_runtime.authz.delivery_boundary import (
     SURFACE_HTTP_ROUTE,
+    govern_absence,
     govern_entitlement,
     recorded_boundary,
 )
@@ -397,7 +398,35 @@ def build_router(
                 request=asked,
             )
         except ProductNotServable as absent:
-            raise HTTPException(status_code=404, detail=str(absent)) from absent
+            # `D-IMPL-260` P-C: the absence of a servable product at an address
+            # the caller resolved and was entitled to is a governed
+            # determination — the same `subject-unavailable` the assembler
+            # reaches for a subject nothing resolves — recorded and disclosed
+            # at the boundary and rendered through the ONE refusal path below.
+            # The status is the kind's (404); the body is the common shell.
+            grant = grant_from_request(request)
+            # Both narrowed by `_authorized_perspective` having RETURNED a
+            # perspective: it refuses 503 before either could be absent.
+            assert grant is not None
+            assert entitlement_source is not None
+            return _refusal_response(
+                govern_absence(
+                    grant=grant,
+                    tenant=tenant,
+                    product_class=product_class,
+                    product_version=version,
+                    parameters=dict(asked.parameters) if asked is not None else {},
+                    asked_at=asked.asked_at if asked is not None else None,
+                    surface=SURFACE_HTTP_ROUTE,
+                    address=request.url.path,
+                    perspective=perspective,
+                    absent=absent,
+                    entitlement_source=entitlement_source,
+                    refusal_recorder=recorded_boundary(
+                        refusal_recorder=refusal_recorder, builder="build_router"
+                    ),
+                )
+            )
         # D-18: every kind in the vocabulary, one status by class, one body.
         # The envelope is the door's own translation (the MCP doors run the
         # same function); the membership test is against `REFUSAL_KINDS`

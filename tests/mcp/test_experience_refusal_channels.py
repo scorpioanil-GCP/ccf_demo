@@ -99,6 +99,13 @@ from ccf_runtime.http_api.errors import (
     ERROR_PRINCIPAL_NOT_ENTITLED,
     ERROR_PRODUCT_CLASS_UNENTITLED,
 )
+from crossproc.servers.mcp_egress_child import build_servable_product
+from ccf_runtime.mcp.experience import ExperienceProductNotServable
+from ccf.products.refusal import (
+    RequestIdentity,
+    SubjectUnavailableRefusal,
+    envelope_for,
+)
 from ccf_runtime.mcp.experience import (
     GET_CONTEXT_TOOL,
     GET_LINEAGE_TOOL,
@@ -175,7 +182,14 @@ class _Door:
             policy_bundle_pin=None,
             disclosure_level_for=self.source.disclosure_level_for,
         )
-        self.served_product = _served_product()
+        # A REAL gate-admitted vessel, from the shipped fixture assembly, so
+        # the served leg crosses `served_answer` the way a deployment's does
+        # (`D-IMPL-260` P-B: the resource reads its resolver through the
+        # common translation, which admits no stand-in for the vessel).
+        self.assembled = build_servable_product(
+            database_path=tmp_path / "experience-fabric.sqlite3"
+        )
+        self.served_product = self.assembled.servable.product
         self.entitled_class = entitled_class
         self.server = build_experience_server(**self.kwargs(tmp_path))
 
@@ -190,7 +204,7 @@ class _Door:
             perspective: Perspective,
             request: Any,
         ) -> Any:
-            return _Servable(self.served_product)
+            return self.assembled.servable
 
         def provide_context(
             *, tenant: str, entity: str, perspective: Perspective
@@ -277,24 +291,6 @@ class _Door:
         return " | ".join(
             repr(event) for event in self.registry.audit_log.events()
         )
-
-
-class _Servable:
-    """The gate-admitted vessel the product resolver hands back.
-
-    A stand-in for :class:`~ccf.products.gates.ServableProduct` rather than a
-    fake gate: what the resource handler reads off it is ``.product``, and this
-    module's subject is the *entitlement* path in front of it. The served leg
-    is asserted by value, so a resolver that served nothing would be caught.
-    """
-
-    def __init__(self, product: Any) -> None:
-        self.product = product
-
-
-def _served_product() -> Any:
-    """The payload the served legs must deliver, byte for byte."""
-    return {"served": PRODUCT_CLASS, "version": PRODUCT_VERSION}
 
 
 def _token_verifier(tmp_path: pathlib.Path) -> Any:
@@ -469,6 +465,94 @@ def test_each_path_records_the_identity_its_own_surface_carries(
         assert shell.request.product_version is None
 
     assert version_bearing is (shell.request.product_version is not None)
+
+
+def test_an_absent_class_reaches_the_caller_as_the_common_shell(
+    tmp_path: pathlib.Path,
+) -> None:
+    """``D-IMPL-260`` P-C at the experience resource.
+
+    An entitled caller addresses a class the deployment's resolver has nothing
+    for. Before this pass the resolver's ``ExperienceProductNotServable``
+    escaped the handler as a transport error; now it is a governed
+    determination — the same ``subject-unavailable`` an assembler reaches for
+    a subject nothing resolves — recorded, disclosed and returned as the
+    common shell, with the resolver's own statement kept on the record and
+    withheld from the wire at this tenant's level.
+    """
+    door = _Door(tmp_path)
+
+    def absent(**_: Any) -> Any:
+        raise ExperienceProductNotServable("nothing is servable at that address")
+
+    door.server = build_experience_server(
+        **{**door.kwargs(tmp_path), "product_resolver": absent}
+    )
+
+    body = door.ask(RESOURCE_PATH, principal=PRINCIPAL)
+
+    shell = RefusalEnvelope.model_validate_json(body)
+    assert shell.kind == "subject-unavailable"
+    assert shell.disclosure == "minimal"
+    assert shell.fields["cause"] == '"undisclosed"'
+    assert "nothing is servable" not in body
+    assert "ExperienceProductNotServable" not in body
+    assert shell.replay_reference != NO_REPLAY_REFERENCE
+    record = door.record_at(shell.replay_reference)
+    internal = door.internal(record)
+    assert internal.fields["cause"] == '"nonexistent"'
+    assert "nothing is servable at that address" in internal.detail
+    assert internal.resource is not None
+    assert internal.resource.surface == "mcp-resource"
+    # Dimension 4: the perspective the caller was entitled under participated.
+    assert record.perspective_conditioning.principal_id == PRINCIPAL
+    assert record.perspective_conditioning.role == ROLE
+    # Dimension 2: no policy decided the absence.
+    assert record.policy_bindings.bindings == ()
+
+
+def test_the_resource_returns_a_resolvers_refusal_as_its_shell(
+    tmp_path: pathlib.Path,
+) -> None:
+    """``D-IMPL-260`` P-B: the resource reads its resolver through the door.
+
+    A resolver that answers with a recorded, disclosed refusal envelope —
+    what the SDK's own governed resolver returns — crosses as that shell.
+    Before this pass the handler reached for ``.product`` on whatever it was
+    handed, so a returned refusal was an ``AttributeError`` here.
+    """
+    door = _Door(tmp_path)
+    minted = door.recorder.record(
+        envelope_for(
+            SubjectUnavailableRefusal(
+                cause="nonexistent",
+                detail="no entity resolved for the anchor",
+                error_code=None,
+            ),
+            request=RequestIdentity(
+                product_id=PRODUCT_CLASS,
+                product_version=PRODUCT_VERSION,
+                parameters={},
+                temporal_boundary=None,
+            ),
+        ),
+        perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
+        recorded_at=DETERMINED_AT,
+        policy_bindings=(),
+    )
+
+    def refusing(**_: Any) -> Any:
+        return minted
+
+    door.server = build_experience_server(
+        **{**door.kwargs(tmp_path), "product_resolver": refusing}
+    )
+
+    body = door.ask(RESOURCE_PATH, principal=PRINCIPAL)
+
+    shell = RefusalEnvelope.model_validate_json(body)
+    assert shell.kind == "subject-unavailable"
+    assert shell.replay_reference == minted.replay_reference
 
 
 @pytest.mark.parametrize("path", ENTITLEMENT_PATHS)

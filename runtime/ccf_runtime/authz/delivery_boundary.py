@@ -88,6 +88,7 @@ __all__ = [
     "SURFACE_MCP_RESOURCE",
     "SURFACE_MCP_TOOL",
     "UnrecordableDeliveryBoundaryError",
+    "govern_absence",
     "govern_entitlement",
     "recorded_boundary",
 ]
@@ -184,6 +185,132 @@ def recorded_boundary(
             " first denial, so a misconfigured door never answers at all"
         )
     return refusal_recorder
+
+
+def _determined_at(entitlement_source: ProductEntitlementSourceProtocol) -> datetime:
+    """The one instant a governed determination is stamped from.
+
+    Read ONCE per determination, off the entitlement source's own declared
+    clock, and refused when it carries no UTC offset: the instant is what the
+    replay record and the audit event are both stamped from, and an instant
+    whose offset is the deciding host's local configuration replays
+    differently on every host (``D-IMPL-38``).
+    """
+    determined_at = entitlement_source.clock()
+    if determined_at.tzinfo is None or determined_at.utcoffset() is None:
+        raise ValueError(
+            f"the entitlement source's clock returned {determined_at.isoformat()!r},"
+            " which carries no UTC offset; the instant a governed determination"
+            " was reached is what its replay record and its audit event are"
+            " both stamped from, and an instant whose offset is the deciding"
+            " host's local configuration replays differently on every host"
+            " (D-IMPL-38). Declare the source's clock so that it returns a"
+            " timezone-aware instant"
+        )
+    return determined_at
+
+
+def govern_absence(
+    *,
+    grant: TokenGrant,
+    tenant: str,
+    product_class: str,
+    product_version: str | None,
+    parameters: Mapping[str, Any],
+    asked_at: datetime | None,
+    surface: str,
+    address: str,
+    perspective: Perspective,
+    absent: LookupError,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    refusal_recorder: RefusalRecorderProtocol,
+) -> RefusalEnvelope:
+    """The governed determination for a product class the deployment does not serve.
+
+    ``D-IMPL-260`` P-C (Dave, verbatim): *"an unregistered product class must
+    reach the caller as the common shell; the status may stay 404."* Before
+    this step, a deployment resolver's ``ProductNotServable`` — the absence of
+    a gate-admitted product at the address the caller resolved and was
+    entitled to — left each door in that door's own vocabulary: an
+    ``HTTPException(404, str(absent))`` on HTTP, an opaque runtime failure on
+    the MCP tool, a transport error on the resources. A caller could tell
+    *there is no such class* from *there is no such subject* by the shape of
+    the non-answer, and none of the three was a recorded decision.
+
+    It is the same determination the assembler reaches for a subject nothing
+    resolves — :class:`~ccf.products.refusal.SubjectUnavailableRefusal` with
+    ``cause="nonexistent"`` — minted here at the boundary because the
+    resolver that would have minted it is the one that has nothing to serve.
+    Recorded THEN disclosed, through the same
+    :class:`~ccf.products.resolver.ReplayRefusalRecorder` an entitlement denial
+    goes through, under the same
+    :class:`~ccf.products.refusal.ResourceRequestIdentity`, and rendered by
+    each door through the same function its other refusals go through — so
+    the three doors say one thing, and a consumer reads *subject unavailable*
+    with a replay reference behind it.
+
+    **What it is not.** Not a catch-all: only the typed absence — a
+    ``LookupError`` the deployment's resolver raised to say *nothing is
+    servable there* — reaches this step, and a transport that catches more
+    than that here would be converting a runtime fault into a governed "no"
+    the fabric never made (``D-IMPL-253`` Q20). Dimension 2 pins nothing: no
+    policy decided the absence. Dimension 4 carries the perspective the
+    caller was already entitled under — the role that participated
+    (``D-IMPL-260`` P-D).
+
+    Args:
+        grant: The verified caller.
+        tenant: The tenant the caller addressed.
+        product_class: The class the caller addressed and was entitled to.
+        product_version: The class's lane, or ``None`` when the surface named
+            none.
+        parameters: What the caller supplied, for the request identity.
+        asked_at: The instant asked as-of, or ``None`` (the caller deferred to
+            the server's decision instant).
+        surface: One of the three surface tokens.
+        address: What the caller addressed, verbatim.
+        perspective: The perspective the delivery boundary already authorized
+            for this call — the entitlement step returned it.
+        absent: The resolver's own statement of the absence. Its text is the
+            internal ``detail``; what a consumer sees of it is the Disclosure
+            layer's decision.
+        entitlement_source: The source whose declared clock stamps the
+            determination.
+        refusal_recorder: The seam that mints the record and discloses.
+
+    Returns:
+        The disclosed shell, carrying the replay reference of the record this
+        determination produced.
+    """
+    determined_at = _determined_at(entitlement_source)
+    envelope = envelope_for(
+        SubjectUnavailableRefusal(
+            cause="nonexistent",
+            detail=str(absent),
+            error_code=None,
+        ),
+        request=RequestIdentity(
+            product_id=product_class,
+            product_version=product_version,
+            parameters=parameters,
+            temporal_boundary=asked_at,
+        ),
+        resource=ResourceRequestIdentity(
+            surface=surface,
+            address=address,
+            tenant_id=tenant,
+            determined_at=determined_at,
+        ),
+        policy_bindings=(),
+    )
+    return refusal_recorder.record(
+        envelope,
+        perspective=Perspective(
+            principal_id=grant.client_id, role=perspective.role
+        ),
+        recorded_at=determined_at,
+        policy_bindings=(),
+    )
 
 
 def govern_entitlement(
@@ -300,17 +427,7 @@ def govern_entitlement(
         )
 
     # (1) The determination instant, read ONCE and first.
-    determined_at = entitlement_source.clock()
-    if determined_at.tzinfo is None or determined_at.utcoffset() is None:
-        raise ValueError(
-            f"the entitlement source's clock returned {determined_at.isoformat()!r},"
-            " which carries no UTC offset; the instant a governed determination"
-            " was reached is what its replay record and its audit event are"
-            " both stamped from, and an instant whose offset is the deciding"
-            " host's local configuration replays differently on every host"
-            " (D-IMPL-38). Declare the source's clock so that it returns a"
-            " timezone-aware instant"
-        )
+    determined_at = _determined_at(entitlement_source)
 
     try:
         # (2) The one resolution order. Entitled: return it, write nothing.

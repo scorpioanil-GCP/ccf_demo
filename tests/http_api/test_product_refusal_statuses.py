@@ -98,6 +98,7 @@ from tests.http_api.test_product_declared_obligation_409 import (
     _recorder,
     _serving_or_absent,
 )
+from tests.http_api.test_product_declared_obligation_409 import ABSENT_CLASS
 from tests.products.test_disclosure import BY_TOKEN
 
 from http_api.conftest import Fabric
@@ -145,6 +146,41 @@ FORBIDDEN_CATCH = "ProductEntitlementRefused"
 # ---------------------------------------------------------------------------
 # (1) The table is closed over the vocabulary, by set equality.
 # ---------------------------------------------------------------------------
+
+
+def test_an_absent_class_reaches_the_caller_as_the_common_shell(
+    fabric: Fabric, tmp_path: pathlib.Path
+) -> None:
+    """``D-IMPL-260`` P-C at the HTTP door: the status stays 404, the body is the shell.
+
+    Before this pass the resolver's ``ProductNotServable`` was an
+    ``HTTPException(404, str(absent))`` — a door-vocabulary body naming the
+    resolver's own sentence, with no record behind it. It is the common
+    ``subject-unavailable`` refusal now, rendered through the one refusal
+    path every other governed "no" takes, so a consumer cannot tell *no such
+    class* from *no such subject* by the shape of the answer.
+    """
+    governed = _governed(fabric, tmp_path, resolver=_serving_or_absent(fabric))
+
+    answer = _ask(governed.app, fabric, query=_question(), product_class=ABSENT_CLASS)
+
+    assert answer.status == 404 == STATUS_BY_KIND[SUBJECT_UNAVAILABLE]
+    assert answer.body["kind"] == SUBJECT_UNAVAILABLE
+    shell = answer.body["refusal"]
+    assert shell["disclosure"] == "minimal"
+    assert shell["fields"]["cause"] == '"undisclosed"'
+    assert b"no gate-admitted" not in answer.content
+    assert b"ProductNotServable" not in answer.content
+    assert shell["replay_reference"] != NO_REPLAY_REFERENCE
+    record = governed.record_at(shell["replay_reference"])
+    internal = governed.internal(record)
+    assert internal.fields["cause"] == '"nonexistent"'
+    assert ABSENT_CLASS in internal.detail
+    assert internal.resource is not None
+    assert internal.resource.surface == "http-route"
+    assert record.perspective_conditioning.principal_id == PRINCIPAL
+    assert record.perspective_conditioning.role == ROLE
+    assert record.policy_bindings.bindings == ()
 
 
 def test_the_table_is_closed_over_the_refusal_vocabulary() -> None:
