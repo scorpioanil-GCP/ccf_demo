@@ -79,15 +79,18 @@ from ccf.products.entitlement import (
     ProductEntitlementPolicy,
     product_entitlement_key,
 )
+from ccf.products.disclosure import WITHHELD
 from ccf.products.gates import TTLRefusal
 from ccf.graph.protocols import NO_STORE_SNAPSHOT_PIN
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
     NO_REPLAY_REFERENCE,
+    REFUSAL_KINDS,
     RefusalEnvelope,
     RefusalEvidence,
     RequestIdentity,
     ResourceRequestIdentity,
+    SubjectUnavailableRefusal,
     envelope_for,
 )
 from ccf.products.resolver import ReplayRefusalRecorder
@@ -99,10 +102,15 @@ from ccf.products.request import (
 from ccf.projection.plan import Perspective
 from ccf.replay.serve import ServedProduct
 from ccf.skills.catalog import SkillArgumentProperty, SkillArgumentSchema
+from ccf_runtime.authz.delivery_boundary import (
+    SURFACE_MCP_RESOURCE,
+    govern_entitlement,
+)
 from ccf_runtime.authz.product_entitlement import (
     ControlPlaneProductEntitlementSource,
     ProductEntitlementRefused,
 )
+from ccf_runtime.mcp.auth import TokenGrant
 from ccf_runtime.http_api.app import create_app
 from ccf_runtime.http_api.auth import BearerTokenAuth
 from ccf_runtime.http_api.dependencies import ApiDependencies
@@ -110,7 +118,11 @@ from ccf_runtime.http_api.routes import REPLAY_REF_HEADER
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import WireRequest
-from ccf_runtime.mcp.egress import PRODUCT_REQUEST_TOOL, build_egress_server
+from ccf_runtime.mcp.egress import (
+    PRODUCT_REQUEST_TOOL,
+    build_egress_server,
+    product_uri,
+)
 
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
 
@@ -196,26 +208,41 @@ def assert_refusals_identical(
         )
 
 
-def assert_governance_stays_a_raise(render: Renderer) -> None:
-    """A governance refusal is never rendered as a fabric refusal envelope.
+def assert_governance_is_shelled(render: Renderer) -> None:
+    """A governance refusal becomes the suppression-safe shell, never a raise.
 
-    The boundary is a **decision**, and this is where it is drawn rather than
-    merely omitted. ``ProductEntitlementRefused`` is decided before the resolver
-    is reached, and contract-level entitlement at the client seam is on the v0
-    not-list (``D-IMPL-129``); an envelope for it would report *"the fabric
-    answered no"* about a caller the fabric never answered at all — an audit
-    record of a decision that was not made.
+    **This assertion is the inversion of the one that stood here through
+    ``24.5``** (``D-IMPL-253`` Q20, ``D-IMPL-256``; ``24.6-L-03``). It was
+    ``assert_governance_stays_a_raise``, and it asserted that a renderer handed
+    a ``ProductEntitlementRefused`` produced **no** envelope, on the reading
+    that an envelope *"would report 'the fabric answered no' about a caller the
+    fabric never answered at all."* Dave's ruling denies the premise: an
+    entitlement denial **is** a governed determination the fabric made, and it
+    shares the one canonical external outcome a nonexistent subject also
+    carries — ``subject-unavailable`` — so that *you may not* and *there is no
+    such thing* are one statement at the principal's disclosure level (Q27,
+    ``D-27`` amendment 2 (4)).
+
+    Three channels are checked and each would fail differently: a renderer that
+    still returns ``None`` is the pre-ruling door (the control below); one that
+    returns a *different* kind has made the denial distinguishable from a
+    nonexistent subject by kind alone; and one whose ``cause`` is not withheld
+    has leaked the internal truth into the shell at ``minimal``, which is the
+    suppression leak the disclosure layer exists to close.
 
     The subject is the **renderer**, not the door, so the control below can pass
     a divergent one into this same function.
 
     Args:
         render: What a door does with a governance refusal. The shipped subject
-            is :func:`~ccf.products.door.door_refusal`, which returns ``None``
-            because the type is outside the envelope's vocabulary.
+            runs the real
+            :func:`~ccf_runtime.authz.delivery_boundary.govern_entitlement`
+            over a source that raises exactly the refusal handed in, and returns
+            the shell it hands back.
 
     Raises:
-        AssertionError: the renderer produced an envelope.
+        AssertionError: the renderer produced no envelope, the wrong kind, or a
+            shell whose internal cause crossed at ``minimal``.
     """
     rendered = render(
         ProductEntitlementRefused(
@@ -223,12 +250,30 @@ def assert_governance_stays_a_raise(render: Renderer) -> None:
             message="this principal is not entitled to this class",
         )
     )
-    if rendered is not None:
+    if rendered is None:
         raise AssertionError(
-            "a governance refusal was rendered as a fabric refusal envelope"
-            f" (kind {rendered.kind!r}); 'not entitled' and 'the fabric said no'"
-            " are different decisions, and a consumer that could not tell them"
-            " apart would record an audited fabric refusal that never happened"
+            "a governance refusal was rendered as nothing at all, which is the"
+            " pre-`D-IMPL-256` door: the denial then reaches a client as"
+            " transport prose it would have to string-parse, and the decision"
+            " reaches no replay record. A denial is a governed determination"
+            " and leaves as one"
+        )
+    if rendered.kind != REFUSAL_KINDS[SubjectUnavailableRefusal]:
+        raise AssertionError(
+            f"a governance refusal was shelled as kind {rendered.kind!r}, not"
+            f" {REFUSAL_KINDS[SubjectUnavailableRefusal]!r}; the whole point of"
+            " the shared outcome is that an unauthorized principal and a"
+            " nonexistent subject are one external statement, and a kind of its"
+            " own would make 'you may not' readable from the outside"
+        )
+    crossed = json.loads(rendered.fields["cause"])
+    if crossed != WITHHELD:
+        raise AssertionError(
+            f"the shell's `cause` crossed as {crossed!r} rather than the"
+            f" withheld sentinel {WITHHELD!r}; the internal cause is what"
+            " distinguishes an unauthorized principal from a nonexistent"
+            " subject, so a shell that carries it at `minimal` has suppressed"
+            " nothing"
         )
 
 
@@ -467,6 +512,24 @@ def _refusing_and_recording(
 # ---------------------------------------------------------------------------
 
 
+def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
+    """The seam every entitling door in this module binds (``D-IMPL-256`` (2)).
+
+    Built with the keyword list ``build_governed_resolver`` uses for its own,
+    so a door's recorder and a resolver's are the same shape over the same
+    store — *one writer, one record form*. The disclosure reader is left at
+    its default, which reads nothing and answers ``minimal``: these fixtures
+    register an entitlement policy that declares no level, and ``minimal`` is
+    what that policy is in force at.
+    """
+    return ReplayRefusalRecorder(
+        artifact_store=FileArtifactStore(root=root / "artifacts"),
+        replay_record_class=REPLAY_ARTIFACT_CLASS,
+        tenant_id=tenant,
+        assembly_mode="algorithmic",
+    )
+
+
 def _token_file(root: Path) -> Path:
     path = root / "egress-refusal-tokens.json"
     path.write_text(
@@ -528,6 +591,9 @@ def _mcp_server(
                 principal_id=grant.client_id, role=ROLE
             )
         ),
+        # `D-IMPL-256` (2): a door that entitles without a recorder is not
+        # built, so every fixture door in this module binds the seam.
+        refusal_recorder=_recorder(root, tenant=address.tenant),
         expose_product_tool=True,
         product_tool_description=TOOL_DESCRIPTION,
     )
@@ -649,6 +715,10 @@ def _http_app(
                 principal_id=grant.client_id, role=ROLE
             )
         ),
+        # The HTTP twin binds the same seam on the same rule (`D-IMPL-256` (2)).
+        # `create_app`'s own keyword and its construction-time check are plan
+        # `24.6-09`'s, in this same wave; this call site is this plan's.
+        refusal_recorder=_recorder(root, tenant=address.tenant),
     )
 
 
@@ -799,21 +869,46 @@ def test_the_envelope_carries_the_pre_assembly_request_identity(
     assert refusal.request.temporal_boundary == ASKED_AT
 
 
-def test_a_governance_refusal_still_raises_and_is_not_enveloped(
+class _RefusingEntitlement:
+    """An entitlement source that raises exactly the refusal it was handed.
+
+    Conforms to
+    :class:`~ccf_runtime.authz.product_entitlement.ProductEntitlementSourceProtocol`
+    — including the ``clock`` member ``24.6-08`` added, pinned here — so the
+    governed step below runs its real path over a real denial. Handing the
+    exception in rather than provoking one is what keeps
+    :func:`assert_governance_is_shelled` a function **over its subject**: the
+    control passes a divergent renderer into the same assertion.
+    """
+
+    def __init__(self, refused: ProductEntitlementRefused) -> None:
+        self._refused = refused
+        self.clock: Callable[[], datetime] = lambda: AUDIT_INSTANT
+
+    def authorize(
+        self, *, grant: Any, tenant: str, product_class: str, role: str
+    ) -> Any:
+        raise self._refused
+
+
+def test_a_governance_refusal_is_shelled_and_is_never_a_tool_error(
     assembled: Any, tmp_path: Path
 ) -> None:
-    """Behaviour 4: the boundary, drawn rather than missed.
+    """Behaviour 4, INVERTED: the boundary moved, and this is where it now is.
 
-    Both halves are asserted because neither implies the other: on the wire an
-    unentitled caller gets the protocol-native error and **no** ``DoorOutcome``
-    at all, and in the translation the shipped renderer produces no envelope
-    for the type. A door could get the first right by accident — the exception
-    is raised before the resolver — and still acquire a translation later.
+    ``D-IMPL-253`` Q20 and ``D-IMPL-256``, ``24.6-L-03``. Through ``24.5`` this
+    test was ``test_a_governance_refusal_still_raises_and_is_not_enveloped`` and
+    asserted the opposite of every line below: ``is_error is True`` on the wire
+    and a ``ValidationError`` on the decode, because the denial arrived as
+    FastMCP prose rather than as an answer. Both halves invert together, and
+    they still assert different things — the wire half is what a client
+    observes, the renderer half is what the shipped mechanism produces — so a
+    door could still get one right and the other wrong.
 
-    A raised :class:`~ccf.agents.errors.AssemblyRefused` is likewise not
-    enveloped: ``24.5-L-11`` added the value channel
-    (:class:`~ccf.agents.errors.AssemblyRefusal`, returned by the assembler),
-    not a catch at the door.
+    A raised :class:`~ccf.agents.errors.AssemblyRefused` is a **failure** at
+    this door and is unchanged in kind, but not in shape: since this row it
+    reaches a client as the opaque ``ccf-runtime-failure:<id>``, asserted in
+    ``tests/mcp/test_egress_refusal_channels.py``.
     """
     address = assembled.address
     is_error, text = _ask_mcp_door(
@@ -823,18 +918,38 @@ def test_a_governance_refusal_still_raises_and_is_not_enveloped(
         classes=frozenset({"a-class-this-caller-was-never-granted"}),
     )
 
-    assert is_error is True
-    with pytest.raises(ValidationError):
-        _decode(text)
+    assert is_error is False, text
+    outcome = _decode(text)
+    assert outcome.product_json is None
+    assert outcome.refusal is not None
+    assert outcome.refusal.kind == REFUSAL_KINDS[SubjectUnavailableRefusal]
 
-    assert_governance_stays_a_raise(
-        lambda refused: door_refusal(
-            refused,
-            asked=None,
+    def render(refused: ProductEntitlementRefused) -> RefusalEnvelope | None:
+        decided = govern_entitlement(
+            grant=TokenGrant(client_id=PRINCIPAL, scopes=()),
+            tenant=address.tenant,
             product_class=address.product_class,
-            version=address.version,
+            product_version=address.version,
+            requested_role=None,
+            parameters={},
+            asked_at=None,
+            surface=SURFACE_MCP_RESOURCE,
+            address=product_uri(
+                tenant=address.tenant,
+                product_class=address.product_class,
+                version=address.version,
+            ),
+            entitlement_source=_RefusingEntitlement(refused),  # type: ignore[arg-type]
+            perspective_resolver=(
+                lambda *, grant, tenant, requested_role: Perspective(
+                    principal_id=grant.client_id, role=ROLE
+                )
+            ),
+            refusal_recorder=_recorder(tmp_path / "rendered", tenant=address.tenant),
         )
-    )
+        return decided if isinstance(decided, RefusalEnvelope) else None
+
+    assert_governance_is_shelled(render)
 
 
 def test_the_mcp_refusal_is_field_identical_to_the_in_process_one(
@@ -1156,30 +1271,64 @@ def test_the_identity_assertion_fires_on_each_member_24_6_07_added(
         assert_refusals_identical(honest, divergent)
 
 
-def test_the_boundary_assertion_fires_on_a_renderer_that_envelopes_governance(
+def test_the_boundary_assertion_fires_on_each_way_a_door_can_get_it_wrong(
     assembled: Any,
 ) -> None:
-    """A renderer that envelopes a governance refusal fails the **real** assertion.
+    """Three divergent renderers, three different failures of the real assertion.
 
-    The fake does exactly what a door conflating the two would do: it produces
-    a well-formed envelope naming a gate that never ran. Nothing about the
-    envelope's shape would tell a consumer the fabric was never asked.
+    The controls invert with the assertion (``24.6-10``). The first is the
+    **pre-ruling door itself**: :func:`~ccf.products.door.door_refusal` returns
+    ``None`` for a ``ProductEntitlementRefused`` because that type is outside
+    the envelope's vocabulary, which is exactly the shape ``24.5`` shipped and
+    ``D-IMPL-256`` replaced — so the old behavior is now a watched failure
+    rather than the subject.
+
+    The second and third are the two ways a door could envelope the denial and
+    still leak: a kind of its own, which makes *you may not* readable from the
+    outside, and an un-withheld ``cause``, which is the internal truth crossing
+    at ``minimal``. Each would pass the other two checks.
     """
-    identity = _identity(assembled.address)
+    address = assembled.address
+    identity = _identity(address)
 
-    def enveloping(refused: ProductEntitlementRefused) -> RefusalEnvelope:
+    with pytest.raises(AssertionError, match="nothing at all"):
+        assert_governance_is_shelled(
+            lambda refused: door_refusal(
+                refused,
+                asked=None,
+                identity=identity,
+                product_class=address.product_class,
+                version=address.version,
+            )
+        )
+
+    def own_kind(refused: ProductEntitlementRefused) -> RefusalEnvelope:
         return RefusalEnvelope(
             kind="gate-refusal",
             reason="entitlement",
             key=None,
             detail=refused.message,
-            fields={},
+            fields={"cause": json.dumps(WITHHELD)},
             request=identity,
             pre_assembly_lineage=None,
         )
 
-    with pytest.raises(AssertionError, match="governance refusal"):
-        assert_governance_stays_a_raise(enveloping)
+    with pytest.raises(AssertionError, match="shared outcome"):
+        assert_governance_is_shelled(own_kind)
+
+    def leaking_cause(refused: ProductEntitlementRefused) -> RefusalEnvelope:
+        return RefusalEnvelope(
+            kind=REFUSAL_KINDS[SubjectUnavailableRefusal],
+            reason="subject-unavailable",
+            key=None,
+            detail=refused.message,
+            fields={"cause": json.dumps("unauthorized")},
+            request=identity,
+            pre_assembly_lineage=None,
+        )
+
+    with pytest.raises(AssertionError, match="withheld sentinel"):
+        assert_governance_is_shelled(leaking_cause)
 
 
 def test_the_replay_ref_assertion_fires_on_a_door_that_drops_it() -> None:

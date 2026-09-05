@@ -80,10 +80,12 @@ which for this class it does not (`D-18`).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.claims import RelationshipClaim
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.entitlement import (
@@ -93,7 +95,11 @@ from ccf.products.entitlement import (
     product_entitlement_key,
 )
 from ccf.products.request import ProductRequest
+from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.projection.plan import Perspective
+from ccf_runtime.authz.product_entitlement import (
+    ControlPlaneProductEntitlementSource,
+)
 from ccf_runtime.mcp.egress import ProductNotServable
 
 import assembler
@@ -129,6 +135,18 @@ class ComposedDoor:
     #: The assemble-and-gate path, conforming to
     #: `runtime/ccf_runtime/mcp/egress.py::ProductResolverProtocol`.
     resolver: Callable[..., Any]
+    #: The per-principal entitlement decision seam, constructed ONCE here with
+    #: this deployment's clock. One source, one clock, one audit plane: the
+    #: door entitles through it and the recorder below reads its disclosure
+    #: posture through it, so the denial and the shell a caller sees cannot be
+    #: decided under two readings of one policy.
+    entitlement_source: ControlPlaneProductEntitlementSource
+    #: Where a denial at this door lands. `D-IMPL-256` (2), Dave: *"a door
+    #: configured to make governed determinations without the ability to record
+    #: them is not a valid governed door."* Constructed here rather than at
+    #: `serve.py` because a door left unbound would not build — and Dave's own
+    #: preference is *"the problem to be detected at construction/boot."*
+    refusal_recorder: ReplayRefusalRecorder
 
 
 def build_resolver(*, root: Path) -> Callable[..., Any]:
@@ -303,12 +321,28 @@ def compose(*, root: Path) -> ComposedDoor:
     MCP caller to ask as the other one, and granting a role that cannot be
     requested would be a permission with no path to it.
 
+    **The entitlement source and the refusal recorder are constructed here, not
+    at the door** (`D-IMPL-256`, `24.6-10`). A denial at this door is a
+    *recorded decision*: the governed delivery-boundary step mints a
+    five-dimension record before the shell is disclosed, and
+    `runtime/ccf_runtime/mcp/egress.py::build_egress_server` refuses to build a
+    door that could deny without one. The recorder is constructed exactly as
+    `ccf.products.resolver::build_governed_resolver` builds its own — over the
+    store `produce.py::_serve` writes (`root / deployment.ARTIFACT_STORE_DIRNAME`,
+    never a second store), this deployment's record class and tenant, and the
+    `assembly_mode` read off `ccf_config.yaml` rather than written here — and it
+    reads its disclosure posture off the entitlement source beside it, so one
+    policy is read once.
+
+    `build_resolver` is untouched: the assembler-returned refusals this
+    recorder will also serve are `24.6-13`'s.
+
     Args:
         root: Scratch space for each assembly's per-run fabric.
 
     Returns:
-        The tenant, the principal, the role, the Control Plane and the resolver
-        — what a door serves with.
+        The tenant, the principal, the role, the Control Plane, the resolver,
+        the entitlement source and the recorder — what a door serves with.
     """
     control_plane = ControlPlaneRegistry()
     declared = deployment.config()[deployment.KEY_PRODUCT_CLASS]
@@ -329,10 +363,36 @@ def compose(*, root: Path) -> ComposedDoor:
         ),
         PRODUCT_ENTITLEMENT_POLICY,
     )
+    # A door decision happens when it happens, so the clock is a wall-clock
+    # read: this deployment's demonstration instant is PINNED, and binding the
+    # audit plane to it would have every decision this door ever made stamped
+    # 2026-08-31. Constructed ONCE, here, because the governed step reads it
+    # exactly once per determination and two sources would give one decision's
+    # audit event and its replay record two instants.
+    entitlement_source = ControlPlaneProductEntitlementSource(
+        control_plane=control_plane,
+        clock=lambda: datetime.now(UTC),
+    )
     return ComposedDoor(
         tenant_id=deployment.tenant_id(),
         principal_id=perspective.principal_id,
         role=perspective.role,
         control_plane=control_plane,
         resolver=build_resolver(root=root),
+        entitlement_source=entitlement_source,
+        refusal_recorder=ReplayRefusalRecorder(
+            # The store `produce.py::_serve` writes, named from the same
+            # deployment constant rather than spelled here — never a second
+            # store, or a denial and the product it was denied against would be
+            # filed in two places.
+            artifact_store=FileArtifactStore(
+                root=root / deployment.ARTIFACT_STORE_DIRNAME
+            ),
+            replay_record_class=deployment.REPLAY_RECORD_CLASS,
+            tenant_id=deployment.tenant_id(),
+            # Off `ccf_config.yaml`, never a literal (CLAUDE.md §6.4).
+            assembly_mode=str(declared["assembly_mode"]),  # type: ignore[arg-type]
+            # The posture in force, read through the ONE source above.
+            disclosure_level_for=entitlement_source.disclosure_level_for,
+        ),
     )

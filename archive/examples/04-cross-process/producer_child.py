@@ -75,6 +75,7 @@ from ccf.controlplane.artifacts import (  # noqa: E402
     SignalBatch,
     load_artifact,
 )
+from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
 from ccf.deployment import (  # noqa: E402
     build_operator_registry,
@@ -100,6 +101,7 @@ from ccf.products.contract import (  # noqa: E402
 )
 from ccf.products.gates import ServableProduct, run_gates  # noqa: E402
 from ccf.products.request import ProductRequest  # noqa: E402
+from ccf.products.resolver import ReplayRefusalRecorder  # noqa: E402
 from ccf.projection.engine import ProjectionEngine  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 
@@ -150,6 +152,12 @@ KEY_DIR_VAR = "CCF_EXAMPLE04_KEY_DIR"
 #: file — the artifact declares who may be recognised, and the credential that
 #: proves it is generated per run, exactly as the signing key is.
 EGRESS_TOKEN_VAR = "CCF_EXAMPLE04_EGRESS_TOKEN"
+
+#: The artifact class a DENIAL at this example's door is filed under
+#: (`24.6-10`, `D-IMPL-256` (2)). A deployment value: the SDK holds no default
+#: for it, and this example composes its resolver by hand rather than through
+#: `build_governed_resolver`, so it names its own.
+DOOR_REPLAY_RECORD_CLASS = "example04.door-replay-record"
 
 #: What a standalone run mints when the parent supplied nothing. Obviously
 #: synthetic and scoped to one temp directory that is deleted on exit.
@@ -749,6 +757,21 @@ def main() -> None:
                     control_plane=door_registry, clock=lambda: now
                 ),
                 perspective_resolver=resolve_perspective,
+                # `24.6-10` / `D-IMPL-256` (2): a denial at this door is a
+                # recorded decision, and a door that entitles does not build
+                # without somewhere to record one. Built with the keyword list
+                # `ccf.products.resolver::build_governed_resolver` uses for its
+                # own, over this child's own workspace — this example composes
+                # its resolver by hand, so there is no `GovernedResolver` to
+                # take a recorder off.
+                refusal_recorder=ReplayRefusalRecorder(
+                    artifact_store=FileArtifactStore(
+                        root=workspace / "door-artifacts"
+                    ),
+                    replay_record_class=DOOR_REPLAY_RECORD_CLASS,
+                    tenant_id=assembled.address.tenant,
+                    assembly_mode=assembled.registered.assembly_mode,
+                ),
             )
 
             mcp_bound = socket.socket()

@@ -96,6 +96,8 @@ from mcp.server.auth.settings import AuthSettings
 from mcp.types import TextContent, TextResourceContents
 from pydantic import AnyHttpUrl, AnyUrl
 
+from ccf.artifacts.file_store import FileArtifactStore
+from ccf.products.disclosure import WITHHELD
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuthzDecisionAuditEvent
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -108,7 +110,13 @@ from ccf.products.entitlement import (
     ProductEntitlementPolicy,
     product_entitlement_key,
 )
+from ccf.products.refusal import (
+    REFUSAL_KINDS,
+    RefusalEnvelope,
+    SubjectUnavailableRefusal,
+)
 from ccf.products.request import ProductRequest
+from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.projection.plan import Perspective
 from ccf_runtime.authz.product_entitlement import (
     ControlPlaneProductEntitlementSource,
@@ -275,8 +283,18 @@ def test_a_foreign_address_is_refused_rather_than_served(
 
     Without this the round-trip test would pass against a resolver that ignored
     its arguments entirely, and cross-tenant leakage would be untested.
+
+    **Re-derived at `24.6-10`, and the claim it makes is unchanged.** This read
+    used to raise `McpServerUnreachable`, because a foreign tenant has no
+    registered entitlement policy and that denial left the door as a transport
+    error. Under `D-IMPL-256` a denial is a governed response, so the read now
+    SUCCEEDS and its body is the `subject-unavailable` shell. What T-06-13
+    asserts — that the product does not cross a tenant boundary — is asserted
+    directly rather than inferred from an exception: the body is compared
+    against the canonical bytes and must differ, and the shell's kind is named.
+    An exception was never the property; not serving the product was.
     """
-    _canonical, address = expected
+    canonical, address = expected
     foreign = ProductAddress(
         tenant=f"{address.tenant}-not-this-one",
         product_class=address.product_class,
@@ -288,8 +306,13 @@ def test_a_foreign_address_is_refused_rather_than_served(
         http_client_factory=authorized_http_client,
     )
 
-    with pytest.raises(McpServerUnreachable):
-        client.read_text(foreign.uri)
+    body = client.read_text(foreign.uri)
+
+    assert body != canonical, (
+        "a foreign tenant received the product's own bytes (T-06-13)"
+    )
+    shell = RefusalEnvelope.model_validate_json(body)
+    assert shell.kind == REFUSAL_KINDS[SubjectUnavailableRefusal]
 
 
 @with_child
@@ -354,6 +377,11 @@ LOCAL_SECOND_ROLE = "local-role-second"
 LOCAL_UNGRANTED_ROLE = "local-role-ungranted"
 LOCAL_POLICY_VERSION = "1.0.0"
 LOCAL_AUDIT_INSTANT = datetime(2026, 8, 11, tzinfo=UTC)
+
+#: Where a denial at a door in this module lands. A denial is a recorded
+#: decision (`D-IMPL-253` Q13), and since `D-IMPL-256` (2) a door that entitles
+#: does not build without somewhere to record one.
+LOCAL_REPLAY_RECORD_CLASS = "egress-local.replay-record"
 
 #: A credential the token source has never heard of. Distinct from *no* token:
 #: both are 401s, and a matrix that tested only one would leave the other
@@ -464,6 +492,14 @@ class _RecordingEntitlement:
     def __init__(self, inner: object) -> None:
         self.inner = inner
         self.calls: list[str] = []
+        # `24.6-08` widened `ProductEntitlementSourceProtocol` with the
+        # deployment's DECLARED determination clock, which the governed
+        # delivery-boundary step reads once per determination. A wrapper that
+        # did not carry it would stop conforming — and would give the wrapped
+        # source's audit event and the door's replay record two time sources.
+        self.clock: Callable[[], datetime] = getattr(
+            inner, "clock", lambda: LOCAL_AUDIT_INSTANT
+        )
 
     def authorize(
         self, *, grant: object, tenant: str, product_class: str, role: str
@@ -472,6 +508,23 @@ class _RecordingEntitlement:
         return self.inner.authorize(  # type: ignore[attr-defined]
             grant=grant, tenant=tenant, product_class=product_class, role=role
         )
+
+
+def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
+    """The ONE minting seam every door in this module binds.
+
+    Built with the keyword list `ccf.products.resolver::build_governed_resolver`
+    uses for its own, so a door's recorder and a resolver's are the same shape
+    over one store. These fixtures compose no `GovernedResolver` — the resolver
+    is a stub — so there is none to take a recorder off, and the tenant comes
+    from the address the fixture already holds.
+    """
+    return ReplayRefusalRecorder(
+        artifact_store=FileArtifactStore(root=root / "artifacts"),
+        replay_record_class=LOCAL_REPLAY_RECORD_CLASS,
+        tenant_id=tenant,
+        assembly_mode="algorithmic",
+    )
 
 
 def _local_world(
@@ -574,6 +627,7 @@ def _local_world(
         ),
         entitlement_source=entitlement,  # type: ignore[arg-type]
         perspective_resolver=resolve_perspective,
+        refusal_recorder=_recorder(tmp_path, tenant=address.tenant),
         expose_product_tool=expose_product_tool,
         product_tool_description=product_tool_description,
     )
@@ -913,6 +967,52 @@ def test_a_verified_entitled_caller_is_served_and_the_allow_is_audited(
     assert events[0].actor == LOCAL_PRINCIPAL
 
 
+def assert_shelled_and_silent(*, answered: bool, detail: str, code: str) -> None:
+    """The wire carries the shell; the typed code is NOT on it.
+
+    `24.6-10` (`D-IMPL-253` D-20, `D-27` amendment 2 (4)). Through `24.5` each
+    of the four legs below asserted `code in detail` — the error code reaching a
+    client as prose it would have to string-parse, and, worse, as the fact that
+    the subject exists and is merely closed to that caller. Under `D-IMPL-256`
+    the denial is a governed response at the principal's disclosure level, so
+    what crosses is the shared `subject-unavailable` shell and the code's
+    ABSENCE from the message text is the assertion — the message-text channel
+    amendment 2 (4) names by name.
+
+    **What `served` meant here changed with it, and the driver did not.**
+    `_read_in_process` reports whether the READ succeeded, not whether a
+    product was served — so a shelled denial is now `True` where it was
+    `False`. Reading that flag as *"a product crossed"* would be the vacuity
+    this helper exists to prevent, so the flag is asserted as *answered* and
+    the absence of the product is asserted on the BODY, which is where it is
+    actually observable: a `RefusalEnvelope` and a vessel are both
+    `extra=forbid` with disjoint required fields, so a body that validates as
+    one cannot be the other.
+
+    Where the internal truth still lives is asserted at each call site, on the
+    entitlement AUDIT event, which keeps the code.
+
+    Args:
+        answered: What the resource driver reported — the read succeeded.
+        detail: The body the driver returned.
+        code: The typed `ERROR_*` code this scenario's denial carries
+            internally, asserted ABSENT from the wire.
+
+    Raises:
+        AssertionError: the read failed, the body is not a shell, the shell is
+            not the shared outcome, or the code crossed.
+    """
+    assert answered is True, detail
+    shell = RefusalEnvelope.model_validate_json(detail)
+    assert shell.kind == REFUSAL_KINDS[SubjectUnavailableRefusal], shell.kind
+    assert json.loads(shell.fields["cause"]) == WITHHELD, shell.fields
+    assert code not in detail, (
+        f"the typed code {code!r} crossed to a consumer in the refusal body;"
+        " at `minimal` an unauthorized principal and a nonexistent subject are"
+        " one external statement, and a code in the text tells them apart"
+    )
+
+
 def test_a_verified_but_undeclared_principal_is_refused(
     assembled: Any, tmp_path: Path
 ) -> None:
@@ -925,8 +1025,7 @@ def test_a_verified_but_undeclared_principal_is_refused(
         server, assembled.address.uri, token=LOCAL_STRANGER_TOKEN
     )
 
-    assert served is False
-    assert ERROR_PRINCIPAL_NOT_ENTITLED in detail
+    assert_shelled_and_silent(answered=served, detail=detail, code=ERROR_PRINCIPAL_NOT_ENTITLED)
     assert entitlement.calls == [LOCAL_STRANGER]
     events = [
         event
@@ -952,8 +1051,17 @@ def test_a_principal_entitled_to_another_class_is_refused_at_the_door(
         server, assembled.address.uri, token=LOCAL_TOKEN
     )
 
-    assert served is False
-    assert ERROR_PRODUCT_CLASS_UNENTITLED in detail
+    assert_shelled_and_silent(answered=served, detail=detail, code=ERROR_PRODUCT_CLASS_UNENTITLED)
+    # The class DOES appear in the body, and that is correct: it is in the
+    # request identity and the resource address, both of which are what the
+    # caller itself asked for. What must not appear is the class named in the
+    # refusal's own STATEMENT — `SubjectUnavailableRefusal` carries no
+    # `subject` field at all (`24.6-08`: *"naming the subject is itself the
+    # leak, and a field a disclosure step had to remember to blank is a field
+    # that will one day cross"*), and its `detail` at `minimal` is the one
+    # sentence every denial shares.
+    shell = RefusalEnvelope.model_validate_json(detail)
+    assert assembled.address.product_class not in shell.detail, shell.detail
     assert assembled.address.product_class in detail
     events = [
         event
@@ -983,8 +1091,7 @@ def test_a_role_the_grant_does_not_permit_is_refused_at_the_door(
         server, assembled.address.uri, token=LOCAL_TOKEN
     )
 
-    assert served is False
-    assert ERROR_PRODUCT_ROLE_UNGRANTED in detail
+    assert_shelled_and_silent(answered=served, detail=detail, code=ERROR_PRODUCT_ROLE_UNGRANTED)
     events = [
         event
         for event in registry.audit_log.events()
@@ -1029,14 +1136,14 @@ def test_a_tenant_with_no_registered_policy_is_refused_not_served(
                 principal_id=grant.client_id, role=LOCAL_ROLE
             )
         ),
+        refusal_recorder=_recorder(tmp_path, tenant=assembled.address.tenant),
     )
 
     served, detail = _read_in_process(
         server, assembled.address.uri, token=LOCAL_TOKEN
     )
 
-    assert served is False
-    assert ERROR_PRODUCT_POLICY_ABSENT in detail
+    assert_shelled_and_silent(answered=served, detail=detail, code=ERROR_PRODUCT_POLICY_ABSENT)
     events = [
         event
         for event in registry.audit_log.events()
@@ -1130,8 +1237,18 @@ def test_the_tool_is_never_the_weaker_path(
     something: a matrix built over two separately-configured servers would be
     comparing two policies, not two doors.
 
-    A source assertion that both bodies call ``entitled_perspective`` could not
-    see an argument passed differently. This can.
+    A source assertion that both bodies call the shared entitlement decision
+    could not see an argument passed differently. This can.
+
+    **Three outcome classes since `24.6-10`, where there were two.** Through
+    `24.5` every non-served row was a transport error on both surfaces, so
+    ``served is not tool_error`` covered the whole table. Under `D-IMPL-256` a
+    governed denial is an ANSWER on both surfaces, and only authentication —
+    which happens before the door, and is not a determination about a caller
+    the fabric knows — is still a transport error. So the table splits:
+    *served*, *shelled* and *401*, and each is asserted on both surfaces.
+    Collapsing the middle class into either neighbour is exactly what would
+    hide a tool that answered where the resource refused.
     """
     plan = _governance(scenario, assembled)
     server, _entitlement, _registry = _open_world(
@@ -1150,11 +1267,20 @@ def test_the_tool_is_never_the_weaker_path(
         )
     )
 
-    assert served is not tool_error, (
-        f"{scenario}: the resource {'served' if served else 'refused'} and the"
-        f" tool {'refused' if tool_error else 'served'}; the two surfaces of"
-        " one door must agree (T-16-23-02)"
-    )
+    if plan.marker == "401":
+        # Authentication, before the door. Still a transport error on both
+        # surfaces, and deliberately: an unverified caller is refused by the
+        # transport rather than answered by the fabric.
+        assert served is False, resource_text
+        assert tool_error is True, tool_text
+        assert plan.marker in resource_text, resource_text
+        assert plan.marker in tool_text, tool_text
+        return
+
+    # Everything below is an ANSWER on both surfaces — served or shelled.
+    assert served is True, resource_text
+    assert tool_error is False, tool_text
+
     if plan.marker is None:
         expected = canonical_bytes(assembled.servable.product).decode("utf-8")
         assert resource_text == expected
@@ -1164,9 +1290,22 @@ def test_the_tool_is_never_the_weaker_path(
         # are compared, and they are still the resource's byte for byte; what
         # moved is the frame around them, deliberately.
         assert DoorOutcome.model_validate_json(tool_text).product_json == expected
-    else:
-        assert plan.marker in resource_text, resource_text
-        assert plan.marker in tool_text, tool_text
+        return
+
+    # A governed denial: the shared shell on both surfaces, and the typed code
+    # on NEITHER. The resource's body IS the envelope; the tool's rides inside
+    # a `DoorOutcome`, which is the only shape difference between them.
+    resource_shell = RefusalEnvelope.model_validate_json(resource_text)
+    tool_outcome = DoorOutcome.model_validate_json(tool_text)
+    assert tool_outcome.product_json is None, tool_text
+    assert tool_outcome.refusal is not None
+    assert resource_shell.kind == REFUSAL_KINDS[SubjectUnavailableRefusal]
+    assert tool_outcome.refusal.kind == resource_shell.kind, (
+        f"{scenario}: the two surfaces of one door shelled the same denial as"
+        " two different kinds"
+    )
+    assert plan.marker not in resource_text, resource_text
+    assert plan.marker not in tool_text, tool_text
 
 
 def test_a_tokenless_tool_call_never_reaches_the_entitlement_check(

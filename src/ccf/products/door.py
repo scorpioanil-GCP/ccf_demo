@@ -532,6 +532,7 @@ def door_refusal(
     resolved: object,
     *,
     asked: ProductRequest | None,
+    identity: RequestIdentity | None = None,
     product_class: str,
     version: str,
 ) -> RefusalEnvelope | None:
@@ -574,6 +575,23 @@ def door_refusal(
         resolved: What a deployment's resolver returned.
         asked: The question the door carried, or ``None`` when the surface has
             no way to ask one.
+        identity: The request identity a **question-less** surface states for
+            itself, used exactly when ``asked`` is ``None`` (``24.6-10``,
+            ``D-IMPL-253`` D-19). Additive and defaulted, so every existing
+            call is unchanged.
+
+            The MCP standing resource is the case it exists for. That surface
+            is three path segments with no query surface, so it carries no
+            :class:`~ccf.products.request.ProductRequest` at all — and until
+            this row a bare refusal reaching it had nowhere to go but the
+            ``ValueError`` below, which is why the resource had no refusal
+            channel and answered a governed "no" as a transport error. The
+            door still never *manufactures* a question: what it states is the
+            two positive facts its own surface establishes — ``parameters={}``
+            (*this read supplied none*) and ``temporal_boundary=None`` (*the
+            caller deferred to the server's decision instant*) — rather than a
+            subject, an intent and a freshness figure the SDK must never hold
+            (CINV-01).
         product_class: The class the door already resolved and entitled. Taken
             from the door rather than from ``asked`` for the reason both doors
             fill ``schema_name`` from their own address: a request aimed at
@@ -584,33 +602,38 @@ def door_refusal(
         The envelope, or ``None`` when ``resolved`` is not a refusal at all.
 
     Raises:
-        ValueError: a bare refusal value arrived on a surface that carried no
-            question. The envelope's second ruled constraint is that it carries
-            the pre-assembly request identity, and a door that manufactured one
-            would be reporting a question nobody asked as the question that was
-            refused.
+        ValueError: a bare refusal value arrived on a surface that carried
+            neither a question nor an ``identity`` of its own. The envelope's
+            second ruled constraint is that it carries the pre-assembly request
+            identity, and a door that manufactured one would be reporting a
+            question nobody asked as the question that was refused. A surface
+            with no query channel says what it *can* say through ``identity``;
+            one that says nothing at all still refuses here.
     """
     if isinstance(resolved, RefusalEnvelope):
         return resolved
     if not isinstance(resolved, CCFContract) or type(resolved) not in REFUSAL_KINDS:
         return None
-    if asked is None:
-        raise ValueError(
-            f"a resolver answered with `{type(resolved).__name__}` on a surface"
-            " that carried no request, so there is no question for the refusal"
-            " envelope to name; a door that invented one would report a"
-            " question nobody asked as the one that was refused. Return a"
-            " `RefusalEnvelope`, which carries its own request identity"
-        )
-    return envelope_for(
-        resolved,
-        request=RequestIdentity(
+    if asked is not None:
+        stated = RequestIdentity(
             product_id=product_class,
             product_version=version,
             parameters=asked.parameters,
             temporal_boundary=asked.asked_at,
-        ),
-    )
+        )
+    elif identity is not None:
+        stated = identity
+    else:
+        raise ValueError(
+            f"a resolver answered with `{type(resolved).__name__}` on a surface"
+            " that carried no request and stated no `identity=`, so there is no"
+            " question for the refusal envelope to name; a door that invented"
+            " one would report a question nobody asked as the one that was"
+            " refused. Return a `RefusalEnvelope`, which carries its own request"
+            " identity — or, on a surface with no query channel, pass the"
+            " `identity=` that surface can state for itself"
+        )
+    return envelope_for(resolved, request=stated)
 
 
 def door_question(asked_json: str) -> WireRequest:
