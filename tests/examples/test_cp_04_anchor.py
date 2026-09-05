@@ -196,7 +196,9 @@ def test_the_served_outcome_names_the_module_assembler_version(
 
     `D-IMPL-245` am.1: an assembler materially corrected in 24.5.1 bumps PATCH
     to `1.0.1` — this rung's `resolve_anchor` now fails closed on ambiguity as
-    typed data and its dead `ParameterNotSupported` branch is gone — and am.3:
+    typed data, and its dead `ParameterNotSupported` branches are gone from
+    `assembler.py` (24.5.1) and `produce.py` (`24.6-L-13`); the class stays as a
+    payload-test control — and am.3:
     ONE bump for both changes, and a PATCH only. The transcript line `assembled by`
     carries this identity as evidence; Decision Replay carries none of it
     today (am.1), and no claim that it does is made here.

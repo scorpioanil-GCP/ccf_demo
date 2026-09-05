@@ -23,13 +23,19 @@ relationships, so `traversal.typed-neighborhood` is a registered L4 operator
 beside it and the set is exactly two. A reader arriving from those rungs will
 expect one.
 
-**THREE REFUSALS ARE RETURNED AS DATA rather than raised.** A question this
+**FOUR REFUSALS ARE RETURNED AS DATA rather than raised** — the four values
+:func:`assemble_and_serve` can hand back beside an `Assembled`. A question this
 class does not answer is a `ProductRequestViolation`; an anchor that resolves to
-no entity is an `AnchorUnresolvable`; a `max_depth` above the declared ceiling
-is a `DepthOutOfBounds`; and a declared-but-inert parameter is a
-`ParameterNotSupported`. None is an exception, because a bad question and a
+no entity is an `AnchorUnresolvable`; an anchor that resolves to more than one
+is an `AnchorAmbiguous`; a `max_depth` above the declared ceiling is a
+`DepthOutOfBounds`. None is an exception, because a bad question and a
 missing company are not broken deployments, and a verdict returned as a value
 cannot be swallowed by a bare `except`.
+
+SUPERSEDED 2026-09-04 (`24.6-L-13`): this paragraph counted THREE and listed a
+fifth value, `ParameterNotSupported`, that the function no longer returns —
+its branch was dead by construction and is deleted. `AnchorAmbiguous`, which
+the count had omitted since 24.5.1 added it, is named above.
 
 **AN EMPTY PAYLOAD IS THE DANGEROUS FAILURE ON THIS RUNG IN PARTICULAR.** An
 empty family reads as *this company has no subsidiaries*, which is a claim about
@@ -254,6 +260,15 @@ class ParameterNotSupported:
     Fluree's `@iso:` searches EVENT time, nearest-at-or-before, and is
     BACKDATABLE. Neither is what `as_of` asks, so answering with today's family
     would be the most plausible wrong answer this product could give.
+
+    **CONSTRUCTED ONLY AS A TEST CONTROL SINCE `24.5.1` am.3 / `24.6-L-13`.**
+    Nothing in this module returns it: the SDK's own tier step refuses a
+    declared-but-inert parameter as `not-supported-at-tier` data before any
+    product branch runs, and the branch that returned this class was deleted as
+    unreachable. The class is KEPT because
+    `tests/examples/test_cp_04_payload.py` constructs it to prove the payload
+    shape §2.4 asks for, and deleting the type would delete that control's
+    subject.
     """
 
     parameter: str
@@ -819,11 +834,21 @@ def assemble_and_serve(
     max_depth: Any,
     role: str | None = None,
     unsupported: Mapping[str, str] | None = None,
-) -> Assembled | ProductRequestViolation | AnchorUnresolvable | AnchorAmbiguous | ParameterNotSupported | Any:
+) -> Assembled | ProductRequestViolation | AnchorUnresolvable | AnchorAmbiguous | Any:
     """Answer one question, end to end, against ``root`` as scratch space.
 
     The steps run in the order the specification's section D fixes them and the
     seven snippet regions above are opened in that same order.
+
+    ``unsupported`` is THE DECLARED SET, FOR THE RECORD, and nothing reads it
+    here (``24.6-L-13``). It used to feed a loop below ``refuse_request`` that
+    returned :class:`ParameterNotSupported` for a declared-but-inert parameter.
+    That loop was dead by construction: ``refuse_request``'s tier step reads
+    ``declared.unsupported_arguments`` from the SAME ``ccf_config.yaml`` block
+    the caller fills this argument from, so it had already returned
+    ``not-supported-at-tier`` as data for every key the loop could match. The
+    loop is deleted and ``ParameterNotSupported`` leaves this return union; the
+    parameter stays so the call site keeps naming the declared set explicitly.
     """
     registry = ControlPlaneRegistry()
 
@@ -862,14 +887,6 @@ def assemble_and_serve(
         )
         if violation is not None:
             return violation
-
-        # DECLARED BUT INERT — Standard §2.4. The set comes from the
-        # deployment's own request contract, so this branch names no parameter
-        # of its own: a parameter this tier stops refusing, or starts, is an
-        # edit to `ccf_config.yaml`.
-        for name, reason in (unsupported or {}).items():
-            if name in request.parameters:
-                return ParameterNotSupported(parameter=name, reason=reason)
 
         minted = _ingest(booted, scenario=scenario, claims=claims)
 
