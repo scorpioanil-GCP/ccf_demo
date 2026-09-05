@@ -3,8 +3,18 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-05T19:20:00.000Z"
+last_updated: "2026-09-05T21:20:00.000Z"
 last_activity: >-
+  **PHASE 24.6 CLOSED — `D-GATE-24.6` APPROVED AS-IS; `D-IMPL-261` RESETS THE EXAMPLE LIFECYCLE (2026-09-05 14:20 MST, `phase-24.6`).**
+  Dave, at the resume sitting: the examples are probes, not repair targets; the 48-hour loop was cp-04 republished three times with a
+  panel/review/correction cycle after each. Ruled: `D-IMPL-261` (his rule verbatim, five paragraphs; cp-00..cp-04 FROZEN as diagnostic
+  specimens; no republish or re-pin inside an SDK phase; the cp-04 SDK gap ledger built AFTER the merge from existing evidence only with
+  OPEN / FIXED-24.6 / ESTATE-LIMITATION / NOT-A-GAP, NO fixes while building it, brought to Dave BEFORE the next SDK phase is scoped) and
+  `D-GATE-24.6` (*"Approve 24.6 for close and merge as-is. The final cp-04 publication is accepted as the last publication performed under
+  the pre-D-IMPL-261 process"*; the ledger is NOT a merge condition; known findings carried, not cleaned up). Short invariant added to
+  CLAUDE.md §9. ROADMAP 24.6 marked Complete by hand (checklist, STATUS line, progress row). Merge `--no-ff` to `main` and push of BOTH
+  `main` (5 unpushed planning commits) and `phase-24.6` (102 behind origin) follow this commit. **Next:** the cp-04 SDK gap ledger →
+  Dave reads it → next SDK phase scoped. Next free id `D-IMPL-262`. Hand-edited; no `state.*`/`roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 — CORRECTION PASS UNDER `D-IMPL-260` DONE (2026-09-05 12:20 MST, `phase-24.6`, NOT pushed, NOT merged).**
   Dave HELD the gate at 09:56 MST ("I need you to do better than this") and ruled the ten close questions as implementation
   corrections under existing rulings — recorded verbatim as `D-IMPL-260`. Every item is fixed, measured and committed:

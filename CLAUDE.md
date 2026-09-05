@@ -908,6 +908,39 @@ release ships practical, runnable, domain-neutral examples instead.
   pack, and everything domain-specific lives in definition artifacts,
   never in example code (the No-Hardcoding Rule, §6.4).
 
+### Examples are probes, not repair targets (D-IMPL-261, Dave, 2026-09-05)
+
+The examples exist to expose SDK shortcomings that were not known
+before the example was built. A failing example should usually
+produce an **SDK finding**, not an example fix.
+
+- **An example changes only when** the example is objectively wrong,
+  its test is wrong, or the SDK surface it legitimately consumes was
+  deliberately changed. Every other failure is classified as an SDK
+  gap or an estate/environment limitation, assigned an identifier,
+  and preserved as visible evidence.
+- **No example behavior, prose, test, configuration, expected output,
+  or local workaround may be changed merely to make an example pass
+  around an SDK deficiency.** A known SDK-gap test may be quarantined
+  or marked as an expected failure so unrelated SDK work can proceed,
+  but the evidence stays executable and is never converted into a
+  passing assertion by weakening or changing the example.
+- **The first question on every example failure is: "Is this evidence
+  of an SDK deficiency?"** If yes, example editing stops; the finding
+  is recorded and escalated into the next applicable SDK phase.
+- **No example republishing or transcript re-pinning inside an SDK
+  remediation phase.** After the SDK phase closes, affected examples
+  are rerun against the resulting SDK as a separate validation step,
+  and only then republished if necessary.
+- **Shipped examples are frozen specimens** at different points on the
+  capability ladder (cp-00 through cp-04 as of D-GATE-24.6). Earlier
+  specimens are not rewritten to look like the latest SDK; a
+  difference between two rungs is evidence about the SDK's evolution.
+
+The full ruling, the freeze, and the gap-ledger charter (OPEN /
+FIXED-<phase> / ESTATE-LIMITATION / NOT-A-GAP) are in `docs/DECISIONS.md`
+under `D-IMPL-261`.
+
 ### The v0 suite
 
 1. **`examples/00-quickstart`** — the smallest possible fabric. Register a
