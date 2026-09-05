@@ -862,4 +862,4 @@ What a plain SELECT would not have told you:
    policy version     ['df6a935fe974da38b4bdc9debf3bfff9b8cc11b875b233ed9b75ee10ef0956b6']
    expires at         2026-09-01T12:00:00+00:00
    content address    fad6e55da2c0e6276b69d9a053e4eff155e5c3266b68f3fffb873b0c5e754fc7
-   replay record      ccf-artifact://cp-04-demo/cp-04.replay-record/317d22ffdb5d8008e5feeaa3db92ca0db6eb5e20f9f606ef14413a0d4f50b1e8@c21658665f2ddc68644f3e35221b4d5a5a8ea8b6788171124ae1f7be03e58e61
+   replay record      ccf-artifact://cp-04-demo/cp-04.replay-record/317d22ffdb5d8008e5feeaa3db92ca0db6eb5e20f9f606ef14413a0d4f50b1e8@dd5b2ab57a7a3313bcde8c33d1ce584572914fb87011d916ac75001ec250f294
