@@ -66,6 +66,7 @@ from ccf.products.refusal import (
     ResourceRequestIdentity,
     envelope_for,
 )
+from ccf.products.disclosure import DisclosureDecision
 from ccf.products.request import ProductRequestViolation
 from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.projection.engine import ExecutionResult, ExecutionStep
@@ -163,9 +164,37 @@ def test_a_request_conformity_refusal_is_recorded_with_nothing_read(
     )
     recorded = _recorded_shell(record)
     assert recorded.replay_reference == NO_REPLAY_REFERENCE
-    assert recorded == outcome.model_copy(
-        update={"replay_reference": NO_REPLAY_REFERENCE}
-    ), "the recorded shell must be the returned one modulo its own address"
+
+    # `24.6-08`: the record holds the INTERNAL determination and the returned
+    # shell holds the permitted statement, so the two are deliberately NOT the
+    # same value. What must agree is the determination itself; what must differ
+    # is what crossed. Both halves are asserted, because either alone passes
+    # against a seam that recorded the disclosed form — which is exactly the
+    # audit truth `D-IMPL-253` Q27 forbids destroying.
+    assert recorded.kind == outcome.kind
+    assert recorded.reason == outcome.reason
+    assert recorded.key == outcome.key
+    assert recorded.request == outcome.request
+    assert recorded.disclosure is None, (
+        "the recorded form is the internal one and nothing decided what may"
+        " cross it"
+    )
+    assert outcome.disclosure == "minimal", (
+        "no entitlement policy is registered for this fixture tenant, so the"
+        " safe default applies (D-IMPL-253 Q17)"
+    )
+    assert recorded.detail != outcome.detail
+    # Field PRESENCE is identical; only values were replaced.
+    assert set(recorded.fields) == set(outcome.fields)
+
+    # And the decision that produced the difference is recorded beside it, so
+    # replay reconstructs BOTH the determination and the disclosure.
+    decision = DisclosureDecision.model_validate_json(
+        record.content_generation_path.disclosure_decision
+    )
+    assert decision.level == "minimal"
+    assert decision.internal_kind == decision.external_kind == outcome.kind
+    assert "detail" in decision.withheld
 
 
 def test_the_store_grew_by_exactly_one_record(booted: _Booted) -> None:
@@ -241,9 +270,14 @@ def test_a_gate_refusal_records_the_state_it_actually_read(
     assert record.content_generation_path.product_content_address == (
         NO_PRODUCT_ADDRESS
     )
-    # The permitted evidence names the search that DID happen.
-    assert outcome.evidence is not None
-    assert outcome.evidence.plan_id == record.content_generation_path.plan_id
+    # The permitted evidence names the search that DID happen — on the
+    # INTERNAL shell. Evidence of a search is not something a refused caller is
+    # owed at the safe default, so `24.6-08` withholds it on the shell and
+    # keeps it in the record.
+    internal = _recorded_shell(record)
+    assert internal.evidence is not None
+    assert internal.evidence.plan_id == record.content_generation_path.plan_id
+    assert outcome.evidence is None
 
 
 # --- (c) a withheld fulfillment ---------------------------------------------
@@ -288,10 +322,15 @@ def test_a_withheld_fulfillment_records_the_assessment_it_was_withheld_on(
     assert outcome.replay_reference != NO_REPLAY_REFERENCE
     record = _record_at(booted_with_ceiling, outcome.replay_reference)
 
-    assert outcome.evidence is not None
-    assert outcome.evidence.debt is not None
-    assert record.content_generation_path.debt == outcome.evidence.debt
+    internal = _recorded_shell(record)
+    assert internal.evidence is not None
+    assert internal.evidence.debt is not None
+    assert record.content_generation_path.debt == internal.evidence.debt
     assert record.content_generation_path.debt.debt == Decimal("0.9")
+    # The evidence is INTERNAL (`24.6-08`): the safe default withholds the
+    # search behind a refusal, and the record is where the one assessment
+    # lives. What the shell says is the tolerance and the authority.
+    assert outcome.evidence is None
     assert record.content_generation_path.product_content_address == (
         NO_PRODUCT_ADDRESS
     )
@@ -698,10 +737,20 @@ def test_a_pre_assembly_refusal_shows_no_search_because_there_was_none(
     outcome = _ask(_resolver(booted), _request(parameters={}))
     assert isinstance(outcome, RefusalEnvelope)
     assert outcome.evidence is None
-    assert outcome.disclosure is None, (
-        "this is the INTERNAL form: no disclosure decision has been applied"
-        " to it, which is what `24.6-08` will fill"
+
+    # The distinction is load-bearing and it is asserted on the INTERNAL form,
+    # because on the shell the two would be indistinguishable: a withheld
+    # evidence bundle is also `None` there. So the record is where *there was
+    # no search* is a claim rather than a coincidence, and the disclosure
+    # decision names nothing withheld under `evidence`.
+    record = _record_at(booted, outcome.replay_reference)
+    internal = _recorded_shell(record)
+    assert internal.evidence is None
+    assert internal.disclosure is None
+    decision = DisclosureDecision.model_validate_json(
+        record.content_generation_path.disclosure_decision
     )
+    assert "evidence" not in decision.withheld
 
 
 def test_the_evidence_bundle_is_the_executions_own_facts(booted: _Booted) -> None:
@@ -711,13 +760,20 @@ def test_the_evidence_bundle_is_the_executions_own_facts(booted: _Booted) -> Non
     outcome = _ask(resolver, _request())
 
     assert isinstance(outcome, RefusalEnvelope)
-    assert isinstance(outcome.evidence, RefusalEvidence)
     record = _record_at(booted, outcome.replay_reference)
-    assert outcome.evidence.plan_id == record.content_generation_path.plan_id
-    assert outcome.evidence.store_snapshot_pin == (
+    internal = _recorded_shell(record)
+    assert isinstance(internal.evidence, RefusalEvidence)
+    assert internal.evidence.plan_id == record.content_generation_path.plan_id
+    assert internal.evidence.store_snapshot_pin == (
         record.context_fabric_snapshot.store_snapshot_pin
     )
-    assert outcome.evidence.store_snapshot_pin != NO_STORE_SNAPSHOT_PIN or True
+    assert internal.evidence.store_snapshot_pin != NO_STORE_SNAPSHOT_PIN or True
+    # A search DID run here, so the disclosure decision names the evidence it
+    # withheld — the positive half of the test above.
+    decision = DisclosureDecision.model_validate_json(
+        record.content_generation_path.disclosure_decision
+    )
+    assert "evidence" in decision.withheld
 
 
 def test_a_recorded_refusal_round_trips_through_the_builders_own_guard() -> None:

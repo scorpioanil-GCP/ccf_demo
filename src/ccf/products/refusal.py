@@ -81,6 +81,22 @@ by set equality against a structural walk of ``src/``. A new refusal type that
 is neither translated nor allowlisted fails the build and demands a ruling
 rather than shipping untranslated.
 
+**Determination → Authority → Disclosure → Delivery** — the architectural
+invariant of ``D-IMPL-254``, SDK-defined under CLAUDE.md §11 and not
+whitepaper-derived (the whitepaper is deliberately not edited, ``D-IMPL-253``
+Q28). Dave's text: *"Internal truth, governing authority, and permitted
+disclosure are distinct concerns. The fabric preserves the governed truth of
+why a determination was reached; Policy determines what of that truth may cross
+the consumer boundary; the response shell expresses only the permitted
+disclosure. Decision Replay preserves sufficient governed evidence to
+reconstruct both the determination and the disclosure decision."*
+
+**This module is the Determination layer's value, and it is the shape the
+other three read.** It states what the fabric determined, whole; it applies no
+disclosure filter of its own, because a filter here would be a second place
+disclosure is decided. What of it may cross a consumer boundary is
+:func:`~ccf.products.disclosure.disclose`'s decision.
+
 This module is algorithmic (CINV-03): pure functions over typed values, no
 I/O, no clock, no LLM dependency ever.
 """

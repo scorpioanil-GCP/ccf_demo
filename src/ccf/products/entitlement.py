@@ -79,6 +79,7 @@ from pydantic import Field, field_validator
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
+from ccf.products.disclosure import DISCLOSURE_MINIMAL, DisclosureLevel
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 
 __ccf_mode__ = "algorithmic"
@@ -157,12 +158,29 @@ class ProductEntitlementGrant(CCFContract):
             principal may override nothing. Hash-transparent at that value
             (``D-IMPL-243``), so every entitlement policy written before this
             field keeps its content address and therefore its pin.
+        disclosure_level: This principal's own disclosure posture, overriding
+            the policy's (``D-IMPL-253`` Q17; ``24.6-L-16``). ``None`` — the
+            default — is the positive *this principal has no override*, so the
+            tenant's :attr:`ProductEntitlementPolicy.disclosure_level` decides.
+
+            **It is an override in both directions**, and deliberately so: a
+            deployment may grant one reader ``full`` and hold another at
+            ``minimal`` under the same tenant policy, which is exactly the
+            information-barrier case ``D-IMPL-254`` names. What it cannot do is
+            widen anything else — a level says what a reader may learn about a
+            refusal it already received, never what it may receive.
+
+            Hash-transparent at ``None`` (``D-IMPL-243``), so every grant
+            written before this field keeps its content address.
     """
 
     permitted_schema_names: frozenset[str]
     permitted_roles: frozenset[str]
     overridable_policies: frozenset[str] = Field(
         default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    disclosure_level: DisclosureLevel | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
     def require_schema(self, *, schema_name: str) -> None:
@@ -211,11 +229,31 @@ class ProductEntitlementPolicy(CCFContract):
         policy_version: This artifact's own lane. No default — see the module
             docstring.
         principals: Principal identifier to its entitlements.
+        disclosure_level: How much of a refusal's internal truth may cross this
+            tenant's consumer boundary (``D-IMPL-253`` Q17, Dave: *"Suppression
+            silence should be policy-controlled, with minimal disclosure as the
+            safe default."*; ``24.6-L-16``). Interpreted by
+            :func:`~ccf.products.disclosure.disclose`, which is the one step
+            between the fabric's internal determination and the shell.
+
+            The level lives **here** rather than in the adopter-owned ``policy``
+            section because the SDK *interprets* it: a value the SDK reads has
+            to sit in an SDK-owned, versioned artifact an examiner can resolve,
+            or replay cannot say which posture was in force.
+
+            Defaults to :data:`~ccf.products.disclosure.DISCLOSURE_MINIMAL` and
+            is hash-transparent at it (``D-IMPL-243``), so every entitlement
+            policy registered before this field keeps its content address — and
+            a deployment that never thought about disclosure gets the safe
+            posture rather than the permissive one.
     """
 
     tenant_id: str
     policy_version: str
     principals: Mapping[str, ProductEntitlementGrant] = Field(min_length=1)
+    disclosure_level: DisclosureLevel = Field(
+        default=DISCLOSURE_MINIMAL, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("policy_version")
     @classmethod

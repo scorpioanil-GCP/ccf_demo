@@ -72,6 +72,22 @@ above gives: the door has to name the type it echoes, and a producer-side shape
 module cannot import the client package without reversing the established
 layering.
 
+**Determination → Authority → Disclosure → Delivery** — the architectural
+invariant of ``D-IMPL-254``, SDK-defined under CLAUDE.md §11 and not
+whitepaper-derived (the whitepaper is deliberately not edited, ``D-IMPL-253``
+Q28). Dave's text: *"Internal truth, governing authority, and permitted
+disclosure are distinct concerns. The fabric preserves the governed truth of
+why a determination was reached; Policy determines what of that truth may cross
+the consumer boundary; the response shell expresses only the permitted
+disclosure. Decision Replay preserves sufficient governed evidence to
+reconstruct both the determination and the disclosure decision."*
+
+**This module is the Delivery layer.** It is the shape a door puts on a wire
+and nothing more: it decides nothing, discloses nothing and records nothing.
+What it carries has already been determined, already been resolved against its
+authorities, and already been disclosed by
+:func:`~ccf.products.disclosure.disclose`.
+
 This module is algorithmic (CINV-03): pure functions over typed values, no
 I/O, no clock, no LLM dependency ever.
 """

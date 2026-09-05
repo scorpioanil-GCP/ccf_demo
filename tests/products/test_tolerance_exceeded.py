@@ -91,6 +91,7 @@ from ccf.skills.catalog import SkillArgumentProperty, SkillArgumentSchema
 from tests.deployment.conftest import ARTIFACT_SET, PRODUCT_CLASS_KEY, TENANT
 from tests.products.test_resolver_seam import (
     ASKED_AT,
+    _internal,
     PRODUCT_CLASS,
     PRODUCT_VERSION,
     REQUEST_CONTRACT_DOCUMENT,
@@ -305,12 +306,19 @@ def test_an_omitted_tolerance_takes_the_class_default_and_withholds_by_name(
     outcome = _ask(_governed(booted_with_default), _question())
 
     envelope = _assert_withheld(outcome, authority="default")
-    source = ProvenanceSource.model_validate_json(envelope.fields["source"])
+    # The authority and the tolerance are what a caller must act on, so both
+    # survive the safe default (`ccf.products.disclosure.PERMITTED_AT_MINIMAL`;
+    # `D-IMPL-253` Q10 by name). The source pin and the observed D_c are the
+    # fabric's own measurement and are read from the record (`24.6-08`).
+    assert Decimal(envelope.fields["tolerance"].strip('"')) == CLASS_DEFAULT
+
+    internal = _internal(booted_with_default, envelope)
+    source = ProvenanceSource.model_validate_json(internal.fields["source"])
     assert source.kind == "artifact"
     assert source.identity == PRODUCT_CLASS_KEY
     assert source.version is not None, "an artifact source names its version"
-    assert Decimal(envelope.fields["tolerance"].strip('"')) == CLASS_DEFAULT
-    assert Decimal(envelope.fields["observed"].strip('"')) == OBSERVED_DEBT
+    assert Decimal(internal.fields["tolerance"].strip('"')) == CLASS_DEFAULT
+    assert Decimal(internal.fields["observed"].strip('"')) == OBSERVED_DEBT
 
 
 def test_the_shell_says_fulfillment_was_withheld_and_never_that_debt_is_invalid(
@@ -332,14 +340,22 @@ def test_the_shell_says_fulfillment_was_withheld_and_never_that_debt_is_invalid(
     outcome = _ask(_governed(booted_with_default), _question())
 
     envelope = _assert_withheld(outcome, authority="default")
-    assert "fulfillment was withheld" in envelope.detail
-    assert "applicable declared tolerance" in envelope.detail
-    assert "invalid" not in envelope.detail
+    # Dave's own sentence, and it is the sentence at BOTH ends: the fabric's
+    # internal prose says it, and `EXTERNAL_STATEMENTS["tolerance-exceeded"]`
+    # is the same claim in the same words, so the safe default does not turn a
+    # withheld fulfillment into an unexplained one.
+    internal = _internal(booted_with_default, envelope)
+    for detail in (envelope.detail, internal.detail):
+        assert "fulfillment was withheld" in detail
+        assert "applicable declared tolerance" in detail
+        assert "invalid" not in detail
     assert "invalid" not in str(envelope.fields)
+    assert "invalid" not in str(internal.fields)
     # The product was constructible: it has a lineage, and it is the
-    # candidate's own.
-    assert envelope.pre_assembly_lineage is not None
-    assert envelope.pre_assembly_lineage.operators_invoked
+    # candidate's own. Internal, because a lineage is evidence of the search
+    # and does not cross at `minimal`.
+    assert internal.pre_assembly_lineage is not None
+    assert internal.pre_assembly_lineage.operators_invoked
 
 
 def test_the_withheld_breakdown_is_the_served_twins_own_assessment(
@@ -363,9 +379,14 @@ def test_the_withheld_breakdown_is_the_served_twins_own_assessment(
     assert isinstance(delivered, ServedProduct), delivered
     assert delivered.product.debt is not None
 
-    breakdown = DebtAssessment.model_validate_json(envelope.fields["breakdown"])
+    internal = _internal(booted_with_default, envelope)
+    breakdown = DebtAssessment.model_validate_json(internal.fields["breakdown"])
     assert breakdown == delivered.product.debt
     assert breakdown.factors == delivered.product.debt.factors
+    # And the breakdown does NOT cross at the safe default: a per-factor
+    # measurement of the fabric's own state is not something a refused caller
+    # is owed (`ccf.products.disclosure.PERMITTED_AT_MINIMAL`).
+    assert envelope.fields["breakdown"] != internal.fields["breakdown"]
 
 
 # --- authority `caller`: enforced as requested, in both directions -----------
@@ -408,7 +429,8 @@ def test_a_caller_tolerance_below_the_observation_withholds_naming_the_caller(
     )
 
     envelope = _assert_withheld(outcome, authority="caller")
-    source = ProvenanceSource.model_validate_json(envelope.fields["source"])
+    internal = _internal(booted_with_default, envelope)
+    source = ProvenanceSource.model_validate_json(internal.fields["source"])
     assert source.kind == "request"
     assert source.version is None
     assert Decimal(envelope.fields["tolerance"].strip('"')) == CALLER_TIGHT
@@ -439,7 +461,8 @@ def test_a_policy_maximum_withholds_under_the_same_kind_naming_the_constraint(
     )
 
     envelope = _assert_withheld(outcome, authority="policy")
-    source = ProvenanceSource.model_validate_json(envelope.fields["source"])
+    internal = _internal(booted_with_default, envelope)
+    source = ProvenanceSource.model_validate_json(internal.fields["source"])
     assert source.kind == "artifact"
     assert source.identity == POLICY_KEY
     assert source.version == version

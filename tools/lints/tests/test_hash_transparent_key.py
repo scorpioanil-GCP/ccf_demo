@@ -343,6 +343,12 @@ NAMED_SINCE_THE_SWEEP: tuple[str, ...] = (
     # (`24.6-L-21`). Brand-new model, and the field a disclosed shell blanks
     # below `full` — so it renders absent rather than as an explicit null.
     "ccf.products.refusal.SubjectUnavailableRefusal.error_code",
+    # 24.6-08, the disclosure posture in force (`24.6-L-16`, `D-IMPL-253`
+    # Q17): `minimal` on the tenant policy, `None` on the per-principal
+    # override. Silent at both sentinels, so no registered policy's content
+    # address moves.
+    "ccf.products.entitlement.ProductEntitlementPolicy.disclosure_level",
+    "ccf.products.entitlement.ProductEntitlementGrant.disclosure_level",
     # 24.6-07, the assembler in force on replay dimension 4 (`D-IMPL-253`
     # Q16, `D-IMPL-245` am.1) and the disclosure decision on dimension 5
     # (`D-IMPL-254`).

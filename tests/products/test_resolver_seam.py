@@ -70,6 +70,7 @@ from ccf.products.contract import ContextProductContract
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
+from ccf.products.disclosure import DisclosureDecision
 from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.products.request import ProductRequest
 from ccf.replay.record import (
@@ -448,6 +449,46 @@ def _ask(resolver: GovernedResolver, request: ProductRequest | None) -> Any:
     )
 
 
+def _internal(booted: _Booted, shell: RefusalEnvelope) -> RefusalEnvelope:
+    """The INTERNAL envelope behind a disclosed shell, read from its own record.
+
+    ``24.6-08``. As of ``D-IMPL-253`` Q17 the seam returns the shell Policy
+    permitted, while the record holds what the fabric actually determined
+    (``D-IMPL-254``: *"Don't destroy audit truth merely to achieve external
+    suppression silence."*). A test about internal truth therefore reads it
+    from the record, and a test about the shell reads the shell — which is a
+    stronger pair than either alone, because the two must agree about the
+    determination and disagree about what crossed.
+
+    Resolution IS part of the assertion: the store refuses bytes that do not
+    hash to the address asked for.
+    """
+    assert shell.replay_reference != NO_REPLAY_REFERENCE, (
+        "a shell with no record cannot have an internal form to read; the seam"
+        " mints before it returns (D-IMPL-256)"
+    )
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=shell.replay_reference)
+        )
+    )
+    return RefusalEnvelope.model_validate_json(
+        record.content_generation_path.assembly_refusal
+    )
+
+
+def _disclosure(booted: _Booted, shell: RefusalEnvelope) -> DisclosureDecision:
+    """The :class:`DisclosureDecision` dimension 5 recorded for ``shell``."""
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=shell.replay_reference)
+        )
+    )
+    return DisclosureDecision.model_validate_json(
+        record.content_generation_path.disclosure_decision
+    )
+
+
 # --- conformance ------------------------------------------------------------
 
 
@@ -644,12 +685,28 @@ def test_a_gate_refusal_keeps_the_gates_own_typed_fields(booted: _Booted) -> Non
     )
 
     assert isinstance(outcome, RefusalEnvelope)
+    # Field PRESENCE is identical whatever disclosure withheld (`D-IMPL-253`
+    # amendment 2 (4)): every key the gate declared is on the shell, and only
+    # the VALUES a policy did not permit are replaced.
     assert "expires_at" in outcome.fields
     assert "max_ttl_seconds" in outcome.fields
+    # The declared ceiling survives at `minimal` — a caller can act on it.
     assert str(MAX_TTL_SECONDS) in outcome.fields["max_ttl_seconds"]
-    # A gate refusal has a candidate behind it, so it has a real lineage — and
-    # carrying it is what keeps the pre/post-assembly split structural.
-    assert outcome.pre_assembly_lineage is not None
+
+    # The INTERNAL determination, read from the record the shell points at
+    # (`24.6-08`). A gate refusal has a candidate behind it, so it has a real
+    # lineage — and carrying it is what keeps the pre/post-assembly split
+    # structural. The fixture registers no entitlement policy, so the shell
+    # discloses at the safe default and the lineage does not cross.
+    internal = _internal(booted, outcome)
+    assert internal.pre_assembly_lineage is not None
+    assert set(internal.fields) == set(outcome.fields)
+    # The gate's own measurement is retained internally and withheld on the
+    # shell, which is the whole shape of `D-IMPL-254`.
+    assert internal.fields["expires_at"] != outcome.fields["expires_at"]
+    assert internal.disclosure is None
+    assert outcome.pre_assembly_lineage is None
+    assert outcome.disclosure == "minimal"
 
 
 def test_a_gate_refusal_serves_nothing_and_records_everything(

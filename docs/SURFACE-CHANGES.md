@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**934 entries**, of which **692** name a public Python surface.
+**947 entries**, of which **705** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-457 entries — 418 public Python surface, 39 not public Python API.
+466 entries — 427 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -8363,6 +8363,151 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
 
+#### ccf.products.disclosure.disclose — the ONE step to the shell
+
+- Surface: ccf.products.disclosure.disclose
+- Public surface: true
+- Change type: added
+- Before: absent. `grep -rn "disclos" src/ccf` found only threat-model prose —
+  the fabric had no mechanism for deciding what of a refusal may cross a
+  consumer boundary, so every refusal crossed whole
+- After: `disclose(envelope, *, level, policy) -> tuple[RefusalEnvelope,
+  DisclosureDecision]`. Nothing else in `src/` writes
+  `RefusalEnvelope.disclosure`, and the one caller is
+  `ReplayRefusalRecorder.record` — measured, both greps
+- Why: `D-IMPL-253` Q17, Dave: *"Suppression silence should be
+  policy-controlled, with minimal disclosure as the safe default."* With
+  `D-IMPL-254`'s four layers, a second place deciding what may cross is how
+  audit truth gets destroyed to achieve suppression silence
+- Migration: none — a new function
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.DisclosureLevel
+
+- Surface: ccf.products.disclosure.DisclosureLevel
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["minimal", "reasoned", "full"]` — three named postures, never
+  ordered arithmetically
+- Why: the level a policy puts in force has to be a type the Control Plane
+  artifacts can declare
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.DISCLOSURE_LEVELS
+
+- Surface: ccf.products.disclosure.DISCLOSURE_LEVELS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[frozenset[str]]` — the closed vocabulary by value
+- Why: `disclose` refuses a level nobody declared rather than resolving it to
+  the safe default, which would hide the defect behind correct-looking
+  behaviour
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.DISCLOSURE_MINIMAL
+
+- Surface: ccf.products.disclosure.DISCLOSURE_MINIMAL
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[DisclosureLevel] = "minimal"` — the safe default `D-IMPL-253`
+  Q17 names, and the default of
+  `ProductEntitlementPolicy.disclosure_level`
+- Why: a deployment that never thought about disclosure must land on the safe
+  posture
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.WITHHELD
+
+- Surface: ccf.products.disclosure.WITHHELD
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[str] = "undisclosed"` — what a withheld VALUE becomes. The key
+  is always kept, so field presence never differs
+- Why: `D-IMPL-253` amendment 2 (4) requires *body schema/field presence*
+  equivalence. A removed key would make the shell's shape a channel, which is
+  harder to notice than a prose one
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.EXTERNAL_STATEMENTS
+
+- Surface: ccf.products.disclosure.EXTERNAL_STATEMENTS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[Mapping[str, str]]`, one mechanism sentence per shipped kind,
+  closed by set equality against `REFUSAL_KINDS`. The `tolerance-exceeded`
+  sentence is Dave's own (`D-IMPL-253` Q10); the `subject-unavailable` sentence
+  is the SAME sentence for both internal causes
+- Why: a shell at `minimal` still has to say something true, and the SDK owns
+  what that is — it names no tenant, principal, subject, threshold or artifact
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.PERMITTED_AT_MINIMAL
+
+- Surface: ccf.products.disclosure.PERMITTED_AT_MINIMAL
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[Mapping[str, frozenset[str]]]`, per kind, the refusal's own
+  declared fields that survive at `minimal`. One rule produced every entry: a
+  field crosses only when it states what the caller must satisfy or may do
+  next and reveals nothing about fabric state, another tenant, another
+  principal, or the existence of a subject
+- Why: mechanism, not values — SDK types and SDK field names only. A deployment
+  that wants more says so through its own policy, at `reasoned` or `full`
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL
+
+- Surface: ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[Mapping[str, frozenset[str]]]` — per kind, the members withheld
+  at **every** level below `full`. One entry today: `subject-unavailable`'s
+  `detail`, `cause` and `error_code`
+- Why: `reasoned` crosses the fabric's own prose, so without this a `reasoned`
+  shell would state which of the two causes it hit. `D-IMPL-253` Q27 permits
+  the cause to cross only where policy explicitly says so
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.disclosure.DisclosureDecision
+
+- Surface: ccf.products.disclosure.DisclosureDecision
+- Public surface: true
+- Change type: added
+- Before: absent — replay dimension 5 had the slot (`24.6-07`) and nothing
+  filled it
+- After: `DisclosureDecision(level, policy, internal_kind, external_kind,
+  withheld)`, recorded on
+  `ContentGenerationPath.disclosure_decision` as canonical bytes
+- Why: `D-IMPL-254` names *"producing replay that can reconstruct the decision
+  but not why the consumer saw the particular response it saw"* as one of the
+  four mistakes the separation prevents. The record holds the internal
+  determination AND this, so the shell is derivable rather than trusted
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -8991,7 +9136,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-354 entries — 171 public Python surface, 183 not public Python API.
+357 entries — 174 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -12557,6 +12702,58 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.6-07-every-refusal-is-a-replayable-decision.md`.*
 
+#### ccf.products.entitlement.ProductEntitlementPolicy — the disclosure level
+
+- Surface: ccf.products.entitlement.ProductEntitlementPolicy
+- Public surface: true
+- Change type: reshaped
+- Before: three fields — `tenant_id`, `policy_version`, `principals`
+- After: four. `disclosure_level: DisclosureLevel = DISCLOSURE_MINIMAL`,
+  hash-transparent at its sentinel, so every entitlement policy registered
+  before this field keeps its content address and therefore its pin
+- Why: the level is a value the SDK **interprets**, so it has to sit in an
+  SDK-owned versioned artifact an examiner can resolve — not in the
+  adopter-owned `policy` section, which the SDK deliberately does not read
+- Migration: none. A deployment that never thought about disclosure lands on
+  the safe posture
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.entitlement.ProductEntitlementGrant — the per-principal override
+
+- Surface: ccf.products.entitlement.ProductEntitlementGrant
+- Public surface: true
+- Change type: reshaped
+- Before: three fields — `permitted_schema_names`, `permitted_roles`,
+  `overridable_policies`
+- After: four. `disclosure_level: DisclosureLevel | None = None`,
+  hash-transparent at `None`, which is the positive *this principal has no
+  override* so the tenant's level decides
+- Why: `D-IMPL-254`'s information-barrier case — one reader at `full` and
+  another at `minimal` under the same tenant policy. It widens nothing else: a
+  level says what a reader may learn about a refusal it already received
+- Migration: none
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf_runtime.authz.product_entitlement.ControlPlaneProductEntitlementSource — disclosure_level_for
+
+- Surface: ccf_runtime.authz.product_entitlement.ControlPlaneProductEntitlementSource
+- Public surface: true
+- Change type: reshaped
+- Before: one public decision method, `authorize`
+- After: a second, `disclosure_level_for(*, tenant, principal_id) ->
+  tuple[DisclosureLevel, ProvenanceSource | None]` — the grant's override, else
+  the tenant policy's level, else `(DISCLOSURE_MINIMAL, None)` when no policy is
+  registered. Resolved per call, no cache, no TTL, exactly as `authorize`
+  resolves the same artifact; a near-miss raises rather than being interpreted
+- Why: a different question from `authorize`, asked of the same artifact — that
+  one decides whether the caller may receive the class, this one how much of a
+  refusal's truth may cross
+- Migration: none. An additive method
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -14960,7 +15157,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-116 entries — 96 public Python surface, 20 not public Python API.
+117 entries — 97 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -17202,6 +17399,29 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a caller that wrapped `assemble` in `except AssemblyRefused` for
   these two conditions now receives a value instead. That is the point: a
   returned refusal cannot be swallowed by a bare `except`
+
+*Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
+
+#### ccf.products.resolver.ReplayRefusalRecorder — disclosure inside the seam
+
+- Surface: ccf.products.resolver.ReplayRefusalRecorder
+- Public surface: true
+- Change type: behavior
+- Before: `record` appended the envelope it was handed and returned that same
+  envelope with its address attached
+- After: `record` resolves the level through the new `disclosure_level_for`
+  attribute, records the **internal** envelope together with the
+  `DisclosureDecision` on replay dimension 5, and returns the **disclosed**
+  shell with its address. So a shell the seam returns is disclosed, and the
+  record holds what the fabric determined
+- Why: `D-IMPL-253` Q27, Dave: *"Don't destroy audit truth merely to achieve
+  external suppression silence."* Recording the disclosed form would be exactly
+  that; disclosing at each door would be two readings of one policy
+- Migration: **a caller reading internal truth off a returned shell now reads
+  the permitted statement instead.** Five shipped test modules were re-derived
+  to read the determination from the record and the statement from the shell,
+  which is a stronger pair than either alone. A deployment with no registered
+  entitlement policy discloses at `minimal`
 
 *Recorded by `24.6-08-governed-identity-determinations-return-and-disclosure-is-one-step.md`.*
 

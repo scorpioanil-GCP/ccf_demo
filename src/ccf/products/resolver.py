@@ -119,6 +119,24 @@ No boundary is crossed to achieve any of this: nothing imported below leaves
 ``ccf``. ``tests/invariants/test_src_does_not_import_runtime.py`` asserts that
 for the whole tree rather than for this module's good intentions.
 
+**Determination → Authority → Disclosure → Delivery** — the architectural
+invariant of ``D-IMPL-254``, SDK-defined under CLAUDE.md §11 and not
+whitepaper-derived (the whitepaper is deliberately not edited, ``D-IMPL-253``
+Q28). Dave's text: *"Internal truth, governing authority, and permitted
+disclosure are distinct concerns. The fabric preserves the governed truth of
+why a determination was reached; Policy determines what of that truth may cross
+the consumer boundary; the response shell expresses only the permitted
+disclosure. Decision Replay preserves sufficient governed evidence to
+reconstruct both the determination and the disclosure decision."*
+
+**This module is where the four layers meet, and it is the only place they
+do.** :class:`GovernedResolver` resolves the request against its authorities
+(Authority), assembles and gates it (Determination), and hands every governed
+"no" to :class:`ReplayRefusalRecorder` — the one seam that records the internal
+truth and returns the shell :func:`~ccf.products.disclosure.disclose` permitted
+(Disclosure). What a door does with that shell is Delivery, and a door decides
+nothing.
+
 This module is algorithmic (CINV-03): no LLM client on this path, ever. The
 gate sequence and the replay append are the algorithmic half of the
 Algorithmic ⇄ Semantic Alternation (whitepaper §7.6.6), and a model call
@@ -128,8 +146,8 @@ between a candidate and its content address.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Final, Protocol, TypeVar, runtime_checkable
@@ -144,7 +162,7 @@ from ccf.controlplane.artifacts import (
     ProductClassDeclaration,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.deployment import BootedFabric, build_operator_registry
 from ccf.graph.protocols import GraphView, TraversalDepthCapability
 from ccf.halflife.debt import DebtAssessment
@@ -172,7 +190,15 @@ from ccf.products.constraints import (
     TechnicalCapability,
     _ConstraintSource,
 )
-from ccf.products.entitlement import product_entitlement_key
+from ccf.products.disclosure import (
+    DISCLOSURE_MINIMAL,
+    DisclosureLevel,
+    disclose,
+)
+from ccf.products.entitlement import (
+    ProductEntitlementPolicy,
+    product_entitlement_key,
+)
 from ccf.products.gates import (
     DEBT_TOLERANCE_PARAMETER,
     ServableProduct,
@@ -600,6 +626,91 @@ class RefusalRecorderProtocol(Protocol):
         ...
 
 
+def _disclosure_reader(
+    control_plane: ControlPlaneProtocol,
+) -> Callable[..., tuple[DisclosureLevel, ProvenanceSource | None]]:
+    """A :attr:`ReplayRefusalRecorder.disclosure_level_for` over one registry.
+
+    ``24.6-L-16``; ``D-IMPL-253`` Q17. Resolves the tenant's
+    :class:`~ccf.products.entitlement.ProductEntitlementPolicy` under
+    :func:`~ccf.products.entitlement.product_entitlement_key`, reads the
+    principal's own override when the grant declares one, and falls back to the
+    tenant's level. **No registered policy is
+    :data:`~ccf.products.disclosure.DISCLOSURE_MINIMAL` with a ``None``
+    source** — the safe default, and the ``None`` says positively that no
+    policy set it rather than leaving a reader to guess.
+
+    Read **per call**, with no cache and no TTL, on
+    :class:`~ccf_runtime.authz.product_entitlement.ControlPlaneProductEntitlementSource`'s
+    own reasoning (D-07): a posture tightened in the Control Plane must govern
+    the next determination.
+
+    A near-miss is refused rather than interpreted, in that source's shape too:
+    an artifact under the key that is not a policy, or one whose own
+    ``tenant_id`` is not the tenant it was found under, raises. Disclosing
+    under a policy that names another tenant is exactly the elevation
+    ``T-24.6-29`` describes.
+
+    The returned closure is keyword-permissive for the reason
+    :func:`_minimal_disclosure` is: naming ``principal_id`` as a parameter
+    under ``ccf/products`` is what ``15.5-RESEARCH.md`` Pitfall 3 forbids.
+    """
+
+    def read(**asked: object) -> tuple[DisclosureLevel, ProvenanceSource | None]:
+        tenant = str(asked["tenant"])
+        principal = str(asked["principal_id"])
+        key = product_entitlement_key(tenant_id=tenant)
+        try:
+            version, resolved = control_plane.resolve_latest(key)
+        except Exception:
+            # Deny-by-default in the disclosure dimension: a tenant with no
+            # registered entitlement policy discloses minimally. The exception
+            # type is the registry's (`ControlPlaneMissing`), and catching it
+            # structurally rather than by name keeps this module free of a
+            # second import of the registry's error vocabulary.
+            return DISCLOSURE_MINIMAL, None
+        if not isinstance(resolved, ProductEntitlementPolicy):
+            raise TypeError(
+                f"artifact under {key!r} is not a ProductEntitlementPolicy"
+                f" (got {type(resolved).__name__}); the disclosure level is"
+                " read from the tenant's own entitlement policy and a"
+                " near-miss is refused, never interpreted"
+            )
+        if resolved.tenant_id != tenant:
+            raise ValueError(
+                f"policy under {key!r} declares tenant {resolved.tenant_id!r},"
+                f" not {tenant!r}; disclosing under another tenant's policy is"
+                " the elevation the tenant-scoped key exists to prevent"
+            )
+        source = ProvenanceSource(kind="artifact", identity=key, version=version)
+        grant = resolved.principals.get(principal)
+        if grant is not None and grant.disclosure_level is not None:
+            return grant.disclosure_level, source
+        return resolved.disclosure_level, source
+
+    return read
+
+
+def _minimal_disclosure(
+    **_read: object,
+) -> tuple[DisclosureLevel, ProvenanceSource | None]:
+    """The posture a recorder with nothing to ask can honestly report.
+
+    ``D-IMPL-253`` Q17: *"Suppression silence should be policy-controlled, with
+    minimal disclosure as the safe default."* A recorder constructed without a
+    Control Plane reader cannot resolve any tenant's policy, so
+    :data:`~ccf.products.disclosure.DISCLOSURE_MINIMAL` is not a fallback here —
+    it is the only true answer, and the ``None`` source says positively that no
+    policy set it.
+
+    Keyword-permissive so it satisfies the seam's shape without naming the two
+    keywords: a default that declared ``principal_id`` would put that parameter
+    under ``ccf/products``, which ``15.5-RESEARCH.md`` Pitfall 3 forbids and
+    ``tests/invariants/test_mcp_role_separation.py`` fails on.
+    """
+    return DISCLOSURE_MINIMAL, None
+
+
 @dataclass(frozen=True, kw_only=True)
 class ReplayRefusalRecorder:
     """The SDK's reference :class:`RefusalRecorderProtocol` — one writer, one store.
@@ -633,6 +744,26 @@ class ReplayRefusalRecorder:
             bindings. ``None`` — the default — means the record's bindings are
             **exactly** the caller's tuple, which is the honest posture for a
             recorder wired by a delivery boundary that holds no bundle key.
+        disclosure_level_for: How this recorder reads the posture in force
+            (``24.6-L-16``; ``D-IMPL-253`` Q17). Called as
+            ``(tenant=..., principal_id=...)`` and returning the level with the
+            Control Plane source that set it.
+
+            **Keyed by principal, not by**
+            :class:`~ccf.projection.plan.Perspective`: a delivery-boundary
+            denial has a principal and no resolved role at all
+            (``NO_ROLE_RESOLVED``), and it must disclose under the same reader
+            a resolver refusal for that principal would. A signature that
+            needed a role would have made the two paths disclose differently,
+            which is the observational difference ``D-IMPL-253`` amendment 2
+            (4) forbids.
+
+            The default is :func:`_minimal_disclosure`, which reads nothing and
+            answers ``(DISCLOSURE_MINIMAL, None)``. A recorder wired with no
+            Control Plane to ask cannot resolve a policy, and the safe default
+            is the only coherent answer — asserted here rather than left to a
+            caller to remember. :func:`build_governed_resolver` supplies a
+            reader over the deployment's own registry.
     """
 
     artifact_store: ArtifactStoreProtocol
@@ -640,6 +771,17 @@ class ReplayRefusalRecorder:
     tenant_id: str
     assembly_mode: AssemblyMode
     policy_bundle_pin: PolicyBinding | None = None
+    # A `default_factory` rather than a bare `default`, and the reason is a
+    # measurement rather than a style: a function object's `repr` carries its
+    # memory address, and `docs/surface/v0.2-surface.json` renders this
+    # dataclass's `__init__` signature — so a plain default would put
+    # `<function _minimal_disclosure at 0x…>` in a committed manifest, which is
+    # a different document on every run. `dataclasses` renders a factory's
+    # default as the stable `<factory>` sentinel.
+    # (`tests/test_surface_shape_capture.py::test_the_serialized_manifest_carries_no_memory_addresses`.)
+    disclosure_level_for: Callable[
+        ..., tuple[DisclosureLevel, ProvenanceSource | None]
+    ] = field(default_factory=lambda: _minimal_disclosure)
 
     def record(
         self,
@@ -654,16 +796,41 @@ class ReplayRefusalRecorder:
         assembler_version: str | None = None,
         resolution: EffectiveRequest | None = None,
     ) -> RefusalEnvelope:
-        """Append first, then hand back the shell that now knows its address.
+        """Disclose, append the INTERNAL truth, then hand back the shell.
 
         See :meth:`RefusalRecorderProtocol.record` for the argument contract.
+
+        **The order is the architecture** (``D-IMPL-254``). The record is built
+        from the **internal** envelope — the determination as the fabric
+        reached it, whole — together with the
+        :class:`~ccf.products.disclosure.DisclosureDecision` that produced the
+        shell; what is returned is the **disclosed** envelope with its address
+        attached. So replay reconstructs both *what was determined* and *why
+        the consumer saw the particular response it saw*, which is the pair
+        ``D-IMPL-254`` requires and which recording only the shell would lose.
+
+        Dave, ``D-IMPL-253`` Q27: *"Don't destroy audit truth merely to achieve
+        external suppression silence."* Recording the disclosed form would be
+        exactly that.
+
         There is **one** entry to this seam and there is deliberately no
-        ``disclose_only`` beside it: ``D-IMPL-256`` (1) makes every
-        delivery-boundary denial hold an instant, so a caller that wanted a
-        disclosed shell without a record would be asking for the replay hole
-        the ruling closed. A caller of this seam never calls the disclosure
-        step itself.
+        disclose-without-recording entry beside it: ``D-IMPL-256`` (1) makes
+        every delivery-boundary denial hold an instant, so a caller that wanted
+        a disclosed shell without a record would be asking for the replay hole
+        the ruling closed. The name that shape would have carried is spelled
+        nowhere in ``src/``, so the grep that proves its absence is a clean
+        zero (the ``24.6-04`` precedent for a retired identifier). **No caller of this seam calls**
+        :func:`~ccf.products.disclosure.disclose` **itself** — the resolver's
+        own branches, the governed delivery-boundary step and an assembler's
+        wrappers all reach disclosure only through here, so one determination
+        cannot be disclosed twice by two readings of the policy.
         """
+        level, disclosure_policy = self.disclosure_level_for(
+            tenant=self.tenant_id, principal_id=perspective.principal_id
+        )
+        disclosed, decision = disclose(
+            envelope, level=level, policy=disclosure_policy
+        )
         record = build_replay_record(
             execution=execution,
             product=None,
@@ -684,6 +851,11 @@ class ReplayRefusalRecorder:
             tenant_id=self.tenant_id,
             assembler_id=assembler_id,
             assembler_version=assembler_version,
+            # Dimension 5's own record of the Disclosure layer, pre-serialized
+            # in the SDK's one canonical form — the `hitl_actions` and
+            # `workflow_step_sequence` discipline: a block the layer that made
+            # the decision produced, recorded verbatim rather than rebuilt here.
+            disclosure=canonical_bytes(decision).decode("utf-8"),
             resolution=resolution,
             request=request,
         )
@@ -694,7 +866,7 @@ class ReplayRefusalRecorder:
                 artifact_class=self.replay_record_class,
             ),
         )
-        return envelope.model_copy(update={"replay_reference": reference.uri})
+        return disclosed.model_copy(update={"replay_reference": reference.uri})
 
 
 def _artifact_on(
@@ -1721,6 +1893,11 @@ def build_governed_resolver(
             key=policy_bundle_key,
             version=fabric.pins.version_for(policy_bundle_key),
         ),
+        # 24.6-08: the posture in force, read from the deployment's own
+        # registry per call for `ControlPlaneProductEntitlementSource`'s reason
+        # (no cache, no TTL — a level changed in the Control Plane governs the
+        # next determination, not the one after a process restart).
+        disclosure_level_for=_disclosure_reader(control_plane),
     )
 
     declared: dict[str, object | None] = {

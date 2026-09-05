@@ -5004,6 +5004,63 @@
       }
     }
   },
+  "ccf.products.disclosure": {
+    "__all__": [
+      "DISCLOSURE_LEVELS",
+      "DISCLOSURE_MINIMAL",
+      "DisclosureDecision",
+      "DisclosureLevel",
+      "EXTERNAL_STATEMENTS",
+      "INDISTINGUISHABLE_BELOW_FULL",
+      "PERMITTED_AT_MINIMAL",
+      "WITHHELD",
+      "disclose"
+    ],
+    "exports": {
+      "DISCLOSURE_LEVELS": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
+      "DISCLOSURE_MINIMAL": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "DisclosureDecision": {
+        "kind": "contract",
+        "shape": {
+          "external_kind": "<class 'str'>",
+          "internal_kind": "<class 'str'>",
+          "level": "typing.Literal['minimal', 'reasoned', 'full']",
+          "policy": "ccf.products.provenance.ProvenanceSource | None",
+          "withheld": "tuple[str, ...]"
+        }
+      },
+      "DisclosureLevel": {
+        "kind": "function",
+        "shape": "typing.Literal['minimal', 'reasoned', 'full']"
+      },
+      "EXTERNAL_STATEMENTS": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "INDISTINGUISHABLE_BELOW_FULL": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "PERMITTED_AT_MINIMAL": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "WITHHELD": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "disclose": {
+        "kind": "function",
+        "shape": "(envelope: 'RefusalEnvelope', *, level: 'DisclosureLevel', policy: 'ProvenanceSource | None') -> 'tuple[RefusalEnvelope, DisclosureDecision]'"
+      }
+    }
+  },
   "ccf.products.door": {
     "__all__": [
       "DoorOutcome",
@@ -5081,6 +5138,7 @@
       "ProductEntitlementGrant": {
         "kind": "contract",
         "shape": {
+          "disclosure_level": "typing.Optional[typing.Literal['minimal', 'reasoned', 'full']]",
           "overridable_policies": "frozenset[str]",
           "permitted_roles": "frozenset[str]",
           "permitted_schema_names": "frozenset[str]"
@@ -5089,6 +5147,7 @@
       "ProductEntitlementPolicy": {
         "kind": "contract",
         "shape": {
+          "disclosure_level": "typing.Literal['minimal', 'reasoned', 'full']",
           "policy_version": "<class 'str'>",
           "principals": "collections.abc.Mapping[str, ccf.products.entitlement.ProductEntitlementGrant]",
           "tenant_id": "<class 'str'>"
@@ -5589,7 +5648,7 @@
       },
       "ReplayRefusalRecorder": {
         "kind": "class",
-        "shape": "(*, artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', tenant_id: 'str', assembly_mode: 'AssemblyMode', policy_bundle_pin: 'PolicyBinding | None' = None) -> None"
+        "shape": "(*, artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', tenant_id: 'str', assembly_mode: 'AssemblyMode', policy_bundle_pin: 'PolicyBinding | None' = None, disclosure_level_for: 'Callable[..., tuple[DisclosureLevel, ProvenanceSource | None]]' = <factory>) -> None"
       },
       "ResolverOutcome": {
         "kind": "constant",

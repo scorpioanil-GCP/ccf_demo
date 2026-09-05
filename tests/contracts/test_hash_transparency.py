@@ -394,6 +394,15 @@ _MARKED_IN_THE_TREE = frozenset(
         # a rendered `"error_code": "product_class_unentitled"` differ in
         # shape, and shape is a leak channel (``D-IMPL-253`` am.2 (4)).
         "ccf.products.refusal.SubjectUnavailableRefusal.error_code",
+        # 24.6-08: the disclosure posture in force (``24.6-L-16``,
+        # ``D-IMPL-253`` Q17). Both are hash-transparent at their sentinels —
+        # ``minimal`` on the policy and ``None`` on the grant — so every
+        # entitlement policy registered before this field keeps its content
+        # address and therefore its pin, and a deployment that never thought
+        # about disclosure lands on the safe posture rather than a permissive
+        # one.
+        "ccf.products.entitlement.ProductEntitlementPolicy.disclosure_level",
+        "ccf.products.entitlement.ProductEntitlementGrant.disclosure_level",
         # 24.6-07: the assembler in force on replay dimension 4
         # (``D-IMPL-253`` Q16, ``D-IMPL-245`` amendment 1) and the disclosure
         # decision on dimension 5 (``D-IMPL-254``). All three are silent at

@@ -79,6 +79,8 @@ from typing import Protocol, runtime_checkable
 from mcp.server.auth.middleware.auth_context import get_access_token
 
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneRegistry
+from ccf.products.disclosure import DISCLOSURE_MINIMAL, DisclosureLevel
+from ccf.products.provenance import ProvenanceSource
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
     PrincipalNotEntitled,
@@ -360,6 +362,71 @@ class ControlPlaneProductEntitlementSource:
                 message="no grant resolved and no refusal raised",
             )
         return entitled
+
+    def disclosure_level_for(
+        self, *, tenant: str, principal_id: str
+    ) -> tuple[DisclosureLevel, ProvenanceSource | None]:
+        """The disclosure posture in force for one principal, with its pin.
+
+        ``24.6-L-16``; ``D-IMPL-253`` Q17, Dave: *"Suppression silence should be
+        policy-controlled, with minimal disclosure as the safe default."*
+
+        Three answers and one order: the principal's own grant override if it
+        declares one, else the tenant policy's level, else
+        :data:`~ccf.products.disclosure.DISCLOSURE_MINIMAL` with a ``None``
+        source — *no policy is registered, so the safe default applied*, which
+        is a claim rather than a silence.
+
+        **A different question from** :meth:`authorize`, asked of the same
+        artifact. That one decides whether the caller may receive the class;
+        this one decides how much of a refusal's internal truth may cross. Both
+        pins land in replay dimension 2 when both exist, and they can name
+        different tenants: a denial is decided under the tenant the caller
+        addressed, while the level is read under the tenant whose door is
+        answering.
+
+        Resolved **per call, no cache, no TTL**, exactly as :meth:`authorize`
+        resolves the same artifact (D-07).
+
+        Args:
+            tenant: The tenant whose policy sets the posture.
+            principal_id: The verified caller, for the per-grant override.
+
+        Returns:
+            The level and the artifact source that set it, or the safe default
+            with ``None``.
+
+        Raises:
+            TypeError: the artifact under the tenant's key is not a
+                ``ProductEntitlementPolicy``, or declares a different tenant.
+                A near-miss is refused and never interpreted — disclosing under
+                another tenant's policy is the elevation the tenant-scoped key
+                exists to prevent (``T-24.6-29``).
+        """
+        key = product_entitlement_key(tenant_id=tenant)
+        try:
+            version, resolved = self._control_plane.resolve_latest(key)
+        except ControlPlaneMissing:
+            return DISCLOSURE_MINIMAL, None
+        if not isinstance(resolved, ProductEntitlementPolicy):
+            raise TypeError(
+                f"artifact under {key!r} is not a ProductEntitlementPolicy"
+                f" (got {type(resolved).__name__}); the disclosure level is"
+                " read from the tenant's own entitlement policy and the door"
+                " refuses to interpret a near-miss"
+            )
+        if resolved.tenant_id != tenant:
+            raise TypeError(
+                f"policy under {key!r} declares tenant {resolved.tenant_id!r},"
+                f" not {tenant!r}; the key and the artifact's own tenant are"
+                " supplied independently, so the door compares them rather"
+                " than trusting the lookup"
+            )
+        source = ProvenanceSource(kind="artifact", identity=key, version=version)
+        grant = resolved.principals.get(principal_id)
+        if grant is not None and grant.disclosure_level is not None:
+            return grant.disclosure_level, source
+        return resolved.disclosure_level, source
 
 
 def verified_grant() -> TokenGrant:
