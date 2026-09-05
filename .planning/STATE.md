@@ -3,8 +3,37 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-05T12:20:00.000Z"
+last_updated: "2026-09-05T13:20:00.000Z"
 last_activity: >-
+  **PHASE 24.6 EXECUTED — close prep complete; build evaluation, panel, review and D-GATE-24.6 owed (2026-09-05 13:20Z, wave 12 / plan 15 on `phase-24.6`).**
+  Every instrument the 36 criteria name was run on the shipped tree and recorded in `24.6-CLOSE-PREP.md` with its command, verbatim output and control.
+  Lock: `BLK | wc -l` 38, criteria 36, detector 0 (planted-wrap control 1), sha `c0fdc4f4…` (Amendment 3, `D-IMPL-257`) with the appended-char control
+  `fbccc2e9…` and all four historical controls reproducing on their own commits (`014dcd64…`@`a1ce6cdb`, `c3224bb4…`@`64d9e905`, `eba17d45…`@`4da5a80d`);
+  gsd parser 36 (a READ, no writer); ledger 21/21; plan coverage 21/21 rows + 36/36 criteria, both directions. Suite 6515 collected; four FOREGROUND chunks
+  2688 / 899+90 / 871+127 / 1840 sum EXACTLY to 6515; `make lint` 0, `make typecheck` clean (216), `make product-gates` 57/57, `make docs-strict` 0
+  (it IS in `ci` — Makefile:195 — the "not in ci" premise was wrong and is recorded as a rejected instrument), citation coverage 5 passed.
+  Legs on LOCAL containers: postgres 271/0, neo4j 22/0, mongo 24/0. **`make leg-fluree` 5 FAILED / 301 passed** — all five IN-PHASE, all in cp-04 modules
+  no wave collected (fluree-gated), measured GREEN (68 passed) at base `1022ad59` in a throwaway worktree against the same container:
+  `test_cp_04_anchor.py::test_cft_g18_b_the_tool_carries_the_ambiguity_as_a_governed_refusal` and
+  `test_cp_04_payload.py::test_cft_g06_as_of_is_refused_not_supported_at_tier` (criterion 21's minimal disclosure meeting cp-04's declared teaching
+  gates), `test_cp_04_two_callers.py::test_both_callers_resolve_to_the_same_assembler_module`, `::test_a_serve_path_refusal_…` (FastMCP now prefixes the
+  opaque id) and `::test_the_resolver_assembles_under_the_perspective_it_was_handed` (`build_resolver()` missing the required `refusal_recorder=`).
+  NOTHING was fixed there and no assertion was weakened — three of the five turn on what a published, Dave-evaluated product should TEACH, which is his.
+  One red WAS fixed in-plan (Rule 1, `1f70aa85`): `tests/contracts/test_hash_transparency.py::test_the_marked_fields_in_the_tree_are_exactly_the_ticked_table`
+  — `D-IMPL-259` ticked one of two hash-transparency rosters; departure control fired, restored `cmp`-identical. Fence by SET equality: 1 arrival
+  (`artifacts/source-vocabulary.yaml`, plan 13's `ad41352b`, in its SUMMARY roster and not its PLAN roster) and 3 departures (`question.yaml`,
+  `server/egress-door.yaml`, `test_cp_04_gates_declaration.py`) — all plan 13's, all inside the substantive fence, LISTED never subtracted; planted-file
+  control fires. Sabotage roster 20 → 49 over 71 modules, 3 paired renames, no unpaired departure; the six lock-named and five delivery-boundary sabotages
+  all PASS (19 passed). Criterion 36: 22 entitling door sites, 20 bind a recorder, 2 are the deliberate check-removal sabotages on scratch copies; archive
+  sites listed (hello-context re-measured at `serve.py:793`, not the planning note's `:788`); 0 recorder/writer calls in either transport tree; exactly one
+  `except ProductEntitlementRefused`, in `authz/delivery_boundary.py:313`. Panel packet STAGED ONLY — 39 bundles, 4,680,010 B, stdin never argv, `cat -n`
+  numbered, read-proof planted mid-payload in `bundle-14`, known findings briefed with two adjacency questions; **no reviewer invoked**, so
+  `24.6-CLOSE-REVIEWS.md` and `24.6-REVIEW.md` do not exist. Criterion 35 reads `packet ready; panel and review owed after the build evaluation`.
+  Nine findings for Dave (F-A..F-I), each a question with its measurement, none a disposition (`D-IMPL-227`). `24.6-VALIDATION.md` Status column filled
+  (38 rows). `D-GATE-24.6` DRAFT written into `24.6-CLOSE-PREP.md` — measured facts and questions only, with every not-done step named as not done.
+  Next free id `D-IMPL-260` (max DEFINED 259; the mention-counting reader returns the `D-IMPL-9999` decoy and is recorded as rejected).
+  **NEXT: present the build to Dave. Do NOT run the panel, draft a gate, mark anything complete, merge or push before he has evaluated it.**
+  Hand-edited; no state.*/roadmap.* writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 EXECUTING — waves 1–11 of 12 done; plan 14 COMPLETE, both pages PUBLISHED IN PLACE (2026-09-05 05:20 MST, resumed session on `phase-24.6`).**
   Wave 11 (plan 14, `autonomous: false`): cp-04's transcript captured on the shared estate (Dave: Fluree up on `192.168.4.76:8090`, 4.1.4;
   `fibo-v2` at `t=5296`), diffed hunk by hunk (6 hunks, each attributed: `@1.0.2`, lane `1.1.0`, depth/cost lines, findings roster, policy
@@ -1316,15 +1345,19 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-**PHASE 24.6 IS EXECUTING — waves 1–11 of 12 done (plans 01–14, 16), 2026-09-05 05:20 MST, on `phase-24.6` at the commit
-carrying this line; NOT pushed.** Criteria locked at 36 (`24.6-CRITERIA-LOCK.md`, Amendment 3 digest `c0fdc4f4…` reproduces).
-Mid-phase rulings: `D-IMPL-256` (before Wave 1), `D-IMPL-257` (Wave 5, fence widened narrowly for citation maintenance),
-`D-IMPL-258` (Wave 10, five findings; fix merged `ea1af296`), `D-IMPL-259` (Wave 11, cp-04 `max_depth` floor of 1 on the request
-contract; shipped `958a12e0`). Both rung pages are PUBLISHED IN PLACE: cp-04 `f20ed519-…`, cp-01 `6edeeba9-…` (`24.6-PUBLICATION.md`).
-Open for Dave: plan 13 F-2 (full `leg-fluree`/`leg-postgres` on the shared estate), plan 12 F-1 (PRE-PHASE `gate-tools` red),
-258-FIXES F-1/F-2, `D-IMPL-259`'s two flagged readings (default 3; above-100 stays `constraint-refusal`). Next id `D-IMPL-260`.
-**Resume with `/gsd-execute-phase 24.6` at wave 12 (plan 15, close evidence); then Dave's build evaluation BEFORE panel/review.**
-The paragraphs below are the record as it stood at earlier sittings.
+**PHASE 24.6 IS EXECUTED — all 12 waves done (plans 01–16), 2026-09-05, on `phase-24.6`; NOT pushed, NOT merged.**
+Criteria locked at 36 (`24.6-CRITERIA-LOCK.md`, Amendment 3 digest `c0fdc4f4…` reproduces on the close tree, with all
+four historical controls). Mid-phase rulings: `D-IMPL-256` (before Wave 1), `D-IMPL-257` (Wave 5, fence widened narrowly
+for citation maintenance), `D-IMPL-258` (Wave 10, five findings; fix merged `ea1af296`), `D-IMPL-259` (Wave 11, cp-04
+`max_depth` floor of 1 on the request contract; shipped `958a12e0`). Both rung pages are PUBLISHED IN PLACE: cp-04
+`f20ed519-…`, cp-01 `6edeeba9-…` (`24.6-PUBLICATION.md`). Close evidence is `24.6-CLOSE-PREP.md`: suite 6515 collected in
+four proven chunks with 0 failed; lint/typecheck/product-gates/docs-strict/citation green; legs postgres 271/0, neo4j
+22/0, mongo 24/0. **NOT green:** `make leg-fluree` 5 failed / 301 passed — five IN-PHASE reds in cp-04 modules no wave
+collected (base `1022ad59` runs the same three modules 68 passed); and one PRE-PHASE `gate-tools` red. Nine findings
+carried for Dave (F-A..F-I), none with a disposition. **Owed, in order: Dave's build evaluation, then the cross-AI panel
+(packet STAGED, 39 bundles, no reviewer invoked), then the single-agent review, then `D-GATE-24.6`.** Next id
+`D-IMPL-260`. **Resume by presenting the build to Dave — do NOT run the panel, draft a gate, or mark anything complete
+first (`pause-after-the-product-is-built`).** The paragraphs below are the record as it stood at earlier sittings.
 
 **PHASE 24.6 IS DISCUSSED — `D-IMPL-252` (not a product rung) and `D-IMPL-253` (28 rulings), Dave, 2026-09-04.**
 Context at `.planning/phases/24.6-sdk-gap-phase-the-delivery-boundary-realized-refusal-as-a-go/24.6-CONTEXT.md`;
