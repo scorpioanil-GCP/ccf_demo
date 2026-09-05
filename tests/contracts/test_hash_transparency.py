@@ -340,6 +340,19 @@ _MARKED_IN_THE_TREE = frozenset(
         # parameter nothing bounded, and an override attempt that found no
         # grant each render without the key they have nothing to say under.
         "ccf.products.provenance.ParameterBound.policy_id",
+        # 24.6 correction pass (``D-IMPL-260`` P-G): the constraint's declared
+        # reason rides on the bound it establishes. ``None`` for a technical
+        # bound, which declares no reason; transparent so no bound written
+        # before the member existed moves.
+        "ccf.products.provenance.ParameterBound.reason",
+        # 24.6 correction pass (``D-IMPL-260`` P-I, criterion 10): the override
+        # attempts a REFUSED request made ride on the refusal, as they ride on
+        # `EffectiveRequest.overrides` when the request resolves. Empty when
+        # nothing was attempted; transparent so no refusal already written
+        # moves.
+        "ccf.products.constraints.ConstraintRefusal.overrides",
+        "ccf.products.constraints.PolicyResolutionConflict.overrides",
+        "ccf.products.request.ProductRequestViolation.overrides",
         "ccf.products.provenance.EffectiveParameter.bound",
         "ccf.products.provenance.OverrideRecord.grant_source",
         # 24.6-01: the policy-constraint artifact class (``24.6-L-07``,

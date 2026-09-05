@@ -173,8 +173,10 @@ declaration:
       statement: >-
         max_depth above the BACKEND's TECHNICAL ceiling is refused BY NAME —
         `constraint-refusal`, `bound.authority == "technical"`, carrying the
-        bound and the capability identity that refused it — and is answered at
-        no narrower depth. A depth this estate cannot exhibit (8) is SERVED.
+        bound; the capability identity that refused it is on the internal
+        determination and its replay record, and crosses the door only at
+        `full` (`D-IMPL-260` P-F) — and is answered at no narrower depth. A
+        depth this estate cannot exhibit (8) is SERVED.
       test: tests/examples/test_cp_04_traversal.py::test_cft_g03_max_depth_above_the_technical_ceiling_is_refused_by_name
       sabotage: >-
         clamp to the technical ceiling instead of refusing. This is the

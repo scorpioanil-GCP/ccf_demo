@@ -263,6 +263,14 @@ class ConstraintRefusal(CCFContract):
             default when the caller omitted the parameter. ``None`` for
             ``required-absent``, which is the positive statement *nothing was
             presented*.
+        overrides: Every override the request attempted, with its entitlement
+            result — the same :class:`~ccf.products.provenance.OverrideRecord`
+            tuple a fulfilled resolution carries on
+            :attr:`~ccf.products.provenance.EffectiveRequest.overrides`. A
+            refused request is still a request that asked for an exception,
+            and the attempt and its verdict belong to the determination
+            whichever way it went (``D-IMPL-260`` P-I, criterion 10). Empty
+            when nothing was attempted; hash-transparent at the empty tuple.
     """
 
     reason: Literal["bound-exceeded", "not-in-allowed-set", "required-absent"]
@@ -270,6 +278,9 @@ class ConstraintRefusal(CCFContract):
     detail: str
     bound: ParameterBound
     requested: Any
+    overrides: tuple[OverrideRecord, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class PolicyResolutionConflict(CCFContract):
@@ -294,6 +305,8 @@ class PolicyResolutionConflict(CCFContract):
             refusal.
         key: The parameter whose constraints disagree.
         detail: The human-readable statement naming both sides.
+        overrides: Every override the request attempted, with its entitlement
+            result, as on :class:`ConstraintRefusal` (``D-IMPL-260`` P-I).
         conflicting: The sources of every constraint that took part in the
             disagreement, so an examiner resolves each by ``(key, version)``
             rather than reconstructing the set from prose.
@@ -306,6 +319,9 @@ class PolicyResolutionConflict(CCFContract):
     key: str
     detail: str
     conflicting: tuple[ProvenanceSource, ...]
+    overrides: tuple[OverrideRecord, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 @dataclass(frozen=True)
@@ -351,6 +367,7 @@ def _bound_of(pinned: PinnedConstraint, *, value: Any = _UNSET) -> ParameterBoun
         authority="policy",
         source=_source_of(pinned),
         policy_id=constraint.policy_id,
+        reason=constraint.reason,
     )
 
 
@@ -657,6 +674,26 @@ def _refuse_against(
     return None
 
 
+def _with_overrides(
+    refusal: ConstraintRefusal | PolicyResolutionConflict | ProductRequestViolation,
+    verified_overrides: tuple[OverrideRecord, ...],
+) -> ConstraintRefusal | PolicyResolutionConflict | ProductRequestViolation:
+    """The refusal, carrying every override the request attempted.
+
+    ``D-IMPL-260`` P-I (criterion 10): *"the refusal path must preserve the
+    attempted override and the entitlement result in replay."* The attempts
+    were verified before any bound was held against a value, so every refusal
+    this function's caller returns was reached with them in hand; this puts
+    them on the determination rather than losing them with the resolution
+    that never was. A copy rather than a mutation, because the refusal types
+    are frozen contracts, and a no-op at the empty tuple, where the member is
+    hash-transparent and the refusal's bytes must not move.
+    """
+    if not verified_overrides:
+        return refusal
+    return refusal.model_copy(update={"overrides": verified_overrides})
+
+
 def resolve_effective_request(
     *,
     request: ProductRequest,
@@ -889,7 +926,7 @@ def resolve_effective_request(
     for key in sorted(by_parameter):
         folded = _fold(key=key, pinned=by_parameter[key])
         if isinstance(folded, PolicyResolutionConflict):
-            return folded
+            return _with_overrides(folded, verified_overrides)
         candidates, parameter_guidance = folded
         guidance.extend(parameter_guidance)
 
@@ -905,6 +942,7 @@ def resolve_effective_request(
                 ),
                 bound=presence[0].bound,
                 requested=None,
+                overrides=verified_overrides,
             )
         if key not in effective:
             continue
@@ -933,7 +971,7 @@ def resolve_effective_request(
                     bound=candidate.bound,
                 )
                 continue
-            return refusal
+            return _with_overrides(refusal, verified_overrides)
         if ordered and effective[key].bound is None:
             effective[key] = effective[key].model_copy(
                 update={"bound": ordered[0].bound}
@@ -978,6 +1016,7 @@ def resolve_effective_request(
                 ),
                 bound=technical,
                 requested=effective[name].value,
+                overrides=verified_overrides,
             )
         if effective[name].bound is None:
             effective[name] = effective[name].model_copy(
@@ -991,7 +1030,7 @@ def resolve_effective_request(
         request=request.model_copy(update={"parameters": values}), declared=declared
     )
     if verdict is not None:
-        return verdict
+        return _with_overrides(verdict, verified_overrides)
 
     resolved = EffectiveRequest(
         parameters=tuple(effective[name] for name in sorted(effective)),

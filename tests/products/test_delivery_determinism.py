@@ -59,6 +59,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import json
 import pathlib
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -82,6 +83,7 @@ from ccf.products.constraints import (
 )
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.disclosure import DISCLOSURE_MINIMAL, DisclosureDecision
+from ccf.products.disclosure import WITHHELD
 from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
 from ccf.products.provenance import EffectiveRequest
@@ -532,8 +534,76 @@ def test_a_constraint_refusal_is_the_same_determination_twice(
         assert isinstance(first, RefusalEnvelope), first
         assert first.kind == "constraint-refusal"
         assert first.kind == second.kind
-        assert BACKEND_IDENTITY in first.fields["bound"]
+        # `D-IMPL-260` P-F: which substrate set the bound is fabric state and
+        # does not cross below `full`; the RECORD names it (Q27).
+        assert BACKEND_IDENTITY not in first.fields["bound"], first.fields["bound"]
+        assert BACKEND_IDENTITY in _refusal_block(record_a)
         _assert_two_shells_agree(booted, first, second, record_a, record_b)
+
+
+def test_a_refused_request_records_the_override_it_attempted(
+    tmp_path: pathlib.Path,
+) -> None:
+    """``D-IMPL-260`` P-I, criterion 10, measured on the RECORD.
+
+    Dave: *"the refusal path must preserve the attempted override and the
+    entitlement result in replay."* A caller names a policy to be resolved
+    without, is not entitled to, and is refused on the technical ceiling
+    anyway. The refusal's record — dimension 5's internal envelope — carries
+    the attempt with ``entitled=False`` and ``honored=False``, exactly as a
+    fulfilled resolution would have carried it on ``EffectiveRequest``.
+
+    What would fail here: the shape the close review measured — a refused
+    request whose record says nothing about the override it asked for, so an
+    examiner could not tell an attempt that was refused as unentitled from no
+    attempt at all.
+    """
+    with _deployment(tmp_path / "override", **_depth_documents()) as booted:
+        booted.control_plane.register_typed(
+            KEY_THRESHOLD,
+            _constraint(
+                policy_id=POLICY_THRESHOLD,
+                parameter=THRESHOLD_PARAMETER,
+                operator="maximum",
+                value=THRESHOLD_MAXIMUM_FIRST,
+            ),
+            POLICY_CONSTRAINT,
+        )
+        resolver = _governed(
+            booted,
+            capabilities=(
+                TechnicalCapability(
+                    capability=CAPABILITY_TRAVERSAL_DEPTH,
+                    maximum=DEPTH_MAXIMUM,
+                    identity=BACKEND_IDENTITY,
+                ),
+            ),
+        )
+        request = _request(
+            parameters={
+                THRESHOLD_PARAMETER: CALLER_THRESHOLD,
+                DEPTH_PARAMETER: DEPTH_ASKED,
+            },
+            policy_overrides=(POLICY_THRESHOLD,),
+        )
+        shell = _ask(resolver, request)
+        assert isinstance(shell, RefusalEnvelope), shell
+        assert shell.kind == "constraint-refusal"
+        record = _record_of(booted, shell)
+
+    internal = RefusalEnvelope.model_validate_json(_refusal_block(record))
+    attempted = json.loads(internal.fields["overrides"])
+    assert len(attempted) == 1, attempted
+    (attempt,) = attempted
+    assert attempt["policy_id"] == POLICY_THRESHOLD
+    assert attempt["entitled"] is False and attempt["honored"] is False
+    assert attempt["principal_id"] == PERSPECTIVE.principal_id
+    # And the dimension-2 resolution is the sentinel: there was no resolution,
+    # which is exactly why the attempt has to ride on the refusal.
+    assert _resolution_of(record) == NO_REQUEST_RESOLUTION
+    # The shell withholds it at this tenant's level — an entitlement verdict is
+    # fabric state — so the record is where the attempt is answerable from.
+    assert shell.fields["overrides"] == canonical_bytes(WITHHELD).decode("utf-8")
 
 
 # --- (3) policy-resolution-conflict -------------------------------------------
@@ -849,6 +919,7 @@ def test_a_new_constraint_version_changes_the_determination_at_the_same_instant(
     Control Plane in two states, and the two states are two boots.
     """
     outcomes: list[RefusalEnvelope] = []
+    internals: list[str] = []
     pins: list[str] = []
     for index, maximum in enumerate(
         (THRESHOLD_MAXIMUM_FIRST, THRESHOLD_MAXIMUM_SECOND)
@@ -871,6 +942,7 @@ def test_a_new_constraint_version_changes_the_determination_at_the_same_instant(
             assert isinstance(outcome, RefusalEnvelope), outcome
             assert outcome.kind == "constraint-refusal"
             outcomes.append(outcome)
+            internals.append(_refusal_block(_record_of(booted, outcome)))
             pins.append(version)
 
     first, second = outcomes
@@ -878,8 +950,12 @@ def test_a_new_constraint_version_changes_the_determination_at_the_same_instant(
     # The pin changed: a different value under the same key is a different
     # version, and the shell names it.
     assert pins[0] != pins[1]
-    assert pins[0] in first.fields["bound"]
-    assert pins[1] in second.fields["bound"]
+    # The pin is the bound's `source`, which the RECORD keeps and the shell
+    # does not carry below `full` (`D-IMPL-260` P-F).
+    assert pins[0] in internals[0]
+    assert pins[1] in internals[1]
+    assert pins[0] not in first.fields["bound"]
+    assert pins[1] not in second.fields["bound"]
     # And the determination changed with it.
     assert str(THRESHOLD_MAXIMUM_FIRST) in first.fields["bound"]
     assert str(THRESHOLD_MAXIMUM_SECOND) in second.fields["bound"]

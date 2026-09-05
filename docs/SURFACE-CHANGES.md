@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**983 entries**, of which **740** name a public Python surface.
+**986 entries**, of which **743** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-482 entries — 442 public Python surface, 40 not public Python API.
+484 entries — 444 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -158,6 +158,71 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   nothing in this repository moved
 
 *Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
+
+#### ccf.products.provenance.ParameterBound
+
+- Surface: ccf.products.provenance.ParameterBound
+- Public surface: true
+- Change type: added
+- Before: five members — `operator`, `value`, `authority`, `source`,
+  `policy_id` — and a policy constraint's declared `reason` was recorded on the
+  artifact only. A refusal's replay record named the pin the bound came from
+  and not the justification that pin declared; the close review measured it
+  and the docstring on `PolicyConstraint.reason` said so in as many words
+- After: a sixth member, `reason: str | None`, hash-transparent at `None`.
+  `_bound_of` in `ccf.products.constraints` populates it from
+  `PolicyConstraint.reason` for every bound a policy establishes; a technical
+  bound read off a substrate leaves it `None`. It rides wherever the bound
+  rides — `EffectiveParameter.bound` on a fulfilled resolution,
+  `ConstraintRefusal.bound` on a refusal, and through both into the record
+- Why: `D-IMPL-260` P-G. The constraint that participated in a determination
+  is part of that determination's provenance, and *why the constraint exists*
+  is what an examiner replaying a refusal asks first. Correcting the docstring
+  to say the reason was absent was measured and refused as a substitute for
+  carrying it
+- Migration: nothing to do for a reader of existing records. A deployment that
+  renders `ParameterBound` in its own tooling sees one more optional key on
+  policy bounds from this build on; a reader that rejects unknown keys should
+  admit `reason`
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf.products.disclosure.SUPPRESSED\_BELOW\_FULL
+
+- Surface: ccf.products.disclosure.SUPPRESSED_BELOW_FULL
+- Public surface: true
+- Change type: added
+- Before: absent. `disclose` withheld `fields` values whole (the sentinel
+  `"undisclosed"` in place of the value) or passed them whole; a permitted
+  object-valued field crossed with every one of its sub-members. So a
+  `constraint-refusal` at `minimal` carried `bound.source` — an artifact pin or
+  a substrate identity — and, for a policy bound, `bound.policy_id`, while the
+  same shell normalized `policy_bindings` away. The close review measured the
+  asymmetry
+- After: a third table beside `PERMITTED_AT_MINIMAL` and
+  `INDISTINGUISHABLE_BELOW_FULL`, keyed by kind then by `fields` key, naming
+  the SUB-MEMBERS of a rendered value removed at every level below `full`:
+  `{"constraint-refusal": {"bound": {"source", "policy_id", "reason"}}}`. The
+  key `bound` stays; its rendering below `full` is the canonical rendering of
+  the bound without those three keys, for every authority alike, so a bound
+  with a policy behind it and a bound read off a substrate render with the same
+  keys. `DisclosureDecision.withheld` records the members actually removed as
+  `bound.<member>`
+- Why: `D-IMPL-260` P-F, and the same rule `D-IMPL-258` (2) applied to
+  `policy_bindings`: internal truth ≠ permitted disclosure. Which Control Plane
+  artifact or which substrate answered is fabric state in the register of the
+  policy bindings, and presence of `policy_id` or `reason` would otherwise say
+  which authority answered
+- Migration: **a refused consumer no longer learns which artifact pin or which
+  substrate set the bound, at `minimal` or `reasoned`.** A client reading
+  `refusal["fields"]["bound"]` on a `constraint-refusal` finds `source`,
+  `policy_id` and `reason` absent below `full`; `operator`, `value` and
+  `authority` are still there. A deployment that wants the pin back sets its
+  tenant's `ProductEntitlementPolicy.disclosure_level` to `full`. The
+  cp-04 door test that read the capability identity off the shell now reads it
+  off the replay record the shell's `replay_reference` resolves to
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
 
 #### ccf.deployment.classes.resolve_artifact_class
 
@@ -15698,7 +15763,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-127 entries — 107 public Python surface, 20 not public Python API.
+128 entries — 108 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -15909,6 +15974,41 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   entitlement refusal body` entry, which now carries the four terms
 
 *Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
+
+#### ccf.products.disclosure.INDISTINGUISHABLE\_BELOW\_FULL
+
+- Surface: ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL
+- Public surface: true
+- Change type: behavior
+- Before: `{"subject-unavailable": frozenset({"detail", "cause", "error_code",
+  "policy_bindings"})}`. A delivery-boundary denial carried the
+  `ResourceRequestIdentity` it was decided against (`D-IMPL-256` (1)) on the
+  disclosed shell at every level, and an assembler's nonexistent-subject
+  determination carried none, so the key's PRESENCE told the two subjects
+  apart below `full`. The phase's own equivalence instruments excluded the
+  member on Dave's *"request identity … may legitimately differ"* rider; the
+  close review measured the channel and `D-IMPL-260` P-J ruled it closed
+- After: the same entry with a fifth member, `resource`. Below `full`,
+  `disclose` normalizes it to the member's own sentinel — `None`,
+  hash-transparent — so neither shell renders the key; the
+  `DisclosureDecision` records `resource` among what was withheld. At `full`
+  it crosses whole. The internal envelope on the Decision Replay record keeps
+  it at every level. Both equivalence instruments now compare the member
+  (value and presence) instead of excluding it
+- Why: `D-IMPL-260` P-J, and `D-IMPL-253` amendment 2 (4) by name: *body
+  schema/field presence* is a channel, and one member's presence was carrying
+  the whole distinction. Excluding it from the instrument would have been the
+  allowlist `D-IMPL-258` (2) refused for `policy_bindings`
+- Migration: **a refused consumer no longer learns what resource, on which
+  surface, at what instant a `subject-unavailable` denial was decided against,
+  at `minimal` or `reasoned`.** A client reading `refusal["resource"]` finds
+  the key absent below `full`; the `replay_reference` still resolves, and the
+  record's internal envelope carries the identity for the examiner. A
+  deployment that wants it on the wire sets its tenant's
+  `ProductEntitlementPolicy.disclosure_level` to `full`. Tests that read the
+  identity off the shell now read it off the record
+
+*Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
 
 #### ccf.controlplane.artifacts.load_artifact
 

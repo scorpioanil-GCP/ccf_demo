@@ -504,9 +504,13 @@ class RefusalEnvelope(CCFContract):
         (``D-IMPL-256`` (1)). ``None`` on a refusal that answered a question:
         a resolver's own refusals carry their question in :attr:`request`, and
         a second identity for the same fact would be two spellings of one
-        claim. Retained on the recorded internal shell and on a disclosed shell
-        alike — it names no subject, and the address is what the caller itself
-        asked for.
+        claim. Retained on the recorded internal shell at every level; on a
+        DISCLOSED shell it is governed by the Disclosure layer like any other
+        member — for ``subject-unavailable`` it is normalized to ``None`` below
+        ``full`` (:data:`~ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL`,
+        ``D-IMPL-260`` P-J), because a boundary denial carrying one and an
+        assembler's nonexistent-subject determination carrying none would tell
+        the two apart by key presence alone.
     """
 
     kind: str

@@ -251,10 +251,17 @@ def govern_entitlement(
         product_version: The class's own lane, or ``None`` when the surface
             named none.
         requested_role: The role the caller asked for, or ``None`` on a surface
-            with no way to ask. A denial reached before any role is resolved
-            records :data:`~ccf.replay.record.NO_ROLE_RESOLVED`, which is the
-            door's own positive claim rather than a ``None`` the recorder would
-            have to interpret.
+            with no way to ask. Handed to the perspective resolver and used for
+            nothing else here: the role a denial RECORDS is the one the
+            determination was made under —
+            :attr:`~ccf_runtime.authz.product_entitlement.ProductEntitlementRefused.role`,
+            the resolved perspective's role the source decided against — and
+            a denial reached before any role of the caller's was established
+            records :data:`~ccf.replay.record.NO_ROLE_RESOLVED`, the door's
+            own positive claim rather than a ``None`` the recorder would have
+            to interpret (``D-IMPL-260`` P-D: *"the role that actually
+            participated, explicit absence if none was established, never a
+            substituted default"*).
         parameters: What the caller supplied, for the request identity.
         asked_at: The instant the caller asked as-of, or ``None`` — the
             positive *the caller deferred to the server's decision instant*.
@@ -353,7 +360,11 @@ def govern_entitlement(
             envelope,
             perspective=Perspective(
                 principal_id=grant.client_id,
-                role=requested_role if requested_role is not None else NO_ROLE_RESOLVED,
+                # Dimension 4: the role the source DECIDED under, off the
+                # determination itself — not the role the caller asked for,
+                # which the resolver may have replaced or defaulted — and the
+                # positive absence when none was established (D-IMPL-260 P-D).
+                role=refused.role if refused.role is not None else NO_ROLE_RESOLVED,
             ),
             recorded_at=determined_at,
             policy_bindings=(

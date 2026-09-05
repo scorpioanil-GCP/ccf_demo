@@ -105,6 +105,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.artifact_base import ArtifactClass, VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
+from ccf.products.provenance import OverrideRecord
 from ccf.products.contract import (
     NO_REQUEST_CONTRACT,
     ProductClassRegistrationError,
@@ -285,12 +286,13 @@ class ProductRequest(CCFContract):
             declared grant
             (:attr:`~ccf.products.entitlement.ProductEntitlementGrant.overridable_policies`)
             — *"otherwise anyone who knows a policy ID could bypass it"*. Both
-            facts, entitled and honored, land in the replay record when the
-            request RESOLVES (on the recorded
-            :class:`~ccf.products.provenance.EffectiveRequest`); a request the
-            resolution REFUSES carries no resolution today, so the attempt is
-            not on that record (Phase 24.6 close, a carried finding against
-            criterion 10).
+            facts, entitled and honored, land in the replay record whichever
+            way the resolution goes: on the recorded
+            :class:`~ccf.products.provenance.EffectiveRequest` when the request
+            RESOLVES, and on the refusal's own ``overrides`` member — carried
+            into the record's internal envelope — when the resolution REFUSES
+            (``D-IMPL-260`` P-I, criterion 10: *"the refusal path must preserve
+            the attempted override and the entitlement result in replay"*).
 
             It belongs on the request because **a request carrying an override
             is a different question**: it is content-addressed with the rest of
@@ -1013,6 +1015,16 @@ class ProductRequestViolation(CCFContract):
             it carries the parameter name, the presented value and the
             interval, so a caller reads which number missed and what it had
             to be.
+        overrides: Every override the request attempted, with its entitlement
+            result, when this violation was reached by
+            :func:`~ccf.products.constraints.resolve_effective_request` —
+            the validation pass runs over the EFFECTIVE values after the
+            attempts were verified, and a refused request must not lose them
+            (``D-IMPL-260`` P-I, criterion 10). Empty on a violation reached
+            before any resolution — request-contract conformity at the door —
+            and empty when nothing was attempted. Hash-transparent at the
+            empty tuple, so no violation written before the member existed
+            moves.
     """
 
     reason: ProductRequestViolationReason
@@ -1022,6 +1034,9 @@ class ProductRequestViolation(CCFContract):
     declared_keys: frozenset[str]
     presented_keys: frozenset[str]
     detail: str
+    overrides: tuple[OverrideRecord, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class AnchorAmbiguityRefusal(CCFContract):

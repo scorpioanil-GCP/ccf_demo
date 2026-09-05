@@ -1212,8 +1212,10 @@ def build_replay_record(
        the governed inputs, and a refusal has the same ones a fulfillment
        would have had.
     3. Unchanged.
-    4. ``role`` may be :data:`NO_ROLE_RESOLVED` — a delivery-boundary denial is
-       reached before a perspective's role is established.
+    4. ``role`` is the role the determination was made under; it may be
+       :data:`NO_ROLE_RESOLVED` — the positive claim that no role of the
+       caller's was established before the delivery boundary denied
+       (``D-IMPL-260`` P-D).
     5. ``product_content_address`` is :data:`NO_PRODUCT_ADDRESS`, ``steps`` is
        empty, ``plan_id`` comes from the execution or asserts
        :data:`NO_FABRIC_READ`, ``debt`` comes from the refusal's own permitted

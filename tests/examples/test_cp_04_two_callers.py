@@ -606,6 +606,43 @@ OVER_CAPABILITY_ASK = "mcp-tool(over the technical capability)"
 UNEXHIBITED_ASK = f"mcp-tool(max_depth={UNEXHIBITED_DEPTH})"
 RESOURCE_READ = "resource-read"
 ENUMERATE = "enumerate"
+#: The replay record behind each surface's refusal, resolved from the door's
+#: OWN store by the `replay_reference` the shell carries — read inside the
+#: fixture, while the scratch root still exists. `None` where the surface
+#: served, refused at the transport, or carried no resolvable reference.
+RECORDS = "__records__"
+
+
+def _record_behind(root: pathlib.Path, result: Any) -> Mapping[str, Any] | None:
+    """The replay record one door outcome's `replay_reference` resolves to.
+
+    Out of the `FileArtifactStore` under ``root`` — the store `serve.door`
+    composes and `produce.py::_serve` writes — by the reference the shell
+    carries, never a directory walk. ``None`` rather than a raise: the test
+    reading it says *no record* as its own finding.
+    """
+    from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.artifacts.protocol import parse_artifact_uri
+    from ccf.products.refusal import NO_REPLAY_REFERENCE
+
+    if isinstance(result, Refused) or not isinstance(result, tuple):
+        return None
+    _is_error, text = result
+    try:
+        reference = str(json.loads(text)["refusal"]["replay_reference"])
+    except (ValueError, KeyError, TypeError):
+        return None
+    if not reference or reference == NO_REPLAY_REFERENCE:
+        return None
+    deployment = _load("deployment")
+    store = FileArtifactStore(root=root / deployment.ARTIFACT_STORE_DIRNAME)
+    try:
+        name = parse_artifact_uri(reference)
+        return dict(
+            json.loads(store.get(content_address=name.artifact_version).decode("utf-8"))
+        )
+    except Exception:  # noqa: BLE001 — an unresolvable reference is the test's finding
+        return None
 
 
 @pytest.fixture(scope="module")
@@ -638,8 +675,9 @@ def surfaces(estate: tuple[str, str]) -> dict[str, Any]:
         version=demonstration.schema_version,
     )
     with tempfile.TemporaryDirectory(prefix="cp04-two-callers-door-") as scratch:
-        with serve.door(root=pathlib.Path(scratch)) as opened:
-            return drive(
+        root = pathlib.Path(scratch)
+        with serve.door(root=root) as opened:
+            results = drive(
                 opened,
                 {
                     ENUMERATE: enumeration(),
@@ -658,6 +696,10 @@ def surfaces(estate: tuple[str, str]) -> dict[str, Any]:
                     ),
                 },
             )
+        results[RECORDS] = {
+            ask: _record_behind(root, result) for ask, result in results.items()
+        }
+        return results
 
 
 @pytest.fixture(scope="module")
@@ -1082,7 +1124,33 @@ def test_the_tool_refuses_an_over_capability_depth_rather_than_clamping_it(
     assert bound, f"the door's refusal carries no bound at all: {text[:1000]}"
     assert bound["authority"] == "technical", bound
     assert str(bound["value"]) == str(capability.max_traversal_depth), bound
-    assert bound["source"]["identity"] == capability.capability_identity, bound
+    # `D-IMPL-260` P-F: below `full` the bound crosses WITHOUT its provenance —
+    # which substrate set it is fabric state, in the register of the policy
+    # bindings — and the RECORD keeps it. This deployment discloses at
+    # `minimal` (`ccf_config.yaml`), so the shell has no `source` and the
+    # capability identity is read off the record the shell's reference names.
+    assert body.get("disclosure") == "minimal", body.get("disclosure")
+    assert set(bound) == {"authority", "operator", "value"}, (
+        "the shell's bound carries members beyond the actionable three below"
+        f" `full`: {sorted(bound)}"
+    )
+    assert capability.capability_identity not in text, (
+        "the substrate identity crossed the boundary at `minimal`:"
+        f" {text[:1000]}"
+    )
+    record = surfaces[RECORDS].get(OVER_CAPABILITY_ASK)
+    assert record, (
+        "the refusal's replay reference resolves to no record in the door's"
+        " own store; a determination crossed with nothing behind it"
+    )
+    internal = record["content_generation_path"].get("assembly_refusal")
+    internal = json.loads(internal) if isinstance(internal, str) else internal
+    recorded = (internal or {}).get("fields", {}).get("bound")
+    recorded = json.loads(recorded) if isinstance(recorded, str) else recorded
+    assert recorded and recorded["source"]["identity"] == capability.capability_identity, (
+        "the RECORD does not name the substrate that set the bound; internal"
+        f" truth was destroyed to achieve external silence: {recorded}"
+    )
     assert "nodes" not in text, (
         "a tree came back beside the refusal, which is what a clamp looks like"
         f" when the error is left in: {text[:1000]}"

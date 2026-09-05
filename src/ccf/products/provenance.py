@@ -260,6 +260,19 @@ class ParameterBound(CCFContract):
         policy_id: The policy this bound belongs to, when a policy set it, and
             ``None`` otherwise. Hash-transparent at ``None`` (``D-IMPL-243``):
             a bound with no policy behind it renders without the key.
+        reason: The declared justification the policy constraint carries
+            (:attr:`~ccf.controlplane.artifacts.PolicyConstraint.reason`), when
+            a policy set this bound, and ``None`` otherwise — a technical
+            bound is read off a substrate and declares no reason. Carried so
+            the constraint that participated is answerable from the internal
+            resolution and the replay record alone (``D-IMPL-260`` P-G:
+            *"it should flow into the internal resolution provenance/replay
+            when that constraint participates"*). Whether it crosses a
+            consumer boundary is the Disclosure layer's decision, not this
+            type's: below ``full`` it is suppressed with ``source`` and
+            ``policy_id`` (:data:`~ccf.products.disclosure.SUPPRESSED_BELOW_FULL`).
+            Hash-transparent at ``None``, so every bound written before the
+            member existed renders byte-for-byte as it did.
     """
 
     operator: str
@@ -267,6 +280,9 @@ class ParameterBound(CCFContract):
     authority: Authority
     source: ProvenanceSource
     policy_id: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    reason: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 

@@ -228,7 +228,11 @@ def _governed_denial(body: str, *, withheld: tuple[str, ...] = ()) -> RefusalEnv
     assert shell.fields["cause"] == '"undisclosed"', shell.fields
     # Criterion 36: the denial is a recorded decision, not merely a shaped one.
     assert shell.replay_reference != NO_REPLAY_REFERENCE
-    assert shell.resource is not None
+    # `D-IMPL-260` P-J: the resource identity is normalized below `full` — the
+    # key is absent from the wire — and the child's record keeps it (asserted
+    # on the record at the in-process door, `tests/mcp/test_experience_refusal_channels.py`).
+    assert shell.resource is None
+    assert "resource" not in body
     for token in withheld:
         assert token not in body, f"{token} crossed the wire"
     return shell
@@ -1037,11 +1041,10 @@ def test_a_verified_but_undeclared_principal_is_refused_at_the_front_door(
     )
 
     shell = _governed_denial(body, withheld=(ERROR_PRINCIPAL_NOT_ENTITLED,))
-    # The identity the ruling requires: what was addressed, on which surface.
-    assert shell.resource is not None
-    assert shell.resource.surface == "mcp-resource"
-    assert shell.resource.address == uri
-    assert shell.resource.tenant_id == assembled.address.tenant
+    # The identity the ruling requires — what was addressed, on which surface —
+    # is on the child's RECORD and not on this wire below `full` (`D-IMPL-260`
+    # P-J); the addressed URI must not cross beside the refusal.
+    assert shell.resource is None
     # And it is not the served vessel wearing a refusal's name.
     assert body != canonical_bytes(assembled.servable.product).decode("utf-8")
 
@@ -1097,8 +1100,12 @@ def test_a_class_outside_the_grant_is_refused_at_the_front_door(
     # The entitlement spoke, not the resolver: an unentitled class must never
     # reach the resolver's own "no such product" path, and the resolver's
     # refusal is an `ExperienceProductNotServable` that produces no shell.
-    assert shell.resource is not None
-    assert "-not-this-one" in shell.resource.address
+    # The declared operand it was decided against is the shell's REQUEST
+    # identity — the question, which crosses at every level — while the
+    # resource identity is on the record and not on the wire below `full`
+    # (`D-IMPL-260` P-J).
+    assert shell.resource is None
+    assert "-not-this-one" in shell.request.product_id
     assert "ExperienceProductNotServable" not in body
 
 
@@ -1147,13 +1154,15 @@ def test_a_verified_but_undeclared_principal_is_refused_by_the_context_tool(
 
     assert not is_error, body
     shell = _governed_denial(body, withheld=(ERROR_PRINCIPAL_NOT_ENTITLED,))
-    assert shell.resource is not None
-    assert shell.resource.surface == "mcp-tool"
-    assert shell.resource.address == _tool_address(
+    # Decided against the tool's declared address — recorded, and not on the
+    # wire below `full` (`D-IMPL-260` P-J; the per-path record assertion is
+    # `tests/mcp/test_experience_refusal_channels.py`).
+    assert shell.resource is None
+    assert _tool_address(
         tool=GET_CONTEXT_TOOL,
         tenant=world.tenant,
         product_class=consumed.product_class,
-    )
+    ) not in body
     # A version-less tool records a version-less request identity — a positive
     # claim, not a gap: this tool addresses a class, never a lane.
     assert shell.request.product_version is None
@@ -1211,9 +1220,9 @@ def test_a_foreign_tenant_is_refused_by_the_context_tool(
         withheld=(ERROR_PRODUCT_POLICY_ABSENT, "ExperienceProductNotServable"),
     )
     # Decided against the tenant the CALLER named — the sharper half of
-    # `D-IMPL-128`, now readable off the recorded identity.
-    assert shell.resource is not None
-    assert shell.resource.tenant_id == foreign
+    # `D-IMPL-128`, readable off the RECORDED identity; the wire carries no
+    # resource identity below `full` (`D-IMPL-260` P-J).
+    assert shell.resource is None
 
 
 @with_child
@@ -1248,8 +1257,7 @@ def test_the_lineage_tool_is_entitled_against_its_declared_address(
     )
     assert not is_error, body
     shell = _governed_denial(body, withheld=(ERROR_PRINCIPAL_NOT_ENTITLED,))
-    assert shell.resource is not None
-    assert shell.resource.surface == "mcp-tool"
+    assert shell.resource is None  # `D-IMPL-260` P-J; the surface is on the record
     # A tool with no wire arguments records the empty parameter set as a
     # statement of fact, and it is decided under the DECLARED tenant.
     assert shell.request.parameters == {}
@@ -1617,8 +1625,8 @@ def test_a_deployment_declared_class_outside_the_grant_is_refused(
     the operand it really has.
 
     **Re-derived by ``24.6-16``:** a governed denial returns rather than
-    raising, and the unentitled class is now read off the shell's recorded
-    address — the deployment-declared operand this tool was decided against —
+    raising, and the unentitled class is now read off the shell's request
+    identity — the deployment-declared operand this tool was decided against —
     while the typed ``error_code`` is asserted absent from the wire.
     """
     from ccf.projection.plan import Perspective
@@ -1646,8 +1654,11 @@ def test_a_deployment_declared_class_outside_the_grant_is_refused(
     body = _call_in_process(server, {"tenant": world.tenant, "entity": "any"})
 
     shell = _governed_denial(body, withheld=(ERROR_PRODUCT_CLASS_UNENTITLED,))
-    assert shell.resource is not None
-    assert "-not-this-one" in shell.resource.address
+    # The declared operand is the shell's request identity — the question,
+    # which crosses at every level; the resource identity is recorded and not
+    # disclosed below `full` (`D-IMPL-260` P-J).
+    assert shell.resource is None
+    assert "-not-this-one" in shell.request.product_id
 
 
 def test_a_gated_tool_without_its_declared_address_is_refused(

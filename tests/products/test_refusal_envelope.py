@@ -175,13 +175,18 @@ def test_envelope_for_product_request_violation(
     assert envelope.key == "amount"
     assert envelope.detail == refusal.detail
     # Every typed field survives except the three promoted above. `reason` and
-    # `key` were promoted; `detail` was promoted; four remain.
+    # `key` were promoted; `detail` was promoted; four conformity members
+    # remain, plus the override attempts a refused resolution carries
+    # (`D-IMPL-260` P-I) — rendered even when empty, so field presence is one
+    # shape for every violation of this kind.
     assert set(envelope.fields) == {
         "declared_type",
         "presented_type",
         "declared_keys",
         "presented_keys",
+        "overrides",
     }
+    assert envelope.fields["overrides"] == "[]"
     assert envelope.fields["declared_type"] == '"integer"'
     assert envelope.fields["presented_type"] == '"str"'
     assert envelope.fields["declared_keys"] == '["amount","currency"]'
@@ -857,7 +862,10 @@ def test_envelope_for_constraint_refusal(
     assert envelope.kind == "constraint-refusal"
     assert envelope.reason == "bound-exceeded"
     assert envelope.key == "depth"
-    assert set(envelope.fields) == {"bound", "requested"}
+    # `overrides` rides beside the bound (`D-IMPL-260` P-I), rendered even
+    # when nothing was attempted so the shell's shape is one shape.
+    assert set(envelope.fields) == {"bound", "requested", "overrides"}
+    assert envelope.fields["overrides"] == "[]"
     assert envelope.fields["requested"] == "101"
     assert envelope.fields["bound"] == canonical_bytes(bound).decode("utf-8")
     assert '"authority":"technical"' in envelope.fields["bound"]
@@ -921,7 +929,7 @@ def test_envelope_for_policy_resolution_conflict(
     assert envelope.kind == "policy-resolution-conflict"
     assert envelope.reason == "policy-resolution-conflict"
     assert envelope.key == "depth"
-    assert set(envelope.fields) == {"conflicting"}
+    assert set(envelope.fields) == {"conflicting", "overrides"}
     assert envelope.fields["conflicting"] == canonical_bytes(conflicting).decode(
         "utf-8"
     )
@@ -1699,6 +1707,7 @@ def test_the_added_members_are_envelope_fields_and_not_promoted_fields() -> None
         "presented_type",
         "declared_keys",
         "presented_keys",
+        "overrides",
     }
     assert not set(envelope.fields) & set(THE_SIX_ADDED)
 

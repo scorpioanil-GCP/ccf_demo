@@ -365,6 +365,15 @@ class Asked:
     #: required field would force each control to author one.
     envelope: Any | None = None
 
+    #: The INTERNAL determination the refusal's replay record holds — the
+    #: `assembly_refusal` of the record the shell's `replay_reference` names,
+    #: read out of the same file store `produce.py::_serve` writes, before the
+    #: scratch root is torn down. `D-IMPL-260` P-F: below `full` the shell's
+    #: bound crosses without its `source`, so WHICH substrate refused is read
+    #: here rather than off the wire. ``None`` when nothing was refused, the
+    #: reference did not resolve, or a positive control built the value by hand.
+    recorded: Any | None = None
+
     @property
     def nodes(self) -> tuple[Mapping[str, Any], ...]:
         if self.payload is None:
@@ -390,6 +399,33 @@ class Asked:
     @property
     def depth_applied(self) -> Any:
         return None if self.payload is None else self.payload["max_depth_applied"]
+
+
+def _recorded_determination(root: pathlib.Path, shell: Any) -> Mapping[str, Any] | None:
+    """The internal determination behind one shell, out of the door's own store.
+
+    By the `replay_reference` the shell carries — never a directory walk — from
+    the `FileArtifactStore` under ``root / ARTIFACT_STORE_DIRNAME``, which is
+    the store `produce.py::_serve` writes. ``None`` rather than a raise when
+    the reference is the sentinel or does not resolve: the gate reading it
+    reports *no record* as its own finding.
+    """
+    from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.artifacts.protocol import parse_artifact_uri
+    from ccf.products.refusal import NO_REPLAY_REFERENCE
+
+    reference = str(getattr(shell, "replay_reference", "") or "")
+    if not reference or reference == NO_REPLAY_REFERENCE:
+        return None
+    deployment = _load("deployment")
+    store = FileArtifactStore(root=root / deployment.ARTIFACT_STORE_DIRNAME)
+    try:
+        name = parse_artifact_uri(reference)
+        record = json.loads(store.get(content_address=name.artifact_version).decode("utf-8"))
+        internal = record["content_generation_path"]["assembly_refusal"]
+    except Exception:  # noqa: BLE001 — an unresolvable reference is the gate's finding
+        return None
+    return dict(json.loads(internal)) if isinstance(internal, str) else dict(internal)
 
 
 def ask(
@@ -447,11 +483,12 @@ def ask(
                 asked_as=asked_as, payload=None, content_address=None,
                 refusal=f"{type(refused).__name__}: {refused}",
             )
-    if result.refused:
-        return Asked(
-            asked_as=asked_as, payload=None, content_address=None,
-            refusal=str(result.refusal), envelope=result.refusal,
-        )
+        if result.refused:
+            return Asked(
+                asked_as=asked_as, payload=None, content_address=None,
+                refusal=str(result.refusal), envelope=result.refusal,
+                recorded=_recorded_determination(pathlib.Path(scratch), result.refusal),
+            )
     return Asked(
         asked_as=asked_as,
         payload=dict(result.payload),
@@ -1032,6 +1069,16 @@ def _bound(asked: Asked) -> Mapping[str, Any]:
     return dict(json.loads(raw)) if isinstance(raw, str) else dict(raw)
 
 
+def _recorded_bound(asked: Asked) -> Mapping[str, Any]:
+    """The refusing bound off the RECORD's internal determination. Empty when absent."""
+    if not asked.recorded:
+        return {}
+    raw = dict(asked.recorded.get("fields") or {}).get("bound")
+    if raw is None:
+        return {}
+    return dict(json.loads(raw)) if isinstance(raw, str) else dict(raw)
+
+
 def refusal_violations(
     asked: Asked, *, requested: int, capability: int, identity: str
 ) -> list[str]:
@@ -1107,16 +1154,32 @@ def refusal_violations(
             f" substrate reports {capability}; the refusal is held against a"
             " number nothing measured"
         )
-    source = dict(bound.get("source") or {})
+    # WHICH substrate refused is read off the RECORD, not the wire. `D-IMPL-260`
+    # P-F: below `full` the shell's bound crosses without its `source`, and
+    # this deployment discloses at `minimal`; the internal determination the
+    # replay record holds keeps it, and an examiner resolves it from there.
+    if "source" in bound and getattr(asked.envelope, "disclosure", None) != "full":
+        violations.append(
+            "CFT-G03: the bound's `source` crossed the door below `full`;"
+            " which substrate refused is fabric state (D-IMPL-260 P-F)"
+        )
+    recorded = _recorded_bound(asked)
+    if not recorded:
+        violations.append(
+            "CFT-G03: the refusal's replay record carries no bound, so an"
+            " examiner cannot resolve WHICH substrate refused"
+        )
+        return violations
+    source = dict(recorded.get("source") or {})
     if source.get("identity") != identity:
         violations.append(
-            f"CFT-G03: the bound's source identity is"
+            f"CFT-G03: the recorded bound's source identity is"
             f" {source.get('identity')!r} rather than {identity!r}, so an"
             " examiner cannot resolve WHICH substrate refused"
         )
     if source.get("kind") != CAPABILITY_SOURCE_KIND:
         violations.append(
-            f"CFT-G03: the bound's source kind is {source.get('kind')!r}"
+            f"CFT-G03: the recorded bound's source kind is {source.get('kind')!r}"
             f" rather than {CAPABILITY_SOURCE_KIND!r} — a capability minted as"
             " an artifact is the manufactured provenance D-IMPL-253"
             " amendment 2 (1) refuses"
@@ -1224,7 +1287,16 @@ def test_the_refusal_check_refuses_a_refusal_that_names_no_authority() -> None:
         envelope=SimpleNamespace(
             kind="constraint-refusal",
             key="max_depth",
+            disclosure="minimal",
             fields={
+                "bound": json.dumps(
+                    {"authority": "policy", "operator": "maximum", "value": "100"}
+                )
+            },
+        ),
+        recorded={
+            "kind": "constraint-refusal",
+            "fields": {
                 "bound": json.dumps(
                     {
                         "authority": "policy",
@@ -1238,7 +1310,7 @@ def test_the_refusal_check_refuses_a_refusal_that_names_no_authority() -> None:
                     }
                 )
             },
-        ),
+        },
     )
     violations = refusal_violations(
         mislabeled, requested=101, capability=100, identity="fluree/x"

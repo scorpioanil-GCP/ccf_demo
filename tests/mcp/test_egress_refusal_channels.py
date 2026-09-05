@@ -595,7 +595,10 @@ def test_an_entitlement_denial_on_the_tool_path_is_a_recorded_shell(
     internal = world.internal(record)
     assert json.loads(internal.fields["cause"]) == "unauthorized"
     assert record.perspective_conditioning.principal_id == PRINCIPAL
-    assert record.perspective_conditioning.role == NO_ROLE_RESOLVED
+    # Dimension 4 is the role the source DECIDED under — this door's resolver
+    # conditions every caller under `ROLE` — not the positive-absence claim
+    # (`D-IMPL-260` P-D).
+    assert record.perspective_conditioning.role == ROLE
     assert record.recorded_at == DETERMINED_AT
     assert internal.resource is not None
     assert internal.resource.surface == "mcp-tool"
@@ -649,9 +652,10 @@ def test_an_entitlement_denial_on_the_resource_path_is_a_recorded_shell(
     # The resource poses no question, and its identity says exactly that.
     assert internal.request.temporal_boundary is None
     assert internal.request.parameters == {}
-    # (3) by whom — dimension 4, with the positive claim for the absent role.
+    # (3) by whom — dimension 4, under the role the source decided against
+    # (`D-IMPL-260` P-D).
     assert record.perspective_conditioning.principal_id == PRINCIPAL
-    assert record.perspective_conditioning.role == NO_ROLE_RESOLVED
+    assert record.perspective_conditioning.role == ROLE
     # (4) under which policy — dimension 2.
     assert record.policy_bindings.bindings != ()
     # (5) why — dimension 5's internal determination.

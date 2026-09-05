@@ -4727,6 +4727,7 @@
           "bound": "<class 'ccf.products.provenance.ParameterBound'>",
           "detail": "<class 'str'>",
           "key": "<class 'str'>",
+          "overrides": "tuple[ccf.products.provenance.OverrideRecord, ...]",
           "reason": "typing.Literal['bound-exceeded', 'not-in-allowed-set', 'required-absent']",
           "requested": "typing.Any"
         }
@@ -4749,6 +4750,7 @@
           "conflicting": "tuple[ccf.products.provenance.ProvenanceSource, ...]",
           "detail": "<class 'str'>",
           "key": "<class 'str'>",
+          "overrides": "tuple[ccf.products.provenance.OverrideRecord, ...]",
           "reason": "typing.Literal['policy-resolution-conflict']"
         }
       },
@@ -5013,6 +5015,7 @@
       "EXTERNAL_STATEMENTS",
       "INDISTINGUISHABLE_BELOW_FULL",
       "PERMITTED_AT_MINIMAL",
+      "SUPPRESSED_BELOW_FULL",
       "WITHHELD",
       "disclose"
     ],
@@ -5048,6 +5051,10 @@
         "shape": "dict"
       },
       "PERMITTED_AT_MINIMAL": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "SUPPRESSED_BELOW_FULL": {
         "kind": "constant",
         "shape": "dict"
       },
@@ -5419,6 +5426,7 @@
           "authority": "typing.Literal['default', 'caller', 'policy', 'technical']",
           "operator": "<class 'str'>",
           "policy_id": "str | None",
+          "reason": "str | None",
           "source": "<class 'ccf.products.provenance.ProvenanceSource'>",
           "value": "typing.Any"
         }
@@ -5595,6 +5603,7 @@
           "declared_type": "str | None",
           "detail": "<class 'str'>",
           "key": "<class 'str'>",
+          "overrides": "tuple[ccf.products.provenance.OverrideRecord, ...]",
           "presented_keys": "frozenset[str]",
           "presented_type": "str | None",
           "reason": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum']"

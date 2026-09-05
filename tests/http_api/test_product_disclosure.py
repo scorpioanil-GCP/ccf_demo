@@ -136,15 +136,27 @@ WHOLE_MEMBERS_AT_FULL = frozenset(
 )
 
 
-def without_policy_bindings(violations: list[str]) -> list[str]:
-    """``violations`` minus the ``policy_bindings`` pair.
+#: The violation names every WHOLE member at ``full`` can land on — its value
+#: channel where the comparison has one, and its key presence in the rendered
+#: shell. ``policy_bindings`` (``D-IMPL-258`` (2)) and ``resource``
+#: (``D-IMPL-260`` P-J) today; derived from the split above so a member joining
+#: the table lands here without an edit.
+WHOLE_MEMBER_CHANNELS = frozenset(
+    name
+    for member in WHOLE_MEMBERS_AT_FULL
+    for name in (member, f"schema.refusal:{member}")
+)
 
-    Used at ``full`` only. Below ``full`` the pair must be absent outright, so
-    excluding it there would be teaching the gate to accept the leak — which
-    ``D-IMPL-258`` (2) names by name: *"The allowlist would merely teach the
-    invariant test to accept the leak."*
+
+def without_whole_members(violations: list[str]) -> list[str]:
+    """``violations`` minus the whole-member channels.
+
+    Used at ``full`` only. Below ``full`` those channels must be absent
+    outright, so excluding them there would be teaching the gate to accept the
+    leak — which ``D-IMPL-258`` (2) names by name: *"The allowlist would merely
+    teach the invariant test to accept the leak."*
     """
-    return [name for name in violations if name not in POLICY_BINDING_CHANNEL]
+    return [name for name in violations if name not in WHOLE_MEMBER_CHANNELS]
 
 
 # ---------------------------------------------------------------------------
@@ -295,9 +307,11 @@ def observational_equivalence_violations(
        :func:`test_the_policy_binding_channel_is_measured_and_reported`.
 
     **Excluded, per the rider:** ``request`` (the caller's own question),
-    ``resource`` (the address the caller itself used), every timestamp, and the
-    replay reference's *value*. Those legitimately differ and requiring them to
-    match would be requiring accidental byte equality.
+    every timestamp, and the replay reference's *value*. Those legitimately
+    differ and requiring them to match would be requiring accidental byte
+    equality. ``resource`` is NOT excluded any more: its key presence was the
+    channel ``D-IMPL-260`` P-J closed, and the shell-key comparison above
+    reports it as ``schema.refusal:resource`` wherever it crosses one side only.
 
     Args:
         a: One answer.
@@ -579,10 +593,13 @@ def test_byte_identity_is_not_required(
         unauthorized.body["refusal"]["request"]
         != nonexistent.body["refusal"]["request"]
     )
-    assert (
-        unauthorized.body["refusal"]["resource"]
-        != nonexistent.body["refusal"]["resource"]
-    )
+    # `D-IMPL-260` P-J: the resource identity is normalized below `full` on
+    # BOTH sides — the key is absent from each rendered shell — and the
+    # boundary denial's record still carries it.
+    assert "resource" not in unauthorized.body["refusal"]
+    assert "resource" not in nonexistent.body["refusal"]
+    record = governed.record_at(unauthorized.body["refusal"]["replay_reference"])
+    assert governed.internal(record).resource is not None
     assert unauthorized.content != nonexistent.content
 
     violations = observational_equivalence_violations(
@@ -635,7 +652,7 @@ def test_unauthorized_and_nonexistent_are_observationally_equivalent(
                 for member in PERMITTED_AT_FULL - WHOLE_MEMBERS_AT_FULL
             }
         )
-        assert without_policy_bindings(violations) == expected, violations
+        assert without_whole_members(violations) == expected, violations
     else:
         assert violations == [], violations
 

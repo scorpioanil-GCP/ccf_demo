@@ -58,6 +58,7 @@ from ccf.graph.protocols import NO_STORE_SNAPSHOT_PIN, GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.products.debt_scorer import ExecutionEvidence
+from ccf.products.disclosure import INDISTINGUISHABLE_BELOW_FULL
 from ccf.products.refusal import (
     NO_REPLAY_REFERENCE,
     RefusalEnvelope,
@@ -667,12 +668,20 @@ def test_the_recorder_answers_a_caller_with_a_principal_and_no_role(
     # and the record SAYS so rather than inventing one.
     assert record.perspective_conditioning.principal_id == "principal-at-the-door"
     assert record.perspective_conditioning.role == NO_ROLE_RESOLVED
-    # The determination's own instant, on the record and on the shell alike.
+    # The determination's own instant, on the record. The returned shell is
+    # DISCLOSED at this tenant's level — the safe default. Whether the resource
+    # identity crosses is the Disclosure layer's per-kind decision: for
+    # `subject-unavailable` — the kind every real boundary denial is minted as
+    # — it is normalized below `full` (`D-IMPL-260` P-J; measured in
+    # `tests/products/test_disclosure.py` and at both doors). This fixture's
+    # kind is not in that table, so here it crosses, and the assertion says
+    # which case this is rather than asserting presence as a rule.
     assert record.recorded_at == determined_at
-    assert returned.resource is not None
-    assert returned.resource.determined_at == determined_at
-    # Dimension 5 retains the resource identity: it names no subject, so
-    # nothing about it is a disclosure question.
+    assert returned.disclosure == "minimal"
+    assert "resource" not in INDISTINGUISHABLE_BELOW_FULL.get(returned.kind, ())
+    assert returned.resource == resource
+    # Dimension 5 retains the resource identity whole: internal truth is
+    # recorded, and what may cross is the Disclosure layer's decision.
     recorded = _recorded_shell(record)
     assert recorded.resource == resource
     assert recorded.replay_reference == NO_REPLAY_REFERENCE

@@ -173,6 +173,15 @@ class _Resolver:
         )
 
 
+class _FixedRoleResolver:
+    """A resolver that conditions every caller under one deployment role."""
+
+    def __call__(
+        self, *, grant: TokenGrant, tenant: str, requested_role: str | None
+    ) -> Perspective:
+        return Perspective(principal_id=grant.client_id, role=ROLE)
+
+
 class _SubstitutingResolver:
     """A resolver that proposes a principal the caller is not.
 
@@ -310,13 +319,11 @@ def test_a_denial_is_recorded_at_the_determination_instant_and_resolves(
     assert shell.replay_reference != NO_REPLAY_REFERENCE
     record = fixture.record_at(shell.replay_reference)
 
-    # The determination's own instant, on the shell and on its record alike.
+    # The determination's own instant, on its record. The resource identity
+    # does not cross below `full` (`D-IMPL-260` P-J: its presence alone told a
+    # boundary denial from an assembler's determination); the record keeps it.
     assert record.recorded_at == DETERMINED_AT
-    assert shell.resource is not None
-    assert shell.resource.determined_at == DETERMINED_AT
-    assert shell.resource.surface == SURFACE_HTTP_ROUTE
-    assert shell.resource.address == ADDRESS
-    assert shell.resource.tenant_id == TENANT
+    assert shell.resource is None
 
     # Dimension 4: the principal that asked, and the role it asked under.
     assert record.perspective_conditioning.principal_id == PRINCIPAL
@@ -331,6 +338,9 @@ def test_a_denial_is_recorded_at_the_determination_instant_and_resolves(
     assert internal.fields["cause"] == '"unauthorized"'
     assert internal.resource is not None
     assert internal.resource.determined_at == DETERMINED_AT
+    assert internal.resource.surface == SURFACE_HTTP_ROUTE
+    assert internal.resource.address == ADDRESS
+    assert internal.resource.tenant_id == TENANT
 
     # Dimension 2: the policy that DECIDED, at the version the audit names.
     events = fixture.authz_events()
@@ -345,14 +355,20 @@ def test_a_denial_is_recorded_at_the_determination_instant_and_resolves(
     assert pins == {product_entitlement_key(tenant_id=TENANT): audited.version}
 
 
-def test_the_role_is_the_positive_claim_when_none_was_requested(
+def test_the_role_recorded_is_the_one_the_source_decided_under(
     fixture: _Fixture,
 ) -> None:
-    """A denial before any role is resolved SAYS so rather than inventing one.
+    """``D-IMPL-260`` P-D: the role that PARTICIPATED, never the one asked for.
 
-    What would fail here: a `None` role reaching the recorder, which would make
-    the seam interpret identity on the door's behalf — the inversion
-    ``15.5-RESEARCH.md`` Pitfall 3 forbids.
+    The caller asked for no role; the deployment's resolver established one
+    (its default) and the source decided against it. Dimension 4 carries that
+    role — the determination's own — rather than the positive-absence claim
+    that was recorded here before, which said no role was established when one
+    had been. A `None` never reaches the recorder either way.
+
+    What would fail here: a record that reads the CALLER's request for the
+    role (absent here, so `NO_ROLE_RESOLVED` substituted for a role that did
+    participate), or one that records a role the source never saw.
     """
     fixture.resolver = _Resolver()
     shell = fixture.govern(
@@ -361,7 +377,27 @@ def test_the_role_is_the_positive_claim_when_none_was_requested(
 
     assert isinstance(shell, RefusalEnvelope)
     record = fixture.record_at(shell.replay_reference)
-    assert record.perspective_conditioning.role == NO_ROLE_RESOLVED
+    assert record.perspective_conditioning.role == ROLE
+    assert record.perspective_conditioning.role != NO_ROLE_RESOLVED
+
+
+def test_a_requested_role_the_resolver_replaced_is_not_the_one_recorded(
+    fixture: _Fixture,
+) -> None:
+    """The other half of P-D: the request is not the determination.
+
+    A resolver that maps every caller onto one role — a deployment whose roles
+    are derived from the grant, not asked for — decides under that role
+    whatever was requested; the record must say what was decided under.
+    """
+    fixture.resolver = _FixedRoleResolver()
+    shell = fixture.govern(
+        product_class=OTHER_PRODUCT_CLASS, requested_role="role-the-caller-asked-for"
+    )
+
+    assert isinstance(shell, RefusalEnvelope)
+    record = fixture.record_at(shell.replay_reference)
+    assert record.perspective_conditioning.role == ROLE
 
 
 # --- (2b) the foreign-tenant cases: dimension 2 names who DECIDED ------------
@@ -397,9 +433,11 @@ def test_a_foreign_tenants_denial_pins_that_tenants_policy(
     # — so "the right key" is a measurement rather than a coincidence.
     assert own_key not in pins
     assert foreign_version != own_version
-    # The resource identity names the tenant the pin belongs to.
-    assert shell.resource is not None
-    assert shell.resource.tenant_id == FOREIGN_TENANT
+    # The RECORDED resource identity names the tenant the pin belongs to; the
+    # shell carries none below `full` (`D-IMPL-260` P-J).
+    assert shell.resource is None
+    assert fixture.internal(record).resource is not None
+    assert fixture.internal(record).resource.tenant_id == FOREIGN_TENANT
 
 
 def test_an_unregistered_tenants_denial_names_the_absence_and_pins_nothing(
@@ -464,6 +502,12 @@ def test_the_subject_conflict_path_is_recorded_with_no_entitlement_pin(
     record = fixture.record_at(shell.replay_reference)
     assert record.recorded_at == DETERMINED_AT
     assert record.policy_bindings.bindings == ()
+    # Dimension 4: no role of the CALLER's was established — the resolved
+    # perspective belongs to somebody else — and the record says so
+    # positively rather than carrying the substituted identity's role
+    # (`D-IMPL-260` P-D).
+    assert record.perspective_conditioning.role == NO_ROLE_RESOLVED
+    assert record.perspective_conditioning.principal_id == PRINCIPAL
     # Still no authz audit event, because no source was consulted — which is
     # exactly why the replay record is the only trace and has to exist.
     assert len(fixture.authz_events()) == before
@@ -495,14 +539,15 @@ def test_a_standing_resource_denial_carries_the_identity_the_ruling_requires(
     assert isinstance(shell, RefusalEnvelope), type(shell)
     assert shell.request.temporal_boundary is None
     assert shell.request.parameters == {}
-    assert shell.resource is not None
-    assert shell.resource.surface == SURFACE_MCP_RESOURCE
-    assert shell.resource.surface == "mcp-resource"
+    # Below `full` the shell carries no resource identity (`D-IMPL-260` P-J).
+    assert shell.resource is None
 
     record = fixture.record_at(shell.replay_reference)
-    # (1) what resource, (2) at what instant — on the resource identity.
+    # (1) what resource, (2) at what instant — on the RECORDED resource identity.
     internal = fixture.internal(record)
     assert internal.resource is not None
+    assert internal.resource.surface == SURFACE_MCP_RESOURCE
+    assert internal.resource.surface == "mcp-resource"
     assert internal.resource.address == ADDRESS
     assert internal.resource.determined_at == DETERMINED_AT
     # (3) by whom — dimension 4. (4) under which policy — dimension 2.

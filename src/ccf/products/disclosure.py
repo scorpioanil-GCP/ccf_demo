@@ -83,6 +83,7 @@ clock, no LLM dependency ever.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Final, Literal
 
@@ -121,6 +122,7 @@ __all__ = [
     "EXTERNAL_STATEMENTS",
     "INDISTINGUISHABLE_BELOW_FULL",
     "PERMITTED_AT_MINIMAL",
+    "SUPPRESSED_BELOW_FULL",
     "WITHHELD",
     "DisclosureDecision",
     "DisclosureLevel",
@@ -325,8 +327,10 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
     "lineage-continuity-refusal": frozenset({"tenant_id", "peer_id"}),
     "product-mount-refusal": frozenset({"tenant_id", "schema_name"}),
     # Conformity is entirely about a contract the caller addressed and a
-    # document it supplied. Nothing here is fabric state, so all four cross:
-    # a caller that cannot see what it got wrong cannot correct it.
+    # document it supplied. Nothing here is fabric state, so the four
+    # conformity members cross: a caller that cannot see what it got wrong
+    # cannot correct it. `overrides` (`D-IMPL-260` P-I) is an entitlement
+    # verdict and stays withheld, as it is on `constraint-refusal`.
     "product-request-violation": frozenset(
         {"declared_type", "presented_type", "declared_keys", "presented_keys"}
     ),
@@ -377,13 +381,47 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
 #: names it, and the internal envelope the replay record holds is untouched:
 #: what changed is what may cross, never what the fabric determined.
 #:
+#: ``resource`` joined the entry in ``D-IMPL-260`` P-J (the Phase 24.6 close),
+#: for the same reason read off the same shell: a delivery-boundary denial
+#: carries the :class:`~ccf.products.refusal.ResourceRequestIdentity` it was
+#: decided against and an assembler's nonexistent-subject determination carries
+#: none, so **key presence** told the two apart at every level — the exact
+#: channel ``D-IMPL-253`` amendment 2 (4) names. Dave: *"normalize `resource`
+#: key presence below `full`, retain internally/replay."* The member's own
+#: sentinel is ``None``, hash-transparent, so below ``full`` neither shell
+#: renders the key; the internal envelope on the record keeps the identity —
+#: what resource, on which surface, at what instant — for the examiner
+#: (``D-IMPL-256`` (1)).
+#:
 #: One entry today, and it is a table rather than a branch so that a second kind
 #: with the same property has a place to be declared rather than a condition to
 #: be added.
 INDISTINGUISHABLE_BELOW_FULL: Final[Mapping[str, frozenset[str]]] = {
     "subject-unavailable": frozenset(
-        {"detail", "cause", "error_code", "policy_bindings"}
+        {"detail", "cause", "error_code", "policy_bindings", "resource"}
     ),
+}
+
+#: Per kind, per ``fields`` key, the SUB-MEMBERS of a rendered value that are
+#: suppressed at **every level below** ``full`` — the key itself stays, its
+#: rendering loses the named members, and the internal envelope and the replay
+#: record keep all of them.
+#:
+#: ``D-IMPL-260`` P-F and P-G, on the constraint refusal's ``bound``: *"Minimal
+#: /reasoned must normalize or suppress it consistently with the same
+#: equivalence rules used for policy_bindings. Internal/replay may retain it"*
+#: and *"the shell crossing the boundary is governed by disclosure level."* The
+#: bound's ``operator``, ``value`` and ``authority`` are the actionable part —
+#: what a caller must satisfy and who says so — and cross with the key. Its
+#: ``source`` is a Control Plane artifact pin or a substrate identity, its
+#: ``policy_id`` names the governing policy, and its ``reason`` is that policy's
+#: own justification: fabric state, in the register of ``policy_bindings``. The
+#: three are suppressed as ONE set for every authority, so a bound with a
+#: policy behind it and a bound read off a substrate render with the same keys
+#: below ``full`` — presence would otherwise say which authority answered
+#: (``D-IMPL-253`` amendment 2 (4)).
+SUPPRESSED_BELOW_FULL: Final[Mapping[str, Mapping[str, frozenset[str]]]] = {
+    "constraint-refusal": {"bound": frozenset({"source", "policy_id", "reason"})},
 }
 
 
@@ -425,6 +463,39 @@ class DisclosureDecision(CCFContract):
     internal_kind: str
     external_kind: str
     withheld: tuple[str, ...]
+
+
+def _suppressed_rendering(
+    rendered: str, members: frozenset[str]
+) -> tuple[str, tuple[str, ...]]:
+    """One ``fields`` value with the named sub-members removed from its rendering.
+
+    The value arrives as the canonical rendering :func:`~ccf.products.refusal.envelope_for`
+    gave it — a JSON object for the one field :data:`SUPPRESSED_BELOW_FULL`
+    names today — and leaves as the canonical rendering of that object without
+    ``members``. The keys are REMOVED rather than replaced: a hash-transparent
+    member (``policy_id``, ``reason``) is already absent from the rendering when
+    it has nothing to say, so removal is the only form under which a bound that
+    had one and a bound that had none render identically. Returns the new
+    rendering and the members that were actually present, in sorted order, so
+    the :class:`DisclosureDecision` records what was withheld and not what the
+    table would have withheld had it been there.
+
+    A value that is not a JSON object — the withheld sentinel, or a field a
+    later kind renders as a scalar — is returned untouched with nothing
+    withheld; the table names object-valued fields and a scalar has no members.
+    """
+    try:
+        document = json.loads(rendered)
+    except ValueError:
+        return rendered, ()
+    if not isinstance(document, dict):
+        return rendered, ()
+    gone = tuple(sorted(member for member in members if member in document))
+    if not gone:
+        return rendered, ()
+    projected = {name: value for name, value in document.items() if name not in members}
+    return canonical_bytes(projected).decode("utf-8"), gone
 
 
 def _withheld_whole_member(envelope: RefusalEnvelope, member: str) -> object:
@@ -598,9 +669,13 @@ def disclose(
         if level == DISCLOSURE_MINIMAL
         else frozenset(envelope.fields)
     )
+    suppressed = SUPPRESSED_BELOW_FULL.get(kind, {})
     fields = {}
     for name, value in envelope.fields.items():
         if name in permitted and name not in indistinguishable:
+            if name in suppressed:
+                value, gone = _suppressed_rendering(value, suppressed[name])
+                withheld.update(f"{name}.{member}" for member in gone)
             fields[name] = value
             continue
         if value != rendering:
@@ -611,15 +686,15 @@ def disclose(
     # The three whole-member disclosures. Each is internal by construction —
     # the permitted evidence of the search, the Authority layer's resolution,
     # and the partial lineage that existed at the point of refusal — and none
-    # crosses at `minimal`. `replay_reference`, `request` and `resource` are
-    # deliberately untouched: the first is the address of the record this
-    # determination produced, and the other two are what the caller itself
-    # supplied or the deployment itself declared. `policy_bindings` is
-    # untouched HERE and normalized above for the kinds
-    # `INDISTINGUISHABLE_BELOW_FULL` names it for — per kind rather than at
-    # this level, because `D-IMPL-258` (2) is a ruling about the two subjects
-    # that share one kind and not about what every refusal may say about the
-    # policy that governed it.
+    # crosses at `minimal`. `replay_reference` and `request` are deliberately
+    # untouched: the first is the address of the record this determination
+    # produced, and the second is what the caller itself asked. `policy_bindings`
+    # and `resource` are untouched HERE and normalized above for the kinds
+    # `INDISTINGUISHABLE_BELOW_FULL` names them for — per kind rather than at
+    # this level, because `D-IMPL-258` (2) and `D-IMPL-260` P-J are rulings
+    # about the two subjects that share one kind and not about what every
+    # refusal may say about the policy that governed it or the address it was
+    # decided against.
     if level == DISCLOSURE_MINIMAL:
         for member in ("evidence", "provenance", "pre_assembly_lineage"):
             if getattr(envelope, member) is not None:

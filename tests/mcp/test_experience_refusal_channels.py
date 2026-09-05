@@ -402,10 +402,12 @@ def test_each_entitlement_path_answers_a_denial_with_a_recorded_shell(
     record = door.record_at(shell.replay_reference)
     assert record.recorded_at == DETERMINED_AT
 
-    # Dimension 4: who asked, and the positive claim that no role was resolved
-    # before the denial (`NO_ROLE_RESOLVED`, never a `None` to interpret).
+    # Dimension 4: who asked, and the role the source DECIDED under — this
+    # door's resolver established `ROLE` for a caller that asked for none, and
+    # the record carries that rather than a positive-absence claim for a role
+    # that did participate (`D-IMPL-260` P-D; never a `None` to interpret).
     assert record.perspective_conditioning.principal_id == STRANGER
-    assert record.perspective_conditioning.role == NO_ROLE_RESOLVED
+    assert record.perspective_conditioning.role == ROLE
 
     # Dimension 5's internal determination — the truth the shell withheld.
     internal = door.internal(record)
@@ -442,11 +444,17 @@ def test_each_path_records_the_identity_its_own_surface_carries(
     body = door.ask(path, principal=STRANGER)
     shell = RefusalEnvelope.model_validate_json(body)
 
-    assert shell.resource is not None
-    assert shell.resource.surface == surface
+    # The identity is RECORDED, and read off the record: below `full` the
+    # shell carries none (`D-IMPL-260` P-J — its presence alone told a boundary
+    # denial from an assembler's determination).
+    assert shell.resource is None
+    assert "resource" not in body
+    recorded = door.internal(door.record_at(shell.replay_reference))
+    assert recorded.resource is not None
+    assert recorded.resource.surface == surface
 
     if path == RESOURCE_PATH:
-        assert shell.resource.address == experience_product_uri(
+        assert recorded.resource.address == experience_product_uri(
             tenant=TENANT,
             product_class=PRODUCT_CLASS,
             version=PRODUCT_VERSION,
@@ -454,7 +462,7 @@ def test_each_path_records_the_identity_its_own_surface_carries(
         assert shell.request.product_version == PRODUCT_VERSION
     else:
         tool = GET_CONTEXT_TOOL if path == CONTEXT_PATH else GET_LINEAGE_TOOL
-        assert shell.resource.address == _tool_address(
+        assert recorded.resource.address == _tool_address(
             tool=tool, tenant=TENANT, product_class=PRODUCT_CLASS
         )
         # A positive claim, not a gap: these tools address a class, not a lane.

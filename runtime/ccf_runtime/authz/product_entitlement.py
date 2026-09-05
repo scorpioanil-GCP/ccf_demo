@@ -157,6 +157,18 @@ class ProductEntitlementRefused(ProductEntitlementViolation):
             positive *no policy was consulted*, which is the honest answer for
             the subject-conflict refusal
             :func:`entitled_perspective` raises before any source is asked.
+        role: The role the determination was made under — the one
+            :meth:`ControlPlaneProductEntitlementSource.authorize` was handed,
+            which is the perspective's resolved role — when a role
+            participated, and ``None`` when none was established for the
+            verified caller (the subject-conflict refusal, reached before any
+            role of the caller's own exists). ``D-IMPL-260`` P-D: *"record the
+            role that actually participated, explicit absence if none was
+            established, never a substituted default."* The delivery boundary
+            records it on replay dimension 4 as given, and turns ``None`` into
+            :data:`~ccf.replay.record.NO_ROLE_RESOLVED` — the positive claim —
+            rather than reading the caller's request for a role that may
+            not be the one the source decided under.
     """
 
     def __init__(
@@ -165,10 +177,12 @@ class ProductEntitlementRefused(ProductEntitlementViolation):
         error_code: str,
         message: str,
         policy: ProvenanceSource | None = None,
+        role: str | None = None,
     ) -> None:
         self.error_code = error_code
         self.message = message
         self.policy = policy
+        self.role = role
         super().__init__(
             json.dumps(
                 refusal_detail(error_code=error_code, message=message)
@@ -380,6 +394,7 @@ class ControlPlaneProductEntitlementSource:
                     f" {key!r}; a delivery door with no policy in force"
                     " refuses rather than serves (deny-by-default)"
                 ),
+                role=role,
             )
         else:
             pin = ProvenanceSource(
@@ -414,6 +429,7 @@ class ControlPlaneProductEntitlementSource:
                     error_code=ERROR_PRINCIPAL_NOT_ENTITLED,
                     message=str(absent),
                     policy=pin,
+                    role=role,
                 )
             else:
                 try:
@@ -423,6 +439,7 @@ class ControlPlaneProductEntitlementSource:
                         error_code=ERROR_PRODUCT_CLASS_UNENTITLED,
                         message=str(violation),
                         policy=pin,
+                        role=role,
                     )
                 else:
                     try:
@@ -432,6 +449,7 @@ class ControlPlaneProductEntitlementSource:
                             error_code=ERROR_PRODUCT_ROLE_UNGRANTED,
                             message=str(violation),
                             policy=pin,
+                            role=role,
                         )
         self._audit(
             grant=grant,
@@ -446,6 +464,7 @@ class ControlPlaneProductEntitlementSource:
                 error_code=ERROR_PRODUCT_POLICY_ABSENT,
                 message="no grant resolved and no refusal raised",
                 policy=pin,
+                role=role,
             )
         return entitled
 
@@ -593,6 +612,12 @@ def entitled_perspective(
             # replay dimension 2 must carry no entitlement pin (`24.6-08`,
             # D-34). A pin here would name a policy that never ran.
             policy=None,
+            # And no role of the CALLER's was established: the resolved
+            # perspective belongs to a principal the caller is not, so its
+            # role is a substituted identity's role and is not recorded as
+            # the caller's (`D-IMPL-260` P-D — explicit absence, never a
+            # substituted default).
+            role=None,
         )
     entitlement_source.authorize(
         grant=grant,

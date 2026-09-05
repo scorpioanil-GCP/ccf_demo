@@ -382,7 +382,10 @@ def test_a_denial_before_any_role_is_resolved_records_the_positive_absence(
     answer = _ask(governed.app, fabric, query="", product_class=UNENTITLED_CLASS)
 
     record = governed.record_at(answer.body["refusal"]["replay_reference"])
-    assert record.perspective_conditioning.role == NO_ROLE_RESOLVED
+    # Dimension 4 is the role the source decided under — the shared resolver
+    # establishes `ROLE` for a caller that asked for none — not the
+    # positive-absence claim (`D-IMPL-260` P-D).
+    assert record.perspective_conditioning.role == ROLE
     assert record.perspective_conditioning.principal_id == PRINCIPAL
 
 

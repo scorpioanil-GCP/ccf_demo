@@ -448,7 +448,14 @@ def _resource_answer(world: _World, address: ProductAddress) -> Answer:
 
 #: What legitimately differs and is therefore never compared. Dave: *"request
 #: identity, timestamps, replay IDs, etc. may legitimately differ."*
-EXCLUDED = ("refusal.request", "refusal.resource", "the replay reference's value")
+#:
+#: `refusal.resource` was on this tuple until `D-IMPL-260` P-J: the phase's own
+#: instrument excluded the member on that sentence, and the close review
+#: measured that its KEY PRESENCE — carried by a boundary denial, absent from
+#: an assembler's determination — told the two subjects apart at every level.
+#: It is now a compared channel, (9) below, and the disclosure step normalizes
+#: it below `full`.
+EXCLUDED = ("refusal.request", "the replay reference's value")
 
 
 def observational_equivalence_violations(*, a: Answer, b: Answer) -> list[str]:
@@ -533,6 +540,15 @@ def observational_equivalence_violations(*, a: Answer, b: Answer) -> list[str]:
     if ("policy_bindings" in wire_shell(a)) != ("policy_bindings" in wire_shell(b)):
         violations.append("refusal.policy_bindings.presence")
 
+    # (9) `resource` — ruled in `D-IMPL-260` P-J. The same two halves as (8):
+    # the boundary denial carried the identity it was decided against and the
+    # nonexistent determination carried none, so the key's presence alone was
+    # a channel. Read the same way, for the same reason.
+    if a.refusal.resource != b.refusal.resource:
+        violations.append("refusal.resource")
+    if ("resource" in wire_shell(a)) != ("resource" in wire_shell(b)):
+        violations.append("refusal.resource.presence")
+
     return sorted(violations)
 
 
@@ -549,12 +565,13 @@ def _allowed_to_differ(level: str) -> list[str]:
     value replaced — at both levels.
 
     At `full` the internal truth crosses by policy, and what crosses is
-    **exactly the members that table names**: four since ``D-IMPL-258`` (2)
-    added ``policy_bindings``. `cause` is the discriminator itself;
-    `error_code` is present on the entitlement denial and absent on the
-    nonexistent one; `detail` is the two determinations' own sentences; and
-    `policy_bindings` is the member the ruling normalizes **below** `full` and
-    leaves alone at it. Derived by reading the shipped table and mapping each
+    **exactly the members that table names**: five since ``D-IMPL-260`` P-J
+    added ``resource`` beside ``D-IMPL-258`` (2)'s ``policy_bindings``.
+    `cause` is the discriminator itself; `error_code` is present on the
+    entitlement denial and absent on the nonexistent one; `detail` is the two
+    determinations' own sentences; and `policy_bindings` and `resource` are
+    the members the rulings normalize **below** `full` and leave alone at it.
+    Derived by reading the shipped table and mapping each
     member to the channel it lands on, rather than transcribed — so a member
     leaving that table, or a new kind joining it, changes this expectation
     without an edit here, and a member the table names that does NOT actually
@@ -696,6 +713,62 @@ def test_the_policy_binding_channel_is_closed_below_full(
         "reasoned": (False, False),
     }, keys
     assert resource_keys == keys, resource_keys
+
+
+def test_the_resource_channel_is_closed_below_full(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """`resource` cannot tell the two subjects apart below `full` (`D-IMPL-260` P-J).
+
+    The member the phase's own instrument excluded, measured the way
+    `policy_bindings` is: the key's presence on the rendered bytes, per level,
+    on both surfaces. Below `full` it is absent from BOTH shells; at `full`
+    the boundary denial carries it and the nonexistent determination does not
+    — which is also this test's vacuity guard.
+
+    What would fail here: the `resource` row leaving
+    :data:`~ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL` (the
+    sabotage of record), or a normalization applied on one surface only.
+    """
+    keys: dict[str, tuple[bool, bool]] = {}
+    resource_keys: dict[str, tuple[bool, bool]] = {}
+    for level in sorted(DISCLOSURE_LEVELS):
+        world = _World(tmp_path / level, address=assembled.address, level=level)
+        unentitled = _unentitled(assembled.address)
+        keys[level] = (
+            "resource" in wire_shell(_tool_answer(world, unentitled)),
+            "resource" in wire_shell(_tool_answer(world, assembled.address)),
+        )
+        resource_keys[level] = (
+            "resource" in wire_shell(_resource_answer(world, unentitled)),
+            "resource" in wire_shell(_resource_answer(world, assembled.address)),
+        )
+
+    assert keys == {
+        "full": (True, False),
+        "minimal": (False, False),
+        "reasoned": (False, False),
+    }, keys
+    assert resource_keys == keys, resource_keys
+
+
+def test_the_record_keeps_the_resource_identity_the_shell_no_longer_shows(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """`D-IMPL-260` P-J's other half: *"retain internally/replay."*
+
+    The boundary denial's record still names what resource was addressed, on
+    which surface, at what instant (`D-IMPL-256` (1)) — the closure above is a
+    disclosure act, not an erasure.
+    """
+    world = _World(tmp_path, address=assembled.address, level="minimal")
+    unauthorized = _tool_answer(world, _unentitled(assembled.address))
+
+    assert unauthorized.refusal.resource is None
+    internal = world.internal_envelope(unauthorized.refusal.replay_reference)
+    assert internal.resource is not None, internal
+    assert internal.resource.surface == "mcp-tool"
+    assert internal.resource.address, internal.resource
 
 
 def test_the_record_keeps_the_bindings_the_shell_no_longer_shows(
@@ -903,9 +976,13 @@ def test_equivalence_is_not_byte_identity(
         "the two shells are byte-identical, so this test would pass without the"
         " exclusions it exists to justify"
     )
-    for member in EXCLUDED[:2]:
+    for member in EXCLUDED[:1]:
         name = member.split(".", 1)[1]
         assert getattr(honest.refusal, name) != getattr(other.refusal, name), (
             f"{member} is equal across the pair, so excluding it is untested"
         )
+    # And `resource` is NOT among the exclusions any more: both sides are
+    # normalized below `full`, so equality here is the closure and not an
+    # accident of the fixture (`D-IMPL-260` P-J).
+    assert honest.refusal.resource is None and other.refusal.resource is None
     assert observational_equivalence_violations(a=honest, b=other) == []

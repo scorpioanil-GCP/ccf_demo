@@ -57,6 +57,7 @@ from ccf.controlplane.artifacts import (
     PolicyConstraint,
 )
 from ccf.products import constraints as constraints_module
+from ccf.contracts.canonical import canonical_bytes
 from ccf.products.constraints import (
     CAPABILITY_TRAVERSAL_DEPTH,
     ConstraintRefusal,
@@ -323,6 +324,9 @@ def test_case_3_policy_maximum_bounds_the_caller() -> None:
     assert parameter.bound is not None
     assert parameter.bound.policy_id == "fixture-policy"
     assert parameter.bound.authority == "policy"
+    # `D-IMPL-260` P-G: the constraint's declared reason rides on the bound it
+    # established, so the resolution's provenance says why the bound was there.
+    assert parameter.bound.reason == "a fixture reason"
     assert Decimal(".30") not in set(resolved.values().values())
     assert (
         ProvenanceSource(
@@ -356,9 +360,72 @@ def test_case_4_depth_within_the_technical_limit_is_valid() -> None:
     assert parameter.bound.source.identity == "fixture-store"
     assert parameter.bound.source.version is None
     assert parameter.bound.policy_id is None
+    # A technical bound is read off a substrate and declares no reason.
+    assert parameter.bound.reason is None
 
     with pytest.raises(AssertionError):
         assert parameter.bound.authority == "policy"
+
+
+_ATTEMPTED = (
+    OverrideRecord(
+        policy_id="fixture-policy",
+        policy_version="1.0.0",
+        principal_id="fixture-principal",
+        entitled=False,
+        honored=False,
+    ),
+)
+
+
+def test_a_refused_request_keeps_the_override_it_attempted() -> None:
+    """``D-IMPL-260`` P-I (criterion 10): the attempt survives the refusal.
+
+    Dave: *"the refusal path must preserve the attempted override and the
+    entitlement result in replay."* The verified records are handed to the
+    resolution before any bound is held against a value, so every refusal it
+    can return was reached with them in hand. Three of the four refusal exits
+    measured — the technical ceiling, a policy ceiling, and a resolution
+    conflict — each carrying exactly the attempts it was handed, unentitled
+    and unhonored as they were verified. The fourth exit (validation over the
+    effective values) is the same one-line carriage and is measured through
+    the envelope in ``test_refusal_envelope.py``.
+
+    What would fail here: a refusal constructed at any exit without the
+    attempts, which is the shape the close review measured — an examiner
+    replaying a refused request could not see that an override was asked for
+    or that it was refused as unentitled.
+    """
+    technical = _resolve(_request(**{DEPTH: 101}), overrides=_ATTEMPTED)
+    assert isinstance(technical, ConstraintRefusal)
+    assert technical.overrides == _ATTEMPTED
+
+    policy = _resolve(
+        _request(**{DEPTH: 10}),
+        constraints=(_pinned(parameter=DEPTH, operator="maximum", value=Decimal(5)),),
+        overrides=_ATTEMPTED,
+    )
+    assert isinstance(policy, ConstraintRefusal)
+    assert policy.reason == "bound-exceeded" and policy.bound.authority == "policy"
+    assert policy.overrides == _ATTEMPTED
+
+    conflict = _resolve(
+        _request(**{DEPTH: 4}),
+        constraints=(
+            _pinned(parameter=DEPTH, operator="maximum", value=Decimal(3), key="c"),
+            _pinned(parameter=DEPTH, operator="minimum", value=Decimal(9), key="f"),
+        ),
+        overrides=_ATTEMPTED,
+    )
+    assert isinstance(conflict, PolicyResolutionConflict)
+    assert conflict.overrides == _ATTEMPTED
+
+    # And nothing attempted is the empty tuple — hash-transparent, so a
+    # refusal written before the member existed renders as it did.
+    bare = _resolve(_request(**{DEPTH: 101}))
+    assert isinstance(bare, ConstraintRefusal)
+    assert bare.overrides == ()
+    assert b"overrides" not in canonical_bytes(bare)
 
 
 def test_a_depth_over_the_technical_limit_is_refused_by_name() -> None:
@@ -378,6 +445,7 @@ def test_a_depth_over_the_technical_limit_is_refused_by_name() -> None:
     assert refused.bound.authority == "technical"
     assert refused.bound.value == Decimal(100)
     assert refused.bound.source.identity == "fixture-store"
+    assert refused.bound.reason is None
 
 
 def test_the_technical_bound_never_clamps_the_request() -> None:

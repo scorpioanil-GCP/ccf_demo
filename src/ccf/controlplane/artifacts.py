@@ -561,10 +561,13 @@ class PolicyConstraint(VersionedArtifact):
         effective_until: The instant it stops applying, or ``None`` for a
             constraint with no stated end. Hash-transparent at ``None``.
         reason: The declared justification or citation. Recorded on the
-            artifact and resolvable from its pin; NOT carried into a refusal
-            shell or the refusal's replay record today — the constraint's
-            ``bound`` travels, its ``reason`` does not (Phase 24.6 close, a
-            carried finding). A shell that quotes it is a later phase's.
+            artifact, and carried onto every
+            :class:`~ccf.products.provenance.ParameterBound` this constraint
+            establishes, so the internal resolution and the replay record name
+            why the bound was in force (``D-IMPL-260`` P-G). Whether a consumer
+            sees it is the Disclosure layer's decision: below ``full`` the
+            bound crosses without its ``reason``, ``source`` and ``policy_id``
+            (:data:`~ccf.products.disclosure.SUPPRESSED_BELOW_FULL`).
         priority: Ordering among comparable constraints. ``0`` — the default —
             is the positive assertion that this constraint claims no ordering.
             Hash-transparent at ``0``.

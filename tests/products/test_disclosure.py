@@ -22,6 +22,7 @@ channel to notice. So both are asserted, per kind, over the whole vocabulary.
 from __future__ import annotations
 
 import importlib.util
+import json
 import pathlib
 import sys
 import types
@@ -38,13 +39,16 @@ from ccf.products.disclosure import (
     EXTERNAL_STATEMENTS,
     INDISTINGUISHABLE_BELOW_FULL,
     PERMITTED_AT_MINIMAL,
+    SUPPRESSED_BELOW_FULL,
     WITHHELD,
     DisclosureDecision,
     disclose,
 )
+from ccf.products.constraints import ConstraintRefusal
 from ccf.products.provenance import (
     EffectiveParameter,
     EffectiveRequest,
+    ParameterBound,
     ProvenanceSource,
 )
 from ccf.graph.protocols import NO_STORE_SNAPSHOT_PIN
@@ -53,6 +57,7 @@ from ccf.products.refusal import (
     RefusalEnvelope,
     RefusalEvidence,
     RequestIdentity,
+    ResourceRequestIdentity,
     SubjectUnavailableRefusal,
     envelope_for,
 )
@@ -158,6 +163,54 @@ def _internal(token: str) -> RefusalEnvelope:
         return envelope_for(refusal, **common)
 
 
+def _expected_below_full(token: str, name: str, internal_value: str) -> str:
+    """What one PERMITTED field's rendering is below ``full``.
+
+    The internal rendering with the sub-members
+    :data:`SUPPRESSED_BELOW_FULL` names for it removed — measured by
+    re-rendering the projected object, so the assertion is on the table's
+    meaning rather than on a second copy of the step.
+    """
+    members = SUPPRESSED_BELOW_FULL.get(token, {}).get(name)
+    if not members:
+        return internal_value
+    document = json.loads(internal_value)
+    return canonical_bytes(
+        {key: value for key, value in document.items() if key not in members}
+    ).decode("utf-8")
+
+
+_POLICY_BOUND = ParameterBound(
+    operator="maximum",
+    value=6,
+    authority="policy",
+    source=ProvenanceSource(
+        kind="artifact", identity="ccf.policy-constraint/depth", version="1.0.0"
+    ),
+    policy_id="depth-ceiling",
+    reason="Reg. X §1 — traversal beyond six hops is not a reportable family",
+)
+_TECHNICAL_BOUND = ParameterBound(
+    operator="maximum",
+    value=100,
+    authority="technical",
+    source=ProvenanceSource(kind="capability", identity="fluree/fibo-v2", version=None),
+)
+
+
+def _constraint_refusal(bound: ParameterBound) -> RefusalEnvelope:
+    return envelope_for(
+        ConstraintRefusal(
+            reason="bound-exceeded",
+            key="max_depth",
+            detail=f"max_depth: 101 exceeds {bound.value}",
+            bound=bound,
+            requested=101,
+        ),
+        request=_request_identity(),
+    )
+
+
 # --- (1) the two tables are closed over the vocabulary -----------------------
 
 
@@ -221,7 +274,7 @@ def test_minimal_withholds_everything_outside_the_permitted_set(
         if name in PERMITTED_AT_MINIMAL[token] and name not in (
             INDISTINGUISHABLE_BELOW_FULL.get(token, frozenset())
         ):
-            assert value == internal.fields[name], name
+            assert value == _expected_below_full(token, name, internal.fields[name]), name
         else:
             assert value == rendering, name
     assert shell.evidence is None
@@ -253,7 +306,7 @@ def test_reasoned_keeps_the_fabrics_own_account(token: str) -> None:
         if name in indistinguishable:
             assert value == canonical_bytes(WITHHELD).decode("utf-8"), name
         else:
-            assert value == internal.fields[name], name
+            assert value == _expected_below_full(token, name, internal.fields[name]), name
     assert shell.evidence == internal.evidence
     assert shell.provenance == internal.provenance
     assert shell.pre_assembly_lineage == internal.pre_assembly_lineage
@@ -283,7 +336,13 @@ def test_full_is_the_internal_form_with_its_level_stated(token: str) -> None:
 # --- (3) the two causes are one outcome --------------------------------------
 
 
-def _cause(cause: str, *, detail: str, error_code: str | None) -> RefusalEnvelope:
+def _cause(
+    cause: str,
+    *,
+    detail: str,
+    error_code: str | None,
+    resource: ResourceRequestIdentity | None = None,
+) -> RefusalEnvelope:
     return envelope_for(
         SubjectUnavailableRefusal(
             cause=cause, detail=detail, error_code=error_code
@@ -291,7 +350,19 @@ def _cause(cause: str, *, detail: str, error_code: str | None) -> RefusalEnvelop
         request=_request_identity(),
         evidence=_evidence(),
         provenance=_provenance(),
+        resource=resource,
     )
+
+
+#: The identity a DELIVERY-BOUNDARY denial carries and an assembler's
+#: nonexistent-subject determination does not (`D-IMPL-256` (1)) — the member
+#: whose presence alone told the two apart before `D-IMPL-260` P-J.
+_BOUNDARY_RESOURCE = ResourceRequestIdentity(
+    surface="mcp-tool",
+    address="ccf-product://tenant-a/ccf.test-product/1.0.0",
+    tenant_id="tenant-a",
+    determined_at=_INSTANT,
+)
 
 
 NONEXISTENT = {
@@ -321,12 +392,20 @@ def test_the_two_subject_causes_are_byte_identical_below_full(level: str) -> Non
     differs is held constant here so that anything left differing is a leak.
     """
     absent, _ = disclose(_cause(**NONEXISTENT), level=level, policy=None)
-    refused, _ = disclose(_cause(**UNAUTHORIZED), level=level, policy=None)
+    refused, decision = disclose(
+        _cause(**UNAUTHORIZED, resource=_BOUNDARY_RESOURCE), level=level, policy=None
+    )
 
     assert canonical_bytes(absent) == canonical_bytes(refused)
     assert absent.detail == EXTERNAL_STATEMENTS["subject-unavailable"]
     assert absent.fields["cause"] == canonical_bytes(WITHHELD).decode("utf-8")
     assert absent.fields["error_code"] == canonical_bytes(WITHHELD).decode("utf-8")
+    # `D-IMPL-260` P-J: the boundary denial's resource identity is normalized
+    # to the member's own `None` below `full`, so neither shell renders the
+    # key and presence says nothing. The decision names the withholding.
+    assert refused.resource is None and absent.resource is None
+    assert "resource" not in canonical_bytes(refused).decode("utf-8")
+    assert "resource" in decision.withheld
 
 
 def test_at_full_the_two_causes_differ_and_the_internal_truth_survives() -> None:
@@ -337,12 +416,95 @@ def test_at_full_the_two_causes_differ_and_the_internal_truth_survives() -> None
     ``D-IMPL-253`` Q27 says to keep.
     """
     absent, _ = disclose(_cause(**NONEXISTENT), level="full", policy=None)
-    refused, _ = disclose(_cause(**UNAUTHORIZED), level="full", policy=None)
+    refused, _ = disclose(
+        _cause(**UNAUTHORIZED, resource=_BOUNDARY_RESOURCE), level="full", policy=None
+    )
 
     assert canonical_bytes(absent) != canonical_bytes(refused)
     assert absent.fields["cause"] == '"nonexistent"'
     assert refused.fields["cause"] == '"unauthorized"'
     assert refused.fields["error_code"] == '"product_class_unentitled"'
+    assert refused.resource == _BOUNDARY_RESOURCE
+
+
+# --- (2b) sub-member suppression — the constraint refusal's bound -----------
+
+
+@pytest.mark.parametrize("token", TOKENS)
+def test_every_suppressed_member_is_a_member_the_field_renders(token: str) -> None:
+    """The sub-member table names real keys of real object-valued fields.
+
+    A renamed member on :class:`ParameterBound` would otherwise leave the table
+    suppressing nothing while reading as if it suppressed three things.
+    """
+    for name, members in SUPPRESSED_BELOW_FULL.get(token, {}).items():
+        internal = _internal(token)
+        assert name in internal.fields, (token, name)
+        document = json.loads(internal.fields[name])
+        assert isinstance(document, dict), (token, name)
+        rendered_type = BY_TOKEN[token].model_fields[name].annotation
+        declared = set(rendered_type.model_fields)
+        assert members <= declared, (
+            f"{token}.{name} suppresses {sorted(members - declared)}, which"
+            f" {rendered_type.__name__} does not declare"
+        )
+        assert name in PERMITTED_AT_MINIMAL[token], (
+            f"{token}.{name} is suppressed member-wise but withheld whole at"
+            " minimal; the table would be dead there"
+        )
+
+
+@pytest.mark.parametrize("level", sorted(DISCLOSURE_LEVELS - {"full"}))
+def test_the_bound_crosses_below_full_without_its_source_policy_and_reason(
+    level: str,
+) -> None:
+    """``D-IMPL-260`` P-F / P-G: the actionable bound crosses, its provenance does not.
+
+    The key ``bound`` stays and its ``operator``, ``value`` and ``authority``
+    cross unchanged; ``source``, ``policy_id`` and ``reason`` are removed from
+    the rendering. The decision records exactly the members that were present
+    — the technical bound had no policy and no reason to withhold.
+    """
+    internal = _constraint_refusal(_POLICY_BOUND)
+    shell, decision = disclose(internal, level=level, policy=None)
+
+    crossed = json.loads(shell.fields["bound"])
+    assert set(crossed) == {"authority", "operator", "value"}, crossed
+    assert crossed == {"authority": "policy", "operator": "maximum", "value": 6}
+    assert "bound.policy_id" in decision.withheld
+    assert "bound.reason" in decision.withheld
+    assert "bound.source" in decision.withheld
+    assert _POLICY_BOUND.reason not in canonical_bytes(shell).decode("utf-8")
+    assert _POLICY_BOUND.source.identity not in canonical_bytes(shell).decode("utf-8")
+    # The internal envelope keeps every member — replay reads it from there.
+    kept = json.loads(internal.fields["bound"])
+    assert kept["reason"] == _POLICY_BOUND.reason
+    assert kept["policy_id"] == _POLICY_BOUND.policy_id
+    assert kept["source"]["identity"] == _POLICY_BOUND.source.identity
+
+    technical_shell, technical_decision = disclose(
+        _constraint_refusal(_TECHNICAL_BOUND), level=level, policy=None
+    )
+    technical = json.loads(technical_shell.fields["bound"])
+    assert set(technical) == set(crossed), (
+        "a bound with a policy behind it and a bound read off a substrate"
+        " render with different keys below full — presence says which"
+        f" authority answered: {sorted(technical)} vs {sorted(crossed)}"
+    )
+    assert technical["authority"] == "technical"
+    assert set(technical_decision.withheld) & {
+        "bound.source",
+        "bound.policy_id",
+        "bound.reason",
+    } == {"bound.source"}, technical_decision.withheld
+
+
+def test_at_full_the_bound_crosses_whole() -> None:
+    internal = _constraint_refusal(_POLICY_BOUND)
+    shell, decision = disclose(internal, level="full", policy=None)
+    assert shell.fields["bound"] == internal.fields["bound"]
+    assert json.loads(shell.fields["bound"])["reason"] == _POLICY_BOUND.reason
+    assert decision.withheld == ()
 
 
 def test_the_internal_envelope_is_never_mutated() -> None:
