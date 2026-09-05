@@ -3,8 +3,22 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-05T13:20:00.000Z"
+last_updated: "2026-09-05T14:05:00.000Z"
 last_activity: >-
+  **PHASE 24.6 EXECUTED AND BUILD-EVALUATED — F-C fixed in-phase at `ea695396`; panel + review next (2026-09-05 07:05 MST).**
+  Plan 15's close evidence (`d466d4f7`) found FIVE in-phase reds on `make leg-fluree` (cp-04's fluree-marked modules; base green): two gates
+  written against the pre-`24.6-08` shell (`CFT-G18` (b) read both candidate IRIs off the shell; `CFT-G06` read the declared prose and a
+  `400` off it), FastMCP 1.28.1's `Error executing tool <name>: ` prefix on the opaque id, an order-dependent assembler identity (a seams
+  control evicted 5 of 8 bare modules and left `compose` stale), and a `build_resolver` call missing `refusal_recorder=`. All five fixed as
+  tests aligned to ruled mechanism, no assertion weakened, two new controls; `leg-fluree` 308 passed rc=0, chunk C 873/127, collected 6517,
+  lint 0. Recorded as `24.6-CLOSE-PREP.md` Addendum A with a new finding F-J (the published cp-04 page inlines two of the changed test
+  modules — republish or accept, Dave's call). **Dave's build evaluation (05:38–05:40 MST) recorded verbatim in A.4:** cp-01 APPROVE with
+  F-1 carried as a measured capability difference (AssemblyOutcome carries the identity; cp-01's replay record does not; cp-04's does);
+  cp-04 APPROVE; **Phase 24.6 APPROVE TO CLOSE subject to plan 15's evidence and the normal close gates**; no example changes from the
+  review. Legs ran on LOCAL containers (`ccf-fluree-15-3`, `ccf-neo4j-test`, `ccf-mongo-test`, testcontainers postgres) — plan 13 F-2 resolved.
+  **Next:** rebuild the panel packet from `ea695396`, run codex + cursor + gemini over stdin (read-proof, 0-byte re-run), the single-agent
+  review, verify every finding, fix blocking in-phase, then present triage → `D-GATE-24.6` → merge `--no-ff` to `main`. Not pushed.
+  Next free id `D-IMPL-260`. Hand-edited; no `state.*`/`roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 EXECUTED — close prep complete; build evaluation, panel, review and D-GATE-24.6 owed (2026-09-05 13:20Z, wave 12 / plan 15 on `phase-24.6`).**
   Every instrument the 36 criteria name was run on the shipped tree and recorded in `24.6-CLOSE-PREP.md` with its command, verbatim output and control.
   Lock: `BLK | wc -l` 38, criteria 36, detector 0 (planted-wrap control 1), sha `c0fdc4f4…` (Amendment 3, `D-IMPL-257`) with the appended-char control
