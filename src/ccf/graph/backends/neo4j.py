@@ -239,6 +239,32 @@ class Neo4jGraphStore:
         return self._identity
 
     @property
+    def max_traversal_depth(self) -> int:
+        """The deepest traversal this adapter translates natively — the Cypher injection bound.
+
+        :class:`~ccf.graph.protocols.TraversalDepthCapability`
+        (``D-IMPL-253`` Q21), satisfied structurally: the value is this
+        module's own :data:`MAX_DEPTH_CEILING`, which bounds the one literal
+        the adapter injects into query text. Read off the store rather than
+        authored anywhere, so a layer that has a governed response can refuse
+        an over-ceiling depth **by name** without any product code carrying the
+        number (CINV-01). Nothing about this seam's own behavior changes: an
+        over-ceiling depth here still declines the native translation and is
+        answered by the memory-bounded fallback.
+        """
+        return MAX_DEPTH_CEILING
+
+    @property
+    def capability_identity(self) -> str:
+        """The identity a technical bound from this store is resolved by.
+
+        :attr:`graph_identity` itself — credential-free, and already the
+        string this fabric identifies this graph by — rather than a second
+        name that could drift from it.
+        """
+        return self.graph_identity
+
+    @property
     def partition(self) -> str:
         """The partition this store's graph lives in."""
         return self._partition

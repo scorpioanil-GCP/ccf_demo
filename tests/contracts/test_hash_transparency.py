@@ -300,6 +300,20 @@ _MARKED_IN_THE_TREE = frozenset(
         # `ProductRequestContract` digest in `_BASE_TREE_DIGESTS` below must
         # still reproduce, and it does.
         "ccf.products.request.ProductRequestContract.defaults",
+        # 24.6-03: the sixth declaration key (``24.6-L-07``, ``D-IMPL-253``
+        # Q21) and the request's own override list (Q7). Both are silent at
+        # their sentinels for the same compatibility reason as ``defaults``:
+        # declaring no capability binding, and asking for no exception, are
+        # what every contract and every request written before these fields
+        # said — so the ``ProductRequestContract`` digest below still
+        # reproduces, and a committed request's content address does not move.
+        "ccf.products.request.ProductRequestContract.capability_bindings",
+        "ccf.products.request.ProductRequest.policy_overrides",
+        # 24.6-03: what a principal may override (``D-IMPL-253`` Q7). The
+        # empty set is "this principal may override nothing", which is what
+        # every entitlement policy already in force says — and a policy whose
+        # content address moved would be a policy whose pin moved.
+        "ccf.products.entitlement.ProductEntitlementGrant.overridable_policies",
         "ccf.assembly.worker.RelationshipResolutionRule.predicate_key",
         "ccf.assembly.worker.RelationshipResolutionRule.subject_rule",
         "ccf.assembly.worker.RelationshipResolutionRule.object_rule",

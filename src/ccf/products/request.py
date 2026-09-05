@@ -273,6 +273,30 @@ class ProductRequest(CCFContract):
             slot. Required with no default: an empty mapping is expressible and
             says *this question needs nothing beyond its four axes*, which is a
             statement rather than an omission.
+        policy_overrides: The policy identifiers this question asks to be
+            resolved *without* — an explicit, recorded exception rather than a
+            silent one (``D-IMPL-253`` Q7). **Naming a policy is not authority
+            to override it**: the resolver additionally establishes that the
+            principal is entitled to exercise the override, against the
+            declared grant
+            (:attr:`~ccf.products.entitlement.ProductEntitlementGrant.overridable_policies`)
+            — *"otherwise anyone who knows a policy ID could bypass it"*. Both
+            facts, entitled and honored, land in the replay record whichever
+            way they came out.
+
+            It belongs on the request because **a request carrying an override
+            is a different question**: it is content-addressed with the rest of
+            the question, so two callers asking the same thing with and without
+            an override do not pin identically. Hash-transparent at the empty
+            tuple (``D-IMPL-243``): asking for no exception is what every
+            request written before this field asked, so the field is omitted
+            from the canonical form at that value and no committed request's
+            content address moves.
+
+            The SDK names no policy here — the identifiers are the
+            deployment's own (CINV-01). This field asserts nothing about *who*
+            is asking; the principal is resolved at the door from a verified
+            grant, exactly as before.
     """
 
     schema_name: str
@@ -282,6 +306,9 @@ class ProductRequest(CCFContract):
     freshness: str
     asked_at: datetime
     parameters: Mapping[str, Any]
+    policy_overrides: tuple[str, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class ProductRequestContract(VersionedArtifact):
@@ -366,6 +393,24 @@ class ProductRequestContract(VersionedArtifact):
             parameter the class does not honor would widen the closed request
             world by omission, which is the one thing this artifact exists to
             keep shut.
+        capability_bindings: Which declared parameter each **technical**
+            capability bounds — parameter name to the SDK's own capability
+            token (``D-IMPL-253`` Q21, Dave: *"100 is the genuine technical
+            capability boundary"*). The binding is the declaration's statement
+            that *this* parameter is the one a substrate limit applies to; the
+            limit itself is never here and never anywhere in an artifact — it
+            is read off the backend at resolution time as a
+            :class:`~ccf.products.constraints.TechnicalCapability`, because a
+            number the deployment authored would be a technical bound nobody
+            measured (CINV-01).
+
+            Refused at declaration when a binding names a parameter this class
+            does not declare, or a token the SDK does not define — both named
+            together, on the ``defaults`` message's discipline. The empty
+            mapping is the positive assertion that no parameter of this class
+            is bounded by a capability, and it is hash-transparent at that
+            value (``D-IMPL-243``), which is what every contract written before
+            this field said and still says.
     """
 
     schema_name: str
@@ -377,6 +422,54 @@ class ProductRequestContract(VersionedArtifact):
     defaults: Mapping[str, Any] = Field(
         default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    capability_bindings: Mapping[str, str] = Field(
+        default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @model_validator(mode="after")
+    def _every_capability_binding_names_a_parameter_and_a_token(
+        self,
+    ) -> "ProductRequestContract":
+        """Refuse a binding onto an undeclared parameter or an unknown token.
+
+        Two ways a binding is not one (``24.6-L-07``; ``D-IMPL-253`` Q21),
+        named together for the reason the defaults message names three
+        together. The token vocabulary is read from
+        :mod:`ccf.products.constraints` through a function-local import — the
+        :func:`~ccf.products.payload.refuse_payload` precedent above — because
+        that module imports this one, and one reading of *what a capability
+        token is* is what keeps a declaration and a resolution from disagreeing
+        about it.
+        """
+        if not self.capability_bindings:
+            return self
+
+        from ccf.products.constraints import _CAPABILITY_TOKENS
+
+        undeclared = sorted(
+            name
+            for name in self.capability_bindings
+            if name not in self.arguments.properties
+        )
+        unknown = sorted(
+            {
+                token
+                for token in self.capability_bindings.values()
+                if token not in _CAPABILITY_TOKENS
+            }
+        )
+        if not (undeclared or unknown):
+            return self
+        raise ValueError(
+            f"the request contract for {self.schema_name!r} at class lane "
+            f"{self.schema_version!r} declares capability bindings it cannot "
+            f"honor: {undeclared} are not declared arguments and {unknown} are "
+            f"not capability tokens this SDK defines "
+            f"({sorted(_CAPABILITY_TOKENS)}); a binding onto a parameter the "
+            "class does not declare bounds nothing, and a binding onto a token "
+            "no backend can supply is a wiring failure the resolver would meet "
+            "at request time instead (24.6-L-07, D-IMPL-253 Q21)"
+        )
 
     @model_validator(mode="after")
     def _every_default_is_a_parameter_this_class_honors(
@@ -517,6 +610,11 @@ class ProductRequestContract(VersionedArtifact):
         is the positive assertion that the class declares no default rather
         than a value nobody chose.
 
+        **The optional sixth key** (``24.6-L-07``, ``D-IMPL-253`` Q21).
+        ``capability_bindings`` is read on the same terms again: absent means
+        no parameter of this class is bounded by a technical capability, which
+        is what every declaration written before the key said.
+
         Raises:
             ValueError: the declaration is missing one or more of the three
                 required keys, **named together in one message**. An adopter
@@ -526,9 +624,12 @@ class ProductRequestContract(VersionedArtifact):
                     shape, when ``unsupported_arguments`` is present but is not a
                 mapping of parameter name to reason prose, and when
                 ``defaults`` is present but is not a mapping keyed by parameter
-                name. A default naming a parameter the class does not honor is
-                refused by the contract's own validator rather than here, in
-                one message naming every offender.
+                name, and when ``capability_bindings`` is present but is not a
+                mapping of parameter name to capability token. A default naming
+                a parameter the class does not honor, and a binding naming a
+                parameter or a token the class cannot honor, are refused by the
+                contract's own validators rather than here — each in one
+                message naming every offender.
         """
         declaration = artifact.declaration
         missing = tuple(
@@ -567,6 +668,19 @@ class ProductRequestContract(VersionedArtifact):
                 "parameter name to the value the class takes when the caller "
                 "omits that parameter (24.6-L-07, D-IMPL-253 Q2)"
             )
+        bindings = declaration.get(_KEY_CAPABILITY_BINDINGS, {})
+        if not isinstance(bindings, Mapping) or not all(
+            isinstance(name, str) and isinstance(token, str)
+            for name, token in bindings.items()
+        ):
+            raise ValueError(
+                f"the declared artifact {artifact.class_id!r} at lane "
+                f"{artifact.semver!r} carries {_KEY_CAPABILITY_BINDINGS!r} as "
+                f"{type(bindings).__name__}, and it must be a mapping of "
+                "parameter name to the capability token that bounds it — the "
+                "token names WHICH capability applies and never its value "
+                "(24.6-L-07, D-IMPL-253 Q21)"
+            )
         return cls(
             semver=artifact.semver,
             schema_name=declaration[_KEY_SCHEMA_NAME],
@@ -576,6 +690,7 @@ class ProductRequestContract(VersionedArtifact):
             ),
             unsupported_arguments=dict(unsupported),
             defaults=dict(defaults),
+            capability_bindings=dict(bindings),
         )
 
 
@@ -594,6 +709,14 @@ _KEY_UNSUPPORTED_ARGUMENTS = "unsupported_arguments"
 #: takes when a caller omits something is read from the artifact at
 #: :meth:`ProductRequestContract.from_declared` and nowhere else (CINV-01).
 _KEY_DEFAULTS = "defaults"
+
+#: The optional sixth declaration key (``24.6-L-07``, ``D-IMPL-253`` Q21). A
+#: key NAME again, and the value under it is a *capability token* — which
+#: capability bounds a parameter — never the bound. The number a backend can
+#: technically do is the backend's, read off it at resolution time; a ceiling
+#: authored in an artifact would be a technical bound nobody measured
+#: (CINV-01).
+_KEY_CAPABILITY_BINDINGS = "capability_bindings"
 
 #: The three keys a request-contract declaration carries, in the order
 #: :meth:`ProductRequestContract.from_declared` reports them missing. They are

@@ -322,6 +322,13 @@ NON_PRODUCT_REFUSALS: Final[frozenset[str]] = frozenset(
 #:   claim one endpoint.
 #: * ``FragmentFamilyConflict`` — raised when two projection fragments claim
 #:   one family.
+#: * ``ConstraintEffectivityConflict`` — raised when the Control Plane holds
+#:   two authoritative statements in force at one instant and they disagree.
+#:   **Deliberately an exception and not a governed shell** (``D-IMPL-253``
+#:   Q15, Dave: *"retain exceptions for actual configuration/invariant
+#:   contradictions"*): a governed "no" is a determination the fabric reached,
+#:   while two contradicting authoritative inputs are a state in which it
+#:   cannot determine what is true.
 #:
 #: The last two joined in ``24.6-L-07`` for the reason ``DefaultConflict``
 #: joined the allowlist above: the structural walk widened to the ``…Conflict``
@@ -346,6 +353,7 @@ NON_VALUE_VIOLATIONS: Final[frozenset[str]] = frozenset(
         "SingleWriterViolation",
         "WebhookEndpointConflict",
         "FragmentFamilyConflict",
+        "ConstraintEffectivityConflict",
     }
 )
 

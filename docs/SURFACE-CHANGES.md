@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**867 entries**, of which **625** name a public Python surface.
+**878 entries**, of which **636** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-429 entries — 390 public Python surface, 39 not public Python API.
+436 entries — 397 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -7833,6 +7833,143 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
 
+#### ccf.graph.protocols.TraversalDepthCapability
+
+- Surface: ccf.graph.protocols.TraversalDepthCapability
+- Public surface: true
+- Change type: added
+- Before: absent. Each of the two ceilinged backends held a `MAX_DEPTH_CEILING`
+  that bounds the one literal it injects into query text, and nothing outside
+  the adapter could ask what it was
+- After: a `@runtime_checkable` Protocol with `max_traversal_depth -> int` and
+  `capability_identity -> str`. `FlureeGraphStore` and `Neo4jGraphStore` satisfy
+  it, returning their own module's constant and their `graph_identity`; the
+  SQLite and Postgres reference stores do not and gain no stub
+- Why: `D-IMPL-253` Q21, Dave: *"6 is measurement/default history; 100 is the
+  genuine technical capability boundary."* A technical bound must be refusable
+  **by name** one layer up, with authority `technical` and a capability identity
+  as its provenance — and the alternative, a number authored in product code or
+  in an artifact, would be a bound nobody measured (CINV-01). Structural typing
+  on the `SnapshotPinnable` precedent: a consumer asks
+  `isinstance(store, TraversalDepthCapability)` rather than reading a flag
+- Migration: none — a new Protocol. An out-of-tree store that wants its ceiling
+  respected implements the two members; one that does not is unaffected
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.constraints.ConstraintEffectivityConflict
+
+- Surface: ccf.products.constraints.ConstraintEffectivityConflict
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `ValueError` raised when the Control Plane holds two authoritative
+  statements in force at one instant — two versions of one constraint key whose
+  effectivity windows both contain `asked_at`, or two versions of the
+  entitlement policy under one key while a request names an override. Named in
+  `ccf.products.refusal.NON_VALUE_VIOLATIONS`
+- Why: Dave's rule for this phase, and `D-IMPL-253` Q15's *"retain exceptions
+  for actual configuration/invariant contradictions"*. A governed "no" is a
+  determination the fabric **reached**; two contradicting authoritative inputs
+  are a state in which it cannot determine what is true, and picking one would
+  make replay of the same historical decision resolvable two ways
+- Migration: none — a new exception on a path nothing reached before
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.constraints.constraints_in_force
+
+- Surface: ccf.products.constraints.constraints_in_force
+- Public surface: true
+- Change type: added
+- Before: absent. Nothing read policy constraints out of the Control Plane
+- After: `constraints_in_force(control_plane, *, asked_at) -> tuple[PinnedConstraint, ...]`
+  — `keys_of_class` for the keys bound to `ccf.policy-constraint`, `versions`
+  for the contents under each, `peek` to examine them **unaudited**, and
+  `resolve` to read back exactly the one version in force. Ordered by key
+- Why: `D-IMPL-253` Q6, Dave: *"asked_at, absolutely. Otherwise replay of the
+  same historical decision can resolve a different policy."* The registry's
+  *latest* read is not on the surface this function takes, so it cannot be
+  reached by mistake — the `ReplayResolver` argument applied to a function.
+  `peek` is unaudited on the `WR-08` argument, verbatim: examining versions to
+  find the one in force is not a resolution, and auditing the probes would
+  record reads that never happened
+- Migration: none — a new name
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.constraints.PolicyConstraintResolver
+
+- Surface: ccf.products.constraints.PolicyConstraintResolver
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `@runtime_checkable` Protocol with `resolver_id`, `resolver_version`
+  and a keyword-only `resolve(...)` taking the product class, the request, the
+  declared contract and its pin, the perspective, the intent, the tenant and the
+  technical capabilities — returning `EffectiveRequest | ConstraintRefusal |
+  PolicyResolutionConflict | ProductRequestViolation`
+- Why: `D-IMPL-253` Q8, Dave: *"Protocol plus reference implementation. This is
+  an SDK seam likely to acquire different Control Plane backends."* Identity and
+  version are on the surface for `DebtFactorScorerProtocol`'s reason: the
+  resolver in force must be pinnable, because an effective request is only
+  reproducible alongside the resolution that produced it
+- Migration: none — a new Protocol. A deployment governing policy in an external
+  system conforms to it rather than forking anything
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.constraints.ReferencePolicyConstraintResolver
+
+- Surface: ccf.products.constraints.ReferencePolicyConstraintResolver
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen dataclass over `control_plane` and `entitlement_key: str |
+  None`. It reads what is in force at `request.asked_at`, filters by
+  applicability, verifies every name in `request.policy_overrides` against the
+  principal's `ProductEntitlementGrant.overridable_policies` at the registered
+  entitlement version, and calls `resolve_effective_request`. It is what
+  `build_governed_resolver` selects when a deployment passes none
+- Why: CLAUDE.md §11 — the reference ships beside the Protocol — and it is **the
+  v0 default, not a placeholder for one**: the Control Plane is itself
+  in-process, so what is resolved here is exactly as durable as the registry it
+  is read from. The fetch and the decision are split on purpose: this class does
+  the only I/O, and the function that decides everything stays pure and testable
+  against the four worked cases with no registry at all
+- Migration: none — a new type. `D-IMPL-253` Q7 is enforced here: naming a
+  policy is not authority to override it, and an unentitled attempt is recorded
+  rather than silently dropped
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_ID
+
+- Surface: ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_ID
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[str] = "ccf.reference.policy-constraint-resolver"`
+- Why: the `FRESHNESS_SCORER_ID` precedent — the identity a replay record pins
+  when the SDK's own resolver was the one in force
+- Migration: none — a new name
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_VERSION
+
+- Surface: ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_VERSION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[str] = "1.0.0"`
+- Why: the lane of the resolution this reference performs, versioned separately
+  from the SDK — a resolution is only reproducible alongside the version of the
+  thing that produced it
+- Migration: none — a new name
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -8461,7 +8598,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-325 entries — 142 public Python surface, 183 not public Python API.
+329 entries — 146 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -11471,6 +11608,85 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none. The set is an allowlist read by one test
 
 *Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.request.ProductRequest
+
+- Surface: ccf.products.request.ProductRequest
+- Public surface: true
+- Change type: reshaped
+- Before: seven fields; a request could not ask for a policy exception at all
+- After: `policy_overrides: tuple[str, ...]`, defaulted to the empty tuple and
+  hash-transparent at it
+- Why: `D-IMPL-253` Q7. An override belongs on the request because **a request
+  carrying one is a different question** — it is content-addressed with the rest
+  of the question, so two callers asking the same thing with and without an
+  exception do not pin identically. The field asserts nothing about *who* is
+  asking: the principal is still resolved at the door from a verified grant, and
+  naming a policy establishes nothing on its own
+- Migration: none required. A request written before this field parses and
+  hashes exactly as it did — the empty tuple is omitted from the canonical form,
+  so no committed request's content address moves
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: reshaped
+- Before: five declaration keys (`schema_name`, `schema_version`, `arguments`,
+  `unsupported_arguments`, `defaults`)
+- After: a sixth, `capability_bindings: Mapping[str, str]` — parameter name to
+  the SDK's own capability token — read by `from_declared` when present,
+  defaulted to the empty mapping and hash-transparent at it. A new validator
+  refuses a binding onto an undeclared parameter or an unknown token, naming
+  every offender in one message
+- Why: `D-IMPL-253` Q21. The declaration says *which* parameter a substrate
+  limit applies to; the limit itself is never in an artifact and never in code —
+  it is read off the backend at resolution time through
+  `TraversalDepthCapability`, because a ceiling somebody authored is a technical
+  bound nobody measured (CINV-01)
+- Migration: none required. A contract written before the key parses unchanged
+  and hashes unchanged, so its pin — and therefore the request surface a past
+  decision was validated against — stays resolvable
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.entitlement.ProductEntitlementGrant
+
+- Surface: ccf.products.entitlement.ProductEntitlementGrant
+- Public surface: true
+- Change type: reshaped
+- Before: two declared sets, `permitted_schema_names` and `permitted_roles`,
+  neither with a default
+- After: a third, `overridable_policies: frozenset[str]`, defaulted to the empty
+  set and hash-transparent at it
+- Why: `D-IMPL-253` Q7, Dave: *"The resolver must also establish that the
+  caller/principal is entitled to exercise that override. Otherwise anyone who
+  knows a policy ID could bypass it."* **It is not a bypass and could not become
+  one**: an entry grants no class, no role and no subject, and the constraint
+  artifact must itself declare `overridable` for the exception to exist — two
+  declarations by two authors, and an override honored only where they agree.
+  The default is the safe direction: an author who says nothing has granted
+  nothing
+- Migration: none required. Every entitlement policy already in force keeps its
+  content address and its pin, and grants no override until one is declared
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
+
+#### ccf.products.refusal.NON_VALUE_VIOLATIONS
+
+- Surface: ccf.products.refusal.NON_VALUE_VIOLATIONS
+- Public surface: true
+- Change type: reshaped
+- Before: six names
+- After: seven. `ConstraintEffectivityConflict` joins
+- Why: the structural walk widened to the `…Conflict` name family in `24.6-02`,
+  so every class it finds must be placed. This one is an exception and not a
+  returned value, deliberately, and the allowlist is where that is recorded
+- Migration: none. The set is an allowlist read by one test
+
+*Recorded by `24.6-03-the-resolver-seam-effectivity-override-and-the-technical-capability.md`.*
 
 ### Not public Python API
 

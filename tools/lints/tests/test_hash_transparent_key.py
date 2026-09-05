@@ -311,6 +311,11 @@ def test_the_seven_are_declared_true_and_outside_the_roster() -> None:
 NAMED_SINCE_THE_SWEEP: tuple[str, ...] = (
     # 24.6-01, the fifth declaration key (`24.6-L-07`, `D-IMPL-253` Q2).
     "ccf.products.request.ProductRequestContract.defaults",
+    # 24.6-03, the sixth declaration key (`D-IMPL-253` Q21), the request's
+    # override list and the grant that entitles one (Q7).
+    "ccf.products.request.ProductRequestContract.capability_bindings",
+    "ccf.products.request.ProductRequest.policy_overrides",
+    "ccf.products.entitlement.ProductEntitlementGrant.overridable_policies",
 )
 
 

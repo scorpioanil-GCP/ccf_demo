@@ -2449,6 +2449,7 @@
       "StoreSnapshotPin",
       "TEMPORAL_AXES",
       "TemporalAxis",
+      "TraversalDepthCapability",
       "TraversalDirection",
       "TraversalSpec",
       "UpsertResult"
@@ -2554,6 +2555,10 @@
       "TemporalAxis": {
         "kind": "function",
         "shape": "typing.Literal['event-time', 'transaction-time', 'as-of']"
+      },
+      "TraversalDepthCapability": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
       },
       "TraversalDirection": {
         "kind": "function",
@@ -4678,17 +4683,27 @@
   "ccf.products.constraints": {
     "__all__": [
       "CAPABILITY_TRAVERSAL_DEPTH",
+      "ConstraintEffectivityConflict",
       "ConstraintRefusal",
       "PinnedConstraint",
+      "PolicyConstraintResolver",
       "PolicyResolutionConflict",
+      "REFERENCE_CONSTRAINT_RESOLVER_ID",
+      "REFERENCE_CONSTRAINT_RESOLVER_VERSION",
+      "ReferencePolicyConstraintResolver",
       "TechnicalCapability",
       "applicable",
+      "constraints_in_force",
       "resolve_effective_request"
     ],
     "exports": {
       "CAPABILITY_TRAVERSAL_DEPTH": {
         "kind": "constant",
         "shape": "str"
+      },
+      "ConstraintEffectivityConflict": {
+        "kind": "class",
+        "shape": "type"
       },
       "ConstraintRefusal": {
         "kind": "contract",
@@ -4708,6 +4723,10 @@
           "version": "<class 'str'>"
         }
       },
+      "PolicyConstraintResolver": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
       "PolicyResolutionConflict": {
         "kind": "contract",
         "shape": {
@@ -4716,6 +4735,18 @@
           "key": "<class 'str'>",
           "reason": "typing.Literal['policy-resolution-conflict']"
         }
+      },
+      "REFERENCE_CONSTRAINT_RESOLVER_ID": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "REFERENCE_CONSTRAINT_RESOLVER_VERSION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ReferencePolicyConstraintResolver": {
+        "kind": "class",
+        "shape": "(control_plane: '_ConstraintSource', entitlement_key: 'str | None') -> None"
       },
       "TechnicalCapability": {
         "kind": "contract",
@@ -4728,6 +4759,10 @@
       "applicable": {
         "kind": "function",
         "shape": "(constraint: 'PolicyConstraint', *, product_class: 'str', tenant: 'str', perspective_role: 'str', intent: 'str', asked_at: 'datetime') -> 'bool'"
+      },
+      "constraints_in_force": {
+        "kind": "function",
+        "shape": "(control_plane: '_ConstraintSource', *, asked_at: 'datetime') -> 'tuple[PinnedConstraint, ...]'"
       },
       "resolve_effective_request": {
         "kind": "function",
@@ -4997,6 +5032,7 @@
       "ProductEntitlementGrant": {
         "kind": "contract",
         "shape": {
+          "overridable_policies": "frozenset[str]",
           "permitted_roles": "frozenset[str]",
           "permitted_schema_names": "frozenset[str]"
         }
@@ -5378,6 +5414,7 @@
           "freshness": "<class 'str'>",
           "intent": "<class 'str'>",
           "parameters": "collections.abc.Mapping[str, typing.Any]",
+          "policy_overrides": "tuple[str, ...]",
           "schema_name": "<class 'str'>",
           "schema_version": "<class 'str'>",
           "subject": "<class 'str'>"
@@ -5387,6 +5424,7 @@
         "kind": "contract",
         "shape": {
           "arguments": "<class 'ccf.skills.catalog.SkillArgumentSchema'>",
+          "capability_bindings": "collections.abc.Mapping[str, str]",
           "defaults": "collections.abc.Mapping[str, typing.Any]",
           "schema_name": "<class 'str'>",
           "schema_version": "<class 'str'>",

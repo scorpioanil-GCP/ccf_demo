@@ -2348,7 +2348,7 @@ def test_reach_pattern_doubles_the_ccf_depth_and_validates_it() -> None:
 def test_no_relationship_property_is_read() -> None:
     """Do-not-copy #1, as an executable rule rather than a comment.
 
-    ⛔ `_WALK_EDGES_ALL` (`backends/neo4j.py:440-446`) reads relationship
+    ⛔ `_WALK_EDGES_ALL` (`backends/neo4j.py::_WALK_EDGES_ALL`) reads relationship
     properties, and a plain RDF edge on this engine has none — probe F-A3(e)
     measured `[null, null]` over the layout the write path produces. A ported
     predicate would make `all(...)` false for every path and return an **empty

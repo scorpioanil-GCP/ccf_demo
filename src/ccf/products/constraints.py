@@ -59,13 +59,18 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, Protocol, runtime_checkable
 
 from pydantic import Field
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
-from ccf.controlplane.artifacts import PolicyConstraint
+from ccf.controlplane.artifacts import POLICY_CONSTRAINT, PolicyConstraint
+from ccf.products.entitlement import (
+    PrincipalNotEntitled,
+    ProductEntitlementGrant,
+    ProductEntitlementPolicy,
+)
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
 from ccf.products.provenance import (
     EffectiveParameter,
@@ -86,11 +91,17 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "CAPABILITY_TRAVERSAL_DEPTH",
+    "REFERENCE_CONSTRAINT_RESOLVER_ID",
+    "REFERENCE_CONSTRAINT_RESOLVER_VERSION",
+    "ConstraintEffectivityConflict",
     "ConstraintRefusal",
     "PinnedConstraint",
+    "PolicyConstraintResolver",
     "PolicyResolutionConflict",
+    "ReferencePolicyConstraintResolver",
     "TechnicalCapability",
     "applicable",
+    "constraints_in_force",
     "resolve_effective_request",
 ]
 
@@ -106,6 +117,25 @@ __all__ = [
 #: layer's job, with authority ``technical``, because only here is there a
 #: governed response to put the refusal in.
 CAPABILITY_TRAVERSAL_DEPTH: Final[str] = "traversal-depth"
+
+#: The capability vocabulary, closed by value — one member at v0.
+#:
+#: Module-private deliberately: the public names this layer ships are fixed by
+#: plan ``24.6-03``, and a second public spelling of a one-member vocabulary
+#: would be one more name the drift manifest tracks for no reader's benefit.
+#: :class:`~ccf.products.request.ProductRequestContract` reads it through a
+#: function-local import when it validates ``capability_bindings`` — the
+#: ``refuse_payload`` precedent in that module — so a binding onto a token the
+#: SDK does not define is refused at the declaration rather than discovered at
+#: resolution.
+_CAPABILITY_TOKENS: Final[frozenset[str]] = frozenset({CAPABILITY_TRAVERSAL_DEPTH})
+
+#: Identity and lane of the SDK's reference constraint resolver, on the
+#: :data:`~ccf.halflife.debt.FRESHNESS_SCORER_ID` precedent: the resolver *in
+#: force* is pinnable, because a resolution is only reproducible alongside the
+#: thing that produced it (``D-IMPL-253`` Q8).
+REFERENCE_CONSTRAINT_RESOLVER_ID: Final[str] = "ccf.reference.policy-constraint-resolver"
+REFERENCE_CONSTRAINT_RESOLVER_VERSION: Final[str] = "1.0.0"
 
 
 #: The fold family each operator in the Control Plane's vocabulary belongs to.
@@ -443,6 +473,21 @@ def applicable(
     for narrowed, presented in axes:
         if narrowed is not None and narrowed != presented:
             return False
+    return _in_window(constraint, asked_at=asked_at)
+
+
+def _in_window(constraint: PolicyConstraint, *, asked_at: datetime) -> bool:
+    """Is ``asked_at`` inside this constraint's effectivity window?
+
+    Half-open — ``effective_from <= asked_at < effective_until`` — so a
+    constraint that ends at the instant another begins never applies twice.
+
+    One reading, called from both :func:`applicable` (which also holds the four
+    axes) and :func:`constraints_in_force` (which selects by the window alone,
+    before any axis is known). Two copies of a comparison this small are how a
+    fabric comes to answer *"which policy was in force?"* two different ways at
+    two different layers.
+    """
     if constraint.effective_from > asked_at:
         return False
     return constraint.effective_until is None or asked_at < constraint.effective_until
@@ -864,3 +909,502 @@ def resolve_effective_request(
     )
     # D-IMPL-254: the Authority layer's value is the record, never a scalar
     return resolved
+
+
+# --- the seam: reading the Control Plane at the request's own instant --------
+
+
+class ConstraintEffectivityConflict(ValueError):
+    """Two authoritative statements are in force at once and disagree.
+
+    SDK-defined (CLAUDE.md §11); whitepaper §7.8. Raised, never returned, and
+    the distinction is Dave's rule for the phase: a governed *"no"* is a
+    determination the fabric reached, while two contradicting authoritative
+    inputs are a state in which the fabric **cannot determine what is true** —
+    which is a configuration failure of the deployment's own Control Plane and
+    is reported as one (``D-IMPL-253`` Q15: *"retain exceptions for actual
+    configuration/invariant contradictions"*).
+
+    Two shapes reach it, and they are the same defect:
+
+    * two *versions of one constraint key* whose effectivity windows both
+      contain ``asked_at`` — the Control Plane says the parameter is bounded
+      two ways at one instant, and picking either would make replay of the
+      same historical decision resolvable two ways;
+    * two *versions of the entitlement policy* registered under one key, when
+      a request names an override — an entitlement artifact carries no
+      effectivity window, so with more than one version there is no fact of
+      the matter about which grant is in force, and honoring an override under
+      an undetermined grant is exactly the elevation ``D-IMPL-253`` Q7
+      forbids.
+
+    The message names the key and every version, because the fix is a Control
+    Plane edit and the operator making it needs both sides.
+    """
+
+
+@runtime_checkable
+class _ConstraintSource(Protocol):
+    """The Control Plane read surface a constraint set is resolved through.
+
+    Module-private, and stated rather than reached for as a concrete registry:
+    :class:`~ccf.controlplane.resolution.ControlPlaneResolution` — the shipped
+    read-only Protocol — carries ``resolve``, ``versions``, ``peek`` and
+    ``artifact_class_of`` but **not** ``keys_of_class``, and discovering which
+    keys hold constraints is exactly what this seam has to do. So the shape
+    named here is the registry's read surface plus that one method.
+
+    Private because plan ``24.6-03`` fixes this module's public names; a
+    deployment substituting a remote Control Plane conforms to
+    :class:`~ccf.controlplane.registry.ControlPlaneProtocol` and to
+    ``keys_of_class``, both of which already exist on that surface.
+
+    The registry's *latest* read is deliberately absent from this surface: a
+    resolution that reached for the most recently registered version would
+    resolve a different policy at replay than at decision time (``D-IMPL-253``
+    Q6), and a method that is not on the surface cannot be reached by mistake —
+    the :class:`~ccf.controlplane.registry.ReplayResolver` argument, applied
+    here.
+    """
+
+    def keys_of_class(self, class_id: str) -> tuple[str, ...]:
+        """Every key bound to ``class_id``."""
+        ...
+
+    def versions(self, key: str) -> tuple[str, ...]:
+        """Every version registered under ``key``, oldest first."""
+        ...
+
+    def peek(self, key: str, version: str) -> object:
+        """The artifact at ``(key, version)``, unaudited."""
+        ...
+
+    def resolve(self, key: str, version: str) -> object:
+        """The exact artifact at ``(key, version)`` — audited."""
+        ...
+
+
+def constraints_in_force(
+    control_plane: _ConstraintSource, *, asked_at: datetime
+) -> tuple[PinnedConstraint, ...]:
+    """Every policy constraint the Control Plane holds in force at ``asked_at``.
+
+    SDK-defined (CLAUDE.md §11); whitepaper §7.8, and ``D-IMPL-253`` Q6 in
+    Dave's words: *"asked_at, absolutely. Otherwise replay of the same
+    historical decision can resolve a different policy."*
+
+    The walk is four steps and each is the one it is for a reason:
+    :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.keys_of_class` finds
+    the keys bound to :data:`~ccf.controlplane.artifacts.POLICY_CONSTRAINT`
+    (registry state is the single store — IN-03 — so nothing here keeps a
+    second index); ``versions`` enumerates the contents under each;
+    :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.peek` examines them
+    **unaudited**, because examining a version to find the one in force is not
+    a resolution and auditing it would record reads that never happened (the
+    ``WR-08`` argument, verbatim); and ``resolve`` then reads back *exactly*
+    the one version selected, which is the read that is audited and the read an
+    examiner replays.
+
+    The registry's *latest* read is never called and cannot be: it is not on
+    :class:`_ConstraintSource`.
+
+    Args:
+        control_plane: The Control Plane's read surface.
+        asked_at: The request's own instant. Timezone-aware, always.
+
+    Returns:
+        One :class:`PinnedConstraint` per key in force, ordered by key so two
+        runs over one registry produce one ordering. Applicability — the four
+        axes — is **not** evaluated here: this answers *what is in force*, and
+        :func:`applicable` answers *what reaches this request*.
+
+    Raises:
+        ConstraintEffectivityConflict: two versions of one key are both in
+            force at ``asked_at``.
+        TypeError: ``asked_at`` is zone-less, or a key bound to the constraint
+            class holds something that is not a
+            :class:`~ccf.controlplane.artifacts.PolicyConstraint` — a
+            registration that bypassed the typed path, and a broken deployment
+            rather than a governed determination.
+    """
+    _require_aware(asked_at)
+    pinned: list[PinnedConstraint] = []
+    for key in sorted(control_plane.keys_of_class(POLICY_CONSTRAINT.class_id)):
+        in_force: list[tuple[str, PolicyConstraint]] = []
+        for version in control_plane.versions(key):
+            candidate = control_plane.peek(key, version)
+            if not isinstance(candidate, PolicyConstraint):
+                raise TypeError(
+                    f"Control Plane key {key!r} is bound to"
+                    f" {POLICY_CONSTRAINT.class_id!r} but version {version!r}"
+                    f" holds {type(candidate).__name__}; a constraint set is"
+                    " read as constraints or it is not read"
+                )
+            if _in_window(candidate, asked_at=asked_at):
+                in_force.append((version, candidate))
+        if not in_force:
+            continue
+        if len(in_force) > 1:
+            raise ConstraintEffectivityConflict(
+                f"two versions of Control Plane key {key!r} are both in force"
+                f" at {asked_at.isoformat()}:"
+                f" {', '.join(repr(version) for version, _ in in_force)}; the"
+                " effectivity windows overlap, so which boundary governs this"
+                " request has no answer — the fabric refuses to pick one"
+                " rather than resolve a decision two ways at replay"
+                " (D-IMPL-253 Q6)"
+            )
+        version, _examined = in_force[0]
+        # The read that is audited, and the read an examiner replays: exact,
+        # never "latest", and never the object `peek` handed back.
+        resolved = control_plane.resolve(key, version)
+        if not isinstance(resolved, PolicyConstraint):  # pragma: no cover - see peek
+            raise TypeError(
+                f"Control Plane key {key!r} resolved {type(resolved).__name__}"
+                f" at version {version!r} after peeking a PolicyConstraint"
+            )
+        pinned.append(
+            PinnedConstraint(key=key, version=version, constraint=resolved)
+        )
+    return tuple(pinned)
+
+
+@runtime_checkable
+class PolicyConstraintResolver(Protocol):
+    """The seam between one question and every authority that bounds it.
+
+    SDK-defined (CLAUDE.md §11); ``D-IMPL-253`` Q8, in Dave's words: *"Protocol
+    plus reference implementation. This is an SDK seam likely to acquire
+    different Control Plane backends."*
+
+    A Protocol rather than a base class, on
+    :class:`~ccf.halflife.debt.DebtFactorScorerProtocol`'s reasoning: a
+    deployment whose policy lives in an external governance system substitutes
+    by **conforming**, and the SDK's reference carries no privileged status.
+
+    ``resolver_id`` and ``resolver_version`` are on the surface for that
+    Protocol's reason too — *the resolver in force must be pinnable into
+    replay*, because an effective request is only reproducible alongside the
+    resolution that produced it.
+
+    Keyword-only throughout: five of the inputs are strings, and a
+    transposition would resolve a different tenant's policy without failing.
+    """
+
+    @property
+    def resolver_id(self) -> str:
+        """Stable identity of this resolver."""
+        ...
+
+    @property
+    def resolver_version(self) -> str:
+        """Version of this resolver's resolution."""
+        ...
+
+    def resolve(
+        self,
+        *,
+        product_class: str,
+        request: ProductRequest,
+        declared: ProductRequestContract,
+        declared_source: ProvenanceSource,
+        perspective: Perspective,
+        intent: str,
+        tenant: str,
+        capabilities: tuple[TechnicalCapability, ...],
+    ) -> (
+        EffectiveRequest
+        | ConstraintRefusal
+        | PolicyResolutionConflict
+        | ProductRequestViolation
+    ):
+        """Resolve ``request`` into its effective values, or refuse it.
+
+        The instant is ``request.asked_at`` and never a clock: a resolver that
+        read one would resolve a different policy at replay than at decision
+        time (``D-IMPL-253`` Q6, ``D-IMPL-98``).
+
+        Args:
+            product_class: The class the request addresses.
+            request: The question, as asked.
+            declared: The class's request contract — the ``defaults`` that say
+                what omission means, and the ``capability_bindings`` that say
+                which declared parameter a technical limit bounds.
+            declared_source: That contract's own artifact pin.
+            perspective: Who is asking and in what capacity.
+            intent: The decision the product is being assembled for.
+            tenant: The tenant this resolution is for.
+            capabilities: The backend limits in force, read off the substrate
+                by the caller — this seam reads no store.
+
+        Returns:
+            The :class:`~ccf.products.provenance.EffectiveRequest`, or the
+            governed determination that stands instead of one.
+        """
+        ...
+
+
+#: An override attempt naming a policy no constraint in force carries. A
+#: positive sentinel in the :data:`~ccf.replay.record.NO_HITL_ACTIONS` voice
+#: rather than an empty string: *"the fabric found no constraint under that
+#: name"* is a fact about the attempt and lands in the replay record as one,
+#: and :class:`~ccf.products.provenance.OverrideRecord` requires the lane
+#: precisely so that a nameless claim cannot be filed.
+_NO_CONSTRAINT_IN_FORCE: Final[str] = "no-constraint-in-force"
+
+
+@dataclass(frozen=True)
+class ReferencePolicyConstraintResolver:
+    """The SDK's reference resolver: the Control Plane, read at ``asked_at``.
+
+    SDK-defined (CLAUDE.md §11); ``D-IMPL-253`` Q6/Q7/Q8. Ships alongside the
+    Protocol per CLAUDE.md §11, and is **the v0 default, not a placeholder for
+    one** — the Control Plane is itself in-process (CLAUDE.md §13), so the
+    constraints resolved here are exactly as durable as the registry they are
+    read from. A Control Plane backend that governs policy elsewhere is an
+    alternative implementation of the same Protocol, substituted without
+    touching a consumer.
+
+    **It fetches, and then it calls the pure function.** The seam is split
+    deliberately: :func:`constraints_in_force` and the entitlement read are the
+    only I/O, and :func:`resolve_effective_request` — which decides everything
+    — is pure over its arguments and testable against the four worked cases
+    with no registry at all.
+
+    **Naming a policy is not authority to override it** (Q7, Dave: *"Otherwise
+    anyone who knows a policy ID could bypass it"*). Every name in
+    ``request.policy_overrides`` is verified against the principal's own
+    :class:`~ccf.products.entitlement.ProductEntitlementGrant`, and both facts
+    — entitled, and honored — are recorded whichever way they came out. An
+    unentitled attempt is a thing that happened.
+
+    Attributes:
+        control_plane: The Control Plane's read surface. The concrete
+            :class:`~ccf.controlplane.registry.ControlPlaneRegistry` conforms;
+            so does a remote plane offering the same four reads.
+        entitlement_key: The key this tenant's
+            :class:`~ccf.products.entitlement.ProductEntitlementPolicy` is
+            registered under
+            (:func:`~ccf.products.entitlement.product_entitlement_key`), or
+            ``None`` when the deployment declares none. ``None`` and an absent
+            policy mean the same thing and are treated the same way: **no
+            override is entitled**, which is deny-by-default rather than an
+            error, on the posture the delivery door already takes.
+    """
+
+    control_plane: _ConstraintSource
+    entitlement_key: str | None
+
+    @property
+    def resolver_id(self) -> str:
+        return REFERENCE_CONSTRAINT_RESOLVER_ID
+
+    @property
+    def resolver_version(self) -> str:
+        return REFERENCE_CONSTRAINT_RESOLVER_VERSION
+
+    def resolve(
+        self,
+        *,
+        product_class: str,
+        request: ProductRequest,
+        declared: ProductRequestContract,
+        declared_source: ProvenanceSource,
+        perspective: Perspective,
+        intent: str,
+        tenant: str,
+        capabilities: tuple[TechnicalCapability, ...],
+    ) -> (
+        EffectiveRequest
+        | ConstraintRefusal
+        | PolicyResolutionConflict
+        | ProductRequestViolation
+    ):
+        """Read what is in force, verify the overrides, resolve. See the Protocol.
+
+        Raises:
+            ConstraintEffectivityConflict: the Control Plane holds two
+                versions of one constraint key in force at ``request.asked_at``,
+                or two versions of the entitlement policy under one key while
+                the request names an override.
+            LookupError: ``declared.capability_bindings`` names a capability
+                token no member of ``capabilities`` supplies — a wiring
+                failure, raised by :func:`resolve_effective_request`.
+            TypeError: ``request.asked_at`` is zone-less, or a Control Plane
+                key holds an artifact of the wrong class.
+        """
+        in_force = constraints_in_force(
+            self.control_plane, asked_at=request.asked_at
+        )
+        reaching = tuple(
+            pinned
+            for pinned in in_force
+            if applicable(
+                pinned.constraint,
+                product_class=product_class,
+                tenant=tenant,
+                perspective_role=perspective.role,
+                intent=intent,
+                asked_at=request.asked_at,
+            )
+        )
+        return resolve_effective_request(
+            request=request,
+            declared=declared,
+            declared_source=declared_source,
+            constraints=reaching,
+            capabilities=capabilities,
+            capability_bindings=declared.capability_bindings,
+            verified_overrides=self._verified_overrides(
+                request=request,
+                perspective=perspective,
+                reaching=reaching,
+                tenant=tenant,
+            ),
+            perspective=perspective,
+            tenant=tenant,
+        )
+
+    # --- the override half (D-IMPL-253 Q7) ---------------------------------
+
+    def _verified_overrides(
+        self,
+        *,
+        request: ProductRequest,
+        perspective: Perspective,
+        reaching: tuple[PinnedConstraint, ...],
+        tenant: str,
+    ) -> tuple[OverrideRecord, ...]:
+        """One record per (named policy, constraint it names), entitled or not.
+
+        A record per *constraint* rather than per name, because
+        :class:`~ccf.products.provenance.OverrideRecord` carries the version of
+        the artifact the attempt was made against and two constraints sharing a
+        ``policy_id`` are two lanes. A name no constraint in force carries
+        still produces a record — at :data:`_NO_CONSTRAINT_IN_FORCE`, and
+        ``honored=False`` — because an attempt to override a policy that is not
+        there is a thing an examiner should be able to see.
+        """
+        if not request.policy_overrides:
+            return ()
+        grant, grant_source = self._entitlement(
+            principal_id=perspective.principal_id, tenant=tenant
+        )
+        records: list[OverrideRecord] = []
+        for policy_id in request.policy_overrides:
+            # D-07: entitlement verified here
+            entitled = grant is not None and policy_id in grant.overridable_policies
+            named = tuple(
+                pinned
+                for pinned in reaching
+                if pinned.constraint.policy_id == policy_id
+            )
+            if not named:
+                records.append(
+                    OverrideRecord(
+                        policy_id=policy_id,
+                        policy_version=_NO_CONSTRAINT_IN_FORCE,
+                        principal_id=perspective.principal_id,
+                        entitled=entitled,
+                        honored=False,
+                        grant_source=grant_source if entitled else None,
+                    )
+                )
+                continue
+            for pinned in named:
+                records.append(
+                    OverrideRecord(
+                        policy_id=policy_id,
+                        policy_version=pinned.version,
+                        principal_id=perspective.principal_id,
+                        entitled=entitled,
+                        # A constraint the deployment declared non-overridable
+                        # is not overridable by an entitled principal either:
+                        # `overridable` is the artifact's own statement about
+                        # whether the boundary admits an exception at all.
+                        honored=entitled and pinned.constraint.overridable,
+                        grant_source=grant_source if entitled else None,
+                    )
+                )
+        return tuple(records)
+
+    def _entitlement(
+        self, *, principal_id: str, tenant: str
+    ) -> tuple[ProductEntitlementGrant | None, ProvenanceSource | None]:
+        """This principal's grant, read exactly — or the absence of one.
+
+        Read the way replay reads: ``versions`` enumerates, ``peek`` examines
+        unaudited, and ``resolve`` reads back the one version selected.
+        The registry's *latest* read is unreachable from
+        :class:`_ConstraintSource`, which is the point — an override honored
+        under "whatever was registered most recently" would replay against a
+        different grant than the one that decided it.
+
+        **Absent is deny, not error.** No key, no versions, or a policy naming
+        no entry for this principal all yield ``(None, None)`` and therefore an
+        unentitled attempt: the deny-by-default posture the delivery door
+        already takes (*"a door whose governance configuration is absent must
+        not become servable"*).
+
+        Args:
+            principal_id: Who is asking, off the perspective the calling
+                surface resolved — never a claim carried in the request body.
+            tenant: The tenant this resolution is for, held against the
+                policy's own ``tenant_id``.
+
+        Returns:
+            The grant this principal holds and the artifact pin the
+            entitlement was established from, or ``(None, None)``.
+
+        Raises:
+            ConstraintEffectivityConflict: more than one version is registered
+                under the entitlement key. The artifact carries no effectivity
+                window, so there is no fact of the matter about which grant is
+                in force, and an override honored under an undetermined grant
+                is the elevation Q7 forbids.
+            TypeError: the key holds something that is not a
+                :class:`~ccf.products.entitlement.ProductEntitlementPolicy`, or
+                one whose own ``tenant_id`` is not the tenant whose key it was
+                found under. A near-miss is refused, never interpreted — the
+                ``15.5-CLOSE-REVIEWS.md`` finding P1 check, at this seam.
+        """
+        if self.entitlement_key is None:
+            return None, None
+        key = self.entitlement_key
+        versions = self.control_plane.versions(key)
+        if not versions:
+            return None, None
+        if len(versions) > 1:
+            raise ConstraintEffectivityConflict(
+                f"{len(versions)} versions of the entitlement policy are"
+                f" registered under {key!r}:"
+                f" {', '.join(repr(version) for version in versions)}; the"
+                " artifact carries no effectivity window, so which grant is in"
+                " force has no answer — and an override honored under an"
+                " undetermined grant is exactly the elevation naming a policy"
+                " must not achieve (D-IMPL-253 Q7)"
+            )
+        version = versions[0]
+        examined = self.control_plane.peek(key, version)
+        if not isinstance(examined, ProductEntitlementPolicy):
+            raise TypeError(
+                f"artifact under {key!r} is not a ProductEntitlementPolicy"
+                f" (got {type(examined).__name__}); an override is verified"
+                " against a declared grant or it is not verified"
+            )
+        if examined.tenant_id != tenant:
+            raise TypeError(
+                f"policy under {key!r} declares tenant"
+                f" {examined.tenant_id!r}, not {tenant!r}; the key and the"
+                " artifact's own tenant are supplied independently, and a"
+                " near-miss is refused rather than interpreted"
+            )
+        # The audited read of the exact version examined above.
+        self.control_plane.resolve(key, version)
+        try:
+            grant = examined.grant_for(principal_id=principal_id)
+        except PrincipalNotEntitled:
+            return None, None
+        return grant, ProvenanceSource(
+            kind="artifact", identity=key, version=version
+        )
