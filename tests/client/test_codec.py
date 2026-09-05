@@ -21,6 +21,7 @@ import json
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from decimal import Decimal
+from enum import Enum
 from pathlib import Path
 from typing import Any, Final, Literal, Union, get_args, get_origin
 
@@ -109,12 +110,36 @@ def _sample_value(annotation: Any) -> Any:
         return _sample_value(non_none[0])
     if origin in (frozenset, set):
         return frozenset({"a", "b"})
+    if origin is tuple:
+        # `tuple[X, ...]` — one member of the declared element type; an empty
+        # tuple would let a field that carries nothing pass for one that does.
+        inner = get_args(annotation)
+        return (_sample_value(inner[0]),) if inner else ()
     if annotation is datetime:
         return _INSTANT
     if annotation is bool:
         return True
     if annotation is int:
         return 7
+    if inspect.isclass(annotation) and issubclass(annotation, Enum):
+        # A closed enumeration (`DebtSignal` on `DebtAssessment`): its first
+        # member, which is whatever the SDK declares first — never a string
+        # this fixture would have to keep in step with the enum.
+        return next(iter(annotation))
+    if annotation is Decimal:
+        # In [0, 1]: every Decimal a refusal carries today is a D_c figure or a
+        # tolerance, and both validate against that interval.
+        return Decimal("0.5")
+    if inspect.isclass(annotation) and issubclass(annotation, CCFContract):
+        # A nested contract (Phase 24.6: `ProvenanceSource`, `ParameterBound`,
+        # `DebtAssessment`) is synthesized the same way, field by field, so a
+        # refusal kind that grows a typed member still needs no edit here.
+        return annotation(
+            **{
+                name: _sample_value(field.annotation)
+                for name, field in annotation.model_fields.items()
+            }
+        )
     return "x"
 
 

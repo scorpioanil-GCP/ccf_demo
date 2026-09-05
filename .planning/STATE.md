@@ -5,19 +5,20 @@ milestone_name: Performance, Documentation & Demonstration
 status: executing
 last_updated: "2026-09-05T01:20:00.000Z"
 last_activity: >-
-  **PHASE 24.6 EXECUTING — waves 1–5 of 12 done (plans 01–05), 2026-09-04 21:50 MST, `/gsd-execute-phase 24.6` on `phase-24.6`.**
-  Executors on the main tree one at a time (Opus, CLAUDE.md §3); waves 6/8/9 (06‖07, 09‖10‖16, 11‖12) use worktrees. ROADMAP ticks
-  and this file hand-edited; no `state.*`/`roadmap.*` writer ran. **`D-IMPL-257` (Dave, 21:40): fence widened NARROWLY** for the
-  citation maintenance the phase's own deletions caused — the four stranded `effective_debt_ceiling` cites in CP-SPEC-001/002/003
-  recast to what governs now (CRITERIA-LOCK Amendment 3, digest re-pinned `c0fdc4f4…`; `014dcd64…` is now a control); the
-  orchestrator extended the stated principle to two sites plan 05 stranded after the ruling (cp-01 `:1266`, fragment `24.5-15`)
-  and fixed cp-04's two inside the existing fence — flagged in `D-IMPL-257`. **`make lint` rc 0.** Not done by the principle's
-  second half: the cp-01/02/03 config/spec prose saying a breach "refuses with 409" (behavior prose; plan 09 assigns the status).
-  Open for Dave from the summaries: plan 04 F-1 (a class default the contract does not expose is REFUSED as a disguised ceiling);
-  plan 05's `restored_surfaces` allowance in `tests/test_surface_completeness.py` (residual stated, one-line revert offered);
-  plan 02's `…Conflict` family and Conflict members in `NON_PRODUCT_REFUSALS`/`NON_VALUE_VIOLATIONS`; stale `c3224bb4` digest in
-  every plan's output block (tree right). Expected red until plan 06: `tests/examples/test_hw1_empty_fabric_refusal.py`. Pre-existing,
-  not ours: 3 `tests/client/test_codec.py` failures (in `deferred-items.md`). Next: wave 6 (06‖07). Next free id `D-IMPL-258`. PRIOR HEAD FOLLOWS.
+  **PHASE 24.6 EXECUTING — waves 1–6 of 12 done (plans 01–07), 2026-09-04 23:30 MST, `/gsd-execute-phase 24.6` on `phase-24.6`.**
+  Waves 1–5 on the main tree one executor at a time (Opus, CLAUDE.md §3); wave 6 (06‖07) in worktrees cut from `deeae6ca`, merged
+  `--no-ff`, worktrees removed from the manifest only. ROADMAP ticks and this file hand-edited; no `state.*`/`roadmap.*` writer ran.
+  **`D-IMPL-257` (Dave, 21:40): fence widened NARROWLY** for citation maintenance the phase's own deletions caused (CRITERIA-LOCK
+  Amendment 3, digest re-pinned `c0fdc4f4…`); `make lint` rc 0 since. **Post-merge, the FULL suite ran in five foreground chunks:**
+  230 + 1386 + 880 + 1360 + 1184 = 5040 passed, 210 skipped, 0 failed after three orchestrator fixes no plan owned — (1) three
+  `tests/invariants` reds plans 01/03 introduced (`ConstraintOperator` exempted through the guard's review seam citing D-05;
+  `_entitlement` takes the door-resolved `Perspective`, not a bare `principal_id`; two line cites recast) at `1bd2499e`; (2) the
+  codec fixture `tests/client/test_codec.py::_sample_value` generalized to Decimal / Enum / tuple / nested contracts so the three
+  NEW refusal kinds round-trip (plans 02/04 added them; plan 05 had called the 3 reds "pre-existing" — they were 24.6's).
+  **Plan 07 changed a seam plans 08/09/10/13/16 are written against:** `RefusalRecorderProtocol.record` takes `perspective=`
+  (a resolved `Perspective`), never `principal_id=` — the old spelling is a `TypeError`. Open for Dave (summaries): 04 F-1; 05
+  `restored_surfaces`; 07 F-1 (`CLNT-02` partially superseded — three ways to close, none picked); 02's Conflict members; the
+  stale `c3224bb4` digest text in every plan's output block. Next: wave 7 (plan 08). Next free id `D-IMPL-258`. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 IS PLANNED UNDER `D-IMPL-256` — 16 plans, 12 waves, criteria 36 (2026-09-04 evening, branch
   `phase-24.6`, pushed).** Dave ruled the three delivery-boundary questions BEFORE Wave 1 rather than at close:
   (1) MCP standing-resource denials are RECORDED under a resource-request identity at the determination instant;
