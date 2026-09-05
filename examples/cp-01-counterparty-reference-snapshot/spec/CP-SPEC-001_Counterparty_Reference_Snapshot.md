@@ -1118,7 +1118,7 @@ products.
 | 11 | `payload_hash` value | §D.4 | this build | P6 |
 | 12 | Replay fixture `CPR-R01`, both hashes | §D.5 | this build | P6 |
 | 13 | Schema artifact + `extra=forbid` CI binding | §D.6 | this build | P6 |
-| 14 | Debt-gate `409` behavior — **SUPERSEDED 2026-09-03** (Phase 24.5.1, `D-IMPL-245` (3)): when measured, no rung compared `debt_tolerance` against anything; `24.5-L-14` shipped `src/ccf/products/gates.py::effective_debt_ceiling`, a class-declared ceiling a request may only tighten (`D-IMPL-240` (3)), with a breach rendered as HTTP 409 by `runtime/ccf_runtime/http_api/routes/product.py::build_router`; cp-01 declares no ceiling, so its behavior is unchanged | §D.7 | this build | P7 |
+| 14 | Debt-gate `409` behavior — **SUPERSEDED 2026-09-03** (Phase 24.5.1, `D-IMPL-245` (3)): when measured, no rung compared `debt_tolerance` against anything; `24.5-L-14` shipped the `effective_debt_ceiling` helper then in `src/ccf/products/gates.py` (DELETED 2026-09-04 by Phase 24.6 plans 03/04 under `D-IMPL-251` C1=A — a class may not hold a ceiling; what governs now: the class declares at most a DEFAULT, `default_debt_tolerance` on `src/ccf/products/contract.py::ServeObligations`, filling an omission only; the caller's `debt_tolerance` is honored as requested; the one fold is `src/ccf/products/constraints.py::resolve_effective_request`; a breach withholds fulfillment as the `tolerance-exceeded` shell from `src/ccf/products/gates.py::refuse_over_tolerance`, carrying the authority that set the tolerance; the debt half of `DeclaredObligationRefusal` and its `409` are retired, the new kind's HTTP status being assigned by class at the door in 24.6 plan 09 — `D-IMPL-257`), a class-declared ceiling a request may only tighten (`D-IMPL-240` (3)), with a breach rendered as HTTP 409 by `runtime/ccf_runtime/http_api/routes/product.py::build_router`; cp-01 declares no ceiling, so its behavior is unchanged | §D.7 | this build | P7 |
 | 15 | ~~Sabotage result for each of the eight gates~~ **CLEARED 2026-08-29** — seven of eight red; `CPR-G08` has no instance (row 20) | §D.7 | this build | **P7 — done** |
 | 16 | `λ_c` measured against read frequency | §E.1 | this build | P8 |
 | 17 | Per-component `D_c` contributions (5 rows) | §E.2 | this build | P8 |
@@ -1263,7 +1263,7 @@ something to act on:**
    the SDK's gate 1 refused only a product that DECLARED no operators, while the
    Standard's gate 1 also refuses an operator that RETURNS an empty set — two
    assertions sharing one name. Closed by `24.5-L-24`: the returned-empty half now runs
-   as `src/ccf/products/gates.py::_refuse_empty_results` (token `empty-operator-result`,
+   as the `_refuse_empty_results` step then in `src/ccf/products/gates.py` (DELETED 2026-09-04 by Phase 24.6 plan 05 under D-12 as amended, `24.6-L-06`: an operator that evaluated and returned nothing COMPUTED, so the empty answer is SERVED with its search recorded as `computed_empty` on `src/ccf/products/contract.py::ContextProductContract`, and Debt derives from evidence, never cardinality — `D-IMPL-257`) (token `empty-operator-result`,
    the half `D-IMPL-242` named). `CPR-G08` no longer covers that gap by proxy; it asserts
    the refusal of §B.2 (`D-IMPL-245` (4)).
 6. **The exemplar at `public/reference/specifications/` declares four out-of-scope

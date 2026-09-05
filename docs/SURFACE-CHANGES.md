@@ -16635,7 +16635,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: nineteen kinds; the gate family carried one empty-operator kind
-- After: twenty kinds; `EmptyResultRefusal: "empty-result-refusal"` in the gate family block beside `empty-operator-refusal`. `empty-result-refusal` was chosen over `empty-operator-result-refusal` because neither of the pair is a substring of the other under the closure gate's rule and the shorter name reads as what it is. `tests/products/test_refusal_envelope.py::test_envelope_for_empty_result_refusal` landed in the same commit as the kind, under the exact-name coverage rule `24.5-07` shipped; the four closure tests are green at twenty
+- After: twenty kinds; `EmptyResultRefusal: "empty-result-refusal"` in the gate family block beside `empty-operator-refusal`. `empty-result-refusal` was chosen over `empty-operator-result-refusal` because neither of the pair is a substring of the other under the closure gate's rule and the shorter name reads as what it is. `test_envelope_for_empty_result_refusal` in `tests/products/test_refusal_envelope.py` landed in the same commit (the kind and that test were RETIRED 2026-09-04 by Phase 24.6 plan 05, `24.6-L-06` — computed-empty is served; cite recast to prose under `D-IMPL-257`) as the kind, under the exact-name coverage rule `24.5-07` shipped; the four closure tests are green at twenty
 - Why: `24.5-L-24`; constraint (a) — every kind crosses without flattening, and this one crosses saying which half fired
 - Migration: none. A consumer enumerating `kind` sees a twentieth
 
