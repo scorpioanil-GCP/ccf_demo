@@ -821,10 +821,31 @@ def test_every_product_door_entitles_after_it_authenticates(
     module = importlib.import_module(module_name)
     source = inspect.getsource(module)
 
-    assert "entitled_perspective(" in source, (
+    # `D-IMPL-256` (3), `24.6-16`: a door may reach the shared decision either
+    # DIRECTLY or through the governed delivery-boundary step that wraps it.
+    # `ccf_runtime.authz.delivery_boundary.govern_entitlement` calls
+    # `entitled_perspective` itself and adds the determination's replay and
+    # disclosure, so a door calling it reaches exactly the same definition of
+    # "entitled" — one layer up. The property defended here is unchanged (the
+    # doors share ONE definition); what moved is which layer of that one
+    # definition each door is entitled to call. The transitive half is
+    # asserted below, so widening the needle does not widen the claim.
+    reaches_the_decision = ("entitled_perspective(", "govern_entitlement(")
+    assert any(needle in source for needle in reaches_the_decision), (
         f"{module_name} serves a product without reaching the shared"
-        " entitlement decision (15.5-06)"
+        f" entitlement decision by any of {list(reaches_the_decision)}"
+        " (15.5-06; D-IMPL-256 (3))"
     )
+    if "entitled_perspective(" not in source:
+        # The wrapper is not a second reading of "entitled": it reaches the
+        # same one. Without this, the widened needle above would admit a door
+        # that called something merely NAMED `govern_entitlement`.
+        import ccf_runtime.authz.delivery_boundary as boundary
+
+        assert "entitled_perspective(" in inspect.getsource(boundary), (
+            "the governed delivery-boundary step no longer reaches the shared"
+            " entitlement decision, so a door calling it is not entitled"
+        )
     assert "from ccf_runtime.authz.product_entitlement import" in source, (
         f"{module_name} does not import the shared seams; three doors with"
         " three readings of 'entitled' is the drift this import prevents"

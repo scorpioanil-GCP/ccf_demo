@@ -67,11 +67,13 @@ from ccf.controlplane.audit import AuditLog  # noqa: E402
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
 from ccf.graph.protocols import GraphView  # noqa: E402
 from ccf.products.contract import (  # noqa: E402
+    AssemblyMode,
     ContextProductContract,
     ProductLineage,
 )
 from ccf.products.gates import ServableProduct  # noqa: E402
 from ccf.products.request import ProductRequest  # noqa: E402
+from ccf.products.resolver import ReplayRefusalRecorder  # noqa: E402
 from ccf.projection.engine import ExecutionResult, ExecutionStep  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 from ccf.replay.record import PolicyBinding, build_replay_record  # noqa: E402
@@ -151,8 +153,49 @@ UNENTITLED_TOKEN = "ccf-experience-unentitled-token"
 UNENTITLED_CLIENT_ID = "ccf-experience-unentitled-client"
 
 #: The instant the child's authz audit events carry. Injected, never read
-#: from a wall clock.
+#: from a wall clock. Under ``D-IMPL-256`` (1) this is also the instant every
+#: recorded denial at this door carries: the governed step reads the
+#: entitlement source's declared clock ONCE, so the audit event and the replay
+#: record of one determination cannot disagree about when it was reached.
 AUDIT_INSTANT = datetime(2026, 8, 11, tzinfo=UTC)
+
+#: The assembly mode dimension 3 of this deployment's records carries — the
+#: same value the agent invoker below writes. A deployment value (CINV-01).
+ASSEMBLY_MODE: AssemblyMode = "algorithmic"
+
+
+def experience_refusal_recorder(
+    *,
+    store: FileArtifactStore,
+    tenant: str,
+    disclosure_level_for: Any,
+) -> ReplayRefusalRecorder:
+    """The recorder this deployment's experience door is built with.
+
+    ``D-IMPL-256`` (2): an entitling delivery boundary holds a recorder from
+    construction or it is not built. Composed exactly as
+    :func:`~ccf.products.resolver.build_governed_resolver` composes its own —
+    **one store, one writer class, one record form** — over the very
+    ``replay_store`` this child already stands up for the agent leg's replay
+    records. A second store here would be the second-class replay
+    ``D-IMPL-253`` Q13 forbids, and it would leave two halves of one
+    deployment's audit trail in two directories.
+
+    Shared with the parent (``tests/crossproc/test_experience_edge.py``) on the
+    same terms as :func:`build_world` and ``build_servable_product``: two
+    copies of a recorder's wiring would agree only until someone edited one.
+    """
+    return ReplayRefusalRecorder(
+        artifact_store=store,
+        replay_record_class=REPLAY_ARTIFACT_CLASS,
+        tenant_id=tenant,
+        assembly_mode=ASSEMBLY_MODE,
+        # No bundle key at a delivery boundary, and saying so positively is
+        # the honest posture: the record's bindings are exactly what the
+        # determination pinned.
+        policy_bundle_pin=None,
+        disclosure_level_for=disclosure_level_for,
+    )
 
 
 def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
@@ -532,13 +575,24 @@ def build_server(
             role=requested_role if requested_role is not None else assembled.role,
         )
 
+    entitlement_source = ControlPlaneProductEntitlementSource(
+        control_plane=door_registry, clock=lambda: AUDIT_INSTANT
+    )
+
     return build_experience_server(
         server_name=SERVER_NAME,
         product_resolver=resolve_product,
-        entitlement_source=ControlPlaneProductEntitlementSource(
-            control_plane=door_registry, clock=lambda: AUDIT_INSTANT
-        ),
+        entitlement_source=entitlement_source,
         perspective_resolver=resolve_perspective,
+        # `D-IMPL-256` (2): this door entitles on three paths, so it holds a
+        # recorder from construction. Over `replay_store` — the store the
+        # agent leg already writes its records to — so one deployment keeps
+        # one audit trail rather than two.
+        refusal_recorder=experience_refusal_recorder(
+            store=replay_store,
+            tenant=assembled.address.tenant,
+            disclosure_level_for=entitlement_source.disclosure_level_for,
+        ),
         # The gated consumption tools' declared address (D-IMPL-128 limb 1).
         # The same two values the policy above is keyed and granted on, so
         # the entitlement cannot name something this deployment does not
