@@ -1057,8 +1057,20 @@ def build_egress_server(
         intent: str,
         freshness: str,
         asked_at: datetime,
+        surface: str,
+        address: str,
     ) -> bytes:
         """The one body both the tool and the address answer through.
+
+        ``surface`` and ``address`` are the CALLING surface's own identity —
+        the tool names itself and the standing product URI; the address
+        resource names itself and the ``/q/`` URI the caller read — and they
+        travel into the governed step so a denial is recorded under the
+        resource that was actually requested (``D-IMPL-256`` (1), criterion
+        24: *what resource*). Phase 24.6 close panel: until this parameter,
+        one shared body stamped every denial as a tool denial at the standing
+        address, so a denial on the address surface was recorded against a
+        resource nobody read.
 
         Factored out of the tool so the two surfaces **cannot drift**
         (``24.5-L-08``; the ``test_both_callers_…`` discipline cp-04 already
@@ -1151,10 +1163,8 @@ def build_egress_server(
             requested_role=None,
             parameters=asked.parameters,
             asked_at=asked_at,
-            surface=SURFACE_MCP_TOOL,
-            address=product_uri(
-                tenant=tenant, product_class=product_class, version=version
-            ),
+            surface=surface,
+            address=address,
             entitlement_source=entitlement_source,
             perspective_resolver=perspective_resolver,
             refusal_recorder=recorder,
@@ -1535,6 +1545,10 @@ def build_egress_server(
                 intent=intent,
                 freshness=freshness,
                 asked_at=asked_at,
+                surface=SURFACE_MCP_TOOL,
+                address=product_uri(
+                    tenant=tenant, product_class=product_class, version=version
+                ),
             ).decode("utf-8")
 
         @server.resource(PRODUCT_ADDRESS_TEMPLATE, mime_type=PRODUCT_MIME_TYPE)
@@ -1571,15 +1585,14 @@ def build_egress_server(
             temporal boundary against ``asked_at`` — run inside
             :func:`_answer_question`, identically for both surfaces.
             """
+            addressed_uri = PRODUCT_ADDRESS_TEMPLATE.format(
+                tenant=tenant,
+                product_class=product_class,
+                version=version,
+                q=q,
+            )
             parsed_tenant, parsed_class, parsed_version, addressed = (
-                parse_product_address(
-                    PRODUCT_ADDRESS_TEMPLATE.format(
-                        tenant=tenant,
-                        product_class=product_class,
-                        version=version,
-                        q=q,
-                    )
-                )
+                parse_product_address(addressed_uri)
             )
             asked_wire = door_question(addressed.request)
             return _answer_question(
@@ -1591,6 +1604,10 @@ def build_egress_server(
                 intent=addressed.intent,
                 freshness=addressed.freshness,
                 asked_at=addressed.asked_at,
+                # This surface's OWN identity: a denial here was read at the
+                # address, not at the tool and not at the standing URI.
+                surface=SURFACE_MCP_RESOURCE,
+                address=addressed_uri,
             ).decode("utf-8")
 
     return server

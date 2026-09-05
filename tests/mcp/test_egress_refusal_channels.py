@@ -92,6 +92,7 @@ from ccf_runtime.authz.product_entitlement import (
 from ccf_runtime.http_api.errors import ERROR_PRODUCT_CLASS_UNENTITLED
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
 from ccf_runtime.mcp.egress import (
+    product_address,
     CCF_FAILURE_PREFIX,
     PRODUCT_REQUEST_TOOL,
     build_egress_server,
@@ -655,6 +656,60 @@ def test_an_entitlement_denial_on_the_resource_path_is_a_recorded_shell(
     assert record.policy_bindings.bindings != ()
     # (5) why — dimension 5's internal determination.
     assert json.loads(internal.fields["cause"]) == "unauthorized"
+
+
+def test_an_entitlement_denial_on_the_address_surface_records_that_address(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """The ``/q/`` address is a resource of its own, and its denial says so.
+
+    ``24.5-L-08`` gave the tool's question an address, and the address answers
+    through the tool's own body. **Phase 24.6 close panel:** that one body
+    stamped every denial ``mcp-tool`` at the standing product URI, so a caller
+    who read ``…/q/<question>`` and was refused had the refusal recorded
+    against a surface they never used and an address they never read —
+    criterion 24's *what resource* answered falsely. The tool's own denial
+    keeps its identity (asserted beside this, above); this one records the
+    address surface and the address itself.
+    """
+    world = _World(
+        tmp_path, address=assembled.address, resolver=_answering(assembled.servable)
+    )
+    at = _unentitled(assembled.address)
+    uri = product_address(
+        tenant=at.tenant,
+        product_class=at.product_class,
+        version=at.version,
+        question=WireRequest(
+            product_id=at.product_class, parameters={}, temporal_boundary=None
+        ),
+        subject=SUBJECT,
+        intent=INTENT,
+        freshness=FRESHNESS,
+        asked_at=ASKED_AT,
+    )
+    assert "/q/" in uri
+    before = world.stored()
+
+    _refused, text = _drive(world.server, _resource_operation(uri))
+
+    outcome = _decode(text)
+    assert outcome.product_json is None
+    assert outcome.refusal is not None
+    shell = outcome.refusal
+    assert shell.kind == REFUSAL_KINDS[SubjectUnavailableRefusal]
+    assert shell.replay_reference != NO_REPLAY_REFERENCE
+    assert len(world.stored() - before) == 1
+
+    record = world.record_at(shell.replay_reference)
+    internal = world.internal(record)
+    assert internal.resource is not None
+    assert internal.resource.surface == "mcp-resource", internal.resource
+    assert internal.resource.address == uri, internal.resource
+    assert internal.resource.address != product_uri(
+        tenant=at.tenant, product_class=at.product_class, version=at.version
+    )
+    assert internal.resource.determined_at == DETERMINED_AT == record.recorded_at
 
 
 def test_the_two_resource_shells_are_both_minted_through_the_one_recorder(
