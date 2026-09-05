@@ -18,7 +18,7 @@ that a store with no ceiling is not asked at all.
 Everything here runs without a server and without the ``neo4j`` extra: the
 stores are constructed by ``__new__`` and given the one attribute their
 identity property reads — the idiom this directory already uses for the readers
-(``tests/graph/test_neo4j_backend.py:121``). Constructing them for real would
+(``tests/graph/test_neo4j_backend.py::test_over_ceiling_depth_declines_to_the_fallback``). Constructing them for real would
 demand a live substrate to answer a question that has nothing to do with one.
 """
 

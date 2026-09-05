@@ -1376,7 +1376,7 @@ class ReferencePolicyConstraintResolver:
         if not request.policy_overrides:
             return ()
         grant, grant_source = self._entitlement(
-            principal_id=perspective.principal_id, tenant=tenant
+            perspective=perspective, tenant=tenant
         )
         records: list[OverrideRecord] = []
         for policy_id in request.policy_overrides:
@@ -1417,7 +1417,7 @@ class ReferencePolicyConstraintResolver:
         return tuple(records)
 
     def _entitlement(
-        self, *, principal_id: str, tenant: str
+        self, *, perspective: Perspective, tenant: str
     ) -> tuple[ProductEntitlementGrant | None, ProvenanceSource | None]:
         """This principal's grant, read exactly — or the absence of one.
 
@@ -1435,8 +1435,13 @@ class ReferencePolicyConstraintResolver:
         not become servable"*).
 
         Args:
-            principal_id: Who is asking, off the perspective the calling
-                surface resolved — never a claim carried in the request body.
+            perspective: The :class:`~ccf.projection.plan.Perspective` the
+                calling surface resolved at the door; only its ``principal_id``
+                is read here, and never a claim carried in the request body.
+                The whole perspective travels rather than a bare
+                ``principal_id`` parameter because entitlement is decided at
+                the door and the engine receives it already resolved
+                (``tests/invariants/test_mcp_role_separation.py``, Pitfall 3).
             tenant: The tenant this resolution is for, held against the
                 policy's own ``tenant_id``.
 
@@ -1490,7 +1495,7 @@ class ReferencePolicyConstraintResolver:
         # The audited read of the exact version examined above.
         self.control_plane.resolve(key, version)
         try:
-            grant = examined.grant_for(principal_id=principal_id)
+            grant = examined.grant_for(principal_id=perspective.principal_id)
         except PrincipalNotEntitled:
             return None, None
         return grant, ProvenanceSource(

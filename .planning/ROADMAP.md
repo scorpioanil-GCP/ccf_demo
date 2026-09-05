@@ -3313,7 +3313,7 @@ Plans:
 - [x] 24.6-03-PLAN.md — `PolicyConstraintResolver` Protocol + reference reading the registry at `asked_at`; the governed resolver in the ruled sequence; `effective_debt_ceiling` deleted; override with verified entitlement; the technical capability; dimension-2 pins (C-05, C-06, C-09, C-10; L-07)
 - [x] 24.6-04-PLAN.md — `default_debt_tolerance`; the declared-obligation debt half retired; `tolerance-exceeded` with its authority (C-12, C-13; L-04, L-05)
 - [x] 24.6-05-PLAN.md — computed-empty served with its search as a finding; the debt scorer derives from evidence, never cardinality (C-14, C-15; L-06)
-- [ ] 24.6-06-PLAN.md — hw1's negative test re-derived to served computed-empty parity; the README teaching paragraph (C-16; L-06)
+- [x] 24.6-06-PLAN.md — hw1's negative test re-derived to served computed-empty parity; the README teaching paragraph (C-16; L-06)
 - [ ] 24.6-07-PLAN.md — every refusal mints a five-dimension replay record; `RefusalEnvelope` extended additively; assembler identity on dimension 4; `DoorOutcome` rule 5 inverted (C-18, C-19, C-20; L-08, L-15, L-20)
 - [ ] 24.6-08-PLAN.md — the 28-site table executed for `src/`; disclosure as one policy-controlled step, minimal by default; `subject-unavailable`; the invariant recorded in three docstrings; the governed delivery-boundary step and the construction-time recorder check (C-17, C-21, C-27, C-36; L-02, L-16, L-21)
 - [ ] 24.6-09-PLAN.md — the HTTP door maps every kind by class with one body and never 500s a governed refusal; the route encodes the governed step's return and `create_app` refuses at construction without a recorder; the D-27 control per level (C-22, C-23, C-36; L-03, L-17, L-21)
