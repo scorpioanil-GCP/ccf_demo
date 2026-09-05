@@ -348,6 +348,28 @@ def _as_number(value: object) -> Decimal | None:
     return Decimal(value)
 
 
+def _require_aware(asked_at: datetime) -> None:
+    """Refuse a zone-less instant, in one place for both callers.
+
+    :func:`applicable` needs it because comparing a naive instant against an
+    aware effectivity window either raises deep inside a comparison or silently
+    answers for the wrong hour. :func:`resolve_effective_request` needs it for
+    the case ``applicable`` cannot cover: a request with **no** applicable
+    constraints never reaches that comparison, and a resolution recorded at a
+    zone-less ``asked_at`` would then be replayed against a window nobody can
+    resolve. One reading, so the two cannot drift into two answers about what
+    an instant is (``D-IMPL-98`` puts the instant on the request precisely so
+    it is stated rather than assumed; ``D-IMPL-38`` refuses a zone-less
+    timestamp at artifact load).
+    """
+    if asked_at.tzinfo is None or asked_at.utcoffset() is None:
+        raise TypeError(
+            "asked_at must be timezone-aware: constraint effectivity is"
+            " evaluated at the request's own instant and there is no implicit"
+            " UTC in this fabric (D-IMPL-98, D-IMPL-38)"
+        )
+
+
 def _numeric_key(entry: PinnedConstraint) -> tuple[Decimal, str]:
     """A ceiling's or floor's value, with the artifact key as the tiebreak.
 
@@ -411,12 +433,7 @@ def applicable(
             an aware effectivity window would either raise deep inside a
             comparison or, worse, silently answer for the wrong hour.
     """
-    if asked_at.tzinfo is None or asked_at.utcoffset() is None:
-        raise TypeError(
-            "asked_at must be timezone-aware: constraint effectivity is"
-            " evaluated at the request's own instant and there is no implicit"
-            " UTC in this fabric (D-IMPL-98, D-IMPL-38)"
-        )
+    _require_aware(asked_at)
     axes = (
         (constraint.applies_to.product_class, product_class),
         (constraint.applies_to.tenant, tenant),
@@ -672,8 +689,13 @@ def resolve_effective_request(
             of ``capabilities`` supplies. Under ``D-IMPL-253`` amendment 2 (3)
             this is a configuration failure — the fabric cannot reach a valid
             governed determination — so it raises rather than returning data.
-        TypeError: ``request.asked_at`` is zone-less. See :func:`applicable`.
+        TypeError: ``request.asked_at`` is zone-less. Checked here as well as
+            inside :func:`applicable`, because a request with no applicable
+            constraints never reaches that comparison and would otherwise
+            record a resolution at an instant nobody can resolve a window
+            against.
     """
+    _require_aware(request.asked_at)
     request_source = ProvenanceSource(
         kind="request", identity=content_hash(request), version=None
     )
