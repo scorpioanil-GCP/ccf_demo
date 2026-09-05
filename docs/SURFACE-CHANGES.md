@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**856 entries**, of which **614** name a public Python surface.
+**857 entries**, of which **615** name a public Python surface.
 
 ## Added
 
@@ -8310,7 +8310,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-321 entries — 138 public Python surface, 183 not public Python API.
+322 entries — 139 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -11223,6 +11223,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   the entries it always did, and hashes exactly as it always did — the field is
   omitted from the canonical form at its sentinel (`D-IMPL-243`), measured in
   `tests/contracts/test_hash_transparency.py::test_a_config_naming_no_constraints_hashes_as_it_did`
+
+*Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: reshaped
+- Before: `semver`, `schema_name`, `schema_version`, `arguments`,
+  `unsupported_arguments`; `from_declared` read four declaration keys and
+  ignored every sibling. A product's default lived wherever each example put it
+  — cp-04 authors `argument_defaults:` under `request_contract:` and reads it
+  example-locally
+- After: one added field, `defaults: Mapping[str, Any] =
+  Field(default_factory=dict)` marked hash-transparent, with `_KEY_DEFAULTS =
+  "defaults"` beside `_KEY_UNSUPPORTED_ARGUMENTS`. `from_declared` reads the
+  optional **fifth** key when present and defaults to the empty mapping when
+  absent, refusing a non-mapping in the same one-error voice the four other
+  keys use. A `model_validator` refuses, **in one message naming every
+  offender**, a default whose name is not a declared argument, a default for a
+  name the class declares and always refuses, and a default whose value fails
+  `refuse_payload` against the declared argument's own type.
+  `docs/schemas/ccf.product-request-contract.json` regenerated
+- Why: `24.6-L-07`, `D-IMPL-253` Q2, Dave: *"Product defaults belong on the
+  request contract. They define what omission means for that product."* A
+  default applied from code could not be pinned, and a decision made under it
+  could not be replayed — so omission has to mean something a deployment
+  declared, resolvable to `(artifact, version)` and recorded with authority
+  `default` (`ccf.products.provenance.EffectiveParameter`). The three refusals
+  exist because a default for a parameter the class does not honor would widen
+  the closed request world by omission
+- Migration: none for a declaration lacking the key — it parses unchanged and
+  hashes unchanged (`test_the_empty_mapping_is_omitted_and_a_declared_default_is_rendered`
+  asserts byte identity with the pre-field form). **Nothing applies a default
+  at this plan**: the resolver step is `24.6-03` and cp-04's
+  `argument_defaults` key migrates in `24.6-13`
 
 *Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
 

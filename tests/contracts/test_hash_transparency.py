@@ -294,6 +294,12 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.products.contract.ServeObligations.debt_ceiling",
         "ccf.products.contract.ServeObligations.lineage_inputs_at",
         "ccf.products.request.ProductRequestContract.unsupported_arguments",
+        # 24.6-01: the fifth declaration key (``24.6-L-07``, ``D-IMPL-253``
+        # Q2). The empty mapping is "this class declares no default", which is
+        # what every declaration written before the field said — so the
+        # `ProductRequestContract` digest in `_BASE_TREE_DIGESTS` below must
+        # still reproduce, and it does.
+        "ccf.products.request.ProductRequestContract.defaults",
         "ccf.assembly.worker.RelationshipResolutionRule.predicate_key",
         "ccf.assembly.worker.RelationshipResolutionRule.subject_rule",
         "ccf.assembly.worker.RelationshipResolutionRule.object_rule",

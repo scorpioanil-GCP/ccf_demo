@@ -5327,6 +5327,7 @@
         "kind": "contract",
         "shape": {
           "arguments": "<class 'ccf.skills.catalog.SkillArgumentSchema'>",
+          "defaults": "collections.abc.Mapping[str, typing.Any]",
           "schema_name": "<class 'str'>",
           "schema_version": "<class 'str'>",
           "semver": "<class 'str'>",

@@ -99,7 +99,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
@@ -334,6 +334,38 @@ class ProductRequestContract(VersionedArtifact):
             the empty mapping (``D-IMPL-243``): nothing declared-refused is
             every pre-phase contract, so the field is omitted from the
             canonical form at that value and a non-empty mapping is rendered.
+        defaults: The value each parameter takes **when the caller omits it**.
+            A default is not a competitor to a value the caller supplied; it is
+            what omission *means* for this product (``D-IMPL-253`` Q2, Dave:
+            *"Product defaults belong on the request contract. They define what
+            omission means for that product."*). The empty mapping is the
+            positive assertion that this class declares no default, which is
+            what every declaration written before this field said and still
+            says. The values live here, in the artifact, so that no spine code
+            carries them (CLAUDE.md §6.4; ledger row ``24.6-L-07``): a number
+            in code is a number no examiner can trace to a decision anyone made
+            (CINV-01). Hash-transparent at the empty mapping (``D-IMPL-243``):
+            declaring nothing is every pre-phase contract, so the field is
+            omitted from the canonical form at that value and a non-empty
+            mapping is rendered.
+
+            **The SDK applies a default BEFORE validation, not after** — plan
+            ``24.6-03``'s resolver step, which is what makes an omitted
+            parameter reach the closed-world comparison as the value the class
+            declared. The resolved value is recorded with authority
+            ``default`` and this artifact's own pin as its source
+            (:class:`~ccf.products.provenance.EffectiveParameter`), which is
+            the whole reason omission has to mean something *declared*: a
+            default applied from code could not be pinned, and a decision made
+            under it could not be replayed.
+
+            A default is refused at declaration when its name is not a declared
+            argument, when it names a parameter this class always refuses, or
+            when its value does not satisfy the declared argument's own type —
+            all three named together in one message, because a default for a
+            parameter the class does not honor would widen the closed request
+            world by omission, which is the one thing this artifact exists to
+            keep shut.
     """
 
     schema_name: str
@@ -342,6 +374,67 @@ class ProductRequestContract(VersionedArtifact):
     unsupported_arguments: Mapping[str, str] = Field(
         default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    defaults: Mapping[str, Any] = Field(
+        default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @model_validator(mode="after")
+    def _every_default_is_a_parameter_this_class_honors(
+        self,
+    ) -> "ProductRequestContract":
+        """Refuse a default the class cannot honor, naming every offender at once.
+
+        Three ways a declared default is not one, checked together
+        (``24.6-L-07``): a name the class never declared, a name the class
+        declares and **always refuses**, and a value the declared argument's
+        own type would reject. An author fixing a declaration one exception at
+        a time is the papercut :meth:`from_declared` already exists to close,
+        so the exhaustive message is the behavior here too and not a nicety.
+
+        The type check is :func:`~ccf.products.payload.refuse_payload` over
+        ``arguments`` narrowed to the one name, never a second reading of
+        "conforms": one function decides what a declared parameter accepts, so
+        a default and a caller's value cannot be judged by two rules. The name
+        is bound at call time for the same ``DEF-17-02`` reason
+        :func:`refuse_request` binds it there.
+        """
+        if not self.defaults:
+            return self
+
+        from ccf.products.payload import refuse_payload
+
+        undeclared = sorted(
+            name for name in self.defaults if name not in self.arguments.properties
+        )
+        inert = sorted(
+            name for name in self.defaults if name in self.unsupported_arguments
+        )
+        mistyped = sorted(
+            name
+            for name in self.defaults
+            if name not in undeclared
+            and name not in inert
+            and refuse_payload(
+                payload={name: self.defaults[name]},
+                declared=SkillArgumentSchema(
+                    properties={name: self.arguments.properties[name]},
+                    required=(),
+                ),
+            )
+            is not None
+        )
+        if not (undeclared or inert or mistyped):
+            return self
+        raise ValueError(
+            f"the request contract for {self.schema_name!r} at class lane "
+            f"{self.schema_version!r} declares defaults it cannot honor: "
+            f"{undeclared} are not declared arguments, {inert} are declared "
+            f"and always refused, and {mistyped} do not satisfy the declared "
+            "argument's own type; every offender is named here rather than one "
+            "per exception, so the document is fixed in one pass — a default "
+            "for a parameter the class does not honor would widen the closed "
+            "request world by omission (24.6-L-07, D-IMPL-98, D-IMPL-253 Q2)"
+        )
 
     @classmethod
     def from_declared(cls, artifact: DeclaredArtifact) -> ProductRequestContract:
@@ -418,14 +511,24 @@ class ProductRequestContract(VersionedArtifact):
         The four ladder configs already carried the key as an uninterpreted
         sibling — the SDK reading it is the change, not the artifacts.
 
+        **The optional fifth key** (``24.6-L-07``). ``defaults`` is read on
+        exactly the same terms, and for the same reason: a declaration written
+        before it existed parses unchanged, and the empty mapping it lands at
+        is the positive assertion that the class declares no default rather
+        than a value nobody chose.
+
         Raises:
             ValueError: the declaration is missing one or more of the three
                 required keys, **named together in one message**. An adopter
                 fixing a declaration one ``KeyError`` at a time is the papercut
                 this method exists to close, so the exhaustive message is the
                 behaviour and not a nicety. Also raised, in the same one-error
-                shape, when ``unsupported_arguments`` is present but is not a
-                mapping of parameter name to reason prose.
+                    shape, when ``unsupported_arguments`` is present but is not a
+                mapping of parameter name to reason prose, and when
+                ``defaults`` is present but is not a mapping keyed by parameter
+                name. A default naming a parameter the class does not honor is
+                refused by the contract's own validator rather than here, in
+                one message naming every offender.
         """
         declaration = artifact.declaration
         missing = tuple(
@@ -453,6 +556,17 @@ class ProductRequestContract(VersionedArtifact):
                 "the four ladder configs already author (Standard §2.4, "
                 "24.5-L-13)"
             )
+        defaults = declaration.get(_KEY_DEFAULTS, {})
+        if not isinstance(defaults, Mapping) or not all(
+            isinstance(name, str) for name in defaults
+        ):
+            raise ValueError(
+                f"the declared artifact {artifact.class_id!r} at lane "
+                f"{artifact.semver!r} carries {_KEY_DEFAULTS!r} as "
+                f"{type(defaults).__name__}, and it must be a mapping of "
+                "parameter name to the value the class takes when the caller "
+                "omits that parameter (24.6-L-07, D-IMPL-253 Q2)"
+            )
         return cls(
             semver=artifact.semver,
             schema_name=declaration[_KEY_SCHEMA_NAME],
@@ -461,6 +575,7 @@ class ProductRequestContract(VersionedArtifact):
                 declaration[_KEY_ARGUMENTS]
             ),
             unsupported_arguments=dict(unsupported),
+            defaults=dict(defaults),
         )
 
 
@@ -472,6 +587,13 @@ _KEY_ARGUMENTS = "arguments"
 #: names a parameter; the parameters a class refuses are read from the artifact
 #: at :meth:`ProductRequestContract.from_declared` and nowhere else.
 _KEY_UNSUPPORTED_ARGUMENTS = "unsupported_arguments"
+
+#: The optional fifth declaration key (``24.6-L-07``, ``D-IMPL-253`` Q2). A key
+#: NAME of the artifact, like the four above — not a parameter and not a value.
+#: Nothing in this module names a parameter or carries a default; what a class
+#: takes when a caller omits something is read from the artifact at
+#: :meth:`ProductRequestContract.from_declared` and nowhere else (CINV-01).
+_KEY_DEFAULTS = "defaults"
 
 #: The three keys a request-contract declaration carries, in the order
 #: :meth:`ProductRequestContract.from_declared` reports them missing. They are

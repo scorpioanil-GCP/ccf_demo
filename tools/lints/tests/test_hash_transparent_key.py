@@ -302,6 +302,36 @@ def test_the_seven_are_declared_true_and_outside_the_roster() -> None:
         assert name not in roster, name
 
 
+#: Fields added AFTER amendment 2's sweep, ``module.Class.field``, all
+#: ``True``. Named rather than left to the universe check below, on the
+#: "verify rosters, not counts" discipline: the universe check would pass just
+#: as happily if one of these silently lost its key and another gained one.
+#: `THE_SEVEN` above is a CLOSED historical record of the sweep and is not
+#: extended — a field added later was never one of its seven.
+NAMED_SINCE_THE_SWEEP: tuple[str, ...] = (
+    # 24.6-01, the fifth declaration key (`24.6-L-07`, `D-IMPL-253` Q2).
+    "ccf.products.request.ProductRequestContract.defaults",
+)
+
+
+def test_the_fields_named_since_the_sweep_declare_true_and_are_outside_the_roster() -> (
+    None
+):
+    at_head = _at_head()
+    roster = base_roster.load()
+    for name in NAMED_SINCE_THE_SWEEP:
+        assert name in at_head, name
+        assert at_head[name].declared is True, name
+        assert name not in roster, name
+
+
+def test_the_two_tree_rosters_are_disjoint() -> None:
+    """`THE_SEVEN` is the sweep's record and `NAMED_SINCE_THE_SWEEP` is what
+    came after; a name in both would mean one of the two is lying about when
+    the field arrived."""
+    assert not set(THE_SEVEN) & set(NAMED_SINCE_THE_SWEEP)
+
+
 def test_every_field_new_since_base_declares_the_key() -> None:
     """The universe, enumerated: every defaulted field outside the roster
     declares ``True`` or ``False``. A roster of names, so a future field that

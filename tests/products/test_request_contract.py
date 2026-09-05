@@ -1286,3 +1286,138 @@ def test_the_string_collection_scan_sees_a_planted_constant(
     assert _string_collection_constants(
         copy_path.read_text(encoding="utf-8")
     ) == ["INERT_PARAMETERS"]
+
+
+# --- (f) the fifth declaration key: what omission means for this product -----
+#
+# ``24.6-L-07``; ``D-IMPL-253`` Q2 (Dave: *"Product defaults belong on the
+# request contract. They define what omission means for that product."*);
+# ``D-IMPL-243`` for the sentinel. **Nothing applies a default at this plan** —
+# plan ``24.6-03`` is the resolver step — so what is asserted here is the
+# declaration surface and its three refusals.
+
+#: Test deployment vocabulary. The number is the fixture's, never the SDK's
+#: (CINV-01): nothing in ``src/ccf/products/request.py`` carries a default.
+DEFAULTED_PARAMETER = "optional_leaf"
+DEFAULTED_VALUE = 3
+
+
+def test_a_contract_declaring_a_default_round_trips() -> None:
+    contract = _contract(defaults={DEFAULTED_PARAMETER: DEFAULTED_VALUE})
+    assert dict(contract.defaults) == {DEFAULTED_PARAMETER: DEFAULTED_VALUE}
+    assert (
+        ProductRequestContract.model_validate_json(contract.model_dump_json())
+        == contract
+    )
+
+
+def test_the_empty_mapping_is_omitted_and_a_declared_default_is_rendered() -> None:
+    """``D-IMPL-243``, both halves. The first is the compatibility claim the
+    whole field rests on: a contract declaring no default is byte-identical to
+    the same contract built before the key existed, so no committed
+    request-contract artifact's content address moves."""
+    from ccf.contracts.canonical import canonical_bytes
+
+    silent = _contract()
+    declaring = _contract(defaults={DEFAULTED_PARAMETER: DEFAULTED_VALUE})
+
+    assert b"defaults" not in canonical_bytes(silent)
+    assert canonical_bytes(silent) == canonical_bytes(_contract(defaults={}))
+    assert b"defaults" in canonical_bytes(declaring)
+    assert canonical_bytes(declaring) != canonical_bytes(silent)
+
+
+def test_a_declaration_without_defaults_still_parses() -> None:
+    """The pre-phase shape: no key, the empty mapping, nothing defaulted."""
+    contract = ProductRequestContract.from_declared(_declared())
+    assert dict(contract.defaults) == {}
+
+
+def test_from_declared_reads_the_optional_fifth_key() -> None:
+    declaration = dict(_declared().declaration)
+    declaration["defaults"] = {DEFAULTED_PARAMETER: DEFAULTED_VALUE}
+    contract = ProductRequestContract.from_declared(
+        _declared(declaration=declaration)
+    )
+    assert dict(contract.defaults) == {DEFAULTED_PARAMETER: DEFAULTED_VALUE}
+
+
+@pytest.mark.parametrize("malformed", [[DEFAULTED_PARAMETER], "optional_leaf", {4: 1}])
+def test_from_declared_refuses_a_malformed_defaults(malformed: Any) -> None:
+    declaration = dict(_declared().declaration)
+    declaration["defaults"] = malformed
+
+    with pytest.raises(ValueError) as raised:
+        ProductRequestContract.from_declared(_declared(declaration=declaration))
+
+    assert "defaults" in str(raised.value)
+
+
+def test_a_default_for_an_undeclared_parameter_is_refused_naming_it() -> None:
+    """A default for a parameter the class never declared would widen the
+    closed request world by omission — the one thing this artifact exists to
+    keep shut."""
+    with pytest.raises(ValueError) as raised:
+        _contract(defaults={"never_declared": 1})
+    assert "never_declared" in str(raised.value)
+
+
+def test_a_default_for_a_declared_and_always_refused_parameter_is_refused() -> None:
+    """A class cannot default a parameter it declares inert: the caller would
+    be given, by omission, exactly the value the tier step refuses to accept
+    when they supply it (``24.5-L-13``)."""
+    with pytest.raises(ValueError) as raised:
+        _contract(
+            unsupported_arguments={INERT_PARAMETER: INERT_REASON},
+            defaults={INERT_PARAMETER: "2026-01-01"},
+        )
+    assert INERT_PARAMETER in str(raised.value)
+
+
+def test_a_default_of_the_wrong_type_is_refused_naming_it() -> None:
+    """The type check is ``refuse_payload`` over the declared argument, never a
+    second reading of "conforms": a default and a caller's value are judged by
+    one rule."""
+    with pytest.raises(ValueError) as raised:
+        _contract(defaults={DEFAULTED_PARAMETER: "not-an-integer"})
+    assert DEFAULTED_PARAMETER in str(raised.value)
+
+
+def test_all_three_offenders_are_named_together_in_one_message() -> None:
+    """The exhaustive message is the behavior, not a nicety — the same
+    papercut ``from_declared``'s missing-keys message exists to close."""
+    with pytest.raises(ValueError) as raised:
+        _contract(
+            unsupported_arguments={INERT_PARAMETER: INERT_REASON},
+            defaults={
+                "never_declared": 1,
+                INERT_PARAMETER: "2026-01-01",
+                DEFAULTED_PARAMETER: "not-an-integer",
+            },
+        )
+    message = str(raised.value)
+    assert "never_declared" in message
+    assert INERT_PARAMETER in message
+    assert DEFAULTED_PARAMETER in message
+    assert "24.6-L-07" in message
+
+
+def test_a_nested_default_is_judged_by_the_same_comparison() -> None:
+    """The delegation reaches every level ``D-IMPL-103``'s widening admits: a
+    nested object default missing its required member is refused, and the
+    well-formed one is admitted (the positive control)."""
+    with pytest.raises(ValueError):
+        _contract(defaults={"nested": {}})
+    assert dict(_contract(defaults={"nested": {"member": "x"}}).defaults) == {
+        "nested": {"member": "x"}
+    }
+
+
+def test_the_module_holds_no_default_value_of_its_own() -> None:
+    """CINV-01, as a read of the module rather than a claim about it: the SDK
+    names the KEY and never a value under it. The key name is the one
+    ``defaults``-shaped string the module may carry."""
+    source = REQUEST_MODULE.read_text(encoding="utf-8")
+    assert '_KEY_DEFAULTS = "defaults"' in source
+    assert source.count('_KEY_DEFAULTS = "defaults"') == 1
+    assert DEFAULTED_PARAMETER not in source
