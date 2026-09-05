@@ -3,8 +3,26 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-05T00:30:00.000Z"
+last_updated: "2026-09-05T01:20:00.000Z"
 last_activity: >-
+  **PHASE 24.6 IS PLANNED UNDER `D-IMPL-256` — 16 plans, 12 waves, criteria 36 (2026-09-04 evening, branch
+  `phase-24.6`, pushed).** Dave ruled the three delivery-boundary questions BEFORE Wave 1 rather than at close:
+  (1) MCP standing-resource denials are RECORDED under a resource-request identity at the determination instant;
+  (2) an entitling door without a recorder is UNAVAILABLE for all governed requests — the three builders refuse at
+  CONSTRUCTION (`UnrecordableDeliveryBoundaryError`), no warn-and-serve, no denial-branch posture, no residual
+  channel; (3) the experience server's three entitlement paths get the same shell-and-replay treatment, narrowly
+  (new plan 16, wave 8, 09‖10‖16 disjoint). He added the DELIVERY-BOUNDARY REPLAY INVARIANT as criterion 36 (every
+  governed determination reaches the replay writer before the response is released; replay belongs to the
+  determination, never to HTTP/MCP — a governed step `govern_entitlement` in `runtime/ccf_runtime/authz/` owns
+  determination → mint → disclosure and the doors only encode). CRITERIA-LOCK Amendment 2: criteria 24/25/35
+  amended, 36 added, digest re-pinned `014dcd64…` (`c3224bb4…`@`64d9e905` and `eba17d45…`@`4da5a80d` are the
+  controls). Scoped checker on the fold-in: 1 blocker (plan 16's invariant test asserted a wave-8 tree only plans
+  09/10 produce → moved to plan 11 Task 3, wave 9) + 1 warning (dim 2 must pin the entitlement policy that DECIDED
+  a foreign-tenant request, not the deployment's) — both sent to the planner; the authz/ placement of the governed
+  step ruled consistent. cp-04's door binds in plan 10 (not 13); plan 14 is the publish checkpoint; plan 15 the
+  close evidence with the three questions retired as ruled. **Next: verify the last planner commit by hand, push,
+  present; then Dave's line-by-line review if he wants it; then `/gsd-execute-phase 24.6`.** Next free id
+  `D-IMPL-257`. Hand-edited; no `state.*` or `roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 IS PLANNED AND CHECKED (2026-09-04, /gsd-plan-phase 24.6, branch `phase-24.6` at `2baf78f5`).**
   Plan checker ran three iterations: 5 blockers + 5 warnings → 1 + 2 → 0 + 3; the last three warnings applied
   by the planner at `2baf78f5` and verified by hand (the 24.5.1 precedent), no fourth pass. The substantive
