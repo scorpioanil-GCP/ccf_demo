@@ -3,8 +3,19 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-05T14:05:00.000Z"
+last_updated: "2026-09-05T16:25:00.000Z"
 last_activity: >-
+  **PHASE 24.6 — §3.1 CLOSE SEQUENCE COMPLETE UP TO DAVE'S GATE (2026-09-05 09:25 MST, `phase-24.6` at `026f7d36`, NOT pushed, NOT merged).**
+  Build evaluation DONE (Dave: cp-01 APPROVE + F-1 carried; cp-04 APPROVE; phase APPROVE TO CLOSE subject to evidence and gates). Cross-AI
+  panel RUN on a 14-bundle packet rebuilt from the fixed tree (`24.6-CLOSE-REVIEWS.md`: 42/42 runs read-proofed; 8 fixed, 9 rejected with the
+  rejecting line, 6 carried). Single-agent review RUN (`24.6-REVIEW.md`: 3 carried, 1 rejected, 6 docstrings corrected; schemas regenerated).
+  Close-time fix commits `ea695396` (F-C ×5), `a90a8df9` (panel ×7 + docstring), `066f6c06` (egress address-surface identity), `61a4b97a`
+  (docstrings), `026f7d36` (schemas). Final tree whole: A 2691 / B 900+90 / C 873+127 / D 1840 (4 schema-export reds → fixed, 118 re-run)
+  = 6521 collected; leg-fluree 308, leg-postgres 273+68, lint 0, mypy clean, digest `c0fdc4f4…` unmoved. ONE pre-phase red (gate-tools, F-E).
+  **TEN questions for Dave, none disposed** (CLOSE-PREP `D-GATE-24.6 — DRAFT, updated`): P-I criterion-10 override attempts on refused requests;
+  P-J criterion-22 `resource` key presence (the phase's own instrument excluded it); P-A release without mint/disclosure for non-reference
+  resolvers; P-B/P-C/P-D/P-E/P-G/P-H/P-F; plus F-D/E/F/G/J carried. **Next:** Dave rules → `D-GATE-24.6` in DECISIONS.md → merge `--no-ff` to
+  `main` → push → regenerate RETIREMENT-COUPLINGS last. Next free id `D-IMPL-260`. Hand-edited; no `state.*`/`roadmap.*` writer ran. PRIOR HEAD FOLLOWS.
   **PHASE 24.6 EXECUTED AND BUILD-EVALUATED — F-C fixed in-phase at `ea695396`; panel + review next (2026-09-05 07:05 MST).**
   Plan 15's close evidence (`d466d4f7`) found FIVE in-phase reds on `make leg-fluree` (cp-04's fluree-marked modules; base green): two gates
   written against the pre-`24.6-08` shell (`CFT-G18` (b) read both candidate IRIs off the shell; `CFT-G06` read the declared prose and a
