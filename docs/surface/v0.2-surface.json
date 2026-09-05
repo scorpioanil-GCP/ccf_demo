@@ -5534,6 +5534,7 @@
       "ProductRequestViolationReason",
       "refuse_request",
       "refuse_request_contract_pin",
+      "refuse_undeclared_class_default",
       "request_seeds"
     ],
     "exports": {
@@ -5600,7 +5601,11 @@
       },
       "refuse_request_contract_pin": {
         "kind": "function",
-        "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', request_contract_key: 'str', request_contract_version: 'str') -> 'None'"
+        "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', request_contract_key: 'str', request_contract_version: 'str') -> 'ProductRequestContract | None'"
+      },
+      "refuse_undeclared_class_default": {
+        "kind": "function",
+        "shape": "(*, schema_name: 'str', schema_version: 'str', serve_obligations: 'ServeObligations', declared: 'ProductRequestContract | None') -> 'None'"
       },
       "request_seeds": {
         "kind": "function",

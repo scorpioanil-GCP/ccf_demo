@@ -755,7 +755,12 @@ def resolve_effective_request(
         ValueError: ``class_defaults`` is non-empty and ``class_source`` is
             ``None`` — a declared default with no artifact behind it — or it
             names a parameter ``declared`` does not declare as an argument,
-            which would be a class-imposed ceiling rather than a default.
+            which would be a class-imposed ceiling rather than a default. The
+            second is **unreachable through the SDK's own wiring** since
+            ``D-IMPL-258`` (5) moved that refusal to registration and boot
+            (:func:`~ccf.products.request.refuse_undeclared_class_default`);
+            it is retained here as an invariant guard for callers of this pure
+            function, which cannot be assumed to have booted through either.
         LookupError: ``capability_bindings`` names a capability token no member
             of ``capabilities`` supplies. Under ``D-IMPL-253`` amendment 2 (3)
             this is a configuration failure — the fabric cannot reach a valid
@@ -802,6 +807,19 @@ def resolve_effective_request(
             # deployment's. Raised rather than returned, on the
             # `capability_bindings` precedent: the fabric cannot reach a valid
             # governed determination (`D-IMPL-253` amendment 2 (3)).
+            #
+            # **UNREACHABLE through the SDK's own wiring since `D-IMPL-258`
+            # (5), and retained deliberately.** Dave moved the refusal to
+            # declaration time: `ccf.products.request.refuse_undeclared_class_default`
+            # runs at registration
+            # (`ccf.products.contract.register_product_class`) and at boot
+            # (`ccf.products.resolver.build_governed_resolver`), so a class
+            # that contradicts its own contract never becomes servable and
+            # this branch never sees one. It stays because THIS function is a
+            # pure, public function over its arguments — it cannot assume its
+            # caller booted through either seam, and a silent fold-in for a
+            # caller that did not would be the silent repair this codebase
+            # refuses everywhere. It is the last line, not the line.
             raise ValueError(
                 f"the product class declares a default for {name!r}, which"
                 f" its request contract ({declared.schema_name}"

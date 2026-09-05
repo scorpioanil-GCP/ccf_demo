@@ -1071,7 +1071,10 @@ def register_product_class(
             ``(max_ttl_key, max_ttl_version)``, or the artifact there is not a
             :class:`MaxTTL`; or the payload-schema pin is half-declared, names
             nothing registered, or names an artifact that is not a payload
-            schema.
+            schema; or ``serve_obligations`` declares a default for a
+            parameter the class's request contract does not declare as an
+            argument (``D-IMPL-258`` (5) —
+            :func:`~ccf.products.request.refuse_undeclared_class_default`).
     """
     try:
         artifact = registry.resolve(max_ttl_key, max_ttl_version)
@@ -1100,14 +1103,28 @@ def register_product_class(
     # here would close the cycle directly rather than through the skills
     # catalog. The resolution happens once per class registration, at wiring
     # time, so the deferral costs nothing.
-    from ccf.products.request import refuse_request_contract_pin
+    from ccf.products.request import (
+        refuse_request_contract_pin,
+        refuse_undeclared_class_default,
+    )
 
-    refuse_request_contract_pin(
+    declared = refuse_request_contract_pin(
         registry=registry,
         schema_name=schema_name,
         schema_version=schema_version,
         request_contract_key=request_contract_key,
         request_contract_version=request_contract_version,
+    )
+    # `D-IMPL-258` (5): a default naming a parameter the request contract does
+    # not expose is a malformed declaration, and it fails HERE — where the
+    # author can still fix it — rather than producing a shell to a caller. The
+    # contract is the one the pin refusal just resolved, so the two checks
+    # cannot disagree about what this class's request surface is.
+    refuse_undeclared_class_default(
+        schema_name=schema_name,
+        schema_version=schema_version,
+        serve_obligations=serve_obligations,
+        declared=declared,
     )
     return RegisteredProductClass(
         schema_name=schema_name,

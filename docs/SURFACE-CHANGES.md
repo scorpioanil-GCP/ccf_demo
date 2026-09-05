@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**974 entries**, of which **731** name a public Python surface.
+**978 entries**, of which **735** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-480 entries — 440 public Python surface, 40 not public Python API.
+481 entries — 441 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -127,6 +127,37 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: a caller that catches `ReplayDivergence` and `ReplayUnresolvable` separately and wants the third finding names it too. The HTTP `replay` noun resolves records through `resolve_artifact` and never calls `replay()`, so no route or status code moves
 
 *Recorded by `24.5-fix-01-hash-transparency.md`.*
+
+#### ccf.products.request.refuse\_undeclared\_class\_default
+
+- Surface: ccf.products.request.refuse_undeclared_class_default
+- Public surface: true
+- Change type: added
+- Before: absent. A class default naming a parameter the request contract does
+  not declare was refused at **resolution** time, per request, by
+  `ccf.products.constraints.resolve_effective_request` — a `ValueError` raised
+  in front of a caller for a deployment's authoring mistake
+- After: the check runs at **registration**, from
+  `ccf.products.contract.register_product_class`, and at **boot**, from
+  `ccf.products.resolver.build_governed_resolver`. It raises
+  `ProductClassRegistrationError` naming both remedies — declare the argument
+  on the request contract, or remove the class default
+- Why: Dave, `D-IMPL-258` (5): *"a default naming a parameter the contract does
+  not expose is a malformed/internally inconsistent declaration. That should
+  fail registration/configuration/boot validation, not produce a shell to a
+  caller."* A self-contradicting Control Plane now fails before it serves
+  anything, and the boundary the ruling draws — *configuration/invariant
+  failure* for a malformed declaration, *governed shell* for a caller outside a
+  valid declared constraint — is a boundary between two moments as well as two
+  outcomes
+- Migration: **a deployment whose product class declares
+  `ServeObligations.default_debt_tolerance` while its request contract does not
+  declare `debt_tolerance` as an argument now fails at wiring rather than at
+  the first request.** The remedy is the same one the old message named; what
+  changed is when it is heard. No shipped example declares that combination, so
+  nothing in this repository moved
+
+*Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
 
 #### ccf.deployment.classes.resolve_artifact_class
 
@@ -9390,7 +9421,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-364 entries — 181 public Python surface, 183 not public Python API.
+365 entries — 182 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -9405,6 +9436,23 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none for a reader of the existing five. A client switching on `reason` gains one arm
 
 *Recorded by `24.5-fix-02-the-tolerance-interval-at-the-request-boundary.md`.*
+
+#### ccf.products.request.refuse\_request\_contract\_pin
+
+- Surface: ccf.products.request.refuse_request_contract_pin
+- Public surface: true
+- Change type: reshaped
+- Before: `(*, registry, schema_name, schema_version, request_contract_key,
+  request_contract_version) -> None`
+- After: the same parameters, returning `ProductRequestContract | None` — the
+  contract it resolved, or `None` when the class pins no request contract
+- Why: the declaration-versus-contract check `D-IMPL-258` (5) asks for needs
+  the resolved contract, and this function had already resolved it. Returning
+  it costs one registry read rather than two, and two reads of one key are two
+  chances to disagree
+- Migration: none. Existing callers ignore the return value and are unaffected
+
+*Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
 
 #### ccf.assembly.worker.EntityResolutionSpec
 
@@ -15594,7 +15642,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-123 entries — 103 public Python surface, 20 not public Python API.
+125 entries — 105 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -15754,6 +15802,57 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller presenting a conformant request. A caller whose request is refused by the resolver's boundary now receives `400` with the envelope where it previously received a transport-level server error
 
 *Recorded by `24.5-fix-03-the-http-door-answers-400-for-a-request-violation.md`.*
+
+#### ccf.products.disclosure.INDISTINGUISHABLE\_BELOW\_FULL
+
+- Surface: ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL
+- Public surface: true
+- Change type: behavior
+- Before: `{"subject-unavailable": frozenset({"detail", "cause",
+  "error_code"})}` — three members, all of them either the envelope's `detail`
+  or a key inside the refusal's `fields`
+- After: the same entry with a fourth member, `policy_bindings`, which is a
+  **whole member of the shell** rather than a `fields` key. `disclose` now
+  normalizes such a member to the sentinel its own field declares — the empty
+  tuple, which `RefusalEnvelope.policy_bindings` already documents as *nothing
+  governed version-bearingly* — at every level below `full`
+- Why: an entitlement denial pinned the entitlement policy that decided it, at
+  its version, and an assembler's nonexistent-subject determination pinned
+  nothing. So the two D-27 subjects differed by **value** and — because the
+  canonical rendering omits an empty tuple — by **key presence** too, which is
+  the *body schema/field presence* channel `D-IMPL-253` amendment 2 (4) names
+  by name. `24.6-08` F-2 flagged it, `24.6-09` F-1 and `24.6-10` F-1 measured
+  it at each door, and `D-IMPL-258` (2) ruled it closed at the disclosure step
+  rather than allowlisted in the tests
+- Migration: **a refused consumer no longer learns which Control Plane policy
+  governed a `subject-unavailable` refusal, at `minimal` or `reasoned`.** A
+  client reading `refusal["policy_bindings"]` on that kind finds the key absent
+  below `full`; a deployment that wants the pin back sets its tenant's
+  `ProductEntitlementPolicy.disclosure_level` to `full`, which is a versioned
+  Control Plane statement that this reader may see internal truth. Nothing an
+  examiner reads moves: the internal envelope on the Decision Replay record
+  still carries the real bindings, and both door controls assert it
+
+*Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
+
+#### ccf\_runtime.http\_api.routes.product — the `403` → `404` change, recorded as breaking
+
+- Surface: ccf_runtime.http_api.routes.product
+- Public surface: true
+- Change type: behavior
+- Before: recorded in `24.6-09`'s fragment as breaking for a client reading
+  this door's `403`, without a ruling behind it
+- After: the same behavior, now **ruled and kept** under `D-IMPL-258` (3), with
+  the migration note in that fragment restated in the ruling's own four terms
+- Why: Dave: *"keep the new behavior. This is an intentional wire change
+  required by the suppression-silence ruling … I would not invent another
+  compatibility shim that resurrects the `403`."* The note is in `24.6-09`'s
+  fragment rather than duplicated here, because one surface's migration
+  guidance living in two places is how the two come to disagree
+- Migration: see `24.6-09`'s `ccf_runtime.http_api.routes.product — the
+  entitlement refusal body` entry, which now carries the four terms
+
+*Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
 
 #### ccf.controlplane.artifacts.load_artifact
 
@@ -17884,12 +17983,21 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   are now **internal truth**, recorded in the denial's replay record, and Q27's
   *"Don't destroy audit truth merely to achieve external suppression
   silence"* is why they are recorded rather than dropped
-- Migration: **breaking for a client that reads this door's `403`.** A client
-  branching on `response.status_code == 403` or on
-  `response.json()["detail"]["error_code"]` for `GET /product/...` reads `404`
-  and `response.json()["kind"]` instead. The `403` for *tenant* authorization
-  on the HITL routes (`ERROR_TENANT_UNAUTHORIZED`) is unaffected, as is the
-  `401` for authentication
+- Migration: **BREAKING DELIVERY-SURFACE CHANGE, ruled and kept**
+  (`D-IMPL-258` (3), Dave, 2026-09-05: *"keep the new behavior. This is an
+  intentional wire change required by the suppression-silence ruling… I would
+  not invent another compatibility shim that resurrects the `403`."*). What an
+  adopter must take on, in the four terms the ruling states it in:
+  1. **a governed entitlement denial returns the same externally observable
+     status family as unavailable/nonexistent** — `404`, not `403`, because a
+     status that differed by cause is itself the leak;
+  2. **the body is the canonical refusal shell** — `{"kind", "refusal_type",
+     "refusal"}`, never the retired `{"detail": {"error_code", "message"}}`;
+  3. **internal/replay truth can still record `unauthorized`** — the typed
+     codes survive in the denial's Decision Replay record, which is what keeps
+     this a disclosure change rather than an erasure;
+  4. **no known governed outcome becomes `500`** — the invariant D-18 states,
+     and the reason the mapping is a total table rather than a set of branches.
 
 *Recorded by `24.6-09-the-http-door-maps-every-kind-and-leaks-nothing.md`.*
 
