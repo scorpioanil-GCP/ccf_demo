@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**857 entries**, of which **615** name a public Python surface.
+**867 entries**, of which **625** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-422 entries — 383 public Python surface, 39 not public Python API.
+429 entries — 390 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -7682,6 +7682,157 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
 
+#### ccf.products.constraints.CAPABILITY_TRAVERSAL_DEPTH
+
+- Surface: ccf.products.constraints.CAPABILITY_TRAVERSAL_DEPTH
+- Public surface: true
+- Change type: added
+- Before: absent. A technical limit had no representation in the resolution
+  path at all; the two graph backends each hold a `MAX_DEPTH_CEILING` that
+  bounds injected query text and deliberately has no refusal path
+- After: `Final[str] = "traversal-depth"` — the one capability token v0 ships
+- Why: `D-IMPL-253` Q21, Dave: *"6 is measurement/default history; 100 is the
+  genuine technical capability boundary."* A mechanism name and never a value:
+  it names *which* capability bounds a parameter, and the limit itself arrives
+  at run time as a `TechnicalCapability` (CLAUDE.md §6.4, CINV-01). The graph
+  seam keeps its no-refusal contract — refusing a depth **by name** is the
+  constraint layer's job, because only there is there a governed response to
+  put the refusal in
+- Migration: none — a new name
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.constraints.PinnedConstraint
+
+- Surface: ccf.products.constraints.PinnedConstraint
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `PinnedConstraint(CCFContract)` with `key: str`, `version: str` and
+  `constraint: PolicyConstraint`
+- Why: whitepaper §7.4 — replay resolves an *exact* version and never "latest".
+  A `PolicyConstraint` carries its own `semver` lane but not the registry key
+  it lives under, and the key is half of the pin, so a constraint that reached
+  a resolution without `(key, version)` could not be re-resolved by an
+  examiner. `version` is carried verbatim rather than re-derived: what an
+  examiner replays against is the version the resolution *asked for*
+- Migration: none — a new type
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.constraints.TechnicalCapability
+
+- Surface: ccf.products.constraints.TechnicalCapability
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `TechnicalCapability(CCFContract)` with `capability: str`, `maximum:
+  Decimal` and `identity: str`
+- Why: `D-IMPL-253` Q21 and amendment 2 (1). A capability limit is a property
+  of the substrate the fabric is executing on, so its provenance is a
+  **backend identity and never an artifact pin** — *"Do not create fake
+  artifacts just to satisfy a uniform provenance schema"* — and
+  `ProvenanceSource` refuses a version on a `capability` source structurally.
+  `identity` is the value a `BackendStore` already answers as `graph_identity`
+- Migration: none — a new type
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.constraints.ConstraintRefusal
+
+- Surface: ccf.products.constraints.ConstraintRefusal
+- Public surface: true
+- Change type: added
+- Before: absent. A value outside a policy or technical bound had no governed
+  shell; the only shipped behavior was `effective_debt_ceiling`'s silent
+  `min()`
+- After: `ConstraintRefusal(CCFContract)` with `reason:
+  Literal["bound-exceeded", "not-in-allowed-set", "required-absent"]`, `key`,
+  `detail`, `bound: ParameterBound` and `requested: Any`. Registered in
+  `ccf.products.refusal.REFUSAL_KINDS` as `constraint-refusal` and in
+  `_PRE_ASSEMBLY_REFUSALS`
+- Why: `24.6-L-07`, `D-IMPL-253` Q13 (*"Refusal is itself a decision and
+  deserves the same five-dimensional replay model"*). The bound travels whole,
+  which is what lets a technical limit be refused **by name**: a consumer
+  reads `bound.authority == "technical"` and a `capability` source without
+  parsing prose. `bound-exceeded` covers both numeric directions on purpose —
+  the direction is already in `bound.operator`, and stating it twice invites
+  the two to disagree
+- Migration: none — a new type. No code path produces one outside `tests/` at
+  this plan
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.constraints.PolicyResolutionConflict
+
+- Surface: ccf.products.constraints.PolicyResolutionConflict
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `PolicyResolutionConflict(CCFContract)` with `reason:
+  Literal["policy-resolution-conflict"]` (defaulted, marked
+  `ccf_hash_transparent: False`), `key`, `detail` and `conflicting:
+  tuple[ProvenanceSource, ...]`. Registered as `policy-resolution-conflict` and
+  in `_PRE_ASSEMBLY_REFUSALS`
+- Why: `D-IMPL-253` Q4, Dave: *"If constraints are irreconcilable, return a
+  governed shell identifying a policy-resolution conflict, subject to
+  disclosure."* This is the shell that exists **so priority never has to erase
+  anything** — the tempting resolution, letting the higher-priority constraint
+  win, is exactly what Q4 forbids. `conflicting` names every source that took
+  part, by `(key, version)`, so an examiner resolves each rather than
+  reconstructing the set from prose
+- Migration: none — a new type
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.constraints.applicable
+
+- Surface: ccf.products.constraints.applicable
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `applicable(constraint, *, product_class, tenant, perspective_role,
+  intent, asked_at) -> bool`. Every non-`None` axis of `applies_to` must equal
+  its input, conjunctively; the window is half-open (`effective_from <=
+  asked_at < effective_until`). A zone-less `asked_at` raises `TypeError`
+- Why: `D-IMPL-253` Q6, Dave: *"asked_at, absolutely. Otherwise replay of the
+  same historical decision can resolve a different policy."* Both questions —
+  the axes and the window — are answered in one place so no caller answers half
+  of one
+- Migration: none — a new name
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.constraints.resolve_effective_request
+
+- Surface: ccf.products.constraints.resolve_effective_request
+- Public surface: true
+- Change type: added
+- Before: absent. The SDK applied no defaults, read no policy constraint, and
+  folded the class ceiling and the caller's tolerance with `min()`
+- After: a pure function returning `EffectiveRequest | ConstraintRefusal |
+  PolicyResolutionConflict | ProductRequestViolation`. Five steps, fixed order:
+  defaults → caller overlay → policy constraints by comparability → technical
+  capability → the existing `refuse_request` comparison over the **effective**
+  values. Two ceilings fold to the smaller, two floors to the larger, two
+  admitted sets to their intersection; a ceiling below a floor and an empty
+  intersection are conflicts; a `maximum` beside an `allowed_set` is
+  non-comparable, so **both apply** and priority only orders which is
+  *reported*. `preferred` folds to guidance and to nothing else. An
+  `overridable` constraint is skipped only when a `verified_overrides` record
+  carries both `entitled` and `honored`
+- Why: `24.6-L-07`, `D-IMPL-253` Q1/Q4/Q5/Q7 and `D-IMPL-254`'s
+  Determination → Authority → Disclosure → Delivery. Pure over its arguments —
+  no clock, no registry, no I/O; the instant is a field of the request — for
+  the reason `refuse_request` is, and it re-checks `applicable(...)` over every
+  constraint it is handed so that purity is not also a trust assumption about
+  its caller. **A hard constraint is never dropped because another outranks
+  it**: priority orders which surviving bound is reported, and every applicable
+  hard bound is still held against the value
+- Migration: none — a new name. Nothing calls it at this plan
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -8310,7 +8461,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-322 entries — 139 public Python surface, 183 not public Python API.
+325 entries — 142 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -11261,6 +11412,65 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   `argument_defaults` key migrates in `24.6-13`
 
 *Recorded by `24.6-01-the-policy-constraint-artifact-and-product-defaults.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: reshaped
+- Before: twenty kinds
+- After: twenty-two. `ConstraintRefusal: "constraint-refusal"` and
+  `PolicyResolutionConflict: "policy-resolution-conflict"`, both also in the
+  private `_PRE_ASSEMBLY_REFUSALS` set — both are reached while the effective
+  request is still being built, which is strictly before an operator plan
+  exists, so a lineage offered with either would claim evidence that could not
+  exist yet
+- Why: `24.6-L-07`. Neither token is a substring of `contract-refusal` or
+  `policy-binding-refusal`, the two shipped tokens they read closest to, and
+  the closure gate checks that rather than leaving it to the eye
+- Migration: a consumer switching exhaustively on `kind` gains two members. No
+  door produces either at this plan
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.refusal.NON_PRODUCT_REFUSALS
+
+- Surface: ccf.products.refusal.NON_PRODUCT_REFUSALS
+- Public surface: true
+- Change type: reshaped
+- Before: `{"RegistrationRefusal", "EffectRefusal", "GrantRefusal"}`
+- After: `DefaultConflict` joins — the agent-composition verdict for two
+  archetypes contributing the same default. It has been in `src/` since the
+  agent framework shipped, reaches no product seam, and changed in no way
+- Why: the exhaustiveness gate's structural walk widened from two name families
+  (`…Refusal`, `…Violation`) to three, so that
+  `PolicyResolutionConflict` — a refusal in every sense but its name — could
+  not enter the vocabulary by exemption. Widening a walk means placing
+  everything it then finds, and this is one of the three it found. The
+  alternative, exempting one member of the vocabulary from the "nothing enters
+  by name" property, would have made the gate weaker in exchange for a smaller
+  diff
+- Migration: none. The set is an allowlist read by one test
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
+
+#### ccf.products.refusal.NON_VALUE_VIOLATIONS
+
+- Surface: ccf.products.refusal.NON_VALUE_VIOLATIONS
+- Public surface: true
+- Change type: reshaped
+- Before: four `…Violation`-named exception classes
+- After: six. `WebhookEndpointConflict` (two HITL webhook registrations
+  claiming one endpoint) and `FragmentFamilyConflict` (two projection fragments
+  claiming one family) join. Both are pre-existing `ValueError` subclasses and
+  neither changed
+- Why: the same widening as above. The constant's prose is re-voiced from
+  *"`…Violation`-named classes"* to *"`…Violation`- and `…Conflict`-named
+  classes"*, so the name the set is closed over and the name it claims to be
+  closed over stay the same name
+- Migration: none. The set is an allowlist read by one test
+
+*Recorded by `24.6-02-the-resolution-algorithm-and-two-constraint-kinds.md`.*
 
 ### Not public Python API
 

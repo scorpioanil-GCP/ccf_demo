@@ -22,7 +22,7 @@ carries — before any door is changed.
 The two ruled constraints
 -------------------------
 **(a) Every refusal kind crosses without flattening.** The fabric declares
-twenty of them: the ``GateRefusal`` hierarchy
+twenty-two of them: the ``GateRefusal`` hierarchy
 (:mod:`ccf.products.gates`, including the declared-obligations refusal of
 ``24.5-L-14`` / ``24.5-L-26`` and the empty-operator gate's returned-empty
 half of ``24.5-L-24``), the peering-admission refusals that derive from it
@@ -30,7 +30,9 @@ half of ``24.5-L-24``), the peering-admission refusals that derive from it
 (:mod:`ccf.graph.product_source`), the two request/payload conformity verdicts
 (:mod:`ccf.products.request`, :mod:`ccf.products.payload`), the pre-assembly
 anchor-ambiguity refusal beside them (:mod:`ccf.products.request`,
-``24.5-L-16``), the assembly mixing refusal (:mod:`ccf.products.composition`),
+``24.5-L-16``), the two constraint-layer determinations
+(:mod:`ccf.products.constraints`, ``24.6-L-07``), the assembly mixing refusal
+(:mod:`ccf.products.composition`),
 and the assembly-time refusal returned as a value
 (:mod:`ccf.agents.errors`, ``24.5-L-11``). If the envelope lost *which
 kind* a refusal was, a client's ``refusal.reason`` would become mush and the
@@ -62,10 +64,11 @@ What is deliberately **not** here
   door*, not values returned by the fabric. Contract-level principal and
   entitlement handling at the client seam is deferred, so they are out of this
   envelope's vocabulary and are recorded in :data:`NON_VALUE_VIOLATIONS`.
-* **Control Plane and harness verdicts.** Three further ``…Refusal``-named
-  contracts exist under ``src/`` — a registration verdict, a harness
-  effect-capture verdict, and a skilling-governance verdict. None crosses a
-  product seam. They are recorded in :data:`NON_PRODUCT_REFUSALS`.
+* **Control Plane, harness and composition verdicts.** Four further
+  contracts in the walked name families exist under ``src/`` — a registration
+  verdict, a harness effect-capture verdict, a skilling-governance verdict, and
+  an agent-composition default conflict. None crosses a product seam. They are
+  recorded in :data:`NON_PRODUCT_REFUSALS`.
 
 Both exclusions are **named asserted allowlists**, not omissions: the
 exhaustiveness gate in ``tests/products/test_refusal_envelope.py`` closes each
@@ -96,6 +99,7 @@ from ccf.peering.admission import (
     SignatureRefusal,
 )
 from ccf.products.composition import MixingRefusal
+from ccf.products.constraints import ConstraintRefusal, PolicyResolutionConflict
 from ccf.products.contract import ProductLineage
 from ccf.products.gates import (
     AttestationRefusal,
@@ -262,6 +266,18 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     ProductRequestViolation: "product-request-violation",
     PayloadSchemaViolation: "payload-schema-violation",
     AnchorAmbiguityRefusal: "anchor-ambiguity-refusal",
+    # The two constraint-layer determinations (24.6-L-07, D-IMPL-253 Q4/Q7),
+    # reached while the effective request is being resolved and therefore
+    # before the graph is touched. `constraint-refusal` is a value the fabric
+    # may not act on — the caller's or the class's, held to a policy or a
+    # technical bound; `policy-resolution-conflict` is the deployment's own
+    # policy set disagreeing with itself, which is the shell that exists so
+    # priority never has to erase an applicable hard constraint. Neither token
+    # is a substring of `contract-refusal` or `policy-binding-refusal`, the two
+    # shipped tokens they read closest to, and the closure gate checks that
+    # rather than leaving it to the eye.
+    ConstraintRefusal: "constraint-refusal",
+    PolicyResolutionConflict: "policy-resolution-conflict",
     # The assembly-time mixing rule, which is not a fourth gate.
     MixingRefusal: "mixing-refusal",
     # The assembly-time refusal returned as a value — the exception of the
@@ -278,17 +294,23 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
 #: * ``EffectRefusal`` — a harness effect-capture verdict (CLAUDE.md §7.3,
 #:   seam 3).
 #: * ``GrantRefusal`` — a skilling-governance verdict (CLAUDE.md §6.2).
+#: * ``DefaultConflict`` — an agent-composition verdict: two archetypes
+#:   contributing the same default. It joined this allowlist in ``24.6-L-07``,
+#:   when the structural walk widened to the ``…Conflict`` name family so that
+#:   :class:`~ccf.products.constraints.PolicyResolutionConflict` could not
+#:   enter the vocabulary by exemption. It has been in ``src/`` since the agent
+#:   framework shipped and reaches no product seam.
 #:
 #: An allowlist rather than an omission: the gate asserts this set equals
-#: exactly what the structural walk found and could not place, so a fourth
+#: exactly what the structural walk found and could not place, so a fifth
 #: such class demands a ruling instead of passing unseen.
 NON_PRODUCT_REFUSALS: Final[frozenset[str]] = frozenset(
-    {"RegistrationRefusal", "EffectRefusal", "GrantRefusal"}
+    {"RegistrationRefusal", "EffectRefusal", "GrantRefusal", "DefaultConflict"}
 )
 
-#: ``…Violation``-named classes under ``src/`` that are **exceptions rather
-#: than values**, and therefore outside an envelope that carries returned
-#: refusals:
+#: ``…Violation``- and ``…Conflict``-named classes under ``src/`` that are
+#: **exceptions rather than values**, and therefore outside an envelope that
+#: carries returned refusals:
 #:
 #: * ``TrustPolicyViolation`` — raised on a peering-trust lookup.
 #: * ``SnapshotScopeViolation`` — raised on a replay-snapshot scope miss.
@@ -296,9 +318,21 @@ NON_PRODUCT_REFUSALS: Final[frozenset[str]] = frozenset(
 #:   principal and entitlement handling at the client seam is deferred.
 #: * ``SingleWriterViolation`` — the single-writer invariant firing
 #:   (CLAUDE.md §10).
+#: * ``WebhookEndpointConflict`` — raised when two HITL webhook registrations
+#:   claim one endpoint.
+#: * ``FragmentFamilyConflict`` — raised when two projection fragments claim
+#:   one family.
 #:
-#: This is the second allowlist, and it exists so the ``…Violation`` half of
-#: the name vocabulary closes by equality too. Two ``…Violation``-named classes
+#: The last two joined in ``24.6-L-07`` for the reason ``DefaultConflict``
+#: joined the allowlist above: the structural walk widened to the ``…Conflict``
+#: name family so that
+#: :class:`~ccf.products.constraints.PolicyResolutionConflict` could not enter
+#: the vocabulary by exemption, and widening a walk means placing everything it
+#: then finds. Both are pre-existing ``ValueError`` subclasses and neither
+#: changed.
+#:
+#: This is the second allowlist, and it exists so the exception half of the
+#: name vocabulary closes by equality too. Two ``…Violation``-named classes
 #: *are* in :data:`REFUSAL_KINDS`; they get there because their base resolves
 #: to :class:`~ccf.contracts.base.CCFContract`, never because a constant names
 #: them. Without this set the half a ``…Refusal``-only walk cannot reach would
@@ -310,6 +344,8 @@ NON_VALUE_VIOLATIONS: Final[frozenset[str]] = frozenset(
         "SnapshotScopeViolation",
         "ProductEntitlementViolation",
         "SingleWriterViolation",
+        "WebhookEndpointConflict",
+        "FragmentFamilyConflict",
     }
 )
 
@@ -327,8 +363,20 @@ NON_VALUE_VIOLATIONS: Final[frozenset[str]] = frozenset(
 #: :class:`~ccf.products.request.AnchorAmbiguityRefusal` joined in ``24.5-L-16``:
 #: an anchor resolves before the graph is touched, so offering it a lineage is
 #: the same false claim.
+#:
+#: :class:`~ccf.products.constraints.ConstraintRefusal` and
+#: :class:`~ccf.products.constraints.PolicyResolutionConflict` joined in
+#: ``24.6-L-07`` on the same argument: both are reached while the *effective
+#: request* is being resolved, which is strictly before an operator plan is
+#: built, so a lineage offered with either would claim evidence that could not
+#: exist yet.
 _PRE_ASSEMBLY_REFUSALS: Final[frozenset[type[CCFContract]]] = frozenset(
-    {ProductRequestViolation, AnchorAmbiguityRefusal}
+    {
+        ProductRequestViolation,
+        AnchorAmbiguityRefusal,
+        ConstraintRefusal,
+        PolicyResolutionConflict,
+    }
 )
 
 

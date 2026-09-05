@@ -6,17 +6,19 @@ CLAUDE.md §7.3. The envelope under test is
 
 **What these tests enforce, and why each shape was chosen.**
 
-1. **Per kind, one at a time.** Every one of the twenty kinds gets its own
+1. **Per kind, one at a time.** Every one of the twenty-two kinds gets its own
    assertion. Deliberately *not* one parameterized assertion over the mapping
    with an ``any()`` inside: a property asserted in aggregate passes when one
-   member survives and licenses the seventeen that do not, which is this
-   project's recurring defect class rather than a hypothetical one.
+   member survives and licenses the rest, which is this project's recurring
+   defect class rather than a hypothetical one.
 
 2. **The vocabulary is closed by set equality against a structural walk of the
-   tree**, over **both** the ``…Refusal`` and ``…Violation`` name families,
-   partitioned by resolved base. Nothing enters the vocabulary by name. A
-   refusal type added to ``src/`` and translated nowhere fails the build and
-   demands a ruling — it does not ship untranslated with the gate green.
+   tree**, over all three of the ``…Refusal``, ``…Violation`` and ``…Conflict``
+   name families (:data:`NAME_FAMILIES`), partitioned by resolved base. Nothing
+   enters the vocabulary by name. A refusal type added to ``src/`` and
+   translated nowhere fails the build and demands a ruling — it does not ship
+   untranslated with the gate green. The third family joined in ``24.6-L-07``
+   rather than exempting one member: see :data:`NAME_FAMILIES` for why.
 
 3. **The walk is import-order independent, and that is its whole design
    constraint.** ``type.__subclasses__`` reports only what the interpreter has
@@ -52,6 +54,7 @@ import shutil
 import subprocess
 import sys
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +62,7 @@ import pytest
 
 from ccf.agents.errors import AssemblyRefusal, AssemblyRefused
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import canonical_bytes
 
 from ccf.products.refusal import (
     NON_PRODUCT_REFUSALS,
@@ -78,7 +82,9 @@ from ccf.peering.admission import (
     SignatureRefusal,
 )
 from ccf.products.composition import MixingRefusal
+from ccf.products.constraints import ConstraintRefusal, PolicyResolutionConflict
 from ccf.products.contract import ProductLineage
+from ccf.products.provenance import ParameterBound, ProvenanceSource
 from ccf.products.gates import (
     GATE_DECLARED_OBLIGATIONS,
     GATE_EMPTY_OPERATOR,
@@ -135,9 +141,11 @@ def partial_lineage() -> ProductLineage:
 
 # --- one assertion per kind -------------------------------------------------
 #
-# Twenty functions, each naming its kind. The coverage test below derives the
-# expected names from REFUSAL_KINDS and reads the actual ones out of this
-# file's own AST, so a kind added to the mapping with no test here fails.
+# One function per kind, each naming its kind. The coverage test below derives
+# the expected names from REFUSAL_KINDS and reads the actual ones out of this
+# file's own AST, so a kind added to the mapping with no test here fails. The
+# count is deliberately not restated here: it would be a second, unchecked copy
+# of a number the mapping already holds.
 
 
 def test_envelope_for_product_request_violation(
@@ -712,6 +720,128 @@ def test_envelope_for_raises_on_a_refusal_subclass_not_in_the_vocabulary(
     assert "UnregisteredRefusal" in str(caught.value)
 
 
+def test_envelope_for_constraint_refusal(
+    request_identity: RequestIdentity,
+) -> None:
+    """A technical limit refused BY NAME: the bound crosses with its authority.
+
+    ``24.6-L-07`` (``D-IMPL-253`` Q21). The kind's own ``reason`` is promoted,
+    the parameter is promoted as ``key``, and the two remaining declared
+    members — the bound and what was actually asked for — cross in ``fields``.
+    The bound is what makes the refusal readable: a consumer learns that the
+    boundary was the *substrate's* and not a policy's without parsing prose.
+    """
+    bound = ParameterBound(
+        operator="maximum",
+        value=Decimal(100),
+        authority="technical",
+        source=ProvenanceSource(
+            kind="capability", identity="test-store", version=None
+        ),
+    )
+    refusal = ConstraintRefusal(
+        reason="bound-exceeded",
+        key="depth",
+        detail="the requested depth exceeds the technical maximum",
+        bound=bound,
+        requested=101,
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[ConstraintRefusal]
+    assert envelope.kind == "constraint-refusal"
+    assert envelope.reason == "bound-exceeded"
+    assert envelope.key == "depth"
+    assert set(envelope.fields) == {"bound", "requested"}
+    assert envelope.fields["requested"] == "101"
+    assert envelope.fields["bound"] == canonical_bytes(bound).decode("utf-8")
+    assert '"authority":"technical"' in envelope.fields["bound"]
+
+
+def test_a_constraint_refusal_is_offered_no_lineage(
+    request_identity: RequestIdentity, partial_lineage: ProductLineage
+) -> None:
+    """The constraint layer resolves before an operator plan exists.
+
+    Separate from the per-kind test above so neither assertion stands in for
+    the other: one is about what crosses, this is about what may not be
+    attached.
+    """
+    refusal = ConstraintRefusal(
+        reason="required-absent",
+        key="depth",
+        detail="an applicable constraint requires this parameter",
+        bound=ParameterBound(
+            operator="required",
+            value=None,
+            authority="policy",
+            source=ProvenanceSource(
+                kind="artifact", identity="constraint-key", version="1.0.0"
+            ),
+            policy_id="policy-a",
+        ),
+        requested=None,
+    )
+    with pytest.raises(ValueError) as caught:
+        envelope_for(
+            refusal, request=request_identity, pre_assembly_lineage=partial_lineage
+        )
+    assert "ConstraintRefusal" in str(caught.value)
+
+
+def test_envelope_for_policy_resolution_conflict(
+    request_identity: RequestIdentity,
+) -> None:
+    """Both sides of an irreconcilable policy set cross, by pin.
+
+    ``24.6-L-07`` (``D-IMPL-253`` Q4: *"If constraints are irreconcilable,
+    return a governed shell identifying a policy-resolution conflict"*). The
+    shell's whole substance is that neither constraint was dropped, so the
+    assertion is on ``conflicting`` carrying both sources with their versions —
+    a conflict reporting one side would be priority erasing a hard constraint
+    wearing a different name.
+    """
+    conflicting = (
+        ProvenanceSource(kind="artifact", identity="ceiling-key", version="1.0.0"),
+        ProvenanceSource(kind="artifact", identity="floor-key", version="2.0.0"),
+    )
+    refusal = PolicyResolutionConflict(
+        key="depth",
+        detail="the applicable ceiling lies below the applicable floor",
+        conflicting=conflicting,
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[PolicyResolutionConflict]
+    assert envelope.kind == "policy-resolution-conflict"
+    assert envelope.reason == "policy-resolution-conflict"
+    assert envelope.key == "depth"
+    assert set(envelope.fields) == {"conflicting"}
+    assert envelope.fields["conflicting"] == canonical_bytes(conflicting).decode(
+        "utf-8"
+    )
+    assert '"identity":"ceiling-key"' in envelope.fields["conflicting"]
+    assert '"identity":"floor-key"' in envelope.fields["conflicting"]
+
+
+def test_a_policy_resolution_conflict_is_offered_no_lineage(
+    request_identity: RequestIdentity, partial_lineage: ProductLineage
+) -> None:
+    """A conflict is reached while the effective request is still being built."""
+    refusal = PolicyResolutionConflict(
+        key="depth",
+        detail="the applicable admitted sets share no member",
+        conflicting=(
+            ProvenanceSource(kind="artifact", identity="a-key", version="1.0.0"),
+        ),
+    )
+    with pytest.raises(ValueError) as caught:
+        envelope_for(
+            refusal, request=request_identity, pre_assembly_lineage=partial_lineage
+        )
+    assert "PolicyResolutionConflict" in str(caught.value)
+
+
 def test_pre_assembly_refusal_rejects_a_lineage(
     request_identity: RequestIdentity, partial_lineage: ProductLineage
 ) -> None:
@@ -821,8 +951,23 @@ def test_no_aggregate_assertion_stands_in_for_a_per_kind_one() -> None:
 # taken as a parameter rather than a ``__subclasses__()`` reading.
 
 
+#: The name suffixes the structural walk treats as refusal-shaped.
+#:
+#: ``Conflict`` joined in ``24.6-L-07`` and it is not cosmetic: the constraint
+#: layer's governed shell for two irreconcilable policy constraints is
+#: :class:`~ccf.products.constraints.PolicyResolutionConflict`, which is a
+#: refusal in every sense but its name — and the two-family walk could not see
+#: it, so the vocabulary equality below would have compared a mapping that
+#: named it against a tree that did not. Widening the walk keeps the gate's
+#: property ("nothing enters the vocabulary by name") rather than exempting one
+#: member from it, and it means a future ``…Conflict`` shell cannot ship
+#: untranslated either. The cost is that three pre-existing ``…Conflict``
+#: classes now have to be placed, which they are, in the two allowlists.
+NAME_FAMILIES = ("Refusal", "Violation", "Conflict")
+
+
 def discover_refusal_types(root: Path) -> dict[str, tuple[str, str]]:
-    """Every ``…Refusal``/``…Violation`` class under ``root``, by resolved base.
+    """Every ``…Refusal``/``…Violation``/``…Conflict`` class under ``root``, by resolved base.
 
     Reads no imports and executes no module, so it answers the same thing under
     a narrow ``pytest`` invocation as under the full suite.
@@ -871,7 +1016,7 @@ def discover_refusal_types(root: Path) -> dict[str, tuple[str, str]]:
             bases_by_name.setdefault(node.name, set()).update(
                 ast.unparse(base).rsplit(".", 1)[-1] for base in node.bases
             )
-            if node.name.endswith(("Refusal", "Violation")):
+            if node.name.endswith(NAME_FAMILIES):
                 located[node.name] = f"{path.relative_to(root)}:{node.lineno}"
 
     def ancestors_of(name: str) -> set[str]:
