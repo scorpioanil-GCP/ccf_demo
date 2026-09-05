@@ -185,8 +185,7 @@ from ccf.controlplane.artifacts import (
 )
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import BootedFabric
-from ccf.deployment.config import derive_deployment
+from ccf.deployment import BootedFabric, derive_deployment
 from ccf.graph.backends.fluree import DEFAULT_BRANCH, MAX_DEPTH_CEILING
 from ccf.products.provenance import ProvenanceSource
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
