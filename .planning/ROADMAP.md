@@ -3311,7 +3311,7 @@ Plans:
 - [x] 24.6-01-PLAN.md — the provenance value derived from the four worked cases; the `ccf.policy-constraint` artifact class through the six-step chain; product defaults on the request contract (C-03, C-04, C-06, C-11; L-07)
 - [x] 24.6-02-PLAN.md — `resolve_effective_request` by comparability with provenance; `constraint-refusal` and `policy-resolution-conflict`; the four worked cases with flip controls and three sabotages (C-04, C-06, C-07, C-08; L-07)
 - [x] 24.6-03-PLAN.md — `PolicyConstraintResolver` Protocol + reference reading the registry at `asked_at`; the governed resolver in the ruled sequence; `effective_debt_ceiling` deleted; override with verified entitlement; the technical capability; dimension-2 pins (C-05, C-06, C-09, C-10; L-07)
-- [ ] 24.6-04-PLAN.md — `default_debt_tolerance`; the declared-obligation debt half retired; `tolerance-exceeded` with its authority (C-12, C-13; L-04, L-05)
+- [x] 24.6-04-PLAN.md — `default_debt_tolerance`; the declared-obligation debt half retired; `tolerance-exceeded` with its authority (C-12, C-13; L-04, L-05)
 - [ ] 24.6-05-PLAN.md — computed-empty served with its search as a finding; the debt scorer derives from evidence, never cardinality (C-14, C-15; L-06)
 - [ ] 24.6-06-PLAN.md — hw1's negative test re-derived to served computed-empty parity; the README teaching paragraph (C-16; L-06)
 - [ ] 24.6-07-PLAN.md — every refusal mints a five-dimension replay record; `RefusalEnvelope` extended additively; assembler identity on dimension 4; `DoorOutcome` rule 5 inverted (C-18, C-19, C-20; L-08, L-15, L-20)
