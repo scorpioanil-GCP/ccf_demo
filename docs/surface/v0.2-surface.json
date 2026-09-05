@@ -7855,7 +7855,7 @@
       },
       "create_app": {
         "kind": "function",
-        "shape": "(deps: 'ApiDependencies', *, auth: 'HttpAuthProtocol | None' = None, authorizer: 'TenantAuthorizerProtocol | None' = None, product_entitlement: 'ProductEntitlementSourceProtocol | None' = None, perspective_resolver: 'PerspectiveResolverProtocol | None' = None, acknowledge_insecure_default: 'bool' = False) -> 'FastAPI'"
+        "shape": "(deps: 'ApiDependencies', *, auth: 'HttpAuthProtocol | None' = None, authorizer: 'TenantAuthorizerProtocol | None' = None, product_entitlement: 'ProductEntitlementSourceProtocol | None' = None, perspective_resolver: 'PerspectiveResolverProtocol | None' = None, refusal_recorder: 'RefusalRecorderProtocol | None' = None, acknowledge_insecure_default: 'bool' = False) -> 'FastAPI'"
       }
     }
   },
@@ -7975,6 +7975,37 @@
       "grant_from_request": {
         "kind": "function",
         "shape": "(request: 'Request') -> 'TokenGrant | None'"
+      }
+    }
+  },
+  "ccf_runtime.http_api.refusal_status": {
+    "__all__": [
+      "STATUS_BY_KIND",
+      "STATUS_FULFILLMENT_WITHHELD",
+      "STATUS_REQUEST",
+      "STATUS_UNAVAILABLE",
+      "status_for"
+    ],
+    "exports": {
+      "STATUS_BY_KIND": {
+        "kind": "constant",
+        "shape": "mappingproxy"
+      },
+      "STATUS_FULFILLMENT_WITHHELD": {
+        "kind": "constant",
+        "shape": "int"
+      },
+      "STATUS_REQUEST": {
+        "kind": "constant",
+        "shape": "int"
+      },
+      "STATUS_UNAVAILABLE": {
+        "kind": "constant",
+        "shape": "int"
+      },
+      "status_for": {
+        "kind": "function",
+        "shape": "(kind: 'str') -> 'int'"
       }
     }
   },
@@ -8114,7 +8145,7 @@
     "exports": {
       "build_router": {
         "kind": "function",
-        "shape": "(deps: 'ApiDependencies', *, entitlement_source: 'ProductEntitlementSourceProtocol | None' = None, perspective_resolver: 'PerspectiveResolverProtocol | None' = None) -> 'APIRouter'"
+        "shape": "(deps: 'ApiDependencies', *, entitlement_source: 'ProductEntitlementSourceProtocol | None' = None, perspective_resolver: 'PerspectiveResolverProtocol | None' = None, refusal_recorder: 'RefusalRecorderProtocol | None' = None) -> 'APIRouter'"
       }
     }
   },

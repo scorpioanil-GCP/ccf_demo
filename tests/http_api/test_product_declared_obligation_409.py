@@ -60,8 +60,10 @@ from urllib.parse import urlencode
 
 import pytest
 
+from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.products.disclosure import DISCLOSURE_MINIMAL, DisclosureLevel
 from ccf.products.door import WireRequest
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
@@ -78,10 +80,13 @@ from ccf.products.refusal import (
     REFUSAL_KINDS,
     RefusalEnvelope,
     RequestIdentity,
+    SubjectUnavailableRefusal,
     envelope_for,
 )
 from ccf.products.request import ProductRequest
+from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.projection.plan import Perspective
+from ccf.replay.record import DecisionReplayRecord
 from ccf_runtime.authz.product_entitlement import (
     ControlPlaneProductEntitlementSource,
 )
@@ -91,14 +96,29 @@ from ccf_runtime.http_api.auth import BearerTokenAuth
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.routes import CONTENT_ADDRESS_HEADER, canonical_response
 from ccf_runtime.http_api.routes import product as product_route
+from ccf_runtime.http_api.refusal_status import STATUS_BY_KIND
 from ccf_runtime.mcp.auth import FileTokenSource
 from ccf_runtime.mcp.egress import ProductNotServable
+
+# One INTERNAL envelope per kind, driven by each refusal type's own
+# annotations rather than by a per-type table — imported rather than restated
+# so a kind that grows a field needs no edit here either (`24.6-08`).
+from tests.products.test_disclosure import _internal as _internal_envelope
+
 from http_api.conftest import Fabric, call
 
 TOKEN = "declared-obligation-token"
 PRINCIPAL = "declared-obligation-caller"
 ROLE = "declared-obligation-role"
-AUDIT_INSTANT = datetime(2026, 9, 2, tzinfo=UTC)
+#: The ONE instant every determination behind this module's doors is reached
+#: at. Pinned on the entitlement source's own clock (``24.6-08``), so the audit
+#: event the source appends and the replay record the recorder writes carry the
+#: same instant by construction rather than by two reads that happen to agree.
+#: It was ``AUDIT_INSTANT`` while the source was the only thing reading it.
+DETERMINED_AT = datetime(2026, 9, 2, tzinfo=UTC)
+
+#: Where a governed door's denials land. Deployment vocabulary.
+REPLAY_RECORD_CLASS = "ccf.decision-replay-record"
 
 SUBJECT = "declared-obligation-subject"
 INTENT = "declared-obligation-intent"
@@ -121,11 +141,35 @@ OBSERVED = "absent"
 #: second literal that could drift from the tree's one spelling.
 KIND = REFUSAL_KINDS[DeclaredObligationRefusal]
 
-#: The one line in the shipped route that decides the ``409``. The live
-#: sabotage asserts it occurs exactly once before mutating a scratch copy.
-DECISION_LINE = "and envelope.kind == REFUSAL_KINDS[DeclaredObligationRefusal]"
+#: The ONE outcome an unauthorized principal and a nonexistent subject share
+#: (``D-IMPL-253`` Q27). Read from the mapping for the same reason.
+SUBJECT_UNAVAILABLE = REFUSAL_KINDS[SubjectUnavailableRefusal]
+
+#: The one line in the shipped route that decides EVERY governed refusal's
+#: status (``24.6-09``; it decided only the ``409`` before D-18 arrived). The
+#: live sabotage asserts it occurs exactly once before mutating a scratch copy.
+DECISION_LINE = "if envelope is not None and envelope.kind in STATUS_BY_KIND:"
+
+#: The kind the sabotage below restores DIV-4's fall-through for — read from
+#: the mapping, never spelled, so a renamed token moves the sabotage with it.
+FALL_THROUGH_KIND = REFUSAL_KINDS[TTLRefusal]
+
+#: The sabotage: one kind excluded from the table lookup, so an envelope of
+#: that kind reaches ``served_answer`` again and 500s. Narrower than deleting
+#: the branch on purpose — the defect this door is now built against is a
+#: *single* governed kind slipping back into the opaque remainder, not the
+#: whole mapping vanishing.
+SABOTAGED_LINE = (
+    "if envelope is not None and envelope.kind in STATUS_BY_KIND"
+    f" and envelope.kind != {FALL_THROUGH_KIND!r}:  # sabotaged (24.6-L-03)"
+)
 
 ROUTE_SOURCE = Path(product_route.__file__)
+
+#: "Build me the recorder this source discloses under." Distinct from ``None``,
+#: which is a caller SAYING *no recorder* — the construction-time refusal's own
+#: subject — so the default and the refused value cannot be confused.
+_RECORDER_FROM_THE_SOURCE = object()
 
 
 # ---------------------------------------------------------------------------
@@ -293,20 +337,18 @@ def _perspective(*, grant: Any, tenant: str, requested_role: str | None) -> Pers
     )
 
 
-def _governed_app(
-    fabric: Fabric, root: Path, *, resolver: Callable[..., object]
-) -> Any:
-    """A product door that serves, over the supplied resolver.
+def _entitlement_registry(
+    fabric: Fabric, *, disclosure_level: DisclosureLevel = DISCLOSURE_MINIMAL
+) -> ControlPlaneRegistry:
+    """The Control Plane this module's doors decide against.
 
-    The same shape ``tests/http_api/test_routes.py::_governed_app`` builds,
-    with the resolver injectable — the module fixture's app is ungoverned and
-    refuses ``503`` before any resolver is reached.
+    One tenant, one principal, two permitted classes and one permitted role —
+    so ``ABSENT_CLASS`` reaches the resolver and ``UNENTITLED_CLASS`` does not.
+    ``disclosure_level`` is threaded rather than defaulted so the D-27 control
+    can register the same policy at each of the three postures without a second
+    registry builder (``24.6-08``: the level lives on the tenant's entitlement
+    policy).
     """
-    token_file = root / "declared-obligation-tokens.json"
-    token_file.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": ["product"]}}),
-        encoding="utf-8",
-    )
     address = fabric.product_address
     registry = ControlPlaneRegistry()
     registry.register_typed(
@@ -314,6 +356,7 @@ def _governed_app(
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
             policy_version="1.0.0",
+            disclosure_level=disclosure_level,
             principals={
                 PRINCIPAL: ProductEntitlementGrant(
                     permitted_schema_names=frozenset(
@@ -325,18 +368,135 @@ def _governed_app(
         ),
         PRODUCT_ENTITLEMENT_POLICY,
     )
-    return create_app(
-        ApiDependencies(
-            control_plane=fabric.registry,
-            artifact_store=fabric.store,
-            product_resolver=resolver,  # type: ignore[arg-type]
-        ),
-        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
-        product_entitlement=ControlPlaneProductEntitlementSource(
-            control_plane=registry, clock=lambda: AUDIT_INSTANT
-        ),
-        perspective_resolver=_perspective,
+    return registry
+
+
+def _recorder(
+    fabric: Fabric,
+    root: Path,
+    *,
+    source: ControlPlaneProductEntitlementSource,
+) -> ReplayRefusalRecorder:
+    """The SDK's own refusal recorder, built the way the resolver's is.
+
+    The keyword list is copied from
+    :func:`~ccf.products.resolver.build_governed_resolver`'s own construction
+    site, read once — one writer, one store, one record form, which is the
+    substance of *"do not create second-class replay"* (``D-IMPL-253`` Q13).
+    ``policy_bundle_pin`` is ``None`` because a delivery boundary holds no
+    bundle key, which is exactly the posture that field's default documents.
+
+    Args:
+        fabric: The module fabric, for the tenant every determination this
+            recorder writes was made under.
+        root: A per-test temporary root; the store lives under ``artifacts/``.
+        source: The entitlement source the door is built with, read for the
+            disclosure posture in force — the *same* reader a resolver refusal
+            for this principal would disclose under (``24.6-08``).
+    """
+    return ReplayRefusalRecorder(
+        artifact_store=FileArtifactStore(root=root / "artifacts"),
+        replay_record_class=REPLAY_RECORD_CLASS,
+        tenant_id=fabric.product_address.tenant,
+        assembly_mode="algorithmic",
+        policy_bundle_pin=None,
+        disclosure_level_for=source.disclosure_level_for,
     )
+
+
+@dataclass(frozen=True)
+class Governed:
+    """One booted governed door, with the seams a test needs to read back."""
+
+    app: Any
+    source: ControlPlaneProductEntitlementSource
+    recorder: ReplayRefusalRecorder
+
+    def record_at(self, uri: str) -> DecisionReplayRecord:
+        """The replay record one refusal's ``replay_reference`` addresses."""
+        store = self.recorder.artifact_store
+        return DecisionReplayRecord.model_validate_json(
+            store.get(content_address=store.resolve_uri(uri=uri))
+        )
+
+    def internal(self, record: DecisionReplayRecord) -> RefusalEnvelope:
+        """The INTERNAL determination dimension 5 carries, whole."""
+        return RefusalEnvelope.model_validate_json(
+            record.content_generation_path.assembly_refusal
+        )
+
+    def addresses(self) -> set[str]:
+        """Every content address in this door's store — the store's own count.
+
+        Counted from the substrate rather than from anything the door
+        reported, so *"the store grew by one"* is a measurement and not the
+        response's word for itself.
+        """
+        root = self.recorder.artifact_store.root
+        return (
+            {path.name for path in root.iterdir() if len(path.name) == 64}
+            if root.exists()
+            else set()
+        )
+
+
+def _governed(
+    fabric: Fabric,
+    root: Path,
+    *,
+    resolver: Callable[..., object],
+    disclosure_level: DisclosureLevel = DISCLOSURE_MINIMAL,
+    refusal_recorder: Any = _RECORDER_FROM_THE_SOURCE,
+) -> Governed:
+    """A governed product door, plus the seams it was built over.
+
+    The same shape ``tests/http_api/test_routes.py::_governed_app`` builds,
+    with the resolver injectable — the module fixture's app is ungoverned and
+    refuses ``503`` before any resolver is reached.
+
+    ``refusal_recorder`` defaults to a recorder built over ``source``; a caller
+    passes its own when a fixture resolver has to mint through the *same*
+    instance the door was built with (the D-27 control), and passes ``None``
+    explicitly when the subject is the construction-time refusal itself.
+    """
+    token_file = root / "declared-obligation-tokens.json"
+    token_file.write_text(
+        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": ["product"]}}),
+        encoding="utf-8",
+    )
+    source = ControlPlaneProductEntitlementSource(
+        control_plane=_entitlement_registry(
+            fabric, disclosure_level=disclosure_level
+        ),
+        clock=lambda: DETERMINED_AT,
+    )
+    recorder = (
+        _recorder(fabric, root, source=source)
+        if refusal_recorder is _RECORDER_FROM_THE_SOURCE
+        else refusal_recorder
+    )
+    return Governed(
+        app=create_app(
+            ApiDependencies(
+                control_plane=fabric.registry,
+                artifact_store=fabric.store,
+                product_resolver=resolver,  # type: ignore[arg-type]
+            ),
+            auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+            product_entitlement=source,
+            perspective_resolver=_perspective,
+            refusal_recorder=recorder,
+        ),
+        source=source,
+        recorder=recorder,
+    )
+
+
+def _governed_app(
+    fabric: Fabric, root: Path, *, resolver: Callable[..., object]
+) -> Any:
+    """Just the app, for the callers that need nothing else."""
+    return _governed(fabric, root, resolver=resolver).app
 
 
 def _question(parameters: Mapping[str, Any] = CALLER_PARAMETERS) -> str:
@@ -545,39 +705,61 @@ def test_a_served_product_still_answers_200_with_the_same_bytes(
     assert asked.content == standing.content
 
 
-def test_any_other_refusal_kind_still_reaches_served_answer(
-    fabric: Fabric, tmp_path: Path
+@pytest.mark.parametrize("kind", sorted(REFUSAL_KINDS.values()))
+def test_no_known_refusal_kind_reaches_served_answer(
+    fabric: Fabric, tmp_path: Path, kind: str
 ) -> None:
-    """DIV-4, preserved and scoped: one kind is mapped, the rest are not.
+    """DIV-4, **inverted** by D-18 — over the roster, not over a count.
 
-    A ``ttl-refusal`` envelope is the pre-plan behavior exactly — it reaches
-    :func:`~ccf.products.door.served_answer`, which raises ``TypeError``
-    naming the shape, and no response is produced. Asserted explicitly so
-    the unruled remainder is a measurement in the tree rather than a
-    sentence in a docstring. What would fail here: a door that had quietly
-    widened the mapping to every kind, which is the ruling nobody has made.
+    This test used to assert the opposite of its own name: a ``ttl-refusal``
+    envelope reached :func:`~ccf.products.door.served_answer`, raised
+    ``TypeError`` and produced no response at all, *"because the status code
+    and body shape for the remaining kinds is a ruling nobody has made"*. Dave
+    made it (``D-IMPL-253`` Q18): **"No known refusal may become 500."** So the
+    assertion is negated and widened from one kind to every member of
+    :data:`~ccf.products.refusal.REFUSAL_KINDS` — the roster, enumerated, never
+    a cardinality.
+
+    What would fail here: a kind added to the vocabulary with no row in the
+    status table (its parametrization goes red on its own), a door that let one
+    kind fall through (the sabotage below restores exactly that), or a table
+    row that answered ``5xx``.
     """
     answer = _ask(
-        _governed_app(fabric, tmp_path, resolver=_answering(_ttl_envelope(fabric))),
+        _governed_app(
+            fabric, tmp_path, resolver=_answering(_internal_envelope(kind))
+        ),
         fabric,
         query=_question(),
     )
 
-    assert answer.status is None, answer.body
-    assert isinstance(answer.escaped, TypeError)
-    assert "RefusalEnvelope" in str(answer.escaped)
-    assert "neither `ServableProduct` nor `ServedProduct`" in str(answer.escaped)
+    assert answer.escaped is None, (
+        f"a {kind!r} reached the product door and"
+        f" {type(answer.escaped).__name__} escaped instead of a response"
+        f" ({answer.escaped}); no known governed refusal may become 500"
+    )
+    assert answer.status == STATUS_BY_KIND[kind], answer.body
+    assert answer.status != 500
+    assert set(answer.body) == {"kind", "refusal_type", "refusal"}
+    assert answer.body["kind"] == kind
 
 
 def test_the_existing_refusal_statuses_are_unchanged(
     fabric: Fabric, app: Any, tmp_path: Path
 ) -> None:
-    """``400``, ``403``, ``404`` and ``503`` answer exactly as before the 409 arrived.
+    """``400``, ``404`` and ``503`` answer exactly as before the table arrived.
 
     Each leg is taken through a door whose resolver WOULD answer a
-    declared-obligation refusal, so the four refusals are shown to be decided
-    before the new branch is reached — the branch adds a status and moves
-    none.
+    declared-obligation refusal, so the refusals are shown to be decided
+    before the mapped branch is reached — the table adds statuses and moves
+    none of these.
+
+    **One leg did move, by ruling, and it is asserted rather than dropped:**
+    the unentitled class answered ``403`` in the ``{"error_code", "message"}``
+    shape and now answers the envelope at the ``subject-unavailable`` row of
+    the table. It is here rather than deleted because *"the four refusals are
+    decided before the new branch is reached"* is still the claim, and a leg
+    silently removed is a claim silently narrowed.
     """
     governed = _governed_app(fabric, tmp_path, resolver=_answering(_envelope(fabric)))
 
@@ -586,11 +768,18 @@ def test_the_existing_refusal_statuses_are_unchanged(
     assert partial.status == 400
     assert partial.body["detail"]["error_code"] == "product-request-incomplete"
 
-    # 403 — a class the grant does not permit; decided before the resolver.
+    # 404 — a class the grant does not permit; decided before the resolver.
+    # This leg answered `403` in a second body shape until `24.6-09`: an
+    # unauthorized principal and a nonexistent subject now share one kind, one
+    # status and one schema, because telling a caller they are *forbidden* is
+    # telling them the subject exists (D-27 amendment 2 (4)). The status is
+    # read from the table rather than spelled, so the two legs below are
+    # asserted equal by construction rather than by two literals agreeing.
     unentitled = _ask(
         governed, fabric, query=_question(), product_class=UNENTITLED_CLASS
     )
-    assert unentitled.status == 403
+    assert unentitled.status == STATUS_BY_KIND[SUBJECT_UNAVAILABLE], unentitled.body
+    assert unentitled.body["kind"] == SUBJECT_UNAVAILABLE
 
     # 404 — an entitled class the resolver has nothing for. A second door
     # over the same root: the token file it rewrites is byte-identical.
@@ -655,11 +844,11 @@ def test_the_status_check_refuses_a_200_for_a_declared_obligation(
 def _scratch_route(root: Path, *, mutate: bool) -> Any:
     """The shipped route module, loaded from a scratch copy under another name.
 
-    With ``mutate`` the one decision line is replaced by ``False`` — the
-    ``409`` branch made dead, which is what "removed" means for a branch
-    whose test is the whole of it. The replacement is asserted to occur
-    exactly once so a drifted anchor is a red test, not a silently unmutated
-    copy.
+    With ``mutate`` the one decision line excludes ONE kind from the table
+    lookup, which restores DIV-4's fall-through for exactly that kind — what
+    "removed" means for a branch whose whole content is a membership test. The
+    replacement is asserted to occur exactly once so a drifted anchor is a red
+    test, not a silently unmutated copy.
     """
     source = ROUTE_SOURCE.read_text(encoding="utf-8")
     assert source.count(DECISION_LINE) == 1, (
@@ -667,7 +856,7 @@ def _scratch_route(root: Path, *, mutate: bool) -> Any:
         f" sabotage mutates ({DECISION_LINE!r}); fix the anchor"
     )
     if mutate:
-        source = source.replace(DECISION_LINE, "and False  # sabotaged (24.5-L-14)")
+        source = source.replace(DECISION_LINE, SABOTAGED_LINE)
     name = "scratch_product_route_" + ("sabotaged" if mutate else "control")
     path = root / f"{name}.py"
     path.write_text(source, encoding="utf-8")
@@ -680,7 +869,7 @@ def _scratch_route(root: Path, *, mutate: bool) -> Any:
 
 
 @pytest.mark.parametrize("mutate", [False, True], ids=["control", "sabotaged"])
-def test_a_door_with_the_409_branch_removed_is_red_by_name(
+def test_a_door_that_restores_the_fall_through_for_one_kind_is_red_by_name(
     fabric: Fabric, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutate: bool
 ) -> None:
     """The live sabotage, and its own control, over a scratch copy of the route.
@@ -688,29 +877,33 @@ def test_a_door_with_the_409_branch_removed_is_red_by_name(
     ``create_app`` reaches the product router through the name ``product``
     bound in :mod:`ccf_runtime.http_api.app`; that name is pointed at the
     scratch module for the duration of one app build, so the door under test
-    IS the scratch route and every other route is the shipped one. The
-    control leg (no mutation) answers ``409`` — proving the scratch path
-    exercises the route, so the sabotaged leg's red is the mutation's. The
-    shipped module is byte-compared before and after.
+    IS the scratch route and every other route is the shipped one. The control
+    leg (no mutation) answers the excluded kind's own table status — proving
+    the scratch path exercises the route, so the sabotaged leg's red is the
+    mutation's. The shipped module is byte-compared before and after.
+
+    The subject is ``ttl-refusal`` because that is the kind whose fall-through
+    this plan ENDED: before ``24.6-09`` a ``ttl-refusal`` envelope escaped as a
+    ``TypeError`` and the test above asserted it. The sabotage puts exactly
+    that back.
     """
     before = ROUTE_SOURCE.read_bytes()
     scratch = _scratch_route(tmp_path, mutate=mutate)
     monkeypatch.setattr(app_module, "product", scratch)
     answer = _ask(
-        _governed_app(fabric, tmp_path, resolver=_answering(_envelope(fabric))),
+        _governed_app(fabric, tmp_path, resolver=_answering(_ttl_envelope(fabric))),
         fabric,
         query=_question(),
     )
     if mutate:
-        # The branch is dead, so the envelope falls through to served_answer.
+        # The kind is excluded, so the envelope falls through to served_answer
+        # — no response at all, which is the pre-D-18 opaque 500.
+        assert answer.status is None, answer.body
         assert isinstance(answer.escaped, TypeError)
-        with pytest.raises(AssertionError, match=KIND):
-            assert_declared_obligation_answered_409(
-                answer.status, answer.body, escaped=answer.escaped
-            )
+        assert "neither `ServableProduct` nor `ServedProduct`" in str(answer.escaped)
     else:
-        assert_declared_obligation_answered_409(
-            answer.status, answer.body, escaped=answer.escaped
-        )
+        assert answer.escaped is None
+        assert answer.status == STATUS_BY_KIND[FALL_THROUGH_KIND]
+        assert answer.body["kind"] == FALL_THROUGH_KIND
     assert ROUTE_SOURCE.read_bytes() == before
     assert product_route.__file__ == str(ROUTE_SOURCE)

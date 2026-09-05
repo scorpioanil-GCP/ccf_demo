@@ -122,17 +122,40 @@ the same request is the same family. Mapped by kind, not by reason, so a
 seventh reason arrives as ``400`` through the same branch. Not a new gate
 type and not a second mechanism: the door maps a value it already receives.
 
-**Every other refusal kind keeps today's behavior, explicitly** (DIV-4,
-preserved and scoped). A resolver answering with any other
-:class:`~ccf.products.refusal.RefusalEnvelope` still reaches
-:func:`~ccf.products.door.served_answer`, which raises ``TypeError`` naming the
-shape — an opaque 500, exactly as before, because the status code and body
-shape for the remaining kinds is a ruling nobody has made, and inventing one
-here would put an unruled contract on a shipped door. The two mapped kinds
-are the rulings that arrived; the rest wait for theirs. A *bare*
-refusal value on a call that posed no question is the ``ValueError``
-:func:`~ccf.products.door.door_refusal` documents — the same opaque 500 the
-``TypeError`` produced, now naming why the door could not envelope it.
+**The unruled remainder is ruled, and the two branches above are now one**
+(``D-IMPL-253`` Q18 = D-18, Dave 2026-09-03; the paragraph this replaces said
+every other kind *"still reaches"* :func:`~ccf.products.door.served_answer`
+because *"the status code and body shape for the remaining kinds is a ruling
+nobody has made"*). The ruling arrived: *"class-based statuses, but do not
+hard-code all entitlement/fulfillment to 409; disclosure/suppression semantics
+govern the external mapping. No known refusal may become 500."* So the two
+hand-written branches are deleted and every member of
+:data:`~ccf.products.refusal.REFUSAL_KINDS` gets its status from the one class
+table in :mod:`ccf_runtime.http_api.refusal_status`, rendered in the body shape
+both branches already used. The ``409`` and the ``400`` this door answered
+before are two rows of that table and did not move.
+
+**What 500 means here, now that no governed refusal reaches it.** A
+:func:`~ccf.products.door.door_refusal` envelope whose ``kind`` is *not* in the
+vocabulary falls through to :func:`~ccf.products.door.served_answer`, which
+raises ``TypeError`` naming the shape. That is an invariant violation — a value
+this SDK did not mint claiming to be a refusal — and it should look like one. A
+*bare* refusal value on a call that posed no question is the ``ValueError``
+:func:`~ccf.products.door.door_refusal` documents, on the same footing.
+
+**The entitlement determination travels the same path** (``D-IMPL-256``,
+criterion 36; ``D-IMPL-254``'s four layers). This door used to catch
+:class:`~ccf_runtime.authz.product_entitlement.ProductEntitlementRefused` and
+render a ``403`` in a *second* body shape — which was a D-27 leak channel three
+ways over: a different status, a different schema and a different message from
+the one a nonexistent subject received. It no longer catches it at all. The
+route calls :func:`~ccf_runtime.authz.delivery_boundary.govern_entitlement`,
+the ONE governed step, and **encodes what it returns**: a
+:class:`~ccf.projection.plan.Perspective` continues to the resolver, and a
+:class:`~ccf.products.refusal.RefusalEnvelope` is rendered through the same
+:func:`_refusal_response` a fabric refusal is. Dave, verbatim: *"Replay belongs
+to the governed determination, not to HTTP or MCP."* Nothing on this page mints
+a replay record, discloses, or reads a clock.
 
 Algorithmic module (CINV-03).
 """
@@ -142,7 +165,8 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any
+from types import MappingProxyType
+from typing import Any, Final
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, Response
@@ -152,15 +176,18 @@ from pydantic import ValidationError
 
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import WireRequest, door_refusal, served_answer
-from ccf.products.gates import DeclaredObligationRefusal
-from ccf.products.refusal import REFUSAL_KINDS
-from ccf.products.request import ProductRequest, ProductRequestViolation
+from ccf.products.refusal import REFUSAL_KINDS, RefusalEnvelope
+from ccf.products.request import ProductRequest
+from ccf.products.resolver import RefusalRecorderProtocol
 from ccf.projection.plan import Perspective
+from ccf_runtime.authz.delivery_boundary import (
+    SURFACE_HTTP_ROUTE,
+    govern_entitlement,
+    recorded_boundary,
+)
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
-    ProductEntitlementRefused,
     ProductEntitlementSourceProtocol,
-    entitled_perspective,
 )
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
@@ -170,6 +197,7 @@ from ccf_runtime.http_api.errors import (
     refusal_detail,
 )
 from ccf_runtime.http_api.grants import grant_from_request
+from ccf_runtime.http_api.refusal_status import STATUS_BY_KIND, status_for
 from ccf_runtime.http_api.routes import canonical_response
 from ccf_runtime.mcp.egress import ProductNotServable
 
@@ -178,11 +206,78 @@ __ccf_mode__ = "algorithmic"
 __all__ = ["build_router"]
 
 
+#: :data:`~ccf.products.refusal.REFUSAL_KINDS`, read backwards.
+#:
+#: The body's ``refusal_type`` has been the Python class name since the first
+#: mapped kind, and the two deleted branches each spelled one by hand
+#: (``DeclaredObligationRefusal.__name__``). Derived here instead, so a body
+#: shape that was correct for two kinds is correct for twenty-three without a
+#: branch per kind — and so this module names no refusal class at all.
+_TYPE_NAME_BY_KIND: Final[Mapping[str, str]] = MappingProxyType(
+    {kind: refusal_type.__name__ for refusal_type, kind in REFUSAL_KINDS.items()}
+)
+
+
+def _type_name_for(kind: str) -> str:
+    """The refusal class's own name, for the body's ``refusal_type`` member.
+
+    Args:
+        kind: :attr:`~ccf.products.refusal.RefusalEnvelope.kind`.
+
+    Returns:
+        The Python class name the kind was minted from.
+
+    Raises:
+        KeyError: ``kind`` is not in the vocabulary — the same invariant
+            violation :func:`~ccf_runtime.http_api.refusal_status.status_for`
+            refuses, and reached only by a caller that skipped the membership
+            test this route runs first.
+    """
+    return _TYPE_NAME_BY_KIND[kind]
+
+
+def _refusal_response(envelope: RefusalEnvelope) -> JSONResponse:
+    """One governed refusal, one status class, one body shape.
+
+    The ONE emission path for every refusal this door answers — a gate's, a
+    request-conformity verdict's, and the delivery boundary's entitlement
+    determination alike. That sameness is the D-27 property (``D-IMPL-253``
+    amendment 2 (4)): an unauthorized principal and a nonexistent subject reach
+    the consumer through this function, so the status, the schema, the field
+    set and the message are the same by construction rather than by two
+    branches that happen to agree.
+
+    The status comes from the **disclosed** kind
+    (:mod:`ccf_runtime.http_api.refusal_status`) and from nothing else. The
+    body is the whole envelope in the ``routes/skill.py`` shape, so the debt
+    block's numbers, a violation's reason and key, the request identity and the
+    replay reference all travel — whatever of them the Disclosure layer
+    permitted to cross (``D-IMPL-254``). This door withholds nothing of its own
+    and adds nothing of its own.
+
+    Args:
+        envelope: The disclosed shell, as the fabric or the governed delivery
+            boundary produced it.
+
+    Returns:
+        The response, ready to return.
+    """
+    return JSONResponse(
+        status_code=status_for(envelope.kind),
+        content={
+            "kind": envelope.kind,
+            "refusal_type": _type_name_for(envelope.kind),
+            "refusal": json.loads(canonical_bytes(envelope)),
+        },
+    )
+
+
 def build_router(
     deps: ApiDependencies,
     *,
     entitlement_source: ProductEntitlementSourceProtocol | None = None,
     perspective_resolver: PerspectiveResolverProtocol | None = None,
+    refusal_recorder: RefusalRecorderProtocol | None = None,
 ) -> APIRouter:
     """The product router over the injected resolver seam.
 
@@ -194,9 +289,21 @@ def build_router(
             decide about, or a perspective nothing checks, is a half-bound
             door that looks governed.
         perspective_resolver: The deployment's role-derivation seam.
+        refusal_recorder: The deployment's ONE minting seam
+            (:class:`~ccf.products.resolver.RefusalRecorderProtocol`, and the
+            SDK ships :class:`~ccf.products.resolver.ReplayRefusalRecorder`
+            over the store the resolver already holds). Required whenever
+            ``entitlement_source`` is: a denial at this door is a governed
+            determination, and ``D-IMPL-256`` (2) makes a door that cannot
+            record one *not a valid governed door*. Refused at construction by
+            :func:`~ccf_runtime.authz.delivery_boundary.recorded_boundary`
+            rather than at the first denial, so no request ever meets a
+            half-governed door.
 
     Raises:
         ValueError: exactly one of the two governance seams was supplied.
+        UnrecordableDeliveryBoundaryError: an entitlement source was supplied
+            with no conforming ``refusal_recorder``.
     """
     if (entitlement_source is None) != (perspective_resolver is None):
         raise ValueError(
@@ -205,6 +312,14 @@ def build_router(
             " perspective to decide about, or a perspective resolver whose"
             " output nothing checks, is a door that looks governed and"
             " enforces half a decision (15.5-06)"
+        )
+    if entitlement_source is not None:
+        # `D-IMPL-256` (2) at this builder too, not only at `create_app`: the
+        # posture belongs to *a door that entitles*, and this function is one
+        # of the two ways to build one. The message names whichever builder was
+        # actually called, which is the one an operator has to fix.
+        recorded_boundary(
+            refusal_recorder=refusal_recorder, builder="build_router"
         )
     router = APIRouter()
 
@@ -224,9 +339,14 @@ def build_router(
         asked_at: datetime | None = None,
         parameters: str | None = None,
     ) -> Response:
-        perspective = _authorized_perspective(
-            request, tenant=tenant, product_class=product_class, role=role
-        )
+        # The question is assembled BEFORE the delivery boundary decides,
+        # because the governed determination records what was asked: the
+        # parameters and the temporal boundary travel on the refusal's request
+        # identity (`D-IMPL-256` (1)), and a door that authorized first would
+        # have to re-parse them or record a question it had not read. A
+        # malformed or partial address is refused here for every subject alike
+        # — a request-shape verdict is a fact about the request and never about
+        # the subject, so no D-27 channel opens (D-18: the request class).
         asked = _asked(
             product_class=product_class,
             version=version,
@@ -245,7 +365,29 @@ def build_router(
         # compared with itself. `None` here is not a missing value; it is the
         # caller's positive assertion that they posed no question at all, and
         # the header is then absent rather than empty.
+        #
+        # Built here, before the delivery boundary, because its guard is a
+        # REQUEST-shape refusal and belongs with the other two: a question the
+        # wire cannot carry — a `float` in `parameters`, a naive `asked_at` —
+        # is refused `400` for every subject alike. It also has to precede the
+        # determination, because `govern_entitlement` records the boundary the
+        # caller asked as-of and refuses a naive one as a deployment defect
+        # (`D-IMPL-38`); a `500` there for a value this door already knows how
+        # to refuse `400` would be a door lie.
         echo = _echo(asked) if asked is not None else None
+        decided = _authorized_perspective(
+            request,
+            tenant=tenant,
+            product_class=product_class,
+            version=version,
+            role=role,
+            asked=asked,
+        )
+        if isinstance(decided, JSONResponse):
+            # The governed delivery boundary refused, and already recorded and
+            # disclosed it. This route encodes; it decided nothing.
+            return decided
+        perspective = decided
         try:
             resolved = deps.product_resolver(
                 tenant=tenant,
@@ -256,43 +398,18 @@ def build_router(
             )
         except ProductNotServable as absent:
             raise HTTPException(status_code=404, detail=str(absent)) from absent
-        # `24.5-L-14`: one kind, one status — and, ruled at the 24.5 close
-        # (panel R3), a second: a request-conformity verdict is `400`. The
-        # envelope is the door's own translation (the MCP doors run the same
-        # function); each comparison is against the mapping's value, never a
-        # literal (T-24.5-38); the body is the whole envelope in the
-        # `routes/skill.py` shape, so the debt block's `declared`/`observed`,
-        # the violation's `reason`/`key`, and the request identity travel
-        # (T-24.5-37: entitlement-neutral by D-IMPL-105). Any other envelope
-        # falls through to `served_answer` exactly as before — DIV-4 stands
-        # for the kinds nobody has ruled a status for.
+        # D-18: every kind in the vocabulary, one status by class, one body.
+        # The envelope is the door's own translation (the MCP doors run the
+        # same function); the membership test is against `REFUSAL_KINDS`
+        # through the status table, never a literal (T-24.5-38). A `kind` the
+        # table does not hold is not a refusal this SDK minted, so it falls
+        # through to `served_answer` and reaches the client as the door fault
+        # it is — which is the one thing 500 is now reserved for.
         envelope = door_refusal(
             resolved, asked=asked, product_class=product_class, version=version
         )
-        if (
-            envelope is not None
-            and envelope.kind == REFUSAL_KINDS[DeclaredObligationRefusal]
-        ):
-            return JSONResponse(
-                status_code=409,
-                content={
-                    "kind": envelope.kind,
-                    "refusal_type": DeclaredObligationRefusal.__name__,
-                    "refusal": json.loads(canonical_bytes(envelope)),
-                },
-            )
-        if (
-            envelope is not None
-            and envelope.kind == REFUSAL_KINDS[ProductRequestViolation]
-        ):
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "kind": envelope.kind,
-                    "refusal_type": ProductRequestViolation.__name__,
-                    "refusal": json.loads(canonical_bytes(envelope)),
-                },
-            )
+        if envelope is not None and envelope.kind in STATUS_BY_KIND:
+            return _refusal_response(envelope)
         # `D-IMPL-148` Addendum A: the reference the resolver produced reaches
         # the consumer, on the sibling channel this transport has. `None` is the
         # honest report that this deployment's resolver returned the narrower
@@ -369,8 +486,14 @@ def build_router(
             ) from unrepresentable
 
     def _authorized_perspective(
-        request: Request, *, tenant: str, product_class: str, role: str | None
-    ) -> Perspective:
+        request: Request,
+        *,
+        tenant: str,
+        product_class: str,
+        version: str,
+        role: str | None,
+        asked: ProductRequest | None,
+    ) -> Perspective | JSONResponse:
         """The conditioning this door authorizes, or no product at all.
 
         Ask the bound seams before the resolver is reached, and **return what
@@ -398,9 +521,40 @@ def build_router(
         D-IMPL-73 insecure-default warning), and the operator reading this code
         is being told which of the two to fix.
 
+        **The entitlement decision is not made here** (``D-IMPL-256``;
+        criterion 36). It is made by
+        :func:`~ccf_runtime.authz.delivery_boundary.govern_entitlement`, which
+        runs the ruled sequence — *identity/policy → determination → replay →
+        disclosure shaping* — and hands back either the entitled perspective or
+        a shell that is **already recorded and already disclosed**. This
+        function encodes that return and does nothing else: it holds no
+        ``except`` clause for that refusal, calls no recorder, discloses
+        nothing and reads no clock (``D-IMPL-98``). A denial is rendered
+        through :func:`_refusal_response` — the *same* function a gate refusal
+        goes through — which is what makes an unauthorized principal and a
+        nonexistent subject observationally equivalent at this door rather than
+        equivalent by two branches agreeing (``D-IMPL-253`` amendment 2 (4)).
+
+        Args:
+            request: The live request, for the verified grant and for the path
+                the caller addressed.
+            tenant: The tenant from the path this door resolved.
+            product_class: The class from the path this door resolved.
+            version: The class's lane from the same path, recorded on the
+                determination's request identity.
+            role: The caller's ``?role=`` request, or ``None``.
+            asked: The typed question this door already assembled, or ``None``
+                when the caller posed none. Its ``parameters`` and ``asked_at``
+                are what the determination records as having been asked; with
+                no question the boundary is ``None``, the positive *the caller
+                deferred to the server's decision instant*.
+
+        Returns:
+            The authorized perspective, or the response encoding an
+            already-recorded governed denial.
+
         Raises:
-            HTTPException: 403 with the typed refusal body when the entitlement
-                refused the class or the role; 503 with
+            HTTPException: 503 with
                 :data:`~ccf_runtime.http_api.errors.ERROR_PRODUCT_DOOR_UNGOVERNED`
                 when no authorized perspective can be produced at all.
         """
@@ -437,25 +591,33 @@ def build_router(
                     ),
                 ),
             )
-        try:
-            return entitled_perspective(
-                grant=grant,
-                tenant=tenant,
-                product_class=product_class,
-                requested_role=role,
-                entitlement_source=entitlement_source,
-                perspective_resolver=perspective_resolver,
-            )
-        except ProductEntitlementRefused as refused:
-            # The typed constant is the contract and the prose is human
-            # context (D-08): the same decision the MCP doors render
-            # protocol-natively, rendered here as the one 403 body shape.
-            raise HTTPException(
-                status_code=403,
-                detail=refusal_detail(
-                    error_code=refused.error_code, message=refused.message
-                ),
-            ) from refused
+        decided = govern_entitlement(
+            grant=grant,
+            tenant=tenant,
+            product_class=product_class,
+            product_version=version,
+            requested_role=role,
+            parameters=dict(asked.parameters) if asked is not None else {},
+            asked_at=asked.asked_at if asked is not None else None,
+            surface=SURFACE_HTTP_ROUTE,
+            # What the caller addressed, never what the fabric resolved it to.
+            address=request.url.path,
+            entitlement_source=entitlement_source,
+            perspective_resolver=perspective_resolver,
+            # The recorder this router was BUILT with. `recorded_boundary`
+            # already refused to build an entitling door without one, so this
+            # read cannot fail; it is spelled as the same function rather than
+            # as an assertion so the posture has exactly one name in the tree
+            # (`D-IMPL-256` (2)). It is a narrowing, not a per-request check:
+            # there is no configuration in which it answers differently for two
+            # requests to the same door.
+            refusal_recorder=recorded_boundary(
+                refusal_recorder=refusal_recorder, builder="build_router"
+            ),
+        )
+        if isinstance(decided, RefusalEnvelope):
+            return _refusal_response(decided)
+        return decided
 
     def _asked(
         *,

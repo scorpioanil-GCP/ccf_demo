@@ -41,6 +41,8 @@ from typing import Awaitable, Callable
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, params
 
+from ccf.products.resolver import RefusalRecorderProtocol
+from ccf_runtime.authz.delivery_boundary import recorded_boundary
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
     ProductEntitlementSourceProtocol,
@@ -189,6 +191,7 @@ def create_app(
     authorizer: TenantAuthorizerProtocol | None = None,
     product_entitlement: ProductEntitlementSourceProtocol | None = None,
     perspective_resolver: PerspectiveResolverProtocol | None = None,
+    refusal_recorder: RefusalRecorderProtocol | None = None,
     acknowledge_insecure_default: bool = False,
 ) -> FastAPI:
     """Build the skeleton over ``deps`` — built, never hosted.
@@ -227,6 +230,32 @@ def create_app(
             :class:`CcfDeadEntitlementWarning`.
         perspective_resolver: Optional 15.5-06 role-derivation seam,
             supplied together with ``product_entitlement``.
+        refusal_recorder: The deployment's ONE minting seam
+            (:class:`~ccf.products.resolver.RefusalRecorderProtocol`; the SDK
+            ships :class:`~ccf.products.resolver.ReplayRefusalRecorder` over
+            the artifact store the governed resolver already holds, and
+            :func:`~ccf.products.resolver.build_governed_resolver` builds one).
+            A denial at the product door is a governed determination, and it is
+            appended by the **same** writer the resolver's own refusals are, so
+            replay holds one record shape rather than two (``D-IMPL-253`` Q13:
+            *"Do not create second-class replay"*).
+
+            **Required whenever ``product_entitlement`` is bound, and refused
+            at construction.** ``D-IMPL-256`` (2) rules that *a door configured
+            to make governed determinations without the ability to record them
+            is not a valid governed door*, so the pair reaches
+            :func:`~ccf_runtime.authz.delivery_boundary.recorded_boundary` here
+            and an unrecordable entitling door raises
+            :class:`~ccf_runtime.authz.delivery_boundary.UnrecordableDeliveryBoundaryError`
+            rather than building. There is deliberately no warn-and-serve
+            posture and no per-request refusal: a door that failed closed only
+            on denial would make auditability contingent on outcome, and would
+            reopen the observational difference between an unauthorized and a
+            nonexistent subject as a *misconfiguration*.
+
+            Bound **without** ``product_entitlement`` it is accepted and inert
+            — nothing at that door can deny — which keeps the D-IMPL-73
+            acknowledged-insecure posture buildable exactly as before.
         acknowledge_insecure_default: Explicit acceptance of the
             unauthenticated posture (D-IMPL-73). When ``auth`` is
             ``None`` and this is ``False`` — the default — the SDK
@@ -240,6 +269,16 @@ def create_app(
         A configured ``FastAPI`` application. Deliberately not started and
         bound to nothing — hosting is the deployment's decision.
     """
+    if product_entitlement is not None:
+        # `D-IMPL-256` (2), before anything else is built: an entitling door
+        # with no way to record what it decides is not built at all. First,
+        # because a warning about a door that will not exist is noise, and
+        # because the operator's fix is a constructor argument rather than
+        # anything downstream of one.
+        recorded_boundary(
+            refusal_recorder=refusal_recorder, builder="create_app"
+        )
+
     app = FastAPI(
         title="CCF HTTP API",
         description=(
@@ -344,6 +383,7 @@ def create_app(
             deps,
             entitlement_source=product_entitlement,
             perspective_resolver=perspective_resolver,
+            refusal_recorder=refusal_recorder,
         ),
         prefix="/product",
         dependencies=guarded,

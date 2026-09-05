@@ -88,6 +88,10 @@ from ccf_runtime.http_api.routes import (
 )
 from ccf_runtime.mcp.auth import FileTokenSource, TokenGrant
 
+# One definition of how a governed HTTP door's refusal recorder is
+# built, imported rather than copied (`24.6-09`).
+from tests.http_api.test_product_declared_obligation_409 import _recorder
+
 from http_api.conftest import Fabric, call
 
 #: Test deployment vocabulary; the SDK ships none of it.
@@ -147,6 +151,9 @@ def _app(fabric: Fabric, tmp_path: Path) -> Any:
         ),
         PRODUCT_ENTITLEMENT_POLICY,
     )
+    source = ControlPlaneProductEntitlementSource(
+        control_plane=registry, clock=lambda: AUDIT_INSTANT
+    )
     return create_app(
         ApiDependencies(
             control_plane=fabric.registry,
@@ -159,10 +166,12 @@ def _app(fabric: Fabric, tmp_path: Path) -> Any:
             grant_ledger=fabric.ledger,
         ),
         auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
-        product_entitlement=ControlPlaneProductEntitlementSource(
-            control_plane=registry, clock=lambda: AUDIT_INSTANT
-        ),
+        product_entitlement=source,
         perspective_resolver=_resolver,
+        # `24.6-09` / `D-IMPL-256` (2): an entitling door that cannot record a
+        # denial is not built. This module only ever serves, so the recorder is
+        # bound and never fires — one keyword, and nothing else here moves.
+        refusal_recorder=_recorder(fabric, tmp_path, source=source),
     )
 
 
