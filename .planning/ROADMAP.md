@@ -62,6 +62,8 @@ and the upgraded examples.
 - [x] **Phase 24.5: SDK Gap Catch-Up — Every Gap the Ladder Found in cp-00 through cp-04, Ledgered, Ruled and Closed** (INSERTED, `D-IMPL-235`) - The comprehensive SDK gap fix Dave commissioned 2026-09-02 (*"I want to remedy the sdk gaps and not wait until we have 50 to close"*). A catch-up over EVERY rung shipped so far, not a remedy for 24.4 alone. **First deliverable is a LEDGER SITTING, no code** — one roster of every gap by id, classified SDK / estate / product-tier, each ruled fix / won't-fix / later — and that roster is the phase's fence. `src/` and `runtime/` OPEN; examples closed except where a changed call shape forces a touch. Close by re-running cp-01..04: a rung whose limitation-asserting gates flip RED gets a versioned rebuild, the rest stay. **DIRECTION BANKED, NOT DISCUSSED** — criteria are written at the discuss sitting (`D-GATE-19`). One ruling open: whether `D-IMPL-224` is amendable if `24.4-D-31` becomes a fix-row.
 - [x] **Phase 24.5.1: The Return Trip — cp-01, cp-02, cp-03 and hw1 Re-versioned on the Fixed SDK, Every Recorded Lie Corrected** (INSERTED, `D-IMPL-244`; **CLOSED 2026-09-04, `D-GATE-24.5.1`, option 3 — cp-04 depth semantics superseded by `D-IMPL-251`, carried to 24.6**) - The ONE rebuild follow-on `D-GATE-24.5` opened because the flip roster was non-empty (criterion 26 of 24.5; `D-IMPL-235` forbids a `.1`…`.9` per gap, not one rebuild phase). Examples OPEN, `src/` and `runtime/` CLOSED. Dave, 2026-09-03: *"the work requirement of going back and fixing stale prose is related to the SDK fixes … have phase 24.5.1 to finish the corrections then start phase 24.6 on context product development."* **DIRECTION BANKED, NOT DISCUSSED** — criteria at the discuss sitting (`D-GATE-19`).
 - [x] **Phase 24.6: SDK Gap Phase — The Delivery Boundary Realized: Refusal as a Governed Response, the Policy-Constraint Layer, and Every Item Carried from 24.5.1** (INSERTED, `D-IMPL-252`) - Dave, 2026-09-04: *"Phase 24.6 will not introduce a new context product. It will address the gaps in what the SDK covers."* Opened by `D-IMPL-251` (the delivery boundary) and `D-GATE-24.5.1` (carry roster B-01..B-14). `src/` and `runtime/` OPEN for the first time since 24.5; `examples/` open only where an SDK change makes a rung stale (cp-04 rebuild and republish, B-01). cp-05 is the rung AFTER this phase closes; its number is not assigned (`D-IMPL-252` (5)). **DIRECTION BANKED, NOT DISCUSSED** — criteria at the discuss sitting (`D-GATE-19`).
+- [ ] **Phase 24.7: Request/Replay Hardening — Enumerated Request-Contract Domains (G-26) and Fail-Closed Replay Completeness (G-33)** (INSERTED, `D-IMPL-263`) - Dave, 2026-09-05: *"G-26 and G-33 are tightly bounded extensions of machinery we just built in 24.6: request-contract validity and replay completeness."* Opened by the cp-04 SDK gap ledger (`D-IMPL-262`). `src/` and `runtime/` OPEN; `examples/` CLOSED — cp-04 frozen (`D-IMPL-261`, `D-IMPL-263`); `tests/examples/` open ONLY for quarantine/expected-failure marking under the `D-IMPL-263` rule. **DIRECTION BANKED, NOT DISCUSSED, NOT DESIGNED** — designed with Dave before any criterion is written; criteria at the discuss sitting (`D-GATE-19`).
+- [ ] **Phase 24.8: Traversal Semantics — One Ruled Meaning for a Dangling Endpoint, In-Process and Pushed Paths Conforming (G-28)** (INSERTED, `D-IMPL-263`) - Dave, 2026-09-05: *"Then 24.8 can own traversal properly."* The SDK defect `D-IMPL-262` ruled traversal-owned and NOT bundled with 24.7; named from day one (`D-IMPL-255` (3)). Same fence and freeze as 24.7. cp-05 is the rung after this phase; its number is not assigned (`D-IMPL-252` (5)). **DIRECTION BANKED, NOT DISCUSSED** — criteria at its own discuss sitting (`D-GATE-19`).
 
 ## Phase Details
 
@@ -3326,6 +3328,71 @@ Plans:
 - [x] 24.6-16-PLAN.md — the experience server's three entitlement paths through the governed step, shelled and recorded; `build_experience_server` refuses at construction without a recorder; the door's own no-mint gate and bound-door loop (C-25, C-36; L-03)
 
 
+### Phase 24.7: Request/Replay Hardening — Enumerated Request-Contract Domains (G-26) and Fail-Closed Replay Completeness (G-33) (INSERTED)
+
+**Goal (Dave, 2026-09-05, verbatim):** *"Request/Replay Hardening: close the two remaining
+request/replay SDK gaps exposed by cp-04: contract-level enumerated domains for non-numeric request
+parameters (G-26), and fail-closed replay completeness when effective-request resolution
+participated in a governed determination (G-33). No cp-04 changes."*
+
+**STATUS: DIRECTION BANKED — `D-IMPL-263` (Dave, 2026-09-05 15:21 MST). NOT DISCUSSED, NOT DESIGNED,
+NO CRITERIA.** Dave: *"we should stop and design 24.7 before writing its criteria … I don't want Fable
+deriving a large implementation plan from a two-line roadmap entry without us first ruling the
+semantics."* The design sitting comes first; criteria are locked there, before Wave 1 (`D-GATE-19`).
+No research or planning agent runs against this phase before that sitting.
+
+**What is already ruled (`D-IMPL-262`), carried in, not re-derived.** G-26: *"the contract can declare
+the legal values of a parameter"* — `ArgumentDomain` states numeric bounds OR an enumerated domain;
+NOT Policy `allowed_set` as a substitute; NOT a generic validation language. G-33, the invariant
+verbatim: *"If effective-request resolution participated in a governed determination, Decision Replay
+must carry that resolution and its authority provenance. A replay builder may represent genuine
+non-applicability explicitly, but it must not silently accept omission of resolution that actually
+occurred."* Not "always present".
+
+**What is NOT yet ruled (`D-IMPL-263`, Dave's words).** *"We have ruled the invariant, not yet the
+representation, API shape, validation point, compatibility behavior, or what constitutes
+'participated.'"* Those are the design sitting's subject. The G-33 phrase in the Goal is a direction,
+not an implementation design.
+
+**Freeze (Dave, verbatim, `D-IMPL-263`).** *"cp-04 remains frozen throughout 24.7 and 24.8. These phases repair SDK surfaces identified by the cp-04 probe; they do not repair, republish, re-pin, or otherwise modify cp-04. After the applicable SDK work lands, cp-04 may be rerun as validation evidence. Any red produced by the frozen example is evidence to classify, not an instruction to edit the example."*
+
+**Fence (`D-IMPL-263`).** `src/` and `runtime/` OPEN. `examples/` CLOSED (every rung frozen,
+`D-IMPL-261`). `tests/examples/` may be touched ONLY to quarantine or mark expected-failure an existing
+example test that turns red because of the SDK work — never the assertion, expected value, fixture,
+test data or test semantics. A quarantined test remains evidence with its original assertion, names
+the SDK gap or decision that caused it, and is un-quarantined and rerun unchanged when that gap closes.
+
+**Canonical refs:** `docs/DECISIONS.md` (`D-IMPL-263`, `D-IMPL-262`, `D-IMPL-261`, `D-IMPL-259`,
+`D-IMPL-260` (10), `D-GATE-24.6`),
+`.planning/phases/24.6-sdk-gap-phase-the-delivery-boundary-realized-refusal-as-a-go/24.6-CP-04-SDK-GAP-LEDGER.md`
+(rows `CP04-G-26`, `CP04-G-33`), `src/ccf/products/request.py` (`ArgumentDomain`,
+`ProductRequestContract`), `docs/CCF_Whitepaper_1-2.md` §6.3, §7.6, §7.10.1.
+
+**Success Criteria:** none yet — written at the design sitting and locked before Wave 1 (`D-GATE-19`).
+
+### Phase 24.8: Traversal Semantics — One Ruled Meaning for a Dangling Endpoint, In-Process and Pushed Paths Conforming (G-28) (INSERTED)
+
+**Goal (from `D-IMPL-262`, Dave's words):** *"answer what a dangling endpoint means, then make the
+reference/in-process and pushed implementations conform to one ruled behavior."* G-28 is *"a
+semantic inconsistency in the SDK"* — the in-process `_bounded_walk` hops onto any neighbor when
+`admitted is None`; the pushed path endpoint-closes before walking (`24.6-CP-04-SDK-GAP-LEDGER.md`
+row `CP04-G-28`).
+
+**STATUS: DIRECTION BANKED — `D-IMPL-263` (Dave, 2026-09-05 15:21 MST). NOT DISCUSSED, NO CRITERIA.**
+Follows 24.7 (*"Then 24.8 can own traversal properly."*). cp-05 is the rung after this phase; its
+number is not assigned (`D-IMPL-252` (5)).
+
+**Freeze (Dave, verbatim, `D-IMPL-263`).** *"cp-04 remains frozen throughout 24.7 and 24.8. These phases repair SDK surfaces identified by the cp-04 probe; they do not repair, republish, re-pin, or otherwise modify cp-04. After the applicable SDK work lands, cp-04 may be rerun as validation evidence. Any red produced by the frozen example is evidence to classify, not an instruction to edit the example."*
+
+**Fence (`D-IMPL-263`).** As 24.7: `src/` and `runtime/` OPEN; `examples/` CLOSED; `tests/examples/`
+only for quarantine or expected-failure marking under the same rule.
+
+**Canonical refs:** `docs/DECISIONS.md` (`D-IMPL-263`, `D-IMPL-262`, `D-IMPL-255` (3), `D-GATE-24.5` R1),
+the ledger row `CP04-G-28`, `src/ccf/operators/categories.py` (`_bounded_walk`),
+`docs/CCF_Whitepaper_1-2.md` §7.4.
+
+**Success Criteria:** none yet — written at its own discuss sitting (`D-GATE-19`).
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -3369,6 +3436,8 @@ Plans:
 | 24.5. SDK Gap Catch-Up — cp-00 through cp-04, Ledgered, Ruled and Closed | **CLOSED** — `D-GATE-24.5` approved (Dave, 2026-09-03) at `17a1de3f`; 18/18 plans; CR-01 (`D-IMPL-243`), WR-02 (`24.5-FIX-02`) and panel R3 (`24.5-FIX-03`) fixed in-phase; R1/R2/R4 carried by ruling; `24.5.1` opened and owns hw1 (`D-IMPL-242`); merged `--no-ff` to `main` | **Direction banked** (`D-IMPL-235`, 2026-09-02). Ledger sitting first, no code; `src/`+`runtime/` OPEN; close by re-running cp-01..04. Criteria at the discuss sitting (`D-GATE-19`). Open: `D-IMPL-224` amendable? | — |
 | 24.5.1. The Return Trip — cp-01/02/03 and hw1 re-versioned, recorded lies corrected | 8/8 plans | **CLOSED** — `D-GATE-24.5.1` approved (Dave, 2026-09-04, option 3): closed on its implemented and reviewed state; §3.1 panel and single-agent review ran on the shipped tree; `R-1` fixed in-phase, three findings rejected, `R-2`/`R-3`/`CR-01`/`CR-03` carried to 24.6 by ruling; `D-IMPL-251` supersedes cp-04's depth-6 semantics; cp-01/02/03 replaced in place at `@1.0.1`, cp-04 replaced in place (`P-1`, `D-IMPL-250`); merged `--no-ff` to `main` at `cd5a1bbb` | 2026-09-04 (`D-GATE-24.5.1`) |
 | 24.6. SDK Gap Phase — the delivery boundary realized, policy-constraint layer, carries from 24.5.1 | 16/16 | **Complete** — `D-GATE-24.6` (Dave, 2026-09-05) after the `D-IMPL-260` correction pass; 36 criteria at digest `c0fdc4f4…`; F-E, cp-01 F-1, P-E carried by ruling. `D-IMPL-261` resets the example lifecycle; cp-00..cp-04 frozen; the cp-04 SDK gap ledger is built after the merge. | 2026-09-05 |
+| 24.7. Request/Replay Hardening — G-26 enumerated request-contract domains, G-33 fail-closed replay completeness | 0/0 | **Direction banked** — `D-IMPL-263` (Dave, 2026-09-05); design sitting before criteria; cp-04 frozen; `tests/examples/` quarantine-only | — |
+| 24.8. Traversal Semantics — G-28, one ruled meaning for a dangling endpoint | 0/0 | **Direction banked** — `D-IMPL-263`; follows 24.7; cp-05 is the rung after | — |
 
 ## Coverage
 
