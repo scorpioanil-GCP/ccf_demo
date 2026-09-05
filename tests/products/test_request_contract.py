@@ -1004,8 +1004,8 @@ def test_the_reason_vocabulary_has_six_members_tier_then_proportion() -> None:
 #
 # ``24.5-REVIEW.md`` WR-02, ruled by Dave 2026-09-02: a negative
 # ``debt_tolerance`` is refused BY NAME at the request/class boundary, in the
-# contract-refusal family, so it can never reach ``effective_debt_ceiling`` and
-# coerce every serve into a ``409`` whose ``declared`` names a number no class
+# contract-refusal family, so it can never reach the debt gate as a
+# "tightening" and coerce every serve into a ``409`` whose ``declared`` names a number no class
 # declared. The interval is the one ``ServeObligations`` holds the CLASS's
 # ceiling to (``24.5-L-14``): ``D_c`` is a proportion.
 

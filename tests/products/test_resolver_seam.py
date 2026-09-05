@@ -316,7 +316,7 @@ def booted_with_ceiling(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     The number is authored HERE, in a test-side document, never in ``src/``
     (CINV-01): ``0.5`` is a fixture figure. This is the deployment WR-02 needs
     — a ceiling that is live, so a tolerance the boundary lets through would
-    reach ``effective_debt_ceiling`` and be visible as a ``409``.
+    reach the debt gate and be visible as a ``409``.
     """
     product_class = copy.deepcopy(
         next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY)
@@ -505,11 +505,19 @@ def test_a_tolerance_that_is_not_a_proportion_is_refused_at_the_boundary_not_as_
     """WR-02 (Dave, 2026-09-02): a negative ``debt_tolerance`` is refused BY NAME at the boundary and never coerces the serve into a ``409``.
 
     The class declares a ceiling and the fixture scorer measures ``D_c = 0``,
-    so before this ruling ``-1`` reached ``effective_debt_ceiling`` as a
+    so before this ruling ``-1`` reached the debt gate as a
     "tightening", every product was refused ``declared-obligation-refusal``
     and ``declared`` read ``"-1"`` — a number no class declared. Now the
     request-conformity verdict names the parameter, carries no lineage
     (the graph was never touched), and the ``409`` family is never reached.
+
+    **Re-derived at ``24.6-03``, and the verdict travels one step further
+    back.** The conformity comparison now runs inside the resolution, over the
+    EFFECTIVE request — defaults applied, policy bounds in force — rather than
+    over the caller's raw parameters. Nothing about this case moves: the class
+    declares no default for the tolerance and no constraint is registered here,
+    so the effective value is the caller's ``-1``, and the interval refusal
+    names it before the graph is touched exactly as before.
 
     Sabotage: restore acceptance of ``-1`` in ``refuse_request`` and this
     goes RED on the first assertion with ``kind == "declared-obligation-refusal"``.
@@ -536,6 +544,12 @@ def test_a_proportion_tolerance_still_reaches_the_live_ceiling(
     served leg proves the boundary let a proportion through; the ceiling
     itself is proven live by the sibling structural-gate tests, and by the
     fact that a bypassed boundary turns the test above into a ``409``.
+
+    **Re-derived at ``24.6-03``:** the number now reaches the gate as the
+    *effective* tolerance — resolved with authority ``caller``, since no
+    constraint is registered in this deployment — rather than as a raw request
+    parameter the gate folds. The observable outcome is the same, which is the
+    point: the sequence changed, the answer did not.
     """
     outcome = _ask(
         _resolver(booted_with_ceiling),

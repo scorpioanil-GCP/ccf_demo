@@ -699,8 +699,8 @@ def test_the_attribute_boundary_moves_the_roster_and_not_the_debt(
         " appeared. D-IMPL-230 ruled SERVE: the attribute shortfall reaches the"
         " consumer as the roster finding and as `attributes: null`, and is NOT"
         " folded into S. Folding it in gives S = 2/22 and D_c ~ 0.909 — SERVED,"
-        " not 409ed: cp-04 declares no class ceiling (effective_debt_ceiling,"
-        " 24.5-L-14), so the false figure would reach the consumer"
+        " not 409ed: cp-04 declares no class ceiling (24.5-L-14), so the false"
+        " figure would reach the consumer"
     )
 
 

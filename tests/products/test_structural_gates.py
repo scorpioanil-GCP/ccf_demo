@@ -354,8 +354,9 @@ def test_the_resolver_threads_the_effective_ceiling_and_no_principal() -> None:
     tolerance goes RED here (``D-IMPL-105``, threat ``T-24.5-34``).
 
     **Re-derived at ``24.6-03``, not weakened.** It previously measured the
-    ``effective_debt_ceiling`` call and its two keywords; that function is
-    deleted (``C-06``), and the fold it performed now happens inside the
+    ``24.5-L-14`` ceiling helper's call and its two keywords; that function is
+    deleted (``C-06``), and its name survives in this module only inside the
+    assertion below that proves the deletion, and the fold it performed now happens inside the
     Authority layer with the authority that set each value recorded
     (``D-IMPL-254``). So the same three properties are measured at the new
     shape: the resolution happens exactly once, it happens **before** the
