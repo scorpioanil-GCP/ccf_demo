@@ -382,7 +382,7 @@ class FamilyTreeProjection:
         cost in the findings and rules out wall-clock time in addressed
         content, because a duration is different on every run and this payload
         is content-addressed. `tests/examples/test_cp_04_traversal.py::
-        test_findings_carry_depth_and_structural_cost_and_no_clock` greps the
+        test_cft_g19_findings_carry_depth_and_structural_cost_and_no_clock` greps the
         canonical bytes for a duration token and for any instant outside the
         three fields that legitimately carry one.
 

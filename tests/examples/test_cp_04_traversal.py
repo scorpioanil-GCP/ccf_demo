@@ -1694,10 +1694,10 @@ def test_requested_depth_is_identity_even_where_it_changes_nothing_served(
     ), "the two payloads report the same requested depth"
 
 
-def test_findings_carry_depth_and_structural_cost_and_no_clock(
+def test_cft_g19_findings_carry_depth_and_structural_cost_and_no_clock(
     at_the_declared_default: Asked,
 ) -> None:
-    """`D-23`. Depth and cost are in the FINDINGS, and neither is a duration.
+    """`CFT-G19` (Phase 24.6 criterion 33, `D-23`). Depth and cost are in the FINDINGS, and neither is a duration.
 
     Four numbers — requested depth, depth reached, nodes visited, edges walked
     — each a structural count of a walk that already ran. **And the negative

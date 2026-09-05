@@ -21,6 +21,11 @@
                 "minimum": 1,
                 "type": "integer"
               },
+              "criterion_phase": {
+                "description": "The phase whose locked ROADMAP numbering `criterion` reads in, as that phase is named in the ROADMAP (`24.6`, `24.5.1`). Optional: absent means the phase that declared this roster, which is where every gate minted with the roster reads. Present on a gate minted by a LATER phase against ITS criteria -- added at the Phase 24.6 close (`D-IMPL-260`, `CFT-G19`), because two phases' criteria share one integer range and a bare integer cannot say which phase it counts in; the declaring product's own test keys its one-to-one check on the pair.",
+                "pattern": "^[0-9]+(\\.[0-9]+)*$",
+                "type": "string"
+              },
               "id": {
                 "description": "The gate id. The pattern is the one measured across this ladder's four products -- two to four uppercase letters, a hyphen, `G`, and two digits.",
                 "pattern": "^[A-Z]{2,4}-G[0-9]{2}$",

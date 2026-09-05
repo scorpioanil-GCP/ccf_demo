@@ -75,6 +75,13 @@
 # that module's own comment-only check would then demand the very id the
 # withdrawal forbids.
 #
+# EIGHTEEN DECLARED GATES AS OF 2026-09-05 (Phase 24.6 close, `D-IMPL-260`):
+# `CFT-G19` joins — depth and structural cost in the findings, `D-23`, Phase
+# 24.6's criterion 33 — carrying `criterion_phase: "24.6"`, the optional key
+# the closed roster schema grew so a criterion number can say which phase it
+# counts in (24.6's 33 and 24.4's 33 are two criteria). `CFT-G18` now names
+# its phase the same way. The dated notes below are preserved as written.
+#
 # SEVENTEEN DECLARED GATES AS OF 2026-09-03 (Phase 24.5.1, `D-IMPL-245` (4);
 # criterion 19 as amended, `24.5.1-CRITERIA-LOCK.md` Amendment 1): `CFT-G01`
 # through `CFT-G16` and `CFT-G18`. `CFT-G18` is the AMBIGUOUS-ANCHOR gate —
@@ -182,24 +189,15 @@ declaration:
         clamp to the technical ceiling instead of refusing. This is the
         sabotage a count-based check cannot see — the request says 101, the
         walk does 100, the payload looks fine and the content address greens.
-      # WHY `D-23`'s FINDINGS CLAIM CARRIES NO ID OF ITS OWN, recorded here
-      # because the alternative was measured and refused rather than
-      # overlooked. Depth-and-cost-in-the-findings is a separate obligation
-      # with a separate sabotage (a wall clock in addressed content), and it
-      # would have earned the next free id — except that a gate row keys its
-      # obligation on a BARE INTEGER criterion, and Phase 24.6's criterion 33
-      # is already claimed here by Phase 24.4's criterion 33 (`CFT-G13`).
-      # `tests/examples/test_cp_04_gates_declaration.py::test_the_criteria_map_one_to_one_onto_the_gates`
-      # refuses the collision, correctly: `RETURN_TRIP_CRITERIA` holds
-      # 24.5.1's 19 apart only because 19 happened not to collide. Minting the
-      # gate would have needed either a criterion number that is not the one
-      # the phase locked, or a `criterion_phase` key widening the CLOSED
-      # schema at `docs/schemas/product-gates/cp.product-gates.json` — a
-      # change to every rung's roster contract and outside `24.6-L-01`'s
-      # fence. The OBLIGATION is not lost: the statement above carries the
-      # served-deep half, and
-      # `tests/examples/test_cp_04_traversal.py::test_findings_carry_depth_and_structural_cost_and_no_clock`
-      # ships with both its sabotages watched RED (24.6-13 SUMMARY).
+      # `D-23`'s FINDINGS CLAIM NOW CARRIES ITS OWN ID — `CFT-G19`, below.
+      # Through plan `24.6-13` it could not: a gate row keyed its obligation on
+      # a BARE INTEGER criterion, and Phase 24.6's criterion 33 collided with
+      # Phase 24.4's criterion 33 (this gate's neighbour `CFT-G13`), so the
+      # obligation shipped with its test and its sabotage but under no id, and
+      # the close review raised it as F-D. `D-IMPL-260` (2026-09-05) ruled it
+      # minted: the closed roster schema grew the optional `criterion_phase`
+      # key, and `tests/examples/test_cp_04_gates_declaration.py` keys its
+      # one-to-one check on the `(phase, criterion)` pair.
       observed_red:
         result: >-
           RED, under its own id, on BOTH limbs — re-observed 2026-09-05 against
@@ -1037,6 +1035,7 @@ declaration:
     # either: it is the artifact's SCHEMA lane, and the schema is unchanged.
     - id: CFT-G18
       criterion: 19
+      criterion_phase: "24.5.1"
       statement: >-
         An anchor LEI that resolves to MORE THAN ONE node is refused as typed
         ambiguity data — `AnchorAmbiguityRefusal` carrying the anchor and every
@@ -1080,3 +1079,40 @@ declaration:
           `deployment.py` and `assembler.py`. Different files.
         date: "2026-09-03"
         commit: "7a89d0f5"
+    - id: CFT-G19
+      criterion: 33
+      # Phase 24.6's criterion 33, not Phase 24.4's (which `CFT-G13` claims):
+      # the optional key that lets one integer count in two phases' rosters.
+      criterion_phase: "24.6"
+      statement: >-
+        The findings carry the REQUESTED depth, the depth actually REACHED, and
+        the walk's cost as deterministic STRUCTURAL counts — nodes visited,
+        edges walked — and no wall-clock time appears anywhere in addressed
+        content (the canonical bytes are greped for a duration token and for
+        any RFC3339 instant outside the three vessel fields that legitimately
+        carry one). Requested depth stays part of product identity.
+      test: tests/examples/test_cp_04_traversal.py::test_cft_g19_findings_carry_depth_and_structural_cost_and_no_clock
+      sabotage: >-
+        put an elapsed time in the cost block — the payload still looks
+        informative, every run becomes a different product, and the seal stops
+        reproducing. A count-based check cannot see it; the gate greps the
+        addressed bytes.
+      observed_red:
+        result: >-
+          RED, under its own id, against the LIVE Fluree leg (ledger
+          `fibo-v2`) on 2026-09-05 at the Phase 24.6 correction pass. Sabotage
+          applied to the traversal finding's cost block in
+          `examples/cp-04-corporate-family-tree/projection.py` — `"elapsed_ms":
+          12` added beside `nodes_visited` and
+          `edges_walked`. The shipped test reported on the cost-roster limb
+          first: "AssertionError: {'edges_walked': 25, 'elapsed_ms': 12,
+          'nodes_visited': 22} … At index 1 diff: 'elapsed_ms' !=
+          'nodes_visited'" — a wall-clock member in addressed content, caught
+          before the duration-token grep it would also have failed. Restored
+          by reversing the one-line edit; `git diff` on the file then showed
+          only the test's rename (`test_findings_carry…` →
+          `test_cft_g19_findings_carry…`), and the gate was green again.
+          The two sabotages plan `24.6-13` watched RED under the unminted
+          obligation (24.6-13 SUMMARY) stand as the earlier observations.
+        date: "2026-09-05"
+        commit: "f4277b49"

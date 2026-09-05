@@ -147,6 +147,7 @@ EXPECTED_IDS: frozenset[str] = frozenset(
         "CFT-G15",
         "CFT-G16",
         "CFT-G18",
+        "CFT-G19",
     }
 )
 
@@ -187,20 +188,43 @@ OBSERVED_RED_IDS: tuple[str, ...] = (
     "CFT-G15",
     "CFT-G16",
     "CFT-G18",
+    "CFT-G19",
 )
 
-#: Phase 24.5.1's ROADMAP criterion 19 (`D-IMPL-245` (4), the ambiguous
-#: anchor), claimed by `CFT-G18`. A different phase's numbering from the
-#: sixteen below, held apart so the two ranges cannot be confused.
-RETURN_TRIP_CRITERIA: frozenset[int] = frozenset({19})
+#: The phase a gate's `criterion` counts in when the roster declares none —
+#: the phase that declared the roster.
+DECLARING_PHASE = "24.4"
 
-#: The locked ROADMAP criteria the gates discharge, one-for-one: Phase 24.4's
-#: 25 through 40 onto sixteen gates, and Phase 24.5.1's 19 onto `CFT-G18`.
-#: Criterion 41 is WITHDRAWN IN PLACE and is claimed by no gate.
-EXPECTED_CRITERIA: frozenset[int] = frozenset(range(25, 41)) | RETURN_TRIP_CRITERIA
+#: The criteria minted by LATER phases against THEIR numbering, as
+#: `(phase, criterion)` pairs: Phase 24.5.1's 19 (`D-IMPL-245` (4), the
+#: ambiguous anchor) onto `CFT-G18`, and Phase 24.6's 33 (`D-23`, depth and
+#: structural cost in the findings) onto `CFT-G19`. Keyed on the PAIR, because
+#: 24.6's 33 and 24.4's 33 (`CFT-G13`) are two criteria that share one integer
+#: — the collision that kept `CFT-G19` unminted through plan `24.6-13` until
+#: `D-IMPL-260` ruled it minted and the roster contract grew
+#: `criterion_phase`.
+RETURN_TRIP_CRITERIA: frozenset[tuple[str, int]] = frozenset(
+    {("24.5.1", 19), ("24.6", 33)}
+)
+
+#: The locked ROADMAP criteria the gates discharge, one-for-one, as
+#: `(phase, criterion)` pairs: Phase 24.4's 25 through 40 onto sixteen gates,
+#: plus the return-trip pairs above. Criterion 41 of 24.4 is WITHDRAWN IN
+#: PLACE and is claimed by no gate.
+EXPECTED_CRITERIA: frozenset[tuple[str, int]] = (
+    frozenset((DECLARING_PHASE, n) for n in range(25, 41)) | RETURN_TRIP_CRITERIA
+)
 
 #: The criterion no gate may claim.
-WITHDRAWN_CRITERION = 41
+WITHDRAWN_CRITERION = (DECLARING_PHASE, 41)
+
+
+def claimed_criteria(document: dict) -> list[tuple[str, int]]:
+    """Every gate's `(phase, criterion)` pair, the phase defaulted to the declaring one."""
+    return [
+        (gate.get("criterion_phase", DECLARING_PHASE), gate["criterion"])
+        for gate in document["declaration"]["gates"]
+    ]
 
 #: Every tree the comment scan reaches. **A root absent from here is a tree
 #: this check reports clean over without reading it**, so the second member is
@@ -707,7 +731,8 @@ def test_markdown_prose_is_not_a_comment(tmp_path: pathlib.Path) -> None:
 
 
 def test_the_criteria_map_one_to_one_onto_the_gates() -> None:
-    claimed = [gate["criterion"] for gate in load_roster()["declaration"]["gates"]]
+    """Keyed on `(phase, criterion)`: a bare integer cannot say which phase it counts in."""
+    claimed = claimed_criteria(load_roster())
     assert set(claimed) == EXPECTED_CRITERIA, (
         f"unclaimed: {sorted(EXPECTED_CRITERIA - set(claimed))};"
         f" out of range: {sorted(set(claimed) - EXPECTED_CRITERIA)}"
@@ -717,7 +742,23 @@ def test_the_criteria_map_one_to_one_onto_the_gates() -> None:
     )
 
 
+def test_a_bare_integer_collision_is_two_criteria_not_one() -> None:
+    """Two gates say `33` — one of 24.4's, `CFT-G19` of 24.6's — and they are two criteria.
+
+    The vacuity guard for the pair-keyed check above: a check that read the
+    integer alone would report the roster as claiming one criterion twice, or
+    — worse — would have to drop one of them to pass.
+    """
+    gates = load_roster()["declaration"]["gates"]
+    by_id = {gate["id"]: gate for gate in gates}
+    assert by_id["CFT-G19"]["criterion"] == 33
+    assert by_id["CFT-G19"]["criterion_phase"] == "24.6"
+    assert by_id["CFT-G18"]["criterion_phase"] == "24.5.1"
+    # Exactly one gate of the DECLARING phase says 33 too, and it is not G19.
+    bare = [g for g in gates if g["criterion"] == 33 and "criterion_phase" not in g]
+    assert len(bare) == 1 and bare[0]["id"] != "CFT-G19", bare
+
+
 def test_the_withdrawn_criterion_is_claimed_by_no_gate() -> None:
     """Criterion 41 is WITHDRAWN IN PLACE with ontology role 1."""
-    claimed = {gate["criterion"] for gate in load_roster()["declaration"]["gates"]}
-    assert WITHDRAWN_CRITERION not in claimed
+    assert WITHDRAWN_CRITERION not in set(claimed_criteria(load_roster()))

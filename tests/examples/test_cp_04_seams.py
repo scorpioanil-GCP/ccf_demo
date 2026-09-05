@@ -169,7 +169,8 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import parse_artifact_uri
 from ccf.products.constraints import ConstraintRefusal
 from ccf.products.refusal import NO_REPLAY_REFERENCE, REFUSAL_KINDS
-from ccf.replay.record import NO_PRODUCT_ADDRESS
+from ccf.products.provenance import EffectiveRequest
+from ccf.replay.record import NO_PRODUCT_ADDRESS, NO_REQUEST_RESOLUTION
 from ccf_runtime.mcp.egress import PRODUCT_URI_TEMPLATE, product_uri
 from tools.lints import matches_module
 from tools.lints.algorithmic import LLM_MODULES
@@ -3405,3 +3406,30 @@ def test_replay_carries_the_assembler_identity_for_fulfilled_and_refused(
         refused_record["content_generation_path"]["product_content_address"]
         == NO_PRODUCT_ADDRESS
     ), refused_record["content_generation_path"]
+
+    # `D-IMPL-260` P-H: THE FULFILLED RECORD CARRIES THE EFFECTIVE-REQUEST
+    # RESOLUTION on dimension 2 — which question was actually answered, with
+    # the authority that established each value and the bound in force —
+    # rather than the sentinel that says no resolution was recorded.
+    resolution = fulfilled_record["policy_bindings"].get(
+        "request_resolution", NO_REQUEST_RESOLUTION
+    )
+    assert resolution != NO_REQUEST_RESOLUTION, (
+        "the fulfilled record carries no effective-request resolution; replay"
+        " could re-ask the caller's question but not the one the fabric"
+        " answered (D-IMPL-260 P-H)"
+    )
+    effective = EffectiveRequest.model_validate_json(resolution)
+    depth = effective.parameter(deployment.PARAM_MAX_DEPTH)
+    assert depth is not None, effective
+    assert int(depth.value) == int(typed.parameters[deployment.PARAM_MAX_DEPTH])
+    assert depth.bound is not None and depth.bound.authority == "technical", depth
+    assert depth.bound.source.identity == (
+        deployment.traversal_depth_capability().capability_identity
+    )
+    # The refused half was determined before any resolution existed, and its
+    # record says so positively.
+    assert (
+        refused_record["policy_bindings"].get("request_resolution", NO_REQUEST_RESOLUTION)
+        == NO_REQUEST_RESOLUTION
+    )

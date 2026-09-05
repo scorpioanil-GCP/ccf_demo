@@ -351,6 +351,12 @@ class FamilyTreeAssembler:
             # rather than as a reach across the seam (`24.6-L-15`).
             assembler_id=self.assembler_id,
             assembler_version=self.assembler_version,
+            # THE RESOLUTION THIS ANSWER WAS MADE UNDER, FOR DIMENSION 2
+            # (`D-IMPL-260` P-H). The effective request resolved above — the
+            # caller's depth, the technical bound that admitted it, the
+            # contract pin that declared it — travels onto the fulfilled
+            # record, as the refused half already carries its determination.
+            resolution=effective,
         )
         self.observer(assembled)
 

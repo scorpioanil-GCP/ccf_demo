@@ -107,6 +107,7 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates
+from ccf.products.provenance import EffectiveRequest
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
@@ -610,9 +611,19 @@ def _record(
     policy_version: str,
     assembler_id: str,
     assembler_version: str,
+    resolution: EffectiveRequest | None = None,
 ) -> DecisionReplayRecord:
     """The replay record, built BEFORE delivery. **After §D's ten steps**, and
     the position is the invariant rather than the sequence number.
+
+    **THE EFFECTIVE-REQUEST RESOLUTION RIDES ON DIMENSION 2** (``D-IMPL-260``
+    P-H, criterion 36's fulfilled half). ``resolution`` is the Authority
+    layer's value — every parameter with the authority that established it,
+    the bound in force, the applied pins — as ``assembler.py`` resolved it
+    before this call, and it lands as ``request_resolution`` so replay
+    re-asks the EFFECTIVE question rather than the caller's. Threaded from
+    the caller that holds it, like the assembler identity below, because this
+    module does not resolve and must not re-resolve.
 
     `policy_bindings` is built here, by the adopter, because dimension 2
     assembled by a rule nobody in the deployment wrote down is not an audit
@@ -651,6 +662,7 @@ def _record(
         request=scenario.request,
         assembler_id=assembler_id,
         assembler_version=assembler_version,
+        resolution=resolution,
     )
 # --8<-- [end:record]
 
@@ -857,6 +869,7 @@ def assemble_and_serve(
     assembler_version: str,
     role: str | None = None,
     unsupported: Mapping[str, str] | None = None,
+    resolution: EffectiveRequest | None = None,
 ) -> Assembled | ProductRequestViolation | AnchorUnresolvable | AnchorAmbiguous | AssemblyRefusal:
     """Answer one question, end to end, against ``root`` as scratch space.
 
@@ -954,6 +967,7 @@ def assemble_and_serve(
             policy_version=policy_version,
             assembler_id=assembler_id,
             assembler_version=assembler_version,
+            resolution=resolution,
         )
         served, store = _serve(
             scenario=scenario,
