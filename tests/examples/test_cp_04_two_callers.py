@@ -1213,12 +1213,21 @@ def test_a_serve_path_refusal_is_a_governed_error_and_the_door_survives(
     # says exactly that: an OPAQUE failure id and no prose. A consumer who
     # could read the contradiction's text would be reading the estate's shape
     # off an error message.
-    assert text.startswith(f"{CCF_FAILURE_PREFIX}:"), (
+    # `Error executing tool <name>: ` is FastMCP's OWN prefix on a wrapped
+    # `ToolError` (measured against `mcp==1.28.1`, `Tool.run` re-raises every
+    # handler exception under that text), and the SDK's own gate over this
+    # door — `tests/mcp/test_egress_refusal_channels.py` — asserts exactly
+    # that shape: the transport's prefix naming the tool the caller invoked,
+    # then OUR opaque id, then nothing. **Found RED at the 24.6 close (F-C
+    # (iii))**: this limb asserted the bare id, which is the pre-phase form.
+    # The prefix is optional here so a transport that stops wrapping still
+    # passes; prose AFTER the id never does.
+    assert re.fullmatch(
+        rf"(Error executing tool [^:\s]+: )?{CCF_FAILURE_PREFIX}:[0-9a-f]{{32}}",
+        text.strip(),
+    ), (
         "an invariant failure reached the client as something other than"
-        f" {CCF_FAILURE_PREFIX}:<id>: {text[:1000]}"
-    )
-    assert re.fullmatch(rf"{CCF_FAILURE_PREFIX}:[0-9a-f]+", text.strip()), (
-        f"the failure id carries more than an id: {text[:1000]}"
+        f" [FastMCP's tool prefix +] {CCF_FAILURE_PREFIX}:<id>: {text[:1000]}"
     )
     assert "jurisdiction" not in text, (
         f"the opaque failure leaked the contradiction's prose: {text[:1000]}"
@@ -1569,7 +1578,12 @@ def test_the_resolver_assembles_under_the_perspective_it_was_handed(
     other = next(role for role in deployment.declared_roles() if role != default)
 
     with tempfile.TemporaryDirectory(prefix="cp04-forwarded-") as scratch:
-        resolver = compose.build_resolver(root=pathlib.Path(scratch))
+        # The resolver `compose` built, over the ONE recorder `compose`
+        # constructed (`D-IMPL-256` (2), `24.6-10`): `build_resolver` takes
+        # the recorder as a required keyword since that row, and the door
+        # (`serve.py`) hands it the same one. **Found RED at the 24.6 close
+        # (F-C (v))** — this call predated the keyword.
+        resolver = compose.compose(root=pathlib.Path(scratch)).resolver
         typed = deployment.demonstration_request()
         served = resolver(
             tenant=deployment.tenant_id(),

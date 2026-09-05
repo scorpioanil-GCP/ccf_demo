@@ -3201,6 +3201,28 @@ def test_a_refused_outcome_carries_the_assembler_identity_and_resolves(
     assert internal["kind"] == REFUSAL_KINDS[ConstraintRefusal], internal
 
 
+#: Every bare-named module of this example, evicted TOGETHER by the
+#: scratch-shadow control below. **Found RED at the 24.6 close (F-C (iv)).**
+#: The control used to evict five of the eight and leave `compose`, `serve`
+#: and `run` cached; `compose` then held the assembler object the eviction had
+#: discarded, and the next module's `_load("assembler")` re-imported a second
+#: one — so `test_cp_04_two_callers.py::test_both_callers_resolve_to_the_same_assembler_module`
+#: went red under the leg's collection order and green alone. The family is
+#: the same eight names `_load` evicts, for the reason `_load` gives: evicting
+#: one name at a time rebuilds the split-identity problem the eviction exists
+#: to prevent.
+_SCRATCH_SHADOW_FAMILY = (
+    "deployment",
+    "produce",
+    "projection",
+    "assembler",
+    "transport",
+    "run",
+    "compose",
+    "serve",
+)
+
+
 def test_a_wrapper_that_skips_the_recorder_leaves_the_sentinel(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -3234,7 +3256,7 @@ def test_a_wrapper_that_skips_the_recorder_leaves_the_sentinel(
     monkeypatch.setenv("CCF_CP_04_FLUREE_LEDGER", "unopened")
     monkeypatch.syspath_prepend(str(scratch / "server"))
     monkeypatch.syspath_prepend(str(scratch))
-    for name in ("deployment", "produce", "projection", "assembler", "transport"):
+    for name in _SCRATCH_SHADOW_FAMILY:
         sys.modules.pop(name, None)
     try:
         import deployment as scratch_deployment  # noqa: PLC0415
@@ -3262,7 +3284,7 @@ def test_a_wrapper_that_skips_the_recorder_leaves_the_sentinel(
         )
         result = client.ask(parameters, as_of=typed.asked_at)
     finally:
-        for name in ("deployment", "produce", "projection", "assembler", "transport"):
+        for name in _SCRATCH_SHADOW_FAMILY:
             sys.modules.pop(name, None)
 
     assert result.refused, "the sabotaged wrapper served a product"

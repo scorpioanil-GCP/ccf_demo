@@ -44,6 +44,10 @@ from typing import Any, Iterator, Mapping
 import pytest
 
 from ccf.agents.assembler import AssemblyOutcome
+from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import parse_artifact_uri
+from ccf.products.disclosure import DISCLOSURE_MINIMAL, EXTERNAL_STATEMENTS
+from ccf.products.refusal import NO_REPLAY_REFERENCE
 from ccf.graph.backends.fluree import DEFAULT_BRANCH
 from ccf.products.request import AnchorAmbiguityRefusal
 from ccf.products.refusal import REFUSAL_KINDS
@@ -346,6 +350,35 @@ def test_cft_g18_an_ambiguous_anchor_is_refused_as_typed_ambiguity_data(
         )
 
 
+def _door_record(root: pathlib.Path, result: Any) -> Mapping[str, Any] | None:
+    """The replay record one door outcome's `replay_reference` resolves to.
+
+    Out of the store `server/compose.py` composes under ``root`` — the SAME
+    `FileArtifactStore` `produce.py::_serve` writes — by the reference the
+    shell carries, never a directory walk. ``None`` when the outcome refused
+    at the transport, carried no shell, or the reference did not resolve; the
+    gate reading it says *no record* rather than this helper raising.
+    """
+    if isinstance(result, Refused):
+        return None
+    _is_error, text = result
+    try:
+        reference = str(json.loads(text)["refusal"]["replay_reference"])
+    except (ValueError, KeyError, TypeError):
+        return None
+    if not reference or reference == NO_REPLAY_REFERENCE:
+        return None
+    deployment = _load("deployment")
+    store = FileArtifactStore(root=root / deployment.ARTIFACT_STORE_DIRNAME)
+    try:
+        name = parse_artifact_uri(reference)
+        return dict(
+            json.loads(store.get(content_address=name.artifact_version).decode("utf-8"))
+        )
+    except Exception:  # noqa: BLE001 — an unresolvable reference is the gate's finding
+        return None
+
+
 def test_cft_g18_b_the_tool_carries_the_ambiguity_as_a_governed_refusal(
     ambiguous_estate: tuple[str, str, str],
     fluree_url: str,
@@ -359,8 +392,20 @@ def test_cft_g18_b_the_tool_carries_the_ambiguity_as_a_governed_refusal(
     `door_refusal` translates the value the assembler returned into the one
     refusal envelope with no edit to `transport.py` or `server/compose.py` —
     which is what this leg measures. The door must not be torn down by the
-    refusal (a `Refused` here would be the CR-01 symptom), and the outcome the
-    tool returns must carry the kind by name and both colliding IRIs.
+    refusal (a `Refused` here would be the CR-01 symptom); the outcome the
+    tool returns must carry the kind by name, the anchor the caller supplied,
+    and NEITHER colliding IRI — while the replay record its reference resolves
+    to carries both.
+
+    **Re-derived at the 24.6 close (F-C (i)).** The pre-phase limb read both
+    candidate IRIs off the shell. Since `24.6-08` the shell is DISCLOSED at
+    `minimal` unless a policy says otherwise, and a candidate set names
+    ENTITIES — an existence claim about each — so it is withheld below `full`
+    (`ccf.products.disclosure`, `D-IMPL-253` Q17, `D-IMPL-254`). The
+    determination is not lost; it moves to the audit plane, which is where
+    the in-process gate above already says *"which candidates THIS principal
+    may see"* belongs. cp-04 declares no higher level for its demonstration
+    principal, so teaching the suppression is what this rung does.
     """
     ledger, schema, anchor_iri = ambiguous_estate
     _point_at(
@@ -377,6 +422,9 @@ def test_cft_g18_b_the_tool_carries_the_ambiguity_as_a_governed_refusal(
                 opened,
                 {AMBIGUOUS_ASK: tool_call(tool_arguments(tenant=tenant, typed=request))},
             )
+        # The record is read INSIDE the scratch, out of the door's own store,
+        # before the directory goes; the shell is what crossed the wire.
+        record = _door_record(pathlib.Path(scratch), results[AMBIGUOUS_ASK])
 
     result = results[AMBIGUOUS_ASK]
     assert not isinstance(result, Refused), (
@@ -394,8 +442,35 @@ def test_cft_g18_b_the_tool_carries_the_ambiguity_as_a_governed_refusal(
         f" (isError={is_error}): {text[:1000]}"
     )
     assert outcome.get("product_json") is None, "a vessel rode beside the refusal"
+    assert refusal.get("disclosure") == DISCLOSURE_MINIMAL, (
+        f"the shell was disclosed at {refusal.get('disclosure')!r}; this deployment"
+        f" declares no level above {DISCLOSURE_MINIMAL!r}: {text[:600]}"
+    )
+    assert refusal.get("detail") == EXTERNAL_STATEMENTS[AMBIGUITY_KIND], (
+        f"the shell's detail is not the kind's external statement: {text[:600]}"
+    )
+    assert request.subject in text, (
+        f"the shell does not carry the anchor the CALLER supplied: {text[:600]}"
+    )
     for iri in (anchor_iri, ROW_LESS_MEMBER):
-        assert iri in text, f"the envelope does not name the candidate {iri}: {text[:1000]}"
+        assert iri not in text, (
+            f"the shell names the candidate {iri} at {DISCLOSURE_MINIMAL!r} — an"
+            f" existence claim crossing below `full`: {text[:1000]}"
+        )
+    assert refusal.get("replay_reference") not in (None, NO_REPLAY_REFERENCE), (
+        f"the ambiguity crossed with no replay reference: {text[:600]}"
+    )
+    assert record is not None, (
+        "the shell's replay_reference resolved to NO record in the door's own"
+        " store — a governed refusal that reached the caller without reaching"
+        " the replay writer (`D-IMPL-256`)"
+    )
+    recorded = json.dumps(record, sort_keys=True)
+    for iri in (anchor_iri, ROW_LESS_MEMBER):
+        assert iri in recorded, (
+            f"the replay record does not carry the candidate {iri}; the audit"
+            " plane is where the determination must survive (`D-IMPL-253` Q13)"
+        )
     # The envelope is a RETURN VALUE, not a raised tool error: measured against
     # `mcp==1.28.1`, the egress door renders a refusal as the outcome the tool
     # returns (`runtime/ccf_runtime/mcp/egress.py`, "A refusal, as the return
