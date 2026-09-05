@@ -143,7 +143,7 @@ BLOCKS: dict[str, tuple[str, str, str]] = {
     ),
     "gates": (
         "artifacts/gates.yaml",
-        "artifacts/gates.yaml — the sixteen gates as data, each with its observed red",
+        "artifacts/gates.yaml — the declared gates as data, each with its observed red",
         "The ladder's first machine-readable gate declaration. Every record"
         " carries the sabotage applied and the result observed under that"
         " gate's own id.",
