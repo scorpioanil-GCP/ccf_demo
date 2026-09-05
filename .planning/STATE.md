@@ -5,7 +5,18 @@ milestone_name: Performance, Documentation & Demonstration
 status: executing
 last_updated: "2026-09-05T01:20:00.000Z"
 last_activity: >-
-  **PHASE 24.6 EXECUTING — waves 1–9 of 12 done (plans 01–12, 16), 2026-09-05 02:20 MST, `/gsd-execute-phase 24.6` on `phase-24.6`.**
+  **PHASE 24.6 EXECUTING — waves 1–10 of 12 done (plans 01–13, 16), 2026-09-05 03:30 MST, `/gsd-execute-phase 24.6` on `phase-24.6`.**
+  **`D-IMPL-258` (Dave, 03:09, mid-phase, verbatim in `docs/DECISIONS.md`): five findings ruled** — absence is a governed fact, not a
+  versionless artifact (08 F-1 shape kept); the `policy_bindings` leak is CLOSED in 24.6 and BLOCKS the gate (fix dispatched in a
+  worktree from `0969ab03`: suppress in the disclosed shell below `full`, inverted controls at HTTP and MCP, real bindings kept in
+  replay; `full` reading flagged for confirmation); the HTTP `403→404` shell is intentional and recorded as BREAKING in the 24.6-09
+  fragment; archive bindings kept, narrowly; plan 04's undeclared-default check moves from resolution time to registration/boot.
+  Plan 13 (cp-04, ~6h): depth 8 SERVED, 101 refused by name `constraint-refusal` authority `technical` from capability `fluree/fibo-v2`;
+  cp-04 `raise AssemblyRefused` 12→3; seals `205ae065→fad6e55d`, `838afbb0→79733117` re-hashed LIVE; lane 1.1.0, assembler @1.0.2.
+  13 F-1 for Dave: no gate id minted for the depth-and-cost obligation — cp-04's roster keys on a bare integer `criterion` and 33 is
+  already 24.4's `CFT-G13`; needs a `criterion_phase` key or a number. 13 F-2: `make leg-fluree`/`leg-postgres` NOT run (local
+  container down; shared estate carries 14 `cp04-*` branches on the `ccf` ledger from prior phases — acceptable to run there?).
+  Next: merge the 258 fix onto plan 13's tip, gates, then wave 11 (plan 14, the publish checkpoint).
   Wave 9 (11‖12) merged clean, no conflicts. Merged-tree check: 1981 + 2020 + 800 passed, 16 xfailed (plan 12's declared cp-04 debt
   table, RED-when-fixed proven), 1 failed — `tools/docs_tests/test_requirement_ledger.py::test_the_uat_roster_matches_the_records_on_disk`,
   PRE-PHASE (the 24.5 record grew `human_verification:` at `ceab40fd` 2026-09-02; roster last edited Phase 23.1; both predate `1022ad59`),
