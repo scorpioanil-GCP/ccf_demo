@@ -79,7 +79,7 @@ the two would leave one of them uncovered.
 What a `ccf_config.yaml` cannot express, named rather than discovered (`16-30`)
 --------------------------------------------------------------------------------
 
-There is no `signal_batch` section among the eight reserved names, and that is
+There is no `signal_batch` section among the nine reserved names, and that is
 a decision, not a gap. Registering one would content-hash raw event data into
 Control Plane state and therefore into Decision Replay dimension 2
 (`D-IMPL-80`) — events are what the fabric *observed*, not what it was
@@ -147,8 +147,11 @@ _ADOPTER_OWNED_REQUIRED_FIELDS = ("class_id", "role", "registration")
 _OPERATOR_CLASS_PREFIX = "ccf.operator-parameters."
 
 
-#: What the loader knows about each of the seven reserved, non-`operators`
-#: section names — the reserved-section table design spec §6 describes.
+#: What the loader knows about each of the eight reserved section names other
+#: than `operators` — the reserved-section table design spec §6 describes.
+#: `policy_constraints` is in the table like the rest but is derived per key,
+#: the way `operators` is, because its section body is a MAPPING of label to
+#: constraint document rather than one document (`24.6-L-07`).
 #: Hand-maintained, in the voice of `SDK_ARTIFACT_CLASSES`
 #: (`src/ccf/deployment/classes.py`), and this is mechanism, not values
 #: (CLAUDE.md §11): it enumerates the SDK's own reserved slots and carries
@@ -185,6 +188,7 @@ _RESERVED_SECTIONS: Mapping[str, tuple[str | None, str | None]] = {
     "default_perspective": ("ccf.perspective", None),
     "policy": (None, "declaration"),
     "request_contract": (None, "declaration"),
+    "policy_constraints": ("ccf.policy-constraint", None),
 }
 
 
@@ -536,6 +540,32 @@ def derive_deployment(
                 config_filename=config_filename,
                 default_class_id=f"{_OPERATOR_CLASS_PREFIX}{category}",
                 wrapper=None,
+            )
+            entries.append(entry)
+            documents[entry.key] = document
+
+    # `policy_constraints:` — optional, dynamically keyed, and derived per key
+    # exactly as `operators` is (`24.6-L-07`, `D-IMPL-253` Q3). One manifest
+    # entry per label is what gives each constraint its own key, its own
+    # content-hash version and its own effectivity window; a list under one key
+    # would collapse all three, which is the "disappearing inside another
+    # bundle" the ruling refuses. The class id is fixed here and never read
+    # from the body, on the same discipline every SDK-owned section follows.
+    _refuse_empty_section(
+        "policy_constraints", config.policy_constraints, fields_set
+    )
+    if config.policy_constraints:
+        constraint_class_id, constraint_wrapper = _RESERVED_SECTIONS[
+            "policy_constraints"
+        ]
+        for label, constraint_body in sorted(config.policy_constraints.items()):
+            entry, document = _derive_entry(
+                label=f"policy_constraints.{label}",
+                body=constraint_body,
+                semver=config.semver,
+                config_filename=config_filename,
+                default_class_id=constraint_class_id,
+                wrapper=constraint_wrapper,
             )
             entries.append(entry)
             documents[entry.key] = document

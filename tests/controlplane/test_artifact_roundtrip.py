@@ -45,6 +45,7 @@ from ccf.controlplane.artifacts import (
     OPERATOR_PARAMETERS_TRAVERSAL,
     OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS,
     PERSPECTIVE,
+    POLICY_CONSTRAINT,
     PRODUCT_CLASS,
     PROJECTION_REQUIREMENTS,
     RESOLUTION_SPEC,
@@ -153,6 +154,25 @@ CASES: tuple[_Case, ...] = (
             "risk_sensitivity": Decimal("1.5"),
             "forced_llm_threshold": Decimal("0.4"),
             "fail_closed_threshold": Decimal("0.8"),
+        },
+        unknown_keys=("tenant_id",),
+    ),
+    _Case(
+        # The parameter-level policy constraint (`24.6-L-07`, `D-IMPL-253` Q3).
+        # A `maximum` case: the ceiling is authored as text so it never parses
+        # as a float, and the operator is what makes the decimal reading of
+        # that text unambiguous.
+        artifact_class=POLICY_CONSTRAINT,
+        document={
+            "semver": _SEMVER,
+            "policy_id": "fixture-regime",
+            "applies_to": {"product_class": "fixture-product"},
+            "parameter": "fixture_parameter",
+            "operator": "maximum",
+            "value": "0.2",
+            "source_authority": "fixture-authority",
+            "effective_from": "2026-01-01T00:00:00Z",
+            "reason": "fixture reason",
         },
         unknown_keys=("tenant_id",),
     ),

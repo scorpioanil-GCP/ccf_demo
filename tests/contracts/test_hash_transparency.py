@@ -306,6 +306,27 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.products.provenance.ParameterBound.policy_id",
         "ccf.products.provenance.EffectiveParameter.bound",
         "ccf.products.provenance.OverrideRecord.grant_source",
+        # 24.6-01: the policy-constraint artifact class (``24.6-L-07``,
+        # ``D-IMPL-253`` Q3). Applicability's four axes are ``None`` = *any*,
+        # so an applicability narrowing nothing renders as ``{}``; the
+        # constraint's three optional members are its own sentinels — not
+        # overridable, no stated end, no claimed ordering.
+        "ccf.controlplane.artifacts.ConstraintApplicability.product_class",
+        "ccf.controlplane.artifacts.ConstraintApplicability.tenant",
+        "ccf.controlplane.artifacts.ConstraintApplicability.perspective_role",
+        "ccf.controlplane.artifacts.ConstraintApplicability.intent",
+        "ccf.controlplane.artifacts.PolicyConstraint.overridable",
+        "ccf.controlplane.artifacts.PolicyConstraint.effective_until",
+        "ccf.controlplane.artifacts.PolicyConstraint.priority",
+        # The ninth reserved section. ``True`` and not ``False`` is
+        # load-bearing rather than stylistic: a rendered
+        # ``policy_constraints: null`` would move the content address of every
+        # `DeploymentConfig` already written, and pin identity IS content
+        # identity (`src/ccf/deployment/pins.py::ArtifactPin`). Measured, not
+        # assumed: `test_a_config_naming_no_constraints_hashes_as_it_did`
+        # below hashes a config at the sentinel against the same document
+        # without the key.
+        "ccf.controlplane.artifacts.DeploymentConfig.policy_constraints",
     }
 )
 
@@ -504,3 +525,43 @@ def test_the_descendants_twin_at_a_non_sentinel_admission_moves_its_hash() -> No
     assert content_hash(admitting) != content_hash(silent)
     assert b"admitted_entity_classes" in canonical_bytes(admitting)
     assert b"admitted_entity_classes" not in canonical_bytes(silent)
+
+
+def test_a_config_naming_no_constraints_hashes_as_it_did() -> None:
+    """``24.6-01``: the ninth reserved section is additive by measurement.
+
+    `DeploymentConfig` is not in the base-digest table above, because the
+    class predates neither this phase's field nor `13bd250`'s tree in a way
+    that table was built to answer. So the claim is measured here instead, and
+    in the form that actually matters: **a config naming no constraints hashes
+    exactly as the same config hashed before the field existed** — which is
+    what keeps every committed `ccf_config.yaml`'s pin identity intact, since
+    pin identity IS content identity
+    (`src/ccf/deployment/pins.py::ArtifactPin`).
+
+    The "before" side is built by rendering the model's fields by hand with
+    the new key removed, which is what the pre-field canonical form WAS: the
+    canonical form renders fields and never a class name, so a dict of the
+    same fields hashes as the model did. The positive control is the second
+    assertion — a config that DOES name a constraint moves.
+    """
+    from ccf.controlplane.artifacts import DeploymentConfig
+
+    silent = DeploymentConfig(
+        semver="1.0.0",
+        backend="sqlite",
+        product_class={"schema_name": "fixture.product"},
+    )
+    before = {
+        name: getattr(silent, name)
+        for name in DeploymentConfig.model_fields
+        if name != "policy_constraints"
+    }
+    assert content_hash(silent) == content_hash(before)
+
+    naming = silent.model_copy(
+        update={"policy_constraints": {"fixture": {"policy_id": "fixture-regime"}}}
+    )
+    assert content_hash(naming) != content_hash(silent)
+    assert b"policy_constraints" in canonical_bytes(naming)
+    assert b"policy_constraints" not in canonical_bytes(silent)

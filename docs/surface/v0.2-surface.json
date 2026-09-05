@@ -1293,6 +1293,9 @@
       "ArtifactClass",
       "ArtifactLoadError",
       "ArtifactRole",
+      "CONSTRAINT_OPERATORS",
+      "ConstraintApplicability",
+      "ConstraintOperator",
       "DEBT_PROFILE",
       "DEPLOYMENT_CONFIG",
       "DEPLOYMENT_MANIFEST",
@@ -1312,9 +1315,11 @@
       "OPERATOR_PARAMETERS_TRAVERSAL_DESCENDANTS",
       "OperatorParametersArtifact",
       "PERSPECTIVE",
+      "POLICY_CONSTRAINT",
       "PRODUCT_CLASS",
       "PROJECTION_REQUIREMENTS",
       "PerspectiveArtifact",
+      "PolicyConstraint",
       "PolicyFilterParametersArtifact",
       "ProductClassDeclaration",
       "ProjectionRequirements",
@@ -1345,6 +1350,23 @@
       "ArtifactRole": {
         "kind": "function",
         "shape": "typing.Literal['register', 'load']"
+      },
+      "CONSTRAINT_OPERATORS": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
+      "ConstraintApplicability": {
+        "kind": "contract",
+        "shape": {
+          "intent": "str | None",
+          "perspective_role": "str | None",
+          "product_class": "str | None",
+          "tenant": "str | None"
+        }
+      },
+      "ConstraintOperator": {
+        "kind": "function",
+        "shape": "typing.Literal['maximum', 'minimum', 'allowed_set', 'required', 'preferred']"
       },
       "DEBT_PROFILE": {
         "kind": "constant",
@@ -1391,6 +1413,7 @@
           "operators": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "policy": "collections.abc.Mapping[str, typing.Any] | None",
           "policy_bundle_key": "str | None",
+          "policy_constraints": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "product_class": "collections.abc.Mapping[str, typing.Any]",
           "request_contract": "collections.abc.Mapping[str, typing.Any] | None",
           "resolution": "collections.abc.Mapping[str, typing.Any] | None",
@@ -1473,6 +1496,10 @@
         "kind": "constant",
         "shape": "ArtifactClass"
       },
+      "POLICY_CONSTRAINT": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
       "PRODUCT_CLASS": {
         "kind": "constant",
         "shape": "ArtifactClass"
@@ -1487,6 +1514,23 @@
           "principal_id": "<class 'str'>",
           "role": "<class 'str'>",
           "semver": "<class 'str'>"
+        }
+      },
+      "PolicyConstraint": {
+        "kind": "contract",
+        "shape": {
+          "applies_to": "<class 'ccf.controlplane.artifacts.ConstraintApplicability'>",
+          "effective_from": "<class 'datetime.datetime'>",
+          "effective_until": "datetime.datetime | None",
+          "operator": "typing.Literal['maximum', 'minimum', 'allowed_set', 'required', 'preferred']",
+          "overridable": "<class 'bool'>",
+          "parameter": "<class 'str'>",
+          "policy_id": "<class 'str'>",
+          "priority": "<class 'int'>",
+          "reason": "<class 'str'>",
+          "semver": "<class 'str'>",
+          "source_authority": "<class 'str'>",
+          "value": "decimal.Decimal | str | tuple[str, ...] | None"
         }
       },
       "PolicyFilterParametersArtifact": {
