@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**991 entries**, of which **748** name a public Python surface.
+**997 entries**, of which **753** name a public Python surface.
 
 ## Added
 
@@ -9571,7 +9571,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-367 entries — 184 public Python surface, 183 not public Python API.
+371 entries — 187 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -13423,6 +13423,70 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
 
+#### ccf.products.request.ArgumentDomain
+
+- Surface: ccf.products.request.ArgumentDomain
+- Public surface: true
+- Change type: reshaped
+- Before: numeric bounds only — `minimum: Decimal | None`, `maximum: Decimal | None`;
+  refused at construction when neither end was named, an end was non-finite, or the ends
+  were inverted; `refuses(value: Decimal)` named which end a number missed
+- After: two shapes, exactly one of them. A third field `members: tuple[str | int | bool |
+  Decimal, ...] | None` (hash-transparent at `None`) declares a closed member set over any
+  supported primitive type — string, numeric (`int` and `Decimal` as one class), boolean
+  (`bool` its own class, read first). Construction refuses, naming the defect: both shapes
+  declared; neither shape; an empty set; a non-finite numeric member; a heterogeneous set;
+  a duplicated member (duplication judged by the membership rule itself, so `1` and
+  `Decimal("1")` are duplicates while `1` and `True` are a heterogeneous pair).
+  `refuses(value: object)` is widened: the numeric shape judges magnitude as before; the
+  enumerated shape judges exact typed equality — class first, then value under that class's
+  own equality — and returns `not-in-domain` on a miss. Nothing trims, folds, aliases or
+  substitutes
+- Why: `D-IMPL-264` D-03/D-04/D-06 — the contract is the one declaration of record for a
+  parameter's legal values (P-1), and cp-04 could not declare the legal values of a
+  non-numeric parameter (`CP04-G-26`)
+- Migration: none for existing declarations. A deployment declares
+  `argument_domains: {<parameter>: {members: [...]}}` for a closed set, or keeps
+  `{minimum: …, maximum: …}` for bounds — never both on one parameter. A caller of
+  `refuses()` may now pass any value; a numeric domain answers `None` for a value with no
+  magnitude, as the domain step always did
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
+
+#### ccf.products.request.ProductRequestViolationReason
+
+- Surface: ccf.products.request.ProductRequestViolationReason
+- Public surface: true
+- Change type: reshaped
+- Before: eight members, ending `below-minimum`, `above-maximum`
+- After: nine — `not-in-domain` APPENDED after `above-maximum`, never inserted, so every
+  older record's reason meets the same roster prefix
+- Why: `D-IMPL-264` D-05 — a well-typed value outside an enumerated domain is a materially
+  different failure from a wrong-typed one, and is named as such
+- Migration: a consumer switching on the reason meets one new value; it arrives through the
+  existing `product-request-violation` kind, so a door mapping by kind needs nothing
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
+
+#### ccf.products.request.ProductRequestViolation
+
+- Surface: ccf.products.request.ProductRequestViolation
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` over the eight-member Literal; `fields` roster `declared_type`,
+  `presented_type`, `declared_keys`, `presented_keys`, `overrides`
+- After: `reason` over the nine-member Literal. No member was added: a `not-in-domain`
+  refusal reads the domained parameter's name at `key`, carries the declared and presented
+  types, and a `detail` naming the presented value and the sorted member set — the set
+  travels ONLY in `detail`, so the `fields` roster
+  (`tests/products/test_refusal_envelope.py::test_envelope_for_product_request_violation`)
+  is unchanged and `PERMITTED_AT_MINIMAL` needs no new row
+- Why: `D-IMPL-264` D-05 — the presented value can be named; disclosure controls whether the
+  allowed set is exposed
+- Migration: none beyond the reason roster above
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -15688,6 +15752,20 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `15-20-external.md`.*
 
+#### docs/schemas/ccf.product-request-contract.json
+
+- Surface: docs/schemas/ccf.product-request-contract.json
+- Public surface: false
+- Change type: reshaped
+- Before: `$defs.ArgumentDomain.properties` carried `minimum` and `maximum`
+- After: a third property, `members` (`anyOf` array of string / integer / boolean / number-or-
+  decimal-string, or `null`; `default: null`; `ccf_hash_transparent: true`); regenerated by
+  `make schemas`, gated byte-for-byte by `tests/cli/test_schema_export.py`
+- Why: the committed schema is the class's baseline and follows it
+- Migration: none; the key is optional
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
+
 ## Removed
 
 Surfaces that no longer exist. Each entry names what replaces it.
@@ -15826,7 +15904,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-130 entries — 110 public Python surface, 20 not public Python API.
+132 entries — 112 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -18457,6 +18535,49 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   `ccf.client.result` seam does — needs no change.
 
 *Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: behavior
+- Before: the domain validator (`_every_domain_bounds_a_declared_number_the_default_respects`)
+  refused a domain over any parameter whose type has no magnitude, and a declared default
+  outside a numeric domain
+- After: the same validator, same name, five offender classes named together: `undeclared`;
+  `unmeasurable` now applies to NUMERIC-shape domains over a non-magnitude type only (an
+  enumerated domain over a string is admitted — D-06); a new `mistyped` class refuses an
+  enumerated domain whose members are typed against the declared property (`string` →
+  string class, `boolean` → boolean, `number` → numeric, `integer` → numeric with every
+  member an `int`; `array`/`object` take no enumerated domain); `inert`; and `contradicted`
+  generalized to either shape through the one membership judgment, so a declared default
+  outside an enumerated domain fails at declaration with the fragment *"outside their own
+  domain"*
+- Why: `D-IMPL-264` D-03 (*"any declared default must be inside the domain"*) and D-06
+  (*"homogeneous members matching the declared property type"*)
+- Migration: none for a contract whose domains are numeric. `from_declared` reads
+  `argument_domains: {<name>: {members: [...]}}` on the same terms as the numeric keys
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
+
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: behavior
+- Before: the domain step judged a presented number's magnitude only
+- After: the domain step (still last, still over sorted domained names) hands the presented
+  value to `ArgumentDomain.refuses` for either shape; a membership miss is a
+  `ProductRequestViolation` with `reason="not-in-domain"`, `key` the parameter, the declared
+  and presented types, and a `detail` naming the key, the presented value (`repr`) and the
+  sorted member set. The allowed set travels ONLY in `detail`, so
+  `ccf.products.disclosure.PERMITTED_AT_MINIMAL` decides its exposure with no new row:
+  absent at `minimal` (replaced by `EXTERNAL_STATEMENTS`), present at `reasoned` and `full`
+  (the disclosure channel, D-05; advertisement is the other channel, D-02)
+- Why: as above
+- Migration: none for a caller inside every declared domain
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
 
 ### Not public Python API
 

@@ -634,3 +634,101 @@ def test_no_sabotage_edits_the_real_source_tree() -> None:
     source = DISCLOSURE_SOURCE.decode("utf-8")
     assert MARKER + REAL_LINE in source
     assert PASS_THROUGH not in source
+
+
+# --- (6) the allowed set crosses only where `detail` crosses (24.7-01) -------
+#
+# `D-IMPL-264` D-05 (Dave): *"The presented value can be named; disclosure
+# controls whether the allowed set is exposed."* The set travels ONLY in
+# `detail`, so `PERMITTED_AT_MINIMAL` decides its exposure without a new
+# member; advertisement of the set is the other channel (D-02) and is not a
+# refusal shell's business. Criterion 6.
+
+_ENUMERATED_MEMBERS = ("alpha", "beta")
+_ENUMERATED_PARAMETER = "kind"
+
+
+def _not_in_domain() -> RefusalEnvelope:
+    """A REAL `not-in-domain` verdict from `refuse_request`, enveloped."""
+    from datetime import datetime as _dt
+
+    from ccf.products.request import (
+        ArgumentDomain,
+        ProductRequest,
+        ProductRequestContract,
+        refuse_request,
+    )
+    from ccf.skills.catalog import SkillArgumentProperty, SkillArgumentSchema
+
+    declared = ProductRequestContract(
+        semver="1.0.0",
+        schema_name="ccf.test-product",
+        schema_version="1.0.0",
+        arguments=SkillArgumentSchema(
+            properties={
+                _ENUMERATED_PARAMETER: SkillArgumentProperty(
+                    type="string", description="an enumerated parameter"
+                )
+            },
+            required=(_ENUMERATED_PARAMETER,),
+        ),
+        argument_domains={
+            _ENUMERATED_PARAMETER: ArgumentDomain(members=_ENUMERATED_MEMBERS)
+        },
+    )
+    verdict = refuse_request(
+        request=ProductRequest(
+            schema_name="ccf.test-product",
+            schema_version="1.0.0",
+            subject="fixture:subject/one",
+            intent="fixture-intent",
+            freshness="fixture-freshness",
+            asked_at=_dt(2026, 3, 2, 9, 30, tzinfo=UTC),
+            parameters={_ENUMERATED_PARAMETER: "gamma"},
+        ),
+        declared=declared,
+    )
+    assert verdict is not None and verdict.reason == "not-in-domain"
+    return envelope_for(
+        verdict,
+        request=RequestIdentity(
+            product_id="ccf.test-product",
+            product_version="1.0.0",
+            parameters={_ENUMERATED_PARAMETER: "gamma"},
+            temporal_boundary=_INSTANT,
+        ),
+    )
+
+
+@pytest.mark.parametrize("level", sorted(DISCLOSURE_LEVELS))
+def test_the_allowed_set_crosses_only_where_detail_crosses(level: str) -> None:
+    """Absent at ``minimal``, present at ``reasoned`` and at ``full``.
+
+    The `fields` roster is the one `test_refusal_envelope.py` pins — no
+    member was added to carry the set, so `PERMITTED_AT_MINIMAL` needs no
+    row and the observational-equivalence controls at both doors stand.
+    """
+    internal = _not_in_domain()
+    shell, decision = disclose(internal, level=level, policy=None)
+    rendered = canonical_bytes(shell).decode("utf-8")
+
+    assert set(shell.fields) == {
+        "declared_type",
+        "presented_type",
+        "declared_keys",
+        "presented_keys",
+        "overrides",
+    }
+    assert shell.reason == "not-in-domain"
+    assert shell.key == _ENUMERATED_PARAMETER
+    if level == "minimal":
+        assert shell.detail == EXTERNAL_STATEMENTS["product-request-violation"]
+        for member in _ENUMERATED_MEMBERS:
+            assert member not in rendered, (member, rendered)
+        assert "detail" in decision.withheld
+    else:
+        assert shell.detail == internal.detail
+        for member in _ENUMERATED_MEMBERS:
+            assert member in shell.detail
+    # The caller's own value crosses at every level — it is the caller's.
+    assert "gamma" in rendered

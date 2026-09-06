@@ -361,6 +361,10 @@ NAMED_SINCE_THE_SWEEP: tuple[str, ...] = (
     "ccf.products.request.ProductRequestContract.argument_domains",
     "ccf.products.request.ArgumentDomain.minimum",
     "ccf.products.request.ArgumentDomain.maximum",
+    # 24.7-01, the enumerated shape (`D-IMPL-264` D-03/D-06): the closed
+    # member set beside the two numeric ends. Silent at `None`, so no
+    # committed request contract's address moves.
+    "ccf.products.request.ArgumentDomain.members",
 )
 
 

@@ -434,6 +434,13 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.products.request.ProductRequestContract.argument_domains",
         "ccf.products.request.ArgumentDomain.minimum",
         "ccf.products.request.ArgumentDomain.maximum",
+        # 24.7-01, the enumerated shape (`D-IMPL-264` D-03/D-06): the
+        # closed member set beside the two numeric ends. Silent at `None`,
+        # so no committed request contract's address moves — every
+        # numeric domain written before the member set existed
+        # canonicalizes as it did, and the `ProductRequestContract`
+        # digest below still reproduces.
+        "ccf.products.request.ArgumentDomain.members",
     }
 )
 

@@ -2,7 +2,7 @@
   "$defs": {
     "ArgumentDomain": {
       "additionalProperties": false,
-      "description": "The valid domain of one declared numeric parameter \u2014 the seventh key.\n\n**SDK-defined** (CLAUDE.md \u00a711); the ruling of record is ``D-IMPL-259``\n(Dave, 2026-09-05): *\"cp-04 ``max_depth`` has a declared request-contract\nminimum of 1 \u2026 Requests below 1 \u2026 are governed request-validity refusals\nreturned as data; values 1\u2013100 are valid and are never clamped.\"* And the\nscoping sentence that puts the type HERE rather than in the constraint\nlayer: *\"don't turn ``1`` into a Policy Constraint. It is simply the\nparameter's valid domain.\"*\n\n**What this is and is not.** A domain is part of the *request contract*\n\u2014 a statement of which numbers are meaningful questions of this class \u2014\nin the same register as ``type`` and ``required``. It is not a policy\nconstraint (no artifact pin, no priority, no comparability fold, no\nauthority \u2014 ``ccf.products.constraints`` never reads it) and it is not a\ntechnical capability (no substrate, no identity \u2014 the number a backend\ncan walk is read off the backend through ``capability_bindings``). Both of\nthose bound a request *after* it is well-formed; a domain says what\nwell-formed means for a number, so it is judged where ``type`` is judged,\nby :func:`refuse_request`, and a value outside it is a\n:class:`ProductRequestViolation` \u2014 ``below-minimum`` or ``above-maximum``\n\u2014 returned as data, never a substituted number.\n\n**Inclusive on both ends**, because a boundary a caller may ask for and a\nboundary a caller may not are two different declarations and the shorter\none to write is the one the ruling used (*\"values 1\u2013100 are valid\"*).\nEither end may be absent; a domain naming neither is refused at\nconstruction, because a domain that admits everything is not a\ndeclaration but a key with nothing under it.\n\nAttributes:\n    minimum: The smallest value a caller may ask for, or ``None`` when the\n        domain is unbounded below. Held as a :class:`~decimal.Decimal` for\n        the reason :class:`~ccf.products.contract.ServeObligations` holds\n        its tolerance as one: a float boundary that is not the number the\n        author wrote is a boundary nobody declared.\n    maximum: The largest, or ``None`` when unbounded above. Declared\n        rarely in practice \u2014 a ceiling a backend imposes is a capability,\n        not a domain (``D-IMPL-253`` Q21) \u2014 but the type is symmetric so a\n        genuine domain ceiling (*\"a percentage\"*, *\"a calendar month\"*)\n        has a place to be declared rather than a policy to be faked.",
+      "description": "The valid domain of one declared parameter \u2014 the seventh key.\n\n**SDK-defined** (CLAUDE.md \u00a711); the rulings of record are ``D-IMPL-259``\n(Dave, 2026-09-05): *\"cp-04 ``max_depth`` has a declared request-contract\nminimum of 1 \u2026 Requests below 1 \u2026 are governed request-validity refusals\nreturned as data; values 1\u2013100 are valid and are never clamped.\"* And the\nscoping sentence that puts the type HERE rather than in the constraint\nlayer: *\"don't turn ``1`` into a Policy Constraint. It is simply the\nparameter's valid domain.\"* \u2014 and ``D-IMPL-264`` (Dave, 2026-09-05,\nQ3/Q4/Q6), which gives the type its second shape. The whitepaper hook is\n\u00a76.3 **Addressability** (``docs/CCF_Whitepaper_1-2.md:1465``): the\nrequest contract is the interface a caller queries by name, and a domain\nis part of what that interface declares.\n\n**What this is and is not.** A domain is part of the *request contract*\n\u2014 a statement of which values are meaningful questions of this class \u2014\nin the same register as ``type`` and ``required``. It is not a policy\nconstraint (no artifact pin, no priority, no comparability fold, no\nauthority \u2014 ``ccf.products.constraints`` never reads it) and it is not a\ntechnical capability (no substrate, no identity \u2014 the number a backend\ncan walk is read off the backend through ``capability_bindings``). Both of\nthose bound a request *after* it is well-formed; a domain says what\nwell-formed means for a value, so it is judged where ``type`` is judged,\nby :func:`refuse_request`, and a value outside it is a\n:class:`ProductRequestViolation` \u2014 ``below-minimum``, ``above-maximum``\nor ``not-in-domain`` \u2014 returned as data, never a substituted value.\n\n**Two shapes, exactly one of them** (``D-IMPL-264`` D-03, Dave: *\"Exactly\none domain shape: numeric bounds or enumerated values. Non-empty,\nduplicate-free \u2026 Neither shape is also invalid if ``ArgumentDomain`` is\npresent.\"*):\n\n* **Numeric bounds** \u2014 ``minimum`` and/or ``maximum``, inclusive on both\n  ends, because a boundary a caller may ask for and a boundary a caller\n  may not are two different declarations and the shorter one to write is\n  the one the ruling used (*\"values 1\u2013100 are valid\"*). Either end may\n  be absent.\n* **An enumerated member set** \u2014 ``members``, the closed set of legal\n  values, over any supported primitive type (``D-IMPL-264`` D-06, Dave:\n  *\"Any supported primitive type, with homogeneous members matching the\n  declared property type. Don't unnecessarily make this\n  string-specific.\"*). Homogeneity is by CLASS \u2014 string, numeric\n  (``int`` and :class:`~decimal.Decimal` together), boolean \u2014 and\n  ``bool`` is its own class, never a number, on :func:`_as_decimal`'s\n  reading.\n\nA domain declaring both shapes, neither shape, an empty set, a duplicated\nmember or a heterogeneous set is refused at construction, naming the\ndefect: a domain that admits everything, or that no value could satisfy,\nis not a declaration but a key with nothing under it.\n\n**Membership is exact typed equality** (``D-IMPL-264`` D-04, Dave,\nverbatim: *\"Exact canonical match. No trimming, case folding, aliases, or\nsilent substitution. Canonicalization, if ever wanted, should be an\nexplicit mechanism upstream of domain validation.\"*). ``\"AB\"`` is not\n``\"ab\"``, ``\" ab\"`` is not ``\"ab\"``, ``True`` is not ``1`` and ``\"1\"`` is\nnot ``1``; within the numeric class ``Decimal(\"2\")`` IS ``2``, because the\ncontract reads a number by its value and not by its Python type. Nothing\nhere trims, folds, aliases or substitutes \u2014 ``tests/products/\ntest_request_contract.py`` plants each of those in turn and watches the\nmembership tests red.\n\nAttributes:\n    minimum: The smallest value a caller may ask for, or ``None`` when the\n        numeric domain is unbounded below (or the domain is enumerated).\n        Held as a :class:`~decimal.Decimal` for the reason\n        :class:`~ccf.products.contract.ServeObligations` holds its\n        tolerance as one: a float boundary that is not the number the\n        author wrote is a boundary nobody declared.\n    maximum: The largest, or ``None``. Declared rarely in practice \u2014 a\n        ceiling a backend imposes is a capability, not a domain\n        (``D-IMPL-253`` Q21) \u2014 but the type is symmetric so a genuine\n        domain ceiling (*\"a percentage\"*, *\"a calendar month\"*) has a\n        place to be declared rather than a policy to be faked.\n    members: The closed set of legal values, or ``None`` when the domain\n        is numeric. Hash-transparent at ``None`` (``D-IMPL-243``): every\n        numeric domain written before the member set existed\n        canonicalizes byte-for-byte as it did, so no committed request\n        contract's content address moves. The schema render derives the\n        advertised ``enum`` from this field (``D-IMPL-264`` D-00, P-1:\n        *\"the request contract is the authority for legal values; schemas\n        and discovery advertise that authority but never independently\n        define it\"*), which is why the declaration is not itself named\n        ``enum``.",
       "properties": {
         "maximum": {
           "anyOf": [
@@ -20,6 +20,39 @@
           "ccf_hash_transparent": true,
           "default": null,
           "title": "Maximum"
+        },
+        "members": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "ccf_hash_transparent": true,
+          "default": null,
+          "title": "Members"
         },
         "minimum": {
           "anyOf": [
