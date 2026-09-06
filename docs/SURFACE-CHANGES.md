@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**996 entries**, of which **752** name a public Python surface.
+**997 entries**, of which **753** name a public Python surface.
 
 ## Added
 
@@ -9571,7 +9571,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-370 entries — 186 public Python surface, 184 not public Python API.
+371 entries — 187 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -13465,6 +13465,25 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   different failure from a wrong-typed one, and is named as such
 - Migration: a consumer switching on the reason meets one new value; it arrives through the
   existing `product-request-violation` kind, so a door mapping by kind needs nothing
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
+
+#### ccf.products.request.ProductRequestViolation
+
+- Surface: ccf.products.request.ProductRequestViolation
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` over the eight-member Literal; `fields` roster `declared_type`,
+  `presented_type`, `declared_keys`, `presented_keys`, `overrides`
+- After: `reason` over the nine-member Literal. No member was added: a `not-in-domain`
+  refusal reads the domained parameter's name at `key`, carries the declared and presented
+  types, and a `detail` naming the presented value and the sorted member set — the set
+  travels ONLY in `detail`, so the `fields` roster
+  (`tests/products/test_refusal_envelope.py::test_envelope_for_product_request_violation`)
+  is unchanged and `PERMITTED_AT_MINIMAL` needs no new row
+- Why: `D-IMPL-264` D-05 — the presented value can be named; disclosure controls whether the
+  allowed set is exposed
+- Migration: none beyond the reason roster above
 
 *Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
 
