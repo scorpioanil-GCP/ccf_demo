@@ -1909,16 +1909,24 @@ def test_a_mistyped_enumerated_domain_is_refused_naming_the_parameter(
 def test_a_default_outside_an_enumerated_domain_is_refused_at_declaration() -> None:
     """Criterion 2: the existing default-respects-domain validator, extended to
     membership — the class contradicting itself fails where the author can
-    fix it, naming the parameter."""
+    fix it, naming the parameter AND the offending default (CR-01, the 24.7
+    close review: the locked text names both; the first cut named only the
+    parameter, and this assertion passed vacuously on the default clause)."""
     with pytest.raises(ValueError) as raised:
         _enumerated(defaults={ENUMERATED_PARAMETER: "gamma"})
-    # The `contradicted` list, with this parameter IN it — the sentence
-    # carries the fragment on every refusal, so the bare substring would pass
-    # against an `unmeasurable` refusal of the same contract.
+    # The `contradicted` list, with this parameter IN it and its offending
+    # default beside it — the sentence carries the fragment on every refusal,
+    # so the bare substring would pass against an `unmeasurable` refusal of
+    # the same contract; the `name='gamma'` pair cannot be satisfied by any
+    # other clause, nor by pydantic's `input_value=` echo, which is not the
+    # validator naming the default.
+    message = str(raised.value)
+    offender = f"{ENUMERATED_PARAMETER}='gamma'"
     assert (
-        f"['{ENUMERATED_PARAMETER}'] carry a declared default outside their own domain"
-        in str(raised.value)
+        f'["{offender}"] carry a declared default outside their own domain'
+        in message
     )
+    assert "gamma" in message.split("input_value=")[0]
 
 
 def test_a_default_inside_an_enumerated_domain_is_admitted() -> None:

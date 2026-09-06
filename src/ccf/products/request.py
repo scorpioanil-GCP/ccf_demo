@@ -721,7 +721,7 @@ class ProductRequestContract(VersionedArtifact):
             )
         )
         contradicted = sorted(
-            name
+            f"{name}={self.defaults[name]!r}"
             for name, domain in self.argument_domains.items()
             if name in self.defaults
             and name not in undeclared
@@ -739,7 +739,8 @@ class ProductRequestContract(VersionedArtifact):
             f"only), {mistyped} are enumerated with members typed against the "
             f"declared property (mistyped), {inert} are declared and always "
             f"refused, and {contradicted} carry a declared default outside "
-            "their own domain — a class that would refuse the value it fills "
+            "their own domain (the parameter and the offending default, "
+            "criterion 2) — a class that would refuse the value it fills "
             "in for an omission contradicts itself, and that fails at "
             "declaration rather than in front of a caller "
             "(D-IMPL-259, D-IMPL-264 D-03/D-06, D-IMPL-258 (5))"
