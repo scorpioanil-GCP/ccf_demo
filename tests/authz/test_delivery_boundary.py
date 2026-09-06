@@ -72,13 +72,16 @@ from ccf.projection.plan import Perspective
 from ccf.replay.record import (
     NO_FABRIC_READ,
     NO_PRODUCT_ADDRESS,
+    NO_REQUEST_RESOLUTION,
     NO_ROLE_RESOLVED,
     DecisionReplayRecord,
+    ResolutionNotApplicable,
 )
 from ccf_runtime.authz.delivery_boundary import (
     SURFACE_HTTP_ROUTE,
     SURFACE_MCP_RESOURCE,
     UnrecordableDeliveryBoundaryError,
+    govern_absence,
     govern_entitlement,
     recorded_boundary,
 )
@@ -473,6 +476,71 @@ def test_an_unregistered_tenants_denial_names_the_absence_and_pins_nothing(
     # And the consumer learns none of it: the code is withheld at the safe
     # default, so an unregistered tenant and a refused role look identical.
     assert shell.fields["error_code"] == '"undisclosed"'
+
+
+# --- 24.7-04: a boundary denial states that resolution never began ----------
+
+
+REFUSED_BEFORE_RESOLUTION = ResolutionNotApplicable(
+    reason="refused-before-resolution"
+)
+
+
+def _resolution_state_of(record: DecisionReplayRecord) -> ResolutionNotApplicable:
+    rendered = record.policy_bindings.request_resolution
+    assert rendered != NO_REQUEST_RESOLUTION, rendered
+    return ResolutionNotApplicable.model_validate_json(rendered)
+
+
+def test_an_entitlement_denial_states_it_was_refused_before_resolution_began(
+    fixture: _Fixture,
+) -> None:
+    """``D-IMPL-264`` D-09 and D-10 at the door: an entitlement denial is
+    decided before any resolver runs, and its record SAYS so — the typed
+    marker with the reason ``refused-before-resolution`` on dimension 2,
+    never the legacy sentinel and never an inferred absence.
+
+    What would fail here: a denial whose dimension 2 read exactly like a
+    record whose caller dropped the resolution (the sentinel), or a
+    marker with the wrong reason (``no-resolution-step`` is the direct
+    validator's claim, not the door's).
+    """
+    shell = fixture.govern(product_class=OTHER_PRODUCT_CLASS)
+    assert isinstance(shell, RefusalEnvelope), type(shell)
+
+    record = fixture.record_at(shell.replay_reference)
+    assert _resolution_state_of(record) == REFUSED_BEFORE_RESOLUTION
+    assert _resolution_state_of(record).reason == "refused-before-resolution"
+
+
+def test_an_absence_denial_states_it_was_refused_before_resolution_began(
+    fixture: _Fixture,
+) -> None:
+    """The same claim on the other boundary denial (``D-IMPL-260`` P-C):
+    the class the deployment does not serve is refused before resolution
+    could begin, and the record states that with its reason.
+    """
+    shell = govern_absence(
+        grant=_grant(),
+        tenant=TENANT,
+        product_class=PRODUCT_CLASS,
+        product_version=PRODUCT_VERSION,
+        parameters={"threshold": 1},
+        asked_at=DETERMINED_AT,
+        surface=SURFACE_HTTP_ROUTE,
+        address=ADDRESS,
+        perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
+        absent=LookupError("nothing servable at that address (fixture)"),
+        entitlement_source=fixture.source,
+        refusal_recorder=fixture.recorder,
+    )
+    assert isinstance(shell, RefusalEnvelope), type(shell)
+    assert shell.kind == "subject-unavailable"
+    assert shell.replay_reference != NO_REPLAY_REFERENCE
+
+    record = fixture.record_at(shell.replay_reference)
+    assert record.policy_bindings.bindings == ()
+    assert _resolution_state_of(record) == REFUSED_BEFORE_RESOLUTION
 
 
 # --- (3) the subject-conflict path is a recorded decision now ----------------
