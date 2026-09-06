@@ -2008,3 +2008,234 @@ def test_the_ninth_reason_names_no_runtime_module() -> None:
         if "not-in-domain" in path.read_text(encoding="utf-8")
     ]
     assert hits == []
+
+
+# --- (h) intent is a top-level request concept, never an argument (24.7-07) --
+#
+# `D-IMPL-264` D-01 (Dave): *"`intent` is a top-level request concept, not an
+# ordinary argument. `ProductDiscovery.intents` is the declaration of what the
+# class serves. A duplicate `arguments.properties.intent` is a shadow
+# declaration and should fail contract construction."* Amendment 1 F-1 a, his
+# sharpened invariant: *"Absence of a discovery declaration is
+# non-applicability. Presence of a discovery declaration makes its intent set
+# authoritative, including an explicitly empty set."* Amendment 1 F-2: the four
+# frozen rungs that declare `intent` as an argument are READ here as positive
+# controls and never edited. Criteria 10 and 11.
+
+_REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+#: The frozen declarations that carry `intent` under `arguments.properties`
+#: (RESEARCH F-2, YAML-parsed). Read only; `D-IMPL-261` / `D-IMPL-263`.
+_SHADOWING_RUNGS = (
+    "examples/cp-01-counterparty-reference-snapshot/ccf_config.yaml",
+    "examples/cp-02-facility-terms-snapshot/ccf_config.yaml",
+    "examples/cp-03-obligor-financial-spread/ccf_config.yaml",
+    "examples/cp-04-corporate-family-tree/ccf_config.yaml",
+)
+
+#: The frozen configs that do NOT (the negative control), plus s1-01, whose
+#: contract is a standalone `DeclaredArtifact` document.
+_CLEAN_CONFIGS = (
+    "examples/cp-00-institutional-holders/ccf_config.yaml",
+    "examples/s1-00-companies-over-revenue/ccf_config.yaml",
+)
+_S1_01_ARTIFACT = "examples/s1-01-hello-context-product/artifacts/request-contract.yaml"
+
+
+def _with_intent_argument() -> SkillArgumentSchema:
+    """The fixture surface plus a shadow `intent` property."""
+    return SkillArgumentSchema(
+        properties={
+            **_arguments().properties,
+            "intent": SkillArgumentProperty(
+                type="string", description="a shadow of the top-level field"
+            ),
+        },
+        required=("required_leaf",),
+    )
+
+
+def _rung_request_contract(config_path: str) -> DeclaredArtifact:
+    """The `request_contract:` section of a frozen `ccf_config.yaml`, derived
+    exactly as the rung derives it — `DeploymentConfig` → `derive_deployment`
+    → the materialised `DeclaredArtifact` document — so the control fails
+    through the entry the rung actually fails through. Nothing is written."""
+    from ccf.deployment.config import DeploymentConfig, derive_deployment
+
+    document = yaml.safe_load(
+        (_REPO_ROOT / config_path).read_text(encoding="utf-8")
+    )
+    derived = derive_deployment(DeploymentConfig.model_validate(document))
+    return DeclaredArtifact(**derived.documents["request_contract"])
+
+
+def test_an_intent_property_is_refused_as_a_shadow_of_the_top_level_field() -> None:
+    """Direct construction and `from_declared` alike, naming the shadow."""
+    with pytest.raises(ValueError) as direct:
+        _contract(arguments=_with_intent_argument())
+    with pytest.raises(ValueError) as declared:
+        ProductRequestContract.from_declared(
+            _declared(
+                declaration={
+                    "schema_name": CLASS_NAME,
+                    "schema_version": CLASS_VERSION,
+                    "arguments": _with_intent_argument().model_dump(mode="json"),
+                }
+            )
+        )
+    for caught in (direct, declared):
+        message = str(caught.value)
+        assert "intent" in message
+        assert "shadow" in message
+        assert "ProductRequest.intent" in message
+        assert "D-IMPL-264" in message
+
+
+@pytest.mark.parametrize("config_path", _SHADOWING_RUNGS)
+def test_the_frozen_cp_rung_declarations_are_the_positive_controls(
+    config_path: str,
+) -> None:
+    """cp-01..cp-04 declare `intent` as an argument; each fails construction.
+
+    `D-IMPL-264` amendment 1 F-2 (Dave): *"cp-01 through cp-04 may go red
+    for this reason and those tests are quarantined under D-IMPL-261 with
+    their assertions unchanged. Do not rewrite those contracts during 24.7."*
+    The declarations are READ from the frozen tree and never written.
+    """
+    artifact = _rung_request_contract(config_path)
+    assert "intent" in artifact.declaration["arguments"]["properties"], (
+        "the frozen declaration no longer carries the shadow — the control"
+        " would be measuring nothing"
+    )
+    with pytest.raises(ValueError) as caught:
+        ProductRequestContract.from_declared(artifact)
+    assert "intent" in str(caught.value)
+    assert "shadow" in str(caught.value)
+
+
+@pytest.mark.parametrize("config_path", _CLEAN_CONFIGS)
+def test_the_frozen_rungs_without_an_intent_property_construct(
+    config_path: str,
+) -> None:
+    """cp-00 and s1-00 through the same entry — the negative control."""
+    artifact = _rung_request_contract(config_path)
+    assert "intent" not in artifact.declaration["arguments"]["properties"]
+    contract = ProductRequestContract.from_declared(artifact)
+    assert "intent" not in contract.arguments.properties
+
+
+def test_the_s1_01_standalone_artifact_constructs() -> None:
+    document = yaml.safe_load(
+        (_REPO_ROOT / _S1_01_ARTIFACT).read_text(encoding="utf-8")
+    )
+    contract = ProductRequestContract.from_declared(DeclaredArtifact(**document))
+    assert "intent" not in contract.arguments.properties
+
+
+def _refuse_intent(*, intent: str, discovery: Any) -> Any:
+    from ccf.products.request import refuse_intent
+
+    return refuse_intent(request=_request(intent=intent), discovery=discovery)
+
+
+def _discovery(*intents: str, domain: str = "fixture-domain") -> Any:
+    from ccf.products.contract import ProductDiscovery
+
+    return ProductDiscovery(
+        domain=domain, intents=frozenset(intents), capabilities=frozenset()
+    )
+
+
+def test_refuse_intent_is_unjudged_without_a_discovery_declaration() -> None:
+    """`NOT_DISCOVERABLE` means no declaration exists — intent is unjudged.
+
+    F-1 a: *"Absence of a discovery declaration is non-applicability."* Any
+    intent at all passes, including one no class anywhere declares. The
+    comparison is by EQUALITY with the sentinel, so a deployment that writes
+    the sentinel's exact content has written the not-discoverable state and
+    is read as such (the second call).
+    """
+    from ccf.products.contract import NOT_DISCOVERABLE, ProductDiscovery
+
+    assert _refuse_intent(intent="fixture-intent", discovery=NOT_DISCOVERABLE) is None
+    assert _refuse_intent(intent="never-declared", discovery=NOT_DISCOVERABLE) is None
+    same_content = ProductDiscovery(
+        domain="not-discoverable",
+        intents=frozenset(),
+        capabilities=frozenset(),
+        audiences=frozenset(),
+    )
+    assert same_content is not NOT_DISCOVERABLE
+    assert _refuse_intent(intent="never-declared", discovery=same_content) is None
+
+
+def test_refuse_intent_admits_a_declared_intent() -> None:
+    assert (
+        _refuse_intent(
+            intent="fixture-intent", discovery=_discovery("fixture-intent", "other")
+        )
+        is None
+    )
+
+
+def test_refuse_intent_refuses_an_undeclared_intent_as_class_mismatch_on_key_intent() -> None:
+    """Returned as data; the declared set rides in `detail` ONLY.
+
+    `class-mismatch` is reused rather than a tenth token (criterion 7 fixes
+    the vocabulary at nine): §6.3 makes intent an addressing token, and a
+    class not registered to serve the intent is addressed to the wrong class
+    in the same family as a lane mismatch — `key="intent"` distinguishes it.
+    `D-IMPL-264` amendment 3 A-8 a (Dave): *"a refusal shell reveals it only
+    according to the disclosure level"* — so the set is in `detail`, never
+    in `declared_type`, which `PERMITTED_AT_MINIMAL` lets cross.
+    """
+    violation = _refuse_intent(
+        intent="other", discovery=_discovery("fixture-intent", "second-intent")
+    )
+    assert violation is not None
+    assert violation.reason == "class-mismatch"
+    assert violation.key == "intent"
+    assert violation.declared_type is None
+    assert violation.presented_type == "other"
+    assert violation.declared_keys == frozenset()
+    assert violation.presented_keys == frozenset()
+    assert violation.overrides == ()
+    assert "other" in violation.detail
+    assert "fixture-intent" in violation.detail
+    assert "second-intent" in violation.detail
+    # Sorted, so two refusals of one declaration are byte-identical.
+    assert violation.detail.index("fixture-intent") < violation.detail.index(
+        "second-intent"
+    )
+    # And in NO typed member: the set has one channel.
+    typed = {k: v for k, v in violation.model_dump().items() if k != "detail"}
+    assert "fixture-intent" not in repr(typed)
+
+
+def test_refuse_intent_refuses_every_intent_against_a_declared_empty_set() -> None:
+    """F-1 a: *"An explicitly declared empty set means 'serves none.'"*
+
+    The set is empty exactly as the sentinel's is; what differs is that a
+    declaration EXISTS (its `domain` is the deployment's, not the sentinel's).
+    """
+    closed = _discovery(domain="fixture-domain")
+    assert closed.intents == frozenset()
+    for intent in ("fixture-intent", "never-declared", ""):
+        violation = _refuse_intent(intent=intent, discovery=closed)
+        assert violation is not None, intent
+        assert violation.reason == "class-mismatch" and violation.key == "intent"
+
+
+@pytest.mark.parametrize(
+    "presented", ["A", " a", "a ", "ab", ""], ids=["case", "lead", "trail", "longer", "empty"]
+)
+def test_refuse_intent_is_exact(presented: str) -> None:
+    """D-04's spirit, one field over: no trimming, no folding, no aliases."""
+    assert _refuse_intent(intent="a", discovery=_discovery("a")) is None
+    assert _refuse_intent(intent=presented, discovery=_discovery("a")) is not None
+
+
+def test_refuse_intent_is_exported() -> None:
+    import ccf.products.request as request_module
+
+    assert "refuse_intent" in request_module.__all__

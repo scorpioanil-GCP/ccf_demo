@@ -5554,6 +5554,7 @@
       "ProductRequestContract",
       "ProductRequestViolation",
       "ProductRequestViolationReason",
+      "refuse_intent",
       "refuse_request",
       "refuse_request_contract_pin",
       "refuse_undeclared_class_default",
@@ -5627,6 +5628,10 @@
         "kind": "function",
         "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum', 'not-in-domain']"
       },
+      "refuse_intent": {
+        "kind": "function",
+        "shape": "(*, request: 'ProductRequest', discovery: 'ProductDiscovery') -> 'ProductRequestViolation | None'"
+      },
       "refuse_request": {
         "kind": "function",
         "shape": "(*, request: 'ProductRequest', declared: 'ProductRequestContract') -> 'ProductRequestViolation | None'"
@@ -5642,6 +5647,17 @@
       "request_seeds": {
         "kind": "function",
         "shape": "(request: 'ProductRequest | None') -> 'frozenset[str] | None'"
+      }
+    }
+  },
+  "ccf.products.request_schema": {
+    "__all__": [
+      "render_request_input_schema"
+    ],
+    "exports": {
+      "render_request_input_schema": {
+        "kind": "function",
+        "shape": "(contract: 'ProductRequestContract') -> 'dict[str, Any]'"
       }
     }
   },

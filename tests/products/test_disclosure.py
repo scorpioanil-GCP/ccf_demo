@@ -732,3 +732,77 @@ def test_the_allowed_set_crosses_only_where_detail_crosses(level: str) -> None:
             assert member in shell.detail
     # The caller's own value crosses at every level — it is the caller's.
     assert "gamma" in rendered
+
+
+# --- (7) the declared intent set crosses only where `detail` crosses (24.7-07)
+#
+# `D-IMPL-264` amendment 3 A-8 a (Dave): *"The intent set is always
+# advertisable through the canonical contract/discovery representation, but a
+# refusal shell reveals it only according to the disclosure level."* The set
+# travels ONLY in `detail` — the channel the enumerated argument domain uses
+# in (6) — never in `declared_type`, which `PERMITTED_AT_MINIMAL` lets cross.
+# Criterion 10.
+
+_DECLARED_INTENTS = ("credit-screening", "onboarding-review")
+_PRESENTED_INTENT = "other-intent"
+
+
+def _intent_refusal() -> RefusalEnvelope:
+    """A REAL intent verdict from `refuse_intent`, enveloped."""
+    from ccf.products.contract import ProductDiscovery
+    from ccf.products.request import ProductRequest, refuse_intent
+
+    verdict = refuse_intent(
+        request=ProductRequest(
+            schema_name="ccf.test-product",
+            schema_version="1.0.0",
+            subject="fixture:subject/one",
+            intent=_PRESENTED_INTENT,
+            freshness="fixture-freshness",
+            asked_at=_INSTANT,
+            parameters={},
+        ),
+        discovery=ProductDiscovery(
+            domain="fixture-domain",
+            intents=frozenset(_DECLARED_INTENTS),
+            capabilities=frozenset(),
+        ),
+    )
+    assert verdict is not None and verdict.key == "intent"
+    return envelope_for(verdict, request=_request_identity())
+
+
+@pytest.mark.parametrize("level", sorted(DISCLOSURE_LEVELS))
+def test_the_declared_intent_set_crosses_only_where_detail_crosses(
+    level: str,
+) -> None:
+    """Absent at ``minimal``, present at ``reasoned`` and at ``full``.
+
+    Same `fields` roster as (6): no member was added to carry the set, so
+    `PERMITTED_AT_MINIMAL` needs no row. Sabotage (recorded in the plan
+    SUMMARY): carry the set in `declared_type` and the `minimal` case reds.
+    """
+    internal = _intent_refusal()
+    shell, decision = disclose(internal, level=level, policy=None)
+    rendered = canonical_bytes(shell).decode("utf-8")
+
+    assert set(shell.fields) == {
+        "declared_type",
+        "presented_type",
+        "declared_keys",
+        "presented_keys",
+        "overrides",
+    }
+    assert shell.reason == "class-mismatch"
+    assert shell.key == "intent"
+    if level == "minimal":
+        assert shell.detail == EXTERNAL_STATEMENTS["product-request-violation"]
+        for declared in _DECLARED_INTENTS:
+            assert declared not in rendered, (declared, rendered)
+        assert "detail" in decision.withheld
+    else:
+        assert shell.detail == internal.detail
+        for declared in _DECLARED_INTENTS:
+            assert declared in shell.detail
+    # The caller's own intent crosses at every level — it is the caller's.
+    assert _PRESENTED_INTENT in rendered
