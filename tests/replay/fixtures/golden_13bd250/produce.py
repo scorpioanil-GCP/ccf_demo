@@ -61,7 +61,12 @@ from ccf.products.contract import (
 from ccf.products.gates import ServableProduct, run_gates
 from ccf.projection.engine import ExecutionResult, OperatorRegistry, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput, ProjectionPlan
-from ccf.replay.record import DecisionReplayRecord, PolicyBinding, build_replay_record
+from ccf.replay.record import (
+    DecisionReplayRecord,
+    PolicyBinding,
+    ResolutionNotApplicable,
+    build_replay_record,
+)
 from ccf.replay.serve import ReplayWriter, serve
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
@@ -329,6 +334,15 @@ def produce(fixture_dir: Path) -> dict[str, Any]:
             ),
             assembly_mode="algorithmic",
             recorded_at=NOW,
+            # 24.7-06 (D-IMPL-264 D-10 / D-12): the builder now requires an
+            # explicit resolution state, and this path ran no resolution step.
+            # This script is a REGENERATION AID whose OUTPUT is the committed
+            # D-12 control (`artifacts/`, `manifest.json`, `fabric.sqlite3`),
+            # captured at 13bd250 with the legacy sentinel. It is edited so it
+            # stays a valid script against the ruled API; it is NOT run inside
+            # 24.7, and `test_golden_13bd250.py` never calls `produce()` -- it
+            # replays the STORED record. Running it would move the control.
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         )
         served = serve(
             product=gated,

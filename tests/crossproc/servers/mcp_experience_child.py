@@ -76,7 +76,11 @@ from ccf.products.request import ProductRequest  # noqa: E402
 from ccf.products.resolver import ReplayRefusalRecorder  # noqa: E402
 from ccf.projection.engine import ExecutionResult, ExecutionStep  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
-from ccf.replay.record import PolicyBinding, build_replay_record  # noqa: E402
+from ccf.replay.record import (  # noqa: E402
+    PolicyBinding,
+    ResolutionNotApplicable,
+    build_replay_record,
+)
 from ccf.replay.serve import ReplayWriter, ServedProduct  # noqa: E402
 from ccf.skills.callables import CallableRegistry  # noqa: E402
 from ccf.skills.catalog import (  # noqa: E402
@@ -484,6 +488,7 @@ def build_server(
             ),
             assembly_mode="algorithmic",
             recorded_at=world.boundary,
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
             agent_conditioning=conditioning,
         )
         capability = writer.write_replay_record(record=record)

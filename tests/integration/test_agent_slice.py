@@ -63,6 +63,7 @@ from ccf.products.gates import ServableProduct, run_gates
 from ccf.replay.record import (
     NO_GRANTS_SET_HASH,
     PolicyBinding,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
@@ -269,6 +270,7 @@ def test_dimension_4_carries_the_complete_d06_field_set(fabric: _Fabric) -> None
         ),
         assembly_mode=fabric.control["product_class"]["assembly_mode"],
         recorded_at=fabric.now,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         agent_conditioning=agent.perspective_conditioning(
             principal_id=principal_id, grant_set_hash=NO_GRANTS_SET_HASH
         ),
@@ -661,6 +663,7 @@ def test_a_granted_decision_captures_the_grant_set_hash_in_dimension_4(
             ),
             assembly_mode=fabric.control["product_class"]["assembly_mode"],
             recorded_at=fabric.now,
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
             agent_conditioning=agent.perspective_conditioning(
                 principal_id=principal_id,
                 grant_set_hash=ledger.grant_set_hash(content_hash(definition)),

@@ -211,7 +211,11 @@ class TestHardenedPath:
         )
         from ccf.projection.engine import ExecutionResult, ExecutionStep
         from ccf.projection.plan import Perspective, ProjectionOutput
-        from ccf.replay.record import PolicyBinding, build_replay_record
+        from ccf.replay.record import (
+            PolicyBinding,
+            ResolutionNotApplicable,
+            build_replay_record,
+        )
         from ccf_runtime.http_api.app import create_app
         from ccf_runtime.http_api.auth import BearerTokenAuth
         from ccf_runtime.http_api.dependencies import ApiDependencies
@@ -325,6 +329,7 @@ class TestHardenedPath:
             ),
             assembly_mode="algorithmic",
             recorded_at=recorded.principal.action_time,
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
             hitl_actions=resolution.hitl_actions_block,
         )
         assert _CLIENT_ID in record.policy_bindings.hitl_actions

@@ -114,6 +114,7 @@ from ccf.replay.record import (
     HarnessTrace,
     ModelVersionRecord,
     PolicyBinding,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 from ccf.skills.grants import SkillGrant
@@ -476,6 +477,7 @@ def _drive(
         ),
         assembly_mode="algorithmic",
         recorded_at=BOUNDARY,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         agent_conditioning=agent.perspective_conditioning(
             principal_id=world.actor,
             grant_set_hash=world.ledger.grant_set_hash(agent.identity.definition_hash),

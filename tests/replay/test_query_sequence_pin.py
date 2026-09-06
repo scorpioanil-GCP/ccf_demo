@@ -71,6 +71,7 @@ from ccf.replay.record import (
     PerspectiveConditioning,
     PolicyBinding,
     PolicyBindingsSnapshot,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 from ccf.replay.serve import (
@@ -207,6 +208,7 @@ def _record_for(
         ),
         assembly_mode=fabric.control["product_class"]["assembly_mode"],
         recorded_at=fabric.now,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     return gated, record
 
