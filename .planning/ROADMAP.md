@@ -3337,7 +3337,7 @@ participated in a governed determination (G-33). No cp-04 changes."*
 
 **STATUS: DISCUSSED AND DESIGNED — `D-IMPL-264` (Dave, 2026-09-05 16:18 MST): thirteen rulings + two
 principles, verbatim in `24.7-RULINGS.md`, mapped in `24.7-CONTEXT.md`. NO CRITERIA YET — authored at the
-planning sitting after research and locked before Wave 1 (`D-GATE-19`). NOT RESEARCHED, NOT PLANNED.**
+planning sitting after research and locked before Wave 1 (`D-GATE-19`). RESEARCHED (`24.7-RESEARCH.md`, `b0150cf9`; four stop-and-return findings ruled as Amendment 1), PATTERN-MAPPED, **28 CRITERIA LOCKED 2026-09-05 18:29 MST** (below; `24.7-CRITERIA-LOCK.md`). NOT PLANNED.**
 Prior: DIRECTION BANKED — `D-IMPL-263` (15:21 MST). Dave: *"we should stop and design 24.7 before writing
 its criteria … I don't want Fable deriving a large implementation plan from a two-line roadmap entry
 without us first ruling the semantics."* The design sitting is done; no research or planning agent ran.
@@ -3369,7 +3369,7 @@ the SDK gap or decision that caused it, and is un-quarantined and rerun unchange
 (rows `CP04-G-26`, `CP04-G-33`), `src/ccf/products/request.py` (`ArgumentDomain`,
 `ProductRequestContract`), `docs/CCF_Whitepaper_1-2.md` §6.3, §7.6, §7.10.1.
 
-**Success Criteria** (what must be TRUE) — **DRAFT FOR DAVE'S LOCK, authored 2026-09-05 after research (`b0150cf9`), `24.7-VALIDATION.md`, and `D-IMPL-264` Amendment 1; NOT LOCKED, no plan exists.** The fence is `D-IMPL-263` (`src/`+`runtime/` open; `examples/` closed; `tests/examples/` quarantine-only); the diff base is `6a019322` (where `phase-24.7` forked from `main`). Every criterion is ONE physical line so the one-per-line parser reads it as one truth; each names the decision(s) it discharges. Twenty-eight, one per line:
+**Success Criteria** (what must be TRUE) — **LOCKED 2026-09-05 18:29 MST by Dave (`D-IMPL-264` Amendment 2), authored after research (`b0150cf9`), `24.7-VALIDATION.md`, the pattern map (`5c585996`) and `D-IMPL-264` Amendment 1, and BEFORE any plan and BEFORE Wave 1 (`D-GATE-19`); the pinned digest is in `24.7-CRITERIA-LOCK.md`.** The fence is `D-IMPL-263` (`src/`+`runtime/` open; `examples/` closed; `tests/examples/` quarantine-only); the diff base is `6a019322` (where `phase-24.7` forked from `main`). Every criterion is ONE physical line so the one-per-line parser reads it as one truth; each names the decision(s) it discharges. Twenty-eight, one per line:
 1. `ArgumentDomain` declares exactly ONE shape — numeric bounds (`minimum`/`maximum`) OR an enumerated member set — and refuses at construction, naming the defect: both shapes, neither shape, an empty set, a duplicate member, a heterogeneous set, or a member whose type differs from the declared property type (D-03, D-06; `CP04-G-26`).
 2. A declared default outside its parameter's enumerated domain is refused at contract construction by the existing default-respects-domain validator (`src/ccf/products/request.py::ProductRequestContract`), naming the parameter and the offending default (D-03).
 3. A presented value outside an enumerated domain is a `ProductRequestViolation` with the NEW reason `not-in-domain`, returned as data by the domain step (still last in `refuse_request`), naming the key and the presented value; a value of the wrong type still yields `type-mismatch`, never `not-in-domain` (D-05, D-04).
