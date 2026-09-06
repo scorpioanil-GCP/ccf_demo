@@ -263,8 +263,8 @@ class ResolutionNotApplicable(CCFContract):
     positive claim, with its reason (24.7-04; ``D-IMPL-264`` D-09/D-10, P-2).
 
     SDK-defined (CLAUDE.md §11); the whitepaper hook is §7.10's completeness
-    commitment — *"A replay record that captures four of the five dimensions
-    … leaves one class permanently unanswerable"* — applied to dimension 2's
+    commitment — a record missing any one of the five dimensions leaves a
+    whole class of audit question with no answer — applied to dimension 2's
     resolution: a record that says nothing about whether the question's
     parameters were resolved leaves *"was this decision governed by the
     constraints in force?"* unanswerable.
