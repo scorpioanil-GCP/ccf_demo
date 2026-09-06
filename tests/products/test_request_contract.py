@@ -1508,6 +1508,9 @@ def test_from_declared_refuses_a_malformed_argument_domains(malformed: Any) -> N
 
 
 def test_a_domain_with_neither_end_is_refused() -> None:
+    """Re-derived under `D-IMPL-264` D-03: a domain naming neither end AND no
+    member set declares neither SHAPE, and *"neither shape is also invalid if
+    `ArgumentDomain` is present"* — the word is still "neither"."""
     with pytest.raises(ValueError) as raised:
         ArgumentDomain()
     assert "neither" in str(raised.value)
@@ -1649,3 +1652,144 @@ def test_the_domain_step_is_deterministic_over_domained_names() -> None:
         for _ in range(5)
     }
     assert verdicts == {"another"}
+
+
+# ---------------------------------------------------------------------------
+# The enumerated shape — a domain is numeric bounds OR a closed member set
+# (`D-IMPL-264` D-03/D-04/D-06; plan 24.7-01).
+# ---------------------------------------------------------------------------
+# Dave, 2026-09-05 (Q3): *"Exactly one domain shape: numeric bounds or
+# enumerated values. Non-empty, duplicate-free, and any declared default must
+# be inside the domain. Neither shape is also invalid if `ArgumentDomain` is
+# present."* (Q4): *"Exact canonical match. No trimming, case folding,
+# aliases, or silent substitution."* (Q6): *"Any supported primitive type,
+# with homogeneous members matching the declared property type."* The
+# members below are the fixture's, never the SDK's (CINV-01).
+
+
+def test_an_enumerated_domain_constructs_and_round_trips() -> None:
+    domain = ArgumentDomain(members=("alpha", "beta"))
+    assert domain.members == ("alpha", "beta")
+    assert domain.minimum is None and domain.maximum is None
+    assert ArgumentDomain.model_validate_json(domain.model_dump_json()) == domain
+
+
+def test_the_enumerated_shape_is_silent_at_none_in_the_canonical_bytes() -> None:
+    """`D-IMPL-243`, criterion 19: a numeric domain written before the member
+    set existed canonicalizes byte-for-byte as it did, so no committed request
+    contract's content address moves."""
+    from ccf.contracts.canonical import canonical_bytes
+
+    assert b"members" not in canonical_bytes(ArgumentDomain(minimum=DOMAIN_FLOOR))
+    assert b"members" in canonical_bytes(ArgumentDomain(members=("alpha",)))
+
+
+def test_a_domain_declaring_both_shapes_is_refused_naming_both() -> None:
+    """D-03: numeric bounds OR a member set, never both."""
+    with pytest.raises(ValueError) as raised:
+        ArgumentDomain(minimum=DOMAIN_FLOOR, members=(1, 2))
+    message = str(raised.value)
+    assert "minimum" in message
+    assert "members" in message
+    assert "D-IMPL-264" in message
+
+
+def test_an_empty_enumerated_domain_is_refused() -> None:
+    """D-03: *"Non-empty"* — a set no value can satisfy is a key with nothing
+    under it, the same defect as a domain naming neither end."""
+    with pytest.raises(ValueError) as raised:
+        ArgumentDomain(members=())
+    assert "empty" in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "members, named",
+    [
+        (("alpha", "alpha"), "'alpha'"),
+        ((1, Decimal("1")), "1"),
+    ],
+)
+def test_a_duplicate_member_is_refused_naming_it(members: tuple[Any, ...], named: str) -> None:
+    """D-03: *"duplicate-free"* — judged by the membership rule itself, so
+    `1` and `Decimal("1")` ARE the same member while `1` and `True` are not."""
+    with pytest.raises(ValueError) as raised:
+        ArgumentDomain(members=members)
+    message = str(raised.value)
+    assert "duplicate" in message
+    assert named in message
+
+
+@pytest.mark.parametrize(
+    "members",
+    [("alpha", 1), (1, True), (True, "alpha"), ("alpha", Decimal("1"))],
+)
+def test_a_heterogeneous_member_set_is_refused_naming_the_classes(
+    members: tuple[Any, ...],
+) -> None:
+    """D-06: *"homogeneous members"* — one class per set, `bool` its own."""
+    with pytest.raises(ValueError) as raised:
+        ArgumentDomain(members=members)
+    message = str(raised.value)
+    assert "homogeneous" in message or "heterogeneous" in message
+    assert "D-IMPL-264" in message
+
+
+def test_a_numeric_member_set_may_mix_int_and_decimal() -> None:
+    """`int` and `Decimal` are one numeric class to this contract, on
+    `_as_decimal`'s reading; `bool` is not (checked first)."""
+    domain = ArgumentDomain(members=(1, Decimal("1.5")))
+    assert domain.members == (1, Decimal("1.5"))
+
+
+def test_a_non_finite_numeric_member_is_refused() -> None:
+    """The numeric shape's own finiteness rule, carried to the member set: a
+    member nothing can equal is a member nobody declared."""
+    with pytest.raises(ValueError) as raised:
+        ArgumentDomain(members=(Decimal("NaN"),))
+    assert "finite" in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "presented, member",
+    [("AB", "ab"), (" ab", "ab"), (True, 1), ("1", 1), (1, True), ("ab", "ab ")],
+)
+def test_membership_is_exact_typed_equality(presented: Any, member: Any) -> None:
+    """D-04, criterion 4: no case fold, no trim, no `True == 1`, no `"1" == 1`.
+
+    Each pair is one thing a lenient comparison would admit. The three
+    executed sabotage controls (plan 24.7-01 SUMMARY) plant `.casefold()`,
+    `.strip()` and an untyped `==` in turn and watch this test red.
+    """
+    assert ArgumentDomain(members=(member,)).refuses(presented) == "not-in-domain"
+
+
+@pytest.mark.parametrize(
+    "presented, members",
+    [
+        ("ab", ("ab",)),
+        (1, (1, 2)),
+        (Decimal("2"), (1, 2)),
+        (2, (Decimal("1"), Decimal("2.0"))),
+        (True, (True,)),
+        (False, (True, False)),
+    ],
+)
+def test_a_member_is_admitted_by_exact_equality(
+    presented: Any, members: tuple[Any, ...]
+) -> None:
+    """The other half: exact equality within one class admits, and the numeric
+    class compares by value (`Decimal("2") == 2`) rather than by Python type."""
+    assert ArgumentDomain(members=members).refuses(presented) is None
+
+
+def test_a_numeric_bounds_domain_judges_exactly_as_before() -> None:
+    """The widened `refuses(value: object)` keeps the two-end judgment for the
+    numeric shape, and says nothing about a value with no magnitude (the
+    payload comparison names that one — `type-mismatch` wins by order)."""
+    domain = ArgumentDomain(minimum=DOMAIN_FLOOR, maximum=DOMAIN_CEILING)
+    assert domain.refuses(DOMAIN_FLOOR - 1) == "below-minimum"
+    assert domain.refuses(DOMAIN_CEILING + 1) == "above-maximum"
+    assert domain.refuses(DOMAIN_FLOOR) is None
+    assert domain.refuses(Decimal(DOMAIN_CEILING)) is None
+    assert domain.refuses("zero") is None
+    assert domain.refuses(True) is None
