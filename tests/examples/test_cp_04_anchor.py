@@ -194,6 +194,10 @@ def _assemble_keeping_the_return(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_served_outcome_names_the_module_assembler_version(
     baseline: tuple[str, str],
     fluree_url: str,
@@ -305,6 +309,10 @@ def ambiguous_estate(
     return ledger, schema, anchor_iri
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_cft_g18_an_ambiguous_anchor_is_refused_as_typed_ambiguity_data(
     ambiguous_estate: tuple[str, str, str],
     fluree_url: str,
@@ -379,6 +387,10 @@ def _door_record(root: pathlib.Path, result: Any) -> Mapping[str, Any] | None:
         return None
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_cft_g18_b_the_tool_carries_the_ambiguity_as_a_governed_refusal(
     ambiguous_estate: tuple[str, str, str],
     fluree_url: str,
@@ -479,6 +491,10 @@ def test_cft_g18_b_the_tool_carries_the_ambiguity_as_a_governed_refusal(
     assert isinstance(is_error, bool)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_ambiguity_gate_measures_the_perturbation_and_not_the_estate(
     baseline: tuple[str, str],
     fluree_url: str,
