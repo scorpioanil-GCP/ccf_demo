@@ -50,6 +50,7 @@ from ccf.replay.record import (
     PerspectiveConditioning,
     PolicyBinding,
     PolicyBindingsSnapshot,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 from tests.replay.test_harness_trace import PRE_CHANGE_CANONICAL
@@ -98,6 +99,12 @@ def _product(*, tenant_id: str = "tenant-a") -> ContextProductContract:
 def _build(**overrides: Any) -> DecisionReplayRecord:
     tenant_id = overrides.pop("tenant_id", "tenant-a")
     principal_id = overrides.pop("principal_id", "principal-1")
+    # 24.7-04 (D-IMPL-264 D-09/D-10): this fixture mints records with no
+    # resolver in the path and states so explicitly; a test that wants to
+    # probe the guard passes its own `resolution=`.
+    resolution = overrides.pop(
+        "resolution", ResolutionNotApplicable(reason="no-resolution-step")
+    )
     return build_replay_record(
         execution=_execution(tenant_id=tenant_id),
         product=_product(tenant_id=tenant_id),
@@ -105,6 +112,7 @@ def _build(**overrides: Any) -> DecisionReplayRecord:
         policy_bindings=(PolicyBinding(key="policy.bundle", version="v1"),),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=resolution,
         **overrides,
     )
 
