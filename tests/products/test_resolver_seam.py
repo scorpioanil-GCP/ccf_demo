@@ -79,6 +79,7 @@ from ccf.replay.record import (
     NO_PRODUCT_ADDRESS,
     DecisionReplayRecord,
     PolicyBinding,
+    ResolutionNotApplicable,
 )
 from ccf.products.resolver import (
     GovernedResolver,
@@ -352,6 +353,41 @@ def booted_with_ceiling(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     )
 
 
+def _product_class_declaring(intents: list[str]) -> dict[str, Any]:
+    """The fixture class document with a ``discovery`` block DECLARED.
+
+    24.7-07, `D-IMPL-264` D-01 as amended (F-1 a). The block is authored
+    HERE, in a test-side document, never in ``src/`` (CINV-01): the domain
+    and the intent vocabulary are fixture figures. A declared set — even an
+    empty one — is the state the stock document (no ``discovery:`` block,
+    which reads as :data:`~ccf.products.contract.NOT_DISCOVERABLE`) is NOT.
+    """
+    product_class = copy.deepcopy(
+        next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY)
+    )
+    product_class["discovery"] = {
+        "domain": "fixture-domain",
+        "intents": intents,
+        "capabilities": [],
+        "audiences": [],
+    }
+    return product_class
+
+
+@pytest.fixture
+def booted_with_intents(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """The same deployment, with the class DECLARING that it serves exactly
+    the fixture intent — the authoritative state."""
+    yield from _boot(tmp_path, product_class=_product_class_declaring(["fixture-intent"]))
+
+
+@pytest.fixture
+def booted_with_no_intents(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """The same deployment, with the class declaring an EMPTY intent set —
+    *"serves none"* (F-1 a), which is not the sentinel's state."""
+    yield from _boot(tmp_path, product_class=_product_class_declaring([]))
+
+
 def _boot(
     tmp_path: pathlib.Path,
     *,
@@ -563,6 +599,118 @@ def test_the_conformance_check_sees_a_defaulted_signature() -> None:
     assert isinstance(_Defaulting(), RefusalRecorderProtocol)
     assert not _requires_the_resolution_state(_Defaulting.record)
     assert not _requires_the_resolution_state(_Positional.record)
+
+
+# --- 24.7-07: intent is judged against the DECLARED discovery set -----------
+#
+# `D-IMPL-264` D-01 as amended by amendment 1 F-1 a (Dave, verbatim):
+# *"Absence of a discovery declaration is non-applicability. Presence of a
+# discovery declaration makes its intent set authoritative, including an
+# explicitly empty set."* Three states, hosted in `GovernedResolver.resolve`
+# beside the address check, before any resolution step (D-09: no resolution
+# ran, said so positively) — and the deciding class declaration IS pinned on
+# the record (amendment 3 B-3 a: *"replay should preserve the declaration
+# that actually governed the outcome"*). Criterion 10.
+#
+# Sabotage (recorded in the plan SUMMARY, F-1 reading (b)): judge whenever
+# `discovery.intents == frozenset()` and the FIRST test below reds — along
+# with every other test in this module, because every fixture serves under
+# `NOT_DISCOVERABLE`. That is the reading Dave rejected.
+
+
+def test_intent_is_unjudged_when_no_discovery_is_declared(booted: _Booted) -> None:
+    """The stock fixture declares no `discovery`: any intent serves.
+
+    The D-01 am.1 control — including an intent no class anywhere declares.
+    Every existing deployment, hw1 and the governed-resolver roster serve
+    exactly as they did before this phase.
+    """
+    assert isinstance(
+        _ask(_resolver(booted), _request(intent="fixture-intent")), ServedProduct
+    )
+    assert isinstance(
+        _ask(_resolver(booted), _request(intent="never-declared")), ServedProduct
+    )
+
+
+def test_a_declared_intent_serves_and_an_undeclared_one_is_refused_as_data(
+    booted_with_intents: _Booted,
+) -> None:
+    """Declared → authoritative: the member serves, a non-member is refused
+    as data, before the graph is touched, with the deciding declaration pinned.
+
+    The record: dimension 2 says positively that no resolution ran
+    (`refused-before-resolution`), its bindings are EXACTLY the recorder's
+    bundle pin plus the class-declaration pin — minted the way `class_source`
+    mints it, so it resolves to the exact bytes that declared the intent set
+    — and NO request-contract pin, because none was resolved against (which
+    is why plan 09's D-11 inference reads request-contract + constraint pins
+    and never a class-declaration pin). Sabotage (recorded in the SUMMARY):
+    drop the pin and the bindings assertion reds.
+    """
+    reader = _RecordingReader(booted_with_intents.fabric.handle.reader)
+    fabric = dataclasses.replace(
+        booted_with_intents.fabric,
+        handle=_HandleWithReader(booted_with_intents.fabric.handle, reader),
+    )
+    resolver = _resolver(booted_with_intents, fabric=fabric)
+
+    served = _ask(resolver, _request(intent="fixture-intent"))
+    assert isinstance(served, ServedProduct)
+    reads_for_the_served_product = len(reader.calls)
+    assert reads_for_the_served_product > 0
+
+    outcome = _ask(resolver, _request(intent="other"))
+    assert isinstance(outcome, RefusalEnvelope)
+    assert outcome.kind == "product-request-violation"
+    assert outcome.reason == "class-mismatch"
+    assert outcome.key == "intent"
+    assert outcome.pre_assembly_lineage is None
+    assert outcome.request.product_id == PRODUCT_CLASS
+    # An addressing verdict costs nothing: no read beyond the served product's.
+    assert len(reader.calls) == reads_for_the_served_product
+
+    assert outcome.replay_reference != NO_REPLAY_REFERENCE
+    record = DecisionReplayRecord.model_validate_json(
+        booted_with_intents.store.get(
+            content_address=booted_with_intents.store.resolve_uri(
+                uri=outcome.replay_reference
+            )
+        )
+    )
+    assert ResolutionNotApplicable.model_validate_json(
+        record.policy_bindings.request_resolution
+    ) == ResolutionNotApplicable(reason="refused-before-resolution")
+    class_pin = PolicyBinding(
+        key=PRODUCT_CLASS_KEY,
+        version=booted_with_intents.fabric.pins.version_for(PRODUCT_CLASS_KEY),
+    )
+    # The pin the manifest minted IS the declaration's content address — the
+    # same address `class_source` carries on a defaulted value.
+    assert class_pin.version == content_hash(resolver._declaration())
+    bundle_pin = PolicyBinding(
+        key=POLICY_BUNDLE_KEY,
+        version=booted_with_intents.fabric.pins.version_for(POLICY_BUNDLE_KEY),
+    )
+    assert set(record.policy_bindings.bindings) == {bundle_pin, class_pin}
+    assert all(
+        binding.key != REQUEST_CONTRACT_KEY for binding in record.policy_bindings.bindings
+    )
+    # Dimension 1 says nothing was read; dimension 5 says no product came of it.
+    assert record.context_fabric_snapshot.store_watermark == NO_FABRIC_READ
+    assert record.content_generation_path.product_content_address == (
+        NO_PRODUCT_ADDRESS
+    )
+
+
+def test_a_declared_empty_set_serves_none(booted_with_no_intents: _Booted) -> None:
+    """F-1 a: *"An explicitly declared empty set means 'serves none.'"*"""
+    outcome = _ask(_resolver(booted_with_no_intents), _request(intent="fixture-intent"))
+
+    assert isinstance(outcome, RefusalEnvelope)
+    assert outcome.kind == "product-request-violation"
+    assert outcome.reason == "class-mismatch"
+    assert outcome.key == "intent"
 
 
 # --- behavior 1: a bad question is refused before the graph is touched -------
