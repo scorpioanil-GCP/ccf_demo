@@ -2270,11 +2270,33 @@ def _serve_claiming(
     CLAIMED — so these tests set the two independently and hold the engine to
     their combination. The bundle pin is always present, as it is on every
     record this module serves; ``bindings`` are added beside it.
+
+    The candidate's lineage names every version the record pins, because
+    ``_Environment.rehydrate_product`` rebuilds ``policy_bundle_versions``
+    from the record's bindings — a product that pinned less than its record
+    would diverge on its content address, which is the fixture's own
+    rehydration contract and not the claim under test here.
     """
+    all_bindings = (
+        PolicyBinding(key=POLICY_BUNDLE_KEY, version=deployment.policy_version),
+        *bindings,
+    )
     execution = deployment.execute()
     product_class = deployment.product_class()
+    candidate = deployment.candidate(execution)
+    candidate = candidate.model_copy(
+        update={
+            "lineage": candidate.lineage.model_copy(
+                update={
+                    "policy_bundle_versions": frozenset(
+                        binding.version for binding in all_bindings
+                    )
+                }
+            )
+        }
+    )
     gated = run_gates(
-        deployment.candidate(execution),
+        candidate,
         engine_resolved=execution.operators_invoked,
         now=NOW,
         registry=deployment.registry,
@@ -2285,10 +2307,7 @@ def _serve_claiming(
         execution=execution,
         product=gated.product,
         perspective=deployment.perspective(),
-        policy_bindings=(
-            PolicyBinding(key=POLICY_BUNDLE_KEY, version=deployment.policy_version),
-            *bindings,
-        ),
+        policy_bindings=all_bindings,
         assembly_mode="algorithmic",
         recorded_at=NOW,
         resolution=resolution,
