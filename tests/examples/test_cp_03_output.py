@@ -275,6 +275,10 @@ def test_the_seed_carries_what_these_gates_need(seeded: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ofs_g01_the_payload_carries_both_fact_kinds(seeded: str) -> None:
     """`OFS-G01` — at least one instant AND at least one duration fact.
 
@@ -310,6 +314,10 @@ def test_ofs_g01_the_payload_carries_both_fact_kinds(seeded: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ofs_g09_the_expiry_is_anchored_on_the_filing_not_the_question(
     seeded: str,
 ) -> None:
@@ -506,6 +514,10 @@ def _outcome(seeded: str, lei: str, principal: str) -> str:
     return "served" if getattr(served, "product", None) is not None else "empty"
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ofs_g15_suppression_is_indistinguishable_from_absence(
     seeded: str,
 ) -> None:
@@ -641,6 +653,10 @@ def _executable_strings(path: pathlib.Path) -> list[str]:
     return found
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ofs_g02_resolution_goes_through_the_crosswalk(seeded: str) -> None:
     """`OFS-G02` — identity comes from `crosswalk`, never from `financial_fact.cik`.
 
@@ -762,6 +778,10 @@ def test_ofs_g07_no_llm_client_is_reachable(seeded: str) -> None:
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ofs_g06_as_of_is_refused_and_never_silently_honored(seeded: str) -> None:
     """`OFS-G06` — a parameter this tier declares and always refuses.
 
@@ -854,6 +874,10 @@ def test_ofs_g06_as_of_is_refused_and_never_silently_honored(seeded: str) -> Non
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ofs_g10_exactly_one_operator_and_no_enrich(seeded: str) -> None:
     """`OFS-G10` — one operator in the plan, and no `Enrich` registered.
 
@@ -943,6 +967,10 @@ def _restated_cells(seeded: str, key: list[str]) -> int:
         return int(row[0])
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ofs_g03_the_restatement_key_is_the_estates_own(seeded: str) -> None:
     """`OFS-G03` — the key is declared in an artifact, and it is load-bearing.
 
@@ -1042,6 +1070,10 @@ def test_ofs_g03_the_restatement_key_is_the_estates_own(seeded: str) -> None:
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ofs_g04_item_402_corroborates_and_never_detects(seeded: str) -> None:
     """`OFS-G04` — a non-reliance filing is evidence, not the detector.
 
@@ -1102,6 +1134,10 @@ def test_ofs_g04_item_402_corroborates_and_never_detects(seeded: str) -> None:
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ofs_g08_absence_is_a_word_and_never_a_zero(seeded: str) -> None:
     """`OFS-G08` — the revenue-less obligor serves NOT_EVALUABLE, never `0`.
 
@@ -1160,6 +1196,10 @@ def test_ofs_g08_absence_is_a_word_and_never_a_zero(seeded: str) -> None:
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ofs_g11_basis_changes_the_address_only_where_it_changes_the_answer(
     seeded: str,
 ) -> None:
@@ -1251,6 +1291,10 @@ def test_ofs_g11_basis_changes_the_address_only_where_it_changes_the_answer(
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ofs_g12_every_derived_line_names_what_it_consumed(seeded: str) -> None:
     """`OFS-G12` — a ratio names its inputs, and they are in the same payload.
 
@@ -1299,6 +1343,10 @@ def test_ofs_g12_every_derived_line_names_what_it_consumed(seeded: str) -> None:
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ofs_g13_the_severity_threshold_comes_from_the_artifact(
     seeded: str,
 ) -> None:
@@ -1359,6 +1407,10 @@ def test_ofs_g13_the_severity_threshold_comes_from_the_artifact(
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-03 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-03 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_served_outcome_names_the_module_assembler_version(seeded: str) -> None:
     """The Protocol's return names this module's assembler identity, pinned at `1.0.1`.
 

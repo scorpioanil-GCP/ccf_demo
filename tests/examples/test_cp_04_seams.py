@@ -761,7 +761,7 @@ def surfaces(estate: tuple[str, str]) -> dict[str, Any]:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_the_seed_carries_what_these_five_gates_need(
     observed: Observed, estate: tuple[str, str]
@@ -1070,7 +1070,7 @@ def provenance(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g10_the_assembly_opened_both_stores(
     observed: Observed, provenance: tuple[Provenance, ...]
@@ -1342,7 +1342,7 @@ def whole_estate_resolution(estate: tuple[str, str]) -> WholeEstateResolution:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g11_attributes_resolve_in_one_batched_query(
     observed: Observed,
@@ -2077,7 +2077,7 @@ def door_reading(surfaces: dict[str, Any]) -> DoorReading:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
 )
 def test_cft_g13_the_tool_serves_and_the_registered_resource_refuses(
     door_reading: DoorReading,
@@ -2404,7 +2404,7 @@ def standalone_violations(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g14_one_standalone_assembler_serves_both_callers(
     observed: Observed, surfaces: dict[str, Any]
@@ -3220,7 +3220,7 @@ def _refused_over_capability(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
 )
 def test_a_refused_outcome_carries_the_assembler_identity_and_resolves(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
@@ -3292,7 +3292,7 @@ _SCRATCH_SHADOW_FAMILY = (
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
 )
 def test_a_wrapper_that_skips_the_recorder_is_refused_at_the_door(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
@@ -3366,7 +3366,7 @@ def test_a_wrapper_that_skips_the_recorder_is_refused_at_the_door(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
 )
 def test_replay_carries_the_assembler_identity_for_fulfilled_and_refused(
     estate: tuple[str, str], tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch

@@ -586,7 +586,7 @@ def asked_with_as_of(estate: tuple[str, str]) -> Asked:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_the_seed_carries_what_these_six_gates_need(served: Asked) -> None:
     """Without this, a green gate could be a true statement about nothing.
@@ -820,7 +820,7 @@ def inert_parameter_violations(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
 )
 def test_cft_g06_as_of_is_refused_not_supported_at_tier(
     asked_with_as_of: Asked,
@@ -1045,7 +1045,7 @@ def cycle_violations(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g07_a_cycle_carries_type_ordered_members_and_closing_edge(
     served: Asked,
@@ -1215,7 +1215,7 @@ def orthogonality_violations(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g08_findings_are_orthogonal_to_the_tree(served: Asked) -> None:
     """`CFT-G08` (criterion 32). Findings are orthogonal to the tree.
@@ -1346,7 +1346,7 @@ def unresolved_violations(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g09_a_node_with_no_lei_stays_in_the_tree_and_the_roster(
     served: Asked,
@@ -1595,7 +1595,7 @@ def class_chain_violations(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g15_each_served_node_carries_its_fibo_class_chain(served: Asked) -> None:
     """`CFT-G15` (criterion 39). Ontology role 2 — the chain is SERVED.
@@ -1715,7 +1715,7 @@ def test_the_chain_check_refuses_a_wrong_chain_that_is_not_empty() -> None:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_no_cycle_two_member_reaches_a_served_payload(served: Asked) -> None:
     """Why `CFT-G15` asserts content for ONE cycle and not for two — measured.
@@ -2133,7 +2133,7 @@ def mutated_views(estate: tuple[str, str]) -> tuple[str, Mapping[str, Asked]]:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g16_perspective_conditions_on_fibo_class(
     views: Mapping[str, Asked], mutated_views: tuple[str, Mapping[str, Asked]]
@@ -2689,7 +2689,7 @@ def duplicate_violations(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_the_duplicate_pair_is_surfaced_by_the_product(served: Asked) -> None:
     """Criterion 10, PRODUCT half. The same company entered twice is SURFACED.
@@ -2789,7 +2789,7 @@ def test_the_duplicate_check_refuses_a_merged_pair() -> None:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_the_served_anchor_is_a_member_of_the_served_tree(served: Asked) -> None:
     """The payload's anchor is in its own `nodes` block, by name.

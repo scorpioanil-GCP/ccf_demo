@@ -488,7 +488,7 @@ def moves_up(before: Decimal, after: Decimal) -> bool:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_the_two_twenties_are_different_populations(
     baseline: tuple[str, str],
@@ -603,7 +603,7 @@ def test_the_disclosure_check_refuses_a_document_that_dropped_it(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_d_c_moves_when_the_identity_boundary_moves(
     baseline: tuple[str, str],
@@ -671,7 +671,7 @@ def test_d_c_moves_when_the_identity_boundary_moves(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_the_attribute_boundary_moves_the_roster_and_not_the_debt(
     baseline: tuple[str, str],
@@ -727,7 +727,7 @@ def test_the_attribute_boundary_moves_the_roster_and_not_the_debt(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_pinning_the_debt_to_a_constant_breaks_the_movement_assertion(
     baseline: tuple[str, str],

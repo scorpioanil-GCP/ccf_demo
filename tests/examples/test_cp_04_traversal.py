@@ -679,7 +679,7 @@ def under_a_redeclared_default(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_the_seed_carries_what_these_five_gates_need(
     at_the_declared_default: Asked, at_the_shallow_depth: Asked
@@ -920,7 +920,7 @@ def class_violations(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g01_every_returned_node_carries_a_known_fibo_class(
     at_the_declared_default: Asked,
@@ -1010,7 +1010,7 @@ def predicate_violations(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g02_every_returned_edge_is_one_of_the_six_declared_predicates(
     at_the_declared_default: Asked,
@@ -1201,7 +1201,7 @@ def refusal_violations(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
 )
 def test_cft_g03_max_depth_above_the_technical_ceiling_is_refused_by_name(
     above_the_technical_capability: Asked,
@@ -1233,7 +1233,7 @@ def test_cft_g03_max_depth_above_the_technical_ceiling_is_refused_by_name(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_a_depth_the_estate_cannot_exhibit_is_served(
     at_a_depth_the_estate_cannot_exhibit: Asked,
@@ -1418,7 +1418,7 @@ def default_violations(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g04_a_missing_max_depth_takes_the_declared_default(
     at_the_declared_default: Asked, under_a_redeclared_default: Asked
@@ -1650,7 +1650,7 @@ def debt_movement_violations(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g05_depth_is_part_of_product_identity(
     at_the_shallow_depth: Asked,
@@ -1684,7 +1684,7 @@ def test_cft_g05_depth_is_part_of_product_identity(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_requested_depth_is_identity_even_where_it_changes_nothing_served(
     at_the_declared_default: Asked,
@@ -1728,7 +1728,7 @@ def test_requested_depth_is_identity_even_where_it_changes_nothing_served(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_cft_g19_findings_carry_depth_and_structural_cost_and_no_clock(
     at_the_declared_default: Asked,
@@ -2267,6 +2267,10 @@ def test_report_reads_the_deepest_integer_depth_not_the_sentinel() -> None:
 # Two boundary controls, as ruled: `0` refuses, `1` serves.
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-04 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_floor_is_the_sdks_verdict_over_the_declaration_and_needs_no_store() -> None:
     """The declaration says 1; the SDK refuses 0 and admits 1; nothing here reads a store.
 
@@ -2313,7 +2317,7 @@ def at_the_declared_floor(estate: tuple[str, str]) -> Asked:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine) | D-10/F-3 (recorder, ruled; masked)",
 )
 def test_below_the_declared_floor_is_refused_as_data_and_no_tree_is_returned(
     below_the_declared_floor: Asked,
@@ -2332,7 +2336,7 @@ def test_below_the_declared_floor_is_refused_as_data_and_no_tree_is_returned(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+    reason="D-IMPL-264 am.1 (D-08 paired outcome): frozen cp-04 assembler.py isinstance over the retired resolve_effective_request union — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 am.1 D-01/F-2 (construction, ruled; masked by the earlier quarantine)",
 )
 def test_at_the_declared_floor_is_served(at_the_declared_floor: Asked) -> None:
     """`1` serves — inclusive, as *"values 1–100 are valid"* reads."""

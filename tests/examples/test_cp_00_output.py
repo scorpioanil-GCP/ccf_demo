@@ -383,6 +383,10 @@ def _over(root: pathlib.Path, threshold: int, **kwargs: Any) -> tuple[Any, Any]:
 # --------------------------------------------------------------------------
 # 1 — the threshold selects.
 # --------------------------------------------------------------------------
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_resolve_reaches_the_same_security(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -401,6 +405,10 @@ def test_the_resolve_reaches_the_same_security(
     assert resolved["candidates_considered"] == len(fanout)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_threshold_selects(tmp_path: pathlib.Path, seeded: str) -> None:
     """The payload equals the SELECT oracle, row for row."""
     deployment = _load("deployment")
@@ -425,6 +433,10 @@ def test_the_threshold_selects(tmp_path: pathlib.Path, seeded: str) -> None:
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_a_row_exactly_at_the_threshold_is_served(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -449,6 +461,10 @@ def test_a_row_exactly_at_the_threshold_is_served(
     assert observed.product.payload["threshold"]["comparison"] == deployment.COMPARISON
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_band_is_carried_and_filtered_nowhere(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -475,6 +491,10 @@ def test_the_band_is_carried_and_filtered_nowhere(
 # --------------------------------------------------------------------------
 # 2, 3 — identity, not content.
 # --------------------------------------------------------------------------
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_two_thresholds_are_two_products(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -489,6 +509,10 @@ def test_two_thresholds_are_two_products(
     assert content_hash(first.product) != content_hash(second.product)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_same_question_is_stable(tmp_path: pathlib.Path, seeded: str) -> None:
     """Identical question, identical address — determinism, not coincidence."""
     low, _high, _exact = _thresholds(seeded)
@@ -555,6 +579,10 @@ def test_a_missing_threshold_is_refused_not_defaulted(
 # --------------------------------------------------------------------------
 # 5 — the assembler seam is the path.
 # --------------------------------------------------------------------------
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_assembler_seam_is_the_path(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -600,6 +628,10 @@ def test_the_assembler_seam_is_the_path(
 # --------------------------------------------------------------------------
 # 6 — the gate result is RECORDED, not assumed.
 # --------------------------------------------------------------------------
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_gate_result_is_recorded_not_assumed(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -727,6 +759,10 @@ def payload_shape_violations(payload: Any, declared: dict[str, Any]) -> list[str
     return problems
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_payload_validates_against_the_declared_contract(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -861,6 +897,10 @@ def test_the_client_returns_a_non_zero_exit_code_on_a_governed_refusal(
     assert "refused:" in buffer.getvalue(), buffer.getvalue()[:200]
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_printed_specification_and_json_are_non_empty_and_the_json_validates(
     printed: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -940,6 +980,10 @@ def _alternate_period(dsn: str) -> str:
         return str(cursor.fetchone()[0])
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_debt_is_driven_by_the_declared_freshness_anchor(
     tmp_path: pathlib.Path, seeded: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1008,6 +1052,10 @@ def test_debt_is_driven_by_the_declared_freshness_anchor(
 # --------------------------------------------------------------------------
 # 10 — the record is written before delivery.
 # --------------------------------------------------------------------------
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_record_is_written_before_delivery(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -1219,6 +1267,10 @@ def _integer_leaves(value: Any, path: str = "payload") -> list[tuple[str, int]]:
     return []
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ih_g01_every_served_row_cusip_equals_the_resolved_security(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -1277,6 +1329,10 @@ def test_ih_g01_every_served_row_cusip_equals_the_resolved_security(
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ih_g02_every_served_row_report_period_equals_the_pinned_period(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -1329,6 +1385,10 @@ def test_ih_g02_every_served_row_report_period_equals_the_pinned_period(
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ih_g03_every_served_row_carries_a_non_null_issuer_match_band(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -1365,6 +1425,10 @@ def test_ih_g03_every_served_row_carries_a_non_null_issuer_match_band(
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ih_g05_the_boundary_is_at_or_after_ingest_and_the_assembled_set_is_non_empty(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -1410,6 +1474,10 @@ def test_ih_g05_the_boundary_is_at_or_after_ingest_and_the_assembled_set_is_non_
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ih_g06_every_declared_class_names_and_carries_its_classification_attribute(
     tmp_path: pathlib.Path, seeded: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1530,6 +1598,10 @@ def test_ih_g06_every_declared_class_names_and_carries_its_classification_attrib
         )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ih_g07_an_empty_assembled_set_fails_closed_and_an_empty_served_set_serves(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -1584,6 +1656,10 @@ def test_ih_g07_an_empty_assembled_set_fails_closed_and_an_empty_served_set_serv
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen cp-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_ih_g08_the_payload_carries_no_count_of_rows_read(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
