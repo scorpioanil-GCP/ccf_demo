@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1002 entries**, of which **758** name a public Python surface.
+**1010 entries**, of which **766** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-488 entries — 448 public Python surface, 40 not public Python API.
+490 entries — 450 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -8940,6 +8940,57 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
 
+#### ccf.replay.record.ResolutionNotApplicable
+
+- Surface: ccf.replay.record.ResolutionNotApplicable
+- Public surface: true
+- Change type: added
+- Before: absent — the only way to say "no resolution" was the sentinel, which
+  a dropped resolution also said
+- After: a frozen `CCFContract` with a single REQUIRED field,
+  `reason: ResolutionNotApplicableReason`, and no default. Constructed by the
+  caller that knows why resolution does not apply, passed to
+  `build_replay_record` (or through the recorder seam) as the resolution
+  state, and rendered by the builder into
+  `PolicyBindingsSnapshot.request_resolution` as its canonical JSON — a
+  JSON object string, distinguishable from the sentinel by shape, which
+  `ResolutionNotApplicable.model_validate_json` reads back as itself
+- Why: `D-IMPL-264` D-09, Dave: *"Legitimate non-applicability. A path that
+  never invokes resolution should say so explicitly. Do not redefine all
+  direct validators as defective merely because the newer resolver exists."*
+  The reason is required on the `ProvenanceSource` discipline: an author who
+  never stated why has not stated non-applicability. No default means no
+  hash-transparency key and no roster entry (`D-IMPL-243`). SDK-defined
+  (CLAUDE.md §11); the whitepaper hook is §7.10's completeness commitment —
+  a record that captures four of the five dimensions leaves one class of
+  question permanently unanswerable
+- Migration: none — a new name. A caller that used to pass nothing now
+  constructs this with the reason that applies
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf.replay.record.ResolutionNotApplicableReason
+
+- Surface: ccf.replay.record.ResolutionNotApplicableReason
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["no-resolution-step", "refused-before-resolution"]` —
+  hyphenated lowercase like every sentinel in the module. `no-resolution-step`
+  is the direct validator's and the test fixture's claim (the path never
+  invokes a constraint resolver); `refused-before-resolution` is the delivery
+  boundary's (the determination was reached before resolution could begin —
+  an entitlement denial, or a class the deployment does not serve)
+- Why: a closed vocabulary rather than free text, so the reason is a fact
+  replay can branch on (plan `24.7-09`'s replay-time verification reads it)
+  and not prose a reader interprets. Two reasons, because research found
+  exactly two classes of legitimate non-applicability in `src/` and `runtime/`
+  (`24.7-RESEARCH.md` § Priority 1, classes (b)); a third is a design
+  question, not a string
+- Migration: none — a new name
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -9593,7 +9644,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-374 entries — 190 public Python surface, 184 not public Python API.
+377 entries — 193 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -13576,6 +13627,109 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
 
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: `resolution: "EffectiveRequest | None" = None`, last in the keyword
+  list. `None` — the default, and what every caller that never thought about
+  resolution passed — rendered dimension 2 as the sentinel
+  `no-request-resolution`, so a decision whose resolution never ran and a
+  decision whose caller dropped the resolution were the same artifact
+- After: `resolution: "EffectiveRequest | ResolutionNotApplicable"`, keyword-
+  only and REQUIRED, placed beside the other required inputs. Omitting it is
+  a `TypeError` from the call itself; passing `None` is a `ValueError` naming
+  *"an explicit resolution state"* and quoting P-2 — and that guard runs FIRST,
+  before the outcome guards, because a missing resolution state is an
+  integrity failure of the caller and not a malformed outcome; passing
+  anything that is not an `EffectiveRequest` or a `ResolutionNotApplicable`
+  (a pre-serialized string, for instance) is a `ValueError` saying the state
+  is *"never accepted pre-serialized"*. Whichever value is passed is rendered
+  once, from the value, through `canonical_bytes` — the `else` sentinel branch
+  is gone
+- Why: `D-IMPL-264` D-10, Dave: *"Make the builder require an explicit choice:
+  effective/partial resolution, or a typed not-applicable marker with a
+  reason. No implicit omission for new records."* And on the shape of the
+  signature: *"The builder's signature should make omission impossible to
+  express, not merely detected."* Sabotage executed: with the default
+  restored, `test_the_builder_refuses_an_omitted_resolution` goes red because
+  the omission is expressible again
+- Migration: every caller passes `resolution=`. A caller whose path ran the
+  constraint resolver passes the `EffectiveRequest` it produced (complete on
+  the served path; on a refusal, the partial record the paired
+  `ResolutionOutcome.evidence` carries — `24.7-02`). A caller whose path never
+  invokes resolution passes
+  `ResolutionNotApplicable(reason="no-resolution-step")`; a delivery boundary
+  that refuses before resolution could begin passes
+  `ResolutionNotApplicable(reason="refused-before-resolution")`. The 41 SDK
+  test sites are re-derived in plans `24.7-04` (the 15 in
+  `tests/replay/test_refusal_replay_record.py` and
+  `tests/replay/test_dimension_extensions.py`) and `24.7-06` (the remaining
+  26). The seven frozen example sites — cp-00, cp-01, cp-02, cp-03, s1-00 and
+  s1-01 without `resolution=`; cp-04 with it — are NOT migrated: their reds
+  are quarantined evidence under `D-IMPL-263` and `D-IMPL-261` (`D-IMPL-264`
+  D-13, Dave: *"cp-00–cp-03 therefore become quarantined evidence if their
+  existing calls fail under the new builder. Do not edit them."*)
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `record(..., resolution: EffectiveRequest | None = None)`. A caller
+  could omit the keyword and the seam passed `None` to the builder, which
+  wrote the sentinel — the omission the builder now refuses, delayed by one
+  call frame
+- After: `record(..., resolution: EffectiveRequest | ResolutionNotApplicable)`
+  — keyword-only, NO default. The `@runtime_checkable` check still covers only
+  the presence of `record`; `mypy` and
+  `tests/products/test_resolver_seam.py::test_no_recorder_signature_defaults_the_resolution_state`
+  (with a planted defaulting decoy as its control) read the signature. This
+  reshaping is invisible to the generated manifest: the loop skips Protocols,
+  which is why the fragment claims it here by name
+- Why: `D-IMPL-264` amendment 1 (F-3 a), Dave: *"If the builder is fail-closed
+  but the recorder still accepts `resolution=None`, then the API permits
+  exactly the omission we are trying to prohibit and merely delays the failure
+  by one call frame. Worse, having the recorder infer non-applicability would
+  contradict Q10/Q13."* And the invariant, verbatim: *"Any API that constructs
+  or delegates construction of a replay record must require an explicit
+  resolution state: effective/partial resolution or explicit not-applicable
+  marker. No intermediate layer may manufacture the marker from omission."*
+- Migration: an out-of-tree recorder declares `resolution` keyword-only with
+  no default and passes it through; every caller of any recorder passes it.
+  cp-04's frozen `deployment.py:771` `recorder.record(...)` passes none and is
+  accepted evidence under `D-IMPL-264` am.1, quarantined by `24.7-05`
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf.products.resolver.ReplayRefusalRecorder
+
+- Surface: ccf.products.resolver.ReplayRefusalRecorder
+- Public surface: true
+- Change type: reshaped
+- Before: `record(..., resolution: EffectiveRequest | None = None)`, passing
+  `resolution=resolution` to the builder
+- After: `record(..., resolution: EffectiveRequest | ResolutionNotApplicable)`
+  with no default, still passing `resolution=resolution` through verbatim —
+  the seam states nothing on the caller's behalf. The dataclass's own
+  constructor is unchanged, which is why the generated manifest (whose
+  captured shape for a class is its `__init__`) records no move here; the
+  fragment claims it by name. `GovernedResolver._record_refusal`, the
+  resolver's one minting seam, lost the same default; its three callers
+  already passed the state (`24.7-02` moved the last one)
+- Why: as the Protocol. Measured with `mypy` as the roster instrument: after
+  the defaults were removed it reported exactly two open callers in `src/` +
+  `runtime/` — the two boundary denials below — and nothing else
+- Migration: as the Protocol. The 15 recorder test sites in the RESEARCH
+  roster are re-derived in plans `24.7-04` (the 3 in
+  `tests/replay/test_refusal_replay_record.py`) and `24.7-06` (the remaining
+  12)
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -15993,7 +16147,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-133 entries — 113 public Python surface, 20 not public Python API.
+136 entries — 116 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -18699,6 +18853,70 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   reads the partial `EffectiveRequest` where it read the sentinel
 
 *Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
+
+#### ccf.replay.record.PolicyBindingsSnapshot
+
+- Surface: ccf.replay.record.PolicyBindingsSnapshot
+- Public surface: true
+- Change type: behavior
+- Before: `request_resolution: str`, defaulting to `no-request-resolution`
+  and hash-transparent at that value; a new record's value was either the
+  sentinel or the canonical bytes of an `EffectiveRequest`
+- After: the field's type, default and hash posture are UNCHANGED. Its VALUE
+  is now one of three canonical forms, and only the first is a compatibility
+  claim: the legacy sentinel (a record written before 24.7, or parsed from
+  bytes that omit the field); the canonical bytes of the `EffectiveRequest`
+  that resolution produced, complete or partial; or the canonical bytes of a
+  `ResolutionNotApplicable` marker. A record the 24.7 builder minted carries
+  one of the latter two — never the sentinel
+- Why: `D-IMPL-264` D-10 and D-12 together — the new records are explicit, and
+  the old ones are preserved exactly. Keeping the type `str` and the default
+  the sentinel is what lets both hold at once with no roster change
+- Migration: none for a reader. A reader that branched on
+  `== NO_REQUEST_RESOLUTION` still reads legacy records correctly; a reader
+  that parsed every non-sentinel value as an `EffectiveRequest` must now try
+  the marker first (its JSON has exactly one key, `reason`)
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_absence
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_absence
+- Public surface: true
+- Change type: behavior
+- Before: the denial's record carried the sentinel on dimension 2 — read
+  exactly like a record whose caller dropped the resolution
+- After: the denial passes
+  `resolution=ResolutionNotApplicable(reason="refused-before-resolution")`,
+  and its record states, with that reason, that the class the deployment does
+  not serve was refused before resolution could begin. The signature is
+  unchanged
+- Why: `D-IMPL-264` D-09 — a positive absence the door states in the
+  `NO_ROLE_RESOLVED` voice, never one the seam infers from silence. Proven by
+  `tests/authz/test_delivery_boundary.py::test_an_absence_denial_states_it_was_refused_before_resolution_began`
+- Migration: none for a caller of the door; a reader of the record finds the
+  marker where it found the sentinel
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_entitlement
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_entitlement
+- Public surface: true
+- Change type: behavior
+- Before: as `govern_absence` — the entitlement denial's record carried the
+  sentinel
+- After: the denial passes
+  `resolution=ResolutionNotApplicable(reason="refused-before-resolution")`;
+  the served path through the resolver is untouched (the resolver records the
+  resolution that ran). The signature is unchanged
+- Why: as `govern_absence`. Sabotage executed: the reason swapped to
+  `no-resolution-step` on this denial alone turned
+  `test_an_entitlement_denial_states_it_was_refused_before_resolution_began`
+  red and left the absence test green
+- Migration: none for a caller of the door
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
 
 ### Not public Python API
 

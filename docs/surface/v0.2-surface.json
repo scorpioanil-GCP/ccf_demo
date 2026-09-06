@@ -6004,6 +6004,8 @@
       "PerspectiveConditioning",
       "PolicyBinding",
       "PolicyBindingsSnapshot",
+      "ResolutionNotApplicable",
+      "ResolutionNotApplicableReason",
       "build_replay_record",
       "mint_assembly_refusal"
     ],
@@ -6171,9 +6173,19 @@
           "survivor_cap": "int | None"
         }
       },
+      "ResolutionNotApplicable": {
+        "kind": "contract",
+        "shape": {
+          "reason": "typing.Literal['no-resolution-step', 'refused-before-resolution']"
+        }
+      },
+      "ResolutionNotApplicableReason": {
+        "kind": "function",
+        "shape": "typing.Literal['no-resolution-step', 'refused-before-resolution']"
+      },
       "build_replay_record": {
         "kind": "function",
-        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, resolution: \"'EffectiveRequest | None'\" = None) -> 'DecisionReplayRecord'"
+        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', resolution: \"'EffectiveRequest | ResolutionNotApplicable'\", refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None) -> 'DecisionReplayRecord'"
       },
       "mint_assembly_refusal": {
         "kind": "function",
