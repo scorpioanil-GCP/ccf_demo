@@ -995,20 +995,22 @@ def test_from_declared_refuses_a_malformed_unsupported_arguments(
     assert "unsupported_arguments" in str(raised.value)
 
 
-def test_the_reason_vocabulary_has_eight_members_tier_proportion_then_domain() -> None:
+def test_the_reason_vocabulary_has_nine_members_tier_proportion_domain_then_membership() -> None:
     """``24.5-L-12``: the fifth member, in the vocabulary's hyphenated spelling;
     ``24.5-WR-02``: the sixth, appended after it; ``D-IMPL-259``: the two
-    domain verdicts, appended after that — appended, never inserted, so a
-    reader of an older record's reason meets the same roster prefix."""
+    domain verdicts, appended after that; ``D-IMPL-264`` D-05: the ninth,
+    ``not-in-domain``, appended LAST — appended, never inserted, so a reader
+    of an older record's reason meets the same roster prefix."""
     import typing
 
     from ccf.products.request import ProductRequestViolationReason
 
     members = typing.get_args(ProductRequestViolationReason)
-    assert len(members) == 8
-    assert members[-4] == "not-supported-at-tier"
-    assert members[-3] == "not-a-proportion"
-    assert members[-2:] == ("below-minimum", "above-maximum")
+    assert len(members) == 9
+    assert members[-5] == "not-supported-at-tier"
+    assert members[-4] == "not-a-proportion"
+    assert members[-3:-1] == ("below-minimum", "above-maximum")
+    assert members[-1] == "not-in-domain"
 
 
 # --- (g) the tolerance interval: a request number that is not a proportion ---
@@ -1793,3 +1795,216 @@ def test_a_numeric_bounds_domain_judges_exactly_as_before() -> None:
     assert domain.refuses(Decimal(DOMAIN_CEILING)) is None
     assert domain.refuses("zero") is None
     assert domain.refuses(True) is None
+
+
+# ---------------------------------------------------------------------------
+# `not-in-domain` through the contract validator, the domain step and the
+# request-conformity order (`D-IMPL-264` D-03/D-05/D-06; plan 24.7-01 Task 2).
+# ---------------------------------------------------------------------------
+# Dave (Q5): *"New `not-in-domain` reason. Wrong type and valid type/wrong
+# value are materially different failures. The presented value can be named;
+# disclosure controls whether the allowed set is exposed."* The members are
+# the fixture's, never the SDK's (CINV-01).
+
+ENUMERATED_PARAMETER = "required_leaf"
+ENUMERATED_MEMBERS = ("alpha", "beta")
+
+
+def _enumerated(**overrides: Any) -> ProductRequestContract:
+    fields: dict[str, Any] = {
+        "argument_domains": {
+            ENUMERATED_PARAMETER: ArgumentDomain(members=ENUMERATED_MEMBERS)
+        }
+    }
+    fields.update(overrides)
+    return _contract(**fields)
+
+
+def _typed_arguments() -> SkillArgumentSchema:
+    """The fixture surface plus a `number` and a `boolean` leaf, so every
+    primitive type `D-IMPL-264` D-06 admits has a declared parameter."""
+    arguments = _arguments()
+    return SkillArgumentSchema(
+        properties={
+            **dict(arguments.properties),
+            "numeric_leaf": SkillArgumentProperty(type="number", description="a number"),
+            "flag_leaf": SkillArgumentProperty(type="boolean", description="a flag"),
+        },
+        required=arguments.required,
+    )
+
+
+def test_an_enumerated_domain_over_a_string_parameter_is_admitted() -> None:
+    """D-06: the sibling of the magnitude refusal — an enumerated shape over a
+    string is exactly what the shape is for."""
+    contract = _enumerated()
+    assert contract.argument_domains[ENUMERATED_PARAMETER].members == ENUMERATED_MEMBERS
+    assert (
+        ProductRequestContract.model_validate_json(contract.model_dump_json())
+        == contract
+    )
+
+
+@pytest.mark.parametrize(
+    "name, members",
+    [
+        ("required_leaf", ("alpha",)),
+        ("optional_leaf", (1, 2)),
+        ("numeric_leaf", (1, Decimal("1.5"))),
+        ("flag_leaf", (True, False)),
+    ],
+)
+def test_an_enumerated_domain_is_admitted_over_every_primitive_type(
+    name: str, members: tuple[Any, ...]
+) -> None:
+    """Criterion 5: string, integer, number, boolean — *"don't unnecessarily
+    make this string-specific"*."""
+    contract = _contract(
+        arguments=_typed_arguments(),
+        argument_domains={name: ArgumentDomain(members=members)},
+    )
+    assert contract.argument_domains[name].members == members
+
+
+def test_numeric_bounds_over_a_string_parameter_stay_refused_as_unmeasurable() -> None:
+    """Criterion 5's other half: relaxing `unmeasurable` for the enumerated
+    shape must not relax it for the numeric one."""
+    with pytest.raises(ValueError) as raised:
+        _contract(argument_domains={"required_leaf": ArgumentDomain(minimum=1)})
+    assert "required_leaf" in str(raised.value)
+    assert "magnitude" in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "name, members, declared",
+    [
+        ("optional_leaf", ("alpha",), "integer"),
+        ("required_leaf", (1,), "string"),
+        ("optional_leaf", (Decimal("1.5"),), "integer"),
+        ("flag_leaf", (1, 0), "boolean"),
+        ("numeric_leaf", (True,), "number"),
+        ("nested", ("alpha",), "object"),
+    ],
+)
+def test_a_mistyped_enumerated_domain_is_refused_naming_the_parameter(
+    name: str, members: tuple[Any, ...], declared: str
+) -> None:
+    """D-06: *"homogeneous members matching the declared property type"* —
+    a member set whose class is not the property's is refused at contract
+    construction, naming the parameter and the declared type (criterion 1)."""
+    with pytest.raises(ValueError) as raised:
+        _contract(
+            arguments=_typed_arguments(),
+            argument_domains={name: ArgumentDomain(members=members)},
+        )
+    message = str(raised.value)
+    # The fragment the `mistyped` list renders for THIS parameter, so the
+    # assertion cannot be satisfied by the sentence's other clauses (which
+    # name every offender class, and the words "integer" and "number", on
+    # every refusal).
+    assert f"{name} declares {declared} but enumerates" in message
+    assert "mistyped" in message
+
+
+def test_a_default_outside_an_enumerated_domain_is_refused_at_declaration() -> None:
+    """Criterion 2: the existing default-respects-domain validator, extended to
+    membership — the class contradicting itself fails where the author can
+    fix it, naming the parameter."""
+    with pytest.raises(ValueError) as raised:
+        _enumerated(defaults={ENUMERATED_PARAMETER: "gamma"})
+    # The `contradicted` list, with this parameter IN it — the sentence
+    # carries the fragment on every refusal, so the bare substring would pass
+    # against an `unmeasurable` refusal of the same contract.
+    assert (
+        f"['{ENUMERATED_PARAMETER}'] carry a declared default outside their own domain"
+        in str(raised.value)
+    )
+
+
+def test_a_default_inside_an_enumerated_domain_is_admitted() -> None:
+    contract = _enumerated(defaults={ENUMERATED_PARAMETER: ENUMERATED_MEMBERS[0]})
+    assert contract.defaults[ENUMERATED_PARAMETER] == ENUMERATED_MEMBERS[0]
+
+
+def test_from_declared_reads_an_enumerated_domain() -> None:
+    declaration = dict(_declared().declaration)
+    declaration["argument_domains"] = {
+        ENUMERATED_PARAMETER: {"members": list(ENUMERATED_MEMBERS)}
+    }
+    contract = ProductRequestContract.from_declared(_declared(declaration=declaration))
+    assert contract.argument_domains[ENUMERATED_PARAMETER] == ArgumentDomain(
+        members=ENUMERATED_MEMBERS
+    )
+
+
+def test_a_value_outside_an_enumerated_domain_is_refused_as_not_in_domain() -> None:
+    """Criterion 3: returned as data by the domain step, naming the key and the
+    presented value; the allowed set rides in `detail` (D-05)."""
+    verdict = refuse_request(
+        request=_request(parameters={ENUMERATED_PARAMETER: "gamma"}),
+        declared=_enumerated(),
+    )
+    assert verdict is not None
+    assert verdict.reason == "not-in-domain"
+    assert verdict.key == ENUMERATED_PARAMETER
+    assert verdict.declared_type == "string"
+    assert verdict.presented_type == "str"
+    assert "gamma" in verdict.detail
+    for member in ENUMERATED_MEMBERS:
+        assert member in verdict.detail
+    assert "D-IMPL-264" in verdict.detail
+    assert verdict.declared_keys == frozenset(_arguments().properties)
+    assert verdict.presented_keys == frozenset({ENUMERATED_PARAMETER})
+
+
+def test_a_mistyped_enumerated_parameter_is_still_type_mismatch() -> None:
+    """D-05: *"wrong type and valid type/wrong value are materially different
+    failures"* — the payload comparison still wins by order."""
+    verdict = refuse_request(
+        request=_request(parameters={ENUMERATED_PARAMETER: 1}),
+        declared=_enumerated(),
+    )
+    assert verdict is not None
+    assert verdict.reason == "type-mismatch"
+
+
+def test_a_member_of_an_enumerated_domain_is_admitted_end_to_end() -> None:
+    assert (
+        refuse_request(
+            request=_request(parameters={ENUMERATED_PARAMETER: ENUMERATED_MEMBERS[1]}),
+            declared=_enumerated(),
+        )
+        is None
+    )
+
+
+def test_an_earlier_step_wins_over_the_enumerated_domain_step() -> None:
+    """The order is unchanged and the domain step is still LAST: a request the
+    address or tier step refuses never reaches membership."""
+    inert = _enumerated(unsupported_arguments={INERT_PARAMETER: INERT_REASON})
+    tier = refuse_request(
+        request=_request(
+            parameters={ENUMERATED_PARAMETER: "gamma", INERT_PARAMETER: "x"}
+        ),
+        declared=inert,
+    )
+    assert tier is not None and tier.reason == "not-supported-at-tier"
+    address = refuse_request(
+        request=_request(
+            schema_version="9.9.9", parameters={ENUMERATED_PARAMETER: "gamma"}
+        ),
+        declared=_enumerated(),
+    )
+    assert address is not None and address.reason == "class-mismatch"
+
+
+def test_the_ninth_reason_names_no_runtime_module() -> None:
+    """Criterion 7: `runtime/` is untouched by the new reason — the door maps
+    by CLASS (`ProductRequestViolation` -> 400), never by reason token."""
+    runtime = REQUEST_MODULE.parent.parent.parent.parent / "runtime"
+    hits = [
+        path
+        for path in runtime.rglob("*.py")
+        if "not-in-domain" in path.read_text(encoding="utf-8")
+    ]
+    assert hits == []
