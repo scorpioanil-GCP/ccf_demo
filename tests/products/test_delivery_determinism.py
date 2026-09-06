@@ -86,7 +86,7 @@ from ccf.products.disclosure import DISCLOSURE_MINIMAL, DisclosureDecision
 from ccf.products.disclosure import WITHHELD
 from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
-from ccf.products.provenance import EffectiveRequest
+from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
     NO_REPLAY_REFERENCE,
     REFUSAL_KINDS,
@@ -100,6 +100,7 @@ from ccf.replay.record import (
     NO_DISCLOSURE_DECISION,
     NO_REQUEST_RESOLUTION,
     DecisionReplayRecord,
+    PolicyBinding,
 )
 from ccf.replay.serve import ServedProduct
 
@@ -598,12 +599,142 @@ def test_a_refused_request_records_the_override_it_attempted(
     assert attempt["policy_id"] == POLICY_THRESHOLD
     assert attempt["entitled"] is False and attempt["honored"] is False
     assert attempt["principal_id"] == PERSPECTIVE.principal_id
-    # And the dimension-2 resolution is the sentinel: there was no resolution,
-    # which is exactly why the attempt has to ride on the refusal.
-    assert _resolution_of(record) == NO_REQUEST_RESOLUTION
+    # And the dimension-2 resolution is the resolution that RAN: the attempt
+    # rides on the refusal, AND the partial work resolution established before
+    # the bound refused rides with it (`D-IMPL-264` D-07). The shipped tree
+    # recorded the sentinel here — a refusal minted as if nothing had been
+    # resolved — and that assertion was observed red before the fix.
+    assert _resolution_of(record) != NO_REQUEST_RESOLUTION, _resolution_of(record)
+    partial = EffectiveRequest.model_validate_json(_resolution_of(record))
+    assert [o.policy_id for o in partial.overrides] == [POLICY_THRESHOLD]
     # The shell withholds it at this tenant's level — an entitlement verdict is
     # fabric state — so the record is where the attempt is answerable from.
     assert shell.fields["overrides"] == canonical_bytes(WITHHELD).decode("utf-8")
+
+
+def test_a_refusal_minted_by_resolution_carries_the_partial_resolution_and_the_contract_pin(
+    tmp_path: pathlib.Path,
+) -> None:
+    """``D-IMPL-264`` D-07, criterion 13, ledger row ``CP04-G-33`` — on the RECORD.
+
+    Dave, verbatim (``24.7-RULINGS.md`` §3 Q7): *"Resolution participated
+    whenever the resolution step actually ran. If it refuses halfway through,
+    that partial work is still governed truth and belongs in replay. 'It
+    failed before producing an effective request' must not erase what
+    resolution already established."*
+
+    The scenario is the override-attempt case above with one addition: the
+    product class also declares a default tolerance, so that THREE
+    version-bearing authorities were consulted before a bound refused — the
+    request contract (its pin), the class declaration (its pin) and the
+    threshold constraint (its pin) — plus the request's own identity and the
+    unentitled override attempt. Every one of them is governed truth the
+    refusal was reached with, and every one is asserted where replay reads
+    it: the partial :class:`~ccf.products.provenance.EffectiveRequest` on
+    dimension 2, the pins as ``PolicyBinding`` rows beside it, and the same
+    partial record on the internal shell's ``provenance`` with its
+    ``applied`` as the shell's ``policy_bindings`` — exactly what the two
+    post-assembly refusal branches already record.
+
+    What fails here on the shipped tree, and was OBSERVED failing before the
+    fix (red-first, the plan's discipline): dimension 2 holds the sentinel
+    ``no-request-resolution``, because the governed resolver's pre-assembly
+    refusal branch minted the record with no resolution although defaults,
+    constraints and capabilities had been resolved first. That is the one
+    class-(c) omission ``CP04-G-33`` names inside the SDK.
+    """
+    documents = _tolerance_documents(class_default=CLASS_DEFAULT_TOLERANCE)
+    contract = documents["request_contract"]["declaration"]
+    contract["arguments"]["properties"][DEPTH_PARAMETER] = {
+        "type": "number",
+        "description": "Fixture depth; bounded by what the substrate can do.",
+    }
+    contract["capability_bindings"] = {DEPTH_PARAMETER: CAPABILITY_TRAVERSAL_DEPTH}
+    with _deployment(tmp_path / "partial", **documents) as booted:
+        booted.control_plane.register_typed(
+            KEY_THRESHOLD,
+            _constraint(
+                policy_id=POLICY_THRESHOLD,
+                parameter=THRESHOLD_PARAMETER,
+                operator="maximum",
+                value=THRESHOLD_MAXIMUM_FIRST,
+            ),
+            POLICY_CONSTRAINT,
+        )
+        resolver = _governed(
+            booted,
+            capabilities=(
+                TechnicalCapability(
+                    capability=CAPABILITY_TRAVERSAL_DEPTH,
+                    maximum=DEPTH_MAXIMUM,
+                    identity=BACKEND_IDENTITY,
+                ),
+            ),
+        )
+        request = _request(
+            parameters={
+                THRESHOLD_PARAMETER: CALLER_THRESHOLD,
+                DEPTH_PARAMETER: DEPTH_ASKED,
+            },
+            policy_overrides=(POLICY_THRESHOLD,),
+        )
+        shell = _ask(resolver, request)
+        assert isinstance(shell, RefusalEnvelope), shell
+        assert shell.kind == "constraint-refusal"
+        record = _record_of(booted, shell)
+        # The pins the resolver itself minted, computed the way it computes
+        # them: a content address of the exact bytes it read (`D-IMPL-26`).
+        declaration = resolver._declaration()
+        declared = resolver._request_contract(declaration)
+    contract_source = ProvenanceSource(
+        kind="artifact",
+        identity=resolver.request_contract_key,
+        version=content_hash(declared),
+    )
+    class_source = ProvenanceSource(
+        kind="artifact",
+        identity=resolver.product_class_key,
+        version=content_hash(declaration),
+    )
+
+    # Dimension 2 carries the resolution that ran, not the sentinel.
+    assert _resolution_of(record) != NO_REQUEST_RESOLUTION, _resolution_of(record)
+    partial = EffectiveRequest.model_validate_json(_resolution_of(record))
+    assert contract_source in partial.applied, partial.applied
+    assert class_source in partial.applied, partial.applied
+    constraint_sources = [
+        source
+        for source in partial.applied
+        if source.kind == "artifact" and source.identity == KEY_THRESHOLD
+    ]
+    assert len(constraint_sources) == 1, partial.applied
+    assert partial.asked_at == request.asked_at
+    assert [o.policy_id for o in partial.overrides] == [POLICY_THRESHOLD]
+    assert partial.overrides[0].entitled is False
+    # The defaulted tolerance the class declared WAS resolved before the bound
+    # refused — the partial work D-07 refuses to erase.
+    tolerance = partial.parameter(DEBT_TOLERANCE_PARAMETER)
+    assert tolerance is not None and tolerance.authority == "default"
+    assert tolerance.source == class_source
+
+    # The version-bearing pins land as `PolicyBinding` rows, so the record is
+    # falsifiable from pinned state (D-07, D-08; what D-11 infers from).
+    bindings = record.policy_bindings.bindings
+    assert (
+        PolicyBinding(key=resolver.request_contract_key, version=content_hash(declared))
+        in bindings
+    ), bindings
+    assert (
+        PolicyBinding(key=resolver.product_class_key, version=content_hash(declaration))
+        in bindings
+    ), bindings
+    assert any(binding.key == KEY_THRESHOLD for binding in bindings), bindings
+
+    # And the internal shell says the same thing the record does — one value
+    # serving both readers, so they cannot disagree (`D-IMPL-254`).
+    internal = RefusalEnvelope.model_validate_json(_refusal_block(record))
+    assert internal.provenance == partial
+    assert internal.policy_bindings == partial.applied
 
 
 # --- (3) policy-resolution-conflict -------------------------------------------
