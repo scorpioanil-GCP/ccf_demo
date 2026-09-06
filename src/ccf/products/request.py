@@ -108,7 +108,9 @@ from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.products.provenance import OverrideRecord
 from ccf.products.contract import (
     NO_REQUEST_CONTRACT,
+    NOT_DISCOVERABLE,
     ProductClassRegistrationError,
+    ProductDiscovery,
     ServeObligations,
 )
 
@@ -161,6 +163,7 @@ __all__ = [
     "ProductRequestContract",
     "ProductRequestViolation",
     "ProductRequestViolationReason",
+    "refuse_intent",
     "refuse_request",
     "refuse_request_contract_pin",
     "refuse_undeclared_class_default",
@@ -185,6 +188,12 @@ __all__ = [
 #: translate. The fourth has no payload analogue: a payload belongs to whatever
 #: product carried it, while a request is **addressed**, and a request handed
 #: to the wrong class's contract is a mis-delivery rather than a bad argument.
+#: The same token, at ``key="intent"``, is the verdict of :func:`refuse_intent`
+#: (``D-IMPL-264`` D-01): §6.3 makes intent an addressing token, and a class
+#: not registered to serve the intent is addressed to the wrong class in the
+#: same family as a lane mismatch. No tenth token was added for it — the
+#: vocabulary is fixed at nine (criterion 7) and ``key`` already reads *the
+#: field that disagreed* for this reason.
 #:
 #: The fifth, ``not-supported-at-tier``, is the Context Product Specification
 #: Standard's ``400 not_supported_at_tier`` (``references/Context_Product_Specification_Standard_v0-3.md``
@@ -620,6 +629,44 @@ class ProductRequestContract(VersionedArtifact):
     argument_domains: Mapping[str, ArgumentDomain] = Field(
         default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+
+    @model_validator(mode="after")
+    def _intent_is_not_declared_as_an_argument(self) -> "ProductRequestContract":
+        """Refuse an ``intent`` property: a shadow of the top-level field.
+
+        ``D-IMPL-264`` D-01 (Dave, verbatim): *"`intent` is a top-level
+        request concept, not an ordinary argument. `ProductDiscovery.intents`
+        is the declaration of what the class serves. A duplicate
+        `arguments.properties.intent` is a shadow declaration and should fail
+        contract construction."* Every request carries
+        :attr:`ProductRequest.intent` as one of the four address axes (§6.3),
+        and what a class serves is declared once, on
+        :class:`~ccf.products.contract.ProductDiscovery`; a parameter of the
+        same name would be a second place to say it, judged by a different
+        rule (the payload comparison) from the one that judges the field
+        (:func:`refuse_intent`). Refused at construction — first, before any
+        other validator — so an author is told about the shadow before the
+        rest of the document is judged around it.
+
+        The comparison is against the ONE field name and nothing else — no
+        collection of reserved names lives in this module (the
+        ``_string_collection_constants`` guard in
+        ``tests/products/test_request_contract.py``).
+
+        Amendment 1 F-2: the frozen rungs cp-01 through cp-04 declare exactly
+        this shadow and fail here; they are evidence, read by the tests and
+        never edited (``D-IMPL-261``).
+        """
+        if "intent" in self.arguments.properties:
+            raise ValueError(
+                f"the request contract for {self.schema_name!r} at class lane "
+                f"{self.schema_version!r} declares 'intent' under "
+                "arguments.properties, which is a shadow of the top-level "
+                "request field ProductRequest.intent; what a class serves is "
+                "declared once, on ProductDiscovery.intents, and judged there "
+                "— remove the argument (D-IMPL-264 D-01, amendment 1 F-2)"
+            )
+        return self
 
     @model_validator(mode="after")
     def _every_domain_bounds_a_declared_number_the_default_respects(
@@ -1246,7 +1293,11 @@ class ProductRequestViolation(CCFContract):
             exposure without a new row (``D-IMPL-264`` D-05, the disclosure
             channel); advertising the set to a caller BEFORE the request is
             the other channel, the canonical contract render (D-02), and is
-            not a refusal's business.
+            not a refusal's business. For an intent refusal
+            (:func:`refuse_intent`, ``class-mismatch`` at ``key="intent"``)
+            it carries the presented intent and the sorted declared set on
+            exactly the same rule — the set ONLY here, never in
+            ``declared_type`` (``D-IMPL-264`` amendment 3 A-8 a).
         overrides: Every override the request attempted, with its entitlement
             result, when this violation was reached by
             :func:`~ccf.products.constraints.resolve_effective_request` —
@@ -1609,6 +1660,75 @@ def refuse_request(
     if tolerance is not None:
         return tolerance
     return _refuse_domain(request=request, declared=declared)
+
+
+def refuse_intent(
+    *, request: ProductRequest, discovery: ProductDiscovery
+) -> ProductRequestViolation | None:
+    """Is this request's intent one the class is registered to serve?
+
+    ``D-IMPL-264`` D-01 as amended by amendment 1 (F-1 a). Dave, verbatim:
+    *"Absence of a discovery declaration is non-applicability. Presence of a
+    discovery declaration makes its intent set authoritative, including an
+    explicitly empty set."* The whitepaper hook is §6.3: intent is one of the
+    axes a caller addresses a product by, and the registry entry a class
+    publishes is what says which intents it answers.
+
+    Three states, and the first is not the third:
+
+    * ``discovery == NOT_DISCOVERABLE`` — **no declaration exists**, and the
+      intent is **unjudged**: ``None``, whatever the intent. The sentinel is
+      the positive assertion *this class is reached by direct reference*,
+      not a statement that it serves zero intents; every class shipped
+      before this phase is in that state and serves exactly as it did. The
+      comparison is by equality with the sentinel, so a deployment that
+      writes the sentinel's exact content has written the not-discoverable
+      state and is read as such.
+    * declared, and ``request.intent in discovery.intents`` — ``None``.
+    * declared, and not a member — a :class:`ProductRequestViolation`
+      returned as data (``D-IMPL-251``): ``class-mismatch`` at
+      ``key="intent"``, because §6.3 makes intent an addressing token and a
+      class not registered to serve it is addressed to the wrong class, in
+      the same family as a lane mismatch. A declared **empty** set refuses
+      every intent — *"an explicitly declared empty set means 'serves
+      none'"* — which is the state the sentinel is NOT.
+
+    Membership is exact (D-04's rule, one field over): ``"A"`` is not
+    ``"a"`` and ``" a"`` is not ``"a"``; nothing trims, folds or aliases.
+
+    The declared set rides in ``detail`` ONLY — never in ``declared_type``,
+    which :data:`~ccf.products.disclosure.PERMITTED_AT_MINIMAL` lets cross —
+    so a refusal shell reveals it according to the disclosure level, exactly
+    as the enumerated argument domain's members do (``D-IMPL-264`` amendment
+    3 A-8 a, Dave: *"a refusal shell reveals it only according to the
+    disclosure level"*). Advertising the set BEFORE the request is the
+    canonical discovery representation's business, not a refusal's.
+
+    A sibling of :func:`refuse_request`, not a step inside it: that function
+    sees the request and the contract only, and the declaration that carries
+    ``discovery`` is in scope where the class is resolved
+    (:meth:`ccf.products.resolver.GovernedResolver.resolve`), which hosts
+    this judgment beside its address check. Direct validators that never
+    hold a declaration never judge intent — consistent with D-09.
+    """
+    if discovery == NOT_DISCOVERABLE:
+        return None
+    if request.intent in discovery.intents:
+        return None
+    return ProductRequestViolation(
+        reason="class-mismatch",
+        key="intent",
+        declared_type=None,
+        presented_type=request.intent,
+        declared_keys=frozenset(),
+        presented_keys=frozenset(),
+        detail=(
+            f"this request is addressed with intent {request.intent!r} and the"
+            f" class it names is registered to serve {sorted(discovery.intents)};"
+            " a declared intent set is authoritative and an explicitly empty one"
+            " serves none (D-IMPL-264 D-01, amendment 1 F-1 a; whitepaper §6.3)"
+        ),
+    )
 
 
 def request_seeds(request: ProductRequest | None) -> frozenset[str] | None:
