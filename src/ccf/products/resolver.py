@@ -213,6 +213,7 @@ from ccf.products.refusal import (
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
+    refuse_intent,
     refuse_undeclared_class_default,
 )
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
@@ -1276,6 +1277,45 @@ class GovernedResolver:
             parameters=request.parameters,
             temporal_boundary=request.asked_at,
         )
+
+        # 24.7-07: is this class registered to serve the intent the request is
+        # addressed with? An ADDRESSING verdict, and it precedes resolution for
+        # the reason `_refuse_address` states for the lane check: judging the
+        # parameters of a request for a class that does not serve its intent
+        # is a confident verdict about the wrong question. Judged HERE, where
+        # the declaration that carries `discovery` is in scope, and not inside
+        # `refuse_request`, which never sees it — so direct validators that
+        # hold no declaration never judge intent (D-09). Three states
+        # (`D-IMPL-264` D-01 as amended, F-1 a): no declaration
+        # (`NOT_DISCOVERABLE`) → unjudged, every existing deployment serves
+        # as it did; declared and a member → serves; declared and not a member
+        # — including a declared EMPTY set — → refused as data.
+        violation = refuse_intent(request=request, discovery=declaration.discovery)
+        if violation is not None:
+            # No resolution ran, and the record says so positively rather than
+            # by omission (D-09/D-10, P-2). What DID decide this outcome is the
+            # class's declared intent set, so the deciding declaration IS
+            # pinned — minted the way `class_source` mints it below, so the pin
+            # resolves to the exact bytes that declared the set (`D-IMPL-264`
+            # amendment 3 B-3 a, Dave: *"The refusal was decided by the class's
+            # declared intent set, so replay should preserve the declaration
+            # that actually governed the outcome"*). No request contract and no
+            # constraint is pinned, because none was resolved against — which
+            # is what lets replay read *request-contract pin + applicable
+            # constraint pins* as the evidence that resolution ran, and never
+            # a class-declaration pin (D-11 as narrowed by the same amendment).
+            return self._record_refusal(
+                envelope=envelope_for(violation, request=identity),
+                execution=None,
+                request=request,
+                perspective=perspective,
+                policy_bindings=(
+                    PolicyBinding(
+                        key=self.product_class_key, version=content_hash(declaration)
+                    ),
+                ),
+                resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+            )
 
         # THE DOOR, and this composition is the resolver standing at it. The
         # comparison the two shipped doors cannot make, because neither holds
