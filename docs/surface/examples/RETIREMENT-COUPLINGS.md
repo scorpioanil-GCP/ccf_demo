@@ -309,7 +309,7 @@ Rows by coupling shape:
 | `tests/products/test_required_operators_guard.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/products/test_required_operators_guard.py` | 112 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 11 | - | 17-08 | `MINIMUM_IMPLEMENTATIONS` — floor 9, 19 witnesses, headroom 10; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 12 (17-08) |
 | `tests/products/test_required_operators_guard.py` | 235 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 11 | - | 17-08 | `_implementations()` feeds `MINIMUM_IMPLEMENTATIONS` — floor 9, 19 witnesses, headroom 10; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 12 (17-08) |
-| `tests/replay/test_engine_rehydration.py` | 1157 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/product-governance.yaml` |
+| `tests/replay/test_engine_rehydration.py` | 1161 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/product-governance.yaml` |
 | `tools/docs_tests/test_gate_two_wording.py` | 162 | `public/tutorial/adopters-guide.md` | `docstring` | documentary | - | - | 23-10 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 17 | `examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 18 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 23-10 |  |
@@ -357,7 +357,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/PROJECT.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/REQUIREMENTS.md` | 94 | the phase's own planning tree — not shipped, not published |
 | `.planning/ROADMAP.md` | 37 | the phase's own planning tree — not shipped, not published |
-| `.planning/STATE.md` | 8 | the phase's own planning tree — not shipped, not published |
+| `.planning/STATE.md` | 11 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/16-config-consolidation.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/ledgers/2026-08-14-property-not-shape-gating.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/milestones/v0.1-ROADMAP.md` | 6 | the phase's own planning tree — not shipped, not published |
@@ -785,6 +785,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.6-sdk-gap-phase-the-delivery-boundary-realized-refusal-as-a-go/24.6-15-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.6-sdk-gap-phase-the-delivery-boundary-realized-refusal-as-a-go/24.6-16-SUMMARY.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.6-sdk-gap-phase-the-delivery-boundary-realized-refusal-as-a-go/24.6-CLOSE-PREP.md` | 5 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-06-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-08-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-CONTEXT.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-LEGS.md` | 50 | the phase's own planning tree — not shipped, not published |
