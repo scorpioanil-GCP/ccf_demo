@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1010 entries**, of which **766** name a public Python surface.
+**1014 entries**, of which **770** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-490 entries — 450 public Python surface, 40 not public Python API.
+492 entries — 452 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -8991,6 +8991,73 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
 
+#### ccf.products.request_schema.render_request_input_schema
+
+- Surface: ccf.products.request_schema.render_request_input_schema
+- Public surface: true
+- Change type: added
+- Before: absent. The only render of an argument schema in the tree was
+  `SkillArgumentSchema.to_input_schema`, which sees a `SkillArgumentSchema`
+  and nothing else — it cannot see the parent contract's `argument_domains`,
+  so no rendering anywhere advertised a parameter's legal values
+- After: a new algorithmic module `ccf.products.request_schema` exporting
+  exactly one name. `render_request_input_schema(contract:
+  ProductRequestContract) -> dict[str, Any]` composes
+  `contract.arguments.to_input_schema()` with `contract.argument_domains`: an
+  enumerated domain sets `enum` on its parameter's property (members in
+  declared order); a numeric domain sets `minimum` and/or `maximum` (an absent
+  end not emitted); an integral `Decimal` renders as an `int`, any other as a
+  `float`; a contract with no domains renders byte-identically to
+  `to_input_schema()` alone. The render reads `ArgumentDomain` ONLY: if the
+  base render already carries `enum`, `minimum` or `maximum` on any property
+  — domained or not — it raises `ValueError` naming the property and the
+  principle rather than merging a second declaration. One parameter, pinned
+  by test; no consumer-side conditioning input
+- Why: `D-IMPL-264` D-00 (*one declaration of record*) and P-1 — the schema
+  advertises what the contract declares and never independently defines it;
+  D-02 as refined by F-5 d — representation without delivery
+- Migration: none — nothing consumes it. An adopter that wants to advertise a
+  class's legal vocabulary today can call it directly; the SDK-owned
+  publication surface is `24.7-C-01`
+
+*Recorded by `24.7-07-the-canonical-request-schema-render-and-the-intent-invariant.md`.*
+
+#### ccf.products.request.refuse_intent
+
+- Surface: ccf.products.request.refuse_intent
+- Public surface: true
+- Change type: added
+- Before: absent. `ProductRequest.intent` was carried on every request and
+  judged by nothing; `ProductDiscovery.intents` was declared and read by
+  nothing but the registry
+- After: `refuse_intent(*, request: ProductRequest, discovery:
+  ProductDiscovery) -> ProductRequestViolation | None`. Three states:
+  `discovery == NOT_DISCOVERABLE` (compared by equality) → `None`, the intent
+  is unjudged because no declaration exists; declared and `request.intent in
+  discovery.intents` → `None`; declared and not a member — including a
+  declared EMPTY set, which serves none — → a `ProductRequestViolation`
+  returned as data: `reason="class-mismatch"`, `key="intent"`,
+  `declared_type=None`, `presented_type=<the intent>`, both key sets empty,
+  and a `detail` naming the presented intent and the sorted declared set. The
+  set travels ONLY in `detail`, so it is replaced at `minimal` by
+  `EXTERNAL_STATEMENTS` and crosses at `reasoned` and `full` — the same
+  channel as the enumerated argument domain's members. Membership is exact:
+  no trimming, folding or aliasing. A sibling of `refuse_request`, not a step
+  inside it: direct validators that hold no declaration never judge intent
+- Why: `D-IMPL-264` D-01 as amended by amendment 1 F-1 a, Dave verbatim:
+  *"Absence of a discovery declaration is non-applicability. Presence of a
+  discovery declaration makes its intent set authoritative, including an
+  explicitly empty set."* Amendment 3 A-8 a on the channel: *"a refusal shell
+  reveals it only according to the disclosure level."* The `class-mismatch`
+  reuse: §6.3 makes intent an addressing token, and a class not registered
+  to serve it is addressed to the wrong class in the same family as a lane
+  mismatch — and criterion 7 fixes the vocabulary at nine
+- Migration: none for any deployment that declares no `discovery`. A
+  deployment that declares `product_class.discovery.intents` is judged
+  strictly against it from this plan on
+
+*Recorded by `24.7-07-the-canonical-request-schema-render-and-the-intent-invariant.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -16147,7 +16214,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-136 entries — 116 public Python surface, 20 not public Python API.
+138 entries — 118 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -18917,6 +18984,69 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller of the door
 
 *Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: behavior
+- Before: a declaration carrying `intent` under `arguments.properties`
+  constructed, and the parameter was judged by the payload comparison as any
+  other — a second declaration of what the class serves, judged by a
+  different rule from the one that judges the top-level field
+- After: a new `model_validator`, `_intent_is_not_declared_as_an_argument`,
+  runs FIRST and refuses construction (direct and through `from_declared`)
+  with a `ValueError` naming `intent`, the word *shadow* and the top-level
+  field `ProductRequest.intent`. The comparison is against the one field name,
+  not a collection of reserved names
+- Why: `D-IMPL-264` D-01, Dave: *"A duplicate `arguments.properties.intent` is
+  a shadow declaration and should fail contract construction."* Evidence
+  (amendment 1 F-2): the frozen rungs cp-01
+  (`examples/cp-01-counterparty-reference-snapshot/ccf_config.yaml`), cp-02,
+  cp-03 and cp-04 each declare the shadow and each now fails through
+  `from_declared` — read by `tests/products/test_request_contract.py` as the
+  positive controls, never edited. Sabotage executed: with the validator
+  deleted, all four construct and the control reds
+- Migration: a declaration carrying `intent` as an argument removes it and
+  declares what the class serves on `product_class.discovery.intents` instead.
+  The frozen rungs are NOT migrated: their reds are quarantined evidence
+  (`D-IMPL-261`, `D-IMPL-263`)
+
+*Recorded by `24.7-07-the-canonical-request-schema-render-and-the-intent-invariant.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: `resolve` judged the tenant, the class, the lane and then the
+  request against its contract; the request's `intent` reached the resolution
+  as an argument to the constraint resolver and was judged by nothing
+- After: after the address checks and before the constraint resolver runs,
+  `resolve` calls `refuse_intent(request=request,
+  discovery=declaration.discovery)`. Under the default `NOT_DISCOVERABLE` the
+  intent is unjudged and nothing observable changes. Under a declared set a
+  non-member is refused as data through the one recorder seam: the shell is a
+  `product-request-violation` with `reason="class-mismatch"` and
+  `key="intent"`, reached before any graph read, and its record carries
+  `execution=None`, dimension 2's
+  `ResolutionNotApplicable(reason="refused-before-resolution")` (no resolution
+  step ran, said positively), and bindings that PIN the deciding class
+  declaration — `PolicyBinding(key=<product_class_key>,
+  version=content_hash(declaration))`, minted the way `class_source` mints it
+  — beside the recorder's bundle pin, with NO request-contract pin and NO
+  constraint pin, because none was resolved against
+- Why: `D-IMPL-264` amendment 3 B-3 a, Dave: *"The refusal was decided by the
+  class's declared intent set, so replay should preserve the declaration that
+  actually governed the outcome."* And the narrowing that follows from it:
+  replay reads *request-contract pin + applicable constraint pins* as the
+  evidence that resolution ran, never a class-declaration pin (plan
+  `24.7-09`). Sabotage executed: with the pin dropped, the bindings assertion
+  reds; with the sentinel exemption removed (F-1 reading (b)), the stock
+  fixture's every served path reds
+- Migration: none for a deployment that declares no `discovery`
+
+*Recorded by `24.7-07-the-canonical-request-schema-render-and-the-intent-invariant.md`.*
 
 ### Not public Python API
 
