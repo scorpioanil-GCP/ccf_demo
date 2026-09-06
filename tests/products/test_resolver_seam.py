@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import inspect
 import pathlib
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime, timedelta
@@ -82,6 +83,7 @@ from ccf.replay.record import (
 from ccf.products.resolver import (
     GovernedResolver,
     ProductNotResolvable,
+    RefusalRecorderProtocol,
     ReplayRefusalRecorder,
     ServedProductResolverProtocol,
 )
@@ -495,6 +497,72 @@ def _disclosure(booted: _Booted, shell: RefusalEnvelope) -> DisclosureDecision:
 def test_the_reference_resolver_conforms_to_the_protocol(booted: _Booted) -> None:
     """The Protocol is `@runtime_checkable`, so this is a real check."""
     assert isinstance(_resolver(booted), ServedProductResolverProtocol)
+
+
+# --- 24.7-04: the recorder seam requires the explicit resolution state -------
+
+
+def _requires_the_resolution_state(function: Any) -> bool:
+    """True when ``resolution`` is keyword-only with NO default.
+
+    ``D-IMPL-264`` D-10 am.1 (F-3 a), Dave verbatim: *"Any API that
+    constructs or delegates construction of a replay record must require an
+    explicit resolution state: effective/partial resolution or explicit
+    not-applicable marker. No intermediate layer may manufacture the marker
+    from omission."* The ``@runtime_checkable`` Protocol check covers the
+    presence of ``record``, not its signature, so the signature is read
+    here directly.
+    """
+    parameter = inspect.signature(function).parameters["resolution"]
+    return (
+        parameter.default is inspect.Parameter.empty
+        and parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    )
+
+
+@pytest.mark.parametrize(
+    "seam",
+    [
+        pytest.param(RefusalRecorderProtocol.record, id="RefusalRecorderProtocol.record"),
+        pytest.param(ReplayRefusalRecorder.record, id="ReplayRefusalRecorder.record"),
+        pytest.param(GovernedResolver._record_refusal, id="GovernedResolver._record_refusal"),
+    ],
+)
+def test_no_recorder_signature_defaults_the_resolution_state(seam: Any) -> None:
+    """The three APIs that construct or delegate construction of a record all
+    require the state; a default on any of them would be the one call frame
+    of omission the ruling closed.
+    """
+    assert _requires_the_resolution_state(seam), inspect.signature(seam)
+
+
+def test_the_conformance_check_sees_a_defaulted_signature() -> None:
+    """The planted decoy: a recorder whose ``record`` defaults the state is
+    exactly what the check above refuses. If this ever passes the check,
+    the check has stopped reading signatures and the test above is vacuous.
+    """
+
+    class _Defaulting:
+        def record(
+            self,
+            envelope: RefusalEnvelope,
+            *,
+            perspective: Perspective,
+            recorded_at: datetime,
+            resolution: Any = None,
+        ) -> RefusalEnvelope:
+            return envelope
+
+    class _Positional:
+        def record(
+            self, envelope: RefusalEnvelope, resolution: Any
+        ) -> RefusalEnvelope:
+            return envelope
+
+    # Presence is what `@runtime_checkable` sees; the signature is not.
+    assert isinstance(_Defaulting(), RefusalRecorderProtocol)
+    assert not _requires_the_resolution_state(_Defaulting.record)
+    assert not _requires_the_resolution_state(_Positional.record)
 
 
 # --- behavior 1: a bad question is refused before the graph is touched -------

@@ -72,7 +72,11 @@ from ccf.products.refusal import (
 )
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf.projection.plan import Perspective
-from ccf.replay.record import NO_ROLE_RESOLVED, PolicyBinding
+from ccf.replay.record import (
+    NO_ROLE_RESOLVED,
+    PolicyBinding,
+    ResolutionNotApplicable,
+)
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
     ProductEntitlementRefused,
@@ -310,6 +314,11 @@ def govern_absence(
         ),
         recorded_at=determined_at,
         policy_bindings=(),
+        # Dimension 2: the absence is decided at the door, before any
+        # resolver could run, and the record SAYS so with its reason — a
+        # positive absence stated by the door, never inferred by the seam
+        # from a keyword the door left out (`D-IMPL-264` D-09/D-10 am.1).
+        resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
     )
 
 
@@ -484,6 +493,12 @@ def govern_entitlement(
                 role=refused.role if refused.role is not None else NO_ROLE_RESOLVED,
             ),
             recorded_at=determined_at,
+            # Dimension 2: entitlement is refused before resolution begins —
+            # the resolver never ran, so there is no resolution to record and
+            # the record says WHY there is none, in the `NO_ROLE_RESOLVED`
+            # voice: a positive absence the door states, never one the seam
+            # infers from silence (`D-IMPL-264` D-09/D-10 am.1).
+            resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
             policy_bindings=(
                 (
                     PolicyBinding(

@@ -473,14 +473,22 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf.agents.DeterministicAssembler": (
         "24.1.1-03-a-refusal-returns-as-data.md"
     ),
-    # D-IMPL-214 Reading B — `assembly_refusal: str | None = None`, threaded
-    # with the `if X is not None else SENTINEL` expression the three
-    # `hitl_actions`-family precedents use, so a refusal gains an identity on
-    # dimension 5 and no existing call site moves. `ContentGenerationPath`'s
-    # own move is invisible here: it is a `contract`-kind export and the loop
-    # below skips every kind that is not `class` or `function`.
+    # 24.7-04 (`D-IMPL-264` D-10, P-2) — `resolution` is a REQUIRED keyword:
+    # `"EffectiveRequest | ResolutionNotApplicable"`, no default, beside the
+    # other required inputs. The 24.1.1-04 entry this supersedes claimed an
+    # additive widening (`assembly_refusal: str | None = None`, sentinel-
+    # threaded, no call site moved); this move is the opposite kind — every
+    # caller must now state the resolution that ran or a typed marker saying
+    # why none applies, and omission is a `TypeError`. One name maps to one
+    # fragment, and the citation is the NEWEST reshaping (the 24.5-13/15
+    # precedent's reasoning, inverted: there the later change was the
+    # additive one; here it is the breaking one). The 24.1.1-04 fragment
+    # stays on disk untouched and still documents its own widening. The 41
+    # SDK test sites are re-derived in plans 24.7-04 and 24.7-06; the seven
+    # frozen example sites are quarantined evidence under `D-IMPL-263`/
+    # `D-IMPL-261`, never migrated.
     "ccf.replay.record.build_replay_record": (
-        "24.1.1-04-a-refusal-has-an-identity-in-the-record.md"
+        "24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md"
     ),
     "ccf_runtime.http_api.dependencies.ApiDependencies": (
         "16-22-consumption-papercuts.md"

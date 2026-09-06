@@ -217,7 +217,11 @@ from ccf.products.request import (
 )
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
-from ccf.replay.record import PolicyBinding, build_replay_record
+from ccf.replay.record import (
+    PolicyBinding,
+    ResolutionNotApplicable,
+    build_replay_record,
+)
 from ccf.replay.serve import (
     QueryPinWriter,
     ReplayWriter,
@@ -558,7 +562,7 @@ class RefusalRecorderProtocol(Protocol):
         policy_bindings: tuple[PolicyBinding, ...] = (),
         assembler_id: str | None = None,
         assembler_version: str | None = None,
-        resolution: EffectiveRequest | None = None,
+        resolution: EffectiveRequest | ResolutionNotApplicable,
     ) -> RefusalEnvelope:
         """Append ``envelope``'s decision record, then return it with its address.
 
@@ -609,8 +613,20 @@ class RefusalRecorderProtocol(Protocol):
                 recorder was constructed with.
             assembler_id: The assembler in force, and ``assembler_version`` its
                 lane — dimension 4 (``D-IMPL-253`` Q16).
-            resolution: The Authority layer's record, when the question reached
-                that layer — dimension 2 (``D-IMPL-253`` Q1/Q6).
+            resolution: The resolution state — dimension 2 (``D-IMPL-253``
+                Q1/Q6; ``D-IMPL-264`` D-10). REQUIRED, with no default, as of
+                24.7-04: the
+                :class:`~ccf.products.provenance.EffectiveRequest` the
+                Authority layer produced — complete, or the partial record it
+                established before refusing (D-07) — or a
+                :class:`~ccf.replay.record.ResolutionNotApplicable` marker
+                stating, with its reason, that no resolution applies (D-09).
+                A caller that ran no resolver says so; this seam never says
+                it on the caller's behalf. ``D-IMPL-264`` amendment 1 (F-3 a), Dave verbatim: *"Any API that
+        constructs or delegates construction of a replay record must require
+        an explicit resolution state: effective/partial resolution or explicit
+        not-applicable marker. No intermediate layer may manufacture the
+        marker from omission."*
 
         Returns:
             The same envelope with its
@@ -798,11 +814,18 @@ class ReplayRefusalRecorder:
         policy_bindings: tuple[PolicyBinding, ...] = (),
         assembler_id: str | None = None,
         assembler_version: str | None = None,
-        resolution: EffectiveRequest | None = None,
+        resolution: EffectiveRequest | ResolutionNotApplicable,
     ) -> RefusalEnvelope:
         """Disclose, append the INTERNAL truth, then hand back the shell.
 
         See :meth:`RefusalRecorderProtocol.record` for the argument contract.
+        ``resolution`` is passed through to the builder exactly as received
+        and is required here for the reason it is required there
+        (24.7-04; ``D-IMPL-264`` amendment 1 (F-3 a), Dave verbatim: *"Any API that
+        constructs or delegates construction of a replay record must require
+        an explicit resolution state: effective/partial resolution or explicit
+        not-applicable marker. No intermediate layer may manufacture the
+        marker from omission."*).
 
         **The order is the architecture** (``D-IMPL-254``). The record is built
         from the **internal** envelope — the determination as the fabric
@@ -1512,7 +1535,7 @@ class GovernedResolver:
         request: ProductRequest,
         perspective: Perspective,
         policy_bindings: tuple[PolicyBinding, ...] = (),
-        resolution: EffectiveRequest | None = None,
+        resolution: EffectiveRequest | ResolutionNotApplicable,
     ) -> RefusalEnvelope:
         """Mint this refusal's decision record, then return the addressed shell.
 
@@ -1524,6 +1547,15 @@ class GovernedResolver:
         The instant is ``request.asked_at`` for the reason nothing in this
         module reads a clock: the caller supplies it at serve time and replay
         supplies it at replay time, through this same code path.
+
+        ``resolution`` is required with no default (24.7-04): every branch
+        that reaches here ran the resolution step and passes what it
+        established — complete or partial (D-07) — and this thin layer
+        never substitutes a marker for what a branch did not say. ``D-IMPL-264`` amendment 1 (F-3 a), Dave verbatim: *"Any API that
+        constructs or delegates construction of a replay record must require
+        an explicit resolution state: effective/partial resolution or explicit
+        not-applicable marker. No intermediate layer may manufacture the
+        marker from omission."*
 
         Raises:
             Exception: whatever the artifact store raises, deliberately
