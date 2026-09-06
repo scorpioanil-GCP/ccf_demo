@@ -183,9 +183,7 @@ from ccf.products.debt_scorer import (
 )
 from ccf.products.constraints import (
     CAPABILITY_TRAVERSAL_DEPTH,
-    ConstraintRefusal,
     PolicyConstraintResolver,
-    PolicyResolutionConflict,
     ReferencePolicyConstraintResolver,
     TechnicalCapability,
     _ConstraintSource,
@@ -215,7 +213,6 @@ from ccf.products.refusal import (
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
-    ProductRequestViolation,
     refuse_undeclared_class_default,
 )
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
@@ -1262,7 +1259,7 @@ class GovernedResolver:
         # the registered class it compares against (`D-IMPL-121`) — and, as of
         # `24.6-03`, the Control Plane read no door could make either.
         declared = self._request_contract(declaration)
-        resolved = self.constraint_resolver.resolve(
+        outcome = self.constraint_resolver.resolve(
             product_class=product_class,
             request=request,
             declared=declared,
@@ -1296,26 +1293,37 @@ class GovernedResolver:
                 version=content_hash(declaration),
             ),
         )
-        if isinstance(
-            resolved,
-            (ConstraintRefusal, PolicyResolutionConflict, ProductRequestViolation),
-        ):
+        if outcome.refusal is not None:
             # No lineage: every one of these is reached while the effective
             # request is still being built, which is strictly before the graph
             # is touched. `envelope_for` refuses a lineage here, which is what
             # makes the assembly-boundary split structural.
             #
             # 24.6-07: and no execution, so dimension 1 says positively that
-            # nothing was read. The bundle pin is the recorder's; nothing else
-            # governed this, because the resolution that would have produced
-            # the pins is what failed.
+            # nothing was read. The bundle pin is the recorder's. What DID
+            # govern this is the resolution that ran up to the refusal —
+            # defaults applied, the constraints in force folded, capabilities
+            # consulted — and that partial work is governed truth. It rides on
+            # dimension 2 with the pins it was resolved from, exactly as a
+            # completed resolution does on the two post-assembly branches
+            # below (`D-IMPL-264` D-07, Dave: *"'It failed before producing
+            # an effective request' must not erase what resolution already
+            # established."*). The shell carries the same partial record as
+            # its `provenance`, so the record and the shell cannot disagree.
             return self._record_refusal(
-                envelope=envelope_for(resolved, request=identity),
+                envelope=envelope_for(
+                    outcome.refusal,
+                    request=identity,
+                    policy_bindings=outcome.evidence.applied,
+                    provenance=outcome.evidence,
+                ),
                 execution=None,
                 request=request,
                 perspective=perspective,
+                policy_bindings=self._applied_bindings(outcome.evidence),
+                resolution=outcome.evidence,
             )
-        effective = resolved
+        effective = outcome.evidence
         # The engine answers the EFFECTIVE question — defaults applied, policy
         # bounds in force. It is a SIBLING of the caller's request and never a
         # replacement: `identity.parameters` and the request that lands in

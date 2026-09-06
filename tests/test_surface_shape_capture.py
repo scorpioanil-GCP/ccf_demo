@@ -589,6 +589,25 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf.projection.engine.ExecutionResult": (
         "24.5-15-the-empty-operator-gate-s-two-halves-by-name.md"
     ),
+    # Phase 24.7 plan 02 (`D-IMPL-264` D-08; criterion 12). The seam's return
+    # went from the four-way union `EffectiveRequest | ConstraintRefusal |
+    # PolicyResolutionConflict | ProductRequestViolation` to the one
+    # `ResolutionOutcome` pair, so a caller reads the refusal off `.refusal`
+    # and the evidence off `.evidence` — and a refusal reached halfway through
+    # now carries what resolution established before it. Not an additive
+    # widening: the return type changed and every call site that branched on
+    # the union had to move — the SDK's one, in `GovernedResolver.resolve`,
+    # did; cp-04's frozen `assembler.py` `isinstance` over the retired union
+    # is accepted evidence under `D-IMPL-264` am.1 (Dave: *"Do not distort
+    # the new SDK return type to preserve an old example `isinstance`
+    # check"*), never a reason to keep the union. The entry does not pretend
+    # otherwise: the fragment claims the name as `reshaped`. The two `resolve`
+    # methods moved with it and are invisible here — `PolicyConstraintResolver`
+    # is a Protocol and the loop skips it, and `ReferencePolicyConstraintResolver`'s
+    # captured shape is its dataclass `__init__`, which did not change.
+    "ccf.products.constraints.resolve_effective_request": (
+        "24.7-02-resolution-returns-a-paired-outcome.md"
+    ),
 }
 
 

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**991 entries**, of which **748** name a public Python surface.
+**996 entries**, of which **753** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-487 entries — 447 public Python surface, 40 not public Python API.
+488 entries — 448 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -8918,6 +8918,28 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-14-the-request-contract-declares-a-parameter-domain.md`.*
 
+#### ccf.products.constraints.ResolutionOutcome
+
+- Surface: ccf.products.constraints.ResolutionOutcome
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen `CCFContract` with two required members and no defaults:
+  `evidence: EffectiveRequest` — the resolution as it stood when the function
+  exited, complete on success and partial on a refusal — and `refusal:
+  ConstraintRefusal | PolicyResolutionConflict | ProductRequestViolation |
+  None`. A read-only `completed` property is `refusal is None`
+- Why: `D-IMPL-264` D-08, Dave: *"I would think of this as a common resolution
+  outcome shape: completed request or governed refusal, both with the
+  resolution evidence accumulated so far."* The evidence is the SAME type on
+  both halves, so replay dimension 2 and `RefusalEnvelope.provenance` read one
+  shape whichever way the determination went. Neither member is defaulted on
+  P-2's rule that absence is stated, never inferred from omission: the
+  completion says `refusal=None` out loud
+- Migration: none — a new name
+
+*Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -9571,7 +9593,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-367 entries — 184 public Python surface, 183 not public Python API.
+370 entries — 187 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -13423,6 +13445,73 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
 
+#### ccf.products.constraints.resolve_effective_request
+
+- Surface: ccf.products.constraints.resolve_effective_request
+- Public surface: true
+- Change type: reshaped
+- Before: `-> EffectiveRequest | ConstraintRefusal | PolicyResolutionConflict |
+  ProductRequestViolation`; a refusal exit returned the refusal alone, and
+  everything resolved before it — the defaults applied, the constraints folded,
+  the pins consulted — was dropped on the floor
+- After: `-> ResolutionOutcome`. Every one of the six exits constructs the
+  outcome from the evidence accumulated at that exit: the conflict exit carries
+  the defaults, the caller's values and every consulted pin; the
+  required-absent exit the same, with no record for the absent key; the policy
+  bound-refusal exit carries the bounds already attached to earlier keys; the
+  technical bound-refusal exit carries the technical bounds attached so far;
+  the validation exit carries the full effective set and the override attempts;
+  the completion carries what `EffectiveRequest` was before, under
+  `refusal=None`. `_with_overrides` still attaches the attempts to the refusal
+  half, so a refusal reads as it did
+- Why: `D-IMPL-264` D-07, Dave: *"Resolution participated whenever the
+  resolution step actually ran. If it refuses halfway through, that partial
+  work is still governed truth and belongs in replay."* A union that returned
+  the refusal alone made that truth unrecordable by construction — the caller
+  had nothing to record
+- Migration: read `.refusal` for the determination (`None` when the resolution
+  completed) and `.evidence` for the resolution. A call site that branched
+  with `isinstance(resolved, (ConstraintRefusal, PolicyResolutionConflict,
+  ProductRequestViolation))` becomes `if outcome.refusal is not None`; one
+  that used the result as an `EffectiveRequest` reads `outcome.evidence`. The
+  SDK's one call site (`GovernedResolver.resolve`) moved in this plan. The
+  frozen cp-04 example's `assembler.py` keeps the old `isinstance` and is
+  accepted evidence, not a compatibility requirement (`D-IMPL-264` am.1)
+
+*Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
+
+#### ccf.products.constraints.PolicyConstraintResolver
+
+- Surface: ccf.products.constraints.PolicyConstraintResolver
+- Public surface: true
+- Change type: reshaped
+- Before: `resolve(...)` returned the four-way union
+- After: `resolve(...) -> ResolutionOutcome`; every parameter unchanged
+- Why: the Protocol's return is the pure function's return — a conforming
+  resolver that governs policy elsewhere still answers with the outcome pair,
+  so the governed resolver records the partial resolution whichever
+  implementation is bound
+- Migration: an out-of-tree implementation returns `ResolutionOutcome(evidence=...,
+  refusal=...)` where it returned one member of the union
+
+*Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
+
+#### ccf.products.constraints.ReferencePolicyConstraintResolver
+
+- Surface: ccf.products.constraints.ReferencePolicyConstraintResolver
+- Public surface: true
+- Change type: reshaped
+- Before: `resolve(...)` returned the four-way union
+- After: `resolve(...) -> ResolutionOutcome` — it fetches as before and returns
+  what `resolve_effective_request` returns. The dataclass's own constructor
+  (`control_plane`, `entitlement_key`) is unchanged, which is why the shape
+  roster records the move on the function and not here
+- Why: as the Protocol
+- Migration: a caller of the reference resolver directly reads `.refusal` and
+  `.evidence`, as above
+
+*Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -15826,7 +15915,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-130 entries — 110 public Python surface, 20 not public Python API.
+131 entries — 111 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -18457,6 +18546,38 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   `ccf.client.result` seam does — needs no change.
 
 *Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the pre-assembly refusal branch — a `constraint-refusal`,
+  `policy-resolution-conflict` or `product-request-violation` returned by the
+  constraint resolver — minted its record with no `resolution` and no
+  `policy_bindings`, so dimension 2 held `no-request-resolution` and only the
+  recorder's bundle pin, although the request contract, the class declaration
+  and every constraint in force had been consulted to reach the refusal
+- After: the branch records the partial resolution on dimension 2 and its
+  version-bearing sources as `PolicyBinding` rows — the request-contract pin,
+  the class-declaration pin when the class declared a default, every applied
+  constraint's `(key, version)` and any verified override's grant pin, derived
+  by the same `_applied_bindings` the served path and the two post-assembly
+  refusal branches use — and the internal shell carries the same partial
+  record as its `provenance` with its `applied` as the shell's
+  `policy_bindings`. Still no lineage and no execution: nothing was read
+- Why: `D-IMPL-264` D-07 — the one class-(c) omission `CP04-G-33` names inside
+  the SDK. The record is now falsifiable from pinned state (what `24.7-09`'s
+  replay-time verification infers "resolution ran" from), and an examiner can
+  tell a refusal reached after resolution from one reached before it began.
+  Proven red-first: `tests/products/test_delivery_determinism.py::test_a_refusal_minted_by_resolution_carries_the_partial_resolution_and_the_contract_pin`
+  failed on the shipped tree with the sentinel in the failing line, and failed
+  again with the two new keywords removed
+- Migration: none for a caller. A deployment replaying a refusal recorded
+  before this change still reads the legacy sentinel; one recorded after it
+  reads the partial `EffectiveRequest` where it read the sentinel
+
+*Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
 
 ### Not public Python API
 

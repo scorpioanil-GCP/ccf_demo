@@ -4707,6 +4707,7 @@
       "REFERENCE_CONSTRAINT_RESOLVER_ID",
       "REFERENCE_CONSTRAINT_RESOLVER_VERSION",
       "ReferencePolicyConstraintResolver",
+      "ResolutionOutcome",
       "TechnicalCapability",
       "applicable",
       "constraints_in_force",
@@ -4766,6 +4767,13 @@
         "kind": "class",
         "shape": "(control_plane: '_ConstraintSource', entitlement_key: 'str | None') -> None"
       },
+      "ResolutionOutcome": {
+        "kind": "contract",
+        "shape": {
+          "evidence": "<class 'ccf.products.provenance.EffectiveRequest'>",
+          "refusal": "ccf.products.constraints.ConstraintRefusal | ccf.products.constraints.PolicyResolutionConflict | ccf.products.request.ProductRequestViolation | None"
+        }
+      },
       "TechnicalCapability": {
         "kind": "contract",
         "shape": {
@@ -4784,7 +4792,7 @@
       },
       "resolve_effective_request": {
         "kind": "function",
-        "shape": "(*, request: 'ProductRequest', declared: 'ProductRequestContract', declared_source: 'ProvenanceSource', constraints: 'tuple[PinnedConstraint, ...]', capabilities: 'tuple[TechnicalCapability, ...]', capability_bindings: 'Mapping[str, str]', verified_overrides: 'tuple[OverrideRecord, ...]', perspective: 'Perspective', tenant: 'str', class_defaults: 'Mapping[str, Any] | None' = None, class_source: 'ProvenanceSource | None' = None) -> 'EffectiveRequest | ConstraintRefusal | PolicyResolutionConflict | ProductRequestViolation'"
+        "shape": "(*, request: 'ProductRequest', declared: 'ProductRequestContract', declared_source: 'ProvenanceSource', constraints: 'tuple[PinnedConstraint, ...]', capabilities: 'tuple[TechnicalCapability, ...]', capability_bindings: 'Mapping[str, str]', verified_overrides: 'tuple[OverrideRecord, ...]', perspective: 'Perspective', tenant: 'str', class_defaults: 'Mapping[str, Any] | None' = None, class_source: 'ProvenanceSource | None' = None) -> 'ResolutionOutcome'"
       }
     }
   },
