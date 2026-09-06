@@ -64,7 +64,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, Literal
 
 from pydantic import Field, field_validator
 
@@ -159,6 +159,8 @@ __all__ = [
     "PerspectiveConditioning",
     "PolicyBinding",
     "PolicyBindingsSnapshot",
+    "ResolutionNotApplicable",
+    "ResolutionNotApplicableReason",
     "build_replay_record",
 ]
 
@@ -236,6 +238,63 @@ NO_ADAPTER = "no-adapter"
 #: same artifact, which is the repudiation failure mode every sentinel in this
 #: module exists to close.
 NO_REQUEST_RESOLUTION = "no-request-resolution"
+
+#: The closed reason vocabulary of :class:`ResolutionNotApplicable` (24.7-04;
+#: ``D-IMPL-264`` D-09/D-10). Hyphenated lowercase like every sentinel in
+#: this module. Two reasons, and a marker states exactly one of them:
+#:
+#: ``no-resolution-step``
+#:     The path that minted the record never invokes a constraint resolver
+#:     — a direct validator, a test fixture. ``D-IMPL-264`` D-09: *"A path
+#:     that never invokes resolution should say so explicitly. Do not
+#:     redefine all direct validators as defective merely because the newer
+#:     resolver exists."*
+#: ``refused-before-resolution``
+#:     The determination was reached before resolution could begin — a
+#:     delivery-boundary denial of entitlement, or of a standing resource's
+#:     existence, decided at the door with no resolver in the frame.
+ResolutionNotApplicableReason = Literal[
+    "no-resolution-step", "refused-before-resolution"
+]
+
+
+class ResolutionNotApplicable(CCFContract):
+    """Dimension 2's request-resolution value when NO resolution applies — a
+    positive claim, with its reason (24.7-04; ``D-IMPL-264`` D-09/D-10, P-2).
+
+    SDK-defined (CLAUDE.md §11); the whitepaper hook is §7.10's completeness
+    commitment — a record missing any one of the five dimensions leaves a
+    whole class of audit question with no answer — applied to dimension 2's
+    resolution: a record that says nothing about whether the question's
+    parameters were resolved leaves *"was this decision governed by the
+    constraints in force?"* unanswerable.
+
+    A positive claim in the :data:`NO_REQUEST_RESOLUTION` voice, and the
+    claim that sentinel could never quite make. Dave, ``D-IMPL-264`` P-2:
+    *"`not applicable` is an explicit governed fact with a reason. Missing
+    resolution information is an internal integrity failure."* The sentinel
+    said *no resolution was recorded* — which a dropped resolution also
+    says. This marker says *no resolution applies, and here is why* — which
+    a dropped resolution cannot say, because a caller has to construct it to
+    state it, and :func:`build_replay_record` refuses to mint a record
+    without either this or the resolution that ran (D-10).
+
+    ``reason`` is REQUIRED and closed (:data:`ResolutionNotApplicableReason`):
+    an author who never stated why resolution does not apply has not stated
+    non-applicability — the :class:`~ccf.products.provenance.ProvenanceSource`
+    discipline. No default means no hash-transparency key and no roster
+    entry (``D-IMPL-243``): the marker's canonical bytes are the reason and
+    nothing else. The builder renders it into
+    :attr:`PolicyBindingsSnapshot.request_resolution` from the VALUE through
+    :func:`~ccf.contracts.canonical.canonical_bytes`, never accepted
+    pre-serialized — so it is a JSON object string there, distinguishable
+    from the legacy sentinel by shape, and it reads back as itself.
+
+    Attributes:
+        reason: Why no resolution applies to this decision.
+    """
+
+    reason: ResolutionNotApplicableReason
 
 #: Dimension 1's watermark when the decision read **no** graph state at all
 #: (24.6-07; ``D-IMPL-253`` Q13). A positive claim in the
@@ -520,6 +579,20 @@ class PolicyBindingsSnapshot(CCFContract):
     positive :data:`NO_REQUEST_RESOLUTION` claim, and it is hash-transparent at
     that value (``D-IMPL-243``) — so every record written before the Authority
     layer existed keeps its content address, byte for byte.
+
+    The field holds one of **three forms**, and only the first is a
+    compatibility claim (24.7-04; ``D-IMPL-264`` D-10, D-12): the legacy
+    sentinel :data:`NO_REQUEST_RESOLUTION`, read off every record written
+    before 24.7 and off any record parsed from bytes that omit the field —
+    the field's default, which the builder no longer writes; the canonical
+    bytes of the :class:`~ccf.products.provenance.EffectiveRequest` that
+    resolution produced, complete or partial; or the canonical bytes of a
+    :class:`ResolutionNotApplicable` marker stating, with its reason, that no
+    resolution applies. The type stays ``str`` and the default stays the
+    sentinel so that no committed record's address moves; a new record
+    carries one of the two canonical forms because
+    :func:`build_replay_record` refuses to mint one without an explicit
+    resolution state.
     """
 
     bindings: tuple[PolicyBinding, ...]
@@ -1123,6 +1196,7 @@ def build_replay_record(
     policy_bindings: tuple[PolicyBinding, ...],
     assembly_mode: AssemblyMode,
     recorded_at: datetime,
+    resolution: "EffectiveRequest | ResolutionNotApplicable",
     refusal: "RefusalEnvelope | None" = None,
     tenant_id: str | None = None,
     assembler_id: str | None = None,
@@ -1135,7 +1209,6 @@ def build_replay_record(
     assembly_refusal: str | None = None,
     adapter: AdapterPin | None = None,
     request: ProductRequest | None = None,
-    resolution: "EffectiveRequest | None" = None,
 ) -> DecisionReplayRecord:
     """Assemble the record from what the execution and the product already know.
 
@@ -1284,14 +1357,26 @@ def build_replay_record(
       before.
 
     ``resolution`` is the 24.6-03 Authority seam (``D-IMPL-253`` Q1/Q6,
-    ``D-IMPL-254``), threaded into dimension 2 exactly as ``adapter`` is: the
-    caller passes the :class:`~ccf.products.provenance.EffectiveRequest` its
-    constraint resolver produced, and this builder renders it — from the
-    **value**, with :func:`~ccf.contracts.canonical.canonical_bytes`, so one
-    resolution has one rendering. When ``None`` (every fabric-direct decision
-    and everything before this extension) dimension 2 carries the positive
-    :data:`NO_REQUEST_RESOLUTION` claim and every field the builder wrote before
-    it is byte-for-byte what it was.
+    ``D-IMPL-254``), threaded into dimension 2 exactly as ``adapter`` is —
+    and, as of 24.7-04, REQUIRED (``D-IMPL-264`` D-10, P-2). The caller
+    states one of two things: the
+    :class:`~ccf.products.provenance.EffectiveRequest` its constraint
+    resolver produced — complete, or the partial record a resolver
+    established before refusing (D-07) — or a :class:`ResolutionNotApplicable`
+    marker with the reason no resolution applies (D-09). This builder renders
+    either — from the **value**, with
+    :func:`~ccf.contracts.canonical.canonical_bytes`, so one resolution has
+    one rendering and a marker is never accepted pre-serialized.
+
+    There is no third choice. Omitting ``resolution`` is a ``TypeError`` at
+    the call — the signature has no default to fall back to — and passing
+    ``None`` is a ``ValueError`` from the first guard below. Dave: *"No
+    implicit omission for new records"*; *"Missing resolution information
+    is an internal integrity failure."* Nothing here infers the marker from
+    an absent argument: a record that cannot say whether resolution ran is
+    not built. The legacy :data:`NO_REQUEST_RESOLUTION` sentinel is still
+    what a record written before this extension reads (D-12) — it is the
+    field's default, never this builder's output.
 
     It is a **parameter** and not a fact read off ``execution`` for
     ``adapter``'s first reason: the resolution happens *before* the engine runs
@@ -1344,7 +1429,34 @@ def build_replay_record(
     :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`, so every call site
     written before this extension is byte-for-byte what it was.
     """
-    # 24.6-07: the outcome guard, at the top and before anything is derived. A
+    # 24.7-04: the resolution-state guard, FIRST — before any outcome is
+    # judged — because a missing resolution state is not a malformed outcome,
+    # it is an integrity failure of the caller (`D-IMPL-264` P-2). `None` is
+    # the omission the ruling closed; the signature has no default, so an
+    # omitted keyword never reaches here at all.
+    if resolution is None:
+        raise ValueError(
+            "build_replay_record requires an explicit resolution state: the"
+            " `EffectiveRequest` the resolution produced (complete or partial),"
+            " or a `ResolutionNotApplicable` marker stating why none applies."
+            " `None` is neither. `D-IMPL-264` D-10 / P-2: \"`not applicable`"
+            " is an explicit governed fact with a reason. Missing resolution"
+            " information is an internal integrity failure.\""
+        )
+    # Function-local for the reason `_refusal_names` is (DEF-17-02): the
+    # module-scope import is typing-only, and the runtime needs the value
+    # only here.
+    from ccf.products.provenance import EffectiveRequest
+
+    if not isinstance(resolution, (EffectiveRequest, ResolutionNotApplicable)):
+        raise ValueError(
+            "the resolution state is rendered from the VALUE, once, by this"
+            " builder, and is never accepted pre-serialized: pass the"
+            " `EffectiveRequest` or the `ResolutionNotApplicable` marker"
+            f" itself, not a {type(resolution).__name__}. A block a caller"
+            " serialized could be a family of blocks (24.6-03)"
+        )
+    # 24.6-07: the outcome guard, next and before anything is derived. A
     # record carrying both halves would describe two decisions and a record
     # carrying neither would describe none, so both are unrepresentable rather
     # than merely discouraged — the `DoorOutcome._exactly_one_half` posture,
@@ -1442,12 +1554,12 @@ def build_replay_record(
             # VALUE rather than accepted as a pre-serialized block — the
             # `_admissible_refusal_block` argument, applied where it can be
             # applied absolutely: a resolution cannot land as a family of
-            # blocks because the caller never hands one over.
-            request_resolution=(
-                canonical_bytes(resolution).decode("utf-8")
-                if resolution is not None
-                else NO_REQUEST_RESOLUTION
-            ),
+            # blocks because the caller never hands one over. 24.7-04: the
+            # same expression renders the not-applicable marker; there is no
+            # sentinel branch because there is no `None` to reach it
+            # (`D-IMPL-264` D-10). The sentinel stays the FIELD default so a
+            # record parsed from bytes that omit it still reads it (D-12).
+            request_resolution=canonical_bytes(resolution).decode("utf-8"),
         ),
         model_version=ModelVersionRecord(
             assembly_mode=assembly_mode,

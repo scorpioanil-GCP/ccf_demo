@@ -134,6 +134,7 @@ from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
 from ccf.llm import LLMClientProtocol
 from ccf.replay.record import NO_GRANTS_SET_HASH, DecisionReplayRecord
 
+pytestmark = pytest.mark.archived  # D-IMPL-265: exercises archive/examples/01-agent-basics; retired usage model, non-gating
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "archive" / "examples" / "01-agent-basics" / "run.py"
 

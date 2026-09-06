@@ -473,14 +473,22 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf.agents.DeterministicAssembler": (
         "24.1.1-03-a-refusal-returns-as-data.md"
     ),
-    # D-IMPL-214 Reading B — `assembly_refusal: str | None = None`, threaded
-    # with the `if X is not None else SENTINEL` expression the three
-    # `hitl_actions`-family precedents use, so a refusal gains an identity on
-    # dimension 5 and no existing call site moves. `ContentGenerationPath`'s
-    # own move is invisible here: it is a `contract`-kind export and the loop
-    # below skips every kind that is not `class` or `function`.
+    # 24.7-04 (`D-IMPL-264` D-10, P-2) — `resolution` is a REQUIRED keyword:
+    # `"EffectiveRequest | ResolutionNotApplicable"`, no default, beside the
+    # other required inputs. The 24.1.1-04 entry this supersedes claimed an
+    # additive widening (`assembly_refusal: str | None = None`, sentinel-
+    # threaded, no call site moved); this move is the opposite kind — every
+    # caller must now state the resolution that ran or a typed marker saying
+    # why none applies, and omission is a `TypeError`. One name maps to one
+    # fragment, and the citation is the NEWEST reshaping (the 24.5-13/15
+    # precedent's reasoning, inverted: there the later change was the
+    # additive one; here it is the breaking one). The 24.1.1-04 fragment
+    # stays on disk untouched and still documents its own widening. The 41
+    # SDK test sites are re-derived in plans 24.7-04 and 24.7-06; the seven
+    # frozen example sites are quarantined evidence under `D-IMPL-263`/
+    # `D-IMPL-261`, never migrated.
     "ccf.replay.record.build_replay_record": (
-        "24.1.1-04-a-refusal-has-an-identity-in-the-record.md"
+        "24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md"
     ),
     "ccf_runtime.http_api.dependencies.ApiDependencies": (
         "16-22-consumption-papercuts.md"
@@ -588,6 +596,25 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     # hand-built result carries the empty set and reads as it did.
     "ccf.projection.engine.ExecutionResult": (
         "24.5-15-the-empty-operator-gate-s-two-halves-by-name.md"
+    ),
+    # Phase 24.7 plan 02 (`D-IMPL-264` D-08; criterion 12). The seam's return
+    # went from the four-way union `EffectiveRequest | ConstraintRefusal |
+    # PolicyResolutionConflict | ProductRequestViolation` to the one
+    # `ResolutionOutcome` pair, so a caller reads the refusal off `.refusal`
+    # and the evidence off `.evidence` — and a refusal reached halfway through
+    # now carries what resolution established before it. Not an additive
+    # widening: the return type changed and every call site that branched on
+    # the union had to move — the SDK's one, in `GovernedResolver.resolve`,
+    # did; cp-04's frozen `assembler.py` `isinstance` over the retired union
+    # is accepted evidence under `D-IMPL-264` am.1 (Dave: *"Do not distort
+    # the new SDK return type to preserve an old example `isinstance`
+    # check"*), never a reason to keep the union. The entry does not pretend
+    # otherwise: the fragment claims the name as `reshaped`. The two `resolve`
+    # methods moved with it and are invisible here — `PolicyConstraintResolver`
+    # is a Protocol and the loop skips it, and `ReferencePolicyConstraintResolver`'s
+    # captured shape is its dataclass `__init__`, which did not change.
+    "ccf.products.constraints.resolve_effective_request": (
+        "24.7-02-resolution-returns-a-paired-outcome.md"
     ),
 }
 

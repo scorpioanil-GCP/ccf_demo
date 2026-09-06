@@ -36,6 +36,7 @@ from ccf.replay.record import (
     HarnessTrace,
     ModelVersionRecord,
     PolicyBinding,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 
@@ -126,6 +127,7 @@ def _build(**overrides: Any) -> DecisionReplayRecord:
         policy_bindings=(PolicyBinding(key="policy.bundle", version="v1"),),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         **overrides,
     )
 
@@ -217,6 +219,17 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
         b"",
     ).replace(
         b',"hitl_actions":"no-hitl-actions"',
+        b"",
+    ).replace(
+        # 24.7-06, D-IMPL-264 D-10 / P-2: the builder REQUIRES an explicit
+        # resolution state, so `_build` states the typed not-applicable
+        # marker (this fixture runs no resolution step). Unlike every other
+        # key above, the marker is NOT a sentinel default: the legacy
+        # `no-request-resolution` stays the field default and hash-transparent
+        # for records written before (D-12), while a NEW record renders its
+        # stated state once (24.6-03). Removing the stated key reproduces the
+        # captured literal — the literal itself is still never edited.
+        b'"request_resolution":"{\\"reason\\":\\"no-resolution-step\\"}",',
         b"",
     ).replace(
         b',"workflow_step_sequence":"no-workflow-trace"',

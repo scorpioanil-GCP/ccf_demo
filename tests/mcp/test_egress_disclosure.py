@@ -80,7 +80,11 @@ from ccf.products.refusal import (
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.projection.plan import Perspective
-from ccf.replay.record import NO_ROLE_RESOLVED, DecisionReplayRecord
+from ccf.replay.record import (
+    NO_ROLE_RESOLVED,
+    DecisionReplayRecord,
+    ResolutionNotApplicable,
+)
 from ccf_runtime.authz.product_entitlement import (
     ControlPlaneProductEntitlementSource,
 )
@@ -254,6 +258,7 @@ class _World:
                 principal_id=perspective.principal_id, role=NO_ROLE_RESOLVED
             ),
             recorded_at=DETERMINED_AT,
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         )
 
     def record_at(self, uri: str) -> DecisionReplayRecord:

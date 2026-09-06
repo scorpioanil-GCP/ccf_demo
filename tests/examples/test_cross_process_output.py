@@ -115,6 +115,7 @@ from ccf.peering.admission import ADMISSION_RECORD, AdmittedProduct, SignatureRe
 from ccf.peering.protocol import InboundProduct
 from ccf.products.gates import ServableProduct
 
+pytestmark = pytest.mark.archived  # D-IMPL-265: exercises archive/examples/04-cross-process; retired usage model, non-gating
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE_DIR = REPO_ROOT / "archive" / "examples" / "04-cross-process"
 

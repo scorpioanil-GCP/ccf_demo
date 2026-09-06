@@ -91,6 +91,7 @@ from ccf.replay.record import (
     NO_GRANTS_SET_HASH,
     DecisionReplayRecord,
     PolicyBinding,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 from ccf.replay.serve import ReplayWriter, ServedProduct, serve
@@ -454,6 +455,7 @@ def _serve(fabric: _Fabric, store: FileArtifactStore) -> tuple[
         ),
         assembly_mode=fabric.control["product_class"]["assembly_mode"],
         recorded_at=fabric.now,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     served = serve(
         product=gated,

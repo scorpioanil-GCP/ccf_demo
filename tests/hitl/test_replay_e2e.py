@@ -60,6 +60,7 @@ from ccf.replay.record import (
     NO_HITL_ACTIONS,
     DecisionReplayRecord,
     PolicyBinding,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 
@@ -145,6 +146,7 @@ def _replay_record(*, hitl_actions: str | None) -> DecisionReplayRecord:
         policy_bindings=(PolicyBinding(key="policy.bundle", version="v1"),),
         assembly_mode="algorithmic",
         recorded_at=datetime(2026, 3, 1, tzinfo=UTC),
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         hitl_actions=hitl_actions,
     )
 

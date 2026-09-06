@@ -995,20 +995,22 @@ def test_from_declared_refuses_a_malformed_unsupported_arguments(
     assert "unsupported_arguments" in str(raised.value)
 
 
-def test_the_reason_vocabulary_has_eight_members_tier_proportion_then_domain() -> None:
+def test_the_reason_vocabulary_has_nine_members_tier_proportion_domain_then_membership() -> None:
     """``24.5-L-12``: the fifth member, in the vocabulary's hyphenated spelling;
     ``24.5-WR-02``: the sixth, appended after it; ``D-IMPL-259``: the two
-    domain verdicts, appended after that — appended, never inserted, so a
-    reader of an older record's reason meets the same roster prefix."""
+    domain verdicts, appended after that; ``D-IMPL-264`` D-05: the ninth,
+    ``not-in-domain``, appended LAST — appended, never inserted, so a reader
+    of an older record's reason meets the same roster prefix."""
     import typing
 
     from ccf.products.request import ProductRequestViolationReason
 
     members = typing.get_args(ProductRequestViolationReason)
-    assert len(members) == 8
-    assert members[-4] == "not-supported-at-tier"
-    assert members[-3] == "not-a-proportion"
-    assert members[-2:] == ("below-minimum", "above-maximum")
+    assert len(members) == 9
+    assert members[-5] == "not-supported-at-tier"
+    assert members[-4] == "not-a-proportion"
+    assert members[-3:-1] == ("below-minimum", "above-maximum")
+    assert members[-1] == "not-in-domain"
 
 
 # --- (g) the tolerance interval: a request number that is not a proportion ---
@@ -1508,6 +1510,9 @@ def test_from_declared_refuses_a_malformed_argument_domains(malformed: Any) -> N
 
 
 def test_a_domain_with_neither_end_is_refused() -> None:
+    """Re-derived under `D-IMPL-264` D-03: a domain naming neither end AND no
+    member set declares neither SHAPE, and *"neither shape is also invalid if
+    `ArgumentDomain` is present"* — the word is still "neither"."""
     with pytest.raises(ValueError) as raised:
         ArgumentDomain()
     assert "neither" in str(raised.value)
@@ -1649,3 +1654,596 @@ def test_the_domain_step_is_deterministic_over_domained_names() -> None:
         for _ in range(5)
     }
     assert verdicts == {"another"}
+
+
+# ---------------------------------------------------------------------------
+# The enumerated shape — a domain is numeric bounds OR a closed member set
+# (`D-IMPL-264` D-03/D-04/D-06; plan 24.7-01).
+# ---------------------------------------------------------------------------
+# Dave, 2026-09-05 (Q3): *"Exactly one domain shape: numeric bounds or
+# enumerated values. Non-empty, duplicate-free, and any declared default must
+# be inside the domain. Neither shape is also invalid if `ArgumentDomain` is
+# present."* (Q4): *"Exact canonical match. No trimming, case folding,
+# aliases, or silent substitution."* (Q6): *"Any supported primitive type,
+# with homogeneous members matching the declared property type."* The
+# members below are the fixture's, never the SDK's (CINV-01).
+
+
+def test_an_enumerated_domain_constructs_and_round_trips() -> None:
+    domain = ArgumentDomain(members=("alpha", "beta"))
+    assert domain.members == ("alpha", "beta")
+    assert domain.minimum is None and domain.maximum is None
+    assert ArgumentDomain.model_validate_json(domain.model_dump_json()) == domain
+
+
+def test_the_enumerated_shape_is_silent_at_none_in_the_canonical_bytes() -> None:
+    """`D-IMPL-243`, criterion 19: a numeric domain written before the member
+    set existed canonicalizes byte-for-byte as it did, so no committed request
+    contract's content address moves."""
+    from ccf.contracts.canonical import canonical_bytes
+
+    assert b"members" not in canonical_bytes(ArgumentDomain(minimum=DOMAIN_FLOOR))
+    assert b"members" in canonical_bytes(ArgumentDomain(members=("alpha",)))
+
+
+def test_a_domain_declaring_both_shapes_is_refused_naming_both() -> None:
+    """D-03: numeric bounds OR a member set, never both."""
+    with pytest.raises(ValueError) as raised:
+        ArgumentDomain(minimum=DOMAIN_FLOOR, members=(1, 2))
+    message = str(raised.value)
+    assert "minimum" in message
+    assert "members" in message
+    assert "D-IMPL-264" in message
+
+
+def test_an_empty_enumerated_domain_is_refused() -> None:
+    """D-03: *"Non-empty"* — a set no value can satisfy is a key with nothing
+    under it, the same defect as a domain naming neither end."""
+    with pytest.raises(ValueError) as raised:
+        ArgumentDomain(members=())
+    assert "empty" in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "members, named",
+    [
+        (("alpha", "alpha"), "'alpha'"),
+        ((1, Decimal("1")), "1"),
+    ],
+)
+def test_a_duplicate_member_is_refused_naming_it(members: tuple[Any, ...], named: str) -> None:
+    """D-03: *"duplicate-free"* — judged by the membership rule itself, so
+    `1` and `Decimal("1")` ARE the same member while `1` and `True` are not."""
+    with pytest.raises(ValueError) as raised:
+        ArgumentDomain(members=members)
+    message = str(raised.value)
+    assert "duplicate" in message
+    assert named in message
+
+
+@pytest.mark.parametrize(
+    "members",
+    [("alpha", 1), (1, True), (True, "alpha"), ("alpha", Decimal("1"))],
+)
+def test_a_heterogeneous_member_set_is_refused_naming_the_classes(
+    members: tuple[Any, ...],
+) -> None:
+    """D-06: *"homogeneous members"* — one class per set, `bool` its own."""
+    with pytest.raises(ValueError) as raised:
+        ArgumentDomain(members=members)
+    message = str(raised.value)
+    assert "homogeneous" in message or "heterogeneous" in message
+    assert "D-IMPL-264" in message
+
+
+def test_a_numeric_member_set_may_mix_int_and_decimal() -> None:
+    """`int` and `Decimal` are one numeric class to this contract, on
+    `_as_decimal`'s reading; `bool` is not (checked first)."""
+    domain = ArgumentDomain(members=(1, Decimal("1.5")))
+    assert domain.members == (1, Decimal("1.5"))
+
+
+def test_a_non_finite_numeric_member_is_refused() -> None:
+    """The numeric shape's own finiteness rule, carried to the member set: a
+    member nothing can equal is a member nobody declared."""
+    with pytest.raises(ValueError) as raised:
+        ArgumentDomain(members=(Decimal("NaN"),))
+    assert "finite" in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "presented, member",
+    [("AB", "ab"), (" ab", "ab"), (True, 1), ("1", 1), (1, True), ("ab", "ab ")],
+)
+def test_membership_is_exact_typed_equality(presented: Any, member: Any) -> None:
+    """D-04, criterion 4: no case fold, no trim, no `True == 1`, no `"1" == 1`.
+
+    Each pair is one thing a lenient comparison would admit. The three
+    executed sabotage controls (plan 24.7-01 SUMMARY) plant `.casefold()`,
+    `.strip()` and an untyped `==` in turn and watch this test red.
+    """
+    assert ArgumentDomain(members=(member,)).refuses(presented) == "not-in-domain"
+
+
+@pytest.mark.parametrize(
+    "presented, members",
+    [
+        ("ab", ("ab",)),
+        (1, (1, 2)),
+        (Decimal("2"), (1, 2)),
+        (2, (Decimal("1"), Decimal("2.0"))),
+        (True, (True,)),
+        (False, (True, False)),
+    ],
+)
+def test_a_member_is_admitted_by_exact_equality(
+    presented: Any, members: tuple[Any, ...]
+) -> None:
+    """The other half: exact equality within one class admits, and the numeric
+    class compares by value (`Decimal("2") == 2`) rather than by Python type."""
+    assert ArgumentDomain(members=members).refuses(presented) is None
+
+
+def test_a_numeric_bounds_domain_judges_exactly_as_before() -> None:
+    """The widened `refuses(value: object)` keeps the two-end judgment for the
+    numeric shape, and says nothing about a value with no magnitude (the
+    payload comparison names that one — `type-mismatch` wins by order)."""
+    domain = ArgumentDomain(minimum=DOMAIN_FLOOR, maximum=DOMAIN_CEILING)
+    assert domain.refuses(DOMAIN_FLOOR - 1) == "below-minimum"
+    assert domain.refuses(DOMAIN_CEILING + 1) == "above-maximum"
+    assert domain.refuses(DOMAIN_FLOOR) is None
+    assert domain.refuses(Decimal(DOMAIN_CEILING)) is None
+    assert domain.refuses("zero") is None
+    assert domain.refuses(True) is None
+
+
+# ---------------------------------------------------------------------------
+# `not-in-domain` through the contract validator, the domain step and the
+# request-conformity order (`D-IMPL-264` D-03/D-05/D-06; plan 24.7-01 Task 2).
+# ---------------------------------------------------------------------------
+# Dave (Q5): *"New `not-in-domain` reason. Wrong type and valid type/wrong
+# value are materially different failures. The presented value can be named;
+# disclosure controls whether the allowed set is exposed."* The members are
+# the fixture's, never the SDK's (CINV-01).
+
+ENUMERATED_PARAMETER = "required_leaf"
+ENUMERATED_MEMBERS = ("alpha", "beta")
+
+
+def _enumerated(**overrides: Any) -> ProductRequestContract:
+    fields: dict[str, Any] = {
+        "argument_domains": {
+            ENUMERATED_PARAMETER: ArgumentDomain(members=ENUMERATED_MEMBERS)
+        }
+    }
+    fields.update(overrides)
+    return _contract(**fields)
+
+
+def _typed_arguments() -> SkillArgumentSchema:
+    """The fixture surface plus a `number` and a `boolean` leaf, so every
+    primitive type `D-IMPL-264` D-06 admits has a declared parameter."""
+    arguments = _arguments()
+    return SkillArgumentSchema(
+        properties={
+            **dict(arguments.properties),
+            "numeric_leaf": SkillArgumentProperty(type="number", description="a number"),
+            "flag_leaf": SkillArgumentProperty(type="boolean", description="a flag"),
+        },
+        required=arguments.required,
+    )
+
+
+def test_an_enumerated_domain_over_a_string_parameter_is_admitted() -> None:
+    """D-06: the sibling of the magnitude refusal — an enumerated shape over a
+    string is exactly what the shape is for."""
+    contract = _enumerated()
+    assert contract.argument_domains[ENUMERATED_PARAMETER].members == ENUMERATED_MEMBERS
+    assert (
+        ProductRequestContract.model_validate_json(contract.model_dump_json())
+        == contract
+    )
+
+
+@pytest.mark.parametrize(
+    "name, members",
+    [
+        ("required_leaf", ("alpha",)),
+        ("optional_leaf", (1, 2)),
+        ("numeric_leaf", (1, Decimal("1.5"))),
+        ("flag_leaf", (True, False)),
+    ],
+)
+def test_an_enumerated_domain_is_admitted_over_every_primitive_type(
+    name: str, members: tuple[Any, ...]
+) -> None:
+    """Criterion 5: string, integer, number, boolean — *"don't unnecessarily
+    make this string-specific"*."""
+    contract = _contract(
+        arguments=_typed_arguments(),
+        argument_domains={name: ArgumentDomain(members=members)},
+    )
+    assert contract.argument_domains[name].members == members
+
+
+def test_numeric_bounds_over_a_string_parameter_stay_refused_as_unmeasurable() -> None:
+    """Criterion 5's other half: relaxing `unmeasurable` for the enumerated
+    shape must not relax it for the numeric one."""
+    with pytest.raises(ValueError) as raised:
+        _contract(argument_domains={"required_leaf": ArgumentDomain(minimum=1)})
+    assert "required_leaf" in str(raised.value)
+    assert "magnitude" in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "name, members, declared",
+    [
+        ("optional_leaf", ("alpha",), "integer"),
+        ("required_leaf", (1,), "string"),
+        ("optional_leaf", (Decimal("1.5"),), "integer"),
+        ("flag_leaf", (1, 0), "boolean"),
+        ("numeric_leaf", (True,), "number"),
+        ("nested", ("alpha",), "object"),
+    ],
+)
+def test_a_mistyped_enumerated_domain_is_refused_naming_the_parameter(
+    name: str, members: tuple[Any, ...], declared: str
+) -> None:
+    """D-06: *"homogeneous members matching the declared property type"* —
+    a member set whose class is not the property's is refused at contract
+    construction, naming the parameter and the declared type (criterion 1)."""
+    with pytest.raises(ValueError) as raised:
+        _contract(
+            arguments=_typed_arguments(),
+            argument_domains={name: ArgumentDomain(members=members)},
+        )
+    message = str(raised.value)
+    # The fragment the `mistyped` list renders for THIS parameter, so the
+    # assertion cannot be satisfied by the sentence's other clauses (which
+    # name every offender class, and the words "integer" and "number", on
+    # every refusal).
+    assert f"{name} declares {declared} but enumerates" in message
+    assert "mistyped" in message
+
+
+def test_a_default_outside_an_enumerated_domain_is_refused_at_declaration() -> None:
+    """Criterion 2: the existing default-respects-domain validator, extended to
+    membership — the class contradicting itself fails where the author can
+    fix it, naming the parameter AND the offending default (CR-01, the 24.7
+    close review: the locked text names both; the first cut named only the
+    parameter, and this assertion passed vacuously on the default clause)."""
+    with pytest.raises(ValueError) as raised:
+        _enumerated(defaults={ENUMERATED_PARAMETER: "gamma"})
+    # The `contradicted` list, with this parameter IN it and its offending
+    # default beside it — the sentence carries the fragment on every refusal,
+    # so the bare substring would pass against an `unmeasurable` refusal of
+    # the same contract; the `name='gamma'` pair cannot be satisfied by any
+    # other clause, nor by pydantic's `input_value=` echo, which is not the
+    # validator naming the default.
+    message = str(raised.value)
+    offender = f"{ENUMERATED_PARAMETER}='gamma'"
+    assert (
+        f'["{offender}"] carry a declared default outside their own domain'
+        in message
+    )
+    assert "gamma" in message.split("input_value=")[0]
+
+
+def test_a_default_inside_an_enumerated_domain_is_admitted() -> None:
+    contract = _enumerated(defaults={ENUMERATED_PARAMETER: ENUMERATED_MEMBERS[0]})
+    assert contract.defaults[ENUMERATED_PARAMETER] == ENUMERATED_MEMBERS[0]
+
+
+def test_from_declared_reads_an_enumerated_domain() -> None:
+    declaration = dict(_declared().declaration)
+    declaration["argument_domains"] = {
+        ENUMERATED_PARAMETER: {"members": list(ENUMERATED_MEMBERS)}
+    }
+    contract = ProductRequestContract.from_declared(_declared(declaration=declaration))
+    assert contract.argument_domains[ENUMERATED_PARAMETER] == ArgumentDomain(
+        members=ENUMERATED_MEMBERS
+    )
+
+
+def test_a_value_outside_an_enumerated_domain_is_refused_as_not_in_domain() -> None:
+    """Criterion 3: returned as data by the domain step, naming the key and the
+    presented value; the allowed set rides in `detail` (D-05)."""
+    verdict = refuse_request(
+        request=_request(parameters={ENUMERATED_PARAMETER: "gamma"}),
+        declared=_enumerated(),
+    )
+    assert verdict is not None
+    assert verdict.reason == "not-in-domain"
+    assert verdict.key == ENUMERATED_PARAMETER
+    assert verdict.declared_type == "string"
+    assert verdict.presented_type == "str"
+    assert "gamma" in verdict.detail
+    for member in ENUMERATED_MEMBERS:
+        assert member in verdict.detail
+    assert "D-IMPL-264" in verdict.detail
+    assert verdict.declared_keys == frozenset(_arguments().properties)
+    assert verdict.presented_keys == frozenset({ENUMERATED_PARAMETER})
+
+
+def test_a_mistyped_enumerated_parameter_is_still_type_mismatch() -> None:
+    """D-05: *"wrong type and valid type/wrong value are materially different
+    failures"* — the payload comparison still wins by order."""
+    verdict = refuse_request(
+        request=_request(parameters={ENUMERATED_PARAMETER: 1}),
+        declared=_enumerated(),
+    )
+    assert verdict is not None
+    assert verdict.reason == "type-mismatch"
+
+
+def test_a_member_of_an_enumerated_domain_is_admitted_end_to_end() -> None:
+    assert (
+        refuse_request(
+            request=_request(parameters={ENUMERATED_PARAMETER: ENUMERATED_MEMBERS[1]}),
+            declared=_enumerated(),
+        )
+        is None
+    )
+
+
+def test_an_earlier_step_wins_over_the_enumerated_domain_step() -> None:
+    """The order is unchanged and the domain step is still LAST: a request the
+    address or tier step refuses never reaches membership."""
+    inert = _enumerated(unsupported_arguments={INERT_PARAMETER: INERT_REASON})
+    tier = refuse_request(
+        request=_request(
+            parameters={ENUMERATED_PARAMETER: "gamma", INERT_PARAMETER: "x"}
+        ),
+        declared=inert,
+    )
+    assert tier is not None and tier.reason == "not-supported-at-tier"
+    address = refuse_request(
+        request=_request(
+            schema_version="9.9.9", parameters={ENUMERATED_PARAMETER: "gamma"}
+        ),
+        declared=_enumerated(),
+    )
+    assert address is not None and address.reason == "class-mismatch"
+
+
+def test_the_ninth_reason_names_no_runtime_module() -> None:
+    """Criterion 7: `runtime/` is untouched by the new reason — the door maps
+    by CLASS (`ProductRequestViolation` -> 400), never by reason token."""
+    runtime = REQUEST_MODULE.parent.parent.parent.parent / "runtime"
+    hits = [
+        path
+        for path in runtime.rglob("*.py")
+        if "not-in-domain" in path.read_text(encoding="utf-8")
+    ]
+    assert hits == []
+
+
+# --- (h) intent is a top-level request concept, never an argument (24.7-07) --
+#
+# `D-IMPL-264` D-01 (Dave): *"`intent` is a top-level request concept, not an
+# ordinary argument. `ProductDiscovery.intents` is the declaration of what the
+# class serves. A duplicate `arguments.properties.intent` is a shadow
+# declaration and should fail contract construction."* Amendment 1 F-1 a, his
+# sharpened invariant: *"Absence of a discovery declaration is
+# non-applicability. Presence of a discovery declaration makes its intent set
+# authoritative, including an explicitly empty set."* Amendment 1 F-2: the four
+# frozen rungs that declare `intent` as an argument are READ here as positive
+# controls and never edited. Criteria 10 and 11.
+
+_REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+#: The frozen declarations that carry `intent` under `arguments.properties`
+#: (RESEARCH F-2, YAML-parsed). Read only; `D-IMPL-261` / `D-IMPL-263`.
+_SHADOWING_RUNGS = (
+    "examples/cp-01-counterparty-reference-snapshot/ccf_config.yaml",
+    "examples/cp-02-facility-terms-snapshot/ccf_config.yaml",
+    "examples/cp-03-obligor-financial-spread/ccf_config.yaml",
+    "examples/cp-04-corporate-family-tree/ccf_config.yaml",
+)
+
+#: The frozen configs that do NOT (the negative control), plus s1-01, whose
+#: contract is a standalone `DeclaredArtifact` document.
+_CLEAN_CONFIGS = (
+    "examples/cp-00-institutional-holders/ccf_config.yaml",
+    "examples/s1-00-companies-over-revenue/ccf_config.yaml",
+)
+_S1_01_ARTIFACT = "examples/s1-01-hello-context-product/artifacts/request-contract.yaml"
+
+
+def _with_intent_argument() -> SkillArgumentSchema:
+    """The fixture surface plus a shadow `intent` property."""
+    return SkillArgumentSchema(
+        properties={
+            **_arguments().properties,
+            "intent": SkillArgumentProperty(
+                type="string", description="a shadow of the top-level field"
+            ),
+        },
+        required=("required_leaf",),
+    )
+
+
+def _rung_request_contract(config_path: str) -> DeclaredArtifact:
+    """The `request_contract:` section of a frozen `ccf_config.yaml`, derived
+    exactly as the rung derives it — `DeploymentConfig` → `derive_deployment`
+    → the materialised `DeclaredArtifact` document — so the control fails
+    through the entry the rung actually fails through. Nothing is written."""
+    from ccf.deployment.config import DeploymentConfig, derive_deployment
+
+    document = yaml.safe_load(
+        (_REPO_ROOT / config_path).read_text(encoding="utf-8")
+    )
+    derived = derive_deployment(DeploymentConfig.model_validate(document))
+    return DeclaredArtifact(**derived.documents["request_contract"])
+
+
+def test_an_intent_property_is_refused_as_a_shadow_of_the_top_level_field() -> None:
+    """Direct construction and `from_declared` alike, naming the shadow."""
+    with pytest.raises(ValueError) as direct:
+        _contract(arguments=_with_intent_argument())
+    with pytest.raises(ValueError) as declared:
+        ProductRequestContract.from_declared(
+            _declared(
+                declaration={
+                    "schema_name": CLASS_NAME,
+                    "schema_version": CLASS_VERSION,
+                    "arguments": _with_intent_argument().model_dump(mode="json"),
+                }
+            )
+        )
+    for caught in (direct, declared):
+        message = str(caught.value)
+        assert "intent" in message
+        assert "shadow" in message
+        assert "ProductRequest.intent" in message
+        assert "D-IMPL-264" in message
+
+
+@pytest.mark.parametrize("config_path", _SHADOWING_RUNGS)
+def test_the_frozen_cp_rung_declarations_are_the_positive_controls(
+    config_path: str,
+) -> None:
+    """cp-01..cp-04 declare `intent` as an argument; each fails construction.
+
+    `D-IMPL-264` amendment 1 F-2 (Dave): *"cp-01 through cp-04 may go red
+    for this reason and those tests are quarantined under D-IMPL-261 with
+    their assertions unchanged. Do not rewrite those contracts during 24.7."*
+    The declarations are READ from the frozen tree and never written.
+    """
+    artifact = _rung_request_contract(config_path)
+    assert "intent" in artifact.declaration["arguments"]["properties"], (
+        "the frozen declaration no longer carries the shadow — the control"
+        " would be measuring nothing"
+    )
+    with pytest.raises(ValueError) as caught:
+        ProductRequestContract.from_declared(artifact)
+    assert "intent" in str(caught.value)
+    assert "shadow" in str(caught.value)
+
+
+@pytest.mark.parametrize("config_path", _CLEAN_CONFIGS)
+def test_the_frozen_rungs_without_an_intent_property_construct(
+    config_path: str,
+) -> None:
+    """cp-00 and s1-00 through the same entry — the negative control."""
+    artifact = _rung_request_contract(config_path)
+    assert "intent" not in artifact.declaration["arguments"]["properties"]
+    contract = ProductRequestContract.from_declared(artifact)
+    assert "intent" not in contract.arguments.properties
+
+
+def test_the_s1_01_standalone_artifact_constructs() -> None:
+    document = yaml.safe_load(
+        (_REPO_ROOT / _S1_01_ARTIFACT).read_text(encoding="utf-8")
+    )
+    contract = ProductRequestContract.from_declared(DeclaredArtifact(**document))
+    assert "intent" not in contract.arguments.properties
+
+
+def _refuse_intent(*, intent: str, discovery: Any) -> Any:
+    from ccf.products.request import refuse_intent
+
+    return refuse_intent(request=_request(intent=intent), discovery=discovery)
+
+
+def _discovery(*intents: str, domain: str = "fixture-domain") -> Any:
+    from ccf.products.contract import ProductDiscovery
+
+    return ProductDiscovery(
+        domain=domain, intents=frozenset(intents), capabilities=frozenset()
+    )
+
+
+def test_refuse_intent_is_unjudged_without_a_discovery_declaration() -> None:
+    """`NOT_DISCOVERABLE` means no declaration exists — intent is unjudged.
+
+    F-1 a: *"Absence of a discovery declaration is non-applicability."* Any
+    intent at all passes, including one no class anywhere declares. The
+    comparison is by EQUALITY with the sentinel, so a deployment that writes
+    the sentinel's exact content has written the not-discoverable state and
+    is read as such (the second call).
+    """
+    from ccf.products.contract import NOT_DISCOVERABLE, ProductDiscovery
+
+    assert _refuse_intent(intent="fixture-intent", discovery=NOT_DISCOVERABLE) is None
+    assert _refuse_intent(intent="never-declared", discovery=NOT_DISCOVERABLE) is None
+    same_content = ProductDiscovery(
+        domain="not-discoverable",
+        intents=frozenset(),
+        capabilities=frozenset(),
+        audiences=frozenset(),
+    )
+    assert same_content is not NOT_DISCOVERABLE
+    assert _refuse_intent(intent="never-declared", discovery=same_content) is None
+
+
+def test_refuse_intent_admits_a_declared_intent() -> None:
+    assert (
+        _refuse_intent(
+            intent="fixture-intent", discovery=_discovery("fixture-intent", "other")
+        )
+        is None
+    )
+
+
+def test_refuse_intent_refuses_an_undeclared_intent_as_class_mismatch_on_key_intent() -> None:
+    """Returned as data; the declared set rides in `detail` ONLY.
+
+    `class-mismatch` is reused rather than a tenth token (criterion 7 fixes
+    the vocabulary at nine): §6.3 makes intent an addressing token, and a
+    class not registered to serve the intent is addressed to the wrong class
+    in the same family as a lane mismatch — `key="intent"` distinguishes it.
+    `D-IMPL-264` amendment 3 A-8 a (Dave): *"a refusal shell reveals it only
+    according to the disclosure level"* — so the set is in `detail`, never
+    in `declared_type`, which `PERMITTED_AT_MINIMAL` lets cross.
+    """
+    violation = _refuse_intent(
+        intent="other", discovery=_discovery("fixture-intent", "second-intent")
+    )
+    assert violation is not None
+    assert violation.reason == "class-mismatch"
+    assert violation.key == "intent"
+    assert violation.declared_type is None
+    assert violation.presented_type == "other"
+    assert violation.declared_keys == frozenset()
+    assert violation.presented_keys == frozenset()
+    assert violation.overrides == ()
+    assert "other" in violation.detail
+    assert "fixture-intent" in violation.detail
+    assert "second-intent" in violation.detail
+    # Sorted, so two refusals of one declaration are byte-identical.
+    assert violation.detail.index("fixture-intent") < violation.detail.index(
+        "second-intent"
+    )
+    # And in NO typed member: the set has one channel.
+    typed = {k: v for k, v in violation.model_dump().items() if k != "detail"}
+    assert "fixture-intent" not in repr(typed)
+
+
+def test_refuse_intent_refuses_every_intent_against_a_declared_empty_set() -> None:
+    """F-1 a: *"An explicitly declared empty set means 'serves none.'"*
+
+    The set is empty exactly as the sentinel's is; what differs is that a
+    declaration EXISTS (its `domain` is the deployment's, not the sentinel's).
+    """
+    closed = _discovery(domain="fixture-domain")
+    assert closed.intents == frozenset()
+    for intent in ("fixture-intent", "never-declared", ""):
+        violation = _refuse_intent(intent=intent, discovery=closed)
+        assert violation is not None, intent
+        assert violation.reason == "class-mismatch" and violation.key == "intent"
+
+
+@pytest.mark.parametrize(
+    "presented", ["A", " a", "a ", "ab", ""], ids=["case", "lead", "trail", "longer", "empty"]
+)
+def test_refuse_intent_is_exact(presented: str) -> None:
+    """D-04's spirit, one field over: no trimming, no folding, no aliases."""
+    assert _refuse_intent(intent="a", discovery=_discovery("a")) is None
+    assert _refuse_intent(intent=presented, discovery=_discovery("a")) is not None
+
+
+def test_refuse_intent_is_exported() -> None:
+    import ccf.products.request as request_module
+
+    assert "refuse_intent" in request_module.__all__

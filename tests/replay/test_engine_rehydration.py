@@ -43,7 +43,12 @@ from ccf.graph.protocols import (
     SnapshotPinnable,
     StoreSnapshotPin,
 )
-from ccf.controlplane.artifacts import DebtProfile
+from ccf.controlplane.artifacts import (
+    ConstraintApplicability,
+    DebtProfile,
+    PolicyConstraint,
+    ProductClassDeclaration,
+)
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
     NO_OBLIGATION_IN_FORCE,
@@ -71,25 +76,31 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates
-from ccf.products.request import ProductRequest, request_seeds
+from ccf.products.provenance import EffectiveRequest, ProvenanceSource
+from ccf.products.request import ProductRequest, ProductRequestContract, request_seeds
 from ccf.projection.engine import ExecutionResult, OperatorRegistry, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput, ProjectionPlan
 from ccf.replay import engine as engine_module
 from ccf.replay import snapshots as snapshots_module
 from ccf.replay.engine import (
     ReplayDivergence,
+    ReplayError,
     ReplayOutcome,
+    ReplayResolutionClaimMismatch,
     ReplayUnresolvable,
     replay,
 )
 from ccf.replay.record import (
+    NO_REQUEST_RESOLUTION,
     ContentGenerationPath,
     ContextFabricSnapshot,
     DecisionReplayRecord,
     PolicyBinding,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 from ccf.replay.serve import ReplayWriter, serve
+from ccf.skills.catalog import SkillArgumentProperty, SkillArgumentSchema
 from ccf.replay.snapshots import (
     SnapshotPinUnresolvable,
     SnapshotReader,
@@ -554,6 +565,7 @@ def _serve(
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         request=request,
     )
     served = serve(
@@ -792,6 +804,7 @@ def test_a_record_written_before_the_debt_seam_still_replays(
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     served = serve(
         product=gated,
@@ -973,6 +986,7 @@ def test_a_record_written_before_the_evidence_seam_still_replays(
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     served = serve(
         product=gated,
@@ -1314,6 +1328,7 @@ def test_a_record_written_before_the_recency_seam_still_replays(
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     served = serve(
         product=gated,
@@ -1585,6 +1600,7 @@ def test_a_record_written_before_the_obligation_seam_still_replays(
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     served = serve(
         product=gated,
@@ -1772,6 +1788,7 @@ def test_omitting_the_question_is_indistinguishable_from_passing_none(
         ),
         "assembly_mode": "algorithmic",
         "recorded_at": NOW,
+        "resolution": ResolutionNotApplicable(reason="no-resolution-step"),
     }
     assert content_hash(build_replay_record(**common)) == content_hash(
         build_replay_record(**common, request=None)
@@ -1981,6 +1998,7 @@ def test_a_record_written_before_the_pin_seam_still_replays(
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     served = serve(
         product=gated,
@@ -2171,3 +2189,283 @@ def test_the_replay_path_never_resolves_latest() -> None:
     for module in (engine_module, snapshots_module):
         source = inspect.getsource(module)
         assert "resolve_latest" not in source, module.__name__
+
+
+# --- 24.7-09: replay verifies the not-applicable claim against pinned state ---
+#
+# ``D-IMPL-264`` D-11 (Dave, verbatim): "Construction prevents new incomplete
+# records. Replay verification protects against a false `not-applicable` claim.
+# The verification must use the pinned historical contract/constraint state,
+# not today's configuration." Amendment 3, B-3 a, narrows the evidence base:
+# "request-contract pin + applicable constraint pins are the evidence that
+# effective-request resolution ran. Do not use 'any class declaration pin
+# exists' as the proxy, because the intent check can legitimately pin the class
+# declaration before parameter resolution occurs." D-12 / F-4: a record carrying
+# the legacy sentinel is exempt, by the ``NO_GRAPH_QUERIES`` precedent.
+#
+# Every artifact below is test fixture: the engine under test knows nothing of
+# a "leaf" parameter or a "replay-fixture" regime. It knows two artifact
+# CLASSES, and that is the whole of what these tests hold it to.
+
+REQUEST_CONTRACT_KEY = "test/request-contract"
+POLICY_CONSTRAINT_KEY = "test/policy-constraint"
+CLASS_DECLARATION_KEY = "test/class-declaration"
+
+
+def _request_contract() -> ProductRequestContract:
+    """The smallest request contract that constructs — one declared leaf."""
+    return ProductRequestContract(
+        semver="1.0.0",
+        schema_name=SCHEMA_NAME,
+        schema_version=SCHEMA_VERSION,
+        arguments=SkillArgumentSchema(
+            properties={
+                "leaf": SkillArgumentProperty(
+                    type="string", description="a declared leaf parameter"
+                )
+            },
+            required=("leaf",),
+        ),
+    )
+
+
+def _policy_constraint() -> PolicyConstraint:
+    """One governed boundary on the fixture's leaf, in force at BOUNDARY."""
+    return PolicyConstraint(
+        semver="1.0.0",
+        policy_id="replay-fixture",
+        applies_to=ConstraintApplicability(product_class=SCHEMA_NAME),
+        parameter="leaf",
+        operator="maximum",
+        value=Decimal("1"),
+        source_authority="fixture-authority",
+        effective_from=T_MARCH,
+        reason="fixture reason",
+    )
+
+
+def _class_declaration() -> ProductClassDeclaration:
+    """The class's authored governance — what plan 07's intent refusal pins."""
+    return ProductClassDeclaration(
+        semver="1.0.0",
+        schema_name=SCHEMA_NAME,
+        schema_version=SCHEMA_VERSION,
+        ttl_anchor="from_decision",
+        assembly_mode="algorithmic",
+        max_ttl_key=MAX_TTL_KEY,
+        required_operator_keys=("temporal.as-of-boundary",),
+    )
+
+
+def _serve_claiming(
+    deployment: _Deployment,
+    *,
+    bindings: tuple[PolicyBinding, ...],
+    resolution: EffectiveRequest | ResolutionNotApplicable,
+) -> tuple[str, DecisionReplayRecord]:
+    """The real serve path, with the dimension-2 pair under the test's control.
+
+    ``_serve`` pins the bundle and states ``no-resolution-step``. The D-11
+    check reads exactly two things off a record — what it PINNED and what it
+    CLAIMED — so these tests set the two independently and hold the engine to
+    their combination. The bundle pin is always present, as it is on every
+    record this module serves; ``bindings`` are added beside it.
+
+    The candidate's lineage names every version the record pins, because
+    ``_Environment.rehydrate_product`` rebuilds ``policy_bundle_versions``
+    from the record's bindings — a product that pinned less than its record
+    would diverge on its content address, which is the fixture's own
+    rehydration contract and not the claim under test here.
+    """
+    all_bindings = (
+        PolicyBinding(key=POLICY_BUNDLE_KEY, version=deployment.policy_version),
+        *bindings,
+    )
+    execution = deployment.execute()
+    product_class = deployment.product_class()
+    candidate = deployment.candidate(execution)
+    candidate = candidate.model_copy(
+        update={
+            "lineage": candidate.lineage.model_copy(
+                update={
+                    "policy_bundle_versions": frozenset(
+                        binding.version for binding in all_bindings
+                    )
+                }
+            )
+        }
+    )
+    gated = run_gates(
+        candidate,
+        engine_resolved=execution.operators_invoked,
+        now=NOW,
+        registry=deployment.registry,
+        product_class=product_class,
+    )
+    assert isinstance(gated, ServableProduct)
+    record = build_replay_record(
+        execution=execution,
+        product=gated.product,
+        perspective=deployment.perspective(),
+        policy_bindings=all_bindings,
+        assembly_mode="algorithmic",
+        recorded_at=NOW,
+        resolution=resolution,
+    )
+    served = serve(
+        product=gated,
+        record=record,
+        replay_writer=ReplayWriter(
+            store=deployment.store, artifact_class=ARTIFACT_CLASS
+        ),
+    )
+    return served.replay_ref.content_address, record
+
+
+@pytest.mark.parametrize(
+    ("key", "artifact", "class_name"),
+    [
+        (REQUEST_CONTRACT_KEY, _request_contract(), "ProductRequestContract"),
+        (POLICY_CONSTRAINT_KEY, _policy_constraint(), "PolicyConstraint"),
+    ],
+    ids=["request-contract", "policy-constraint"],
+)
+def test_a_false_not_applicable_claim_is_refused_against_the_pinned_contract(
+    deployment: _Deployment, key: str, artifact: CCFContract, class_name: str
+) -> None:
+    """D-11: a record that CLAIMS no resolution applies while it PINS a request
+    contract (or an applicable policy constraint) is refused by name.
+
+    In ``src/`` + ``runtime/`` those two artifact classes reach a record's
+    bindings only through ``GovernedResolver._applied_bindings(effective)`` —
+    which exists only when a resolution ran (am.3 B-3 a). So the pin is the
+    evidence, and the claim contradicts it. Not a divergence (nothing
+    re-executed differed), not unresolvable (the pin resolves — that is the
+    point): its own finding, its own token.
+    """
+    version = deployment.registry.register(key, artifact)
+    address, _record = _serve_claiming(
+        deployment,
+        bindings=(PolicyBinding(key=key, version=version),),
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
+    )
+
+    with pytest.raises(ReplayResolutionClaimMismatch) as excinfo:
+        _replay(deployment, address)
+
+    assert excinfo.value.reason == "resolution_claim_mismatch"
+    assert excinfo.value.claimed_reason == "no-resolution-step"
+    assert excinfo.value.pinned == ((key, version, class_name),)
+    assert excinfo.value.content_address == address
+    assert key in str(excinfo.value)
+    assert isinstance(excinfo.value, ReplayError)
+    assert not isinstance(excinfo.value, (ReplayDivergence, ReplayUnresolvable))
+
+
+def test_the_same_bindings_with_a_resolution_replay(
+    deployment: _Deployment,
+) -> None:
+    """The control for the pin: the identical contract pin beside the
+    resolution that consulted it replays. The check reads the pair, not the
+    pin alone — a record that pins a contract AND says it resolved against
+    it is exactly what the governed resolver writes."""
+    version = deployment.registry.register(REQUEST_CONTRACT_KEY, _request_contract())
+    resolution = EffectiveRequest(
+        parameters=(),
+        guidance=(),
+        overrides=(),
+        applied=(
+            ProvenanceSource(
+                kind="artifact", identity=REQUEST_CONTRACT_KEY, version=version
+            ),
+        ),
+        asked_at=BOUNDARY,
+    )
+    address, record = _serve_claiming(
+        deployment,
+        bindings=(PolicyBinding(key=REQUEST_CONTRACT_KEY, version=version),),
+        resolution=resolution,
+    )
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.record == record
+    assert (
+        EffectiveRequest.model_validate_json(
+            outcome.record.policy_bindings.request_resolution
+        )
+        == resolution
+    )
+
+
+def test_a_marker_beside_no_resolution_artifact_replays(
+    deployment: _Deployment,
+) -> None:
+    """D-09: legitimate non-applicability. The stock record pins the bundle
+    only and states ``no-resolution-step`` — nothing in its bindings says a
+    resolution ran, so nothing contradicts the claim, and it replays."""
+    address, record = _serve(deployment)
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.record == record
+    assert ResolutionNotApplicable.model_validate_json(
+        outcome.record.policy_bindings.request_resolution
+    ) == ResolutionNotApplicable(reason="no-resolution-step")
+
+
+def test_a_marker_beside_only_a_class_declaration_pin_is_not_refused(
+    deployment: _Deployment,
+) -> None:
+    """The am.3 B-3 a control, Dave verbatim: *"Do not use 'any class
+    declaration pin exists' as the proxy, because the intent check can
+    legitimately pin the class declaration before parameter resolution
+    occurs."* This is the shape plan 07's intent refusal writes — the deciding
+    declaration pinned beside ``refused-before-resolution`` — and it MUST
+    replay. Sabotage: add ``ProductClassDeclaration`` to the engine's trigger
+    tuple and this test reds while the false-claim test stays green.
+    """
+    version = deployment.registry.register(CLASS_DECLARATION_KEY, _class_declaration())
+    address, record = _serve_claiming(
+        deployment,
+        bindings=(PolicyBinding(key=CLASS_DECLARATION_KEY, version=version),),
+        resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+    )
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.record == record
+
+
+def test_a_legacy_sentinel_record_is_exempt(deployment: _Deployment) -> None:
+    """D-12 / F-4: the legacy sentinel is a compatibility claim, not a
+    not-applicable claim, and the check does not read it — the
+    ``NO_GRAPH_QUERIES`` precedent. Take the record the false-claim test
+    refuses, rewrite its dimension-2 value to the sentinel, and it replays:
+    *"Do not retroactively declare previously valid replay artifacts
+    defective because the SDK acquired a stronger contract."*
+    """
+    version = deployment.registry.register(REQUEST_CONTRACT_KEY, _request_contract())
+    _address, record = _serve_claiming(
+        deployment,
+        bindings=(PolicyBinding(key=REQUEST_CONTRACT_KEY, version=version),),
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
+    )
+    legacy = record.model_copy(
+        update={
+            "policy_bindings": record.policy_bindings.model_copy(
+                update={"request_resolution": NO_REQUEST_RESOLUTION}
+            )
+        }
+    )
+    assert legacy.policy_bindings.request_resolution == NO_REQUEST_RESOLUTION
+    address = deployment.store.put(
+        tenant_id=TENANT,
+        artifact_class=ARTIFACT_CLASS,
+        name="written-before-the-marker-existed",
+        artifact=legacy,
+    ).content_address
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.record == legacy

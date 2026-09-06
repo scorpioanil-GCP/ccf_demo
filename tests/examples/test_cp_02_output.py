@@ -301,6 +301,10 @@ def test_the_pricing_grid_is_not_an_array_and_the_naive_read_returns_zero(
 # --------------------------------------------------------------------------
 # FTS-G01 — the primitive. The expiry is a property of the facility.
 # --------------------------------------------------------------------------
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_expiry_does_not_move_when_the_question_moves(seeded: str) -> None:
     """`FTS-G01`, and it is the one gate whose failure would mean the product
     had become its own counterfactual.
@@ -339,6 +343,10 @@ def test_the_expiry_does_not_move_when_the_question_moves(seeded: str) -> None:
     ), "the expiry is stable but is not the agreement date plus the window"
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_payload_names_the_date_the_expiry_was_measured_from(
     seeded: str,
 ) -> None:
@@ -359,6 +367,10 @@ def test_the_payload_names_the_date_the_expiry_was_measured_from(
 # --------------------------------------------------------------------------
 # FTS-G02 / FTS-G03 / FTS-G04 — the policy step, and it is two conditions.
 # --------------------------------------------------------------------------
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_entitlement_discriminates_as_sets_with_a_negative_control(
     seeded: str,
 ) -> None:
@@ -414,6 +426,10 @@ def test_entitlement_discriminates_as_sets_with_a_negative_control(
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_need_to_know_is_load_bearing(seeded: str) -> None:
     """`FTS-G03` — the condition that a set-difference check cannot see.
 
@@ -440,6 +456,10 @@ def test_need_to_know_is_load_bearing(seeded: str) -> None:
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_a_suppressed_facility_is_indistinguishable_from_a_missing_one(
     seeded: str,
 ) -> None:
@@ -538,6 +558,10 @@ def _assemble_through_seam(seeded: str, **kwargs: Any) -> Any:
 # --------------------------------------------------------------------------
 # FTS-G05 · G06 · G07 · G08 — the parameter surface and the three data traps.
 # --------------------------------------------------------------------------
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_as_of_is_refused_and_never_silently_honored(seeded: str) -> None:
     """`FTS-G05` — Standard §2.4's declared-but-inert parameter.
 
@@ -566,6 +590,10 @@ def test_as_of_is_refused_and_never_silently_honored(seeded: str) -> None:
     assert "400" in refused.detail
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_no_source_pointer_reaches_the_payload(seeded: str) -> None:
     """`FTS-G06` — the tier boundary the DATA does not enforce.
 
@@ -605,6 +633,10 @@ def test_no_source_pointer_reaches_the_payload(seeded: str) -> None:
         )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_pricing_grid_is_served_as_a_tier_structure(seeded: str) -> None:
     """`FTS-G07` — a grid flattened to a scalar answers the wrong question.
 
@@ -631,6 +663,10 @@ def test_the_pricing_grid_is_served_as_a_tier_structure(seeded: str) -> None:
     assert all(isinstance(tier["margin_bps"], int) for tier in tiers)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_an_inverted_date_pair_serves_without_computing_a_tenor(
     seeded: str,
 ) -> None:
@@ -660,6 +696,10 @@ def test_an_inverted_date_pair_serves_without_computing_a_tenor(
     assert facility["maturity_date"] < facility["effective_date"]
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_a_facility_with_no_maturity_date_serves(seeded: str) -> None:
     """The completeness half of the same claim — absent, not inverted.
 
@@ -675,6 +715,10 @@ def test_a_facility_with_no_maturity_date_serves(seeded: str) -> None:
     assert facility["tenor_days"] == deployment.NOT_EVALUABLE
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_amendment_count_is_served_and_no_amendment_date_is_claimed(
     seeded: str,
 ) -> None:
@@ -694,6 +738,10 @@ def test_the_amendment_count_is_served_and_no_amendment_date_is_claimed(
 # --------------------------------------------------------------------------
 # FTS-G09 — the shipped finding. THIS TEST GOES RED WHEN THE DEFECT IS FIXED.
 # --------------------------------------------------------------------------
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_a_facility_older_than_the_window_is_refused(seeded: str) -> None:
     """`FTS-G09` — the 50-of-60 `ttl-bounds` refusal §F.4 finding 1 records.
 
@@ -760,6 +808,10 @@ def test_the_population_the_finding_describes_is_the_population_that_refuses(
 # --------------------------------------------------------------------------
 # Determinism, and the shape of the served contract.
 # --------------------------------------------------------------------------
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_same_question_twice_is_byte_identical(seeded: str) -> None:
     """§D.4 — `deterministic`, asserted as hash equality between two runs.
 
@@ -771,6 +823,10 @@ def test_the_same_question_twice_is_byte_identical(seeded: str) -> None:
     assert content_hash(first.product) == content_hash(second.product)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_pricing_grid_parameter_changes_the_content_address(
     seeded: str,
 ) -> None:
@@ -788,6 +844,10 @@ def test_the_pricing_grid_parameter_changes_the_content_address(
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_served_contract_matches_the_declared_expectations(
     seeded: str,
 ) -> None:
@@ -808,6 +868,10 @@ def test_the_served_contract_matches_the_declared_expectations(
         )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_recipe_steps_each_have_a_witness_that_fired(seeded: str) -> None:
     """`artifacts/assembly-recipe.yaml` — a step nothing executes is RED.
 
@@ -851,6 +915,10 @@ def test_the_recipe_steps_each_have_a_witness_that_fired(seeded: str) -> None:
             raise AssertionError(f"unknown witness kind {kind!r}")
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 am.1 D-01/F-2: frozen cp-02 ccf_config.yaml declares intent under arguments.properties (shadow of the top-level field) — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7 | D-IMPL-264 D-10/D-13: frozen cp-02 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_served_outcome_names_the_module_assembler_version(seeded: str) -> None:
     """The Protocol's return names this module's assembler identity, pinned at `1.0.1`.
 

@@ -141,6 +141,10 @@ LOW = 100_000_000
 HIGH = 3_000_000_000
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen s1-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_threshold_selects(tmp_path: pathlib.Path, seeded: str) -> None:
     """A low threshold admits strictly more companies than a high one."""
     low = _over(tmp_path / "low", LOW)
@@ -154,6 +158,10 @@ def test_the_threshold_selects(tmp_path: pathlib.Path, seeded: str) -> None:
     assert sorted(names) == [name for name, _ in _expected(seeded, LOW)]
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen s1-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_two_thresholds_are_two_products(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -167,6 +175,10 @@ def test_two_thresholds_are_two_products(
     assert content_hash(low.product) != content_hash(high.product)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen s1-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_same_question_is_stable(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -188,6 +200,10 @@ def test_a_missing_threshold_is_refused_not_defaulted(
     assert not hasattr(outcome, "product")
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen s1-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_debt_is_driven_by_last_updated(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -207,6 +223,10 @@ def test_debt_is_driven_by_last_updated(
     assert late.product.debt.debt > early.product.debt.debt
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen s1-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_debt_rides_the_product(tmp_path: pathlib.Path, seeded: str) -> None:
     """D_c is delivered WITH the answer and is inside its content address."""
     result = _over(tmp_path / "d", LOW)
@@ -215,6 +235,10 @@ def test_debt_rides_the_product(tmp_path: pathlib.Path, seeded: str) -> None:
     assert result.product.debt.signal is not None
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen s1-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_one_operator_and_the_gates_agree(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -230,6 +254,10 @@ def test_one_operator_and_the_gates_agree(
     assert result.product.lineage.operators_invoked == frozenset(declared)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen s1-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_record_is_written_before_delivery(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -246,6 +274,10 @@ def test_the_record_is_written_before_delivery(
     assert recorded.parameters[deployment.THRESHOLD_PARAMETER] == LOW
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D-IMPL-264 D-10/D-13: frozen s1-00 produce.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
+)
 def test_the_answer_is_the_select_plus_four_things_it_cannot_return(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:

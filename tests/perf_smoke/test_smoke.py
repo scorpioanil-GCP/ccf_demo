@@ -43,7 +43,15 @@ SUITE_TIMEOUT_SECONDS = 300
 KILL_GRACE_SECONDS = 10
 
 #: The four battery suites under ``perf/suites/`` (D-25 taxonomy).
-SUITES = ("micro", "scale", "crossproc", "replay")
+SUITES = (
+    "micro",
+    "scale",
+    # D-IMPL-265 / carry row 24.7-C-02: the crossproc suite spawns
+    # archive/examples/04-cross-process/producer_child.py — retired usage model,
+    # non-gating until a phase re-points it at a supported child.
+    pytest.param("crossproc", marks=pytest.mark.archived),
+    "replay",
+)
 
 
 @pytest.mark.parametrize("suite", SUITES)

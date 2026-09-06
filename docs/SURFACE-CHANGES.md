@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**991 entries**, of which **748** name a public Python surface.
+**1016 entries**, of which **772** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-487 entries — 447 public Python surface, 40 not public Python API.
+493 entries — 453 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -8918,6 +8918,173 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-14-the-request-contract-declares-a-parameter-domain.md`.*
 
+#### ccf.products.constraints.ResolutionOutcome
+
+- Surface: ccf.products.constraints.ResolutionOutcome
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen `CCFContract` with two required members and no defaults:
+  `evidence: EffectiveRequest` — the resolution as it stood when the function
+  exited, complete on success and partial on a refusal — and `refusal:
+  ConstraintRefusal | PolicyResolutionConflict | ProductRequestViolation |
+  None`. A read-only `completed` property is `refusal is None`
+- Why: `D-IMPL-264` D-08, Dave: *"I would think of this as a common resolution
+  outcome shape: completed request or governed refusal, both with the
+  resolution evidence accumulated so far."* The evidence is the SAME type on
+  both halves, so replay dimension 2 and `RefusalEnvelope.provenance` read one
+  shape whichever way the determination went. Neither member is defaulted on
+  P-2's rule that absence is stated, never inferred from omission: the
+  completion says `refusal=None` out loud
+- Migration: none — a new name
+
+*Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
+
+#### ccf.replay.record.ResolutionNotApplicable
+
+- Surface: ccf.replay.record.ResolutionNotApplicable
+- Public surface: true
+- Change type: added
+- Before: absent — the only way to say "no resolution" was the sentinel, which
+  a dropped resolution also said
+- After: a frozen `CCFContract` with a single REQUIRED field,
+  `reason: ResolutionNotApplicableReason`, and no default. Constructed by the
+  caller that knows why resolution does not apply, passed to
+  `build_replay_record` (or through the recorder seam) as the resolution
+  state, and rendered by the builder into
+  `PolicyBindingsSnapshot.request_resolution` as its canonical JSON — a
+  JSON object string, distinguishable from the sentinel by shape, which
+  `ResolutionNotApplicable.model_validate_json` reads back as itself
+- Why: `D-IMPL-264` D-09, Dave: *"Legitimate non-applicability. A path that
+  never invokes resolution should say so explicitly. Do not redefine all
+  direct validators as defective merely because the newer resolver exists."*
+  The reason is required on the `ProvenanceSource` discipline: an author who
+  never stated why has not stated non-applicability. No default means no
+  hash-transparency key and no roster entry (`D-IMPL-243`). SDK-defined
+  (CLAUDE.md §11); the whitepaper hook is §7.10's completeness commitment —
+  a record that captures four of the five dimensions leaves one class of
+  question permanently unanswerable
+- Migration: none — a new name. A caller that used to pass nothing now
+  constructs this with the reason that applies
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf.replay.record.ResolutionNotApplicableReason
+
+- Surface: ccf.replay.record.ResolutionNotApplicableReason
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["no-resolution-step", "refused-before-resolution"]` —
+  hyphenated lowercase like every sentinel in the module. `no-resolution-step`
+  is the direct validator's and the test fixture's claim (the path never
+  invokes a constraint resolver); `refused-before-resolution` is the delivery
+  boundary's (the determination was reached before resolution could begin —
+  an entitlement denial, or a class the deployment does not serve)
+- Why: a closed vocabulary rather than free text, so the reason is a fact
+  replay can branch on (plan `24.7-09`'s replay-time verification reads it)
+  and not prose a reader interprets. Two reasons, because research found
+  exactly two classes of legitimate non-applicability in `src/` and `runtime/`
+  (`24.7-RESEARCH.md` § Priority 1, classes (b)); a third is a design
+  question, not a string
+- Migration: none — a new name
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf.products.request_schema.render_request_input_schema
+
+- Surface: ccf.products.request_schema.render_request_input_schema
+- Public surface: true
+- Change type: added
+- Before: absent. The only render of an argument schema in the tree was
+  `SkillArgumentSchema.to_input_schema`, which sees a `SkillArgumentSchema`
+  and nothing else — it cannot see the parent contract's `argument_domains`,
+  so no rendering anywhere advertised a parameter's legal values
+- After: a new algorithmic module `ccf.products.request_schema` exporting
+  exactly one name. `render_request_input_schema(contract:
+  ProductRequestContract) -> dict[str, Any]` composes
+  `contract.arguments.to_input_schema()` with `contract.argument_domains`: an
+  enumerated domain sets `enum` on its parameter's property (members in
+  declared order); a numeric domain sets `minimum` and/or `maximum` (an absent
+  end not emitted); an integral `Decimal` renders as an `int`, any other as a
+  `float`; a contract with no domains renders byte-identically to
+  `to_input_schema()` alone. The render reads `ArgumentDomain` ONLY: if the
+  base render already carries `enum`, `minimum` or `maximum` on any property
+  — domained or not — it raises `ValueError` naming the property and the
+  principle rather than merging a second declaration. One parameter, pinned
+  by test; no consumer-side conditioning input
+- Why: `D-IMPL-264` D-00 (*one declaration of record*) and P-1 — the schema
+  advertises what the contract declares and never independently defines it;
+  D-02 as refined by F-5 d — representation without delivery
+- Migration: none — nothing consumes it. An adopter that wants to advertise a
+  class's legal vocabulary today can call it directly; the SDK-owned
+  publication surface is `24.7-C-01`
+
+*Recorded by `24.7-07-the-canonical-request-schema-render-and-the-intent-invariant.md`.*
+
+#### ccf.products.request.refuse_intent
+
+- Surface: ccf.products.request.refuse_intent
+- Public surface: true
+- Change type: added
+- Before: absent. `ProductRequest.intent` was carried on every request and
+  judged by nothing; `ProductDiscovery.intents` was declared and read by
+  nothing but the registry
+- After: `refuse_intent(*, request: ProductRequest, discovery:
+  ProductDiscovery) -> ProductRequestViolation | None`. Three states:
+  `discovery == NOT_DISCOVERABLE` (compared by equality) → `None`, the intent
+  is unjudged because no declaration exists; declared and `request.intent in
+  discovery.intents` → `None`; declared and not a member — including a
+  declared EMPTY set, which serves none — → a `ProductRequestViolation`
+  returned as data: `reason="class-mismatch"`, `key="intent"`,
+  `declared_type=None`, `presented_type=<the intent>`, both key sets empty,
+  and a `detail` naming the presented intent and the sorted declared set. The
+  set travels ONLY in `detail`, so it is replaced at `minimal` by
+  `EXTERNAL_STATEMENTS` and crosses at `reasoned` and `full` — the same
+  channel as the enumerated argument domain's members. Membership is exact:
+  no trimming, folding or aliasing. A sibling of `refuse_request`, not a step
+  inside it: direct validators that hold no declaration never judge intent
+- Why: `D-IMPL-264` D-01 as amended by amendment 1 F-1 a, Dave verbatim:
+  *"Absence of a discovery declaration is non-applicability. Presence of a
+  discovery declaration makes its intent set authoritative, including an
+  explicitly empty set."* Amendment 3 A-8 a on the channel: *"a refusal shell
+  reveals it only according to the disclosure level."* The `class-mismatch`
+  reuse: §6.3 makes intent an addressing token, and a class not registered
+  to serve it is addressed to the wrong class in the same family as a lane
+  mismatch — and criterion 7 fixes the vocabulary at nine
+- Migration: none for any deployment that declares no `discovery`. A
+  deployment that declares `product_class.discovery.intents` is judged
+  strictly against it from this plan on
+
+*Recorded by `24.7-07-the-canonical-request-schema-render-and-the-intent-invariant.md`.*
+
+#### ccf.replay.engine.ReplayResolutionClaimMismatch
+
+- Surface: ccf.replay.engine.ReplayResolutionClaimMismatch
+- Public surface: true
+- Change type: added
+- Before: absent — a record claiming non-applicability beside a pinned
+  request contract replayed as if the claim were true
+- After: `ReplayResolutionClaimMismatch(ReplayError)` with `reason:
+  Final[str] = "resolution_claim_mismatch"`, `claimed_reason` (the marker's
+  stated reason), `pinned` (every `(key, version, artifact class name)` that
+  contradicts the claim, in binding order) and `content_address`. Raised by
+  `replay()` after every binding has resolved and before anything is
+  re-executed. Not a `ReplayDivergence` (nothing re-executed differed) and
+  not a `ReplayUnresolvable` (nothing is missing — the pins resolve, which is
+  how the contradiction becomes visible): its own finding, its own token, in
+  the `ReplayGenerationMismatch` voice
+- Why: `D-IMPL-264` D-11 and P-2, Dave: *"`not applicable` is an explicit
+  governed fact with a reason. Missing resolution information is an internal
+  integrity failure."* A record that pins the evidence a resolution ran and
+  states that none applied has contradicted itself; the engine refuses to
+  replay a contradiction into a confident answer
+- Migration: none for a producer. A consumer that branches on replay
+  failures by token gains one token; a bare `except ReplayError` already
+  catches it
+
+*Recorded by `24.7-09-replay-verifies-the-not-applicable-claim.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -9571,7 +9738,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-367 entries — 184 public Python surface, 183 not public Python API.
+377 entries — 193 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -13423,6 +13590,240 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
 
+#### ccf.products.request.ArgumentDomain
+
+- Surface: ccf.products.request.ArgumentDomain
+- Public surface: true
+- Change type: reshaped
+- Before: numeric bounds only — `minimum: Decimal | None`, `maximum: Decimal | None`;
+  refused at construction when neither end was named, an end was non-finite, or the ends
+  were inverted; `refuses(value: Decimal)` named which end a number missed
+- After: two shapes, exactly one of them. A third field `members: tuple[str | int | bool |
+  Decimal, ...] | None` (hash-transparent at `None`) declares a closed member set over any
+  supported primitive type — string, numeric (`int` and `Decimal` as one class), boolean
+  (`bool` its own class, read first). Construction refuses, naming the defect: both shapes
+  declared; neither shape; an empty set; a non-finite numeric member; a heterogeneous set;
+  a duplicated member (duplication judged by the membership rule itself, so `1` and
+  `Decimal("1")` are duplicates while `1` and `True` are a heterogeneous pair).
+  `refuses(value: object)` is widened: the numeric shape judges magnitude as before; the
+  enumerated shape judges exact typed equality — class first, then value under that class's
+  own equality — and returns `not-in-domain` on a miss. Nothing trims, folds, aliases or
+  substitutes
+- Why: `D-IMPL-264` D-03/D-04/D-06 — the contract is the one declaration of record for a
+  parameter's legal values (P-1), and cp-04 could not declare the legal values of a
+  non-numeric parameter (`CP04-G-26`)
+- Migration: none for existing declarations. A deployment declares
+  `argument_domains: {<parameter>: {members: [...]}}` for a closed set, or keeps
+  `{minimum: …, maximum: …}` for bounds — never both on one parameter. A caller of
+  `refuses()` may now pass any value; a numeric domain answers `None` for a value with no
+  magnitude, as the domain step always did
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
+
+#### ccf.products.request.ProductRequestViolationReason
+
+- Surface: ccf.products.request.ProductRequestViolationReason
+- Public surface: true
+- Change type: reshaped
+- Before: eight members, ending `below-minimum`, `above-maximum`
+- After: nine — `not-in-domain` APPENDED after `above-maximum`, never inserted, so every
+  older record's reason meets the same roster prefix
+- Why: `D-IMPL-264` D-05 — a well-typed value outside an enumerated domain is a materially
+  different failure from a wrong-typed one, and is named as such
+- Migration: a consumer switching on the reason meets one new value; it arrives through the
+  existing `product-request-violation` kind, so a door mapping by kind needs nothing
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
+
+#### ccf.products.request.ProductRequestViolation
+
+- Surface: ccf.products.request.ProductRequestViolation
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` over the eight-member Literal; `fields` roster `declared_type`,
+  `presented_type`, `declared_keys`, `presented_keys`, `overrides`
+- After: `reason` over the nine-member Literal. No member was added: a `not-in-domain`
+  refusal reads the domained parameter's name at `key`, carries the declared and presented
+  types, and a `detail` naming the presented value and the sorted member set — the set
+  travels ONLY in `detail`, so the `fields` roster
+  (`tests/products/test_refusal_envelope.py::test_envelope_for_product_request_violation`)
+  is unchanged and `PERMITTED_AT_MINIMAL` needs no new row
+- Why: `D-IMPL-264` D-05 — the presented value can be named; disclosure controls whether the
+  allowed set is exposed
+- Migration: none beyond the reason roster above
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
+
+#### ccf.products.constraints.resolve_effective_request
+
+- Surface: ccf.products.constraints.resolve_effective_request
+- Public surface: true
+- Change type: reshaped
+- Before: `-> EffectiveRequest | ConstraintRefusal | PolicyResolutionConflict |
+  ProductRequestViolation`; a refusal exit returned the refusal alone, and
+  everything resolved before it — the defaults applied, the constraints folded,
+  the pins consulted — was dropped on the floor
+- After: `-> ResolutionOutcome`. Every one of the six exits constructs the
+  outcome from the evidence accumulated at that exit: the conflict exit carries
+  the defaults, the caller's values and every consulted pin; the
+  required-absent exit the same, with no record for the absent key; the policy
+  bound-refusal exit carries the bounds already attached to earlier keys; the
+  technical bound-refusal exit carries the technical bounds attached so far;
+  the validation exit carries the full effective set and the override attempts;
+  the completion carries what `EffectiveRequest` was before, under
+  `refusal=None`. `_with_overrides` still attaches the attempts to the refusal
+  half, so a refusal reads as it did
+- Why: `D-IMPL-264` D-07, Dave: *"Resolution participated whenever the
+  resolution step actually ran. If it refuses halfway through, that partial
+  work is still governed truth and belongs in replay."* A union that returned
+  the refusal alone made that truth unrecordable by construction — the caller
+  had nothing to record
+- Migration: read `.refusal` for the determination (`None` when the resolution
+  completed) and `.evidence` for the resolution. A call site that branched
+  with `isinstance(resolved, (ConstraintRefusal, PolicyResolutionConflict,
+  ProductRequestViolation))` becomes `if outcome.refusal is not None`; one
+  that used the result as an `EffectiveRequest` reads `outcome.evidence`. The
+  SDK's one call site (`GovernedResolver.resolve`) moved in this plan. The
+  frozen cp-04 example's `assembler.py` keeps the old `isinstance` and is
+  accepted evidence, not a compatibility requirement (`D-IMPL-264` am.1)
+
+*Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
+
+#### ccf.products.constraints.PolicyConstraintResolver
+
+- Surface: ccf.products.constraints.PolicyConstraintResolver
+- Public surface: true
+- Change type: reshaped
+- Before: `resolve(...)` returned the four-way union
+- After: `resolve(...) -> ResolutionOutcome`; every parameter unchanged
+- Why: the Protocol's return is the pure function's return — a conforming
+  resolver that governs policy elsewhere still answers with the outcome pair,
+  so the governed resolver records the partial resolution whichever
+  implementation is bound
+- Migration: an out-of-tree implementation returns `ResolutionOutcome(evidence=...,
+  refusal=...)` where it returned one member of the union
+
+*Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
+
+#### ccf.products.constraints.ReferencePolicyConstraintResolver
+
+- Surface: ccf.products.constraints.ReferencePolicyConstraintResolver
+- Public surface: true
+- Change type: reshaped
+- Before: `resolve(...)` returned the four-way union
+- After: `resolve(...) -> ResolutionOutcome` — it fetches as before and returns
+  what `resolve_effective_request` returns. The dataclass's own constructor
+  (`control_plane`, `entitlement_key`) is unchanged, which is why the shape
+  roster records the move on the function and not here
+- Why: as the Protocol
+- Migration: a caller of the reference resolver directly reads `.refusal` and
+  `.evidence`, as above
+
+*Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: `resolution: "EffectiveRequest | None" = None`, last in the keyword
+  list. `None` — the default, and what every caller that never thought about
+  resolution passed — rendered dimension 2 as the sentinel
+  `no-request-resolution`, so a decision whose resolution never ran and a
+  decision whose caller dropped the resolution were the same artifact
+- After: `resolution: "EffectiveRequest | ResolutionNotApplicable"`, keyword-
+  only and REQUIRED, placed beside the other required inputs. Omitting it is
+  a `TypeError` from the call itself; passing `None` is a `ValueError` naming
+  *"an explicit resolution state"* and quoting P-2 — and that guard runs FIRST,
+  before the outcome guards, because a missing resolution state is an
+  integrity failure of the caller and not a malformed outcome; passing
+  anything that is not an `EffectiveRequest` or a `ResolutionNotApplicable`
+  (a pre-serialized string, for instance) is a `ValueError` saying the state
+  is *"never accepted pre-serialized"*. Whichever value is passed is rendered
+  once, from the value, through `canonical_bytes` — the `else` sentinel branch
+  is gone
+- Why: `D-IMPL-264` D-10, Dave: *"Make the builder require an explicit choice:
+  effective/partial resolution, or a typed not-applicable marker with a
+  reason. No implicit omission for new records."* And on the shape of the
+  signature: *"The builder's signature should make omission impossible to
+  express, not merely detected."* Sabotage executed: with the default
+  restored, `test_the_builder_refuses_an_omitted_resolution` goes red because
+  the omission is expressible again
+- Migration: every caller passes `resolution=`. A caller whose path ran the
+  constraint resolver passes the `EffectiveRequest` it produced (complete on
+  the served path; on a refusal, the partial record the paired
+  `ResolutionOutcome.evidence` carries — `24.7-02`). A caller whose path never
+  invokes resolution passes
+  `ResolutionNotApplicable(reason="no-resolution-step")`; a delivery boundary
+  that refuses before resolution could begin passes
+  `ResolutionNotApplicable(reason="refused-before-resolution")`. The 41 SDK
+  test sites are re-derived in plans `24.7-04` (the 15 in
+  `tests/replay/test_refusal_replay_record.py` and
+  `tests/replay/test_dimension_extensions.py`) and `24.7-06` (the remaining
+  26). The seven frozen example sites — cp-00, cp-01, cp-02, cp-03, s1-00 and
+  s1-01 without `resolution=`; cp-04 with it — are NOT migrated: their reds
+  are quarantined evidence under `D-IMPL-263` and `D-IMPL-261` (`D-IMPL-264`
+  D-13, Dave: *"cp-00–cp-03 therefore become quarantined evidence if their
+  existing calls fail under the new builder. Do not edit them."*)
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `record(..., resolution: EffectiveRequest | None = None)`. A caller
+  could omit the keyword and the seam passed `None` to the builder, which
+  wrote the sentinel — the omission the builder now refuses, delayed by one
+  call frame
+- After: `record(..., resolution: EffectiveRequest | ResolutionNotApplicable)`
+  — keyword-only, NO default. The `@runtime_checkable` check still covers only
+  the presence of `record`; `mypy` and
+  `tests/products/test_resolver_seam.py::test_no_recorder_signature_defaults_the_resolution_state`
+  (with a planted defaulting decoy as its control) read the signature. This
+  reshaping is invisible to the generated manifest: the loop skips Protocols,
+  which is why the fragment claims it here by name
+- Why: `D-IMPL-264` amendment 1 (F-3 a), Dave: *"If the builder is fail-closed
+  but the recorder still accepts `resolution=None`, then the API permits
+  exactly the omission we are trying to prohibit and merely delays the failure
+  by one call frame. Worse, having the recorder infer non-applicability would
+  contradict Q10/Q13."* And the invariant, verbatim: *"Any API that constructs
+  or delegates construction of a replay record must require an explicit
+  resolution state: effective/partial resolution or explicit not-applicable
+  marker. No intermediate layer may manufacture the marker from omission."*
+- Migration: an out-of-tree recorder declares `resolution` keyword-only with
+  no default and passes it through; every caller of any recorder passes it.
+  cp-04's frozen `deployment.py:771` `recorder.record(...)` passes none and is
+  accepted evidence under `D-IMPL-264` am.1, quarantined by `24.7-05`
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf.products.resolver.ReplayRefusalRecorder
+
+- Surface: ccf.products.resolver.ReplayRefusalRecorder
+- Public surface: true
+- Change type: reshaped
+- Before: `record(..., resolution: EffectiveRequest | None = None)`, passing
+  `resolution=resolution` to the builder
+- After: `record(..., resolution: EffectiveRequest | ResolutionNotApplicable)`
+  with no default, still passing `resolution=resolution` through verbatim —
+  the seam states nothing on the caller's behalf. The dataclass's own
+  constructor is unchanged, which is why the generated manifest (whose
+  captured shape for a class is its `__init__`) records no move here; the
+  fragment claims it by name. `GovernedResolver._record_refusal`, the
+  resolver's one minting seam, lost the same default; its three callers
+  already passed the state (`24.7-02` moved the last one)
+- Why: as the Protocol. Measured with `mypy` as the roster instrument: after
+  the defaults were removed it reported exactly two open callers in `src/` +
+  `runtime/` — the two boundary denials below — and nothing else
+- Migration: as the Protocol. The 15 recorder test sites in the RESEARCH
+  roster are re-derived in plans `24.7-04` (the 3 in
+  `tests/replay/test_refusal_replay_record.py`) and `24.7-06` (the remaining
+  12)
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -15688,6 +16089,20 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `15-20-external.md`.*
 
+#### docs/schemas/ccf.product-request-contract.json
+
+- Surface: docs/schemas/ccf.product-request-contract.json
+- Public surface: false
+- Change type: reshaped
+- Before: `$defs.ArgumentDomain.properties` carried `minimum` and `maximum`
+- After: a third property, `members` (`anyOf` array of string / integer / boolean / number-or-
+  decimal-string, or `null`; `default: null`; `ccf_hash_transparent: true`); regenerated by
+  `make schemas`, gated byte-for-byte by `tests/cli/test_schema_export.py`
+- Why: the committed schema is the class's baseline and follows it
+- Migration: none; the key is optional
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
+
 ## Removed
 
 Surfaces that no longer exist. Each entry names what replaces it.
@@ -15826,7 +16241,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-130 entries — 110 public Python surface, 20 not public Python API.
+139 entries — 119 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -18457,6 +18872,248 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   `ccf.client.result` seam does — needs no change.
 
 *Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: behavior
+- Before: the domain validator (`_every_domain_bounds_a_declared_number_the_default_respects`)
+  refused a domain over any parameter whose type has no magnitude, and a declared default
+  outside a numeric domain
+- After: the same validator, same name, five offender classes named together: `undeclared`;
+  `unmeasurable` now applies to NUMERIC-shape domains over a non-magnitude type only (an
+  enumerated domain over a string is admitted — D-06); a new `mistyped` class refuses an
+  enumerated domain whose members are typed against the declared property (`string` →
+  string class, `boolean` → boolean, `number` → numeric, `integer` → numeric with every
+  member an `int`; `array`/`object` take no enumerated domain); `inert`; and `contradicted`
+  generalized to either shape through the one membership judgment, so a declared default
+  outside an enumerated domain fails at declaration with the fragment *"outside their own
+  domain"*
+- Why: `D-IMPL-264` D-03 (*"any declared default must be inside the domain"*) and D-06
+  (*"homogeneous members matching the declared property type"*)
+- Migration: none for a contract whose domains are numeric. `from_declared` reads
+  `argument_domains: {<name>: {members: [...]}}` on the same terms as the numeric keys
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
+
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: behavior
+- Before: the domain step judged a presented number's magnitude only
+- After: the domain step (still last, still over sorted domained names) hands the presented
+  value to `ArgumentDomain.refuses` for either shape; a membership miss is a
+  `ProductRequestViolation` with `reason="not-in-domain"`, `key` the parameter, the declared
+  and presented types, and a `detail` naming the key, the presented value (`repr`) and the
+  sorted member set. The allowed set travels ONLY in `detail`, so
+  `ccf.products.disclosure.PERMITTED_AT_MINIMAL` decides its exposure with no new row:
+  absent at `minimal` (replaced by `EXTERNAL_STATEMENTS`), present at `reasoned` and `full`
+  (the disclosure channel, D-05; advertisement is the other channel, D-02)
+- Why: as above
+- Migration: none for a caller inside every declared domain
+
+*Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the pre-assembly refusal branch — a `constraint-refusal`,
+  `policy-resolution-conflict` or `product-request-violation` returned by the
+  constraint resolver — minted its record with no `resolution` and no
+  `policy_bindings`, so dimension 2 held `no-request-resolution` and only the
+  recorder's bundle pin, although the request contract, the class declaration
+  and every constraint in force had been consulted to reach the refusal
+- After: the branch records the partial resolution on dimension 2 and its
+  version-bearing sources as `PolicyBinding` rows — the request-contract pin,
+  the class-declaration pin when the class declared a default, every applied
+  constraint's `(key, version)` and any verified override's grant pin, derived
+  by the same `_applied_bindings` the served path and the two post-assembly
+  refusal branches use — and the internal shell carries the same partial
+  record as its `provenance` with its `applied` as the shell's
+  `policy_bindings`. Still no lineage and no execution: nothing was read
+- Why: `D-IMPL-264` D-07 — the one class-(c) omission `CP04-G-33` names inside
+  the SDK. The record is now falsifiable from pinned state (what `24.7-09`'s
+  replay-time verification infers "resolution ran" from), and an examiner can
+  tell a refusal reached after resolution from one reached before it began.
+  Proven red-first: `tests/products/test_delivery_determinism.py::test_a_refusal_minted_by_resolution_carries_the_partial_resolution_and_the_contract_pin`
+  failed on the shipped tree with the sentinel in the failing line, and failed
+  again with the two new keywords removed
+- Migration: none for a caller. A deployment replaying a refusal recorded
+  before this change still reads the legacy sentinel; one recorded after it
+  reads the partial `EffectiveRequest` where it read the sentinel
+
+*Recorded by `24.7-02-resolution-returns-a-paired-outcome.md`.*
+
+#### ccf.replay.record.PolicyBindingsSnapshot
+
+- Surface: ccf.replay.record.PolicyBindingsSnapshot
+- Public surface: true
+- Change type: behavior
+- Before: `request_resolution: str`, defaulting to `no-request-resolution`
+  and hash-transparent at that value; a new record's value was either the
+  sentinel or the canonical bytes of an `EffectiveRequest`
+- After: the field's type, default and hash posture are UNCHANGED. Its VALUE
+  is now one of three canonical forms, and only the first is a compatibility
+  claim: the legacy sentinel (a record written before 24.7, or parsed from
+  bytes that omit the field); the canonical bytes of the `EffectiveRequest`
+  that resolution produced, complete or partial; or the canonical bytes of a
+  `ResolutionNotApplicable` marker. A record the 24.7 builder minted carries
+  one of the latter two — never the sentinel
+- Why: `D-IMPL-264` D-10 and D-12 together — the new records are explicit, and
+  the old ones are preserved exactly. Keeping the type `str` and the default
+  the sentinel is what lets both hold at once with no roster change
+- Migration: none for a reader. A reader that branched on
+  `== NO_REQUEST_RESOLUTION` still reads legacy records correctly; a reader
+  that parsed every non-sentinel value as an `EffectiveRequest` must now try
+  the marker first (its JSON has exactly one key, `reason`)
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_absence
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_absence
+- Public surface: true
+- Change type: behavior
+- Before: the denial's record carried the sentinel on dimension 2 — read
+  exactly like a record whose caller dropped the resolution
+- After: the denial passes
+  `resolution=ResolutionNotApplicable(reason="refused-before-resolution")`,
+  and its record states, with that reason, that the class the deployment does
+  not serve was refused before resolution could begin. The signature is
+  unchanged
+- Why: `D-IMPL-264` D-09 — a positive absence the door states in the
+  `NO_ROLE_RESOLVED` voice, never one the seam infers from silence. Proven by
+  `tests/authz/test_delivery_boundary.py::test_an_absence_denial_states_it_was_refused_before_resolution_began`
+- Migration: none for a caller of the door; a reader of the record finds the
+  marker where it found the sentinel
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_entitlement
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_entitlement
+- Public surface: true
+- Change type: behavior
+- Before: as `govern_absence` — the entitlement denial's record carried the
+  sentinel
+- After: the denial passes
+  `resolution=ResolutionNotApplicable(reason="refused-before-resolution")`;
+  the served path through the resolver is untouched (the resolver records the
+  resolution that ran). The signature is unchanged
+- Why: as `govern_absence`. Sabotage executed: the reason swapped to
+  `no-resolution-step` on this denial alone turned
+  `test_an_entitlement_denial_states_it_was_refused_before_resolution_began`
+  red and left the absence test green
+- Migration: none for a caller of the door
+
+*Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: behavior
+- Before: a declaration carrying `intent` under `arguments.properties`
+  constructed, and the parameter was judged by the payload comparison as any
+  other — a second declaration of what the class serves, judged by a
+  different rule from the one that judges the top-level field
+- After: a new `model_validator`, `_intent_is_not_declared_as_an_argument`,
+  runs FIRST and refuses construction (direct and through `from_declared`)
+  with a `ValueError` naming `intent`, the word *shadow* and the top-level
+  field `ProductRequest.intent`. The comparison is against the one field name,
+  not a collection of reserved names
+- Why: `D-IMPL-264` D-01, Dave: *"A duplicate `arguments.properties.intent` is
+  a shadow declaration and should fail contract construction."* Evidence
+  (amendment 1 F-2): the frozen rungs cp-01
+  (`examples/cp-01-counterparty-reference-snapshot/ccf_config.yaml`), cp-02,
+  cp-03 and cp-04 each declare the shadow and each now fails through
+  `from_declared` — read by `tests/products/test_request_contract.py` as the
+  positive controls, never edited. Sabotage executed: with the validator
+  deleted, all four construct and the control reds
+- Migration: a declaration carrying `intent` as an argument removes it and
+  declares what the class serves on `product_class.discovery.intents` instead.
+  The frozen rungs are NOT migrated: their reds are quarantined evidence
+  (`D-IMPL-261`, `D-IMPL-263`)
+
+*Recorded by `24.7-07-the-canonical-request-schema-render-and-the-intent-invariant.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: `resolve` judged the tenant, the class, the lane and then the
+  request against its contract; the request's `intent` reached the resolution
+  as an argument to the constraint resolver and was judged by nothing
+- After: after the address checks and before the constraint resolver runs,
+  `resolve` calls `refuse_intent(request=request,
+  discovery=declaration.discovery)`. Under the default `NOT_DISCOVERABLE` the
+  intent is unjudged and nothing observable changes. Under a declared set a
+  non-member is refused as data through the one recorder seam: the shell is a
+  `product-request-violation` with `reason="class-mismatch"` and
+  `key="intent"`, reached before any graph read, and its record carries
+  `execution=None`, dimension 2's
+  `ResolutionNotApplicable(reason="refused-before-resolution")` (no resolution
+  step ran, said positively), and bindings that PIN the deciding class
+  declaration — `PolicyBinding(key=<product_class_key>,
+  version=content_hash(declaration))`, minted the way `class_source` mints it
+  — beside the recorder's bundle pin, with NO request-contract pin and NO
+  constraint pin, because none was resolved against
+- Why: `D-IMPL-264` amendment 3 B-3 a, Dave: *"The refusal was decided by the
+  class's declared intent set, so replay should preserve the declaration that
+  actually governed the outcome."* And the narrowing that follows from it:
+  replay reads *request-contract pin + applicable constraint pins* as the
+  evidence that resolution ran, never a class-declaration pin (plan
+  `24.7-09`). Sabotage executed: with the pin dropped, the bindings assertion
+  reds; with the sentinel exemption removed (F-1 reading (b)), the stock
+  fixture's every served path reds
+- Migration: none for a deployment that declares no `discovery`
+
+*Recorded by `24.7-07-the-canonical-request-schema-render-and-the-intent-invariant.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: behavior
+- Before: dimension 2's `request_resolution` was read nowhere on the replay
+  path; a not-applicable claim was taken as stated
+- After: immediately after `_resolve_bindings` and before any plan or
+  operator is resolved, `replay()` holds the claim against the record's own
+  pins. If `request_resolution` is a `ResolutionNotApplicable` marker, every
+  `policy_bindings.bindings` entry is resolved through
+  `control_plane.resolve(key, version)` at its EXACT recorded version, and
+  the replay is refused with `ReplayResolutionClaimMismatch` iff any resolves
+  to a `ProductRequestContract` or a `PolicyConstraint`. A
+  `ProductClassDeclaration` pin is deliberately NOT a trigger. A marker
+  beside no contract or constraint pin is legitimate non-applicability
+  (D-09) and replays. An `EffectiveRequest` value makes no claim and is not
+  verified. The legacy `NO_REQUEST_RESOLUTION` sentinel is exempt (D-12,
+  F-4). The classification is by the artifact class that comes back, never
+  by the key's name — keys are deployment vocabulary the engine does not know
+- Why: the evidence base is Dave's sentence (amendment 3 B-3 a) and it is
+  true of the tree: in `src/` and `runtime/` those two artifact classes reach
+  a record's bindings only through
+  `GovernedResolver._applied_bindings(effective)`, which exists only once a
+  resolution has run. The class declaration is excluded because plan
+  `24.7-07`'s intent refusal pins exactly that declaration beside a
+  `refused-before-resolution` marker, and that record is telling the truth.
+  Pinned state, never today's registration: a deployment that re-registered
+  a different artifact under the same key after the decision changes nothing
+  about what the record pinned
+- Migration: none for records written by the SDK — the governed resolver
+  writes the resolution beside the pins it applied, the delivery-boundary
+  denials pin only the entitlement policy beside their marker, and the
+  direct-validator path pins no contract at all. A hand-built record that
+  claims not-applicable beside a pinned request contract or policy
+  constraint now refuses by name instead of replaying; the fix is to state
+  the resolution that ran, which is the record the SDK would have written
+
+*Recorded by `24.7-09-replay-verifies-the-not-applicable-claim.md`.*
 
 ### Not public Python API
 

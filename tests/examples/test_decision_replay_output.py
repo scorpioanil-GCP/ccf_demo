@@ -167,6 +167,7 @@ from ccf.skills.grants import SKILL_GRANT, grant_set_hash
 from ccf.workflow.definitions import WORKFLOW_DEFINITION
 from ccf_runtime.http_api.errors import ERROR_TENANT_UNAUTHORIZED
 
+pytestmark = pytest.mark.archived  # D-IMPL-265: exercises archive/examples/06-decision-replay; retired usage model, non-gating
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "archive" / "examples" / "06-decision-replay" / "run.py"
 

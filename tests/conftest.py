@@ -440,3 +440,42 @@ def _skills_callable_values() -> dict[str, Any]:
     )
     values: dict[str, Any] = document["callables"]
     return values
+
+
+# ---------------------------------------------------------------------------
+# D-IMPL-265 — ``archive/examples/`` is retired usage-model history, not a
+# compatibility consumer of the SDK. A test whose only purpose is exercising a
+# retired program there carries the registered ``archived`` marker
+# (``pyproject.toml``) and is DESELECTED by default: it leaves the pass/fail
+# denominator, shows up as ``N deselected`` in every summary line, and runs on
+# demand with ``--run-archived`` as preserved evidence. Deselected, never
+# skipped — a skipped item is still counted; a deselected one is not. The guard
+# that keeps the category honest (every archive runner is marked, only archive
+# runners are marked) is ``tests/lints/test_archived_examples_non_gating.py``.
+# ---------------------------------------------------------------------------
+
+RUN_ARCHIVED_OPTION = "--run-archived"
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        RUN_ARCHIVED_OPTION,
+        action="store_true",
+        default=False,
+        help=(
+            "also run the tests marked `archived` — the modules that execute a "
+            "retired program under archive/examples/ (D-IMPL-265); they are "
+            "deselected by default and are not release-gating"
+        ),
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Deselect ``archived`` items unless ``--run-archived`` was passed (D-IMPL-265)."""
+    if config.getoption(RUN_ARCHIVED_OPTION, default=False):
+        return
+    archived = [item for item in items if item.get_closest_marker("archived") is not None]
+    if not archived:
+        return
+    config.hook.pytest_deselected(items=archived)
+    items[:] = [item for item in items if item.get_closest_marker("archived") is None]

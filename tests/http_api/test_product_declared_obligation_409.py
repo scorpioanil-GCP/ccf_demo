@@ -88,7 +88,7 @@ from ccf.products.refusal import (
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.projection.plan import Perspective
-from ccf.replay.record import DecisionReplayRecord
+from ccf.replay.record import DecisionReplayRecord, ResolutionNotApplicable
 from ccf_runtime.authz.product_entitlement import (
     ControlPlaneProductEntitlementSource,
 )
@@ -528,6 +528,7 @@ def _minted(
         envelope,
         perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
         recorded_at=DETERMINED_AT,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     governed = _governed(
         fabric,

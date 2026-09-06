@@ -4707,6 +4707,7 @@
       "REFERENCE_CONSTRAINT_RESOLVER_ID",
       "REFERENCE_CONSTRAINT_RESOLVER_VERSION",
       "ReferencePolicyConstraintResolver",
+      "ResolutionOutcome",
       "TechnicalCapability",
       "applicable",
       "constraints_in_force",
@@ -4766,6 +4767,13 @@
         "kind": "class",
         "shape": "(control_plane: '_ConstraintSource', entitlement_key: 'str | None') -> None"
       },
+      "ResolutionOutcome": {
+        "kind": "contract",
+        "shape": {
+          "evidence": "<class 'ccf.products.provenance.EffectiveRequest'>",
+          "refusal": "ccf.products.constraints.ConstraintRefusal | ccf.products.constraints.PolicyResolutionConflict | ccf.products.request.ProductRequestViolation | None"
+        }
+      },
       "TechnicalCapability": {
         "kind": "contract",
         "shape": {
@@ -4784,7 +4792,7 @@
       },
       "resolve_effective_request": {
         "kind": "function",
-        "shape": "(*, request: 'ProductRequest', declared: 'ProductRequestContract', declared_source: 'ProvenanceSource', constraints: 'tuple[PinnedConstraint, ...]', capabilities: 'tuple[TechnicalCapability, ...]', capability_bindings: 'Mapping[str, str]', verified_overrides: 'tuple[OverrideRecord, ...]', perspective: 'Perspective', tenant: 'str', class_defaults: 'Mapping[str, Any] | None' = None, class_source: 'ProvenanceSource | None' = None) -> 'EffectiveRequest | ConstraintRefusal | PolicyResolutionConflict | ProductRequestViolation'"
+        "shape": "(*, request: 'ProductRequest', declared: 'ProductRequestContract', declared_source: 'ProvenanceSource', constraints: 'tuple[PinnedConstraint, ...]', capabilities: 'tuple[TechnicalCapability, ...]', capability_bindings: 'Mapping[str, str]', verified_overrides: 'tuple[OverrideRecord, ...]', perspective: 'Perspective', tenant: 'str', class_defaults: 'Mapping[str, Any] | None' = None, class_source: 'ProvenanceSource | None' = None) -> 'ResolutionOutcome'"
       }
     }
   },
@@ -5546,6 +5554,7 @@
       "ProductRequestContract",
       "ProductRequestViolation",
       "ProductRequestViolationReason",
+      "refuse_intent",
       "refuse_request",
       "refuse_request_contract_pin",
       "refuse_undeclared_class_default",
@@ -5564,6 +5573,7 @@
         "kind": "contract",
         "shape": {
           "maximum": "decimal.Decimal | None",
+          "members": "tuple[str | int | bool | decimal.Decimal, ...] | None",
           "minimum": "decimal.Decimal | None"
         }
       },
@@ -5611,12 +5621,16 @@
           "overrides": "tuple[ccf.products.provenance.OverrideRecord, ...]",
           "presented_keys": "frozenset[str]",
           "presented_type": "str | None",
-          "reason": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum']"
+          "reason": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum', 'not-in-domain']"
         }
       },
       "ProductRequestViolationReason": {
         "kind": "function",
-        "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum']"
+        "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum', 'not-in-domain']"
+      },
+      "refuse_intent": {
+        "kind": "function",
+        "shape": "(*, request: 'ProductRequest', discovery: 'ProductDiscovery') -> 'ProductRequestViolation | None'"
       },
       "refuse_request": {
         "kind": "function",
@@ -5633,6 +5647,17 @@
       "request_seeds": {
         "kind": "function",
         "shape": "(request: 'ProductRequest | None') -> 'frozenset[str] | None'"
+      }
+    }
+  },
+  "ccf.products.request_schema": {
+    "__all__": [
+      "render_request_input_schema"
+    ],
+    "exports": {
+      "render_request_input_schema": {
+        "kind": "function",
+        "shape": "(contract: 'ProductRequestContract') -> 'dict[str, Any]'"
       }
     }
   },
@@ -5918,6 +5943,7 @@
       "ReplayError",
       "ReplayGenerationMismatch",
       "ReplayOutcome",
+      "ReplayResolutionClaimMismatch",
       "ReplayUnresolvable",
       "replay",
       "resolve_artifact",
@@ -5949,6 +5975,10 @@
           "record": "<class 'ccf.replay.record.DecisionReplayRecord'>",
           "record_content_address": "<class 'str'>"
         }
+      },
+      "ReplayResolutionClaimMismatch": {
+        "kind": "class",
+        "shape": "(*, content_address: 'str', claimed_reason: 'str', pinned: 'tuple[tuple[str, str, str], ...]') -> 'None'"
       },
       "ReplayUnresolvable": {
         "kind": "class",
@@ -5995,6 +6025,8 @@
       "PerspectiveConditioning",
       "PolicyBinding",
       "PolicyBindingsSnapshot",
+      "ResolutionNotApplicable",
+      "ResolutionNotApplicableReason",
       "build_replay_record",
       "mint_assembly_refusal"
     ],
@@ -6162,9 +6194,19 @@
           "survivor_cap": "int | None"
         }
       },
+      "ResolutionNotApplicable": {
+        "kind": "contract",
+        "shape": {
+          "reason": "typing.Literal['no-resolution-step', 'refused-before-resolution']"
+        }
+      },
+      "ResolutionNotApplicableReason": {
+        "kind": "function",
+        "shape": "typing.Literal['no-resolution-step', 'refused-before-resolution']"
+      },
       "build_replay_record": {
         "kind": "function",
-        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, resolution: \"'EffectiveRequest | None'\" = None) -> 'DecisionReplayRecord'"
+        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', resolution: \"'EffectiveRequest | ResolutionNotApplicable'\", refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None) -> 'DecisionReplayRecord'"
       },
       "mint_assembly_refusal": {
         "kind": "function",

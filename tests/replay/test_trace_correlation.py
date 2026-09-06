@@ -34,6 +34,7 @@ from ccf.replay.record import (
     HarnessTrace,
     ModelVersionRecord,
     PolicyBinding,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 
@@ -95,6 +96,7 @@ def _build(**overrides: Any) -> DecisionReplayRecord:
         policy_bindings=(PolicyBinding(key="policy.bundle", version="v1"),),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         **overrides,
     )
 

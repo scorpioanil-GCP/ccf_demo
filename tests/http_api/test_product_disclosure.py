@@ -65,7 +65,7 @@ from ccf.products.refusal import (
 )
 from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.projection.plan import Perspective
-from ccf.replay.record import DecisionReplayRecord
+from ccf.replay.record import DecisionReplayRecord, ResolutionNotApplicable
 from ccf_runtime.authz.delivery_boundary import SURFACE_HTTP_ROUTE
 from ccf_runtime.http_api.errors import (
     ERROR_PRINCIPAL_NOT_ENTITLED,
@@ -229,6 +229,7 @@ def _absent_subject_resolver(holder: dict[str, Any], fabric: Fabric) -> Any:
             envelope,
             perspective=perspective,
             recorded_at=DETERMINED_AT,
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
             request=request,
         )
 

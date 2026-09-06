@@ -63,6 +63,7 @@ from ccf.products.constraints import (
     ConstraintRefusal,
     PinnedConstraint,
     PolicyResolutionConflict,
+    ResolutionOutcome,
     TechnicalCapability,
     applicable,
 )
@@ -71,7 +72,11 @@ from ccf.products.provenance import (
     OverrideRecord,
     ProvenanceSource,
 )
-from ccf.products.request import ProductRequest, ProductRequestContract
+from ccf.products.request import (
+    ProductRequest,
+    ProductRequestContract,
+    ProductRequestViolation,
+)
 from ccf.projection.plan import Perspective
 from ccf.skills.catalog import SkillArgumentProperty, SkillArgumentSchema
 
@@ -265,7 +270,9 @@ def test_case_1_caller_value_over_default() -> None:
     """
     resolved = _resolve(_request(**{TOLERANCE: Decimal(".30")}))
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     parameter = resolved.parameter(TOLERANCE)
     assert parameter is not None
     assert parameter.value == Decimal(".30")
@@ -287,7 +294,9 @@ def test_case_2_omission_takes_the_default() -> None:
     """
     resolved = _resolve(_request())
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     parameter = resolved.parameter(TOLERANCE)
     assert parameter is not None
     assert parameter.value == Decimal(".25")
@@ -316,7 +325,9 @@ def test_case_3_policy_maximum_bounds_the_caller() -> None:
         _request(**{TOLERANCE: Decimal(".30")}), constraints=(pinned,)
     )
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     parameter = resolved.parameter(TOLERANCE)
     assert parameter is not None
     assert parameter.value == Decimal(".20")
@@ -349,7 +360,9 @@ def test_case_4_depth_within_the_technical_limit_is_valid() -> None:
     """
     resolved = _resolve(_request(**{DEPTH: 8}))
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     parameter = resolved.parameter(DEPTH)
     assert parameter is not None
     assert parameter.value == 8
@@ -397,7 +410,8 @@ def test_a_refused_request_keeps_the_override_it_attempted() -> None:
     or that it was refused as unentitled.
     """
     technical = _resolve(_request(**{DEPTH: 101}), overrides=_ATTEMPTED)
-    assert isinstance(technical, ConstraintRefusal)
+    assert isinstance(technical.refusal, ConstraintRefusal), technical
+    technical = technical.refusal
     assert technical.overrides == _ATTEMPTED
 
     policy = _resolve(
@@ -405,7 +419,8 @@ def test_a_refused_request_keeps_the_override_it_attempted() -> None:
         constraints=(_pinned(parameter=DEPTH, operator="maximum", value=Decimal(5)),),
         overrides=_ATTEMPTED,
     )
-    assert isinstance(policy, ConstraintRefusal)
+    assert isinstance(policy.refusal, ConstraintRefusal), policy
+    policy = policy.refusal
     assert policy.reason == "bound-exceeded" and policy.bound.authority == "policy"
     assert policy.overrides == _ATTEMPTED
 
@@ -417,13 +432,15 @@ def test_a_refused_request_keeps_the_override_it_attempted() -> None:
         ),
         overrides=_ATTEMPTED,
     )
-    assert isinstance(conflict, PolicyResolutionConflict)
+    assert isinstance(conflict.refusal, PolicyResolutionConflict), conflict
+    conflict = conflict.refusal
     assert conflict.overrides == _ATTEMPTED
 
     # And nothing attempted is the empty tuple — hash-transparent, so a
     # refusal written before the member existed renders as it did.
     bare = _resolve(_request(**{DEPTH: 101}))
-    assert isinstance(bare, ConstraintRefusal)
+    assert isinstance(bare.refusal, ConstraintRefusal), bare
+    bare = bare.refusal
     assert bare.overrides == ()
     assert b"overrides" not in canonical_bytes(bare)
 
@@ -438,7 +455,9 @@ def test_a_depth_over_the_technical_limit_is_refused_by_name() -> None:
     """
     refused = _resolve(_request(**{DEPTH: 101}))
 
-    assert isinstance(refused, ConstraintRefusal)
+    assert isinstance(refused.refusal, ConstraintRefusal), refused
+
+    refused = refused.refusal
     assert refused.reason == "bound-exceeded"
     assert refused.key == DEPTH
     assert refused.requested == 101
@@ -452,7 +471,9 @@ def test_the_technical_bound_never_clamps_the_request() -> None:
     """T-24.6-08: case 4 resolves to 8, and never to the declared 6 or the limit."""
     resolved = _resolve(_request(**{DEPTH: 8}))
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     assert resolved.values()[DEPTH] == 8
     assert resolved.values()[DEPTH] != 6
     assert resolved.values()[DEPTH] != Decimal(100)
@@ -471,7 +492,9 @@ def test_two_ceilings_fold_to_the_smaller() -> None:
         ),
     )
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     parameter = resolved.parameter(DEPTH)
     assert parameter is not None
     assert parameter.bound is not None
@@ -488,7 +511,9 @@ def test_a_value_over_the_smaller_of_two_ceilings_is_refused() -> None:
         ),
     )
 
-    assert isinstance(refused, ConstraintRefusal)
+    assert isinstance(refused.refusal, ConstraintRefusal), refused
+
+    refused = refused.refusal
     assert refused.reason == "bound-exceeded"
     assert refused.bound.value == Decimal(5)
 
@@ -503,7 +528,9 @@ def test_two_floors_fold_to_the_larger() -> None:
         ),
     )
 
-    assert isinstance(refused, ConstraintRefusal)
+    assert isinstance(refused.refusal, ConstraintRefusal), refused
+
+    refused = refused.refusal
     assert refused.reason == "bound-exceeded"
     assert refused.bound.value == Decimal(8)
     assert refused.bound.operator == "minimum"
@@ -529,7 +556,9 @@ def test_two_allowed_sets_fold_to_their_intersection() -> None:
         ),
     )
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     parameter = resolved.parameter(TIER)
     assert parameter is not None
     assert parameter.bound is not None
@@ -556,7 +585,9 @@ def test_a_value_outside_the_intersection_is_not_in_allowed_set() -> None:
         ),
     )
 
-    assert isinstance(refused, ConstraintRefusal)
+    assert isinstance(refused.refusal, ConstraintRefusal), refused
+
+    refused = refused.refusal
     assert refused.reason == "not-in-allowed-set"
     assert refused.key == TIER
     assert refused.requested == "gold"
@@ -584,7 +615,9 @@ def test_a_ceiling_below_a_floor_is_a_policy_resolution_conflict() -> None:
         ),
     )
 
-    assert isinstance(conflict, PolicyResolutionConflict)
+    assert isinstance(conflict.refusal, PolicyResolutionConflict), conflict
+
+    conflict = conflict.refusal
     assert conflict.reason == "policy-resolution-conflict"
     assert conflict.key == DEPTH
     assert conflict.conflicting == (
@@ -615,7 +648,9 @@ def test_an_empty_intersection_is_a_policy_resolution_conflict() -> None:
         ),
     )
 
-    assert isinstance(conflict, PolicyResolutionConflict)
+    assert isinstance(conflict.refusal, PolicyResolutionConflict), conflict
+
+    conflict = conflict.refusal
     assert conflict.key == TIER
     assert conflict.conflicting == (
         ProvenanceSource(kind="artifact", identity="bronze-key", version="2.0.0"),
@@ -653,7 +688,9 @@ def test_priority_orders_the_reported_bound_and_nothing_else() -> None:
     """8 clears both; the reported bound is the higher-priority ceiling."""
     resolved = _resolve(_request(**{DEPTH: 8}), constraints=_non_comparable_pair())
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     parameter = resolved.parameter(DEPTH)
     assert parameter is not None
     assert parameter.bound is not None
@@ -671,7 +708,9 @@ def test_a_value_violating_the_lower_priority_bound_is_refused() -> None:
     """2 clears the ceiling that outranks and misses the floor that does not."""
     refused = _resolve(_request(**{DEPTH: 2}), constraints=_non_comparable_pair())
 
-    assert isinstance(refused, ConstraintRefusal)
+    assert isinstance(refused.refusal, ConstraintRefusal), refused
+
+    refused = refused.refusal
     assert refused.reason == "bound-exceeded"
     assert refused.bound.operator == "minimum"
     assert refused.bound.value == Decimal(4)
@@ -699,7 +738,9 @@ def test_a_ceiling_beside_an_allowed_set_both_apply() -> None:
         ),
     )
 
-    assert isinstance(refused, ConstraintRefusal)
+    assert isinstance(refused.refusal, ConstraintRefusal), refused
+
+    refused = refused.refusal
     assert refused.reason == "not-in-allowed-set"
     assert refused.bound.operator == "allowed_set"
 
@@ -719,7 +760,9 @@ def test_a_required_parameter_absent_after_defaults_is_refused() -> None:
         constraints=(_pinned(parameter=TIER, operator="required", value=None),),
     )
 
-    assert isinstance(refused, ConstraintRefusal)
+    assert isinstance(refused.refusal, ConstraintRefusal), refused
+
+    refused = refused.refusal
     assert refused.reason == "required-absent"
     assert refused.key == TIER
     assert refused.requested is None
@@ -733,7 +776,9 @@ def test_a_required_parameter_a_default_supplies_is_not_refused() -> None:
         constraints=(_pinned(parameter=DEPTH, operator="required", value=None),),
     )
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     parameter = resolved.parameter(DEPTH)
     assert parameter is not None
     assert parameter.authority == "default"
@@ -762,7 +807,9 @@ def test_a_verified_entitled_override_is_honored() -> None:
         ),
     )
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     assert resolved.values()[DEPTH] == 60
     assert resolved.overrides[0].entitled is True
 
@@ -794,7 +841,9 @@ def test_an_unentitled_override_changes_nothing_and_is_still_recorded() -> None:
         ),
     )
 
-    assert isinstance(refused, ConstraintRefusal)
+    assert isinstance(refused.refusal, ConstraintRefusal), refused
+
+    refused = refused.refusal
     assert refused.bound.value == Decimal(50)
 
 
@@ -816,7 +865,9 @@ def test_a_non_overridable_constraint_is_not_yielded_to() -> None:
         ),
     )
 
-    assert isinstance(refused, ConstraintRefusal)
+    assert isinstance(refused.refusal, ConstraintRefusal), refused
+
+    refused = refused.refusal
     assert refused.bound.value == Decimal(50)
 
 
@@ -854,7 +905,9 @@ def test_an_inapplicable_constraint_passed_in_is_ignored() -> None:
         constraints=(wrong_tenant, not_yet_effective, expired),
     )
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     assert resolved.values()[DEPTH] == 8
     assert {source.identity for source in resolved.applied}.isdisjoint(
         {"wrong-tenant", "not-yet", "expired"}
@@ -931,7 +984,9 @@ def test_provenance_is_recorded_even_when_nothing_constrained_the_request() -> N
     """
     resolved = _resolve(_request())
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     for parameter in resolved.parameters:
         assert parameter.authority
         assert parameter.source.identity
@@ -953,7 +1008,9 @@ def test_preferred_never_refuses() -> None:
         ),
     )
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     assert resolved.values()[DEPTH] == 8
     assert len(resolved.guidance) == 1
     assert resolved.guidance[0].operator == "preferred"
@@ -986,11 +1043,11 @@ def test_preferred_refusing_is_red_sabotage(tmp_path: pathlib.Path) -> None:
 
     sabotaged = _resolve(request, constraints=constraints, module=scratch)
 
-    assert type(sabotaged).__name__ == "ConstraintRefusal"
+    assert type(sabotaged.refusal).__name__ == "ConstraintRefusal"
     with pytest.raises(AssertionError):
-        assert type(sabotaged).__name__ == "EffectiveRequest"
+        assert sabotaged.refusal is None
     # And the real module serves the same request.
-    assert isinstance(_resolve(request, constraints=constraints), EffectiveRequest)
+    assert _resolve(request, constraints=constraints).refusal is None
 
 
 # --- (e) priority never erases a hard constraint ------------------------------
@@ -1023,19 +1080,22 @@ def test_priority_never_erases_a_hard_constraint_sabotage(
 
     sabotaged = _resolve(request, constraints=constraints, module=scratch)
 
-    assert type(sabotaged).__name__ == "EffectiveRequest"
+    assert sabotaged.refusal is None
     with pytest.raises(AssertionError):
-        assert type(sabotaged).__name__ == "ConstraintRefusal"
+        assert type(sabotaged.refusal).__name__ == "ConstraintRefusal"
     # And the real module refuses it, naming the outranked floor.
     refused = _resolve(request, constraints=constraints)
-    assert isinstance(refused, ConstraintRefusal)
+    assert isinstance(refused.refusal, ConstraintRefusal), refused
+    refused = refused.refusal
     assert refused.bound.operator == "minimum"
 
 
 # --- (f) the resolution is a record, never a scalar ---------------------------
 
 COLLAPSE_NEEDLE = "    return resolved\n"
-COLLAPSE_SABOTAGE = "    return resolved.values()  # type: ignore[return-value]\n"
+COLLAPSE_SABOTAGE = (
+    "    return resolved.evidence.values()  # type: ignore[return-value]\n"
+)
 
 
 def _assert_provenance_survives(resolved: Any) -> None:
@@ -1084,7 +1144,8 @@ def test_provenance_is_never_a_scalar_sabotage(tmp_path: pathlib.Path) -> None:
 
     # And the real module answers it.
     resolved = _resolve(request)
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+    resolved = resolved.evidence
     _assert_provenance_survives(resolved)
 
 
@@ -1104,3 +1165,201 @@ def test_no_sabotage_edits_the_real_source_tree() -> None:
     assert source.count(PRIORITY_NEEDLE) == 1
     assert source.count(COLLAPSE_NEEDLE) == 1
     assert "never dropped because another outranks it" in source
+
+
+# --- (h) the paired outcome: every exit carries what resolution established ----
+#
+# `D-IMPL-264` D-08 (Dave, `24.7-RULINGS.md` §3 Q8): *"a common resolution
+# outcome shape: completed request or governed refusal, both with the
+# resolution evidence accumulated so far."* One test per exit of
+# `resolve_effective_request`, in the order the exits occur in the function;
+# what each asserts is the evidence RESEARCH § Measurement 8 measured to be in
+# scope at that exit. Criterion 12.
+
+#: The three refusal classes' field rosters as measured at the phase base
+#: (`9a2e4bcf`) by `sorted(C.model_fields)`. Criterion 12: the paired outcome
+#: adds the evidence BESIDE the refusal, never as a field cloned into it — so
+#: these rosters must not grow. Spelled as the fixture's own constants rather
+#: than read off the classes, because a roster read off the thing it guards
+#: guards nothing.
+CONSTRAINT_REFUSAL_FIELDS = frozenset(
+    {"bound", "detail", "key", "overrides", "reason", "requested"}
+)
+POLICY_RESOLUTION_CONFLICT_FIELDS = frozenset(
+    {"conflicting", "detail", "key", "overrides", "reason"}
+)
+PRODUCT_REQUEST_VIOLATION_FIELDS = frozenset(
+    {
+        "declared_keys",
+        "declared_type",
+        "detail",
+        "key",
+        "overrides",
+        "presented_keys",
+        "presented_type",
+        "reason",
+    }
+)
+
+#: The fixture capability's provenance, as the resolution records it — a
+#: capability identity and never an artifact pin.
+CAPABILITY_SOURCE = ProvenanceSource(
+    kind="capability", identity=CAPABILITY.identity, version=None
+)
+
+
+def _constraint_source(key: str, version: str = "1.0.0") -> ProvenanceSource:
+    """The pin a `_pinned` constraint is recorded under in `applied`."""
+    return ProvenanceSource(kind="artifact", identity=key, version=version)
+
+
+def test_the_conflict_exit_carries_the_evidence_accumulated_so_far() -> None:
+    """Exit 1: the fold found a contradiction — and both defaults, the caller's
+    value, every consulted pin and the override attempts are on the evidence."""
+    outcome = _resolve(
+        _request(**{DEPTH: 4}),
+        constraints=(
+            _pinned(parameter=DEPTH, operator="maximum", value=Decimal(3), key="c"),
+            _pinned(parameter=DEPTH, operator="minimum", value=Decimal(9), key="f"),
+        ),
+        overrides=_ATTEMPTED,
+    )
+
+    assert isinstance(outcome, ResolutionOutcome)
+    assert isinstance(outcome.refusal, PolicyResolutionConflict), outcome
+    assert outcome.completed is False
+    evidence = outcome.evidence
+    assert isinstance(evidence, EffectiveRequest)
+    assert evidence.values() == {TOLERANCE: Decimal(".25"), DEPTH: 4}
+    depth = evidence.parameter(DEPTH)
+    assert depth is not None and depth.authority == "caller"
+    tolerance = evidence.parameter(TOLERANCE)
+    assert tolerance is not None and tolerance.authority == "default"
+    assert DECLARED_SOURCE in evidence.applied
+    assert _constraint_source("c") in evidence.applied
+    assert _constraint_source("f") in evidence.applied
+    assert evidence.overrides == _ATTEMPTED
+    assert evidence.asked_at == INSTANT
+
+
+def test_the_required_absent_exit_carries_the_evidence_accumulated_so_far() -> None:
+    """Exit 2: presence refused — the defaults resolved before it are on the
+    evidence, the requiring constraint's pin is in `applied`, and the absent
+    key has no record (the positive statement *nothing was presented*)."""
+    outcome = _resolve(
+        _request(),
+        constraints=(
+            _pinned(parameter=TIER, operator="required", value=None, key="presence"),
+        ),
+    )
+
+    assert isinstance(outcome.refusal, ConstraintRefusal), outcome
+    assert outcome.refusal.reason == "required-absent"
+    evidence = outcome.evidence
+    assert evidence.values() == {TOLERANCE: Decimal(".25"), DEPTH: 6}
+    assert evidence.parameter(TIER) is None
+    assert DECLARED_SOURCE in evidence.applied
+    assert _constraint_source("presence") in evidence.applied
+
+
+def test_the_bound_refusal_exit_carries_the_bounds_attached_to_earlier_keys() -> None:
+    """Exit 3: a policy ceiling refused the depth — and the tolerance ceiling
+    that folded FIRST (worked case 3, the one clamp) is on the evidence with
+    authority `policy` and its bound attached, exactly as it was resolved."""
+    outcome = _resolve(
+        _request(**{TOLERANCE: Decimal(".30"), DEPTH: 10}),
+        constraints=(
+            _pinned(parameter=TOLERANCE, operator="maximum", value=Decimal(".20"), key="t"),
+            _pinned(parameter=DEPTH, operator="maximum", value=Decimal(5), key="d"),
+        ),
+    )
+
+    refusal = outcome.refusal
+    assert isinstance(refusal, ConstraintRefusal), outcome
+    assert refusal.key == DEPTH and refusal.bound.authority == "policy"
+    tolerance = outcome.evidence.parameter(TOLERANCE)
+    assert tolerance is not None
+    assert tolerance.authority == "policy" and tolerance.value == Decimal(".20")
+    assert tolerance.bound is not None
+    assert tolerance.bound.source == _constraint_source("t")
+    # The refused value is still the caller's on the evidence: nothing clamped.
+    depth = outcome.evidence.parameter(DEPTH)
+    assert depth is not None and depth.value == 10 and depth.authority == "caller"
+    assert _constraint_source("t") in outcome.evidence.applied
+    assert _constraint_source("d") in outcome.evidence.applied
+
+
+def test_the_capability_exit_carries_the_technical_bounds_attached_so_far() -> None:
+    """Exit 4: the technical ceiling refused the depth — and the technical bound
+    already attached to the parameter bound before it is on the evidence, with
+    the capability's own provenance in `applied`."""
+    outcome = _resolve(
+        _request(**{DEPTH: 101}),
+        capability_bindings={
+            TOLERANCE: CAPABILITY_TRAVERSAL_DEPTH,
+            DEPTH: CAPABILITY_TRAVERSAL_DEPTH,
+        },
+    )
+
+    refusal = outcome.refusal
+    assert isinstance(refusal, ConstraintRefusal), outcome
+    assert refusal.key == DEPTH and refusal.bound.authority == "technical"
+    tolerance = outcome.evidence.parameter(TOLERANCE)
+    assert tolerance is not None and tolerance.bound is not None
+    assert tolerance.bound.authority == "technical"
+    assert tolerance.bound.source == CAPABILITY_SOURCE
+    assert CAPABILITY_SOURCE in outcome.evidence.applied
+    assert DECLARED_SOURCE in outcome.evidence.applied
+
+
+def test_the_validation_exit_carries_the_full_effective_set_and_the_overrides() -> None:
+    """Exit 5: conformity refused an effective value — the WHOLE effective set
+    was resolved (defaults, caller, capability consulted) and rides with the
+    refusal, as do the override attempts, on both halves."""
+    outcome = _resolve(_request(**{"undeclared": 1}), overrides=_ATTEMPTED)
+
+    refusal = outcome.refusal
+    assert isinstance(refusal, ProductRequestViolation), outcome
+    assert refusal.reason == "undeclared-parameter"
+    assert refusal.overrides == _ATTEMPTED
+    evidence = outcome.evidence
+    assert evidence.values() == {TOLERANCE: Decimal(".25"), DEPTH: 6, "undeclared": 1}
+    assert evidence.overrides == _ATTEMPTED
+    assert CAPABILITY_SOURCE in evidence.applied
+    assert DECLARED_SOURCE in evidence.applied
+
+
+def test_the_completion_exit_evidence_is_the_effective_request_as_before() -> None:
+    """Exit 6: completed — `refusal` is stated `None`, and `evidence` is exactly
+    the `EffectiveRequest` the function returned bare before D-08."""
+    outcome = _resolve(_request(**{TOLERANCE: Decimal(".30")}))
+
+    assert outcome.refusal is None
+    assert outcome.completed is True
+    assert isinstance(outcome.evidence, EffectiveRequest)
+    assert outcome.evidence.values() == {TOLERANCE: Decimal(".30"), DEPTH: 6}
+    assert outcome.evidence.applied == (DECLARED_SOURCE, CAPABILITY_SOURCE)
+    assert outcome.evidence.overrides == ()
+    assert outcome.evidence.guidance == ()
+
+
+def test_the_three_refusal_classes_gained_no_resolution_field() -> None:
+    """Criterion 12 — Q8's second sentence, measured against the phase-base
+    rosters: *"rather than cloning resolution fields into multiple refusal
+    classes."* The outcome has exactly its two members."""
+    assert set(ConstraintRefusal.model_fields) == CONSTRAINT_REFUSAL_FIELDS
+    assert set(PolicyResolutionConflict.model_fields) == POLICY_RESOLUTION_CONFLICT_FIELDS
+    assert set(ProductRequestViolation.model_fields) == PRODUCT_REQUEST_VIOLATION_FIELDS
+    assert set(ResolutionOutcome.model_fields) == {"evidence", "refusal"}
+
+
+def test_the_outcome_requires_both_members_stated() -> None:
+    """Neither member is defaulted (`D-IMPL-264` P-2: absence is stated, never
+    inferred from omission). Omitting either is refused at construction."""
+    evidence = _resolve(_request()).evidence
+
+    with pytest.raises(ValueError, match="refusal"):
+        ResolutionOutcome(evidence=evidence)  # type: ignore[call-arg]
+    with pytest.raises(ValueError, match="evidence"):
+        ResolutionOutcome(refusal=None)  # type: ignore[call-arg]
+    assert ResolutionOutcome(evidence=evidence, refusal=None).completed is True

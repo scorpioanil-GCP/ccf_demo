@@ -70,7 +70,11 @@ from ccf.products.request import (  # noqa: E402
     refuse_request,
 )
 from ccf.projection.plan import Perspective  # noqa: E402
-from ccf.replay.record import PolicyBinding, build_replay_record  # noqa: E402
+from ccf.replay.record import (  # noqa: E402
+    PolicyBinding,
+    ResolutionNotApplicable,
+    build_replay_record,
+)
 from ccf.replay.serve import ReplayWriter, ServedProduct, serve  # noqa: E402
 from ccf_runtime.authz.product_entitlement import (  # noqa: E402
     ControlPlaneProductEntitlementSource,
@@ -367,6 +371,7 @@ def _served(
         policy_bindings=(policy_binding,),
         assembly_mode="algorithmic",
         recorded_at=recorded_at,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     return serve(product=gated, record=record, replay_writer=replay_writer)
 

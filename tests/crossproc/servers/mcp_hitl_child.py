@@ -73,7 +73,11 @@ from ccf.products.contract import (  # noqa: E402
 )
 from ccf.projection.engine import ExecutionResult, ExecutionStep  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
-from ccf.replay.record import PolicyBinding, build_replay_record  # noqa: E402
+from ccf.replay.record import (  # noqa: E402
+    PolicyBinding,
+    ResolutionNotApplicable,
+    build_replay_record,
+)
 from ccf.replay.serve import ReplayWriter  # noqa: E402
 from ccf_runtime.mcp.auth import (  # noqa: E402
     FileTokenSource,
@@ -256,6 +260,7 @@ def build_server(*, workspace: Path) -> FastMCP:
             ),
             assembly_mode="algorithmic",
             recorded_at=submission.principal.action_time,
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
             hitl_actions=resolution.hitl_actions_block,
         )
         capability = writer.write_replay_record(record=record)

@@ -48,6 +48,7 @@ from ccf.replay.record import (
     DecisionReplayRecord,
     PerspectiveConditioning,
     PolicyBinding,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
@@ -216,6 +217,7 @@ def _replay_record() -> DecisionReplayRecord:
         policy_bindings=(PolicyBinding(key="policy.bundle", version="v1"),),
         assembly_mode="algorithmic",
         recorded_at=datetime(2026, 3, 1, tzinfo=UTC),
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         agent_conditioning=PerspectiveConditioning(
             principal_id="principal-1",
             role="analyst",

@@ -76,9 +76,11 @@ from ccf.replay.record import (
     NO_ASSEMBLER,
     NO_FABRIC_READ,
     NO_PRODUCT_ADDRESS,
+    NO_REQUEST_RESOLUTION,
     NO_ROLE_RESOLVED,
     DecisionReplayRecord,
     PolicyBinding,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 
@@ -419,6 +421,9 @@ def test_the_assembler_in_force_reaches_dimension_four_on_either_outcome(
         "recorded_at": _RECORDED_AT,
         "assembler_id": "fixture.assembler",
         "assembler_version": "2.1.0",
+        # 24.7-04 (D-IMPL-264 D-09/D-10): a fixture-minted record states
+        # that no resolution step ran in this path.
+        "resolution": ResolutionNotApplicable(reason="no-resolution-step"),
     }
     if outcome == "served":
         record = build_replay_record(
@@ -445,6 +450,7 @@ def test_no_assembler_is_asserted_rather_than_left_absent(outcome: str) -> None:
         "policy_bindings": (),
         "assembly_mode": "algorithmic",
         "recorded_at": _RECORDED_AT,
+        "resolution": ResolutionNotApplicable(reason="no-resolution-step"),
     }
     if outcome == "served":
         record = build_replay_record(
@@ -492,6 +498,7 @@ def test_the_recorded_shell_never_carries_a_replay_reference() -> None:
         policy_bindings=(),
         assembly_mode="algorithmic",
         recorded_at=_RECORDED_AT,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     recorded = _recorded_shell(record)
     assert recorded.replay_reference == NO_REPLAY_REFERENCE
@@ -509,6 +516,7 @@ def test_the_recorded_shell_never_carries_a_replay_reference() -> None:
         policy_bindings=(),
         assembly_mode="algorithmic",
         recorded_at=_RECORDED_AT,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     assert canonical_bytes(record) == canonical_bytes(without)
 
@@ -520,6 +528,7 @@ def test_the_builder_records_exactly_one_outcome() -> None:
         "policy_bindings": (),
         "assembly_mode": "algorithmic",
         "recorded_at": _RECORDED_AT,
+        "resolution": ResolutionNotApplicable(reason="no-resolution-step"),
     }
     with pytest.raises(ValueError, match="exactly one outcome"):
         build_replay_record(execution=None, product=None, **common)
@@ -543,6 +552,115 @@ def test_the_builder_records_exactly_one_outcome() -> None:
             tenant_id="tenant-a",
             **common,
         )
+
+
+# --- 24.7-04: the resolution state is explicit or the record is not built ---
+
+
+def _resolution_common() -> dict[str, Any]:
+    """Every builder argument EXCEPT ``resolution`` — the subject under test."""
+    return {
+        "execution": None,
+        "product": None,
+        "refusal": _a_shell(),
+        "tenant_id": "tenant-a",
+        "perspective": Perspective(principal_id="p-1", role="analyst"),
+        "policy_bindings": (),
+        "assembly_mode": "algorithmic",
+        "recorded_at": _RECORDED_AT,
+    }
+
+
+def test_the_builder_refuses_a_none_resolution_by_name() -> None:
+    """``D-IMPL-264`` D-10 and P-2: *"Missing resolution information is an
+    internal integrity failure."* ``None`` is the omission the ruling closed,
+    and the builder refuses it BY NAME rather than writing the sentinel.
+
+    The second call has neither outcome AND no resolution, and the message
+    it gets is the resolution guard's — that guard is the first in the
+    block, so an integrity failure is named before any outcome is judged.
+    """
+    with pytest.raises(ValueError, match="an explicit resolution state"):
+        build_replay_record(resolution=None, **_resolution_common())
+    neither = _resolution_common()
+    neither["refusal"] = None
+    with pytest.raises(ValueError, match="an explicit resolution state"):
+        build_replay_record(resolution=None, **neither)
+
+
+def test_the_builder_refuses_an_omitted_resolution() -> None:
+    """D-10: *"No implicit omission for new records."* The signature makes
+    omission impossible to express — there is no default to fall back to, so
+    Python itself refuses the call and names the missing keyword."""
+    with pytest.raises(TypeError, match="resolution"):
+        build_replay_record(**_resolution_common())
+    served: dict[str, Any] = {
+        "execution": _an_execution(),
+        "product": _a_product(),
+        "perspective": Perspective(principal_id="p-1", role="analyst"),
+        "policy_bindings": (),
+        "assembly_mode": "algorithmic",
+        "recorded_at": _RECORDED_AT,
+    }
+    with pytest.raises(TypeError, match="resolution"):
+        build_replay_record(**served)
+
+
+def test_the_builder_refuses_a_pre_serialized_resolution() -> None:
+    """The one-render rule (24.6-03): the marker and the resolution land as
+    bytes rendered from the VALUE, never accepted as a block a caller
+    serialized — a pre-serialized string could be a family of blocks."""
+    block = canonical_bytes(
+        ResolutionNotApplicable(reason="no-resolution-step")
+    ).decode("utf-8")
+    with pytest.raises(ValueError, match="never accepted pre-serialized"):
+        build_replay_record(resolution=block, **_resolution_common())
+    with pytest.raises(ValueError, match="never accepted pre-serialized"):
+        build_replay_record(
+            resolution=NO_REQUEST_RESOLUTION, **_resolution_common()
+        )
+
+
+@pytest.mark.parametrize(
+    "reason", ["no-resolution-step", "refused-before-resolution"]
+)
+def test_the_marker_renders_once_from_the_value(reason: str) -> None:
+    """D-09: not-applicable is a first-class fact with a reason, rendered
+    through ``canonical_bytes`` exactly as a resolution is — distinguishable
+    from the legacy sentinel by shape, and round-tripping as itself."""
+    marker = ResolutionNotApplicable(reason=reason)
+    record = build_replay_record(resolution=marker, **_resolution_common())
+    rendered = record.policy_bindings.request_resolution
+    assert rendered == canonical_bytes(marker).decode("utf-8")
+    assert rendered != NO_REQUEST_RESOLUTION
+    assert ResolutionNotApplicable.model_validate_json(rendered) == marker
+    assert ResolutionNotApplicable.model_validate_json(rendered).reason == reason
+
+
+def test_the_marker_states_its_reason_from_a_closed_vocabulary() -> None:
+    """The reason is required and closed: an author who never stated WHY
+    resolution does not apply has not stated non-applicability (P-2)."""
+    with pytest.raises(ValueError):
+        ResolutionNotApplicable()  # type: ignore[call-arg]
+    with pytest.raises(ValueError):
+        ResolutionNotApplicable(reason="because")  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        ResolutionNotApplicable(reason=None)  # type: ignore[arg-type]
+
+
+def test_a_fixture_minted_record_states_no_resolution_step() -> None:
+    """D-09 / criterion 16 for the test-fixture class of direct minting: a
+    record minted with no resolver in the path SAYS so, with the reason, and
+    the claim is readable back off dimension 2 as the typed marker."""
+    record = build_replay_record(
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
+        **_resolution_common(),
+    )
+    stated = ResolutionNotApplicable.model_validate_json(
+        record.policy_bindings.request_resolution
+    )
+    assert stated.reason == "no-resolution-step"
+    assert record.policy_bindings.request_resolution != NO_REQUEST_RESOLUTION
 
 
 # --- (e) the append happens first -------------------------------------------
@@ -657,6 +775,9 @@ def test_the_recorder_answers_a_caller_with_a_principal_and_no_role(
         recorded_at=determined_at,
         request=None,
         execution=None,
+        # 24.7-04 (D-IMPL-264 D-10 am.1): the seam requires the state too;
+        # this fixture ran no resolution step and says so.
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
 
     assert returned.replay_reference != NO_REPLAY_REFERENCE
@@ -708,6 +829,7 @@ def test_a_recorder_with_no_bundle_pin_records_exactly_the_callers_bindings(
         perspective=Perspective(principal_id="p-1", role=NO_ROLE_RESOLVED),
         recorded_at=ASKED_AT,
         policy_bindings=passed,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     record = _record_at(booted, returned.replay_reference)
     assert record.policy_bindings.bindings == passed
@@ -729,6 +851,7 @@ def test_a_recorder_holding_a_bundle_pin_prepends_it(booted: _Booted) -> None:
         perspective=Perspective(principal_id="p-1", role=NO_ROLE_RESOLVED),
         recorded_at=ASKED_AT,
         policy_bindings=passed,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     record = _record_at(booted, returned.replay_reference)
     assert record.policy_bindings.bindings == (pin, *passed)
@@ -812,6 +935,7 @@ def test_a_recorded_refusal_round_trips_through_the_builders_own_guard() -> None
         "policy_bindings": (),
         "assembly_mode": "algorithmic",
         "recorded_at": _RECORDED_AT,
+        "resolution": ResolutionNotApplicable(reason="no-resolution-step"),
     }
     record = build_replay_record(refusal=_a_shell(), **common)
     assert _recorded_shell(record).kind == "product-request-violation"
@@ -833,6 +957,7 @@ def test_a_recorded_refusal_round_trips_through_the_builders_own_guard() -> None
             policy_bindings=(),
             assembly_mode="algorithmic",
             recorded_at=_RECORDED_AT,
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
             assembly_refusal='{"looks":"like a refusal"}',
         )
 

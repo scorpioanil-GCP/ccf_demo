@@ -183,9 +183,7 @@ from ccf.products.debt_scorer import (
 )
 from ccf.products.constraints import (
     CAPABILITY_TRAVERSAL_DEPTH,
-    ConstraintRefusal,
     PolicyConstraintResolver,
-    PolicyResolutionConflict,
     ReferencePolicyConstraintResolver,
     TechnicalCapability,
     _ConstraintSource,
@@ -215,12 +213,16 @@ from ccf.products.refusal import (
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
-    ProductRequestViolation,
+    refuse_intent,
     refuse_undeclared_class_default,
 )
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
-from ccf.replay.record import PolicyBinding, build_replay_record
+from ccf.replay.record import (
+    PolicyBinding,
+    ResolutionNotApplicable,
+    build_replay_record,
+)
 from ccf.replay.serve import (
     QueryPinWriter,
     ReplayWriter,
@@ -561,7 +563,7 @@ class RefusalRecorderProtocol(Protocol):
         policy_bindings: tuple[PolicyBinding, ...] = (),
         assembler_id: str | None = None,
         assembler_version: str | None = None,
-        resolution: EffectiveRequest | None = None,
+        resolution: EffectiveRequest | ResolutionNotApplicable,
     ) -> RefusalEnvelope:
         """Append ``envelope``'s decision record, then return it with its address.
 
@@ -612,8 +614,20 @@ class RefusalRecorderProtocol(Protocol):
                 recorder was constructed with.
             assembler_id: The assembler in force, and ``assembler_version`` its
                 lane — dimension 4 (``D-IMPL-253`` Q16).
-            resolution: The Authority layer's record, when the question reached
-                that layer — dimension 2 (``D-IMPL-253`` Q1/Q6).
+            resolution: The resolution state — dimension 2 (``D-IMPL-253``
+                Q1/Q6; ``D-IMPL-264`` D-10). REQUIRED, with no default, as of
+                24.7-04: the
+                :class:`~ccf.products.provenance.EffectiveRequest` the
+                Authority layer produced — complete, or the partial record it
+                established before refusing (D-07) — or a
+                :class:`~ccf.replay.record.ResolutionNotApplicable` marker
+                stating, with its reason, that no resolution applies (D-09).
+                A caller that ran no resolver says so; this seam never says
+                it on the caller's behalf. ``D-IMPL-264`` amendment 1 (F-3 a), Dave verbatim: *"Any API that
+        constructs or delegates construction of a replay record must require
+        an explicit resolution state: effective/partial resolution or explicit
+        not-applicable marker. No intermediate layer may manufacture the
+        marker from omission."*
 
         Returns:
             The same envelope with its
@@ -801,11 +815,18 @@ class ReplayRefusalRecorder:
         policy_bindings: tuple[PolicyBinding, ...] = (),
         assembler_id: str | None = None,
         assembler_version: str | None = None,
-        resolution: EffectiveRequest | None = None,
+        resolution: EffectiveRequest | ResolutionNotApplicable,
     ) -> RefusalEnvelope:
         """Disclose, append the INTERNAL truth, then hand back the shell.
 
         See :meth:`RefusalRecorderProtocol.record` for the argument contract.
+        ``resolution`` is passed through to the builder exactly as received
+        and is required here for the reason it is required there
+        (24.7-04; ``D-IMPL-264`` amendment 1 (F-3 a), Dave verbatim: *"Any API that
+        constructs or delegates construction of a replay record must require
+        an explicit resolution state: effective/partial resolution or explicit
+        not-applicable marker. No intermediate layer may manufacture the
+        marker from omission."*).
 
         **The order is the architecture** (``D-IMPL-254``). The record is built
         from the **internal** envelope — the determination as the fabric
@@ -1257,12 +1278,51 @@ class GovernedResolver:
             temporal_boundary=request.asked_at,
         )
 
+        # 24.7-07: is this class registered to serve the intent the request is
+        # addressed with? An ADDRESSING verdict, and it precedes resolution for
+        # the reason `_refuse_address` states for the lane check: judging the
+        # parameters of a request for a class that does not serve its intent
+        # is a confident verdict about the wrong question. Judged HERE, where
+        # the declaration that carries `discovery` is in scope, and not inside
+        # `refuse_request`, which never sees it — so direct validators that
+        # hold no declaration never judge intent (D-09). Three states
+        # (`D-IMPL-264` D-01 as amended, F-1 a): no declaration
+        # (`NOT_DISCOVERABLE`) → unjudged, every existing deployment serves
+        # as it did; declared and a member → serves; declared and not a member
+        # — including a declared EMPTY set — → refused as data.
+        violation = refuse_intent(request=request, discovery=declaration.discovery)
+        if violation is not None:
+            # No resolution ran, and the record says so positively rather than
+            # by omission (D-09/D-10, P-2). What DID decide this outcome is the
+            # class's declared intent set, so the deciding declaration IS
+            # pinned — minted the way `class_source` mints it below, so the pin
+            # resolves to the exact bytes that declared the set (`D-IMPL-264`
+            # amendment 3 B-3 a, Dave: *"The refusal was decided by the class's
+            # declared intent set, so replay should preserve the declaration
+            # that actually governed the outcome"*). No request contract and no
+            # constraint is pinned, because none was resolved against — which
+            # is what lets replay read *request-contract pin + applicable
+            # constraint pins* as the evidence that resolution ran, and never
+            # a class-declaration pin (D-11 as narrowed by the same amendment).
+            return self._record_refusal(
+                envelope=envelope_for(violation, request=identity),
+                execution=None,
+                request=request,
+                perspective=perspective,
+                policy_bindings=(
+                    PolicyBinding(
+                        key=self.product_class_key, version=content_hash(declaration)
+                    ),
+                ),
+                resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+            )
+
         # THE DOOR, and this composition is the resolver standing at it. The
         # comparison the two shipped doors cannot make, because neither holds
         # the registered class it compares against (`D-IMPL-121`) — and, as of
         # `24.6-03`, the Control Plane read no door could make either.
         declared = self._request_contract(declaration)
-        resolved = self.constraint_resolver.resolve(
+        outcome = self.constraint_resolver.resolve(
             product_class=product_class,
             request=request,
             declared=declared,
@@ -1296,26 +1356,37 @@ class GovernedResolver:
                 version=content_hash(declaration),
             ),
         )
-        if isinstance(
-            resolved,
-            (ConstraintRefusal, PolicyResolutionConflict, ProductRequestViolation),
-        ):
+        if outcome.refusal is not None:
             # No lineage: every one of these is reached while the effective
             # request is still being built, which is strictly before the graph
             # is touched. `envelope_for` refuses a lineage here, which is what
             # makes the assembly-boundary split structural.
             #
             # 24.6-07: and no execution, so dimension 1 says positively that
-            # nothing was read. The bundle pin is the recorder's; nothing else
-            # governed this, because the resolution that would have produced
-            # the pins is what failed.
+            # nothing was read. The bundle pin is the recorder's. What DID
+            # govern this is the resolution that ran up to the refusal —
+            # defaults applied, the constraints in force folded, capabilities
+            # consulted — and that partial work is governed truth. It rides on
+            # dimension 2 with the pins it was resolved from, exactly as a
+            # completed resolution does on the two post-assembly branches
+            # below (`D-IMPL-264` D-07, Dave: *"'It failed before producing
+            # an effective request' must not erase what resolution already
+            # established."*). The shell carries the same partial record as
+            # its `provenance`, so the record and the shell cannot disagree.
             return self._record_refusal(
-                envelope=envelope_for(resolved, request=identity),
+                envelope=envelope_for(
+                    outcome.refusal,
+                    request=identity,
+                    policy_bindings=outcome.evidence.applied,
+                    provenance=outcome.evidence,
+                ),
                 execution=None,
                 request=request,
                 perspective=perspective,
+                policy_bindings=self._applied_bindings(outcome.evidence),
+                resolution=outcome.evidence,
             )
-        effective = resolved
+        effective = outcome.evidence
         # The engine answers the EFFECTIVE question — defaults applied, policy
         # bounds in force. It is a SIBLING of the caller's request and never a
         # replacement: `identity.parameters` and the request that lands in
@@ -1504,7 +1575,7 @@ class GovernedResolver:
         request: ProductRequest,
         perspective: Perspective,
         policy_bindings: tuple[PolicyBinding, ...] = (),
-        resolution: EffectiveRequest | None = None,
+        resolution: EffectiveRequest | ResolutionNotApplicable,
     ) -> RefusalEnvelope:
         """Mint this refusal's decision record, then return the addressed shell.
 
@@ -1516,6 +1587,15 @@ class GovernedResolver:
         The instant is ``request.asked_at`` for the reason nothing in this
         module reads a clock: the caller supplies it at serve time and replay
         supplies it at replay time, through this same code path.
+
+        ``resolution`` is required with no default (24.7-04): every branch
+        that reaches here ran the resolution step and passes what it
+        established — complete or partial (D-07) — and this thin layer
+        never substitutes a marker for what a branch did not say. ``D-IMPL-264`` amendment 1 (F-3 a), Dave verbatim: *"Any API that
+        constructs or delegates construction of a replay record must require
+        an explicit resolution state: effective/partial resolution or explicit
+        not-applicable marker. No intermediate layer may manufacture the
+        marker from omission."*
 
         Raises:
             Exception: whatever the artifact store raises, deliberately

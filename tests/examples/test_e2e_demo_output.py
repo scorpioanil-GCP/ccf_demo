@@ -133,6 +133,7 @@ from ccf.replay.record import DecisionReplayRecord
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY
 from ccf.skills.grants import SKILL_GRANT
 
+pytestmark = pytest.mark.archived  # D-IMPL-265: exercises archive/examples/08-e2e-demo; retired usage model, non-gating
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE_DIR = REPO_ROOT / "archive" / "examples" / "08-e2e-demo"
 EXAMPLE = EXAMPLE_DIR / "run.py"
