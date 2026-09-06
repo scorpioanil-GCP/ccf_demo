@@ -206,6 +206,17 @@ __all__ = [
 #: is the one :class:`~ccf.products.contract.ServeObligations` holds the
 #: CLASS's declared default to (``24.5-L-14``, ``24.6-L-04``): the request
 #: boundary and the class boundary read the same interval.
+#:
+#: The seventh and eighth, ``below-minimum`` and ``above-maximum``, are the
+#: two ends of a numeric :class:`ArgumentDomain` (``D-IMPL-259``). The ninth,
+#: ``not-in-domain``, is the enumerated shape's one verdict (``D-IMPL-264``
+#: D-05, Dave: *"Wrong type and valid type/wrong value are materially
+#: different failures. The presented value can be named; disclosure controls
+#: whether the allowed set is exposed."*): a well-typed value that is not a
+#: member of the class's declared set. A wrong-typed value is still
+#: ``type-mismatch`` — the payload comparison runs first and this verdict
+#: never reaches it. Appended last, never inserted, so every older record's
+#: reason meets the same roster prefix.
 ProductRequestViolationReason = Literal[
     "undeclared-parameter",
     "missing-required-parameter",
@@ -215,6 +226,7 @@ ProductRequestViolationReason = Literal[
     "not-a-proportion",
     "below-minimum",
     "above-maximum",
+    "not-in-domain",
 ]
 
 #: How :func:`~ccf.products.payload.refuse_payload`'s reasons read on the
@@ -615,16 +627,21 @@ class ProductRequestContract(VersionedArtifact):
     ) -> "ProductRequestContract":
         """Refuse a domain the class cannot hold a caller to, naming every offender.
 
-        Four ways a declared domain is not one (``D-IMPL-259``), checked
-        together on the defaults validator's precedent: a name the class never
-        declared; a name declared with a type that has no magnitude (a domain
-        over a string bounds nothing, and ``bool`` is not a number to this
-        contract); a name the class declares and **always refuses** (a domain
-        over an inert parameter describes questions the tier step never lets
-        through); and a declared default that lies outside the domain — the
-        class contradicting itself, which fails HERE, where the author can
-        still fix it, rather than in front of a caller who omitted the
-        parameter (``D-IMPL-258`` (5)'s rule, one key over).
+        Five ways a declared domain is not one (``D-IMPL-259``; ``D-IMPL-264``
+        D-03/D-06), checked together on the defaults validator's precedent: a
+        name the class never declared; a name declared with a type that has
+        no magnitude under a NUMERIC domain (bounds over a string bound
+        nothing, and ``bool`` is not a number to this contract); an
+        ENUMERATED domain whose members are typed against the declared
+        property (a string set over an integer, a number over a boolean —
+        *"homogeneous members matching the declared property type"*); a
+        name the class declares and **always refuses** (a domain over an
+        inert parameter describes questions the tier step never lets
+        through); and a declared default that lies outside the domain,
+        judged by the same :meth:`ArgumentDomain.refuses` the domain step
+        uses — the class contradicting itself, which fails HERE, where the
+        author can still fix it, rather than in front of a caller who
+        omitted the parameter (``D-IMPL-258`` (5)'s rule, one key over).
         """
         if not self.argument_domains:
             return self
@@ -641,9 +658,20 @@ class ProductRequestContract(VersionedArtifact):
         )
         unmeasurable = sorted(
             name
-            for name in self.argument_domains
+            for name, domain in self.argument_domains.items()
             if name in self.arguments.properties
+            and domain.members is None
             and not _has_magnitude(self.arguments.properties[name].type)
+        )
+        mistyped = sorted(
+            f"{name} declares {self.arguments.properties[name].type} but "
+            f"enumerates {_member_class(domain.members[0])}"
+            for name, domain in self.argument_domains.items()
+            if name in self.arguments.properties
+            and domain.members is not None
+            and not _members_match_type(
+                domain.members, self.arguments.properties[name].type
+            )
         )
         contradicted = sorted(
             name
@@ -651,22 +679,23 @@ class ProductRequestContract(VersionedArtifact):
             if name in self.defaults
             and name not in undeclared
             and name not in unmeasurable
-            and _as_decimal(self.defaults[name]) is not None
-            and domain.refuses(_as_decimal(self.defaults[name])) is not None  # type: ignore[arg-type]
+            and domain.refuses(self.defaults[name]) is not None
         )
-        if not (undeclared or inert or unmeasurable or contradicted):
+        if not (undeclared or inert or unmeasurable or mistyped or contradicted):
             return self
         raise ValueError(
             f"the request contract for {self.schema_name!r} at class lane "
             f"{self.schema_version!r} declares argument domains it cannot "
             f"hold a caller to: {undeclared} are not declared arguments, "
-            f"{unmeasurable} are declared with a type that has no magnitude "
-            f"(a domain bounds integer and number only), {inert} are "
-            f"declared and always refused, and {contradicted} carry a declared "
-            "default outside their own domain — a class that would refuse the "
-            "value it fills in for an omission contradicts itself, and that "
-            "fails at declaration rather than in front of a caller "
-            "(D-IMPL-259, D-IMPL-258 (5))"
+            f"{unmeasurable} are bounded numerically but declared with a type "
+            "that has no magnitude (numeric bounds hold integer and number "
+            f"only), {mistyped} are enumerated with members typed against the "
+            f"declared property (mistyped), {inert} are declared and always "
+            f"refused, and {contradicted} carry a declared default outside "
+            "their own domain — a class that would refuse the value it fills "
+            "in for an omission contradicts itself, and that fails at "
+            "declaration rather than in front of a caller "
+            "(D-IMPL-259, D-IMPL-264 D-03/D-06, D-IMPL-258 (5))"
         )
 
     @model_validator(mode="after")
@@ -1040,6 +1069,32 @@ def _member_class(value: object) -> str | None:
     return None
 
 
+def _members_match_type(
+    members: tuple[str | int | bool | Decimal, ...], type_name: str
+) -> bool:
+    """Do these (homogeneous) members match the declared JSON Schema type?
+
+    ``string`` takes the string class; ``boolean`` the boolean class;
+    ``number`` the numeric class; ``integer`` the numeric class with every
+    member an ``int`` (a ``Decimal("1.5")`` is a number, not an integer).
+    ``array`` and ``object`` take no enumerated domain at all — a member set
+    is a set of primitives (``D-IMPL-264`` D-06). Spelled as a function, not
+    a table, for the reason :func:`_has_magnitude` gives.
+    """
+    member_class = _member_class(members[0])
+    if type_name == "string":
+        return member_class == "string"
+    if type_name == "boolean":
+        return member_class == "boolean"
+    if type_name == "number":
+        return member_class == "numeric"
+    if type_name == "integer":
+        return member_class == "numeric" and all(
+            isinstance(member, int) for member in members
+        )
+    return False
+
+
 def _is_member(value: object, member: object) -> bool:
     """Is ``value`` exactly ``member``, under that member's class equality?
 
@@ -1157,7 +1212,7 @@ class ProductRequestViolation(CCFContract):
     re-derives either to learn what the gap was.
 
     Attributes:
-        reason: Which of the eight ways the request missed.
+        reason: Which of the nine ways the request missed.
         key: Where. A parameter reads by name, a nested member reads
             ``parent.member`` and an element of a declared list reads
             ``parent[].member``; a class mismatch reads the field that
@@ -1184,7 +1239,14 @@ class ProductRequestViolation(CCFContract):
             sentence sees what the declaration said. For a proportion refusal
             it carries the parameter name, the presented value and the
             interval, so a caller reads which number missed and what it had
-            to be.
+            to be. For a ``not-in-domain`` refusal it carries the parameter
+            name, the presented value and the sorted member set — and the
+            allowed set travels ONLY here, never as a typed member, so
+            :data:`~ccf.products.disclosure.PERMITTED_AT_MINIMAL` decides its
+            exposure without a new row (``D-IMPL-264`` D-05, the disclosure
+            channel); advertising the set to a caller BEFORE the request is
+            the other channel, the canonical contract render (D-02), and is
+            not a refusal's business.
         overrides: Every override the request attempted, with its entitlement
             result, when this violation was reached by
             :func:`~ccf.products.constraints.resolve_effective_request` —
@@ -1392,36 +1454,62 @@ def _refuse_tolerance(
 def _refuse_domain(
     *, request: ProductRequest, declared: ProductRequestContract
 ) -> ProductRequestViolation | None:
-    """Does every presented number lie inside its declared domain?
+    """Does every presented value lie inside its declared domain?
 
-    The domain step (``D-IMPL-259``). Runs LAST, after the payload comparison
-    has said each parameter is declared, honored and well-typed and after the
-    interval step has judged the tolerance, so this function only ever judges
-    a declared number's magnitude against the class's own declaration of what
-    numbers are meaningful. Names are read in sorted order so the first
-    verdict is the same verdict on every run — the replay property every
-    comparison in this package carries.
+    The domain step (``D-IMPL-259``, ``D-IMPL-264`` D-04/D-05). Runs LAST,
+    after the payload comparison has said each parameter is declared, honored
+    and well-typed and after the interval step has judged the tolerance, so
+    this function only ever judges a well-typed value against the class's
+    own declaration of what values are meaningful: a number's magnitude
+    against a numeric domain, or a value's exact typed membership in an
+    enumerated one. Names are read in sorted order so the first verdict is
+    the same verdict on every run — the replay property every comparison in
+    this package carries.
+
+    The one membership judgment is :meth:`ArgumentDomain.refuses`, which the
+    contract validator also calls over a declared default, so a caller's
+    value and a default are judged by one rule. A presented value with no
+    magnitude under a numeric domain is not judged here (the payload
+    comparison named it first); an enumerated domain receives the presented
+    value as it is — untrimmed, unfolded, unaliased (D-04).
 
     Nothing here clamps and nothing here reads a policy or a capability: a
-    value below the floor is refused with the floor named, exactly as a
-    caller's value above a technical capability is refused by
-    :mod:`ccf.products.constraints` with the capability named — two
-    boundaries, two vocabularies, one posture (*"never clamped"*).
+    value below the floor is refused with the floor named, a value outside
+    the set is refused with the set named, exactly as a caller's value above
+    a technical capability is refused by :mod:`ccf.products.constraints`
+    with the capability named — two boundaries, two vocabularies, one
+    posture (*"never clamped"*).
     """
     for key in sorted(declared.argument_domains):
         if key not in request.parameters:
             continue
         presented = request.parameters[key]
-        value = _as_decimal(presented)
-        if value is None:
-            continue
         domain = declared.argument_domains[key]
-        reason = domain.refuses(value)
+        reason = domain.refuses(presented)
         if reason is None:
             continue
-        limit = domain.minimum if reason == "below-minimum" else domain.maximum
-        edge = "below the declared minimum" if reason == "below-minimum" else "above the declared maximum"
         property_ = declared.arguments.properties.get(key)
+        if reason == "not-in-domain":
+            members = ", ".join(repr(member) for member in sorted(domain.members or ()))
+            detail = (
+                f"{key}: {presented!r} is not a member of this class's "
+                f"declared domain [{members}] — the parameter's legal values, "
+                "declared beside its type and judged by exact typed equality, "
+                "refused by name rather than substituted (D-IMPL-264 D-04/D-05)"
+            )
+        else:
+            limit = domain.minimum if reason == "below-minimum" else domain.maximum
+            edge = (
+                "below the declared minimum"
+                if reason == "below-minimum"
+                else "above the declared maximum"
+            )
+            detail = (
+                f"{key}: {presented} lies {edge} {limit} of this class's "
+                "request contract — the parameter's valid domain, declared "
+                "beside its type and refused by name rather than substituted "
+                "(D-IMPL-259)"
+            )
         return ProductRequestViolation(
             reason=reason,
             key=key,
@@ -1429,12 +1517,7 @@ def _refuse_domain(
             presented_type=type(presented).__name__,
             declared_keys=frozenset(declared.arguments.properties),
             presented_keys=frozenset(request.parameters),
-            detail=(
-                f"{key}: {presented} lies {edge} {limit} of this class's "
-                "request contract — the parameter's valid domain, declared "
-                "beside its type and refused by name rather than substituted "
-                "(D-IMPL-259)"
-            ),
+            detail=detail,
         )
     return None
 
