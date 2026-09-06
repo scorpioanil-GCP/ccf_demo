@@ -104,6 +104,7 @@ __all__ = [
     "PolicyConstraintResolver",
     "PolicyResolutionConflict",
     "ReferencePolicyConstraintResolver",
+    "ResolutionOutcome",
     "TechnicalCapability",
     "applicable",
     "constraints_in_force",
@@ -322,6 +323,61 @@ class PolicyResolutionConflict(CCFContract):
     overrides: tuple[OverrideRecord, ...] = Field(
         default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+
+
+class ResolutionOutcome(CCFContract):
+    """One resolution's answer — completed request or governed refusal — with the evidence accumulated so far.
+
+    **SDK-defined, not whitepaper-derived (CLAUDE.md §11).** The ruling of
+    record is ``docs/DECISIONS.md`` **D-IMPL-264** D-08 (Dave, 2026-09-05,
+    ``24.7-RULINGS.md`` §3 Q8), verbatim: *"Return the refusal paired with the
+    partial resolution. Keep refusal vocabulary separate from resolution
+    provenance rather than cloning resolution fields into multiple refusal
+    classes. I would think of this as a common resolution outcome shape:
+    completed request or governed refusal, both with the resolution evidence
+    accumulated so far."* What the whitepaper commits to is the hook this
+    shape serves: §7.8 audits every plane decision against the Control Plane
+    that permitted it, and §7.10's five-dimension record is complete only when
+    dimension 2 carries what resolution established — including what it
+    established on the way to a refusal (D-07, Dave: *"'It failed before
+    producing an effective request' must not erase what resolution already
+    established."*).
+
+    **Two members, both required, and the two vocabularies stay apart.**
+    :attr:`evidence` is the :class:`~ccf.products.provenance.EffectiveRequest`
+    as it stood when the resolution exited — complete on success, partial on a
+    refusal — and it is the SAME type either way, so replay dimension 2 and
+    :attr:`~ccf.products.refusal.RefusalEnvelope.provenance` read one shape
+    whichever way the determination went. :attr:`refusal` is the governed
+    determination that stands instead of a completed request, or ``None``; the
+    three refusal classes gain no cloned resolution field, which is the half of
+    Q8 that keeps a refusal a refusal. Neither member is defaulted: the
+    completion says ``refusal=None`` out loud, on ``D-IMPL-264`` P-2's rule
+    that absence is stated and never inferred from omission.
+
+    Unlike :class:`~ccf.products.door.DoorOutcome`, which carries exactly one
+    of its halves, this shape ALWAYS carries the evidence: the resolution step
+    ran, so there is always something it established — at minimum the contract
+    pin it consulted. Pydantic's own validation is therefore the whole guard.
+
+    Attributes:
+        evidence: What resolution established before it exited — every
+            parameter resolved so far with ``(value, authority, source)`` and
+            any bound attached, the guidance folded so far, every override
+            attempt verified, and every source consulted.
+        refusal: The governed refusal, when the resolution did not complete;
+            ``None`` when :attr:`evidence` is the completed effective request.
+    """
+
+    evidence: EffectiveRequest
+    refusal: (
+        ConstraintRefusal | PolicyResolutionConflict | ProductRequestViolation | None
+    )
+
+    @property
+    def completed(self) -> bool:
+        """``True`` when the resolution produced an effective request."""
+        return self.refusal is None
 
 
 @dataclass(frozen=True)
@@ -694,6 +750,31 @@ def _with_overrides(
     return refusal.model_copy(update={"overrides": verified_overrides})
 
 
+def _evidence_so_far(
+    *,
+    effective: Mapping[str, EffectiveParameter],
+    guidance: Sequence[ParameterBound],
+    applied: set[ProvenanceSource],
+    verified_overrides: tuple[OverrideRecord, ...],
+    asked_at: datetime,
+) -> EffectiveRequest:
+    """The resolution as it stands at one exit, rendered the one way.
+
+    ``D-IMPL-264`` D-07/D-08. Called at every exit of
+    :func:`resolve_effective_request` — the five refusal exits and the one
+    completion — over the same locals, so a partial record and a completed one
+    are the same construction sorted the same way, and dimension 2 cannot
+    render one resolution as a family of blocks depending on where it exited.
+    """
+    return EffectiveRequest(
+        parameters=tuple(effective[name] for name in sorted(effective)),
+        guidance=tuple(sorted(guidance, key=_guidance_key)),
+        overrides=verified_overrides,
+        applied=tuple(sorted(applied, key=_sort_key)),
+        asked_at=asked_at,
+    )
+
+
 def resolve_effective_request(
     *,
     request: ProductRequest,
@@ -707,7 +788,7 @@ def resolve_effective_request(
     tenant: str,
     class_defaults: Mapping[str, Any] | None = None,
     class_source: ProvenanceSource | None = None,
-) -> EffectiveRequest | ConstraintRefusal | PolicyResolutionConflict | ProductRequestViolation:
+) -> ResolutionOutcome:
     """The one resolution: defaults, caller, policy, capability, validation.
 
     Whitepaper §7.8; SDK-defined per CLAUDE.md §11 (``D-IMPL-253`` Q4-Q8,
@@ -780,13 +861,18 @@ def resolve_effective_request(
             resolve later is worse than no default.
 
     Returns:
-        The :class:`~ccf.products.provenance.EffectiveRequest` — every
-        parameter carrying ``(value, authority, source)`` and its bound, even
-        when nothing constrained the request — or one of the three governed
-        determinations: a :class:`ConstraintRefusal`, a
-        :class:`PolicyResolutionConflict`, or the
-        :class:`~ccf.products.request.ProductRequestViolation` the existing
-        conformity comparison returns over the effective values.
+        A :class:`ResolutionOutcome` (``D-IMPL-264`` D-08). Its ``evidence``
+        is ALWAYS present — the
+        :class:`~ccf.products.provenance.EffectiveRequest` as it stood at the
+        exit, every parameter resolved so far carrying ``(value, authority,
+        source)`` and its bound, even when nothing constrained the request.
+        Its ``refusal`` is ``None`` when the resolution completed, or one of
+        the three governed determinations that stand instead: a
+        :class:`ConstraintRefusal`, a :class:`PolicyResolutionConflict`, or
+        the :class:`~ccf.products.request.ProductRequestViolation` the
+        existing conformity comparison returns over the effective values. A
+        refusal reached halfway through carries the half that ran (D-07):
+        *"that partial work is still governed truth and belongs in replay."*
 
     Raises:
         ValueError: ``class_defaults`` is non-empty and ``class_source`` is
@@ -923,16 +1009,32 @@ def resolve_effective_request(
         by_parameter.setdefault(pinned.constraint.parameter, []).append(pinned)
 
     guidance: list[ParameterBound] = []
+
+    def evidence_so_far() -> EffectiveRequest:
+        # What this resolution has established at the moment it is called —
+        # read off the accumulators as they stand, so a refusal three lines
+        # below carries exactly what was resolved above it (D-IMPL-264 D-07).
+        return _evidence_so_far(
+            effective=effective,
+            guidance=guidance,
+            applied=applied,
+            verified_overrides=verified_overrides,
+            asked_at=request.asked_at,
+        )
+
     for key in sorted(by_parameter):
         folded = _fold(key=key, pinned=by_parameter[key])
         if isinstance(folded, PolicyResolutionConflict):
-            return _with_overrides(folded, verified_overrides)
+            return ResolutionOutcome(
+                evidence=evidence_so_far(),
+                refusal=_with_overrides(folded, verified_overrides),
+            )
         candidates, parameter_guidance = folded
         guidance.extend(parameter_guidance)
 
         presence = [c for c in candidates if c.fold == _PRESENCE]
         if presence and key not in effective:
-            return ConstraintRefusal(
+            absent = ConstraintRefusal(
                 reason="required-absent",
                 key=key,
                 detail=(
@@ -944,6 +1046,7 @@ def resolve_effective_request(
                 requested=None,
                 overrides=verified_overrides,
             )
+            return ResolutionOutcome(evidence=evidence_so_far(), refusal=absent)
         if key not in effective:
             continue
 
@@ -971,7 +1074,10 @@ def resolve_effective_request(
                     bound=candidate.bound,
                 )
                 continue
-            return _with_overrides(refusal, verified_overrides)
+            return ResolutionOutcome(
+                evidence=evidence_so_far(),
+                refusal=_with_overrides(refusal, verified_overrides),
+            )
         if ordered and effective[key].bound is None:
             effective[key] = effective[key].model_copy(
                 update={"bound": ordered[0].bound}
@@ -1004,7 +1110,7 @@ def resolve_effective_request(
             continue
         presented = _as_number(effective[name].value)
         if presented is not None and presented > capability.maximum:
-            return ConstraintRefusal(
+            exceeded = ConstraintRefusal(
                 reason="bound-exceeded",
                 key=name,
                 detail=(
@@ -1018,6 +1124,7 @@ def resolve_effective_request(
                 requested=effective[name].value,
                 overrides=verified_overrides,
             )
+            return ResolutionOutcome(evidence=evidence_so_far(), refusal=exceeded)
         if effective[name].bound is None:
             effective[name] = effective[name].model_copy(
                 update={"bound": technical}
@@ -1030,14 +1137,17 @@ def resolve_effective_request(
         request=request.model_copy(update={"parameters": values}), declared=declared
     )
     if verdict is not None:
-        return _with_overrides(verdict, verified_overrides)
+        # The whole effective set was resolved; only conformity refused it.
+        return ResolutionOutcome(
+            evidence=evidence_so_far(),
+            refusal=_with_overrides(verdict, verified_overrides),
+        )
 
-    resolved = EffectiveRequest(
-        parameters=tuple(effective[name] for name in sorted(effective)),
-        guidance=tuple(sorted(guidance, key=_guidance_key)),
-        overrides=verified_overrides,
-        applied=tuple(sorted(applied, key=_sort_key)),
-        asked_at=request.asked_at,
+    resolved = ResolutionOutcome(
+        evidence=evidence_so_far(),
+        # Stated, not defaulted: the completion says there is no refusal
+        # rather than leaving absence to be inferred (D-IMPL-264 P-2).
+        refusal=None,
     )
     # D-IMPL-254: the Authority layer's value is the record, never a scalar
     return resolved
@@ -1246,12 +1356,7 @@ class PolicyConstraintResolver(Protocol):
         capabilities: tuple[TechnicalCapability, ...],
         class_defaults: Mapping[str, Any] | None = None,
         class_source: ProvenanceSource | None = None,
-    ) -> (
-        EffectiveRequest
-        | ConstraintRefusal
-        | PolicyResolutionConflict
-        | ProductRequestViolation
-    ):
+    ) -> ResolutionOutcome:
         """Resolve ``request`` into its effective values, or refuse it.
 
         The instant is ``request.asked_at`` and never a clock: a resolver that
@@ -1279,8 +1384,10 @@ class PolicyConstraintResolver(Protocol):
             class_source: The artifact pin ``class_defaults`` were read from.
 
         Returns:
-            The :class:`~ccf.products.provenance.EffectiveRequest`, or the
-            governed determination that stands instead of one.
+            The :class:`ResolutionOutcome` (``D-IMPL-264`` D-08): the completed
+            :class:`~ccf.products.provenance.EffectiveRequest`, or the governed
+            determination that stands instead of one — and, either way, the
+            evidence the resolution accumulated before it exited.
         """
         ...
 
@@ -1357,12 +1464,7 @@ class ReferencePolicyConstraintResolver:
         capabilities: tuple[TechnicalCapability, ...],
         class_defaults: Mapping[str, Any] | None = None,
         class_source: ProvenanceSource | None = None,
-    ) -> (
-        EffectiveRequest
-        | ConstraintRefusal
-        | PolicyResolutionConflict
-        | ProductRequestViolation
-    ):
+    ) -> ResolutionOutcome:
         """Read what is in force, verify the overrides, resolve. See the Protocol.
 
         Raises:

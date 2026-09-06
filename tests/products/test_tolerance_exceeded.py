@@ -628,7 +628,8 @@ def test_a_class_default_the_contract_does_not_declare_is_refused() -> None:
         class_defaults={DEBT_TOLERANCE_PARAMETER: CLASS_DEFAULT},
         class_source=pin,
     )
-    tolerance = resolved.parameter(DEBT_TOLERANCE_PARAMETER)  # type: ignore[union-attr]
+    assert resolved.refusal is None, resolved.refusal
+    tolerance = resolved.evidence.parameter(DEBT_TOLERANCE_PARAMETER)
     assert tolerance is not None
     assert tolerance.authority == "default"
     assert tolerance.source == pin

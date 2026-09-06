@@ -67,6 +67,7 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products import constraints as constraints_module
 from ccf.products.constraints import (
     ConstraintEffectivityConflict,
+    ConstraintRefusal,
     ReferencePolicyConstraintResolver,
     constraints_in_force,
 )
@@ -343,6 +344,62 @@ def _scratch_constraints(
     return module
 
 
+# --- the paired outcome at the seam (`D-IMPL-264` D-08) ------------------------
+
+#: A presence constraint on the threshold, which the fixture question never
+#: supplies and the fixture contract never defaults — so the seam REFUSES
+#: after the tolerance ceiling in force has already folded.
+KEY_PRESENCE = "policy_constraints.presence"
+POLICY_PRESENCE = "presence"
+
+
+def test_a_refused_resolution_still_carries_the_evidence_at_the_seam(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """D-08 through the Protocol: a refused outcome's `evidence.applied` names
+    `declared_source` and the constraint that folded before the refusal.
+
+    Sorted by key, the tolerance (`a`, in force before `T1`) folds first and
+    clamps — worked case 3 — and only then does the presence constraint on the
+    threshold refuse. Everything the first step established is on the outcome
+    beside the refusal, at the seam and not only in the pure function.
+    """
+    version_a, _version_b = _register_two_windows(registry)
+    version_presence = registry.register_typed(
+        KEY_PRESENCE,
+        PolicyConstraint(
+            semver="1.0.0",
+            policy_id=POLICY_PRESENCE,
+            applies_to=ConstraintApplicability(),
+            parameter=THRESHOLD_PARAMETER,
+            operator="required",
+            value=None,
+            overridable=False,
+            source_authority="fixture-authority",
+            effective_from=T0,
+            effective_until=None,
+            reason="a fixture reason",
+        ),
+        POLICY_CONSTRAINT,
+    )
+
+    outcome = _resolve(registry, asked_at=BEFORE_T1)
+
+    assert isinstance(outcome.refusal, ConstraintRefusal), outcome
+    assert outcome.refusal.reason == "required-absent"
+    assert outcome.refusal.key == THRESHOLD_PARAMETER
+    assert outcome.completed is False
+    evidence = outcome.evidence
+    assert DECLARED_SOURCE in evidence.applied
+    assert (KEY_A, version_a) in _constraint_pins(evidence)
+    assert ProvenanceSource(
+        kind="artifact", identity=KEY_PRESENCE, version=version_presence
+    ) in evidence.applied
+    tolerance = evidence.parameter(DEBT_TOLERANCE_PARAMETER)
+    assert tolerance is not None
+    assert tolerance.authority == "policy" and tolerance.value == MAXIMUM_EARLY
+
+
 # --- (a) effectivity: the window decides, at the request's own instant --------
 
 
@@ -354,7 +411,9 @@ def test_a_request_inside_the_first_window_resolves_the_first_constraint(
 
     resolved = _resolve(registry, asked_at=BEFORE_T1)
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     tolerance = resolved.parameter(DEBT_TOLERANCE_PARAMETER)
     assert tolerance is not None
     assert tolerance.value == MAXIMUM_EARLY
@@ -375,7 +434,9 @@ def test_a_request_at_the_boundary_instant_resolves_the_second(
 
     resolved = _resolve(registry, asked_at=T1)
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     tolerance = resolved.parameter(DEBT_TOLERANCE_PARAMETER)
     assert tolerance is not None
     assert tolerance.value == MAXIMUM_LATE
@@ -406,7 +467,9 @@ def test_the_pinned_versions_are_the_registrys_own_content_addresses(
     version_a, _ = _register_two_windows(registry)
     resolved = _resolve(registry, asked_at=BEFORE_T1)
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     ((key, version),) = _constraint_pins(resolved)
     assert (key, version) == (KEY_A, version_a)
     assert version == content_hash(registry.peek(KEY_A, version_a))
@@ -433,7 +496,9 @@ def test_the_resolution_never_reaches_for_the_latest_version(
     monkeypatch.setattr(ControlPlaneRegistry, "resolve_latest", _refuse)
     resolved = _resolve(registry, asked_at=BEFORE_T1)
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
 
 
 def test_the_latest_guard_can_fire(
@@ -543,7 +608,9 @@ def test_an_entitled_principal_overrides_the_constraint(
         registry, asked_at=BEFORE_T1, perspective=ENTITLED, overrides=(POLICY_A,)
     )
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     tolerance = resolved.parameter(DEBT_TOLERANCE_PARAMETER)
     assert tolerance is not None
     assert tolerance.value == CALLER_ASKS, "the constraint did not apply"
@@ -578,7 +645,9 @@ def test_a_name_only_override_is_not_honored(
         registry, asked_at=BEFORE_T1, perspective=UNENTITLED, overrides=(POLICY_A,)
     )
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     tolerance = resolved.parameter(DEBT_TOLERANCE_PARAMETER)
     assert tolerance is not None
     assert tolerance.value == MAXIMUM_EARLY, "the constraint applied"
@@ -613,7 +682,9 @@ def test_an_override_of_a_policy_nobody_registered_is_recorded_and_not_honored(
         overrides=(UNREGISTERED_POLICY,),
     )
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     tolerance = resolved.parameter(DEBT_TOLERANCE_PARAMETER)
     assert tolerance is not None
     assert tolerance.value == MAXIMUM_EARLY, "the applicable constraint still applied"
@@ -643,7 +714,9 @@ def test_an_entitled_override_of_a_non_overridable_constraint_is_not_honored(
         registry, asked_at=BEFORE_T1, perspective=ENTITLED, overrides=(POLICY_A,)
     )
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     tolerance = resolved.parameter(DEBT_TOLERANCE_PARAMETER)
     assert tolerance is not None
     assert tolerance.value == MAXIMUM_EARLY
@@ -661,7 +734,9 @@ def test_with_no_entitlement_policy_registered_no_override_is_entitled(
         registry, asked_at=BEFORE_T1, perspective=ENTITLED, overrides=(POLICY_A,)
     )
 
-    assert isinstance(resolved, EffectiveRequest)
+    assert resolved.refusal is None, resolved.refusal
+
+    resolved = resolved.evidence
     tolerance = resolved.parameter(DEBT_TOLERANCE_PARAMETER)
     assert tolerance is not None
     assert tolerance.value == MAXIMUM_EARLY
@@ -699,7 +774,9 @@ def test_a_name_only_override_being_honored_is_red_sabotage(
         module=scratch,
     )
 
-    assert isinstance(sabotaged, EffectiveRequest)
+    assert sabotaged.refusal is None, sabotaged.refusal
+
+    sabotaged = sabotaged.evidence
     tolerance = sabotaged.parameter(DEBT_TOLERANCE_PARAMETER)
     assert tolerance is not None
     assert tolerance.value == CALLER_ASKS, (
