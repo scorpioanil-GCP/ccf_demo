@@ -89,6 +89,7 @@ import pytest
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
 
+pytestmark = pytest.mark.archived  # D-IMPL-265: exercises archive/examples/03-harness-portability; retired usage model, non-gating
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE_DIR = REPO_ROOT / "archive" / "examples" / "03-harness-portability"
 EXAMPLE = EXAMPLE_DIR / "run.py"

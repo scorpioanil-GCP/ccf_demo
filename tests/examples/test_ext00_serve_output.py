@@ -88,6 +88,7 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
 from ccf.products.gates import ServableProduct
 
+pytestmark = pytest.mark.archived  # D-IMPL-265: exercises archive/examples/external/00-hello-context; retired usage model, non-gating
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE_DIR = REPO_ROOT / "archive" / "examples" / "external" / "00-hello-context"
 

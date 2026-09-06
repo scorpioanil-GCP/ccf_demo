@@ -92,6 +92,7 @@ from ccf.products.contract import (
 )
 from ccf.products.gates import LineageMismatchRefusal, ServableProduct, run_gates
 
+pytestmark = pytest.mark.archived  # D-IMPL-265: exercises archive/examples/00-quickstart; retired usage model, non-gating
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "archive" / "examples" / "00-quickstart" / "run.py"
 

@@ -116,6 +116,7 @@ from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
 from ccf.replay.record import NO_GRANTS_SET_HASH, DecisionReplayRecord
 from ccf.skills.grants import RequirementsExceedRegime, grant_set_hash
 
+pytestmark = pytest.mark.archived  # D-IMPL-265: exercises archive/examples/02-skilling; retired usage model, non-gating
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "archive" / "examples" / "02-skilling" / "run.py"
 

@@ -170,6 +170,7 @@ from ccf_runtime.http_api.errors import (
     ERROR_UNAUTHENTICATED,
 )
 
+pytestmark = pytest.mark.archived  # D-IMPL-265: exercises archive/examples/05-workflow-hitl; retired usage model, non-gating
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "archive" / "examples" / "05-workflow-hitl" / "run.py"
 
