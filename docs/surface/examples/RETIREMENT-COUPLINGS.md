@@ -792,7 +792,8 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-08-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-08-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-10-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-CONTEXT.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-12-PLAN.md` | 13 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-CONTEXT.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-LEGS.md` | 165 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-RESEARCH.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
