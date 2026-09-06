@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **293** across **91** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **145** across **52** files
+- Coupling rows: **295** across **91** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **147** across **52** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **248**
 
 Rows by owning plan:
@@ -17,7 +17,7 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 10 |
-| 17-08 | 96 |
+| 17-08 | 98 |
 | 23-04 | 175 |
 | 23-10 | 12 |
 
@@ -31,9 +31,10 @@ Rows by coupling shape:
 | `count-scan-function` | 4 |
 | `docstring` | 74 |
 | `indirect-execution` | 1 |
-| `literal-set-member` | 4 |
+| `literal-set-member` | 5 |
 | `makefile-recipe` | 2 |
 | `markdown-link` | 8 |
+| `module-constant` | 1 |
 | `path-construction` | 12 |
 | `prose` | 75 |
 | `snippet-include` | 58 |
@@ -228,8 +229,8 @@ Rows by coupling shape:
 | `runtime/ccf_runtime/mcp/experience.py` | 529 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 74 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/request.py` | 870 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/request.py` | 1556 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 917 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 1607 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/cli/test_schema_export.py` | 60 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
 | `tests/client/conformance/suite.py` | 380 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 413 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
@@ -306,10 +307,12 @@ Rows by coupling shape:
 | `tests/products/test_gate_two_call_shape.py` | 4975 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/products/test_request_contract.py` | 712 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/request-contract.yaml` |
 | `tests/products/test_request_contract.py` | 753 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/products/test_request_contract.py` | 2040 | `examples/s1-00-companies-over-revenue` | `literal-set-member` | live | - | - | 17-08 |  |
+| `tests/products/test_request_contract.py` | 2042 | `examples/s1-01-hello-context-product` | `module-constant` | live | - | - | 17-08 |  |
 | `tests/products/test_required_operators_guard.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/products/test_required_operators_guard.py` | 112 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 11 | - | 17-08 | `MINIMUM_IMPLEMENTATIONS` — floor 9, 19 witnesses, headroom 10; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 12 (17-08) |
 | `tests/products/test_required_operators_guard.py` | 235 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 11 | - | 17-08 | `_implementations()` feeds `MINIMUM_IMPLEMENTATIONS` — floor 9, 19 witnesses, headroom 10; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 12 (17-08) |
-| `tests/replay/test_engine_rehydration.py` | 1161 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/product-governance.yaml` |
+| `tests/replay/test_engine_rehydration.py` | 1171 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/product-governance.yaml` |
 | `tools/docs_tests/test_gate_two_wording.py` | 162 | `public/tutorial/adopters-guide.md` | `docstring` | documentary | - | - | 23-10 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 17 | `examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 18 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 23-10 |  |
