@@ -66,6 +66,7 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.resolver import ReplayRefusalRecorder
+from ccf.replay.record import ResolutionNotApplicable
 from ccf.mcp.client import run_with_session
 from ccf.mcp.errors import McpServerUnreachable
 from ccf.products.door import DoorOutcome, WireRequest, door_question
@@ -295,6 +296,7 @@ def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
             ),
             perspective=perspective,
             recorded_at=request.asked_at,
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
             request=request,
         )
 

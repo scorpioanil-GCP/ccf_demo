@@ -87,6 +87,7 @@ from ccf.replay.record import (
     ContextFabricSnapshot,
     DecisionReplayRecord,
     PolicyBinding,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 from ccf.replay.serve import ReplayWriter, serve
@@ -554,6 +555,7 @@ def _serve(
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         request=request,
     )
     served = serve(
@@ -792,6 +794,7 @@ def test_a_record_written_before_the_debt_seam_still_replays(
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     served = serve(
         product=gated,
@@ -973,6 +976,7 @@ def test_a_record_written_before_the_evidence_seam_still_replays(
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     served = serve(
         product=gated,
@@ -1314,6 +1318,7 @@ def test_a_record_written_before_the_recency_seam_still_replays(
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     served = serve(
         product=gated,
@@ -1585,6 +1590,7 @@ def test_a_record_written_before_the_obligation_seam_still_replays(
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     served = serve(
         product=gated,
@@ -1772,6 +1778,7 @@ def test_omitting_the_question_is_indistinguishable_from_passing_none(
         ),
         "assembly_mode": "algorithmic",
         "recorded_at": NOW,
+        "resolution": ResolutionNotApplicable(reason="no-resolution-step"),
     }
     assert content_hash(build_replay_record(**common)) == content_hash(
         build_replay_record(**common, request=None)
@@ -1981,6 +1988,7 @@ def test_a_record_written_before_the_pin_seam_still_replays(
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     served = serve(
         product=gated,

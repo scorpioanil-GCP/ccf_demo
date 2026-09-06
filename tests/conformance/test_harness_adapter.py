@@ -84,6 +84,7 @@ from ccf.replay.record import (
     NO_HARNESS,
     HarnessTrace,
     PolicyBinding,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
@@ -1076,6 +1077,7 @@ def test_seam_4_cannot_touch_a_governed_replay_dimension(
         "policy_bindings": (PolicyBinding(key="policy.bundle", version="1.1.0"),),
         "assembly_mode": "algorithmic",
         "recorded_at": BOUNDARY,
+        "resolution": ResolutionNotApplicable(reason="no-resolution-step"),
         "agent_conditioning": world.agent_a.perspective_conditioning(
             principal_id=world.actor,
             grant_set_hash=world.ledger.grant_set_hash(

@@ -65,6 +65,7 @@ from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 from ccf.replay.record import (  # noqa: E402
     DecisionReplayRecord,
     PolicyBinding,
+    ResolutionNotApplicable,
     build_replay_record,
 )
 from ccf.replay.serve import ReplayWriter  # noqa: E402
@@ -269,6 +270,10 @@ def recorded_decision(fabric_1k: Any) -> RecordedDecision:
         ),
         assembly_mode=declared_class["assembly_mode"],
         recorded_at=now,
+        # 24.7-06 (D-IMPL-264 D-09/D-10): this perf fixture serves a fabric-
+        # direct decision and runs no resolution step, so it states the typed
+        # not-applicable marker the builder now requires.
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     return RecordedDecision(
         tenant_id=tenant_id,
