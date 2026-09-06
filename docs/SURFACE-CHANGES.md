@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1010 entries**, of which **766** name a public Python surface.
+**1012 entries**, of which **768** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-490 entries — 450 public Python surface, 40 not public Python API.
+491 entries — 451 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -8991,6 +8991,33 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
 
+#### ccf.replay.engine.ReplayResolutionClaimMismatch
+
+- Surface: ccf.replay.engine.ReplayResolutionClaimMismatch
+- Public surface: true
+- Change type: added
+- Before: absent — a record claiming non-applicability beside a pinned
+  request contract replayed as if the claim were true
+- After: `ReplayResolutionClaimMismatch(ReplayError)` with `reason:
+  Final[str] = "resolution_claim_mismatch"`, `claimed_reason` (the marker's
+  stated reason), `pinned` (every `(key, version, artifact class name)` that
+  contradicts the claim, in binding order) and `content_address`. Raised by
+  `replay()` after every binding has resolved and before anything is
+  re-executed. Not a `ReplayDivergence` (nothing re-executed differed) and
+  not a `ReplayUnresolvable` (nothing is missing — the pins resolve, which is
+  how the contradiction becomes visible): its own finding, its own token, in
+  the `ReplayGenerationMismatch` voice
+- Why: `D-IMPL-264` D-11 and P-2, Dave: *"`not applicable` is an explicit
+  governed fact with a reason. Missing resolution information is an internal
+  integrity failure."* A record that pins the evidence a resolution ran and
+  states that none applied has contradicted itself; the engine refuses to
+  replay a contradiction into a confident answer
+- Migration: none for a producer. A consumer that branches on replay
+  failures by token gains one token; a bare `except ReplayError` already
+  catches it
+
+*Recorded by `24.7-09-replay-verifies-the-not-applicable-claim.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -16147,7 +16174,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-136 entries — 116 public Python surface, 20 not public Python API.
+137 entries — 117 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -18917,6 +18944,46 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller of the door
 
 *Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: behavior
+- Before: dimension 2's `request_resolution` was read nowhere on the replay
+  path; a not-applicable claim was taken as stated
+- After: immediately after `_resolve_bindings` and before any plan or
+  operator is resolved, `replay()` holds the claim against the record's own
+  pins. If `request_resolution` is a `ResolutionNotApplicable` marker, every
+  `policy_bindings.bindings` entry is resolved through
+  `control_plane.resolve(key, version)` at its EXACT recorded version, and
+  the replay is refused with `ReplayResolutionClaimMismatch` iff any resolves
+  to a `ProductRequestContract` or a `PolicyConstraint`. A
+  `ProductClassDeclaration` pin is deliberately NOT a trigger. A marker
+  beside no contract or constraint pin is legitimate non-applicability
+  (D-09) and replays. An `EffectiveRequest` value makes no claim and is not
+  verified. The legacy `NO_REQUEST_RESOLUTION` sentinel is exempt (D-12,
+  F-4). The classification is by the artifact class that comes back, never
+  by the key's name — keys are deployment vocabulary the engine does not know
+- Why: the evidence base is Dave's sentence (amendment 3 B-3 a) and it is
+  true of the tree: in `src/` and `runtime/` those two artifact classes reach
+  a record's bindings only through
+  `GovernedResolver._applied_bindings(effective)`, which exists only once a
+  resolution has run. The class declaration is excluded because plan
+  `24.7-07`'s intent refusal pins exactly that declaration beside a
+  `refused-before-resolution` marker, and that record is telling the truth.
+  Pinned state, never today's registration: a deployment that re-registered
+  a different artifact under the same key after the decision changes nothing
+  about what the record pinned
+- Migration: none for records written by the SDK — the governed resolver
+  writes the resolution beside the pins it applied, the delivery-boundary
+  denials pin only the entitlement policy beside their marker, and the
+  direct-validator path pins no contract at all. A hand-built record that
+  claims not-applicable beside a pinned request contract or policy
+  constraint now refuses by name instead of replaying; the fix is to state
+  the resolution that ran, which is the record the SDK would have written
+
+*Recorded by `24.7-09-replay-verifies-the-not-applicable-claim.md`.*
 
 ### Not public Python API
 

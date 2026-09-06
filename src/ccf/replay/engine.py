@@ -94,13 +94,19 @@ from ccf.artifacts.protocol import (
 )
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash, generation_mismatch
+from ccf.controlplane.artifacts import PolicyConstraint
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import GraphReader
 from ccf.products.contract import ContextProductContract
-from ccf.products.request import request_seeds
+from ccf.products.request import ProductRequestContract, request_seeds
 from ccf.projection.engine import OperatorRegistry, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput, ProjectionPlan
-from ccf.replay.record import NO_GRAPH_QUERIES, DecisionReplayRecord
+from ccf.replay.record import (
+    NO_GRAPH_QUERIES,
+    NO_REQUEST_RESOLUTION,
+    DecisionReplayRecord,
+    ResolutionNotApplicable,
+)
 from ccf.replay.snapshots import SnapshotReader, snapshot_of_execution
 
 __ccf_mode__ = "algorithmic"
@@ -111,6 +117,7 @@ __all__ = [
     "ReplayError",
     "ReplayGenerationMismatch",
     "ReplayOutcome",
+    "ReplayResolutionClaimMismatch",
     "ReplayUnresolvable",
     "replay",
     "resolve_artifact",
@@ -193,6 +200,77 @@ class ReplayGenerationMismatch(ReplayError):
             "(ccf_hash_transparent: False); no hash this revision computes "
             "can be compared with one this record carries, so it is refused "
             "by name rather than replayed into a divergence (D-IMPL-243)"
+        )
+
+
+class ReplayResolutionClaimMismatch(ReplayError):
+    """The record claims no resolution applies, and its own pins say one ran.
+
+    ``D-IMPL-264`` D-11 (24.7-09) with amendment 3 B-3 a; whitepaper §7.10
+    (the five-dimension record's completeness commitment, applied to
+    dimension 2's resolution); CLAUDE.md §11 (replay enforced at write time
+    and verified at read time). Raised by :func:`replay` **after** every
+    binding has resolved at its pinned version and **before** anything is
+    re-executed, when dimension 2's ``request_resolution`` is a
+    :class:`~ccf.replay.record.ResolutionNotApplicable` marker while at
+    least one of the record's ``policy_bindings.bindings``, resolved at its
+    EXACT pinned version through the Control Plane, is a
+    :class:`~ccf.products.request.ProductRequestContract` or a
+    :class:`~ccf.controlplane.artifacts.PolicyConstraint`. Dave's sentence
+    for why those two classes and only those two: *"request-contract pin +
+    applicable constraint pins are the evidence that effective-request
+    resolution ran."* A record that both pins that evidence and claims the
+    resolution never happened has contradicted itself, and the engine
+    refuses to replay a contradiction into a confident answer.
+
+    Not a :class:`ReplayDivergence` — nothing was re-executed and found to
+    differ; the check reads the record and the Control Plane, never the
+    graph. Not a :class:`ReplayUnresolvable` — nothing is missing; the pins
+    resolve, which is exactly how the contradiction becomes visible. It is
+    its own finding, with its own token, so an operator can tell *"this
+    record's dimension 2 is not the truth about this decision"* from either
+    of those. Dave, ``D-IMPL-264`` P-2: *"`not applicable` is an explicit
+    governed fact with a reason. Missing resolution information is an
+    internal integrity failure."* This is the read-side half of that rule.
+
+    Attributes:
+        reason: The token, ``resolution_claim_mismatch``, fixed on the class
+            so a caller can branch on it without parsing the message.
+        claimed_reason: The reason the marker stated — the claim that the
+            pins contradict.
+        pinned: Every ``(key, version, artifact class name)`` in the
+            record's bindings that resolved to a trigger class, in the
+            record's binding order. The evidence, named so the operator can
+            re-resolve it.
+        content_address: Where the refused record was resolved from.
+    """
+
+    reason: Final[str] = "resolution_claim_mismatch"
+
+    def __init__(
+        self,
+        *,
+        content_address: str,
+        claimed_reason: str,
+        pinned: tuple[tuple[str, str, str], ...],
+    ) -> None:
+        self.content_address = content_address
+        self.claimed_reason = claimed_reason
+        self.pinned = pinned
+        evidence = ", ".join(
+            f"({key!r}, {version!r}) → {class_name}"
+            for key, version, class_name in pinned
+        )
+        super().__init__(
+            f"{self.reason}: the DecisionReplayRecord at {content_address!r} "
+            f"claims no request resolution applies ({claimed_reason!r}) while "
+            "its own policy bindings pin, at their recorded versions, "
+            f"{evidence} — the evidence that effective-request resolution ran "
+            "(D-IMPL-264 D-11, amendment 3). A record that pins the contract "
+            "or constraint a resolution consulted and states that none applied "
+            "has contradicted itself; it is refused by name rather than "
+            "replayed into an answer about a decision whose governance it "
+            "misstates"
         )
 
 
@@ -525,6 +603,83 @@ def _resolve_bindings(
             ) from missing
 
 
+def _verify_resolution_claim(
+    *,
+    record: DecisionReplayRecord,
+    control_plane: ControlPlaneProtocol,
+    content_address: str,
+) -> None:
+    """Hold dimension 2's not-applicable claim against the record's own pins.
+
+    ``D-IMPL-264`` D-11 (24.7-09), Dave verbatim: *"Replay verification
+    protects against a false `not-applicable` claim. The verification must
+    use the pinned historical contract/constraint state, not today's
+    configuration."* Called by :func:`replay` immediately after
+    :func:`_resolve_bindings` — so every pin is already known to resolve —
+    and before any plan or operator is resolved, because a record whose
+    dimension 2 misstates its own governance should not be re-executed at
+    all.
+
+    **The evidence base, and why it is exactly two classes** (amendment 3,
+    B-3 a): *"request-contract pin + applicable constraint pins are the
+    evidence that effective-request resolution ran. Do not use 'any class
+    declaration pin exists' as the proxy, because the intent check can
+    legitimately pin the class declaration before parameter resolution
+    occurs."* This is true of the tree, not only of the ruling: in ``src/``
+    and ``runtime/`` a :class:`~ccf.products.request.ProductRequestContract`
+    or a :class:`~ccf.controlplane.artifacts.PolicyConstraint` reaches a
+    record's ``policy_bindings.bindings`` only through
+    ``GovernedResolver._applied_bindings(effective)``, which exists only
+    once a resolution has run. A ``ProductClassDeclaration`` pin is
+    deliberately NOT a trigger — the intent refusal pins the deciding
+    declaration beside a ``refused-before-resolution`` marker, and that
+    record is telling the truth. So a marker beside no contract or
+    constraint pin is legitimate non-applicability (D-09) and replays; a
+    marker beside either is a contradiction and is refused.
+
+    **Pinned state only.** Each binding is resolved through
+    ``control_plane.resolve(key, version)`` at the version the record wrote,
+    never through a latest read, never through the deployment's current
+    registration under the same key. The classification is by the artifact
+    class that comes back, not by the key's name: keys are deployment
+    vocabulary and the engine knows none of it.
+
+    **The legacy sentinel is exempt** (D-12; F-4). A record carrying
+    :data:`~ccf.replay.record.NO_REQUEST_RESOLUTION` asserts it predates the
+    marker and is left exactly as it was — the same compatibility promise
+    the :data:`~ccf.replay.record.NO_GRAPH_QUERIES` exemption makes further
+    down :func:`replay`. Dave: *"Do not retroactively declare previously
+    valid replay artifacts defective because the SDK acquired a stronger
+    contract."* A value that is neither the sentinel nor a marker — the
+    :class:`~ccf.products.provenance.EffectiveRequest` that ran — makes no
+    not-applicable claim, so there is nothing to verify.
+    """
+    value = record.policy_bindings.request_resolution
+    if value == NO_REQUEST_RESOLUTION:
+        # D-12 / F-4: a record carrying the pre-marker sentinel asserts it
+        # predates the explicit resolution state and is exempt — that is
+        # the sentinel's compatibility promise, exactly as NO_GRAPH_QUERIES
+        # below exempts a pre-seam record from the query-pin comparison.
+        return
+    try:
+        marker = ResolutionNotApplicable.model_validate_json(value)
+    except ValueError:
+        # An EffectiveRequest (complete or partial) — a resolution ran and
+        # the record says so. Nothing is claimed not to apply.
+        return
+    pinned: list[tuple[str, str, str]] = []
+    for binding in record.policy_bindings.bindings:
+        artifact = control_plane.resolve(binding.key, binding.version)
+        if isinstance(artifact, (ProductRequestContract, PolicyConstraint)):
+            pinned.append((binding.key, binding.version, type(artifact).__name__))
+    if pinned:
+        raise ReplayResolutionClaimMismatch(
+            content_address=content_address,
+            claimed_reason=marker.reason,
+            pinned=tuple(pinned),
+        )
+
+
 def replay(
     *,
     record_address: str,
@@ -556,6 +711,14 @@ def replay(
             running record class declares as a generation boundary
             (``D-IMPL-243`` amendment 1). Raised before any binding is
             resolved and before anything is re-executed.
+        ReplayResolutionClaimMismatch: dimension 2 claims no request
+            resolution applies while a binding, resolved at its pinned
+            version, is a request contract or a policy constraint — the
+            evidence that a resolution ran (``D-IMPL-264`` D-11, amendment
+            3). Raised after every binding has resolved and before anything
+            is re-executed. A record carrying the legacy
+            :data:`~ccf.replay.record.NO_REQUEST_RESOLUTION` sentinel is
+            exempt (D-12).
         ReplayDivergence: something resolved but did not reproduce.
         ~ccf.replay.snapshots.SnapshotPinUnresolvable: dimension 1 carries a
             real store pin and the reader is not
@@ -577,6 +740,12 @@ def replay(
         content_address=record_address,
     )
     _resolve_bindings(record=record, control_plane=control_plane)
+    # D-IMPL-264 D-11 (24.7-09): with every pin known to resolve, hold the
+    # record's not-applicable claim against what those pins ARE at their
+    # recorded versions — before any plan or operator is resolved.
+    _verify_resolution_claim(
+        record=record, control_plane=control_plane, content_address=record_address
+    )
 
     path = record.content_generation_path
     try:

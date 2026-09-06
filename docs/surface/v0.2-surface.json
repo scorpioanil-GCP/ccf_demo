@@ -5927,6 +5927,7 @@
       "ReplayError",
       "ReplayGenerationMismatch",
       "ReplayOutcome",
+      "ReplayResolutionClaimMismatch",
       "ReplayUnresolvable",
       "replay",
       "resolve_artifact",
@@ -5958,6 +5959,10 @@
           "record": "<class 'ccf.replay.record.DecisionReplayRecord'>",
           "record_content_address": "<class 'str'>"
         }
+      },
+      "ReplayResolutionClaimMismatch": {
+        "kind": "class",
+        "shape": "(*, content_address: 'str', claimed_reason: 'str', pinned: 'tuple[tuple[str, str, str], ...]') -> 'None'"
       },
       "ReplayUnresolvable": {
         "kind": "class",
