@@ -149,6 +149,7 @@ markers = [
   "conformance: shared parametrized Protocol conformance suite — D-16",
   "crossproc: spawns real subprocesses over loopback — D-15/D-16",
   "harness: requires a harness extra (adk | claude-agent | langgraph) — D-08/D-09",
+  "archived: exercises a retired program under archive/examples/ — retired usage-model history, not a compatibility consumer of the SDK; deselected unless --run-archived — D-IMPL-265",
 ]
 
 # `runtime` joins `src` here per 06-RESEARCH.md finding B2: the majority of Phase I.3's
