@@ -322,47 +322,90 @@ class ProductRequest(CCFContract):
 
 
 class ArgumentDomain(CCFContract):
-    """The valid domain of one declared numeric parameter — the seventh key.
+    """The valid domain of one declared parameter — the seventh key.
 
-    **SDK-defined** (CLAUDE.md §11); the ruling of record is ``D-IMPL-259``
+    **SDK-defined** (CLAUDE.md §11); the rulings of record are ``D-IMPL-259``
     (Dave, 2026-09-05): *"cp-04 ``max_depth`` has a declared request-contract
     minimum of 1 … Requests below 1 … are governed request-validity refusals
     returned as data; values 1–100 are valid and are never clamped."* And the
     scoping sentence that puts the type HERE rather than in the constraint
     layer: *"don't turn ``1`` into a Policy Constraint. It is simply the
-    parameter's valid domain."*
+    parameter's valid domain."* — and ``D-IMPL-264`` (Dave, 2026-09-05,
+    Q3/Q4/Q6), which gives the type its second shape. The whitepaper hook is
+    §6.3 **Addressability** (``docs/CCF_Whitepaper_1-2.md:1465``): the
+    request contract is the interface a caller queries by name, and a domain
+    is part of what that interface declares.
 
     **What this is and is not.** A domain is part of the *request contract*
-    — a statement of which numbers are meaningful questions of this class —
+    — a statement of which values are meaningful questions of this class —
     in the same register as ``type`` and ``required``. It is not a policy
     constraint (no artifact pin, no priority, no comparability fold, no
     authority — ``ccf.products.constraints`` never reads it) and it is not a
     technical capability (no substrate, no identity — the number a backend
     can walk is read off the backend through ``capability_bindings``). Both of
     those bound a request *after* it is well-formed; a domain says what
-    well-formed means for a number, so it is judged where ``type`` is judged,
+    well-formed means for a value, so it is judged where ``type`` is judged,
     by :func:`refuse_request`, and a value outside it is a
-    :class:`ProductRequestViolation` — ``below-minimum`` or ``above-maximum``
-    — returned as data, never a substituted number.
+    :class:`ProductRequestViolation` — ``below-minimum``, ``above-maximum``
+    or ``not-in-domain`` — returned as data, never a substituted value.
 
-    **Inclusive on both ends**, because a boundary a caller may ask for and a
-    boundary a caller may not are two different declarations and the shorter
-    one to write is the one the ruling used (*"values 1–100 are valid"*).
-    Either end may be absent; a domain naming neither is refused at
-    construction, because a domain that admits everything is not a
-    declaration but a key with nothing under it.
+    **Two shapes, exactly one of them** (``D-IMPL-264`` D-03, Dave: *"Exactly
+    one domain shape: numeric bounds or enumerated values. Non-empty,
+    duplicate-free … Neither shape is also invalid if ``ArgumentDomain`` is
+    present."*):
+
+    * **Numeric bounds** — ``minimum`` and/or ``maximum``, inclusive on both
+      ends, because a boundary a caller may ask for and a boundary a caller
+      may not are two different declarations and the shorter one to write is
+      the one the ruling used (*"values 1–100 are valid"*). Either end may
+      be absent.
+    * **An enumerated member set** — ``members``, the closed set of legal
+      values, over any supported primitive type (``D-IMPL-264`` D-06, Dave:
+      *"Any supported primitive type, with homogeneous members matching the
+      declared property type. Don't unnecessarily make this
+      string-specific."*). Homogeneity is by CLASS — string, numeric
+      (``int`` and :class:`~decimal.Decimal` together), boolean — and
+      ``bool`` is its own class, never a number, on :func:`_as_decimal`'s
+      reading.
+
+    A domain declaring both shapes, neither shape, an empty set, a duplicated
+    member or a heterogeneous set is refused at construction, naming the
+    defect: a domain that admits everything, or that no value could satisfy,
+    is not a declaration but a key with nothing under it.
+
+    **Membership is exact typed equality** (``D-IMPL-264`` D-04, Dave,
+    verbatim: *"Exact canonical match. No trimming, case folding, aliases, or
+    silent substitution. Canonicalization, if ever wanted, should be an
+    explicit mechanism upstream of domain validation."*). ``"AB"`` is not
+    ``"ab"``, ``" ab"`` is not ``"ab"``, ``True`` is not ``1`` and ``"1"`` is
+    not ``1``; within the numeric class ``Decimal("2")`` IS ``2``, because the
+    contract reads a number by its value and not by its Python type. Nothing
+    here trims, folds, aliases or substitutes — ``tests/products/
+    test_request_contract.py`` plants each of those in turn and watches the
+    membership tests red.
 
     Attributes:
         minimum: The smallest value a caller may ask for, or ``None`` when the
-            domain is unbounded below. Held as a :class:`~decimal.Decimal` for
-            the reason :class:`~ccf.products.contract.ServeObligations` holds
-            its tolerance as one: a float boundary that is not the number the
+            numeric domain is unbounded below (or the domain is enumerated).
+            Held as a :class:`~decimal.Decimal` for the reason
+            :class:`~ccf.products.contract.ServeObligations` holds its
+            tolerance as one: a float boundary that is not the number the
             author wrote is a boundary nobody declared.
-        maximum: The largest, or ``None`` when unbounded above. Declared
-            rarely in practice — a ceiling a backend imposes is a capability,
-            not a domain (``D-IMPL-253`` Q21) — but the type is symmetric so a
-            genuine domain ceiling (*"a percentage"*, *"a calendar month"*)
-            has a place to be declared rather than a policy to be faked.
+        maximum: The largest, or ``None``. Declared rarely in practice — a
+            ceiling a backend imposes is a capability, not a domain
+            (``D-IMPL-253`` Q21) — but the type is symmetric so a genuine
+            domain ceiling (*"a percentage"*, *"a calendar month"*) has a
+            place to be declared rather than a policy to be faked.
+        members: The closed set of legal values, or ``None`` when the domain
+            is numeric. Hash-transparent at ``None`` (``D-IMPL-243``): every
+            numeric domain written before the member set existed
+            canonicalizes byte-for-byte as it did, so no committed request
+            contract's content address moves. The schema render derives the
+            advertised ``enum`` from this field (``D-IMPL-264`` D-00, P-1:
+            *"the request contract is the authority for legal values; schemas
+            and discovery advertise that authority but never independently
+            define it"*), which is why the declaration is not itself named
+            ``enum``.
     """
 
     minimum: Decimal | None = Field(
@@ -371,16 +414,38 @@ class ArgumentDomain(CCFContract):
     maximum: Decimal | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    members: tuple[str | int | bool | Decimal, ...] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @model_validator(mode="after")
     def _at_least_one_end_and_in_order(self) -> "ArgumentDomain":
-        """Refuse an empty domain and an inverted one, by name."""
-        if self.minimum is None and self.maximum is None:
+        """Refuse a domain that is not exactly one well-formed shape, by name.
+
+        The name predates the second shape and is kept: the numeric half is
+        still *at least one end, in order*; the enumerated half is *a
+        non-empty, duplicate-free, homogeneous set*; and the shapes are
+        exclusive (``D-IMPL-264`` D-03/D-06 beside ``D-IMPL-259``).
+        """
+        numeric = self.minimum is not None or self.maximum is not None
+        if numeric and self.members is not None:
             raise ValueError(
-                "an argument domain declares a minimum, a maximum or both; a "
-                "domain with neither admits every number and is a key with "
-                "nothing under it (D-IMPL-259)"
+                "an argument domain declares exactly one shape — numeric "
+                "bounds (minimum and/or maximum) OR an enumerated member set "
+                "(members) — and this one declares both; a value cannot be "
+                "held to a magnitude and to a closed set at once "
+                "(D-IMPL-264 D-03, D-IMPL-259)"
             )
+        if not numeric and self.members is None:
+            raise ValueError(
+                "an argument domain declares a minimum, a maximum or both, or "
+                "an enumerated member set; a domain with neither shape admits "
+                "every value and is a key with nothing under it "
+                "(D-IMPL-264 D-03, D-IMPL-259)"
+            )
+        if self.members is not None:
+            _refuse_a_malformed_member_set(self.members)
+            return self
         for name, value in (("minimum", self.minimum), ("maximum", self.maximum)):
             if value is not None and not value.is_finite():
                 raise ValueError(
@@ -399,11 +464,29 @@ class ArgumentDomain(CCFContract):
             )
         return self
 
-    def refuses(self, value: Decimal) -> ProductRequestViolationReason | None:
-        """Which end ``value`` misses, or ``None`` when it lies inside."""
-        if self.minimum is not None and value < self.minimum:
+    def refuses(self, value: object) -> ProductRequestViolationReason | None:
+        """Which way ``value`` misses this domain, or ``None`` when it lies inside.
+
+        Numeric shape: the value's magnitude against the declared ends
+        (``below-minimum`` / ``above-maximum``); a value with no magnitude is
+        not judged here — the payload comparison names it ``type-mismatch``
+        first, and this step runs after (``24.5-L-13``). Enumerated shape:
+        exact typed equality against the member set (``not-in-domain``), on
+        the rule :func:`_is_member` states — the presented value's class must
+        be the set's class and the value must equal a member under that
+        class's own equality. *"No trimming, case folding, aliases, or silent
+        substitution"* (``D-IMPL-264`` D-04).
+        """
+        if self.members is not None:
+            if any(_is_member(value, member) for member in self.members):
+                return None
+            return "not-in-domain"
+        number = _as_decimal(value)
+        if number is None:
+            return None
+        if self.minimum is not None and number < self.minimum:
             return "below-minimum"
-        if self.maximum is not None and value > self.maximum:
+        if self.maximum is not None and number > self.maximum:
             return "above-maximum"
         return None
 
@@ -935,6 +1018,93 @@ def _as_decimal(value: object) -> Decimal | None:
     if isinstance(value, bool) or not isinstance(value, (int, Decimal)):
         return None
     return Decimal(value)
+
+
+def _member_class(value: object) -> str | None:
+    """Which of the three member classes ``value`` belongs to, or ``None``.
+
+    ``boolean`` is read FIRST, because ``bool`` is an ``int`` to Python and
+    not to this contract — the discipline :func:`_as_decimal` and
+    :func:`_refuse_tolerance` already hold. ``int`` and
+    :class:`~decimal.Decimal` are one ``numeric`` class, ``str`` is
+    ``string``. Spelled as a function rather than a module-level table for the
+    reason :func:`_has_magnitude` gives: this module's own guard refuses any
+    module-level collection of string literals (``D-IMPL-264`` D-06).
+    """
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, Decimal)):
+        return "numeric"
+    if isinstance(value, str):
+        return "string"
+    return None
+
+
+def _is_member(value: object, member: object) -> bool:
+    """Is ``value`` exactly ``member``, under that member's class equality?
+
+    The ONE membership judgment (``D-IMPL-264`` D-04, Dave: *"Exact canonical
+    match. No trimming, case folding, aliases, or silent substitution."*),
+    called by :meth:`ArgumentDomain.refuses` and, through it, by the domain
+    step and the contract validator, so a default and a caller's value are
+    judged by one rule. Class first, then value: a string is compared as the
+    untouched ``str``; a boolean by identity; a number by
+    :func:`_as_decimal` value, so ``Decimal("2")`` is ``2`` while ``True``
+    is never ``1`` and ``"1"`` is never ``1``.
+    """
+    member_class = _member_class(member)
+    if member_class is None or _member_class(value) != member_class:
+        return False
+    if member_class == "numeric":
+        return _as_decimal(value) == _as_decimal(member)
+    if member_class == "boolean":
+        return value is member
+    return value == member
+
+
+def _refuse_a_malformed_member_set(
+    members: tuple[str | int | bool | Decimal, ...],
+) -> None:
+    """Empty, non-finite, heterogeneous or duplicated — named, in that order.
+
+    The enumerated half of :meth:`ArgumentDomain._at_least_one_end_and_in_order`
+    (``D-IMPL-264`` D-03/D-06). Duplication is judged by :func:`_is_member`
+    itself, so ``1`` and ``Decimal("1")`` ARE duplicates while ``1`` and
+    ``True`` are a heterogeneous pair, refused one check earlier.
+    """
+    if not members:
+        raise ValueError(
+            "an enumerated argument domain declares a non-empty member set; "
+            "an empty set admits no value and is a key with nothing under it "
+            "(D-IMPL-264 D-03, D-IMPL-259)"
+        )
+    for member in members:
+        number = _as_decimal(member)
+        if number is not None and not number.is_finite():
+            raise ValueError(
+                "an enumerated argument domain's members must be finite "
+                f"numbers, not {member!r} (D-IMPL-264 D-06, D-IMPL-259)"
+            )
+    classes = sorted({str(_member_class(member)) for member in members})
+    if len(classes) != 1:
+        raise ValueError(
+            "an enumerated argument domain's members are homogeneous — one "
+            "class for the whole set, and bool is its own class — but this "
+            f"set mixes {classes} (D-IMPL-264 D-06, D-IMPL-259)"
+        )
+    duplicated = sorted(
+        {
+            repr(later)
+            for index, later in enumerate(members)
+            if any(_is_member(later, earlier) for earlier in members[:index])
+        }
+    )
+    if duplicated:
+        raise ValueError(
+            "an enumerated argument domain's members are duplicate-free, "
+            f"judged by the membership rule itself; {duplicated} appear more "
+            "than once (D-IMPL-264 D-03, D-IMPL-259)"
+        )
 
 
 #: The three keys a request-contract declaration carries, in the order
