@@ -102,7 +102,7 @@ from ccf.products.request import (
     refuse_request,
 )
 from ccf.projection.plan import Perspective
-from ccf.replay.record import DecisionReplayRecord
+from ccf.replay.record import DecisionReplayRecord, ResolutionNotApplicable
 from ccf.replay.serve import ServedProduct
 from ccf.skills.catalog import SkillArgumentProperty, SkillArgumentSchema
 from ccf_runtime.authz.delivery_boundary import (
@@ -478,6 +478,7 @@ def _refusing(
             ),
             perspective=perspective,
             recorded_at=request.asked_at,
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
             request=request,
         )
 
@@ -513,6 +514,7 @@ def _minted(
         envelope,
         perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
         recorded_at=ASKED_AT,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
 
 
@@ -567,6 +569,7 @@ def _refusing_and_recording(
             ),
             perspective=perspective,
             recorded_at=request.asked_at,
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
             request=request,
         )
 

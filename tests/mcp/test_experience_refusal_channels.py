@@ -88,7 +88,11 @@ from ccf.products.refusal import (
 )
 from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.projection.plan import Perspective
-from ccf.replay.record import NO_ROLE_RESOLVED, DecisionReplayRecord
+from ccf.replay.record import (
+    NO_ROLE_RESOLVED,
+    DecisionReplayRecord,
+    ResolutionNotApplicable,
+)
 from ccf_runtime.authz.delivery_boundary import (
     UnrecordableDeliveryBoundaryError,
 )
@@ -538,6 +542,7 @@ def test_the_resource_returns_a_resolvers_refusal_as_its_shell(
         ),
         perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
         recorded_at=DETERMINED_AT,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         policy_bindings=(),
     )
 

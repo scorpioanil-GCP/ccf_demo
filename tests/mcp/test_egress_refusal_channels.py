@@ -84,7 +84,11 @@ from ccf.products.refusal import (
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.projection.plan import Perspective
-from ccf.replay.record import NO_ROLE_RESOLVED, DecisionReplayRecord
+from ccf.replay.record import (
+    NO_ROLE_RESOLVED,
+    DecisionReplayRecord,
+    ResolutionNotApplicable,
+)
 from ccf_runtime.authz.delivery_boundary import UnrecordableDeliveryBoundaryError
 from ccf_runtime.authz.product_entitlement import (
     ControlPlaneProductEntitlementSource,
@@ -490,6 +494,7 @@ def test_the_standing_resource_body_is_the_shell_per_kind_class(
             _refusal_of(kind, assembled.address),
             perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
             recorded_at=DETERMINED_AT,
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         )
 
     world = _World(tmp_path, address=assembled.address, resolver=resolve)
@@ -807,6 +812,7 @@ def test_the_two_resource_shells_are_both_minted_through_the_one_recorder(
         ),
         perspective=Perspective(principal_id=PRINCIPAL, role=NO_ROLE_RESOLVED),
         recorded_at=DETERMINED_AT,
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     nonexistent_world = _World(
         tmp_path / "nonexistent",
@@ -1214,6 +1220,7 @@ def test_no_kind_in_the_vocabulary_is_ever_a_tool_error(
             ),
             perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
             recorded_at=DETERMINED_AT,
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         )
 
     world = _World(tmp_path, address=assembled.address, resolver=resolve)

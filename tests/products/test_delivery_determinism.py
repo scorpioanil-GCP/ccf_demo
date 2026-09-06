@@ -101,6 +101,7 @@ from ccf.replay.record import (
     NO_REQUEST_RESOLUTION,
     DecisionReplayRecord,
     PolicyBinding,
+    ResolutionNotApplicable,
 )
 from ccf.replay.serve import ServedProduct
 
@@ -865,6 +866,7 @@ def test_a_subject_unavailable_refusal_is_the_same_determination_twice(
                 internal,
                 perspective=PERSPECTIVE,
                 recorded_at=ASKED_AT,
+                resolution=ResolutionNotApplicable(reason="no-resolution-step"),
                 request=request,
                 execution=None,
             )
