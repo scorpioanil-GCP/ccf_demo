@@ -795,8 +795,13 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-10-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-12-PLAN.md` | 13 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-12-SUMMARY.md` | 30 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-CLOSE-PREP.md` | 14 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-CONTEXT.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-LEGS.md` | 188 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-PANEL/bundle-src-part-3.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-PANEL/bundle-tests-part-1.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-PANEL/bundle-tests-part-2.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-PANEL/bundle-tests-part-3.md` | 51 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-RESEARCH.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 94 | append-only decision log |
