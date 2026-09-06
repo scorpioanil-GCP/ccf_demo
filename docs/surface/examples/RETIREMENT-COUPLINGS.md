@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **295** across **91** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **147** across **52** files
+- Coupling rows: **296** across **92** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **148** across **53** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **248**
 
 Rows by owning plan:
@@ -18,7 +18,7 @@ Rows by owning plan:
 | --- | --- |
 | 16-02 | 10 |
 | 17-08 | 98 |
-| 23-04 | 175 |
+| 23-04 | 176 |
 | 23-10 | 12 |
 
 Rows by coupling shape:
@@ -29,7 +29,7 @@ Rows by coupling shape:
 | `config-token` | 7 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 74 |
+| `docstring` | 75 |
 | `indirect-execution` | 1 |
 | `literal-set-member` | 5 |
 | `makefile-recipe` | 2 |
@@ -266,7 +266,7 @@ Rows by coupling shape:
 | `tests/examples/test_cp_readme_template.py` | 240 | `archive/examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
 | `tests/examples/test_demo_generator.py` | 4 | `archive/examples/08-e2e-demo` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_demo_generator.py` | 22 | `archive/examples/08-e2e-demo` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/08-e2e-demo` |
-| `tests/examples/test_gate_two_divergence.py` | 96 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
+| `tests/examples/test_gate_two_divergence.py` | 97 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
 | `tests/examples/test_hw1_harness_clients_no_model.py` | 12 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 28 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 46 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
@@ -282,12 +282,13 @@ Rows by coupling shape:
 | `tests/halflife/test_debt.py` | 707 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/integration/test_proto_quickstart.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/invariants/test_citation_coverage.py` | 45 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/lints/test_archived_examples_non_gating.py` | 40 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/lints/test_examples_scope.py` | 41 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tests/lints/test_examples_scope.py` | 55 | `examples/03-harness-portability` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tests/lints/test_examples_scope.py` | 90 | `archive/examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tests/lints/test_examples_scope.py` | 104 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/lints/test_examples_scope.py` | 112 | `archive/examples/03-harness-portability` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
-| `tests/perf_smoke/test_smoke.py` | 71 | `archive/examples/04-cross-process` | `indirect-execution` | live | - | `perf/suites/crossproc/conftest.py` | 23-04 | runs `perf/suites` out of process; `perf/suites/crossproc/conftest.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
+| `tests/perf_smoke/test_smoke.py` | 79 | `archive/examples/04-cross-process` | `indirect-execution` | live | - | `perf/suites/crossproc/conftest.py` | 23-04 | runs `perf/suites` out of process; `perf/suites/crossproc/conftest.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
 | `tests/products/test_gate_two_call_shape.py` | 207 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/products/test_gate_two_call_shape.py` | 425 | `archive/examples/06-decision-replay` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/products/test_gate_two_call_shape.py` | 426 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
@@ -793,8 +794,9 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-08-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-10-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-12-PLAN.md` | 13 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-12-SUMMARY.md` | 30 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-CONTEXT.md` | 3 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-LEGS.md` | 165 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-LEGS.md` | 188 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-RESEARCH.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 94 | append-only decision log |
