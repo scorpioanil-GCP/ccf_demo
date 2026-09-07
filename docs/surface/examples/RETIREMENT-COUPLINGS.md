@@ -803,6 +803,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-PANEL/bundle-tests-part-2.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-PANEL/bundle-tests-part-3.md` | 51 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.7-request-replay-hardening-enumerated-request-contract-domains/24.7-RESEARCH.md` | 9 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.8-traversal-semantics-one-ruled-meaning-for-a-dangling-endpoin/24.8-LEGS.md` | 91 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.8-traversal-semantics-one-ruled-meaning-for-a-dangling-endpoin/24.8-RESEARCH.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 94 | append-only decision log |
