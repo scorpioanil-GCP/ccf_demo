@@ -45,6 +45,16 @@ The deliberately generated shapes, and the defects they exist to catch:
   docs/GRAPH_QUERY_SEMANTICS.md:122; INV-CH7-20) while any constrained
   answer endpoint-closes it away (the DI-15.2-01 closure-scoping fact,
   pinned differentially).
+* **The unresolved reference** (ledger row ``CP04-G-28``, ``D-IMPL-267``) —
+  a claimed node joined to another claimed node THROUGH a URI no entity
+  claim covers, with its cycle and bypass variants. The edge is legal
+  persisted state (`GQ-05` at docs/GRAPH_QUERY_SEMANTICS.md:122;
+  INV-CH7-20) and the endpoint is an unresolved reference rather than a
+  traversal member, so a constrained walk neither starts at it nor crosses
+  it (`GQ-16` at docs/GRAPH_QUERY_SEMANTICS.md:316, `GQ-13` at
+  docs/GRAPH_QUERY_SEMANTICS.md:261). Distinct from the dangling edge
+  above, whose BOTH endpoints are claim-less and which therefore no seed
+  can reach.
 * **Self-loops** — an entity related to itself; the walk must neither loop
   nor drop the edge.
 * **Absent seeds, empty answers, degenerate and single-family questions** —
@@ -390,6 +400,221 @@ def _traverse(
         admitted_entity_classes=admitted,
         direction=direction,
     )
+
+
+#: The unresolved reference: a pool URI that NO entity claim ever covers, used
+#: here as an EDGE ENDPOINT rather than as an absent seed. The
+#: :func:`depth_cases` idiom (``absent_uri = ENTITY_POOL[SEED_CLASS][-1]  # in
+#: the pool, never written``) applied to the other side of the edge — which is
+#: the whole difference between "a seed naming nothing" (`GQ-11` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:221) and "an edge naming something
+#: unresolved" (ledger row ``CP04-G-28``). The pool holds three members per
+#: class, so ``[2]`` is its last, and :func:`unresolved_reference_case` claims
+#: only ``[0]`` and ``[1]`` of that class.
+UNRESOLVED_URI: str = ENTITY_POOL[MID_CLASS][2]
+
+#: The three ruled shapes, by the role the unresolved reference plays in each:
+#: it lies on the only path (``chain``), on a cycle back to the seed
+#: (``cycle``), and on a SHORTER path than the fully-claimed one the walk must
+#: use instead (``bypass``). ``D-IMPL-268`` requires the second and third —
+#: depth and cycle consequences, not only final membership.
+UNRESOLVED_REFERENCE_VARIANTS: tuple[str, ...] = ("chain", "cycle", "bypass")
+
+
+def unresolved_reference_case(variant: str) -> CorpusCase:
+    """One G-28 shape, built deterministically — the claimed - unresolved - claimed graph.
+
+    ``D-IMPL-267``, ledger row ``CP04-G-28``. A plain builder rather than a
+    strategy, so a test that must name one shape (the depth question needs
+    ``bypass``, the anchor question needs ``chain``) gets it without drawing.
+
+    The three variants, with ``X`` the :data:`UNRESOLVED_URI` and ``A`` /
+    ``B`` the claimed seed and target:
+
+    * ``chain`` — ``A -> X`` and ``X -> B``. Two edges; ``B`` is reachable
+      from ``A`` only through an endpoint no entity claim covers.
+    * ``cycle`` — the chain plus ``X -> A``. Three edges; the cycle exists in
+      persisted state and must not exist for traversal.
+    * ``bypass`` — the chain plus ``A -> C``, ``C -> D``, ``D -> B`` over two
+      claimed intermediates. Five edges; ``B`` is two persisted hops from
+      ``A`` through ``X`` and three admitted hops around it, which is what
+      makes a depth-limited answer read the depth assignment.
+
+    **Orientation is load-bearing, not stylistic.** The ``X - B`` edge is
+    stored ``subject=X, object=B``, unlike :func:`chain_claims`, whose second
+    edge points ``target -> mid`` (the corpus's mixed-direction convention).
+    A copy of that orientation with ``X`` substituted for the mid would stop
+    a FORWARD walk from ``A`` at ``X`` under every implementation, and the
+    forward half of the ruling would be invisible in the answers.
+
+    Every claim is observed at ``EARLY`` and carries the permitted
+    classification, so no question here is vacuous under the as-of cut or
+    under the policy family (the :func:`admission_cases` discipline), and
+    every phantom-path question walks at ``depth >= 2`` because at depth 0
+    and 1 no path through ``X`` exists to take or refuse.
+    """
+    seed_uri = ENTITY_POOL[SEED_CLASS][0]
+    target_uri = ENTITY_POOL[TARGET_CLASS][0]
+    entities = [
+        entity_claim(
+            entity_uri=seed_uri,
+            entity_class=SEED_CLASS,
+            classification=PERMITTED_CLASSIFICATION,
+            observed_at=EARLY,
+        ),
+        entity_claim(
+            entity_uri=target_uri,
+            entity_class=TARGET_CLASS,
+            classification=PERMITTED_CLASSIFICATION,
+            observed_at=EARLY,
+        ),
+    ]
+    relationships = [
+        # A -> X: the seed's edge INTO the unresolved reference.
+        relationship_claim(
+            relationship_type=_RULE_A[0],
+            subject_uri=seed_uri,
+            object_uri=UNRESOLVED_URI,
+            observed_at=EARLY,
+        ),
+        # X -> B: the unresolved reference's edge onward, stored subject=X.
+        relationship_claim(
+            relationship_type=_RULE_B[0],
+            subject_uri=UNRESOLVED_URI,
+            object_uri=target_uri,
+            observed_at=EARLY,
+        ),
+    ]
+    if variant == "cycle":
+        relationships.append(
+            relationship_claim(
+                relationship_type=_RULE_A[0],
+                subject_uri=UNRESOLVED_URI,
+                object_uri=seed_uri,
+                observed_at=EARLY,
+            )
+        )
+    elif variant == "bypass":
+        first_uri, second_uri = ENTITY_POOL[MID_CLASS][0], ENTITY_POOL[MID_CLASS][1]
+        entities.extend(
+            entity_claim(
+                entity_uri=uri,
+                entity_class=MID_CLASS,
+                classification=PERMITTED_CLASSIFICATION,
+                observed_at=EARLY,
+            )
+            for uri in (first_uri, second_uri)
+        )
+        relationships.extend(
+            (
+                relationship_claim(
+                    relationship_type=_RULE_A[0],
+                    subject_uri=seed_uri,
+                    object_uri=first_uri,
+                    observed_at=EARLY,
+                ),
+                relationship_claim(
+                    relationship_type=_RULE_B[0],
+                    subject_uri=first_uri,
+                    object_uri=second_uri,
+                    observed_at=EARLY,
+                ),
+                relationship_claim(
+                    relationship_type=_RULE_B[0],
+                    subject_uri=second_uri,
+                    object_uri=target_uri,
+                    observed_at=EARLY,
+                ),
+            )
+        )
+    elif variant != "chain":
+        raise AssertionError(
+            f"unknown unresolved-reference variant {variant!r};"
+            f" the shapes are {UNRESOLVED_REFERENCE_VARIANTS}"
+        )
+    return CorpusCase(
+        name=f"unresolved-reference-{variant}",
+        entities=tuple(entities),
+        relationships=tuple(relationships),
+        query_specs=_unresolved_reference_specs(),
+    )
+
+
+def _unresolved_reference_specs() -> tuple[QuerySpec, ...]:
+    """The questions every G-28 shape is asked, in both walk directions.
+
+    Depth 0 / 1 / 2 / 3 at the ``admitted=None`` sentinel — the rows where
+    the phantom path is takeable if anything takes it, and the only rows the
+    divergence was ever measured on; ``admitted`` sets, where a class map
+    that has no entry for an unresolved URI already refuses the hop; and the
+    two anchor rows, which ask whether the unresolved URI can START a walk:
+    the operator-fair one seeds by CLASS (the unresolved URI's pool class,
+    which on ``chain`` and ``cycle`` no claimed entity carries) and the
+    query-tier one names it explicitly through ``seeds`` (`GQ-11` at
+    docs/GRAPH_QUERY_SEMANTICS.md:221 — a seed naming nothing in scope
+    contributes no start). A ``seeds`` row is a query-tier-only question: an
+    operator's ``read_intent`` cannot carry walk starts beyond the seed
+    classes, so a cross-tier differential drops it from the operator column
+    and the substrate suite keeps it.
+    """
+    directions: tuple[TraversalDirection, ...] = ("undirected", "forward")
+    anchor_classes = frozenset({MID_CLASS})
+    specs: list[QuerySpec] = []
+    for direction in directions:
+        specs.extend(
+            (
+                # Depths 0 and 1: no path through the unresolved reference is
+                # long enough to exist — the controls for the rows below.
+                QuerySpec(
+                    as_of=ON_BOUNDARY, traverse=_traverse(0, direction=direction)
+                ),
+                QuerySpec(
+                    as_of=ON_BOUNDARY, traverse=_traverse(1, direction=direction)
+                ),
+                # Depths 2 and 3 at the all-admitted sentinel: the phantom
+                # path's own questions.
+                QuerySpec(
+                    as_of=ON_BOUNDARY, traverse=_traverse(2, direction=direction)
+                ),
+                QuerySpec(
+                    as_of=ON_BOUNDARY, traverse=_traverse(3, direction=direction)
+                ),
+                # Admission sets: a URI with no entity record has no class, so
+                # these already refuse the hop at every tier.
+                QuerySpec(
+                    as_of=ON_BOUNDARY,
+                    traverse=_traverse(
+                        2,
+                        admitted=frozenset({TARGET_CLASS}),
+                        direction=direction,
+                    ),
+                ),
+                QuerySpec(
+                    as_of=ON_BOUNDARY,
+                    traverse=_traverse(
+                        2,
+                        admitted=frozenset({MID_CLASS, TARGET_CLASS}),
+                        direction=direction,
+                    ),
+                ),
+                # The anchor, by class — the operator-fair form.
+                QuerySpec(
+                    as_of=ON_BOUNDARY,
+                    traverse=_traverse(
+                        2, direction=direction, seed_classes=anchor_classes
+                    ),
+                ),
+                # The anchor, named explicitly — the query-tier form.
+                QuerySpec(
+                    as_of=ON_BOUNDARY,
+                    traverse=_traverse(
+                        2, direction=direction, seed_classes=anchor_classes
+                    ),
+                    seeds=frozenset({UNRESOLVED_URI}),
+                ),
+            )
+        )
+    return tuple(specs)
 
 
 # --- the named strategies ----------------------------------------------------
@@ -914,6 +1139,43 @@ def offset_authored_validity_cases(draw: st.DrawFn) -> CorpusCase:
     )
 
 
+@st.composite
+def unresolved_reference_cases(draw: st.DrawFn) -> CorpusCase:
+    """The unresolved reference on the walk (ledger row ``CP04-G-28``).
+
+    ``D-IMPL-267``. An edge may name an endpoint that no entity claim
+    covers — that edge is legal persisted state (`GQ-05` at
+    docs/GRAPH_QUERY_SEMANTICS.md:122; INV-CH7-20) and L2 admits it without
+    checking either endpoint. What the edge does NOT do is establish the
+    entity: traversal operates over claimed entities, so a URI reachable
+    only as an edge endpoint is an unresolved reference — never a walk
+    start, never a hop, on no path and in no cycle. A constrained answer
+    endpoint-closes such an edge away before walking (`GQ-16` at
+    docs/GRAPH_QUERY_SEMANTICS.md:316) and the path that ran through it
+    therefore does not exist (`GQ-13` at
+    docs/GRAPH_QUERY_SEMANTICS.md:261).
+
+    Three shapes are drawn, built by :func:`unresolved_reference_case`: the
+    ``chain`` (the reference lies on the only path), the ``cycle`` (it
+    closes a loop back to the seed, which must change no answer the chain
+    gives), and the ``bypass`` (it offers a two-hop route to a target that
+    is three admitted hops away, so a depth-limited answer reads the depth
+    assignment — ``D-IMPL-268``: a phantom endpoint must not consume depth,
+    create a path, or participate in a cycle even where the final entity
+    set would coincidentally match).
+
+    The ``X -> B`` edge is stored subject-first, unlike
+    :func:`chain_claims`' ``seed -> mid <- target``: under the corpus's own
+    orientation a forward walk would stop at the unresolved endpoint under
+    every implementation and the directed half of the question could not
+    discriminate. Every backend is held byte-identical to the fallback on
+    each shape, whether it pushes the walk or declines it (`GQ-32` at
+    docs/GRAPH_QUERY_SEMANTICS.md:583).
+    """
+    variant = draw(st.sampled_from(UNRESOLVED_REFERENCE_VARIANTS))
+    return unresolved_reference_case(variant)
+
+
 def corpus_cases() -> st.SearchStrategy[CorpusCase]:
     """The whole corpus: one drawn case from the named shape families."""
     return st.one_of(
@@ -926,4 +1188,5 @@ def corpus_cases() -> st.SearchStrategy[CorpusCase]:
         allowed_entities_cases(),
         degenerate_and_family_cases(),
         offset_authored_validity_cases(),
+        unresolved_reference_cases(),
     )
