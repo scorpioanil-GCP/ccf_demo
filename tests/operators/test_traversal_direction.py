@@ -52,6 +52,7 @@ written in this file (CLAUDE.md §6.4).
 
 from __future__ import annotations
 
+import ast
 import functools
 import importlib.util
 import json
@@ -522,6 +523,136 @@ def test_the_sibling_is_registered_beside_the_neighborhood() -> None:
     assert registry.registration("traversal.typed-descendants").category == (
         registry.registration("traversal.typed-neighborhood").category
     )
+
+
+# --- one walk, structurally: both operators call it --------------------------
+
+#: The exact call the sabotage below re-points at a private copy. The shared
+#: walk is invoked once per ``apply`` — twice in the whole module — and the
+#: literal is asserted PRESENT at that count in the real source before any
+#: copy is mutated, so the control cannot pass vacuously against a file that
+#: never carried it. Same discipline as ``FORWARD_BRANCH`` above.
+WALK_CALL = "        entities, traversable = _bounded_walk(\n"
+
+
+def _apply_callees(source: str) -> dict[str, set[str]]:
+    """Per traversal class, the plain-name callees of its ``apply`` body.
+
+    ``ast.Name`` in ``func`` position only: an attribute call on ``self`` or
+    on an imported module is deliberately not collected, because the property
+    under test is that the ONE module-level function is what both bodies
+    reach for.
+    """
+    wanted = {"TraversalNeighborhood", "TraversalDescendants"}
+    callees: dict[str, set[str]] = {}
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.ClassDef) or node.name not in wanted:
+            continue
+        for member in node.body:
+            if not isinstance(member, ast.FunctionDef) or member.name != "apply":
+                continue
+            callees[node.name] = {
+                inner.func.id
+                for inner in ast.walk(member)
+                if isinstance(inner, ast.Call) and isinstance(inner.func, ast.Name)
+            }
+    return callees
+
+
+def _bounded_walk_definitions(source: str) -> int:
+    """How many module-level ``def _bounded_walk`` the source declares."""
+    return sum(
+        1
+        for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef) and node.name == "_bounded_walk"
+    )
+
+
+def _assert_one_walk_pin(source: str) -> None:
+    """The pin's assertion body, factored so its control can run it on a copy."""
+    assert _bounded_walk_definitions(source) == 1, (
+        "the shared bounded walk is not defined exactly once at module level"
+    )
+    callees = _apply_callees(source)
+    assert set(callees) == {"TraversalNeighborhood", "TraversalDescendants"}
+    for class_name, called in sorted(callees.items()):
+        assert "_bounded_walk" in called, (
+            f"{class_name}.apply does not call the shared _bounded_walk;"
+            f" it calls {sorted(called)} — the two traversal shapes have drifted"
+        )
+
+
+def test_both_traversal_operators_call_the_one_bounded_walk() -> None:
+    """D-08 (a): one walk, defined once, called by both ``apply`` bodies.
+
+    ``src/ccf/operators/categories.py`` says so in prose at its head — the two
+    walks *"differ in exactly that line and nothing else"* — and that sentence
+    is what makes the conforming change of `D-IMPL-268` a single edit rather
+    than two edits that can disagree. Ledger row ``24.5-L-06`` created the
+    sibling; ``24.5-L-06``'s companion pin
+    ``tests/operators/test_traversal_direction.py::test_the_sibling_is_registered_beside_the_neighborhood``
+    pins the roster, and this one pins the shared mechanism underneath it.
+
+    Structural, not textual: the assertion is over the parsed ``apply``
+    bodies, so a reformatting of the call site does not red it and a private
+    copy of the walk does — which is exactly what the control below shows.
+    """
+    real = CATEGORIES_SOURCE.read_text(encoding="utf-8")
+    assert real.count(WALK_CALL) == 2, (
+        "the shared-walk call site moved; re-anchor WALK_CALL against"
+        " src/ccf/operators/categories.py"
+    )
+    _assert_one_walk_pin(real)
+
+
+def test_control_the_one_walk_pin_fails_on_a_copy_with_a_private_walk(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Sabotage in a scratch copy: the descendants walk gets its own private walk.
+
+    The LAST of the two call sites is re-pointed at ``_private_bounded_walk``
+    and an alias for it is appended, so the copy is a module in which the two
+    operators no longer share one walk — and could therefore drift — while
+    still answering exactly what it answered before. The pin above fails on
+    the copy naming ``TraversalDescendants``; the copy still walks. The
+    sabotage removed the pin's premise and nothing else, which is what makes
+    the control discriminating rather than merely red.
+
+    The alias name deliberately ends in ``_bounded_walk(`` at its call site,
+    so this control's own literal is not a second hit for the tree-wide
+    bare-``_walk`` search the phase asserts elsewhere.
+    """
+    real = CATEGORIES_SOURCE.read_text(encoding="utf-8")
+    assert real.count(WALK_CALL) == 2, "the shared-walk call site moved; re-anchor"
+    head, _match, tail = real.rpartition(WALK_CALL)
+    sabotaged = (
+        head
+        + "        entities, traversable = _private_bounded_walk(\n"
+        + tail
+        + "\n_private_bounded_walk = _bounded_walk\n"
+    )
+    assert sabotaged.count(WALK_CALL) == 1
+
+    with pytest.raises(AssertionError, match="TraversalDescendants"):
+        _assert_one_walk_pin(sabotaged)
+
+    module = _import_scratch_copy(sabotaged, "_ccf_categories_private_walk", tmp_path)
+    copy = module.TraversalDescendants(
+        parameters=TraversalDescendantsParameters(
+            seed_entity_classes=frozenset({SEED_CLASS}),
+            relationship_types=frozenset({EDGE_TYPE}),
+            depth_limit=1,
+        )
+    )
+    assert _reached(copy) == _reached(_descendants(1))
+    deeper = module.TraversalDescendants(
+        parameters=TraversalDescendantsParameters(
+            seed_entity_classes=frozenset({SEED_CLASS}),
+            relationship_types=frozenset({EDGE_TYPE}),
+            depth_limit=2,
+        )
+    )
+    assert _reached(deeper) == _reached(_descendants(2))
 
 
 # --- the vocabulary records the direction at 1.2.0 ---------------------------
