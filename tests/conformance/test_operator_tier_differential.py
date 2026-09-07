@@ -54,9 +54,14 @@ Disciplines inherited from the sibling and from
 
 from __future__ import annotations
 
+import importlib.util
 import logging
+import pathlib
+import subprocess
+import sys
 import warnings
 from collections.abc import Callable
+from types import ModuleType
 from typing import TYPE_CHECKING
 
 import pytest
@@ -102,6 +107,23 @@ if TYPE_CHECKING:
     from ccf.operators.base import OperatorOutput
 
 pytestmark = pytest.mark.conformance
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+CATEGORIES_SOURCE = REPO_ROOT / "src" / "ccf" / "operators" / "categories.py"
+
+#: The exact line the byte-level control reverses in a COPY of the operator
+#: source. ``src/ccf/operators/categories.py::_substitute`` hands the reached
+#: entity records on in the input view's order; reversing that tuple yields the
+#: SAME URI set and different canonical bytes, which is how this module proves
+#: its own equality is byte-level rather than set-level. Asserted present
+#: exactly once in the real source before any copy is mutated — the
+#: ``tests/operators/test_traversal_admission.py::ADMISSION_PREDICATE``
+#: discipline, so the control cannot pass vacuously against a file that never
+#: carried the line.
+SUBSTITUTE_ENTITIES_LINE = "        entities=entities,\n"
+
+#: What the copy says instead. Order, and nothing else, differs.
+SUBSTITUTE_REVERSED_LINE = "        entities=tuple(reversed(entities)),\n"
 
 #: Both walk directions, as the two operators emit them: ``TraversalNeighborhood``
 #: is undirected, ``TraversalDescendants`` forward. Not a tuning value — the
@@ -686,3 +708,120 @@ def test_the_state_universe_keeps_the_dangling_edges(
             f"{backend_name} dropped an edge naming the unresolved reference"
             f" on {case.name}"
         )
+
+
+# --- the byte-level control ---------------------------------------------------
+
+
+def _import_reordered_categories(tmp_path: pathlib.Path) -> ModuleType:
+    """A copy of ``categories.py`` whose ``_substitute`` reverses its entities.
+
+    Set-equal, order-different — the exact difference Dave's Q5 ruled must
+    be visible. The real tree is never edited; the copy lives under
+    ``tmp_path`` and is popped from ``sys.modules`` on the way out (the
+    ``tests/operators/test_traversal_admission.py::_import_sabotaged_categories``
+    template).
+    """
+    source = CATEGORIES_SOURCE.read_text(encoding="utf-8")
+    assert source.count(SUBSTITUTE_ENTITIES_LINE) == 1, (
+        "the substituted entity tuple is not where this control expects it;"
+        " re-read src/ccf/operators/categories.py::_substitute"
+    )
+    reordered = source.replace(
+        SUBSTITUTE_ENTITIES_LINE, SUBSTITUTE_REVERSED_LINE
+    )
+    assert SUBSTITUTE_REVERSED_LINE in reordered
+    scratch = tmp_path / "reordered_categories_entities.py"
+    scratch.write_text(reordered, encoding="utf-8")
+    name = "tests_conformance_reordered_categories_entities"
+    spec = importlib.util.spec_from_file_location(name, scratch)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(name, None)
+    return module
+
+
+def test_the_byte_check_is_byte_level(
+    fabric_boot: Callable[..., "FabricHandle"], tmp_path: pathlib.Path
+) -> None:
+    """A set-equal, order-different answer must RED this module's equality (D-05, P-2).
+
+    Dave's Q5 with its definition: *"The semantic result must first be
+    identical … and then the normal canonical ordering/rendering must
+    produce identical bytes."* A check that compared URI sets would call the
+    reordered copy correct. This one must not — so the copy is asked a
+    question every tier answers alike under the shipped walk AND under the
+    conforming one (the bypass at depth 3, RESEARCH § Priority 1 row
+    ``G3 und/d3``), which is what makes the red below attributable to the
+    ordering and to nothing else.
+
+    One backend only: this is a property of the CHECK, not of a substrate.
+    """
+    case = unresolved_reference_case("bypass")
+    handle = fabric_boot(backend="sqlite")
+    _write_case(handle, case)
+    traverse = _traverse_at(3, "undirected")
+    q = GraphQuery(tenant_id=TENANT, as_of=ON_BOUNDARY, traverse=traverse)
+    expected = _expected(handle, q)
+
+    reordered = _import_reordered_categories(tmp_path)
+    scratch_operator = reordered.TraversalNeighborhood(
+        parameters=TraversalNeighborhoodParameters(
+            seed_entity_classes=traverse.seed_entity_classes,
+            relationship_types=traverse.relationship_types,
+            depth_limit=traverse.depth_limit,
+            admitted_entity_classes=traverse.admitted_entity_classes,
+        )
+    )
+    scratch_view = _operator_output(handle, scratch_operator, ON_BOUNDARY).view
+    real_view = _operator_output(
+        handle, _operator_for(traverse), ON_BOUNDARY
+    ).view
+
+    # (a) The two answers agree on membership — a set check would pass both.
+    assert _uris(scratch_view) == _uris(real_view) == _uris(expected)
+    assert _edges(scratch_view) == _edges(real_view) == _edges(expected)
+    # (b) And differ in bytes, because the entity tuple is reversed.
+    assert canonical_bytes(scratch_view) != canonical_bytes(real_view)
+    # (c) So this module's own operator-tier equality reds on it.
+    with pytest.raises(AssertionError, match="operator tier"):
+        _assert_operator_tier(
+            scratch_view, expected, backend="sqlite", case_name=case.name
+        )
+
+
+def test_no_control_edits_the_real_source_tree() -> None:
+    """The control copies; it never edits and reverts. Asserted through ``git``.
+
+    An edit-and-revert control that crashed halfway would leave the tree
+    modified and this suite green, so the real file's cleanliness is read
+    from ``git status --short`` and, second leg, from the unstaged diff —
+    scoped to the one file the control copies, so an unrelated edit
+    elsewhere under ``src/`` cannot make this go red. The
+    ``tests/operators/test_traversal_admission.py::test_no_control_edits_the_real_source_tree``
+    voice.
+    """
+    relative = CATEGORIES_SOURCE.relative_to(REPO_ROOT).as_posix()
+    status = subprocess.run(
+        ["git", "status", "--short", "--", relative],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert status.strip() == "", f"a control touched the real tree: {status!r}"
+    diff = subprocess.run(
+        ["git", "diff", "--", relative],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert diff == ""
+    assert SUBSTITUTE_ENTITIES_LINE in CATEGORIES_SOURCE.read_text(
+        encoding="utf-8"
+    )
