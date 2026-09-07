@@ -3468,7 +3468,7 @@ Plans:
 - [x] 24.8-04-PLAN.md — mechanism (i) close-then-walk inside `_bounded_walk` (`D-IMPL-268`), docstrings re-derived, five copy-and-mutate sabotage controls, the bare-`_walk` oracle superseded (criteria 4–9, 11, 13, 15–17, 19, 20)
 - [x] 24.8-05-PLAN.md — `docs/GRAPH_QUERY_SEMANTICS.md` 1.3.0: banner, line-neutral `GQ-10`/`GQ-13`/`GQ-16`, `GQ-35` entry newest-first, `make lint` 0 with the inserted-line sabotage on a copy; the document pin at 1.3.0 with an entry check; `fallback.py` prose (criteria 1–3, 16, 17, 19)
 - [x] 24.8-06-PLAN.md — main tree: batches/lint/typecheck/product-gates on the merged tree, the four legs with the differential green per leg and the roster set-equal to the baseline, the controls that nothing else moved → `24.8-LEGS.md` § After, `24.8-CONTROLS.md` (criteria 13, 18–22)
-- [ ] 24.8-07-PLAN.md — main tree: close evidence — all 23 criteria re-measured with command/output/control, the digest reproduced, ledger row `CP04-G-28` → `FIXED-24.8`, carry `24.8-C-01` OPEN, the §3.1 panel packet STAGED not run, `RETIREMENT-COUPLINGS.md` regenerated last (criteria 22, 23)
+- [x] 24.8-07-PLAN.md — main tree: close evidence — all 23 criteria re-measured with command/output/control, the digest reproduced, ledger row `CP04-G-28` → `FIXED-24.8`, carry `24.8-C-01` OPEN, the §3.1 panel packet STAGED not run, `RETIREMENT-COUPLINGS.md` regenerated last (criteria 22, 23)
 
 ## Progress
 
